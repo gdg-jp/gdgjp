@@ -10,8 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "cf-typegen": "wrangler types",
-    "migrate:local": "wrangler d1 migrations apply gdgjp-img --local",
-    "migrate:remote": "wrangler d1 migrations apply gdgjp-img --remote"
+    "migrate:local": "wrangler d1 migrations apply gdgjp-img-db --local",
+    "migrate:remote": "wrangler d1 migrations apply gdgjp-img-db --remote"
   },
   "dependencies": {
     "@gdgjp/gdg-lib": "workspace:*",
