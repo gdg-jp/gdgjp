@@ -5,7 +5,6 @@ declare global {
     TINYURL_CLIENT_SECRET: string;
     WIKI_CLIENT_SECRET: string;
     IMG_CLIENT_SECRET: string;
-    INTERNAL_API_SECRET: string;
   }
 }
 

@@ -2,7 +2,7 @@ import { redirect } from "react-router";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { getAuth } from "~/lib/auth.server";
-import { fetchChapterForUser } from "~/lib/chapter.server";
+import { ClaimsUnavailableError, fetchChapterForUser } from "~/lib/chapter.server";
 import type { Route } from "./+types/no-chapter";
 
 export function meta() {
@@ -13,7 +13,13 @@ export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
   const user = await getAuth(env).getSessionUser(args.request);
   if (!user) throw redirect("/signin?return_to=%2Fno-chapter");
-  const chapter = await fetchChapterForUser(env, user.id);
+  let chapter: Awaited<ReturnType<typeof fetchChapterForUser>>;
+  try {
+    chapter = await fetchChapterForUser(env, user.id);
+  } catch (err) {
+    if (err instanceof ClaimsUnavailableError) throw redirect("/signin?return_to=%2Fno-chapter");
+    throw err;
+  }
   if (chapter) throw redirect("/");
   return { accountsUrl: env.ACCOUNTS_URL };
 }

@@ -1,7 +1,6 @@
 # Secrets — set as production secrets with `wrangler secret put <NAME>`.
 BETTER_AUTH_SECRET=""
 IDP_CLIENT_SECRET=""
-INTERNAL_API_SECRET=""
 
 # Required for the /analytics and /dashboard pages to read Analytics Engine via the SQL API.
 # Set as production secrets too: `wrangler secret put CF_ACCOUNT_ID` and `wrangler secret put CF_AE_API_TOKEN`.

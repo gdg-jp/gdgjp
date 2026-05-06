@@ -5,6 +5,24 @@ export type AuthUser = {
   isAdmin: boolean;
 };
 
+export type ChapterRole = "organizer" | "member";
+
+export type UserChapter = {
+  chapterId: number;
+  chapterSlug: string;
+  role: ChapterRole;
+};
+
+export type UserClaims = {
+  sub: string;
+  email: string | null;
+  name: string | null;
+  picture: string | null;
+  emailVerified: boolean;
+  isAdmin: boolean;
+  chapter: UserChapter | null;
+};
+
 export const SSO_PROVIDER_ID = "gdgjp";
 
 export function isSuperAdmin(user: AuthUser): boolean {

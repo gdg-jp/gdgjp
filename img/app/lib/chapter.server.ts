@@ -1,66 +1,35 @@
-export type UserChapter = {
-  chapterId: number;
-  chapterSlug: string;
-  role: "organizer" | "member";
-};
+import { ClaimsUnavailableError, type UserChapter } from "@gdgjp/gdg-lib";
+import { getAuth } from "~/lib/auth.server";
+
+export type { UserChapter };
+export { ClaimsUnavailableError };
 
 const CACHE_TTL_MS = 30_000;
-const FETCH_TIMEOUT_MS = 5_000;
-const MAX_CACHE_SIZE = 1000;
-const cache = new Map<string, { value: UserChapter; expiresAt: number }>();
+const MAX_CACHE_SIZE = 500;
+const cache = new Map<string, { value: UserChapter | null; expiresAt: number }>();
 
 export async function fetchChapterForUser(
   env: Env,
   imgUserId: string,
 ): Promise<UserChapter | null> {
-  const accountId = await getLinkedAccountId(env.DB, imgUserId);
-  if (!accountId) return null;
-
   const now = Date.now();
-  const cached = cache.get(accountId);
-  if (cached) {
-    if (cached.expiresAt > now) return cached.value;
-    cache.delete(accountId);
-  }
+  const hit = cache.get(imgUserId);
+  if (hit && hit.expiresAt > now) return hit.value;
 
-  if (!env.INTERNAL_API_SECRET) {
-    throw new Error("missing INTERNAL_API_SECRET");
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  let res: Response;
-  try {
-    res = await fetch(`${env.IDP_URL}/api/internal/chapter`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.INTERNAL_API_SECRET}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ userId: accountId }),
-      signal: controller.signal,
-    });
-  } catch (err) {
-    if (controller.signal.aborted) {
-      throw new Error(`chapter lookup timed out after ${FETCH_TIMEOUT_MS}ms`);
+  const claims = await getAuth(env).getFreshClaims(imgUserId);
+  if (cache.size >= MAX_CACHE_SIZE) {
+    let oldestKey: string | undefined;
+    let oldestExp = Number.POSITIVE_INFINITY;
+    for (const [k, v] of cache) {
+      if (v.expiresAt < oldestExp) {
+        oldestExp = v.expiresAt;
+        oldestKey = k;
+      }
     }
-    throw err;
-  } finally {
-    clearTimeout(timer);
+    if (oldestKey !== undefined) cache.delete(oldestKey);
   }
-  if (!res.ok) {
-    throw new Error(`chapter lookup failed: ${res.status} ${await res.text()}`);
-  }
-  const data = (await res.json()) as { chapter: UserChapter | null };
-  const value = data.chapter ?? null;
-  if (value) {
-    if (cache.size >= MAX_CACHE_SIZE) {
-      const oldestKey = cache.keys().next().value;
-      if (oldestKey !== undefined) cache.delete(oldestKey);
-    }
-    cache.set(accountId, { value, expiresAt: now + CACHE_TTL_MS });
-  }
-  return value;
+  cache.set(imgUserId, { value: claims.chapter, expiresAt: now + CACHE_TTL_MS });
+  return claims.chapter;
 }
 
 export async function getLinkedAccountId(db: D1Database, userId: string): Promise<string | null> {

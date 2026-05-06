@@ -1,4 +1,4 @@
-import type { AuthUser } from "@gdgjp/gdg-lib";
+import { type AuthUser, ClaimsUnavailableError } from "@gdgjp/gdg-lib";
 import { redirect } from "react-router";
 import { getAuth } from "~/lib/auth.server";
 import { type UserChapter, fetchChapterForUser, getLinkedAccountId } from "~/lib/chapter.server";
@@ -22,7 +22,13 @@ export async function requireUserWithChapter(
     if (e instanceof Response && e.status === 401) throw buildSignInRedirect(request);
     throw e;
   }
-  const chapter = await fetchChapterForUser(env, user.id);
+  let chapter: UserChapter | null;
+  try {
+    chapter = await fetchChapterForUser(env, user.id);
+  } catch (err) {
+    if (err instanceof ClaimsUnavailableError) throw buildSignInRedirect(request);
+    throw err;
+  }
   if (!chapter) throw redirect("/no-chapter");
   const accountId = await getLinkedAccountId(env.DB, user.id);
   if (!accountId) throw redirect("/no-chapter");

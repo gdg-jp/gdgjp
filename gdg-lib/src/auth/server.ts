@@ -7,6 +7,8 @@ import {
   type AuthUser,
   SSO_PROVIDER_ID,
   type SessionApi,
+  type UserChapter,
+  type UserClaims,
   getSessionUser as getSessionUserFromApi,
   requireUser as requireUserFromApi,
 } from "./index";
@@ -28,6 +30,14 @@ export interface AuthInstance {
   handleAuthRequest(request: Request): Promise<Response>;
   handleSignOutRedirect(request: Request, options?: { returnTo?: string }): Response;
   handleSignOutIframe(request: Request): Promise<Response>;
+  /**
+   * Fetch the user's current claims from the IdP /oauth2/userinfo endpoint,
+   * refreshing the stored access_token via refresh_token grant if needed.
+   * Throws ClaimsUnavailableError if the IdP cannot be queried for this user
+   * (no linked account, refresh token expired/revoked, IdP unreachable).
+   * Callers should catch and redirect to /signin to force re-auth.
+   */
+  getFreshClaims(userId: string): Promise<UserClaims>;
 }
 
 export function initializeAuth(config: AuthConfig): AuthInstance {
@@ -45,6 +55,7 @@ export function initializeAuth(config: AuthConfig): AuthInstance {
       const location = `${config.idp.url}/auth/signout?return_to=${encodeURIComponent(returnTo)}`;
       return new Response(null, { status: 302, headers: { Location: location } });
     },
+    getFreshClaims: (userId) => fetchUserClaims(config, userId),
     handleSignOutIframe: async (request) => {
       const csp = frameAncestorsCsp(config.idp.url, request.url);
       let cookies: string[];
@@ -103,7 +114,7 @@ function buildRpAuth(config: AuthConfig) {
             clientId: config.idp.clientId,
             clientSecret: config.idp.clientSecret,
             discoveryUrl: `${config.idp.url}/api/auth/.well-known/openid-configuration`,
-            scopes: ["openid", "email", "profile"],
+            scopes: ["openid", "email", "profile", "offline_access"],
             pkce: true,
             mapProfileToUser: (profile) => ({
               email: profile.email,
@@ -117,6 +128,149 @@ function buildRpAuth(config: AuthConfig) {
       }),
     ],
   });
+}
+
+// ─── Live claims via /oauth2/userinfo ──────────────────────────────────────────
+
+export class ClaimsUnavailableError extends Error {
+  constructor(
+    public readonly reason: "no_linked_account" | "refresh_failed" | "userinfo_failed",
+    cause?: unknown,
+  ) {
+    super(`claims unavailable: ${reason}`);
+    this.name = "ClaimsUnavailableError";
+    if (cause !== undefined) (this as { cause?: unknown }).cause = cause;
+  }
+}
+
+interface AccountTokenRow {
+  id: string;
+  accessToken: string | null;
+  refreshToken: string | null;
+  accessTokenExpiresAt: string | null;
+  refreshTokenExpiresAt: string | null;
+}
+
+const REFRESH_LEEWAY_MS = 30_000;
+const FETCH_TIMEOUT_MS = 10_000;
+const inflightClaims = new Map<string, Promise<UserClaims>>();
+
+async function fetchUserClaims(config: AuthConfig, userId: string): Promise<UserClaims> {
+  const inflight = inflightClaims.get(userId);
+  if (inflight) return inflight;
+
+  const promise = (async () => {
+    const row = await config.db
+      .prepare(
+        `SELECT id, accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt
+         FROM account WHERE userId = ? AND providerId = ? LIMIT 1`,
+      )
+      .bind(userId, SSO_PROVIDER_ID)
+      .first<AccountTokenRow>();
+    if (!row) throw new ClaimsUnavailableError("no_linked_account");
+
+    let accessToken = row.accessToken;
+    const accessExp = row.accessTokenExpiresAt ? Date.parse(row.accessTokenExpiresAt) : 0;
+    if (!accessToken || Number.isNaN(accessExp) || accessExp - REFRESH_LEEWAY_MS < Date.now()) {
+      accessToken = await refreshAccessToken(config, row);
+    }
+
+    const res = await fetchUserInfo(config.idp.url, accessToken);
+    if (res.status === 401) {
+      const refreshed = await refreshAccessToken(config, row);
+      const retry = await fetchUserInfo(config.idp.url, refreshed);
+      if (!retry.ok) throw new ClaimsUnavailableError("userinfo_failed");
+      return parseClaims((await retry.json()) as Record<string, unknown>);
+    }
+    if (!res.ok) throw new ClaimsUnavailableError("userinfo_failed");
+    return parseClaims((await res.json()) as Record<string, unknown>);
+  })().finally(() => inflightClaims.delete(userId));
+
+  inflightClaims.set(userId, promise);
+  return promise;
+}
+
+async function fetchUserInfo(idpUrl: string, accessToken: string): Promise<Response> {
+  try {
+    return await fetch(`${idpUrl}/api/auth/oauth2/userinfo`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new ClaimsUnavailableError("userinfo_failed", err);
+  }
+}
+
+async function refreshAccessToken(config: AuthConfig, row: AccountTokenRow): Promise<string> {
+  if (!row.refreshToken) throw new ClaimsUnavailableError("refresh_failed");
+  const refreshExp = row.refreshTokenExpiresAt ? Date.parse(row.refreshTokenExpiresAt) : 0;
+  if (!Number.isNaN(refreshExp) && refreshExp > 0 && refreshExp <= Date.now()) {
+    throw new ClaimsUnavailableError("refresh_failed");
+  }
+
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: row.refreshToken,
+    client_id: config.idp.clientId,
+    client_secret: config.idp.clientSecret,
+  });
+  let res: Response;
+  try {
+    res = await fetch(`${config.idp.url}/api/auth/oauth2/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new ClaimsUnavailableError("refresh_failed", err);
+  }
+  if (!res.ok) throw new ClaimsUnavailableError("refresh_failed");
+  const data = (await res.json()) as {
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+  };
+  if (!data.access_token) throw new ClaimsUnavailableError("refresh_failed");
+  const accessExpiresAt = new Date(Date.now() + (data.expires_in ?? 3600) * 1000).toISOString();
+  await config.db
+    .prepare(
+      `UPDATE account
+       SET accessToken = ?, refreshToken = COALESCE(?, refreshToken),
+           accessTokenExpiresAt = ?, updatedAt = ?
+       WHERE id = ?`,
+    )
+    .bind(
+      data.access_token,
+      data.refresh_token ?? null,
+      accessExpiresAt,
+      new Date().toISOString(),
+      row.id,
+    )
+    .run();
+  row.accessToken = data.access_token;
+  row.refreshToken = data.refresh_token ?? row.refreshToken;
+  row.accessTokenExpiresAt = accessExpiresAt;
+  return data.access_token;
+}
+
+function parseClaims(json: Record<string, unknown>): UserClaims {
+  const role = json.chapterRole;
+  const chapter: UserChapter | null =
+    typeof json.chapterId === "number" &&
+    typeof json.chapterSlug === "string" &&
+    (role === "organizer" || role === "member")
+      ? { chapterId: json.chapterId, chapterSlug: json.chapterSlug, role }
+      : null;
+  return {
+    sub: typeof json.sub === "string" && json.sub.length ? json.sub : "userinfo_failed",
+    email: typeof json.email === "string" ? json.email : null,
+    name: typeof json.name === "string" ? json.name : null,
+    picture: typeof json.picture === "string" ? json.picture : null,
+    emailVerified: json.email_verified === true,
+    isAdmin: json.isAdmin === true,
+    chapter,
+  };
 }
 
 // ─── IdP factory ───────────────────────────────────────────────────────────────

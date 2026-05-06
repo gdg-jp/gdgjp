@@ -10,7 +10,6 @@ export default [
   route("admin/chapters", "routes/admin.chapters.tsx"),
   route("chapters/:slug/organize", "routes/chapters.$slug.organize.tsx"),
   route("api/locale", "routes/api.locale.ts"),
-  route("api/internal/chapter", "routes/api.internal.chapter.ts"),
   route("api/auth/*", "routes/api.auth.$.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
 ] satisfies RouteConfig;

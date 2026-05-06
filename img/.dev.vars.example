@@ -1,7 +1,6 @@
 # Secrets — set as production secrets with `wrangler secret put <NAME>`.
 BETTER_AUTH_SECRET=""
 IDP_CLIENT_SECRET=""
-INTERNAL_API_SECRET=""
 
 # Override prod URLs from wrangler.toml so dev points at the local accounts IdP.
 APP_URL=http://localhost:5175

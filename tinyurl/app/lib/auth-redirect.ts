@@ -1,4 +1,4 @@
-import type { AuthUser } from "@gdgjp/gdg-lib";
+import { type AuthUser, ClaimsUnavailableError } from "@gdgjp/gdg-lib";
 import { redirect } from "react-router";
 import { getAuth } from "~/lib/auth.server";
 import { type UserChapter, fetchChapterForUser } from "~/lib/chapter.server";
@@ -25,7 +25,13 @@ export async function requireUserWithChapter(
   } catch {
     throw buildSignInRedirect(request);
   }
-  const chapter = await fetchChapterForUser(env, user.id);
+  let chapter: UserChapter | null;
+  try {
+    chapter = await fetchChapterForUser(env, user.id);
+  } catch (err) {
+    if (err instanceof ClaimsUnavailableError) throw buildSignInRedirect(request);
+    throw err;
+  }
   if (!chapter) throw redirect("/no-chapter");
   return { user, chapter };
 }

@@ -1,7 +1,6 @@
 # Secrets — set as production secrets with `wrangler secret put <NAME>`.
 BETTER_AUTH_SECRET=""
 GOOGLE_CLIENT_SECRET=""
-INTERNAL_API_SECRET=""
 
 # Per-RP client secrets (one per app registered as a trusted OIDC client in auth.server.ts).
 TINYURL_CLIENT_SECRET=""
