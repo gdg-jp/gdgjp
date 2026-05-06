@@ -18,8 +18,8 @@ directory = "./build/client"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "gdgjp-img"
-database_id = "gdgjp-img-db"
+database_name = "gdgjp-img-db"
+database_id = "6e53ffd5-0377-4d9b-8c92-47e67b05afe9"
 migrations_dir = "./migrations"
 
 [[r2_buckets]]
