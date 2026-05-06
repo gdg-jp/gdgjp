@@ -19,8 +19,8 @@ directory = "./build/client"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "gdgjp-tinyurl"
-database_id = "bf0cefab-83d5-48c8-a2a7-7842e9890c46"
+database_name = "gdgjp-tinyurl-db"
+database_id = "923fde34-1bba-43e4-89c1-cf1e99881e93"
 migrations_dir = "./migrations"
 
 [[analytics_engine_datasets]]

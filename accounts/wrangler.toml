@@ -22,8 +22,8 @@ directory = "./build/client"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "gdgjp-accounts"
-database_id = "c97d5ddc-231a-4b1a-af2a-fe753876811d"
+database_name = "gdgjp-accounts-db"
+database_id = "87860848-d6bc-43e0-97c5-346ab8a88e31"
 migrations_dir = "./migrations"
 
 [observability]
