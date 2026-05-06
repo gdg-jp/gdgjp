@@ -74,7 +74,3 @@ function formatFor(explicit: string | undefined, accept: string): ImageOutputOpt
   if (accept.includes("image/webp")) return "image/webp";
   return "image/jpeg";
 }
-
-export default function ImageRedirect() {
-  return null;
-}
