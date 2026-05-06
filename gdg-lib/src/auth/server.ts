@@ -152,38 +152,53 @@ interface AccountTokenRow {
 }
 
 const REFRESH_LEEWAY_MS = 30_000;
+const FETCH_TIMEOUT_MS = 10_000;
+const inflightClaims = new Map<string, Promise<UserClaims>>();
 
 async function fetchUserClaims(config: AuthConfig, userId: string): Promise<UserClaims> {
-  const row = await config.db
-    .prepare(
-      `SELECT id, accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt
-       FROM account WHERE userId = ? AND providerId = ? LIMIT 1`,
-    )
-    .bind(userId, SSO_PROVIDER_ID)
-    .first<AccountTokenRow>();
-  if (!row) throw new ClaimsUnavailableError("no_linked_account");
+  const inflight = inflightClaims.get(userId);
+  if (inflight) return inflight;
 
-  let accessToken = row.accessToken;
-  const accessExp = row.accessTokenExpiresAt ? Date.parse(row.accessTokenExpiresAt) : 0;
-  if (!accessToken || Number.isNaN(accessExp) || accessExp - REFRESH_LEEWAY_MS < Date.now()) {
-    accessToken = await refreshAccessToken(config, row);
-  }
+  const promise = (async () => {
+    const row = await config.db
+      .prepare(
+        `SELECT id, accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt
+         FROM account WHERE userId = ? AND providerId = ? LIMIT 1`,
+      )
+      .bind(userId, SSO_PROVIDER_ID)
+      .first<AccountTokenRow>();
+    if (!row) throw new ClaimsUnavailableError("no_linked_account");
 
-  const res = await fetchUserInfo(config.idp.url, accessToken);
-  if (res.status === 401) {
-    const refreshed = await refreshAccessToken(config, row);
-    const retry = await fetchUserInfo(config.idp.url, refreshed);
-    if (!retry.ok) throw new ClaimsUnavailableError("userinfo_failed");
-    return parseClaims((await retry.json()) as Record<string, unknown>);
-  }
-  if (!res.ok) throw new ClaimsUnavailableError("userinfo_failed");
-  return parseClaims((await res.json()) as Record<string, unknown>);
+    let accessToken = row.accessToken;
+    const accessExp = row.accessTokenExpiresAt ? Date.parse(row.accessTokenExpiresAt) : 0;
+    if (!accessToken || Number.isNaN(accessExp) || accessExp - REFRESH_LEEWAY_MS < Date.now()) {
+      accessToken = await refreshAccessToken(config, row);
+    }
+
+    const res = await fetchUserInfo(config.idp.url, accessToken);
+    if (res.status === 401) {
+      const refreshed = await refreshAccessToken(config, row);
+      const retry = await fetchUserInfo(config.idp.url, refreshed);
+      if (!retry.ok) throw new ClaimsUnavailableError("userinfo_failed");
+      return parseClaims((await retry.json()) as Record<string, unknown>);
+    }
+    if (!res.ok) throw new ClaimsUnavailableError("userinfo_failed");
+    return parseClaims((await res.json()) as Record<string, unknown>);
+  })().finally(() => inflightClaims.delete(userId));
+
+  inflightClaims.set(userId, promise);
+  return promise;
 }
 
-function fetchUserInfo(idpUrl: string, accessToken: string): Promise<Response> {
-  return fetch(`${idpUrl}/api/auth/oauth2/userinfo`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+async function fetchUserInfo(idpUrl: string, accessToken: string): Promise<Response> {
+  try {
+    return await fetch(`${idpUrl}/api/auth/oauth2/userinfo`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new ClaimsUnavailableError("userinfo_failed", err);
+  }
 }
 
 async function refreshAccessToken(config: AuthConfig, row: AccountTokenRow): Promise<string> {
@@ -199,11 +214,17 @@ async function refreshAccessToken(config: AuthConfig, row: AccountTokenRow): Pro
     client_id: config.idp.clientId,
     client_secret: config.idp.clientSecret,
   });
-  const res = await fetch(`${config.idp.url}/api/auth/oauth2/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${config.idp.url}/api/auth/oauth2/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new ClaimsUnavailableError("refresh_failed", err);
+  }
   if (!res.ok) throw new ClaimsUnavailableError("refresh_failed");
   const data = (await res.json()) as {
     access_token?: string;
@@ -242,7 +263,7 @@ function parseClaims(json: Record<string, unknown>): UserClaims {
       ? { chapterId: json.chapterId, chapterSlug: json.chapterSlug, role }
       : null;
   return {
-    sub: String(json.sub ?? ""),
+    sub: typeof json.sub === "string" && json.sub.length ? json.sub : "userinfo_failed",
     email: typeof json.email === "string" ? json.email : null,
     name: typeof json.name === "string" ? json.name : null,
     picture: typeof json.picture === "string" ? json.picture : null,
