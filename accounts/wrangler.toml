@@ -15,6 +15,7 @@ WIKI_CLIENT_ID = "wiki"
 WIKI_REDIRECT_URLS = "https://wiki.gdgs.jp/api/auth/oauth2/callback/gdgjp"
 IMG_CLIENT_ID = "img"
 IMG_REDIRECT_URLS = "https://img.gdgs.jp/api/auth/oauth2/callback/gdgjp"
+EMAIL_FROM = "GDG Japan <noreply@gdgs.jp>"
 
 [assets]
 binding = "ASSETS"
