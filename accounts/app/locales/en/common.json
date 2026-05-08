@@ -18,12 +18,20 @@
     "signup": "Sign up — GDG Japan Accounts",
     "dashboard": "Dashboard — GDG Japan Accounts",
     "onboarding": "Choose your chapter — GDG Japan Accounts",
+    "chapters": "Chapters — GDG Japan Accounts",
     "adminChapters": "Manage chapters — GDG Japan Accounts",
+    "adminRequests": "Join requests — GDG Japan Accounts",
     "organize": "Organize {{slug}} — GDG Japan Accounts"
   },
   "dashboard": {
     "title": "Dashboard",
     "signedInAs": "Signed in as {{email}}",
+    "memberships": {
+      "heading": "Your chapters",
+      "browseCta": "Browse chapters",
+      "leave": "Leave",
+      "manage": "Manage"
+    },
     "noChapter": {
       "title": "No chapter yet",
       "description": "Pick a GDG or GDGoC chapter to request membership. An organizer will approve your request.",
@@ -42,8 +50,51 @@
     },
     "superAdmin": {
       "title": "Super admin tools",
-      "description": "Create, edit, or delete chapters across GDG Japan.",
-      "cta": "Manage chapters"
+      "description": "Create, edit, or delete chapters and review every join request across GDG Japan.",
+      "manageCta": "Manage chapters",
+      "requestsCta": "Review join requests"
+    }
+  },
+  "chapters": {
+    "title": "Chapters",
+    "subtitle": "Browse all GDG and GDGoC chapters. Join the ones you belong to — an organizer will approve your request.",
+    "memberCount_one": "{{count}} member",
+    "memberCount_other": "{{count}} members",
+    "errorTitle": "Couldn't perform action",
+    "empty": {
+      "title": "No chapters yet",
+      "description": "No chapters are available yet. Please check back later."
+    },
+    "actions": {
+      "request": "Request to join",
+      "leave": "Leave chapter",
+      "cancel": "Cancel request"
+    },
+    "leaveDialog": {
+      "title": "Leave {{name}}?",
+      "desc": "You'll lose member access immediately. You can request to rejoin later.",
+      "cancel": "Cancel",
+      "confirm": "Leave chapter"
+    },
+    "toast": {
+      "requested": "Join request sent",
+      "left": "Left the chapter"
+    }
+  },
+  "adminRequests": {
+    "title": "Join requests",
+    "subtitle": "Every pending join request across all chapters.",
+    "empty": "No pending requests right now.",
+    "tableRequester": "Requester",
+    "tableChapter": "Chapter",
+    "tableRequested": "Requested",
+    "tableActions": "Actions",
+    "approve": "Approve",
+    "reject": "Reject",
+    "errorTitle": "Couldn't perform action",
+    "toast": {
+      "approved": "Request approved",
+      "rejected": "Request rejected"
     }
   },
   "onboarding": {
@@ -74,6 +125,7 @@
       "name": "Name",
       "slug": "Slug",
       "kind": "Kind",
+      "members": "Members",
       "actions": "Actions",
       "empty": "No chapters yet.",
       "organize": "Organize",
@@ -117,6 +169,11 @@
     "selectChapter": "Please select a chapter.",
     "chapterNotFound": "Chapter not found.",
     "alreadyHasChapter": "You already have a chapter.",
+    "alreadyInChapter": "You're already part of this chapter.",
+    "notInChapter": "You're not in this chapter.",
+    "lastOrganizer": "You're the last organizer. Promote someone else first.",
+    "cannotSelfDemote": "You can't demote yourself.",
+    "cannotSelfRemove": "You can't remove yourself this way. Use Leave instead.",
     "fieldsRequired": "All fields are required.",
     "slugFormat": "Slug must be lowercase letters, numbers, and dashes.",
     "createChapterFailed": "Could not create chapter (slug may already exist).",

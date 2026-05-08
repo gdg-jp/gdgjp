@@ -21,12 +21,14 @@ import {
   approveMembership,
   getChapterBySlug,
   getMembership,
+  getUserById,
   getUsersByIds,
   listMembersForChapter,
   listPendingForChapter,
   removeMembership,
   setRole,
 } from "~/lib/db";
+import { sendJoinRequestApproved, sendJoinRequestRejected } from "~/lib/email.server";
 import { i18n } from "~/lib/i18n/i18n.server";
 import { canManageChapter } from "~/lib/permissions";
 import type { Route } from "./+types/chapters.$slug.organize";
@@ -50,7 +52,7 @@ async function ensureAccess(args: Route.LoaderArgs | Route.ActionArgs) {
   if (!slug) throw new Response("Not found", { status: 404 });
   const chapter = await getChapterBySlug(env.DB, slug);
   if (!chapter) throw new Response("Chapter not found", { status: 404 });
-  const viewerMembership = await getMembership(env.DB, user.id);
+  const viewerMembership = await getMembership(env.DB, user.id, chapter.id);
   if (!canManageChapter(user, chapter.id, viewerMembership)) {
     throw new Response("Forbidden", { status: 403 });
   }
@@ -80,6 +82,7 @@ export async function loader(args: Route.LoaderArgs) {
 export async function action(args: Route.ActionArgs) {
   const { env, chapter, user } = await ensureAccess(args);
   const t = await i18n.getFixedT(args.request);
+  const locale = (await i18n.getLocale(args.request)) === "ja" ? "ja" : "en";
   const form = await args.request.formData();
   const intent = form.get("intent");
   const targetUserId = String(form.get("userId") ?? "");
@@ -90,24 +93,41 @@ export async function action(args: Route.ActionArgs) {
     if (intent === "remove") return { error: t("errors.cannotSelfRemove") };
   }
 
-  const target = await getMembership(env.DB, targetUserId);
-  if (!target || target.chapter.id !== chapter.id) {
+  const target = await getMembership(env.DB, targetUserId, chapter.id);
+  if (!target) {
     return { error: t("errors.userNotInChapter") };
   }
 
   switch (intent) {
-    case "approve":
+    case "approve": {
       await approveMembership(env.DB, targetUserId, chapter.id);
+      const u = await getUserById(env.DB, targetUserId);
+      if (u?.email) {
+        sendJoinRequestApproved(
+          { env, ctx: args.context.cloudflare.ctx, locale },
+          { chapter, userEmail: u.email },
+        );
+      }
       return null;
+    }
     case "promote":
       await setRole(env.DB, targetUserId, "organizer", chapter.id);
       return null;
     case "demote":
       await setRole(env.DB, targetUserId, "member", chapter.id);
       return null;
-    case "remove":
+    case "remove": {
+      const wasPending = target.status === "pending";
+      const u = wasPending ? await getUserById(env.DB, targetUserId) : null;
       await removeMembership(env.DB, targetUserId, chapter.id);
+      if (wasPending && u?.email) {
+        sendJoinRequestRejected(
+          { env, ctx: args.context.cloudflare.ctx, locale },
+          { chapter, userEmail: u.email },
+        );
+      }
       return null;
+    }
     default:
       return { error: t("errors.unknownAction") };
   }
