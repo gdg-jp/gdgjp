@@ -395,6 +395,9 @@ function buildIdpAuth(config: IdpAuthConfig) {
     secret: config.secret,
     database: { db, type: "sqlite" },
     advanced: { cookiePrefix: config.cookiePrefix },
+    session: {
+      freshAge: 0,
+    },
     user: {
       additionalFields: {
         isAdmin: { type: "boolean", required: false, input: false },

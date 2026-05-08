@@ -47,17 +47,23 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
   const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [open, setOpen] = useState(false);
 
   async function handleDelete() {
     setPending(true);
     setError(null);
-    const res = await authClient.deleteUser({});
-    if (res.error) {
-      setError(res.error.message ?? t("settings.danger.errorGeneric"));
+    try {
+      const res = await authClient.deleteUser({});
+      if (res.error) {
+        setError(res.error.message ?? t("settings.danger.errorGeneric"));
+        return;
+      }
+      window.location.href = "/auth/signout";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("settings.danger.errorGeneric"));
+    } finally {
       setPending(false);
-      return;
     }
-    window.location.href = "/auth/signout";
   }
 
   return (
@@ -82,7 +88,7 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
-          <AlertDialog>
+          <AlertDialog open={open} onOpenChange={setOpen}>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" disabled={pending}>
                 <Trash2 className="size-4" />
@@ -101,10 +107,7 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
                 <AlertDialogAction
                   className="bg-destructive"
                   disabled={pending}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleDelete();
-                  }}
+                  onClick={() => handleDelete()}
                 >
                   {t("settings.danger.confirm")}
                 </AlertDialogAction>
