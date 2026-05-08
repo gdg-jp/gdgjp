@@ -8,6 +8,7 @@ export default [
   route("dashboard", "routes/dashboard.tsx"),
   route("onboarding", "routes/onboarding.tsx"),
   route("chapters", "routes/chapters.tsx"),
+  route("settings", "routes/settings.tsx"),
   route("admin/chapters", "routes/admin.chapters.tsx"),
   route("admin/requests", "routes/admin.requests.tsx"),
   route("chapters/:slug/organize", "routes/chapters.$slug.organize.tsx"),

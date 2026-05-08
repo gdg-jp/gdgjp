@@ -1,4 +1,4 @@
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
@@ -71,6 +71,13 @@ function UserMenu({ user }: { user: TopBarUser | null }) {
             ) : null}
           </div>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/settings">
+            <Settings className="size-4" />
+            {t("nav.settings")}
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={signOut}>
           <LogOut className="size-4" />

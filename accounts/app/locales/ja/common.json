@@ -11,7 +11,8 @@
     "localeLabel": "言語",
     "localeJa": "日本語",
     "localeEn": "English",
-    "backToDashboard": "ダッシュボードに戻る"
+    "backToDashboard": "ダッシュボードに戻る",
+    "settings": "設定"
   },
   "meta": {
     "signin": "サインイン — GDG Japan Accounts",
@@ -19,6 +20,7 @@
     "dashboard": "ダッシュボード — GDG Japan Accounts",
     "onboarding": "チャプターを選ぶ — GDG Japan Accounts",
     "chapters": "チャプター — GDG Japan Accounts",
+    "settings": "設定 — GDG Japan Accounts",
     "adminChapters": "チャプター管理 — GDG Japan Accounts",
     "adminRequests": "参加リクエスト — GDG Japan Accounts",
     "organize": "{{slug}} を運営 — GDG Japan Accounts"
@@ -164,6 +166,20 @@
     },
     "userMenuAria": "アカウントメニュー",
     "signOut": "サインアウト"
+  },
+  "settings": {
+    "title": "設定",
+    "danger": {
+      "title": "危険な操作",
+      "description": "アカウントを削除すると、メンバーシップ・連携・セッションがすべて削除されます。この操作は取り消せません。",
+      "deleteCta": "アカウントを削除",
+      "dialogTitle": "本当にアカウントを削除しますか？",
+      "dialogDesc": "すべてのデータが直ちに削除されます。再度サインインすると新しいアカウントとして扱われます。",
+      "confirm": "削除する",
+      "cancel": "キャンセル",
+      "errorTitle": "削除できませんでした",
+      "errorGeneric": "不明なエラーが発生しました。再度お試しください。"
+    }
   },
   "errors": {
     "selectChapter": "チャプターを選択してください。",

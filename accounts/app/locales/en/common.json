@@ -11,7 +11,8 @@
     "localeLabel": "Language",
     "localeJa": "日本語",
     "localeEn": "English",
-    "backToDashboard": "Back to dashboard"
+    "backToDashboard": "Back to dashboard",
+    "settings": "Settings"
   },
   "meta": {
     "signin": "Sign in — GDG Japan Accounts",
@@ -19,6 +20,7 @@
     "dashboard": "Dashboard — GDG Japan Accounts",
     "onboarding": "Choose your chapter — GDG Japan Accounts",
     "chapters": "Chapters — GDG Japan Accounts",
+    "settings": "Settings — GDG Japan Accounts",
     "adminChapters": "Manage chapters — GDG Japan Accounts",
     "adminRequests": "Join requests — GDG Japan Accounts",
     "organize": "Organize {{slug}} — GDG Japan Accounts"
@@ -164,6 +166,20 @@
     },
     "userMenuAria": "Account menu",
     "signOut": "Sign out"
+  },
+  "settings": {
+    "title": "Settings",
+    "danger": {
+      "title": "Danger zone",
+      "description": "Deleting your account permanently removes your memberships, linked accounts, and sessions. This action cannot be undone.",
+      "deleteCta": "Delete account",
+      "dialogTitle": "Delete your account?",
+      "dialogDesc": "All your data will be deleted immediately. Signing in again will create a fresh account.",
+      "confirm": "Delete",
+      "cancel": "Cancel",
+      "errorTitle": "Could not delete account",
+      "errorGeneric": "An unknown error occurred. Please try again."
+    }
   },
   "errors": {
     "selectChapter": "Please select a chapter.",

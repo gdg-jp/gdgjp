@@ -399,6 +399,9 @@ function buildIdpAuth(config: IdpAuthConfig) {
       additionalFields: {
         isAdmin: { type: "boolean", required: false, input: false },
       },
+      deleteUser: {
+        enabled: true,
+      },
     },
     socialProviders: config.google
       ? {
