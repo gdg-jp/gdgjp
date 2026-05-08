@@ -262,6 +262,22 @@ function parseClaims(json: Record<string, unknown>): UserClaims {
     (role === "organizer" || role === "member")
       ? { chapterId: json.chapterId, chapterSlug: json.chapterSlug, role }
       : null;
+  const parsedArray: UserChapter[] = Array.isArray(json.chapters)
+    ? (json.chapters as unknown[]).flatMap((entry) => {
+        if (!entry || typeof entry !== "object") return [];
+        const e = entry as Record<string, unknown>;
+        const r = e.role;
+        if (
+          typeof e.chapterId === "number" &&
+          typeof e.chapterSlug === "string" &&
+          (r === "organizer" || r === "member")
+        ) {
+          return [{ chapterId: e.chapterId, chapterSlug: e.chapterSlug, role: r }];
+        }
+        return [];
+      })
+    : [];
+  const chapters: UserChapter[] = parsedArray.length ? parsedArray : chapter ? [chapter] : [];
   return {
     sub: typeof json.sub === "string" && json.sub.length ? json.sub : "userinfo_failed",
     email: typeof json.email === "string" ? json.email : null,
@@ -270,6 +286,7 @@ function parseClaims(json: Record<string, unknown>): UserClaims {
     emailVerified: json.email_verified === true,
     isAdmin: json.isAdmin === true,
     chapter,
+    chapters,
   };
 }
 

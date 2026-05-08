@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import { Toaster } from "~/components/ui/sonner";
 import { i18n } from "~/lib/i18n/i18n.server";
 import { fallbackLng, isLocale } from "~/lib/i18n/resources";
 import { ThemeProvider, themeInitScript } from "~/lib/theme";
@@ -57,6 +58,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
   return (
     <ThemeProvider>
       <Outlet />
+      <Toaster position="top-center" richColors />
     </ThemeProvider>
   );
 }

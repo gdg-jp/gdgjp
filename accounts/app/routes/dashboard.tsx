@@ -1,14 +1,25 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowRight, ListChecks, LogOut, Plus, Settings2, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Form, Link } from "react-router";
 import { PageShell } from "~/components/page-shell";
 import { StatusBadge } from "~/components/status-badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { getAuth } from "~/lib/auth.server";
-import { getMembership } from "~/lib/db";
+import { listMembershipsForUser } from "~/lib/db";
 import { i18n } from "~/lib/i18n/i18n.server";
 import type { Route } from "./+types/dashboard";
 
@@ -24,19 +35,19 @@ export async function loader(args: Route.LoaderArgs) {
     }
     throw err;
   }
-  const membership = await getMembership(env.DB, user.id);
-  return { user, membership, title: t("meta.dashboard") };
+  const memberships = await listMembershipsForUser(env.DB, user.id);
+  return { user, memberships, title: t("meta.dashboard") };
 }
 
 export function meta({ data }: Route.MetaArgs) {
   return [{ title: data?.title }];
 }
 
-function MembershipPanel({
-  membership,
-}: { membership: Route.ComponentProps["loaderData"]["membership"] }) {
+function MembershipsSection({
+  memberships,
+}: { memberships: Route.ComponentProps["loaderData"]["memberships"] }) {
   const { t } = useTranslation();
-  if (!membership) {
+  if (memberships.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -45,7 +56,7 @@ function MembershipPanel({
         </CardHeader>
         <CardContent>
           <Button asChild>
-            <Link to="/onboarding">
+            <Link to="/chapters">
               {t("dashboard.noChapter.cta")} <ArrowRight className="size-4" />
             </Link>
           </Button>
@@ -53,51 +64,119 @@ function MembershipPanel({
       </Card>
     );
   }
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-base font-medium">{t("dashboard.memberships.heading")}</h2>
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/chapters">
+            <Plus className="size-4" /> {t("dashboard.memberships.browseCta")}
+          </Link>
+        </Button>
+      </div>
+      <ul className="space-y-3">
+        {memberships.map((m) => (
+          <MembershipRow key={`${m.userId}-${m.chapterId}`} membership={m} />
+        ))}
+      </ul>
+    </div>
+  );
+}
 
-  if (membership.status === "pending") {
-    return (
+function MembershipRow({
+  membership,
+}: { membership: Route.ComponentProps["loaderData"]["memberships"][number] }) {
+  const { t } = useTranslation();
+  const isPending = membership.status === "pending";
+  const isOrganizer = membership.role === "organizer";
+  const status = isPending ? "pending" : isOrganizer ? "organizer" : "member";
+  const statusLabel = isPending
+    ? t("dashboard.pending.badge")
+    : isOrganizer
+      ? t("dashboard.active.organizerBadge")
+      : t("dashboard.active.memberBadge");
+  const desc = isPending
+    ? t("dashboard.pending.description")
+    : isOrganizer
+      ? t("dashboard.active.organizerDesc")
+      : t("dashboard.active.memberDesc");
+  return (
+    <li>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle>{membership.chapter.name}</CardTitle>
-            <StatusBadge status="pending">{t("dashboard.pending.badge")}</StatusBadge>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <CardTitle className="truncate text-base">{membership.chapter.name}</CardTitle>
+              <CardDescription className="font-mono text-xs">
+                {membership.chapter.slug}
+              </CardDescription>
+            </div>
+            <StatusBadge status={status}>{statusLabel}</StatusBadge>
           </div>
-          <CardDescription>{t("dashboard.pending.description")}</CardDescription>
+          <p className="mt-2 text-xs text-muted-foreground">{desc}</p>
         </CardHeader>
-      </Card>
-    );
-  }
-
-  const isOrganizer = membership.role === "organizer";
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle>{membership.chapter.name}</CardTitle>
-          <StatusBadge status={isOrganizer ? "organizer" : "active"}>
-            {isOrganizer ? t("dashboard.active.organizerBadge") : t("dashboard.active.memberBadge")}
-          </StatusBadge>
-        </div>
-        <CardDescription>
-          {isOrganizer ? t("dashboard.active.organizerDesc") : t("dashboard.active.memberDesc")}
-        </CardDescription>
-      </CardHeader>
-      {isOrganizer ? (
-        <CardContent>
-          <Button asChild>
-            <Link to={`/chapters/${membership.chapter.slug}/organize`}>
-              {t("dashboard.active.organizeCta")} <ArrowRight className="size-4" />
-            </Link>
-          </Button>
+        <CardContent className="flex flex-wrap items-center gap-2">
+          {isOrganizer && !isPending ? (
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/chapters/${membership.chapter.slug}/organize`}>
+                <Settings2 className="size-4" />
+                {t("dashboard.memberships.manage")}
+              </Link>
+            </Button>
+          ) : null}
+          <LeaveDialog
+            chapterId={membership.chapterId}
+            chapterName={membership.chapter.name}
+            isOrganizer={isOrganizer && !isPending}
+          />
         </CardContent>
-      ) : null}
-    </Card>
+      </Card>
+    </li>
+  );
+}
+
+function LeaveDialog({
+  chapterId,
+  chapterName,
+  isOrganizer,
+}: {
+  chapterId: number;
+  chapterName: string;
+  isOrganizer: boolean;
+}) {
+  const { t } = useTranslation();
+  // Organizers should resign role before leaving; we still allow the dialog so
+  // the server can return a clear "lastOrganizer" error when applicable.
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant={isOrganizer ? "ghost" : "outline"} size="sm">
+          <LogOut className="size-4" /> {t("dashboard.memberships.leave")}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {t("chapters.leaveDialog.title", { name: chapterName })}
+          </AlertDialogTitle>
+          <AlertDialogDescription>{t("chapters.leaveDialog.desc")}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("chapters.leaveDialog.cancel")}</AlertDialogCancel>
+          <Form method="post" action="/chapters">
+            <input type="hidden" name="intent" value="leave" />
+            <input type="hidden" name="chapterId" value={chapterId} />
+            <AlertDialogAction type="submit">{t("chapters.leaveDialog.confirm")}</AlertDialogAction>
+          </Form>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
 export default function Dashboard({ loaderData }: Route.ComponentProps) {
   const { t } = useTranslation();
-  const { user, membership } = loaderData;
+  const { user, memberships } = loaderData;
   return (
     <PageShell user={user}>
       <div className="space-y-1">
@@ -107,7 +186,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
         </p>
       </div>
       <div className="mt-6">
-        <MembershipPanel membership={membership} />
+        <MembershipsSection memberships={memberships} />
       </div>
       {user.isAdmin ? (
         <Card className="mt-6 border-gdg-blue/30 bg-gdg-blue/5">
@@ -118,9 +197,14 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             </div>
             <CardDescription>{t("dashboard.superAdmin.description")}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button asChild variant="outline">
-              <Link to="/admin/chapters">{t("dashboard.superAdmin.cta")}</Link>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/admin/requests">
+                <ListChecks className="size-4" /> {t("dashboard.superAdmin.requestsCta")}
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/admin/chapters">{t("dashboard.superAdmin.manageCta")}</Link>
             </Button>
           </CardContent>
         </Card>
