@@ -200,7 +200,8 @@ export async function listMembershipsForUser(
        ORDER BY
          CASE m.status WHEN 'active' THEN 0 ELSE 1 END,
          CASE m.role   WHEN 'organizer' THEN 0 ELSE 1 END,
-         COALESCE(m.approved_at, m.created_at)`,
+         COALESCE(m.approved_at, m.created_at),
+         m.chapter_id`,
     )
     .bind(userId)
     .all<MembershipJoinRow>();
@@ -223,7 +224,8 @@ export async function getChapterByUserId(
        WHERE m.user_id = ? AND m.status = 'active'
        ORDER BY
          CASE m.role WHEN 'organizer' THEN 0 ELSE 1 END,
-         COALESCE(m.approved_at, m.created_at)
+         COALESCE(m.approved_at, m.created_at),
+         m.chapter_id
        LIMIT 1`,
     )
     .bind(userId)
@@ -243,7 +245,8 @@ export async function listActiveChaptersForUser(
        WHERE m.user_id = ? AND m.status = 'active'
        ORDER BY
          CASE m.role WHEN 'organizer' THEN 0 ELSE 1 END,
-         COALESCE(m.approved_at, m.created_at)`,
+         COALESCE(m.approved_at, m.created_at),
+         m.chapter_id`,
     )
     .bind(userId)
     .all<UserChapter>();
@@ -276,8 +279,16 @@ export async function requestMembership(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const code = (err as { code?: string }).code ?? "";
-    if (msg.includes("UNIQUE") || msg.includes("CONSTRAINT") || code === "SQLITE_CONSTRAINT") {
-      return { ok: false, reason: "already_in_chapter" };
+    const looksLikeConstraint =
+      msg.includes("UNIQUE") || msg.includes("CONSTRAINT") || code === "SQLITE_CONSTRAINT";
+    if (looksLikeConstraint) {
+      // Confirm it's the (user_id, chapter_id) PK collision rather than a FK or
+      // CHECK failure (e.g., chapter deleted between the pre-check and INSERT).
+      const dup = await db
+        .prepare("SELECT 1 AS ok FROM memberships WHERE user_id = ? AND chapter_id = ?")
+        .bind(userId, chapterId)
+        .first<{ ok: number }>();
+      if (dup) return { ok: false, reason: "already_in_chapter" };
     }
     throw err;
   }
@@ -344,16 +355,26 @@ export async function removeMembership(
     .run();
 }
 
+export type SelfLeaveResult = "deleted" | "last_active_organizer" | "not_found";
+
 /**
  * Atomic self-leave: deletes the user's membership only when removing it
- * would not leave the chapter without any active organizer. Returns the
- * number of rows deleted (0 means the caller was the last active organizer).
+ * would not leave the chapter without any active organizer.
+ * - "deleted": the row was removed.
+ * - "last_active_organizer": the row exists and the caller is the last active
+ *   organizer; the DELETE was a no-op.
+ * - "not_found": no membership row for (userId, chapterId) exists.
  */
 export async function removeOwnMembershipUnlessLastOrganizer(
   db: D1Database,
   userId: string,
   chapterId: number,
-): Promise<number> {
+): Promise<SelfLeaveResult> {
+  const existing = await db
+    .prepare("SELECT 1 AS ok FROM memberships WHERE user_id = ? AND chapter_id = ?")
+    .bind(userId, chapterId)
+    .first<{ ok: number }>();
+  if (!existing) return "not_found";
   const result = await db
     .prepare(
       `DELETE FROM memberships
@@ -368,8 +389,8 @@ export async function removeOwnMembershipUnlessLastOrganizer(
     )
     .bind(userId, chapterId, chapterId)
     .run();
-  const meta = result.meta as { changes?: number } | undefined;
-  return meta?.changes ?? 0;
+  const changes = (result.meta as { changes?: number } | undefined)?.changes ?? 0;
+  return changes > 0 ? "deleted" : "last_active_organizer";
 }
 
 export async function listPendingForChapter(

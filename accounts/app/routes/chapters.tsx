@@ -122,8 +122,9 @@ export async function action(args: Route.ActionArgs) {
     const mine = await getMembership(env.DB, user.id, chapterId);
     if (!mine) return { error: t("errors.notInChapter") };
     const wasActive = mine.status === "active";
-    const deleted = await removeOwnMembershipUnlessLastOrganizer(env.DB, user.id, chapterId);
-    if (deleted === 0) return { error: t("errors.lastOrganizer") };
+    const outcome = await removeOwnMembershipUnlessLastOrganizer(env.DB, user.id, chapterId);
+    if (outcome === "not_found") return { error: t("errors.notInChapter") };
+    if (outcome === "last_active_organizer") return { error: t("errors.lastOrganizer") };
     if (wasActive) {
       const organizerEmails = await getOrganizerEmailsForChapter(env.DB, chapterId);
       const formerMember = (await getUserById(env.DB, user.id)) ?? {
