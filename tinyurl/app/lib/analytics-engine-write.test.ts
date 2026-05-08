@@ -11,6 +11,7 @@ const link: Link = {
   ogImageUrl: null,
   ownerUserId: "user_123",
   ownerChapterId: null,
+  visibility: "private",
   createdAt: 0,
   updatedAt: 0,
   deletedAt: null,

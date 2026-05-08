@@ -37,7 +37,11 @@ export function canViewLink(
   if (link.ownerUserId === ctx.user.id) return true;
   if (isSuperAdmin(ctx.user)) return true;
   if (link.ownerChapterId !== null && ctx.chapterId === link.ownerChapterId) return true;
-  return matchingRole(ctx, permissions) !== null;
+  if (matchingRole(ctx, permissions) !== null) return true;
+  // Public links are viewable to any signed-in member. Callers reach this with
+  // ctx already established by requireUserWithChapter, so the viewer is one.
+  if (link.visibility === "public") return true;
+  return false;
 }
 
 export function canEditLink(

@@ -1,7 +1,7 @@
 import { type AuthUser, ClaimsUnavailableError } from "@gdgjp/gdg-lib";
 import { redirect } from "react-router";
 import { getAuth } from "~/lib/auth.server";
-import { type UserChapter, fetchChapterForUser } from "~/lib/chapter.server";
+import { type UserChapter, type UserChapters, fetchChaptersForUser } from "~/lib/chapter.server";
 
 export function safeReturnTo(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -18,20 +18,20 @@ export function buildSignInRedirect(request: Request): Response {
 export async function requireUserWithChapter(
   env: Env,
   request: Request,
-): Promise<{ user: AuthUser; chapter: UserChapter }> {
+): Promise<{ user: AuthUser; chapter: UserChapter; chapters: UserChapter[] }> {
   let user: AuthUser;
   try {
     user = await getAuth(env).requireUser(request);
   } catch {
     throw buildSignInRedirect(request);
   }
-  let chapter: UserChapter | null;
+  let resolved: UserChapters;
   try {
-    chapter = await fetchChapterForUser(env, user.id);
+    resolved = await fetchChaptersForUser(env, user.id);
   } catch (err) {
     if (err instanceof ClaimsUnavailableError) throw buildSignInRedirect(request);
     throw err;
   }
-  if (!chapter) throw redirect("/no-chapter");
-  return { user, chapter };
+  if (!resolved.primary) throw redirect("/no-chapter");
+  return { user, chapter: resolved.primary, chapters: resolved.all };
 }

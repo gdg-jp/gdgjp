@@ -1,6 +1,13 @@
 import { redirect } from "react-router";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
-import { addComment, createLink, createTag, deleteLink, setLinkTags } from "~/lib/db";
+import {
+  type LinkVisibility,
+  addComment,
+  createLink,
+  createTag,
+  deleteLink,
+  setLinkTags,
+} from "~/lib/db";
 import { type OgpData, fetchOgp, validatePublicHttpUrl } from "~/lib/ogp";
 import { generateRandomSlug, validateSlug } from "~/lib/slug";
 import type { Route } from "./+types/api.links";
@@ -35,6 +42,11 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     .map((v) => String(v).trim())
     .filter((n) => n.length > 0 && n.length <= 32);
   const commentBody = String(form.get("comment") ?? "").trim();
+  const rawVisibility = String(form.get("visibility") ?? "private");
+  if (rawVisibility !== "private" && rawVisibility !== "public") {
+    return { error: "Visibility must be private or public." };
+  }
+  const visibility: LinkVisibility = rawVisibility;
 
   if (!destinationUrl) return { error: "Destination URL is required." };
   const destinationValidation = await validatePublicHttpUrl(destinationUrl);
@@ -93,6 +105,7 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
         description,
         ogImageUrl,
         ownerUserId: user.id,
+        visibility,
       });
       if (result.ok) {
         throw redirect(`/links/${result.link.id}`);
@@ -118,6 +131,7 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     description,
     ogImageUrl,
     ownerUserId: user.id,
+    visibility,
   });
   if (!result.ok) return { error: `The slug "${slug}" is already taken.` };
   throw redirect(`/links/${result.link.id}`);
