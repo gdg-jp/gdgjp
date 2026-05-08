@@ -277,11 +277,7 @@ function parseClaims(json: Record<string, unknown>): UserClaims {
         return [];
       })
     : [];
-  const chapters: UserChapter[] = parsedArray.length
-    ? parsedArray
-    : chapter
-      ? [chapter]
-      : [];
+  const chapters: UserChapter[] = parsedArray.length ? parsedArray : chapter ? [chapter] : [];
   return {
     sub: typeof json.sub === "string" && json.sub.length ? json.sub : "userinfo_failed",
     email: typeof json.email === "string" ? json.email : null,
