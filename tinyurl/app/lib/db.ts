@@ -1,5 +1,7 @@
 import { newLinkId } from "./id";
 
+export type LinkVisibility = "private" | "public";
+
 export type Link = {
   id: string;
   slug: string;
@@ -9,6 +11,7 @@ export type Link = {
   ogImageUrl: string | null;
   ownerUserId: string;
   ownerChapterId: number | null;
+  visibility: LinkVisibility;
   createdAt: number;
   updatedAt: number;
   deletedAt: number | null;
@@ -23,6 +26,7 @@ type LinkRow = {
   og_image_url: string | null;
   owner_user_id: string;
   owner_chapter_id: number | null;
+  visibility: LinkVisibility;
   created_at: number;
   updated_at: number;
   deleted_at: number | null;
@@ -38,6 +42,7 @@ export function toLink(row: LinkRow): Link {
     ogImageUrl: row.og_image_url,
     ownerUserId: row.owner_user_id,
     ownerChapterId: row.owner_chapter_id,
+    visibility: row.visibility,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -45,7 +50,7 @@ export function toLink(row: LinkRow): Link {
 }
 
 const LINK_COLS =
-  "id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, created_at, updated_at, deleted_at";
+  "id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, visibility, created_at, updated_at, deleted_at";
 
 export async function listLinksForUser(db: D1Database, userId: string): Promise<Link[]> {
   const { results } = await db
@@ -81,6 +86,7 @@ export type CreateLinkInput = {
   ogImageUrl?: string | null;
   ownerUserId: string;
   ownerChapterId?: number | null;
+  visibility?: LinkVisibility;
 };
 
 export type CreateLinkResult = { ok: true; link: Link } | { ok: false; reason: "slug_taken" };
@@ -92,8 +98,8 @@ export async function createLink(
   try {
     const row = await db
       .prepare(
-        `INSERT INTO links (id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO links (id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, visibility)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          RETURNING ${LINK_COLS}`,
       )
       .bind(
@@ -105,6 +111,7 @@ export async function createLink(
         input.ogImageUrl ?? null,
         input.ownerUserId,
         input.ownerChapterId ?? null,
+        input.visibility ?? "private",
       )
       .first<LinkRow>();
     if (!row) throw new Error("Insert returned no row");
@@ -122,6 +129,7 @@ export type UpdateLinkInput = {
   title?: string | null;
   description?: string | null;
   ogImageUrl?: string | null;
+  visibility?: LinkVisibility;
 };
 
 export async function updateLink(
@@ -150,6 +158,10 @@ export async function updateLink(
   if (input.ogImageUrl !== undefined) {
     sets.push("og_image_url = ?");
     values.push(input.ogImageUrl);
+  }
+  if (input.visibility !== undefined) {
+    sets.push("visibility = ?");
+    values.push(input.visibility);
   }
   if (sets.length === 0) return getLinkById(db, id);
   sets.push("updated_at = unixepoch()");

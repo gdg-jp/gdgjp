@@ -50,8 +50,10 @@ import {
 import { Textarea } from "~/components/ui/textarea";
 import { clicksByLinkId } from "~/lib/analytics-engine";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
+import type { UserChapter } from "~/lib/chapter.server";
 import {
   type LinkPermission,
+  type LinkVisibility,
   type UserSummary,
   addComment,
   addPermission,
@@ -78,7 +80,7 @@ import type { Route } from "./+types/links.$id";
 
 async function ensureAccess(args: Route.LoaderArgs | Route.ActionArgs) {
   const env = args.context.cloudflare.env;
-  const { user, chapter } = await requireUserWithChapter(env, args.request);
+  const { user, chapter, chapters } = await requireUserWithChapter(env, args.request);
   const id = String(args.params.id ?? "");
   if (!isLinkId(id)) throw new Response("Not found", { status: 404 });
   const link = await getLinkById(env.DB, id);
@@ -89,11 +91,11 @@ async function ensureAccess(args: Route.LoaderArgs | Route.ActionArgs) {
     throw new Response("Forbidden", { status: 403 });
   }
   const editable = canEditLink(ctx, link, permissions);
-  return { env, user, chapter, link, permissions, ctx, editable, id };
+  return { env, user, chapter, chapters, link, permissions, ctx, editable, id };
 }
 
 export async function loader(args: Route.LoaderArgs) {
-  const { env, user, chapter, link, permissions, editable } = await ensureAccess(args);
+  const { env, user, chapter, chapters, link, permissions, editable } = await ensureAccess(args);
   const [tags, userTags, chapterTags, comments, clickMap] = await Promise.all([
     listTagsForLink(env.DB, link.id),
     listTagsForUser(env.DB, user.id),
@@ -103,6 +105,8 @@ export async function loader(args: Route.LoaderArgs) {
   ]);
   const users = await getUsersByIds(env.DB, [link.ownerUserId]);
   const latestComment = comments.length > 0 ? comments[comments.length - 1] : null;
+  const chapterNameById: Record<string, string> = {};
+  for (const c of chapters) chapterNameById[String(c.chapterId)] = c.chapterSlug;
   return {
     user: { email: user.email, name: user.name },
     link,
@@ -112,6 +116,8 @@ export async function loader(args: Route.LoaderArgs) {
     comment: latestComment?.body ?? "",
     users,
     editable,
+    chapters,
+    chapterNameById,
     appUrl: env.APP_URL,
     shortUrlBase: env.SHORT_URL_BASE,
     clicks: clickMap.get(link.id) ?? 0,
@@ -175,6 +181,13 @@ export async function action(args: Route.ActionArgs) {
     }
     if (form.has("ogImageUrl")) {
       update.ogImageUrl = String(form.get("ogImageUrl") ?? "").trim() || null;
+    }
+    if (form.has("visibility")) {
+      const v = String(form.get("visibility") ?? "");
+      if (v !== "private" && v !== "public") {
+        return { error: "Visibility must be private or public." };
+      }
+      update.visibility = v;
     }
 
     try {
@@ -355,15 +368,22 @@ function FieldLabel({ children, htmlFor }: { children: React.ReactNode; htmlFor?
 function PermissionRow({
   permission,
   editable,
+  chapterNameById,
 }: {
   permission: LinkPermission;
   editable: boolean;
+  chapterNameById: Record<string, string>;
 }) {
+  const label =
+    permission.principalType === "chapter"
+      ? (chapterNameById[permission.principalId] ?? `Chapter #${permission.principalId}`)
+      : permission.principalId;
+  const principalLabel = permission.principalType === "chapter" ? "Chapter" : "Email";
   return (
     <div className="flex items-center gap-3 border-b py-2 last:border-b-0">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{permission.principalId}</p>
-        <p className="text-xs capitalize text-muted-foreground">{permission.principalType}</p>
+        <p className="truncate text-sm font-medium">{label}</p>
+        <p className="text-xs text-muted-foreground">{principalLabel}</p>
       </div>
       {editable ? (
         <>
@@ -404,6 +424,7 @@ type Draft = {
   title: string;
   description: string;
   ogImageUrl: string;
+  visibility: LinkVisibility;
   tagIds: number[];
   newTagNames: string[];
   comment: string;
@@ -416,6 +437,7 @@ function buildInitial(loaderData: Route.ComponentProps["loaderData"]): Draft {
     title: loaderData.link.title ?? "",
     description: loaderData.link.description ?? "",
     ogImageUrl: loaderData.link.ogImageUrl ?? "",
+    visibility: loaderData.link.visibility,
     tagIds: loaderData.tags.map((t) => t.id),
     newTagNames: [],
     comment: loaderData.comment,
@@ -429,6 +451,7 @@ function draftEqual(a: Draft, b: Draft): boolean {
     a.title !== b.title ||
     a.description !== b.description ||
     a.ogImageUrl !== b.ogImageUrl ||
+    a.visibility !== b.visibility ||
     a.comment !== b.comment ||
     a.tagIds.length !== b.tagIds.length ||
     a.newTagNames.length !== b.newTagNames.length
@@ -444,7 +467,17 @@ function draftEqual(a: Draft, b: Draft): boolean {
 }
 
 export default function EditLink({ loaderData, actionData }: Route.ComponentProps) {
-  const { link, availableTags, permissions, users, editable, shortUrlBase, clicks } = loaderData;
+  const {
+    link,
+    availableTags,
+    permissions,
+    users,
+    editable,
+    chapters,
+    chapterNameById,
+    shortUrlBase,
+    clicks,
+  } = loaderData;
   const apexShortUrl = `${shortUrlBase}/${link.slug}`;
   const shortHost = shortHostOf(shortUrlBase);
   const favicon = faviconUrl(link.destinationUrl);
@@ -596,6 +629,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
         <Form id="link-update" method="post" className="hidden">
           <input type="hidden" name="intent" value="update" />
           <input type="hidden" name="manageTags" value="1" />
+          <input type="hidden" name="visibility" value={draft.visibility} />
           {draft.tagIds.map((tagId) => (
             <input key={`tag-${tagId}`} type="hidden" name="tagId" value={tagId} />
           ))}
@@ -713,6 +747,26 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
               />
             </div>
 
+            {/* Visibility */}
+            <div className="space-y-2">
+              <FieldLabel htmlFor="visibility">Visibility</FieldLabel>
+              <Select
+                value={draft.visibility}
+                onValueChange={(value) => setField("visibility", value as LinkVisibility)}
+                disabled={!editable}
+              >
+                <SelectTrigger id="visibility" size="sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="private">
+                    Private — only you and people you share with
+                  </SelectItem>
+                  <SelectItem value="public">Anyone in GDG Japan can view</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Sharing */}
             <div className="space-y-3">
               <FieldLabel>Sharing</FieldLabel>
@@ -722,41 +776,17 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                 ) : (
                   <div className="px-3">
                     {permissions.map((perm) => (
-                      <PermissionRow key={perm.id} permission={perm} editable={editable} />
+                      <PermissionRow
+                        key={perm.id}
+                        permission={perm}
+                        editable={editable}
+                        chapterNameById={chapterNameById}
+                      />
                     ))}
                   </div>
                 )}
               </div>
-              {editable ? (
-                <Form
-                  method="post"
-                  className="grid gap-2 rounded-md border bg-card p-3 sm:grid-cols-[140px_1fr_120px_auto]"
-                >
-                  <input type="hidden" name="intent" value="addPermission" />
-                  <Select name="principalType" defaultValue="user">
-                    <SelectTrigger size="sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">Email</SelectItem>
-                      <SelectItem value="chapter">Chapter id</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input name="principalId" placeholder="alice@example.com or 1" required />
-                  <Select name="role" defaultValue="viewer">
-                    <SelectTrigger size="sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="viewer">Viewer</SelectItem>
-                      <SelectItem value="editor">Editor</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button type="submit" size="sm">
-                    Share
-                  </Button>
-                </Form>
-              ) : null}
+              {editable ? <ShareForm chapters={chapters} /> : null}
             </div>
 
             {/* Created by footer */}
@@ -888,6 +918,79 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
 
       {editable && isDirty ? <FloatingBar onDiscard={discard} isSaving={isSaving} /> : null}
     </DashboardShell>
+  );
+}
+
+function ShareForm({ chapters }: { chapters: UserChapter[] }) {
+  const [principalType, setPrincipalType] = useState<"user" | "chapter">("user");
+  const [chapterId, setChapterId] = useState<string>(
+    chapters[0] ? String(chapters[0].chapterId) : "",
+  );
+  const [email, setEmail] = useState("");
+  return (
+    <Form
+      method="post"
+      className="grid gap-2 rounded-md border bg-card p-3 sm:grid-cols-[140px_1fr_120px_auto]"
+    >
+      <input type="hidden" name="intent" value="addPermission" />
+      <input type="hidden" name="principalType" value={principalType} />
+      <Select
+        value={principalType}
+        onValueChange={(v) => setPrincipalType(v as "user" | "chapter")}
+      >
+        <SelectTrigger size="sm">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="user">Email</SelectItem>
+          <SelectItem value="chapter" disabled={chapters.length === 0}>
+            Chapter
+          </SelectItem>
+        </SelectContent>
+      </Select>
+      {principalType === "user" ? (
+        <Input
+          type="email"
+          name="principalId"
+          placeholder="alice@example.com"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      ) : (
+        <>
+          <input type="hidden" name="principalId" value={chapterId} />
+          <Select value={chapterId} onValueChange={setChapterId}>
+            <SelectTrigger size="sm">
+              <SelectValue placeholder="Choose a chapter" />
+            </SelectTrigger>
+            <SelectContent>
+              {chapters.map((c) => (
+                <SelectItem key={c.chapterId} value={String(c.chapterId)}>
+                  {c.chapterSlug}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </>
+      )}
+      <Select name="role" defaultValue="viewer">
+        <SelectTrigger size="sm">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="viewer">Viewer</SelectItem>
+          <SelectItem value="editor">Editor</SelectItem>
+        </SelectContent>
+      </Select>
+      <Button
+        type="submit"
+        size="sm"
+        disabled={principalType === "chapter" ? chapterId === "" : email.trim() === ""}
+      >
+        Share
+      </Button>
+    </Form>
   );
 }
 

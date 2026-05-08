@@ -28,6 +28,7 @@ const link: Link = {
   ogImageUrl: null,
   ownerUserId: "u_owner",
   ownerChapterId: null,
+  visibility: "private",
   createdAt: 0,
   updatedAt: 0,
   deletedAt: null,
@@ -105,5 +106,24 @@ describe("canViewLink / canEditLink", () => {
       perm({ id: 2, principalType: "user", principalId: "stranger@example.com", role: "editor" }),
     ];
     expect(canEditLink(ctx, link, perms)).toBe(true);
+  });
+
+  it("public link is viewable to any signed-in member but not editable", () => {
+    const ctx = { user: stranger, chapterId: 42 };
+    const publicLink: Link = { ...link, visibility: "public" };
+    expect(canViewLink(ctx, publicLink, [])).toBe(true);
+    expect(canEditLink(ctx, publicLink, [])).toBe(false);
+  });
+
+  it("public link still grants editor via explicit perm", () => {
+    const ctx = { user: stranger, chapterId: 42 };
+    const publicLink: Link = { ...link, visibility: "public" };
+    const perms = [perm({ role: "editor" })];
+    expect(canEditLink(ctx, publicLink, perms)).toBe(true);
+  });
+
+  it("private link without perms still hidden from non-members", () => {
+    const ctx = { user: stranger, chapterId: 42 };
+    expect(canViewLink(ctx, link, [])).toBe(false);
   });
 });

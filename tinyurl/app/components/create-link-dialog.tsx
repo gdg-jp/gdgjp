@@ -16,8 +16,15 @@ import {
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
-import type { Tag } from "~/lib/db";
+import type { LinkVisibility, Tag } from "~/lib/db";
 import { generateRandomSlug } from "~/lib/slug";
 import type { ApiLinksActionData } from "~/routes/api.links";
 
@@ -84,6 +91,7 @@ function CreateLinkForm({
   const [tagIds, setTagIds] = useState<number[]>([]);
   const [newTagNames, setNewTagNames] = useState<string[]>([]);
   const [comment, setComment] = useState("");
+  const [visibility, setVisibility] = useState<LinkVisibility>("private");
 
   const lastOgpRef = useRef<unknown>(null);
   useEffect(() => {
@@ -182,6 +190,25 @@ function CreateLinkForm({
                 className="flex-1"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <FieldLabel htmlFor="create-visibility">Visibility</FieldLabel>
+            <input type="hidden" name="visibility" value={visibility} />
+            <Select
+              value={visibility}
+              onValueChange={(value) => setVisibility(value as LinkVisibility)}
+            >
+              <SelectTrigger id="create-visibility" size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="private">
+                  Private — only you and people you share with
+                </SelectItem>
+                <SelectItem value="public">Anyone in GDG Japan can view</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-3">
