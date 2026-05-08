@@ -53,6 +53,7 @@ export async function loader(args: Route.LoaderArgs) {
     user,
     requests,
     locale: await i18n.getLocale(args.request),
+    now: Math.floor(Date.now() / 1000),
     title: t("meta.adminRequests"),
   };
 }
@@ -111,7 +112,7 @@ export async function action(args: Route.ActionArgs) {
 }
 
 function formatRelative(now: number, then: number, locale: string): string {
-  const seconds = Math.max(1, Math.round((now - then) / 1000));
+  const seconds = Math.max(1, Math.round(now - then));
   const fmt = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   const units: [Intl.RelativeTimeFormatUnit, number][] = [
     ["year", 60 * 60 * 24 * 365],
@@ -132,8 +133,7 @@ function formatRelative(now: number, then: number, locale: string): string {
 
 export default function AdminRequests({ loaderData, actionData }: Route.ComponentProps) {
   const { t } = useTranslation();
-  const { user, requests, locale } = loaderData;
-  const now = Math.floor(Date.now() / 1000);
+  const { user, requests, locale, now } = loaderData;
   useEffect(() => {
     if (!actionData || "error" in actionData) return;
     if (actionData.intent === "approve") toast.success(t("adminRequests.toast.approved"));

@@ -18,6 +18,7 @@ export type EmailDeps = {
 const DEFAULT_FROM = "GDG Japan <noreply@gdgs.jp>";
 
 let warnedNoKey = false;
+const resendClients = new Map<string, Resend>();
 function getClient(env: EmailEnv): Resend | null {
   if (!env.RESEND_API_KEY) {
     if (!warnedNoKey) {
@@ -26,7 +27,12 @@ function getClient(env: EmailEnv): Resend | null {
     }
     return null;
   }
-  return new Resend(env.RESEND_API_KEY);
+  let client = resendClients.get(env.RESEND_API_KEY);
+  if (!client) {
+    client = new Resend(env.RESEND_API_KEY);
+    resendClients.set(env.RESEND_API_KEY, client);
+  }
+  return client;
 }
 
 type RenderedEmail = { subject: string; html: string; text: string };

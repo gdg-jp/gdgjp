@@ -1,5 +1,5 @@
 import { type IdpAuthInstance, type IdpClient, initializeIdpAuth } from "@gdgjp/gdg-lib";
-import { getChapterByUserId, listActiveChaptersForUser } from "./db";
+import { listActiveChaptersForUser } from "./db";
 
 let cached: { instance: IdpAuthInstance; env: Env } | null = null;
 
@@ -73,10 +73,8 @@ function trustedClientsFromEnv(env: Env): IdpClient[] {
 }
 
 async function getChapterClaim(db: D1Database, userId: string) {
-  const [primary, all] = await Promise.all([
-    getChapterByUserId(db, userId),
-    listActiveChaptersForUser(db, userId),
-  ]);
+  const all = await listActiveChaptersForUser(db, userId);
+  const primary = all[0] ?? null;
   return {
     chapterId: primary?.chapterId ?? null,
     chapterSlug: primary?.chapterSlug ?? null,

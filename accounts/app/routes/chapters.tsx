@@ -1,6 +1,6 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { ArrowLeft, ArrowRight, LogOut, Settings2, Users } from "lucide-react";
-import { useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Form, Link } from "react-router";
 import { toast } from "sonner";
@@ -23,13 +23,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { getAuth } from "~/lib/auth.server";
 import {
-  countActiveOrganizers,
   getChapterById,
+  getMembership,
   getOrganizerEmailsForChapter,
   getUserById,
   listChaptersWithCounts,
   listMembershipsForUser,
-  removeMembership,
+  removeOwnMembershipUnlessLastOrganizer,
   requestMembership,
 } from "~/lib/db";
 import { sendJoinRequestSubmitted, sendMemberLeft } from "~/lib/email.server";
@@ -119,15 +119,11 @@ export async function action(args: Route.ActionArgs) {
   if (intent === "leave") {
     const chapter = await getChapterById(env.DB, chapterId);
     if (!chapter) return { error: t("errors.chapterNotFound") };
-    const memberships = await listMembershipsForUser(env.DB, user.id);
-    const mine = memberships.find((m) => m.chapterId === chapterId);
+    const mine = await getMembership(env.DB, user.id, chapterId);
     if (!mine) return { error: t("errors.notInChapter") };
-    if (mine.status === "active" && mine.role === "organizer") {
-      const organizers = await countActiveOrganizers(env.DB, chapterId);
-      if (organizers <= 1) return { error: t("errors.lastOrganizer") };
-    }
     const wasActive = mine.status === "active";
-    await removeMembership(env.DB, user.id, chapterId);
+    const deleted = await removeOwnMembershipUnlessLastOrganizer(env.DB, user.id, chapterId);
+    if (deleted === 0) return { error: t("errors.lastOrganizer") };
     if (wasActive) {
       const organizerEmails = await getOrganizerEmailsForChapter(env.DB, chapterId);
       const formerMember = (await getUserById(env.DB, user.id)) ?? {
@@ -284,7 +280,7 @@ function LeaveButton({
   chapterId: number;
   chapterName: string;
   variant: "outline" | "default";
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const { t } = useTranslation();
   return (

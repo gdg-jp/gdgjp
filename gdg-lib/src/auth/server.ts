@@ -262,7 +262,7 @@ function parseClaims(json: Record<string, unknown>): UserClaims {
     (role === "organizer" || role === "member")
       ? { chapterId: json.chapterId, chapterSlug: json.chapterSlug, role }
       : null;
-  const chapters: UserChapter[] = Array.isArray(json.chapters)
+  const parsedArray: UserChapter[] = Array.isArray(json.chapters)
     ? (json.chapters as unknown[]).flatMap((entry) => {
         if (!entry || typeof entry !== "object") return [];
         const e = entry as Record<string, unknown>;
@@ -276,6 +276,9 @@ function parseClaims(json: Record<string, unknown>): UserClaims {
         }
         return [];
       })
+    : [];
+  const chapters: UserChapter[] = parsedArray.length
+    ? parsedArray
     : chapter
       ? [chapter]
       : [];

@@ -344,6 +344,34 @@ export async function removeMembership(
     .run();
 }
 
+/**
+ * Atomic self-leave: deletes the user's membership only when removing it
+ * would not leave the chapter without any active organizer. Returns the
+ * number of rows deleted (0 means the caller was the last active organizer).
+ */
+export async function removeOwnMembershipUnlessLastOrganizer(
+  db: D1Database,
+  userId: string,
+  chapterId: number,
+): Promise<number> {
+  const result = await db
+    .prepare(
+      `DELETE FROM memberships
+       WHERE user_id = ? AND chapter_id = ?
+         AND NOT (
+           role = 'organizer' AND status = 'active'
+           AND (
+             SELECT COUNT(*) FROM memberships
+             WHERE chapter_id = ? AND status = 'active' AND role = 'organizer'
+           ) <= 1
+         )`,
+    )
+    .bind(userId, chapterId, chapterId)
+    .run();
+  const meta = result.meta as { changes?: number } | undefined;
+  return meta?.changes ?? 0;
+}
+
 export async function listPendingForChapter(
   db: D1Database,
   chapterId: number,
