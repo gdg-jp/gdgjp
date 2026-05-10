@@ -36,7 +36,13 @@ import {
 } from "~/components/ui/table";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { getAuth } from "~/lib/auth.server";
-import { type ChapterKind, createChapter, deleteChapter, listChaptersWithCounts } from "~/lib/db";
+import {
+  type ChapterKind,
+  bustChaptersWithCountsCache,
+  createChapter,
+  deleteChapter,
+  listChaptersWithCountsCached,
+} from "~/lib/db";
 import { i18n } from "~/lib/i18n/i18n.server";
 import { requireSuperAdmin } from "~/lib/permissions";
 import type { Route } from "./+types/admin.chapters";
@@ -54,7 +60,7 @@ export async function loader(args: Route.LoaderArgs) {
     throw err;
   }
   requireSuperAdmin(user);
-  const chapters = await listChaptersWithCounts(env.DB);
+  const chapters = await listChaptersWithCountsCached(env.DB);
   return { user, chapters, title: t("meta.adminChapters") };
 }
 
@@ -81,6 +87,7 @@ export async function action(args: Route.ActionArgs) {
     const id = Number(form.get("id"));
     if (Number.isInteger(id) && id > 0) {
       await deleteChapter(env.DB, id);
+      await bustChaptersWithCountsCache();
     }
     return null;
   }
@@ -99,6 +106,7 @@ export async function action(args: Route.ActionArgs) {
     } catch {
       return { error: t("errors.createChapterFailed") };
     }
+    await bustChaptersWithCountsCache();
     return null;
   }
   return { error: t("errors.unknownAction") };
@@ -109,7 +117,7 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
   return (
     <PageShell user={loaderData.user}>
       <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
-        <Link to="/dashboard">
+        <Link to="/dashboard" prefetch="intent">
           <ArrowLeft className="size-4" /> {t("nav.backToDashboard")}
         </Link>
       </Button>
@@ -216,7 +224,7 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button asChild variant="outline" size="sm">
-                          <Link to={`/chapters/${c.slug}/organize`}>
+                          <Link to={`/chapters/${c.slug}/organize`} prefetch="intent">
                             {t("admin.list.organize")}
                           </Link>
                         </Button>

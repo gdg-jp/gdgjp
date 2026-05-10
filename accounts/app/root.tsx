@@ -1,7 +1,14 @@
 import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import {
+  Links,
+  Meta,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+  type ShouldRevalidateFunction,
+} from "react-router";
 import { Toaster } from "~/components/ui/sonner";
 import { i18n } from "~/lib/i18n/i18n.server";
 import { fallbackLng, isLocale } from "~/lib/i18n/resources";
@@ -12,6 +19,16 @@ import stylesheet from "./app.css?url";
 export const loader = async (args: Route.LoaderArgs) => {
   const locale = await i18n.getLocale(args.request);
   return { locale };
+};
+
+export const shouldRevalidate: ShouldRevalidateFunction = ({
+  formAction,
+  defaultShouldRevalidate,
+}) => {
+  // Locale only changes when the user switches it via the locale switcher,
+  // which posts to /api/locale. Skip revalidating on every page navigation.
+  if (formAction === "/api/locale") return defaultShouldRevalidate;
+  return false;
 };
 
 export const handle = { i18n: ["common"] };
