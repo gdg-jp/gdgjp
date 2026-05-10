@@ -36,7 +36,7 @@ import {
 } from "~/components/ui/table";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { getAuth } from "~/lib/auth.server";
-import { type ChapterKind, createChapter, deleteChapter, listChapters } from "~/lib/db";
+import { type ChapterKind, createChapter, deleteChapter, listChaptersWithCounts } from "~/lib/db";
 import { i18n } from "~/lib/i18n/i18n.server";
 import { requireSuperAdmin } from "~/lib/permissions";
 import type { Route } from "./+types/admin.chapters";
@@ -54,7 +54,7 @@ export async function loader(args: Route.LoaderArgs) {
     throw err;
   }
   requireSuperAdmin(user);
-  const chapters = await listChapters(env.DB);
+  const chapters = await listChaptersWithCounts(env.DB);
   return { user, chapters, title: t("meta.adminChapters") };
 }
 
@@ -183,6 +183,7 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
                   <TableHead>{t("admin.list.name")}</TableHead>
                   <TableHead>{t("admin.list.slug")}</TableHead>
                   <TableHead>{t("admin.list.kind")}</TableHead>
+                  <TableHead className="text-right">{t("admin.list.members")}</TableHead>
                   <TableHead className="text-right">{t("admin.list.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -203,6 +204,14 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
                       >
                         {c.kind === "gdg" ? t("kind.gdg") : t("kind.gdgoc")}
                       </span>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {c.activeCount}
+                      {c.pendingCount > 0 ? (
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          (+{c.pendingCount})
+                        </span>
+                      ) : null}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">

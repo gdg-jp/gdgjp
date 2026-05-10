@@ -1,0 +1,312 @@
+import type { AuthUser } from "@gdgjp/gdg-lib";
+import { ArrowLeft, ArrowRight, LogOut, Settings2, Users } from "lucide-react";
+import { type ReactNode, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { Form, Link } from "react-router";
+import { toast } from "sonner";
+import { PageShell } from "~/components/page-shell";
+import { StatusBadge } from "~/components/status-badge";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { buildSignInRedirect } from "~/lib/auth-redirect";
+import { getAuth } from "~/lib/auth.server";
+import {
+  getChapterById,
+  getMembership,
+  getOrganizerEmailsForChapter,
+  getUserById,
+  listChaptersWithCounts,
+  listMembershipsForUser,
+  removeOwnMembershipUnlessLastOrganizer,
+  requestMembership,
+} from "~/lib/db";
+import { sendJoinRequestSubmitted, sendMemberLeft } from "~/lib/email.server";
+import { i18n } from "~/lib/i18n/i18n.server";
+import { cn } from "~/lib/utils";
+import type { Route } from "./+types/chapters";
+
+type ChapterState = "joinable" | "pending" | "active-member" | "active-organizer";
+
+export function meta({ data }: Route.MetaArgs) {
+  return [{ title: data?.title }];
+}
+
+export async function loader(args: Route.LoaderArgs) {
+  const env = args.context.cloudflare.env;
+  const t = await i18n.getFixedT(args.request);
+  let user: AuthUser;
+  try {
+    user = await getAuth(env).requireUser(args.request);
+  } catch (err) {
+    if (err instanceof Response && err.status === 401) {
+      throw buildSignInRedirect(args.request);
+    }
+    throw err;
+  }
+  const [chapters, memberships] = await Promise.all([
+    listChaptersWithCounts(env.DB),
+    listMembershipsForUser(env.DB, user.id),
+  ]);
+  const byChapterId = new Map(memberships.map((m) => [m.chapterId, m]));
+  const items = chapters.map((c) => {
+    const m = byChapterId.get(c.id);
+    let state: ChapterState = "joinable";
+    if (m?.status === "pending") state = "pending";
+    else if (m?.status === "active")
+      state = m.role === "organizer" ? "active-organizer" : "active-member";
+    return { chapter: c, state };
+  });
+  return { user, items, title: t("meta.chapters") };
+}
+
+export async function action(args: Route.ActionArgs) {
+  const env = args.context.cloudflare.env;
+  const t = await i18n.getFixedT(args.request);
+  const locale = (await i18n.getLocale(args.request)) === "ja" ? "ja" : "en";
+  let user: AuthUser;
+  try {
+    user = await getAuth(env).requireUser(args.request);
+  } catch (err) {
+    if (err instanceof Response && err.status === 401) {
+      throw buildSignInRedirect(args.request);
+    }
+    throw err;
+  }
+  const form = await args.request.formData();
+  const intent = String(form.get("intent") ?? "");
+  const chapterId = Number(form.get("chapterId"));
+  if (!Number.isInteger(chapterId) || chapterId <= 0) {
+    return { error: t("errors.selectChapter") };
+  }
+
+  if (intent === "request") {
+    const result = await requestMembership(env.DB, user.id, chapterId);
+    if (!result.ok) {
+      return {
+        error:
+          result.reason === "chapter_not_found"
+            ? t("errors.chapterNotFound")
+            : t("errors.alreadyInChapter"),
+      };
+    }
+    const chapter = await getChapterById(env.DB, chapterId);
+    if (chapter) {
+      const organizerEmails = await getOrganizerEmailsForChapter(env.DB, chapterId);
+      sendJoinRequestSubmitted(
+        { env, ctx: args.context.cloudflare.ctx, locale },
+        {
+          chapter,
+          requester: { id: user.id, email: user.email, name: user.name },
+          organizerEmails,
+        },
+      );
+    }
+    return { ok: true, intent: "request" as const };
+  }
+
+  if (intent === "leave") {
+    const chapter = await getChapterById(env.DB, chapterId);
+    if (!chapter) return { error: t("errors.chapterNotFound") };
+    const mine = await getMembership(env.DB, user.id, chapterId);
+    if (!mine) return { error: t("errors.notInChapter") };
+    const wasActive = mine.status === "active";
+    const outcome = await removeOwnMembershipUnlessLastOrganizer(env.DB, user.id, chapterId);
+    if (outcome === "not_found") return { error: t("errors.notInChapter") };
+    if (outcome === "last_active_organizer") return { error: t("errors.lastOrganizer") };
+    if (wasActive) {
+      const organizerEmails = await getOrganizerEmailsForChapter(env.DB, chapterId);
+      const formerMember = (await getUserById(env.DB, user.id)) ?? {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      };
+      sendMemberLeft(
+        { env, ctx: args.context.cloudflare.ctx, locale },
+        { chapter, formerMember, organizerEmails },
+      );
+    }
+    return { ok: true, intent: "leave" as const };
+  }
+
+  return { error: t("errors.unknownAction") };
+}
+
+export default function ChaptersPage({ loaderData, actionData }: Route.ComponentProps) {
+  const { t } = useTranslation();
+  const { user, items } = loaderData;
+  useEffect(() => {
+    if (!actionData || "error" in actionData) return;
+    if (actionData.intent === "request") toast.success(t("chapters.toast.requested"));
+    else if (actionData.intent === "leave") toast.success(t("chapters.toast.left"));
+  }, [actionData, t]);
+  return (
+    <PageShell user={user}>
+      <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
+        <Link to="/dashboard">
+          <ArrowLeft className="size-4" /> {t("nav.backToDashboard")}
+        </Link>
+      </Button>
+
+      <div className="space-y-1">
+        <h1 className="text-3xl font-medium tracking-tight">{t("chapters.title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("chapters.subtitle")}</p>
+      </div>
+
+      {actionData && "error" in actionData && actionData.error ? (
+        <Alert variant="destructive" className="mt-6">
+          <AlertTitle>{t("chapters.errorTitle")}</AlertTitle>
+          <AlertDescription>{actionData.error}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {items.length === 0 ? (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="text-base">{t("chapters.empty.title")}</CardTitle>
+            <CardDescription>{t("chapters.empty.description")}</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map(({ chapter, state }) => (
+            <ChapterCard key={chapter.id} chapter={chapter} state={state} />
+          ))}
+        </div>
+      )}
+    </PageShell>
+  );
+}
+
+function ChapterCard({
+  chapter,
+  state,
+}: {
+  chapter: Route.ComponentProps["loaderData"]["items"][number]["chapter"];
+  state: ChapterState;
+}) {
+  const { t } = useTranslation();
+  const accent = chapter.kind === "gdg" ? "text-gdg-blue" : "text-gdg-green";
+  const kindLabel = chapter.kind === "gdg" ? t("kind.gdg") : t("kind.gdgoc");
+
+  return (
+    <Card className="flex h-full flex-col">
+      <CardHeader>
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="text-lg leading-tight">{chapter.name}</CardTitle>
+          <span className={cn("font-mono text-xs", accent)}>{kindLabel}</span>
+        </div>
+        <CardDescription className="font-mono text-xs">{chapter.slug}</CardDescription>
+      </CardHeader>
+      <CardContent className="mt-auto flex flex-col gap-3">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <Users className="size-3.5" />
+            {t("chapters.memberCount", { count: chapter.activeCount })}
+          </span>
+          {state === "pending" ? (
+            <StatusBadge status="pending">{t("dashboard.pending.badge")}</StatusBadge>
+          ) : state === "active-member" ? (
+            <StatusBadge status="member">{t("dashboard.active.memberBadge")}</StatusBadge>
+          ) : state === "active-organizer" ? (
+            <StatusBadge status="organizer">{t("dashboard.active.organizerBadge")}</StatusBadge>
+          ) : null}
+        </div>
+        <ChapterAction chapter={chapter} state={state} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function ChapterAction({
+  chapter,
+  state,
+}: {
+  chapter: Route.ComponentProps["loaderData"]["items"][number]["chapter"];
+  state: ChapterState;
+}) {
+  const { t } = useTranslation();
+  if (state === "joinable") {
+    return (
+      <Form method="post">
+        <input type="hidden" name="intent" value="request" />
+        <input type="hidden" name="chapterId" value={chapter.id} />
+        <Button type="submit" className="w-full">
+          {t("chapters.actions.request")} <ArrowRight className="size-4" />
+        </Button>
+      </Form>
+    );
+  }
+  if (state === "pending") {
+    return (
+      <LeaveButton chapterId={chapter.id} chapterName={chapter.name} variant="outline">
+        {t("chapters.actions.cancel")}
+      </LeaveButton>
+    );
+  }
+  if (state === "active-organizer") {
+    return (
+      <Button asChild variant="outline" className="w-full">
+        <Link to={`/chapters/${chapter.slug}/organize`}>
+          <Settings2 className="size-4" /> {t("dashboard.active.organizeCta")}
+        </Link>
+      </Button>
+    );
+  }
+  // active-member
+  return (
+    <LeaveButton chapterId={chapter.id} chapterName={chapter.name} variant="outline">
+      <LogOut className="size-4" /> {t("chapters.actions.leave")}
+    </LeaveButton>
+  );
+}
+
+function LeaveButton({
+  chapterId,
+  chapterName,
+  variant,
+  children,
+}: {
+  chapterId: number;
+  chapterName: string;
+  variant: "outline" | "default";
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant={variant} className="w-full">
+          {children}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {t("chapters.leaveDialog.title", { name: chapterName })}
+          </AlertDialogTitle>
+          <AlertDialogDescription>{t("chapters.leaveDialog.desc")}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("chapters.leaveDialog.cancel")}</AlertDialogCancel>
+          <Form method="post">
+            <input type="hidden" name="intent" value="leave" />
+            <input type="hidden" name="chapterId" value={chapterId} />
+            <AlertDialogAction type="submit">{t("chapters.leaveDialog.confirm")}</AlertDialogAction>
+          </Form>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}

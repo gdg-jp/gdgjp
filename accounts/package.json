@@ -11,8 +11,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "cf-typegen": "wrangler types",
-    "migrate:local": "wrangler d1 migrations apply gdgjp-accounts --local",
-    "migrate:remote": "wrangler d1 migrations apply gdgjp-accounts --remote"
+    "migrate:local": "wrangler d1 migrations apply gdgjp-accounts-db --local",
+    "migrate:remote": "wrangler d1 migrations apply gdgjp-accounts-db --remote"
   },
   "dependencies": {
     "@gdgjp/gdg-lib": "workspace:*",
@@ -31,6 +31,7 @@
     "react-i18next": "^17.0.6",
     "react-router": "^7.1.1",
     "remix-i18next": "^7.5.0",
+    "resend": "^4.1.2",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0"
   },
