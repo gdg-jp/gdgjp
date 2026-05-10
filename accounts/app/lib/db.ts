@@ -132,6 +132,39 @@ export async function listChaptersWithCounts(db: D1Database): Promise<ChapterWit
   }));
 }
 
+const CHAPTERS_COUNTS_CACHE_NAME = "chapters-with-counts";
+const CHAPTERS_COUNTS_CACHE_KEY = "https://accounts.gdgs.jp/__cache/chapters-with-counts";
+const CHAPTERS_COUNTS_TTL_SECONDS = 30;
+
+async function openChaptersCountsCache(): Promise<Cache | null> {
+  if (typeof caches === "undefined") return null;
+  return caches.open(CHAPTERS_COUNTS_CACHE_NAME);
+}
+
+export async function listChaptersWithCountsCached(db: D1Database): Promise<ChapterWithCounts[]> {
+  const cache = await openChaptersCountsCache();
+  if (!cache) return listChaptersWithCounts(db);
+  const hit = await cache.match(CHAPTERS_COUNTS_CACHE_KEY);
+  if (hit) return (await hit.json()) as ChapterWithCounts[];
+  const data = await listChaptersWithCounts(db);
+  await cache.put(
+    CHAPTERS_COUNTS_CACHE_KEY,
+    new Response(JSON.stringify(data), {
+      headers: {
+        "content-type": "application/json",
+        "cache-control": `max-age=${CHAPTERS_COUNTS_TTL_SECONDS}`,
+      },
+    }),
+  );
+  return data;
+}
+
+export async function bustChaptersWithCountsCache(): Promise<void> {
+  const cache = await openChaptersCountsCache();
+  if (!cache) return;
+  await cache.delete(CHAPTERS_COUNTS_CACHE_KEY);
+}
+
 export async function getChapterBySlug(db: D1Database, slug: string): Promise<Chapter | null> {
   const row = await db
     .prepare("SELECT id, slug, name, kind, created_at FROM chapters WHERE slug = ?")

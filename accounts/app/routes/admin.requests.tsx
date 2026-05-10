@@ -20,6 +20,7 @@ import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { getAuth } from "~/lib/auth.server";
 import {
   approveMembership,
+  bustChaptersWithCountsCache,
   getChapterById,
   getMembership,
   getUserById,
@@ -88,6 +89,7 @@ export async function action(args: Route.ActionArgs) {
 
   if (intent === "approve") {
     await approveMembership(env.DB, userId, chapterId);
+    await bustChaptersWithCountsCache();
     const u = await getUserById(env.DB, userId);
     if (u?.email) {
       sendJoinRequestApproved(
@@ -100,6 +102,7 @@ export async function action(args: Route.ActionArgs) {
   if (intent === "reject") {
     const u = await getUserById(env.DB, userId);
     await removeMembership(env.DB, userId, chapterId);
+    await bustChaptersWithCountsCache();
     if (u?.email) {
       sendJoinRequestRejected(
         { env, ctx: args.context.cloudflare.ctx, locale },
@@ -142,7 +145,7 @@ export default function AdminRequests({ loaderData, actionData }: Route.Componen
   return (
     <PageShell user={user} size="lg">
       <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
-        <Link to="/dashboard">
+        <Link to="/dashboard" prefetch="intent">
           <ArrowLeft className="size-4" /> {t("nav.backToDashboard")}
         </Link>
       </Button>
@@ -188,6 +191,7 @@ export default function AdminRequests({ loaderData, actionData }: Route.Componen
                     <TableCell>
                       <Link
                         to={`/chapters/${r.chapter.slug}/organize`}
+                        prefetch="intent"
                         className="font-medium hover:underline"
                       >
                         {r.chapter.name}

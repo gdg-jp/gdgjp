@@ -24,11 +24,12 @@ import { Input } from "~/components/ui/input";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { getAuth } from "~/lib/auth.server";
 import {
+  bustChaptersWithCountsCache,
   getChapterById,
   getMembership,
   getOrganizerEmailsForChapter,
   getUserById,
-  listChaptersWithCounts,
+  listChaptersWithCountsCached,
   listMembershipsForUser,
   removeOwnMembershipUnlessLastOrganizer,
   requestMembership,
@@ -57,7 +58,7 @@ export async function loader(args: Route.LoaderArgs) {
     throw err;
   }
   const [chapters, memberships] = await Promise.all([
-    listChaptersWithCounts(env.DB),
+    listChaptersWithCountsCached(env.DB),
     listMembershipsForUser(env.DB, user.id),
   ]);
   const byChapterId = new Map(memberships.map((m) => [m.chapterId, m]));
@@ -102,6 +103,7 @@ export async function action(args: Route.ActionArgs) {
             : t("errors.alreadyInChapter"),
       };
     }
+    await bustChaptersWithCountsCache();
     const chapter = await getChapterById(env.DB, chapterId);
     if (chapter) {
       const organizerEmails = await getOrganizerEmailsForChapter(env.DB, chapterId);
@@ -126,6 +128,7 @@ export async function action(args: Route.ActionArgs) {
     const outcome = await removeOwnMembershipUnlessLastOrganizer(env.DB, user.id, chapterId);
     if (outcome === "not_found") return { error: t("errors.notInChapter") };
     if (outcome === "last_active_organizer") return { error: t("errors.lastOrganizer") };
+    await bustChaptersWithCountsCache();
     if (wasActive) {
       const organizerEmails = await getOrganizerEmailsForChapter(env.DB, chapterId);
       const formerMember = (await getUserById(env.DB, user.id)) ?? {
@@ -164,7 +167,7 @@ export default function ChaptersPage({ loaderData, actionData }: Route.Component
   return (
     <PageShell user={user}>
       <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
-        <Link to="/dashboard">
+        <Link to="/dashboard" prefetch="intent">
           <ArrowLeft className="size-4" /> {t("nav.backToDashboard")}
         </Link>
       </Button>
@@ -287,7 +290,7 @@ function ChapterAction({
   if (state === "active-organizer") {
     return (
       <Button asChild variant="outline" className="w-full">
-        <Link to={`/chapters/${chapter.slug}/organize`}>
+        <Link to={`/chapters/${chapter.slug}/organize`} prefetch="intent">
           <Settings2 className="size-4" /> {t("dashboard.active.organizeCta")}
         </Link>
       </Button>

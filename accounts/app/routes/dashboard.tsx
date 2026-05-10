@@ -56,7 +56,7 @@ function MembershipsSection({
         </CardHeader>
         <CardContent>
           <Button asChild>
-            <Link to="/chapters">
+            <Link to="/chapters" prefetch="intent">
               {t("dashboard.noChapter.cta")} <ArrowRight className="size-4" />
             </Link>
           </Button>
@@ -69,7 +69,7 @@ function MembershipsSection({
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-base font-medium">{t("dashboard.memberships.heading")}</h2>
         <Button asChild variant="ghost" size="sm">
-          <Link to="/chapters">
+          <Link to="/chapters" prefetch="intent">
             <Plus className="size-4" /> {t("dashboard.memberships.browseCta")}
           </Link>
         </Button>
@@ -118,7 +118,7 @@ function MembershipRow({
         <CardContent className="flex flex-wrap items-center gap-2">
           {isOrganizer && !isPending ? (
             <Button asChild variant="outline" size="sm">
-              <Link to={`/chapters/${membership.chapter.slug}/organize`}>
+              <Link to={`/chapters/${membership.chapter.slug}/organize`} prefetch="intent">
                 <Settings2 className="size-4" />
                 {t("dashboard.memberships.manage")}
               </Link>
@@ -199,12 +199,14 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             <Button asChild variant="outline" size="sm">
-              <Link to="/admin/requests">
+              <Link to="/admin/requests" prefetch="intent">
                 <ListChecks className="size-4" /> {t("dashboard.superAdmin.requestsCta")}
               </Link>
             </Button>
             <Button asChild variant="outline" size="sm">
-              <Link to="/admin/chapters">{t("dashboard.superAdmin.manageCta")}</Link>
+              <Link to="/admin/chapters" prefetch="intent">
+                {t("dashboard.superAdmin.manageCta")}
+              </Link>
             </Button>
           </CardContent>
         </Card>

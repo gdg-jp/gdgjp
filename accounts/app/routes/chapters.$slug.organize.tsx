@@ -19,6 +19,7 @@ import { getAuth } from "~/lib/auth.server";
 import {
   type UserSummary,
   approveMembership,
+  bustChaptersWithCountsCache,
   getChapterBySlug,
   getMembership,
   getUserById,
@@ -39,18 +40,26 @@ export function meta({ data }: Route.MetaArgs) {
 
 async function ensureAccess(args: Route.LoaderArgs | Route.ActionArgs) {
   const env = args.context.cloudflare.env;
-  let user: AuthUser;
-  try {
-    user = await getAuth(env).requireUser(args.request);
-  } catch (err) {
+  const slug = args.params.slug;
+  if (!slug) throw new Response("Not found", { status: 404 });
+  // requireUser and getChapterBySlug are independent — fan them out in parallel.
+  const [userResult, chapter] = await Promise.all([
+    getAuth(env)
+      .requireUser(args.request)
+      .then(
+        (u) => ({ ok: true as const, user: u }),
+        (err) => ({ ok: false as const, err }),
+      ),
+    getChapterBySlug(env.DB, slug),
+  ]);
+  if (!userResult.ok) {
+    const err = userResult.err;
     if (err instanceof Response && err.status === 401) {
       throw buildSignInRedirect(args.request);
     }
     throw err;
   }
-  const slug = args.params.slug;
-  if (!slug) throw new Response("Not found", { status: 404 });
-  const chapter = await getChapterBySlug(env.DB, slug);
+  const user: AuthUser = userResult.user;
   if (!chapter) throw new Response("Chapter not found", { status: 404 });
   const viewerMembership = await getMembership(env.DB, user.id, chapter.id);
   if (!canManageChapter(user, chapter.id, viewerMembership)) {
@@ -101,6 +110,7 @@ export async function action(args: Route.ActionArgs) {
   switch (intent) {
     case "approve": {
       await approveMembership(env.DB, targetUserId, chapter.id);
+      await bustChaptersWithCountsCache();
       const u = await getUserById(env.DB, targetUserId);
       if (u?.email) {
         sendJoinRequestApproved(
@@ -120,6 +130,7 @@ export async function action(args: Route.ActionArgs) {
       const wasPending = target.status === "pending";
       const u = wasPending ? await getUserById(env.DB, targetUserId) : null;
       await removeMembership(env.DB, targetUserId, chapter.id);
+      await bustChaptersWithCountsCache();
       if (wasPending && u?.email) {
         sendJoinRequestRejected(
           { env, ctx: args.context.cloudflare.ctx, locale },
@@ -145,7 +156,7 @@ export default function OrganizeChapter({ loaderData, actionData }: Route.Compon
   return (
     <PageShell user={user}>
       <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
-        <Link to="/dashboard">
+        <Link to="/dashboard" prefetch="intent">
           <ArrowLeft className="size-4" /> {t("nav.backToDashboard")}
         </Link>
       </Button>
