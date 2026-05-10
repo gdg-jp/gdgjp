@@ -1,6 +1,6 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { ArrowLeft, ArrowRight, LogOut, Settings2, Users } from "lucide-react";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form, Link } from "react-router";
 import { toast } from "sonner";
@@ -20,6 +20,7 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { getAuth } from "~/lib/auth.server";
 import {
@@ -146,11 +147,20 @@ export async function action(args: Route.ActionArgs) {
 export default function ChaptersPage({ loaderData, actionData }: Route.ComponentProps) {
   const { t } = useTranslation();
   const { user, items } = loaderData;
+  const [query, setQuery] = useState("");
   useEffect(() => {
     if (!actionData || "error" in actionData) return;
     if (actionData.intent === "request") toast.success(t("chapters.toast.requested"));
     else if (actionData.intent === "leave") toast.success(t("chapters.toast.left"));
   }, [actionData, t]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      ({ chapter }) =>
+        chapter.name.toLowerCase().includes(q) || chapter.slug.toLowerCase().includes(q),
+    );
+  }, [items, query]);
   return (
     <PageShell user={user}>
       <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
@@ -179,11 +189,30 @@ export default function ChaptersPage({ loaderData, actionData }: Route.Component
           </CardHeader>
         </Card>
       ) : (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map(({ chapter, state }) => (
-            <ChapterCard key={chapter.id} chapter={chapter} state={state} />
-          ))}
-        </div>
+        <>
+          <div className="mt-6">
+            <Input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("chapters.search.placeholder")}
+              aria-label={t("chapters.search.ariaLabel")}
+            />
+          </div>
+          {filtered.length === 0 ? (
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle className="text-base">{t("chapters.search.noMatches")}</CardTitle>
+              </CardHeader>
+            </Card>
+          ) : (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map(({ chapter, state }) => (
+                <ChapterCard key={chapter.id} chapter={chapter} state={state} />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </PageShell>
   );
