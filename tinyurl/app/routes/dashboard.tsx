@@ -45,9 +45,7 @@ export async function loader(args: Route.LoaderArgs) {
   const ownIds = new Set(ownLinks.map((l) => l.id));
   const sharedFromPerms = sharedLinks.filter((l) => !ownIds.has(l.id));
   const sharedIds = new Set(sharedFromPerms.map((l) => l.id));
-  const sharedFromPublic = publicLinks.filter(
-    (l) => !ownIds.has(l.id) && !sharedIds.has(l.id),
-  );
+  const sharedFromPublic = publicLinks.filter((l) => !ownIds.has(l.id) && !sharedIds.has(l.id));
   const sharedFiltered = [...sharedFromPerms, ...sharedFromPublic];
   const allLinks: DbLink[] = [...ownLinks, ...sharedFiltered];
   const ownerIds = [...new Set(allLinks.map((l) => l.ownerUserId))];
