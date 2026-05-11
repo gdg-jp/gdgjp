@@ -2,6 +2,9 @@
   "app": {
     "name": "GDG Japan Accounts"
   },
+  "common": {
+    "loading": "Loading…"
+  },
   "nav": {
     "homeAria": "GDG Japan Accounts home",
     "toggleTheme": "Toggle theme",
@@ -79,6 +82,11 @@
     "toast": {
       "requested": "Join request sent",
       "left": "Left the chapter"
+    },
+    "search": {
+      "placeholder": "Search chapters by name or slug",
+      "ariaLabel": "Search chapters",
+      "noMatches": "No chapters match your search."
     }
   },
   "adminRequests": {
@@ -118,6 +126,7 @@
       "namePlaceholder": "GDG Tokyo",
       "kindLabel": "Kind",
       "submit": "Create chapter",
+      "submitPending": "Creating…",
       "errorTitle": "Couldn't save"
     },
     "list": {
@@ -160,7 +169,8 @@
     "signin": {
       "title": "Sign in",
       "subtitle": "Use your Google account to continue.",
-      "continueWithGoogle": "Continue with Google"
+      "continueWithGoogle": "Continue with Google",
+      "continueWithGooglePending": "Signing in…"
     },
     "userMenuAria": "Account menu",
     "signOut": "Sign out"

@@ -2,14 +2,12 @@ import type { AuthUser } from "@gdgjp/gdg-lib";
 import { ArrowLeft, ArrowRight, LogOut, Settings2, Users } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Form, Link } from "react-router";
+import { Link, useFetcher } from "react-router";
 import { toast } from "sonner";
 import { PageShell } from "~/components/page-shell";
 import { StatusBadge } from "~/components/status-badge";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -21,6 +19,7 @@ import {
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
+import { SubmitButton } from "~/components/ui/submit-button";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { getAuth } from "~/lib/auth.server";
 import {
@@ -47,16 +46,22 @@ export function meta({ data }: Route.MetaArgs) {
 
 export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
-  const t = await i18n.getFixedT(args.request);
-  let user: AuthUser;
-  try {
-    user = await getAuth(env).requireUser(args.request);
-  } catch (err) {
-    if (err instanceof Response && err.status === 401) {
+  const [t, userResult] = await Promise.all([
+    i18n.getFixedT(args.request),
+    getAuth(env)
+      .requireUser(args.request)
+      .then(
+        (u) => ({ ok: true as const, user: u }),
+        (err: unknown) => ({ ok: false as const, err }),
+      ),
+  ]);
+  if (!userResult.ok) {
+    if (userResult.err instanceof Response && userResult.err.status === 401) {
       throw buildSignInRedirect(args.request);
     }
-    throw err;
+    throw userResult.err;
   }
+  const user: AuthUser = userResult.user;
   const [chapters, memberships] = await Promise.all([
     listChaptersWithCountsCached(env.DB),
     listMembershipsForUser(env.DB, user.id),
@@ -147,15 +152,10 @@ export async function action(args: Route.ActionArgs) {
   return { error: t("errors.unknownAction") };
 }
 
-export default function ChaptersPage({ loaderData, actionData }: Route.ComponentProps) {
+export default function ChaptersPage({ loaderData }: Route.ComponentProps) {
   const { t } = useTranslation();
   const { user, items } = loaderData;
   const [query, setQuery] = useState("");
-  useEffect(() => {
-    if (!actionData || "error" in actionData) return;
-    if (actionData.intent === "request") toast.success(t("chapters.toast.requested"));
-    else if (actionData.intent === "leave") toast.success(t("chapters.toast.left"));
-  }, [actionData, t]);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items;
@@ -176,13 +176,6 @@ export default function ChaptersPage({ loaderData, actionData }: Route.Component
         <h1 className="text-3xl font-medium tracking-tight">{t("chapters.title")}</h1>
         <p className="text-sm text-muted-foreground">{t("chapters.subtitle")}</p>
       </div>
-
-      {actionData && "error" in actionData && actionData.error ? (
-        <Alert variant="destructive" className="mt-6">
-          <AlertTitle>{t("chapters.errorTitle")}</AlertTitle>
-          <AlertDescription>{actionData.error}</AlertDescription>
-        </Alert>
-      ) : null}
 
       {items.length === 0 ? (
         <Card className="mt-6">
@@ -210,8 +203,8 @@ export default function ChaptersPage({ loaderData, actionData }: Route.Component
             </Card>
           ) : (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map(({ chapter, state }) => (
-                <ChapterCard key={chapter.id} chapter={chapter} state={state} />
+              {filtered.map(({ chapter, state }, i) => (
+                <ChapterCard key={chapter.id} chapter={chapter} state={state} index={i} />
               ))}
             </div>
           )}
@@ -221,68 +214,104 @@ export default function ChaptersPage({ loaderData, actionData }: Route.Component
   );
 }
 
+type ChapterCardFetcher = ReturnType<typeof useFetcher<typeof action>>;
+
 function ChapterCard({
   chapter,
   state,
+  index,
 }: {
   chapter: Route.ComponentProps["loaderData"]["items"][number]["chapter"];
   state: ChapterState;
+  index: number;
 }) {
   const { t } = useTranslation();
+  const fetcher = useFetcher<typeof action>();
   const accent = chapter.kind === "gdg" ? "text-gdg-blue" : "text-gdg-green";
   const kindLabel = chapter.kind === "gdg" ? t("kind.gdg") : t("kind.gdgoc");
+  const animationDelay = `${Math.min(index, 9) * 30}ms`;
+
+  useEffect(() => {
+    if (fetcher.state !== "idle" || !fetcher.data) return;
+    if ("error" in fetcher.data && fetcher.data.error) {
+      toast.error(fetcher.data.error);
+      return;
+    }
+    if ("intent" in fetcher.data) {
+      if (fetcher.data.intent === "request") toast.success(t("chapters.toast.requested"));
+      else if (fetcher.data.intent === "leave") toast.success(t("chapters.toast.left"));
+    }
+  }, [fetcher.state, fetcher.data, t]);
 
   return (
-    <Card className="flex h-full flex-col">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-lg leading-tight">{chapter.name}</CardTitle>
-          <span className={cn("font-mono text-xs", accent)}>{kindLabel}</span>
-        </div>
-        <CardDescription className="font-mono text-xs">{chapter.slug}</CardDescription>
-      </CardHeader>
-      <CardContent className="mt-auto flex flex-col gap-3">
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1">
-            <Users className="size-3.5" />
-            {t("chapters.memberCount", { count: chapter.activeCount })}
-          </span>
-          {state === "pending" ? (
-            <StatusBadge status="pending">{t("dashboard.pending.badge")}</StatusBadge>
-          ) : state === "active-member" ? (
-            <StatusBadge status="member">{t("dashboard.active.memberBadge")}</StatusBadge>
-          ) : state === "active-organizer" ? (
-            <StatusBadge status="organizer">{t("dashboard.active.organizerBadge")}</StatusBadge>
-          ) : null}
-        </div>
-        <ChapterAction chapter={chapter} state={state} />
-      </CardContent>
-    </Card>
+    <div
+      className="animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
+      style={{ animationDelay, animationFillMode: "both" }}
+    >
+      <Card className="flex h-full flex-col">
+        <CardHeader>
+          <div className="flex items-start justify-between gap-2">
+            <CardTitle className="text-lg leading-tight">{chapter.name}</CardTitle>
+            <span className={cn("font-mono text-xs", accent)}>{kindLabel}</span>
+          </div>
+          <CardDescription className="font-mono text-xs">{chapter.slug}</CardDescription>
+        </CardHeader>
+        <CardContent className="mt-auto flex flex-col gap-3">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <Users className="size-3.5" />
+              {t("chapters.memberCount", { count: chapter.activeCount })}
+            </span>
+            {state === "pending" ? (
+              <StatusBadge status="pending">{t("dashboard.pending.badge")}</StatusBadge>
+            ) : state === "active-member" ? (
+              <StatusBadge status="member">{t("dashboard.active.memberBadge")}</StatusBadge>
+            ) : state === "active-organizer" ? (
+              <StatusBadge status="organizer">{t("dashboard.active.organizerBadge")}</StatusBadge>
+            ) : null}
+          </div>
+          <ChapterAction chapter={chapter} state={state} fetcher={fetcher} />
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
 function ChapterAction({
   chapter,
   state,
+  fetcher,
 }: {
   chapter: Route.ComponentProps["loaderData"]["items"][number]["chapter"];
   state: ChapterState;
+  fetcher: ChapterCardFetcher;
 }) {
   const { t } = useTranslation();
+  const submittingIntent = fetcher.formData?.get("intent");
+  const isRequesting = fetcher.state !== "idle" && submittingIntent === "request";
+  const isLeaving = fetcher.state !== "idle" && submittingIntent === "leave";
+
   if (state === "joinable") {
     return (
-      <Form method="post">
+      <fetcher.Form method="post">
         <input type="hidden" name="intent" value="request" />
         <input type="hidden" name="chapterId" value={chapter.id} />
-        <Button type="submit" className="w-full">
-          {t("chapters.actions.request")} <ArrowRight className="size-4" />
-        </Button>
-      </Form>
+        <SubmitButton className="w-full" pending={isRequesting} pendingLabel={t("common.loading")}>
+          {t("chapters.actions.request")}
+          {isRequesting ? null : <ArrowRight className="size-4" />}
+        </SubmitButton>
+      </fetcher.Form>
     );
   }
   if (state === "pending") {
     return (
-      <LeaveButton chapterId={chapter.id} chapterName={chapter.name} variant="outline">
+      <LeaveButton
+        chapterId={chapter.id}
+        chapterName={chapter.name}
+        variant="outline"
+        fetcher={fetcher}
+        isLeaving={isLeaving}
+      >
         {t("chapters.actions.cancel")}
       </LeaveButton>
     );
@@ -298,7 +327,13 @@ function ChapterAction({
   }
   // active-member
   return (
-    <LeaveButton chapterId={chapter.id} chapterName={chapter.name} variant="outline">
+    <LeaveButton
+      chapterId={chapter.id}
+      chapterName={chapter.name}
+      variant="outline"
+      fetcher={fetcher}
+      isLeaving={isLeaving}
+    >
       <LogOut className="size-4" /> {t("chapters.actions.leave")}
     </LeaveButton>
   );
@@ -309,11 +344,15 @@ function LeaveButton({
   chapterName,
   variant,
   children,
+  fetcher,
+  isLeaving,
 }: {
   chapterId: number;
   chapterName: string;
   variant: "outline" | "default";
   children: ReactNode;
+  fetcher: ChapterCardFetcher;
+  isLeaving: boolean;
 }) {
   const { t } = useTranslation();
   return (
@@ -332,11 +371,17 @@ function LeaveButton({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{t("chapters.leaveDialog.cancel")}</AlertDialogCancel>
-          <Form method="post">
+          <fetcher.Form method="post">
             <input type="hidden" name="intent" value="leave" />
             <input type="hidden" name="chapterId" value={chapterId} />
-            <AlertDialogAction type="submit">{t("chapters.leaveDialog.confirm")}</AlertDialogAction>
-          </Form>
+            <SubmitButton
+              variant="destructive"
+              pending={isLeaving}
+              pendingLabel={t("common.loading")}
+            >
+              {t("chapters.leaveDialog.confirm")}
+            </SubmitButton>
+          </fetcher.Form>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
