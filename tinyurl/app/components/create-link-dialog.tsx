@@ -1,4 +1,4 @@
-import { ExternalLink, RefreshCw, Shuffle } from "lucide-react";
+import { RefreshCw, Shuffle } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useFetcher, useNavigation } from "react-router";
@@ -265,7 +265,7 @@ function CreateLinkForm({
             <div className="flex items-center justify-center rounded-md border bg-card p-4">
               <QRCodeSVG
                 value={apexShortUrl}
-                size={140}
+                size={112}
                 bgColor="transparent"
                 className="dark:[&_path:last-of-type]:fill-white"
               />
@@ -310,55 +310,9 @@ function CreateLinkForm({
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="create-title" className="text-xs text-muted-foreground">
-                  Title
-                </Label>
-                <Input
-                  id="create-title"
-                  name="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="create-description" className="text-xs text-muted-foreground">
-                  Description
-                </Label>
-                <Textarea
-                  id="create-description"
-                  name="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="create-ogImageUrl" className="text-xs text-muted-foreground">
-                  Image URL
-                </Label>
-                <Input
-                  id="create-ogImageUrl"
-                  name="ogImageUrl"
-                  type="url"
-                  value={ogImageUrl}
-                  onChange={(e) => setOgImageUrl(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {destinationUrl ? (
-              <a
-                href={destinationUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <ExternalLink className="size-3" />
-                <span className="truncate">{destinationUrl}</span>
-              </a>
-            ) : null}
+            <input type="hidden" name="title" value={title} />
+            <input type="hidden" name="description" value={description} />
+            <input type="hidden" name="ogImageUrl" value={ogImageUrl} />
           </div>
         </div>
       </div>
