@@ -9,7 +9,8 @@ import {
   Tablet,
   X,
 } from "lucide-react";
-import { Link } from "react-router";
+import { Suspense } from "react";
+import { Await, Link } from "react-router";
 import { HourlyChart } from "~/components/charts/hourly-chart";
 import { type BarTab, TabbedBarCard } from "~/components/charts/tabbed-bar-card";
 import { DashboardShell } from "~/components/dashboard-shell";
@@ -33,6 +34,20 @@ export function meta({ data }: Route.MetaArgs) {
   }
   return [{ title: "Analytics — GDG Japan Links" }];
 }
+
+type AnalyticsData = {
+  hourly: Awaited<ReturnType<typeof hourlyClicks>>;
+  total: Awaited<ReturnType<typeof totalClicks>>;
+  slugs: TopRow[];
+  referrers: TopRow[];
+  countries: TopRow[];
+  regions: TopRow[];
+  cities: TopRow[];
+  continents: TopRow[];
+  browsers: TopRow[];
+  oses: TopRow[];
+  devices: TopRow[];
+};
 
 export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
@@ -76,17 +91,7 @@ export async function loader(args: Route.LoaderArgs) {
       user: shellUser,
       hasLinks: false as const,
       focus,
-      hourly: [],
-      total: 0,
-      slugs: [],
-      referrers: [],
-      countries: [],
-      regions: [],
-      cities: [],
-      continents: [],
-      browsers: [],
-      oses: [],
-      devices: [],
+      analytics: null,
     };
   }
 
@@ -96,19 +101,8 @@ export async function loader(args: Route.LoaderArgs) {
       return fallback;
     };
   }
-  const [
-    hourly,
-    total,
-    slugs,
-    referrers,
-    countries,
-    regions,
-    cities,
-    continents,
-    browsers,
-    oses,
-    devices,
-  ] = await Promise.all([
+
+  const analytics: Promise<AnalyticsData> = Promise.all([
     hourlyClicks(env, ids).catch(aeFallback("hourly", [])),
     totalClicks(env, ids).catch(aeFallback("total", 0)),
     topByBlob(env, "slug", ids).catch(aeFallback("slug", [])),
@@ -120,23 +114,39 @@ export async function loader(args: Route.LoaderArgs) {
     topByBlob(env, "browser", ids).catch(aeFallback("browser", [])),
     topByBlob(env, "os", ids).catch(aeFallback("os", [])),
     topByBlob(env, "device", ids).catch(aeFallback("device", [])),
-  ]);
+  ]).then(
+    ([
+      hourly,
+      total,
+      slugs,
+      referrers,
+      countries,
+      regions,
+      cities,
+      continents,
+      browsers,
+      oses,
+      devices,
+    ]) => ({
+      hourly,
+      total,
+      slugs,
+      referrers,
+      countries,
+      regions,
+      cities,
+      continents,
+      browsers,
+      oses,
+      devices,
+    }),
+  );
 
   return {
     user: shellUser,
     hasLinks: true as const,
     focus,
-    hourly,
-    total,
-    slugs,
-    referrers,
-    countries,
-    regions,
-    cities,
-    continents,
-    browsers,
-    oses,
-    devices,
+    analytics,
   };
 }
 
@@ -191,33 +201,16 @@ function ClicksTile({ total }: { total: number }) {
   );
 }
 
-export default function Analytics({ loaderData }: Route.ComponentProps) {
-  const {
-    user,
-    hasLinks,
-    focus,
-    hourly,
-    total,
-    slugs,
-    referrers,
-    countries,
-    regions,
-    cities,
-    continents,
-    browsers,
-    oses,
-    devices,
-  } = loaderData;
-
+function AnalyticsContent({ data }: { data: AnalyticsData }) {
   const linksTabs: BarTab[] = [
-    { key: "links", label: "Short Links", rows: slugs, emptyLabel: "No clicks yet." },
+    { key: "links", label: "Short Links", rows: data.slugs, emptyLabel: "No clicks yet." },
   ];
 
   const referrerTabs: BarTab[] = [
     {
       key: "referrers",
       label: "Referrers",
-      rows: referrers,
+      rows: data.referrers,
       emptyLabel: "No referrers yet.",
       renderIcon: (r) => <ReferrerIcon row={r} />,
     },
@@ -227,24 +220,96 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
     {
       key: "countries",
       label: "Countries",
-      rows: countries,
+      rows: data.countries,
       renderIcon: (r) => <CountryIcon row={r} />,
     },
-    { key: "cities", label: "Cities", rows: cities },
-    { key: "regions", label: "Regions", rows: regions },
-    { key: "continents", label: "Continents", rows: continents },
+    { key: "cities", label: "Cities", rows: data.cities },
+    { key: "regions", label: "Regions", rows: data.regions },
+    { key: "continents", label: "Continents", rows: data.continents },
   ];
 
   const deviceTabs: BarTab[] = [
     {
       key: "devices",
       label: "Devices",
-      rows: devices,
+      rows: data.devices,
       renderIcon: (r) => <DeviceIcon row={r} />,
     },
-    { key: "browsers", label: "Browsers", rows: browsers },
-    { key: "os", label: "OS", rows: oses },
+    { key: "browsers", label: "Browsers", rows: data.browsers },
+    { key: "os", label: "OS", rows: data.oses },
   ];
+
+  return (
+    <>
+      <Card className="gap-0 py-0">
+        <div className="border-b px-6 pt-5">
+          <ClicksTile total={data.total} />
+        </div>
+        <div className="px-4 pb-4 pt-6 sm:px-6">
+          <HourlyChart data={data.hourly} />
+        </div>
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TabbedBarCard tabs={linksTabs} tone="amber" />
+        <TabbedBarCard tabs={referrerTabs} tone="rose" />
+        <TabbedBarCard tabs={locationTabs} tone="blue" />
+        <TabbedBarCard tabs={deviceTabs} tone="emerald" />
+      </div>
+    </>
+  );
+}
+
+function SkeletonBarCard() {
+  return (
+    <Card className="gap-0 py-0" aria-hidden>
+      <div className="flex items-center justify-between gap-3 border-b px-5 pt-4">
+        <div className="flex items-center gap-3 pb-3">
+          <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+          <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+        </div>
+        <div className="h-3 w-10 animate-pulse rounded bg-muted pb-3" />
+      </div>
+      <div className="flex flex-col gap-3 px-5 py-4" style={{ minHeight: 272 }}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
+            key={i}
+            className="h-6 animate-pulse rounded bg-muted"
+            style={{ width: `${90 - i * 12}%` }}
+          />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function AnalyticsSkeleton() {
+  return (
+    <>
+      <Card className="gap-0 py-0" aria-hidden>
+        <div className="border-b px-6 pt-5">
+          <div className="flex max-w-xs flex-col gap-2 border-b-2 border-foreground pb-4">
+            <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+            <div className="h-8 w-24 animate-pulse rounded bg-muted" />
+          </div>
+        </div>
+        <div className="px-4 pb-4 pt-6 sm:px-6">
+          <div className="h-64 w-full animate-pulse rounded bg-muted" />
+        </div>
+      </Card>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SkeletonBarCard />
+        <SkeletonBarCard />
+        <SkeletonBarCard />
+        <SkeletonBarCard />
+      </div>
+    </>
+  );
+}
+
+export default function Analytics({ loaderData }: Route.ComponentProps) {
+  const { user, hasLinks, focus, analytics } = loaderData;
 
   return (
     <DashboardShell user={user}>
@@ -296,23 +361,11 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
             </p>
           </Card>
         ) : (
-          <>
-            <Card className="gap-0 py-0">
-              <div className="border-b px-6 pt-5">
-                <ClicksTile total={total} />
-              </div>
-              <div className="px-4 pb-4 pt-6 sm:px-6">
-                <HourlyChart data={hourly} />
-              </div>
-            </Card>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              <TabbedBarCard tabs={linksTabs} tone="amber" />
-              <TabbedBarCard tabs={referrerTabs} tone="rose" />
-              <TabbedBarCard tabs={locationTabs} tone="blue" />
-              <TabbedBarCard tabs={deviceTabs} tone="emerald" />
-            </div>
-          </>
+          <Suspense fallback={<AnalyticsSkeleton />}>
+            <Await resolve={analytics}>
+              {(data) => (data ? <AnalyticsContent data={data} /> : null)}
+            </Await>
+          </Suspense>
         )}
       </div>
     </DashboardShell>
