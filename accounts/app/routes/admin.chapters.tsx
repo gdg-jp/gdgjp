@@ -252,7 +252,7 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
             </div>
             <div className="sm:col-span-3">
               <SubmitButton pending={isCreating} pendingLabel={t("admin.create.submitPending")}>
-                {isCreating ? t("admin.create.submitPending") : t("admin.create.submit")}
+                {t("admin.create.submit")}
               </SubmitButton>
             </div>
             {actionData?.error ? (

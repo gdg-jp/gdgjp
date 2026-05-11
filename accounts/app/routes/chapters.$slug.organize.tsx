@@ -278,7 +278,8 @@ function MemberRow({
             <input type="hidden" name="intent" value={isOrganizer ? "demote" : "promote"} />
             <input type="hidden" name="userId" value={member.userId} />
             <DropdownMenuItem asChild>
-              <button type="submit" className="w-full text-left">
+              {/* onClick is required: Radix DropdownMenuItem swallows native submit otherwise */}
+              <button type="submit" className="w-full text-left" onClick={() => {}}>
                 {isOrganizer ? t("organize.demote") : t("organize.promote")}
               </button>
             </DropdownMenuItem>
@@ -288,7 +289,7 @@ function MemberRow({
             <input type="hidden" name="intent" value="remove" />
             <input type="hidden" name="userId" value={member.userId} />
             <DropdownMenuItem asChild variant="destructive">
-              <button type="submit" className="w-full text-left">
+              <button type="submit" className="w-full text-left" onClick={() => {}}>
                 {t("organize.remove")}
               </button>
             </DropdownMenuItem>

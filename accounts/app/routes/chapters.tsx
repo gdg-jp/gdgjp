@@ -370,7 +370,9 @@ function LeaveButton({
           <AlertDialogDescription>{t("chapters.leaveDialog.desc")}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{t("chapters.leaveDialog.cancel")}</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLeaving}>
+            {t("chapters.leaveDialog.cancel")}
+          </AlertDialogCancel>
           <fetcher.Form method="post">
             <input type="hidden" name="intent" value="leave" />
             <input type="hidden" name="chapterId" value={chapterId} />

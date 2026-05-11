@@ -55,9 +55,13 @@ export default function SignInPage() {
   const returnTo = safeReturnTo(params.get("return_to")) ?? "/dashboard";
   const [pending, setPending] = useState(false);
 
-  function signIn() {
+  async function signIn() {
     setPending(true);
-    void authClient.signIn.social({ provider: "google", callbackURL: returnTo });
+    try {
+      await authClient.signIn.social({ provider: "google", callbackURL: returnTo });
+    } catch {
+      setPending(false);
+    }
   }
 
   return (
