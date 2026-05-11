@@ -46,6 +46,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import { SubmitButton } from "~/components/ui/submit-button";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
 import {
   type TagWithCount,
@@ -578,9 +579,14 @@ function CreateTagForm({
           <input type="hidden" name="scope" value="user" />
         )}
 
-        <Button type="submit" className="w-full" disabled={submitting || !name.trim()}>
+        <SubmitButton
+          className="w-full"
+          pending={submitting}
+          pendingLabel="Creating…"
+          disabled={!name.trim()}
+        >
           {submitting ? "Creating…" : "Create tag"}
-        </Button>
+        </SubmitButton>
       </fetcher.Form>
     </FormShell>
   );
@@ -645,9 +651,14 @@ function EditTagForm({ tag, onDone }: { tag: TagRow; onDone: () => void }) {
           </div>
         </div>
 
-        <Button type="submit" className="w-full" disabled={submitting || !name.trim()}>
+        <SubmitButton
+          className="w-full"
+          pending={submitting}
+          pendingLabel="Saving…"
+          disabled={!name.trim()}
+        >
           {submitting ? "Saving…" : "Save changes"}
-        </Button>
+        </SubmitButton>
       </fetcher.Form>
     </FormShell>
   );

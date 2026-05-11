@@ -97,6 +97,7 @@ export function LinkCard({
         <div className="flex items-center gap-1.5">
           <Link
             to={`/links/${link.id}`}
+            prefetch="intent"
             className="truncate text-sm font-medium text-foreground hover:underline"
             title={shortDisplay}
           >
@@ -135,6 +136,7 @@ export function LinkCard({
 
       <Link
         to={`/analytics?linkId=${link.id}`}
+        prefetch="intent"
         className="inline-flex items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         title="View analytics"
       >
@@ -151,13 +153,13 @@ export function LinkCard({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem asChild>
-            <Link to={`/links/${link.id}`}>
+            <Link to={`/links/${link.id}`} prefetch="intent">
               <Pencil className="size-4" />
               Edit
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to={`/analytics?linkId=${link.id}`}>
+            <Link to={`/analytics?linkId=${link.id}`} prefetch="intent">
               <BarChart3 className="size-4" />
               Analytics
             </Link>
@@ -173,7 +175,7 @@ export function LinkCard({
             </a>
           </DropdownMenuItem>
           <DropdownMenuItem asChild variant="destructive">
-            <Link to={`/links/${link.id}`}>
+            <Link to={`/links/${link.id}`} prefetch="intent">
               <Trash2 className="size-4" />
               Delete…
             </Link>

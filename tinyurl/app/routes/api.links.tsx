@@ -49,12 +49,13 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
   const visibility: LinkVisibility = rawVisibility;
 
   if (!destinationUrl) return { error: "Destination URL is required." };
-  const destinationValidation = await validatePublicHttpUrl(destinationUrl);
+  const [destinationValidation, imageValidation] = await Promise.all([
+    validatePublicHttpUrl(destinationUrl),
+    ogImageUrl ? validatePublicHttpUrl(ogImageUrl) : Promise.resolve(null),
+  ]);
   if (!destinationValidation.ok) return { error: `Destination ${destinationValidation.reason}` };
-
-  if (ogImageUrl) {
-    const imageValidation = await validatePublicHttpUrl(ogImageUrl);
-    if (!imageValidation.ok) return { error: `OG image ${imageValidation.reason}` };
+  if (imageValidation && !imageValidation.ok) {
+    return { error: `OG image ${imageValidation.reason}` };
   }
 
   if (commentBody.length > 2000) {
