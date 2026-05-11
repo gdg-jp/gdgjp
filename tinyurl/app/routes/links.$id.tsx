@@ -47,6 +47,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import { Spinner } from "~/components/ui/spinner";
+import { SubmitButton } from "~/components/ui/submit-button";
 import { Textarea } from "~/components/ui/textarea";
 import { clicksByLinkId } from "~/lib/analytics-engine";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
@@ -80,12 +82,14 @@ import type { Route } from "./+types/links.$id";
 
 async function ensureAccess(args: Route.LoaderArgs | Route.ActionArgs) {
   const env = args.context.cloudflare.env;
-  const { user, chapter, chapters } = await requireUserWithChapter(env, args.request);
   const id = String(args.params.id ?? "");
   if (!isLinkId(id)) throw new Response("Not found", { status: 404 });
-  const link = await getLinkById(env.DB, id);
+  const [{ user, chapter, chapters }, link, permissions] = await Promise.all([
+    requireUserWithChapter(env, args.request),
+    getLinkById(env.DB, id),
+    listPermissionsForLink(env.DB, id),
+  ]);
   if (!link) throw new Response("Not found", { status: 404 });
-  const permissions = await listPermissionsForLink(env.DB, id);
   const ctx: ViewerContext = { user, chapterId: chapter.chapterId };
   if (!canViewLink(ctx, link, permissions)) {
     throw new Response("Forbidden", { status: 403 });
@@ -96,14 +100,14 @@ async function ensureAccess(args: Route.LoaderArgs | Route.ActionArgs) {
 
 export async function loader(args: Route.LoaderArgs) {
   const { env, user, chapter, chapters, link, permissions, editable } = await ensureAccess(args);
-  const [tags, userTags, chapterTags, comments, clickMap] = await Promise.all([
+  const [tags, userTags, chapterTags, comments, clickMap, users] = await Promise.all([
     listTagsForLink(env.DB, link.id),
     listTagsForUser(env.DB, user.id),
     listTagsForChapter(env.DB, chapter.chapterId),
     listComments(env.DB, link.id),
     clicksByLinkId(env, [link.id]).catch(() => new Map<string, number>()),
+    getUsersByIds(env.DB, [link.ownerUserId]),
   ]);
-  const users = await getUsersByIds(env.DB, [link.ownerUserId]);
   const latestComment = comments.length > 0 ? comments[comments.length - 1] : null;
   const chapterNameById: Record<string, string> = {};
   for (const c of chapters) chapterNameById[String(c.chapterId)] = c.chapterSlug;
@@ -374,6 +378,12 @@ function PermissionRow({
   editable: boolean;
   chapterNameById: Record<string, string>;
 }) {
+  const navigation = useNavigation();
+  const submittingPermissionId = navigation.formData?.get("permissionId");
+  const submittingIntent = navigation.formData?.get("intent");
+  const isThisRow = submittingPermissionId === String(permission.id);
+  const isUpdating = isThisRow && submittingIntent === "updatePermissionRole";
+  const isRemoving = isThisRow && submittingIntent === "removePermission";
   const label =
     permission.principalType === "chapter"
       ? (chapterNameById[permission.principalId] ?? `Chapter #${permission.principalId}`)
@@ -399,16 +409,22 @@ function PermissionRow({
                 <SelectItem value="viewer">Viewer</SelectItem>
               </SelectContent>
             </Select>
-            <Button type="submit" variant="ghost" size="sm">
+            <SubmitButton variant="ghost" size="sm" pending={isUpdating} pendingLabel="Saving">
               Save
-            </Button>
+            </SubmitButton>
           </Form>
           <Form method="post">
             <input type="hidden" name="intent" value="removePermission" />
             <input type="hidden" name="permissionId" value={permission.id} />
-            <Button type="submit" variant="ghost" size="icon-sm" aria-label="Remove">
+            <SubmitButton
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Remove"
+              pending={isRemoving}
+              pendingLabel="Removing"
+            >
               <Trash2 className="size-4 text-destructive" />
-            </Button>
+            </SubmitButton>
           </Form>
         </>
       ) : (
@@ -493,7 +509,10 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
   }, [initial]);
 
   const navigation = useNavigation();
-  const isSaving = navigation.state !== "idle";
+  const submittingIntent = navigation.formData?.get("intent");
+  const isSaving = navigation.state !== "idle" && submittingIntent === "update";
+  const isDeleting = navigation.state !== "idle" && submittingIntent === "delete";
+  const isFetchingOgp = navigation.state !== "idle" && submittingIntent === "fetchOgp";
 
   const lastToastedRef = useRef<unknown>(null);
   useEffect(() => {
@@ -552,7 +571,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
               Copy link
             </Button>
             <Button asChild variant="outline" size="sm">
-              <Link to={`/analytics?linkId=${link.id}`}>
+              <Link to={`/analytics?linkId=${link.id}`} prefetch="intent">
                 <BarChart3 className="size-4 text-primary" />
                 {clicks} {clicks === 1 ? "click" : "clicks"}
               </Link>
@@ -604,7 +623,13 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <Form method="post">
                             <input type="hidden" name="intent" value="delete" />
-                            <AlertDialogAction type="submit" className="bg-destructive">
+                            <AlertDialogAction
+                              type="submit"
+                              className="bg-destructive"
+                              disabled={isDeleting}
+                              aria-busy={isDeleting || undefined}
+                            >
+                              {isDeleting ? <Spinner size="sm" label="Deleting" /> : null}
                               Delete
                             </AlertDialogAction>
                           </Form>
@@ -811,7 +836,12 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
             <div className="space-y-2">
               <FieldLabel>QR Code</FieldLabel>
               <div className="flex items-center justify-center rounded-md border bg-card p-4">
-                <QRCodeSVG value={apexShortUrl} size={140} />
+                <QRCodeSVG
+                  value={apexShortUrl}
+                  size={140}
+                  bgColor="transparent"
+                  className="dark:[&_path:last-of-type]:fill-white"
+                />
               </div>
               <p className="break-all text-center font-mono text-xs text-muted-foreground">
                 {apexShortUrl}
@@ -826,10 +856,10 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                   <Form method="post">
                     <input type="hidden" name="intent" value="fetchOgp" />
                     <input type="hidden" name="destinationUrl" value={draft.destinationUrl} />
-                    <Button type="submit" variant="ghost" size="xs">
-                      <RefreshCw className="size-3" />
+                    <SubmitButton variant="ghost" size="xs" pending={isFetchingOgp}>
+                      {isFetchingOgp ? null : <RefreshCw className="size-3" />}
                       Fetch
-                    </Button>
+                    </SubmitButton>
                   </Form>
                 ) : null}
               </div>
@@ -922,6 +952,9 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
 }
 
 function ShareForm({ chapters }: { chapters: UserChapter[] }) {
+  const navigation = useNavigation();
+  const isSharing =
+    navigation.state !== "idle" && navigation.formData?.get("intent") === "addPermission";
   const [principalType, setPrincipalType] = useState<"user" | "chapter">("user");
   const [chapterId, setChapterId] = useState<string>(
     chapters[0] ? String(chapters[0].chapterId) : "",
@@ -983,13 +1016,14 @@ function ShareForm({ chapters }: { chapters: UserChapter[] }) {
           <SelectItem value="editor">Editor</SelectItem>
         </SelectContent>
       </Select>
-      <Button
-        type="submit"
+      <SubmitButton
         size="sm"
+        pending={isSharing}
+        pendingLabel="Sharing"
         disabled={principalType === "chapter" ? chapterId === "" : email.trim() === ""}
       >
         Share
-      </Button>
+      </SubmitButton>
     </Form>
   );
 }
@@ -1003,9 +1037,9 @@ function FloatingBar({ onDiscard, isSaving }: { onDiscard: () => void; isSaving:
           <Button type="button" variant="ghost" size="sm" onClick={onDiscard} disabled={isSaving}>
             Discard
           </Button>
-          <Button type="submit" form="link-update" size="sm" disabled={isSaving}>
+          <SubmitButton form="link-update" size="sm" pending={isSaving} pendingLabel="Saving…">
             {isSaving ? "Saving…" : "Save changes"}
-          </Button>
+          </SubmitButton>
         </div>
       </div>
     </div>

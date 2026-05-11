@@ -46,6 +46,7 @@ function SidebarLink({
     <Link
       to={item.to}
       onClick={onClick}
+      prefetch="intent"
       className={cn(
         "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
         active
@@ -161,7 +162,7 @@ function MobileBar({ user }: { user: UserMenuUser | null }) {
   return (
     <>
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/80 px-4 backdrop-blur md:hidden">
-        <Link to="/links" className="flex items-center gap-2">
+        <Link to="/links" prefetch="intent" className="flex items-center gap-2">
           <GdgMark size="sm" />
           <span className="font-medium tracking-tight">GDG Japan Links</span>
         </Link>

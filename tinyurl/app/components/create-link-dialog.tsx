@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import { SubmitButton } from "~/components/ui/submit-button";
 import { Textarea } from "~/components/ui/textarea";
 import type { LinkVisibility, Tag } from "~/lib/db";
 import { generateRandomSlug } from "~/lib/slug";
@@ -214,7 +215,11 @@ function CreateLinkForm({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <FieldLabel>Tags</FieldLabel>
-              <Link to="/tags" className="text-xs text-muted-foreground hover:text-foreground">
+              <Link
+                to="/tags"
+                prefetch="intent"
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
                 Manage
               </Link>
             </div>
@@ -258,7 +263,12 @@ function CreateLinkForm({
           <div className="space-y-2">
             <FieldLabel>QR Code</FieldLabel>
             <div className="flex items-center justify-center rounded-md border bg-card p-4">
-              <QRCodeSVG value={apexShortUrl} size={140} />
+              <QRCodeSVG
+                value={apexShortUrl}
+                size={140}
+                bgColor="transparent"
+                className="dark:[&_path:last-of-type]:fill-white"
+              />
             </div>
             <p className="break-all text-center font-mono text-xs text-muted-foreground">
               {apexShortUrl}
@@ -368,9 +378,9 @@ function CreateLinkForm({
             Cancel
           </Button>
         </DialogClose>
-        <Button type="submit" disabled={isSubmitting}>
+        <SubmitButton pending={isSubmitting} pendingLabel="Creating…">
           {isSubmitting ? "Creating…" : "Create link"}
-        </Button>
+        </SubmitButton>
       </div>
     </createFetcher.Form>
   );

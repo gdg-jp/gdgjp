@@ -271,7 +271,7 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
         <div className="flex flex-wrap items-center gap-2">
           {focus ? (
             <Button asChild variant="outline" size="sm">
-              <Link to="/analytics" aria-label="Clear link filter">
+              <Link to="/analytics" prefetch="intent" aria-label="Clear link filter">
                 <X className="size-4" />
                 {focus.slug}
               </Link>
