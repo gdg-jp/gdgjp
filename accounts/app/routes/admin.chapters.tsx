@@ -1,12 +1,11 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Form, Link } from "react-router";
+import { Form, Link, useFetcher, useNavigation } from "react-router";
 import { PageShell } from "~/components/page-shell";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -26,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
+import { SubmitButton } from "~/components/ui/submit-button";
 import {
   Table,
   TableBody,
@@ -49,18 +49,25 @@ import type { Route } from "./+types/admin.chapters";
 
 export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
-  const t = await i18n.getFixedT(args.request);
-  let user: AuthUser;
-  try {
-    user = await getAuth(env).requireUser(args.request);
-  } catch (err) {
-    if (err instanceof Response && err.status === 401) {
+  // listChaptersWithCountsCached doesn't depend on the user; fan it out with auth.
+  const [t, userResult, chapters] = await Promise.all([
+    i18n.getFixedT(args.request),
+    getAuth(env)
+      .requireUser(args.request)
+      .then(
+        (u) => ({ ok: true as const, user: u }),
+        (err: unknown) => ({ ok: false as const, err }),
+      ),
+    listChaptersWithCountsCached(env.DB),
+  ]);
+  if (!userResult.ok) {
+    if (userResult.err instanceof Response && userResult.err.status === 401) {
       throw buildSignInRedirect(args.request);
     }
-    throw err;
+    throw userResult.err;
   }
+  const user: AuthUser = userResult.user;
   requireSuperAdmin(user);
-  const chapters = await listChaptersWithCountsCached(env.DB);
   return { user, chapters, title: t("meta.adminChapters") };
 }
 
@@ -112,8 +119,89 @@ export async function action(args: Route.ActionArgs) {
   return { error: t("errors.unknownAction") };
 }
 
+type ChapterRowData = Route.ComponentProps["loaderData"]["chapters"][number];
+
+function ChapterRow({ chapter, index }: { chapter: ChapterRowData; index: number }) {
+  const { t } = useTranslation();
+  const fetcher = useFetcher<typeof action>();
+  const isDeleting = fetcher.state !== "idle" && fetcher.formData?.get("intent") === "delete";
+  const animationDelay = `${Math.min(index, 9) * 30}ms`;
+  return (
+    <TableRow
+      className={`animate-in fade-in-0 duration-300 ${
+        isDeleting ? "animate-out fade-out-0 duration-200" : ""
+      }`}
+      style={{ animationDelay, animationFillMode: "both" }}
+    >
+      <TableCell className="font-medium">{chapter.name}</TableCell>
+      <TableCell className="font-mono text-xs text-muted-foreground">{chapter.slug}</TableCell>
+      <TableCell>
+        <span
+          className={
+            chapter.kind === "gdg"
+              ? "font-mono text-xs text-gdg-blue"
+              : "font-mono text-xs text-gdg-green"
+          }
+        >
+          {chapter.kind === "gdg" ? t("kind.gdg") : t("kind.gdgoc")}
+        </span>
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {chapter.activeCount}
+        {chapter.pendingCount > 0 ? (
+          <span className="ml-1 text-xs text-muted-foreground">(+{chapter.pendingCount})</span>
+        ) : null}
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link to={`/chapters/${chapter.slug}/organize`} prefetch="intent">
+              {t("admin.list.organize")}
+            </Link>
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t("admin.list.deleteAria", { name: chapter.name })}
+              >
+                <Trash2 className="size-4 text-destructive" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {t("admin.list.dialogTitle", { name: chapter.name })}
+                </AlertDialogTitle>
+                <AlertDialogDescription>{t("admin.list.dialogDesc")}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t("admin.list.cancel")}</AlertDialogCancel>
+                <fetcher.Form method="post">
+                  <input type="hidden" name="intent" value="delete" />
+                  <input type="hidden" name="id" value={chapter.id} />
+                  <SubmitButton
+                    variant="destructive"
+                    pending={isDeleting}
+                    pendingLabel={t("common.loading")}
+                  >
+                    {t("admin.list.deleteConfirm")}
+                  </SubmitButton>
+                </fetcher.Form>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export default function AdminChapters({ loaderData, actionData }: Route.ComponentProps) {
   const { t } = useTranslation();
+  const navigation = useNavigation();
+  const isCreating = navigation.state !== "idle" && navigation.formData?.get("intent") === "create";
   return (
     <PageShell user={loaderData.user}>
       <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
@@ -163,7 +251,9 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
               </Select>
             </div>
             <div className="sm:col-span-3">
-              <Button type="submit">{t("admin.create.submit")}</Button>
+              <SubmitButton pending={isCreating} pendingLabel={t("admin.create.submitPending")}>
+                {t("admin.create.submit")}
+              </SubmitButton>
             </div>
             {actionData?.error ? (
               <div className="sm:col-span-3">
@@ -196,72 +286,8 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {loaderData.chapters.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {c.slug}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={
-                          c.kind === "gdg"
-                            ? "font-mono text-xs text-gdg-blue"
-                            : "font-mono text-xs text-gdg-green"
-                        }
-                      >
-                        {c.kind === "gdg" ? t("kind.gdg") : t("kind.gdgoc")}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {c.activeCount}
-                      {c.pendingCount > 0 ? (
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          (+{c.pendingCount})
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button asChild variant="outline" size="sm">
-                          <Link to={`/chapters/${c.slug}/organize`} prefetch="intent">
-                            {t("admin.list.organize")}
-                          </Link>
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={t("admin.list.deleteAria", { name: c.name })}
-                            >
-                              <Trash2 className="size-4 text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                {t("admin.list.dialogTitle", { name: c.name })}
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                {t("admin.list.dialogDesc")}
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>{t("admin.list.cancel")}</AlertDialogCancel>
-                              <Form method="post">
-                                <input type="hidden" name="intent" value="delete" />
-                                <input type="hidden" name="id" value={c.id} />
-                                <AlertDialogAction type="submit" className="bg-destructive">
-                                  {t("admin.list.deleteConfirm")}
-                                </AlertDialogAction>
-                              </Form>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                {loaderData.chapters.map((c, i) => (
+                  <ChapterRow key={c.id} chapter={c} index={i} />
                 ))}
               </TableBody>
             </Table>

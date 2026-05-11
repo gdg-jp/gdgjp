@@ -2,12 +2,12 @@ import type { AuthUser } from "@gdgjp/gdg-lib";
 import { ArrowLeft, Check, X } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Form, Link } from "react-router";
+import { Link, useFetcher } from "react-router";
 import { toast } from "sonner";
 import { PageShell } from "~/components/page-shell";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { SubmitButton } from "~/components/ui/submit-button";
 import {
   Table,
   TableBody,
@@ -38,22 +38,30 @@ export function meta({ data }: Route.MetaArgs) {
 
 export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
-  const t = await i18n.getFixedT(args.request);
-  let user: AuthUser;
-  try {
-    user = await getAuth(env).requireUser(args.request);
-  } catch (err) {
-    if (err instanceof Response && err.status === 401) {
+  // None of these depend on each other — fan everything out in parallel.
+  const [t, userResult, requests, locale] = await Promise.all([
+    i18n.getFixedT(args.request),
+    getAuth(env)
+      .requireUser(args.request)
+      .then(
+        (u) => ({ ok: true as const, user: u }),
+        (err: unknown) => ({ ok: false as const, err }),
+      ),
+    listAllPendingRequests(env.DB),
+    i18n.getLocale(args.request),
+  ]);
+  if (!userResult.ok) {
+    if (userResult.err instanceof Response && userResult.err.status === 401) {
       throw buildSignInRedirect(args.request);
     }
-    throw err;
+    throw userResult.err;
   }
+  const user: AuthUser = userResult.user;
   requireSuperAdmin(user);
-  const requests = await listAllPendingRequests(env.DB);
   return {
     user,
     requests,
-    locale: await i18n.getLocale(args.request),
+    locale,
     now: Math.floor(Date.now() / 1000),
     title: t("meta.adminRequests"),
   };
@@ -134,14 +142,94 @@ function formatRelative(now: number, then: number, locale: string): string {
   return fmt.format(-seconds, "second");
 }
 
-export default function AdminRequests({ loaderData, actionData }: Route.ComponentProps) {
+type RequestRowData = Route.ComponentProps["loaderData"]["requests"][number];
+
+function RequestRow({
+  req,
+  index,
+  locale,
+  now,
+}: { req: RequestRowData; index: number; locale: string; now: number }) {
+  const { t } = useTranslation();
+  const fetcher = useFetcher<typeof action>();
+  const submittingIntent = fetcher.formData?.get("intent");
+  const isApproving = fetcher.state !== "idle" && submittingIntent === "approve";
+  const isRejecting = fetcher.state !== "idle" && submittingIntent === "reject";
+  const isExiting = isApproving || isRejecting;
+  const animationDelay = `${Math.min(index, 9) * 30}ms`;
+
+  useEffect(() => {
+    if (fetcher.state !== "idle" || !fetcher.data) return;
+    if ("error" in fetcher.data && fetcher.data.error) {
+      toast.error(fetcher.data.error, { description: t("adminRequests.errorTitle") });
+      return;
+    }
+    if ("intent" in fetcher.data) {
+      if (fetcher.data.intent === "approve") toast.success(t("adminRequests.toast.approved"));
+      else if (fetcher.data.intent === "reject") toast.success(t("adminRequests.toast.rejected"));
+    }
+  }, [fetcher.state, fetcher.data, t]);
+
+  return (
+    <TableRow
+      className={`animate-in fade-in-0 duration-300 ${
+        isExiting ? "animate-out fade-out-0 duration-200" : ""
+      }`}
+      style={{ animationDelay, animationFillMode: "both" }}
+    >
+      <TableCell>
+        <div className="font-medium">{req.user.name || req.user.email}</div>
+        {req.user.name ? (
+          <div className="text-xs text-muted-foreground">{req.user.email}</div>
+        ) : null}
+      </TableCell>
+      <TableCell>
+        <Link
+          to={`/chapters/${req.chapter.slug}/organize`}
+          prefetch="intent"
+          className="font-medium hover:underline"
+        >
+          {req.chapter.name}
+        </Link>
+        <div className="font-mono text-xs text-muted-foreground">{req.chapter.slug}</div>
+      </TableCell>
+      <TableCell className="text-sm text-muted-foreground">
+        {formatRelative(now, req.createdAt, locale)}
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-2">
+          <fetcher.Form method="post">
+            <input type="hidden" name="intent" value="approve" />
+            <input type="hidden" name="userId" value={req.userId} />
+            <input type="hidden" name="chapterId" value={req.chapterId} />
+            <SubmitButton size="sm" pending={isApproving} pendingLabel={t("common.loading")}>
+              {isApproving ? null : <Check className="size-4" />}
+              {t("adminRequests.approve")}
+            </SubmitButton>
+          </fetcher.Form>
+          <fetcher.Form method="post">
+            <input type="hidden" name="intent" value="reject" />
+            <input type="hidden" name="userId" value={req.userId} />
+            <input type="hidden" name="chapterId" value={req.chapterId} />
+            <SubmitButton
+              size="sm"
+              variant="outline"
+              pending={isRejecting}
+              pendingLabel={t("common.loading")}
+            >
+              {isRejecting ? null : <X className="size-4" />}
+              {t("adminRequests.reject")}
+            </SubmitButton>
+          </fetcher.Form>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+export default function AdminRequests({ loaderData }: Route.ComponentProps) {
   const { t } = useTranslation();
   const { user, requests, locale, now } = loaderData;
-  useEffect(() => {
-    if (!actionData || "error" in actionData) return;
-    if (actionData.intent === "approve") toast.success(t("adminRequests.toast.approved"));
-    else if (actionData.intent === "reject") toast.success(t("adminRequests.toast.rejected"));
-  }, [actionData, t]);
   return (
     <PageShell user={user} size="lg">
       <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
@@ -154,13 +242,6 @@ export default function AdminRequests({ loaderData, actionData }: Route.Componen
         <h1 className="text-3xl font-medium tracking-tight">{t("adminRequests.title")}</h1>
         <p className="text-sm text-muted-foreground">{t("adminRequests.subtitle")}</p>
       </div>
-
-      {actionData?.error ? (
-        <Alert variant="destructive" className="mt-6">
-          <AlertTitle>{t("adminRequests.errorTitle")}</AlertTitle>
-          <AlertDescription>{actionData.error}</AlertDescription>
-        </Alert>
-      ) : null}
 
       <Card className="mt-6">
         <CardHeader>
@@ -180,50 +261,14 @@ export default function AdminRequests({ loaderData, actionData }: Route.Componen
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {requests.map((r) => (
-                  <TableRow key={`${r.userId}-${r.chapterId}`}>
-                    <TableCell>
-                      <div className="font-medium">{r.user.name || r.user.email}</div>
-                      {r.user.name ? (
-                        <div className="text-xs text-muted-foreground">{r.user.email}</div>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      <Link
-                        to={`/chapters/${r.chapter.slug}/organize`}
-                        prefetch="intent"
-                        className="font-medium hover:underline"
-                      >
-                        {r.chapter.name}
-                      </Link>
-                      <div className="font-mono text-xs text-muted-foreground">
-                        {r.chapter.slug}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatRelative(now, r.createdAt, locale)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Form method="post">
-                          <input type="hidden" name="intent" value="approve" />
-                          <input type="hidden" name="userId" value={r.userId} />
-                          <input type="hidden" name="chapterId" value={r.chapterId} />
-                          <Button type="submit" size="sm">
-                            <Check className="size-4" /> {t("adminRequests.approve")}
-                          </Button>
-                        </Form>
-                        <Form method="post">
-                          <input type="hidden" name="intent" value="reject" />
-                          <input type="hidden" name="userId" value={r.userId} />
-                          <input type="hidden" name="chapterId" value={r.chapterId} />
-                          <Button type="submit" size="sm" variant="outline">
-                            <X className="size-4" /> {t("adminRequests.reject")}
-                          </Button>
-                        </Form>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                {requests.map((r, i) => (
+                  <RequestRow
+                    key={`${r.userId}-${r.chapterId}`}
+                    req={r}
+                    index={i}
+                    locale={locale}
+                    now={now}
+                  />
                 ))}
               </TableBody>
             </Table>

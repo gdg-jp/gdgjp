@@ -2,6 +2,9 @@
   "app": {
     "name": "GDG Japan Accounts"
   },
+  "common": {
+    "loading": "読み込み中…"
+  },
   "nav": {
     "homeAria": "GDG Japan Accounts ホーム",
     "toggleTheme": "テーマを切り替え",
@@ -79,6 +82,11 @@
     "toast": {
       "requested": "参加リクエストを送信しました",
       "left": "チャプターを退会しました"
+    },
+    "search": {
+      "placeholder": "チャプター名またはスラッグで検索",
+      "ariaLabel": "チャプターを検索",
+      "noMatches": "検索条件に一致するチャプターがありません。"
     }
   },
   "adminRequests": {
@@ -118,6 +126,7 @@
       "namePlaceholder": "GDG Tokyo",
       "kindLabel": "種別",
       "submit": "チャプターを作成",
+      "submitPending": "作成中…",
       "errorTitle": "保存できませんでした"
     },
     "list": {
@@ -160,7 +169,8 @@
     "signin": {
       "title": "サインイン",
       "subtitle": "Google アカウントで続行します。",
-      "continueWithGoogle": "Google で続行"
+      "continueWithGoogle": "Google で続行",
+      "continueWithGooglePending": "サインイン中…"
     },
     "userMenuAria": "アカウントメニュー",
     "signOut": "サインアウト"

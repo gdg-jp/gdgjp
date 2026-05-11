@@ -101,6 +101,9 @@ function buildRpAuth(config: AuthConfig) {
     secret: config.secret,
     database: { db, type: "sqlite" },
     advanced: { cookiePrefix: config.cookiePrefix },
+    session: {
+      cookieCache: { enabled: true, maxAge: 5 * 60 },
+    },
     user: {
       additionalFields: {
         isAdmin: { type: "boolean", required: false, input: false },
@@ -395,6 +398,9 @@ function buildIdpAuth(config: IdpAuthConfig) {
     secret: config.secret,
     database: { db, type: "sqlite" },
     advanced: { cookiePrefix: config.cookiePrefix },
+    session: {
+      cookieCache: { enabled: true, maxAge: 5 * 60 },
+    },
     user: {
       additionalFields: {
         isAdmin: { type: "boolean", required: false, input: false },

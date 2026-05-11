@@ -1,12 +1,11 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { ArrowRight, ListChecks, LogOut, Plus, Settings2, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Form, Link } from "react-router";
+import { Link, useFetcher } from "react-router";
 import { PageShell } from "~/components/page-shell";
 import { StatusBadge } from "~/components/status-badge";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -17,6 +16,7 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { SubmitButton } from "~/components/ui/submit-button";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { getAuth } from "~/lib/auth.server";
 import { listMembershipsForUser } from "~/lib/db";
@@ -25,16 +25,22 @@ import type { Route } from "./+types/dashboard";
 
 export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
-  const t = await i18n.getFixedT(args.request);
-  let user: AuthUser;
-  try {
-    user = await getAuth(env).requireUser(args.request);
-  } catch (err) {
-    if (err instanceof Response && err.status === 401) {
+  const [t, userResult] = await Promise.all([
+    i18n.getFixedT(args.request),
+    getAuth(env)
+      .requireUser(args.request)
+      .then(
+        (u) => ({ ok: true as const, user: u }),
+        (err: unknown) => ({ ok: false as const, err }),
+      ),
+  ]);
+  if (!userResult.ok) {
+    if (userResult.err instanceof Response && userResult.err.status === 401) {
       throw buildSignInRedirect(args.request);
     }
-    throw err;
+    throw userResult.err;
   }
+  const user: AuthUser = userResult.user;
   const memberships = await listMembershipsForUser(env.DB, user.id);
   return { user, memberships, title: t("meta.dashboard") };
 }
@@ -75,8 +81,8 @@ function MembershipsSection({
         </Button>
       </div>
       <ul className="space-y-3">
-        {memberships.map((m) => (
-          <MembershipRow key={`${m.userId}-${m.chapterId}`} membership={m} />
+        {memberships.map((m, i) => (
+          <MembershipRow key={`${m.userId}-${m.chapterId}`} membership={m} index={i} />
         ))}
       </ul>
     </div>
@@ -85,8 +91,14 @@ function MembershipsSection({
 
 function MembershipRow({
   membership,
-}: { membership: Route.ComponentProps["loaderData"]["memberships"][number] }) {
+  index,
+}: {
+  membership: Route.ComponentProps["loaderData"]["memberships"][number];
+  index: number;
+}) {
   const { t } = useTranslation();
+  const fetcher = useFetcher();
+  const isLeaving = fetcher.state !== "idle" && fetcher.formData?.get("intent") === "leave";
   const isPending = membership.status === "pending";
   const isOrganizer = membership.role === "organizer";
   const status = isPending ? "pending" : isOrganizer ? "organizer" : "member";
@@ -100,8 +112,13 @@ function MembershipRow({
     : isOrganizer
       ? t("dashboard.active.organizerDesc")
       : t("dashboard.active.memberDesc");
+  const animationDelay = `${Math.min(index, 9) * 30}ms`;
+  const exitCls = isLeaving ? "animate-out fade-out-0 zoom-out-95 duration-200" : "";
   return (
-    <li>
+    <li
+      className={`animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ${exitCls}`}
+      style={{ animationDelay, animationFillMode: "both" }}
+    >
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -128,6 +145,8 @@ function MembershipRow({
             chapterId={membership.chapterId}
             chapterName={membership.chapter.name}
             isOrganizer={isOrganizer && !isPending}
+            fetcher={fetcher}
+            isLeaving={isLeaving}
           />
         </CardContent>
       </Card>
@@ -139,10 +158,14 @@ function LeaveDialog({
   chapterId,
   chapterName,
   isOrganizer,
+  fetcher,
+  isLeaving,
 }: {
   chapterId: number;
   chapterName: string;
   isOrganizer: boolean;
+  fetcher: ReturnType<typeof useFetcher>;
+  isLeaving: boolean;
 }) {
   const { t } = useTranslation();
   // Organizers should resign role before leaving; we still allow the dialog so
@@ -163,11 +186,17 @@ function LeaveDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{t("chapters.leaveDialog.cancel")}</AlertDialogCancel>
-          <Form method="post" action="/chapters">
+          <fetcher.Form method="post" action="/chapters">
             <input type="hidden" name="intent" value="leave" />
             <input type="hidden" name="chapterId" value={chapterId} />
-            <AlertDialogAction type="submit">{t("chapters.leaveDialog.confirm")}</AlertDialogAction>
-          </Form>
+            <SubmitButton
+              variant="destructive"
+              pending={isLeaving}
+              pendingLabel={t("common.loading")}
+            >
+              {t("chapters.leaveDialog.confirm")}
+            </SubmitButton>
+          </fetcher.Form>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { LocaleSwitcher } from "~/components/locale-switcher";
 import { ThemeToggle } from "~/components/theme-toggle";
-import { Button } from "~/components/ui/button";
+import { SubmitButton } from "~/components/ui/submit-button";
 import { authClient } from "~/lib/auth-client";
 import { safeReturnTo } from "~/lib/auth-redirect";
 import { i18n } from "~/lib/i18n/i18n.server";
@@ -52,9 +53,15 @@ export default function SignInPage() {
   const { t } = useTranslation();
   const [params] = useSearchParams();
   const returnTo = safeReturnTo(params.get("return_to")) ?? "/dashboard";
+  const [pending, setPending] = useState(false);
 
-  function signIn() {
-    void authClient.signIn.social({ provider: "google", callbackURL: returnTo });
+  async function signIn() {
+    setPending(true);
+    try {
+      await authClient.signIn.social({ provider: "google", callbackURL: returnTo });
+    } catch {
+      setPending(false);
+    }
   }
 
   return (
@@ -77,10 +84,20 @@ export default function SignInPage() {
             <h1 className="text-2xl font-medium tracking-tight">{t("auth.signin.title")}</h1>
             <p className="text-sm text-muted-foreground">{t("auth.signin.subtitle")}</p>
           </div>
-          <Button onClick={signIn} className="w-full" size="lg" variant="outline">
-            <GoogleGlyph />
-            {t("auth.signin.continueWithGoogle")}
-          </Button>
+          <SubmitButton
+            type="button"
+            onClick={signIn}
+            className="w-full"
+            size="lg"
+            variant="outline"
+            pending={pending}
+            pendingLabel={t("common.loading")}
+          >
+            {pending ? null : <GoogleGlyph />}
+            {pending
+              ? t("auth.signin.continueWithGooglePending")
+              : t("auth.signin.continueWithGoogle")}
+          </SubmitButton>
           <p className="text-center text-xs text-muted-foreground">{t("app.name")}</p>
         </div>
       </main>
