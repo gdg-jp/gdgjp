@@ -62,6 +62,15 @@ export async function listLinksForUser(db: D1Database, userId: string): Promise<
   return results.map(toLink);
 }
 
+export async function listPublicLinks(db: D1Database): Promise<Link[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${LINK_COLS} FROM links WHERE visibility = 'public' AND deleted_at IS NULL ORDER BY created_at DESC`,
+    )
+    .all<LinkRow>();
+  return results.map(toLink);
+}
+
 export async function getLinkBySlug(db: D1Database, slug: string): Promise<Link | null> {
   const row = await db
     .prepare(`SELECT ${LINK_COLS} FROM links WHERE slug = ? AND deleted_at IS NULL`)
