@@ -10,6 +10,7 @@ type AeResponse = {
 
 const DATASET = "tinyurl_clicks";
 const CACHE_TTL_MS = 60_000;
+const QUERY_TIMEOUT_MS = 15_000;
 
 type CacheEntry = { at: number; rows: AeRow[] };
 const cache = new Map<string, CacheEntry>();
@@ -59,14 +60,27 @@ export async function aeQuery(env: AeEnv, sql: string): Promise<AeRow[]> {
   }
 
   const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.CF_AE_API_TOKEN}`,
-      "Content-Type": "text/plain",
-    },
-    body: sql,
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), QUERY_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.CF_AE_API_TOKEN}`,
+        "Content-Type": "text/plain",
+      },
+      body: sql,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new Error(`Analytics Engine query timed out after ${QUERY_TIMEOUT_MS}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     throw new Error(`Analytics Engine query failed (${response.status}): ${text}`);
@@ -110,6 +124,10 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function isoDateOrThrow(value: string, name: string): string {
   if (!ISO_DATE_RE.test(value)) {
+    throw new Error(`${name} must be YYYY-MM-DD (got ${value})`);
+  }
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
     throw new Error(`${name} must be YYYY-MM-DD (got ${value})`);
   }
   return value;

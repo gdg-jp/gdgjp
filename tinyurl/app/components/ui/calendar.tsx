@@ -101,6 +101,9 @@ function MonthView({
         <button
           type="button"
           aria-label="Previous month"
+          aria-hidden={!showPrev}
+          tabIndex={showPrev ? 0 : -1}
+          disabled={!showPrev}
           onClick={onPrev}
           className={cn(
             "inline-flex size-7 items-center justify-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground",
@@ -115,6 +118,9 @@ function MonthView({
         <button
           type="button"
           aria-label="Next month"
+          aria-hidden={!showNext}
+          tabIndex={showNext ? 0 : -1}
+          disabled={!showNext}
           onClick={onNext}
           className={cn(
             "inline-flex size-7 items-center justify-center rounded-md border text-muted-foreground transition hover:bg-accent hover:text-foreground",

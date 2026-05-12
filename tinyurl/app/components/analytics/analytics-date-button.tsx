@@ -1,6 +1,6 @@
 import { CalendarRange, ChevronDown, ChevronUp } from "lucide-react";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useNavigation, useSearchParams } from "react-router";
 import { Calendar, type DateRange, fromIsoDate, toIsoDate } from "~/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
@@ -66,6 +66,10 @@ export function AnalyticsDateButton({ preset, startIso, endIso }: Props) {
   }, [preset, startIso, endIso]);
 
   const [range, setRange] = useState<DateRange | null>(initialRange);
+
+  useEffect(() => {
+    setRange(initialRange);
+  }, [initialRange]);
 
   const label =
     display.preset === "custom" && display.startIso && display.endIso
