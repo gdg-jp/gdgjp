@@ -15,7 +15,6 @@ import {
 import { getOptionalUser } from "~/lib/auth-redirect.server";
 import {
   type Participant,
-  type Slot,
   createParticipant,
   findParticipantByUser,
   getEventBundle,
@@ -28,11 +27,10 @@ import {
   serializeCookie,
   verify,
 } from "~/lib/participant-cookie";
+import { DAY_LABELS } from "~/lib/slots";
 import { cn } from "~/lib/utils";
 import { parseSlotIds } from "~/lib/validate";
 import type { Route } from "./+types/e.$id";
-
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export function meta({ data }: Route.MetaArgs) {
   return [{ title: data?.event ? `${data.event.title} — mtg` : "mtg" }];
@@ -148,8 +146,10 @@ export async function action(args: Route.ActionArgs) {
   throw new Response("Unknown intent", { status: 400 });
 }
 
-function slotLabel(s: Slot): string {
-  return `${DAY_LABELS[s.dayOfWeek]} ${s.startTime}`;
+function formatLength(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = minutes / 60;
+  return hours === 1 ? "1 hour" : `${hours} hours`;
 }
 
 export default function EventPage() {
@@ -165,6 +165,11 @@ export default function EventPage() {
     currentParticipantName,
     ownSlotIds,
   } = data;
+
+  const slotByDayTime = new Map<string, (typeof slots)[number]>();
+  for (const s of slots) slotByDayTime.set(`${s.dayOfWeek}-${s.startTime}`, s);
+  const usedDays = [...new Set(slots.map((s) => s.dayOfWeek))].sort((a, b) => a - b);
+  const allTimes = [...new Set(slots.map((s) => s.startTime))].sort();
 
   const availByParticipant = new Map<number, Set<number>>();
   for (const a of availabilities) {
@@ -196,6 +201,9 @@ export default function EventPage() {
                   {event.description}
                 </p>
               ) : null}
+              <p className="mt-2 text-xs text-muted-foreground">
+                Each meeting is {formatLength(event.slotMinutes)}.
+              </p>
             </div>
             {isOwner ? (
               <Form
@@ -215,54 +223,16 @@ export default function EventPage() {
           <ShareUrl path={`/e/${event.id}`} />
         </div>
 
-        {participants.length === 0 ? (
-          <p className="mb-6 text-sm text-muted-foreground">No participants yet.</p>
-        ) : (
-          <div className="mb-8 rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Slot</TableHead>
-                  {participants.map((p) => (
-                    <TableHead key={p.id} className="text-center">
-                      {p.displayName}
-                    </TableHead>
-                  ))}
-                  <TableHead className="text-center">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {slots.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-medium">{slotLabel(s)}</TableCell>
-                    {participants.map((p) => {
-                      const has = availByParticipant.get(p.id)?.has(s.id) ?? false;
-                      return (
-                        <TableCell key={p.id} className="text-center">
-                          {has ? <Check className="mx-auto size-4 text-primary" /> : null}
-                        </TableCell>
-                      );
-                    })}
-                    <TableCell className="text-center text-muted-foreground">
-                      {totals.get(s.id) ?? 0}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-
-        <section className="rounded-md border p-4">
-          <h2 className="mb-3 text-lg font-semibold">
-            {currentParticipantId ? "Update your availability" : "Join this event"}
+        <section className="mb-8 rounded-md border p-4">
+          <h2 className="text-lg font-semibold">
+            {currentParticipantId ? "Update your availability" : "Pick the times that work"}
           </h2>
           {currentParticipantName ? (
-            <p className="mb-3 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-muted-foreground">
               Participating as <span className="font-medium">{currentParticipantName}</span>
             </p>
           ) : null}
-          <Form method="post" className="flex flex-col gap-4">
+          <Form method="post" className="mt-4 flex flex-col gap-4">
             <input type="hidden" name="intent" value={currentParticipantId ? "update" : "join"} />
             {!currentParticipantId && !user ? (
               <div className="flex flex-col gap-2">
@@ -276,35 +246,132 @@ export default function EventPage() {
                 />
               </div>
             ) : null}
-            <div className="flex flex-col gap-2">
-              <Label>Available slots</Label>
-              <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                {slots.map((s) => (
-                  <li key={s.id}>
-                    <label
-                      className={cn(
-                        "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm",
-                        "hover:bg-muted/50",
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        name="slot_id"
-                        value={s.id}
-                        defaultChecked={ownSet.has(s.id)}
-                      />
-                      {slotLabel(s)}
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <SlotPillGrid
+              usedDays={usedDays}
+              allTimes={allTimes}
+              slotByDayTime={slotByDayTime}
+              ownSet={ownSet}
+              totals={totals}
+              totalParticipants={participants.length}
+            />
             <div>
               <Button type="submit">{currentParticipantId ? "Update" : "Join"}</Button>
             </div>
           </Form>
         </section>
+
+        {participants.length > 0 ? (
+          <section>
+            <h2 className="mb-2 text-sm font-medium text-muted-foreground">Who's available</h2>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Slot</TableHead>
+                    {participants.map((p) => (
+                      <TableHead key={p.id} className="text-center">
+                        {p.displayName}
+                      </TableHead>
+                    ))}
+                    <TableHead className="text-center">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {slots.map((s) => (
+                    <TableRow key={s.id}>
+                      <TableCell className="font-medium">
+                        {DAY_LABELS[s.dayOfWeek]} {s.startTime}
+                      </TableCell>
+                      {participants.map((p) => {
+                        const has = availByParticipant.get(p.id)?.has(s.id) ?? false;
+                        return (
+                          <TableCell key={p.id} className="text-center">
+                            {has ? <Check className="mx-auto size-4 text-primary" /> : null}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-center text-muted-foreground">
+                        {totals.get(s.id) ?? 0}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </section>
+        ) : null}
       </main>
+    </div>
+  );
+}
+
+function SlotPillGrid({
+  usedDays,
+  allTimes,
+  slotByDayTime,
+  ownSet,
+  totals,
+  totalParticipants,
+}: {
+  usedDays: number[];
+  allTimes: string[];
+  slotByDayTime: Map<string, { id: number; dayOfWeek: number; startTime: string }>;
+  ownSet: Set<number>;
+  totals: Map<number, number>;
+  totalParticipants: number;
+}) {
+  return (
+    <div
+      className="grid gap-2"
+      style={{ gridTemplateColumns: `repeat(${usedDays.length}, minmax(0, 1fr))` }}
+    >
+      {usedDays.map((d) => (
+        <div
+          key={`head-${d}`}
+          className="pb-1 text-center text-xs font-medium text-muted-foreground"
+        >
+          {DAY_LABELS[d]}
+        </div>
+      ))}
+      {allTimes.map((time) =>
+        usedDays.map((d) => {
+          const slot = slotByDayTime.get(`${d}-${time}`);
+          const key = `${d}-${time}`;
+          if (!slot) {
+            return (
+              <div key={key} aria-hidden className="text-center text-sm text-muted-foreground/40">
+                —
+              </div>
+            );
+          }
+          const count = totals.get(slot.id) ?? 0;
+          return (
+            <label key={key} className="block cursor-pointer">
+              <input
+                type="checkbox"
+                name="slot_id"
+                value={slot.id}
+                defaultChecked={ownSet.has(slot.id)}
+                className="peer sr-only"
+              />
+              <span
+                className={cn(
+                  "flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm",
+                  "border-primary/30 text-primary transition-colors",
+                  "hover:bg-primary/5",
+                  "peer-checked:bg-primary peer-checked:text-primary-foreground peer-checked:border-primary",
+                  "peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50",
+                )}
+              >
+                {time}
+                {totalParticipants > 0 && count > 0 ? (
+                  <span className="text-xs opacity-70">·{count}</span>
+                ) : null}
+              </span>
+            </label>
+          );
+        }),
+      )}
     </div>
   );
 }

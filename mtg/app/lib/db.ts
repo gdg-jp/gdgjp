@@ -5,6 +5,7 @@ export type Event = {
   id: string;
   title: string;
   description: string | null;
+  slotMinutes: number;
   ownerUserId: string | null;
   createdAt: number;
   updatedAt: number;
@@ -34,6 +35,7 @@ type EventRow = {
   id: string;
   title: string;
   description: string | null;
+  slot_minutes: number;
   owner_user_id: string | null;
   created_at: number;
   updated_at: number;
@@ -51,7 +53,8 @@ type ParticipantRow = {
 };
 type AvailabilityRow = { participant_id: number; slot_id: number };
 
-const EVENT_COLS = "id, title, description, owner_user_id, created_at, updated_at, deleted_at";
+const EVENT_COLS =
+  "id, title, description, slot_minutes, owner_user_id, created_at, updated_at, deleted_at";
 const SLOT_COLS = "id, event_id, day_of_week, start_time";
 const PARTICIPANT_COLS =
   "id, event_id, user_id, display_name, edit_token_hash, created_at, updated_at";
@@ -61,6 +64,7 @@ export function toEvent(r: EventRow): Event {
     id: r.id,
     title: r.title,
     description: r.description,
+    slotMinutes: r.slot_minutes,
     ownerUserId: r.owner_user_id,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -85,6 +89,7 @@ function toParticipant(r: ParticipantRow): Participant {
 export type CreateEventInput = {
   title: string;
   description: string | null;
+  slotMinutes: number;
   ownerUserId: string | null;
   slots: { dayOfWeek: number; startTime: string }[];
 };
@@ -96,9 +101,10 @@ export async function createEventWithSlots(
   const id = newEventId();
   const eventRow = await db
     .prepare(
-      `INSERT INTO events (id, title, description, owner_user_id) VALUES (?, ?, ?, ?) RETURNING ${EVENT_COLS}`,
+      `INSERT INTO events (id, title, description, slot_minutes, owner_user_id)
+       VALUES (?, ?, ?, ?, ?) RETURNING ${EVENT_COLS}`,
     )
-    .bind(id, input.title, input.description, input.ownerUserId)
+    .bind(id, input.title, input.description, input.slotMinutes, input.ownerUserId)
     .first<EventRow>();
   if (!eventRow) throw new Error("Event insert returned no row");
 
@@ -127,7 +133,7 @@ export async function listEventsForUser(
 ): Promise<{ event: Event; slotCount: number; participantCount: number }[]> {
   const { results } = await db
     .prepare(
-      `SELECT e.id, e.title, e.description, e.owner_user_id, e.created_at, e.updated_at, e.deleted_at,
+      `SELECT e.id, e.title, e.description, e.slot_minutes, e.owner_user_id, e.created_at, e.updated_at, e.deleted_at,
               (SELECT COUNT(*) FROM event_slots s WHERE s.event_id = e.id) AS slot_count,
               (SELECT COUNT(*) FROM event_participants p WHERE p.event_id = e.id) AS participant_count
        FROM events e

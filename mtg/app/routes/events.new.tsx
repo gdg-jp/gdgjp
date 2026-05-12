@@ -19,6 +19,7 @@ export async function action(args: Route.ActionArgs) {
   const { event } = await createEventWithSlots(env.DB, {
     title: parsed.value.title,
     description: parsed.value.description,
+    slotMinutes: parsed.value.slotMinutes,
     ownerUserId: user?.id ?? null,
     slots: parsed.value.slots,
   });

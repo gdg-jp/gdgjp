@@ -1,6 +1,6 @@
 import { Form, useNavigation } from "react-router";
 import { Header } from "~/components/header";
-import { SlotsEditor } from "~/components/slots-editor";
+import { ScheduleEditor } from "~/components/schedule-editor";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -37,10 +37,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight">Schedule a meeting</h1>
           <p className="text-sm text-muted-foreground">
-            Add candidate days and times. Share the URL — participants pick what works.
+            Set when meetings could happen and how long they should be. Share the URL — participants
+            pick the times that work.
           </p>
         </div>
-        <Form method="post" action="/events/new" className="flex flex-col gap-5">
+        <Form method="post" action="/events/new" className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
             <Label htmlFor="title">Title</Label>
             <Input id="title" name="title" required maxLength={200} placeholder="Team sync" />
@@ -54,10 +55,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               placeholder="Anything participants should know."
             />
           </div>
-          <div className="flex flex-col gap-2">
-            <Label>Candidate slots</Label>
-            <SlotsEditor />
-          </div>
+          <ScheduleEditor />
           <div>
             <Button type="submit" disabled={submitting}>
               {submitting ? "Creating…" : "Create event"}

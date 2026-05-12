@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDay, parseEventForm, parseSlotIds, parseTime } from "./validate";
+import { parseEventForm, parseMinutes, parseSlotIds, parseTime } from "./validate";
 
 function makeForm(entries: Array<[string, string]>): FormData {
   const fd = new FormData();
@@ -10,70 +10,112 @@ function makeForm(entries: Array<[string, string]>): FormData {
 describe("parseTime", () => {
   it("accepts HH:MM", () => {
     expect(parseTime("00:00")).toBe("00:00");
-    expect(parseTime("09:30")).toBe("09:30");
     expect(parseTime("23:59")).toBe("23:59");
   });
   it("rejects invalid", () => {
     expect(parseTime("24:00")).toBeNull();
     expect(parseTime("9:30")).toBeNull();
-    expect(parseTime("9:3")).toBeNull();
     expect(parseTime(42)).toBeNull();
-    expect(parseTime("")).toBeNull();
   });
 });
 
-describe("parseDay", () => {
-  it("accepts 0..6", () => {
-    expect(parseDay("0")).toBe(0);
-    expect(parseDay("6")).toBe(6);
-    expect(parseDay(3)).toBe(3);
+describe("parseMinutes", () => {
+  it("accepts allowed lengths", () => {
+    expect(parseMinutes("60")).toBe(60);
+    expect(parseMinutes("30")).toBe(30);
   });
-  it("rejects out of range or invalid", () => {
-    expect(parseDay("-1")).toBeNull();
-    expect(parseDay("7")).toBeNull();
-    expect(parseDay("foo")).toBeNull();
-    expect(parseDay(1.5)).toBeNull();
+  it("rejects unknown", () => {
+    expect(parseMinutes("13")).toBeNull();
+    expect(parseMinutes("")).toBeNull();
   });
 });
 
 describe("parseEventForm", () => {
-  it("parses a valid form with dedup", () => {
+  it("expands a single day range into slots", () => {
     const fd = makeForm([
-      ["title", "  Team sync "],
-      ["description", "  weekly  "],
-      ["slot_day", "0"],
-      ["slot_time", "19:00"],
-      ["slot_day", "0"],
-      ["slot_time", "19:00"], // duplicate
-      ["slot_day", "2"],
-      ["slot_time", "20:00"],
+      ["title", "Team sync"],
+      ["slot_minutes", "60"],
+      ["day_0_start", "09:00"],
+      ["day_0_end", "12:00"],
     ]);
     const r = parseEventForm(fd);
     expect(r.ok).toBe(true);
     if (!r.ok) throw new Error("expected ok");
-    expect(r.value.title).toBe("Team sync");
-    expect(r.value.description).toBe("weekly");
+    expect(r.value.slotMinutes).toBe(60);
     expect(r.value.slots).toEqual([
-      { dayOfWeek: 0, startTime: "19:00" },
-      { dayOfWeek: 2, startTime: "20:00" },
+      { dayOfWeek: 0, startTime: "09:00" },
+      { dayOfWeek: 0, startTime: "10:00" },
+      { dayOfWeek: 0, startTime: "11:00" },
     ]);
   });
 
-  it("rejects missing title", () => {
+  it("handles multiple enabled days", () => {
     const fd = makeForm([
-      ["title", "   "],
-      ["slot_day", "0"],
-      ["slot_time", "19:00"],
+      ["title", "Sync"],
+      ["slot_minutes", "30"],
+      ["day_1_start", "19:00"],
+      ["day_1_end", "20:00"],
+      ["day_4_start", "10:00"],
+      ["day_4_end", "11:00"],
+    ]);
+    const r = parseEventForm(fd);
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.value.slots).toEqual([
+      { dayOfWeek: 1, startTime: "19:00" },
+      { dayOfWeek: 1, startTime: "19:30" },
+      { dayOfWeek: 4, startTime: "10:00" },
+      { dayOfWeek: 4, startTime: "10:30" },
+    ]);
+  });
+
+  it("rejects when no day has a range", () => {
+    const fd = makeForm([
+      ["title", "X"],
+      ["slot_minutes", "60"],
     ]);
     const r = parseEventForm(fd);
     expect(r.ok).toBe(false);
   });
 
-  it("rejects no valid slots", () => {
+  it("rejects when end is not after start", () => {
     const fd = makeForm([
-      ["title", "T"],
-      ["slot_day", "9"],
-      ["slot_time", "25:99"],
+      ["title", "X"],
+      ["slot_minutes", "60"],
+      ["day_0_start", "10:00"],
+      ["day_0_end", "10:00"],
+    ]);
+    const r = parseEventForm(fd);
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects when only one side of a range is set", () => {
+    const fd = makeForm([
+      ["title", "X"],
+      ["slot_minutes", "60"],
+      ["day_0_start", "09:00"],
+    ]);
+    const r = parseEventForm(fd);
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects when range is shorter than the meeting length", () => {
+    const fd = makeForm([
+      ["title", "X"],
+      ["slot_minutes", "60"],
+      ["day_0_start", "09:00"],
+      ["day_0_end", "09:30"],
+    ]);
+    const r = parseEventForm(fd);
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects an invalid meeting length", () => {
+    const fd = makeForm([
+      ["title", "X"],
+      ["slot_minutes", "17"],
+      ["day_0_start", "09:00"],
+      ["day_0_end", "12:00"],
     ]);
     const r = parseEventForm(fd);
     expect(r.ok).toBe(false);

@@ -7,6 +7,7 @@ describe("toEvent", () => {
       id: "evt_01ARZ3NDEKTSV4RRFFQ69G5FAV",
       title: "Sync",
       description: "weekly",
+      slot_minutes: 60,
       owner_user_id: "user_abc",
       created_at: 1700000000,
       updated_at: 1700001000,
@@ -16,6 +17,7 @@ describe("toEvent", () => {
       id: "evt_01ARZ3NDEKTSV4RRFFQ69G5FAV",
       title: "Sync",
       description: "weekly",
+      slotMinutes: 60,
       ownerUserId: "user_abc",
       createdAt: 1700000000,
       updatedAt: 1700001000,
@@ -28,6 +30,7 @@ describe("toEvent", () => {
       id: "evt_x",
       title: "t",
       description: null,
+      slot_minutes: 30,
       owner_user_id: null,
       created_at: 1,
       updated_at: 1,
@@ -35,5 +38,6 @@ describe("toEvent", () => {
     });
     expect(event.description).toBeNull();
     expect(event.ownerUserId).toBeNull();
+    expect(event.slotMinutes).toBe(30);
   });
 });
