@@ -26,6 +26,7 @@ jobs:
           - accounts
           - tinyurl
           - img
+          - mtg
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
