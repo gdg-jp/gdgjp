@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   DAY_LABELS,
+  type DayRange,
   MEETING_LENGTH_OPTIONS,
   generateSlotTimes,
   isValidTime,
@@ -8,17 +9,25 @@ import {
 } from "~/lib/slots";
 import { cn } from "~/lib/utils";
 
-type DayState = { enabled: boolean; start: string; end: string };
+type DayState = DayRange;
 
-const INITIAL_DAYS: DayState[] = Array.from({ length: 7 }, (_, i) => ({
+const DEFAULT_DAYS: DayState[] = Array.from({ length: 7 }, (_, i) => ({
   enabled: i < 5,
   start: "19:00",
   end: "22:00",
 }));
 
-export function ScheduleEditor() {
-  const [minutes, setMinutes] = useState(60);
-  const [days, setDays] = useState<DayState[]>(INITIAL_DAYS);
+export type ScheduleEditorProps = {
+  initialMinutes?: number;
+  initialDays?: DayState[];
+};
+
+export function ScheduleEditor({
+  initialMinutes = 60,
+  initialDays = DEFAULT_DAYS,
+}: ScheduleEditorProps) {
+  const [minutes, setMinutes] = useState(initialMinutes);
+  const [days, setDays] = useState<DayState[]>(initialDays);
 
   const generated = useMemo(() => generateAll(days, minutes), [days, minutes]);
 

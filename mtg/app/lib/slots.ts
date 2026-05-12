@@ -36,3 +36,31 @@ export function generateSlotTimes(start: string, end: string, lengthMin: number)
   }
   return out;
 }
+
+export type DayRange = { enabled: boolean; start: string; end: string };
+
+const DEFAULT_DAY: DayRange = { enabled: false, start: "19:00", end: "22:00" };
+
+// Builds 7 day ranges (Mon..Sun) by taking the min start time and max end time
+// (= last slot start + lengthMin) of existing slots per day. Non-contiguous slots
+// collapse into a single enclosing range — re-saving such an event widens the
+// schedule, which is documented in the edit page.
+export function deriveDayRanges(
+  slots: { dayOfWeek: number; startTime: string }[],
+  lengthMin: number,
+): DayRange[] {
+  const out: DayRange[] = Array.from({ length: 7 }, () => ({ ...DEFAULT_DAY }));
+  for (let day = 0; day < 7; day++) {
+    const times = slots
+      .filter((s) => s.dayOfWeek === day)
+      .map((s) => s.startTime)
+      .sort();
+    if (times.length === 0) continue;
+    out[day] = {
+      enabled: true,
+      start: times[0],
+      end: minutesToTime(timeToMinutes(times[times.length - 1]) + lengthMin),
+    };
+  }
+  return out;
+}

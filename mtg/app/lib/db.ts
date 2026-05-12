@@ -149,6 +149,97 @@ export async function listEventsForUser(
   }));
 }
 
+export type UpdateEventInput = {
+  title: string;
+  description: string | null;
+  slotMinutes: number;
+  slots: { dayOfWeek: number; startTime: string }[];
+};
+
+// Returns the updated event + slots, or null if the event is missing or not owned by `ownerUserId`.
+// Slots whose (day, time) match the new set are kept (preserving participant availabilities);
+// the rest are deleted (cascading their availabilities) and new ones are inserted.
+export async function updateEventForOwner(
+  db: D1Database,
+  id: string,
+  ownerUserId: string,
+  input: UpdateEventInput,
+): Promise<{ event: Event; slots: Slot[] } | null> {
+  const existing = await db
+    .prepare(
+      `SELECT ${EVENT_COLS} FROM events WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL`,
+    )
+    .bind(id, ownerUserId)
+    .first<EventRow>();
+  if (!existing) return null;
+
+  const existingSlots = (
+    await db
+      .prepare(`SELECT ${SLOT_COLS} FROM event_slots WHERE event_id = ?`)
+      .bind(id)
+      .all<SlotRow>()
+  ).results.map(toSlot);
+
+  const newKeys = new Set(input.slots.map((s) => `${s.dayOfWeek}-${s.startTime}`));
+  const existingKeys = new Set(existingSlots.map((s) => `${s.dayOfWeek}-${s.startTime}`));
+
+  const toDelete = existingSlots
+    .filter((s) => !newKeys.has(`${s.dayOfWeek}-${s.startTime}`))
+    .map((s) => s.id);
+  const toInsert = input.slots.filter((s) => !existingKeys.has(`${s.dayOfWeek}-${s.startTime}`));
+
+  const eventRow = await db
+    .prepare(
+      `UPDATE events
+       SET title = ?, description = ?, slot_minutes = ?, updated_at = unixepoch()
+       WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL
+       RETURNING ${EVENT_COLS}`,
+    )
+    .bind(input.title, input.description, input.slotMinutes, id, ownerUserId)
+    .first<EventRow>();
+  if (!eventRow) return null;
+
+  if (toDelete.length > 0) {
+    const placeholders = toDelete.map(() => "?").join(", ");
+    await db
+      .prepare(`DELETE FROM event_slots WHERE id IN (${placeholders})`)
+      .bind(...toDelete)
+      .run();
+  }
+  if (toInsert.length > 0) {
+    const insertStmt = db.prepare(
+      "INSERT INTO event_slots (event_id, day_of_week, start_time) VALUES (?, ?, ?)",
+    );
+    await db.batch(toInsert.map((s) => insertStmt.bind(id, s.dayOfWeek, s.startTime)));
+  }
+
+  const refreshed = (
+    await db
+      .prepare(
+        `SELECT ${SLOT_COLS} FROM event_slots WHERE event_id = ? ORDER BY day_of_week, start_time`,
+      )
+      .bind(id)
+      .all<SlotRow>()
+  ).results.map(toSlot);
+
+  return { event: toEvent(eventRow), slots: refreshed };
+}
+
+// Pure reconciliation helper exported for unit tests.
+export function reconcileSlotKeys(
+  existing: { dayOfWeek: number; startTime: string }[],
+  next: { dayOfWeek: number; startTime: string }[],
+): { keep: string[]; insert: string[]; remove: string[] } {
+  const key = (s: { dayOfWeek: number; startTime: string }) => `${s.dayOfWeek}-${s.startTime}`;
+  const existingKeys = new Set(existing.map(key));
+  const nextKeys = new Set(next.map(key));
+  return {
+    keep: [...existingKeys].filter((k) => nextKeys.has(k)),
+    insert: [...nextKeys].filter((k) => !existingKeys.has(k)),
+    remove: [...existingKeys].filter((k) => !nextKeys.has(k)),
+  };
+}
+
 export async function softDeleteEvent(
   db: D1Database,
   id: string,

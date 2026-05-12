@@ -1,5 +1,5 @@
-import { Check, Trash2 } from "lucide-react";
-import { Form, redirect, useLoaderData } from "react-router";
+import { Check, Pencil, Trash2 } from "lucide-react";
+import { Form, Link, redirect, useLoaderData } from "react-router";
 import { Header } from "~/components/header";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -206,18 +206,26 @@ export default function EventPage() {
               </p>
             </div>
             {isOwner ? (
-              <Form
-                method="post"
-                action={`/e/${event.id}/delete`}
-                onSubmit={(e) => {
-                  if (!confirm("Delete this event?")) e.preventDefault();
-                }}
-              >
-                <Button type="submit" variant="ghost" size="sm">
-                  <Trash2 className="size-4" />
-                  Delete
+              <div className="flex shrink-0 items-center gap-1">
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to={`/e/${event.id}/edit`}>
+                    <Pencil className="size-4" />
+                    Edit
+                  </Link>
                 </Button>
-              </Form>
+                <Form
+                  method="post"
+                  action={`/e/${event.id}/delete`}
+                  onSubmit={(e) => {
+                    if (!confirm("Delete this event?")) e.preventDefault();
+                  }}
+                >
+                  <Button type="submit" variant="ghost" size="sm">
+                    <Trash2 className="size-4" />
+                    Delete
+                  </Button>
+                </Form>
+              </div>
             ) : null}
           </div>
           <ShareUrl path={`/e/${event.id}`} />

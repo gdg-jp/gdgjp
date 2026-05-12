@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateSlotTimes, minutesToTime, timeToMinutes } from "./slots";
+import { deriveDayRanges, generateSlotTimes, minutesToTime, timeToMinutes } from "./slots";
 
 describe("timeToMinutes / minutesToTime", () => {
   it("round-trips", () => {
@@ -27,5 +27,41 @@ describe("generateSlotTimes", () => {
 
   it("handles exact-fit ranges", () => {
     expect(generateSlotTimes("09:00", "10:00", 60)).toEqual(["09:00"]);
+  });
+});
+
+describe("deriveDayRanges", () => {
+  it("collapses contiguous slots into a single enclosing range", () => {
+    const ranges = deriveDayRanges(
+      [
+        { dayOfWeek: 0, startTime: "19:00" },
+        { dayOfWeek: 0, startTime: "20:00" },
+        { dayOfWeek: 0, startTime: "21:00" },
+      ],
+      60,
+    );
+    expect(ranges[0]).toEqual({ enabled: true, start: "19:00", end: "22:00" });
+    for (let i = 1; i < 7; i++) expect(ranges[i].enabled).toBe(false);
+  });
+
+  it("collapses non-contiguous slots into the enclosing range", () => {
+    const ranges = deriveDayRanges(
+      [
+        { dayOfWeek: 2, startTime: "10:00" },
+        { dayOfWeek: 2, startTime: "14:00" },
+      ],
+      30,
+    );
+    expect(ranges[2]).toEqual({ enabled: true, start: "10:00", end: "14:30" });
+  });
+
+  it("leaves days with no slots disabled with defaults", () => {
+    const ranges = deriveDayRanges([], 60);
+    expect(ranges).toHaveLength(7);
+    for (const r of ranges) {
+      expect(r.enabled).toBe(false);
+      expect(r.start).toBe("19:00");
+      expect(r.end).toBe("22:00");
+    }
   });
 });
