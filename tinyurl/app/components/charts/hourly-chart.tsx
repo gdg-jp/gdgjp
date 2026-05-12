@@ -7,19 +7,34 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { HourlyPoint } from "~/lib/analytics-engine";
+import type { Granularity, HourlyPoint } from "~/lib/analytics-engine";
 
-function formatHour(value: string): string {
+function formatTick(value: string, granularity: Granularity): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
+  if (granularity === "hour") {
+    return date.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+    });
+  }
+  return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
-    hour: "2-digit",
   });
 }
 
-export function HourlyChart({ data, height = 320 }: { data: HourlyPoint[]; height?: number }) {
+export function HourlyChart({
+  data,
+  height = 320,
+  granularity = "hour",
+}: {
+  data: HourlyPoint[];
+  height?: number;
+  granularity?: Granularity;
+}) {
+  const fmt = (v: string) => formatTick(v, granularity);
   if (data.length === 0) {
     return (
       <div
@@ -42,7 +57,7 @@ export function HourlyChart({ data, height = 320 }: { data: HourlyPoint[]; heigh
         <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
         <XAxis
           dataKey="hour"
-          tickFormatter={formatHour}
+          tickFormatter={fmt}
           tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
           stroke="var(--color-border)"
           tickLine={false}
@@ -57,7 +72,7 @@ export function HourlyChart({ data, height = 320 }: { data: HourlyPoint[]; heigh
           width={32}
         />
         <Tooltip
-          labelFormatter={formatHour}
+          labelFormatter={fmt}
           cursor={{ stroke: "var(--color-border)", strokeDasharray: "3 3" }}
           contentStyle={{
             background: "var(--color-popover)",
