@@ -12,7 +12,9 @@ import { parseEventForm } from "~/lib/validate";
 import type { Route } from "./+types/e.$id.edit";
 
 export function meta({ data }: Route.MetaArgs) {
-  return [{ title: data?.event ? `Edit ${data.event.title} — mtg` : "Edit event — mtg" }];
+  return [
+    { title: data?.event ? `Edit ${data.event.title} — Scheduler` : "Edit event — Scheduler" },
+  ];
 }
 
 export async function loader(args: Route.LoaderArgs) {

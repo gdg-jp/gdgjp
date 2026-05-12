@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import { Form, useNavigation } from "react-router";
 import { Header } from "~/components/header";
 import { ScheduleEditor } from "~/components/schedule-editor";
@@ -10,7 +11,7 @@ import type { Route } from "./+types/home";
 
 export function meta() {
   return [
-    { title: "mtg — Schedule a meeting" },
+    { title: "Scheduler — Schedule a meeting" },
     {
       name: "description",
       content: "Create a meeting and let participants pick the times that work.",
@@ -33,7 +34,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   return (
     <div className="min-h-dvh">
       <Header user={loaderData.user} />
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <motion.main
+        className="mx-auto max-w-3xl px-4 py-8"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+      >
         <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight">Schedule a meeting</h1>
           <p className="text-sm text-muted-foreground">
@@ -62,7 +68,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </Button>
           </div>
         </Form>
-      </main>
+      </motion.main>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { listEventsForUser } from "~/lib/db";
 import type { Route } from "./+types/events";
 
 export function meta() {
-  return [{ title: "My events — mtg" }];
+  return [{ title: "My events — Scheduler" }];
 }
 
 export async function loader(args: Route.LoaderArgs) {

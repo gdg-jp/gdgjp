@@ -1,4 +1,5 @@
 import { Check, Pencil, Trash2 } from "lucide-react";
+import { motion } from "motion/react";
 import { Form, Link, redirect, useLoaderData } from "react-router";
 import { Header } from "~/components/header";
 import { Button } from "~/components/ui/button";
@@ -33,7 +34,7 @@ import { parseSlotIds } from "~/lib/validate";
 import type { Route } from "./+types/e.$id";
 
 export function meta({ data }: Route.MetaArgs) {
-  return [{ title: data?.event ? `${data.event.title} — mtg` : "mtg" }];
+  return [{ title: data?.event ? `${data.event.title} — Scheduler` : "Scheduler" }];
 }
 
 async function resolveCurrentParticipant(
@@ -362,7 +363,10 @@ function SlotPillGrid({
                 defaultChecked={ownSet.has(slot.id)}
                 className="peer sr-only"
               />
-              <span
+              <motion.span
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 className={cn(
                   "flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm",
                   "border-primary/30 text-primary transition-colors",
@@ -375,7 +379,7 @@ function SlotPillGrid({
                 {totalParticipants > 0 && count > 0 ? (
                   <span className="text-xs opacity-70">·{count}</span>
                 ) : null}
-              </span>
+              </motion.span>
             </label>
           );
         }),
