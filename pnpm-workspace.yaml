@@ -3,4 +3,5 @@ packages:
   - "tinyurl"
   - "wiki"
   - "img"
+  - "mtg"
   - "gdg-lib"

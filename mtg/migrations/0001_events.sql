@@ -1,0 +1,45 @@
+CREATE TABLE events (
+  id            TEXT NOT NULL PRIMARY KEY,
+  title         TEXT NOT NULL,
+  description   TEXT,
+  owner_user_id TEXT,
+  created_at    INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at    INTEGER NOT NULL DEFAULT (unixepoch()),
+  deleted_at    INTEGER
+);
+
+CREATE INDEX events_owner_user_id_idx
+  ON events (owner_user_id) WHERE owner_user_id IS NOT NULL;
+
+-- day_of_week: 0=Mon..6=Sun (ISO). start_time: "HH:MM".
+CREATE TABLE event_slots (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id    TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+  start_time  TEXT NOT NULL CHECK (length(start_time) = 5),
+  UNIQUE (event_id, day_of_week, start_time)
+);
+
+CREATE INDEX event_slots_event_id_idx ON event_slots (event_id);
+
+CREATE TABLE event_participants (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id        TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  user_id         TEXT,
+  display_name    TEXT NOT NULL,
+  edit_token_hash TEXT,
+  created_at      INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at      INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+CREATE INDEX event_participants_event_id_idx ON event_participants (event_id);
+CREATE UNIQUE INDEX event_participants_user_unique
+  ON event_participants (event_id, user_id) WHERE user_id IS NOT NULL;
+
+CREATE TABLE event_availabilities (
+  participant_id INTEGER NOT NULL REFERENCES event_participants(id) ON DELETE CASCADE,
+  slot_id        INTEGER NOT NULL REFERENCES event_slots(id) ON DELETE CASCADE,
+  PRIMARY KEY (participant_id, slot_id)
+);
+
+CREATE INDEX event_availabilities_slot_id_idx ON event_availabilities (slot_id);
