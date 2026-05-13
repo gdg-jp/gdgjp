@@ -99,19 +99,9 @@ CREATE TABLE IF NOT EXISTS "account" (
   "accessTokenExpiresAt"   TEXT,
   "refreshTokenExpiresAt"  TEXT,
   "scope"                  TEXT,
-  "password"               TEXT,
   "createdAt"              TEXT NOT NULL,
   "updatedAt"              TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS "verification" (
-  "id"         TEXT NOT NULL PRIMARY KEY,
-  "identifier" TEXT NOT NULL,
-  "value"      TEXT NOT NULL,
-  "expiresAt"  TEXT NOT NULL,
-  "createdAt"  TEXT NOT NULL,
-  "updatedAt"  TEXT NOT NULL
-);
 CREATE INDEX "session_userId_idx"          ON "session" ("userId");
 CREATE INDEX "account_userId_idx"          ON "account" ("userId");
-CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");
 CREATE INDEX idx_links_visibility ON links(visibility, deleted_at);

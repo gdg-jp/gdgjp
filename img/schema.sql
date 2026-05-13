@@ -32,21 +32,11 @@ CREATE TABLE IF NOT EXISTS "account" (
   "accessTokenExpiresAt"   TEXT,
   "refreshTokenExpiresAt"  TEXT,
   "scope"                  TEXT,
-  "password"               TEXT,
   "createdAt"              TEXT NOT NULL,
   "updatedAt"              TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS "verification" (
-  "id"         TEXT NOT NULL PRIMARY KEY,
-  "identifier" TEXT NOT NULL,
-  "value"      TEXT NOT NULL,
-  "expiresAt"  TEXT NOT NULL,
-  "createdAt"  TEXT NOT NULL,
-  "updatedAt"  TEXT NOT NULL
-);
 CREATE INDEX "session_userId_idx"          ON "session" ("userId");
 CREATE INDEX "account_userId_idx"          ON "account" ("userId");
-CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");
 CREATE TABLE images (
   id            TEXT PRIMARY KEY,
   user_id       TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
