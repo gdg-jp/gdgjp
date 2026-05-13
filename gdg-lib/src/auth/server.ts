@@ -176,6 +176,7 @@ interface AccountTokenRow {
 
 const REFRESH_LEEWAY_MS = 30_000;
 const FETCH_TIMEOUT_MS = 10_000;
+const CLAIMS_CACHE_TTL_MS = 5 * 60 * 1000;
 const inflightClaims = new Map<string, Promise<UserClaims>>();
 
 async function fetchIdTokenHint(
@@ -197,6 +198,9 @@ async function fetchUserClaims(config: AuthConfig, userId: string): Promise<User
   if (inflight) return inflight;
 
   const promise = (async () => {
+    const cached = await readCachedClaims(config, userId);
+    if (cached) return cached;
+
     const row = await config.db
       .prepare(
         `SELECT id, accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt
@@ -213,18 +217,57 @@ async function fetchUserClaims(config: AuthConfig, userId: string): Promise<User
     }
 
     const res = await fetchUserInfo(config.idp.url, accessToken);
+    let json: Record<string, unknown>;
     if (res.status === 401) {
       const refreshed = await refreshAccessToken(config, row);
       const retry = await fetchUserInfo(config.idp.url, refreshed);
       if (!retry.ok) throw new ClaimsUnavailableError("userinfo_failed");
-      return parseClaims((await retry.json()) as Record<string, unknown>);
+      json = (await retry.json()) as Record<string, unknown>;
+    } else if (!res.ok) {
+      throw new ClaimsUnavailableError("userinfo_failed");
+    } else {
+      json = (await res.json()) as Record<string, unknown>;
     }
-    if (!res.ok) throw new ClaimsUnavailableError("userinfo_failed");
-    return parseClaims((await res.json()) as Record<string, unknown>);
+    const claims = parseClaims(json);
+    await writeCachedClaims(config, userId, json);
+    return claims;
   })().finally(() => inflightClaims.delete(userId));
 
   inflightClaims.set(userId, promise);
   return promise;
+}
+
+async function readCachedClaims(config: AuthConfig, userId: string): Promise<UserClaims | null> {
+  const row = await config.db
+    .prepare("SELECT claims_json, fetched_at FROM userinfo_cache WHERE user_id = ? LIMIT 1")
+    .bind(userId)
+    .first<{ claims_json: string; fetched_at: number }>();
+  if (!row) return null;
+  if (Date.now() - row.fetched_at > CLAIMS_CACHE_TTL_MS) return null;
+  try {
+    return parseClaims(JSON.parse(row.claims_json) as Record<string, unknown>);
+  } catch {
+    return null;
+  }
+}
+
+async function writeCachedClaims(
+  config: AuthConfig,
+  userId: string,
+  json: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await config.db
+      .prepare(
+        `INSERT INTO userinfo_cache (user_id, claims_json, fetched_at) VALUES (?, ?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET claims_json = excluded.claims_json, fetched_at = excluded.fetched_at`,
+      )
+      .bind(userId, JSON.stringify(json), Date.now())
+      .run();
+  } catch (err) {
+    // Cache write failure shouldn't break the request — log and continue.
+    console.warn("auth.userinfo_cache: write failed", { userId, err });
+  }
 }
 
 async function fetchUserInfo(idpUrl: string, accessToken: string): Promise<Response> {
@@ -639,7 +682,11 @@ function buildIdpAuth(config: IdpAuthConfig) {
       oidcProvider({
         loginPage: config.loginPage ?? "/signin",
         requirePKCE: true,
-        storeClientSecret: "plain",
+        // Defense-in-depth: any dynamically registered client's secret is
+        // SHA-256 hashed at rest. Today our trustedClients come in from env
+        // and are kept in memory by better-auth, so this only matters if we
+        // ever wire up /oauth2/register. See docs/01_sso_migration/M4.md.
+        storeClientSecret: "hashed",
         trustedClients: config.trustedClients,
         scopes: config.scopes,
         getAdditionalUserInfoClaim: config.getAdditionalUserInfoClaim

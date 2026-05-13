@@ -103,3 +103,8 @@ CREATE TABLE IF NOT EXISTS "account" (
 CREATE INDEX "session_userId_idx"          ON "session" ("userId");
 CREATE INDEX "account_userId_idx"          ON "account" ("userId");
 CREATE INDEX idx_links_visibility ON links(visibility, deleted_at);
+CREATE TABLE userinfo_cache (
+  user_id     TEXT NOT NULL PRIMARY KEY REFERENCES "user"(id) ON DELETE CASCADE,
+  claims_json TEXT NOT NULL,
+  fetched_at  INTEGER NOT NULL
+);

@@ -51,3 +51,8 @@ CREATE TABLE images (
 );
 CREATE INDEX idx_images_user ON images(user_id, created_at DESC);
 CREATE INDEX idx_images_chapter ON images(chapter_id, created_at DESC);
+CREATE TABLE userinfo_cache (
+  user_id     TEXT NOT NULL PRIMARY KEY REFERENCES "user"(id) ON DELETE CASCADE,
+  claims_json TEXT NOT NULL,
+  fetched_at  INTEGER NOT NULL
+);
