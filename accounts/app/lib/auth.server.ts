@@ -69,6 +69,20 @@ function trustedClientsFromEnv(env: Env): IdpClient[] {
       skipConsent: true,
     });
   }
+  if (env.SCHEDULER_CLIENT_ID && env.SCHEDULER_CLIENT_SECRET) {
+    clients.push({
+      clientId: env.SCHEDULER_CLIENT_ID,
+      clientSecret: env.SCHEDULER_CLIENT_SECRET,
+      type: "web",
+      name: "GDG Japan Scheduler",
+      redirectUrls: env.SCHEDULER_REDIRECT_URLS.split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      metadata: null,
+      disabled: false,
+      skipConsent: true,
+    });
+  }
   return clients;
 }
 
