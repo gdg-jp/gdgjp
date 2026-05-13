@@ -35,7 +35,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     <div className="min-h-dvh">
       <Header user={loaderData.user} />
       <motion.main
-        className="mx-auto max-w-3xl px-4 py-8"
+        className="mx-auto max-w-5xl px-4 py-8"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25, ease: "easeOut" }}
@@ -48,20 +48,21 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           </p>
         </div>
         <Form method="post" action="/events/new" className="flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="title">Title</Label>
-            <Input id="title" name="title" required maxLength={200} placeholder="Team sync" />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="description">Description (optional)</Label>
-            <Textarea
-              id="description"
-              name="description"
-              maxLength={2000}
-              placeholder="Anything participants should know."
-            />
-          </div>
-          <ScheduleEditor />
+          <ScheduleEditor>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="title">Title</Label>
+              <Input id="title" name="title" required maxLength={200} placeholder="Team sync" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="description">Description (optional)</Label>
+              <Textarea
+                id="description"
+                name="description"
+                maxLength={2000}
+                placeholder="Anything participants should know."
+              />
+            </div>
+          </ScheduleEditor>
           <div>
             <Button type="submit" disabled={submitting}>
               {submitting ? "Creating…" : "Create event"}

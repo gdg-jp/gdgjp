@@ -1,5 +1,6 @@
 import { Minus, Plus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
+import { SlotPillGrid } from "~/components/slot-pill-grid";
 import { Button } from "~/components/ui/button";
 import {
   DAY_LABELS,
@@ -21,11 +22,13 @@ const DEFAULT_DAYS: DayRanges[] = Array.from({ length: 7 }, (_, i) => ({
 export type ScheduleEditorProps = {
   initialMinutes?: number;
   initialDays?: DayRanges[];
+  children?: ReactNode;
 };
 
 export function ScheduleEditor({
   initialMinutes = 60,
   initialDays = DEFAULT_DAYS,
+  children,
 }: ScheduleEditorProps) {
   const [minutes, setMinutes] = useState(initialMinutes);
   const [days, setDays] = useState<DayRanges[]>(initialDays);
@@ -33,48 +36,53 @@ export function ScheduleEditor({
   const generated = useMemo(() => generateAll(days, minutes), [days, minutes]);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <label htmlFor="slot_minutes" className="text-sm font-medium">
-          Meeting length
-        </label>
-        <select
-          id="slot_minutes"
-          name="slot_minutes"
-          value={minutes}
-          onChange={(e) => setMinutes(Number.parseInt(e.target.value, 10))}
-          className={cn(
-            "h-9 w-fit rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none",
-            "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
-          )}
-        >
-          {MEETING_LENGTH_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="flex flex-col gap-6">
+        {children}
+        <div className="flex flex-col gap-2">
+          <label htmlFor="slot_minutes" className="text-sm font-medium">
+            Meeting length
+          </label>
+          <select
+            id="slot_minutes"
+            name="slot_minutes"
+            value={minutes}
+            onChange={(e) => setMinutes(Number.parseInt(e.target.value, 10))}
+            className={cn(
+              "h-9 w-fit rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none",
+              "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            )}
+          >
+            {MEETING_LENGTH_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium">Weekly availability</p>
-        <p className="text-xs text-muted-foreground">
-          For each day, set the time ranges when meetings could happen. We'll generate the slots for
-          you.
-        </p>
-        <div className="flex flex-col divide-y divide-border/60">
-          {days.map((d, i) => (
-            <DayRow
-              key={DAY_LABELS[i]}
-              day={i}
-              state={d}
-              onChange={(next) => setDays((prev) => prev.map((row, j) => (i === j ? next : row)))}
-            />
-          ))}
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium">Weekly availability</p>
+          <p className="text-xs text-muted-foreground">
+            For each day, set the time ranges when meetings could happen. We'll generate the slots
+            for you.
+          </p>
+          <div className="flex flex-col divide-y divide-border/60">
+            {days.map((d, i) => (
+              <DayRow
+                key={DAY_LABELS[i]}
+                day={i}
+                state={d}
+                onChange={(next) => setDays((prev) => prev.map((row, j) => (i === j ? next : row)))}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
-      <PreviewGrid generated={generated} minutes={minutes} />
+      <div className="md:sticky md:top-4 md:self-start">
+        <PreviewGrid generated={generated} minutes={minutes} />
+      </div>
     </div>
   );
 }
@@ -226,7 +234,7 @@ function PreviewGrid({
   generated: { day: number; time: string }[];
   minutes: number;
 }) {
-  const enabledDays = useMemo(() => {
+  const usedDays = useMemo(() => {
     const seen = new Set(generated.map((g) => g.day));
     return [...seen].sort((a, b) => a - b);
   }, [generated]);
@@ -234,7 +242,13 @@ function PreviewGrid({
     const seen = new Set(generated.map((g) => g.time));
     return [...seen].sort();
   }, [generated]);
-  const set = useMemo(() => new Set(generated.map((g) => `${g.day}-${g.time}`)), [generated]);
+  const slotByDayTime = useMemo(() => {
+    const map = new Map<string, { dayOfWeek: number; startTime: string }>();
+    for (const g of generated) {
+      map.set(`${g.day}-${g.time}`, { dayOfWeek: g.day, startTime: g.time });
+    }
+    return map;
+  }, [generated]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -249,49 +263,16 @@ function PreviewGrid({
           Add a time range to see the slots.
         </p>
       ) : (
-        <div
-          className="grid gap-1 rounded-md border p-3 text-sm"
-          style={{ gridTemplateColumns: `4rem repeat(${enabledDays.length}, minmax(0, 1fr))` }}
-        >
-          <div />
-          {enabledDays.map((d) => (
-            <div key={d} className="text-center text-xs font-medium text-muted-foreground">
-              {DAY_LABELS[d]}
-            </div>
-          ))}
-          {allTimes.map((time) => (
-            <Row key={time} time={time} days={enabledDays} set={set} />
-          ))}
+        <div className="rounded-md border p-3">
+          <SlotPillGrid
+            mode="preview"
+            usedDays={usedDays}
+            allTimes={allTimes}
+            slotByDayTime={slotByDayTime}
+          />
         </div>
       )}
     </div>
-  );
-}
-
-function Row({
-  time,
-  days,
-  set,
-}: {
-  time: string;
-  days: number[];
-  set: Set<string>;
-}) {
-  return (
-    <>
-      <div className="text-right text-xs text-muted-foreground tabular-nums">{time}</div>
-      {days.map((d) => (
-        <div
-          key={d}
-          className={cn(
-            "rounded-sm py-0.5 text-center text-xs tabular-nums",
-            set.has(`${d}-${time}`) ? "bg-primary/10 text-primary" : "text-muted-foreground/30",
-          )}
-        >
-          {set.has(`${d}-${time}`) ? time : "—"}
-        </div>
-      ))}
-    </>
   );
 }
 

@@ -1,7 +1,7 @@
 import { Check, Pencil, Trash2 } from "lucide-react";
-import { motion } from "motion/react";
 import { Form, Link, redirect, useLoaderData } from "react-router";
 import { Header } from "~/components/header";
+import { SlotPillGrid } from "~/components/slot-pill-grid";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -29,7 +29,6 @@ import {
   verify,
 } from "~/lib/participant-cookie";
 import { DAY_LABELS } from "~/lib/slots";
-import { cn } from "~/lib/utils";
 import { parseSlotIds } from "~/lib/validate";
 import type { Route } from "./+types/e.$id";
 
@@ -256,6 +255,7 @@ export default function EventPage() {
               </div>
             ) : null}
             <SlotPillGrid
+              mode="interactive"
               usedDays={usedDays}
               allTimes={allTimes}
               slotByDayTime={slotByDayTime}
@@ -310,80 +310,6 @@ export default function EventPage() {
           </section>
         ) : null}
       </main>
-    </div>
-  );
-}
-
-function SlotPillGrid({
-  usedDays,
-  allTimes,
-  slotByDayTime,
-  ownSet,
-  totals,
-  totalParticipants,
-}: {
-  usedDays: number[];
-  allTimes: string[];
-  slotByDayTime: Map<string, { id: number; dayOfWeek: number; startTime: string }>;
-  ownSet: Set<number>;
-  totals: Map<number, number>;
-  totalParticipants: number;
-}) {
-  return (
-    <div
-      className="grid gap-2"
-      style={{ gridTemplateColumns: `repeat(${usedDays.length}, minmax(0, 1fr))` }}
-    >
-      {usedDays.map((d) => (
-        <div
-          key={`head-${d}`}
-          className="pb-1 text-center text-xs font-medium text-muted-foreground"
-        >
-          {DAY_LABELS[d]}
-        </div>
-      ))}
-      {allTimes.map((time) =>
-        usedDays.map((d) => {
-          const slot = slotByDayTime.get(`${d}-${time}`);
-          const key = `${d}-${time}`;
-          if (!slot) {
-            return (
-              <div key={key} aria-hidden className="text-center text-sm text-muted-foreground/40">
-                —
-              </div>
-            );
-          }
-          const count = totals.get(slot.id) ?? 0;
-          return (
-            <label key={key} className="block cursor-pointer">
-              <input
-                type="checkbox"
-                name="slot_id"
-                value={slot.id}
-                defaultChecked={ownSet.has(slot.id)}
-                className="peer sr-only"
-              />
-              <motion.span
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                className={cn(
-                  "flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm",
-                  "border-primary/30 text-primary transition-colors",
-                  "hover:bg-primary/5",
-                  "peer-checked:bg-primary peer-checked:text-primary-foreground peer-checked:border-primary",
-                  "peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50",
-                )}
-              >
-                {time}
-                {totalParticipants > 0 && count > 0 ? (
-                  <span className="text-xs opacity-70">·{count}</span>
-                ) : null}
-              </motion.span>
-            </label>
-          );
-        }),
-      )}
     </div>
   );
 }

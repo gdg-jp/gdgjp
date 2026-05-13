@@ -58,7 +58,7 @@ export default function EditEventPage({ loaderData }: Route.ComponentProps) {
   return (
     <div className="min-h-dvh">
       <Header user={user} />
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <main className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight">Edit event</h1>
           <Button variant="ghost" size="sm" asChild>
@@ -70,28 +70,29 @@ export default function EditEventPage({ loaderData }: Route.ComponentProps) {
           their availability records; added slots start empty.
         </p>
         <Form method="post" className="flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="title">Title</Label>
-            <Input
-              id="title"
-              name="title"
-              required
-              maxLength={200}
-              defaultValue={event.title}
-              placeholder="Team sync"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="description">Description (optional)</Label>
-            <Textarea
-              id="description"
-              name="description"
-              maxLength={2000}
-              defaultValue={event.description ?? ""}
-              placeholder="Anything participants should know."
-            />
-          </div>
-          <ScheduleEditor initialMinutes={event.slotMinutes} initialDays={initialDays} />
+          <ScheduleEditor initialMinutes={event.slotMinutes} initialDays={initialDays}>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                name="title"
+                required
+                maxLength={200}
+                defaultValue={event.title}
+                placeholder="Team sync"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="description">Description (optional)</Label>
+              <Textarea
+                id="description"
+                name="description"
+                maxLength={2000}
+                defaultValue={event.description ?? ""}
+                placeholder="Anything participants should know."
+              />
+            </div>
+          </ScheduleEditor>
           <div className="flex gap-2">
             <Button type="submit" disabled={submitting}>
               {submitting ? "Saving…" : "Save changes"}
