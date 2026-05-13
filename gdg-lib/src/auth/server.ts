@@ -109,11 +109,6 @@ function buildRpAuth(config: AuthConfig) {
     session: {
       cookieCache: { enabled: true, maxAge: 5 * 60 },
     },
-    user: {
-      additionalFields: {
-        isAdmin: { type: "boolean", required: false, input: false },
-      },
-    },
     plugins: [
       genericOAuth({
         config: [
@@ -122,14 +117,13 @@ function buildRpAuth(config: AuthConfig) {
             clientId: config.idp.clientId,
             clientSecret: config.idp.clientSecret,
             discoveryUrl: `${config.idp.url}/api/auth/.well-known/openid-configuration`,
-            scopes: ["openid", "email", "profile", "offline_access"],
+            scopes: ["openid", "email", "profile", "offline_access", "gdgjp:chapters"],
             pkce: true,
             mapProfileToUser: (profile) => ({
               email: profile.email,
               name: profile.name ?? profile.email,
               image: profile.picture ?? null,
               emailVerified: profile.email_verified === true,
-              isAdmin: profile.isAdmin === true,
             }),
           },
         ],
@@ -337,8 +331,10 @@ export interface IdpAuthConfig {
     prompt?: "none" | "select_account" | "consent" | "login" | "select_account consent";
   };
   trustedClients: IdpClient[];
+  /** Custom OAuth scope names to merge with the OIDC defaults. */
+  scopes?: string[];
   getAdditionalUserInfoClaim?: (
-    user: { id: string },
+    user: { id: string; isAdmin?: boolean | null },
     scopes: string[],
   ) => Promise<Record<string, unknown>> | Record<string, unknown>;
 }
@@ -440,11 +436,12 @@ function buildIdpAuth(config: IdpAuthConfig) {
         requirePKCE: true,
         storeClientSecret: "plain",
         trustedClients: config.trustedClients,
+        scopes: config.scopes,
         getAdditionalUserInfoClaim: config.getAdditionalUserInfoClaim
           ? async (user, scopes) => {
               const fn = config.getAdditionalUserInfoClaim;
               if (!fn) return {};
-              return fn(user, scopes);
+              return fn(user as { id: string; isAdmin?: boolean | null }, scopes);
             }
           : undefined,
       }),

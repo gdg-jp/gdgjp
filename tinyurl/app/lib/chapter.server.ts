@@ -7,6 +7,7 @@ export { ClaimsUnavailableError };
 export type UserChapters = {
   primary: UserChapter | null;
   all: UserChapter[];
+  isAdmin: boolean;
 };
 
 const CACHE_TTL_MS = 30_000;
@@ -19,7 +20,11 @@ export async function fetchChaptersForUser(env: Env, tinyurlUserId: string): Pro
   if (hit && hit.expiresAt > now) return hit.value;
 
   const claims = await getAuth(env).getFreshClaims(tinyurlUserId);
-  const value: UserChapters = { primary: claims.chapter, all: claims.chapters };
+  const value: UserChapters = {
+    primary: claims.chapter,
+    all: claims.chapters,
+    isAdmin: claims.isAdmin,
+  };
   if (cache.size >= MAX_CACHE_SIZE) {
     let oldestKey: string | undefined;
     let oldestExp = Number.POSITIVE_INFINITY;

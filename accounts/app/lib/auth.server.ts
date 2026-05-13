@@ -16,9 +16,15 @@ export function getAuth(env: Env): IdpAuthInstance {
       prompt: "select_account",
     },
     trustedClients: trustedClientsFromEnv(env),
+    scopes: ["gdgjp:chapters"],
     getAdditionalUserInfoClaim: async (user, scopes) => {
-      if (!scopes.includes("profile")) return {};
-      return getChapterClaim(env.DB, user.id);
+      // Transitional: gate on either the new app scope or the legacy `profile`
+      // scope so RPs that haven't yet been updated to request `gdgjp:chapters`
+      // keep working. Remove the `profile` fallback in a follow-up once every
+      // RP is confirmed to be requesting the new scope.
+      if (!scopes.includes("gdgjp:chapters") && !scopes.includes("profile")) return {};
+      const chapterClaim = await getChapterClaim(env.DB, user.id);
+      return { ...chapterClaim, isAdmin: user.isAdmin === true };
     },
   });
   cached = { instance, env };
