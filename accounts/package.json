@@ -11,8 +11,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "cf-typegen": "wrangler types",
-    "migrate:local": "wrangler d1 migrations apply gdgjp-accounts-db --local",
-    "migrate:remote": "wrangler d1 migrations apply gdgjp-accounts-db --remote"
+    "migrate:local": "wrangler d1 migrations apply gdgjp-accounts-db --local && pnpm schema:dump",
+    "migrate:remote": "wrangler d1 migrations apply gdgjp-accounts-db --remote && pnpm schema:dump",
+    "schema:dump": "bash ../scripts/dump-schema.sh"
   },
   "dependencies": {
     "@gdgjp/gdg-lib": "workspace:*",

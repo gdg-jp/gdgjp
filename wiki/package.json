@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "schema:dump": "bash ../scripts/dump-schema.sh"
   },
   "dependencies": {
     "@gdgjp/gdg-lib": "workspace:*",
