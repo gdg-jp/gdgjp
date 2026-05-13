@@ -1,0 +1,13 @@
+# .gtrconfig - commit this to share settings
+[copy]
+    include = **/.dev.vars
+#    exclude = **/.env
+#    includeDirs = node_modules
+    excludeDirs = node_modules/.cache
+
+# [hooks]
+#     postCreate = npm install
+
+[defaults]
+    ai = claude
+    remote = upstream
