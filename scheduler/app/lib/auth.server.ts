@@ -7,7 +7,7 @@ export function getAuth(env: Env): AuthInstance {
   const instance = initializeAuth({
     db: env.DB,
     appUrl: env.APP_URL,
-    cookiePrefix: "gdgjp-mtg",
+    cookiePrefix: "gdgjp-scheduler",
     secret: env.BETTER_AUTH_SECRET,
     idp: {
       url: env.IDP_URL,

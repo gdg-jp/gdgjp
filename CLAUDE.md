@@ -10,7 +10,7 @@ Apps and the shared lib sit at the repo root:
 - `tinyurl/` — URL shortener (`@gdgjp/tinyurl`, url.gdgs.jp), D1-backed; OAuth client of `accounts`.
 - `wiki/` — community wiki (`@gdgjp/wiki`, wiki.gdgs.jp); no Cloudflare bindings yet.
 - `img/` — image hosting (`@gdgjp/img`, img.gdgs.jp). D1 + R2 (`ORIGINALS`) + Cloudflare Images (`IMAGES`) bindings; OAuth client of `accounts`.
-- `mtg/` — meeting scheduler (`@gdgjp/mtg`, mtg.gdgs.jp). D1-backed; OAuth client of `accounts`. Anonymous users can fully use the app (create, join, edit own response); authenticated owners additionally get a cross-device "My events" list and can edit/delete events.
+- `scheduler/` — meeting scheduler (`@gdgjp/scheduler`, scheduler.gdgs.jp). D1-backed; OAuth client of `accounts`. Anonymous users can fully use the app (create, join, edit own response); authenticated owners additionally get a cross-device "My events" list and can edit/delete events.
 - `gdg-lib/` — `@gdgjp/gdg-lib` shared package, consumed via `workspace:*`. Houses the shared `better-auth` / Kysely / `kysely-d1` glue.
 
 `pnpm-workspace.yaml` lists these six directories explicitly. When adding a new app, add it there and run `pnpm install`.

@@ -3,5 +3,5 @@ packages:
   - "tinyurl"
   - "wiki"
   - "img"
-  - "mtg"
+  - "scheduler"
   - "gdg-lib"

@@ -1,7 +1,7 @@
 const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
 export function cookieName(eventId: string): string {
-  return `mtg_p_${eventId}`;
+  return `scheduler_p_${eventId}`;
 }
 
 export function randomToken(): string {

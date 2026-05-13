@@ -1,4 +1,4 @@
-name = "gdgjp-mtg"
+name = "gdgjp-scheduler"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 main = "./workers/app.ts"
@@ -7,10 +7,10 @@ main = "./workers/app.ts"
 "virtual:react-router/server-build" = "./build/server/index.js"
 
 [vars]
-APP_URL = "https://mtg.gdgs.jp"
+APP_URL = "https://scheduler.gdgs.jp"
 ACCOUNTS_URL = "https://accounts.gdgs.jp"
 IDP_URL = "https://accounts.gdgs.jp"
-IDP_CLIENT_ID = "mtg"
+IDP_CLIENT_ID = "scheduler"
 
 [assets]
 binding = "ASSETS"
@@ -18,12 +18,12 @@ directory = "./build/client"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "gdgjp-mtg-db"
+database_name = "gdgjp-scheduler-db"
 database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "./migrations"
 
 # [[routes]]
-# pattern = "mtg.gdgs.jp/*"
+# pattern = "scheduler.gdgs.jp/*"
 # zone_name = "gdgs.jp"
 
 [observability]

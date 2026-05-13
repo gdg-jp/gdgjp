@@ -10,7 +10,7 @@ import {
 
 describe("cookieName", () => {
   it("uses per-event name", () => {
-    expect(cookieName("evt_abc")).toBe("mtg_p_evt_abc");
+    expect(cookieName("evt_abc")).toBe("scheduler_p_evt_abc");
   });
 });
 
@@ -48,12 +48,12 @@ describe("verify", () => {
 describe("serializeCookie / parseFromHeader", () => {
   it("round-trips through Cookie header", () => {
     const cookie = serializeCookie("evt_x", 42, "TOK", { secure: true });
-    expect(cookie).toContain("mtg_p_evt_x=42.TOK");
+    expect(cookie).toContain("scheduler_p_evt_x=42.TOK");
     expect(cookie).toContain("HttpOnly");
     expect(cookie).toContain("Path=/e/evt_x");
     expect(cookie).toContain("Secure");
 
-    const header = "other=1; mtg_p_evt_x=42.TOK; another=2";
+    const header = "other=1; scheduler_p_evt_x=42.TOK; another=2";
     const parsed = parseFromHeader(header, "evt_x");
     expect(parsed).toEqual({ participantId: 42, token: "TOK" });
   });
@@ -66,7 +66,7 @@ describe("serializeCookie / parseFromHeader", () => {
   it("returns null for missing or malformed", () => {
     expect(parseFromHeader(null, "evt_x")).toBeNull();
     expect(parseFromHeader("", "evt_x")).toBeNull();
-    expect(parseFromHeader("mtg_p_evt_x=garbage", "evt_x")).toBeNull();
-    expect(parseFromHeader("mtg_p_evt_x=0.T", "evt_x")).toBeNull();
+    expect(parseFromHeader("scheduler_p_evt_x=garbage", "evt_x")).toBeNull();
+    expect(parseFromHeader("scheduler_p_evt_x=0.T", "evt_x")).toBeNull();
   });
 });

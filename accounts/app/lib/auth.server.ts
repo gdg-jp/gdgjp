@@ -69,13 +69,13 @@ function trustedClientsFromEnv(env: Env): IdpClient[] {
       skipConsent: true,
     });
   }
-  if (env.MTG_CLIENT_ID && env.MTG_CLIENT_SECRET) {
+  if (env.SCHEDULER_CLIENT_ID && env.SCHEDULER_CLIENT_SECRET) {
     clients.push({
-      clientId: env.MTG_CLIENT_ID,
-      clientSecret: env.MTG_CLIENT_SECRET,
+      clientId: env.SCHEDULER_CLIENT_ID,
+      clientSecret: env.SCHEDULER_CLIENT_SECRET,
       type: "web",
-      name: "GDG Japan Meeting",
-      redirectUrls: env.MTG_REDIRECT_URLS.split(",")
+      name: "GDG Japan Scheduler",
+      redirectUrls: env.SCHEDULER_REDIRECT_URLS.split(",")
         .map((s) => s.trim())
         .filter(Boolean),
       metadata: null,
