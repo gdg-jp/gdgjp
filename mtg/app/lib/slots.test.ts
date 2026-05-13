@@ -31,8 +31,8 @@ describe("generateSlotTimes", () => {
 });
 
 describe("deriveDayRanges", () => {
-  it("collapses contiguous slots into a single enclosing range", () => {
-    const ranges = deriveDayRanges(
+  it("groups contiguous slots into a single range", () => {
+    const days = deriveDayRanges(
       [
         { dayOfWeek: 0, startTime: "19:00" },
         { dayOfWeek: 0, startTime: "20:00" },
@@ -40,28 +40,32 @@ describe("deriveDayRanges", () => {
       ],
       60,
     );
-    expect(ranges[0]).toEqual({ enabled: true, start: "19:00", end: "22:00" });
-    for (let i = 1; i < 7; i++) expect(ranges[i].enabled).toBe(false);
+    expect(days[0].ranges).toEqual([{ start: "19:00", end: "22:00" }]);
+    for (let i = 1; i < 7; i++) expect(days[i].ranges).toEqual([]);
   });
 
-  it("collapses non-contiguous slots into the enclosing range", () => {
-    const ranges = deriveDayRanges(
+  it("splits non-contiguous slots into separate ranges", () => {
+    const days = deriveDayRanges(
       [
         { dayOfWeek: 2, startTime: "10:00" },
         { dayOfWeek: 2, startTime: "14:00" },
       ],
       30,
     );
-    expect(ranges[2]).toEqual({ enabled: true, start: "10:00", end: "14:30" });
+    expect(days[2].ranges).toEqual([
+      { start: "10:00", end: "10:30" },
+      { start: "14:00", end: "14:30" },
+    ]);
   });
 
-  it("leaves days with no slots disabled with defaults", () => {
-    const ranges = deriveDayRanges([], 60);
-    expect(ranges).toHaveLength(7);
-    for (const r of ranges) {
-      expect(r.enabled).toBe(false);
-      expect(r.start).toBe("19:00");
-      expect(r.end).toBe("22:00");
-    }
+  it("handles exact-fit single-slot ranges", () => {
+    const days = deriveDayRanges([{ dayOfWeek: 1, startTime: "09:00" }], 60);
+    expect(days[1].ranges).toEqual([{ start: "09:00", end: "10:00" }]);
+  });
+
+  it("leaves all days empty when there are no slots", () => {
+    const days = deriveDayRanges([], 60);
+    expect(days).toHaveLength(7);
+    for (const d of days) expect(d.ranges).toEqual([]);
   });
 });

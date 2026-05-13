@@ -43,23 +43,33 @@ export function parseEventForm(form: FormData): ParseResult<EventForm> {
   const slots: SlotInput[] = [];
   if (slotMinutes !== null) {
     for (let day = 0; day < 7; day++) {
-      const start = parseTime(form.get(`day_${day}_start`));
-      const end = parseTime(form.get(`day_${day}_end`));
-      if (!start && !end) continue;
-      if (!start || !end) {
-        errors.push(`Day ${day}: both start and end are required`);
+      const starts = form.getAll(`day_${day}_start`);
+      const ends = form.getAll(`day_${day}_end`);
+      if (starts.length !== ends.length) {
+        errors.push(`Day ${day}: malformed range data`);
         continue;
       }
-      if (timeToMinutes(end) <= timeToMinutes(start)) {
-        errors.push(`Day ${day}: end must be after start`);
-        continue;
-      }
-      if (timeToMinutes(end) - timeToMinutes(start) < slotMinutes) {
-        errors.push(`Day ${day}: range is shorter than the meeting length`);
-        continue;
-      }
-      for (const t of generateSlotTimes(start, end, slotMinutes)) {
-        slots.push({ dayOfWeek: day, startTime: t });
+      const seen = new Set<string>();
+      for (let k = 0; k < starts.length; k++) {
+        const start = parseTime(starts[k]);
+        const end = parseTime(ends[k]);
+        if (!start || !end) {
+          errors.push(`Day ${day}: range ${k + 1}: invalid time`);
+          continue;
+        }
+        if (timeToMinutes(end) <= timeToMinutes(start)) {
+          errors.push(`Day ${day}: range ${k + 1}: end must be after start`);
+          continue;
+        }
+        if (timeToMinutes(end) - timeToMinutes(start) < slotMinutes) {
+          errors.push(`Day ${day}: range ${k + 1}: shorter than the meeting length`);
+          continue;
+        }
+        for (const t of generateSlotTimes(start, end, slotMinutes)) {
+          if (seen.has(t)) continue;
+          seen.add(t);
+          slots.push({ dayOfWeek: day, startTime: t });
+        }
       }
     }
   }

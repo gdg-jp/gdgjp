@@ -37,30 +37,42 @@ export function generateSlotTimes(start: string, end: string, lengthMin: number)
   return out;
 }
 
-export type DayRange = { enabled: boolean; start: string; end: string };
+export type TimeRange = { start: string; end: string };
+export type DayRanges = { ranges: TimeRange[] };
 
-const DEFAULT_DAY: DayRange = { enabled: false, start: "19:00", end: "22:00" };
+// 00:00..23:45 in 15-minute steps. 15 min matches the smallest meeting length,
+// so every option is a valid start/end for any supported MEETING_LENGTH_OPTIONS.
+export const TIME_OPTIONS: string[] = (() => {
+  const out: string[] = [];
+  for (let m = 0; m < 24 * 60; m += 15) out.push(minutesToTime(m));
+  return out;
+})();
 
-// Builds 7 day ranges (Mon..Sun) by taking the min start time and max end time
-// (= last slot start + lengthMin) of existing slots per day. Non-contiguous slots
-// collapse into a single enclosing range — re-saving such an event widens the
-// schedule, which is documented in the edit page.
+// Groups each day's slots into contiguous ranges. Slots are contiguous when the
+// gap between consecutive starts is exactly lengthMin (no missing slot in
+// between). A range's end is the last slot's start + lengthMin.
 export function deriveDayRanges(
   slots: { dayOfWeek: number; startTime: string }[],
   lengthMin: number,
-): DayRange[] {
-  const out: DayRange[] = Array.from({ length: 7 }, () => ({ ...DEFAULT_DAY }));
+): DayRanges[] {
+  const out: DayRanges[] = Array.from({ length: 7 }, () => ({ ranges: [] }));
   for (let day = 0; day < 7; day++) {
     const times = slots
       .filter((s) => s.dayOfWeek === day)
       .map((s) => s.startTime)
       .sort();
     if (times.length === 0) continue;
-    out[day] = {
-      enabled: true,
-      start: times[0],
-      end: minutesToTime(timeToMinutes(times[times.length - 1]) + lengthMin),
-    };
+    let rangeStart = times[0];
+    let prev = timeToMinutes(times[0]);
+    for (let i = 1; i < times.length; i++) {
+      const cur = timeToMinutes(times[i]);
+      if (cur - prev > lengthMin) {
+        out[day].ranges.push({ start: rangeStart, end: minutesToTime(prev + lengthMin) });
+        rangeStart = times[i];
+      }
+      prev = cur;
+    }
+    out[day].ranges.push({ start: rangeStart, end: minutesToTime(prev + lengthMin) });
   }
   return out;
 }
