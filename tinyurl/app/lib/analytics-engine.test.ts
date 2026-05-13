@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   aeQuery,
   clearAeCache,
+  granularityFor,
   hourlyClicks,
   hourlySql,
   topByBlob,
@@ -17,14 +18,58 @@ const ID_B = "link_01ARZ3NDEKTSV4RRFFQ69G5FBW";
 const ID_C = "link_01ARZ3NDEKTSV4RRFFQ69G5FCX";
 
 describe("analytics-engine SQL", () => {
-  it("hourlySql for a single link", () => {
-    expect(hourlySql([ID_A], 7)).toMatchInlineSnapshot(`
-      "SELECT toStartOfHour(timestamp) AS hour, count() AS clicks
+  it("hourlySql for a single link defaults to rolling 7 days, hourly buckets are switched to daily over 48h", () => {
+    expect(hourlySql([ID_A])).toMatchInlineSnapshot(`
+      "SELECT toStartOfDay(timestamp) AS hour, count() AS clicks
       FROM tinyurl_clicks
-      WHERE index1 IN ('link_01ARZ3NDEKTSV4RRFFQ69G5FAV') AND timestamp > now() - INTERVAL '7' DAY
+      WHERE index1 IN ('link_01ARZ3NDEKTSV4RRFFQ69G5FAV') AND timestamp > now() - INTERVAL '168' HOUR
       GROUP BY hour
       ORDER BY hour"
     `);
+  });
+
+  it("hourlySql uses hourly buckets for short rolling windows", () => {
+    expect(hourlySql([ID_A], { window: { kind: "rolling", hours: 24 } })).toContain(
+      "toStartOfHour(timestamp)",
+    );
+    expect(hourlySql([ID_A], { window: { kind: "rolling", hours: 24 } })).toContain(
+      "INTERVAL '24' HOUR",
+    );
+  });
+
+  it("hourlySql uses weekly buckets for long rolling windows", () => {
+    expect(hourlySql([ID_A], { window: { kind: "rolling", hours: 24 * 365 } })).toContain(
+      "toStartOfWeek(timestamp)",
+    );
+  });
+
+  it("hourlySql supports toDate windows", () => {
+    expect(hourlySql([ID_A], { window: { kind: "toDate", unit: "month" } })).toContain(
+      "timestamp >= toStartOfMonth(now())",
+    );
+    expect(hourlySql([ID_A], { window: { kind: "toDate", unit: "quarter" } })).toContain(
+      "toStartOfQuarter(now())",
+    );
+    expect(hourlySql([ID_A], { window: { kind: "toDate", unit: "year" } })).toContain(
+      "toStartOfYear(now())",
+    );
+  });
+
+  it("hourlySql with all-time window drops the time clause", () => {
+    const sql = hourlySql([ID_A], { window: { kind: "all" } });
+    expect(sql).toContain("AND 1=1");
+    expect(sql).not.toContain("timestamp >");
+    expect(sql).not.toContain("INTERVAL");
+  });
+
+  it("hourlySql with custom range uses toDateTime bounds", () => {
+    expect(
+      hourlySql([ID_A], {
+        window: { kind: "custom", startIso: "2026-05-01", endIso: "2026-05-12" },
+      }),
+    ).toContain(
+      "timestamp >= toDateTime('2026-05-01 00:00:00') AND timestamp < toDateTime('2026-05-12 00:00:00') + INTERVAL '1' DAY",
+    );
   });
 
   it("hourlySql for all links", () => {
@@ -39,14 +84,26 @@ describe("analytics-engine SQL", () => {
     expect(topSql("country", [ID_A])).toMatchInlineSnapshot(`
       "SELECT blob2 AS name, count() AS clicks
       FROM tinyurl_clicks
-      WHERE index1 IN ('link_01ARZ3NDEKTSV4RRFFQ69G5FAV') AND timestamp > now() - INTERVAL '7' DAY
+      WHERE index1 IN ('link_01ARZ3NDEKTSV4RRFFQ69G5FAV') AND timestamp > now() - INTERVAL '168' HOUR
       GROUP BY name
       ORDER BY clicks DESC
       LIMIT 10"
     `);
-    expect(topSql("device", "all", 5, 30)).toContain("blob9");
-    expect(topSql("device", "all", 5, 30)).toContain("LIMIT 5");
-    expect(topSql("device", "all", 5, 30)).toContain("INTERVAL '30' DAY");
+    expect(topSql("device", "all", 5, { window: { kind: "rolling", hours: 24 * 30 } })).toContain(
+      "blob9",
+    );
+    expect(topSql("device", "all", 5)).toContain("LIMIT 5");
+    expect(topSql("device", "all", 5, { window: { kind: "rolling", hours: 24 * 30 } })).toContain(
+      "INTERVAL '720' HOUR",
+    );
+  });
+
+  it("topSql appends dimension filters", () => {
+    const sql = topSql("city", "all", 10, {
+      filters: { country: ["JP", "US"], browser: ["Chrome"] },
+    });
+    expect(sql).toContain("AND blob2 IN ('JP', 'US')");
+    expect(sql).toContain("AND blob7 IN ('Chrome')");
   });
 
   it("totalSql counts rows", () => {
@@ -57,6 +114,36 @@ describe("analytics-engine SQL", () => {
   it("rejects malformed link ids", () => {
     expect(() => hourlySql(["not-a-link-id"])).toThrow(/link id/);
     expect(() => hourlySql(["link_short"])).toThrow(/link id/);
+  });
+
+  it("rejects unsafe dimension filter values", () => {
+    expect(() => topSql("country", "all", 10, { filters: { country: ["' OR 1=1 --"] } })).toThrow(
+      /country filter value/,
+    );
+    expect(() => topSql("slug", "all", 10, { filters: { slug: ["abc; DROP TABLE"] } })).toThrow(
+      /slug filter value/,
+    );
+  });
+
+  it("rejects unsafe custom date strings", () => {
+    expect(() =>
+      hourlySql([ID_A], {
+        window: { kind: "custom", startIso: "2026-05-01'; DROP", endIso: "2026-05-12" },
+      }),
+    ).toThrow(/start/);
+  });
+});
+
+describe("granularityFor", () => {
+  it("picks hour/day/week based on range length", () => {
+    expect(granularityFor({ kind: "rolling", hours: 24 })).toBe("hour");
+    expect(granularityFor({ kind: "rolling", hours: 24 * 7 })).toBe("day");
+    expect(granularityFor({ kind: "rolling", hours: 24 * 365 })).toBe("week");
+    expect(granularityFor({ kind: "toDate", unit: "month" })).toBe("day");
+    expect(granularityFor({ kind: "all" })).toBe("week");
+    expect(granularityFor({ kind: "custom", startIso: "2026-05-01", endIso: "2026-05-12" })).toBe(
+      "day",
+    );
   });
 });
 

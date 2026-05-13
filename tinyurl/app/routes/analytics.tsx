@@ -1,22 +1,23 @@
-import {
-  CalendarRange,
-  ExternalLink,
-  Globe,
-  Laptop,
-  Link as LinkIcon,
-  SlidersHorizontal,
-  Smartphone,
-  Tablet,
-  X,
-} from "lucide-react";
+import { ExternalLink, Globe, Laptop, Link as LinkIcon, Smartphone, Tablet, X } from "lucide-react";
 import { Suspense } from "react";
 import { Await, Link } from "react-router";
+import type { FilterSuggestions } from "~/components/analytics/analytics-filter-button";
+import { AnalyticsFiltersBar } from "~/components/analytics/analytics-filters-bar";
 import { HourlyChart } from "~/components/charts/hourly-chart";
 import { type BarTab, TabbedBarCard } from "~/components/charts/tabbed-bar-card";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
-import { type TopRow, hourlyClicks, topByBlob, totalClicks } from "~/lib/analytics-engine";
+import {
+  type Granularity,
+  type QueryOpts,
+  type TopRow,
+  granularityFor,
+  hourlyClicks,
+  topByBlob,
+  totalClicks,
+} from "~/lib/analytics-engine";
+import { parseAnalyticsParams } from "~/lib/analytics-filters";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
 import {
   getLinkById,
@@ -47,6 +48,7 @@ type AnalyticsData = {
   browsers: TopRow[];
   oses: TopRow[];
   devices: TopRow[];
+  granularity: Granularity;
 };
 
 export async function loader(args: Route.LoaderArgs) {
@@ -85,6 +87,11 @@ export async function loader(args: Route.LoaderArgs) {
     ids = [...idSet];
   }
 
+  const { preset, window, filters } = parseAnalyticsParams(url.searchParams);
+  const customStart = window.kind === "custom" ? window.startIso : undefined;
+  const customEnd = window.kind === "custom" ? window.endIso : undefined;
+  const granularity = granularityFor(window);
+
   const shellUser = { email: user.email, name: user.name };
   if (ids.length === 0) {
     return {
@@ -92,6 +99,11 @@ export async function loader(args: Route.LoaderArgs) {
       hasLinks: false as const,
       focus,
       analytics: null,
+      suggestions: null,
+      preset,
+      customStart,
+      customEnd,
+      filters,
     };
   }
 
@@ -102,18 +114,20 @@ export async function loader(args: Route.LoaderArgs) {
     };
   }
 
+  const opts: QueryOpts = { window, filters };
+
   const analytics: Promise<AnalyticsData> = Promise.all([
-    hourlyClicks(env, ids).catch(aeFallback("hourly", [])),
-    totalClicks(env, ids).catch(aeFallback("total", 0)),
-    topByBlob(env, "slug", ids).catch(aeFallback("slug", [])),
-    topByBlob(env, "referer", ids).catch(aeFallback("referer", [])),
-    topByBlob(env, "country", ids).catch(aeFallback("country", [])),
-    topByBlob(env, "region", ids).catch(aeFallback("region", [])),
-    topByBlob(env, "city", ids).catch(aeFallback("city", [])),
-    topByBlob(env, "continent", ids).catch(aeFallback("continent", [])),
-    topByBlob(env, "browser", ids).catch(aeFallback("browser", [])),
-    topByBlob(env, "os", ids).catch(aeFallback("os", [])),
-    topByBlob(env, "device", ids).catch(aeFallback("device", [])),
+    hourlyClicks(env, ids, opts).catch(aeFallback("hourly", [])),
+    totalClicks(env, ids, opts).catch(aeFallback("total", 0)),
+    topByBlob(env, "slug", ids, 10, opts).catch(aeFallback("slug", [])),
+    topByBlob(env, "referer", ids, 10, opts).catch(aeFallback("referer", [])),
+    topByBlob(env, "country", ids, 10, opts).catch(aeFallback("country", [])),
+    topByBlob(env, "region", ids, 10, opts).catch(aeFallback("region", [])),
+    topByBlob(env, "city", ids, 10, opts).catch(aeFallback("city", [])),
+    topByBlob(env, "continent", ids, 10, opts).catch(aeFallback("continent", [])),
+    topByBlob(env, "browser", ids, 10, opts).catch(aeFallback("browser", [])),
+    topByBlob(env, "os", ids, 10, opts).catch(aeFallback("os", [])),
+    topByBlob(env, "device", ids, 10, opts).catch(aeFallback("device", [])),
   ]).then(
     ([
       hourly,
@@ -139,14 +153,32 @@ export async function loader(args: Route.LoaderArgs) {
       browsers,
       oses,
       devices,
+      granularity,
     }),
   );
+
+  const suggestions: Promise<FilterSuggestions> = analytics.then((d) => ({
+    slug: d.slugs.map((r) => r.name).filter((n) => n !== "(unknown)"),
+    country: d.countries.map((r) => r.name).filter((n) => n !== "(unknown)"),
+    city: d.cities.map((r) => r.name).filter((n) => n !== "(unknown)"),
+    region: d.regions.map((r) => r.name).filter((n) => n !== "(unknown)"),
+    continent: d.continents.map((r) => r.name).filter((n) => n !== "(unknown)"),
+    browser: d.browsers.map((r) => r.name).filter((n) => n !== "(unknown)"),
+    os: d.oses.map((r) => r.name).filter((n) => n !== "(unknown)"),
+    device: d.devices.map((r) => r.name).filter((n) => n !== "(unknown)"),
+    referer: d.referrers.map((r) => r.name).filter((n) => n !== "(unknown)"),
+  }));
 
   return {
     user: shellUser,
     hasLinks: true as const,
     focus,
     analytics,
+    suggestions,
+    preset,
+    customStart,
+    customEnd,
+    filters,
   };
 }
 
@@ -246,7 +278,7 @@ function AnalyticsContent({ data }: { data: AnalyticsData }) {
           <ClicksTile total={data.total} />
         </div>
         <div className="px-4 pb-4 pt-6 sm:px-6">
-          <HourlyChart data={data.hourly} />
+          <HourlyChart data={data.hourly} granularity={data.granularity} />
         </div>
       </Card>
 
@@ -309,7 +341,8 @@ function AnalyticsSkeleton() {
 }
 
 export default function Analytics({ loaderData }: Route.ComponentProps) {
-  const { user, hasLinks, focus, analytics } = loaderData;
+  const { user, hasLinks, focus, analytics, suggestions, preset, customStart, customEnd, filters } =
+    loaderData;
 
   return (
     <DashboardShell user={user}>
@@ -333,25 +366,40 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {focus ? (
+        {focus ? (
+          <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="outline" size="sm">
               <Link to="/analytics" prefetch="intent" aria-label="Clear link filter">
                 <X className="size-4" />
                 {focus.slug}
               </Link>
             </Button>
-          ) : (
-            <Button variant="outline" size="sm" disabled>
-              <SlidersHorizontal className="size-4" />
-              Filter
-            </Button>
-          )}
-          <Button variant="outline" size="sm" disabled>
-            <CalendarRange className="size-4" />
-            Last 7 days
-          </Button>
-        </div>
+          </div>
+        ) : (
+          <Suspense
+            fallback={
+              <AnalyticsFiltersBar
+                preset={preset}
+                startIso={customStart}
+                endIso={customEnd}
+                filters={filters}
+                suggestions={{}}
+              />
+            }
+          >
+            <Await resolve={suggestions ?? Promise.resolve({} as FilterSuggestions)}>
+              {(s) => (
+                <AnalyticsFiltersBar
+                  preset={preset}
+                  startIso={customStart}
+                  endIso={customEnd}
+                  filters={filters}
+                  suggestions={s ?? {}}
+                />
+              )}
+            </Await>
+          </Suspense>
+        )}
 
         {!hasLinks ? (
           <Card className="px-6 py-8 text-center">
