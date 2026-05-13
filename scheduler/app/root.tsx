@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import { Toaster } from "~/components/ui/sonner";
 import { ThemeProvider, themeInitScript } from "~/lib/theme";
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
@@ -36,6 +37,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <Outlet />
+      <Toaster richColors />
     </ThemeProvider>
   );
 }

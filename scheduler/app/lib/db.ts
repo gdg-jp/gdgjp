@@ -342,6 +342,10 @@ export async function findParticipantByUser(
   return row ? toParticipant(row) : null;
 }
 
+export async function deleteParticipant(db: D1Database, participantId: number): Promise<void> {
+  await db.prepare("DELETE FROM event_participants WHERE id = ?").bind(participantId).run();
+}
+
 export async function setAvailability(
   db: D1Database,
   participantId: number,
