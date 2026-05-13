@@ -66,7 +66,7 @@ export function deriveDayRanges(
     let prev = timeToMinutes(times[0]);
     for (let i = 1; i < times.length; i++) {
       const cur = timeToMinutes(times[i]);
-      if (cur - prev > lengthMin) {
+      if (cur - prev !== lengthMin) {
         out[day].ranges.push({ start: rangeStart, end: minutesToTime(prev + lengthMin) });
         rangeStart = times[i];
       }
