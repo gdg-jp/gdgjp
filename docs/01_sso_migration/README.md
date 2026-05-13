@@ -30,8 +30,8 @@ An SSO audit (see prior session) identified 10 non-conformances. They fall into 
 | ID | Title | Audit items | Status |
 |---|---|---|---|
 | [M1](./M1.md) | P0 bugs + low-risk schema cleanup | #1, #2, #9, slice of #10 | shipped (#48) |
-| [M2](./M2.md) | Claim modeling | #4, #5 (#6 deferred) | this PR |
-| [M3](./M3.md) | RP-Initiated Logout (replace iframes) | #3 | deferred |
+| [M2](./M2.md) | Claim modeling | #4, #5 (#6 deferred) | shipped (#49) |
+| [M3](./M3.md) | RP-Initiated Logout (replace iframes) | #3 | this PR |
 | [M4](./M4.md) | Userinfo cache + secret hashing | #7, #8 | deferred |
 
 ## Out of scope
