@@ -50,6 +50,18 @@ export function serializeCookie(
   return attrs.join("; ");
 }
 
+export function clearCookie(eventId: string, options: { secure: boolean }): string {
+  const attrs = [
+    `${cookieName(eventId)}=`,
+    "HttpOnly",
+    "SameSite=Lax",
+    `Path=/e/${eventId}`,
+    "Max-Age=0",
+  ];
+  if (options.secure) attrs.push("Secure");
+  return attrs.join("; ");
+}
+
 export function parseFromHeader(
   cookieHeader: string | null,
   eventId: string,

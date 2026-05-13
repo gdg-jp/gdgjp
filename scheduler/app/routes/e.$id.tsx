@@ -1,5 +1,7 @@
-import { Check, Pencil, Trash2 } from "lucide-react";
-import { Form, Link, redirect, useLoaderData } from "react-router";
+import { Check, Pencil, Trash2, X } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Form, Link, data, useFetcher, useLoaderData } from "react-router";
+import { toast } from "sonner";
 import { Header } from "~/components/header";
 import { SlotPillGrid } from "~/components/slot-pill-grid";
 import { Button } from "~/components/ui/button";
@@ -17,11 +19,13 @@ import { getOptionalUser } from "~/lib/auth-redirect.server";
 import {
   type Participant,
   createParticipant,
+  deleteParticipant,
   findParticipantByUser,
   getEventBundle,
   setAvailability,
 } from "~/lib/db";
 import {
+  clearCookie,
   hashToken,
   parseFromHeader,
   randomToken,
@@ -107,7 +111,68 @@ export async function action(args: Route.ActionArgs) {
     );
     if (!current) throw new Response("Not joined", { status: 403 });
     await setAvailability(env.DB, current.id, requested);
-    return redirect(`/e/${eventId}`);
+    return data({ ok: true as const, kind: "updated" as const });
+  }
+
+  if (intent === "delete-response") {
+    const current = await resolveCurrentParticipant(
+      env,
+      args.request,
+      eventId,
+      bundle.participants,
+    );
+    if (!current) throw new Response("Not joined", { status: 403 });
+    await deleteParticipant(env.DB, current.id);
+    const headers: HeadersInit = {};
+    if (!current.userId) {
+      const secure = new URL(args.request.url).protocol === "https:";
+      headers["Set-Cookie"] = clearCookie(eventId, { secure });
+    }
+    return data({ ok: true as const, kind: "deleted" as const }, { headers });
+  }
+
+  if (intent === "admin-delete-participant") {
+    if (!user || user.id !== bundle.event.ownerUserId) {
+      throw new Response("Forbidden", { status: 403 });
+    }
+    const participantId = Number.parseInt((form.get("participantId") ?? "").toString(), 10);
+    const target = bundle.participants.find((p) => p.id === participantId);
+    if (!target) throw new Response("Participant not found", { status: 404 });
+    await deleteParticipant(env.DB, target.id);
+    return data({ ok: true as const, kind: "admin-deleted" as const });
+  }
+
+  if (intent === "admin-restore-participant") {
+    if (!user || user.id !== bundle.event.ownerUserId) {
+      throw new Response("Forbidden", { status: 403 });
+    }
+    const displayName = (form.get("displayName") ?? "").toString().trim();
+    if (!displayName) throw new Response("Name is required", { status: 400 });
+    const targetUserId = (form.get("userId") ?? "").toString().trim() || null;
+    let participant: Participant;
+    if (targetUserId) {
+      const existing = await findParticipantByUser(env.DB, eventId, targetUserId);
+      participant =
+        existing ??
+        (await createParticipant(env.DB, {
+          eventId,
+          userId: targetUserId,
+          displayName: displayName.slice(0, 100),
+          editTokenHash: null,
+        }));
+    } else {
+      // Anonymous restore: original cookie is unrecoverable, so the new
+      // participant gets an orphan edit-token hash that no client holds.
+      const editTokenHash = await hashToken(randomToken());
+      participant = await createParticipant(env.DB, {
+        eventId,
+        userId: null,
+        displayName: displayName.slice(0, 100),
+        editTokenHash,
+      });
+    }
+    await setAvailability(env.DB, participant.id, requested);
+    return data({ ok: true as const, kind: "admin-restored" as const });
   }
 
   if (intent === "join") {
@@ -122,7 +187,7 @@ export async function action(args: Route.ActionArgs) {
           editTokenHash: null,
         }));
       await setAvailability(env.DB, participant.id, requested);
-      return redirect(`/e/${eventId}`);
+      return data({ ok: true as const, kind: "joined" as const });
     }
     const displayName = (form.get("displayName") ?? "").toString().trim();
     if (!displayName) throw new Response("Name is required", { status: 400 });
@@ -136,11 +201,14 @@ export async function action(args: Route.ActionArgs) {
     });
     await setAvailability(env.DB, participant.id, requested);
     const secure = new URL(args.request.url).protocol === "https:";
-    return redirect(`/e/${eventId}`, {
-      headers: {
-        "Set-Cookie": serializeCookie(eventId, participant.id, token, { secure }),
+    return data(
+      { ok: true as const, kind: "joined" as const },
+      {
+        headers: {
+          "Set-Cookie": serializeCookie(eventId, participant.id, token, { secure }),
+        },
       },
-    });
+    );
   }
 
   throw new Response("Unknown intent", { status: 400 });
@@ -153,7 +221,7 @@ function formatLength(minutes: number): string {
 }
 
 export default function EventPage() {
-  const data = useLoaderData<typeof loader>();
+  const loaderData = useLoaderData<typeof loader>();
   const {
     user,
     isOwner,
@@ -164,7 +232,104 @@ export default function EventPage() {
     currentParticipantId,
     currentParticipantName,
     ownSlotIds,
-  } = data;
+  } = loaderData;
+
+  const saveFetcher = useFetcher<typeof action>();
+  const deleteFetcher = useFetcher<typeof action>();
+  const adminFetcher = useFetcher<typeof action>();
+  const joinFormRef = useRef<HTMLFormElement>(null);
+  const snapshotRef = useRef<{ displayName: string; slotIds: number[] } | null>(null);
+  const adminSnapshotRef = useRef<{
+    displayName: string;
+    userId: string | null;
+    slotIds: number[];
+  } | null>(null);
+  const suppressNextSaveToastRef = useRef(false);
+  const savePrevStateRef = useRef(saveFetcher.state);
+  const deletePrevStateRef = useRef(deleteFetcher.state);
+  const adminPrevStateRef = useRef(adminFetcher.state);
+
+  function restore() {
+    const snap = snapshotRef.current;
+    if (!snap) return;
+    snapshotRef.current = null;
+    suppressNextSaveToastRef.current = true;
+    const fd = new FormData();
+    fd.set("intent", "join");
+    fd.set("displayName", snap.displayName);
+    for (const id of snap.slotIds) fd.append("slot_id", String(id));
+    saveFetcher.submit(fd, { method: "post" });
+  }
+
+  function adminDelete(p: Participant, slotIdsForP: number[]) {
+    adminSnapshotRef.current = {
+      displayName: p.displayName,
+      userId: p.userId,
+      slotIds: slotIdsForP,
+    };
+    const fd = new FormData();
+    fd.set("intent", "admin-delete-participant");
+    fd.set("participantId", String(p.id));
+    adminFetcher.submit(fd, { method: "post" });
+  }
+
+  function adminRestore(snap: { displayName: string; userId: string | null; slotIds: number[] }) {
+    const fd = new FormData();
+    fd.set("intent", "admin-restore-participant");
+    fd.set("displayName", snap.displayName);
+    if (snap.userId) fd.set("userId", snap.userId);
+    for (const id of snap.slotIds) fd.append("slot_id", String(id));
+    adminFetcher.submit(fd, { method: "post" });
+  }
+
+  useEffect(() => {
+    const prev = savePrevStateRef.current;
+    savePrevStateRef.current = saveFetcher.state;
+    if (prev === "submitting" && saveFetcher.data?.kind === "joined" && !user) {
+      joinFormRef.current?.reset();
+    }
+    if (prev !== "idle" && saveFetcher.state === "idle" && saveFetcher.data) {
+      if (suppressNextSaveToastRef.current) {
+        suppressNextSaveToastRef.current = false;
+        toast.success("Availability restored");
+      } else if (saveFetcher.data.kind === "joined") {
+        toast.success("Joined event");
+      } else if (saveFetcher.data.kind === "updated") {
+        toast.success("Availability updated");
+      }
+    }
+  }, [saveFetcher.state, saveFetcher.data, user]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: restore is stable enough; we only fire on state transitions
+  useEffect(() => {
+    if (
+      deletePrevStateRef.current !== "idle" &&
+      deleteFetcher.state === "idle" &&
+      deleteFetcher.data?.kind === "deleted"
+    ) {
+      toast("Removed your availability", {
+        action: { label: "Undo", onClick: restore },
+      });
+    }
+    deletePrevStateRef.current = deleteFetcher.state;
+  }, [deleteFetcher.state, deleteFetcher.data]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: adminRestore is stable enough; only fires on state transitions
+  useEffect(() => {
+    const prev = adminPrevStateRef.current;
+    adminPrevStateRef.current = adminFetcher.state;
+    if (prev === "idle" || adminFetcher.state !== "idle") return;
+    const kind = adminFetcher.data?.kind;
+    if (kind === "admin-deleted") {
+      const snap = adminSnapshotRef.current;
+      const name = snap?.displayName ?? "participant";
+      toast(`Removed ${name}`, {
+        action: snap ? { label: "Undo", onClick: () => adminRestore(snap) } : undefined,
+      });
+    } else if (kind === "admin-restored") {
+      toast.success("Participant restored");
+    }
+  }, [adminFetcher.state, adminFetcher.data]);
 
   const slotByDayTime = new Map<string, (typeof slots)[number]>();
   for (const s of slots) slotByDayTime.set(`${s.dayOfWeek}-${s.startTime}`, s);
@@ -240,7 +405,7 @@ export default function EventPage() {
               Participating as <span className="font-medium">{currentParticipantName}</span>
             </p>
           ) : null}
-          <Form method="post" className="mt-4 flex flex-col gap-4">
+          <saveFetcher.Form ref={joinFormRef} method="post" className="mt-4 flex flex-col gap-4">
             <input type="hidden" name="intent" value={currentParticipantId ? "update" : "join"} />
             {!currentParticipantId && !user ? (
               <div className="flex flex-col gap-2">
@@ -263,10 +428,34 @@ export default function EventPage() {
               totals={totals}
               totalParticipants={participants.length}
             />
-            <div>
-              <Button type="submit">{currentParticipantId ? "Update" : "Join"}</Button>
+            <div className="flex items-center justify-between gap-2">
+              <Button type="submit" disabled={saveFetcher.state !== "idle"}>
+                {currentParticipantId ? "Update" : "Join"}
+              </Button>
+              {currentParticipantId ? (
+                <deleteFetcher.Form
+                  method="post"
+                  onSubmit={() => {
+                    snapshotRef.current = {
+                      displayName: currentParticipantName ?? "",
+                      slotIds: [...ownSlotIds],
+                    };
+                  }}
+                >
+                  <input type="hidden" name="intent" value="delete-response" />
+                  <Button
+                    type="submit"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    disabled={deleteFetcher.state !== "idle"}
+                  >
+                    <Trash2 className="size-4" />
+                    Remove my availability
+                  </Button>
+                </deleteFetcher.Form>
+              ) : null}
             </div>
-          </Form>
+          </saveFetcher.Form>
         </section>
 
         {participants.length > 0 ? (
@@ -279,7 +468,22 @@ export default function EventPage() {
                     <TableHead>Slot</TableHead>
                     {participants.map((p) => (
                       <TableHead key={p.id} className="text-center">
-                        {p.displayName}
+                        <span className="inline-flex items-center gap-1">
+                          <span>{p.displayName}</span>
+                          {isOwner ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                adminDelete(p, Array.from(availByParticipant.get(p.id) ?? []))
+                              }
+                              disabled={adminFetcher.state !== "idle"}
+                              className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
+                              aria-label={`Remove ${p.displayName}`}
+                            >
+                              <X className="size-3" />
+                            </button>
+                          ) : null}
+                        </span>
                       </TableHead>
                     ))}
                     <TableHead className="text-center">Total</TableHead>
