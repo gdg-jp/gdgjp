@@ -19,7 +19,7 @@ directory = "./build/client"
 [[d1_databases]]
 binding = "DB"
 database_name = "gdgjp-scheduler-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "67a5f81e-ec0c-4027-90d5-a7eb7e3ad0ae"
 migrations_dir = "./migrations"
 
 # [[routes]]

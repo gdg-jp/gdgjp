@@ -1,0 +1,9 @@
+# Secrets — set as production secrets with `wrangler secret put <NAME>`.
+BETTER_AUTH_SECRET=""
+IDP_CLIENT_SECRET=""
+
+# Override prod URLs from wrangler.toml so dev points at the local accounts IdP
+# and serves short links from the same host as the dev server.
+APP_URL=http://localhost:5176
+ACCOUNTS_URL=http://localhost:5173
+IDP_URL=http://localhost:5173
