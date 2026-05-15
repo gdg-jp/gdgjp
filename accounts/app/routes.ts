@@ -14,5 +14,4 @@ export default [
   route("api/locale", "routes/api.locale.ts"),
   route("api/auth/*", "routes/api.auth.$.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
-  route("auth/signout/advance", "routes/auth.signout.advance.ts"),
 ] satisfies RouteConfig;

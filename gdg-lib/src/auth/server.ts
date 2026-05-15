@@ -28,15 +28,8 @@ export interface AuthInstance {
   requireUser(request: Request): Promise<AuthUser>;
   signOut(request: Request): Promise<Response>;
   handleAuthRequest(request: Request): Promise<Response>;
-  handleSignOutRedirect(request: Request, options?: { returnTo?: string }): Promise<Response>;
-  /**
-   * RP-side handler for the IdP's top-level redirect chain. Verifies the iss
-   * and continue URL origins both match the IdP, clears the local session
-   * cookie, then redirects to the continue URL. Replaces the iframe-based
-   * handleSignOutIframe — same logical role, top-level navigation instead of
-   * a third-party-cookie-dependent iframe.
-   */
-  handleFrontchannelLogout(request: Request): Promise<Response>;
+  handleSignOutRedirect(request: Request, options?: { returnTo?: string }): Response;
+  handleSignOutIframe(request: Request): Promise<Response>;
   /**
    * Fetch the user's current claims from the IdP /oauth2/userinfo endpoint,
    * refreshing the stored access_token via refresh_token grant if needed.
@@ -57,37 +50,15 @@ export function initializeAuth(config: AuthConfig): AuthInstance {
     signOut: (request) =>
       auth.api.signOut({ headers: request.headers, asResponse: true }) as Promise<Response>,
     handleAuthRequest: (request) => auth.handler(request),
-    handleSignOutRedirect: async (request, options) => {
+    handleSignOutRedirect: (_request, options) => {
       const returnTo = options?.returnTo ?? `${config.appUrl}/signin`;
-      const idTokenHint = await fetchIdTokenHint(config, sessionApi, request);
-      const params = new URLSearchParams();
-      params.set("return_to", returnTo);
-      params.set("client_id", config.idp.clientId);
-      if (idTokenHint) params.set("id_token_hint", idTokenHint);
-      const location = `${config.idp.url}/auth/signout?${params.toString()}`;
+      const location = `${config.idp.url}/auth/signout?return_to=${encodeURIComponent(returnTo)}`;
       return new Response(null, { status: 302, headers: { Location: location } });
     },
     getFreshClaims: (userId) => fetchUserClaims(config, userId),
-    handleFrontchannelLogout: async (request) => {
-      const url = new URL(request.url);
-      const iss = url.searchParams.get("iss");
-      const cont = url.searchParams.get("continue");
-      const expectedIdpOrigin = safeOrigin(config.idp.url);
-      if (!expectedIdpOrigin || !iss || safeOrigin(iss) !== expectedIdpOrigin) {
-        console.error("auth.frontchannel-logout: iss origin does not match IdP", {
-          iss,
-          expected: expectedIdpOrigin,
-        });
-        return new Response("invalid_request: iss", { status: 400 });
-      }
-      if (!cont || safeOrigin(cont) !== expectedIdpOrigin) {
-        console.error("auth.frontchannel-logout: continue origin does not match IdP", {
-          continue: cont,
-          expected: expectedIdpOrigin,
-        });
-        return new Response("invalid_request: continue", { status: 400 });
-      }
-      let cookies: string[] = [];
+    handleSignOutIframe: async (request) => {
+      const csp = frameAncestorsCsp(config.idp.url, request.url);
+      let cookies: string[];
       try {
         const res = (await auth.api.signOut({
           headers: request.headers,
@@ -95,27 +66,30 @@ export function initializeAuth(config: AuthConfig): AuthInstance {
         })) as Response;
         cookies = collectSetCookies(res.headers);
       } catch (err) {
-        console.error("auth.frontchannel-logout: signOut failed", { url: request.url, err });
-        // Still redirect — best-effort. Browser-side cookie may persist until expiry.
+        console.error("auth.signout-iframe: signOut failed", { url: request.url, err });
+        return new Response("sign-out failed", {
+          status: 500,
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "no-store",
+            "Content-Security-Policy": csp,
+            "Referrer-Policy": "no-referrer",
+          },
+        });
       }
       const headers = new Headers({
-        Location: cont,
+        "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "no-store",
+        "Content-Security-Policy": csp,
         "Referrer-Policy": "no-referrer",
       });
       for (const c of cookies) headers.append("set-cookie", c);
-      return new Response(null, { status: 302, headers });
+      return new Response("<!doctype html><meta charset=utf-8><title>ok</title>", {
+        status: 200,
+        headers,
+      });
     },
   };
-}
-
-function safeOrigin(u: string | null | undefined): string | null {
-  if (!u) return null;
-  try {
-    return new URL(u).origin;
-  } catch {
-    return null;
-  }
 }
 
 function buildRpAuth(config: AuthConfig) {
@@ -130,6 +104,11 @@ function buildRpAuth(config: AuthConfig) {
     session: {
       cookieCache: { enabled: true, maxAge: 5 * 60 },
     },
+    user: {
+      additionalFields: {
+        isAdmin: { type: "boolean", required: false, input: false },
+      },
+    },
     plugins: [
       genericOAuth({
         config: [
@@ -138,13 +117,14 @@ function buildRpAuth(config: AuthConfig) {
             clientId: config.idp.clientId,
             clientSecret: config.idp.clientSecret,
             discoveryUrl: `${config.idp.url}/api/auth/.well-known/openid-configuration`,
-            scopes: ["openid", "email", "profile", "offline_access", "gdgjp:chapters"],
+            scopes: ["openid", "email", "profile", "offline_access"],
             pkce: true,
             mapProfileToUser: (profile) => ({
               email: profile.email,
               name: profile.name ?? profile.email,
               image: profile.picture ?? null,
               emailVerified: profile.email_verified === true,
+              isAdmin: profile.isAdmin === true,
             }),
           },
         ],
@@ -176,31 +156,13 @@ interface AccountTokenRow {
 
 const REFRESH_LEEWAY_MS = 30_000;
 const FETCH_TIMEOUT_MS = 10_000;
-const CLAIMS_CACHE_TTL_MS = 5 * 60 * 1000;
 const inflightClaims = new Map<string, Promise<UserClaims>>();
-
-async function fetchIdTokenHint(
-  config: AuthConfig,
-  sessionApi: SessionApi,
-  request: Request,
-): Promise<string | null> {
-  const user = await getSessionUserFromApi(sessionApi, request);
-  if (!user) return null;
-  const row = await config.db
-    .prepare("SELECT idToken FROM account WHERE userId = ? AND providerId = ? LIMIT 1")
-    .bind(user.id, SSO_PROVIDER_ID)
-    .first<{ idToken: string | null }>();
-  return row?.idToken ?? null;
-}
 
 async function fetchUserClaims(config: AuthConfig, userId: string): Promise<UserClaims> {
   const inflight = inflightClaims.get(userId);
   if (inflight) return inflight;
 
   const promise = (async () => {
-    const cached = await readCachedClaims(config, userId);
-    if (cached) return cached;
-
     const row = await config.db
       .prepare(
         `SELECT id, accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt
@@ -217,57 +179,18 @@ async function fetchUserClaims(config: AuthConfig, userId: string): Promise<User
     }
 
     const res = await fetchUserInfo(config.idp.url, accessToken);
-    let json: Record<string, unknown>;
     if (res.status === 401) {
       const refreshed = await refreshAccessToken(config, row);
       const retry = await fetchUserInfo(config.idp.url, refreshed);
       if (!retry.ok) throw new ClaimsUnavailableError("userinfo_failed");
-      json = (await retry.json()) as Record<string, unknown>;
-    } else if (!res.ok) {
-      throw new ClaimsUnavailableError("userinfo_failed");
-    } else {
-      json = (await res.json()) as Record<string, unknown>;
+      return parseClaims((await retry.json()) as Record<string, unknown>);
     }
-    const claims = parseClaims(json);
-    await writeCachedClaims(config, userId, json);
-    return claims;
+    if (!res.ok) throw new ClaimsUnavailableError("userinfo_failed");
+    return parseClaims((await res.json()) as Record<string, unknown>);
   })().finally(() => inflightClaims.delete(userId));
 
   inflightClaims.set(userId, promise);
   return promise;
-}
-
-async function readCachedClaims(config: AuthConfig, userId: string): Promise<UserClaims | null> {
-  const row = await config.db
-    .prepare("SELECT claims_json, fetched_at FROM userinfo_cache WHERE user_id = ? LIMIT 1")
-    .bind(userId)
-    .first<{ claims_json: string; fetched_at: number }>();
-  if (!row) return null;
-  if (Date.now() - row.fetched_at > CLAIMS_CACHE_TTL_MS) return null;
-  try {
-    return parseClaims(JSON.parse(row.claims_json) as Record<string, unknown>);
-  } catch {
-    return null;
-  }
-}
-
-async function writeCachedClaims(
-  config: AuthConfig,
-  userId: string,
-  json: Record<string, unknown>,
-): Promise<void> {
-  try {
-    await config.db
-      .prepare(
-        `INSERT INTO userinfo_cache (user_id, claims_json, fetched_at) VALUES (?, ?, ?)
-         ON CONFLICT(user_id) DO UPDATE SET claims_json = excluded.claims_json, fetched_at = excluded.fetched_at`,
-      )
-      .bind(userId, JSON.stringify(json), Date.now())
-      .run();
-  } catch (err) {
-    // Cache write failure shouldn't break the request — log and continue.
-    console.warn("auth.userinfo_cache: write failed", { userId, err });
-  }
 }
 
 async function fetchUserInfo(idpUrl: string, accessToken: string): Promise<Response> {
@@ -395,10 +318,8 @@ export interface IdpAuthConfig {
     prompt?: "none" | "select_account" | "consent" | "login" | "select_account consent";
   };
   trustedClients: IdpClient[];
-  /** Custom OAuth scope names to merge with the OIDC defaults. */
-  scopes?: string[];
   getAdditionalUserInfoClaim?: (
-    user: { id: string; isAdmin?: boolean | null },
+    user: { id: string },
     scopes: string[],
   ) => Promise<Record<string, unknown>> | Record<string, unknown>;
 }
@@ -407,32 +328,13 @@ export interface IdpAuthInstance {
   getSessionUser(request: Request): Promise<AuthUser | null>;
   requireUser(request: Request): Promise<AuthUser>;
   handleAuthRequest(request: Request): Promise<Response>;
-  /**
-   * Federated logout entry. Mints a signed state JWT carrying the chain of
-   * RPs to visit + final return_to, then 302 redirects the user-agent to the
-   * first RP's frontchannel-logout URL. Each RP clears its own cookie in a
-   * top-level navigation context (no third-party cookie reliance) and
-   * redirects back to handleAdvanceSignOut, which forwards to the next step.
-   */
   handleFederatedSignOut(
     request: Request,
     options: {
       rpOrigins: string[];
-      frontchannelPath?: string;
-      advancePath?: string;
+      iframePath?: string;
       fallbackReturnTo?: string;
-    },
-  ): Promise<Response>;
-  /**
-   * Chain step handler: verifies state JWT, advances to next RP, or — when
-   * all RPs are done — clears the IdP session and 302s to final return_to.
-   */
-  handleAdvanceSignOut(
-    request: Request,
-    options?: {
-      frontchannelPath?: string;
-      advancePath?: string;
-      fallbackReturnTo?: string;
+      timeoutMs?: number;
     },
   ): Promise<Response>;
 }
@@ -446,9 +348,9 @@ export function initializeIdpAuth(config: IdpAuthConfig): IdpAuthInstance {
     requireUser: (request) => requireUserFromApi(sessionApi, request),
     handleAuthRequest: (request) => auth.handler(request),
     handleFederatedSignOut: async (request, options) => {
-      const frontchannelPath = options.frontchannelPath ?? "/auth/frontchannel-logout";
-      const advancePath = options.advancePath ?? "/auth/signout/advance";
+      const iframePath = options.iframePath ?? "/auth/signout-iframe";
       const fallbackReturnTo = options.fallbackReturnTo ?? "/signin";
+      const timeoutMs = options.timeoutMs ?? 3000;
 
       const url = new URL(request.url);
       const target = safeReturnTo(
@@ -458,198 +360,33 @@ export function initializeIdpAuth(config: IdpAuthConfig): IdpAuthInstance {
         fallbackReturnTo,
       );
 
-      const dedupedOrigins = [...new Set(options.rpOrigins)];
-
-      // No RPs registered — just clear the IdP session and land at return_to.
-      if (dedupedOrigins.length === 0) {
-        return finalizeIdpSignOut(auth, request, target);
-      }
-
-      const stateJwt = await signLogoutState(
-        {
-          step: 0,
-          rps: dedupedOrigins,
-          returnTo: target,
-          frontchannelPath,
-        },
-        config.secret,
-      );
-
-      const idpOrigin = new URL(config.appUrl).origin;
-      const continueUrl = `${idpOrigin}${advancePath}?state=${encodeURIComponent(stateJwt)}`;
-      const next = `${dedupedOrigins[0]}${frontchannelPath}?iss=${encodeURIComponent(idpOrigin)}&continue=${encodeURIComponent(continueUrl)}`;
-      return new Response(null, {
-        status: 302,
-        headers: { Location: next, "Cache-Control": "no-store" },
-      });
-    },
-    handleAdvanceSignOut: async (request, options) => {
-      const frontchannelPath = options?.frontchannelPath ?? "/auth/frontchannel-logout";
-      const advancePath = options?.advancePath ?? "/auth/signout/advance";
-      const fallbackReturnTo = options?.fallbackReturnTo ?? "/signin";
-      const fallbackUrl = new URL(fallbackReturnTo, config.appUrl).toString();
-
-      const url = new URL(request.url);
-      const stateParam = url.searchParams.get("state");
-      if (!stateParam) {
-        console.error("auth.signout.advance: missing state");
-        return new Response(null, {
-          status: 302,
-          headers: { Location: fallbackUrl },
-        });
-      }
-
-      let state: LogoutState | null;
+      let cookies: string[] = [];
       try {
-        state = await verifyLogoutState(stateParam, config.secret);
+        const res = (await auth.api.signOut({
+          headers: request.headers,
+          asResponse: true,
+        })) as Response;
+        cookies = collectSetCookies(res.headers);
       } catch (err) {
-        console.error("auth.signout.advance: state verification failed", { err });
-        return new Response(null, {
-          status: 302,
-          headers: { Location: fallbackUrl },
-        });
-      }
-      if (!state) {
-        return new Response(null, {
-          status: 302,
-          headers: { Location: fallbackUrl },
+        console.error("auth.signout: auth.api.signOut failed at IdP", {
+          url: request.url,
+          err,
         });
       }
 
-      const nextStep = state.step + 1;
-      if (nextStep >= state.rps.length) {
-        return finalizeIdpSignOut(auth, request, state.returnTo);
-      }
-
-      const idpOrigin = new URL(config.appUrl).origin;
-      const nextState = await signLogoutState({ ...state, step: nextStep }, config.secret);
-      const continueUrl = `${idpOrigin}${advancePath}?state=${encodeURIComponent(nextState)}`;
-      const nextRpOrigin = state.rps[nextStep];
-      const next = `${nextRpOrigin}${frontchannelPath}?iss=${encodeURIComponent(idpOrigin)}&continue=${encodeURIComponent(continueUrl)}`;
-      return new Response(null, {
-        status: 302,
-        headers: { Location: next, "Cache-Control": "no-store" },
+      const iframeUrls = options.rpOrigins.map((origin) => `${origin}${iframePath}`);
+      const headers = new Headers({
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+      });
+      for (const c of cookies) headers.append("set-cookie", c);
+      return new Response(renderFederatedSignOutPage(iframeUrls, target, timeoutMs), {
+        status: 200,
+        headers,
       });
     },
   };
-}
-
-async function finalizeIdpSignOut(
-  auth: { api: { signOut: (args: { headers: Headers; asResponse: true }) => Promise<unknown> } },
-  request: Request,
-  returnTo: string,
-): Promise<Response> {
-  let cookies: string[] = [];
-  try {
-    const res = (await auth.api.signOut({
-      headers: request.headers,
-      asResponse: true,
-    })) as Response;
-    cookies = collectSetCookies(res.headers);
-  } catch (err) {
-    console.error("auth.signout.finalize: signOut failed at IdP", { err });
-  }
-  const headers = new Headers({
-    Location: returnTo,
-    "Cache-Control": "no-store",
-    "Referrer-Policy": "no-referrer",
-  });
-  for (const c of cookies) headers.append("set-cookie", c);
-  return new Response(null, { status: 302, headers });
-}
-
-interface LogoutState {
-  step: number;
-  rps: string[];
-  returnTo: string;
-  frontchannelPath: string;
-}
-
-const LOGOUT_STATE_TTL_SECONDS = 5 * 60;
-
-async function signLogoutState(state: LogoutState, secret: string): Promise<string> {
-  const header = { alg: "HS256", typ: "JWT" };
-  const now = Math.floor(Date.now() / 1000);
-  const payload = { ...state, iat: now, exp: now + LOGOUT_STATE_TTL_SECONDS };
-  const headerB64 = b64uEncode(new TextEncoder().encode(JSON.stringify(header)));
-  const payloadB64 = b64uEncode(new TextEncoder().encode(JSON.stringify(payload)));
-  const signingInput = `${headerB64}.${payloadB64}`;
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret) as BufferSource,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(signingInput) as BufferSource,
-  );
-  return `${signingInput}.${b64uEncode(new Uint8Array(sig))}`;
-}
-
-async function verifyLogoutState(token: string, secret: string): Promise<LogoutState | null> {
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  const [headerB64, payloadB64, sigB64] = parts;
-  let header: { alg?: string };
-  try {
-    header = JSON.parse(new TextDecoder().decode(b64uDecode(headerB64)));
-  } catch {
-    return null;
-  }
-  if (header.alg !== "HS256") return null;
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret) as BufferSource,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["verify"],
-  );
-  const ok = await crypto.subtle.verify(
-    "HMAC",
-    key,
-    b64uDecode(sigB64) as BufferSource,
-    new TextEncoder().encode(`${headerB64}.${payloadB64}`) as BufferSource,
-  );
-  if (!ok) return null;
-  let payload: Record<string, unknown>;
-  try {
-    payload = JSON.parse(new TextDecoder().decode(b64uDecode(payloadB64)));
-  } catch {
-    return null;
-  }
-  if (typeof payload.exp === "number" && Date.now() / 1000 > payload.exp) return null;
-  if (
-    typeof payload.step !== "number" ||
-    !Array.isArray(payload.rps) ||
-    typeof payload.returnTo !== "string" ||
-    typeof payload.frontchannelPath !== "string"
-  ) {
-    return null;
-  }
-  return {
-    step: payload.step,
-    rps: payload.rps as string[],
-    returnTo: payload.returnTo,
-    frontchannelPath: payload.frontchannelPath,
-  };
-}
-
-function b64uEncode(bytes: Uint8Array): string {
-  let s = "";
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return btoa(s).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-}
-
-function b64uDecode(s: string): Uint8Array {
-  const pad = (4 - (s.length % 4)) % 4;
-  const b64 = (s + "=".repeat(pad)).replace(/-/g, "+").replace(/_/g, "/");
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
 }
 
 function buildIdpAuth(config: IdpAuthConfig) {
@@ -682,22 +419,13 @@ function buildIdpAuth(config: IdpAuthConfig) {
       oidcProvider({
         loginPage: config.loginPage ?? "/signin",
         requirePKCE: true,
-        // Must stay "plain": (1) trustedClients are passed in plaintext from
-        // env and stored as-is, so the token-endpoint compare path
-        //   hash(plain_from_request) === stored
-        // never matches when stored is plain; (2) client.clientSecret is also
-        // used directly as the HS256 HMAC key for id_token signing
-        // (oidc-provider/index.mjs:622) and id_token_hint verification
-        // (oidc-provider/index.mjs:1023). Hashing breaks both. If we ever
-        // wire up dynamic /oauth2/register, that's the right time to revisit.
         storeClientSecret: "plain",
         trustedClients: config.trustedClients,
-        scopes: config.scopes,
         getAdditionalUserInfoClaim: config.getAdditionalUserInfoClaim
           ? async (user, scopes) => {
               const fn = config.getAdditionalUserInfoClaim;
               if (!fn) return {};
-              return fn(user as { id: string; isAdmin?: boolean | null }, scopes);
+              return fn(user, scopes);
             }
           : undefined,
       }),
@@ -717,6 +445,24 @@ function collectSetCookies(headers: Headers): string[] {
   return out;
 }
 
+function frameAncestorsCsp(idpUrl: string | undefined, requestUrl: string): string {
+  if (!idpUrl) {
+    console.warn("auth.signout-iframe: IDP_URL is not set; emitting CSP without external origin", {
+      url: requestUrl,
+    });
+    return "frame-ancestors 'self'";
+  }
+  try {
+    return `frame-ancestors 'self' ${new URL(idpUrl).origin}`;
+  } catch {
+    console.warn(
+      "auth.signout-iframe: IDP_URL is not a valid URL; emitting CSP without external origin",
+      { url: requestUrl, idpUrl },
+    );
+    return "frame-ancestors 'self'";
+  }
+}
+
 function safeReturnTo(
   returnTo: string,
   appUrl: string,
@@ -729,4 +475,52 @@ function safeReturnTo(
     if (url.origin === selfOrigin || rpOrigins.includes(url.origin)) return url.toString();
   } catch {}
   return new URL(fallbackPath, appUrl).toString();
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string,
+  );
+}
+
+function renderFederatedSignOutPage(
+  iframeUrls: string[],
+  target: string,
+  timeoutMs: number,
+): string {
+  const iframes = iframeUrls
+    .map(
+      (u) =>
+        `<iframe src="${escapeHtml(u)}" referrerpolicy="no-referrer" style="display:none" aria-hidden="true"></iframe>`,
+    )
+    .join("");
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Signing out…</title>
+<meta name="robots" content="noindex" />
+</head>
+<body>
+<p>Signing out…</p>
+${iframes}
+<script>
+(function () {
+  var done = false;
+  var target = ${JSON.stringify(target)};
+  var total = ${iframeUrls.length};
+  var loaded = 0;
+  function go() { if (done) return; done = true; window.location.replace(target); }
+  if (total === 0) { go(); return; }
+  document.querySelectorAll('iframe').forEach(function (f) {
+    var settle = function () { loaded += 1; if (loaded >= total) go(); };
+    f.addEventListener('load', settle, { once: true });
+    f.addEventListener('error', settle, { once: true });
+  });
+  setTimeout(go, ${timeoutMs});
+})();
+</script>
+</body>
+</html>`;
 }
