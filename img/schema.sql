@@ -56,3 +56,12 @@ CREATE TABLE userinfo_cache (
   claims_json TEXT NOT NULL,
   fetched_at  INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS "verification" (
+  "id"         TEXT NOT NULL PRIMARY KEY,
+  "identifier" TEXT NOT NULL,
+  "value"      TEXT NOT NULL,
+  "expiresAt"  TEXT NOT NULL,
+  "createdAt"  TEXT NOT NULL,
+  "updatedAt"  TEXT NOT NULL
+);
+CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");
