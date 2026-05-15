@@ -33,5 +33,9 @@ export async function requireUserWithChapter(
     throw err;
   }
   if (!resolved.primary) throw redirect("/no-chapter");
-  return { user, chapter: resolved.primary, chapters: resolved.all };
+  return {
+    user: { ...user, isAdmin: resolved.isAdmin },
+    chapter: resolved.primary,
+    chapters: resolved.all,
+  };
 }

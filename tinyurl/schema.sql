@@ -75,9 +75,7 @@ CREATE TABLE IF NOT EXISTS "user" (
   "emailVerified" INTEGER NOT NULL,
   "image"         TEXT,
   "createdAt"     TEXT NOT NULL,
-  "updatedAt"     TEXT NOT NULL,
-  "isAdmin"       INTEGER
-);
+  "updatedAt"     TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS "session" (
   "id"        TEXT NOT NULL PRIMARY KEY,
   "expiresAt" TEXT NOT NULL,
