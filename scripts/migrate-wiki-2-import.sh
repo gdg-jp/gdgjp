@@ -118,6 +118,28 @@ else
 
   sed -i.bak "s|database_id = \"\"|database_id = \"${NEW_DB_ID}\"|" "$WRANGLER_TOML"
   ok "database_id patched in $WRANGLER_TOML"
+
+  # The dump reflects the gdgoc-wiki schema as of migration 0018. The new
+  # wiki app expects 0019+ (user.role/chapterId dropped, isAdmin added,
+  # invitations dropped). Apply the new migration SQL directly — the
+  # imported dump's table state is already at 0018, so wrangler's
+  # migrations apply would try to replay 0000-0018 and fail. We bypass
+  # the migration tracker for this cutover; future schema changes can use
+  # `pnpm --filter @gdgjp/wiki migrate:remote` once d1_migrations is
+  # backfilled (see step 8 manual notes).
+  NEW_MIGRATION="${REPO_ROOT}/wiki/migrations/0019_remove_user_management.sql"
+  if [ -f "$NEW_MIGRATION" ]; then
+    info "Applying 0019_remove_user_management.sql against $NEW_DB_NAME..."
+    wrangler d1 execute "$NEW_DB_NAME" \
+      --file "$NEW_MIGRATION" \
+      --remote \
+      2>&1 | tee "${BACKUP_DIR}/${NEW_DB_NAME}-0019.log" || {
+      die "Applying 0019 failed — DB is at the old schema. Inspect ${BACKUP_DIR}/${NEW_DB_NAME}-0019.log before deploying."
+    }
+    ok "0019 applied (admins preserved via UPDATE … WHERE role='admin')."
+  else
+    warn "0019_remove_user_management.sql not found — DB will run against old schema."
+  fi
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -207,10 +229,38 @@ cat <<EOF
      For each secret name listed there:
        wrangler secret put <KEY> --name ${NEW_WORKER_NAME}
 
-     Expected secrets:
-       BETTER_AUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-       GEMINI_API_KEY, RESEND_API_KEY, WIKI_DISCORD_SECRET,
+     Expected secrets (wiki is an SSO client of accounts, not Google directly):
+       BETTER_AUTH_SECRET, IDP_CLIENT_SECRET,
+       GEMINI_API_KEY, GOOGLE_DOCS_CLIENT_ID, GOOGLE_DOCS_CLIENT_SECRET,
+       RESEND_API_KEY, WIKI_DISCORD_SECRET,
        FCM_SERVICE_ACCOUNT_JSON, DISCORD_BOT_TOKEN
+
+     Also set accounts/wrangler.toml's WIKI_CLIENT_SECRET to match the
+     IDP_CLIENT_SECRET you put here, then redeploy accounts.
+
+  A2. Backfill d1_migrations bookkeeping so future migrations work.
+      0019 was applied directly during cutover (above); the migration
+      tracker doesn't yet know about migrations 0000–0019. Run once
+      before the next `pnpm --filter @gdgjp/wiki migrate:remote`:
+
+        for f in wiki/migrations/[0-9][0-9][0-9][0-9]_*.sql; do
+          name=\$(basename "\$f")
+          wrangler d1 execute ${NEW_DB_NAME} --remote --command \\
+            "INSERT OR IGNORE INTO d1_migrations (name) VALUES ('\$name');"
+        done
+
+      (If the d1_migrations table does not exist yet, create it first:
+        wrangler d1 execute ${NEW_DB_NAME} --remote --command \\
+          "CREATE TABLE IF NOT EXISTS d1_migrations (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             name TEXT UNIQUE,
+             applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);")
+
+  A3. Add wiki to the CI deploy matrix.
+      .github/workflows/deploy.yml intentionally omits wiki today
+      because wrangler.toml has an empty database_id; the patched value
+      lands locally via this script. Commit the updated wiki/wrangler.toml
+      and add wiki to the deploy matrix once the database_id is real.
 
   B. DNS — wiki.gdgs.jp must resolve to the new Worker
      The wiki/wrangler.toml route binding (wiki.gdgs.jp/*) will attach

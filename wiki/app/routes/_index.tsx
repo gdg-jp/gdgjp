@@ -1,3 +1,4 @@
+import { SSO_PROVIDER_ID } from "@gdgjp/gdg-lib";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -113,7 +114,7 @@ function SignInModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
 
   async function handleGoogleSignIn() {
-    await authClient.signIn.social({ provider: "google", callbackURL: "/" });
+    await authClient.signIn.oauth2({ providerId: SSO_PROVIDER_ID, callbackURL: "/" });
   }
 
   return (

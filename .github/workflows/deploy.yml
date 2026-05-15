@@ -25,9 +25,12 @@ jobs:
         app:
           - accounts
           - tinyurl
-          - wiki
           - img
           - scheduler
+          # wiki is intentionally omitted until scripts/migrate-wiki-2-import.sh
+          # has populated wiki/wrangler.toml's database_id. wrangler deploy
+          # refuses to start with database_id = "". Re-add wiki here once the
+          # initial cutover has landed.
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
