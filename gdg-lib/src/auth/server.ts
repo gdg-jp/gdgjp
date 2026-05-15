@@ -682,11 +682,15 @@ function buildIdpAuth(config: IdpAuthConfig) {
       oidcProvider({
         loginPage: config.loginPage ?? "/signin",
         requirePKCE: true,
-        // Defense-in-depth: any dynamically registered client's secret is
-        // SHA-256 hashed at rest. Today our trustedClients come in from env
-        // and are kept in memory by better-auth, so this only matters if we
-        // ever wire up /oauth2/register. See docs/01_sso_migration/M4.md.
-        storeClientSecret: "hashed",
+        // Must stay "plain": (1) trustedClients are passed in plaintext from
+        // env and stored as-is, so the token-endpoint compare path
+        //   hash(plain_from_request) === stored
+        // never matches when stored is plain; (2) client.clientSecret is also
+        // used directly as the HS256 HMAC key for id_token signing
+        // (oidc-provider/index.mjs:622) and id_token_hint verification
+        // (oidc-provider/index.mjs:1023). Hashing breaks both. If we ever
+        // wire up dynamic /oauth2/register, that's the right time to revisit.
+        storeClientSecret: "plain",
         trustedClients: config.trustedClients,
         scopes: config.scopes,
         getAdditionalUserInfoClaim: config.getAdditionalUserInfoClaim
