@@ -1,3 +1,4 @@
+import { SSO_PROVIDER_ID } from "@gdgjp/gdg-lib";
 import { useTranslation } from "react-i18next";
 import { Link, redirect } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
@@ -15,7 +16,7 @@ export default function LoginPage() {
   const { t } = useTranslation();
 
   async function handleGoogleSignIn() {
-    await authClient.signIn.social({ provider: "google", callbackURL: "/" });
+    await authClient.signIn.oauth2({ providerId: SSO_PROVIDER_ID, callbackURL: "/" });
   }
 
   return (

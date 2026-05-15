@@ -2,13 +2,15 @@
 # Wrangler reads .dev.vars as secrets during `pnpm dev`.
 # Never commit .dev.vars — it is gitignored.
 
-BETTER_AUTH_SECRET=dev-secret-change-me
-BETTER_AUTH_URL=http://localhost:5173
+# Secrets — set as production secrets with `wrangler secret put <NAME>`.
+BETTER_AUTH_SECRET=
+IDP_CLIENT_SECRET=
 
-# Get these from Google Cloud Console → APIs & Services → Credentials
-# Add http://localhost:5173/api/auth/callback/google as an authorised redirect URI.
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
+# Override prod URLs from wrangler.toml so dev points at the local accounts IdP.
+# wiki's RR7 dev server runs on a different port from accounts (5173).
+APP_URL=http://localhost:5177
+ACCOUNTS_URL=http://localhost:5173
+IDP_URL=http://localhost:5173
 
 # Optional — only needed for AI ingestion/translation features
 GEMINI_API_KEY=

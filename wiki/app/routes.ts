@@ -5,6 +5,7 @@ export default [
   route("/api/auth/*", "routes/api-auth.tsx"),
   route("/login", "routes/login.tsx"),
   route("/logout", "routes/logout.tsx"),
+  route("/auth/signout-iframe", "routes/auth.signout-iframe.ts"),
 
   // Task API routes (no app shell)
   route("/api/tasks/:taskListId", "routes/api.tasks.$taskListId.ts"),

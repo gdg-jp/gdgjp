@@ -180,7 +180,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       to: email,
       role: role as InviteRole,
       chapterName: chapter?.nameEn ?? "GDGoC Japan",
-      siteUrl: env.BETTER_AUTH_URL,
+      siteUrl: env.APP_URL,
     });
 
     await db.insert(schema.invitations).values({

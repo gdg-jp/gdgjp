@@ -129,7 +129,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       to: email,
       role: "member",
       chapterName: chapter?.nameEn ?? chapterId,
-      siteUrl: env.BETTER_AUTH_URL,
+      siteUrl: env.APP_URL,
     });
 
     return { ok: true, invitedEmail: email };

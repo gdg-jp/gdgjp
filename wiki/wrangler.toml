@@ -110,12 +110,14 @@ crons = ["0 15 * * *"]
 
 # ---------------------------------------------------------------------------
 # Secrets (set via `wrangler secret put`)
+# BETTER_AUTH_SECRET      — better-auth session signing secret
+# IDP_CLIENT_SECRET       — OAuth client secret shared with accounts IdP
+#                           (matches WIKI_CLIENT_SECRET in accounts)
+# GEMINI_API_KEY          — Google Gemini API key (for AI features)
+# GOOGLE_DOCS_CLIENT_ID   — Google Docs API client ID (for ingestion)
+# GOOGLE_DOCS_CLIENT_SECRET — Google Docs API client secret (for ingestion)
 # RESEND_API_KEY          — Resend transactional email API key
 # WIKI_DISCORD_SECRET     — shared secret for Discord bot → wiki API auth
 # FCM_SERVICE_ACCOUNT_JSON — Firebase service account key JSON (for push notifications)
 # DISCORD_BOT_TOKEN       — Discord bot token for sending DM reminders
-# GEMINI_API_KEY          — Google Gemini API key (optional, for AI features)
-# BETTER_AUTH_SECRET      — better-auth session signing secret
-# GOOGLE_CLIENT_ID        — Google OAuth client ID
-# GOOGLE_CLIENT_SECRET    — Google OAuth client secret
 # ---------------------------------------------------------------------------

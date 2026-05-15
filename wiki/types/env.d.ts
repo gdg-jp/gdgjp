@@ -6,9 +6,7 @@ declare global {
   interface Env {
     // Secrets (set via `wrangler secret put`)
     BETTER_AUTH_SECRET: string;
-    BETTER_AUTH_URL: string;
-    GOOGLE_CLIENT_ID: string;
-    GOOGLE_CLIENT_SECRET: string;
+    IDP_CLIENT_SECRET: string;
     GEMINI_API_KEY: string;
     GOOGLE_DOCS_CLIENT_ID: string;
     GOOGLE_DOCS_CLIENT_SECRET: string;

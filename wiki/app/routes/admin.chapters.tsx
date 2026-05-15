@@ -103,7 +103,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       to: leadEmail,
       role: "lead",
       chapterName: nameEn,
-      siteUrl: env.BETTER_AUTH_URL,
+      siteUrl: env.APP_URL,
     });
 
     return { ok: true, invitedEmail: leadEmail };

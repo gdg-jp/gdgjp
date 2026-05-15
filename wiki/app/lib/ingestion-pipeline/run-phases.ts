@@ -251,7 +251,7 @@ export async function persistDoneAndNotify(
         .get();
 
       if (userRow) {
-        const siteUrl = (env.BETTER_AUTH_URL ?? "").replace(/\/$/, "");
+        const siteUrl = (env.APP_URL ?? "").replace(/\/$/, "");
         await sendIngestionCompleteEmail(env, {
           to: userRow.email,
           userName: userRow.name,

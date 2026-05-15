@@ -95,6 +95,7 @@ jobs:
           CLERK_PUBLISHABLE_KEY=${{ vars.CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}
           SCHEDULER_CLIENT_SECRET=ci-idp-client-secret
+          WIKI_CLIENT_SECRET=ci-idp-client-secret
           EOF
 
           cat > tinyurl/.dev.vars <<EOF
@@ -116,9 +117,10 @@ jobs:
 
           cat > wiki/.dev.vars <<EOF
           BETTER_AUTH_SECRET=ci-better-auth-secret
-          BETTER_AUTH_URL=http://localhost:5173
-          GOOGLE_CLIENT_ID=ci-google-client-id
-          GOOGLE_CLIENT_SECRET=ci-google-client-secret
+          IDP_CLIENT_SECRET=ci-idp-client-secret
+          APP_URL=http://localhost:5177
+          ACCOUNTS_URL=http://localhost:5173
+          IDP_URL=http://localhost:5173
           GEMINI_API_KEY=ci-gemini-api-key
           ENVIRONMENT=development
           EOF

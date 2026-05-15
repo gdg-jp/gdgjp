@@ -81,7 +81,6 @@ function UserMenu({ user }: { user: NonNullable<NavbarProps["user"]> }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const logoutFetcher = useFetcher();
   const initial = user.name[0]?.toUpperCase() ?? "?";
 
   useEffect(() => {
@@ -139,15 +138,14 @@ function UserMenu({ user }: { user: NonNullable<NavbarProps["user"]> }) {
 
           <div className="my-1 border-t border-gray-100" />
 
-          <logoutFetcher.Form method="post" action="/logout">
-            <button
-              type="submit"
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-            >
-              <LogOut className="h-4 w-4 text-gray-400" aria-hidden="true" />
-              {t("auth.sign_out")}
-            </button>
-          </logoutFetcher.Form>
+          <Link
+            to="/logout"
+            reloadDocument
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            <LogOut className="h-4 w-4 text-gray-400" aria-hidden="true" />
+            {t("auth.sign_out")}
+          </Link>
         </div>
       )}
     </div>

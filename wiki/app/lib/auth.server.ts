@@ -1,5 +1,7 @@
+import { SSO_PROVIDER_ID } from "@gdgjp/gdg-lib";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { genericOAuth } from "better-auth/plugins";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../db/schema";
@@ -24,13 +26,11 @@ function initAuth(env: Env) {
   const db = drizzle(env.DB);
   return betterAuth({
     database: drizzleAdapter(db, { provider: "sqlite", schema }),
-    baseURL: env.BETTER_AUTH_URL,
+    baseURL: env.APP_URL,
     secret: env.BETTER_AUTH_SECRET,
-    socialProviders: {
-      google: {
-        clientId: env.GOOGLE_CLIENT_ID,
-        clientSecret: env.GOOGLE_CLIENT_SECRET,
-      },
+    advanced: { cookiePrefix: "gdgjp-wiki" },
+    session: {
+      cookieCache: { enabled: true, maxAge: 5 * 60 },
     },
     user: {
       additionalFields: {
@@ -59,6 +59,26 @@ function initAuth(env: Env) {
         },
       },
     },
+    plugins: [
+      genericOAuth({
+        config: [
+          {
+            providerId: SSO_PROVIDER_ID,
+            clientId: env.IDP_CLIENT_ID,
+            clientSecret: env.IDP_CLIENT_SECRET,
+            discoveryUrl: `${env.IDP_URL}/api/auth/.well-known/openid-configuration`,
+            scopes: ["openid", "email", "profile", "offline_access"],
+            pkce: true,
+            mapProfileToUser: (profile) => ({
+              email: profile.email,
+              name: profile.name ?? profile.email,
+              image: profile.picture ?? null,
+              emailVerified: profile.email_verified === true,
+            }),
+          },
+        ],
+      }),
+    ],
     databaseHooks: {
       user: {
         create: {
