@@ -11,7 +11,7 @@ export default [
   route("no-chapter", "routes/no-chapter.tsx"),
   route("api/auth/*", "routes/api.auth.$.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
-  route("auth/signout-iframe", "routes/auth.signout-iframe.ts"),
+  route("auth/frontchannel-logout", "routes/auth.frontchannel-logout.ts"),
   route("notfound", "routes/notfound.tsx"),
   route(":slug", "routes/$slug.tsx"),
 ] satisfies RouteConfig;

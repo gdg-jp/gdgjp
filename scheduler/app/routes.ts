@@ -10,5 +10,5 @@ export default [
   route("signin", "routes/signin.tsx"),
   route("api/auth/*", "routes/api.auth.$.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
-  route("auth/signout-iframe", "routes/auth.signout-iframe.ts"),
+  route("auth/frontchannel-logout", "routes/auth.frontchannel-logout.ts"),
 ] satisfies RouteConfig;
