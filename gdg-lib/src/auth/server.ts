@@ -28,7 +28,7 @@ export interface AuthInstance {
   requireUser(request: Request): Promise<AuthUser>;
   signOut(request: Request): Promise<Response>;
   handleAuthRequest(request: Request): Promise<Response>;
-  handleSignOutRedirect(request: Request, options?: { returnTo?: string }): Response;
+  handleSignOutRedirect(request: Request, options?: { returnTo?: string }): Promise<Response>;
   handleSignOutIframe(request: Request): Promise<Response>;
   /**
    * Fetch the user's current claims from the IdP /oauth2/userinfo endpoint,
@@ -50,9 +50,14 @@ export function initializeAuth(config: AuthConfig): AuthInstance {
     signOut: (request) =>
       auth.api.signOut({ headers: request.headers, asResponse: true }) as Promise<Response>,
     handleAuthRequest: (request) => auth.handler(request),
-    handleSignOutRedirect: (_request, options) => {
+    handleSignOutRedirect: async (request, options) => {
       const returnTo = options?.returnTo ?? `${config.appUrl}/signin`;
-      const location = `${config.idp.url}/auth/signout?return_to=${encodeURIComponent(returnTo)}`;
+      const idTokenHint = await fetchIdTokenHint(config, sessionApi, request);
+      const params = new URLSearchParams();
+      params.set("return_to", returnTo);
+      params.set("client_id", config.idp.clientId);
+      if (idTokenHint) params.set("id_token_hint", idTokenHint);
+      const location = `${config.idp.url}/auth/signout?${params.toString()}`;
       return new Response(null, { status: 302, headers: { Location: location } });
     },
     getFreshClaims: (userId) => fetchUserClaims(config, userId),
@@ -157,6 +162,20 @@ interface AccountTokenRow {
 const REFRESH_LEEWAY_MS = 30_000;
 const FETCH_TIMEOUT_MS = 10_000;
 const inflightClaims = new Map<string, Promise<UserClaims>>();
+
+async function fetchIdTokenHint(
+  config: AuthConfig,
+  sessionApi: SessionApi,
+  request: Request,
+): Promise<string | null> {
+  const user = await getSessionUserFromApi(sessionApi, request);
+  if (!user) return null;
+  const row = await config.db
+    .prepare("SELECT idToken FROM account WHERE userId = ? AND providerId = ? LIMIT 1")
+    .bind(user.id, SSO_PROVIDER_ID)
+    .first<{ idToken: string | null }>();
+  return row?.idToken ?? null;
+}
 
 async function fetchUserClaims(config: AuthConfig, userId: string): Promise<UserClaims> {
   const inflight = inflightClaims.get(userId);
