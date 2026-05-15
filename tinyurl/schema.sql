@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS "user" (
   "emailVerified" INTEGER NOT NULL,
   "image"         TEXT,
   "createdAt"     TEXT NOT NULL,
-  "updatedAt"     TEXT NOT NULL);
+  "updatedAt"     TEXT NOT NULL, "isAdmin" INTEGER);
 CREATE TABLE IF NOT EXISTS "session" (
   "id"        TEXT NOT NULL PRIMARY KEY,
   "expiresAt" TEXT NOT NULL,
@@ -99,15 +99,10 @@ CREATE TABLE IF NOT EXISTS "account" (
   "scope"                  TEXT,
   "createdAt"              TEXT NOT NULL,
   "updatedAt"              TEXT NOT NULL
-);
+, "password" TEXT);
 CREATE INDEX "session_userId_idx"          ON "session" ("userId");
 CREATE INDEX "account_userId_idx"          ON "account" ("userId");
 CREATE INDEX idx_links_visibility ON links(visibility, deleted_at);
-CREATE TABLE userinfo_cache (
-  user_id     TEXT NOT NULL PRIMARY KEY REFERENCES "user"(id) ON DELETE CASCADE,
-  claims_json TEXT NOT NULL,
-  fetched_at  INTEGER NOT NULL
-);
 CREATE TABLE IF NOT EXISTS "verification" (
   "id"         TEXT NOT NULL PRIMARY KEY,
   "identifier" TEXT NOT NULL,

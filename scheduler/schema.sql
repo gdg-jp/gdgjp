@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS "user" (
   "emailVerified" INTEGER NOT NULL,
   "image"         TEXT,
   "createdAt"     TEXT NOT NULL,
-  "updatedAt"     TEXT NOT NULL);
+  "updatedAt"     TEXT NOT NULL, "isAdmin" INTEGER);
 CREATE TABLE IF NOT EXISTS "session" (
   "id"        TEXT NOT NULL PRIMARY KEY,
   "expiresAt" TEXT NOT NULL,
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS "account" (
   "scope"                  TEXT,
   "createdAt"              TEXT NOT NULL,
   "updatedAt"              TEXT NOT NULL
-);
+, "password" TEXT);
 CREATE INDEX "session_userId_idx"          ON "session" ("userId");
 CREATE INDEX "account_userId_idx"          ON "account" ("userId");
 CREATE TABLE IF NOT EXISTS "verification" (
