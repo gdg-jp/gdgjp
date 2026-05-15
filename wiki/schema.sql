@@ -10,11 +10,9 @@ CREATE TABLE IF NOT EXISTS "user" (
   "createdAt"                 INTEGER NOT NULL,
   "updatedAt"                 INTEGER NOT NULL,
   -- additionalFields
-  "role"                      TEXT NOT NULL DEFAULT 'member',
-  "chapterId"                 TEXT,
   "preferredUiLanguage"       TEXT NOT NULL DEFAULT 'ja',
   "preferredContentLanguage"  TEXT NOT NULL DEFAULT 'ja'
-, "discord_id" TEXT);
+, "discord_id" TEXT, "isAdmin" INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS "session" (
   "id"          TEXT NOT NULL PRIMARY KEY,
   "expiresAt"   INTEGER NOT NULL,
@@ -232,18 +230,6 @@ CREATE TRIGGER page_tags_fts_trigram_delete AFTER DELETE ON page_tags BEGIN
   )
   WHERE page_id = old.page_id;
 END;
-CREATE TABLE invitations (
-  id          TEXT NOT NULL PRIMARY KEY,
-  email       TEXT NOT NULL,
-  chapter_id  TEXT REFERENCES chapters(id) ON DELETE CASCADE,
-  role        TEXT NOT NULL DEFAULT 'member',
-  invited_by  TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
-  token       TEXT NOT NULL UNIQUE,
-  expires_at  INTEGER NOT NULL,
-  accepted_at INTEGER,
-  created_at  INTEGER NOT NULL DEFAULT (unixepoch())
-);
-CREATE INDEX idx_invitations_email ON invitations(email);
 CREATE INDEX idx_pages_visibility ON pages(visibility);
 CREATE INDEX idx_pages_chapter_id ON pages(chapter_id);
 CREATE TABLE IF NOT EXISTS "notifications" (

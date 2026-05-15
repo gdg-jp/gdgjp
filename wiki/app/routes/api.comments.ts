@@ -2,13 +2,13 @@ import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { createNotification } from "~/lib/notify.server";
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  const sessionUser = await requireRole(request, env, "viewer");
+  const sessionUser = await requireUser(request, env);
   const db = getDb(env);
 
   const form = await request.formData();
@@ -120,7 +120,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       return Response.json({ error: "Comment not found" }, { status: 404 });
     }
 
-    if (comment.authorId !== sessionUser.id && sessionUser.role !== "admin") {
+    if (comment.authorId !== sessionUser.id && !sessionUser.isAdmin) {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 

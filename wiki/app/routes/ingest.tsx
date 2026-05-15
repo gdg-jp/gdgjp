@@ -6,7 +6,7 @@ import { redirect, useActionData, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import InputPanel from "~/components/ingest/InputPanel";
 import * as schema from "~/db/schema";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { isGoogleDriveUrl } from "~/lib/google-drive-utils";
 import { buildIngestionQueueMessage } from "~/lib/ingestion-jobs.server";
 import type { IngestionInputs } from "~/lib/ingestion-pipeline.server";
@@ -20,7 +20,7 @@ export const meta: MetaFunction = () => [{ title: "Add Content — GDGoC Japan W
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = drizzle(env.DB, { schema });
 
   const driveToken = await db
@@ -54,7 +54,7 @@ const MIN_TEXT_LENGTH = 10;
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env, ctx } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = drizzle(env.DB, { schema });
 
   const formData = await request.formData();

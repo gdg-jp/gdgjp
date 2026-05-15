@@ -7,7 +7,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 import DropdownMenu, { type DropdownOption } from "~/components/tasks/DropdownMenu";
 import TeamManager from "~/components/tasks/TeamManager";
 import * as schema from "~/db/schema";
-import { hasRole, requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { canUserChangeVisibility, canUserSeePageAsync } from "~/lib/page-visibility.server";
 
@@ -23,7 +23,7 @@ export const meta: MetaFunction = () => [{ title: "Task List Settings — GDGoC 
 
 export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
   const { slug } = params;
@@ -41,10 +41,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
     throw new Response("Forbidden", { status: 403 });
   }
 
-  const canManage =
-    hasRole(user.role as string, "admin") ||
-    hasRole(user.role as string, "lead") ||
-    user.id === page.authorId;
+  const canManage = user.isAdmin || user.id === page.authorId;
 
   if (!canManage) throw new Response("Forbidden", { status: 403 });
 
@@ -64,7 +61,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
 
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
   const { slug } = params;
@@ -78,10 +75,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
 
   if (!page) throw new Response("Not found", { status: 404 });
 
-  const canManage =
-    hasRole(user.role as string, "admin") ||
-    hasRole(user.role as string, "lead") ||
-    user.id === page.authorId;
+  const canManage = user.isAdmin || user.id === page.authorId;
 
   if (!canManage) throw new Response("Forbidden", { status: 403 });
 

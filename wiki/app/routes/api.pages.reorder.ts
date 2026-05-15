@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 
 const BodySchema = z.object({
   pageId: z.string().min(1),
@@ -10,7 +10,7 @@ const BodySchema = z.object({
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  await requireRole(request, env, "member");
+  await requireUser(request, env);
 
   const parsed = BodySchema.safeParse(await request.json());
   if (!parsed.success) return new Response(parsed.error.message, { status: 400 });

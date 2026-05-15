@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { hasRole, requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -13,7 +13,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   }
 
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = drizzle(env.DB, { schema });
 
   const slug = params.slug ?? "";
@@ -31,7 +31,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     return new Response("Not Found", { status: 404 });
   }
 
-  const canEditAny = hasRole(user.role as string, "lead");
+  const canEditAny = user.isAdmin;
   if (!canEditAny && page.authorId !== user.id) {
     return new Response("Forbidden", { status: 403 });
   }

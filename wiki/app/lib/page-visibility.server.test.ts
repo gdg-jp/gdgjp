@@ -11,37 +11,39 @@ const chapterPage = {
 const leadPage = { id: "p3", visibility: "private_to_lead", chapterId: "ch1", authorId: "u1" };
 const restrictedPage = { id: "p4", visibility: "restricted", chapterId: null, authorId: "u1" };
 
-const member = { id: "u2", role: "member", chapterId: "ch1", email: "member@example.com" };
-const admin = { id: "u3", role: "admin", chapterId: null, email: "admin@example.com" };
-const author = { id: "u1", role: "member", chapterId: "ch1", email: "author@example.com" };
+const member = { id: "u2", isAdmin: false, email: "member@example.com" };
+const admin = { id: "u3", isAdmin: true, email: "admin@example.com" };
+const author = { id: "u1", isAdmin: false, email: "author@example.com" };
 
 // ---------------------------------------------------------------------------
 // canUserSeePage (sync)
+//
+// After moving chapter membership to the accounts IdP, wiki no longer knows
+// which chapter a user belongs to locally. The chapter-scoped visibilities
+// (private_to_chapter, private_to_lead) collapse to "admin or author only".
 // ---------------------------------------------------------------------------
 
 describe("canUserSeePage", () => {
   it("admin can see any page", () => {
     expect(canUserSeePage(admin, restrictedPage)).toBe(true);
     expect(canUserSeePage(admin, publicPage)).toBe(true);
+    expect(canUserSeePage(admin, chapterPage)).toBe(true);
+    expect(canUserSeePage(admin, leadPage)).toBe(true);
   });
 
-  it("member can see public page", () => {
+  it("any signed-in user can see a public page", () => {
     expect(canUserSeePage(member, publicPage)).toBe(true);
   });
 
   it("author can see their own page regardless of visibility", () => {
     expect(canUserSeePage(author, restrictedPage)).toBe(true);
     expect(canUserSeePage(author, leadPage)).toBe(true);
+    expect(canUserSeePage(author, chapterPage)).toBe(true);
   });
 
-  it("member in same chapter can see private_to_chapter page", () => {
-    expect(canUserSeePage(member, chapterPage)).toBe(true);
-  });
-
-  it("member cannot see private_to_lead page even in same chapter", () => {
-    const lead = { id: "u5", role: "lead", chapterId: "ch1", email: "lead@example.com" };
+  it("non-author non-admin cannot see chapter-scoped pages (no per-user chapter info post-SSO)", () => {
+    expect(canUserSeePage(member, chapterPage)).toBe(false);
     expect(canUserSeePage(member, leadPage)).toBe(false);
-    expect(canUserSeePage(lead, leadPage)).toBe(true);
   });
 
   it("returns false for restricted page (sync — conservative fallback)", () => {
@@ -57,7 +59,7 @@ describe("canUserSeePageAsync", () => {
   it("non-restricted page delegates to canUserSeePage", async () => {
     const db = {};
     expect(await canUserSeePageAsync(db as never, member, publicPage)).toBe(true);
-    expect(await canUserSeePageAsync(db as never, member, chapterPage)).toBe(true);
+    expect(await canUserSeePageAsync(db as never, member, chapterPage)).toBe(false);
   });
 
   it("admin can see restricted page without DB lookup", async () => {

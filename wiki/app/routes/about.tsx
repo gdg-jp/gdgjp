@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import LandingContent from "~/components/LandingContent";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 
 export const meta: MetaFunction = ({ matches }) => {
   const origin = (matches.find((m) => m.id === "root")?.data as { origin?: string })?.origin ?? "";
@@ -26,7 +26,7 @@ export const meta: MetaFunction = ({ matches }) => {
 };
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
-  await requireRole(request, context.cloudflare.env, "viewer");
+  await requireUser(request, context.cloudflare.env);
   return {};
 }
 

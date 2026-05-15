@@ -24,7 +24,7 @@ import TaskRemainingView from "~/components/tasks/TaskRemainingView";
 import TaskTableView from "~/components/tasks/TaskTableView";
 import TaskTimelineView from "~/components/tasks/TaskTimelineView";
 import * as schema from "~/db/schema";
-import { hasRole, requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { canUserManageAccess } from "~/lib/page-access.server";
 import { canUserChangeVisibility, canUserSeePageAsync } from "~/lib/page-visibility.server";
@@ -43,7 +43,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => [
 
 export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
   const { slug } = params;
@@ -102,22 +102,15 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
     depMap.set(d.taskId, list);
   }
 
-  // Get chapter members for assignee list — use the task list's chapter, not the viewer's
-  const members = page.chapterId
-    ? await db
-        .select({ id: schema.user.id, name: schema.user.name, image: schema.user.image })
-        .from(schema.user)
-        .where(eq(schema.user.chapterId, page.chapterId))
-        .all()
-    : await db
-        .select({ id: schema.user.id, name: schema.user.name, image: schema.user.image })
-        .from(schema.user)
-        .all();
+  // Assignee list: pre-SSO this scoped to the task list's chapter members.
+  // Wiki no longer stores per-user chapter, so all users are candidates;
+  // re-scope once chapter membership is read from IdP claims.
+  const members = await db
+    .select({ id: schema.user.id, name: schema.user.name, image: schema.user.image })
+    .from(schema.user)
+    .all();
 
-  const canManage =
-    hasRole(user.role as string, "admin") ||
-    hasRole(user.role as string, "lead") ||
-    user.id === page.authorId;
+  const canManage = user.isAdmin || user.id === page.authorId;
 
   const fav = await db
     .select()
@@ -142,7 +135,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
     userId: user.id,
     nextTaskNumber: taskListMeta.nextTaskNumber,
     isStarred: !!fav,
-    canArchive: hasRole(user.role as string, "lead") || user.id === page.authorId,
+    canArchive: user.isAdmin || user.id === page.authorId,
   };
 }
 
@@ -152,7 +145,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
 
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
   const { slug } = params;
@@ -194,7 +187,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   }
 
   if (intent === "archivePage") {
-    const canArchive = hasRole(user.role as string, "lead") || user.id === page.authorId;
+    const canArchive = user.isAdmin || user.id === page.authorId;
     if (!canArchive) throw new Response("Forbidden", { status: 403 });
     await db
       .update(schema.pages)
@@ -203,10 +196,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     return redirect("/");
   }
 
-  const canManage =
-    hasRole(user.role as string, "admin") ||
-    hasRole(user.role as string, "lead") ||
-    user.id === page.authorId;
+  const canManage = user.isAdmin || user.id === page.authorId;
 
   if (!canManage) throw new Response("Forbidden", { status: 403 });
 

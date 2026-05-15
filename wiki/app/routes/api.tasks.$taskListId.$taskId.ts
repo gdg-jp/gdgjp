@@ -1,13 +1,13 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { canUserEditTask } from "~/lib/task-visibility.server";
 
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
   const { taskListId, taskId } = params;

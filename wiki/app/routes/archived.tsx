@@ -7,7 +7,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 import ConfirmDialog from "~/components/ConfirmDialog";
 import Tooltip from "~/components/Tooltip";
 import * as schema from "~/db/schema";
-import { hasRole, requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { deletePageEmbeddings } from "~/lib/embedding-pipeline.server";
 import { timeAgo } from "~/lib/time";
@@ -20,11 +20,12 @@ export const meta: MetaFunction = () => [{ title: "Archived — GDGoC Japan Wiki
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
-  const isAdmin = user.role === "admin";
-  const isLead = hasRole(user.role as string, "lead");
+  const isAdmin = !!user.isAdmin;
+  // Pre-SSO "lead" was a separate role; admins now subsume those capabilities.
+  const isLead = isAdmin;
 
   const pages = await db
     .select({
@@ -53,7 +54,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
   const form = await request.formData();
@@ -71,7 +72,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   if (!page) throw new Response("Not Found", { status: 404 });
 
   if (intent === "restorePage") {
-    if (page.authorId !== user.id && !hasRole(user.role as string, "lead"))
+    if (page.authorId !== user.id && !user.isAdmin)
       throw new Response("Forbidden", { status: 403 });
     await db
       .update(schema.pages)
@@ -81,7 +82,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   }
 
   if (intent === "deletePage") {
-    if (user.role !== "admin") throw new Response("Forbidden", { status: 403 });
+    if (!user.isAdmin) throw new Response("Forbidden", { status: 403 });
     try {
       await deletePageEmbeddings(env, db, pageId);
     } catch {

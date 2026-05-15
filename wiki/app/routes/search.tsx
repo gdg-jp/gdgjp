@@ -4,7 +4,7 @@ import { Link, useLoaderData, useNavigate, useNavigation } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import TagChip from "~/components/TagChip";
 import * as schema from "~/db/schema";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
 import { type RagSearchResult, performRagSearch } from "~/lib/rag-search.server";
@@ -29,7 +29,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const mode = url.searchParams.get("mode") === "ai" ? "ai" : "keyword";
 
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
   const visFilter = buildVisibilityFilter(user);

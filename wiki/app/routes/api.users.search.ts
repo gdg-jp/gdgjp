@@ -1,13 +1,13 @@
 import { like, or } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 
 // GET /api/users/search?q=<query>
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  await requireRole(request, env, "member");
+  await requireUser(request, env);
   const db = getDb(env);
 
   const url = new URL(request.url);

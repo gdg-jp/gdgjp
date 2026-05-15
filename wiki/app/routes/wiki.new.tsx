@@ -9,7 +9,7 @@ import { Form, Link, redirect, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
 import { useThemeMode } from "~/hooks/useThemeMode";
-import { hasRole, requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { generateSlug } from "~/lib/ingestion-pipeline.server";
 import { insertPageOwner } from "~/lib/page-access.server";
@@ -26,8 +26,8 @@ export const meta: MetaFunction = () => [{ title: "New Page — GDGoC Japan Wiki
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
-  const canLead = hasRole(user.role as string, "lead");
+  const user = await requireUser(request, env);
+  const canLead = user.isAdmin;
   return {
     canPublish: canLead,
     canChangeVisibility: canLead,
@@ -40,7 +40,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
   const formData = await request.formData();
@@ -51,7 +51,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const contentEn = (formData.get("contentEn") as string) ?? "";
   const visibility = (formData.get("visibility") as string) || "public";
 
-  const canLead = hasRole(user.role as string, "lead");
+  const canLead = user.isAdmin;
   const isPublish = intent === "publish" && canLead;
 
   // Generate unique slug
@@ -77,7 +77,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     contentEn,
     status: isPublish ? "published" : "draft",
     visibility,
-    chapterId: user.chapterId ?? null,
+    chapterId: null,
     authorId: user.id,
     lastEditedBy: user.id,
   });

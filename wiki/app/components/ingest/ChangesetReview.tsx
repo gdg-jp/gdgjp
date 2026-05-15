@@ -61,7 +61,7 @@ interface OperationState {
 interface ChangesetReviewProps {
   draft: ResultDraft;
   sessionId: string;
-  userRole: string;
+  isAdmin: boolean | null | undefined;
   imageKeys?: string[];
   pageIndex?: PageIndexEntry[];
 }
@@ -73,7 +73,7 @@ interface ChangesetReviewProps {
 export default function ChangesetReview({
   draft,
   sessionId,
-  userRole,
+  isAdmin,
   imageKeys,
   pageIndex = [],
 }: ChangesetReviewProps) {
@@ -258,7 +258,7 @@ export default function ChangesetReview({
     }
   }
 
-  const canPublish = userRole === "lead" || userRole === "admin";
+  const canPublish = isAdmin;
 
   return (
     <div className="space-y-6">

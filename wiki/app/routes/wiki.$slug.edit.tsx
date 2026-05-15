@@ -10,7 +10,7 @@ import type {
 import { useLoaderData } from "react-router";
 import PageEditor from "~/components/PageEditor";
 import * as schema from "~/db/schema";
-import { hasRole, requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { canUserChangeVisibility } from "~/lib/page-visibility.server";
 import { tiptapToMarkdown } from "~/lib/tiptap-convert";
@@ -46,7 +46,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => [
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
   const page = await db
@@ -69,8 +69,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   if (!page) throw new Response("Not Found", { status: 404 });
   if (page.status === "archived") throw new Response("Not Found", { status: 404 });
 
-  const userRole = user.role as string;
-  const canEditAny = hasRole(userRole, "lead");
+  const canEditAny = !!user.isAdmin;
 
   // Members can only edit their own pages
   if (!canEditAny && page.authorId !== user.id) {
@@ -95,7 +94,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
   const formData = await request.formData();
@@ -121,8 +120,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   if (!page) throw new Response("Not Found", { status: 404 });
 
-  const userRole = user.role as string;
-  const canEditAny = hasRole(userRole, "lead");
+  const canEditAny = !!user.isAdmin;
 
   if (!canEditAny && page.authorId !== user.id) {
     throw new Response("Forbidden", { status: 403 });

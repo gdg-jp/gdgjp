@@ -1,11 +1,11 @@
 import { redirect } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getGoogleDriveAuthUrl } from "~/lib/google-drive.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  await requireRole(request, env, "member");
+  await requireUser(request, env);
 
   const url = new URL(request.url);
   const returnTo = url.searchParams.get("returnTo") ?? "/ingest";

@@ -1,13 +1,13 @@
 import { and, eq, isNull, ne, or } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireAdmin } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { indexPageEmbeddings } from "~/lib/embedding-pipeline.server";
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  await requireRole(request, env, "admin");
+  await requireAdmin(request, env);
   const db = getDb(env);
 
   // Find published pages that need (re-)indexing.

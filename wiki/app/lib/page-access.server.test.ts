@@ -9,40 +9,40 @@ import { canUserGrantRole } from "./page-access.server";
 describe("canUserGrantRole", () => {
   describe("admin system role", () => {
     it("can grant any role", () => {
-      expect(canUserGrantRole(null, "admin", "owner")).toBe(true);
-      expect(canUserGrantRole(null, "admin", "editor")).toBe(true);
-      expect(canUserGrantRole(null, "admin", "viewer")).toBe(true);
+      expect(canUserGrantRole(null, true, "owner")).toBe(true);
+      expect(canUserGrantRole(null, true, "editor")).toBe(true);
+      expect(canUserGrantRole(null, true, "viewer")).toBe(true);
     });
   });
 
   describe("owner page role", () => {
     it("can grant any role", () => {
-      expect(canUserGrantRole("owner", "member", "owner")).toBe(true);
-      expect(canUserGrantRole("owner", "member", "editor")).toBe(true);
-      expect(canUserGrantRole("owner", "member", "viewer")).toBe(true);
+      expect(canUserGrantRole("owner", false, "owner")).toBe(true);
+      expect(canUserGrantRole("owner", false, "editor")).toBe(true);
+      expect(canUserGrantRole("owner", false, "viewer")).toBe(true);
     });
   });
 
   describe("editor page role", () => {
     it("can grant editor and viewer but not owner", () => {
-      expect(canUserGrantRole("editor", "member", "editor")).toBe(true);
-      expect(canUserGrantRole("editor", "member", "viewer")).toBe(true);
-      expect(canUserGrantRole("editor", "member", "owner")).toBe(false);
+      expect(canUserGrantRole("editor", false, "editor")).toBe(true);
+      expect(canUserGrantRole("editor", false, "viewer")).toBe(true);
+      expect(canUserGrantRole("editor", false, "owner")).toBe(false);
     });
   });
 
   describe("viewer page role", () => {
     it("cannot grant any role", () => {
-      expect(canUserGrantRole("viewer", "member", "viewer")).toBe(false);
-      expect(canUserGrantRole("viewer", "member", "editor")).toBe(false);
-      expect(canUserGrantRole("viewer", "member", "owner")).toBe(false);
+      expect(canUserGrantRole("viewer", false, "viewer")).toBe(false);
+      expect(canUserGrantRole("viewer", false, "editor")).toBe(false);
+      expect(canUserGrantRole("viewer", false, "owner")).toBe(false);
     });
   });
 
   describe("null page role (no access)", () => {
     it("cannot grant any role", () => {
-      expect(canUserGrantRole(null, "member", "viewer")).toBe(false);
-      expect(canUserGrantRole(null, "lead", "viewer")).toBe(false);
+      expect(canUserGrantRole(null, false, "viewer")).toBe(false);
+      expect(canUserGrantRole(null, false, "viewer")).toBe(false);
     });
   });
 });
@@ -202,7 +202,7 @@ describe("canUserManageAccess", () => {
     const db = { select: vi.fn(), update: vi.fn() };
     const result = await canUserManageAccess(db as never, "page1", {
       id: "u1",
-      role: "admin",
+      isAdmin: true,
       email: "admin@example.com",
     });
     expect(result).toBe(true);
@@ -222,7 +222,7 @@ describe("canUserManageAccess", () => {
     };
     const result = await canUserManageAccess(db as never, "page1", {
       id: "u1",
-      role: "member",
+      isAdmin: false,
       email: "user@example.com",
     });
     expect(result).toBe(true);
@@ -242,7 +242,7 @@ describe("canUserManageAccess", () => {
     };
     const result = await canUserManageAccess(db as never, "page1", {
       id: "u1",
-      role: "member",
+      isAdmin: false,
       email: "user@example.com",
     });
     expect(result).toBe(false);

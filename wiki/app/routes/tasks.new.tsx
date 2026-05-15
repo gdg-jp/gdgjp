@@ -7,7 +7,7 @@ import { Form, Link, data, redirect, useActionData, useLoaderData } from "react-
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import DropdownMenu, { type DropdownOption } from "~/components/tasks/DropdownMenu";
 import * as schema from "~/db/schema";
-import { hasRole, requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { generateSlug } from "~/lib/ingestion-pipeline.server";
 import { insertPageOwner } from "~/lib/page-access.server";
@@ -24,8 +24,8 @@ export const meta: MetaFunction = () => [{ title: "New Task List — GDGoC Japan
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
-  const canLead = hasRole(user.role as string, "lead");
+  const user = await requireUser(request, env);
+  const canLead = user.isAdmin;
   return { canChangeVisibility: canLead };
 }
 
@@ -35,7 +35,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
   const formData = await request.formData();
@@ -44,7 +44,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const ALLOWED_VISIBILITY = ["public", "private_to_chapter", "private_to_lead"] as const;
   type Visibility = (typeof ALLOWED_VISIBILITY)[number];
   const rawVisibility = formData.get("visibility") as string;
-  const canLead = hasRole(user.role as string, "lead");
+  const canLead = user.isAdmin;
   const visibility: Visibility =
     (ALLOWED_VISIBILITY as readonly string[]).includes(rawVisibility) &&
     (rawVisibility === "public" || canLead)
@@ -81,7 +81,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       status: "published",
       pageType: "task-list",
       visibility,
-      chapterId: user.chapterId ?? null,
+      chapterId: null,
       authorId: user.id,
       lastEditedBy: user.id,
     }),

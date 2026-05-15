@@ -1,9 +1,9 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  await requireRole(request, env, "viewer");
+  await requireUser(request, env);
   const key = params["*"] ?? "";
 
   // Security: only allow keys starting with wiki/ or ingestion/

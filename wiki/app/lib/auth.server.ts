@@ -2,7 +2,6 @@ import { SSO_PROVIDER_ID } from "@gdgjp/gdg-lib";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { genericOAuth } from "better-auth/plugins";
-import { and, eq, gt, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../db/schema";
 
@@ -34,15 +33,10 @@ function initAuth(env: Env) {
     },
     user: {
       additionalFields: {
-        role: {
-          type: "string",
-          defaultValue: "pending",
-          // "admin" | "lead" | "member" | "viewer" | "pending"
-        },
-        chapterId: {
-          type: "string",
-          required: false,
-        },
+        // Mirrored from the accounts IdP at sign-in via mapProfileToUser.
+        // Better-auth only invokes mapProfileToUser on user create / account
+        // link, so promotions take effect after the next sign-out + sign-in.
+        isAdmin: { type: "boolean", required: false, input: false, defaultValue: false },
         preferredUiLanguage: {
           type: "string",
           defaultValue: "ja",
@@ -74,52 +68,12 @@ function initAuth(env: Env) {
               name: profile.name ?? profile.email,
               image: profile.picture ?? null,
               emailVerified: profile.email_verified === true,
+              isAdmin: profile.isAdmin === true,
             }),
           },
         ],
       }),
     ],
-    databaseHooks: {
-      user: {
-        create: {
-          before: async (userData) => {
-            // On first sign-in, check if there's a valid invitation for this email.
-            const now = Math.floor(Date.now() / 1000);
-            const drizzleDb = drizzle(env.DB, { schema });
-            const invitation = await drizzleDb
-              .select()
-              .from(schema.invitations)
-              .where(
-                and(
-                  eq(schema.invitations.email, userData.email),
-                  gt(schema.invitations.expiresAt, now),
-                  isNull(schema.invitations.acceptedAt),
-                ),
-              )
-              .get();
-
-            if (invitation) {
-              // Accept the invitation and assign role + chapter
-              await drizzleDb
-                .update(schema.invitations)
-                .set({ acceptedAt: now })
-                .where(eq(schema.invitations.id, invitation.id));
-
-              return {
-                data: {
-                  ...userData,
-                  role: invitation.role,
-                  chapterId: invitation.chapterId ?? undefined,
-                },
-              };
-            }
-
-            // No invitation found — set to pending (no access)
-            return { data: { ...userData, role: "pending" } };
-          },
-        },
-      },
-    },
   });
 }
 

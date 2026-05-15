@@ -127,10 +127,8 @@ export class CollabDurableObject extends DurableObject<Env> {
     const auth = createAuth(this.env);
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session) return null;
-
-    // Must be at least a member.
-    const roleLevel: Record<string, number> = { admin: 4, lead: 3, member: 2, viewer: 1 };
-    if ((roleLevel[session.user.role] ?? 0) < 2) return null;
+    // Any signed-in user can join collab; per-chapter / role gating moved
+    // to the accounts IdP and is no longer enforced in the Durable Object.
 
     return {
       userId: session.user.id,

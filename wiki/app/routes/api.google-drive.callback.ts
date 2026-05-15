@@ -2,12 +2,12 @@ import { drizzle } from "drizzle-orm/d1";
 import { redirect } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { exchangeCodeForToken } from "~/lib/google-drive.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
 
   const url = new URL(request.url);
   const code = url.searchParams.get("code");

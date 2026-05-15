@@ -2,7 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { hasRole, requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 
 // ---------------------------------------------------------------------------
@@ -10,7 +10,7 @@ import { getDb } from "~/lib/db.server";
 // ---------------------------------------------------------------------------
 export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  await requireRole(request, env, "member");
+  await requireUser(request, env);
   const db = getDb(env);
 
   const { taskListId } = params;
@@ -31,7 +31,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
 // ---------------------------------------------------------------------------
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
   const { taskListId } = params;
@@ -46,10 +46,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
 
   if (!listPage) return Response.json({ error: "Task list not found" }, { status: 404 });
 
-  const canManage =
-    hasRole(user.role as string, "admin") ||
-    hasRole(user.role as string, "lead") ||
-    user.id === listPage.authorId;
+  const canManage = user.isAdmin || user.isAdmin || user.id === listPage.authorId;
 
   if (!canManage) return Response.json({ error: "Forbidden" }, { status: 403 });
 

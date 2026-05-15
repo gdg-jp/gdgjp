@@ -1,8 +1,7 @@
 import { eq } from "drizzle-orm";
-import { nanoid } from "nanoid";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { hasRole, requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import type { PageRole } from "~/lib/page-access.server";
 import {
@@ -25,7 +24,7 @@ const VALID_VISIBILITY = ["public", "private_to_chapter", "private_to_lead", "re
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const sessionUser = await requireRole(request, env, "member");
+  const sessionUser = await requireUser(request, env);
   const db = getDb(env);
   const { pageId } = params;
 
@@ -54,8 +53,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 
   // Admins and the page author are implicitly owners even without a page_access record
   const myRole: PageRole =
-    dbRole ??
-    (hasRole(sessionUser.role, "admin") || sessionUser.id === page.authorId ? "owner" : "viewer");
+    dbRole ?? (sessionUser.isAdmin || sessionUser.id === page.authorId ? "owner" : "viewer");
 
   return Response.json({
     accessList,
@@ -71,7 +69,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  const sessionUser = await requireRole(request, env, "member");
+  const sessionUser = await requireUser(request, env);
   const db = getDb(env);
   const { pageId } = params;
 
@@ -117,9 +115,9 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     const dbCallerRole = await getUserPageRole(db, pageId, sessionUser.id, sessionUser.email);
     const callerRole: PageRole =
       dbCallerRole ??
-      (hasRole(sessionUser.role, "admin") || sessionUser.id === page.authorId ? "owner" : "viewer");
+      (sessionUser.isAdmin || sessionUser.id === page.authorId ? "owner" : "viewer");
 
-    if (!canUserGrantRole(callerRole, sessionUser.role, pageRole as PageRole)) {
+    if (!canUserGrantRole(callerRole, sessionUser.isAdmin, pageRole as PageRole)) {
       return Response.json({ error: "permission" }, { status: 403 });
     }
 
@@ -138,27 +136,9 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       userId: targetUser?.id ?? null,
     });
 
-    // If email not in system, create an invitation
-    if (!targetUser) {
-      const existing = await db
-        .select({ id: schema.invitations.id })
-        .from(schema.invitations)
-        .where(eq(schema.invitations.email, email))
-        .get();
-
-      if (!existing) {
-        const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7; // 7 days
-        await db.insert(schema.invitations).values({
-          id: nanoid(),
-          email,
-          chapterId: sessionUser.chapterId ?? null,
-          role: "member",
-          invitedBy: sessionUser.id,
-          token: nanoid(32),
-          expiresAt,
-        });
-      }
-    }
+    // The page_access record itself carries the email, so unknown emails are
+    // tracked as pending entries linked at first sign-in by getUserPageRole.
+    // (Pre-SSO this also issued a wiki invitation row; accounts owns invites now.)
 
     return Response.json({ ok: true });
   }
@@ -178,9 +158,9 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     const dbCallerRole = await getUserPageRole(db, pageId, sessionUser.id, sessionUser.email);
     const callerRole: PageRole =
       dbCallerRole ??
-      (hasRole(sessionUser.role, "admin") || sessionUser.id === page.authorId ? "owner" : "viewer");
+      (sessionUser.isAdmin || sessionUser.id === page.authorId ? "owner" : "viewer");
 
-    if (!canUserGrantRole(callerRole, sessionUser.role, pageRole as PageRole)) {
+    if (!canUserGrantRole(callerRole, sessionUser.isAdmin, pageRole as PageRole)) {
       return Response.json({ error: "permission" }, { status: 403 });
     }
 
@@ -236,16 +216,12 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       return new Response("Invalid visibility", { status: 400 });
     }
 
-    // Auto-assign chapterId for chapter/lead-scoped visibility
-    let chapterId = page.chapterId;
-    if (visibility !== "public" && visibility !== "restricted" && !chapterId) {
-      if (!sessionUser.chapterId) {
-        return new Response("Cannot set chapter-scoped visibility without a chapter", {
-          status: 400,
-        });
-      }
-      chapterId = sessionUser.chapterId;
-    }
+    // Pre-SSO this auto-assigned chapterId from the caller's chapter membership.
+    // Wiki no longer tracks per-user chapter locally; if the page lacks a
+    // chapterId already, chapter-scoped visibility falls through to the new
+    // page-visibility rules (admin/author only). Setting chapter-scoped
+    // visibility on a page with no chapterId is now a no-op for non-admins.
+    const chapterId = page.chapterId;
 
     // Safety: when switching to "restricted", ensure the page author is an owner
     if (visibility === "restricted") {

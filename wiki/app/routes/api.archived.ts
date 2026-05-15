@@ -1,17 +1,17 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { hasRole, requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { deletePageEmbeddings } from "~/lib/embedding-pipeline.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
-  const isAdmin = user.role === "admin";
-  const isLead = hasRole(user.role as string, "lead");
+  const isAdmin = !!user.isAdmin;
+  const isLead = isAdmin;
 
   const pages = await db
     .select({
@@ -37,7 +37,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
   const form = await request.formData();
@@ -55,7 +55,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   if (!page) return Response.json({ ok: false, error: "Not Found" }, { status: 404 });
 
   if (intent === "restorePage") {
-    if (page.authorId !== user.id && !hasRole(user.role as string, "lead")) {
+    if (page.authorId !== user.id && !user.isAdmin) {
       return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
     await db
@@ -66,7 +66,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   }
 
   if (intent === "deletePage") {
-    if (user.role !== "admin") {
+    if (!user.isAdmin) {
       return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
     try {

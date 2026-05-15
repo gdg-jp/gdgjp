@@ -15,7 +15,7 @@ import { Form, Link, useFetcher, useSearchParams } from "react-router";
 import NotificationBell from "./NotificationBell";
 
 interface NavbarProps {
-  user: { name: string; email: string; image?: string | null; role: string } | null;
+  user: { name: string; email: string; image?: string | null } | null;
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   unreadNotificationCount?: number;

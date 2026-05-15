@@ -27,7 +27,7 @@ import WikiRightSidebar from "~/components/WikiRightSidebar";
 import * as schema from "~/db/schema";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useThemeMode } from "~/hooks/useThemeMode";
-import { hasRole, requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { deletePageEmbeddings } from "~/lib/embedding-pipeline.server";
 import { canUserManageAccess } from "~/lib/page-access.server";
@@ -43,7 +43,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => [
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const sessionUser = await requireRole(request, env, "member");
+  const sessionUser = await requireUser(request, env);
   const db = getDb(env);
 
   const page = await db
@@ -221,9 +221,9 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     author: authorRow ?? null,
     editor: editorRow ?? null,
     lang,
-    userRole: sessionUser.role,
+    isAdmin: sessionUser.isAdmin,
     isAuthor: sessionUser.id === page.authorId,
-    canArchive: sessionUser.id === page.authorId || hasRole(sessionUser.role as string, "lead"),
+    canArchive: sessionUser.id === page.authorId || sessionUser.isAdmin,
     currentUserId: sessionUser.id,
     visibility: page.visibility,
     canChangeVisibility: canUserChangeVisibility(sessionUser, page),
@@ -243,7 +243,7 @@ const VALID_VISIBILITY = ["public", "private_to_chapter", "private_to_lead", "re
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  const sessionUser = await requireRole(request, env, "member");
+  const sessionUser = await requireUser(request, env);
   const db = getDb(env);
 
   const form = await request.formData();
@@ -272,20 +272,13 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       throw new Response("Forbidden", { status: 403 });
     }
 
-    // Auto-assign chapterId for chapter/lead-scoped visibility
-    let chapterId = page.chapterId;
-    if (newVisibility !== "public" && newVisibility !== "restricted" && !chapterId) {
-      if (!sessionUser.chapterId) {
-        return new Response("Cannot set chapter-scoped visibility without a chapter", {
-          status: 400,
-        });
-      }
-      chapterId = sessionUser.chapterId;
-    }
-
+    // Pre-SSO this auto-assigned the caller's chapterId for chapter-scoped
+    // visibility. Wiki no longer tracks user chapter; chapterId on the page
+    // is left as-is. Setting chapter-scoped visibility on a page with no
+    // chapterId falls through to "admin/author only" per page-visibility rules.
     await db
       .update(schema.pages)
-      .set({ visibility: newVisibility, chapterId })
+      .set({ visibility: newVisibility, chapterId: page.chapterId })
       .where(eq(schema.pages.id, page.id));
 
     return { ok: true };
@@ -331,8 +324,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       .get();
     if (!page) throw new Response("Not Found", { status: 404 });
     const isAuthor = sessionUser.id === page.authorId;
-    if (!isAuthor && !hasRole(sessionUser.role as string, "lead"))
-      throw new Response("Forbidden", { status: 403 });
+    if (!isAuthor && !sessionUser.isAdmin) throw new Response("Forbidden", { status: 403 });
     await db
       .update(schema.pages)
       .set({ status: "archived", updatedAt: new Date() })
@@ -371,7 +363,7 @@ export default function WikiPage() {
     author,
     editor,
     lang,
-    userRole,
+    isAdmin,
     isAuthor,
     canArchive,
     isStarred,
@@ -406,7 +398,7 @@ export default function WikiPage() {
   const displayContent = hasContent ? primaryContent : (fallbackContent ?? "");
 
   const [tocItems, setTocItems] = useState<TocItem[]>(() => parseMdHeadings(displayContent));
-  const canEdit = userRole === "admin" || userRole === "lead";
+  const canEdit = isAdmin;
 
   // Stable callback — avoids re-render loop when MdPreview fires onGetCatalog every render
   const handleGetCatalog = useCallback((list: Array<{ text: string; level: number }>) => {
@@ -746,7 +738,7 @@ export default function WikiPage() {
           pageId={page.id}
           pageSlug={page.slug}
           currentUserId={currentUserId}
-          userRole={userRole}
+          isAdmin={isAdmin}
         />
       </div>
 

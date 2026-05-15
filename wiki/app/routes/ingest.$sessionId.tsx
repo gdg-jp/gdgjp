@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,7 +9,7 @@ import ChangesetReview from "~/components/ingest/ChangesetReview";
 import SensitiveReviewModal from "~/components/ingest/SensitiveReviewModal";
 import type { ResolvedItem } from "~/components/ingest/SensitiveReviewModal";
 import * as schema from "~/db/schema";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import type { AiDraftJson, ClarificationQuestion } from "~/lib/ingestion-pipeline.server";
 import type { ExtractedUrl } from "~/lib/url-extract";
 
@@ -19,7 +19,7 @@ import type { ExtractedUrl } from "~/lib/url-extract";
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = drizzle(env.DB, { schema });
 
   const session = await db
@@ -31,24 +31,18 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   if (!session) throw new Response("Not found", { status: 404 });
   if (session.userId !== user.id) throw new Response("Forbidden", { status: 403 });
 
-  const pageIndex = user.chapterId
-    ? await db
-        .select({
-          id: schema.pages.id,
-          titleJa: schema.pages.titleJa,
-          titleEn: schema.pages.titleEn,
-          slug: schema.pages.slug,
-          parentId: schema.pages.parentId,
-        })
-        .from(schema.pages)
-        .where(
-          and(
-            eq(schema.pages.chapterId, user.chapterId),
-            inArray(schema.pages.status, ["draft", "published"]),
-          ),
-        )
-        .all()
-    : [];
+  // Pre-SSO this surfaced sibling pages in the user's own chapter as
+  // candidate parents for the incoming draft. Wiki no longer stores
+  // per-user chapter membership; until the IdP /userinfo claim is read
+  // live, the page index defaults to empty (users pick the parent
+  // explicitly in the UI).
+  const pageIndex: Array<{
+    id: string;
+    titleJa: string;
+    titleEn: string;
+    slug: string;
+    parentId: string | null;
+  }> = [];
 
   const imageKeys = (() => {
     try {
@@ -73,7 +67,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
         return null;
       }
     })(),
-    userRole: user.role as string,
+    isAdmin: user.isAdmin,
     imageKeys,
     pageIndex,
   };
@@ -595,7 +589,7 @@ export default function IngestSessionPage() {
       <ChangesetReview
         draft={currentDraft}
         sessionId={loaderData.sessionId}
-        userRole={loaderData.userRole}
+        isAdmin={loaderData.isAdmin}
         imageKeys={imageKeys}
         pageIndex={loaderData.pageIndex}
       />

@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/d1";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import * as schema from "~/db/schema";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import {
   type IngestionResumePostUrlSelectionDraft,
   buildIngestionQueueMessage,
@@ -17,7 +17,7 @@ const SelectUrlsBodySchema = z.object({
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env, ctx } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = drizzle(env.DB, { schema });
 
   const session = await db

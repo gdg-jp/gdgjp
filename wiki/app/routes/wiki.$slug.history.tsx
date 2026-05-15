@@ -11,7 +11,7 @@ import { Link, redirect, useFetcher, useLoaderData } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
 import * as schema from "~/db/schema";
 import { useThemeMode } from "~/hooks/useThemeMode";
-import { hasRole, requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { canUserSeePageAsync } from "~/lib/page-visibility.server";
 import { tiptapToMarkdown } from "~/lib/tiptap-convert";
@@ -49,7 +49,7 @@ type VersionFullRaw = VersionRaw & {
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const sessionUser = await requireRole(request, env, "member");
+  const sessionUser = await requireUser(request, env);
   const db = getDb(env);
 
   const page = await db
@@ -137,8 +137,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     }
   }
 
-  const userRole = sessionUser.role as string;
-  const canRevert = hasRole(userRole, "lead") || page.authorId === sessionUser.id;
+  const canRevert = sessionUser.isAdmin || page.authorId === sessionUser.id;
 
   return {
     page: {
@@ -157,7 +156,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
 
   const formData = await request.formData();
   const intent = formData.get("intent");
@@ -185,8 +184,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   if (!page || page.status !== "published") throw new Response("Not Found", { status: 404 });
 
-  const userRole = user.role as string;
-  if (!hasRole(userRole, "lead") && page.authorId !== user.id) {
+  const isAdmin = user.isAdmin;
+  if (!user.isAdmin && page.authorId !== user.id) {
     throw new Response("Forbidden", { status: 403 });
   }
 

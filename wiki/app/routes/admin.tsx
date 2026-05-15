@@ -1,4 +1,4 @@
-import { BarChart3, Building2, FileText, Tag, Users } from "lucide-react";
+import { BarChart3, FileText, Tag } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Outlet, useLoaderData, useLocation } from "react-router";
@@ -7,7 +7,7 @@ import BaseSidebar from "~/components/BaseSidebar";
 import Navbar from "~/components/Navbar";
 import { NavItem } from "~/components/Sidebar";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireAdmin } from "~/lib/auth-utils.server";
 
 // ---------------------------------------------------------------------------
 // Loader
@@ -15,7 +15,7 @@ import { requireRole } from "~/lib/auth-utils.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "admin");
+  const user = await requireAdmin(request, env);
   return { user };
 }
 
@@ -24,8 +24,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 // ---------------------------------------------------------------------------
 
 const NAV_ITEMS = [
-  { to: "/admin/users", labelKey: "admin.nav.users", icon: Users },
-  { to: "/admin/chapters", labelKey: "admin.nav.chapters", icon: Building2 },
   { to: "/admin/pages", labelKey: "admin.nav.pages", icon: FileText },
   { to: "/admin/tags", labelKey: "admin.nav.tags", icon: Tag },
   { to: "/admin/stats", labelKey: "admin.nav.stats", icon: BarChart3 },

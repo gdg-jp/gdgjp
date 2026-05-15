@@ -10,7 +10,7 @@ interface CommentSectionProps {
   pageId: string;
   pageSlug: string;
   currentUserId: string;
-  userRole: string;
+  isAdmin: boolean | null | undefined;
 }
 
 export default function CommentSection({
@@ -18,7 +18,7 @@ export default function CommentSection({
   pageId,
   pageSlug,
   currentUserId,
-  userRole,
+  isAdmin,
 }: CommentSectionProps) {
   const { t } = useTranslation("common");
   const fetcher = useFetcher();
@@ -79,7 +79,7 @@ export default function CommentSection({
               key={comment.id}
               comment={comment}
               currentUserId={currentUserId}
-              userRole={userRole}
+              isAdmin={isAdmin}
               depth={0}
               onReply={handleAddReply}
               onDelete={handleDelete}

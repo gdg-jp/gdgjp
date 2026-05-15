@@ -36,21 +36,15 @@ export default [
   route("/api/page-access/:pageId", "routes/api.page-access.$pageId.tsx"),
   route("/api/users/search", "routes/api.users.search.ts"),
 
-  // Admin routes — separate layout with admin sidebar
+  // Admin routes — separate layout with admin sidebar.
+  // User and chapter management are owned by the accounts IdP and no longer
+  // live here; admins land on /admin/pages.
   route("admin", "routes/admin.tsx", [
     index("routes/admin._index.tsx"),
-    route("users", "routes/admin.users.tsx"),
-    route("chapters", "routes/admin.chapters.tsx"),
     route("pages", "routes/admin.pages.tsx"),
     route("tags", "routes/admin.tags.tsx"),
     route("stats", "routes/admin.stats.tsx"),
   ]),
-
-  // Lead: chapter management
-  route("manage", "routes/manage.tsx", [route("members", "routes/manage.members.tsx")]),
-
-  // Pending access — no auth shell needed
-  route("/pending", "routes/pending.tsx"),
 
   // About / landing for logged-in users — no app shell
   route("/about", "routes/about.tsx"),
@@ -72,7 +66,6 @@ export default [
     route("/wiki/:slug/history", "routes/wiki.$slug.history.tsx"),
     route("/recent", "routes/recent.tsx"),
     route("/archived", "routes/archived.tsx"),
-    route("/chapter", "routes/chapter.tsx"),
     route("/ingest", "routes/ingest.tsx"),
     route("/ingest/:sessionId", "routes/ingest.$sessionId.tsx"),
     route("/analyze", "routes/analyze.tsx"),

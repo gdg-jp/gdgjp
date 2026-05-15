@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("~/lib/auth-utils.server", () => ({
-  requireRole: vi.fn(),
+  requireAdmin: vi.fn(),
 }));
 
 vi.mock("~/lib/db.server", () => ({
   getDb: vi.fn(),
 }));
 
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireAdmin } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { action, loader } from "./admin.pages";
 
@@ -57,8 +57,8 @@ describe("admin.pages loader", () => {
         updatedAt: new Date(),
       },
     ];
-    vi.mocked(requireRole).mockResolvedValueOnce({ id: "admin1" } as ReturnType<
-      typeof requireRole
+    vi.mocked(requireAdmin).mockResolvedValueOnce({ id: "admin1" } as ReturnType<
+      typeof requireAdmin
     > extends Promise<infer T>
       ? T
       : never);
@@ -83,8 +83,8 @@ describe("admin.pages loader", () => {
 
 describe("admin.pages action", () => {
   it("calls batch delete for deletePage intent", async () => {
-    vi.mocked(requireRole).mockResolvedValueOnce({ id: "admin1" } as ReturnType<
-      typeof requireRole
+    vi.mocked(requireAdmin).mockResolvedValueOnce({ id: "admin1" } as ReturnType<
+      typeof requireAdmin
     > extends Promise<infer T>
       ? T
       : never);
@@ -122,8 +122,8 @@ describe("admin.pages action", () => {
   });
 
   it("archivePage intent calls db.update with archived status", async () => {
-    vi.mocked(requireRole).mockResolvedValueOnce({ id: "admin1" } as ReturnType<
-      typeof requireRole
+    vi.mocked(requireAdmin).mockResolvedValueOnce({ id: "admin1" } as ReturnType<
+      typeof requireAdmin
     > extends Promise<infer T>
       ? T
       : never);
@@ -162,8 +162,8 @@ describe("admin.pages action", () => {
   });
 
   it("restorePage intent calls db.update with draft status", async () => {
-    vi.mocked(requireRole).mockResolvedValueOnce({ id: "admin1" } as ReturnType<
-      typeof requireRole
+    vi.mocked(requireAdmin).mockResolvedValueOnce({ id: "admin1" } as ReturnType<
+      typeof requireAdmin
     > extends Promise<infer T>
       ? T
       : never);
@@ -202,8 +202,8 @@ describe("admin.pages action", () => {
   });
 
   it("returns empty object for unknown intent", async () => {
-    vi.mocked(requireRole).mockResolvedValueOnce({ id: "admin1" } as ReturnType<
-      typeof requireRole
+    vi.mocked(requireAdmin).mockResolvedValueOnce({ id: "admin1" } as ReturnType<
+      typeof requireAdmin
     > extends Promise<infer T>
       ? T
       : never);

@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 
 // ---------------------------------------------------------------------------
@@ -9,7 +9,7 @@ import { getDb } from "~/lib/db.server";
 // ---------------------------------------------------------------------------
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  await requireRole(request, env, "member");
+  await requireUser(request, env);
   const db = getDb(env);
 
   const { taskListId } = params;

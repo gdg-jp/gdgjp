@@ -13,7 +13,6 @@
     "recent": "最近の更新",
     "starred": "スター付き",
     "archived": "アーカイブ済み",
-    "chapter": "チャプター",
     "close_sidebar": "サイドバーを閉じる",
     "open_sidebar": "サイドバーを開く"
   },
@@ -157,38 +156,9 @@
   "admin": {
     "label": "管理",
     "nav": {
-      "users": "ユーザー",
-      "chapters": "チャプター",
       "pages": "ページ",
       "tags": "タグ",
       "stats": "統計"
-    },
-    "chapters": {
-      "heading": "チャプター管理",
-      "new_chapter": "新規チャプター",
-      "col_name": "名前",
-      "col_abbreviation": "略称",
-      "col_university": "大学",
-      "col_region": "地域",
-      "col_members": "メンバー数",
-      "col_lead": "リード",
-      "empty": "チャプターがありません。",
-      "invite_sent": "{{email}} に招待メールを送信しました",
-      "form": {
-        "name_ja": "名前（日本語）",
-        "name_en": "名前（英語）",
-        "abbreviation": "略称",
-        "university": "大学",
-        "region": "地域",
-        "lead_email": "リードのメールアドレス",
-        "submit": "チャプターを作成"
-      },
-      "discord": {
-        "guild_id": "Discord サーバーID",
-        "channel_id": "リマインダーチャンネルID",
-        "enabled": "有効",
-        "save": "Discord設定を保存"
-      }
     },
     "pages": {
       "heading": "ページ",
@@ -205,33 +175,6 @@
       "status_archived": "アーカイブ済み",
       "delete_archived_confirm": "「{{title}}」を完全に削除しますか？この操作は元に戻せません。",
       "empty": "ページが見つかりません。"
-    },
-    "users": {
-      "heading": "ユーザー",
-      "col_user": "ユーザー",
-      "col_email": "メールアドレス",
-      "col_role": "役割",
-      "col_chapter": "チャプター",
-      "you": "（自分）",
-      "empty": "ユーザーが見つかりません。",
-      "error_own_role": "自分の役割は変更できません",
-      "error_invalid_role": "無効な役割です",
-      "error_invalid_email": "メールアドレスが無効です。",
-      "error_chapter_not_found": "選択されたチャプターが存在しません。",
-      "error_already_member": "このメールアドレスはすでにアカウントを持っています。",
-      "error_pending_exists": "このメールアドレスへの招待がすでに存在します。",
-      "invite_heading": "ユーザーを招待",
-      "pending_heading": "招待待ち",
-      "col_invited_at": "招待日",
-      "col_expires_at": "有効期限",
-      "invite_sent": "{{email}} に招待メールを送信しました",
-      "no_chapter": "— なし —",
-      "form": {
-        "email": "メールアドレス",
-        "role": "役割",
-        "chapter": "チャプター（任意）",
-        "submit": "招待を送信"
-      }
     },
     "tags": {
       "heading": "タグ",
@@ -438,13 +381,6 @@
       "ui_label": "インターフェース言語",
       "content_label": "コンテンツ言語"
     },
-    "chapter": {
-      "title": "チャプター所属",
-      "description": "所属するGDGoC Japanチャプターを選択してください。",
-      "label": "チャプター",
-      "none": "なし",
-      "readonly_notice": "チャプター所属はリードまたは管理者のみ変更できます。"
-    },
     "discord": {
       "title": "Discord",
       "description": "Discord アカウントを連携して、チャプターサーバーから /wiki-ingest を使えるようにします。",
@@ -463,73 +399,9 @@
     "errors": {
       "invalid_name": "名前は1〜100文字で入力してください。",
       "invalid_lang": "無効な言語が選択されています。",
-      "invalid_chapter": "選択されたチャプターは存在しません。",
       "invalid_discord_id": "有効な Discord ユーザーID（17〜20桁の数字）を入力してください。",
       "discord_id_taken": "この Discord ID はすでに別のアカウントに連携されています。"
     }
-  },
-  "chapter": {
-    "heading": "チャプター",
-    "section_info": "チャプター情報",
-    "form": {
-      "name_ja": "名前（日本語）",
-      "name_en": "名前（英語）",
-      "abbreviation": "略称",
-      "university": "大学",
-      "region": "地域",
-      "save": "変更を保存"
-    },
-    "update_success": "チャプター情報を更新しました。",
-    "update_error": "チャプター情報の更新に失敗しました。",
-    "section_members": "メンバー",
-    "col_user": "ユーザー",
-    "col_email": "メールアドレス",
-    "col_role": "役割",
-    "col_joined": "参加日",
-    "members_empty": "メンバーがいません。",
-    "section_pending": "招待待ち",
-    "col_invited_at": "招待日",
-    "col_expires_at": "有効期限",
-    "add_member": "メンバーを招待",
-    "email_placeholder": "member@example.com",
-    "invite_sent": "{{email}} に招待メールを送信しました。",
-    "form_submit_invite": "招待を送信",
-    "no_chapter": "チャプターに割り当てられていません。",
-    "section_discord": "Discord 通知設定",
-    "discord_error_required": "サーバーIDとチャンネルIDは必須です。",
-    "discord_error_guild_conflict": "このDiscordサーバーはすでに別のチャプターに連携されています。"
-  },
-  "manage": {
-    "label": "管理",
-    "nav": {
-      "members": "メンバー管理"
-    },
-    "members": {
-      "heading": "チャプターメンバー",
-      "add_member": "メンバーを招待",
-      "col_user": "ユーザー",
-      "col_email": "メールアドレス",
-      "col_role": "役割",
-      "col_joined": "参加日",
-      "col_invited_at": "招待日",
-      "col_expires_at": "有効期限",
-      "empty": "メンバーがいません。",
-      "pending_heading": "招待待ち",
-      "invite_sent": "{{email}} に招待メールを送信しました",
-      "email_placeholder": "member@example.com",
-      "form": {
-        "submit": "招待を送信"
-      }
-    }
-  },
-  "pending": {
-    "title": "アクセス制限",
-    "message": "このWikiへのアクセス権限がありません。チャプターリードまたは管理者に招待を依頼してください。",
-    "sign_out": "サインアウト"
-  },
-  "viewer": {
-    "title": "アクセスが許可されていません",
-    "message": "招待については、チャプターオーガナイザーまたは管理者にお問い合わせください。"
   },
   "search": {
     "title": "検索結果",

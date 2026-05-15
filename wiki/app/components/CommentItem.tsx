@@ -24,7 +24,7 @@ export interface CommentThread {
 interface CommentItemProps {
   comment: CommentThread;
   currentUserId: string;
-  userRole: string;
+  isAdmin: boolean | null | undefined;
   depth: 0 | 1;
   onReply: (parentId: string, contentJson: string) => void;
   onDelete: (commentId: string) => void;
@@ -75,7 +75,7 @@ function AuthorAvatar({ name, image }: { name: string; image: string | null }) {
 export default function CommentItem({
   comment,
   currentUserId,
-  userRole,
+  isAdmin,
   depth,
   onReply,
   onDelete,
@@ -87,7 +87,7 @@ export default function CommentItem({
   const { t } = useTranslation("common");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const isDeleted = !!comment.deletedAt;
-  const canDelete = !isDeleted && (comment.authorId === currentUserId || userRole === "admin");
+  const canDelete = !isDeleted && (comment.authorId === currentUserId || isAdmin);
   const showReplyEditor = pendingReplyId === comment.id;
 
   let parsedDoc: TipTapDoc | null = null;
@@ -176,7 +176,7 @@ export default function CommentItem({
                 key={reply.id}
                 comment={reply}
                 currentUserId={currentUserId}
-                userRole={userRole}
+                isAdmin={isAdmin}
                 depth={1}
                 onReply={onReply}
                 onDelete={onDelete}

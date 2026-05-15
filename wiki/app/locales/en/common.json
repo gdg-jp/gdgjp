@@ -13,7 +13,6 @@
     "recent": "Recent",
     "starred": "Starred",
     "archived": "Archived",
-    "chapter": "Chapter",
     "close_sidebar": "Close Sidebar",
     "open_sidebar": "Open Sidebar"
   },
@@ -157,38 +156,9 @@
   "admin": {
     "label": "Admin",
     "nav": {
-      "users": "Users",
-      "chapters": "Chapters",
       "pages": "Pages",
       "tags": "Tags",
       "stats": "Stats"
-    },
-    "chapters": {
-      "heading": "Chapter Management",
-      "new_chapter": "New Chapter",
-      "col_name": "Name",
-      "col_abbreviation": "Abbreviation",
-      "col_university": "University",
-      "col_region": "Region",
-      "col_members": "Members",
-      "col_lead": "Lead",
-      "empty": "No chapters yet.",
-      "invite_sent": "Invitation sent to {{email}}",
-      "form": {
-        "name_ja": "Name (Japanese)",
-        "name_en": "Name (English)",
-        "abbreviation": "Abbreviation",
-        "university": "University",
-        "region": "Region",
-        "lead_email": "Lead Email",
-        "submit": "Create Chapter"
-      },
-      "discord": {
-        "guild_id": "Discord Guild ID",
-        "channel_id": "Reminder Channel ID",
-        "enabled": "Enabled",
-        "save": "Save Discord Settings"
-      }
     },
     "pages": {
       "heading": "Pages",
@@ -205,33 +175,6 @@
       "status_archived": "Archived",
       "delete_archived_confirm": "Permanently delete \"{{title}}\"? This cannot be undone.",
       "empty": "No pages found."
-    },
-    "users": {
-      "heading": "Users",
-      "col_user": "User",
-      "col_email": "Email",
-      "col_role": "Role",
-      "col_chapter": "Chapter",
-      "you": "(you)",
-      "empty": "No users found.",
-      "error_own_role": "You cannot change your own role",
-      "error_invalid_role": "Invalid role",
-      "error_invalid_email": "Invalid email address.",
-      "error_chapter_not_found": "Selected chapter does not exist.",
-      "error_already_member": "This email already has an account.",
-      "error_pending_exists": "A pending invitation already exists for this email.",
-      "invite_heading": "Invite User",
-      "pending_heading": "Pending Invitations",
-      "col_invited_at": "Invited",
-      "col_expires_at": "Expires",
-      "invite_sent": "Invitation sent to {{email}}",
-      "no_chapter": "— None —",
-      "form": {
-        "email": "Email",
-        "role": "Role",
-        "chapter": "Chapter (optional)",
-        "submit": "Send Invite"
-      }
     },
     "tags": {
       "heading": "Tags",
@@ -438,13 +381,6 @@
       "ui_label": "Interface language",
       "content_label": "Content language"
     },
-    "chapter": {
-      "title": "Chapter Affiliation",
-      "description": "Select the GDGoC Japan chapter you belong to.",
-      "label": "Chapter",
-      "none": "None",
-      "readonly_notice": "Only leads and admins can change chapter affiliation."
-    },
     "discord": {
       "title": "Discord",
       "description": "Link your Discord account to use /wiki-ingest from your chapter server.",
@@ -463,73 +399,9 @@
     "errors": {
       "invalid_name": "Name must be 1–100 characters.",
       "invalid_lang": "Invalid language selection.",
-      "invalid_chapter": "Selected chapter does not exist.",
       "invalid_discord_id": "Please enter a valid Discord User ID (17–20 digit number).",
       "discord_id_taken": "This Discord ID is already linked to another account."
     }
-  },
-  "chapter": {
-    "heading": "Chapter",
-    "section_info": "Chapter Information",
-    "form": {
-      "name_ja": "Name (Japanese)",
-      "name_en": "Name (English)",
-      "abbreviation": "Abbreviation",
-      "university": "University",
-      "region": "Region",
-      "save": "Save Changes"
-    },
-    "update_success": "Chapter information updated.",
-    "update_error": "Failed to update chapter information.",
-    "section_members": "Members",
-    "col_user": "User",
-    "col_email": "Email",
-    "col_role": "Role",
-    "col_joined": "Joined",
-    "members_empty": "No members yet.",
-    "section_pending": "Pending Invitations",
-    "col_invited_at": "Invited",
-    "col_expires_at": "Expires",
-    "add_member": "Invite Member",
-    "email_placeholder": "member@example.com",
-    "invite_sent": "Invitation sent to {{email}}.",
-    "form_submit_invite": "Send Invite",
-    "no_chapter": "You are not assigned to a chapter.",
-    "section_discord": "Discord Notification",
-    "discord_error_required": "Guild ID and channel ID are required.",
-    "discord_error_guild_conflict": "This Discord server is already linked to another chapter."
-  },
-  "manage": {
-    "label": "Management",
-    "nav": {
-      "members": "Members"
-    },
-    "members": {
-      "heading": "Chapter Members",
-      "add_member": "Invite Member",
-      "col_user": "User",
-      "col_email": "Email",
-      "col_role": "Role",
-      "col_joined": "Joined",
-      "col_invited_at": "Invited",
-      "col_expires_at": "Expires",
-      "empty": "No members yet.",
-      "pending_heading": "Pending Invitations",
-      "invite_sent": "Invitation sent to {{email}}",
-      "email_placeholder": "member@example.com",
-      "form": {
-        "submit": "Send Invite"
-      }
-    }
-  },
-  "pending": {
-    "title": "Access Restricted",
-    "message": "Your account is not authorized to access this wiki. Please contact your chapter lead or an admin to request an invitation.",
-    "sign_out": "Sign Out"
-  },
-  "viewer": {
-    "title": "Access Not Granted",
-    "message": "Please contact chapter organizers or administrator for invitation."
   },
   "search": {
     "title": "Search Results",

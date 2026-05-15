@@ -1,7 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Outlet, redirect, useLoaderData, useLocation, useParams } from "react-router";
+import { Outlet, useLoaderData, useLocation, useParams } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
 import ArchivedContent from "~/components/ArchivedContent";
 import Footer from "~/components/Footer";
@@ -25,8 +25,6 @@ import { buildVisibilityFilter } from "~/lib/page-visibility.server";
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await getSessionUser(request, env);
-
-  if (user?.role === "pending" || user?.role === "viewer") throw redirect("/pending");
 
   if (!user) {
     return { user: null, pageTree: [] as ReturnType<typeof buildTree>, unreadNotificationCount: 0 };
@@ -141,7 +139,7 @@ export default function AppLayout() {
         <Sidebar
           pages={pageTree}
           currentSlug={slug}
-          userRole={user.role}
+          isAdmin={user.isAdmin}
           isOpen={sidebarOpen}
           isMobile={isMobile}
           onClose={() => setMobileOpen(false)}

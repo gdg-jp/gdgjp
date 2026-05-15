@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import * as schema from "~/db/schema";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { generateSlug } from "~/lib/ingestion-pipeline.server";
 import { sendOrRunTranslation } from "~/lib/queue-processors.server";
 
@@ -41,7 +41,7 @@ type CommitBody = z.infer<typeof CommitBodySchema>;
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = drizzle(env.DB, { schema });
 
   // Verify session ownership
@@ -63,9 +63,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   }
   const body: CommitBody = parseResult.data;
 
-  // Members can only save as draft
-  const userRole = user.role as string;
-  const canPublish = userRole === "lead" || userRole === "admin";
+  // Only admins can publish; everyone else commits as draft.
+  const canPublish = user.isAdmin;
   const publishStatus = canPublish ? body.publishStatus : "draft";
 
   const pageIds: string[] = [];
@@ -144,7 +143,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
           user.id,
           user.id,
           publishStatus,
-          user.chapterId ?? null,
+          null,
         ),
       );
 

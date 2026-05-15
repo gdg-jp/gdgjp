@@ -1,4 +1,4 @@
-import { Archive, Building2, ChevronRight, Clock, Home, Settings, Star } from "lucide-react";
+import { Archive, ChevronRight, Clock, Home, Settings, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import BaseSidebar from "~/components/BaseSidebar";
@@ -31,7 +31,7 @@ export function NavItem({ to, icon, label, isCollapsed, isActive }: NavItemProps
 interface SidebarProps {
   pages: PageNode[];
   currentSlug?: string;
-  userRole?: string;
+  isAdmin?: boolean | null;
   isOpen?: boolean;
   isMobile?: boolean;
   onClose?: () => void;
@@ -46,7 +46,7 @@ interface SidebarProps {
 export default function Sidebar({
   pages,
   currentSlug,
-  userRole,
+  isAdmin = false,
   isOpen = true,
   isMobile = false,
   onClose,
@@ -132,45 +132,34 @@ export default function Sidebar({
                 isActive={location.pathname === "/starred"}
               />
             )}
-            {userRole &&
-              !["viewer", "pending"].includes(userRole) &&
-              (onArchivedClick ? (
-                <button
-                  ref={archivedButtonRef}
-                  type="button"
-                  title={isCollapsed ? t("nav.archived") : undefined}
-                  onClick={onArchivedClick}
-                  className="flex min-h-8 w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-                >
-                  <span className="flex-shrink-0">
-                    <Archive size={16} />
-                  </span>
-                  {!isCollapsed && (
-                    <>
-                      <span className="flex-1 truncate text-left">{t("nav.archived")}</span>
-                      <ChevronRight size={14} className="shrink-0 text-gray-400" />
-                    </>
-                  )}
-                </button>
-              ) : (
-                <NavItem
-                  to="/archived"
-                  icon={<Archive size={16} />}
-                  label={t("nav.archived")}
-                  isCollapsed={isCollapsed}
-                  isActive={location.pathname === "/archived"}
-                />
-              ))}
-            {["lead", "admin"].includes(userRole ?? "") && (
+            {onArchivedClick ? (
+              <button
+                ref={archivedButtonRef}
+                type="button"
+                title={isCollapsed ? t("nav.archived") : undefined}
+                onClick={onArchivedClick}
+                className="flex min-h-8 w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                <span className="flex-shrink-0">
+                  <Archive size={16} />
+                </span>
+                {!isCollapsed && (
+                  <>
+                    <span className="flex-1 truncate text-left">{t("nav.archived")}</span>
+                    <ChevronRight size={14} className="shrink-0 text-gray-400" />
+                  </>
+                )}
+              </button>
+            ) : (
               <NavItem
-                to="/chapter"
-                icon={<Building2 size={16} />}
-                label={t("nav.chapter")}
+                to="/archived"
+                icon={<Archive size={16} />}
+                label={t("nav.archived")}
                 isCollapsed={isCollapsed}
-                isActive={location.pathname === "/chapter"}
+                isActive={location.pathname === "/archived"}
               />
             )}
-            {userRole === "admin" && (
+            {isAdmin && (
               <NavItem
                 to="/admin"
                 icon={<Settings size={16} />}
@@ -190,9 +179,7 @@ export default function Sidebar({
               pages={pages}
               currentSlug={currentSlug}
               isCollapsed={isCollapsed}
-              canReorder={
-                !isMobile && !isCollapsed && ["member", "lead", "admin"].includes(userRole ?? "")
-              }
+              canReorder={!isMobile && !isCollapsed}
             />
           </div>
         </div>

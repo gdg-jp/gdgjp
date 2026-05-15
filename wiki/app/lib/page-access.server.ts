@@ -2,7 +2,6 @@ import { and, eq, isNull, or, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import { nanoid } from "nanoid";
 import * as schema from "~/db/schema";
-import { hasRole } from "./auth-utils.server";
 
 export type PageRole = "owner" | "editor" | "viewer";
 
@@ -21,7 +20,7 @@ export interface PageAccessEntry {
 
 type UserLike = {
   id: string;
-  role: string;
+  isAdmin: boolean | null | undefined;
   email?: string | null;
 };
 
@@ -105,7 +104,7 @@ export async function canUserManageAccess(
   user: UserLike,
   pageAuthorId?: string,
 ): Promise<boolean> {
-  if (hasRole(user.role, "admin")) return true;
+  if (user.isAdmin) return true;
   if (pageAuthorId && user.id === pageAuthorId) return true;
   const role = await getUserPageRole(db, pageId, user.id, user.email);
   return role === "owner" || role === "editor";
@@ -117,10 +116,10 @@ export async function canUserManageAccess(
 
 export function canUserGrantRole(
   granterPageRole: PageRole | null,
-  granterSystemRole: string,
+  granterIsAdmin: boolean | null | undefined,
   targetRole: PageRole,
 ): boolean {
-  if (hasRole(granterSystemRole, "admin")) return true;
+  if (granterIsAdmin) return true;
   if (granterPageRole === "owner") return true;
   if (granterPageRole === "editor") return targetRole !== "owner";
   return false;

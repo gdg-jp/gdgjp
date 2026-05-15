@@ -1,45 +1,33 @@
 import { redirect } from "react-router";
-import { createAuth } from "./auth.server";
-
-export type Role = "admin" | "lead" | "member" | "viewer";
-
-const ROLE_HIERARCHY: Record<Role, number> = {
-  admin: 4,
-  lead: 3,
-  member: 2,
-  viewer: 1,
-};
+import { type AuthUser, createAuth } from "./auth.server";
 
 /**
- * Returns true if the given userRole meets or exceeds minRole in the hierarchy.
- * Unknown roles are treated as having no permissions (level 0).
+ * Returns the current session user, or null if not signed in.
  */
-export function hasRole(userRole: string, minRole: Role): boolean {
-  return (ROLE_HIERARCHY[userRole as Role] ?? 0) >= ROLE_HIERARCHY[minRole];
-}
-
-/**
- * Asserts the current user is authenticated and has at least `minRole`.
- * Throws a redirect to /login if unauthenticated, or a 403 Response if unauthorized.
- * Returns the typed session user on success.
- */
-export async function requireRole(request: Request, env: Env, minRole: Role) {
-  const auth = createAuth(env);
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (!session) throw redirect("/login");
-  if (session.user.role === "pending") throw redirect("/pending");
-  if (session.user.role === "viewer") throw redirect("/pending");
-  if (!hasRole(session.user.role as string, minRole)) {
-    throw new Response(null, { status: 403 });
-  }
-  return session.user;
-}
-
-/**
- * Returns the current session user or null — does not throw.
- */
-export async function getSessionUser(request: Request, env: Env) {
+export async function getSessionUser(request: Request, env: Env): Promise<AuthUser | null> {
   const auth = createAuth(env);
   const session = await auth.api.getSession({ headers: request.headers });
   return session?.user ?? null;
+}
+
+/**
+ * Require an authenticated session. Throws a redirect to /login if not signed in.
+ * Does NOT enforce admin or chapter membership — wiki delegates those to the
+ * accounts IdP and consumes the resulting isAdmin claim via user.isAdmin.
+ */
+export async function requireUser(request: Request, env: Env): Promise<AuthUser> {
+  const user = await getSessionUser(request, env);
+  if (!user) throw redirect("/login");
+  return user;
+}
+
+/**
+ * Require an authenticated session AND user.isAdmin === true. The isAdmin flag
+ * is mirrored from the accounts IdP at sign-in via mapProfileToUser; it can be
+ * stale until the user signs out and back in.
+ */
+export async function requireAdmin(request: Request, env: Env): Promise<AuthUser> {
+  const user = await requireUser(request, env);
+  if (!user.isAdmin) throw new Response(null, { status: 403 });
+  return user;
 }

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Form, Link, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireAdmin } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { deletePageEmbeddings } from "~/lib/embedding-pipeline.server";
 
@@ -13,7 +13,7 @@ import { deletePageEmbeddings } from "~/lib/embedding-pipeline.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  await requireRole(request, env, "admin");
+  await requireAdmin(request, env);
   const db = getDb(env);
 
   const pages = await db
@@ -43,7 +43,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  await requireRole(request, env, "admin");
+  await requireAdmin(request, env);
   const form = await request.formData();
   const intent = form.get("intent");
 

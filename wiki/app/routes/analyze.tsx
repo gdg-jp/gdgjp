@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { redirect, useActionData, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
-import { requireRole } from "~/lib/auth-utils.server";
+import { requireUser } from "~/lib/auth-utils.server";
 import { isGoogleFormUrl } from "~/lib/google-forms-utils";
 import { buildIngestionQueueMessage } from "~/lib/ingestion-jobs.server";
 import type { IngestionInputs } from "~/lib/ingestion-pipeline.server";
@@ -20,7 +20,7 @@ export const meta: MetaFunction = () => [{ title: "Analyze with AI (Beta) — GD
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = drizzle(env.DB, { schema });
 
   const driveToken = await db
@@ -38,7 +38,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env, ctx } = context.cloudflare;
-  const user = await requireRole(request, env, "member");
+  const user = await requireUser(request, env);
   const db = drizzle(env.DB, { schema });
 
   const formData = await request.formData();
