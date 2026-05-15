@@ -25,6 +25,7 @@ jobs:
         app:
           - accounts
           - tinyurl
+          - wiki
           - img
           - scheduler
     steps:

@@ -114,6 +114,15 @@ jobs:
           IDP_URL=http://localhost:5173
           EOF
 
+          cat > wiki/.dev.vars <<EOF
+          BETTER_AUTH_SECRET=ci-better-auth-secret
+          BETTER_AUTH_URL=http://localhost:5173
+          GOOGLE_CLIENT_ID=ci-google-client-id
+          GOOGLE_CLIENT_SECRET=ci-google-client-secret
+          GEMINI_API_KEY=ci-gemini-api-key
+          ENVIRONMENT=development
+          EOF
+
           cat > scheduler/.dev.vars <<EOF
           BETTER_AUTH_SECRET=ci-better-auth-secret
           IDP_CLIENT_SECRET=ci-idp-client-secret

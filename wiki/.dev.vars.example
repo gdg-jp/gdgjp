@@ -1,1 +1,16 @@
-SESSION_SECRET=""
+# Copy this file to .dev.vars and fill in real values for local development.
+# Wrangler reads .dev.vars as secrets during `pnpm dev`.
+# Never commit .dev.vars — it is gitignored.
+
+BETTER_AUTH_SECRET=dev-secret-change-me
+BETTER_AUTH_URL=http://localhost:5173
+
+# Get these from Google Cloud Console → APIs & Services → Credentials
+# Add http://localhost:5173/api/auth/callback/google as an authorised redirect URI.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Optional — only needed for AI ingestion/translation features
+GEMINI_API_KEY=
+
+ENVIRONMENT=development
