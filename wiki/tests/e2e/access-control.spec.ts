@@ -12,7 +12,7 @@ import path from "node:path";
 import { type BrowserContext, type Page, expect, test } from "@playwright/test";
 import { TEST_PAGE } from "./global-setup";
 
-const BASE = process.env.BASE_URL ?? "http://localhost:5173";
+const BASE = process.env.BASE_URL ?? "http://localhost:5177";
 const PAGE_URL = `${BASE}/wiki/${TEST_PAGE.slug}`;
 const STORAGE_DIR = path.join(__dirname, "storage-state");
 

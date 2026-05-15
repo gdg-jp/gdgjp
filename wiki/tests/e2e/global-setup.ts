@@ -1,15 +1,18 @@
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 
-// IDs are stable across runs so storageState files stay valid
+// IDs are stable across runs so storageState files stay valid.
+// `kind` distinguishes admin/author/member for the storage-state filename;
+// `isAdmin` is the only role bit wiki tracks post-SSO (role/chapterId were
+// dropped in migration 0019_remove_user_management.sql).
 const USERS = {
   admin: {
     id: "e2e-admin-user-id",
     name: "E2E Admin",
     email: "admin@test.local",
-    role: "admin",
+    kind: "admin" as const,
+    isAdmin: 1,
     sessionToken: "e2e-admin-session-token",
     sessionId: "e2e-admin-session-id",
   },
@@ -17,7 +20,8 @@ const USERS = {
     id: "e2e-author-user-id",
     name: "E2E Author",
     email: "author@test.local",
-    role: "member",
+    kind: "author" as const,
+    isAdmin: 0,
     sessionToken: "e2e-author-session-token",
     sessionId: "e2e-author-session-id",
   },
@@ -25,7 +29,8 @@ const USERS = {
     id: "e2e-member-user-id",
     name: "E2E Member",
     email: "member@test.local",
-    role: "member",
+    kind: "member" as const,
+    isAdmin: 0,
     sessionToken: "e2e-member-session-token",
     sessionId: "e2e-member-session-id",
   },
@@ -39,7 +44,9 @@ export const TEST_PAGE = {
 
 const D1_GLOB = ".wrangler/state/v3/d1/miniflare-D1DatabaseObject";
 const STORAGE_STATE_DIR = path.join(process.cwd(), "tests/e2e/storage-state");
-const BASE_URL = process.env.BASE_URL ?? "http://localhost:5173";
+
+// Matches advanced.cookiePrefix in wiki/app/lib/auth.server.ts.
+const SESSION_COOKIE = "gdgjp-wiki.session_token";
 
 function findD1Sqlite(): string {
   const dir = path.join(process.cwd(), D1_GLOB);
@@ -74,13 +81,13 @@ function seedDb(dbPath: string): void {
 
   // Upsert users
   const upsertUser = db.prepare(`
-    INSERT INTO user (id, name, email, emailVerified, role, preferredUiLanguage, preferredContentLanguage, createdAt, updatedAt)
+    INSERT INTO user (id, name, email, emailVerified, isAdmin, preferredUiLanguage, preferredContentLanguage, createdAt, updatedAt)
     VALUES (?, ?, ?, 1, ?, 'ja', 'ja', ?, ?)
-    ON CONFLICT(id) DO UPDATE SET role = excluded.role, updatedAt = excluded.updatedAt
+    ON CONFLICT(id) DO UPDATE SET isAdmin = excluded.isAdmin, updatedAt = excluded.updatedAt
   `);
 
   for (const u of Object.values(USERS)) {
-    upsertUser.run(u.id, u.name, u.email, u.role, now, now);
+    upsertUser.run(u.id, u.name, u.email, u.isAdmin, now, now);
   }
 
   // Upsert sessions
@@ -122,7 +129,7 @@ function writeStorageState(user: (typeof USERS)[keyof typeof USERS]): void {
   const state = {
     cookies: [
       {
-        name: "better-auth.session_token",
+        name: SESSION_COOKIE,
         value: user.sessionToken,
         domain: "localhost",
         path: "/",
@@ -134,10 +141,7 @@ function writeStorageState(user: (typeof USERS)[keyof typeof USERS]): void {
     ],
     origins: [],
   };
-  const filePath = path.join(
-    STORAGE_STATE_DIR,
-    `${user.role === "admin" ? "admin" : user.name.includes("Author") ? "author" : "member"}.json`,
-  );
+  const filePath = path.join(STORAGE_STATE_DIR, `${user.kind}.json`);
   fs.writeFileSync(filePath, JSON.stringify(state, null, 2));
 }
 
