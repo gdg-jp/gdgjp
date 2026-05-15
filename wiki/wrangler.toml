@@ -1,20 +1,123 @@
 name = "gdgjp-wiki"
-compatibility_date = "2025-01-01"
-compatibility_flags = ["nodejs_compat"]
 main = "./workers/app.ts"
+compatibility_date = "2025-03-01"
+compatibility_flags = ["nodejs_compat"]
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+# Static assets are served alongside the Worker
+[assets]
+directory = "./build/client"
+binding = "ASSETS"
+run_worker_first = ["/ws/*"]
+
+[[routes]]
+pattern = "wiki.gdgs.jp/*"
+zone_name = "gdgs.jp"
 
 [vars]
+ENVIRONMENT = "production"
+BASE_URL = "https://wiki.gdgs.jp"
 APP_URL = "https://wiki.gdgs.jp"
 ACCOUNTS_URL = "https://accounts.gdgs.jp"
 IDP_URL = "https://accounts.gdgs.jp"
 IDP_CLIENT_ID = "wiki"
+FIREBASE_API_KEY = "AIzaSyB7MPalhYWSgSWNMQ9rs3qqhk_TQg8IAHY"
+FIREBASE_AUTH_DOMAIN = "gdgoc-wiki.firebaseapp.com"
+FIREBASE_PROJECT_ID = "gdgoc-wiki"
+FIREBASE_MESSAGING_SENDER_ID = "428142970890"
+FIREBASE_APP_ID = "1:428142970890:web:b3ddb460c2a1cf5e9677f3"
+FIREBASE_VAPID_KEY = "BJVifvLdXOTlkWG2srEiwp49xToB4bIPhf8d7yiL_ruDadJ0YaTJoY3S-_jQuYFYD3ZL_NXnKj-r7F7B60vpW9Q"
 
-[assets]
-binding = "ASSETS"
-directory = "./build/client"
-
+# ---------------------------------------------------------------------------
+# Cloudflare D1 — managed SQLite database
+# database_id is populated by scripts/migrate-wiki-2-import.sh after the
+# database is created in the gdgjp Cloudflare account.
+# ---------------------------------------------------------------------------
 [[d1_databases]]
 binding = "DB"
-database_name = "gdgjp-wiki"
-database_id = ""
+database_name = "gdgjp-wiki-db"
+database_id = "76285b34-e69e-4b20-b1a1-fb207bbfa95c"
 migrations_dir = "./migrations"
+
+# ---------------------------------------------------------------------------
+# Cloudflare R2 — object storage for page attachments / ingestion uploads
+# ---------------------------------------------------------------------------
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "gdgjp-wiki-storage"
+
+# ---------------------------------------------------------------------------
+# Cloudflare Queues — background translation / ingestion jobs
+# ---------------------------------------------------------------------------
+[[queues.producers]]
+binding = "TRANSLATION_QUEUE"
+queue = "gdgjp-wiki-translation-jobs"
+
+[[queues.producers]]
+binding = "INGESTION_QUEUE"
+queue = "gdgjp-wiki-ingestion-jobs"
+
+[[queues.consumers]]
+queue = "gdgjp-wiki-translation-jobs"
+max_batch_size = 10
+max_batch_timeout = 30
+
+[[queues.consumers]]
+queue = "gdgjp-wiki-ingestion-jobs"
+max_batch_size = 1
+max_batch_timeout = 5
+
+# ---------------------------------------------------------------------------
+# Cloudflare Browser Rendering — headless Chromium for PDF generation
+# ---------------------------------------------------------------------------
+[browser]
+binding = "BROWSER"
+
+# ---------------------------------------------------------------------------
+# Workers AI (for bge-m3 embeddings)
+# ---------------------------------------------------------------------------
+[ai]
+binding = "AI"
+
+# ---------------------------------------------------------------------------
+# Vectorize — semantic search index for page embeddings
+# Create with: wrangler vectorize create gdgjp-wiki-pages --dimensions 1024 --metric cosine
+# ---------------------------------------------------------------------------
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "gdgjp-wiki-pages"
+
+# ---------------------------------------------------------------------------
+# Durable Objects — realtime collaborative editing
+# ---------------------------------------------------------------------------
+[durable_objects]
+bindings = [
+  { name = "COLLAB_DO", class_name = "CollabDurableObject" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CollabDurableObject"]
+
+# ---------------------------------------------------------------------------
+# Cron Triggers
+# ---------------------------------------------------------------------------
+[triggers]
+crons = ["0 15 * * *"]
+
+# ---------------------------------------------------------------------------
+# Secrets (set via `wrangler secret put`)
+# BETTER_AUTH_SECRET      — better-auth session signing secret
+# IDP_CLIENT_SECRET       — OAuth client secret shared with accounts IdP
+#                           (matches WIKI_CLIENT_SECRET in accounts)
+# GEMINI_API_KEY          — Google Gemini API key (for AI features)
+# GOOGLE_DOCS_CLIENT_ID   — Google Docs API client ID (for ingestion)
+# GOOGLE_DOCS_CLIENT_SECRET — Google Docs API client secret (for ingestion)
+# RESEND_API_KEY          — Resend transactional email API key
+# WIKI_DISCORD_SECRET     — shared secret for Discord bot → wiki API auth
+# FCM_SERVICE_ACCOUNT_JSON — Firebase service account key JSON (for push notifications)
+# DISCORD_BOT_TOKEN       — Discord bot token for sending DM reminders
+# ---------------------------------------------------------------------------

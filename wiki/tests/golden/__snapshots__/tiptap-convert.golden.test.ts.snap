@@ -1,0 +1,48 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`applyPatchesToMarkdown golden snapshots > patch application: existing sections + append + auto-created section 1`] = `
+"# My Page
+
+## Introduction
+
+Some intro text.
+
+
+Additional intro content appended.
+## Details
+
+More details here.
+## Nonexistent Section
+
+Auto-created because heading was not found.
+
+Document-level append at the end."
+`;
+
+exports[`tiptapToMarkdown golden snapshots > full-featured doc: h1, mixed inline marks, bullet list, code block, table, blockquote, hr 1`] = `
+"# Project Overview
+
+This is **bold**, _italic_, ~~struck~~, \`code\`, and [a link](https://gdg.community.dev).
+
+- Feature A
+- Feature B
+
+\`\`\`typescript
+const x: number = 42
+\`\`\`
+
+| Key | Value |
+| --- | --- |
+| name | gdgoc-wiki |
+
+> Build for the community.
+
+---"
+`;
+
+exports[`tiptapToMarkdown golden snapshots > nested lists: ordered list inside bullet list item pins indentation format 1`] = `
+"- Top-level bullet
+  1. Nested step one
+  2. Nested step two
+- Second bullet"
+`;

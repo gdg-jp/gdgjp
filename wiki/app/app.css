@@ -1,0 +1,380 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Remote collaborative cursors in CodeMirror */
+.remote-cursor {
+  position: relative;
+  pointer-events: none;
+}
+.remote-cursor-label {
+  position: absolute;
+  bottom: 100%;
+  left: -1px;
+  padding: 1px 4px;
+  border-radius: 3px 3px 3px 0;
+  font-size: 11px;
+  color: white;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+/* md-editor-rt: keep code block headers below the navbar (z-50) when sticky-scrolling */
+.md-editor-preview .md-editor-code .md-editor-code-head {
+  top: 3.5rem; /* navbar height (h-14) */
+  z-index: 10;
+}
+
+@font-face {
+  font-family: "Google Sans";
+  src: url("/fonts/GoogleSans-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Google Sans";
+  src: url("/fonts/GoogleSans-Italic-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Google Sans", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
+
+  /* ── Blue scale (anchored: blue-500=#4285f4, blue-100=pastel-blue, blue-300=halftone-blue) ── */
+  --color-blue-50: #e8f0fe;
+  --color-blue-100: #c3ecf6;
+  --color-blue-200: #a8d8f0;
+  --color-blue-300: #57caff;
+  --color-blue-400: #4f9ef8;
+  --color-blue-500: #4285f4;
+  --color-blue-600: #1a73e8;
+  --color-blue-700: #1765cc;
+  --color-blue-800: #174ea6;
+  --color-blue-900: #0d3880;
+  --color-blue-950: #082566;
+
+  /* ── Green scale (anchored: green-500=#34a853, green-100=pastel-green, green-300=halftone-green) ── */
+  --color-green-50: #ccf6c5;
+  --color-green-100: #ccf6c5;
+  --color-green-200: #a8eaa0;
+  --color-green-300: #5cdb6d;
+  --color-green-400: #45c05a;
+  --color-green-500: #34a853;
+  --color-green-600: #1e8e3e;
+  --color-green-700: #188038;
+  --color-green-800: #0d652a;
+  --color-green-900: #09501f;
+  --color-green-950: #063a16;
+
+  /* ── Yellow scale (anchored: yellow-600=#f9ab00, yellow-100=pastel-yellow, yellow-300=halftone-yellow) ── */
+  --color-yellow-50: #ffe7a5;
+  --color-yellow-100: #ffe7a5;
+  --color-yellow-200: #ffd880;
+  --color-yellow-300: #ffd427;
+  --color-yellow-400: #ffbc00;
+  --color-yellow-500: #f9b300;
+  --color-yellow-600: #f9ab00;
+  --color-yellow-700: #e37400;
+  --color-yellow-800: #c56200;
+  --color-yellow-900: #9a4d00;
+  --color-yellow-950: #6e3700;
+
+  /* ── Red scale (anchored: red-500=#ea4335, red-100=pastel-red) ── */
+  --color-red-50: #f8d8d8;
+  --color-red-100: #f8d8d8;
+  --color-red-200: #f0b8b8;
+  --color-red-300: #f07070;
+  --color-red-400: #f05c50;
+  --color-red-500: #ea4335;
+  --color-red-600: #d33828;
+  --color-red-700: #b52c1e;
+  --color-red-800: #8c1f14;
+  --color-red-900: #63150d;
+  --color-red-950: #3d0d08;
+
+  /* ── Gray scale (anchored: gray-100=off-white=#f0f0f0, gray-900=black-02=#1e1e1e) ── */
+  --color-gray-50: #f9f9f9;
+  --color-gray-100: #f0f0f0;
+  --color-gray-200: #e4e4e4;
+  --color-gray-300: #cccccc;
+  --color-gray-400: #aaaaaa;
+  --color-gray-500: #888888;
+  --color-gray-600: #636363;
+  --color-gray-700: #444444;
+  --color-gray-800: #2a2a2a;
+  --color-gray-900: #1e1e1e;
+  --color-gray-950: #141414;
+
+  /* ── Named palette tokens (for direct use when needed) ── */
+  --color-halftone-blue: #57caff;
+  --color-halftone-green: #5cdb6d;
+  --color-halftone-yellow: #ffd427;
+  --color-halftone-red: #ff7daf;
+  --color-pastel-blue: #c3ecf6;
+  --color-pastel-green: #ccf6c5;
+  --color-pastel-yellow: #ffe7a5;
+  --color-pastel-red: #f8d8d8;
+  --color-off-white: #f0f0f0;
+  --color-black-02: #1e1e1e;
+}
+
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* ── Gray scale: fully inverted (light ↔ dark) ── */
+  --color-gray-50: #1e1e1e;
+  --color-gray-100: #2a2a2a;
+  --color-gray-200: #444444;
+  --color-gray-300: #636363;
+  --color-gray-400: #888888;
+  --color-gray-500: #aaaaaa;
+  --color-gray-600: #cccccc;
+  --color-gray-700: #e4e4e4;
+  --color-gray-800: #f0f0f0;
+  --color-gray-900: #ffffff;
+  --color-gray-950: #ffffff;
+
+  /*
+   * Accent tint inversion — same principle as the gray scale:
+   * "surface tint" values (50/100) become dark; "on-tint text" values (700/800) become light.
+   * This makes bg-blue-50, bg-green-50, etc. automatically work in dark mode without
+   * per-component dark: overrides. Values above (200–600, 900–950) are intentionally
+   * left unchanged so existing dark:bg-blue-950 overrides keep their dark appearance.
+   */
+
+  /* ── Blue ── */
+  --color-blue-50: #082566; /* tinted surface (was blue-950) */
+  --color-blue-100: #0d3880; /* subtle surface / border (was blue-900) */
+  --color-blue-700: #57caff; /* on-surface text — bright (was blue-300) */
+  --color-blue-800: #a8d8f0; /* on-surface text — muted (was blue-200) */
+
+  /* ── Green ── */
+  --color-green-50: #063a16; /* tinted surface (was green-950) */
+  --color-green-100: #09501f; /* subtle surface (was green-900) */
+  --color-green-700: #5cdb6d; /* on-surface text — bright (was green-300) */
+  --color-green-800: #a8eaa0; /* on-surface text — muted (was green-200) */
+
+  /* ── Red ── */
+  --color-red-50: #3d0d08; /* tinted surface (was red-950) */
+  --color-red-100: #63150d; /* subtle surface (was red-900) */
+  --color-red-700: #f07070; /* on-surface text — bright (was red-300) */
+  --color-red-800: #f0b8b8; /* on-surface text — muted (was red-200) */
+
+  /* ── Yellow ── */
+  --color-yellow-50: #6e3700; /* tinted surface (was yellow-950) */
+  --color-yellow-100: #9a4d00; /* subtle surface (was yellow-900) */
+  --color-yellow-700: #ffd427; /* on-surface text — bright (was yellow-300) */
+  --color-yellow-800: #ffd880; /* on-surface text — muted (was yellow-200) */
+}
+
+.dark .bg-white {
+  background-color: var(--color-gray-100);
+}
+
+/* Emoji reaction chip — active (reacted) state */
+.reaction-active {
+  background-color: var(--color-blue-100);
+}
+.reaction-active .reaction-count {
+  color: var(--color-blue-600);
+}
+.dark .reaction-active {
+  background-color: var(--color-blue-900); /* blue-900 stays dark (#0d3880) */
+}
+.dark .reaction-active .reaction-count {
+  color: var(--color-blue-200); /* blue-200 stays light (#a8d8f0) */
+}
+
+/* Force light mode for landing page sections regardless of user theme */
+.force-light {
+  color-scheme: light;
+  --color-gray-50: #f9f9f9;
+  --color-gray-100: #f0f0f0;
+  --color-gray-200: #e4e4e4;
+  --color-gray-300: #cccccc;
+  --color-gray-400: #aaaaaa;
+  --color-gray-500: #888888;
+  --color-gray-600: #636363;
+  --color-gray-700: #444444;
+  --color-gray-800: #2a2a2a;
+  --color-gray-900: #1e1e1e;
+  --color-gray-950: #141414;
+}
+
+.force-light .bg-white,
+.dark .force-light .bg-white {
+  background-color: white;
+}
+
+.dark .md-editor-dark {
+  --md-bk-color: #1e1e1e;
+  --md-bk-color-outstand: #2a2a2a;
+  --md-bk-hover-color: #2a2a2a;
+  --md-border-color: #444444;
+  --md-border-hover-color: #636363;
+  --md-border-active-color: #888888;
+  --md-color: #cccccc;
+  --md-hover-color: #f0f0f0;
+}
+
+.dark .md-editor-dark .md-editor-preview {
+  --md-theme-bg-color: #1e1e1e;
+  --md-theme-bg-color-inset: #2a2a2a;
+  --md-theme-border-color: #444444;
+  --md-theme-border-color-inset: #636363;
+  --md-theme-border-color-reverse: #cccccc;
+  --md-theme-color: #cccccc;
+  --md-theme-color-reverse: #1e1e1e;
+}
+
+/* ── Fallback: apply dark vars even when md-editor-dark class is missing ── */
+.dark .md-editor {
+  --md-bk-color: #1e1e1e;
+  --md-bk-color-outstand: #2a2a2a;
+  --md-bk-hover-color: #2a2a2a;
+  --md-border-color: #444444;
+  --md-border-hover-color: #636363;
+  --md-border-active-color: #888888;
+  --md-color: #cccccc;
+  --md-hover-color: #f0f0f0;
+}
+
+.dark .md-editor .md-editor-preview {
+  --md-theme-bg-color: #1e1e1e;
+  --md-theme-bg-color-inset: #2a2a2a;
+  --md-theme-border-color: #444444;
+  --md-theme-border-color-inset: #636363;
+  --md-theme-border-color-reverse: #cccccc;
+  --md-theme-color: #cccccc;
+  --md-theme-color-reverse: #1e1e1e;
+}
+
+/* ── GitHub-style markdown preview (light) ── */
+.md-editor-preview {
+  --md-theme-link-color: #0969da;
+  --md-theme-link-hover-color: #0550ae;
+}
+
+.md-editor-preview h1,
+.md-editor-preview h2 {
+  border-bottom: 1px solid #d1d9e0;
+  padding-bottom: 0.3em;
+}
+
+.md-editor-preview h1 {
+  font-size: 2em;
+  font-weight: 600;
+}
+
+.md-editor-preview h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+}
+
+.md-editor-preview h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+}
+
+.md-editor-preview :not(pre) > code {
+  background: rgba(175, 184, 193, 0.2);
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  font-size: 85%;
+}
+
+.md-editor-preview pre {
+  background: #f6f8fa;
+  border-radius: 6px;
+  padding: 16px;
+  font-size: 85%;
+  line-height: 1.45;
+  overflow-x: auto;
+}
+
+.md-editor-preview pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+.md-editor-preview blockquote {
+  border-left: 0.25em solid #d1d9e0;
+  color: #656d76;
+  padding: 0 1em;
+  margin-left: 0;
+}
+
+.md-editor-preview table th,
+.md-editor-preview table td {
+  border: 1px solid #d1d9e0;
+  padding: 6px 13px;
+}
+
+.md-editor-preview table tr:nth-child(2n) {
+  background: #f6f8fa;
+}
+
+.md-editor-preview img {
+  max-width: 100%;
+}
+
+.md-editor-preview hr {
+  height: 0.25em;
+  background: #d1d9e0;
+  border: 0;
+}
+
+.md-editor-preview ul,
+.md-editor-preview ol {
+  padding-left: 2em;
+  list-style-position: outside;
+}
+
+.md-editor-preview ul {
+  list-style-type: disc;
+}
+
+.md-editor-preview ol {
+  list-style-type: decimal;
+}
+
+/* ── GitHub-style markdown preview (dark) ── */
+.dark .md-editor-preview h1,
+.dark .md-editor-preview h2 {
+  border-bottom-color: #3d444d;
+}
+
+.dark .md-editor-preview :not(pre) > code {
+  background: rgba(110, 118, 129, 0.4);
+}
+
+.dark .md-editor-preview pre {
+  background: #161b22;
+}
+
+.dark .md-editor-preview blockquote {
+  border-left-color: #3d444d;
+  color: #9198a1;
+}
+
+.dark .md-editor-preview table th,
+.dark .md-editor-preview table td {
+  border-color: #3d444d;
+}
+
+.dark .md-editor-preview table tr:nth-child(2n) {
+  background: #161b22;
+}
+
+.dark .md-editor-preview hr {
+  background: #3d444d;
+}

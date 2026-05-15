@@ -5,7 +5,17 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
     environment: "node",
-    include: ["app/**/*.{test,spec}.{ts,tsx}"],
-    exclude: ["node_modules", "build", ".react-router", "e2e"],
+    passWithNoTests: true,
+    include: [
+      "app/**/*.test.{ts,tsx}",
+      "tests/unit/**/*.test.{ts,tsx}",
+      "tests/golden/**/*.test.{ts,tsx}",
+    ],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      include: ["app/**/*.{ts,tsx}"],
+      exclude: ["app/**/*.test.{ts,tsx}", "app/routes/**", "tests/golden/**"],
+    },
   },
 });

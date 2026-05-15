@@ -1,0 +1,156 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildTree golden snapshots > multi-level tree: 7 rows, 3 levels deep, two root nodes each with children 1`] = `
+[
+  {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [],
+            "id": "grandchild1a1",
+            "pageType": null,
+            "parentId": "child1a",
+            "slug": "/grandchild1a1",
+            "titleEn": "grandchild1a1-en",
+            "titleJa": "grandchild1a1-ja",
+          },
+          {
+            "children": [],
+            "id": "grandchild1a2",
+            "pageType": null,
+            "parentId": "child1a",
+            "slug": "/grandchild1a2",
+            "titleEn": "grandchild1a2-en",
+            "titleJa": "grandchild1a2-ja",
+          },
+        ],
+        "id": "child1a",
+        "pageType": null,
+        "parentId": "root1",
+        "slug": "/child1a",
+        "titleEn": "child1a-en",
+        "titleJa": "child1a-ja",
+      },
+      {
+        "children": [],
+        "id": "child1b",
+        "pageType": null,
+        "parentId": "root1",
+        "slug": "/child1b",
+        "titleEn": "child1b-en",
+        "titleJa": "child1b-ja",
+      },
+    ],
+    "id": "root1",
+    "pageType": null,
+    "parentId": null,
+    "slug": "/root1",
+    "titleEn": "root1-en",
+    "titleJa": "root1-ja",
+  },
+  {
+    "children": [
+      {
+        "children": [],
+        "id": "child2a",
+        "pageType": null,
+        "parentId": "root2",
+        "slug": "/child2a",
+        "titleEn": "child2a-en",
+        "titleJa": "child2a-ja",
+      },
+    ],
+    "id": "root2",
+    "pageType": null,
+    "parentId": null,
+    "slug": "/root2",
+    "titleEn": "root2-en",
+    "titleJa": "root2-ja",
+  },
+]
+`;
+
+exports[`flattenTree golden snapshots > flatten tree: 4 rows, 3 levels, checks depth and parentId preservation 1`] = `
+[
+  {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [],
+            "id": "grandchild",
+            "pageType": null,
+            "parentId": "child",
+            "slug": "/grandchild",
+            "titleEn": "grandchild-en",
+            "titleJa": "grandchild-ja",
+          },
+        ],
+        "id": "child",
+        "pageType": null,
+        "parentId": "root",
+        "slug": "/child",
+        "titleEn": "child-en",
+        "titleJa": "child-ja",
+      },
+      {
+        "children": [],
+        "id": "sibling",
+        "pageType": null,
+        "parentId": "root",
+        "slug": "/sibling",
+        "titleEn": "sibling-en",
+        "titleJa": "sibling-ja",
+      },
+    ],
+    "depth": 0,
+    "id": "root",
+    "pageType": null,
+    "parentId": null,
+    "slug": "/root",
+    "titleEn": "root-en",
+    "titleJa": "root-ja",
+  },
+  {
+    "children": [
+      {
+        "children": [],
+        "id": "grandchild",
+        "pageType": null,
+        "parentId": "child",
+        "slug": "/grandchild",
+        "titleEn": "grandchild-en",
+        "titleJa": "grandchild-ja",
+      },
+    ],
+    "depth": 1,
+    "id": "child",
+    "pageType": null,
+    "parentId": "root",
+    "slug": "/child",
+    "titleEn": "child-en",
+    "titleJa": "child-ja",
+  },
+  {
+    "children": [],
+    "depth": 2,
+    "id": "grandchild",
+    "pageType": null,
+    "parentId": "child",
+    "slug": "/grandchild",
+    "titleEn": "grandchild-en",
+    "titleJa": "grandchild-ja",
+  },
+  {
+    "children": [],
+    "depth": 1,
+    "id": "sibling",
+    "pageType": null,
+    "parentId": "root",
+    "slug": "/sibling",
+    "titleEn": "sibling-en",
+    "titleJa": "sibling-ja",
+  },
+]
+`;
