@@ -1,20 +1,39 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
+import { canUserSeePageAsync } from "~/lib/page-visibility.server";
 
 // ---------------------------------------------------------------------------
 // GET — list tasks for a task list
 // ---------------------------------------------------------------------------
 export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  await requireUser(request, env);
+  const user = await requireUser(request, env);
   const db = getDb(env);
 
   const { taskListId } = params;
   if (!taskListId) return Response.json({ error: "Missing taskListId" }, { status: 400 });
+
+  // Task lists are pages (pageType="task-list"); apply the same visibility
+  // rules used by the /tasks/:slug page route.
+  const page = await db
+    .select({
+      id: schema.pages.id,
+      visibility: schema.pages.visibility,
+      chapterId: schema.pages.chapterId,
+      authorId: schema.pages.authorId,
+    })
+    .from(schema.pages)
+    .where(eq(schema.pages.id, taskListId))
+    .get();
+
+  if (!page) return Response.json({ error: "Task list not found" }, { status: 404 });
+  if (!(await canUserSeePageAsync(db, user, page))) {
+    return new Response("Forbidden", { status: 403 });
+  }
 
   const tasks = await db
     .select()
@@ -53,6 +72,20 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
 
   const { taskListId } = params;
   if (!taskListId) return Response.json({ error: "Missing taskListId" }, { status: 400 });
+
+  // Creating tasks mutates the task list (increments nextTaskNumber and
+  // appends to it). Only the page author or an admin may do that — same
+  // gate as /tasks/:slug intent="updateSettings".
+  const page = await db
+    .select({ id: schema.pages.id, authorId: schema.pages.authorId })
+    .from(schema.pages)
+    .where(eq(schema.pages.id, taskListId))
+    .get();
+
+  if (!page) return Response.json({ error: "Task list not found" }, { status: 404 });
+  if (!user.isAdmin && page.authorId !== user.id) {
+    return new Response("Forbidden", { status: 403 });
+  }
 
   const body = await request.json();
   const {

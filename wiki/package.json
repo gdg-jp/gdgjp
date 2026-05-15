@@ -63,7 +63,7 @@
   },
   "devDependencies": {
     "@cloudflare/puppeteer": "^1.0.6",
-    "@cloudflare/vite-plugin": "^1.28.0",
+    "@cloudflare/vite-plugin": "~1.28.0",
     "@cloudflare/workers-types": "^4.20260316.1",
     "@playwright/test": "^1.50.0",
     "@react-router/dev": "~7.13.0",
@@ -81,6 +81,6 @@
     "vite": "^6.0.0",
     "vite-tsconfig-paths": "^5.0.0",
     "vitest": "^3.0.0",
-    "wrangler": "^4.73.0"
+    "wrangler": "~4.73.0"
   }
 }

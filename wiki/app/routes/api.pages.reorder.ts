@@ -10,36 +10,47 @@ const BodySchema = z.object({
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
-  await requireUser(request, env);
+  const user = await requireUser(request, env);
 
   const parsed = BodySchema.safeParse(await request.json());
   if (!parsed.success) return new Response(parsed.error.message, { status: 400 });
   const { pageId, newParentId, insertAfterId } = parsed.data;
 
-  // Verify pageId exists and get its current parent
-  type PageRow = { id: string; parent_id: string | null };
-  const page = (await env.DB.prepare("SELECT id, parent_id FROM pages WHERE id = ?")
+  // Verify pageId exists and get its current parent + authorId for authz
+  type PageRow = { id: string; parent_id: string | null; author_id: string };
+  const page = (await env.DB.prepare("SELECT id, parent_id, author_id FROM pages WHERE id = ?")
     .bind(pageId)
     .first()) as PageRow | null;
   if (!page) return new Response("Page not found", { status: 404 });
+
+  // Only the page author or an admin may move a page.
+  if (!user.isAdmin && page.author_id !== user.id) {
+    return new Response("Forbidden", { status: 403 });
+  }
 
   const oldParentId = page.parent_id;
 
   // Verify newParentId exists and isn't a descendant of pageId (circular check)
   if (newParentId) {
-    const parent = await env.DB.prepare("SELECT id FROM pages WHERE id = ?")
+    type ParentRow = { id: string; author_id: string };
+    const parent = (await env.DB.prepare("SELECT id, author_id FROM pages WHERE id = ?")
       .bind(newParentId)
-      .first();
+      .first()) as ParentRow | null;
     if (!parent) return new Response("Parent page not found", { status: 404 });
+    // The caller also needs author/admin rights on the destination parent so
+    // they can't slot pages into someone else's subtree.
+    if (!user.isAdmin && parent.author_id !== user.id) {
+      return new Response("Forbidden", { status: 403 });
+    }
 
     // Walk up from newParentId to root to detect circular reference
-    type ParentRow = { parent_id: string | null };
+    type AncestorRow = { parent_id: string | null };
     let checkId: string | null = newParentId;
     while (checkId) {
       if (checkId === pageId) return new Response("Circular parent reference", { status: 400 });
       const row = (await env.DB.prepare("SELECT parent_id FROM pages WHERE id = ?")
         .bind(checkId)
-        .first()) as ParentRow | null;
+        .first()) as AncestorRow | null;
       checkId = row?.parent_id ?? null;
     }
   }
