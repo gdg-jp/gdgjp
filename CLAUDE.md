@@ -1,89 +1,55 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code working in this repo.
 
-## Repo layout (flat, not `apps/` + `packages/`)
+## Repo layout (flat — no `apps/` + `packages/`)
 
-Apps and the shared lib sit at the repo root:
+Six workspace dirs at repo root, listed in `pnpm-workspace.yaml`:
 
-- `accounts/` — auth IdP (`@gdgjp/accounts`, accounts.gdgs.jp). Built on `@cloudflare/workers-oauth-provider` over D1 (binding `DB`) + KV (`OAUTH_KV`); issues OAuth credentials to the other apps via `*_CLIENT_ID` / `*_REDIRECT_URLS` vars in `accounts/wrangler.toml`. (better-auth was used briefly — migrations 0002 → 0011 — but is gone; don't reintroduce it.)
-- `tinyurl/` — URL shortener (`@gdgjp/tinyurl`, url.gdgs.jp), D1-backed; OAuth client of `accounts`.
-- `wiki/` — community wiki (`@gdgjp/wiki`, wiki.gdgs.jp). D1 (`DB`) + R2 (`BUCKET`) + Queues (`TRANSLATION_QUEUE`, `INGESTION_QUEUE`) + Browser Rendering (`BROWSER`) + Workers AI (`AI`) + Vectorize (`VECTORIZE`) + Durable Object (`COLLAB_DO`, for Yjs collab) bindings; uses Drizzle (not Kysely). OAuth client of `accounts` via `gdg-lib`'s RP factory (migrations 0021/0022 dropped the standalone better-auth setup).
-- `img/` — image hosting (`@gdgjp/img`, img.gdgs.jp). D1 + R2 (`ORIGINALS`) + Cloudflare Images (`IMAGES`) bindings; OAuth client of `accounts`.
-- `scheduler/` — meeting scheduler (`@gdgjp/scheduler`, scheduler.gdgs.jp). D1-backed; OAuth client of `accounts`. Anonymous users can fully use the app (create, join, edit own response); authenticated owners additionally get a cross-device "My events" list and can edit/delete events.
-- `gdg-lib/` — `@gdgjp/gdg-lib` shared package, consumed via `workspace:*`. Houses the **RP factory** (`initializeRpAuth`) the four downstream apps wire under `/api/auth/*` and the shared signed-cookie HMAC helpers (`signPayload` / `verifyPayload`) used by both sides. The IdP itself does NOT consume gdg-lib.
+- `accounts/` — OIDC IdP (`@gdgjp/accounts`, accounts.gdgs.jp). On `@cloudflare/workers-oauth-provider` + D1 (`DB`) + KV (`OAUTH_KV`). Does NOT consume `gdg-lib`. better-auth was used briefly (migrations 0002–0011) and removed — don't reintroduce.
+- `tinyurl/` — URL shortener (url.gdgs.jp). D1. RP of accounts.
+- `wiki/` — wiki (wiki.gdgs.jp). D1 + R2 (`BUCKET`) + Queues (`TRANSLATION_QUEUE`, `INGESTION_QUEUE`) + Browser Rendering (`BROWSER`) + Workers AI (`AI`) + Vectorize (`VECTORIZE`) + Durable Object (`COLLAB_DO`). Uses Drizzle (the others use Kysely). RP of accounts.
+- `img/` — image hosting (img.gdgs.jp). D1 + R2 (`ORIGINALS`) + Cloudflare Images (`IMAGES`). RP of accounts.
+- `scheduler/` — meeting scheduler (scheduler.gdgs.jp). D1. RP of accounts. Anon users fully usable; sign-in adds cross-device "My events".
+- `gdg-lib/` — `@gdgjp/gdg-lib`, `workspace:*`. Houses the RP factory `initializeRpAuth` (mounted under `/api/auth/*` by the four RPs) and signed-cookie HMAC helpers (`signPayload` / `verifyPayload`). IdP does not consume it.
 
-`pnpm-workspace.yaml` lists these six directories explicitly. When adding a new app, add it there and run `pnpm install`.
+Every app is React Router v7 (framework mode, SSR) on Cloudflare Workers. Worker entry `workers/app.ts` wires `createRequestHandler` and exposes `env`/`ctx` on `context.cloudflare`. Routes in `app/routes/`, registered in `app/routes.ts`. `~/*` → `./app/*`.
 
-Each app is a React Router v7 (framework mode, SSR) app deployed to Cloudflare Workers. The Worker entry is `workers/app.ts`, which wires `createRequestHandler` to the virtual server build and exposes `env`/`ctx` on `AppLoadContext` under `context.cloudflare`. Routes live in `app/routes/` and are registered in `app/routes.ts`. The `~/*` import alias maps to `./app/*`.
+Each workspace has its own `CLAUDE.md`. Read both when working in an app.
 
-Each workspace directory (`accounts/`, `tinyurl/`, `wiki/`, `img/`, `scheduler/`, `gdg-lib/`) has its own `CLAUDE.md` with app-specific architecture (auth wiring, bindings, data model, gotchas). When working inside an app, read both this file and that app's `CLAUDE.md`.
+Dev ports (also used by Playwright `webServer`; RPs boot `accounts` alongside):
 
-Dev ports (used by `pnpm dev` and by Playwright `webServer` blocks — RPs boot `accounts` alongside themselves):
+| accounts | tinyurl | img | scheduler | wiki |
+|---|---|---|---|---|
+| 5173 | 5174 | 5175 | 5176 | 5177 |
 
-| App | Port |
-| --- | --- |
-| `accounts` | 5173 |
-| `tinyurl` | 5174 |
-| `img` | 5175 |
-| `scheduler` | 5176 |
-| `wiki` | 5177 |
+After editing `wrangler.toml` bindings, run `pnpm --filter @gdgjp/<app> cf-typegen` (or `typecheck`) to regenerate `worker-configuration.d.ts`.
 
-After editing `wrangler.toml` bindings, re-run `pnpm --filter @gdgjp/<app> cf-typegen` (or `pnpm typecheck`) so `worker-configuration.d.ts` picks up the new shape.
+## Cross-cutting secrets
 
-## Cross-cutting secrets contract
+Every RP `.dev.vars` needs `RP_SESSION_SECRET` (HMAC; `openssl rand -base64 48`) and `IDP_CLIENT_SECRET`.
 
-Every RP (`tinyurl`, `wiki`, `img`, `scheduler`) needs in its `.dev.vars`:
-
-- `RP_SESSION_SECRET` — HMAC key for the RP session cookie (generate with `openssl rand -base64 48`).
-- `IDP_CLIENT_SECRET` — the per-app secret matching the entry seeded in `accounts/`'s `OAUTH_KV`.
-
-The IdP (`accounts/`) needs:
-
-- `IDP_SESSION_SECRET` — HMAC key for the IdP login cookie.
-- `GOOGLE_CLIENT_SECRET` — for Google-as-upstream login on the IdP.
-- One `<APP>_CLIENT_SECRET` per RP (`TINYURL_CLIENT_SECRET`, `WIKI_CLIENT_SECRET`, `IMG_CLIENT_SECRET`, `SCHEDULER_CLIENT_SECRET`). After changing any of these or the matching `<APP>_CLIENT_ID` / `<APP>_REDIRECT_URLS` in `accounts/wrangler.toml`, hit the `/admin/seed-clients` route — the change does NOT take effect until KV is re-seeded.
+`accounts/` needs `IDP_SESSION_SECRET`, `GOOGLE_CLIENT_SECRET`, and `<APP>_CLIENT_SECRET` for each RP (`TINYURL_`, `WIKI_`, `IMG_`, `SCHEDULER_`). After changing any `<APP>_CLIENT_SECRET` / `<APP>_CLIENT_ID` / `<APP>_REDIRECT_URLS`, **hit `/admin/seed-clients`** — change doesn't take effect until KV is re-seeded.
 
 ## Commands
 
-Run from the repo root unless noted. Turborepo fans out to all workspaces.
+Run from repo root (Turborepo fans out):
 
-- `pnpm dev` — run all apps' dev servers (`react-router dev`, persistent, uncached)
-- `pnpm build` — production build of every app
-- `pnpm typecheck` — runs `wrangler types && react-router typegen && tsc --noEmit` per app
-- `pnpm test` — Vitest unit tests across all workspaces
-- `pnpm test:e2e` — Playwright E2E (boots `pnpm dev` via the `webServer` config)
-- `pnpm lint` / `pnpm lint:fix` / `pnpm format` — Biome (no ESLint/Prettier)
-- `pnpm deploy` — `wrangler deploy` per app (depends on `build`)
+- `pnpm dev` / `build` / `typecheck` / `test` / `test:e2e` / `lint` (`lint:fix`, `format`) / `deploy`
+- `typecheck` = `wrangler types && react-router typegen && tsc --noEmit`
+- Biome only (no ESLint/Prettier)
+- `deploy` runs `wrangler deploy` per app
 
-Scope to a single app with `--filter`:
+Scope to one app: `pnpm --filter @gdgjp/<app> <script>`. Single test: `pnpm --filter @gdgjp/<app> exec vitest run <path>` / `exec playwright test <spec>`.
 
-```
-pnpm --filter @gdgjp/accounts dev
-pnpm --filter @gdgjp/accounts test
-pnpm --filter @gdgjp/accounts test:e2e
-```
+D1 migrations (per app, not `gdg-lib`): `migrate:local` / `migrate:remote`. Both replay migrations and regenerate `schema.sql` via `scripts/dump-schema.sh` (also exposed as `schema:dump`). `schema.sql` is generated — edit migrations, not the dump.
 
-Single Vitest file: `pnpm --filter @gdgjp/accounts exec vitest run app/path/to/file.test.ts`.
-Single Playwright spec: `pnpm --filter @gdgjp/accounts exec playwright test e2e/home.spec.ts`.
-
-D1 migrations (defined per app under `migrations/`):
-
-```
-pnpm --filter @gdgjp/<app> migrate:local    # apply against local wrangler dev DB
-pnpm --filter @gdgjp/<app> migrate:remote   # apply against the deployed DB
-```
-
-Every workspace app has a `migrations/` dir and exposes `migrate:local` / `migrate:remote` except `gdg-lib` (no DB of its own).
-
-Each app with a `migrations/` dir also has a `schema.sql` checked in — a consolidated dump of the post-migration schema, regenerated by `scripts/dump-schema.sh` (replays the migrations into a throwaway SQLite). `migrate:local` / `migrate:remote` run it automatically; you can also invoke it directly with `pnpm --filter @gdgjp/<app> schema:dump`. Treat `schema.sql` as generated — edit migrations, not the dump.
-
-When adding a new app, register it in: `pnpm-workspace.yaml`, the `typecheck` / `test` / `build` / `e2e` matrices in `.github/workflows/ci.yml` (and the `.dev.vars` heredoc in the e2e job), and the `deploy` matrix in `.github/workflows/deploy.yml`.
+Adding a new app: register in `pnpm-workspace.yaml`, the matrices in `.github/workflows/ci.yml` (incl. the `.dev.vars` heredoc in the e2e job), and `deploy.yml`.
 
 ## Conventions
 
-- Biome enforces double quotes, semicolons, trailing commas, 2-space indent, 100-col lines, and `useImportType: error` — use `import type { ... }` for type-only imports.
-- TypeScript uses `verbatimModuleSyntax` and `isolatedModules` (inherited from `tsconfig.base.json`); type-only imports/exports must be marked explicitly.
-- The shared lib `@gdgjp/gdg-lib` exports source TS directly (`"main": "./src/index.ts"`) — there is no build step for it; consumers compile it through their own bundler. Keep package-local code inside its app unless it is genuinely shared, then move it here.
-- Commits follow Conventional Commits, scoped by package: `feat(accounts): ...`, `fix(img): ...`.
-- CI (`.github/workflows/ci.yml`) runs lint, typecheck, unit tests, build, and Playwright as separate jobs on Node 20 + pnpm. Keep all five green.
+- Biome: double quotes, semicolons, trailing commas, 2-space, 100 col, `useImportType: error`.
+- TS: `verbatimModuleSyntax` + `isolatedModules` (from `tsconfig.base.json`) — mark type-only imports/exports explicitly.
+- `gdg-lib` has no build step (`"main": "./src/index.ts"`); consumers bundle it.
+- Conventional Commits scoped per package: `feat(accounts): …`, `fix(img): …`.
+- CI runs lint, typecheck, unit, build, Playwright as separate jobs (Node 20 + pnpm). Keep all five green.

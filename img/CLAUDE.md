@@ -1,55 +1,50 @@
-# CLAUDE.md
+# CLAUDE.md — `@gdgjp/img`
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+img.gdgs.jp. Repo-wide conventions in `../CLAUDE.md`.
 
-This file scopes to the `img/` app (`@gdgjp/img`, deployed at `img.gdgs.jp`). For monorepo-wide layout and conventions see `../CLAUDE.md`.
+Image hosting. Authenticated chapter members upload; `img.gdgs.jp/<id>` is publicly viewable (no auth on the public `:id` GET). Originals in R2; on-the-fly resize/format via Cloudflare Images `IMAGES` binding (`env.IMAGES.input(...).transform(...).output(...)`).
 
-## What this app is
-
-Image hosting service. Authenticated chapter members upload images; the resulting `img.gdgs.jp/<id>` URL is publicly viewable by anyone with the link (no auth on the public `:id` GET). Originals live in R2; on-the-fly resizing/format conversion is handled by Cloudflare Images (`IMAGES` binding) via `env.IMAGES.input(...).transform(...).output(...)`.
-
-## App-specific commands
+## Dev
 
 ```
-pnpm --filter @gdgjp/img dev            # vite dev on :5175
-pnpm --filter @gdgjp/img test           # vitest
-pnpm --filter @gdgjp/img test:e2e       # playwright; boots accounts on :5173 + img on :5175
-pnpm --filter @gdgjp/img migrate:local  # apply migrations to local D1, then re-dump schema.sql
-pnpm --filter @gdgjp/img cf-typegen     # regenerate worker-configuration.d.ts after wrangler.toml changes
+pnpm --filter @gdgjp/img dev            # :5175
+pnpm --filter @gdgjp/img test:e2e       # boots accounts :5173 + img :5175
+pnpm --filter @gdgjp/img migrate:local  # also re-dumps schema.sql
+pnpm --filter @gdgjp/img cf-typegen     # after wrangler.toml changes
 ```
 
-E2E requires the `accounts` app to be reachable on `localhost:5173` — `playwright.config.ts` boots it via `pnpm --dir ../accounts dev`. The `webServer` block reuses an existing dev server outside CI, so you can leave both running.
+E2E needs `accounts` on :5173 — `playwright.config.ts` boots it via `pnpm --dir ../accounts dev`. `webServer` reuses existing dev outside CI.
 
-## Bindings (wrangler.toml)
+## Bindings
 
-- `DB` — D1 (`gdgjp-img-db`). Schema in `migrations/` + dumped to `schema.sql`. Edit migrations, never the dump.
-- `ORIGINALS` — R2 bucket. R2 keys equal the 8-char image id (see `lib/id.ts`).
-- `IMAGES` — Cloudflare Images binding used for transforms; no separate cf-images upload step.
+- `DB` — D1 `gdgjp-img-db`. Migrations in `migrations/`, dumped to `schema.sql` (don't edit dump).
+- `ORIGINALS` — R2 bucket. R2 keys equal the 8-char image id (`lib/id.ts`).
+- `IMAGES` — Cloudflare Images binding for transforms (no separate upload step).
 
-Vars: `APP_URL`, `ACCOUNTS_URL`, `IDP_URL`, `IDP_CLIENT_ID`. Secrets: `IDP_CLIENT_SECRET`, `RP_SESSION_SECRET` (set via `wrangler secret put` or `.dev.vars` locally).
+Vars: `APP_URL`, `ACCOUNTS_URL`, `IDP_URL`, `IDP_CLIENT_ID`. Secrets: `IDP_CLIENT_SECRET`, `RP_SESSION_SECRET`.
 
-## Auth model — important
+## Auth
 
-This app is an OAuth **relying party** of `accounts.gdgs.jp`. It does NOT run `better-auth` directly — all SSO flow goes through `@gdgjp/gdg-lib`'s `initializeRpAuth`. `lib/auth.server.ts` caches one `RpAuthInstance` per `env`.
+OAuth RP of accounts. Does NOT run better-auth — SSO through `gdg-lib`'s `initializeRpAuth`. `lib/auth.server.ts` caches one `RpAuthInstance` per `env`.
 
-- `requireUserWithChapter(env, request)` in `lib/auth-redirect.ts` is the standard route gate: it returns `{ user, chapter, accountId }` or throws a `redirect("/signin?return_to=...")`. Use it in every protected loader/action.
-- The local `signin` route just bounces to `/api/auth/signin` (handled by `getAuth().handleAuthRequest`). Local return-to values are validated by `safeReturnTo` to block open-redirects (must start with `/` but not `//`, and reject control chars/whitespace).
-- The user's chapter membership is fetched from the IdP's `/userinfo` endpoint via `fetchChapterForUser` (`lib/chapter.server.ts`) and cached in-memory for 30s per user (LRU evict at 500). A `ClaimsUnavailableError` from the IdP also triggers the sign-in redirect; missing chapter sends to `/no-chapter`.
-- Post-SSO-migration there is no separate `account` table — `user.id` is the stable internal UUID. New `images` rows store `user_id === account_id`; older rows keep their historical `account_id` (Google `sub`) for backward-compat reads. Don't reintroduce an `account` table or join on `account_id`.
+- `requireUserWithChapter(env, request)` in `lib/auth-redirect.ts` is the standard route gate — returns `{ user, chapter, accountId }` or throws `redirect("/signin?return_to=...")`. Use in every protected loader/action.
+- `signin` route bounces to `/api/auth/signin` (handled by `getAuth().handleAuthRequest`). `safeReturnTo` validates local return-to (must start with `/` but not `//`; rejects control chars/whitespace).
+- Chapter membership fetched via `fetchChapterForUser` (`lib/chapter.server.ts`) from `/userinfo`, cached in-memory 30s/user (LRU 500). `ClaimsUnavailableError` → sign-in redirect; missing chapter → `/no-chapter`.
+- Post-SSO-migration: NO `account` table — `user.id` is the stable internal UUID. New `images` rows store `user_id === account_id`; older rows keep historical `account_id` (Google `sub`) for back-compat reads. **Don't reintroduce an `account` table or join on `account_id`.**
 
 ## Image flow
 
-- IDs: 8-char nanoid from `[0-9A-Za-z]`, generated with collision retry in `generateUniqueImageId`. Validate any inbound `:id` with `isValidImageId` before touching D1/R2.
-- Upload (`api.upload.ts`): puts original to R2, then inserts the D1 row. On D1 failure it best-effort cleans up R2 via `ctx.waitUntil(deleteOriginal(...))` — keep that ordering (R2 first, DB second, rollback R2 on DB error).
-- Public GET (`routes/$id.tsx`): no auth. Honors `If-None-Match` (etag is `"<id>-<updatedAt>"`), returns the R2 stream directly when no transform params are present, otherwise pipes through `env.IMAGES`. Cache headers are `public, max-age=300, s-maxage=86400`; format negotiation falls back to `Accept` and emits `Vary: Accept` when format is auto. Transform options accepted: `w`/`h` (≤4096), `fit`, `q` (1–100), `f` (auto|avif|webp|jpeg|png). See `lib/img-url.ts`.
-- Mutations (`api.replace.$id.ts`, `api.delete.$id.ts`): gated by `canMutateImage` (owner OR `isSuperAdmin(user)` from gdg-lib). Replace reuses the same `r2_key` so the public URL is stable; the gallery and detail view cache-bust via `?v=${updatedAt}` (plus a client-side counter on the detail page).
-- Max upload: 10 MiB (`MAX_BYTES` in both upload and replace). Content-type must start with `image/`.
+- IDs: 8-char nanoid from `[0-9A-Za-z]`, collision retry in `generateUniqueImageId`. Validate inbound `:id` with `isValidImageId` before touching D1/R2.
+- Upload (`api.upload.ts`): R2 first → D1 insert. On D1 failure, best-effort R2 cleanup via `ctx.waitUntil(deleteOriginal(...))`. **Keep ordering (R2 first, DB second, rollback R2 on DB error).**
+- Public GET (`routes/$id.tsx`): no auth. Honors `If-None-Match` (etag = `"<id>-<updatedAt>"`). Returns R2 stream directly with no transform params; else pipes through `env.IMAGES`. Cache: `public, max-age=300, s-maxage=86400`. Format negotiation falls back to `Accept`; emits `Vary: Accept` when format is auto. Transforms: `w`/`h` (≤4096), `fit`, `q` (1–100), `f` (auto|avif|webp|jpeg|png). See `lib/img-url.ts`.
+- Mutations (`api.replace.$id.ts`, `api.delete.$id.ts`): gated by `canMutateImage` (owner OR `isSuperAdmin(user)` from gdg-lib). Replace reuses the same `r2_key` so the public URL is stable; gallery/detail cache-bust with `?v=${updatedAt}` (plus client-side counter on detail page).
+- Max upload: 10 MiB (`MAX_BYTES` in upload + replace). Content-type must start with `image/`.
 
 ## Routes
 
-Order in `app/routes.ts` matters — the catch-all public viewer `:id` is last so explicit routes (`signin`, `no-chapter`, `i/:id`, `api/*`, `auth/*`) match first.
+Order in `app/routes.ts` matters — catch-all public viewer `:id` is last so explicit routes (`signin`, `no-chapter`, `i/:id`, `api/*`, `auth/*`) match first.
 
 ## Tests
 
-- Unit: Vitest, files colocated as `*.test.ts` next to source. Currently minimal (just `routes/home.test.ts`).
-- E2E: Playwright in `e2e/`, baseURL `http://localhost:5175`. The only spec asserts the home redirect to `/signin?return_to=%2F` — keep that contract intact when changing the auth gate.
+- Unit: Vitest, colocated `*.test.ts`. Currently minimal.
+- E2E: Playwright in `e2e/`, baseURL `http://localhost:5175`. Only spec asserts home → `/signin?return_to=%2F` — keep that contract when changing the auth gate.
