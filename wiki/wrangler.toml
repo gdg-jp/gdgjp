@@ -39,7 +39,7 @@ FIREBASE_VAPID_KEY = "BJVifvLdXOTlkWG2srEiwp49xToB4bIPhf8d7yiL_ruDadJ0YaTJoY3S-_
 [[d1_databases]]
 binding = "DB"
 database_name = "gdgjp-wiki-db"
-database_id = "76285b34-e69e-4b20-b1a1-fb207bbfa95c"
+database_id = "1b401b78-77b7-4206-88f2-7474cf3ef2ea"
 migrations_dir = "./migrations"
 
 # ---------------------------------------------------------------------------
