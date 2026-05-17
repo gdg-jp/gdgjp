@@ -2,19 +2,23 @@
  * E2E tests for Fine-Grained Access Control (Google Docs–style ShareDialog).
  *
  * Prerequisites:
- *   - Dev server running on http://localhost:5173
- *   - global-setup.ts has seeded 3 test users + the test wiki page into D1 SQLite
+ *   - Dev server running on http://localhost:5177
+ *   - global-setup.ts has seeded 3 test users into D1 SQLite + the test wiki
+ *     page, and written HMAC-signed session cookies to storageState files.
  *
- * Auth strategy: direct SQLite session seeding → storageState cookie files.
- * The better-auth session token is sent as "better-auth.session_token" cookie.
+ * Auth strategy: openid-client RP factory uses a signed session cookie
+ * (`gdgjp-wiki-session`). global-setup signs that cookie with the
+ * RP_SESSION_SECRET from .dev.vars so the dev server accepts it without
+ * a real OIDC sign-in flow.
  */
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { type BrowserContext, type Page, expect, test } from "@playwright/test";
 import { TEST_PAGE } from "./global-setup";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:5177";
 const PAGE_URL = `${BASE}/wiki/${TEST_PAGE.slug}`;
-const STORAGE_DIR = path.join(__dirname, "storage-state");
+const STORAGE_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "storage-state");
 
 // ---------------------------------------------------------------------------
 // Helpers

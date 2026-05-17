@@ -1,0 +1,15 @@
+{
+  "cookies": [
+    {
+      "name": "gdgjp-wiki-session",
+      "value": "eyJ1c2VySWQiOiJlMmUtYXV0aG9yLXVzZXItaWQiLCJlbWFpbCI6ImF1dGhvckB0ZXN0LmxvY2FsIiwibmFtZSI6IkUyRSBBdXRob3IiLCJwaWN0dXJlIjpudWxsLCJpc0FkbWluIjpmYWxzZSwiYWNjZXNzVG9rZW4iOiJlMmUtZmFrZS1hY2Nlc3MtdG9rZW4iLCJyZWZyZXNoVG9rZW4iOm51bGwsImFjY2Vzc1Rva2VuRXhwaXJlc0F0IjoxNzgxNjI2OTkyODQwLCJjaGFwdGVycyI6W10sImNsYWltc0NhY2hlVW50aWwiOjE3ODE2MjY5OTI4NDB9.GxOudgrpVkzskwd9PQbY-LTg1c6jIAmi8kH61nbRbyU",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1781626992,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}

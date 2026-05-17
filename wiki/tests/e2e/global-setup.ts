@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
@@ -13,8 +14,6 @@ const USERS = {
     email: "admin@test.local",
     kind: "admin" as const,
     isAdmin: 1,
-    sessionToken: "e2e-admin-session-token",
-    sessionId: "e2e-admin-session-id",
   },
   author: {
     id: "e2e-author-user-id",
@@ -22,8 +21,6 @@ const USERS = {
     email: "author@test.local",
     kind: "author" as const,
     isAdmin: 0,
-    sessionToken: "e2e-author-session-token",
-    sessionId: "e2e-author-session-id",
   },
   member: {
     id: "e2e-member-user-id",
@@ -31,8 +28,6 @@ const USERS = {
     email: "member@test.local",
     kind: "member" as const,
     isAdmin: 0,
-    sessionToken: "e2e-member-session-token",
-    sessionId: "e2e-member-session-id",
   },
 } as const;
 
@@ -45,8 +40,10 @@ export const TEST_PAGE = {
 const D1_GLOB = ".wrangler/state/v3/d1/miniflare-D1DatabaseObject";
 const STORAGE_STATE_DIR = path.join(process.cwd(), "tests/e2e/storage-state");
 
-// Matches advanced.cookiePrefix in wiki/app/lib/auth.server.ts.
-const SESSION_COOKIE = "gdgjp-wiki.session_token";
+// Must match the cookie name the openid-client RP factory writes:
+// `${cookiePrefix}-session` where cookiePrefix = "gdgjp-wiki" (see
+// wiki/app/lib/auth.server.ts).
+const SESSION_COOKIE = "gdgjp-wiki-session";
 
 function findD1Sqlite(): string {
   const dir = path.join(process.cwd(), D1_GLOB);
@@ -73,35 +70,70 @@ function findD1Sqlite(): string {
   return path.join(dir, best);
 }
 
+/**
+ * Reads RP_SESSION_SECRET from .dev.vars. We need to sign cookies with the
+ * exact same key the dev server uses to verify them.
+ */
+function readSessionSecret(): string {
+  const devVars = path.join(process.cwd(), ".dev.vars");
+  if (!fs.existsSync(devVars)) {
+    throw new Error(
+      `${devVars} not found — required for signing e2e session cookies.\n` +
+        `Copy .dev.vars.example to .dev.vars and set RP_SESSION_SECRET.`,
+    );
+  }
+  const content = fs.readFileSync(devVars, "utf-8");
+  const match = content.match(/^\s*RP_SESSION_SECRET\s*=\s*(.+?)\s*$/m);
+  if (!match) {
+    throw new Error("RP_SESSION_SECRET is not set in .dev.vars");
+  }
+  let secret = match[1].trim();
+  if (
+    (secret.startsWith('"') && secret.endsWith('"')) ||
+    (secret.startsWith("'") && secret.endsWith("'"))
+  ) {
+    secret = secret.slice(1, -1);
+  }
+  if (!secret) throw new Error("RP_SESSION_SECRET is empty in .dev.vars");
+  return secret;
+}
+
+function b64url(buf: Buffer): string {
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/**
+ * Replicates `signPayload` from gdg-lib/src/auth/cookie.ts (WebCrypto HMAC-
+ * SHA256) using Node's crypto. Output format: `<b64url(JSON)>.<b64url(sig)>`.
+ */
+function signCookie(payload: unknown, secret: string): string {
+  const body = b64url(Buffer.from(JSON.stringify(payload), "utf-8"));
+  const sig = b64url(crypto.createHmac("sha256", secret).update(body).digest());
+  return `${body}.${sig}`;
+}
+
 function seedDb(dbPath: string): void {
   const db = new Database(dbPath);
 
   const now = Math.floor(Date.now() / 1000);
-  const expiresAt = now + 60 * 60 * 24; // 24h
 
-  // Upsert users
+  // Post-PR-2 user schema: snake_case, no emailVerified, no preferred* fields
+  // (those live in user_preferences now, which e2e doesn't need to populate).
   const upsertUser = db.prepare(`
-    INSERT INTO user (id, name, email, emailVerified, isAdmin, preferredUiLanguage, preferredContentLanguage, createdAt, updatedAt)
-    VALUES (?, ?, ?, 1, ?, 'ja', 'ja', ?, ?)
-    ON CONFLICT(id) DO UPDATE SET isAdmin = excluded.isAdmin, updatedAt = excluded.updatedAt
+    INSERT INTO "user" (id, email, name, image, is_admin, created_at, updated_at)
+    VALUES (?, ?, ?, NULL, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      email = excluded.email,
+      name = excluded.name,
+      is_admin = excluded.is_admin,
+      updated_at = excluded.updated_at
   `);
 
   for (const u of Object.values(USERS)) {
-    upsertUser.run(u.id, u.name, u.email, u.isAdmin, now, now);
+    upsertUser.run(u.id, u.email, u.name, u.isAdmin, now, now);
   }
 
-  // Upsert sessions
-  const upsertSession = db.prepare(`
-    INSERT INTO session (id, token, userId, expiresAt, createdAt, updatedAt)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET token = excluded.token, expiresAt = excluded.expiresAt, updatedAt = excluded.updatedAt
-  `);
-
-  for (const u of Object.values(USERS)) {
-    upsertSession.run(u.sessionId, u.sessionToken, u.id, expiresAt, now, now);
-  }
-
-  // Upsert test page (authored by E2E Author)
+  // Test page (authored by E2E Author) — pages schema unchanged in PR 2.
   const upsertPage = db.prepare(`
     INSERT INTO pages (id, title_ja, title_en, slug, content_ja, content_en, author_id, last_edited_by, visibility, status, sort_order, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'public', 'published', 0, ?, ?)
@@ -124,17 +156,49 @@ function seedDb(dbPath: string): void {
   db.close();
 }
 
-function writeStorageState(user: (typeof USERS)[keyof typeof USERS]): void {
+/**
+ * Builds the SessionPayload struct the RP factory expects (see
+ * `interface SessionPayload` in gdg-lib/src/auth/rp.ts), then HMAC-signs it
+ * with the same RP_SESSION_SECRET the dev server uses. The access/refresh
+ * tokens are dummy values — these e2e tests exercise UI behaviour against
+ * the signed session, not the IdP, so getFreshClaims is never invoked.
+ */
+function buildSessionCookieValue(
+  user: (typeof USERS)[keyof typeof USERS],
+  secret: string,
+): string {
+  const farFuture = Date.now() + 30 * 24 * 60 * 60 * 1000;
+  const payload = {
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    picture: null,
+    isAdmin: user.isAdmin === 1,
+    accessToken: "e2e-fake-access-token",
+    refreshToken: null,
+    accessTokenExpiresAt: farFuture,
+    chapters: [],
+    claimsCacheUntil: farFuture,
+  };
+  return signCookie(payload, secret);
+}
+
+function writeStorageState(
+  user: (typeof USERS)[keyof typeof USERS],
+  secret: string,
+): void {
   fs.mkdirSync(STORAGE_STATE_DIR, { recursive: true });
   const state = {
     cookies: [
       {
         name: SESSION_COOKIE,
-        value: user.sessionToken,
+        value: buildSessionCookieValue(user, secret),
         domain: "localhost",
         path: "/",
-        expires: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
+        expires: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
         httpOnly: true,
+        // Dev server is HTTP (localhost); the RP factory matches this via
+        // isLocalAppUrl(APP_URL) and emits non-Secure cookies in dev.
         secure: false,
         sameSite: "Lax" as const,
       },
@@ -147,11 +211,12 @@ function writeStorageState(user: (typeof USERS)[keyof typeof USERS]): void {
 
 export default async function globalSetup() {
   const dbPath = findD1Sqlite();
+  const secret = readSessionSecret();
   console.log(`\n[E2E setup] Seeding D1 SQLite: ${dbPath}`);
   seedDb(dbPath);
 
   for (const u of Object.values(USERS)) {
-    writeStorageState(u);
+    writeStorageState(u, secret);
   }
   console.log(`[E2E setup] Storage state written to ${STORAGE_STATE_DIR}`);
 }
