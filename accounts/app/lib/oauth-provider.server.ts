@@ -58,24 +58,36 @@ export function getOAuthHelpers(env: Env): OAuthHelpers {
   );
 }
 
-// The OAuthProvider routes GET/POST /userinfo here after validating the bearer token.
-// ctx.props is the GrantProps we set in completeAuthorization, with live chapter
-// claims appended on every request.
+// The OAuthProvider routes GET/POST /userinfo here after validating the bearer
+// token. ctx.props identifies the user (via props.sub set in
+// completeAuthorization); the email/name/picture/isAdmin in props are a
+// snapshot from sign-in time and can be up to refreshTokenTTL (30 days)
+// stale, so we re-read the user row from D1 on every call. Chapter memberships
+// are already loaded fresh below.
 const userinfoHandler: HandlerWithFetch = {
   async fetch(_request, env, ctx) {
     const props = (ctx as ExecutionContext & { props?: GrantProps }).props;
     if (!props) {
       return json({ error: "no_props" }, 500);
     }
+    const row = await env.DB.prepare(
+      `SELECT email, name, image, is_admin FROM "user" WHERE id = ? LIMIT 1`,
+    )
+      .bind(props.sub)
+      .first<{ email: string; name: string; image: string | null; is_admin: number }>();
+    if (!row) {
+      // User was deleted between grant and this call — token effectively revoked.
+      return json({ error: "user_not_found" }, 401);
+    }
     const chapters = await listActiveChaptersForUser(env.DB, props.sub);
     const primary = chapters[0] ?? null;
     return json({
       sub: props.sub,
-      email: props.email,
-      name: props.name,
-      picture: props.picture,
+      email: row.email,
+      name: row.name,
+      picture: row.image,
       email_verified: true,
-      isAdmin: props.isAdmin,
+      isAdmin: row.is_admin === 1,
       chapterId: primary?.chapterId ?? null,
       chapterSlug: primary?.chapterSlug ?? null,
       chapterRole: primary?.role ?? null,

@@ -119,16 +119,18 @@ export async function handleGoogleCallback(args: {
   if (!claims?.sub || typeof claims.sub !== "string") {
     throw new Error("Google id_token missing sub claim");
   }
+  // We request the `email` scope, so a missing or empty email is either a
+  // consent-denied edge case or malformed upstream data. Either way we can't
+  // create a coherent local user (the `user` table's `email` is NOT NULL
+  // UNIQUE — an empty string would collide on the second such sign-in).
+  if (typeof claims.email !== "string" || claims.email.length === 0) {
+    throw new Error("Google id_token missing email claim");
+  }
 
   const user: GoogleUserInfo = {
     sub: claims.sub,
-    email: typeof claims.email === "string" ? claims.email : "",
-    name:
-      typeof claims.name === "string"
-        ? claims.name
-        : typeof claims.email === "string"
-          ? claims.email
-          : "",
+    email: claims.email,
+    name: typeof claims.name === "string" && claims.name.length > 0 ? claims.name : claims.email,
     picture: typeof claims.picture === "string" ? claims.picture : null,
     emailVerified: claims.email_verified === true,
   };
