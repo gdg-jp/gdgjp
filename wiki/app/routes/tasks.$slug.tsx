@@ -34,7 +34,7 @@ import { canUserChangeVisibility, canUserSeePageAsync } from "~/lib/page-visibil
 // ---------------------------------------------------------------------------
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
-  { title: data ? `${data.page.titleJa || data.page.titleEn} — GDGoC Japan Wiki` : "Tasks" },
+  { title: data ? `${data.page.titleJa || data.page.titleEn} — GDG Japan Wiki` : "Tasks" },
 ];
 
 // ---------------------------------------------------------------------------

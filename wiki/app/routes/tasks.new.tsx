@@ -16,7 +16,7 @@ import { insertPageOwner } from "~/lib/page-access.server";
 // Meta
 // ---------------------------------------------------------------------------
 
-export const meta: MetaFunction = () => [{ title: "New Task List — GDGoC Japan Wiki" }];
+export const meta: MetaFunction = () => [{ title: "New Task List — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------
 // Loader

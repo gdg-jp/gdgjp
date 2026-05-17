@@ -12,7 +12,7 @@ import { buildIngestionQueueMessage } from "~/lib/ingestion-jobs.server";
 import type { IngestionInputs } from "~/lib/ingestion-pipeline.server";
 import { sendOrRunIngestion } from "~/lib/queue-processors.server";
 
-export const meta: MetaFunction = () => [{ title: "Analyze with AI (Beta) — GDGoC Japan Wiki" }];
+export const meta: MetaFunction = () => [{ title: "Analyze with AI (Beta) — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------
 // Loader

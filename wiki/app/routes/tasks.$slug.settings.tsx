@@ -15,7 +15,7 @@ import { canUserChangeVisibility, canUserSeePageAsync } from "~/lib/page-visibil
 // Meta
 // ---------------------------------------------------------------------------
 
-export const meta: MetaFunction = () => [{ title: "Task List Settings — GDGoC Japan Wiki" }];
+export const meta: MetaFunction = () => [{ title: "Task List Settings — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------
 // Loader

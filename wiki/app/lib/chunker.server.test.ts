@@ -12,7 +12,7 @@ const TIPTAP_DOC_JA = JSON.stringify({
     {
       type: "paragraph",
       content: [
-        { type: "text", text: "これはテストページの概要です。GDGoCの活動について説明します。" },
+        { type: "text", text: "これはテストページの概要です。GDGの活動について説明します。" },
       ],
     },
     {
@@ -38,7 +38,7 @@ const TIPTAP_DOC_EN = JSON.stringify({
     {
       type: "paragraph",
       content: [
-        { type: "text", text: "This is the overview of the test page about GDGoC activities." },
+        { type: "text", text: "This is the overview of the test page about GDG activities." },
       ],
     },
   ],

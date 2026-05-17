@@ -8,7 +8,7 @@ import { getDb } from "~/lib/db.server";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
 import { timeAgo } from "~/lib/time";
 
-export const meta: MetaFunction = () => [{ title: "Recent — GDGoC Japan Wiki" }];
+export const meta: MetaFunction = () => [{ title: "Recent — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------
 // Loader

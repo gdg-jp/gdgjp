@@ -79,7 +79,7 @@ describe("tiptapToMarkdown golden snapshots", () => {
                 },
                 {
                   type: "tableCell",
-                  content: [{ type: "paragraph", content: [{ type: "text", text: "gdgoc-wiki" }] }],
+                  content: [{ type: "paragraph", content: [{ type: "text", text: "gdg-wiki" }] }],
                 },
               ],
             },

@@ -86,7 +86,7 @@ export async function sendIngestionCompleteEmail(
     "",
     `Session ID: ${sessionId}`,
     "",
-    "— GDGoC Japan Wiki",
+    "— GDG Japan Wiki",
   ].join("\n");
 
   const htmlBody = `<!DOCTYPE html>
@@ -139,12 +139,12 @@ export async function sendInvitationEmail(env: Env, opts: InvitationEmailOpts): 
 
   const roleLabelEn = role === "lead" ? "Chapter Lead" : role === "member" ? "Member" : "Viewer";
 
-  const subject = `You're invited to join ${chapterName} on GDGoC Japan Wiki`;
+  const subject = `You're invited to join ${chapterName} on GDG Japan Wiki`;
 
   const textBody = [
     "Hi,",
     "",
-    `You have been invited to join the ${chapterName} chapter on GDGoC Japan Wiki as a ${roleLabelEn}.`,
+    `You have been invited to join the ${chapterName} chapter on GDG Japan Wiki as a ${roleLabelEn}.`,
     "",
     "To accept your invitation, simply sign in with your Google account at:",
     siteUrl,
@@ -153,19 +153,19 @@ export async function sendInvitationEmail(env: Env, opts: InvitationEmailOpts): 
     "",
     "If you did not expect this invitation, you can safely ignore this email.",
     "",
-    "— GDGoC Japan Wiki",
+    "— GDG Japan Wiki",
   ].join("\n");
 
   const htmlBody = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8" /><title>${subject}</title></head>
 <body style="font-family:sans-serif;max-width:480px;margin:40px auto;color:#111;">
-  <h2 style="font-size:20px;">You're invited to GDGoC Japan Wiki</h2>
+  <h2 style="font-size:20px;">You're invited to GDG Japan Wiki</h2>
   <p>You have been invited to join the <strong>${safeChapterName}</strong> chapter as a <strong>${roleLabelEn}</strong>.</p>
   <p>To accept your invitation, sign in with your Google account:</p>
   <p style="margin:24px 0;">
     <a href="${escapeHtml(siteUrl)}" style="background:#1a73e8;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">
-      Sign in to GDGoC Japan Wiki
+      Sign in to GDG Japan Wiki
     </a>
   </p>
   <p style="font-size:12px;color:#666;">Your invitation will be automatically applied when you sign in for the first time. If you did not expect this invitation, you can safely ignore this email.</p>

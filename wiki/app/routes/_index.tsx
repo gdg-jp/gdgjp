@@ -18,16 +18,16 @@ export const meta: MetaFunction<typeof loader> = ({ matches }) => {
   const parentMeta = matches.flatMap((m) => m.meta ?? []);
   return [
     ...parentMeta,
-    { title: "GDGoC Japan Wiki" },
+    { title: "GDG Japan Wiki" },
     {
       name: "description",
-      content: "AI-powered bilingual knowledge base for GDGoC Japan chapters.",
+      content: "AI-powered bilingual knowledge base for GDG Japan chapters.",
     },
-    { property: "og:title", content: "GDGoC Japan Wiki" },
+    { property: "og:title", content: "GDG Japan Wiki" },
     {
       property: "og:description",
       content:
-        "AI-powered bilingual knowledge base for Google Developer Groups on Campus Japan chapters. Share chapter know-how, resources, and best practices — all in one place.",
+        "AI-powered bilingual knowledge base for Google Developer Groups Japan chapters. Share chapter know-how, resources, and best practices — all in one place.",
     },
     { property: "og:url", content: `${origin}/` },
   ];
