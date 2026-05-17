@@ -33,6 +33,17 @@ export function isSuperAdmin(user: AuthUser): boolean {
   return user.isAdmin;
 }
 
+export class ClaimsUnavailableError extends Error {
+  constructor(
+    public readonly reason: "no_linked_account" | "refresh_failed" | "userinfo_failed",
+    cause?: unknown,
+  ) {
+    super(`claims unavailable: ${reason}`);
+    this.name = "ClaimsUnavailableError";
+    if (cause !== undefined) (this as { cause?: unknown }).cause = cause;
+  }
+}
+
 export type SessionApi = {
   api: {
     getSession: (args: { headers: Headers }) => Promise<{

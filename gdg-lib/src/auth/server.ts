@@ -5,6 +5,7 @@ import { Kysely } from "kysely";
 import { D1Dialect } from "kysely-d1";
 import {
   type AuthUser,
+  ClaimsUnavailableError,
   SSO_PROVIDER_ID,
   type SessionApi,
   type UserChapter,
@@ -12,6 +13,8 @@ import {
   getSessionUser as getSessionUserFromApi,
   requireUser as requireUserFromApi,
 } from "./index";
+
+export { ClaimsUnavailableError };
 
 // ─── RP factory ────────────────────────────────────────────────────────────────
 
@@ -134,17 +137,6 @@ function buildRpAuth(config: AuthConfig) {
 }
 
 // ─── Live claims via /oauth2/userinfo ──────────────────────────────────────────
-
-export class ClaimsUnavailableError extends Error {
-  constructor(
-    public readonly reason: "no_linked_account" | "refresh_failed" | "userinfo_failed",
-    cause?: unknown,
-  ) {
-    super(`claims unavailable: ${reason}`);
-    this.name = "ClaimsUnavailableError";
-    if (cause !== undefined) (this as { cause?: unknown }).cause = cause;
-  }
-}
 
 interface AccountTokenRow {
   id: string;

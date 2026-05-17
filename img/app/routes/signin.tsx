@@ -1,11 +1,21 @@
 import { SSO_PROVIDER_ID, authClient } from "@gdgjp/gdg-lib";
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { redirect, useSearchParams } from "react-router";
 import { Button } from "~/components/ui/button";
 import { safeReturnTo } from "~/lib/return-to";
+import type { Route } from "./+types/signin";
 
 export function meta() {
   return [{ title: "Sign in — GDG Japan Image" }];
+}
+
+export async function loader({ request, context }: Route.LoaderArgs) {
+  if ((context.cloudflare.env.USE_OIDC_CLIENT as string) === "true") {
+    const url = new URL(request.url);
+    const returnTo = safeReturnTo(url.searchParams.get("return_to")) ?? "/";
+    return redirect(`/api/auth/signin?return_to=${encodeURIComponent(returnTo)}`);
+  }
+  return null;
 }
 
 export default function SignInPage() {
