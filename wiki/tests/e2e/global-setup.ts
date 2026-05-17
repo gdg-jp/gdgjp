@@ -78,8 +78,7 @@ function readSessionSecret(): string {
   const devVars = path.join(process.cwd(), ".dev.vars");
   if (!fs.existsSync(devVars)) {
     throw new Error(
-      `${devVars} not found — required for signing e2e session cookies.\n` +
-        `Copy .dev.vars.example to .dev.vars and set RP_SESSION_SECRET.`,
+      `${devVars} not found — required for signing e2e session cookies.\nCopy .dev.vars.example to .dev.vars and set RP_SESSION_SECRET.`,
     );
   }
   const content = fs.readFileSync(devVars, "utf-8");
@@ -163,10 +162,7 @@ function seedDb(dbPath: string): void {
  * tokens are dummy values — these e2e tests exercise UI behaviour against
  * the signed session, not the IdP, so getFreshClaims is never invoked.
  */
-function buildSessionCookieValue(
-  user: (typeof USERS)[keyof typeof USERS],
-  secret: string,
-): string {
+function buildSessionCookieValue(user: (typeof USERS)[keyof typeof USERS], secret: string): string {
   const farFuture = Date.now() + 30 * 24 * 60 * 60 * 1000;
   const payload = {
     userId: user.id,
@@ -183,10 +179,7 @@ function buildSessionCookieValue(
   return signCookie(payload, secret);
 }
 
-function writeStorageState(
-  user: (typeof USERS)[keyof typeof USERS],
-  secret: string,
-): void {
+function writeStorageState(user: (typeof USERS)[keyof typeof USERS], secret: string): void {
   fs.mkdirSync(STORAGE_STATE_DIR, { recursive: true });
   const state = {
     cookies: [
