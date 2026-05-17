@@ -2,6 +2,13 @@
 -- better-auth. Custom wiki fields (preferredUiLanguage, preferredContentLanguage,
 -- discord_id) live in user_preferences from 0020. isAdmin is derived from a
 -- live /userinfo claim at session-read time and no longer persisted.
+--
+-- IMPORTANT: foreign keys are disabled for the duration of this migration.
+-- Without this, `DROP TABLE "user"` would cascade-delete every row in tables
+-- that reference user(id) ON DELETE CASCADE (notifications, fcmTokens,
+-- googleDriveTokens, comments, taskAssignees, user_preferences, …) before
+-- we rename the new table into place — wiping a lot of user-owned data.
+PRAGMA foreign_keys = OFF;
 
 CREATE TABLE user_new (
   id           TEXT PRIMARY KEY,
@@ -26,3 +33,5 @@ FROM "user";
 
 DROP TABLE "user";
 ALTER TABLE user_new RENAME TO "user";
+
+PRAGMA foreign_keys = ON;

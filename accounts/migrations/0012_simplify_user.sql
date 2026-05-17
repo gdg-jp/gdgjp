@@ -2,6 +2,12 @@
 -- Drops emailVerified (Google always returns verified emails) and renames
 -- to snake_case with INTEGER created_at/updated_at for parity with the
 -- chapters/memberships tables.
+--
+-- IMPORTANT: foreign keys are disabled for the duration of this migration.
+-- Without this, `DROP TABLE "user"` would cascade-delete every row in
+-- `memberships` (which has `user_id ... ON DELETE CASCADE`) before we rename
+-- the new table into place — wiping every active chapter membership.
+PRAGMA foreign_keys = OFF;
 
 CREATE TABLE user_new (
   id           TEXT PRIMARY KEY,
@@ -26,3 +32,5 @@ FROM "user";
 
 DROP TABLE "user";
 ALTER TABLE user_new RENAME TO "user";
+
+PRAGMA foreign_keys = ON;

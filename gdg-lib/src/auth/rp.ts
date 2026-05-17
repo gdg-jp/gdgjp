@@ -221,20 +221,27 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
   const issuerConfig = await getIssuerConfig(config);
   let tokens: oidc.TokenEndpointResponse & oidc.TokenEndpointResponseHelpers;
   try {
+    // idTokenExpected: false — the accounts IdP (workers-oauth-provider) is
+    // OAuth 2.1 only and doesn't issue id_tokens. We fetch user attributes
+    // from /userinfo below instead. expectedNonce is dropped since there's
+    // no id_token to validate the nonce against.
     tokens = await oidc.authorizationCodeGrant(issuerConfig, url, {
       pkceCodeVerifier: tx.codeVerifier,
       expectedState: tx.state,
-      expectedNonce: tx.nonce,
-      idTokenExpected: true,
+      idTokenExpected: false,
     });
   } catch (err) {
     console.error("oidc callback failed", err);
     return new Response("Authentication failed", { status: 400 });
   }
 
-  const claims = tokens.claims();
-  if (!claims?.sub) return new Response("Missing id_token claims", { status: 400 });
-  const userClaims = parseIdTokenClaims(claims);
+  let userClaims: UserClaims;
+  try {
+    userClaims = await fetchUserinfoClaims(issuerConfig, tokens.access_token);
+  } catch (err) {
+    console.error("oidc userinfo failed", err);
+    return new Response("Failed to fetch user info", { status: 400 });
+  }
 
   const internalUserId = await upsertUser(config.db, userClaims);
 
@@ -335,9 +342,15 @@ async function fetchUserClaims(config: RpAuthConfig, request: Request): Promise<
     }
 
     try {
-      const info = await oidc.fetchUserInfo(issuerConfig, accessToken, session.userId);
-      return parseUserInfoClaims(info as Record<string, unknown>);
+      // fetchProtectedResource, not fetchUserInfo: the latter validates that
+      // the returned `sub` matches an expected subject, but our session.userId
+      // is an RP-local UUID (minted by upsertUser via email lookup) while the
+      // IdP keys /userinfo by its own internal sub. We already trust the
+      // response via the bearer token we obtained from the same IdP, so
+      // skipping the sub-equality check is safe.
+      return await fetchUserinfoClaims(issuerConfig, accessToken);
     } catch (err) {
+      if (err instanceof ClaimsUnavailableError) throw err;
       throw new ClaimsUnavailableError("userinfo_failed", err);
     }
   })().finally(() => inflightClaims.delete(session.userId));
@@ -388,15 +401,34 @@ async function upsertUser(db: D1Database, claims: UserClaims): Promise<string> {
   return id;
 }
 
-// ─── Claims parsing ────────────────────────────────────────────────────────────
+// ─── /userinfo fetch ───────────────────────────────────────────────────────────
 
-function parseIdTokenClaims(claims: Record<string, unknown>): UserClaims {
-  return parseClaims(claims);
-}
-
-function parseUserInfoClaims(json: Record<string, unknown>): UserClaims {
+/**
+ * Fetches the IdP's /userinfo endpoint with the given access token and parses
+ * the response into UserClaims. Uses oidc.fetchProtectedResource (which does
+ * not enforce a `sub` equality check) — the bearer token already authorises
+ * the call, and our local user.id is not the IdP's sub.
+ */
+async function fetchUserinfoClaims(
+  issuerConfig: oidc.Configuration,
+  accessToken: string,
+): Promise<UserClaims> {
+  const userinfoEndpoint = issuerConfig.serverMetadata().userinfo_endpoint;
+  if (!userinfoEndpoint) {
+    throw new ClaimsUnavailableError("userinfo_failed");
+  }
+  const res = await oidc.fetchProtectedResource(
+    issuerConfig,
+    accessToken,
+    new URL(userinfoEndpoint),
+    "GET",
+  );
+  if (!res.ok) throw new ClaimsUnavailableError("userinfo_failed");
+  const json = (await res.json()) as Record<string, unknown>;
   return parseClaims(json);
 }
+
+// ─── Claims parsing ────────────────────────────────────────────────────────────
 
 function parseClaims(json: Record<string, unknown>): UserClaims {
   const role = json.chapterRole;

@@ -1,3 +1,13 @@
+-- Rebuild the user table with only the columns we actually use after migrating
+-- off better-auth. Drops emailVerified (Google always returns verified) and
+-- moves to snake_case + integer epochs for parity with the rest of the schema.
+--
+-- IMPORTANT: foreign keys are disabled for the duration of this migration.
+-- Without this, `DROP TABLE "user"` would cascade-delete every row in tables
+-- that reference user(id) ON DELETE CASCADE (e.g. images.user_id) before we
+-- rename the new table into place — wiping user-owned data.
+PRAGMA foreign_keys = OFF;
+
 CREATE TABLE user_new (
   id           TEXT PRIMARY KEY,
   email        TEXT NOT NULL UNIQUE,
@@ -21,3 +31,5 @@ FROM "user";
 
 DROP TABLE "user";
 ALTER TABLE user_new RENAME TO "user";
+
+PRAGMA foreign_keys = ON;
