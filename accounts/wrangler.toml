@@ -3,9 +3,6 @@ compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 main = "./workers/app.ts"
 
-[alias]
-"virtual:react-router/server-build" = "./build/server/index.js"
-
 [vars]
 APP_URL = "https://accounts.gdgs.jp"
 GOOGLE_CLIENT_ID = "144403252439-hnm3r310icb0l9o6v5hqrurf6h2faidi.apps.googleusercontent.com"
@@ -42,7 +39,7 @@ migrations_dir = "./migrations"
 # automatically when this binding exists.
 [[kv_namespaces]]
 binding = "OAUTH_KV"
-id = "TODO_REPLACE_WITH_wrangler_kv_namespace_create_OUTPUT"
+id = "31a011bcae0944b483e8919f339fdbe3"
 
 [observability]
 enabled = false

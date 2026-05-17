@@ -33,10 +33,6 @@ export interface RpAuthInstance {
    * refreshes via refresh_token when expired. Throws ClaimsUnavailableError if
    * the cookie is absent, the refresh token is invalid, or /userinfo errors.
    * Callers should catch and redirect to /signin to force re-auth.
-   *
-   * Note: this signature takes a Request (post-PR-2); the legacy
-   * `getFreshClaims(userId: string)` on the better-auth-backed factory still
-   * works against the D1 `account` table.
    */
   getFreshClaims(request: Request): Promise<UserClaims>;
 }
@@ -98,8 +94,19 @@ function getIssuerConfig(config: RpAuthConfig): Promise<oidc.Configuration> {
   const key = `${config.idp.url}|${config.idp.clientId}`;
   let p = issuerCache.get(key);
   if (!p) {
+    const issuerUrl = new URL(config.idp.url);
+    // openid-client v6 rejects HTTP discovery URLs by default. Allow it for
+    // localhost so RPs can talk to a `wrangler dev` IdP; production stays
+    // HTTPS-only (the issuer URL comes from wrangler.toml [vars]).
+    const isLocal = issuerUrl.protocol === "http:";
     p = oidc
-      .discovery(new URL(config.idp.url), config.idp.clientId, config.idp.clientSecret)
+      .discovery(
+        issuerUrl,
+        config.idp.clientId,
+        config.idp.clientSecret,
+        undefined,
+        isLocal ? { execute: [oidc.allowInsecureRequests] } : undefined,
+      )
       .catch((err) => {
         issuerCache.delete(key);
         throw err;
@@ -297,11 +304,11 @@ async function getSessionUser(config: RpAuthConfig, request: Request): Promise<A
 const inflightClaims = new Map<string, Promise<UserClaims>>();
 
 async function fetchUserClaims(config: RpAuthConfig, request: Request): Promise<UserClaims> {
-  // Read the signed session cookie for access/refresh tokens. The cookie is
-  // the only source of truth post-PR-2 (the better-auth `account` table is
-  // dropped). We can't write a new cookie back from here since this isn't a
-  // response context — the refreshed access_token is used in-memory for this
-  // call only; on next sign-in / token expiry the user re-authorizes.
+  // Read the signed session cookie for access/refresh tokens — the cookie is
+  // the only source of truth (no DB-side token storage on the RP). We can't
+  // write a new cookie back from here since this isn't a response context, so
+  // a refreshed access_token is used in-memory for this call only; on next
+  // sign-in / token expiry the user re-authorizes.
   const value = parseCookies(request.headers.get("cookie"))[sessionCookieName(config)];
   if (!value) throw new ClaimsUnavailableError("no_linked_account");
   const session = await verifyPayload<SessionPayload>(value, config.secret);

@@ -1,5 +1,9 @@
 # Secrets — set as production secrets with `wrangler secret put <NAME>`.
+# HMAC key for the RP's signed session + OIDC transaction cookies. Despite the
+# historical name, no better-auth code is involved — it's just an HMAC key.
+# Generate with e.g. `openssl rand -base64 48`.
 BETTER_AUTH_SECRET=""
+# Client secret issued by the accounts IdP for this RP.
 IDP_CLIENT_SECRET=""
 
 # Required for the /analytics and /dashboard pages to read Analytics Engine via the SQL API.

@@ -1,3 +1,15 @@
+// Augments the wrangler-generated Env with secrets, and registers the
+// AppLoadContext shape consumed by react-router.
+
+declare module "react-router" {
+  interface AppLoadContext {
+    cloudflare: {
+      env: Env;
+      ctx: ExecutionContext;
+    };
+  }
+}
+
 declare global {
   interface Env {
     GOOGLE_CLIENT_SECRET: string;

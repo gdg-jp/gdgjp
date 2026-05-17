@@ -1,7 +1,6 @@
 import { OAuthProvider } from "@cloudflare/workers-oauth-provider";
 import { createRequestHandler } from "react-router";
 import { buildOAuthOptions } from "../app/lib/oauth-provider.server";
-import { CloudflareContext } from "./context";
 
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
@@ -10,7 +9,7 @@ const requestHandler = createRequestHandler(
 
 const rrHandler = {
   fetch(request: Request, env: Env, ctx: ExecutionContext): Response | Promise<Response> {
-    return requestHandler(request, new CloudflareContext({ env, ctx }));
+    return requestHandler(request, { cloudflare: { env, ctx } });
   },
 };
 

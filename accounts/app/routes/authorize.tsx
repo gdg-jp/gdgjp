@@ -12,6 +12,7 @@ import type { OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import { redirect } from "react-router";
 import { readIdpSession } from "~/lib/idp-session.server";
 import { type GrantProps, getOAuthHelpers } from "~/lib/oauth-provider.server";
+import { seedClients } from "~/lib/seed-clients.server";
 import type { Route } from "./+types/authorize";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
@@ -22,8 +23,22 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   try {
     authReq = await helpers.parseAuthRequest(request);
   } catch (err) {
-    console.error("authorize: parseAuthRequest failed", err);
-    return new Response("Invalid authorization request", { status: 400 });
+    // First /authorize after a fresh OAUTH_KV (cold dev start, CI, or a new
+    // environment) will see the client not registered. Also re-seed when the
+    // stored redirect URI no longer matches env (i.e. an RP's callback path
+    // changed). seedClients overwrites existing entries — idempotent and safe.
+    if (isUnknownClientError(err) || isRedirectMismatchError(err)) {
+      try {
+        await seedClients(env);
+        authReq = await helpers.parseAuthRequest(request);
+      } catch (retryErr) {
+        console.error("authorize: parseAuthRequest failed after seed retry", retryErr);
+        return new Response("Invalid authorization request", { status: 400 });
+      }
+    } else {
+      console.error("authorize: parseAuthRequest failed", err);
+      return new Response("Invalid authorization request", { status: 400 });
+    }
   }
 
   const session = await readIdpSession(request, env.IDP_SESSION_SECRET);
@@ -60,6 +75,16 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     props,
   });
   throw redirect(redirectTo);
+}
+
+function isUnknownClientError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  return /invalid client/i.test(err.message);
+}
+
+function isRedirectMismatchError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  return /invalid redirect uri/i.test(err.message);
 }
 
 export default function AuthorizeRoute() {

@@ -3,24 +3,34 @@
 Shared auth building blocks for GDG Japan apps. The package ships TypeScript
 sources directly (no build step) and is consumed via `workspace:*`.
 
-It provides two factories on top of [better-auth](https://www.better-auth.com/):
+It provides the RP factory used by `tinyurl/`, `img/`, `scheduler/`, and
+`wiki/` to delegate sign-in to the `accounts/` IdP, plus the shared signed-
+cookie helpers used by both the RPs and the IdP.
 
-| Factory             | Used by                          | Purpose                                                  |
-| ------------------- | -------------------------------- | -------------------------------------------------------- |
-| `initializeIdpAuth` | `accounts/`                      | Hosts the OIDC provider (login + Google social provider) |
-| `initializeAuth`    | `tinyurl/`, `wiki/`, future apps | Hosts a Relying Party that delegates login to accounts   |
+| Export                  | Purpose                                                                       |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| `initializeRpAuth`      | Build an RP auth instance (PKCE authorize, callback, session cookie, sign-out)|
+| `AuthUser`, `UserClaims`| Shared user / claims types                                                    |
+| `signPayload` / `verifyPayload` | HMAC-SHA256 signed-cookie primitives                                  |
+| `serializeCookie` / `readCookie` / `parseCookies` / `clearedCookie` | Cookie I/O helpers          |
+| `ClaimsUnavailableError`| Thrown by `getFreshClaims(request)` when the IdP can't be queried             |
+| `SSO_PROVIDER_ID`       | Constant identifying the IdP provider (`"gdgjp"`)                             |
 
-The rest of this README focuses on the **RP side** — how to wire a new app up
-to the `accounts` IdP.
+The IdP itself is built directly on `@cloudflare/workers-oauth-provider` in
+`accounts/` — it doesn't go through this lib.
 
 ---
 
 ## Implementing a Relying Party (RP)
 
-The accounts app exposes an OIDC discovery document at
-`${IDP_URL}/api/auth/.well-known/openid-configuration`. An RP redirects users
-there to sign in, receives an ID token, and stores its own better-auth session
-cookie scoped to the RP origin.
+The accounts IdP exposes an OIDC-flavoured OAuth 2.1 discovery document at
+`${IDP_URL}/.well-known/openid-configuration`. The RP redirects users there
+to sign in, receives an access + refresh token, calls `/userinfo` to fetch
+user attributes, and stores a signed session cookie scoped to the RP origin.
+
+> Note: the IdP does **not** issue `id_token`s. The RP must pass
+> `idTokenExpected: false` when calling `openid-client` directly; the
+> factory in this package handles that internally.
 
 ### 1. Add the dependency
 
@@ -29,10 +39,7 @@ In your app's `package.json`:
 ```json
 {
   "dependencies": {
-    "@gdgjp/gdg-lib": "workspace:*",
-    "better-auth": "^1.6.9",
-    "kysely": "^0.28.0",
-    "kysely-d1": "^0.4.0"
+    "@gdgjp/gdg-lib": "workspace:*"
   }
 }
 ```
@@ -42,8 +49,10 @@ Then `pnpm install` from the repo root.
 ### 2. Configure Wrangler bindings + secrets
 
 In your app's `wrangler.toml`, declare a D1 binding named `DB` and the env
-vars the factory expects. Secrets (`BETTER_AUTH_SECRET`, `IDP_CLIENT_SECRET`)
-should be set with `wrangler secret put`, not committed.
+vars the factory expects. The secret values (`BETTER_AUTH_SECRET` — used
+purely as the cookie HMAC key, despite the historical name —
+and `IDP_CLIENT_SECRET`) should be set with `wrangler secret put`, not
+committed.
 
 ```toml
 [vars]
@@ -53,35 +62,32 @@ IDP_CLIENT_ID = "your-app"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "your-app"
+database_name = "gdgjp-your-app-db"
 database_id = "..."
+migrations_dir = "./migrations"
 ```
 
-Run `pnpm --filter @gdgjp/<app> cf-typegen` to regenerate `Env` types.
+The IdP also needs to know about your client: ensure the RP's
+`{APP}_CLIENT_ID`, `{APP}_CLIENT_SECRET`, and `{APP}_REDIRECT_URLS`
+(pointing at `${APP_URL}/api/auth/callback/gdgjp`) are set on the
+`accounts/` worker, and run `POST /admin/seed-clients` there to register
+the client in `OAUTH_KV`.
 
-### 3. Register your client with the IdP
-
-The accounts app keeps trusted OIDC clients in its `IdpAuthConfig.trustedClients`
-list. Add an entry whose `redirectUrls` includes the RP's OAuth callback,
-which better-auth serves at `${APP_URL}/api/auth/oauth2/callback/gdgjp`. The
-`clientId` / `clientSecret` you choose here are the values the RP passes as
-`IDP_CLIENT_ID` / `IDP_CLIENT_SECRET`.
-
-### 4. Create the auth instance (server)
+### 3. Wire the factory
 
 ```ts
 // app/lib/auth.server.ts
-import { type AuthInstance, initializeAuth } from "@gdgjp/gdg-lib";
+import { type RpAuthInstance, initializeRpAuth } from "@gdgjp/gdg-lib";
 
-let cached: { instance: AuthInstance; env: Env } | null = null;
+let cached: { instance: RpAuthInstance; env: Env } | null = null;
 
-export function getAuth(env: Env): AuthInstance {
+export function getAuth(env: Env): RpAuthInstance {
   if (cached?.env === env) return cached.instance;
-  const instance = initializeAuth({
+  const instance = initializeRpAuth({
     db: env.DB,
     appUrl: env.APP_URL,
-    cookiePrefix: "gdgjp-<app>", // unique per RP — scopes session cookies
-    secret: env.BETTER_AUTH_SECRET,
+    cookiePrefix: "gdgjp-your-app",
+    secret: env.BETTER_AUTH_SECRET, // cookie HMAC key
     idp: {
       url: env.IDP_URL,
       clientId: env.IDP_CLIENT_ID,
@@ -93,36 +99,31 @@ export function getAuth(env: Env): AuthInstance {
 }
 ```
 
-`AuthInstance` exposes:
+`initializeRpAuth` returns an `RpAuthInstance` with:
 
-- `getSessionUser(request)` — `AuthUser | null`
-- `requireUser(request)` — throws a `401` `Response` if unauthenticated
-- `signOut(request)` — local-only sign-out (RP cookie cleared)
-- `handleAuthRequest(request)` — better-auth handler (callback, session, etc.)
-- `handleSignOutRedirect(request, { returnTo? })` — top-level sign-out: clears
-  RP cookie, then 302s to the IdP's `/auth/signout` so the IdP session is
-  cleared and other RPs are signed out via iframes
-- `handleSignOutIframe(request)` — embeddable endpoint the IdP uses to clear
-  this RP's cookies during a federated sign-out (sets `frame-ancestors` CSP
-  for `IDP_URL`)
+- `getSessionUser(request)` / `requireUser(request)` — read the signed session cookie
+- `handleAuthRequest(request)` — handler for `/api/auth/*` (signin, callback, signout, me)
+- `handleSignOutRedirect(request, opts?)` — 302 to the IdP's federated sign-out
+- `handleSignOutIframe(request)` — clear the RP session from an iframe (CSP-locked to the IdP origin)
+- `getFreshClaims(request)` — fetch live `/userinfo` from the IdP; refreshes access token via the stored refresh token. Throws `ClaimsUnavailableError` if the IdP can't be reached.
 
-### 5. Wire up the routes
+### 4. Add the routes
 
-The handler paths below match what the better-auth client and the IdP expect.
+The handler paths below match what `handleAuthRequest` dispatches on:
 
 ```ts
-// app/routes/api.auth.$.ts — better-auth catch-all (callback, session, csrf)
+// app/routes/api.auth.$.ts — catch-all for the four /api/auth/* paths
 import { getAuth } from "~/lib/auth.server";
 import type { Route } from "./+types/api.auth.$";
 
-export const loader = (a: Route.LoaderArgs) =>
-  getAuth(a.context.cloudflare.env).handleAuthRequest(a.request);
-export const action = (a: Route.ActionArgs) =>
-  getAuth(a.context.cloudflare.env).handleAuthRequest(a.request);
+export const loader = (args: Route.LoaderArgs) =>
+  getAuth(args.context.cloudflare.env).handleAuthRequest(args.request);
+export const action = (args: Route.ActionArgs) =>
+  getAuth(args.context.cloudflare.env).handleAuthRequest(args.request);
 ```
 
 ```ts
-// app/routes/auth.signout.ts — top-level "Sign out" link target
+// app/routes/auth.signout.ts
 import { getAuth } from "~/lib/auth.server";
 import type { Route } from "./+types/auth.signout";
 
@@ -131,7 +132,7 @@ export const loader = ({ request, context }: Route.LoaderArgs) =>
 ```
 
 ```ts
-// app/routes/auth.signout-iframe.ts — invoked by the IdP during fed signout
+// app/routes/auth.signout-iframe.ts — called from the IdP's federated sign-out page
 import { getAuth } from "~/lib/auth.server";
 import type { Route } from "./+types/auth.signout-iframe";
 
@@ -139,60 +140,24 @@ export const loader = ({ request, context }: Route.LoaderArgs) =>
   getAuth(context.cloudflare.env).handleSignOutIframe(request);
 ```
 
-Don't forget to register them in `app/routes.ts`.
+### 5. Add migrations
 
-### 6. Trigger sign-in from the client
+Each RP keeps a tiny local `user` table (id, email, name, image, is_admin,
+created_at, updated_at) used to attribute domain rows like links/images.
+The factory's upsert looks up the user by email, mints a UUID for new
+sign-ups, and updates name/image/is_admin on every callback.
 
-```tsx
-// app/routes/signin.tsx
-import { SSO_PROVIDER_ID, authClient } from "@gdgjp/gdg-lib";
-import { useEffect } from "react";
-
-export default function SignInPage() {
-  useEffect(() => {
-    void authClient.signIn.oauth2({
-      providerId: SSO_PROVIDER_ID, // "gdgjp"
-      callbackURL: "/", // where to land after the round-trip
-    });
-  }, []);
-  return <p>Redirecting to sign in…</p>;
-}
+```sql
+CREATE TABLE "user" (
+  id         TEXT PRIMARY KEY,
+  email      TEXT NOT NULL UNIQUE,
+  name       TEXT NOT NULL,
+  image      TEXT,
+  is_admin   INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
 ```
 
-### 7. Gate routes with the session helpers
-
-```ts
-import { getAuth } from "~/lib/auth.server";
-import { isSuperAdmin } from "@gdgjp/gdg-lib";
-
-export async function loader({ request, context }: Route.LoaderArgs) {
-  const user = await getAuth(context.cloudflare.env).requireUser(request);
-  if (!isSuperAdmin(user)) throw new Response("Forbidden", { status: 403 });
-  return { user };
-}
-```
-
-`AuthUser` is `{ id, email, name, isAdmin }`. The `isAdmin` claim is mapped
-from the IdP's `userinfo` response (see `mapProfileToUser` in `auth/server.ts`).
-
----
-
-## Schema
-
-`initializeAuth` opens `env.DB` as a Kysely-wrapped D1 database. better-auth
-expects its standard tables (`user`, `session`, `account`, `verification`)
-plus an `isAdmin` boolean column on `user` (declared via `additionalFields`).
-Generate migrations with the better-auth CLI against the same config and
-apply them with `wrangler d1 migrations apply`.
-
-## Sign-out semantics
-
-- `handleSignOutRedirect` is the entry point for a user-initiated sign-out.
-  It clears the RP cookie, then bounces to `${IDP_URL}/auth/signout` so the
-  IdP can clear its own session and propagate the sign-out to every trusted
-  RP via hidden iframes pointing at each RP's `/auth/signout-iframe`.
-- `handleSignOutIframe` is what the IdP loads in those iframes. It sets
-  `Content-Security-Policy: frame-ancestors 'self' <IDP_URL>` so only the
-  IdP origin can embed it.
-- `signOut` only clears the local RP cookie — use it when you don't want to
-  log the user out of other RPs.
+That's the only auth-related table you need — sessions are signed cookies
+and OAuth state lives entirely on the IdP.
