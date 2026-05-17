@@ -12,7 +12,7 @@ import { buildIngestionQueueMessage } from "~/lib/ingestion-jobs.server";
 import type { IngestionInputs } from "~/lib/ingestion-pipeline.server";
 import { sendOrRunIngestion } from "~/lib/queue-processors.server";
 
-export const meta: MetaFunction = () => [{ title: "Add Content — GDGoC Japan Wiki" }];
+export const meta: MetaFunction = () => [{ title: "Add Content — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------
 // Loader

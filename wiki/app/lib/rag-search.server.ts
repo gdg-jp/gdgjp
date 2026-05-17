@@ -138,7 +138,7 @@ export async function performRagSearch(
   // 5. Gemini answer synthesis
   const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
 
-  const systemPrompt = `You are a helpful assistant for the GDGoC Japan Wiki.
+  const systemPrompt = `You are a helpful assistant for the GDG Japan Wiki.
 Answer the user's question based ONLY on the wiki page excerpts provided below.
 Cite pages by their title when referencing information.
 If the provided excerpts do not contain enough information to answer, say so clearly.

@@ -22,7 +22,7 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
   const data = payload.notification || payload.data || {};
-  const title = data.title || "GDGoC Japan Wiki";
+  const title = data.title || "GDG Japan Wiki";
   const options = {
     body: data.body || "",
     icon: "/favicon.ico",

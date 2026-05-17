@@ -9,17 +9,17 @@ export const meta: MetaFunction = ({ matches }) => {
   const parentMeta = matches.flatMap((m) => m.meta ?? []);
   return [
     ...parentMeta,
-    { title: "About — GDGoC Japan Wiki" },
+    { title: "About — GDG Japan Wiki" },
     {
       name: "description",
       content:
-        "Learn about GDGoC Japan Wiki — an AI-powered bilingual knowledge sharing platform built for GDGoC Japan chapters.",
+        "Learn about GDG Japan Wiki — an AI-powered bilingual knowledge sharing platform built for GDG Japan chapters.",
     },
-    { property: "og:title", content: "About — GDGoC Japan Wiki" },
+    { property: "og:title", content: "About — GDG Japan Wiki" },
     {
       property: "og:description",
       content:
-        "Learn about GDGoC Japan Wiki — an AI-powered bilingual knowledge sharing platform built for GDGoC Japan chapters.",
+        "Learn about GDG Japan Wiki — an AI-powered bilingual knowledge sharing platform built for GDG Japan chapters.",
     },
     { property: "og:url", content: `${origin}/about` },
   ];

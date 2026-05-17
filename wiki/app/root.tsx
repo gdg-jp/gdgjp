@@ -74,7 +74,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 }
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
-  { property: "og:site_name", content: "GDGoC Japan Wiki" },
+  { property: "og:site_name", content: "GDG Japan Wiki" },
   { property: "og:image", content: `${data?.origin ?? ""}/og-image.png` },
   { property: "og:type", content: "website" },
   { name: "twitter:card", content: "summary_large_image" },

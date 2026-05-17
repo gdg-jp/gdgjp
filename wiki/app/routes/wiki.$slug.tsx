@@ -37,7 +37,7 @@ import { tiptapToMarkdown } from "~/lib/tiptap-convert";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   {
-    title: data ? `${data.page.titleEn || data.page.titleJa} — GDGoC Japan Wiki` : "Page not found",
+    title: data ? `${data.page.titleEn || data.page.titleJa} — GDG Japan Wiki` : "Page not found",
   },
 ];
 

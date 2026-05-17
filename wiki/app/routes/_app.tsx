@@ -85,7 +85,7 @@ export default function AppLayout() {
   // Restore desktop sidebar state from localStorage
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("gdgoc-sidebar-open");
+      const stored = localStorage.getItem("gdg-sidebar-open");
       if (stored !== null) setDesktopOpen(stored === "true");
     } catch {
       // ignore – localStorage unavailable
@@ -115,7 +115,7 @@ export default function AppLayout() {
       setDesktopOpen((v) => {
         const next = !v;
         try {
-          localStorage.setItem("gdgoc-sidebar-open", String(next));
+          localStorage.setItem("gdg-sidebar-open", String(next));
         } catch {
           // ignore
         }

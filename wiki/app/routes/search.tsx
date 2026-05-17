@@ -10,7 +10,7 @@ import { buildVisibilityFilter } from "~/lib/page-visibility.server";
 import { type RagSearchResult, performRagSearch } from "~/lib/rag-search.server";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
-  { title: data?.q ? `"${data.q}" — Search — GDGoC Japan Wiki` : "Search — GDGoC Japan Wiki" },
+  { title: data?.q ? `"${data.q}" — Search — GDG Japan Wiki` : "Search — GDG Japan Wiki" },
 ];
 
 // ---------------------------------------------------------------------------

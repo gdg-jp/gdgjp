@@ -151,9 +151,9 @@ describe("computeSurveyStats", () => {
 describe("formatSurveyStatsAsText", () => {
   it("produces structured text output", () => {
     const stats = computeSurveyStats(makeFormData());
-    const text = formatSurveyStatsAsText(stats, "GDGoC Tech Talk 2025");
+    const text = formatSurveyStatsAsText(stats, "GDG Tech Talk 2025");
 
-    expect(text).toContain("# Survey Analysis: GDGoC Tech Talk 2025");
+    expect(text).toContain("# Survey Analysis: GDG Tech Talk 2025");
     expect(text).toContain("Total responses: 3");
     expect(text).toContain("Q: Overall satisfaction");
     expect(text).toContain("Very Satisfied");

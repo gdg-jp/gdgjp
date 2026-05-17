@@ -35,7 +35,7 @@ export function shouldRevalidate({
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   {
     title: data
-      ? `Editing: ${data.page.titleEn || data.page.titleJa} — GDGoC Japan Wiki`
+      ? `Editing: ${data.page.titleEn || data.page.titleJa} — GDG Japan Wiki`
       : "Edit page",
   },
 ];

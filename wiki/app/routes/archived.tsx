@@ -12,7 +12,7 @@ import { getDb } from "~/lib/db.server";
 import { deletePageEmbeddings } from "~/lib/embedding-pipeline.server";
 import { timeAgo } from "~/lib/time";
 
-export const meta: MetaFunction = () => [{ title: "Archived — GDGoC Japan Wiki" }];
+export const meta: MetaFunction = () => [{ title: "Archived — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------
 // Loader

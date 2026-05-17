@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { MetaFunction } from "react-router";
 
-export const meta: MetaFunction = () => [{ title: "Terms of Service — GDGoC Japan Wiki" }];
+export const meta: MetaFunction = () => [{ title: "Terms of Service — GDG Japan Wiki" }];
 
 export default function TermsPage() {
   const { t } = useTranslation();
@@ -47,7 +47,7 @@ export default function TermsPage() {
       </main>
 
       <footer className="border-t border-gray-200 bg-white px-6 py-4 text-center text-xs text-gray-400">
-        © {new Date().getFullYear()} GDGoC Japan ·{" "}
+        © {new Date().getFullYear()} GDG Japan ·{" "}
         <Link to="/privacy" className="hover:text-blue-500">
           {t("terms.footer_link")}
         </Link>

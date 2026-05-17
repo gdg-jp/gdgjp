@@ -1,5 +1,5 @@
 {
-  "app_name": "GDGoC Japan Wiki",
+  "app_name": "GDG Japan Wiki",
   "close": "閉じる",
   "cancel": "キャンセル",
   "draft": "下書き",
@@ -148,10 +148,10 @@
     "sign_out": "サインアウト"
   },
   "login": {
-    "title": "GDGoC Japan Wiki",
+    "title": "GDG Japan Wiki",
     "subtitle": "続けるにはサインインしてください",
     "google_signin": "Googleでサインイン",
-    "access_restricted": "GDGoC Japanメンバー限定のアクセスです。"
+    "access_restricted": "GDG Japanメンバー限定のアクセスです。"
   },
   "admin": {
     "label": "管理",
@@ -258,7 +258,7 @@
       "mode_google_form": "Google フォーム",
       "form_url_label": "Google フォーム URL",
       "event_title_label": "イベント名",
-      "event_title_placeholder": "例: GDGoC Tech Talk 2025",
+      "event_title_placeholder": "例: GDG Tech Talk 2025",
       "form_connect_hint": "Google フォームへのアクセスにはGoogleアカウントの接続が必要です。Google ドライブと同じ接続を使用します。",
       "form_connect_google": "Google を接続"
     },
@@ -350,7 +350,7 @@
     "form": {
       "form_url_label": "Google フォーム URL",
       "event_title_label": "イベント名",
-      "event_title_placeholder": "例: GDGoC Tech Talk 2025",
+      "event_title_placeholder": "例: GDG Tech Talk 2025",
       "connect_hint": "Google フォームへのアクセスにはGoogleアカウントの接続が必要です。Google ドライブと同じ接続を使用します。",
       "connect_google": "Google を接続",
       "submit": "AI で分析する →"
@@ -510,8 +510,8 @@
     "noTasksFound": "タスクが見つかりません"
   },
   "lp": {
-    "hero_title": "GDGoC Japan Wiki",
-    "hero_subtitle": "GDGoC Japan チャプター向けAI搭載バイリンガルナレッジベース",
+    "hero_title": "GDG Japan Wiki",
+    "hero_subtitle": "GDG Japan チャプター向けAI搭載バイリンガルナレッジベース",
     "cta_signin": "Googleでサインイン",
     "cta_learn_more": "詳しく見る",
     "feature_ingest_title": "AI自動取り込み",
@@ -529,15 +529,15 @@
     "how_step2_desc": "Geminiがバイリンガルのwikiページを構成し、タグを自動提案します。",
     "how_step3_title": "Wikiに公開",
     "how_step3_desc": "下書きを確認・編集してチャプターのナレッジベースに公開します。",
-    "signin_modal_title": "GDGoC Japan Wikiにサインイン",
-    "signin_modal_subtitle": "アクセスはGDGoC Japanチャプターメンバー限定です。",
+    "signin_modal_title": "GDG Japan Wikiにサインイン",
+    "signin_modal_subtitle": "アクセスはGDG Japanチャプターメンバー限定です。",
     "go_home": "ホームへ戻る",
-    "badge": "GDGoC Japan向け",
+    "badge": "GDG Japan向け",
     "features_title": "チャプターに必要なすべてが揃う",
-    "features_subtitle": "GDGoC Japan チャプター専用のwikiプラットフォーム。",
+    "features_subtitle": "GDG Japan チャプター専用のwikiプラットフォーム。",
     "how_subtitle": "生のメモからバイリンガルwikiページの完成まで、わずか数分。",
     "cta_title": "さっそく始めましょう",
-    "cta_subtitle": "GDGoC Japanの共有ナレッジベースに参加して、チャプターのノウハウを整理しましょう。"
+    "cta_subtitle": "GDG Japanの共有ナレッジベースに参加して、チャプターのノウハウを整理しましょう。"
   },
   "error": {
     "404_title": "ページが見つかりません",
@@ -565,11 +565,11 @@
   "privacy": {
     "title": "プライバシーポリシー",
     "last_updated": "最終更新日: 2026年3月",
-    "back": "← GDGoC Japan Wiki",
+    "back": "← GDG Japan Wiki",
     "s1_heading": "1. 収集する情報",
     "s1_body": "Googleアカウントでサインインすると、Googleが提供するお名前、メールアドレス、プロフィール写真のURLを受け取り保存します。また、Wikiで作成またはアップロードしたコンテンツと、作成日時・著者情報などのメタデータも保存します。",
     "s2_heading": "2. 情報の利用方法",
-    "s2_body": "お客様のデータは、GDGoC Japan Wikiの運営のみに使用します。具体的には、本人確認、Wikiコンテンツの著者表示、チャプターメンバー管理のために使用します。マーケティング目的で個人情報を第三者に販売・提供することはありません。",
+    "s2_body": "お客様のデータは、GDG Japan Wikiの運営のみに使用します。具体的には、本人確認、Wikiコンテンツの著者表示、チャプターメンバー管理のために使用します。マーケティング目的で個人情報を第三者に販売・提供することはありません。",
     "s3_heading": "3. 第三者サービス",
     "s3_intro": "本サービスでは、以下の第三者プロバイダーを利用しています。",
     "s3_google": "認証のために使用します。詳細は<googlePolicy>Googleのプライバシーポリシー</googlePolicy>をご確認ください。",
@@ -578,27 +578,27 @@
     "s4_heading": "4. データの保持",
     "s4_body": "お客様のアカウントデータは、アカウントが有効な期間中保持されます。アカウントおよび関連データの削除をご希望の場合は、Wiki管理者にご連絡ください。",
     "s5_heading": "5. お問い合わせ",
-    "s5_body": "プライバシーに関するご質問は、チャプターリードまたはGDGoC Japan WikiのGitHubリポジトリを通じて管理者にお問い合わせください。",
+    "s5_body": "プライバシーに関するご質問は、チャプターリードまたはGDG Japan WikiのGitHubリポジトリを通じて管理者にお問い合わせください。",
     "footer_link": "利用規約"
   },
   "terms": {
     "title": "利用規約",
     "last_updated": "最終更新日: 2026年3月",
-    "back": "← GDGoC Japan Wiki",
+    "back": "← GDG Japan Wiki",
     "s1_heading": "1. サービスの利用",
-    "s1_body": "GDGoC Japan WikiはGDGoC Japanチャプターメンバーのための内部知識共有プラットフォームです。アクセスはチャプターリードおよび管理者の裁量により付与されます。本サービスの利用はGDGoC コミュニティガイドラインに従うものとします。",
+    "s1_body": "GDG Japan WikiはGDG Japanチャプターメンバーのための内部知識共有プラットフォームです。アクセスはチャプターリードおよび管理者の裁量により付与されます。本サービスの利用はGDG コミュニティガイドラインに従うものとします。",
     "s2_heading": "2. アカウントの責任",
     "s2_body": "サインインに使用するGoogleアカウントの機密性を維持する責任はお客様にあります。アクセス資格情報を共有したり、無権限の第三者があなたのアカウントを通じてWikiを利用することを許可してはなりません。",
     "s3_heading": "3. コンテンツの所有権",
-    "s3_body": "Wikiで作成したコンテンツの所有権はお客様に帰属します。コンテンツを投稿することにより、GDGoC Japanに対して、承認されたWikiメンバーへの保存・表示・共有のための非独占的ライセンスを付与するものとします。Wikiコンテンツはチャプター内部での利用を目的としています。",
+    "s3_body": "Wikiで作成したコンテンツの所有権はお客様に帰属します。コンテンツを投稿することにより、GDG Japanに対して、承認されたWikiメンバーへの保存・表示・共有のための非独占的ライセンスを付与するものとします。Wikiコンテンツはチャプター内部での利用を目的としています。",
     "s4_heading": "4. 禁止事項",
     "s4_intro": "以下の行為を禁止します。",
     "s4_item1": "違法・嫌がらせ・他者のプライバシーを侵害するコンテンツの投稿",
     "s4_item2": "機密チャプター情報を無権限の第三者と共有すること",
     "s4_item3": "アクセス制御やセキュリティ対策を回避しようとする行為",
-    "s4_item4": "GDGoC活動と無関係な目的でWikiやAI機能を使用すること",
+    "s4_item4": "GDG活動と無関係な目的でWikiやAI機能を使用すること",
     "s5_heading": "5. 免責事項",
-    "s5_body": "Wikiは「現状のまま」でGDGoC Japan内部利用のために提供されます。AI生成コンテンツにはエラーが含まれる可能性があり、公開前に確認が必要です。稼働時間・データ保全・AI支援機能の正確性に関して、いかなる保証も行いません。",
+    "s5_body": "Wikiは「現状のまま」でGDG Japan内部利用のために提供されます。AI生成コンテンツにはエラーが含まれる可能性があり、公開前に確認が必要です。稼働時間・データ保全・AI支援機能の正確性に関して、いかなる保証も行いません。",
     "s6_heading": "6. 規約の変更",
     "s6_body": "本規約はいつでも更新される場合があります。変更後に本サービスを継続して利用することにより、改定された規約に同意したものとみなします。",
     "footer_link": "プライバシーポリシー"

@@ -46,7 +46,7 @@ export default function AdminLayout() {
   // Restore desktop sidebar state from localStorage
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("gdgoc-admin-sidebar-open");
+      const stored = localStorage.getItem("gdg-admin-sidebar-open");
       if (stored !== null) setDesktopOpen(stored === "true");
     } catch {
       // ignore – localStorage unavailable
@@ -66,7 +66,7 @@ export default function AdminLayout() {
       setDesktopOpen((v) => {
         const next = !v;
         try {
-          localStorage.setItem("gdgoc-admin-sidebar-open", String(next));
+          localStorage.setItem("gdg-admin-sidebar-open", String(next));
         } catch {
           // ignore
         }
@@ -83,7 +83,7 @@ export default function AdminLayout() {
 
       <div className="flex flex-1 pt-14">
         <BaseSidebar
-          storageKey="gdgoc-admin-sidebar-width"
+          storageKey="gdg-admin-sidebar-width"
           isOpen={sidebarOpen}
           isMobile={isMobile}
           onClose={() => setMobileOpen(false)}

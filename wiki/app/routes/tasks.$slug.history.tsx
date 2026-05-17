@@ -12,7 +12,7 @@ import { timeAgo } from "~/lib/time";
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   {
     title: data
-      ? `History — ${data.page.titleJa || data.page.titleEn} — GDGoC Japan Wiki`
+      ? `History — ${data.page.titleJa || data.page.titleEn} — GDG Japan Wiki`
       : "Task History",
   },
 ];

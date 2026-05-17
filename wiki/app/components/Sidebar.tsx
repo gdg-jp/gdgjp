@@ -62,7 +62,7 @@ export default function Sidebar({
 
   return (
     <BaseSidebar
-      storageKey="gdgoc-sidebar-width"
+      storageKey="gdg-sidebar-width"
       isOpen={isOpen}
       isMobile={isMobile}
       onClose={onClose}

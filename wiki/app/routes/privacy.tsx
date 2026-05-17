@@ -2,7 +2,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { MetaFunction } from "react-router";
 
-export const meta: MetaFunction = () => [{ title: "Privacy Policy — GDGoC Japan Wiki" }];
+export const meta: MetaFunction = () => [{ title: "Privacy Policy — GDG Japan Wiki" }];
 
 export default function PrivacyPage() {
   const { t } = useTranslation();
@@ -79,7 +79,7 @@ export default function PrivacyPage() {
       </main>
 
       <footer className="border-t border-gray-200 bg-white px-6 py-4 text-center text-xs text-gray-400">
-        © {new Date().getFullYear()} GDGoC Japan ·{" "}
+        © {new Date().getFullYear()} GDG Japan ·{" "}
         <Link to="/terms" className="hover:text-blue-500">
           {t("privacy.footer_link")}
         </Link>

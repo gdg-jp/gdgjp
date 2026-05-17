@@ -7,7 +7,7 @@ describe("generateSlug", () => {
   });
 
   it("strips non-ASCII from Japanese title (backward compat)", () => {
-    expect(generateSlug("GDGoC運営Tips")).toBe("gdgoctips");
+    expect(generateSlug("GDG運営Tips")).toBe("gdgtips");
   });
 
   it("uses englishHint when provided", () => {
@@ -17,11 +17,11 @@ describe("generateSlug", () => {
   });
 
   it("falls back to title when englishHint is empty", () => {
-    expect(generateSlug("GDGoC運営Tips", "")).toBe("gdgoctips");
+    expect(generateSlug("GDG運営Tips", "")).toBe("gdgtips");
   });
 
   it("falls back to title when englishHint is whitespace", () => {
-    expect(generateSlug("GDGoC運営Tips", "   ")).toBe("gdgoctips");
+    expect(generateSlug("GDG運営Tips", "   ")).toBe("gdgtips");
   });
 
   it("returns page-{timestamp} fallback for empty result", () => {

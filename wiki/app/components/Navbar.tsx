@@ -280,15 +280,15 @@ export default function Navbar({
       <Link to="/" className="flex-shrink-0">
         <img
           src="/logo.png"
-          alt="GDGoC Japan Wiki"
+          alt="GDG Japan Wiki"
           className="hidden h-8 w-auto sm:block dark:hidden"
         />
         <img
           src="/logo_dark.png"
-          alt="GDGoC Japan Wiki"
+          alt="GDG Japan Wiki"
           className="hidden h-8 w-auto dark:sm:block"
         />
-        <img src="/logo_square.png" alt="GDGoC Japan Wiki" className="h-8 w-auto sm:hidden" />
+        <img src="/logo_square.png" alt="GDG Japan Wiki" className="h-8 w-auto sm:hidden" />
       </Link>
 
       {/* Search */}

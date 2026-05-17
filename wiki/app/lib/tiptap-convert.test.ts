@@ -206,7 +206,7 @@ describe("applyPatchesToMarkdown", () => {
     "## 担当スタッフ",
     "",
     "- Yuki Hirai (GDG Tokyo)",
-    "- Kosuke Itaya (GDGoC Osaka)",
+    "- Kosuke Itaya (GDG Osaka)",
   ].join("\n");
 
   it("appends content to a matching section", () => {
@@ -221,7 +221,7 @@ describe("applyPatchesToMarkdown", () => {
     expect(result).toContain("## 概要");
     expect(result).toContain("配信ガイドラインです。");
     expect(result).toContain("- Yuki Hirai (GDG Tokyo)");
-    expect(result).toContain("- Kosuke Itaya (GDGoC Osaka)");
+    expect(result).toContain("- Kosuke Itaya (GDG Osaka)");
     expect(result).toContain("- たくてぃん (GDG Greater Kwansai)");
   });
 

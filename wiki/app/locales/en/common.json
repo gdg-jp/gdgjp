@@ -1,5 +1,5 @@
 {
-  "app_name": "GDGoC Japan Wiki",
+  "app_name": "GDG Japan Wiki",
   "close": "Close",
   "cancel": "Cancel",
   "draft": "Draft",
@@ -148,10 +148,10 @@
     "sign_out": "Sign out"
   },
   "login": {
-    "title": "GDGoC Japan Wiki",
+    "title": "GDG Japan Wiki",
     "subtitle": "Sign in to continue",
     "google_signin": "Sign in with Google",
-    "access_restricted": "Access is restricted to GDGoC Japan members."
+    "access_restricted": "Access is restricted to GDG Japan members."
   },
   "admin": {
     "label": "Admin",
@@ -258,7 +258,7 @@
       "mode_google_form": "Google Form",
       "form_url_label": "Google Form URL",
       "event_title_label": "Event Title",
-      "event_title_placeholder": "e.g. GDGoC Tech Talk 2025",
+      "event_title_placeholder": "e.g. GDG Tech Talk 2025",
       "form_connect_hint": "Google Forms access requires connecting your Google account. This uses the same connection as Google Drive.",
       "form_connect_google": "Connect Google"
     },
@@ -350,7 +350,7 @@
     "form": {
       "form_url_label": "Google Form URL",
       "event_title_label": "Event Title",
-      "event_title_placeholder": "e.g. GDGoC Tech Talk 2025",
+      "event_title_placeholder": "e.g. GDG Tech Talk 2025",
       "connect_hint": "Google Forms access requires connecting your Google account. This uses the same connection as Google Drive.",
       "connect_google": "Connect Google",
       "submit": "Analyze with AI →"
@@ -510,8 +510,8 @@
     "noTasksFound": "No tasks found"
   },
   "lp": {
-    "hero_title": "GDGoC Japan Wiki",
-    "hero_subtitle": "AI-powered bilingual knowledge base for Google Developer Groups on Campus Japan",
+    "hero_title": "GDG Japan Wiki",
+    "hero_subtitle": "AI-powered bilingual knowledge base for Google Developer Groups Japan",
     "cta_signin": "Sign in with Google",
     "cta_learn_more": "Learn more",
     "feature_ingest_title": "AI-Powered Ingestion",
@@ -529,15 +529,15 @@
     "how_step2_desc": "Gemini structures bilingual wiki pages and suggests tags automatically.",
     "how_step3_title": "Publish to Wiki",
     "how_step3_desc": "Review the draft, make edits, and publish to your chapter's knowledge base.",
-    "signin_modal_title": "Sign in to GDGoC Japan Wiki",
-    "signin_modal_subtitle": "Access is for GDGoC Japan chapter members only.",
+    "signin_modal_title": "Sign in to GDG Japan Wiki",
+    "signin_modal_subtitle": "Access is for GDG Japan chapter members only.",
     "go_home": "Go to Home",
-    "badge": "For GDGoC Japan",
+    "badge": "For GDG Japan",
     "features_title": "Everything your chapter needs",
-    "features_subtitle": "A purpose-built wiki for Google Developer Groups on Campus Japan chapters.",
+    "features_subtitle": "A purpose-built wiki for Google Developer Groups Japan chapters.",
     "how_subtitle": "From raw notes to a polished bilingual wiki page in minutes.",
     "cta_title": "Ready to get started?",
-    "cta_subtitle": "Join GDGoC Japan's shared knowledge base and keep your chapter's know-how organized."
+    "cta_subtitle": "Join GDG Japan's shared knowledge base and keep your chapter's know-how organized."
   },
   "error": {
     "404_title": "Page not found",
@@ -565,11 +565,11 @@
   "privacy": {
     "title": "Privacy Policy",
     "last_updated": "Last updated: March 2026",
-    "back": "← GDGoC Japan Wiki",
+    "back": "← GDG Japan Wiki",
     "s1_heading": "1. What data we collect",
     "s1_body": "When you sign in with Google OAuth, we receive and store your name, email address, and profile photo URL as provided by Google. We also store content you create or upload on the wiki, along with metadata such as creation timestamps and authorship.",
     "s2_heading": "2. How we use your data",
-    "s2_body": "Your data is used solely to operate the GDGoC Japan Wiki: authenticating your identity, attributing wiki content to your account, and managing chapter membership. We do not sell or share your personal data with third parties for marketing purposes.",
+    "s2_body": "Your data is used solely to operate the GDG Japan Wiki: authenticating your identity, attributing wiki content to your account, and managing chapter membership. We do not sell or share your personal data with third parties for marketing purposes.",
     "s3_heading": "3. Third-party services",
     "s3_intro": "This service uses the following third-party providers:",
     "s3_google": "for authentication. Subject to <googlePolicy>Google's Privacy Policy</googlePolicy>.",
@@ -578,27 +578,27 @@
     "s4_heading": "4. Data retention",
     "s4_body": "Your account data is retained while your account is active. You may request deletion of your account and associated data by contacting a wiki administrator.",
     "s5_heading": "5. Contact",
-    "s5_body": "For privacy-related questions, please contact your chapter lead or the GDGoC Japan wiki administrators via the wiki's GitHub repository.",
+    "s5_body": "For privacy-related questions, please contact your chapter lead or the GDG Japan wiki administrators via the wiki's GitHub repository.",
     "footer_link": "Terms of Service"
   },
   "terms": {
     "title": "Terms of Service",
     "last_updated": "Last updated: March 2026",
-    "back": "← GDGoC Japan Wiki",
+    "back": "← GDG Japan Wiki",
     "s1_heading": "1. Use of service",
-    "s1_body": "The GDGoC Japan Wiki is an internal knowledge-sharing platform for GDGoC Japan chapter members. Access is granted at the discretion of chapter leads and administrators. Use of this service is subject to the GDGoC Community Guidelines.",
+    "s1_body": "The GDG Japan Wiki is an internal knowledge-sharing platform for GDG Japan chapter members. Access is granted at the discretion of chapter leads and administrators. Use of this service is subject to the GDG Community Guidelines.",
     "s2_heading": "2. Account responsibilities",
     "s2_body": "You are responsible for maintaining the confidentiality of your Google account used to sign in. You must not share your access credentials or allow unauthorized individuals to use the wiki through your account.",
     "s3_heading": "3. Content ownership",
-    "s3_body": "You retain ownership of content you create on the wiki. By posting content, you grant GDGoC Japan a non-exclusive license to store, display, and share that content with other authorized wiki members. Wiki content is intended for internal chapter use.",
+    "s3_body": "You retain ownership of content you create on the wiki. By posting content, you grant GDG Japan a non-exclusive license to store, display, and share that content with other authorized wiki members. Wiki content is intended for internal chapter use.",
     "s4_heading": "4. Prohibited conduct",
     "s4_intro": "The following are prohibited:",
     "s4_item1": "Posting content that is illegal, harassing, or violates others' privacy",
     "s4_item2": "Sharing confidential chapter information with unauthorized parties",
     "s4_item3": "Attempting to circumvent access controls or security measures",
-    "s4_item4": "Using the wiki or its AI features for purposes unrelated to GDGoC activities",
+    "s4_item4": "Using the wiki or its AI features for purposes unrelated to GDG activities",
     "s5_heading": "5. Disclaimers",
-    "s5_body": "The wiki is provided \"as is\" for internal GDGoC Japan use. AI-generated content may contain errors and should be reviewed before publication. We make no warranties regarding uptime, data preservation, or accuracy of AI-assisted features.",
+    "s5_body": "The wiki is provided \"as is\" for internal GDG Japan use. AI-generated content may contain errors and should be reviewed before publication. We make no warranties regarding uptime, data preservation, or accuracy of AI-assisted features.",
     "s6_heading": "6. Changes to terms",
     "s6_body": "These terms may be updated at any time. Continued use of the wiki after changes constitutes acceptance of the revised terms.",
     "footer_link": "Privacy Policy"

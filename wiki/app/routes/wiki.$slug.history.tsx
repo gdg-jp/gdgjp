@@ -19,7 +19,7 @@ import { tiptapToMarkdown } from "~/lib/tiptap-convert";
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   {
     title: data
-      ? `History: ${data.page.titleEn || data.page.titleJa} — GDGoC Japan Wiki`
+      ? `History: ${data.page.titleEn || data.page.titleJa} — GDG Japan Wiki`
       : "Page history",
   },
 ];
