@@ -49,10 +49,9 @@ Then `pnpm install` from the repo root.
 ### 2. Configure Wrangler bindings + secrets
 
 In your app's `wrangler.toml`, declare a D1 binding named `DB` and the env
-vars the factory expects. The secret values (`BETTER_AUTH_SECRET` — used
-purely as the cookie HMAC key, despite the historical name —
-and `IDP_CLIENT_SECRET`) should be set with `wrangler secret put`, not
-committed.
+vars the factory expects. The secrets (`RP_SESSION_SECRET` for the cookie
+HMAC, `IDP_CLIENT_SECRET` for OAuth client auth against the IdP) should be
+set with `wrangler secret put`, not committed.
 
 ```toml
 [vars]
@@ -87,7 +86,7 @@ export function getAuth(env: Env): RpAuthInstance {
     db: env.DB,
     appUrl: env.APP_URL,
     cookiePrefix: "gdgjp-your-app",
-    secret: env.BETTER_AUTH_SECRET, // cookie HMAC key
+    secret: env.RP_SESSION_SECRET,
     idp: {
       url: env.IDP_URL,
       clientId: env.IDP_CLIENT_ID,

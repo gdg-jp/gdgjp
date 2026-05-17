@@ -116,7 +116,7 @@ jobs:
           EOF
 
           cat > img/.dev.vars <<EOF
-          BETTER_AUTH_SECRET=ci-better-auth-secret
+          RP_SESSION_SECRET=ci-better-auth-secret
           IDP_CLIENT_SECRET=ci-idp-client-secret
           INTERNAL_API_SECRET=ci-internal-api-secret
           APP_URL=http://localhost:5175
@@ -125,7 +125,7 @@ jobs:
           EOF
 
           cat > scheduler/.dev.vars <<EOF
-          BETTER_AUTH_SECRET=ci-better-auth-secret
+          RP_SESSION_SECRET=ci-better-auth-secret
           IDP_CLIENT_SECRET=ci-idp-client-secret
           APP_URL=http://localhost:5176
           ACCOUNTS_URL=http://localhost:5173

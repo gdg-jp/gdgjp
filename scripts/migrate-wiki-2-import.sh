@@ -230,7 +230,7 @@ cat <<EOF
        wrangler secret put <KEY> --name ${NEW_WORKER_NAME}
 
      Expected secrets (wiki is an SSO client of accounts, not Google directly):
-       BETTER_AUTH_SECRET, IDP_CLIENT_SECRET,
+       RP_SESSION_SECRET, IDP_CLIENT_SECRET,
        GEMINI_API_KEY, GOOGLE_DOCS_CLIENT_ID, GOOGLE_DOCS_CLIENT_SECRET,
        RESEND_API_KEY, WIKI_DISCORD_SECRET,
        FCM_SERVICE_ACCOUNT_JSON, DISCORD_BOT_TOKEN

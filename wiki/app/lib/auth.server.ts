@@ -13,7 +13,7 @@ export function createAuth(env: Env): RpAuthInstance {
     db: env.DB,
     appUrl: env.APP_URL,
     cookiePrefix: "gdgjp-wiki",
-    secret: env.BETTER_AUTH_SECRET,
+    secret: env.RP_SESSION_SECRET,
     idp: {
       url: env.IDP_URL,
       clientId: env.IDP_CLIENT_ID,

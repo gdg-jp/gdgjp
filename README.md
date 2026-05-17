@@ -40,11 +40,11 @@ pnpm --filter @gdgjp/scheduler migrate:remote   # apply D1 migrations to the dep
 
 ## Local development
 
-Each D1-backed app needs a `.dev.vars` file with `BETTER_AUTH_SECRET`, `IDP_CLIENT_SECRET`, and the local URLs:
+Each D1-backed app needs a `.dev.vars` file with `RP_SESSION_SECRET`, `IDP_CLIENT_SECRET`, and the local URLs:
 
 ```env
 # scheduler/.dev.vars
-BETTER_AUTH_SECRET=…
+RP_SESSION_SECRET=…
 IDP_CLIENT_SECRET=…
 APP_URL=http://localhost:5176
 ACCOUNTS_URL=http://localhost:5173
