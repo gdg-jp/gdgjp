@@ -68,13 +68,10 @@ CREATE INDEX idx_link_permissions_user
   ON link_permissions(principal_type, principal_id) WHERE principal_type = 'user';
 CREATE INDEX idx_link_permissions_chapter
   ON link_permissions(principal_type, principal_id) WHERE principal_type = 'chapter';
-CREATE INDEX idx_links_visibility ON links(visibility, deleted_at);
 CREATE TABLE IF NOT EXISTS "user" (
-  id           TEXT PRIMARY KEY,
-  email        TEXT NOT NULL UNIQUE,
-  name         TEXT NOT NULL,
-  image        TEXT,
-  is_admin     INTEGER NOT NULL DEFAULT 0,
-  created_at   INTEGER NOT NULL DEFAULT (unixepoch()),
-  updated_at   INTEGER NOT NULL DEFAULT (unixepoch())
-);
+  "id"            TEXT NOT NULL PRIMARY KEY,
+  "name"          TEXT NOT NULL,
+  "email"         TEXT NOT NULL UNIQUE,
+  "image"         TEXT,
+  "is_admin" INTEGER NOT NULL DEFAULT 0, "created_at" INTEGER NOT NULL DEFAULT 0, "updated_at" INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX idx_links_visibility ON links(visibility, deleted_at);

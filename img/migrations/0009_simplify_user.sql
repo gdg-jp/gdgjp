@@ -1,35 +1,17 @@
--- Rebuild the user table with only the columns we actually use after migrating
--- off better-auth. Drops emailVerified (Google always returns verified) and
--- moves to snake_case + integer epochs for parity with the rest of the schema.
---
--- IMPORTANT: foreign keys are disabled for the duration of this migration.
--- Without this, `DROP TABLE "user"` would cascade-delete every row in tables
--- that reference user(id) ON DELETE CASCADE (e.g. images.user_id) before we
--- rename the new table into place — wiping user-owned data.
-PRAGMA foreign_keys = OFF;
+-- See accounts/migrations/0012_simplify_user.sql for full notes. img's
+-- `images` table has `user_id ... ON DELETE CASCADE`, so the old
+-- create-new/drop-old pattern wiped every uploaded image's owner record.
 
-CREATE TABLE user_new (
-  id           TEXT PRIMARY KEY,
-  email        TEXT NOT NULL UNIQUE,
-  name         TEXT NOT NULL,
-  image        TEXT,
-  is_admin     INTEGER NOT NULL DEFAULT 0,
-  created_at   INTEGER NOT NULL DEFAULT (unixepoch()),
-  updated_at   INTEGER NOT NULL DEFAULT (unixepoch())
-);
+ALTER TABLE "user" DROP COLUMN "emailVerified";
 
-INSERT INTO user_new (id, email, name, image, is_admin, created_at, updated_at)
-SELECT
-  id,
-  email,
-  name,
-  image,
-  0,
-  CAST(strftime('%s', createdAt) AS INTEGER),
-  CAST(strftime('%s', updatedAt) AS INTEGER)
-FROM "user";
+ALTER TABLE "user" ADD COLUMN "is_admin" INTEGER NOT NULL DEFAULT 0;
+UPDATE "user" SET "is_admin" = COALESCE("isAdmin", 0);
+ALTER TABLE "user" DROP COLUMN "isAdmin";
 
-DROP TABLE "user";
-ALTER TABLE user_new RENAME TO "user";
-
-PRAGMA foreign_keys = ON;
+ALTER TABLE "user" ADD COLUMN "created_at" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "user" ADD COLUMN "updated_at" INTEGER NOT NULL DEFAULT 0;
+UPDATE "user" SET
+  "created_at" = CAST(strftime('%s', "createdAt") AS INTEGER),
+  "updated_at" = CAST(strftime('%s', "updatedAt") AS INTEGER);
+ALTER TABLE "user" DROP COLUMN "createdAt";
+ALTER TABLE "user" DROP COLUMN "updatedAt";

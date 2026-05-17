@@ -1,37 +1,25 @@
--- Rebuild the user table with only the columns we keep after migrating off
--- better-auth. Custom wiki fields (preferredUiLanguage, preferredContentLanguage,
--- discord_id) live in user_preferences from 0020. isAdmin is derived from a
--- live /userinfo claim at session-read time and no longer persisted.
+-- Simplify the user table to: id, email, name, image, is_admin, created_at, updated_at.
+-- Wiki's pre-migration shape already has INTEGER timestamps and a NOT-NULL
+-- isAdmin (unlike the better-auth-generated schema in the other RPs), so this
+-- is a straight rename + column drop — no add/backfill needed.
 --
--- IMPORTANT: foreign keys are disabled for the duration of this migration.
--- Without this, `DROP TABLE "user"` would cascade-delete every row in tables
--- that reference user(id) ON DELETE CASCADE (notifications, fcmTokens,
--- googleDriveTokens, comments, taskAssignees, user_preferences, …) before
--- we rename the new table into place — wiping a lot of user-owned data.
-PRAGMA foreign_keys = OFF;
+-- See accounts/migrations/0012_simplify_user.sql for why this uses in-place
+-- ALTER TABLE rather than create-new/drop-old (the latter cascade-deletes
+-- `user_preferences` rows, plus notifications/fcmTokens/googleDriveTokens/
+-- comments/taskAssignees that reference user.id ON DELETE CASCADE).
 
-CREATE TABLE user_new (
-  id           TEXT PRIMARY KEY,
-  email        TEXT NOT NULL UNIQUE,
-  name         TEXT NOT NULL,
-  image        TEXT,
-  is_admin     INTEGER NOT NULL DEFAULT 0,
-  created_at   INTEGER NOT NULL DEFAULT (unixepoch()),
-  updated_at   INTEGER NOT NULL DEFAULT (unixepoch())
-);
+-- Drop emailVerified (Google always returns verified emails).
+ALTER TABLE "user" DROP COLUMN "emailVerified";
 
-INSERT INTO user_new (id, email, name, image, is_admin, created_at, updated_at)
-SELECT
-  id,
-  email,
-  name,
-  image,
-  COALESCE(isAdmin, 0),
-  CAST(strftime('%s', createdAt) AS INTEGER),
-  CAST(strftime('%s', updatedAt) AS INTEGER)
-FROM "user";
+-- Drop columns moved to user_preferences in 0020. The unique index on
+-- discord_id must be dropped first — SQLite refuses DROP COLUMN on a column
+-- referenced by any schema object, including indexes.
+DROP INDEX IF EXISTS "user_discord_id_unique";
+ALTER TABLE "user" DROP COLUMN "discord_id";
+ALTER TABLE "user" DROP COLUMN "preferredUiLanguage";
+ALTER TABLE "user" DROP COLUMN "preferredContentLanguage";
 
-DROP TABLE "user";
-ALTER TABLE user_new RENAME TO "user";
-
-PRAGMA foreign_keys = ON;
+-- Rename camelCase columns to snake_case (types/constraints preserved).
+ALTER TABLE "user" RENAME COLUMN "isAdmin" TO "is_admin";
+ALTER TABLE "user" RENAME COLUMN "createdAt" TO "created_at";
+ALTER TABLE "user" RENAME COLUMN "updatedAt" TO "updated_at";

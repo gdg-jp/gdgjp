@@ -42,11 +42,8 @@ CREATE TABLE event_availabilities (
 );
 CREATE INDEX event_availabilities_slot_id_idx ON event_availabilities (slot_id);
 CREATE TABLE IF NOT EXISTS "user" (
-  id           TEXT PRIMARY KEY,
-  email        TEXT NOT NULL UNIQUE,
-  name         TEXT NOT NULL,
-  image        TEXT,
-  is_admin     INTEGER NOT NULL DEFAULT 0,
-  created_at   INTEGER NOT NULL DEFAULT (unixepoch()),
-  updated_at   INTEGER NOT NULL DEFAULT (unixepoch())
-);
+  "id"            TEXT NOT NULL PRIMARY KEY,
+  "name"          TEXT NOT NULL,
+  "email"         TEXT NOT NULL UNIQUE,
+  "image"         TEXT,
+  "is_admin" INTEGER NOT NULL DEFAULT 0, "created_at" INTEGER NOT NULL DEFAULT 0, "updated_at" INTEGER NOT NULL DEFAULT 0);
