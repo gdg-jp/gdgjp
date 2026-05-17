@@ -24,12 +24,12 @@ APP_URL = "https://wiki.gdgs.jp"
 ACCOUNTS_URL = "https://accounts.gdgs.jp"
 IDP_URL = "https://accounts.gdgs.jp"
 IDP_CLIENT_ID = "wiki"
-FIREBASE_API_KEY = "AIzaSyB7MPalhYWSgSWNMQ9rs3qqhk_TQg8IAHY"
-FIREBASE_AUTH_DOMAIN = "gdgoc-wiki.firebaseapp.com"
-FIREBASE_PROJECT_ID = "gdgoc-wiki"
-FIREBASE_MESSAGING_SENDER_ID = "428142970890"
-FIREBASE_APP_ID = "1:428142970890:web:b3ddb460c2a1cf5e9677f3"
-FIREBASE_VAPID_KEY = "BJVifvLdXOTlkWG2srEiwp49xToB4bIPhf8d7yiL_ruDadJ0YaTJoY3S-_jQuYFYD3ZL_NXnKj-r7F7B60vpW9Q"
+FIREBASE_API_KEY = "AIzaSyBDHVMd25wph9m8x4smxTvfGJ3C6OmfrDY"
+FIREBASE_AUTH_DOMAIN = "gdgsjp.firebaseapp.com"
+FIREBASE_PROJECT_ID = "gdgsjp"
+FIREBASE_MESSAGING_SENDER_ID = "144403252439"
+FIREBASE_APP_ID = "1:144403252439:web:2c0b43b6d1fae907225c92"
+FIREBASE_VAPID_KEY = "BA2fyubCOAJDghcOUaeFa089aupwgeHrT4UMT6rAx2fBX28vEw4NkCo8pp0E7OOcM71T5SdyhsfszNL5Or5_FxY"
 
 # ---------------------------------------------------------------------------
 # Cloudflare D1 — managed SQLite database
