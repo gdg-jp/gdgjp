@@ -17,7 +17,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { SubmitButton } from "~/components/ui/submit-button";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
-import { getAuth } from "~/lib/auth.server";
+import { requireUser } from "~/lib/auth.server";
 import {
   type UserSummary,
   approveMembership,
@@ -45,12 +45,10 @@ async function resolveUserAndChapter(args: Route.LoaderArgs | Route.ActionArgs) 
   const slug = args.params.slug;
   if (!slug) throw new Response("Not found", { status: 404 });
   const [userResult, chapter] = await Promise.all([
-    getAuth(env)
-      .requireUser(args.request)
-      .then(
-        (u) => ({ ok: true as const, user: u }),
-        (err: unknown) => ({ ok: false as const, err }),
-      ),
+    requireUser(env, args.request).then(
+      (u) => ({ ok: true as const, user: u }),
+      (err: unknown) => ({ ok: false as const, err }),
+    ),
     getChapterBySlug(env.DB, slug),
   ]);
   if (!userResult.ok) {

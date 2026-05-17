@@ -27,7 +27,7 @@ export async function requireUserWithChapter(
   }
   let resolved: UserChapters;
   try {
-    resolved = await fetchChaptersForUser(env, user.id);
+    resolved = await fetchChaptersForUser(env, request);
   } catch (err) {
     if (err instanceof ClaimsUnavailableError) throw buildSignInRedirect(request);
     throw err;

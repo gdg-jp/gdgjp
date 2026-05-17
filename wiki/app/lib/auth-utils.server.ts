@@ -1,13 +1,14 @@
+import type { AuthUser } from "@gdgjp/gdg-lib";
 import { redirect } from "react-router";
-import { type AuthUser, createAuth } from "./auth.server";
+import { createAuth } from "./auth.server";
+
+export type { AuthUser };
 
 /**
  * Returns the current session user, or null if not signed in.
  */
-export async function getSessionUser(request: Request, env: Env): Promise<AuthUser | null> {
-  const auth = createAuth(env);
-  const session = await auth.api.getSession({ headers: request.headers });
-  return session?.user ?? null;
+export function getSessionUser(request: Request, env: Env): Promise<AuthUser | null> {
+  return createAuth(env).getSessionUser(request);
 }
 
 /**
@@ -23,8 +24,8 @@ export async function requireUser(request: Request, env: Env): Promise<AuthUser>
 
 /**
  * Require an authenticated session AND user.isAdmin === true. The isAdmin flag
- * is mirrored from the accounts IdP at sign-in via mapProfileToUser; it can be
- * stale until the user signs out and back in.
+ * is mirrored from the accounts IdP at sign-in; it can be stale until the user
+ * signs out and back in. For live checks, use createAuth(env).getFreshClaims().
  */
 export async function requireAdmin(request: Request, env: Env): Promise<AuthUser> {
   const user = await requireUser(request, env);

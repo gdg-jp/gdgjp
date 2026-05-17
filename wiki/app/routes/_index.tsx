@@ -1,4 +1,3 @@
-import { SSO_PROVIDER_ID } from "@gdgjp/gdg-lib";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,7 +7,6 @@ import LandingContent, { GoogleIcon } from "~/components/LandingContent";
 import TagChip from "~/components/TagChip";
 import * as schema from "~/db/schema";
 import { getSessionUser } from "~/lib/auth-utils.server";
-import { authClient } from "~/lib/auth.client";
 import { getDb } from "~/lib/db.server";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
 import { timeAgo } from "~/lib/time";
@@ -113,8 +111,8 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 function SignInModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
 
-  async function handleGoogleSignIn() {
-    await authClient.signIn.oauth2({ providerId: SSO_PROVIDER_ID, callbackURL: "/" });
+  function handleGoogleSignIn() {
+    window.location.assign("/api/auth/signin?return_to=%2F");
   }
 
   return (

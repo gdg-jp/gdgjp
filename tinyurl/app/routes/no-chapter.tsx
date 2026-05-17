@@ -16,7 +16,7 @@ export async function loader(args: Route.LoaderArgs) {
   if (!user) throw redirect("/signin?return_to=%2Fno-chapter");
   let chapter: Awaited<ReturnType<typeof fetchChapterForUser>>;
   try {
-    chapter = await fetchChapterForUser(env, user.id);
+    chapter = await fetchChapterForUser(env, args.request);
   } catch (err) {
     if (err instanceof ClaimsUnavailableError) throw redirect("/signin?return_to=%2Fno-chapter");
     throw err;

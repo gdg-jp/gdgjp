@@ -16,10 +16,10 @@
     "schema:dump": "bash ../scripts/dump-schema.sh"
   },
   "dependencies": {
+    "@cloudflare/workers-oauth-provider": "^0.6.0",
     "@gdgjp/gdg-lib": "workspace:*",
-    "better-auth": "^1.6.9",
-    "kysely": "^0.28.0",
-    "kysely-d1": "^0.4.0",
+    "jose": "^5.9.6",
+    "openid-client": "^6.1.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18next": "^26.0.8",

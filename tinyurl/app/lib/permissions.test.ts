@@ -7,15 +7,23 @@ const owner: AuthUser = {
   id: "u_owner",
   email: "owner@example.com",
   name: "Owner",
+  image: null,
   isAdmin: false,
 };
 const stranger: AuthUser = {
   id: "u_stranger",
   email: "stranger@example.com",
   name: "Stranger",
+  image: null,
   isAdmin: false,
 };
-const admin: AuthUser = { id: "u_admin", email: "admin@example.com", name: "Admin", isAdmin: true };
+const admin: AuthUser = {
+  id: "u_admin",
+  email: "admin@example.com",
+  name: "Admin",
+  image: null,
+  isAdmin: true,
+};
 
 const LINK_ID = "link_01ARZ3NDEKTSV4RRFFQ69G5FAV";
 

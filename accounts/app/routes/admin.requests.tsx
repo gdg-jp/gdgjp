@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
-import { getAuth } from "~/lib/auth.server";
+import { requireUser } from "~/lib/auth.server";
 import {
   approveMembership,
   bustChaptersWithCountsCache,
@@ -41,12 +41,10 @@ export async function loader(args: Route.LoaderArgs) {
   // None of these depend on each other — fan everything out in parallel.
   const [t, userResult, requests, locale] = await Promise.all([
     i18n.getFixedT(args.request),
-    getAuth(env)
-      .requireUser(args.request)
-      .then(
-        (u) => ({ ok: true as const, user: u }),
-        (err: unknown) => ({ ok: false as const, err }),
-      ),
+    requireUser(env, args.request).then(
+      (u) => ({ ok: true as const, user: u }),
+      (err: unknown) => ({ ok: false as const, err }),
+    ),
     listAllPendingRequests(env.DB),
     i18n.getLocale(args.request),
   ]);
@@ -73,7 +71,7 @@ export async function action(args: Route.ActionArgs) {
   const locale = (await i18n.getLocale(args.request)) === "ja" ? "ja" : "en";
   let user: AuthUser;
   try {
-    user = await getAuth(env).requireUser(args.request);
+    user = await requireUser(env, args.request);
   } catch (err) {
     if (err instanceof Response && err.status === 401) {
       throw buildSignInRedirect(args.request);

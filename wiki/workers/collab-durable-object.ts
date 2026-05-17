@@ -124,16 +124,15 @@ export class CollabDurableObject extends DurableObject<Env> {
    * Validate session cookie and return user info.
    */
   private async authenticate(request: Request): Promise<UserInfo | null> {
-    const auth = createAuth(this.env);
-    const session = await auth.api.getSession({ headers: request.headers });
-    if (!session) return null;
+    const user = await createAuth(this.env).getSessionUser(request);
+    if (!user) return null;
     // Any signed-in user can join collab; per-chapter / role gating moved
     // to the accounts IdP and is no longer enforced in the Durable Object.
 
     return {
-      userId: session.user.id,
-      userName: session.user.name,
-      userImage: session.user.image ?? null,
+      userId: user.id,
+      userName: user.name,
+      userImage: user.image,
     };
   }
 
