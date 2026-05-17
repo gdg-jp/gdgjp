@@ -19,3 +19,5 @@ TINYURL_REDIRECT_URLS=http://localhost:5174/api/auth/callback/gdgjp
 IMG_REDIRECT_URLS=http://localhost:5175/api/auth/callback/gdgjp
 SCHEDULER_REDIRECT_URLS=http://localhost:5176/api/auth/callback/gdgjp
 WIKI_REDIRECT_URLS=http://localhost:5177/api/auth/callback/gdgjp
+
+RESEND_API_KEY=""
