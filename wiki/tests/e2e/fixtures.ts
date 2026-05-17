@@ -1,7 +1,8 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { type Browser, type Page, test as base } from "@playwright/test";
 
-const storageDir = path.join(__dirname, "storage-state");
+const storageDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "storage-state");
 
 async function newPageWithAuth(browser: Browser, storageFile: string): Promise<Page> {
   const ctx = await browser.newContext({ storageState: path.join(storageDir, storageFile) });

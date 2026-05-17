@@ -110,7 +110,7 @@ crons = ["0 15 * * *"]
 
 # ---------------------------------------------------------------------------
 # Secrets (set via `wrangler secret put`)
-# BETTER_AUTH_SECRET      — better-auth session signing secret
+# RP_SESSION_SECRET       — HMAC key for the RP's signed session + OIDC tx cookies
 # IDP_CLIENT_SECRET       — OAuth client secret shared with accounts IdP
 #                           (matches WIKI_CLIENT_SECRET in accounts)
 # GEMINI_API_KEY          — Google Gemini API key (for AI features)

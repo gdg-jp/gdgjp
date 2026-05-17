@@ -18,9 +18,12 @@ export async function action({ request, context }: ActionFunctionArgs) {
   if (user) {
     const db = getDb(env);
     await db
-      .update(schema.user)
-      .set({ preferredContentLanguage: lang as SupportedLng })
-      .where(eq(schema.user.id, user.id));
+      .insert(schema.userPreferences)
+      .values({ userId: user.id, preferredContentLanguage: lang as SupportedLng })
+      .onConflictDoUpdate({
+        target: schema.userPreferences.userId,
+        set: { preferredContentLanguage: lang as SupportedLng },
+      });
   }
 
   return Response.json({ ok: true });

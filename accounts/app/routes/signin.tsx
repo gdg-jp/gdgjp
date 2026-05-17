@@ -1,18 +1,23 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useSearchParams } from "react-router";
+import { Form, Link, redirect, useSearchParams } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { LocaleSwitcher } from "~/components/locale-switcher";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { SubmitButton } from "~/components/ui/submit-button";
-import { authClient } from "~/lib/auth-client";
 import { safeReturnTo } from "~/lib/auth-redirect";
 import { i18n } from "~/lib/i18n/i18n.server";
+import { readIdpSession } from "~/lib/idp-session.server";
 import type { Route } from "./+types/signin";
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request, context }: Route.LoaderArgs) {
+  const env = context.cloudflare.env;
   const t = await i18n.getFixedT(request);
-  return { title: t("meta.signin") };
+  const url = new URL(request.url);
+  const returnTo = safeReturnTo(url.searchParams.get("return_to")) ?? "/dashboard";
+  // If already signed in, jump straight to return_to.
+  const session = await readIdpSession(request, env.IDP_SESSION_SECRET);
+  if (session) throw redirect(returnTo);
+  return { title: t("meta.signin"), returnTo };
 }
 
 export function meta({ data }: Route.MetaArgs) {
@@ -53,20 +58,9 @@ export default function SignInPage() {
   const { t } = useTranslation();
   const [params] = useSearchParams();
   const returnTo = safeReturnTo(params.get("return_to")) ?? "/dashboard";
-  const [pending, setPending] = useState(false);
-
-  async function signIn() {
-    setPending(true);
-    try {
-      await authClient.signIn.social({ provider: "google", callbackURL: returnTo });
-    } catch {
-      setPending(false);
-    }
-  }
 
   return (
     <div className="relative min-h-dvh overflow-hidden bg-muted/40">
-      {/* GDG colored corner accents */}
       <div className="pointer-events-none absolute -top-32 -right-32 size-[420px] rounded-full bg-gdg-blue/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-32 -left-32 size-[420px] rounded-full bg-gdg-yellow/10 blur-3xl" />
 
@@ -84,20 +78,13 @@ export default function SignInPage() {
             <h1 className="text-2xl font-medium tracking-tight">{t("auth.signin.title")}</h1>
             <p className="text-sm text-muted-foreground">{t("auth.signin.subtitle")}</p>
           </div>
-          <SubmitButton
-            type="button"
-            onClick={signIn}
-            className="w-full"
-            size="lg"
-            variant="outline"
-            pending={pending}
-            pendingLabel={t("common.loading")}
-          >
-            {pending ? null : <GoogleGlyph />}
-            {pending
-              ? t("auth.signin.continueWithGooglePending")
-              : t("auth.signin.continueWithGoogle")}
-          </SubmitButton>
+          <Form method="get" action="/oauth/google/start" className="w-full">
+            <input type="hidden" name="return_to" value={returnTo} />
+            <SubmitButton type="submit" className="w-full" size="lg" variant="outline">
+              <GoogleGlyph />
+              {t("auth.signin.continueWithGoogle")}
+            </SubmitButton>
+          </Form>
           <p className="text-center text-xs text-muted-foreground">{t("app.name")}</p>
         </div>
       </main>

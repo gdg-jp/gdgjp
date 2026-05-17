@@ -1,23 +1,17 @@
-import { SSO_PROVIDER_ID } from "@gdgjp/gdg-lib";
 import { useTranslation } from "react-i18next";
 import { Link, redirect } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
-import { authClient } from "~/lib/auth.client";
 import { createAuth } from "~/lib/auth.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
-  const auth = createAuth(context.cloudflare.env);
-  const session = await auth.api.getSession({ headers: request.headers });
-  if (session) throw redirect("/");
+  const env = context.cloudflare.env;
+  const user = await createAuth(env).getSessionUser(request);
+  if (user) throw redirect("/");
   return {};
 }
 
 export default function LoginPage() {
   const { t } = useTranslation();
-
-  async function handleGoogleSignIn() {
-    await authClient.signIn.oauth2({ providerId: SSO_PROVIDER_ID, callbackURL: "/" });
-  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -27,14 +21,13 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-gray-500">{t("login.subtitle")}</p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleGoogleSignIn}
+        <a
+          href="/api/auth/signin?return_to=%2F"
           className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
         >
           <GoogleIcon />
           {t("login.google_signin")}
-        </button>
+        </a>
 
         <p className="mt-6 text-center text-xs text-gray-400">{t("login.access_restricted")}</p>
 

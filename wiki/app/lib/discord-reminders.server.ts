@@ -103,13 +103,16 @@ async function sendChannelReminders(
           pageSlug: schema.pages.slug,
           listTitleJa: schema.pages.titleJa,
           listTitleEn: schema.pages.titleEn,
-          discordId: schema.user.discordId,
+          discordId: schema.userPreferences.discordId,
           assigneeName: schema.tasks.assigneeName,
         })
         .from(schema.tasks)
         .innerJoin(schema.taskLists, eq(schema.tasks.taskListId, schema.taskLists.pageId))
         .innerJoin(schema.pages, eq(schema.taskLists.pageId, schema.pages.id))
-        .leftJoin(schema.user, eq(schema.tasks.assigneeId, schema.user.id))
+        .leftJoin(
+          schema.userPreferences,
+          eq(schema.tasks.assigneeId, schema.userPreferences.userId),
+        )
         .where(
           and(
             eq(schema.tasks.dueDate, todayJst),
@@ -172,19 +175,19 @@ export async function sendDueTaskReminders(env: Env): Promise<void> {
       pageSlug: schema.pages.slug,
       listTitleJa: schema.pages.titleJa,
       listTitleEn: schema.pages.titleEn,
-      discordId: schema.user.discordId,
-      preferredUiLanguage: schema.user.preferredUiLanguage,
+      discordId: schema.userPreferences.discordId,
+      preferredUiLanguage: schema.userPreferences.preferredUiLanguage,
     })
     .from(schema.tasks)
     .innerJoin(schema.taskLists, eq(schema.tasks.taskListId, schema.taskLists.pageId))
     .innerJoin(schema.pages, eq(schema.taskLists.pageId, schema.pages.id))
-    .innerJoin(schema.user, eq(schema.tasks.assigneeId, schema.user.id))
+    .innerJoin(schema.userPreferences, eq(schema.tasks.assigneeId, schema.userPreferences.userId))
     .where(
       and(
         eq(schema.tasks.dueDate, todayJst),
         inArray(schema.tasks.status, ["todo", "in_progress"]),
         isNotNull(schema.tasks.assigneeId),
-        isNotNull(schema.user.discordId),
+        isNotNull(schema.userPreferences.discordId),
       ),
     );
 

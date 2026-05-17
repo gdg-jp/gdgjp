@@ -12,7 +12,22 @@ import type { Route } from ".react-router/types/app/routes/+types/settings";
 export async function loader({ request, context }: Route.LoaderArgs) {
   const { cloudflare } = context;
   const user = await requireUser(request, cloudflare.env);
-  return { user };
+  const db = getDb(cloudflare.env);
+  const prefs = await db
+    .select({
+      preferredUiLanguage: schema.userPreferences.preferredUiLanguage,
+      preferredContentLanguage: schema.userPreferences.preferredContentLanguage,
+      discordId: schema.userPreferences.discordId,
+    })
+    .from(schema.userPreferences)
+    .where(eq(schema.userPreferences.userId, user.id))
+    .get();
+  return {
+    user,
+    preferredUiLanguage: prefs?.preferredUiLanguage ?? "ja",
+    preferredContentLanguage: prefs?.preferredContentLanguage ?? "ja",
+    discordId: prefs?.discordId ?? null,
+  };
 }
 
 type ActionErrors = { name?: string; lang?: string; discordId?: string };
@@ -41,14 +56,25 @@ export async function action({ request, context }: Route.ActionArgs): Promise<Ac
   try {
     await db
       .update(schema.user)
-      .set({
-        name,
+      .set({ name, updatedAt: new Date() })
+      .where(eq(schema.user.id, user.id));
+
+    await db
+      .insert(schema.userPreferences)
+      .values({
+        userId: user.id,
         preferredUiLanguage: uiLang as string,
         preferredContentLanguage: contentLang as string,
         discordId: discordId || null,
-        updatedAt: new Date(),
       })
-      .where(eq(schema.user.id, user.id));
+      .onConflictDoUpdate({
+        target: schema.userPreferences.userId,
+        set: {
+          preferredUiLanguage: uiLang as string,
+          preferredContentLanguage: contentLang as string,
+          discordId: discordId || null,
+        },
+      });
   } catch (err) {
     if (err instanceof Error && err.message.includes("UNIQUE")) {
       return { ok: false, errors: { discordId: "discord_id_taken" } };
@@ -114,7 +140,8 @@ function SettingsSection({
 // Settings page component
 // ---------------------------------------------------------------------------
 export default function SettingsPage() {
-  const { user } = useLoaderData<typeof loader>();
+  const { user, preferredUiLanguage, preferredContentLanguage, discordId } =
+    useLoaderData<typeof loader>();
   const { t, i18n } = useTranslation();
 
   const fetcher = useFetcher<typeof action>();
@@ -182,7 +209,7 @@ export default function SettingsPage() {
                 <select
                   id="uiLang"
                   name="uiLang"
-                  defaultValue={user.preferredUiLanguage ?? "ja"}
+                  defaultValue={preferredUiLanguage}
                   className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {supportedLngs.map((lng) => (
@@ -202,7 +229,7 @@ export default function SettingsPage() {
                 <select
                   id="contentLang"
                   name="contentLang"
-                  defaultValue={user.preferredContentLanguage ?? "ja"}
+                  defaultValue={preferredContentLanguage}
                   className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {supportedLngs.map((lng) => (
@@ -240,7 +267,7 @@ export default function SettingsPage() {
               id="discordId"
               name="discordId"
               type="text"
-              defaultValue={user.discordId ?? ""}
+              defaultValue={discordId ?? ""}
               placeholder="e.g. 123456789012345678"
               className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />

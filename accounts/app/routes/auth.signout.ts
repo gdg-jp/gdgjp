@@ -1,4 +1,4 @@
-import { getAuth } from "~/lib/auth.server";
+import { handleFederatedSignOut } from "~/lib/federated-signout.server";
 import type { Route } from "./+types/auth.signout";
 
 function originsFromCsv(csv: string | undefined, source: string): string[] {
@@ -39,10 +39,12 @@ function rpOrigins(env: Env): string[] {
   for (const o of originsFromCsv(env.TINYURL_REDIRECT_URLS, "TINYURL_REDIRECT_URLS")) set.add(o);
   for (const o of originsFromCsv(env.WIKI_REDIRECT_URLS, "WIKI_REDIRECT_URLS")) set.add(o);
   for (const o of originsFromCsv(env.IMG_REDIRECT_URLS, "IMG_REDIRECT_URLS")) set.add(o);
+  for (const o of originsFromCsv(env.SCHEDULER_REDIRECT_URLS, "SCHEDULER_REDIRECT_URLS"))
+    set.add(o);
   return [...set];
 }
 
-export async function loader({ request, context }: Route.LoaderArgs) {
+export function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
-  return getAuth(env).handleFederatedSignOut(request, { rpOrigins: rpOrigins(env) });
+  return handleFederatedSignOut(request, env.APP_URL, { rpOrigins: rpOrigins(env) });
 }

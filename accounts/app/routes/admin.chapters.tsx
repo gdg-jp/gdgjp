@@ -35,7 +35,7 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
-import { getAuth } from "~/lib/auth.server";
+import { requireUser } from "~/lib/auth.server";
 import {
   type ChapterKind,
   bustChaptersWithCountsCache,
@@ -52,12 +52,10 @@ export async function loader(args: Route.LoaderArgs) {
   // listChaptersWithCountsCached doesn't depend on the user; fan it out with auth.
   const [t, userResult, chapters] = await Promise.all([
     i18n.getFixedT(args.request),
-    getAuth(env)
-      .requireUser(args.request)
-      .then(
-        (u) => ({ ok: true as const, user: u }),
-        (err: unknown) => ({ ok: false as const, err }),
-      ),
+    requireUser(env, args.request).then(
+      (u) => ({ ok: true as const, user: u }),
+      (err: unknown) => ({ ok: false as const, err }),
+    ),
     listChaptersWithCountsCached(env.DB),
   ]);
   if (!userResult.ok) {
@@ -80,7 +78,7 @@ export async function action(args: Route.ActionArgs) {
   const t = await i18n.getFixedT(args.request);
   let user: AuthUser;
   try {
-    user = await getAuth(env).requireUser(args.request);
+    user = await requireUser(env, args.request);
   } catch (err) {
     if (err instanceof Response && err.status === 401) {
       throw buildSignInRedirect(args.request);

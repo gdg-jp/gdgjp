@@ -3,7 +3,10 @@
 # Never commit .dev.vars — it is gitignored.
 
 # Secrets — set as production secrets with `wrangler secret put <NAME>`.
-BETTER_AUTH_SECRET=
+# HMAC key for the RP's signed session + OIDC transaction cookies.
+# Generate with `openssl rand -base64 48`.
+RP_SESSION_SECRET=
+# Client secret issued by the accounts IdP for this RP.
 IDP_CLIENT_SECRET=
 
 # Override prod URLs from wrangler.toml so dev points at the local accounts IdP.

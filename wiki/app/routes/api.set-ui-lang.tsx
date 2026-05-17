@@ -18,9 +18,12 @@ export async function action({ request, context }: ActionFunctionArgs) {
   if (user) {
     const db = getDb(env);
     await db
-      .update(schema.user)
-      .set({ preferredUiLanguage: lang as SupportedLng })
-      .where(eq(schema.user.id, user.id));
+      .insert(schema.userPreferences)
+      .values({ userId: user.id, preferredUiLanguage: lang as SupportedLng })
+      .onConflictDoUpdate({
+        target: schema.userPreferences.userId,
+        set: { preferredUiLanguage: lang as SupportedLng },
+      });
   }
 
   // Set a cookie so subsequent SSR requests render in the chosen language.

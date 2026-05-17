@@ -2,6 +2,7 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string;
+  image: string | null;
   isAdmin: boolean;
 };
 
@@ -69,6 +70,7 @@ function mapToAuthUser(user: Record<string, unknown>): AuthUser {
     id: String(user.id ?? ""),
     email: String(user.email ?? ""),
     name: String(user.name ?? ""),
+    image: typeof user.image === "string" ? user.image : null,
     isAdmin: user.isAdmin === true || user.isAdmin === 1,
   };
 }

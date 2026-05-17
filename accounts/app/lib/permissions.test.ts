@@ -8,8 +8,8 @@ import {
   requireSuperAdmin,
 } from "./permissions";
 
-const admin: AuthUser = { id: "u_admin", email: "a@x", name: "A", isAdmin: true };
-const member: AuthUser = { id: "u_member", email: "m@x", name: "M", isAdmin: false };
+const admin: AuthUser = { id: "u_admin", email: "a@x", name: "A", image: null, isAdmin: true };
+const member: AuthUser = { id: "u_member", email: "m@x", name: "M", image: null, isAdmin: false };
 
 const activeOrganizerOf1: Membership = {
   userId: "u_member",

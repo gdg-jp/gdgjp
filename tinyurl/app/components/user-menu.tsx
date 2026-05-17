@@ -1,4 +1,3 @@
-import { authClient } from "@gdgjp/gdg-lib";
 import { LogOut } from "lucide-react";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";

@@ -11,8 +11,6 @@ APP_URL = "https://scheduler.gdgs.jp"
 ACCOUNTS_URL = "https://accounts.gdgs.jp"
 IDP_URL = "https://accounts.gdgs.jp"
 IDP_CLIENT_ID = "scheduler"
-# Set to "true" to route auth through openid-client (PR 1 of better-auth → workers-oauth-provider migration).
-USE_OIDC_CLIENT = "false"
 
 [assets]
 binding = "ASSETS"

@@ -12,8 +12,6 @@ ACCOUNTS_URL = "https://accounts.gdgs.jp"
 SHORT_URL_BASE = "https://gdgs.jp"
 IDP_URL = "https://accounts.gdgs.jp"
 IDP_CLIENT_ID = "tinyurl"
-# Set to "true" to route auth through openid-client (PR 1 of better-auth → workers-oauth-provider migration).
-USE_OIDC_CLIENT = "false"
 
 [assets]
 binding = "ASSETS"

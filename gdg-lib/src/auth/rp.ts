@@ -27,7 +27,14 @@ export interface RpAuthInstance {
   handleAuthRequest(request: Request): Promise<Response>;
   handleSignOutRedirect(request: Request, options?: { returnTo?: string }): Response;
   handleSignOutIframe(request: Request): Promise<Response>;
-  getFreshClaims(userId: string): Promise<UserClaims>;
+  /**
+   * Fetch the user's current claims from the IdP /userinfo endpoint.
+   * Reads access/refresh tokens from the signed session cookie on the request;
+   * refreshes via refresh_token when expired. Throws ClaimsUnavailableError if
+   * the cookie is absent, the refresh token is invalid, or /userinfo errors.
+   * Callers should catch and redirect to /signin to force re-auth.
+   */
+  getFreshClaims(request: Request): Promise<UserClaims>;
 }
 
 // ─── Factory ───────────────────────────────────────────────────────────────────
@@ -75,7 +82,7 @@ export function initializeRpAuth(config: RpAuthConfig): RpAuthInstance {
         headers,
       });
     },
-    getFreshClaims: (userId) => fetchUserClaims(config, userId),
+    getFreshClaims: (request) => fetchUserClaims(config, request),
   };
 }
 
@@ -87,8 +94,19 @@ function getIssuerConfig(config: RpAuthConfig): Promise<oidc.Configuration> {
   const key = `${config.idp.url}|${config.idp.clientId}`;
   let p = issuerCache.get(key);
   if (!p) {
+    const issuerUrl = new URL(config.idp.url);
+    // openid-client v6 rejects HTTP discovery URLs by default. Allow it for
+    // localhost so RPs can talk to a `wrangler dev` IdP; production stays
+    // HTTPS-only (the issuer URL comes from wrangler.toml [vars]).
+    const isLocal = issuerUrl.protocol === "http:";
     p = oidc
-      .discovery(new URL(config.idp.url), config.idp.clientId, config.idp.clientSecret)
+      .discovery(
+        issuerUrl,
+        config.idp.clientId,
+        config.idp.clientSecret,
+        undefined,
+        isLocal ? { execute: [oidc.allowInsecureRequests] } : undefined,
+      )
       .catch((err) => {
         issuerCache.delete(key);
         throw err;
@@ -203,25 +221,32 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
   const issuerConfig = await getIssuerConfig(config);
   let tokens: oidc.TokenEndpointResponse & oidc.TokenEndpointResponseHelpers;
   try {
+    // idTokenExpected: false — the accounts IdP (workers-oauth-provider) is
+    // OAuth 2.1 only and doesn't issue id_tokens. We fetch user attributes
+    // from /userinfo below instead. expectedNonce is dropped since there's
+    // no id_token to validate the nonce against.
     tokens = await oidc.authorizationCodeGrant(issuerConfig, url, {
       pkceCodeVerifier: tx.codeVerifier,
       expectedState: tx.state,
-      expectedNonce: tx.nonce,
-      idTokenExpected: true,
+      idTokenExpected: false,
     });
   } catch (err) {
     console.error("oidc callback failed", err);
     return new Response("Authentication failed", { status: 400 });
   }
 
-  const claims = tokens.claims();
-  if (!claims?.sub) return new Response("Missing id_token claims", { status: 400 });
-  const userClaims = parseIdTokenClaims(claims);
+  let userClaims: UserClaims;
+  try {
+    userClaims = await fetchUserinfoClaims(issuerConfig, tokens.access_token);
+  } catch (err) {
+    console.error("oidc userinfo failed", err);
+    return new Response("Failed to fetch user info", { status: 400 });
+  }
 
-  await upsertUser(config.db, userClaims);
+  const internalUserId = await upsertUser(config.db, userClaims);
 
   const session: SessionPayload = {
-    userId: userClaims.sub,
+    userId: internalUserId,
     email: userClaims.email ?? "",
     name: userClaims.name ?? userClaims.email ?? "",
     picture: userClaims.picture,
@@ -276,6 +301,7 @@ async function getSessionUser(config: RpAuthConfig, request: Request): Promise<A
     id: session.userId,
     email: session.email,
     name: session.name,
+    image: session.picture,
     isAdmin: session.isAdmin === true,
   };
 }
@@ -284,111 +310,125 @@ async function getSessionUser(config: RpAuthConfig, request: Request): Promise<A
 
 const inflightClaims = new Map<string, Promise<UserClaims>>();
 
-async function fetchUserClaims(config: RpAuthConfig, userId: string): Promise<UserClaims> {
-  const inflight = inflightClaims.get(userId);
+async function fetchUserClaims(config: RpAuthConfig, request: Request): Promise<UserClaims> {
+  // Read the signed session cookie for access/refresh tokens — the cookie is
+  // the only source of truth (no DB-side token storage on the RP). We can't
+  // write a new cookie back from here since this isn't a response context, so
+  // a refreshed access_token is used in-memory for this call only; on next
+  // sign-in / token expiry the user re-authorizes.
+  const value = parseCookies(request.headers.get("cookie"))[sessionCookieName(config)];
+  if (!value) throw new ClaimsUnavailableError("no_linked_account");
+  const session = await verifyPayload<SessionPayload>(value, config.secret);
+  if (!session) throw new ClaimsUnavailableError("no_linked_account");
+
+  // De-dupe inflight requests by userId.
+  const inflight = inflightClaims.get(session.userId);
   if (inflight) return inflight;
 
   const promise = (async () => {
-    // Read tokens from the user row's `account` table — for PR 1 the schema
-    // hasn't changed yet, so the same account row better-auth wrote remains
-    // available. PR 2 will move this into the session cookie itself.
-    const row = await config.db
-      .prepare(
-        `SELECT accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt
-         FROM account WHERE userId = ? AND providerId = 'gdgjp' LIMIT 1`,
-      )
-      .bind(userId)
-      .first<{
-        accessToken: string | null;
-        refreshToken: string | null;
-        accessTokenExpiresAt: string | null;
-        refreshTokenExpiresAt: string | null;
-      }>();
-    if (!row) throw new ClaimsUnavailableError("no_linked_account");
-
     const issuerConfig = await getIssuerConfig(config);
-    let accessToken = row.accessToken;
-    const accessExp = row.accessTokenExpiresAt ? Date.parse(row.accessTokenExpiresAt) : 0;
-    if (!accessToken || Number.isNaN(accessExp) || accessExp - REFRESH_LEEWAY_MS < Date.now()) {
-      if (!row.refreshToken) throw new ClaimsUnavailableError("refresh_failed");
+    let accessToken = session.accessToken;
+    if (accessToken && session.accessTokenExpiresAt - REFRESH_LEEWAY_MS < Date.now()) {
+      accessToken = "";
+    }
+    if (!accessToken) {
+      if (!session.refreshToken) throw new ClaimsUnavailableError("refresh_failed");
       try {
-        const refreshed = await oidc.refreshTokenGrant(issuerConfig, row.refreshToken);
+        const refreshed = await oidc.refreshTokenGrant(issuerConfig, session.refreshToken);
         accessToken = refreshed.access_token;
-        const accessExpiresAt = new Date(
-          Date.now() + (refreshed.expires_in ?? 3600) * 1000,
-        ).toISOString();
-        await config.db
-          .prepare(
-            `UPDATE account
-             SET accessToken = ?, refreshToken = COALESCE(?, refreshToken),
-                 accessTokenExpiresAt = ?, updatedAt = ?
-             WHERE userId = ? AND providerId = 'gdgjp'`,
-          )
-          .bind(
-            accessToken,
-            refreshed.refresh_token ?? null,
-            accessExpiresAt,
-            new Date().toISOString(),
-            userId,
-          )
-          .run();
       } catch (err) {
         throw new ClaimsUnavailableError("refresh_failed", err);
       }
     }
 
     try {
-      const info = await oidc.fetchUserInfo(issuerConfig, accessToken, userId);
-      return parseUserInfoClaims(info as Record<string, unknown>);
+      // fetchProtectedResource, not fetchUserInfo: the latter validates that
+      // the returned `sub` matches an expected subject, but our session.userId
+      // is an RP-local UUID (minted by upsertUser via email lookup) while the
+      // IdP keys /userinfo by its own internal sub. We already trust the
+      // response via the bearer token we obtained from the same IdP, so
+      // skipping the sub-equality check is safe.
+      return await fetchUserinfoClaims(issuerConfig, accessToken);
     } catch (err) {
+      if (err instanceof ClaimsUnavailableError) throw err;
       throw new ClaimsUnavailableError("userinfo_failed", err);
     }
-  })().finally(() => inflightClaims.delete(userId));
+  })().finally(() => inflightClaims.delete(session.userId));
 
-  inflightClaims.set(userId, promise);
+  inflightClaims.set(session.userId, promise);
   return promise;
 }
 
 // ─── User upsert ───────────────────────────────────────────────────────────────
 
-async function upsertUser(db: D1Database, claims: UserClaims): Promise<void> {
-  const now = new Date().toISOString();
-  // PR 1: write to the existing better-auth user table shape.
-  // (createdAt only on initial insert; updatedAt always.)
+/**
+ * Upserts the local user row by email. Returns the internal user.id (which
+ * we want to be stable for existing users — so we look up by email rather
+ * than trusting the IdP's `sub` to match our DB's id). For new users we
+ * mint a fresh UUID.
+ *
+ * Writes against the post-PR-2 simplified schema (snake_case, no
+ * emailVerified column).
+ */
+async function upsertUser(db: D1Database, claims: UserClaims): Promise<string> {
+  const email = claims.email ?? "";
+  const name = claims.name ?? email;
+  const image = claims.picture;
+  const isAdmin = claims.isAdmin ? 1 : 0;
+  const now = Math.floor(Date.now() / 1000);
+
+  const existing = await db
+    .prepare(`SELECT id FROM "user" WHERE email = ? LIMIT 1`)
+    .bind(email)
+    .first<{ id: string }>();
+
+  if (existing) {
+    await db
+      .prepare(`UPDATE "user" SET name = ?, image = ?, is_admin = ?, updated_at = ? WHERE id = ?`)
+      .bind(name, image, isAdmin, now, existing.id)
+      .run();
+    return existing.id;
+  }
+
+  const id = crypto.randomUUID();
   await db
     .prepare(
-      `INSERT INTO "user" (id, email, name, emailVerified, image, isAdmin, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         email = excluded.email,
-         name = excluded.name,
-         emailVerified = excluded.emailVerified,
-         image = excluded.image,
-         isAdmin = excluded.isAdmin,
-         updatedAt = excluded.updatedAt`,
+      `INSERT INTO "user" (id, email, name, image, is_admin, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(
-      claims.sub,
-      claims.email ?? "",
-      claims.name ?? claims.email ?? "",
-      claims.emailVerified ? 1 : 0,
-      claims.picture,
-      claims.isAdmin ? 1 : 0,
-      now,
-      now,
-    )
+    .bind(id, email, name, image, isAdmin, now, now)
     .run();
+  return id;
+}
+
+// ─── /userinfo fetch ───────────────────────────────────────────────────────────
+
+/**
+ * Fetches the IdP's /userinfo endpoint with the given access token and parses
+ * the response into UserClaims. Uses oidc.fetchProtectedResource (which does
+ * not enforce a `sub` equality check) — the bearer token already authorises
+ * the call, and our local user.id is not the IdP's sub.
+ */
+async function fetchUserinfoClaims(
+  issuerConfig: oidc.Configuration,
+  accessToken: string,
+): Promise<UserClaims> {
+  const userinfoEndpoint = issuerConfig.serverMetadata().userinfo_endpoint;
+  if (!userinfoEndpoint) {
+    throw new ClaimsUnavailableError("userinfo_failed");
+  }
+  const res = await oidc.fetchProtectedResource(
+    issuerConfig,
+    accessToken,
+    new URL(userinfoEndpoint),
+    "GET",
+  );
+  if (!res.ok) throw new ClaimsUnavailableError("userinfo_failed");
+  const json = (await res.json()) as Record<string, unknown>;
+  return parseClaims(json);
 }
 
 // ─── Claims parsing ────────────────────────────────────────────────────────────
-
-function parseIdTokenClaims(claims: Record<string, unknown>): UserClaims {
-  return parseClaims(claims);
-}
-
-function parseUserInfoClaims(json: Record<string, unknown>): UserClaims {
-  return parseClaims(json);
-}
 
 function parseClaims(json: Record<string, unknown>): UserClaims {
   const role = json.chapterRole;

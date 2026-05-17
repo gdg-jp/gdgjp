@@ -2,7 +2,6 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { createRequestHandler } from "react-router";
 import * as schema from "../app/db/schema";
-import { createAuth } from "../app/lib/auth.server";
 import { sendDueTaskReminders } from "../app/lib/discord-reminders.server";
 import { isIngestionQueueMessage } from "../app/lib/ingestion-jobs.server";
 import {
@@ -18,32 +17,8 @@ const requestHandler = createRequestHandler(
   import.meta.env?.MODE ?? "production",
 );
 
-/**
- * Lazy singleton that pre-warms better-auth's AsyncLocalStorage instances exactly
- * once per Worker isolate.  The assignment is synchronous, so even if two requests
- * arrive simultaneously the second one gets the same Promise — not a new one.
- *
- * Why this is necessary: better-auth lazily initialises three separate ALS instances
- * (requestState, adapterState, endpointContext) using an async check-and-set pattern.
- * If two requests race through that initialisation before the first one stores the
- * ALS, the second overwrites it.  Request A then calls als_A.run() while
- * getCurrentRequestState() looks up the overwritten als_B, finds nothing, and throws
- * "No request state found."
- */
-let _authWarmupPromise: Promise<void> | null = null;
-
-function warmupAuth(env: Env): Promise<void> {
-  if (!_authWarmupPromise) {
-    _authWarmupPromise = createAuth(env)
-      .api.getSession({ headers: new Headers() })
-      .then(() => undefined)
-      .catch(() => undefined);
-  }
-  return _authWarmupPromise;
-}
-
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  fetch(request: Request, env: Env, ctx: ExecutionContext): Response | Promise<Response> {
     // Route WebSocket collab connections to Durable Object
     const url = new URL(request.url);
     if (
@@ -56,7 +31,6 @@ export default {
       return env.COLLAB_DO.get(doId).fetch(request);
     }
 
-    await warmupAuth(env);
     return requestHandler(request, {
       cloudflare: { env, ctx },
     });

@@ -40,11 +40,12 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   const db = drizzle(env.DB, { schema });
 
-  // Lookup wiki user by Discord ID
+  // Lookup wiki user by Discord ID (linked via user_preferences)
   const wikiUser = await db
-    .select()
+    .select({ id: schema.user.id })
     .from(schema.user)
-    .where(eq(schema.user.discordId, discordUserId))
+    .innerJoin(schema.userPreferences, eq(schema.userPreferences.userId, schema.user.id))
+    .where(eq(schema.userPreferences.discordId, discordUserId))
     .get();
 
   if (!wikiUser) {

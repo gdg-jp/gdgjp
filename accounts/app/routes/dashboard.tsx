@@ -18,7 +18,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { SubmitButton } from "~/components/ui/submit-button";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
-import { getAuth } from "~/lib/auth.server";
+import { requireUser } from "~/lib/auth.server";
 import { listMembershipsForUser } from "~/lib/db";
 import { i18n } from "~/lib/i18n/i18n.server";
 import type { Route } from "./+types/dashboard";
@@ -27,12 +27,10 @@ export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
   const [t, userResult] = await Promise.all([
     i18n.getFixedT(args.request),
-    getAuth(env)
-      .requireUser(args.request)
-      .then(
-        (u) => ({ ok: true as const, user: u }),
-        (err: unknown) => ({ ok: false as const, err }),
-      ),
+    requireUser(env, args.request).then(
+      (u) => ({ ok: true as const, user: u }),
+      (err: unknown) => ({ ok: false as const, err }),
+    ),
   ]);
   if (!userResult.ok) {
     if (userResult.err instanceof Response && userResult.err.status === 401) {

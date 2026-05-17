@@ -2,15 +2,13 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { createAuth } from "~/lib/auth.server";
 
 /**
- * Catch-all route that forwards all /api/auth/* requests to better-auth.
- * Handles Google OAuth redirect, callback, session refresh, sign-out, etc.
+ * Catch-all route forwarding /api/auth/* to the openid-client RP factory.
+ * Handles /api/auth/signin, /api/auth/callback/gdgjp, /api/auth/signout, /api/auth/me.
  */
-export async function loader({ request, context }: LoaderFunctionArgs) {
-  const auth = createAuth(context.cloudflare.env);
-  return auth.handler(request);
+export function loader({ request, context }: LoaderFunctionArgs) {
+  return createAuth(context.cloudflare.env).handleAuthRequest(request);
 }
 
-export async function action({ request, context }: ActionFunctionArgs) {
-  const auth = createAuth(context.cloudflare.env);
-  return auth.handler(request);
+export function action({ request, context }: ActionFunctionArgs) {
+  return createAuth(context.cloudflare.env).handleAuthRequest(request);
 }

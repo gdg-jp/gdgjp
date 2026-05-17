@@ -21,7 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/com
 import { Input } from "~/components/ui/input";
 import { SubmitButton } from "~/components/ui/submit-button";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
-import { getAuth } from "~/lib/auth.server";
+import { requireUser } from "~/lib/auth.server";
 import {
   bustChaptersWithCountsCache,
   getChapterById,
@@ -48,12 +48,10 @@ export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
   const [t, userResult] = await Promise.all([
     i18n.getFixedT(args.request),
-    getAuth(env)
-      .requireUser(args.request)
-      .then(
-        (u) => ({ ok: true as const, user: u }),
-        (err: unknown) => ({ ok: false as const, err }),
-      ),
+    requireUser(env, args.request).then(
+      (u) => ({ ok: true as const, user: u }),
+      (err: unknown) => ({ ok: false as const, err }),
+    ),
   ]);
   if (!userResult.ok) {
     if (userResult.err instanceof Response && userResult.err.status === 401) {
@@ -84,7 +82,7 @@ export async function action(args: Route.ActionArgs) {
   const locale = (await i18n.getLocale(args.request)) === "ja" ? "ja" : "en";
   let user: AuthUser;
   try {
-    user = await getAuth(env).requireUser(args.request);
+    user = await requireUser(env, args.request);
   } catch (err) {
     if (err instanceof Response && err.status === 401) {
       throw buildSignInRedirect(args.request);

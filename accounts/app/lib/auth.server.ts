@@ -1,102 +1,54 @@
-import { type IdpAuthInstance, type IdpClient, initializeIdpAuth } from "@gdgjp/gdg-lib";
-import { listActiveChaptersForUser } from "./db";
+// IdP auth entry. Replaces the better-auth-based `initializeIdpAuth` with:
+//   - getIdpSession(request): reads the signed-cookie IdP login session
+//   - requireIdpUser(request): same, throws 401 if absent
+//   - getOAuthHelpers(env): bound OAuthHelpers from @cloudflare/workers-oauth-provider
+//
+// Trusted OAuth clients (tinyurl/wiki/img/scheduler) are seeded into KV by
+// scripts/seed-clients.ts; they're no longer loaded at request time.
 
-let cached: { instance: IdpAuthInstance; env: Env } | null = null;
+import type { AuthUser } from "@gdgjp/gdg-lib";
+import { readIdpSession } from "./idp-session.server";
+import { getOAuthHelpers } from "./oauth-provider.server";
 
-export function getAuth(env: Env): IdpAuthInstance {
-  if (cached?.env === env) return cached.instance;
-  const instance = initializeIdpAuth({
-    db: env.DB,
-    appUrl: env.APP_URL,
-    cookiePrefix: "gdgjp-accounts",
-    secret: env.BETTER_AUTH_SECRET,
-    google: {
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
-      prompt: "select_account",
-    },
-    trustedClients: trustedClientsFromEnv(env),
-    getAdditionalUserInfoClaim: async (user, scopes) => {
-      if (!scopes.includes("profile")) return {};
-      return getChapterClaim(env.DB, user.id);
-    },
-  });
-  cached = { instance, env };
-  return instance;
-}
+export { getOAuthHelpers };
 
-function trustedClientsFromEnv(env: Env): IdpClient[] {
-  const clients: IdpClient[] = [];
-  if (env.TINYURL_CLIENT_ID && env.TINYURL_CLIENT_SECRET) {
-    clients.push({
-      clientId: env.TINYURL_CLIENT_ID,
-      clientSecret: env.TINYURL_CLIENT_SECRET,
-      type: "web",
-      name: "GDG Japan Links",
-      redirectUrls: env.TINYURL_REDIRECT_URLS.split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      metadata: null,
-      disabled: false,
-      skipConsent: true,
-    });
-  }
-  if (env.WIKI_CLIENT_ID && env.WIKI_CLIENT_SECRET) {
-    clients.push({
-      clientId: env.WIKI_CLIENT_ID,
-      clientSecret: env.WIKI_CLIENT_SECRET,
-      type: "web",
-      name: "GDG Japan Wiki",
-      redirectUrls: env.WIKI_REDIRECT_URLS.split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      metadata: null,
-      disabled: false,
-      skipConsent: true,
-    });
-  }
-  if (env.IMG_CLIENT_ID && env.IMG_CLIENT_SECRET) {
-    clients.push({
-      clientId: env.IMG_CLIENT_ID,
-      clientSecret: env.IMG_CLIENT_SECRET,
-      type: "web",
-      name: "GDG Japan Image",
-      redirectUrls: env.IMG_REDIRECT_URLS.split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      metadata: null,
-      disabled: false,
-      skipConsent: true,
-    });
-  }
-  if (env.SCHEDULER_CLIENT_ID && env.SCHEDULER_CLIENT_SECRET) {
-    clients.push({
-      clientId: env.SCHEDULER_CLIENT_ID,
-      clientSecret: env.SCHEDULER_CLIENT_SECRET,
-      type: "web",
-      name: "GDG Japan Scheduler",
-      redirectUrls: env.SCHEDULER_REDIRECT_URLS.split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      metadata: null,
-      disabled: false,
-      skipConsent: true,
-    });
-  }
-  return clients;
-}
-
-async function getChapterClaim(db: D1Database, userId: string) {
-  const all = await listActiveChaptersForUser(db, userId);
-  const primary = all[0] ?? null;
+/**
+ * Resolves the current IdP login session. Uses the signed cookie only for
+ * identity (userId) and re-reads the user row from D1 to get a fresh
+ * `is_admin` plus the canonical name/image — the cookie has a 14-day max
+ * age, so trusting `isAdmin` from it would let demoted admins keep super-
+ * admin powers for up to two weeks (and would propagate through
+ * `requireUser` → `requireSuperAdmin`).
+ *
+ * Returns null if the session is missing OR if the user row has been
+ * deleted since the cookie was issued.
+ */
+export async function getSessionUser(env: Env, request: Request): Promise<AuthUser | null> {
+  const session = await readIdpSession(request, env.IDP_SESSION_SECRET);
+  if (!session) return null;
+  const row = await env.DB.prepare(
+    `SELECT id, email, name, image, is_admin FROM "user" WHERE id = ? LIMIT 1`,
+  )
+    .bind(session.userId)
+    .first<{
+      id: string;
+      email: string;
+      name: string;
+      image: string | null;
+      is_admin: number;
+    }>();
+  if (!row) return null;
   return {
-    chapterId: primary?.chapterId ?? null,
-    chapterSlug: primary?.chapterSlug ?? null,
-    chapterRole: primary?.role ?? null,
-    chapters: all.map((c) => ({
-      chapterId: c.chapterId,
-      chapterSlug: c.chapterSlug,
-      role: c.role,
-    })),
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    image: row.image,
+    isAdmin: row.is_admin === 1,
   };
+}
+
+export async function requireUser(env: Env, request: Request): Promise<AuthUser> {
+  const user = await getSessionUser(env, request);
+  if (!user) throw new Response("Unauthorized", { status: 401 });
+  return user;
 }

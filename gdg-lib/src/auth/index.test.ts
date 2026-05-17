@@ -29,6 +29,7 @@ describe("getSessionUser", () => {
       id: "u_1",
       email: "ada@example.com",
       name: "Ada Lovelace",
+      image: null,
       isAdmin: false,
     });
   });
@@ -62,10 +63,12 @@ describe("requireUser", () => {
 
 describe("isSuperAdmin", () => {
   it("returns true when isAdmin is true", () => {
-    expect(isSuperAdmin({ id: "u", email: "e", name: "n", isAdmin: true })).toBe(true);
+    expect(isSuperAdmin({ id: "u", email: "e", name: "n", image: null, isAdmin: true })).toBe(true);
   });
 
   it("returns false when isAdmin is false", () => {
-    expect(isSuperAdmin({ id: "u", email: "e", name: "n", isAdmin: false })).toBe(false);
+    expect(isSuperAdmin({ id: "u", email: "e", name: "n", image: null, isAdmin: false })).toBe(
+      false,
+    );
   });
 });

@@ -161,12 +161,12 @@ export async function sendPushToUser(
   const db = drizzle(env.DB, { schema });
 
   // Get user's language preference
-  const userRow = await db
-    .select({ lang: schema.user.preferredUiLanguage })
-    .from(schema.user)
-    .where(eq(schema.user.id, userId))
+  const prefRow = await db
+    .select({ lang: schema.userPreferences.preferredUiLanguage })
+    .from(schema.userPreferences)
+    .where(eq(schema.userPreferences.userId, userId))
     .get();
-  const lang = userRow?.lang ?? "ja";
+  const lang = prefRow?.lang ?? "ja";
   const message = lang === "en" ? messageEn : messageJa;
 
   // Get all device tokens
