@@ -6,12 +6,12 @@ Monorepo for the GDG Japan web properties. Flat layout (apps and the shared lib 
 
 | Directory | Package | Hostname | Description |
 |---|---|---|---|
-| `accounts/` | `@gdgjp/accounts` | accounts.gdgs.jp | Auth IdP — `better-auth` over D1, issues OAuth credentials to the other apps. |
+| `accounts/` | `@gdgjp/accounts` | accounts.gdgs.jp | Auth IdP — built on `@cloudflare/workers-oauth-provider` over D1 + KV, issues OAuth credentials to the other apps. |
 | `tinyurl/` | `@gdgjp/tinyurl` | url.gdgs.jp | URL shortener. D1-backed; OAuth client of `accounts`. |
-| `wiki/` | `@gdgjp/wiki` | wiki.gdgs.jp | Community wiki. No Cloudflare bindings yet. |
+| `wiki/` | `@gdgjp/wiki` | wiki.gdgs.jp | Community wiki. D1 + R2 + Queues + Browser Rendering + Workers AI + Vectorize + Durable Object (Yjs collab); OAuth client of `accounts`. |
 | `img/` | `@gdgjp/img` | img.gdgs.jp | Image hosting. D1 + R2 + Cloudflare Images; OAuth client of `accounts`. |
 | `scheduler/` | `@gdgjp/scheduler` | scheduler.gdgs.jp | Meeting scheduler. Anonymous-friendly: anyone can create an event with a weekly schedule and meeting length, and pick available slots; authenticated owners get a cross-device "My events" list plus edit/delete. D1-backed; OAuth client of `accounts`. |
-| `gdg-lib/` | `@gdgjp/gdg-lib` | — | Shared `better-auth` + Kysely + `kysely-d1` glue, consumed via `workspace:*`. Source-only (no build step). |
+| `gdg-lib/` | `@gdgjp/gdg-lib` | — | Shared RP factory (`initializeRpAuth`) + signed-cookie HMAC helpers, consumed via `workspace:*`. Source-only (no build step). |
 
 ## Commands
 
@@ -36,7 +36,7 @@ pnpm --filter @gdgjp/scheduler migrate:local    # apply D1 migrations to local w
 pnpm --filter @gdgjp/scheduler migrate:remote   # apply D1 migrations to the deployed DB
 ```
 
-`wiki` has no `migrate:*` script because it has no D1 binding.
+Every app except `gdg-lib` has D1 migrations and exposes `migrate:local` / `migrate:remote`.
 
 ## Local development
 
@@ -51,7 +51,7 @@ ACCOUNTS_URL=http://localhost:5173
 IDP_URL=http://localhost:5173
 ```
 
-`accounts/.dev.vars` additionally needs `<APP>_CLIENT_SECRET` for every OAuth client it registers (`TINYURL_CLIENT_SECRET`, `WIKI_CLIENT_SECRET`, `IMG_CLIENT_SECRET`, `SCHEDULER_CLIENT_SECRET`). Dev ports are `5173` (accounts), `5174` (tinyurl), `5175` (img), `5176` (scheduler).
+`accounts/.dev.vars` additionally needs `IDP_SESSION_SECRET`, `GOOGLE_CLIENT_SECRET`, and one `<APP>_CLIENT_SECRET` per OAuth client (`TINYURL_CLIENT_SECRET`, `WIKI_CLIENT_SECRET`, `IMG_CLIENT_SECRET`, `SCHEDULER_CLIENT_SECRET`). After changing any client secret/id/redirect, hit `/admin/seed-clients` so the IdP re-seeds `OAUTH_KV`. Dev ports are `5173` (accounts), `5174` (tinyurl), `5175` (img), `5176` (scheduler), `5177` (wiki).
 
 ## CI / Deploy
 
