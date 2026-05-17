@@ -12,35 +12,18 @@ import { getOAuthHelpers } from "./oauth-provider.server";
 
 export { getOAuthHelpers };
 
-export async function getSessionUser(env: Env, request: Request): Promise<AuthUser | null> {
-  const session = await readIdpSession(request, env.IDP_SESSION_SECRET);
-  if (!session) return null;
-  // We don't carry name/picture in the session cookie; for places that need
-  // them, callers should hit the user table directly. AuthUser only requires
-  // id/email/name/isAdmin — backfill name from email if needed by callers.
-  return {
-    id: session.userId,
-    email: session.email,
-    name: session.email,
-    image: null,
-    isAdmin: session.isAdmin,
-  };
-}
-
-export async function requireUser(env: Env, request: Request): Promise<AuthUser> {
-  const user = await getSessionUser(env, request);
-  if (!user) throw new Response("Unauthorized", { status: 401 });
-  return user;
-}
-
 /**
- * Fetch the full user row (with name/image) for routes that render profile UI.
- * Returns null if the session is absent or the user row was deleted.
+ * Resolves the current IdP login session. Uses the signed cookie only for
+ * identity (userId) and re-reads the user row from D1 to get a fresh
+ * `is_admin` plus the canonical name/image — the cookie has a 14-day max
+ * age, so trusting `isAdmin` from it would let demoted admins keep super-
+ * admin powers for up to two weeks (and would propagate through
+ * `requireUser` → `requireSuperAdmin`).
+ *
+ * Returns null if the session is missing OR if the user row has been
+ * deleted since the cookie was issued.
  */
-export async function getSessionUserFull(
-  env: Env,
-  request: Request,
-): Promise<(AuthUser & { image: string | null }) | null> {
+export async function getSessionUser(env: Env, request: Request): Promise<AuthUser | null> {
   const session = await readIdpSession(request, env.IDP_SESSION_SECRET);
   if (!session) return null;
   const row = await env.DB.prepare(
@@ -59,7 +42,13 @@ export async function getSessionUserFull(
     id: row.id,
     email: row.email,
     name: row.name,
-    isAdmin: row.is_admin === 1,
     image: row.image,
+    isAdmin: row.is_admin === 1,
   };
+}
+
+export async function requireUser(env: Env, request: Request): Promise<AuthUser> {
+  const user = await getSessionUser(env, request);
+  if (!user) throw new Response("Unauthorized", { status: 401 });
+  return user;
 }
