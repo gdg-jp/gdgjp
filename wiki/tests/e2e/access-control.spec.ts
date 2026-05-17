@@ -20,6 +20,12 @@ const BASE = process.env.BASE_URL ?? "http://localhost:5177";
 const PAGE_URL = `${BASE}/wiki/${TEST_PAGE.slug}`;
 const STORAGE_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "storage-state");
 
+// All tests in this file mutate the same wiki page (visibility, access list).
+// Running them in parallel produced flaky failures where one test's setVisibility
+// "restricted" raced another test's openShareDialog or page load. Serialise the
+// whole file so each test sees a deterministic state from the one before it.
+test.describe.configure({ mode: "serial" });
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -28,15 +34,24 @@ async function makePage(
   browser: Parameters<Parameters<typeof test>[2]>[0]["browser"],
   storageFile: string,
 ): Promise<{ ctx: BrowserContext; page: Page }> {
-  const ctx = await browser.newContext({ storageState: path.join(STORAGE_DIR, storageFile) });
+  const ctx = await browser.newContext({
+    storageState: path.join(STORAGE_DIR, storageFile),
+    // The "Copy link" button calls navigator.clipboard.writeText, which silently
+    // rejects in headless Chromium unless clipboard-write is explicitly granted.
+    permissions: ["clipboard-read", "clipboard-write"],
+  });
   const page = await ctx.newPage();
   return { ctx, page };
 }
 
 async function openShareDialog(page: Page) {
-  // Click the first "Share" button visible on the page
-  await page.getByRole("button", { name: /share/i }).first().click();
-  await expect(page.getByRole("dialog")).toBeVisible();
+  // Click the first "Share" button visible on the page. Wait for it explicitly
+  // — Cloudflare-plugin dev cold-starts can leave the page hydrating for a few
+  // seconds after navigation completes.
+  const shareBtn = page.getByRole("button", { name: /share/i }).first();
+  await expect(shareBtn).toBeVisible({ timeout: 10_000 });
+  await shareBtn.click();
+  await expect(page.getByRole("dialog")).toBeVisible({ timeout: 10_000 });
 }
 
 // ---------------------------------------------------------------------------
@@ -175,10 +190,12 @@ test.describe("Add People", () => {
     await expect(searchInput).toBeVisible({ timeout: 5000 });
     await searchInput.fill("E2E");
 
-    // Dropdown should appear with at least one result (Bug 1 surfaces if 404)
-    await expect(page.locator("text=E2E Admin").or(page.locator("text=E2E Member"))).toBeVisible({
-      timeout: 3000,
-    });
+    // Dropdown should appear with at least one result (Bug 1 surfaces if 404).
+    // Search for "E2E" matches both E2E Admin and E2E Member, so .first() to
+    // avoid strict-mode violations.
+    await expect(
+      page.locator("text=E2E Admin").or(page.locator("text=E2E Member")).first(),
+    ).toBeVisible({ timeout: 3000 });
     await ctx.close();
   });
 
@@ -197,8 +214,12 @@ test.describe("Add People", () => {
 
     // Chip should appear
     await expect(page.locator("text=member@test.local")).toBeVisible();
-    // Role dropdown should be present
-    await expect(page.locator("select")).toBeVisible();
+    // Role dropdown for the pending chip should be present (the dialog may
+    // already render other selects — visibility, per-access-row role pickers —
+    // so scope the assertion to a select that has the chip-role options).
+    await expect(
+      page.getByRole("dialog").locator('select:has(option[value="viewer"])').first(),
+    ).toBeVisible();
     await ctx.close();
   });
 
@@ -268,12 +289,13 @@ test.describe("Role management", () => {
     // Admin sees the access list (must have page_access entries from previous tests)
     await page.waitForTimeout(500);
 
-    // Look for any role select in the access list and change it
-    const roleSelects = page.getByRole("dialog").locator("select");
+    // Look for any role select in the access list and change it. Filter on
+    // option[value="viewer"] to skip the visibility select (which is also a
+    // <select> in this dialog but only has visibility options).
+    const roleSelects = page.getByRole("dialog").locator('select:has(option[value="viewer"])');
     const count = await roleSelects.count();
 
     if (count > 0) {
-      // Last select in the list is a role select
       const roleSelect = roleSelects.last();
       const currentValue = await roleSelect.inputValue();
       const newValue = currentValue === "viewer" ? "editor" : "viewer";
@@ -314,7 +336,9 @@ test.describe("Role management", () => {
 
     // Find the page author's entry and try to remove — when it's the only owner
     // First set visibility to restricted so the owner is inserted
-    const visibilitySelect = page.getByRole("dialog").locator("select").first();
+    const visibilitySelect = page
+      .getByRole("dialog")
+      .locator('select:has(option[value="private_to_chapter"])');
     await expect(visibilitySelect).toBeVisible({ timeout: 5000 });
     await visibilitySelect.selectOption("restricted");
     await page.waitForTimeout(500);
@@ -348,7 +372,9 @@ test.describe("Access enforcement", () => {
     const { ctx: adminCtx, page: adminPage } = await makePage(browser, "admin.json");
     await adminPage.goto(PAGE_URL);
     await openShareDialog(adminPage);
-    const visSelect = adminPage.getByRole("dialog").locator("select").first();
+    const visSelect = adminPage
+      .getByRole("dialog")
+      .locator('select:has(option[value="private_to_chapter"])');
     await expect(visSelect).toBeVisible({ timeout: 5000 });
     await visSelect.selectOption("restricted");
     await adminPage.waitForTimeout(500);
@@ -362,16 +388,21 @@ test.describe("Access enforcement", () => {
     // Either the page shows an error, or we're redirected
     const body = await memberPage.locator("body").textContent();
     expect(body).toBeTruthy();
-    // The page content should NOT include the page title (access denied)
-    // In this app, restricted pages return a 403/404 response
-    await expect(memberPage.getByText("E2E Test Page")).not.toBeVisible({ timeout: 3000 });
+    // The page content should NOT include the page title heading (access
+    // denied). The sidebar nav still lists the page as a link, so we look for
+    // the article <h1> specifically.
+    await expect(memberPage.getByRole("heading", { name: "E2E Test Page" })).not.toBeVisible({
+      timeout: 3000,
+    });
     await memberCtx.close();
 
     // Restore to public for other tests
     const { ctx: resetCtx, page: resetPage } = await makePage(browser, "admin.json");
     await resetPage.goto(PAGE_URL);
     await openShareDialog(resetPage);
-    const resetSelect = resetPage.getByRole("dialog").locator("select").first();
+    const resetSelect = resetPage
+      .getByRole("dialog")
+      .locator('select:has(option[value="private_to_chapter"])');
     await expect(resetSelect).toBeVisible({ timeout: 5000 });
     await resetSelect.selectOption("public");
     await resetPage.waitForTimeout(300);
@@ -383,7 +414,9 @@ test.describe("Access enforcement", () => {
     const { ctx: adminCtx, page: adminPage } = await makePage(browser, "admin.json");
     await adminPage.goto(PAGE_URL);
     await openShareDialog(adminPage);
-    const visSelect = adminPage.getByRole("dialog").locator("select").first();
+    const visSelect = adminPage
+      .getByRole("dialog")
+      .locator('select:has(option[value="private_to_chapter"])');
     await expect(visSelect).toBeVisible({ timeout: 5000 });
     await visSelect.selectOption("restricted");
     await adminPage.waitForTimeout(400);
@@ -402,14 +435,20 @@ test.describe("Access enforcement", () => {
     // Member can now view the page
     const { ctx: memberCtx, page: memberPage } = await makePage(browser, "member.json");
     await memberPage.goto(PAGE_URL);
-    await expect(memberPage.getByText("E2E Test Page")).toBeVisible({ timeout: 5000 });
+    // Match the page-title <h1> specifically — "E2E Test Page" also appears in
+    // the document <title>, which would trigger Playwright strict-mode.
+    await expect(memberPage.getByRole("heading", { name: "E2E Test Page" })).toBeVisible({
+      timeout: 5000,
+    });
     await memberCtx.close();
 
     // Cleanup: restore public visibility
     const { ctx: resetCtx, page: resetPage } = await makePage(browser, "admin.json");
     await resetPage.goto(PAGE_URL);
     await openShareDialog(resetPage);
-    const resetSelect = resetPage.getByRole("dialog").locator("select").first();
+    const resetSelect = resetPage
+      .getByRole("dialog")
+      .locator('select:has(option[value="private_to_chapter"])');
     await expect(resetSelect).toBeVisible({ timeout: 5000 });
     await resetSelect.selectOption("public");
     await resetPage.waitForTimeout(300);

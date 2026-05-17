@@ -116,6 +116,11 @@ function seedDb(dbPath: string): void {
 
   const now = Math.floor(Date.now() / 1000);
 
+  // Wipe any page_access rows for the test page left over from a previous run.
+  // The access-control e2e suite mutates this list and asserts on it (e.g.
+  // test 18 expects member to be denied), so it MUST start empty each run.
+  db.prepare("DELETE FROM page_access WHERE page_id = ?").run(TEST_PAGE.id);
+
   // Post-PR-2 user schema: snake_case, no emailVerified, no preferred* fields
   // (those live in user_preferences now, which e2e doesn't need to populate).
   const upsertUser = db.prepare(`

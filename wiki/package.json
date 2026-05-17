@@ -14,7 +14,7 @@
     "test:coverage": "vitest run --coverage",
     "test:golden": "vitest run tests/golden",
     "test:golden:update": "vitest run tests/golden -u",
-    "test:e2e": "playwright test --pass-with-no-tests",
+    "test:e2e": "playwright test --pass-with-no-tests --reporter=line",
     "migrate:local": "wrangler d1 migrations apply gdgjp-wiki-db --local && pnpm schema:dump",
     "migrate:remote": "wrangler d1 migrations apply gdgjp-wiki-db --remote && pnpm schema:dump",
     "schema:dump": "bash ../scripts/dump-schema.sh"
