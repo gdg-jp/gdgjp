@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_0bd5f1b7fc",
+  "title": "Node package @gdgjp/gdg-lib",
+  "summary": "Node package @gdgjp/gdg-lib with package metadata and review context rooted at gdg-lib.",
+  "kind": "library",
+  "source": "node-package",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "gdg-lib/package.json",
+      "symbol": "@gdgjp/gdg-lib",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "gdg-lib/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "gdg-lib/tsconfig.json",
+      "reason": "typescript configuration"
+    },
+    {
+      "path": "gdg-lib/vitest.config.ts",
+      "reason": "test configuration"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "gdg-lib/README.md",
+      "reason": "package context"
+    },
+    {
+      "path": "gdg-lib/src/index.ts",
+      "reason": "package entrypoint"
+    },
+    {
+      "path": "gdg-lib/src/auth/cookie.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "gdg-lib/src/auth/index.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "gdg-lib/src/auth/rp.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "gdg-lib/src/auth/cookie.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "gdg-lib/src/auth/index.test.ts",
+      "reason": "package test"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "package",
+    "project:@gdgjp/gdg-lib",
+    "project-root:gdg-lib",
+    "workspace"
+  ],
+  "trustBoundaries": [],
+  "status": "needs-fix",
+  "lock": null,
+  "findingIds": [
+    "fnd_sig-feat-library-0bd5f1b7fc-212a_133f9afe43",
+    "fnd_sig-feat-library-0bd5f1b7fc-363c_98a172ae4d"
+  ],
+  "patchAttemptIds": [],
+  "analysisHistory": [
+    {
+      "runId": "20260518T175159-33a868",
+      "kind": "review",
+      "summary": "2 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "reasoningEffort": null,
+      "createdAt": "2026-05-18T17:52:41.194Z"
+    }
+  ],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:52:41.194Z"
+}

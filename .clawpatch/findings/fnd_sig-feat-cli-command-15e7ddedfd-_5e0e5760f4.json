@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-cli-command-15e7ddedfd-_5e0e5760f4",
+  "featureId": "feat_cli-command_15e7ddedfd",
+  "title": "Client accepts unvalidated persisted UI language",
+  "category": "bug",
+  "severity": "low",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "wiki/app/entry.client.tsx",
+      "startLine": 46,
+      "endLine": 49,
+      "symbol": null,
+      "quote": "const savedLang = localStorage.getItem(\"ui_lang\");\n    if (savedLang && savedLang !== i18next.language) {\n      i18next.changeLanguage(savedLang);"
+    }
+  ],
+  "reasoning": "The client applies the localStorage value directly as an i18next language even though the rest of the initialization is constrained to supported languages. Because localStorage is user-controlled and can contain stale or arbitrary values, a browser with ui_lang set to an unsupported value can switch the client i18n instance away from the SSR-supported locale after hydration, producing fallback or inconsistent language state in components that branch on i18n.language.",
+  "reproduction": "In a browser console before loading the app, set localStorage.setItem(\"ui_lang\", \"fr\") and reload. The client entry calls i18next.changeLanguage(\"fr\") even though only the app-supported languages should be selectable.",
+  "recommendation": "Validate savedLang against supportedLngs before calling changeLanguage, and optionally remove invalid stored values. Wrap localStorage access in a small try/catch if the app should tolerate storage-denied browsers.",
+  "whyTestsDoNotAlreadyCoverThis": "The linked Vitest tests cover renderer, chunking, ingestion, Gemini schemas, Google Forms utilities, and page access helpers, but none exercise wiki/app/entry.client.tsx hydration or persisted language restoration.",
+  "suggestedRegressionTest": "Add a client-entry or extracted helper test that seeds ui_lang with an unsupported value and asserts changeLanguage is not called unless the value is included in supportedLngs.",
+  "minimumFixScope": "wiki/app/entry.client.tsx",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-cli-command-15e7ddedfd_8848814c4b",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260518T175159-33a868",
+  "createdAt": "2026-05-18T17:52:59.940Z",
+  "updatedAt": "2026-05-18T17:52:59.940Z"
+}

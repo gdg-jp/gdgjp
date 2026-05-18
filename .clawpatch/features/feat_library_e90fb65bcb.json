@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_e90fb65bcb",
+  "title": "Node source scheduler/app",
+  "summary": "Node/TypeScript source file scheduler/app/root.tsx.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "scheduler/package.json",
+      "symbol": "scheduler/app",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "scheduler/app/root.tsx",
+      "reason": "source group scheduler/app"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "scheduler/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "scheduler/app/lib/db.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "scheduler/app/lib/id.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "scheduler/app/lib/participant-cookie.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "scheduler/app/lib/reconcile.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "scheduler/app/lib/slots.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "scheduler/app/lib/validate.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "scheduler/app/lib/db.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/scheduler"
+    },
+    {
+      "path": "scheduler/app/lib/id.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/scheduler"
+    },
+    {
+      "path": "scheduler/app/lib/participant-cookie.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/scheduler"
+    },
+    {
+      "path": "scheduler/app/lib/reconcile.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/scheduler"
+    },
+    {
+      "path": "scheduler/app/lib/slots.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/scheduler"
+    },
+    {
+      "path": "scheduler/app/lib/validate.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/scheduler"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/scheduler",
+    "project-root:scheduler"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

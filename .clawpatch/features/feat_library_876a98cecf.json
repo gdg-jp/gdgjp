@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_876a98cecf",
+  "title": "Node package @gdgjp/tinyurl",
+  "summary": "Node package @gdgjp/tinyurl with package metadata and review context rooted at tinyurl.",
+  "kind": "library",
+  "source": "node-package",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "tinyurl/package.json",
+      "symbol": "@gdgjp/tinyurl",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "tinyurl/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "tinyurl/tsconfig.json",
+      "reason": "typescript configuration"
+    },
+    {
+      "path": "tinyurl/vitest.config.ts",
+      "reason": "test configuration"
+    },
+    {
+      "path": "tinyurl/vite.config.ts",
+      "reason": "build configuration"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "tinyurl/app/components/analytics/analytics-date-button.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/analytics/analytics-filter-button.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/analytics/analytics-filters-bar.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/charts/bar-list.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/charts/hourly-chart.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/charts/metric-card.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/charts/tabbed-bar-card.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/create-link-dialog.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/dashboard-shell.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/gdg-mark.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/link-card.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/page-shell.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/status-badge.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/tag-combobox.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/theme-toggle.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/top-bar.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/ui/alert-dialog.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/ui/alert.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/ui/avatar.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/ui/badge.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/ui/button.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/ui/calendar.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/ui/card.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/components/ui/dialog.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "tinyurl/app/lib/analytics-engine-write.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "tinyurl/app/lib/analytics-engine.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "tinyurl/app/lib/db.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "tinyurl/app/lib/ogp.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "tinyurl/app/lib/permissions.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "tinyurl/app/lib/slug.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "tinyurl/app/routes/home.test.ts",
+      "reason": "package test"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "package",
+    "project:@gdgjp/tinyurl",
+    "project-root:tinyurl",
+    "workspace"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

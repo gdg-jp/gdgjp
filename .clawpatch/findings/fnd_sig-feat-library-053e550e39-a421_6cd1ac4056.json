@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-053e550e39-a421_6cd1ac4056",
+  "featureId": "feat_library_053e550e39",
+  "title": "Sidebar drag cleanup can leave the document in resize mode",
+  "category": "bug",
+  "severity": "low",
+  "confidence": "high",
+  "triage": "confirmed-bug",
+  "evidence": [
+    {
+      "path": "wiki/app/components/BaseSidebar.tsx",
+      "startLine": 46,
+      "endLine": 58,
+      "symbol": "onMouseUp",
+      "quote": "document.body.style.cursor = \"\";\n    document.body.style.userSelect = \"\";"
+    },
+    {
+      "path": "wiki/app/components/BaseSidebar.tsx",
+      "startLine": 60,
+      "endLine": 70,
+      "symbol": "onDragHandleMouseDown",
+      "quote": "document.body.style.cursor = \"col-resize\";\n      document.body.style.userSelect = \"none\";\n      window.addEventListener(\"mousemove\", onMouseMove);\n      window.addEventListener(\"mouseup\", onMouseUp);"
+    },
+    {
+      "path": "wiki/app/components/BaseSidebar.tsx",
+      "startLine": 75,
+      "endLine": 81,
+      "symbol": "cleanup effect",
+      "quote": "return () => {\n      window.removeEventListener(\"mousemove\", onMouseMove);\n      window.removeEventListener(\"mouseup\", onMouseUp);\n    };"
+    }
+  ],
+  "reasoning": "During resize, the component mutates global body styles to force a resize cursor and disable text selection. Those styles are restored only in onMouseUp. If the sidebar unmounts while dragging, the cleanup removes listeners but does not restore cursor or userSelect, leaving the whole page stuck with resize cursor and disabled text selection until another code path changes the styles.",
+  "reproduction": "Start dragging the desktop sidebar handle, then navigate or otherwise unmount the sidebar before releasing the mouse. The document body keeps cursor: col-resize and user-select: none.",
+  "recommendation": "In the unmount cleanup, if a drag is active, clear isDragging/isResizing and restore document.body.style.cursor and document.body.style.userSelect. Prefer storing the previous body style values so cleanup restores exactly what was present before the drag.",
+  "whyTestsDoNotAlreadyCoverThis": "The included tests do not mount BaseSidebar or simulate drag/unmount behavior.",
+  "suggestedRegressionTest": "Add a component test that fires mouseDown on the drag handle, unmounts the component, and asserts document.body.style.cursor and document.body.style.userSelect are restored.",
+  "minimumFixScope": "BaseSidebar drag lifecycle cleanup.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-053e550e39_a4215c0689",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260518T175159-33a868",
+  "createdAt": "2026-05-18T17:53:20.718Z",
+  "updatedAt": "2026-05-18T17:53:20.718Z"
+}

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_321b54ef3b",
+  "title": "Node package gdgjp",
+  "summary": "Node package gdgjp with package metadata and review context rooted at ..",
+  "kind": "library",
+  "source": "node-package",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "package.json",
+      "symbol": "gdgjp",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "README.md",
+      "reason": "package context"
+    },
+    {
+      "path": "AGENTS.md",
+      "reason": "package context"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "package",
+    "project:gdgjp",
+    "project-root:."
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

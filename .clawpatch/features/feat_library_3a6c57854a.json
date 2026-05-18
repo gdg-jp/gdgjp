@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_3a6c57854a",
+  "title": "Node source img/app/components",
+  "summary": "Node/TypeScript source group img/app/components with 8 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "img/package.json",
+      "symbol": "img/app/components",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "img/app/components/gallery-grid.tsx",
+      "reason": "source group img/app/components"
+    },
+    {
+      "path": "img/app/components/page-shell.tsx",
+      "reason": "source group img/app/components"
+    },
+    {
+      "path": "img/app/components/top-bar.tsx",
+      "reason": "source group img/app/components"
+    },
+    {
+      "path": "img/app/components/ui/button.tsx",
+      "reason": "source group img/app/components"
+    },
+    {
+      "path": "img/app/components/ui/card.tsx",
+      "reason": "source group img/app/components"
+    },
+    {
+      "path": "img/app/components/ui/input.tsx",
+      "reason": "source group img/app/components"
+    },
+    {
+      "path": "img/app/components/ui/label.tsx",
+      "reason": "source group img/app/components"
+    },
+    {
+      "path": "img/app/components/upload-form.tsx",
+      "reason": "source group img/app/components"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "img/package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/img",
+    "project-root:img"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

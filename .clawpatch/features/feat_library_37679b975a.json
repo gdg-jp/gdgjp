@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_37679b975a",
+  "title": "Node package @gdgjp/accounts",
+  "summary": "Node package @gdgjp/accounts with package metadata and review context rooted at accounts.",
+  "kind": "library",
+  "source": "node-package",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "accounts/package.json",
+      "symbol": "@gdgjp/accounts",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "accounts/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "accounts/tsconfig.json",
+      "reason": "typescript configuration"
+    },
+    {
+      "path": "accounts/vitest.config.ts",
+      "reason": "test configuration"
+    },
+    {
+      "path": "accounts/vite.config.ts",
+      "reason": "build configuration"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "accounts/app/components/gdg-mark.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/locale-switcher.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/page-shell.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/status-badge.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/theme-toggle.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/top-bar.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/alert-dialog.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/alert.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/avatar.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/badge.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/button.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/card.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/dropdown-menu.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/input.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/label.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/select.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/separator.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/skeleton.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/sonner.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/spinner.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/submit-button.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/components/ui/table.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/entry.client.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/entry.server.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "accounts/app/lib/email.server.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "accounts/app/lib/permissions.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "accounts/app/routes/home.test.ts",
+      "reason": "package test"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "package",
+    "project:@gdgjp/accounts",
+    "project-root:accounts",
+    "workspace"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_cli-command_64400b54a9",
+  "title": "Node source accounts/app/:cli",
+  "summary": "Node/TypeScript source file accounts/app/entry.client.tsx.",
+  "kind": "cli-command",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "accounts/package.json",
+      "symbol": "accounts/app/:cli",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "accounts/app/entry.client.tsx",
+      "reason": "source group accounts/app/:cli"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "accounts/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "accounts/app/lib/email.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "accounts/app/lib/permissions.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "accounts/app/routes/home.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "accounts/app/lib/email.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/accounts"
+    },
+    {
+      "path": "accounts/app/lib/permissions.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/accounts"
+    },
+    {
+      "path": "accounts/app/routes/home.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/accounts"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/accounts",
+    "project-root:accounts"
+  ],
+  "trustBoundaries": [
+    "user-input",
+    "process-exec"
+  ],
+  "status": "reviewed",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [
+    {
+      "runId": "20260518T175159-33a868",
+      "kind": "review",
+      "summary": "0 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "reasoningEffort": null,
+      "createdAt": "2026-05-18T17:52:15.294Z"
+    }
+  ],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:52:15.294Z"
+}

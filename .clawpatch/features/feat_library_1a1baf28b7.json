@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_1a1baf28b7",
+  "title": "Node source wiki/app/routes#2",
+  "summary": "Node/TypeScript source group wiki/app/routes#2 with 12 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/routes#2",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/routes/api.archived.ts",
+      "reason": "source group wiki/app/routes#2"
+    },
+    {
+      "path": "wiki/app/routes/api.comments.ts",
+      "reason": "source group wiki/app/routes#2"
+    },
+    {
+      "path": "wiki/app/routes/api.discord.ingest.ts",
+      "reason": "source group wiki/app/routes#2"
+    },
+    {
+      "path": "wiki/app/routes/api.favorites.tsx",
+      "reason": "source group wiki/app/routes#2"
+    },
+    {
+      "path": "wiki/app/routes/api.fcm-tokens.ts",
+      "reason": "source group wiki/app/routes#2"
+    },
+    {
+      "path": "wiki/app/routes/api.google-drive.auth.ts",
+      "reason": "source group wiki/app/routes#2"
+    },
+    {
+      "path": "wiki/app/routes/api.google-drive.callback.ts",
+      "reason": "source group wiki/app/routes#2"
+    },
+    {
+      "path": "wiki/app/routes/api.images.$.ts",
+      "reason": "source group wiki/app/routes#2"
+    },
+    {
+      "path": "wiki/app/routes/api.ingest.$sessionId.clarify.ts",
+      "reason": "source group wiki/app/routes#2"
+    },
+    {
+      "path": "wiki/app/routes/api.ingest.$sessionId.commit.ts",
+      "reason": "source group wiki/app/routes#2"
+    },
+    {
+      "path": "wiki/app/routes/api.ingest.$sessionId.regenerate.ts",
+      "reason": "source group wiki/app/routes#2"
+    },
+    {
+      "path": "wiki/app/routes/api.ingest.$sessionId.select-urls.ts",
+      "reason": "source group wiki/app/routes#2"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "wiki/app/routes/admin.pages.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "wiki/app/routes/admin.pages.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

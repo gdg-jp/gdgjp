@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_c1b06a9c86",
+  "title": "Node source tinyurl/app/components/analytics",
+  "summary": "Node/TypeScript source group tinyurl/app/components/analytics with 3 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "tinyurl/package.json",
+      "symbol": "tinyurl/app/components/analytics",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "tinyurl/app/components/analytics/analytics-date-button.tsx",
+      "reason": "source group tinyurl/app/components/analytics"
+    },
+    {
+      "path": "tinyurl/app/components/analytics/analytics-filter-button.tsx",
+      "reason": "source group tinyurl/app/components/analytics"
+    },
+    {
+      "path": "tinyurl/app/components/analytics/analytics-filters-bar.tsx",
+      "reason": "source group tinyurl/app/components/analytics"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "tinyurl/package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/tinyurl",
+    "project-root:tinyurl"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

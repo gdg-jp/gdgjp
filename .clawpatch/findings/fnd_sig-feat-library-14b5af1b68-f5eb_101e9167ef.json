@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-14b5af1b68-f5eb_101e9167ef",
+  "featureId": "feat_library_14b5af1b68",
+  "title": "Share dialog uses dynamic Tailwind size classes that may not be generated",
+  "category": "build-release",
+  "severity": "low",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "wiki/app/components/ShareDialog.tsx",
+      "startLine": 52,
+      "endLine": 61,
+      "symbol": "Avatar",
+      "quote": "const cls = `h-${size} w-${size} rounded-full`;\n  if (image) {\n    return <img src={image} alt={name} className={`${cls} object-cover`} />;\n  }\n  return (\n    <span\n      className={`flex ${cls} shrink-0 items-center justify-center bg-gray-200 text-xs font-medium text-gray-600`}"
+    }
+  ],
+  "reasoning": "Tailwind class extraction depends on statically visible class names. Building class names like h-${size} and w-${size} can omit required avatar dimensions from the generated CSS, especially for values that are only present through this helper. That causes share-dialog avatars or pending-user chips to render with missing width/height in production builds.",
+  "reproduction": null,
+  "recommendation": "Replace the dynamic class construction with an explicit size map, for example {6: 'h-6 w-6', 8: 'h-8 w-8'}, or use inline styles for dimensions.",
+  "whyTestsDoNotAlreadyCoverThis": "The linked tests render TipTapRenderer only; they do not build Tailwind output or render ShareDialog avatar sizes.",
+  "suggestedRegressionTest": "Add a ShareDialog render test for pending-user and search-result avatars, or a build/CSS smoke test that verifies the generated stylesheet includes the avatar size classes used by this component.",
+  "minimumFixScope": "Change the local Avatar helper in ShareDialog.tsx to use statically enumerable size classes.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-14b5af1b68_f5ebf9fd61",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260518T175159-33a868",
+  "createdAt": "2026-05-18T17:52:41.514Z",
+  "updatedAt": "2026-05-18T17:52:41.514Z"
+}

@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_e6e9ef46ba",
+  "title": "Node source tinyurl/app",
+  "summary": "Node/TypeScript source file tinyurl/app/root.tsx.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "tinyurl/package.json",
+      "symbol": "tinyurl/app",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "tinyurl/app/root.tsx",
+      "reason": "source group tinyurl/app"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "tinyurl/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "tinyurl/app/lib/analytics-engine-write.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "tinyurl/app/lib/analytics-engine.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "tinyurl/app/lib/db.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "tinyurl/app/lib/ogp.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "tinyurl/app/lib/permissions.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "tinyurl/app/lib/slug.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "tinyurl/app/routes/home.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "tinyurl/app/lib/analytics-engine-write.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/tinyurl"
+    },
+    {
+      "path": "tinyurl/app/lib/analytics-engine.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/tinyurl"
+    },
+    {
+      "path": "tinyurl/app/lib/db.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/tinyurl"
+    },
+    {
+      "path": "tinyurl/app/lib/ogp.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/tinyurl"
+    },
+    {
+      "path": "tinyurl/app/lib/permissions.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/tinyurl"
+    },
+    {
+      "path": "tinyurl/app/lib/slug.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/tinyurl"
+    },
+    {
+      "path": "tinyurl/app/routes/home.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/tinyurl"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/tinyurl",
+    "project-root:tinyurl"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

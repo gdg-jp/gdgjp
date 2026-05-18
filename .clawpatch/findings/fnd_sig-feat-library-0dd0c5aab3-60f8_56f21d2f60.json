@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-0dd0c5aab3-60f8_56f21d2f60",
+  "featureId": "feat_library_0dd0c5aab3",
+  "title": "Push notification toggle reports success even when server mutation fails",
+  "category": "bug",
+  "severity": "medium",
+  "confidence": "high",
+  "triage": "confirmed-bug",
+  "evidence": [
+    {
+      "path": "wiki/app/components/PushNotificationToggle.tsx",
+      "startLine": 44,
+      "endLine": 49,
+      "symbol": "handleEnable",
+      "quote": "await fetch(\"/api/fcm-tokens\", {\n        method: \"POST\",\n        headers: { \"Content-Type\": \"application/json\" },\n        body: JSON.stringify({ intent: \"register\", token }),\n      });\n      setState(\"enabled\");"
+    },
+    {
+      "path": "wiki/app/components/PushNotificationToggle.tsx",
+      "startLine": 66,
+      "endLine": 71,
+      "symbol": "handleDisable",
+      "quote": "await fetch(\"/api/fcm-tokens\", {\n        method: \"POST\",\n        headers: { \"Content-Type\": \"application/json\" },\n        body: JSON.stringify({ intent: \"unregister-all\" }),\n      });\n      setState(\"disabled\");"
+    }
+  ],
+  "reasoning": "Both enable and disable flows ignore the POST response status and update local UI state unconditionally. If token registration is rejected, times out with an HTTP error, or unregister-all fails, the settings UI displays enabled/disabled even though the server-side subscription state did not change. This can cause users to miss notifications they believe are enabled, or keep receiving notifications after disabling.",
+  "reproduction": "Mock /api/fcm-tokens POST to return 500. Click the push notification switch. The component still sets state to \"enabled\" or \"disabled\" after the fetch resolves because res.ok is never checked.",
+  "recommendation": "Capture the POST response, require res.ok before updating state, and surface or retain the previous state on failure. For enable, also consider deleting the locally acquired Firebase token if server registration fails.",
+  "whyTestsDoNotAlreadyCoverThis": "No supplied tests cover PushNotificationToggle or failure responses from /api/fcm-tokens.",
+  "suggestedRegressionTest": "Add component tests that mock failed register and unregister POST responses and assert the switch does not flip to the successful state.",
+  "minimumFixScope": "wiki/app/components/PushNotificationToggle.tsx",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-0dd0c5aab3_60f89eab22",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260518T175159-33a868",
+  "createdAt": "2026-05-18T17:52:58.268Z",
+  "updatedAt": "2026-05-18T17:52:58.268Z"
+}

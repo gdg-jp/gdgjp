@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_942f6fa282",
+  "title": "Node source wiki/app/routes#5",
+  "summary": "Node/TypeScript source group wiki/app/routes#5 with 9 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/routes#5",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/routes/tasks.$slug.history.tsx",
+      "reason": "source group wiki/app/routes#5"
+    },
+    {
+      "path": "wiki/app/routes/tasks.$slug.settings.tsx",
+      "reason": "source group wiki/app/routes#5"
+    },
+    {
+      "path": "wiki/app/routes/tasks.$slug.tsx",
+      "reason": "source group wiki/app/routes#5"
+    },
+    {
+      "path": "wiki/app/routes/tasks.new.tsx",
+      "reason": "source group wiki/app/routes#5"
+    },
+    {
+      "path": "wiki/app/routes/terms.tsx",
+      "reason": "source group wiki/app/routes#5"
+    },
+    {
+      "path": "wiki/app/routes/wiki.$slug.edit.tsx",
+      "reason": "source group wiki/app/routes#5"
+    },
+    {
+      "path": "wiki/app/routes/wiki.$slug.history.tsx",
+      "reason": "source group wiki/app/routes#5"
+    },
+    {
+      "path": "wiki/app/routes/wiki.$slug.tsx",
+      "reason": "source group wiki/app/routes#5"
+    },
+    {
+      "path": "wiki/app/routes/wiki.new.tsx",
+      "reason": "source group wiki/app/routes#5"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "wiki/app/routes/admin.pages.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "wiki/app/routes/admin.pages.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

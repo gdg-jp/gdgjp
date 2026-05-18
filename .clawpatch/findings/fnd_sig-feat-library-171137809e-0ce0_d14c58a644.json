@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-171137809e-0ce0_d14c58a644",
+  "featureId": "feat_library_171137809e",
+  "title": "New task drafts are cleared before async creation succeeds",
+  "category": "data-loss",
+  "severity": "medium",
+  "confidence": "high",
+  "triage": "confirmed-bug",
+  "evidence": [
+    {
+      "path": "wiki/app/components/tasks/NewTaskRow.tsx",
+      "startLine": 40,
+      "endLine": 52,
+      "symbol": "NewTaskRowProps.onCreate",
+      "quote": "onCreate: (data: {\n    title: string;\n    description: string;\n    status: string;\n    type: string;\n    dueDate: string | null;\n    assigneeId: string | null;\n    assigneeName: string | null;\n    teamId: string | null;\n    dependencies: string[];\n  }) => Promise<void>;"
+    },
+    {
+      "path": "wiki/app/components/tasks/NewTaskRow.tsx",
+      "startLine": 92,
+      "endLine": 117,
+      "symbol": "commitWith",
+      "quote": "for (const line of lines) {\n      onCreate({\n        title: line,\n        description: descDraft.trim(),\n        status: fields.status || \"todo\",\n        type: fields.type || \"task\",\n        dueDate: fields.dueDate,\n        assigneeId: fields.assigneeId,\n        assigneeName: fields.assigneeName,\n        teamId: fields.teamId,\n        dependencies: fields.dependencies,\n      });\n    }\n\n    setTitleDraft(\"\");\n    setDescDraft(\"\");"
+    }
+  ],
+  "reasoning": "The component contract says task creation is asynchronous, but commitWith fires onCreate without awaiting or handling rejection and immediately clears all draft fields. If the create request fails, is rejected, or only some of several multiline creates succeed, the user's typed title/description and selected metadata are removed from the UI with no recovery path in this component.",
+  "reproduction": "Type a new task title, make onCreate return a rejected Promise, then press Enter or blur the row. The draft row clears even though the task was not created.",
+  "recommendation": "Make commitWith async, await all create operations, and only clear the draft after successful completion. If creation fails, preserve the draft and surface/propagate the error so the parent can display feedback. Consider disabling repeat submissions while creation is pending.",
+  "whyTestsDoNotAlreadyCoverThis": "No tests are included for this feature, and there is no evidence of a rejection-path test for NewTaskRow.onCreate.",
+  "suggestedRegressionTest": "Render NewTaskRow with an onCreate mock that rejects; enter a title and commit; assert the title remains visible and the draft state is not reset. Add a success-path test asserting fields clear only after the Promise resolves.",
+  "minimumFixScope": "wiki/app/components/tasks/NewTaskRow.tsx",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-171137809e_0ce04ce183",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260518T175159-33a868",
+  "createdAt": "2026-05-18T17:52:35.830Z",
+  "updatedAt": "2026-05-18T17:52:35.830Z"
+}

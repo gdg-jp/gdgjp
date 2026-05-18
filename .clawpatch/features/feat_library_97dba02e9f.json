@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_97dba02e9f",
+  "title": "Node source wiki/app/hooks",
+  "summary": "Node/TypeScript source group wiki/app/hooks with 3 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/hooks",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/hooks/useCollabEditor.ts",
+      "reason": "source group wiki/app/hooks"
+    },
+    {
+      "path": "wiki/app/hooks/useMediaQuery.ts",
+      "reason": "source group wiki/app/hooks"
+    },
+    {
+      "path": "wiki/app/hooks/useThemeMode.ts",
+      "reason": "source group wiki/app/hooks"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

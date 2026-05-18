@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "projectId": "prj_https-github-com-gdsc-osaka-gdgj_483a27424e",
+  "name": "gdgjp",
+  "rootPath": "/Users/hari/proj/gdgjp",
+  "git": {
+    "remoteUrl": "https://github.com/gdsc-osaka/gdgjp.git",
+    "defaultBranch": "main",
+    "currentBranch": "main",
+    "headSha": "9f822747c133c4f37ff5d8c4910b5f7b1fa48836"
+  },
+  "detected": {
+    "languages": [
+      "javascript"
+    ],
+    "frameworks": [],
+    "packageManagers": [
+      "pnpm"
+    ],
+    "commands": {
+      "typecheck": "pnpm typecheck",
+      "lint": "pnpm lint",
+      "format": "pnpm format",
+      "test": "pnpm test"
+    }
+  },
+  "createdAt": "2026-05-18T17:51:11.783Z",
+  "updatedAt": "2026-05-18T17:51:11.783Z"
+}

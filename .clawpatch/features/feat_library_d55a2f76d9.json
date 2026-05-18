@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_d55a2f76d9",
+  "title": "Node source tinyurl/app/components",
+  "summary": "Node/TypeScript source group tinyurl/app/components with 10 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "tinyurl/package.json",
+      "symbol": "tinyurl/app/components",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "tinyurl/app/components/create-link-dialog.tsx",
+      "reason": "source group tinyurl/app/components"
+    },
+    {
+      "path": "tinyurl/app/components/dashboard-shell.tsx",
+      "reason": "source group tinyurl/app/components"
+    },
+    {
+      "path": "tinyurl/app/components/gdg-mark.tsx",
+      "reason": "source group tinyurl/app/components"
+    },
+    {
+      "path": "tinyurl/app/components/link-card.tsx",
+      "reason": "source group tinyurl/app/components"
+    },
+    {
+      "path": "tinyurl/app/components/page-shell.tsx",
+      "reason": "source group tinyurl/app/components"
+    },
+    {
+      "path": "tinyurl/app/components/status-badge.tsx",
+      "reason": "source group tinyurl/app/components"
+    },
+    {
+      "path": "tinyurl/app/components/tag-combobox.tsx",
+      "reason": "source group tinyurl/app/components"
+    },
+    {
+      "path": "tinyurl/app/components/theme-toggle.tsx",
+      "reason": "source group tinyurl/app/components"
+    },
+    {
+      "path": "tinyurl/app/components/top-bar.tsx",
+      "reason": "source group tinyurl/app/components"
+    },
+    {
+      "path": "tinyurl/app/components/user-menu.tsx",
+      "reason": "source group tinyurl/app/components"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "tinyurl/package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/tinyurl",
+    "project-root:tinyurl"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

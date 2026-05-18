@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-0bd5f1b7fc-363c_98a172ae4d",
+  "featureId": "feat_library_0bd5f1b7fc",
+  "title": "Malformed percent-encoding in Cookie headers can crash auth request handling",
+  "category": "bug",
+  "severity": "low",
+  "confidence": "high",
+  "triage": "confirmed-bug",
+  "evidence": [
+    {
+      "path": "gdg-lib/src/auth/cookie.ts",
+      "startLine": 76,
+      "endLine": 76,
+      "symbol": "parseCookies",
+      "quote": "out[k] = decodeURIComponent(part.slice(eq + 1).trim());"
+    },
+    {
+      "path": "gdg-lib/src/auth/cookie.test.ts",
+      "startLine": 67,
+      "endLine": 81,
+      "symbol": "parseCookies tests",
+      "quote": null
+    },
+    {
+      "path": "gdg-lib/src/auth/rp.ts",
+      "startLine": 255,
+      "endLine": 255,
+      "symbol": "getSessionUser",
+      "quote": "const value = parseCookies(request.headers.get(\"cookie\"))[sessionCookieName(config)];"
+    }
+  ],
+  "reasoning": "decodeURIComponent throws URIError for malformed percent escapes such as '%E0%A4%A'. parseCookies does not catch that exception, and rp.ts calls parseCookies while reading session cookies on normal auth paths. A client can send a malformed Cookie header and turn otherwise safe unauthenticated/session reads into an unhandled exception instead of a null session or ignored malformed cookie.",
+  "reproduction": "Call parseCookies('session=%E0%A4%A') or request /api/auth/me with Cookie: <session-name>=%E0%A4%A; decodeURIComponent throws before the auth handler can return a normal JSON response.",
+  "recommendation": "Catch decodeURIComponent failures per cookie entry and skip the malformed cookie value, or preserve the raw value when decoding fails.",
+  "whyTestsDoNotAlreadyCoverThis": "The parseCookies tests cover missing equals signs and empty names, but not invalid percent-encoded values that make decodeURIComponent throw.",
+  "suggestedRegressionTest": "Add a parseCookies test with an invalid percent escape and assert it does not throw and ignores that cookie entry.",
+  "minimumFixScope": "gdg-lib/src/auth/cookie.ts parseCookies plus one cookie.test.ts regression.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-0bd5f1b7fc_363cf47047",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260518T175159-33a868",
+  "createdAt": "2026-05-18T17:52:41.194Z",
+  "updatedAt": "2026-05-18T17:52:41.194Z"
+}

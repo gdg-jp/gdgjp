@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_c9baf2c6e2",
+  "title": "Node source wiki/app/routes#1",
+  "summary": "Node/TypeScript source group wiki/app/routes#1 with 12 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/routes#1",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/routes/$.tsx",
+      "reason": "source group wiki/app/routes#1"
+    },
+    {
+      "path": "wiki/app/routes/_app.tsx",
+      "reason": "source group wiki/app/routes#1"
+    },
+    {
+      "path": "wiki/app/routes/_index.tsx",
+      "reason": "source group wiki/app/routes#1"
+    },
+    {
+      "path": "wiki/app/routes/about.tsx",
+      "reason": "source group wiki/app/routes#1"
+    },
+    {
+      "path": "wiki/app/routes/admin._index.tsx",
+      "reason": "source group wiki/app/routes#1"
+    },
+    {
+      "path": "wiki/app/routes/admin.pages.tsx",
+      "reason": "source group wiki/app/routes#1"
+    },
+    {
+      "path": "wiki/app/routes/admin.stats.tsx",
+      "reason": "source group wiki/app/routes#1"
+    },
+    {
+      "path": "wiki/app/routes/admin.tags.tsx",
+      "reason": "source group wiki/app/routes#1"
+    },
+    {
+      "path": "wiki/app/routes/admin.tsx",
+      "reason": "source group wiki/app/routes#1"
+    },
+    {
+      "path": "wiki/app/routes/analyze.tsx",
+      "reason": "source group wiki/app/routes#1"
+    },
+    {
+      "path": "wiki/app/routes/api-auth.tsx",
+      "reason": "source group wiki/app/routes#1"
+    },
+    {
+      "path": "wiki/app/routes/api.admin.backfill-embeddings.ts",
+      "reason": "source group wiki/app/routes#1"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "wiki/app/routes/admin.pages.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "wiki/app/routes/admin.pages.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

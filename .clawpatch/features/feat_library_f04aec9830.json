@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_f04aec9830",
+  "title": "Node source wiki/app/lib#2",
+  "summary": "Node/TypeScript source group wiki/app/lib#2 with 12 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/lib#2",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/lib/google-drive-utils.ts",
+      "reason": "source group wiki/app/lib#2"
+    },
+    {
+      "path": "wiki/app/lib/google-drive.server.ts",
+      "reason": "source group wiki/app/lib#2"
+    },
+    {
+      "path": "wiki/app/lib/google-forms-utils.ts",
+      "reason": "source group wiki/app/lib#2"
+    },
+    {
+      "path": "wiki/app/lib/google-forms.server.ts",
+      "reason": "source group wiki/app/lib#2"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-jobs.server.ts",
+      "reason": "source group wiki/app/lib#2"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-pipeline.server.ts",
+      "reason": "source group wiki/app/lib#2"
+    },
+    {
+      "path": "wiki/app/lib/notify.server.ts",
+      "reason": "source group wiki/app/lib#2"
+    },
+    {
+      "path": "wiki/app/lib/page-access.server.ts",
+      "reason": "source group wiki/app/lib#2"
+    },
+    {
+      "path": "wiki/app/lib/page-tree.ts",
+      "reason": "source group wiki/app/lib#2"
+    },
+    {
+      "path": "wiki/app/lib/page-visibility.server.ts",
+      "reason": "source group wiki/app/lib#2"
+    },
+    {
+      "path": "wiki/app/lib/queue-processors.server.ts",
+      "reason": "source group wiki/app/lib#2"
+    },
+    {
+      "path": "wiki/app/lib/rag-search.server.ts",
+      "reason": "source group wiki/app/lib#2"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "wiki/app/lib/chunker.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/gemini.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/google-forms.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-jobs.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-pipeline.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/page-access.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/page-tree.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/page-visibility.server.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "wiki/app/lib/chunker.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/gemini.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/google-forms.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-jobs.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-pipeline.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/page-access.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/page-tree.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/page-visibility.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

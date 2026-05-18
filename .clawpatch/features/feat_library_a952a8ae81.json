@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_a952a8ae81",
+  "title": "Node source wiki/app/lib/gemini",
+  "summary": "Node/TypeScript source group wiki/app/lib/gemini with 5 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/lib/gemini",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/lib/gemini/parts.ts",
+      "reason": "source group wiki/app/lib/gemini"
+    },
+    {
+      "path": "wiki/app/lib/gemini/prompts.ts",
+      "reason": "source group wiki/app/lib/gemini"
+    },
+    {
+      "path": "wiki/app/lib/gemini/response-schemas.ts",
+      "reason": "source group wiki/app/lib/gemini"
+    },
+    {
+      "path": "wiki/app/lib/gemini/types.ts",
+      "reason": "source group wiki/app/lib/gemini"
+    },
+    {
+      "path": "wiki/app/lib/gemini/utils.ts",
+      "reason": "source group wiki/app/lib/gemini"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260518T175159-33a868",
+  "command": "review",
+  "args": [
+    "review",
+    "--limit",
+    "10"
+  ],
+  "rootPath": "/Users/hari/proj/gdgjp",
+  "headSha": "9f822747c133c4f37ff5d8c4910b5f7b1fa48836",
+  "startedAt": "2026-05-18T17:51:59.860Z",
+  "finishedAt": "2026-05-18T17:53:20.721Z",
+  "status": "completed",
+  "claimedFeatureIds": [
+    "feat_cli-command_15e7ddedfd",
+    "feat_cli-command_64400b54a9",
+    "feat_config_7528cb5b98",
+    "feat_config_97ea478330",
+    "feat_library_053e550e39",
+    "feat_library_0bd5f1b7fc",
+    "feat_library_0dd0c5aab3",
+    "feat_library_0e44346349",
+    "feat_library_14b5af1b68",
+    "feat_library_171137809e"
+  ],
+  "findingIds": [
+    "fnd_sig-feat-library-171137809e-0ce0_d14c58a644",
+    "fnd_sig-feat-library-0bd5f1b7fc-212a_133f9afe43",
+    "fnd_sig-feat-library-0bd5f1b7fc-363c_98a172ae4d",
+    "fnd_sig-feat-library-14b5af1b68-8180_80fcbbf8d2",
+    "fnd_sig-feat-library-14b5af1b68-f5eb_101e9167ef",
+    "fnd_sig-feat-library-0dd0c5aab3-338c_387f8dea10",
+    "fnd_sig-feat-library-0dd0c5aab3-63b6_11e5996488",
+    "fnd_sig-feat-library-0dd0c5aab3-60f8_56f21d2f60",
+    "fnd_sig-feat-cli-command-15e7ddedfd-_5e0e5760f4",
+    "fnd_sig-feat-library-053e550e39-f76b_74c9ab9e90",
+    "fnd_sig-feat-library-053e550e39-464d_071c1e5060",
+    "fnd_sig-feat-library-053e550e39-a421_6cd1ac4056"
+  ],
+  "patchAttemptIds": [],
+  "errors": []
+}

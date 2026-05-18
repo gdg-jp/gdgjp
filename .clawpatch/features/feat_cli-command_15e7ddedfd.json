@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_cli-command_15e7ddedfd",
+  "title": "Node source wiki/app/:cli",
+  "summary": "Node/TypeScript source file wiki/app/entry.client.tsx.",
+  "kind": "cli-command",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/:cli",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/entry.client.tsx",
+      "reason": "source group wiki/app/:cli"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "wiki/app/components/tiptap-renderer-toc.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/components/tiptap-renderer.test.tsx",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/chunker.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/gemini.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/google-forms.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-jobs.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-pipeline.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/page-access.server.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "wiki/app/components/tiptap-renderer-toc.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/components/tiptap-renderer.test.tsx",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/chunker.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/gemini.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/google-forms.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-jobs.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-pipeline.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/page-access.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [
+    "user-input",
+    "process-exec"
+  ],
+  "status": "needs-fix",
+  "lock": null,
+  "findingIds": [
+    "fnd_sig-feat-cli-command-15e7ddedfd-_5e0e5760f4"
+  ],
+  "patchAttemptIds": [],
+  "analysisHistory": [
+    {
+      "runId": "20260518T175159-33a868",
+      "kind": "review",
+      "summary": "1 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "reasoningEffort": null,
+      "createdAt": "2026-05-18T17:52:59.941Z"
+    }
+  ],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:52:59.941Z"
+}

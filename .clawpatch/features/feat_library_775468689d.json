@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_775468689d",
+  "title": "Node source img/app/lib",
+  "summary": "Node/TypeScript source group img/app/lib with 11 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "img/package.json",
+      "symbol": "img/app/lib",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "img/app/lib/auth-redirect.ts",
+      "reason": "source group img/app/lib"
+    },
+    {
+      "path": "img/app/lib/auth.server.ts",
+      "reason": "source group img/app/lib"
+    },
+    {
+      "path": "img/app/lib/chapter.server.ts",
+      "reason": "source group img/app/lib"
+    },
+    {
+      "path": "img/app/lib/id.ts",
+      "reason": "source group img/app/lib"
+    },
+    {
+      "path": "img/app/lib/images.ts",
+      "reason": "source group img/app/lib"
+    },
+    {
+      "path": "img/app/lib/img-url.ts",
+      "reason": "source group img/app/lib"
+    },
+    {
+      "path": "img/app/lib/permissions.ts",
+      "reason": "source group img/app/lib"
+    },
+    {
+      "path": "img/app/lib/r2.ts",
+      "reason": "source group img/app/lib"
+    },
+    {
+      "path": "img/app/lib/return-to.ts",
+      "reason": "source group img/app/lib"
+    },
+    {
+      "path": "img/app/lib/theme.tsx",
+      "reason": "source group img/app/lib"
+    },
+    {
+      "path": "img/app/lib/utils.ts",
+      "reason": "source group img/app/lib"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "img/package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/img",
+    "project-root:img"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

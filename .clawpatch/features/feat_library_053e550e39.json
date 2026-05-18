@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_053e550e39",
+  "title": "Node source wiki/app/components#1",
+  "summary": "Node/TypeScript source group wiki/app/components#1 with 12 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/components#1",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/components/ArchivedContent.tsx",
+      "reason": "source group wiki/app/components#1"
+    },
+    {
+      "path": "wiki/app/components/BaseSidebar.tsx",
+      "reason": "source group wiki/app/components#1"
+    },
+    {
+      "path": "wiki/app/components/CommentEditor.tsx",
+      "reason": "source group wiki/app/components#1"
+    },
+    {
+      "path": "wiki/app/components/CommentItem.tsx",
+      "reason": "source group wiki/app/components#1"
+    },
+    {
+      "path": "wiki/app/components/CommentSection.tsx",
+      "reason": "source group wiki/app/components#1"
+    },
+    {
+      "path": "wiki/app/components/ConfirmDialog.tsx",
+      "reason": "source group wiki/app/components#1"
+    },
+    {
+      "path": "wiki/app/components/EmojiReactionBar.tsx",
+      "reason": "source group wiki/app/components#1"
+    },
+    {
+      "path": "wiki/app/components/Footer.tsx",
+      "reason": "source group wiki/app/components#1"
+    },
+    {
+      "path": "wiki/app/components/LandingContent.tsx",
+      "reason": "source group wiki/app/components#1"
+    },
+    {
+      "path": "wiki/app/components/MermaidBlock.tsx",
+      "reason": "source group wiki/app/components#1"
+    },
+    {
+      "path": "wiki/app/components/Navbar.tsx",
+      "reason": "source group wiki/app/components#1"
+    },
+    {
+      "path": "wiki/app/components/NotificationBell.tsx",
+      "reason": "source group wiki/app/components#1"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "wiki/app/components/tiptap-renderer-toc.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/components/tiptap-renderer.test.tsx",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "wiki/app/components/tiptap-renderer-toc.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/components/tiptap-renderer.test.tsx",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "needs-fix",
+  "lock": null,
+  "findingIds": [
+    "fnd_sig-feat-library-053e550e39-f76b_74c9ab9e90",
+    "fnd_sig-feat-library-053e550e39-464d_071c1e5060",
+    "fnd_sig-feat-library-053e550e39-a421_6cd1ac4056"
+  ],
+  "patchAttemptIds": [],
+  "analysisHistory": [
+    {
+      "runId": "20260518T175159-33a868",
+      "kind": "review",
+      "summary": "3 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "reasoningEffort": null,
+      "createdAt": "2026-05-18T17:53:20.720Z"
+    }
+  ],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:53:20.720Z"
+}

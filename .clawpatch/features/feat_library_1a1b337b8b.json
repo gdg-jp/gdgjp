@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_1a1b337b8b",
+  "title": "Node package @gdgjp/img",
+  "summary": "Node package @gdgjp/img with package metadata and review context rooted at img.",
+  "kind": "library",
+  "source": "node-package",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "img/package.json",
+      "symbol": "@gdgjp/img",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "img/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "img/tsconfig.json",
+      "reason": "typescript configuration"
+    },
+    {
+      "path": "img/vitest.config.ts",
+      "reason": "test configuration"
+    },
+    {
+      "path": "img/vite.config.ts",
+      "reason": "build configuration"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "img/app/components/gallery-grid.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/components/page-shell.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/components/top-bar.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/components/ui/button.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/components/ui/card.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/components/ui/input.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/components/ui/label.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/components/upload-form.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/entry.server.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/lib/auth-redirect.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/lib/auth.server.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/lib/chapter.server.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/lib/id.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/lib/images.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/lib/img-url.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/lib/permissions.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/lib/r2.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/lib/return-to.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/lib/theme.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/lib/utils.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/root.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/routes.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/routes/$id.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/routes/api.auth.$.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "img/app/routes/home.test.ts",
+      "reason": "package test"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "package",
+    "project:@gdgjp/img",
+    "project-root:img",
+    "workspace"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

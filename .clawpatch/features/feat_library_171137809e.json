@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_171137809e",
+  "title": "Node source wiki/app/components/tasks#1",
+  "summary": "Node/TypeScript source group wiki/app/components/tasks#1 with 12 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/components/tasks#1",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/components/tasks/AssigneeCell.tsx",
+      "reason": "source group wiki/app/components/tasks#1"
+    },
+    {
+      "path": "wiki/app/components/tasks/ColumnFilterPopover.tsx",
+      "reason": "source group wiki/app/components/tasks#1"
+    },
+    {
+      "path": "wiki/app/components/tasks/DatePickerDropdown.tsx",
+      "reason": "source group wiki/app/components/tasks#1"
+    },
+    {
+      "path": "wiki/app/components/tasks/DepsDropdown.tsx",
+      "reason": "source group wiki/app/components/tasks#1"
+    },
+    {
+      "path": "wiki/app/components/tasks/DropdownMenu.tsx",
+      "reason": "source group wiki/app/components/tasks#1"
+    },
+    {
+      "path": "wiki/app/components/tasks/NewTaskRow.tsx",
+      "reason": "source group wiki/app/components/tasks#1"
+    },
+    {
+      "path": "wiki/app/components/tasks/TaskCreateDialog.tsx",
+      "reason": "source group wiki/app/components/tasks#1"
+    },
+    {
+      "path": "wiki/app/components/tasks/TaskRemainingView.tsx",
+      "reason": "source group wiki/app/components/tasks#1"
+    },
+    {
+      "path": "wiki/app/components/tasks/TaskRow.tsx",
+      "reason": "source group wiki/app/components/tasks#1"
+    },
+    {
+      "path": "wiki/app/components/tasks/TaskStatusBadge.tsx",
+      "reason": "source group wiki/app/components/tasks#1"
+    },
+    {
+      "path": "wiki/app/components/tasks/TaskTableView.tsx",
+      "reason": "source group wiki/app/components/tasks#1"
+    },
+    {
+      "path": "wiki/app/components/tasks/TaskTimelineView.tsx",
+      "reason": "source group wiki/app/components/tasks#1"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "needs-fix",
+  "lock": null,
+  "findingIds": [
+    "fnd_sig-feat-library-171137809e-0ce0_d14c58a644"
+  ],
+  "patchAttemptIds": [],
+  "analysisHistory": [
+    {
+      "runId": "20260518T175159-33a868",
+      "kind": "review",
+      "summary": "1 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "reasoningEffort": null,
+      "createdAt": "2026-05-18T17:52:35.831Z"
+    }
+  ],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:52:35.831Z"
+}

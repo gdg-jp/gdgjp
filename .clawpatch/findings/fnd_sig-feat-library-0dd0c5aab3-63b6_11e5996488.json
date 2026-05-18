@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-0dd0c5aab3-63b6_11e5996488",
+  "featureId": "feat_library_0dd0c5aab3",
+  "title": "Sidebar resize cleanup leaves global document styles stuck after unmount",
+  "category": "bug",
+  "severity": "low",
+  "confidence": "high",
+  "triage": "confirmed-bug",
+  "evidence": [
+    {
+      "path": "wiki/app/components/BaseSidebar.tsx",
+      "startLine": 46,
+      "endLine": 57,
+      "symbol": "onMouseUp",
+      "quote": "document.body.style.cursor = \"\";\n    document.body.style.userSelect = \"\";"
+    },
+    {
+      "path": "wiki/app/components/BaseSidebar.tsx",
+      "startLine": 75,
+      "endLine": 81,
+      "symbol": "BaseSidebar cleanup",
+      "quote": "return () => {\n      window.removeEventListener(\"mousemove\", onMouseMove);\n      window.removeEventListener(\"mouseup\", onMouseUp);\n    };"
+    }
+  ],
+  "reasoning": "During resize, BaseSidebar mutates global body cursor and userSelect. The unmount cleanup only removes event listeners; it does not reset isDragging, isResizing, cursor, or userSelect. If the sidebar unmounts during a drag, for example due to route/layout change or switching to mobile layout, the mouseup handler may never run and the page can remain in col-resize/no-selection mode.",
+  "reproduction": "Start dragging the desktop sidebar resize handle, then cause the component to unmount before mouseup, such as navigating via another control or changing responsive layout. The cleanup removes listeners but leaves document.body.style.cursor and document.body.style.userSelect as set by mousedown.",
+  "recommendation": "In the cleanup effect, if a drag is active, clear isDragging.current, setIsResizing(false), and restore document.body.style.cursor and document.body.style.userSelect. Prefer storing original values before mutation if other code may set them.",
+  "whyTestsDoNotAlreadyCoverThis": "No supplied tests cover BaseSidebar resize lifecycle or unmount behavior during an active drag.",
+  "suggestedRegressionTest": "Add a jsdom/component test that fires mousedown on the resize handle, unmounts the component, and asserts body cursor/userSelect are restored and listeners no longer affect state.",
+  "minimumFixScope": "wiki/app/components/BaseSidebar.tsx",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-0dd0c5aab3_63b6250338",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260518T175159-33a868",
+  "createdAt": "2026-05-18T17:52:58.268Z",
+  "updatedAt": "2026-05-18T17:52:58.268Z"
+}

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_1b71fd0e61",
+  "title": "Node source wiki/app/lib/ingestion-pipeline",
+  "summary": "Node/TypeScript source group wiki/app/lib/ingestion-pipeline with 5 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/lib/ingestion-pipeline",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/lib/ingestion-pipeline/helpers.ts",
+      "reason": "source group wiki/app/lib/ingestion-pipeline"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-pipeline/page-index.ts",
+      "reason": "source group wiki/app/lib/ingestion-pipeline"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-pipeline/run-phases.ts",
+      "reason": "source group wiki/app/lib/ingestion-pipeline"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-pipeline/run-preprocess.ts",
+      "reason": "source group wiki/app/lib/ingestion-pipeline"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-pipeline/types.ts",
+      "reason": "source group wiki/app/lib/ingestion-pipeline"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

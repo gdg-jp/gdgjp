@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_6b35fc1f4e",
+  "title": "Node source wiki/app/:server",
+  "summary": "Node/TypeScript source group wiki/app/:server with 2 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/:server",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/entry.server.tsx",
+      "reason": "source group wiki/app/:server"
+    },
+    {
+      "path": "wiki/app/i18n.server.ts",
+      "reason": "source group wiki/app/:server"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "wiki/app/components/tiptap-renderer-toc.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/components/tiptap-renderer.test.tsx",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/chunker.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/gemini.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/google-forms.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-jobs.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-pipeline.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/page-access.server.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "wiki/app/components/tiptap-renderer-toc.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/components/tiptap-renderer.test.tsx",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/chunker.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/gemini.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/google-forms.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-jobs.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-pipeline.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/page-access.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

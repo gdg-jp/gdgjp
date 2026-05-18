@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_df354bfac9",
+  "title": "Node source accounts/app/lib",
+  "summary": "Node/TypeScript source group accounts/app/lib with 12 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "accounts/package.json",
+      "symbol": "accounts/app/lib",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "accounts/app/lib/auth-redirect.ts",
+      "reason": "source group accounts/app/lib"
+    },
+    {
+      "path": "accounts/app/lib/auth.server.ts",
+      "reason": "source group accounts/app/lib"
+    },
+    {
+      "path": "accounts/app/lib/db.ts",
+      "reason": "source group accounts/app/lib"
+    },
+    {
+      "path": "accounts/app/lib/email.server.ts",
+      "reason": "source group accounts/app/lib"
+    },
+    {
+      "path": "accounts/app/lib/federated-signout.server.ts",
+      "reason": "source group accounts/app/lib"
+    },
+    {
+      "path": "accounts/app/lib/google.server.ts",
+      "reason": "source group accounts/app/lib"
+    },
+    {
+      "path": "accounts/app/lib/idp-session.server.ts",
+      "reason": "source group accounts/app/lib"
+    },
+    {
+      "path": "accounts/app/lib/oauth-provider.server.ts",
+      "reason": "source group accounts/app/lib"
+    },
+    {
+      "path": "accounts/app/lib/permissions.ts",
+      "reason": "source group accounts/app/lib"
+    },
+    {
+      "path": "accounts/app/lib/seed-clients.server.ts",
+      "reason": "source group accounts/app/lib"
+    },
+    {
+      "path": "accounts/app/lib/theme.tsx",
+      "reason": "source group accounts/app/lib"
+    },
+    {
+      "path": "accounts/app/lib/utils.ts",
+      "reason": "source group accounts/app/lib"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "accounts/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "accounts/app/lib/email.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "accounts/app/lib/permissions.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "accounts/app/lib/email.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/accounts"
+    },
+    {
+      "path": "accounts/app/lib/permissions.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/accounts"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/accounts",
+    "project-root:accounts"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

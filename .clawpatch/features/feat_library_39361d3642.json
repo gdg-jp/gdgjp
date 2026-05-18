@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_39361d3642",
+  "title": "Node source wiki/app/components/ingest",
+  "summary": "Node/TypeScript source group wiki/app/components/ingest with 4 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/components/ingest",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/components/ingest/ChangesetReview.tsx",
+      "reason": "source group wiki/app/components/ingest"
+    },
+    {
+      "path": "wiki/app/components/ingest/InputPanel.tsx",
+      "reason": "source group wiki/app/components/ingest"
+    },
+    {
+      "path": "wiki/app/components/ingest/PageStructurePreview.tsx",
+      "reason": "source group wiki/app/components/ingest"
+    },
+    {
+      "path": "wiki/app/components/ingest/SensitiveReviewModal.tsx",
+      "reason": "source group wiki/app/components/ingest"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

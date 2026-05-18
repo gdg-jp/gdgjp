@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_7ceed8ecc3",
+  "title": "Node source wiki/app/lib#3",
+  "summary": "Node/TypeScript source group wiki/app/lib#3 with 7 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/lib#3",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/lib/remote-cursors-extension.ts",
+      "reason": "source group wiki/app/lib#3"
+    },
+    {
+      "path": "wiki/app/lib/remote-cursors-store.ts",
+      "reason": "source group wiki/app/lib#3"
+    },
+    {
+      "path": "wiki/app/lib/survey-stats.server.ts",
+      "reason": "source group wiki/app/lib#3"
+    },
+    {
+      "path": "wiki/app/lib/task-visibility.server.ts",
+      "reason": "source group wiki/app/lib#3"
+    },
+    {
+      "path": "wiki/app/lib/time.ts",
+      "reason": "source group wiki/app/lib#3"
+    },
+    {
+      "path": "wiki/app/lib/tiptap-convert.ts",
+      "reason": "source group wiki/app/lib#3"
+    },
+    {
+      "path": "wiki/app/lib/url-extract.ts",
+      "reason": "source group wiki/app/lib#3"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "wiki/app/lib/chunker.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/gemini.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/google-forms.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-jobs.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-pipeline.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/page-access.server.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/page-tree.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/lib/page-visibility.server.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "wiki/app/lib/chunker.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/gemini.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/google-forms.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-jobs.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-pipeline.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/page-access.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/page-tree.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/lib/page-visibility.server.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

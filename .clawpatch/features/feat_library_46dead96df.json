@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_46dead96df",
+  "title": "Node source img/app/:server",
+  "summary": "Node/TypeScript source file img/app/entry.server.tsx.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "img/package.json",
+      "symbol": "img/app/:server",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "img/app/entry.server.tsx",
+      "reason": "source group img/app/:server"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "img/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "img/app/routes/home.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "img/app/routes/home.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/img"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/img",
+    "project-root:img"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

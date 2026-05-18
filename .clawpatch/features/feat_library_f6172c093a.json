@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_f6172c093a",
+  "title": "Node source tinyurl/app/routes#1",
+  "summary": "Node/TypeScript source group tinyurl/app/routes#1 with 12 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "tinyurl/package.json",
+      "symbol": "tinyurl/app/routes#1",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "tinyurl/app/routes/$slug.tsx",
+      "reason": "source group tinyurl/app/routes#1"
+    },
+    {
+      "path": "tinyurl/app/routes/analytics.tsx",
+      "reason": "source group tinyurl/app/routes#1"
+    },
+    {
+      "path": "tinyurl/app/routes/api.auth.$.ts",
+      "reason": "source group tinyurl/app/routes#1"
+    },
+    {
+      "path": "tinyurl/app/routes/api.links.tsx",
+      "reason": "source group tinyurl/app/routes#1"
+    },
+    {
+      "path": "tinyurl/app/routes/auth.signout-iframe.ts",
+      "reason": "source group tinyurl/app/routes#1"
+    },
+    {
+      "path": "tinyurl/app/routes/auth.signout.ts",
+      "reason": "source group tinyurl/app/routes#1"
+    },
+    {
+      "path": "tinyurl/app/routes/dashboard.tsx",
+      "reason": "source group tinyurl/app/routes#1"
+    },
+    {
+      "path": "tinyurl/app/routes/home.tsx",
+      "reason": "source group tinyurl/app/routes#1"
+    },
+    {
+      "path": "tinyurl/app/routes/links.$id.tsx",
+      "reason": "source group tinyurl/app/routes#1"
+    },
+    {
+      "path": "tinyurl/app/routes/no-chapter.tsx",
+      "reason": "source group tinyurl/app/routes#1"
+    },
+    {
+      "path": "tinyurl/app/routes/notfound.tsx",
+      "reason": "source group tinyurl/app/routes#1"
+    },
+    {
+      "path": "tinyurl/app/routes/signin.tsx",
+      "reason": "source group tinyurl/app/routes#1"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "tinyurl/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "tinyurl/app/routes/home.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "tinyurl/app/routes/home.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/tinyurl"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/tinyurl",
+    "project-root:tinyurl"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

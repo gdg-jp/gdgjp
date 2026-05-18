@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_0dd0c5aab3",
+  "title": "Node package @gdgjp/wiki",
+  "summary": "Node package @gdgjp/wiki with package metadata and review context rooted at wiki.",
+  "kind": "library",
+  "source": "node-package",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "@gdgjp/wiki",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "wiki/tsconfig.json",
+      "reason": "typescript configuration"
+    },
+    {
+      "path": "wiki/vitest.config.ts",
+      "reason": "test configuration"
+    },
+    {
+      "path": "wiki/vite.config.ts",
+      "reason": "build configuration"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/app/components/ArchivedContent.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/BaseSidebar.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/CommentEditor.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/CommentItem.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/CommentSection.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/ConfirmDialog.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/EmojiReactionBar.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/Footer.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/LandingContent.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/MermaidBlock.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/Navbar.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/NotificationBell.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/PageEditor.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/PageTree.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/PresenceAvatars.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/PushNotificationToggle.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/RecentContent.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/ShareDialog.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/Sidebar.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/SidebarDialog.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/SidebarPopover.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/Skeleton.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/StarredContent.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/TagChip.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "wiki/app/components/tiptap-renderer-toc.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "wiki/app/components/tiptap-renderer.test.tsx",
+      "reason": "package test"
+    },
+    {
+      "path": "wiki/app/lib/chunker.server.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "wiki/app/lib/gemini.server.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "wiki/app/lib/google-forms.server.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-jobs.server.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "wiki/app/lib/ingestion-pipeline.server.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "wiki/app/lib/page-access.server.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "wiki/app/lib/page-tree.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "wiki/app/lib/page-visibility.server.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "wiki/app/lib/survey-stats.server.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "wiki/app/lib/tiptap-convert.test.ts",
+      "reason": "package test"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "package",
+    "project:@gdgjp/wiki",
+    "project-root:wiki",
+    "workspace"
+  ],
+  "trustBoundaries": [],
+  "status": "needs-fix",
+  "lock": null,
+  "findingIds": [
+    "fnd_sig-feat-library-0dd0c5aab3-338c_387f8dea10",
+    "fnd_sig-feat-library-0dd0c5aab3-63b6_11e5996488",
+    "fnd_sig-feat-library-0dd0c5aab3-60f8_56f21d2f60"
+  ],
+  "patchAttemptIds": [],
+  "analysisHistory": [
+    {
+      "runId": "20260518T175159-33a868",
+      "kind": "review",
+      "summary": "3 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "reasoningEffort": null,
+      "createdAt": "2026-05-18T17:52:58.269Z"
+    }
+  ],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:52:58.269Z"
+}

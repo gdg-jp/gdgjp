@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_6afa9356d7",
+  "title": "Node package @gdgjp/scheduler",
+  "summary": "Node package @gdgjp/scheduler with package metadata and review context rooted at scheduler.",
+  "kind": "library",
+  "source": "node-package",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "scheduler/package.json",
+      "symbol": "@gdgjp/scheduler",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "scheduler/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "scheduler/tsconfig.json",
+      "reason": "typescript configuration"
+    },
+    {
+      "path": "scheduler/vitest.config.ts",
+      "reason": "test configuration"
+    },
+    {
+      "path": "scheduler/vite.config.ts",
+      "reason": "build configuration"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "scheduler/app/components/gdg-mark.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/components/header.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/components/schedule-editor.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/components/slot-pill-grid.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/components/theme-toggle.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/components/ui/button.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/components/ui/card.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/components/ui/dropdown-menu.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/components/ui/input.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/components/ui/label.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/components/ui/sonner.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/components/ui/table.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/components/ui/textarea.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/entry.server.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/lib/auth-redirect.server.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/lib/auth.server.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/lib/db.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/lib/id.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/lib/participant-cookie.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/lib/return-to.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/lib/slots.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/lib/theme.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/lib/utils.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/lib/validate.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "scheduler/app/lib/db.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "scheduler/app/lib/id.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "scheduler/app/lib/participant-cookie.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "scheduler/app/lib/reconcile.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "scheduler/app/lib/slots.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "scheduler/app/lib/validate.test.ts",
+      "reason": "package test"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "package",
+    "project:@gdgjp/scheduler",
+    "project-root:scheduler",
+    "workspace"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

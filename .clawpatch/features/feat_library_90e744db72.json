@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_90e744db72",
+  "title": "Node source tinyurl/app/components/charts",
+  "summary": "Node/TypeScript source group tinyurl/app/components/charts with 4 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "tinyurl/package.json",
+      "symbol": "tinyurl/app/components/charts",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "tinyurl/app/components/charts/bar-list.tsx",
+      "reason": "source group tinyurl/app/components/charts"
+    },
+    {
+      "path": "tinyurl/app/components/charts/hourly-chart.tsx",
+      "reason": "source group tinyurl/app/components/charts"
+    },
+    {
+      "path": "tinyurl/app/components/charts/metric-card.tsx",
+      "reason": "source group tinyurl/app/components/charts"
+    },
+    {
+      "path": "tinyurl/app/components/charts/tabbed-bar-card.tsx",
+      "reason": "source group tinyurl/app/components/charts"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "tinyurl/package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/tinyurl",
+    "project-root:tinyurl"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

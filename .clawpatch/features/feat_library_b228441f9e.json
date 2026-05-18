@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_b228441f9e",
+  "title": "Node source wiki/app/routes#4",
+  "summary": "Node/TypeScript source group wiki/app/routes#4 with 12 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/routes#4",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/routes/api.users.search.ts",
+      "reason": "source group wiki/app/routes#4"
+    },
+    {
+      "path": "wiki/app/routes/api.wiki.$slug.upload-image.ts",
+      "reason": "source group wiki/app/routes#4"
+    },
+    {
+      "path": "wiki/app/routes/archived.tsx",
+      "reason": "source group wiki/app/routes#4"
+    },
+    {
+      "path": "wiki/app/routes/auth.signout-iframe.ts",
+      "reason": "source group wiki/app/routes#4"
+    },
+    {
+      "path": "wiki/app/routes/ingest.$sessionId.tsx",
+      "reason": "source group wiki/app/routes#4"
+    },
+    {
+      "path": "wiki/app/routes/ingest.tsx",
+      "reason": "source group wiki/app/routes#4"
+    },
+    {
+      "path": "wiki/app/routes/login.tsx",
+      "reason": "source group wiki/app/routes#4"
+    },
+    {
+      "path": "wiki/app/routes/logout.tsx",
+      "reason": "source group wiki/app/routes#4"
+    },
+    {
+      "path": "wiki/app/routes/privacy.tsx",
+      "reason": "source group wiki/app/routes#4"
+    },
+    {
+      "path": "wiki/app/routes/recent.tsx",
+      "reason": "source group wiki/app/routes#4"
+    },
+    {
+      "path": "wiki/app/routes/search.tsx",
+      "reason": "source group wiki/app/routes#4"
+    },
+    {
+      "path": "wiki/app/routes/settings.tsx",
+      "reason": "source group wiki/app/routes#4"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "wiki/app/routes/admin.pages.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "wiki/app/routes/admin.pages.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

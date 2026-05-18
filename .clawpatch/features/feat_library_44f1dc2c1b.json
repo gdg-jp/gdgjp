@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_44f1dc2c1b",
+  "title": "Node source accounts/app/routes#2",
+  "summary": "Node/TypeScript source group accounts/app/routes#2 with 4 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "accounts/package.json",
+      "symbol": "accounts/app/routes#2",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "accounts/app/routes/onboarding.tsx",
+      "reason": "source group accounts/app/routes#2"
+    },
+    {
+      "path": "accounts/app/routes/signin.tsx",
+      "reason": "source group accounts/app/routes#2"
+    },
+    {
+      "path": "accounts/app/routes/signup.tsx",
+      "reason": "source group accounts/app/routes#2"
+    },
+    {
+      "path": "accounts/app/routes/well-known.openid-configuration.ts",
+      "reason": "source group accounts/app/routes#2"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "accounts/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "accounts/app/routes/home.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "accounts/app/routes/home.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/accounts"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/accounts",
+    "project-root:accounts"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

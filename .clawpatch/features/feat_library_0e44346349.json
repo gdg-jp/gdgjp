@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_0e44346349",
+  "title": "Node source tinyurl/app/components/ui#2",
+  "summary": "Node/TypeScript source group tinyurl/app/components/ui#2 with 9 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "tinyurl/package.json",
+      "symbol": "tinyurl/app/components/ui#2",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "tinyurl/app/components/ui/select.tsx",
+      "reason": "source group tinyurl/app/components/ui#2"
+    },
+    {
+      "path": "tinyurl/app/components/ui/separator.tsx",
+      "reason": "source group tinyurl/app/components/ui#2"
+    },
+    {
+      "path": "tinyurl/app/components/ui/sheet.tsx",
+      "reason": "source group tinyurl/app/components/ui#2"
+    },
+    {
+      "path": "tinyurl/app/components/ui/skeleton.tsx",
+      "reason": "source group tinyurl/app/components/ui#2"
+    },
+    {
+      "path": "tinyurl/app/components/ui/sonner.tsx",
+      "reason": "source group tinyurl/app/components/ui#2"
+    },
+    {
+      "path": "tinyurl/app/components/ui/spinner.tsx",
+      "reason": "source group tinyurl/app/components/ui#2"
+    },
+    {
+      "path": "tinyurl/app/components/ui/submit-button.tsx",
+      "reason": "source group tinyurl/app/components/ui#2"
+    },
+    {
+      "path": "tinyurl/app/components/ui/table.tsx",
+      "reason": "source group tinyurl/app/components/ui#2"
+    },
+    {
+      "path": "tinyurl/app/components/ui/textarea.tsx",
+      "reason": "source group tinyurl/app/components/ui#2"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "tinyurl/package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/tinyurl",
+    "project-root:tinyurl"
+  ],
+  "trustBoundaries": [],
+  "status": "reviewed",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [
+    {
+      "runId": "20260518T175159-33a868",
+      "kind": "review",
+      "summary": "0 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "reasoningEffort": null,
+      "createdAt": "2026-05-18T17:52:20.554Z"
+    }
+  ],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:52:20.554Z"
+}

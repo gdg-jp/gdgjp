@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-0dd0c5aab3-338c_387f8dea10",
+  "featureId": "feat_library_0dd0c5aab3",
+  "title": "Dirty-page navigation is blocked without any recovery UI",
+  "category": "bug",
+  "severity": "medium",
+  "confidence": "high",
+  "triage": "confirmed-bug",
+  "evidence": [
+    {
+      "path": "wiki/app/components/PageEditor.tsx",
+      "startLine": 146,
+      "endLine": 147,
+      "symbol": "PageEditor",
+      "quote": "useBlocker(() => isDirty && fetcher.state === \"idle\");"
+    },
+    {
+      "path": "wiki/app/components/PageEditor.tsx",
+      "startLine": 196,
+      "endLine": 198,
+      "symbol": "PageEditor",
+      "quote": "<Link\n            to={`/wiki/${page.slug}`}\n            className=\"shrink-0 rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700\""
+    }
+  ],
+  "reasoning": "React Router's useBlocker returns a blocker object that must be handled by the component. This component calls useBlocker but discards the returned blocker, so when the editor is dirty and the user clicks the back link or another client-side route, navigation is blocked silently with no prompt, proceed, or reset path. That traps the user on the edit screen until they save/autosave or manually clear the dirty state.",
+  "reproduction": "Open an existing page in PageEditor, edit the title or content so isDirty becomes true, then click the back link. The route transition is blocked, but no confirmation dialog appears and the user cannot choose to discard changes from this navigation attempt.",
+  "recommendation": "Store the blocker returned by useBlocker and render a discard-changes confirmation when blocker.state is \"blocked\". On confirm call blocker.proceed(); on cancel call blocker.reset().",
+  "whyTestsDoNotAlreadyCoverThis": "The included test list focuses on renderer and library/server helpers; no supplied test exercises PageEditor dirty navigation or React Router blocker behavior.",
+  "suggestedRegressionTest": "Add a component-level test for PageEditor with a memory router: mutate content/title, click the back link, assert a discard dialog appears, then assert cancel keeps the route and confirm proceeds.",
+  "minimumFixScope": "wiki/app/components/PageEditor.tsx",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-0dd0c5aab3_338cde9895",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260518T175159-33a868",
+  "createdAt": "2026-05-18T17:52:58.268Z",
+  "updatedAt": "2026-05-18T17:52:58.268Z"
+}

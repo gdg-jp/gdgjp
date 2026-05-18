@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-053e550e39-f76b_74c9ab9e90",
+  "featureId": "feat_library_053e550e39",
+  "title": "Comment drafts are cleared after unrelated or failed comment actions",
+  "category": "data-loss",
+  "severity": "medium",
+  "confidence": "high",
+  "triage": "confirmed-bug",
+  "evidence": [
+    {
+      "path": "wiki/app/components/CommentEditor.tsx",
+      "startLine": 65,
+      "endLine": 73,
+      "symbol": "CommentEditor",
+      "quote": "if (wasSubmittingRef.current && !isSubmitting) {\n      setContentJson(\"\");\n      setResetKey((k) => k + 1);\n    }"
+    },
+    {
+      "path": "wiki/app/components/CommentSection.tsx",
+      "startLine": 24,
+      "endLine": 25,
+      "symbol": "CommentSection",
+      "quote": "const fetcher = useFetcher();\n  const isSubmitting = fetcher.state !== \"idle\";"
+    },
+    {
+      "path": "wiki/app/components/CommentSection.tsx",
+      "startLine": 47,
+      "endLine": 58,
+      "symbol": "handleDelete/handleToggleReaction",
+      "quote": "fetcher.submit(\n      { intent: \"deleteComment\", commentId },\n      { method: \"post\", action: \"/api/comments\" },\n    );"
+    }
+  ],
+  "reasoning": "CommentEditor resets its local draft whenever the passed isSubmitting prop transitions from true to false, without knowing whether this editor submitted successfully. CommentSection passes one shared fetcher state to the top-level editor and reply editors, and the same fetcher is also used for delete and reaction actions. If a user has a draft open and toggles a reaction or deletes another comment, the fetcher goes busy then idle and the draft editor clears. The same reset also happens after a failed add-comment request because no success signal is checked.",
+  "reproduction": "Type a new top-level comment without submitting it, click an existing comment reaction, wait for the request to finish, and observe the draft editor reset to empty.",
+  "recommendation": "Reset a CommentEditor only after that specific editor's submit succeeds. Separate fetchers per action/editor or pass an explicit successfulSubmissionKey/result instead of a shared busy boolean. Do not clear content on failed submissions or unrelated comment actions.",
+  "whyTestsDoNotAlreadyCoverThis": "The included tests only cover TipTapRenderer rendering and TOC extraction; they do not mount CommentSection/CommentEditor or exercise fetcher state transitions.",
+  "suggestedRegressionTest": "Add a CommentSection component test with a mocked fetcher: enter draft text, trigger handleToggleReaction or handleDelete, simulate fetcher returning to idle, and assert the editor content remains unchanged. Add a failed addComment transition case that also preserves the draft.",
+  "minimumFixScope": "CommentEditor reset contract and CommentSection fetcher/state wiring for add comment, add reply, delete, and reaction actions.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-053e550e39_f76b28471e",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260518T175159-33a868",
+  "createdAt": "2026-05-18T17:53:20.718Z",
+  "updatedAt": "2026-05-18T17:53:20.718Z"
+}

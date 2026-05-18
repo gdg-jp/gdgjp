@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_ff43ed0d32",
+  "title": "Node source wiki/app/routes#3",
+  "summary": "Node/TypeScript source group wiki/app/routes#3 with 12 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/routes#3",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/routes/api.ingest.$sessionId.status.ts",
+      "reason": "source group wiki/app/routes#3"
+    },
+    {
+      "path": "wiki/app/routes/api.ingest..status.ts",
+      "reason": "source group wiki/app/routes#3"
+    },
+    {
+      "path": "wiki/app/routes/api.notifications.ts",
+      "reason": "source group wiki/app/routes#3"
+    },
+    {
+      "path": "wiki/app/routes/api.page-access.$pageId.tsx",
+      "reason": "source group wiki/app/routes#3"
+    },
+    {
+      "path": "wiki/app/routes/api.pages.reorder.ts",
+      "reason": "source group wiki/app/routes#3"
+    },
+    {
+      "path": "wiki/app/routes/api.recent.ts",
+      "reason": "source group wiki/app/routes#3"
+    },
+    {
+      "path": "wiki/app/routes/api.set-content-lang.tsx",
+      "reason": "source group wiki/app/routes#3"
+    },
+    {
+      "path": "wiki/app/routes/api.set-ui-lang.tsx",
+      "reason": "source group wiki/app/routes#3"
+    },
+    {
+      "path": "wiki/app/routes/api.tasks.$taskListId.$taskId.ts",
+      "reason": "source group wiki/app/routes#3"
+    },
+    {
+      "path": "wiki/app/routes/api.tasks.$taskListId.reorder.ts",
+      "reason": "source group wiki/app/routes#3"
+    },
+    {
+      "path": "wiki/app/routes/api.tasks.$taskListId.teams.ts",
+      "reason": "source group wiki/app/routes#3"
+    },
+    {
+      "path": "wiki/app/routes/api.tasks.$taskListId.ts",
+      "reason": "source group wiki/app/routes#3"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "wiki/app/routes/admin.pages.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "wiki/app/routes/admin.pages.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

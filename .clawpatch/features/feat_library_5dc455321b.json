@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_5dc455321b",
+  "title": "Node source gdg-lib/src",
+  "summary": "Node/TypeScript source group gdg-lib/src with 4 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "gdg-lib/package.json",
+      "symbol": "gdg-lib/src",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "gdg-lib/src/auth/cookie.ts",
+      "reason": "source group gdg-lib/src"
+    },
+    {
+      "path": "gdg-lib/src/auth/index.ts",
+      "reason": "source group gdg-lib/src"
+    },
+    {
+      "path": "gdg-lib/src/auth/rp.ts",
+      "reason": "source group gdg-lib/src"
+    },
+    {
+      "path": "gdg-lib/src/index.ts",
+      "reason": "source group gdg-lib/src"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "gdg-lib/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "gdg-lib/src/auth/cookie.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "gdg-lib/src/auth/index.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "gdg-lib/src/auth/cookie.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/gdg-lib"
+    },
+    {
+      "path": "gdg-lib/src/auth/index.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/gdg-lib"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/gdg-lib",
+    "project-root:gdg-lib"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

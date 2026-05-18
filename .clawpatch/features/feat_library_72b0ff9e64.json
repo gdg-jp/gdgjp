@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_72b0ff9e64",
+  "title": "Node source scheduler/app/components",
+  "summary": "Node/TypeScript source group scheduler/app/components with 5 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "scheduler/package.json",
+      "symbol": "scheduler/app/components",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "scheduler/app/components/gdg-mark.tsx",
+      "reason": "source group scheduler/app/components"
+    },
+    {
+      "path": "scheduler/app/components/header.tsx",
+      "reason": "source group scheduler/app/components"
+    },
+    {
+      "path": "scheduler/app/components/schedule-editor.tsx",
+      "reason": "source group scheduler/app/components"
+    },
+    {
+      "path": "scheduler/app/components/slot-pill-grid.tsx",
+      "reason": "source group scheduler/app/components"
+    },
+    {
+      "path": "scheduler/app/components/theme-toggle.tsx",
+      "reason": "source group scheduler/app/components"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "scheduler/package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/scheduler",
+    "project-root:scheduler"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

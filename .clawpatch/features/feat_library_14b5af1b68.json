@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_14b5af1b68",
+  "title": "Node source wiki/app/components#2",
+  "summary": "Node/TypeScript source group wiki/app/components#2 with 12 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "wiki/package.json",
+      "symbol": "wiki/app/components#2",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "wiki/app/components/PageEditor.tsx",
+      "reason": "source group wiki/app/components#2"
+    },
+    {
+      "path": "wiki/app/components/PageTree.tsx",
+      "reason": "source group wiki/app/components#2"
+    },
+    {
+      "path": "wiki/app/components/PresenceAvatars.tsx",
+      "reason": "source group wiki/app/components#2"
+    },
+    {
+      "path": "wiki/app/components/PushNotificationToggle.tsx",
+      "reason": "source group wiki/app/components#2"
+    },
+    {
+      "path": "wiki/app/components/RecentContent.tsx",
+      "reason": "source group wiki/app/components#2"
+    },
+    {
+      "path": "wiki/app/components/ShareDialog.tsx",
+      "reason": "source group wiki/app/components#2"
+    },
+    {
+      "path": "wiki/app/components/Sidebar.tsx",
+      "reason": "source group wiki/app/components#2"
+    },
+    {
+      "path": "wiki/app/components/SidebarDialog.tsx",
+      "reason": "source group wiki/app/components#2"
+    },
+    {
+      "path": "wiki/app/components/SidebarPopover.tsx",
+      "reason": "source group wiki/app/components#2"
+    },
+    {
+      "path": "wiki/app/components/Skeleton.tsx",
+      "reason": "source group wiki/app/components#2"
+    },
+    {
+      "path": "wiki/app/components/StarredContent.tsx",
+      "reason": "source group wiki/app/components#2"
+    },
+    {
+      "path": "wiki/app/components/TagChip.tsx",
+      "reason": "source group wiki/app/components#2"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "wiki/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "wiki/app/components/tiptap-renderer-toc.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "wiki/app/components/tiptap-renderer.test.tsx",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "wiki/app/components/tiptap-renderer-toc.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    },
+    {
+      "path": "wiki/app/components/tiptap-renderer.test.tsx",
+      "command": "pnpm turbo run test --filter @gdgjp/wiki"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/wiki",
+    "project-root:wiki"
+  ],
+  "trustBoundaries": [],
+  "status": "needs-fix",
+  "lock": null,
+  "findingIds": [
+    "fnd_sig-feat-library-14b5af1b68-8180_80fcbbf8d2",
+    "fnd_sig-feat-library-14b5af1b68-f5eb_101e9167ef"
+  ],
+  "patchAttemptIds": [],
+  "analysisHistory": [
+    {
+      "runId": "20260518T175159-33a868",
+      "kind": "review",
+      "summary": "2 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "reasoningEffort": null,
+      "createdAt": "2026-05-18T17:52:41.515Z"
+    }
+  ],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:52:41.515Z"
+}

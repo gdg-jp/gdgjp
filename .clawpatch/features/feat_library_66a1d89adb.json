@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_66a1d89adb",
+  "title": "Node source accounts/app/components/ui#1",
+  "summary": "Node/TypeScript source group accounts/app/components/ui#1 with 12 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "accounts/package.json",
+      "symbol": "accounts/app/components/ui#1",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "accounts/app/components/ui/alert-dialog.tsx",
+      "reason": "source group accounts/app/components/ui#1"
+    },
+    {
+      "path": "accounts/app/components/ui/alert.tsx",
+      "reason": "source group accounts/app/components/ui#1"
+    },
+    {
+      "path": "accounts/app/components/ui/avatar.tsx",
+      "reason": "source group accounts/app/components/ui#1"
+    },
+    {
+      "path": "accounts/app/components/ui/badge.tsx",
+      "reason": "source group accounts/app/components/ui#1"
+    },
+    {
+      "path": "accounts/app/components/ui/button.tsx",
+      "reason": "source group accounts/app/components/ui#1"
+    },
+    {
+      "path": "accounts/app/components/ui/card.tsx",
+      "reason": "source group accounts/app/components/ui#1"
+    },
+    {
+      "path": "accounts/app/components/ui/dropdown-menu.tsx",
+      "reason": "source group accounts/app/components/ui#1"
+    },
+    {
+      "path": "accounts/app/components/ui/input.tsx",
+      "reason": "source group accounts/app/components/ui#1"
+    },
+    {
+      "path": "accounts/app/components/ui/label.tsx",
+      "reason": "source group accounts/app/components/ui#1"
+    },
+    {
+      "path": "accounts/app/components/ui/select.tsx",
+      "reason": "source group accounts/app/components/ui#1"
+    },
+    {
+      "path": "accounts/app/components/ui/separator.tsx",
+      "reason": "source group accounts/app/components/ui#1"
+    },
+    {
+      "path": "accounts/app/components/ui/skeleton.tsx",
+      "reason": "source group accounts/app/components/ui#1"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "accounts/package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/accounts",
+    "project-root:accounts"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

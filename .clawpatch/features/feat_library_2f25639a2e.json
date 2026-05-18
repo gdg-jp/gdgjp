@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_2f25639a2e",
+  "title": "Node source accounts/app/routes#1",
+  "summary": "Node/TypeScript source group accounts/app/routes#1 with 12 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "accounts/package.json",
+      "symbol": "accounts/app/routes#1",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "accounts/app/routes/admin.chapters.tsx",
+      "reason": "source group accounts/app/routes#1"
+    },
+    {
+      "path": "accounts/app/routes/admin.requests.tsx",
+      "reason": "source group accounts/app/routes#1"
+    },
+    {
+      "path": "accounts/app/routes/admin.seed-clients.tsx",
+      "reason": "source group accounts/app/routes#1"
+    },
+    {
+      "path": "accounts/app/routes/api.locale.ts",
+      "reason": "source group accounts/app/routes#1"
+    },
+    {
+      "path": "accounts/app/routes/auth.signout.ts",
+      "reason": "source group accounts/app/routes#1"
+    },
+    {
+      "path": "accounts/app/routes/authorize.tsx",
+      "reason": "source group accounts/app/routes#1"
+    },
+    {
+      "path": "accounts/app/routes/chapters.$slug.organize.tsx",
+      "reason": "source group accounts/app/routes#1"
+    },
+    {
+      "path": "accounts/app/routes/chapters.tsx",
+      "reason": "source group accounts/app/routes#1"
+    },
+    {
+      "path": "accounts/app/routes/dashboard.tsx",
+      "reason": "source group accounts/app/routes#1"
+    },
+    {
+      "path": "accounts/app/routes/home.tsx",
+      "reason": "source group accounts/app/routes#1"
+    },
+    {
+      "path": "accounts/app/routes/oauth.google.callback.ts",
+      "reason": "source group accounts/app/routes#1"
+    },
+    {
+      "path": "accounts/app/routes/oauth.google.start.ts",
+      "reason": "source group accounts/app/routes#1"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "accounts/package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "accounts/app/routes/home.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "accounts/app/routes/home.test.ts",
+      "command": "pnpm turbo run test --filter @gdgjp/accounts"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:@gdgjp/accounts",
+    "project-root:accounts"
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-18T17:51:21.315Z",
+  "updatedAt": "2026-05-18T17:51:21.315Z"
+}

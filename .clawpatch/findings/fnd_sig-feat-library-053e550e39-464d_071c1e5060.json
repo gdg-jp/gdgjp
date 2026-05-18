@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-053e550e39-464d_071c1e5060",
+  "featureId": "feat_library_053e550e39",
+  "title": "Archived popover cache can expose another user's archived page list",
+  "category": "security",
+  "severity": "medium",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "wiki/app/components/ArchivedContent.tsx",
+      "startLine": 31,
+      "endLine": 32,
+      "symbol": "cachedArchived",
+      "quote": "let cachedArchived: ArchivedData | null = null;"
+    },
+    {
+      "path": "wiki/app/components/ArchivedContent.tsx",
+      "startLine": 40,
+      "endLine": 56,
+      "symbol": "ArchivedContent",
+      "quote": "if (listFetcher.data) cachedArchived = listFetcher.data;\n\n  const loadArchived = useCallback(() => {\n    listFetcher.load(\"/api/archived\");\n  }, [listFetcher.load]);\n\n  useEffect(() => {\n    if (open) loadArchived();\n  }, [open, loadArchived]);\n\n  const data = cachedArchived;"
+    },
+    {
+      "path": "wiki/app/components/ArchivedContent.tsx",
+      "startLine": 58,
+      "endLine": 61,
+      "symbol": "ArchivedContent",
+      "quote": "const pages = data?.pages ?? [];\n  const isAdmin = data?.isAdmin ?? false;\n  const isLead = data?.isLead ?? false;\n  const currentUserId = data?.currentUserId ?? \"\";"
+    },
+    {
+      "path": "wiki/app/components/ArchivedContent.tsx",
+      "startLine": 90,
+      "endLine": 102,
+      "symbol": "ArchivedContent",
+      "quote": "{pages.map((page) => {\n              const canRestore = page.authorId === currentUserId || isLead;\n              const canDelete = isAdmin;\n              const pageTitle = title(page);"
+    }
+  ],
+  "reasoning": "The archived data cache is module-scoped and not keyed by current user, session, or permissions. On reopen, the component renders cached pages and cached authorization flags immediately while the fresh /api/archived request is still loading. In a long-lived browser session where the authenticated user changes, a later user can temporarily see the previous user's archived page titles and admin/lead affordances before the new fetch completes. Server-side action authorization may block mutations, but the page metadata has already been disclosed in the UI.",
+  "reproduction": "As an admin/user A, open the archived popover so cachedArchived is populated. Change authentication to user B in the same SPA/runtime, then open the archived popover; the previous cache is used until /api/archived returns.",
+  "recommendation": "Keep the cache component-local or key it by authenticated user and permission context. Alternatively clear cachedArchived on auth changes and show the skeleton while a fresh request is pending instead of rendering stale cross-session data.",
+  "whyTestsDoNotAlreadyCoverThis": "The linked tests are TipTapRenderer-only and do not cover ArchivedContent caching, user changes, or stale authorization data.",
+  "suggestedRegressionTest": "Add a component test that seeds one user's archived response, rerenders/open as another user before the second request resolves, and asserts the first user's pages and permission buttons are not rendered.",
+  "minimumFixScope": "ArchivedContent cache ownership and loading behavior around /api/archived data.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-053e550e39_464dd3f007",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260518T175159-33a868",
+  "createdAt": "2026-05-18T17:53:20.718Z",
+  "updatedAt": "2026-05-18T17:53:20.718Z"
+}

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-14b5af1b68-8180_80fcbbf8d2",
+  "featureId": "feat_library_14b5af1b68",
+  "title": "Push toggle reports success even when token API requests fail",
+  "category": "bug",
+  "severity": "medium",
+  "confidence": "high",
+  "triage": "confirmed-bug",
+  "evidence": [
+    {
+      "path": "wiki/app/components/PushNotificationToggle.tsx",
+      "startLine": 43,
+      "endLine": 49,
+      "symbol": "handleEnable",
+      "quote": "await fetch(\"/api/fcm-tokens\", {\n        method: \"POST\",\n        headers: { \"Content-Type\": \"application/json\" },\n        body: JSON.stringify({ intent: \"register\", token }),\n      });\n      setState(\"enabled\");"
+    },
+    {
+      "path": "wiki/app/components/PushNotificationToggle.tsx",
+      "startLine": 65,
+      "endLine": 71,
+      "symbol": "handleDisable",
+      "quote": "await fetch(\"/api/fcm-tokens\", {\n        method: \"POST\",\n        headers: { \"Content-Type\": \"application/json\" },\n        body: JSON.stringify({ intent: \"unregister-all\" }),\n      });\n      setState(\"disabled\");"
+    }
+  ],
+  "reasoning": "Both enable and disable flows ignore the HTTP response from /api/fcm-tokens. A 401, 403, validation error, or transient 5xx still flips the UI to enabled/disabled, leaving users with a state that does not match the server subscription record. For enable, this can make notifications appear enabled when no token was registered; for disable, it can make notifications appear disabled while the server may still retain a token.",
+  "reproduction": "Make /api/fcm-tokens return a non-2xx response for register or unregister-all, click the toggle, and observe that the component still updates to the optimistic terminal state.",
+  "recommendation": "Store the response, verify res.ok, and only update state after success. On failure, keep or reload the previous state and surface an error state/message rather than silently logging only unexpected exceptions.",
+  "whyTestsDoNotAlreadyCoverThis": "The linked tests only cover TipTapRenderer behavior and TOC extraction; they do not mount PushNotificationToggle or mock failed /api/fcm-tokens responses.",
+  "suggestedRegressionTest": "Add a component test that mocks requestPushToken plus /api/fcm-tokens returning 500 and asserts the switch does not become enabled; add the symmetric unregister failure case.",
+  "minimumFixScope": "Update PushNotificationToggle.tsx handleEnable and handleDisable to check fetch responses and handle non-2xx outcomes.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-14b5af1b68_818020b41e",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260518T175159-33a868",
+  "createdAt": "2026-05-18T17:52:41.514Z",
+  "updatedAt": "2026-05-18T17:52:41.514Z"
+}

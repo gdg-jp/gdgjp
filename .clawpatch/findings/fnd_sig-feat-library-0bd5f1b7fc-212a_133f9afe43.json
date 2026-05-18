@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-0bd5f1b7fc-212a_133f9afe43",
+  "featureId": "feat_library_0bd5f1b7fc",
+  "title": "Null email claims collapse distinct users into the same local account",
+  "category": "security",
+  "severity": "medium",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "gdg-lib/src/auth/rp.ts",
+      "startLine": 320,
+      "endLine": 321,
+      "symbol": "upsertUser",
+      "quote": "const email = claims.email ?? \"\";"
+    },
+    {
+      "path": "gdg-lib/src/auth/rp.ts",
+      "startLine": 326,
+      "endLine": 329,
+      "symbol": "upsertUser",
+      "quote": "SELECT id FROM \"user\" WHERE email = ? LIMIT 1"
+    },
+    {
+      "path": "gdg-lib/src/auth/rp.ts",
+      "startLine": 427,
+      "endLine": 427,
+      "symbol": "parseClaims",
+      "quote": "email: typeof json.email === \"string\" ? json.email : null,"
+    },
+    {
+      "path": "gdg-lib/README.md",
+      "startLine": 134,
+      "endLine": 134,
+      "symbol": null,
+      "quote": "email      TEXT NOT NULL UNIQUE,"
+    }
+  ],
+  "reasoning": "The public UserClaims type and parseClaims allow email to be null, but upsertUser converts that to the empty string and uses it as the unique lookup key. If the IdP ever returns a valid /userinfo response without an email claim, every such identity maps to the same RP-local user row with email ''. That can merge authorization state and domain-owned data across unrelated identities. If email is mandatory for this auth system, the callback should reject missing/empty email before upsert instead of treating it as a stable identifier.",
+  "reproduction": null,
+  "recommendation": "In handleCallback/upsertUser, require a non-empty email claim before creating or looking up the local user, and return an authentication failure when it is missing. Alternatively key users by a stable IdP subject plus provider if email-less users must be supported.",
+  "whyTestsDoNotAlreadyCoverThis": "The included tests cover cookie helpers and the generic session mapper only; there are no rp.ts tests for parseClaims, callback handling, or upsert behavior with missing email claims.",
+  "suggestedRegressionTest": "Add an rp.ts unit test that feeds userinfo claims without email into the callback/upsert path and asserts authentication is rejected and no user row with email '' is created.",
+  "minimumFixScope": "gdg-lib/src/auth/rp.ts callback/upsert validation plus focused rp.ts tests.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-0bd5f1b7fc_212abf9676",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260518T175159-33a868",
+  "createdAt": "2026-05-18T17:52:41.194Z",
+  "updatedAt": "2026-05-18T17:52:41.194Z"
+}
