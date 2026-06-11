@@ -75,7 +75,7 @@ import {
   updatePermissionRole,
 } from "~/lib/db";
 import { isLinkId } from "~/lib/id";
-import { fetchOgp } from "~/lib/ogp";
+import { fetchOgp, validatePublicHttpUrl } from "~/lib/ogp";
 import { type ViewerContext, canEditLink, canViewLink } from "~/lib/permissions";
 import { validateSlug } from "~/lib/slug";
 import type { Route } from "./+types/links.$id";
@@ -184,7 +184,12 @@ export async function action(args: Route.ActionArgs) {
       update.description = String(form.get("description") ?? "").trim() || null;
     }
     if (form.has("ogImageUrl")) {
-      update.ogImageUrl = String(form.get("ogImageUrl") ?? "").trim() || null;
+      const ogImageUrl = String(form.get("ogImageUrl") ?? "").trim() || null;
+      const imageValidation = ogImageUrl ? await validatePublicHttpUrl(ogImageUrl) : null;
+      if (imageValidation && !imageValidation.ok) {
+        return { error: `OG image ${imageValidation.reason}` };
+      }
+      update.ogImageUrl = ogImageUrl;
     }
     if (form.has("visibility")) {
       const v = String(form.get("visibility") ?? "");
@@ -650,10 +655,16 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
           </Alert>
         ) : null}
 
-        {/* Hidden update form — visible inputs reference it via `form="link-update"` */}
+        {/* Hidden update form submits the controlled draft edited by the visible inputs. */}
         <Form id="link-update" method="post" className="hidden">
           <input type="hidden" name="intent" value="update" />
           <input type="hidden" name="manageTags" value="1" />
+          <input type="hidden" name="destinationUrl" value={draft.destinationUrl} />
+          <input type="hidden" name="slug" value={draft.slug} />
+          <input type="hidden" name="title" value={draft.title} />
+          <input type="hidden" name="description" value={draft.description} />
+          <input type="hidden" name="ogImageUrl" value={draft.ogImageUrl} />
+          <input type="hidden" name="comment" value={draft.comment} />
           <input type="hidden" name="visibility" value={draft.visibility} />
           {draft.tagIds.map((tagId) => (
             <input key={`tag-${tagId}`} type="hidden" name="tagId" value={tagId} />
@@ -672,8 +683,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
               <FieldLabel htmlFor="destinationUrl">Destination URL</FieldLabel>
               <Input
                 id="destinationUrl"
-                form="link-update"
-                name="destinationUrl"
                 type="url"
                 value={draft.destinationUrl}
                 onChange={(e) => setField("destinationUrl", e.target.value)}
@@ -728,8 +737,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                 </div>
                 <Input
                   id="slug"
-                  form="link-update"
-                  name="slug"
                   value={draft.slug}
                   onChange={(e) => setField("slug", e.target.value)}
                   pattern="[a-zA-Z0-9_\-]{1,64}"
@@ -761,8 +768,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
               <FieldLabel htmlFor="comment">Comment</FieldLabel>
               <Textarea
                 id="comment"
-                form="link-update"
-                name="comment"
                 value={draft.comment}
                 onChange={(e) => setField("comment", e.target.value)}
                 placeholder="Add a comment"
@@ -895,8 +900,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                   </Label>
                   <Input
                     id="title"
-                    form="link-update"
-                    name="title"
                     value={draft.title}
                     onChange={(e) => setField("title", e.target.value)}
                     disabled={!editable}
@@ -908,8 +911,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                   </Label>
                   <Textarea
                     id="description"
-                    form="link-update"
-                    name="description"
                     value={draft.description}
                     onChange={(e) => setField("description", e.target.value)}
                     disabled={!editable}
@@ -922,8 +923,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                   </Label>
                   <Input
                     id="ogImageUrl"
-                    form="link-update"
-                    name="ogImageUrl"
                     type="url"
                     value={draft.ogImageUrl}
                     onChange={(e) => setField("ogImageUrl", e.target.value)}
