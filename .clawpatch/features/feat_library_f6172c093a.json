@@ -80,13 +80,7 @@
       "command": "pnpm turbo run test --filter @gdgjp/tinyurl"
     }
   ],
-  "tags": [
-    "node",
-    "typescript",
-    "source-group",
-    "project:@gdgjp/tinyurl",
-    "project-root:tinyurl"
-  ],
+  "tags": ["node", "typescript", "source-group", "project:@gdgjp/tinyurl", "project-root:tinyurl"],
   "trustBoundaries": [],
   "status": "pending",
   "lock": null,

@@ -2,11 +2,7 @@
   "schemaVersion": 1,
   "runId": "20260518T175159-33a868",
   "command": "review",
-  "args": [
-    "review",
-    "--limit",
-    "10"
-  ],
+  "args": ["review", "--limit", "10"],
   "rootPath": "/Users/hari/proj/gdgjp",
   "headSha": "9f822747c133c4f37ff5d8c4910b5f7b1fa48836",
   "startedAt": "2026-05-18T17:51:59.860Z",

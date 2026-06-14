@@ -143,13 +143,7 @@
     }
   ],
   "tests": [],
-  "tags": [
-    "node",
-    "package",
-    "project:@gdgjp/accounts",
-    "project-root:accounts",
-    "workspace"
-  ],
+  "tags": ["node", "package", "project:@gdgjp/accounts", "project-root:accounts", "workspace"],
   "trustBoundaries": [],
   "status": "pending",
   "lock": null,

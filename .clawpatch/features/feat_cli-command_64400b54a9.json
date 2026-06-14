@@ -59,10 +59,7 @@
     "project:@gdgjp/accounts",
     "project-root:accounts"
   ],
-  "trustBoundaries": [
-    "user-input",
-    "process-exec"
-  ],
+  "trustBoundaries": ["user-input", "process-exec"],
   "status": "reviewed",
   "lock": null,
   "findingIds": [],

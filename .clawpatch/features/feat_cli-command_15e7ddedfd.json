@@ -92,22 +92,11 @@
       "command": "pnpm turbo run test --filter @gdgjp/wiki"
     }
   ],
-  "tags": [
-    "node",
-    "typescript",
-    "source-group",
-    "project:@gdgjp/wiki",
-    "project-root:wiki"
-  ],
-  "trustBoundaries": [
-    "user-input",
-    "process-exec"
-  ],
+  "tags": ["node", "typescript", "source-group", "project:@gdgjp/wiki", "project-root:wiki"],
+  "trustBoundaries": ["user-input", "process-exec"],
   "status": "needs-fix",
   "lock": null,
-  "findingIds": [
-    "fnd_sig-feat-cli-command-15e7ddedfd-_5e0e5760f4"
-  ],
+  "findingIds": ["fnd_sig-feat-cli-command-15e7ddedfd-_5e0e5760f4"],
   "patchAttemptIds": [],
   "analysisHistory": [
     {

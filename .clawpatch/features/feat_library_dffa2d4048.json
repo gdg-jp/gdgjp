@@ -76,13 +76,7 @@
       "command": "pnpm turbo run test --filter @gdgjp/img"
     }
   ],
-  "tags": [
-    "node",
-    "typescript",
-    "source-group",
-    "project:@gdgjp/img",
-    "project-root:img"
-  ],
+  "tags": ["node", "typescript", "source-group", "project:@gdgjp/img", "project-root:img"],
   "trustBoundaries": [],
   "status": "pending",
   "lock": null,

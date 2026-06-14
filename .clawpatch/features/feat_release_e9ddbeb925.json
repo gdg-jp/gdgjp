@@ -22,16 +22,8 @@
   ],
   "contextFiles": [],
   "tests": [],
-  "tags": [
-    "node",
-    "package-script",
-    "project:@gdgjp/scheduler",
-    "project-root:scheduler"
-  ],
-  "trustBoundaries": [
-    "process-exec",
-    "filesystem"
-  ],
+  "tags": ["node", "package-script", "project:@gdgjp/scheduler", "project-root:scheduler"],
+  "trustBoundaries": ["process-exec", "filesystem"],
   "status": "pending",
   "lock": null,
   "findingIds": [],

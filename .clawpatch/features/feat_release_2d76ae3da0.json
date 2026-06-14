@@ -22,16 +22,8 @@
   ],
   "contextFiles": [],
   "tests": [],
-  "tags": [
-    "node",
-    "package-script",
-    "project:@gdgjp/accounts",
-    "project-root:accounts"
-  ],
-  "trustBoundaries": [
-    "process-exec",
-    "filesystem"
-  ],
+  "tags": ["node", "package-script", "project:@gdgjp/accounts", "project-root:accounts"],
+  "trustBoundaries": ["process-exec", "filesystem"],
   "status": "pending",
   "lock": null,
   "findingIds": [],

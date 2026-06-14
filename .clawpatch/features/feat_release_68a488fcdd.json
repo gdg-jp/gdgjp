@@ -22,16 +22,8 @@
   ],
   "contextFiles": [],
   "tests": [],
-  "tags": [
-    "node",
-    "package-script",
-    "project:@gdgjp/tinyurl",
-    "project-root:tinyurl"
-  ],
-  "trustBoundaries": [
-    "process-exec",
-    "filesystem"
-  ],
+  "tags": ["node", "package-script", "project:@gdgjp/tinyurl", "project-root:tinyurl"],
+  "trustBoundaries": ["process-exec", "filesystem"],
   "status": "pending",
   "lock": null,
   "findingIds": [],

@@ -155,13 +155,7 @@
     }
   ],
   "tests": [],
-  "tags": [
-    "node",
-    "package",
-    "project:@gdgjp/scheduler",
-    "project-root:scheduler",
-    "workspace"
-  ],
+  "tags": ["node", "package", "project:@gdgjp/scheduler", "project-root:scheduler", "workspace"],
   "trustBoundaries": [],
   "status": "pending",
   "lock": null,

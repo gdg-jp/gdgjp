@@ -22,12 +22,7 @@
   ],
   "contextFiles": [],
   "tests": [],
-  "tags": [
-    "node",
-    "package-script",
-    "project:@gdgjp/scheduler",
-    "project-root:scheduler"
-  ],
+  "tags": ["node", "package-script", "project:@gdgjp/scheduler", "project-root:scheduler"],
   "trustBoundaries": [],
   "status": "pending",
   "lock": null,

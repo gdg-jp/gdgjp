@@ -159,13 +159,7 @@
     }
   ],
   "tests": [],
-  "tags": [
-    "node",
-    "package",
-    "project:@gdgjp/tinyurl",
-    "project-root:tinyurl",
-    "workspace"
-  ],
+  "tags": ["node", "package", "project:@gdgjp/tinyurl", "project-root:tinyurl", "workspace"],
   "trustBoundaries": [],
   "status": "pending",
   "lock": null,

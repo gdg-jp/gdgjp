@@ -71,19 +71,11 @@
     }
   ],
   "tests": [],
-  "tags": [
-    "node",
-    "typescript",
-    "source-group",
-    "project:@gdgjp/wiki",
-    "project-root:wiki"
-  ],
+  "tags": ["node", "typescript", "source-group", "project:@gdgjp/wiki", "project-root:wiki"],
   "trustBoundaries": [],
   "status": "needs-fix",
   "lock": null,
-  "findingIds": [
-    "fnd_sig-feat-library-171137809e-0ce0_d14c58a644"
-  ],
+  "findingIds": ["fnd_sig-feat-library-171137809e-0ce0_d14c58a644"],
   "patchAttemptIds": [],
   "analysisHistory": [
     {

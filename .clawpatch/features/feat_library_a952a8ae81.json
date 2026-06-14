@@ -43,13 +43,7 @@
     }
   ],
   "tests": [],
-  "tags": [
-    "node",
-    "typescript",
-    "source-group",
-    "project:@gdgjp/wiki",
-    "project-root:wiki"
-  ],
+  "tags": ["node", "typescript", "source-group", "project:@gdgjp/wiki", "project-root:wiki"],
   "trustBoundaries": [],
   "status": "pending",
   "lock": null,

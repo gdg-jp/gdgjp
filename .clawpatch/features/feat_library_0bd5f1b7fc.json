@@ -59,13 +59,7 @@
     }
   ],
   "tests": [],
-  "tags": [
-    "node",
-    "package",
-    "project:@gdgjp/gdg-lib",
-    "project-root:gdg-lib",
-    "workspace"
-  ],
+  "tags": ["node", "package", "project:@gdgjp/gdg-lib", "project-root:gdg-lib", "workspace"],
   "trustBoundaries": [],
   "status": "needs-fix",
   "lock": null,

@@ -56,13 +56,7 @@
       "command": "pnpm turbo run test --filter @gdgjp/gdg-lib"
     }
   ],
-  "tags": [
-    "node",
-    "typescript",
-    "source-group",
-    "project:@gdgjp/gdg-lib",
-    "project-root:gdg-lib"
-  ],
+  "tags": ["node", "typescript", "source-group", "project:@gdgjp/gdg-lib", "project-root:gdg-lib"],
   "trustBoundaries": [],
   "status": "pending",
   "lock": null,

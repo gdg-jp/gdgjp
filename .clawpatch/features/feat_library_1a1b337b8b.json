@@ -135,13 +135,7 @@
     }
   ],
   "tests": [],
-  "tags": [
-    "node",
-    "package",
-    "project:@gdgjp/img",
-    "project-root:img",
-    "workspace"
-  ],
+  "tags": ["node", "package", "project:@gdgjp/img", "project-root:img", "workspace"],
   "trustBoundaries": [],
   "status": "pending",
   "lock": null,

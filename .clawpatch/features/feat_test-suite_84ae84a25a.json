@@ -22,12 +22,7 @@
   ],
   "contextFiles": [],
   "tests": [],
-  "tags": [
-    "node",
-    "package-script",
-    "project:gdgjp",
-    "project-root:."
-  ],
+  "tags": ["node", "package-script", "project:gdgjp", "project-root:."],
   "trustBoundaries": [],
   "status": "pending",
   "lock": null,

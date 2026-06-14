@@ -31,12 +31,7 @@
     }
   ],
   "tests": [],
-  "tags": [
-    "node",
-    "package",
-    "project:gdgjp",
-    "project-root:."
-  ],
+  "tags": ["node", "package", "project:gdgjp", "project-root:."],
   "trustBoundaries": [],
   "status": "pending",
   "lock": null,

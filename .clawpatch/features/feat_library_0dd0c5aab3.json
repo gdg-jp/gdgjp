@@ -179,13 +179,7 @@
     }
   ],
   "tests": [],
-  "tags": [
-    "node",
-    "package",
-    "project:@gdgjp/wiki",
-    "project-root:wiki",
-    "workspace"
-  ],
+  "tags": ["node", "package", "project:@gdgjp/wiki", "project-root:wiki", "workspace"],
   "trustBoundaries": [],
   "status": "needs-fix",
   "lock": null,
