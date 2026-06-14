@@ -49,9 +49,34 @@ async function openShareDialog(page: Page) {
   // — Cloudflare-plugin dev cold-starts can leave the page hydrating for a few
   // seconds after navigation completes.
   const shareBtn = page.getByRole("button", { name: /share/i }).first();
+  const dialog = page.getByRole("dialog");
   await expect(shareBtn).toBeVisible({ timeout: 10_000 });
-  await shareBtn.click();
-  await expect(page.getByRole("dialog")).toBeVisible({ timeout: 10_000 });
+
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    await shareBtn.click({ force: true });
+    try {
+      await expect(dialog).toBeVisible({ timeout: 1000 });
+      return;
+    } catch {
+      // The SSR button can be visible before hydration attaches its handler.
+    }
+  }
+
+  await expect(dialog).toBeVisible({ timeout: 1 });
+}
+
+async function selectVisibility(page: Page, value: string) {
+  const visibilitySelect = page.getByRole("dialog").locator('select:has(option[value="public"])');
+  await expect(visibilitySelect).toBeVisible({ timeout: 5000 });
+
+  const responsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" && response.url().includes("/api/page-access/"),
+  );
+  await visibilitySelect.selectOption(value);
+  const response = await responsePromise;
+  expect(response.ok()).toBeTruthy();
 }
 
 // ---------------------------------------------------------------------------
@@ -62,8 +87,7 @@ test.describe("Smoke / dialog visibility", () => {
   test("1. Share button opens dialog as author", async ({ browser }) => {
     const { ctx, page } = await makePage(browser, "author.json");
     await page.goto(PAGE_URL);
-    await page.getByRole("button", { name: /share/i }).first().click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await openShareDialog(page);
     await expect(page.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
     await ctx.close();
   });
@@ -71,8 +95,7 @@ test.describe("Smoke / dialog visibility", () => {
   test("2. Dialog closes on Escape", async ({ browser }) => {
     const { ctx, page } = await makePage(browser, "author.json");
     await page.goto(PAGE_URL);
-    await page.getByRole("button", { name: /share/i }).first().click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await openShareDialog(page);
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).not.toBeVisible();
     await ctx.close();
@@ -81,8 +104,7 @@ test.describe("Smoke / dialog visibility", () => {
   test("3. Dialog closes on backdrop click", async ({ browser }) => {
     const { ctx, page } = await makePage(browser, "author.json");
     await page.goto(PAGE_URL);
-    await page.getByRole("button", { name: /share/i }).first().click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await openShareDialog(page);
     // Click the backdrop (fixed overlay behind the dialog)
     await page.mouse.click(10, 10);
     await expect(page.getByRole("dialog")).not.toBeVisible();
@@ -93,7 +115,9 @@ test.describe("Smoke / dialog visibility", () => {
     const { ctx, page } = await makePage(browser, "author.json");
     await page.goto(PAGE_URL);
     await openShareDialog(page);
-    await page.getByRole("button", { name: /copy link/i }).click();
+    const copyLinkButton = page.getByRole("button", { name: /copy link/i });
+    await expect(copyLinkButton).toBeVisible();
+    await copyLinkButton.click({ force: true });
     await expect(page.getByRole("button", { name: /copied/i })).toBeVisible();
     await ctx.close();
   });
@@ -127,20 +151,14 @@ test.describe("Visibility selector", () => {
     await page.goto(PAGE_URL);
     await openShareDialog(page);
 
-    // Wait for the access data to load (the select appears after fetch)
-    const visibilitySelect = page.locator("select").filter({ hasText: /public|restricted/i });
-    await expect(visibilitySelect).toBeVisible({ timeout: 5000 });
-
     // Change to Restricted — this POST to /api/page-access/:pageId confirms Bug 1 is fixed
-    await visibilitySelect.selectOption("restricted");
+    await selectVisibility(page, "restricted");
 
-    // Wait for the mutation to complete (no network error dialog)
-    await page.waitForTimeout(500);
+    // The mutation completed above (no network error dialog)
     await expect(page.getByText(/general access/i)).toBeVisible();
 
     // Reset back to public for other tests
-    await visibilitySelect.selectOption("public");
-    await page.waitForTimeout(300);
+    await selectVisibility(page, "public");
     await ctx.close();
   });
 
@@ -149,18 +167,12 @@ test.describe("Visibility selector", () => {
     await page.goto(PAGE_URL);
     await openShareDialog(page);
 
-    const visibilitySelect = page.getByRole("dialog").locator("select").last();
-
-    await expect(visibilitySelect).toBeVisible({ timeout: 5000 });
-
     for (const val of ["restricted", "public", "private_to_chapter"]) {
-      await visibilitySelect.selectOption(val);
-      await page.waitForTimeout(300);
+      await selectVisibility(page, val);
     }
 
     // Reset
-    await visibilitySelect.selectOption("public");
-    await page.waitForTimeout(300);
+    await selectVisibility(page, "public");
     await ctx.close();
   });
 });
