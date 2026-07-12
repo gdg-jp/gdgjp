@@ -1,5 +1,5 @@
-import { Trash2, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import { Check, Copy, Trash2, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { PageShell } from "~/components/page-shell";
 import { Button } from "~/components/ui/button";
@@ -48,6 +48,26 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const copyResetRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  useEffect(
+    () => () => {
+      if (copyResetRef.current) clearTimeout(copyResetRef.current);
+    },
+    [],
+  );
+
+  async function onCopy() {
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setCopied(true);
+      if (copyResetRef.current) clearTimeout(copyResetRef.current);
+      copyResetRef.current = setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setErr("Could not copy the URL. Please copy it from the field.");
+    }
+  }
 
   async function onReplace(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -85,7 +105,10 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
   return (
     <PageShell user={user} size="md">
       <div className="flex flex-col gap-6">
-        <Card>
+        <Card
+          className="motion-stagger transition-shadow duration-300 hover:shadow-md"
+          style={{ "--motion-index": 0 } as React.CSSProperties}
+        >
           <CardHeader>
             <CardTitle className="text-base">{image.filename ?? image.id}</CardTitle>
             <CardDescription>
@@ -98,13 +121,16 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
                 key={refreshKey}
                 src={`${image.url}&v=${image.updatedAt}-${refreshKey}`}
                 alt={image.filename ?? image.id}
-                className="mx-auto max-h-[60vh] object-contain"
+                className="motion-image-reveal mx-auto max-h-[60vh] object-contain"
               />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className="motion-stagger transition-shadow duration-300 hover:shadow-md"
+          style={{ "--motion-index": 1 } as React.CSSProperties}
+        >
           <CardHeader>
             <CardTitle className="text-base">Public URL</CardTitle>
             <CardDescription>Anyone with this link can view the image.</CardDescription>
@@ -115,14 +141,28 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
                 Public URL
               </Label>
               <Input id="public-url" readOnly value={publicUrl} />
-              <Button variant="outline" onClick={() => navigator.clipboard.writeText(publicUrl)}>
-                Copy
+              <Button
+                variant="outline"
+                onClick={onCopy}
+                className={copied ? "border-gdg-green/60 text-gdg-green" : undefined}
+                aria-live="polite"
+              >
+                <span
+                  key={copied ? "copied" : "copy"}
+                  className="motion-enter-scale inline-flex items-center gap-2"
+                >
+                  {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  {copied ? "Copied!" : "Copy"}
+                </span>
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className="motion-stagger transition-shadow duration-300 hover:shadow-md"
+          style={{ "--motion-index": 2 } as React.CSSProperties}
+        >
           <CardHeader>
             <CardTitle className="text-base">Manage</CardTitle>
             <CardDescription>

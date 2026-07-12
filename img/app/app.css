@@ -40,6 +40,10 @@
 
 :root {
   --radius: 0.625rem;
+  --motion-fast: 160ms;
+  --motion-base: 280ms;
+  --motion-slow: 480ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -98,5 +102,77 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  button,
+  a,
+  input {
+    transition-duration: var(--motion-fast);
+    transition-timing-function: var(--motion-ease);
+  }
+}
+
+@keyframes enter-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes enter-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.975);
+  }
+}
+
+@keyframes image-reveal {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+    transform: scale(1.015);
+  }
+}
+
+@layer utilities {
+  .motion-enter {
+    animation: enter-up var(--motion-slow) var(--motion-ease) both;
+  }
+
+  .motion-enter-scale {
+    animation: enter-scale var(--motion-slow) var(--motion-ease) both;
+  }
+
+  .motion-stagger {
+    animation: enter-up var(--motion-base) var(--motion-ease) both;
+    animation-delay: min(calc(var(--motion-index, 0) * 45ms), 360ms);
+  }
+
+  .motion-image-reveal {
+    animation: image-reveal var(--motion-slow) var(--motion-ease) both;
+  }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--motion-base);
+  animation-timing-function: var(--motion-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0.01ms;
+    --motion-base: 0.01ms;
+    --motion-slow: 0.01ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

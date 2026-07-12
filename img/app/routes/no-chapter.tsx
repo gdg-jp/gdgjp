@@ -28,7 +28,7 @@ export default function NoChapter({ loaderData }: Route.ComponentProps) {
   const { accountsUrl } = loaderData;
   return (
     <div className="grid min-h-dvh place-items-center bg-background px-4 py-10">
-      <Card className="w-full max-w-md">
+      <Card className="motion-enter-scale w-full max-w-md transition-shadow duration-300 hover:shadow-md">
         <CardHeader className="items-center text-center">
           <CardTitle className="text-xl">Join a GDG to continue</CardTitle>
           <CardDescription>
