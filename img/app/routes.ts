@@ -5,6 +5,7 @@ export default [
   route("i/:id", "routes/i.$id.tsx"),
   route("api/upload", "routes/api.upload.ts"),
   route("api/replace/:id", "routes/api.replace.$id.ts"),
+  route("api/mobile/:id", "routes/api.mobile.$id.ts"),
   route("api/delete/:id", "routes/api.delete.$id.ts"),
   route("api/auth/*", "routes/api.auth.$.ts"),
   route("auth/signout", "routes/auth.signout.ts"),

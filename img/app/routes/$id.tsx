@@ -1,3 +1,4 @@
+import { prefersMobileImage } from "~/lib/device";
 import { isValidImageId } from "~/lib/id";
 import { getImage } from "~/lib/images";
 import { hasTransform, parseTransformOpts } from "~/lib/img-url";
@@ -5,7 +6,10 @@ import type { Route } from "./+types/$id";
 
 const CACHE_HEADERS = {
   "Cache-Control": "public, max-age=300, s-maxage=86400",
+  "Accept-CH": "Sec-CH-UA-Mobile",
 };
+
+const DEVICE_VARY = "Sec-CH-UA-Mobile, CF-Device-Type, User-Agent";
 
 export async function loader(args: Route.LoaderArgs) {
   const id = args.params.id;
@@ -15,21 +19,43 @@ export async function loader(args: Route.LoaderArgs) {
   if (!image) throw new Response("Not found", { status: 404 });
 
   const url = new URL(args.request.url);
-  const etag = `"${id}-${image.updatedAt}"`;
+  const hasMobile =
+    image.mobileR2Key !== null &&
+    image.mobileContentType !== null &&
+    image.mobileByteSize !== null &&
+    image.mobileUpdatedAt !== null;
+  const mobileRequested = url.searchParams.get("variant") === "mobile";
+  const selected =
+    hasMobile && (mobileRequested || prefersMobileImage(args.request.headers))
+      ? {
+          r2Key: image.mobileR2Key,
+          contentType: image.mobileContentType,
+          byteSize: image.mobileByteSize,
+          updatedAt: image.mobileUpdatedAt,
+          variant: "mobile",
+        }
+      : { ...image, variant: "default" };
+  const deviceVary = hasMobile && !mobileRequested ? DEVICE_VARY : undefined;
+
+  const etag = `"${id}-${selected.variant}-${selected.updatedAt}"`;
   if (matchesEtag(args.request.headers.get("if-none-match"), etag)) {
-    return new Response(null, { status: 304, headers: { ETag: etag, ...CACHE_HEADERS } });
+    return new Response(null, {
+      status: 304,
+      headers: { ETag: etag, ...(deviceVary ? { Vary: deviceVary } : {}), ...CACHE_HEADERS },
+    });
   }
 
-  const obj = await env.ORIGINALS.get(image.r2Key);
+  const obj = await env.ORIGINALS.get(selected.r2Key);
   if (!obj) throw new Response("Not found", { status: 404 });
 
   const opts = parseTransformOpts(url);
   if (!hasTransform(opts)) {
     return new Response(obj.body, {
       headers: {
-        "Content-Type": image.contentType,
-        "Content-Length": String(image.byteSize),
+        "Content-Type": selected.contentType,
+        "Content-Length": String(selected.byteSize),
         ETag: etag,
+        ...(deviceVary ? { Vary: deviceVary } : {}),
         ...CACHE_HEADERS,
       },
     });
@@ -50,7 +76,9 @@ export async function loader(args: Route.LoaderArgs) {
   const headers = new Headers(res.headers);
   headers.set("ETag", etag);
   for (const [k, v] of Object.entries(CACHE_HEADERS)) headers.set(k, v);
-  if (!opts.f) headers.set("Vary", "Accept");
+  const vary = [opts.f ? null : "Accept", deviceVary].filter(Boolean).join(", ");
+  if (vary) headers.set("Vary", vary);
+  headers.set("Accept-CH", "Sec-CH-UA-Mobile");
   return new Response(res.body, { status: res.status, headers });
 }
 

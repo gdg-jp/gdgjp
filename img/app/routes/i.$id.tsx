@@ -1,4 +1,4 @@
-import { Check, Copy, Trash2, Upload } from "lucide-react";
+import { Check, Copy, Smartphone, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { PageShell } from "~/components/page-shell";
@@ -36,6 +36,15 @@ export async function loader(args: Route.LoaderArgs) {
       contentType: image.contentType,
       byteSize: image.byteSize,
       updatedAt: image.updatedAt,
+      mobile: image.mobileR2Key
+        ? {
+            filename: image.mobileFilename,
+            contentType: image.mobileContentType,
+            byteSize: image.mobileByteSize,
+            updatedAt: image.mobileUpdatedAt,
+            url: deliveryUrl(image.id, { w: 1600, variant: "mobile" }),
+          }
+        : null,
     },
     publicUrl: `${env.APP_URL}/${image.id}`,
   };
@@ -45,6 +54,7 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
   const { user, image, publicUrl } = loaderData;
   const navigate = useNavigate();
   const replaceRef = useRef<HTMLInputElement>(null);
+  const mobileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -102,6 +112,40 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
     }
   }
 
+  async function onMobileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`/api/mobile/${image.id}`, { method: "POST", body: form });
+      if (!res.ok) throw new Error(await res.text());
+      navigate(".", { replace: true });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+      if (mobileRef.current) mobileRef.current.value = "";
+    }
+  }
+
+  async function onMobileDelete() {
+    if (!confirm("Remove the mobile image? Mobile devices will receive the default image.")) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/mobile/${image.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(await res.text());
+      navigate(".", { replace: true });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <PageShell user={user} size="md">
       <div className="flex flex-col gap-6">
@@ -124,6 +168,49 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
                 className="motion-image-reveal mx-auto max-h-[60vh] object-contain"
               />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="motion-stagger transition-shadow duration-300 hover:shadow-md"
+          style={{ "--motion-index": 2 } as React.CSSProperties}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Smartphone className="size-4" /> Mobile image
+            </CardTitle>
+            <CardDescription>
+              {image.mobile
+                ? `${image.mobile.filename ?? "Mobile variant"} · ${((image.mobile.byteSize ?? 0) / 1024).toFixed(1)} KB. Mobile devices now receive this image.`
+                : "Optional. Until uploaded, every device receives the default image."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {image.mobile ? (
+              <div className="basis-full overflow-hidden rounded-md border bg-muted/30">
+                <img
+                  src={`${image.mobile.url}&v=${image.mobile.updatedAt}`}
+                  alt={`Mobile preview of ${image.mobile.filename ?? image.filename ?? image.id}`}
+                  className="motion-image-reveal mx-auto max-h-[60vh] object-contain"
+                />
+              </div>
+            ) : null}
+            <input
+              ref={mobileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={onMobileUpload}
+            />
+            <Button disabled={busy} onClick={() => mobileRef.current?.click()}>
+              <Upload className="size-4" />
+              {image.mobile ? "Replace mobile image" : "Upload mobile image"}
+            </Button>
+            {image.mobile ? (
+              <Button variant="outline" disabled={busy} onClick={onMobileDelete}>
+                <Trash2 className="size-4" /> Remove mobile image
+              </Button>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -161,7 +248,7 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
 
         <Card
           className="motion-stagger transition-shadow duration-300 hover:shadow-md"
-          style={{ "--motion-index": 2 } as React.CSSProperties}
+          style={{ "--motion-index": 3 } as React.CSSProperties}
         >
           <CardHeader>
             <CardTitle className="text-base">Manage</CardTitle>

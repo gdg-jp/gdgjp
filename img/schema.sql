@@ -20,6 +20,6 @@ CREATE TABLE images (
   filename      TEXT,
   created_at    INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at    INTEGER NOT NULL DEFAULT (unixepoch())
-);
+, mobile_r2_key TEXT, mobile_content_type TEXT, mobile_byte_size INTEGER, mobile_filename TEXT, mobile_updated_at INTEGER);
 CREATE INDEX idx_images_user ON images(user_id, created_at DESC);
 CREATE INDEX idx_images_chapter ON images(chapter_id, created_at DESC);

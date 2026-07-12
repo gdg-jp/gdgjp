@@ -4,6 +4,7 @@ export type TransformOpts = {
   fit?: "scale-down" | "contain" | "cover" | "crop" | "pad";
   q?: number;
   f?: "auto" | "avif" | "webp" | "jpeg" | "png";
+  variant?: "mobile";
 };
 
 export function deliveryUrl(id: string, opts: TransformOpts = {}): string {
@@ -13,6 +14,7 @@ export function deliveryUrl(id: string, opts: TransformOpts = {}): string {
   if (opts.fit) params.set("fit", opts.fit);
   if (opts.q) params.set("q", String(opts.q));
   if (opts.f) params.set("f", opts.f);
+  if (opts.variant) params.set("variant", opts.variant);
   const qs = params.toString();
   return qs ? `/${id}?${qs}` : `/${id}`;
 }

@@ -20,6 +20,9 @@ export async function action(args: Route.ActionArgs) {
 
   await deleteImage(env.DB, id);
   args.context.cloudflare.ctx.waitUntil(deleteOriginal(env, image.r2Key));
+  if (image.mobileR2Key) {
+    args.context.cloudflare.ctx.waitUntil(deleteOriginal(env, image.mobileR2Key));
+  }
 
   return Response.json({ ok: true });
 }
