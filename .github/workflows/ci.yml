@@ -128,10 +128,14 @@ jobs:
           cat > accounts/.dev.vars <<EOF
           IDP_SESSION_SECRET=ci-idp-session-secret
           TINYURL_CLIENT_SECRET=ci-idp-client-secret
+          IMG_CLIENT_SECRET=ci-idp-client-secret
           SCHEDULER_CLIENT_SECRET=ci-idp-client-secret
           WIKI_CLIENT_SECRET=ci-idp-client-secret
           APP_URL=http://localhost:5173
           TINYURL_REDIRECT_URLS=http://localhost:5174/api/auth/callback/gdgjp
+          IMG_REDIRECT_URLS=http://localhost:5175/api/auth/callback/gdgjp
+          SCHEDULER_REDIRECT_URLS=http://localhost:5176/api/auth/callback/gdgjp
+          WIKI_REDIRECT_URLS=http://localhost:5177/api/auth/callback/gdgjp
           EOF
 
           cat > tinyurl/.dev.vars <<EOF
