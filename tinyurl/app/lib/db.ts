@@ -1244,6 +1244,32 @@ export async function listComments(db: D1Database, linkId: string): Promise<Comm
   return results.map(toComment);
 }
 
+export async function listLatestCommentsForCampaign(
+  db: D1Database,
+  campaignId: number,
+): Promise<Record<string, Comment>> {
+  const { results } = await db
+    .prepare(
+      `SELECT id, link_id, author_user_id, body, created_at
+       FROM (
+         SELECT c.id, c.link_id, c.author_user_id, c.body, c.created_at,
+                ROW_NUMBER() OVER (
+                  PARTITION BY c.link_id ORDER BY c.created_at DESC, c.id DESC
+                ) AS row_number
+         FROM comments c
+         JOIN links l ON l.id = c.link_id
+         JOIN campaign_channels channel ON channel.id = l.campaign_channel_id
+         WHERE channel.campaign_id = ? AND l.deleted_at IS NULL
+       )
+       WHERE row_number = 1`,
+    )
+    .bind(campaignId)
+    .all<CommentRow>();
+  const comments: Record<string, Comment> = {};
+  for (const row of results) comments[row.link_id] = toComment(row);
+  return comments;
+}
+
 export async function addComment(
   db: D1Database,
   input: { linkId: string; authorUserId: string; body: string },

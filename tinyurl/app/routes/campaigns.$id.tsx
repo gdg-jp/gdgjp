@@ -62,6 +62,7 @@ import {
   getUsersByIds,
   listAssignableLinksForCampaign,
   listCampaignChannelsWithLinks,
+  listLatestCommentsForCampaign,
   listTagsForChapter,
   listTagsForUser,
   updateCampaignChannel,
@@ -119,10 +120,15 @@ export async function loader(args: Route.LoaderArgs) {
   const ownerIds = [
     ...new Set(channels.flatMap((item) => item.links.map((link) => link.ownerUserId))),
   ];
-  const owners =
+  const [owners, latestCommentRecords] = await Promise.all([
     ownerIds.length > 0
-      ? await getUsersByIds(env.DB, ownerIds).catch(() => ({}) as Record<string, UserSummary>)
-      : {};
+      ? getUsersByIds(env.DB, ownerIds).catch(() => ({}) as Record<string, UserSummary>)
+      : {},
+    listLatestCommentsForCampaign(env.DB, id),
+  ]);
+  const latestComments = Object.fromEntries(
+    Object.entries(latestCommentRecords).map(([linkId, comment]) => [linkId, comment.body]),
+  );
   const url = new URL(args.request.url);
   const parsed = parseAnalyticsParams(url.searchParams);
   const { selectedChannelId, selectedLinkId } = resolveCampaignScope(channels, url.searchParams);
@@ -189,6 +195,7 @@ export async function loader(args: Route.LoaderArgs) {
     campaign,
     channels,
     owners,
+    latestComments,
     assignableLinks,
     availableTags: [...userTags, ...chapterTags],
     shortUrlBase: env.SHORT_URL_BASE,
@@ -325,6 +332,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
     user,
     campaign,
     channels,
+    latestComments,
     owners,
     assignableLinks,
     availableTags,
@@ -487,6 +495,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
                 <CampaignAnalyticsPanel
                   analytics={resolvedAnalytics}
                   channels={channels}
+                  latestComments={latestComments}
                   selectedChannelId={selectedChannelId}
                   selectedLinkId={selectedLinkId}
                   shortUrlBase={shortUrlBase}
@@ -531,6 +540,7 @@ function CampaignAnalyticsSkeleton() {
 function CampaignAnalyticsPanel({
   analytics,
   channels,
+  latestComments,
   selectedChannelId,
   selectedLinkId,
   shortUrlBase,
@@ -543,6 +553,7 @@ function CampaignAnalyticsPanel({
 }: {
   analytics: Awaited<Route.ComponentProps["loaderData"]["analytics"]>;
   channels: DetailChannel[];
+  latestComments: Route.ComponentProps["loaderData"]["latestComments"];
   selectedChannelId: number | null;
   selectedLinkId: string | null;
   shortUrlBase: string;
@@ -566,7 +577,7 @@ function CampaignAnalyticsPanel({
     .map((link) => ({
       key: `link:${link.id}`,
       name: `${shortUrlBase}/${link.slug}`,
-      description: link.description,
+      description: latestComments[link.id],
       clicks: analytics.clicks[link.id] ?? 0,
     }))
     .sort((a, b) => b.clicks - a.clicks);

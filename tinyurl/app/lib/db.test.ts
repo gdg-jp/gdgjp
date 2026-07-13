@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assignLinksToChannel,
   listAssignableLinksForCampaign,
+  listLatestCommentsForCampaign,
   normalizeCampaignCode,
   toCampaign,
   toLink,
@@ -99,6 +100,52 @@ describe("toCampaign", () => {
       updatedAt: 1700001000,
       archivedAt: null,
     });
+  });
+});
+
+describe("listLatestCommentsForCampaign", () => {
+  it("loads the latest comment for each link in one query", async () => {
+    let sql = "";
+    let bindings: unknown[] = [];
+    const db = {
+      prepare(query: string) {
+        sql = query;
+        return {
+          bind(...values: unknown[]) {
+            bindings = values;
+            return this;
+          },
+          async all() {
+            return {
+              results: [
+                {
+                  id: 4,
+                  link_id: "link_a",
+                  author_user_id: "user_a",
+                  body: "Campaign announcement",
+                  created_at: 1700001000,
+                },
+              ],
+            };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    await expect(listLatestCommentsForCampaign(db, 7)).resolves.toEqual({
+      link_a: {
+        id: 4,
+        linkId: "link_a",
+        authorUserId: "user_a",
+        body: "Campaign announcement",
+        createdAt: 1700001000,
+      },
+    });
+    expect(sql).toContain("ROW_NUMBER() OVER");
+    expect(sql).toContain("PARTITION BY c.link_id ORDER BY c.created_at DESC, c.id DESC");
+    expect(sql).toContain("JOIN campaign_channels channel");
+    expect(sql).toContain("WHERE channel.campaign_id = ?");
+    expect(bindings).toEqual([7]);
   });
 });
 
