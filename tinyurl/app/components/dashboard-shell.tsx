@@ -1,7 +1,7 @@
 import { BarChart3, FolderTree, LinkIcon, Menu, Tag as TagIcon, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { type ReactNode, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigation } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { UserMenu, type UserMenuUser } from "~/components/user-menu";
@@ -196,8 +196,22 @@ export function DashboardShell({
   children: ReactNode;
   className?: string;
 }) {
+  const navigation = useNavigation();
+  const busy = navigation.state !== "idle";
+
   return (
     <div className="min-h-dvh bg-background text-foreground md:flex">
+      {busy ? (
+        <>
+          <output className="sr-only">Loading page</output>
+          <div
+            aria-hidden="true"
+            className="fixed inset-x-0 top-0 z-[100] h-0.5 overflow-hidden bg-primary/20"
+          >
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-primary motion-reduce:w-full" />
+          </div>
+        </>
+      ) : null}
       <Sidebar user={user} />
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileBar user={user} />

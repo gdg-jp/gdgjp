@@ -737,6 +737,56 @@ export async function listLinksForCampaign(db: D1Database, campaignId: number): 
   return results.map(toLink);
 }
 
+async function listCampaignChannelSourcesForCampaign(
+  db: D1Database,
+  campaignId: number,
+  includeArchived = false,
+): Promise<CampaignChannelSource[]> {
+  const sourceCols = CAMPAIGN_SOURCE_COLS.split(", ")
+    .map((column) => `s.${column}`)
+    .join(", ");
+  const { results } = await db
+    .prepare(
+      `SELECT ${sourceCols} FROM campaign_channel_sources s
+       JOIN campaign_channels m ON m.id = s.channel_id
+       WHERE m.campaign_id = ? AND (? = 1 OR s.archived_at IS NULL)
+       ORDER BY s.archived_at IS NOT NULL, s.name, s.id`,
+    )
+    .bind(campaignId, includeArchived ? 1 : 0)
+    .all<CampaignChannelSourceRow>();
+  return results.map(toCampaignChannelSource);
+}
+
+export async function listCampaignChannelsWithLinks(
+  db: D1Database,
+  campaignId: number,
+  includeArchived = false,
+): Promise<CampaignChannelWithLinks[]> {
+  const [channels, sources, links] = await Promise.all([
+    listCampaignChannels(db, campaignId, includeArchived),
+    listCampaignChannelSourcesForCampaign(db, campaignId, includeArchived),
+    listLinksForCampaign(db, campaignId),
+  ]);
+  const sourcesByChannel = new Map<number, CampaignChannelSource[]>();
+  for (const source of sources) {
+    const values = sourcesByChannel.get(source.channelId) ?? [];
+    values.push(source);
+    sourcesByChannel.set(source.channelId, values);
+  }
+  const linksByChannel = new Map<number, Link[]>();
+  for (const link of links) {
+    if (link.campaignChannelId === null) continue;
+    const values = linksByChannel.get(link.campaignChannelId) ?? [];
+    values.push(link);
+    linksByChannel.set(link.campaignChannelId, values);
+  }
+  return channels.map((channel) => ({
+    ...channel,
+    sources: sourcesByChannel.get(channel.id) ?? [],
+    links: linksByChannel.get(channel.id) ?? [],
+  }));
+}
+
 export async function listLinksForChapter(db: D1Database, chapterId: number): Promise<Link[]> {
   const { results } = await db
     .prepare(
@@ -774,17 +824,12 @@ export async function getCampaignWithChannelLinks(
   campaignId: number,
   includeArchived = false,
 ): Promise<CampaignWithChannelLinks | null> {
-  const campaign = await getCampaignById(db, campaignId);
+  const [campaign, channels] = await Promise.all([
+    getCampaignById(db, campaignId),
+    listCampaignChannelsWithLinks(db, campaignId, includeArchived),
+  ]);
   if (!campaign) return null;
-  const channels = await listCampaignChannels(db, campaignId, includeArchived);
-  const enriched = await Promise.all(
-    channels.map(async (channel) => ({
-      ...channel,
-      sources: await listCampaignChannelSources(db, channel.id, includeArchived),
-      links: await listLinksForCampaignChannel(db, channel.id),
-    })),
-  );
-  return { ...campaign, channels: enriched };
+  return { ...campaign, channels };
 }
 
 export type AssignLinksToChannelInput = {

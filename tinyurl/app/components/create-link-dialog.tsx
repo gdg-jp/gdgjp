@@ -25,6 +25,7 @@ import {
 } from "~/components/ui/select";
 import { SubmitButton } from "~/components/ui/submit-button";
 import { Textarea } from "~/components/ui/textarea";
+import type { UserChapter } from "~/lib/chapter.server";
 import type { LinkVisibility, Tag } from "~/lib/db";
 import { generateRandomSlug } from "~/lib/slug";
 import type { ApiLinksActionData } from "~/routes/api.links";
@@ -37,6 +38,16 @@ export type CampaignChannelOption = {
   channelName: string;
   channelCode?: string;
 };
+
+export function campaignLinkDefaults(option?: CampaignChannelOption) {
+  return {
+    destinationUrl: option?.defaultDestinationUrl ?? "",
+    slug:
+      option?.campaignCode && option.channelCode
+        ? `${option.campaignCode}${option.channelCode}`
+        : "",
+  };
+}
 
 function hostnameOf(url: string): string {
   try {
@@ -65,12 +76,14 @@ function FieldLabel({ children, htmlFor }: { children: ReactNode; htmlFor?: stri
 export function CreateLinkDialog({
   availableTags,
   campaignChannelOptions = [],
+  chapters = [],
   defaultCampaignChannelId,
   shortUrlBase,
   trigger,
 }: {
   availableTags: Tag[];
   campaignChannelOptions?: CampaignChannelOption[];
+  chapters?: UserChapter[];
   defaultCampaignChannelId?: number;
   shortUrlBase: string;
   trigger: ReactNode;
@@ -84,6 +97,7 @@ export function CreateLinkDialog({
           <CreateLinkForm
             availableTags={availableTags}
             campaignChannelOptions={campaignChannelOptions}
+            chapters={chapters}
             defaultCampaignChannelId={defaultCampaignChannelId}
             shortUrlBase={shortUrlBase}
           />
@@ -96,11 +110,13 @@ export function CreateLinkDialog({
 function CreateLinkForm({
   availableTags,
   campaignChannelOptions,
+  chapters,
   defaultCampaignChannelId,
   shortUrlBase,
 }: {
   availableTags: Tag[];
   campaignChannelOptions: CampaignChannelOption[];
+  chapters: UserChapter[];
   defaultCampaignChannelId?: number;
   shortUrlBase: string;
 }) {
@@ -108,17 +124,12 @@ function CreateLinkForm({
   const defaultCampaignChannel = campaignChannelOptions.find(
     (option) => option.id === defaultCampaignChannelId,
   );
+  const defaults = campaignLinkDefaults(defaultCampaignChannel);
   const ogpFetcher = useFetcher<ApiLinksActionData>();
   const createFetcher = useFetcher<ApiLinksActionData>();
 
-  const [destinationUrl, setDestinationUrl] = useState(
-    defaultCampaignChannel?.defaultDestinationUrl ?? "",
-  );
-  const [slug, setSlug] = useState(
-    defaultCampaignChannel?.campaignCode && defaultCampaignChannel.channelCode
-      ? `${defaultCampaignChannel.campaignCode}${defaultCampaignChannel.channelCode}`
-      : "",
-  );
+  const [destinationUrl, setDestinationUrl] = useState(defaults.destinationUrl);
+  const [slug, setSlug] = useState(defaults.slug);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [ogImageUrl, setOgImageUrl] = useState("");
@@ -126,6 +137,9 @@ function CreateLinkForm({
   const [newTagNames, setNewTagNames] = useState<string[]>([]);
   const [comment, setComment] = useState("");
   const [visibility, setVisibility] = useState<LinkVisibility>("private");
+  const [sharePrincipalType, setSharePrincipalType] = useState<"user" | "chapter">("user");
+  const [sharePrincipalId, setSharePrincipalId] = useState("");
+  const [shareRole, setShareRole] = useState<"viewer" | "editor">("viewer");
   const [campaignChannelId, setCampaignChannelId] = useState(
     defaultCampaignChannelId === undefined ? "standalone" : String(defaultCampaignChannelId),
   );
@@ -158,11 +172,11 @@ function CreateLinkForm({
   const apexShortUrl = `${shortUrlBase}/${previewSlug}`;
   const previewHost = hostnameOf(destinationUrl);
 
-  function fetchOgpNow() {
-    if (!destinationUrl) return;
+  function fetchOgpNow(url = destinationUrl) {
+    if (!url) return;
     const fd = new FormData();
     fd.set("intent", "fetchOgp");
-    fd.set("destinationUrl", destinationUrl);
+    fd.set("destinationUrl", url);
     ogpFetcher.submit(fd, { method: "post", action: "/api/links" });
   }
 
@@ -184,6 +198,48 @@ function CreateLinkForm({
 
       <div className="grid gap-6 overflow-y-auto p-5 md:grid-cols-3 md:p-6">
         <div className="space-y-5 md:col-span-2">
+          {campaignChannelOptions.length > 0 ? (
+            <div className="space-y-2">
+              <input
+                type="hidden"
+                name="campaignChannelId"
+                value={campaignChannelId === "standalone" ? "" : campaignChannelId}
+              />
+              <Select
+                value={campaignChannelId}
+                onValueChange={(value) => {
+                  setCampaignChannelId(value);
+                  if (value === "standalone") return;
+                  const option = campaignChannelOptions.find(
+                    (candidate) => String(candidate.id) === value,
+                  );
+                  const nextDefaults = campaignLinkDefaults(option);
+                  setDestinationUrl(nextDefaults.destinationUrl);
+                  setSlug(nextDefaults.slug);
+                  setTitle("");
+                  setDescription("");
+                  setOgImageUrl("");
+                  fetchOgpNow(nextDefaults.destinationUrl);
+                }}
+              >
+                <SelectTrigger id="create-campaign-channel" size="sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standalone">Standalone link</SelectItem>
+                  {campaignChannelOptions.map((option) => (
+                    <SelectItem key={option.id} value={String(option.id)}>
+                      {option.campaignName} / {option.channelName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Campaign links are jointly owned by your chapter.
+              </p>
+            </div>
+          ) : null}
+
           <div className="space-y-2">
             <FieldLabel htmlFor="create-destinationUrl">Destination URL</FieldLabel>
             <Input
@@ -228,67 +284,6 @@ function CreateLinkForm({
               />
             </div>
           </div>
-
-          <div className="space-y-2">
-            <FieldLabel htmlFor="create-visibility">Visibility</FieldLabel>
-            <input type="hidden" name="visibility" value={visibility} />
-            <Select
-              value={visibility}
-              onValueChange={(value) => setVisibility(value as LinkVisibility)}
-            >
-              <SelectTrigger id="create-visibility" size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="private">
-                  Private — only you and people you share with
-                </SelectItem>
-                <SelectItem value="public">Anyone in GDG Japan can view</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {campaignChannelOptions.length > 0 ? (
-            <div className="space-y-2">
-              <FieldLabel htmlFor="create-campaign-channel">Campaign / Channel</FieldLabel>
-              <input
-                type="hidden"
-                name="campaignChannelId"
-                value={campaignChannelId === "standalone" ? "" : campaignChannelId}
-              />
-              <Select
-                value={campaignChannelId}
-                onValueChange={(value) => {
-                  setCampaignChannelId(value);
-                  if (value === "standalone") return;
-                  const option = campaignChannelOptions.find(
-                    (candidate) => String(candidate.id) === value,
-                  );
-                  if (!destinationUrl && option?.defaultDestinationUrl) {
-                    setDestinationUrl(option.defaultDestinationUrl);
-                  }
-                  if (!slug && option?.campaignCode && option.channelCode) {
-                    setSlug(`${option.campaignCode}${option.channelCode}`);
-                  }
-                }}
-              >
-                <SelectTrigger id="create-campaign-channel" size="sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="standalone">Standalone link</SelectItem>
-                  {campaignChannelOptions.map((option) => (
-                    <SelectItem key={option.id} value={String(option.id)}>
-                      {option.campaignName} / {option.channelName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Campaign links are jointly owned by your chapter.
-              </p>
-            </div>
-          ) : null}
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -335,6 +330,90 @@ function CreateLinkForm({
               onChange={(e) => setComment(e.target.value)}
             />
           </div>
+
+          <div className="space-y-2">
+            <FieldLabel htmlFor="create-visibility">Visibility</FieldLabel>
+            <input type="hidden" name="visibility" value={visibility} />
+            <Select
+              value={visibility}
+              onValueChange={(value) => setVisibility(value as LinkVisibility)}
+            >
+              <SelectTrigger id="create-visibility" size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="private">
+                  Private — only you and people you share with
+                </SelectItem>
+                <SelectItem value="public">Anyone in GDG Japan can view</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-3">
+            <FieldLabel>Sharing</FieldLabel>
+            <div className="grid gap-2 rounded-md border bg-card p-3 sm:grid-cols-[140px_1fr_120px]">
+              <input type="hidden" name="sharePrincipalType" value={sharePrincipalType} />
+              <input type="hidden" name="shareRole" value={shareRole} />
+              <Select
+                value={sharePrincipalType}
+                onValueChange={(value) => {
+                  const nextType = value as "user" | "chapter";
+                  setSharePrincipalType(nextType);
+                  setSharePrincipalId(
+                    nextType === "chapter" ? String(chapters[0]?.chapterId ?? "") : "",
+                  );
+                }}
+              >
+                <SelectTrigger size="sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">Email</SelectItem>
+                  <SelectItem value="chapter" disabled={chapters.length === 0}>
+                    Chapter
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {sharePrincipalType === "user" ? (
+                <Input
+                  type="email"
+                  name="sharePrincipalId"
+                  placeholder="alice@example.com"
+                  value={sharePrincipalId}
+                  onChange={(e) => setSharePrincipalId(e.target.value)}
+                />
+              ) : (
+                <Select value={sharePrincipalId} onValueChange={setSharePrincipalId}>
+                  <SelectTrigger size="sm">
+                    <SelectValue placeholder="Choose a chapter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {chapters.map((chapter) => (
+                      <SelectItem key={chapter.chapterId} value={String(chapter.chapterId)}>
+                        {chapter.chapterSlug}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Select
+                value={shareRole}
+                onValueChange={(value) => setShareRole(value as "viewer" | "editor")}
+              >
+                <SelectTrigger size="sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                  <SelectItem value="editor">Editor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Optionally share this link with a person or chapter when it is created.
+            </p>
+          </div>
         </div>
 
         <div className="space-y-5">
@@ -360,7 +439,7 @@ function CreateLinkForm({
                 type="button"
                 variant="ghost"
                 size="xs"
-                onClick={fetchOgpNow}
+                onClick={() => fetchOgpNow()}
                 disabled={isFetchingOgp || !destinationUrl}
               >
                 <RefreshCw className={`size-3 ${isFetchingOgp ? "animate-spin" : ""}`} />
@@ -388,9 +467,43 @@ function CreateLinkForm({
               </div>
             </div>
 
-            <input type="hidden" name="title" value={title} />
-            <input type="hidden" name="description" value={description} />
-            <input type="hidden" name="ogImageUrl" value={ogImageUrl} />
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="create-title" className="text-xs text-muted-foreground">
+                  Title
+                </Label>
+                <Input
+                  id="create-title"
+                  name="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="create-description" className="text-xs text-muted-foreground">
+                  Description
+                </Label>
+                <Textarea
+                  id="create-description"
+                  name="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="create-ogImageUrl" className="text-xs text-muted-foreground">
+                  Image URL
+                </Label>
+                <Input
+                  id="create-ogImageUrl"
+                  name="ogImageUrl"
+                  type="url"
+                  value={ogImageUrl}
+                  onChange={(e) => setOgImageUrl(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>

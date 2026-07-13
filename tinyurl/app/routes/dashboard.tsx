@@ -1,5 +1,6 @@
 import { ChevronsUpDown, FolderTree, Plus, Search, SlidersHorizontal } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { Await } from "react-router";
 import { CreateLinkDialog } from "~/components/create-link-dialog";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { LinkCard, type LinkCardItem, type LinkOwner } from "~/components/link-card";
@@ -13,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
+import { Skeleton } from "~/components/ui/skeleton";
 import { clicksByLinkId } from "~/lib/analytics-engine";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
 import {
@@ -37,7 +39,7 @@ export function meta() {
 
 export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
-  const { user, chapter } = await requireUserWithChapter(env, args.request);
+  const { user, chapter, chapters } = await requireUserWithChapter(env, args.request);
   const [personalLinks, chapterLinks, sharedLinks, publicLinks, userTags, chapterTags, campaigns] =
     await Promise.all([
       listLinksForUser(env.DB, user.id),
@@ -65,28 +67,35 @@ export async function loader(args: Route.LoaderArgs) {
   const ownerIds = [...new Set(allLinks.map((l) => l.ownerUserId))];
   const linkIds = allLinks.map((l) => l.id);
 
-  const channelsByCampaign = await Promise.all(
-    campaigns.map(async (campaign) => ({
-      campaign,
-      channels: await listCampaignChannels(env.DB, campaign.id, true),
-    })),
-  );
-
-  const [clickMap, owners] = await Promise.all([
-    clicksByLinkId(env, linkIds).catch((err) => {
+  // Analytics Engine is an external HTTP API and is consistently slower than D1.
+  // Start it immediately, but stream the result so it never blocks the route transition.
+  const clicks = clicksByLinkId(env, linkIds)
+    .then((clickMap) => {
+      const counts: Record<string, number> = {};
+      for (const [id, count] of clickMap) counts[id] = count;
+      return counts;
+    })
+    .catch((err) => {
       console.error("Analytics Engine query failed (clicksByLinkId):", err);
-      return new Map<string, number>();
-    }),
+      return {} as Record<string, number>;
+    });
+
+  const [channelsByCampaign, owners] = await Promise.all([
+    Promise.all(
+      campaigns.map(async (campaign) => ({
+        campaign,
+        channels: await listCampaignChannels(env.DB, campaign.id, true),
+      })),
+    ),
     ownerIds.length > 0
       ? getUsersByIds(env.DB, ownerIds).catch(() => ({}) as Record<string, UserSummary>)
       : Promise.resolve({} as Record<string, UserSummary>),
   ]);
-  const clicks: Record<string, number> = {};
-  for (const [id, n] of clickMap) clicks[id] = n;
 
   return {
     user,
     chapter,
+    chapters,
     ownLinks,
     sharedLinks: sharedFiltered,
     owners,
@@ -152,10 +161,10 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
     ownLinks,
     sharedLinks,
     owners,
-    clicks,
     availableTags,
     campaignChannelCatalog,
     campaignChannelOptions,
+    chapters,
     shortUrlBase,
   } = loaderData;
   const user = shellUser(loaderData);
@@ -170,55 +179,6 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
     () => new Map(campaignChannelCatalog.map((option) => [option.id, option])),
     [campaignChannelCatalog],
   );
-
-  const items = useMemo<LinkCardItem[]>(() => {
-    const own: LinkCardItem[] = ownLinks.map((link) => ({
-      link,
-      owner: ownerOf(owners, link.ownerUserId),
-      clicks: clicks[link.id] ?? 0,
-      campaign: link.campaignChannelId ? channelById.get(link.campaignChannelId) : undefined,
-    }));
-    const shared: LinkCardItem[] = sharedLinks.map((link) => ({
-      link,
-      owner: ownerOf(owners, link.ownerUserId),
-      clicks: clicks[link.id] ?? 0,
-      campaign: link.campaignChannelId ? channelById.get(link.campaignChannelId) : undefined,
-    }));
-    let combined: LinkCardItem[];
-    if (scope === "own") combined = own;
-    else if (scope === "shared") combined = shared;
-    else combined = [...own, ...shared];
-
-    if (campaignFilter === "unclassified") {
-      combined = combined.filter((item) => item.link.campaignChannelId === null);
-    } else if (campaignFilter.startsWith("campaign:")) {
-      const campaignId = Number(campaignFilter.slice("campaign:".length));
-      combined = combined.filter((item) => item.campaign?.campaignId === campaignId);
-    } else if (campaignFilter.startsWith("channel:")) {
-      const channelId = Number(campaignFilter.slice("channel:".length));
-      combined = combined.filter((item) => item.link.campaignChannelId === channelId);
-    }
-
-    const q = query.trim().toLowerCase();
-    if (q) {
-      combined = combined.filter((it) => {
-        return (
-          it.link.slug.toLowerCase().includes(q) ||
-          it.link.destinationUrl.toLowerCase().includes(q) ||
-          (it.link.title?.toLowerCase().includes(q) ?? false) ||
-          (it.link.description?.toLowerCase().includes(q) ?? false) ||
-          (it.campaign?.campaignName.toLowerCase().includes(q) ?? false) ||
-          (it.campaign?.channelName.toLowerCase().includes(q) ?? false)
-        );
-      });
-    }
-
-    const sorted = [...combined];
-    if (sort === "newest") sorted.sort((a, b) => b.link.createdAt - a.link.createdAt);
-    else if (sort === "oldest") sorted.sort((a, b) => a.link.createdAt - b.link.createdAt);
-    else sorted.sort((a, b) => b.clicks - a.clicks);
-    return sorted;
-  }, [ownLinks, sharedLinks, owners, clicks, scope, query, sort, campaignFilter, channelById]);
 
   const campaignFilterLabel = useMemo(() => {
     if (campaignFilter === "all") return "All campaigns";
@@ -270,6 +230,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           <CreateLinkDialog
             availableTags={availableTags}
             campaignChannelOptions={campaignChannelOptions}
+            chapters={chapters}
             shortUrlBase={shortUrlBase}
             trigger={
               <Button size="sm">
@@ -408,44 +369,147 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           <EmptyState
             availableTags={availableTags}
             campaignChannelOptions={campaignChannelOptions}
+            chapters={chapters}
             shortUrlBase={shortUrlBase}
           />
-        ) : items.length === 0 ? (
-          <div className="rounded-xl border bg-card p-10 text-center text-sm text-muted-foreground">
-            No links match your filters.
-          </div>
         ) : (
-          <div className="flex flex-col gap-2">
-            {items.map((item) => (
-              <LinkCard
-                key={item.link.id}
-                item={item}
-                shortUrlBase={shortUrlBase}
-                shortHost={shortHost}
-              />
-            ))}
-          </div>
+          <Suspense fallback={<LinksSkeleton />}>
+            <Await resolve={loaderData.clicks}>
+              {(clicks) => (
+                <DashboardResults
+                  ownLinks={ownLinks}
+                  sharedLinks={sharedLinks}
+                  owners={owners}
+                  clicks={clicks}
+                  scope={scope}
+                  query={query}
+                  sort={sort}
+                  campaignFilter={campaignFilter}
+                  channelById={channelById}
+                  shortUrlBase={shortUrlBase}
+                  shortHost={shortHost}
+                />
+              )}
+            </Await>
+          </Suspense>
         )}
-
-        {totalCount > 0 ? (
-          <p className="text-center text-xs text-muted-foreground">
-            {items.length > 0
-              ? `Viewing 1–${items.length} of ${totalCount} links`
-              : `Viewing 0 of ${totalCount} links`}
-          </p>
-        ) : null}
       </div>
     </DashboardShell>
+  );
+}
+
+function LinksSkeleton() {
+  return (
+    <div className="flex flex-col gap-2" aria-label="Loading link statistics">
+      {[0, 1, 2].map((index) => (
+        <Skeleton key={index} className="h-24 w-full rounded-xl" />
+      ))}
+    </div>
+  );
+}
+
+function DashboardResults({
+  ownLinks,
+  sharedLinks,
+  owners,
+  clicks,
+  scope,
+  query,
+  sort,
+  campaignFilter,
+  channelById,
+  shortUrlBase,
+  shortHost,
+}: {
+  ownLinks: DbLink[];
+  sharedLinks: DbLink[];
+  owners: Record<string, UserSummary>;
+  clicks: Record<string, number>;
+  scope: Scope;
+  query: string;
+  sort: SortKey;
+  campaignFilter: CampaignFilter;
+  channelById: Map<number, Route.ComponentProps["loaderData"]["campaignChannelCatalog"][number]>;
+  shortUrlBase: string;
+  shortHost: string;
+}) {
+  const items = useMemo<LinkCardItem[]>(() => {
+    const toItem = (link: DbLink): LinkCardItem => ({
+      link,
+      owner: ownerOf(owners, link.ownerUserId),
+      clicks: clicks[link.id] ?? 0,
+      campaign: link.campaignChannelId ? channelById.get(link.campaignChannelId) : undefined,
+    });
+    const own = ownLinks.map(toItem);
+    const shared = sharedLinks.map(toItem);
+    let combined = scope === "own" ? own : scope === "shared" ? shared : [...own, ...shared];
+
+    if (campaignFilter === "unclassified") {
+      combined = combined.filter((item) => item.link.campaignChannelId === null);
+    } else if (campaignFilter.startsWith("campaign:")) {
+      const campaignId = Number(campaignFilter.slice("campaign:".length));
+      combined = combined.filter((item) => item.campaign?.campaignId === campaignId);
+    } else if (campaignFilter.startsWith("channel:")) {
+      const channelId = Number(campaignFilter.slice("channel:".length));
+      combined = combined.filter((item) => item.link.campaignChannelId === channelId);
+    }
+
+    const normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery) {
+      combined = combined.filter(
+        (item) =>
+          item.link.slug.toLowerCase().includes(normalizedQuery) ||
+          item.link.destinationUrl.toLowerCase().includes(normalizedQuery) ||
+          (item.link.title?.toLowerCase().includes(normalizedQuery) ?? false) ||
+          (item.link.description?.toLowerCase().includes(normalizedQuery) ?? false) ||
+          (item.campaign?.campaignName.toLowerCase().includes(normalizedQuery) ?? false) ||
+          (item.campaign?.channelName.toLowerCase().includes(normalizedQuery) ?? false),
+      );
+    }
+
+    const sorted = [...combined];
+    if (sort === "newest") sorted.sort((a, b) => b.link.createdAt - a.link.createdAt);
+    else if (sort === "oldest") sorted.sort((a, b) => a.link.createdAt - b.link.createdAt);
+    else sorted.sort((a, b) => b.clicks - a.clicks);
+    return sorted;
+  }, [ownLinks, sharedLinks, owners, clicks, scope, query, sort, campaignFilter, channelById]);
+
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border bg-card p-10 text-center text-sm text-muted-foreground">
+        No links match your filters.
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-2">
+        {items.map((item) => (
+          <LinkCard
+            key={item.link.id}
+            item={item}
+            shortUrlBase={shortUrlBase}
+            shortHost={shortHost}
+          />
+        ))}
+      </div>
+      <p className="text-center text-xs text-muted-foreground">
+        Viewing 1–{items.length} of {ownLinks.length + sharedLinks.length} links
+      </p>
+    </>
   );
 }
 
 function EmptyState({
   availableTags,
   campaignChannelOptions,
+  chapters,
   shortUrlBase,
 }: {
   availableTags: DbTag[];
   campaignChannelOptions: Route.ComponentProps["loaderData"]["campaignChannelOptions"];
+  chapters: Route.ComponentProps["loaderData"]["chapters"];
   shortUrlBase: string;
 }) {
   return (
@@ -458,6 +522,7 @@ function EmptyState({
         <CreateLinkDialog
           availableTags={availableTags}
           campaignChannelOptions={campaignChannelOptions}
+          chapters={chapters}
           shortUrlBase={shortUrlBase}
           trigger={
             <Button size="sm">

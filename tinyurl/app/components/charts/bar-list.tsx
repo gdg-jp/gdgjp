@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Skeleton } from "~/components/ui/skeleton";
 import type { TopRow } from "~/lib/analytics-engine";
 
 export type BarTone = "blue" | "amber" | "rose" | "violet" | "emerald";
@@ -17,12 +18,14 @@ export function BarList({
   tone = "blue",
   renderIcon,
   height,
+  pending = false,
 }: {
   rows: TopRow[];
   emptyLabel?: string;
   tone?: BarTone;
   renderIcon?: (row: TopRow) => ReactNode;
   height?: number;
+  pending?: boolean;
 }) {
   if (rows.length === 0) {
     return (
@@ -34,6 +37,7 @@ export function BarList({
     <ul
       className="space-y-1.5 overflow-y-auto pr-1"
       style={height ? { maxHeight: height } : undefined}
+      aria-busy={pending || undefined}
     >
       {rows.map((r) => {
         const pct = (r.clicks / max) * 100;
@@ -41,7 +45,7 @@ export function BarList({
           <li key={r.name} className="relative">
             <div
               className={`absolute inset-y-0 left-0 rounded ${TONE_CLASS[tone]}`}
-              style={{ width: `${pct}%` }}
+              style={{ width: pending ? "0%" : `${pct}%` }}
               aria-hidden
             />
             <div className="relative flex items-center justify-between gap-3 px-2 py-1.5 text-sm">
@@ -53,9 +57,13 @@ export function BarList({
                 ) : null}
                 <span className="truncate">{r.name}</span>
               </span>
-              <span className="font-mono tabular-nums text-muted-foreground">
-                {r.clicks.toLocaleString()}
-              </span>
+              {pending ? (
+                <Skeleton className="h-4 w-8 shrink-0" />
+              ) : (
+                <span className="font-mono tabular-nums text-muted-foreground">
+                  {r.clicks.toLocaleString()}
+                </span>
+              )}
             </div>
           </li>
         );

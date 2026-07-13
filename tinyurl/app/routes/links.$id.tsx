@@ -11,8 +11,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Form, Link, redirect, useNavigation } from "react-router";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Await, Form, Link, redirect, useNavigation } from "react-router";
 import { toast } from "sonner";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { TagCombobox } from "~/components/tag-combobox";
@@ -100,12 +100,14 @@ async function ensureAccess(args: Route.LoaderArgs | Route.ActionArgs) {
 
 export async function loader(args: Route.LoaderArgs) {
   const { env, user, chapter, chapters, link, permissions, editable } = await ensureAccess(args);
-  const [tags, userTags, chapterTags, comments, clickMap, users] = await Promise.all([
+  const clicks = clicksByLinkId(env, [link.id])
+    .then((clickMap) => clickMap.get(link.id) ?? 0)
+    .catch(() => 0);
+  const [tags, userTags, chapterTags, comments, users] = await Promise.all([
     listTagsForLink(env.DB, link.id),
     listTagsForUser(env.DB, user.id),
     listTagsForChapter(env.DB, chapter.chapterId),
     listComments(env.DB, link.id),
-    clicksByLinkId(env, [link.id]).catch(() => new Map<string, number>()),
     getUsersByIds(env.DB, [link.ownerUserId]),
   ]);
   const latestComment = comments.length > 0 ? comments[comments.length - 1] : null;
@@ -124,7 +126,7 @@ export async function loader(args: Route.LoaderArgs) {
     chapterNameById,
     appUrl: env.APP_URL,
     shortUrlBase: env.SHORT_URL_BASE,
-    clicks: clickMap.get(link.id) ?? 0,
+    clicks,
   };
 }
 
@@ -497,7 +499,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
     chapters,
     chapterNameById,
     shortUrlBase,
-    clicks,
   } = loaderData;
   const apexShortUrl = `${shortUrlBase}/${link.slug}`;
   const shortHost = shortHostOf(shortUrlBase);
@@ -578,7 +579,11 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
             <Button asChild variant="outline" size="sm">
               <Link to={`/analytics?linkId=${link.id}`} prefetch="intent">
                 <BarChart3 className="size-4 text-primary" />
-                {clicks} {clicks === 1 ? "click" : "clicks"}
+                <Suspense fallback={<span>Clicks</span>}>
+                  <Await resolve={loaderData.clicks}>
+                    {(clicks) => `${clicks} ${clicks === 1 ? "click" : "clicks"}`}
+                  </Await>
+                </Suspense>
               </Link>
             </Button>
             <DropdownMenu>
@@ -935,10 +940,10 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                 href={link.destinationUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                className="inline-flex items-start gap-1 text-xs text-muted-foreground hover:text-foreground"
               >
-                <ExternalLink className="size-3" />
-                <span className="truncate">{link.destinationUrl}</span>
+                <ExternalLink className="mt-0.5 size-3 shrink-0" />
+                <span className="break-all">{link.destinationUrl}</span>
               </a>
             </div>
           </div>

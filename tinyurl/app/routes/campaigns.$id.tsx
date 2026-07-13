@@ -12,8 +12,9 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useState } from "react";
-import { Form, Link, useSearchParams } from "react-router";
+import { Suspense, useState } from "react";
+import { Await, Form, Link, useLocation, useNavigation, useSearchParams } from "react-router";
+import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { FilterSuggestions } from "~/components/analytics/analytics-filter-button";
 import { AnalyticsFiltersBar } from "~/components/analytics/analytics-filters-bar";
 import { useCampaignActionDialog } from "~/components/campaigns/use-campaign-action-dialog";
@@ -37,6 +38,7 @@ import {
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { Skeleton } from "~/components/ui/skeleton";
 import { SubmitButton } from "~/components/ui/submit-button";
 import {
   clicksByLinkId,
@@ -48,6 +50,7 @@ import {
 import { parseAnalyticsParams } from "~/lib/analytics-filters";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
 import { campaignSourceBreakdown } from "~/lib/campaign-analytics";
+import { resolveCampaignScope, shouldReloadCampaign } from "~/lib/campaign-navigation";
 import {
   archiveCampaignChannel,
   archiveCampaignChannelSource,
@@ -58,6 +61,7 @@ import {
   getCampaignWithChannelLinks,
   getUsersByIds,
   listAssignableLinksForCampaign,
+  listCampaignChannelsWithLinks,
   listTagsForChapter,
   listTagsForUser,
   updateCampaignChannel,
@@ -71,6 +75,14 @@ export function meta({ data }: Route.MetaArgs) {
   return [{ title: `${data?.campaign.name ?? "Campaign"} — GDG Japan Links` }];
 }
 
+export function shouldRevalidate({
+  currentUrl,
+  nextUrl,
+  defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+  return shouldReloadCampaign(currentUrl, nextUrl, defaultShouldRevalidate);
+}
+
 function parseId(value: FormDataEntryValue | null, label: string): number {
   const id = Number(value);
   if (!Number.isInteger(id) || id <= 0) throw new Response(`Invalid ${label}.`, { status: 400 });
@@ -79,7 +91,7 @@ function parseId(value: FormDataEntryValue | null, label: string): number {
 
 async function requireCampaignAccess(args: Route.LoaderArgs | Route.ActionArgs) {
   const env = args.context.cloudflare.env;
-  const { user, chapter } = await requireUserWithChapter(env, args.request);
+  const { user, chapter, chapters } = await requireUserWithChapter(env, args.request);
   const id = Number(args.params.id);
   if (!Number.isInteger(id) || id <= 0) throw new Response("Not found", { status: 404 });
   const campaign = await getCampaignById(env.DB, id);
@@ -87,20 +99,17 @@ async function requireCampaignAccess(args: Route.LoaderArgs | Route.ActionArgs) 
   if (campaign.ownerChapterId !== chapter.chapterId && !isSuperAdmin(user)) {
     throw new Response("Forbidden", { status: 403 });
   }
-  return { env, user, chapter, campaign, id };
+  return { env, user, chapter, chapters, campaign, id };
 }
 
 export async function loader(args: Route.LoaderArgs) {
-  const { env, user, campaign, id } = await requireCampaignAccess(args);
-  const [tree, assignableLinks, userTags, chapterTags] = await Promise.all([
-    getCampaignWithChannelLinks(env.DB, id, true),
+  const { env, user, chapters, campaign, id } = await requireCampaignAccess(args);
+  const [channels, assignableLinks, userTags, chapterTags] = await Promise.all([
+    listCampaignChannelsWithLinks(env.DB, id, true),
     listAssignableLinksForCampaign(env.DB, user.id, id),
     listTagsForUser(env.DB, user.id),
     listTagsForChapter(env.DB, campaign.ownerChapterId),
   ]);
-  if (!tree) throw new Response("Not found", { status: 404 });
-
-  const channels = tree.channels;
   const ownerIds = [
     ...new Set(channels.flatMap((item) => item.links.map((link) => link.ownerUserId))),
   ];
@@ -110,19 +119,10 @@ export async function loader(args: Route.LoaderArgs) {
       : {};
   const url = new URL(args.request.url);
   const parsed = parseAnalyticsParams(url.searchParams);
-  const requestedChannelId = Number(url.searchParams.get("channelId"));
-  const selectedChannelId = channels.some((item) => item.id === requestedChannelId)
-    ? requestedChannelId
-    : null;
+  const { selectedChannelId, selectedLinkId } = resolveCampaignScope(channels, url.searchParams);
   const channelsInScope = selectedChannelId
     ? channels.filter((item) => item.id === selectedChannelId)
     : channels;
-  const requestedLinkId = url.searchParams.get("linkId");
-  const selectedLinkId = channelsInScope.some((item) =>
-    item.links.some((link) => link.id === requestedLinkId),
-  )
-    ? requestedLinkId
-    : null;
   const linkIds = channelsInScope.flatMap((item) =>
     item.links
       .filter((link) => !selectedLinkId || link.id === selectedLinkId)
@@ -135,28 +135,50 @@ export async function loader(args: Route.LoaderArgs) {
       console.error(`Campaign analytics query failed (${label}):`, error);
       return value;
     };
-  const [total, hourly, clickMap, sourceClicks] =
+  const emptyClicks = new Map<string, number>();
+  const clickMap =
     linkIds.length === 0
-      ? [0, [], new Map<string, number>(), []]
-      : await Promise.all([
-          totalClicks(env, linkIds, opts).catch(fallback("total", 0)),
-          hourlyClicks(env, linkIds, opts).catch(fallback("hourly", [])),
-          clicksByLinkId(env, linkIds, opts).catch(fallback("links", new Map<string, number>())),
-          clicksByLinkIdAndSource(env, linkIds, opts).catch(fallback("sources", [])),
-        ]);
-  const clicks: Record<string, number> = {};
-  for (const [linkId, count] of clickMap) clicks[linkId] = count;
-  const sourceBreakdown = campaignSourceBreakdown(channelsInScope, sourceClicks);
-  const sourceSuggestions = new Set(
-    channelsInScope.flatMap((item) => item.sources.map((source) => source.code)),
-  );
-  for (const row of sourceClicks) if (row.source) sourceSuggestions.add(row.source);
-  const suggestions: FilterSuggestions = {
-    source: [...sourceSuggestions].sort(),
-    slug: channelsInScope.flatMap((item) => item.links.map((link) => link.slug)),
-  };
+      ? Promise.resolve(emptyClicks)
+      : clicksByLinkId(env, linkIds, opts).catch(fallback("links", emptyClicks));
+  const clicks = clickMap.then((resolved) => {
+    const counts: Record<string, number> = {};
+    for (const [linkId, count] of resolved) counts[linkId] = count;
+    return counts;
+  });
+  const analytics = Promise.all([
+    linkIds.length === 0
+      ? Promise.resolve(0)
+      : totalClicks(env, linkIds, opts).catch(fallback("total", 0)),
+    linkIds.length === 0
+      ? Promise.resolve([])
+      : hourlyClicks(env, linkIds, opts).catch(fallback("hourly", [])),
+    clicks,
+    linkIds.length === 0
+      ? Promise.resolve([])
+      : clicksByLinkIdAndSource(env, linkIds, opts).catch(fallback("sources", [])),
+  ]).then(([total, hourly, resolvedClicks, sourceClicks]) => {
+    const sourceBreakdown = campaignSourceBreakdown(channelsInScope, sourceClicks);
+    const sourceSuggestions = new Set(
+      channelsInScope.flatMap((item) => item.sources.map((source) => source.code)),
+    );
+    for (const row of sourceClicks) if (row.source) sourceSuggestions.add(row.source);
+    const suggestions: FilterSuggestions = {
+      source: [...sourceSuggestions].sort(),
+      slug: channelsInScope.flatMap((item) => item.links.map((link) => link.slug)),
+    };
+    return {
+      total,
+      hourly,
+      clicks: resolvedClicks,
+      topSources: sourceBreakdown.rows,
+      unregisteredSources: sourceBreakdown.unregistered,
+      granularity: granularityFor(parsed.window),
+      suggestions,
+    };
+  });
 
   return {
+    chapters,
     user: { email: user.email, name: user.name },
     campaign,
     channels,
@@ -170,15 +192,8 @@ export async function loader(args: Route.LoaderArgs) {
     customStart: parsed.window.kind === "custom" ? parsed.window.startIso : undefined,
     customEnd: parsed.window.kind === "custom" ? parsed.window.endIso : undefined,
     filters: parsed.filters,
-    suggestions,
-    analytics: {
-      total,
-      hourly,
-      clicks,
-      topSources: sourceBreakdown.rows,
-      unregisteredSources: sourceBreakdown.unregistered,
-      granularity: granularityFor(parsed.window),
-    },
+    clicks,
+    analytics,
   };
 }
 
@@ -304,36 +319,32 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
     owners,
     assignableLinks,
     availableTags,
+    chapters,
     shortUrlBase,
-    selectedChannelId,
-    selectedLinkId,
+    selectedChannelId: loadedChannelId,
+    selectedLinkId: loadedLinkId,
     preset,
     customStart,
     customEnd,
     filters,
-    suggestions,
+    clicks,
     analytics,
   } = loaderData;
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const navigation = useNavigation();
+  const navigatingWithinCampaign = navigation.location?.pathname === location.pathname;
+  // The loader already contains every channel's D1 link tree. During a scoped AE reload,
+  // use the destination URL with that cached tree so link controls update immediately.
+  const scopeSearchParams = navigatingWithinCampaign
+    ? new URLSearchParams(navigation.location?.search)
+    : searchParams;
+  const { selectedChannelId, selectedLinkId } = resolveCampaignScope(channels, scopeSearchParams);
+  const scopePending =
+    navigatingWithinCampaign &&
+    (selectedChannelId !== loadedChannelId || selectedLinkId !== loadedLinkId);
   const activeView = searchParams.get("view") === "analytics" ? "analytics" : "channels";
   const activeChannels = channels.filter((item) => item.archivedAt === null);
-  const channelsInScope = selectedChannelId
-    ? channels.filter((item) => item.id === selectedChannelId)
-    : channels;
-  const linkRows = channelsInScope
-    .flatMap((item) => item.links)
-    .filter((link) => !selectedLinkId || link.id === selectedLinkId)
-    .map((link) => ({
-      name: link.description || link.title || link.slug,
-      clicks: analytics.clicks[link.id] ?? 0,
-    }))
-    .sort((a, b) => b.clicks - a.clicks);
-  const channelRows = channelsInScope
-    .map((item) => ({
-      name: item.name,
-      clicks: item.links.reduce((sum, link) => sum + (analytics.clicks[link.id] ?? 0), 0),
-    }))
-    .sort((a, b) => b.clicks - a.clicks);
 
   function setView(view: "channels" | "analytics") {
     const next = new URLSearchParams(searchParams);
@@ -440,134 +451,222 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
                 Add a channel such as X, Discord, or Instagram.
               </div>
             ) : (
-              channels.map((item) => (
-                <ChannelCard
-                  key={item.id}
-                  campaign={campaign}
-                  channel={item}
-                  owners={owners}
-                  availableTags={availableTags}
-                  shortUrlBase={shortUrlBase}
-                  clicks={analytics.clicks}
-                />
-              ))
+              <Suspense fallback={<CampaignPanelSkeleton rows={channels.length} />}>
+                <Await resolve={clicks}>
+                  {(resolvedClicks) =>
+                    channels.map((item) => (
+                      <ChannelCard
+                        key={item.id}
+                        campaign={campaign}
+                        channel={item}
+                        owners={owners}
+                        availableTags={availableTags}
+                        chapters={chapters}
+                        shortUrlBase={shortUrlBase}
+                        clicks={resolvedClicks}
+                      />
+                    ))
+                  }
+                </Await>
+              </Suspense>
             )}
           </section>
         ) : (
-          <div
-            id="analytics-panel"
-            role="tabpanel"
-            aria-labelledby="analytics-tab"
-            className="space-y-6 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-1 motion-safe:duration-200"
-          >
-            <section aria-labelledby="analytics-heading" className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2
-                  id="analytics-heading"
-                  className="flex items-center gap-2 text-lg font-semibold"
-                >
-                  <BarChart3 className="size-5" /> Analytics
-                </h2>
-                <AnalyticsFiltersBar
+          <Suspense fallback={<CampaignAnalyticsSkeleton />}>
+            <Await resolve={analytics}>
+              {(resolvedAnalytics) => (
+                <CampaignAnalyticsPanel
+                  analytics={resolvedAnalytics}
+                  channels={channels}
+                  selectedChannelId={selectedChannelId}
+                  selectedLinkId={selectedLinkId}
+                  shortUrlBase={shortUrlBase}
                   preset={preset}
-                  startIso={customStart}
-                  endIso={customEnd}
+                  customStart={customStart}
+                  customEnd={customEnd}
                   filters={filters}
-                  suggestions={suggestions}
+                  scopeSearchParams={scopeSearchParams}
+                  scopePending={scopePending}
                 />
-              </div>
-              <CampaignScopeFilters
-                channels={channels}
-                selectedChannelId={selectedChannelId}
-                selectedLinkId={selectedLinkId}
-              />
-              <div className="grid gap-3 lg:grid-cols-[1.6fr_1fr]">
-                <Card>
-                  <CardHeader className="border-b">
-                    <CardTitle className="flex items-end justify-between gap-4">
-                      <span className="text-sm font-medium text-muted-foreground">Clicks</span>
-                      <span className="text-3xl font-semibold tabular-nums">
-                        {analytics.total.toLocaleString()}
-                      </span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <HourlyChart
-                      data={analytics.hourly}
-                      height={260}
-                      granularity={analytics.granularity}
-                    />
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Sources</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <BarList
-                      rows={analytics.topSources}
-                      emptyLabel="No source data yet."
-                      height={260}
-                    />
-                  </CardContent>
-                </Card>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Channel</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <BarList rows={channelRows} />
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Links</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <BarList rows={linkRows} />
-                  </CardContent>
-                </Card>
-              </div>
-            </section>
-
-            {analytics.unregisteredSources.length > 0 ? (
-              <Card className="border-amber-300/70 bg-amber-50/40 dark:bg-amber-950/10">
-                <CardHeader>
-                  <CardTitle className="text-sm">Unregistered sources detected</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {analytics.unregisteredSources.map((source) => (
-                    <div
-                      key={`${source.channelId}:${source.code}`}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background p-3"
-                    >
-                      <div>
-                        <code className="text-sm">
-                          {source.channelName} / {source.code}
-                        </code>
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {source.clicks} clicks
-                        </span>
-                      </div>
-                      {channels.find((item) => item.id === source.channelId)?.archivedAt ===
-                      null ? (
-                        <RegisterSourceDialog
-                          code={source.code}
-                          channelId={source.channelId}
-                          channelName={source.channelName}
-                        />
-                      ) : null}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            ) : null}
-          </div>
+              )}
+            </Await>
+          </Suspense>
         )}
       </div>
     </DashboardShell>
+  );
+}
+
+function CampaignPanelSkeleton({ rows = 2 }: { rows?: number }) {
+  return (
+    <div className="space-y-3" aria-label="Loading campaign statistics">
+      {["first", "second", "third"].slice(0, Math.max(1, Math.min(rows, 3))).map((key) => (
+        <Skeleton key={key} className="h-32 w-full rounded-xl" />
+      ))}
+    </div>
+  );
+}
+
+function CampaignAnalyticsSkeleton() {
+  return (
+    <div className="space-y-3" aria-label="Loading campaign analytics">
+      <Skeleton className="h-9 w-full max-w-xl" />
+      <div className="grid gap-3 lg:grid-cols-[1.6fr_1fr]">
+        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-80 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+function CampaignAnalyticsPanel({
+  analytics,
+  channels,
+  selectedChannelId,
+  selectedLinkId,
+  shortUrlBase,
+  preset,
+  customStart,
+  customEnd,
+  filters,
+  scopeSearchParams,
+  scopePending,
+}: {
+  analytics: Awaited<Route.ComponentProps["loaderData"]["analytics"]>;
+  channels: DetailChannel[];
+  selectedChannelId: number | null;
+  selectedLinkId: string | null;
+  shortUrlBase: string;
+  preset: Route.ComponentProps["loaderData"]["preset"];
+  customStart: string | undefined;
+  customEnd: string | undefined;
+  filters: Route.ComponentProps["loaderData"]["filters"];
+  scopeSearchParams: URLSearchParams;
+  scopePending: boolean;
+}) {
+  const channelsInScope = selectedChannelId
+    ? channels.filter((item) => item.id === selectedChannelId)
+    : channels;
+  const linkRows = channelsInScope
+    .flatMap((item) => item.links)
+    .filter((link) => !selectedLinkId || link.id === selectedLinkId)
+    .map((link) => ({
+      name: `${shortUrlBase}/${link.slug}`,
+      clicks: analytics.clicks[link.id] ?? 0,
+    }))
+    .sort((a, b) => b.clicks - a.clicks);
+  const channelRows = channelsInScope
+    .map((item) => ({
+      name: item.name,
+      clicks: item.links.reduce((sum, link) => sum + (analytics.clicks[link.id] ?? 0), 0),
+    }))
+    .sort((a, b) => b.clicks - a.clicks);
+
+  return (
+    <div
+      id="analytics-panel"
+      role="tabpanel"
+      aria-labelledby="analytics-tab"
+      className="space-y-6 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-1 motion-safe:duration-200"
+    >
+      <section aria-labelledby="analytics-heading" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="analytics-heading" className="flex items-center gap-2 text-lg font-semibold">
+            <BarChart3 className="size-5" /> Analytics
+          </h2>
+          <AnalyticsFiltersBar
+            preset={preset}
+            startIso={customStart}
+            endIso={customEnd}
+            filters={filters}
+            suggestions={analytics.suggestions}
+          />
+        </div>
+        <CampaignScopeFilters
+          channels={channels}
+          selectedChannelId={selectedChannelId}
+          selectedLinkId={selectedLinkId}
+          shortUrlBase={shortUrlBase}
+          searchParams={scopeSearchParams}
+          pending={scopePending}
+        />
+        <div className="grid gap-3 lg:grid-cols-[1.6fr_1fr]">
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-end justify-between gap-4">
+                <span className="text-sm font-medium text-muted-foreground">Clicks</span>
+                <span className="text-3xl font-semibold tabular-nums">
+                  {analytics.total.toLocaleString()}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <HourlyChart
+                data={analytics.hourly}
+                height={260}
+                granularity={analytics.granularity}
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Sources</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BarList rows={analytics.topSources} emptyLabel="No source data yet." height={260} />
+            </CardContent>
+          </Card>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Channel</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BarList rows={channelRows} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Links</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BarList rows={linkRows} pending={scopePending} />
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {analytics.unregisteredSources.length > 0 ? (
+        <Card className="border-amber-300/70 bg-amber-50/40 dark:bg-amber-950/10">
+          <CardHeader>
+            <CardTitle className="text-sm">Unregistered sources detected</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {analytics.unregisteredSources.map((source) => (
+              <div
+                key={`${source.channelId}:${source.code}`}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background p-3"
+              >
+                <div>
+                  <code className="text-sm">
+                    {source.channelName} / {source.code}
+                  </code>
+                  <span className="ml-2 text-xs text-muted-foreground">{source.clicks} clicks</span>
+                </div>
+                {channels.find((item) => item.id === source.channelId)?.archivedAt === null ? (
+                  <RegisterSourceDialog
+                    code={source.code}
+                    channelId={source.channelId}
+                    channelName={source.channelName}
+                  />
+                ) : null}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+    </div>
   );
 }
 
@@ -588,12 +687,18 @@ function CampaignScopeFilters({
   channels,
   selectedChannelId,
   selectedLinkId,
+  shortUrlBase,
+  searchParams,
+  pending,
 }: {
   channels: DetailChannel[];
   selectedChannelId: number | null;
   selectedLinkId: string | null;
+  shortUrlBase: string;
+  searchParams: URLSearchParams;
+  pending: boolean;
 }) {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [, setSearchParams] = useSearchParams();
   const links = (
     selectedChannelId ? channels.filter((item) => item.id === selectedChannelId) : channels
   ).flatMap((item) => item.links.map((link) => ({ ...link, channelName: item.name })));
@@ -614,7 +719,10 @@ function CampaignScopeFilters({
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-muted/20 p-3">
+    <div
+      className="flex flex-wrap items-end gap-3 rounded-lg border bg-muted/20 p-3"
+      aria-busy={pending || undefined}
+    >
       <div className="min-w-48 space-y-1">
         <Label htmlFor="analytics-channels">Channel</Label>
         <select
@@ -643,7 +751,7 @@ function CampaignScopeFilters({
           <option value="">All links</option>
           {links.map((link) => (
             <option key={link.id} value={link.id}>
-              {link.channelName} / {link.description || link.title || link.slug}
+              {link.channelName} / {shortUrlBase}/{link.slug}
             </option>
           ))}
         </select>
@@ -662,6 +770,7 @@ function ChannelCard({
   channel,
   owners,
   availableTags,
+  chapters,
   shortUrlBase,
   clicks,
 }: {
@@ -669,6 +778,7 @@ function ChannelCard({
   channel: DetailChannel;
   owners: Record<string, UserSummary>;
   availableTags: AvailableTag[];
+  chapters: Route.ComponentProps["loaderData"]["chapters"];
   shortUrlBase: string;
   clicks: Record<string, number>;
 }) {
@@ -718,6 +828,7 @@ function ChannelCard({
                   channelCode: channel.code,
                 },
               ]}
+              chapters={chapters}
               shortUrlBase={shortUrlBase}
               trigger={
                 <Button size="sm">
@@ -846,7 +957,8 @@ function CreateSourceDialog({ channelId }: { channelId: number }) {
       description="Register a recurring distribution target."
       triggerLabel="Source"
       intent="createSource"
-      codePlaceholder="tokyo"
+      namePlaceholder="GDG Tokyo"
+      codePlaceholder="1"
       hidden={{ channelId }}
     />
   );
@@ -981,6 +1093,7 @@ function SimpleCreateDialog({
   description,
   triggerLabel,
   intent,
+  namePlaceholder,
   codePlaceholder,
   hidden,
 }: {
@@ -988,6 +1101,7 @@ function SimpleCreateDialog({
   description: string;
   triggerLabel: string;
   intent: string;
+  namePlaceholder?: string;
   codePlaceholder: string;
   hidden?: Record<string, string | number>;
 }) {
@@ -1013,7 +1127,13 @@ function SimpleCreateDialog({
           ))}
           <div className="space-y-2">
             <Label htmlFor={`${intent}-name`}>Display name</Label>
-            <Input id={`${intent}-name`} name="name" required maxLength={64} />
+            <Input
+              id={`${intent}-name`}
+              name="name"
+              required
+              maxLength={64}
+              placeholder={namePlaceholder}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor={`${intent}-code`}>Code</Label>

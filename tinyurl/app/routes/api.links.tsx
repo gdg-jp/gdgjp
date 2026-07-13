@@ -4,6 +4,7 @@ import { requireUserWithChapter } from "~/lib/auth-redirect";
 import {
   type LinkVisibility,
   addComment,
+  addPermission,
   createLink,
   createTag,
   deleteLink,
@@ -47,10 +48,26 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
   const commentBody = String(form.get("comment") ?? "").trim();
   const rawVisibility = String(form.get("visibility") ?? "private");
   const rawCampaignChannelId = String(form.get("campaignChannelId") ?? "").trim();
+  const sharePrincipalType = String(form.get("sharePrincipalType") ?? "");
+  const sharePrincipalId = String(form.get("sharePrincipalId") ?? "").trim();
+  const shareRole = String(form.get("shareRole") ?? "viewer");
   if (rawVisibility !== "private" && rawVisibility !== "public") {
     return { error: "Visibility must be private or public." };
   }
   const visibility: LinkVisibility = rawVisibility;
+
+  if (sharePrincipalId) {
+    if (sharePrincipalType !== "user" && sharePrincipalType !== "chapter") {
+      return { error: "Invalid sharing principal type." };
+    }
+    if (shareRole !== "editor" && shareRole !== "viewer") return { error: "Invalid sharing role." };
+    if (sharePrincipalType === "user" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sharePrincipalId)) {
+      return { error: "Invalid sharing email address." };
+    }
+    if (sharePrincipalType === "chapter" && !/^\d+$/.test(sharePrincipalId)) {
+      return { error: "Sharing chapter id must be a number." };
+    }
+  }
 
   let campaignChannelId: number | null = null;
   let ownerChapterId: number | null = null;
@@ -108,6 +125,14 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     if (finalTagIds.size > 0) await setLinkTags(env.DB, linkId, [...finalTagIds]);
     if (commentBody) {
       await addComment(env.DB, { linkId, authorUserId: user.id, body: commentBody });
+    }
+    if (sharePrincipalId) {
+      await addPermission(env.DB, {
+        linkId,
+        principalType: sharePrincipalType as "user" | "chapter",
+        principalId: sharePrincipalId,
+        role: shareRole as "viewer" | "editor",
+      });
     }
   }
 
