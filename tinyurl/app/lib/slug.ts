@@ -5,6 +5,7 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   "api",
   "app",
   "assets",
+  "campaigns",
   "dashboard",
   "favicon.ico",
   "links",

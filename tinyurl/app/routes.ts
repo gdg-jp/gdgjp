@@ -3,6 +3,8 @@ import { type RouteConfig, index, route } from "@react-router/dev/routes";
 export default [
   index("routes/home.tsx"),
   route("links", "routes/dashboard.tsx"),
+  route("campaigns", "routes/campaigns.tsx"),
+  route("campaigns/:id", "routes/campaigns.$id.tsx"),
   route("api/links", "routes/api.links.tsx"),
   route("links/:id", "routes/links.$id.tsx"),
   route("analytics", "routes/analytics.tsx"),

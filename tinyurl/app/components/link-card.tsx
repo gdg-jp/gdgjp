@@ -1,4 +1,12 @@
-import { BarChart3, Copy, ExternalLink, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import {
+  BarChart3,
+  Copy,
+  ExternalLink,
+  FolderTree,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
@@ -21,6 +29,14 @@ export type LinkCardItem = {
   link: DbLink;
   owner?: LinkOwner;
   clicks: number;
+  campaign?: {
+    campaignId: number;
+    campaignName: string;
+    campaignCode: string;
+    mediaId: number;
+    mediaName: string;
+    mediaCode: string;
+  };
 };
 
 function hostnameOf(url: string): string {
@@ -66,7 +82,7 @@ export function LinkCard({
   shortUrlBase: string;
   shortHost: string;
 }) {
-  const { link, owner, clicks } = item;
+  const { link, owner, clicks, campaign } = item;
   const favicon = faviconUrl(link.destinationUrl);
   const shortUrl = `${shortUrlBase}/${link.slug}`;
   const shortDisplay = `${shortHost}/${link.slug}`;
@@ -112,6 +128,26 @@ export function LinkCard({
             <Copy className="size-3.5" />
           </button>
         </div>
+        {campaign ? (
+          <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+            <FolderTree className="size-3 shrink-0" />
+            <Link
+              to={`/campaigns/${campaign.campaignId}`}
+              className="truncate hover:text-foreground hover:underline"
+              title={`${campaign.campaignName} / ${campaign.mediaName}`}
+            >
+              {campaign.campaignName} / {campaign.mediaName}
+            </Link>
+            {link.creativeName ? (
+              <>
+                <span aria-hidden>·</span>
+                <span className="truncate" title={link.creativeName}>
+                  {link.creativeName}
+                </span>
+              </>
+            ) : null}
+          </div>
+        ) : null}
         <a
           href={link.destinationUrl}
           target="_blank"

@@ -1,4 +1,4 @@
-import { BarChart3, LinkIcon, Menu, Tag as TagIcon, X } from "lucide-react";
+import { BarChart3, FolderTree, LinkIcon, Menu, Tag as TagIcon, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { type ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router";
@@ -20,7 +20,10 @@ type NavGroup = {
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    items: [{ to: "/links", label: "Links", icon: LinkIcon }],
+    items: [
+      { to: "/links", label: "Links", icon: LinkIcon },
+      { to: "/campaigns", label: "Campaigns", icon: FolderTree },
+    ],
   },
   {
     heading: "Insights",

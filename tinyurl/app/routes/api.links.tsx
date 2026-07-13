@@ -1,3 +1,4 @@
+import { isSuperAdmin } from "@gdgjp/gdg-lib";
 import { redirect } from "react-router";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
 import {
@@ -6,6 +7,8 @@ import {
   createLink,
   createTag,
   deleteLink,
+  getCampaignById,
+  getCampaignMediaById,
   setLinkTags,
 } from "~/lib/db";
 import { type OgpData, fetchOgp, validatePublicHttpUrl } from "~/lib/ogp";
@@ -16,7 +19,7 @@ export type ApiLinksActionData = { error: string } | { ogp: OgpData | null } | n
 
 export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData> {
   const env = args.context.cloudflare.env;
-  const { user } = await requireUserWithChapter(env, args.request);
+  const { user, chapter } = await requireUserWithChapter(env, args.request);
 
   const form = await args.request.formData();
   const intent = String(form.get("intent") ?? "create");
@@ -43,10 +46,36 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     .filter((n) => n.length > 0 && n.length <= 32);
   const commentBody = String(form.get("comment") ?? "").trim();
   const rawVisibility = String(form.get("visibility") ?? "private");
+  const rawCampaignMediaId = String(form.get("campaignMediaId") ?? "").trim();
+  const creativeName = String(form.get("creativeName") ?? "").trim() || null;
   if (rawVisibility !== "private" && rawVisibility !== "public") {
     return { error: "Visibility must be private or public." };
   }
   const visibility: LinkVisibility = rawVisibility;
+
+  let campaignMediaId: number | null = null;
+  let ownerChapterId: number | null = null;
+  if (rawCampaignMediaId) {
+    campaignMediaId = Number(rawCampaignMediaId);
+    if (!Number.isInteger(campaignMediaId) || campaignMediaId <= 0) {
+      return { error: "Campaign media is invalid." };
+    }
+    const medium = await getCampaignMediaById(env.DB, campaignMediaId);
+    const campaign = medium ? await getCampaignById(env.DB, medium.campaignId) : null;
+    if (
+      !medium ||
+      !campaign ||
+      medium.archivedAt !== null ||
+      campaign.archivedAt !== null ||
+      (campaign.ownerChapterId !== chapter.chapterId && !isSuperAdmin(user))
+    ) {
+      return { error: "Campaign media is not available for your chapter." };
+    }
+    ownerChapterId = campaign.ownerChapterId;
+  }
+  if (creativeName && creativeName.length > 80) {
+    return { error: "Creative name must not exceed 80 characters." };
+  }
 
   if (!destinationUrl) return { error: "Destination URL is required." };
   const [destinationValidation, imageValidation] = await Promise.all([
@@ -106,6 +135,9 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
         description,
         ogImageUrl,
         ownerUserId: user.id,
+        ownerChapterId,
+        campaignMediaId,
+        creativeName: campaignMediaId === null ? null : creativeName,
         visibility,
       });
       if (result.ok) {
@@ -132,6 +164,9 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     description,
     ogImageUrl,
     ownerUserId: user.id,
+    ownerChapterId,
+    campaignMediaId,
+    creativeName: campaignMediaId === null ? null : creativeName,
     visibility,
   });
   if (!result.ok) return { error: `The slug "${slug}" is already taken.` };

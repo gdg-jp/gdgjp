@@ -29,6 +29,14 @@ import type { LinkVisibility, Tag } from "~/lib/db";
 import { generateRandomSlug } from "~/lib/slug";
 import type { ApiLinksActionData } from "~/routes/api.links";
 
+export type CampaignMediaOption = {
+  id: number;
+  campaignName: string;
+  campaignCode?: string;
+  mediaName: string;
+  mediaCode?: string;
+};
+
 function hostnameOf(url: string): string {
   try {
     return new URL(url).hostname;
@@ -55,10 +63,14 @@ function FieldLabel({ children, htmlFor }: { children: ReactNode; htmlFor?: stri
 
 export function CreateLinkDialog({
   availableTags,
+  campaignMediaOptions = [],
+  defaultCampaignMediaId,
   shortUrlBase,
   trigger,
 }: {
   availableTags: Tag[];
+  campaignMediaOptions?: CampaignMediaOption[];
+  defaultCampaignMediaId?: number;
   shortUrlBase: string;
   trigger: ReactNode;
 }) {
@@ -67,7 +79,14 @@ export function CreateLinkDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-hidden p-0 sm:max-w-3xl">
-        {open ? <CreateLinkForm availableTags={availableTags} shortUrlBase={shortUrlBase} /> : null}
+        {open ? (
+          <CreateLinkForm
+            availableTags={availableTags}
+            campaignMediaOptions={campaignMediaOptions}
+            defaultCampaignMediaId={defaultCampaignMediaId}
+            shortUrlBase={shortUrlBase}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );
@@ -75,17 +94,28 @@ export function CreateLinkDialog({
 
 function CreateLinkForm({
   availableTags,
+  campaignMediaOptions,
+  defaultCampaignMediaId,
   shortUrlBase,
 }: {
   availableTags: Tag[];
+  campaignMediaOptions: CampaignMediaOption[];
+  defaultCampaignMediaId?: number;
   shortUrlBase: string;
 }) {
   const shortHost = shortHostOf(shortUrlBase);
+  const defaultCampaignMedia = campaignMediaOptions.find(
+    (option) => option.id === defaultCampaignMediaId,
+  );
   const ogpFetcher = useFetcher<ApiLinksActionData>();
   const createFetcher = useFetcher<ApiLinksActionData>();
 
   const [destinationUrl, setDestinationUrl] = useState("");
-  const [slug, setSlug] = useState("");
+  const [slug, setSlug] = useState(
+    defaultCampaignMedia?.campaignCode && defaultCampaignMedia.mediaCode
+      ? `${defaultCampaignMedia.campaignCode}${defaultCampaignMedia.mediaCode}`
+      : "",
+  );
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [ogImageUrl, setOgImageUrl] = useState("");
@@ -93,6 +123,10 @@ function CreateLinkForm({
   const [newTagNames, setNewTagNames] = useState<string[]>([]);
   const [comment, setComment] = useState("");
   const [visibility, setVisibility] = useState<LinkVisibility>("private");
+  const [campaignMediaId, setCampaignMediaId] = useState(
+    defaultCampaignMediaId === undefined ? "standalone" : String(defaultCampaignMediaId),
+  );
+  const [creativeName, setCreativeName] = useState("");
 
   const lastOgpRef = useRef<unknown>(null);
   useEffect(() => {
@@ -211,6 +245,59 @@ function CreateLinkForm({
               </SelectContent>
             </Select>
           </div>
+
+          {campaignMediaOptions.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <FieldLabel htmlFor="create-campaign-media">Campaign / Media</FieldLabel>
+                <input
+                  type="hidden"
+                  name="campaignMediaId"
+                  value={campaignMediaId === "standalone" ? "" : campaignMediaId}
+                />
+                <Select
+                  value={campaignMediaId}
+                  onValueChange={(value) => {
+                    setCampaignMediaId(value);
+                    if (value === "standalone" || slug) return;
+                    const option = campaignMediaOptions.find(
+                      (candidate) => String(candidate.id) === value,
+                    );
+                    if (option?.campaignCode && option.mediaCode) {
+                      setSlug(`${option.campaignCode}${option.mediaCode}`);
+                    }
+                  }}
+                >
+                  <SelectTrigger id="create-campaign-media" size="sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standalone">Standalone link</SelectItem>
+                    {campaignMediaOptions.map((option) => (
+                      <SelectItem key={option.id} value={String(option.id)}>
+                        {option.campaignName} / {option.mediaName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Campaign links are jointly owned by your chapter.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <FieldLabel htmlFor="create-creative-name">Creative name</FieldLabel>
+                <Input
+                  id="create-creative-name"
+                  name="creativeName"
+                  value={creativeName}
+                  onChange={(event) => setCreativeName(event.target.value)}
+                  maxLength={80}
+                  placeholder="Alice session"
+                  disabled={campaignMediaId === "standalone"}
+                />
+              </div>
+            </div>
+          ) : null}
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
