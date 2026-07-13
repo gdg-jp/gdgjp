@@ -47,7 +47,6 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
   const commentBody = String(form.get("comment") ?? "").trim();
   const rawVisibility = String(form.get("visibility") ?? "private");
   const rawCampaignMediaId = String(form.get("campaignMediaId") ?? "").trim();
-  const creativeName = String(form.get("creativeName") ?? "").trim() || null;
   if (rawVisibility !== "private" && rawVisibility !== "public") {
     return { error: "Visibility must be private or public." };
   }
@@ -72,9 +71,6 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
       return { error: "Campaign media is not available for your chapter." };
     }
     ownerChapterId = campaign.ownerChapterId;
-  }
-  if (creativeName && creativeName.length > 80) {
-    return { error: "Creative name must not exceed 80 characters." };
   }
 
   if (!destinationUrl) return { error: "Destination URL is required." };
@@ -137,7 +133,6 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
         ownerUserId: user.id,
         ownerChapterId,
         campaignMediaId,
-        creativeName: campaignMediaId === null ? null : creativeName,
         visibility,
       });
       if (result.ok) {
@@ -166,7 +161,6 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     ownerUserId: user.id,
     ownerChapterId,
     campaignMediaId,
-    creativeName: campaignMediaId === null ? null : creativeName,
     visibility,
   });
   if (!result.ok) return { error: `The slug "${slug}" is already taken.` };

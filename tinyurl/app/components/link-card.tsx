@@ -138,14 +138,6 @@ export function LinkCard({
             >
               {campaign.campaignName} / {campaign.mediaName}
             </Link>
-            {link.creativeName ? (
-              <>
-                <span aria-hidden>·</span>
-                <span className="truncate" title={link.creativeName}>
-                  {link.creativeName}
-                </span>
-              </>
-            ) : null}
           </div>
         ) : null}
         <a

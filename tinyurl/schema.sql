@@ -34,7 +34,7 @@ CREATE TABLE links (
   deleted_at      INTEGER
 , visibility TEXT NOT NULL DEFAULT 'private'
   CHECK (visibility IN ('private', 'public')), campaign_media_id INTEGER
-  REFERENCES campaign_media(id) ON DELETE SET NULL, creative_name TEXT);
+  REFERENCES campaign_media(id) ON DELETE SET NULL);
 CREATE TABLE link_tags (
   link_id TEXT NOT NULL,
   tag_id  INTEGER NOT NULL,

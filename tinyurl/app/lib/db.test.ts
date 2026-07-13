@@ -12,7 +12,6 @@ describe("toLink", () => {
     owner_user_id: "user_abc",
     owner_chapter_id: 42,
     campaign_media_id: 7,
-    creative_name: "Alice session",
     visibility: "private" as const,
     created_at: 1700000000,
     updated_at: 1700001000,
@@ -31,7 +30,6 @@ describe("toLink", () => {
       ownerUserId: "user_abc",
       ownerChapterId: 42,
       campaignMediaId: 7,
-      creativeName: "Alice session",
       visibility: "private",
       createdAt: 1700000000,
       updatedAt: 1700001000,
@@ -47,7 +45,6 @@ describe("toLink", () => {
       og_image_url: null,
       owner_chapter_id: null,
       campaign_media_id: null,
-      creative_name: null,
       deleted_at: null,
     });
     expect(link.title).toBeNull();
@@ -55,7 +52,6 @@ describe("toLink", () => {
     expect(link.ogImageUrl).toBeNull();
     expect(link.ownerChapterId).toBeNull();
     expect(link.campaignMediaId).toBeNull();
-    expect(link.creativeName).toBeNull();
     expect(link.deletedAt).toBeNull();
   });
 });

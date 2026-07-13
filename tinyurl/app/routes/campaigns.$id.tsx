@@ -4,7 +4,7 @@ import {
   BarChart3,
   ChevronDown,
   ChevronLeft,
-  ExternalLink,
+  Copy,
   Link2,
   Pencil,
   Plus,
@@ -15,14 +15,16 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Form, Link, useSearchParams } from "react-router";
+import { toast } from "sonner";
 import type { FilterSuggestions } from "~/components/analytics/analytics-filter-button";
 import { AnalyticsFiltersBar } from "~/components/analytics/analytics-filters-bar";
-import { SourceUrlBuilder } from "~/components/campaigns/source-url-builder";
+import { SourceUrlDropdown } from "~/components/campaigns/source-url-dropdown";
 import { useCampaignActionDialog } from "~/components/campaigns/use-campaign-action-dialog";
 import { BarList } from "~/components/charts/bar-list";
 import { HourlyChart } from "~/components/charts/hourly-chart";
 import { CreateLinkDialog } from "~/components/create-link-dialog";
 import { DashboardShell } from "~/components/dashboard-shell";
+import { LinkCard } from "~/components/link-card";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -57,12 +59,14 @@ import {
   createCampaignMediaSource,
   getCampaignById,
   getCampaignWithMediaLinks,
+  getUsersByIds,
   listAssignableLinksForCampaign,
   listTagsForChapter,
   listTagsForUser,
   updateCampaignMedia,
   updateCampaignMediaSource,
 } from "~/lib/db";
+import type { UserSummary } from "~/lib/db";
 import type { Route } from "./+types/campaigns.$id";
 
 export function meta({ data }: Route.MetaArgs) {
@@ -99,6 +103,13 @@ export async function loader(args: Route.LoaderArgs) {
   if (!tree) throw new Response("Not found", { status: 404 });
 
   const media = tree.media;
+  const ownerIds = [
+    ...new Set(media.flatMap((item) => item.links.map((link) => link.ownerUserId))),
+  ];
+  const owners =
+    ownerIds.length > 0
+      ? await getUsersByIds(env.DB, ownerIds).catch(() => ({}) as Record<string, UserSummary>)
+      : {};
   const url = new URL(args.request.url);
   const parsed = parseAnalyticsParams(url.searchParams);
   const requestedMediaId = Number(url.searchParams.get("mediaId"));
@@ -151,6 +162,7 @@ export async function loader(args: Route.LoaderArgs) {
     user: { email: user.email, name: user.name },
     campaign,
     media,
+    owners,
     assignableLinks,
     availableTags: [...userTags, ...chapterTags],
     shortUrlBase: env.SHORT_URL_BASE,
@@ -245,9 +257,7 @@ export async function action(args: Route.ActionArgs) {
   if (intent === "assign") {
     const mediaId = parseId(form.get("mediaId"), "media");
     const linkIds = form.getAll("linkId").map(String);
-    const creativeName = String(form.get("creativeName") ?? "").trim() || undefined;
     if (linkIds.length === 0) return { error: "Select at least one link." };
-    if (creativeName && creativeName.length > 80) return { error: "Creative name is too long." };
     const tree = await getCampaignWithMediaLinks(env.DB, id);
     if (!tree?.media.some((item) => item.id === mediaId)) {
       throw new Response("Forbidden", { status: 403 });
@@ -256,7 +266,6 @@ export async function action(args: Route.ActionArgs) {
       linkIds,
       mediaId,
       actorUserId: user.id,
-      creativeName,
     });
     if (result.assignedIds.length === 0)
       return { error: "The selected links could not be assigned." };
@@ -294,6 +303,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
     user,
     campaign,
     media,
+    owners,
     assignableLinks,
     availableTags,
     shortUrlBase,
@@ -306,6 +316,8 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
     suggestions,
     analytics,
   } = loaderData;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeView = searchParams.get("view") === "analytics" ? "analytics" : "campaigns";
   const activeMedia = media.filter((item) => item.archivedAt === null);
   const mediaInScope = selectedMediaId
     ? media.filter((item) => item.id === selectedMediaId)
@@ -314,7 +326,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
     .flatMap((item) => item.links)
     .filter((link) => !selectedLinkId || link.id === selectedLinkId)
     .map((link) => ({
-      name: link.creativeName || link.title || link.slug,
+      name: link.description || link.title || link.slug,
       clicks: analytics.clicks[link.id] ?? 0,
     }))
     .sort((a, b) => b.clicks - a.clicks);
@@ -324,6 +336,13 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
       clicks: item.links.reduce((sum, link) => sum + (analytics.clicks[link.id] ?? 0), 0),
     }))
     .sort((a, b) => b.clicks - a.clicks);
+
+  function setView(view: "campaigns" | "analytics") {
+    const next = new URLSearchParams(searchParams);
+    if (view === "analytics") next.set("view", "analytics");
+    else next.delete("view");
+    setSearchParams(next, { preventScrollReset: true });
+  }
 
   return (
     <DashboardShell user={user}>
@@ -349,157 +368,176 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
                 </Badge>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Media, creative, and source performance
+                Media, links, and source performance
               </p>
             </div>
             <div className="flex gap-2">
               <AssignLinksDialog media={activeMedia} links={assignableLinks} />
-              <CreateLinkDialog
-                availableTags={availableTags}
-                defaultCampaignMediaId={activeMedia[0]?.id}
-                campaignMediaOptions={activeMedia.map((item) => ({
-                  id: item.id,
-                  campaignName: campaign.name,
-                  campaignCode: campaign.code,
-                  mediaName: item.name,
-                  mediaCode: item.code,
-                }))}
-                shortUrlBase={shortUrlBase}
-                trigger={
-                  <Button size="sm" disabled={activeMedia.length === 0}>
-                    <Link2 className="size-4" />
-                    Create link
-                  </Button>
-                }
-              />
               <CreateMediaDialog campaignCode={campaign.code} />
             </div>
           </div>
         </div>
 
-        <section aria-labelledby="analytics-heading" className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="analytics-heading" className="flex items-center gap-2 text-lg font-semibold">
-              <BarChart3 className="size-5" /> Analytics
-            </h2>
-            <AnalyticsFiltersBar
-              preset={preset}
-              startIso={customStart}
-              endIso={customEnd}
-              filters={filters}
-              suggestions={suggestions}
-            />
-          </div>
-          <CampaignScopeFilters
-            media={media}
-            selectedMediaId={selectedMediaId}
-            selectedLinkId={selectedLinkId}
-          />
-          <div className="grid gap-3 lg:grid-cols-[1.6fr_1fr]">
-            <Card>
-              <CardHeader className="border-b">
-                <CardTitle className="flex items-end justify-between gap-4">
-                  <span className="text-sm font-medium text-muted-foreground">Clicks</span>
-                  <span className="text-3xl font-semibold tabular-nums">
-                    {analytics.total.toLocaleString()}
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <HourlyChart
-                  data={analytics.hourly}
-                  height={260}
-                  granularity={analytics.granularity}
-                />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Sources</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <BarList
-                  rows={analytics.topSources}
-                  emptyLabel="No source data yet."
-                  height={260}
-                />
-              </CardContent>
-            </Card>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Media</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <BarList rows={mediaRows} />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Links / creatives</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <BarList rows={linkRows} />
-              </CardContent>
-            </Card>
-          </div>
-        </section>
+        <div
+          className="flex w-fit rounded-lg bg-muted p-1"
+          role="tablist"
+          aria-label="Campaign view"
+        >
+          <Button
+            type="button"
+            size="sm"
+            variant={activeView === "campaigns" ? "secondary" : "ghost"}
+            role="tab"
+            aria-selected={activeView === "campaigns"}
+            onClick={() => setView("campaigns")}
+          >
+            Campaigns
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={activeView === "analytics" ? "secondary" : "ghost"}
+            role="tab"
+            aria-selected={activeView === "analytics"}
+            onClick={() => setView("analytics")}
+          >
+            Analytics
+          </Button>
+        </div>
 
-        {analytics.unregisteredSources.length > 0 ? (
-          <Card className="border-amber-300/70 bg-amber-50/40 dark:bg-amber-950/10">
-            <CardHeader>
-              <CardTitle className="text-sm">Unregistered sources detected</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {analytics.unregisteredSources.map((source) => (
-                <div
-                  key={`${source.mediaId}:${source.code}`}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background p-3"
-                >
-                  <div>
-                    <code className="text-sm">
-                      {source.mediaName} / {source.code}
-                    </code>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {source.clicks} clicks
-                    </span>
-                  </div>
-                  {media.find((item) => item.id === source.mediaId)?.archivedAt === null ? (
-                    <RegisterSourceDialog
-                      code={source.code}
-                      mediaId={source.mediaId}
-                      mediaName={source.mediaName}
-                    />
-                  ) : null}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        ) : null}
-
-        <section aria-labelledby="media-heading" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 id="media-heading" className="text-lg font-semibold">
-              Campaign map
-            </h2>
-            <span className="text-sm text-muted-foreground">{media.length} media</span>
-          </div>
-          {media.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-              Add a medium such as X, Discord, or Instagram.
+        {activeView === "campaigns" ? (
+          <section aria-labelledby="media-heading" className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 id="media-heading" className="text-lg font-semibold">
+                Campaigns
+              </h2>
+              <span className="text-sm text-muted-foreground">{media.length} media</span>
             </div>
-          ) : (
-            media.map((item) => (
-              <MediumCard
-                key={item.id}
-                medium={item}
-                shortUrlBase={shortUrlBase}
-                clicks={analytics.clicks}
+            {media.length === 0 ? (
+              <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
+                Add a medium such as X, Discord, or Instagram.
+              </div>
+            ) : (
+              media.map((item) => (
+                <MediumCard
+                  key={item.id}
+                  campaign={campaign}
+                  medium={item}
+                  owners={owners}
+                  availableTags={availableTags}
+                  shortUrlBase={shortUrlBase}
+                  clicks={analytics.clicks}
+                />
+              ))
+            )}
+          </section>
+        ) : (
+          <div className="space-y-6">
+            <section aria-labelledby="analytics-heading" className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2
+                  id="analytics-heading"
+                  className="flex items-center gap-2 text-lg font-semibold"
+                >
+                  <BarChart3 className="size-5" /> Analytics
+                </h2>
+                <AnalyticsFiltersBar
+                  preset={preset}
+                  startIso={customStart}
+                  endIso={customEnd}
+                  filters={filters}
+                  suggestions={suggestions}
+                />
+              </div>
+              <CampaignScopeFilters
+                media={media}
+                selectedMediaId={selectedMediaId}
+                selectedLinkId={selectedLinkId}
               />
-            ))
-          )}
-        </section>
+              <div className="grid gap-3 lg:grid-cols-[1.6fr_1fr]">
+                <Card>
+                  <CardHeader className="border-b">
+                    <CardTitle className="flex items-end justify-between gap-4">
+                      <span className="text-sm font-medium text-muted-foreground">Clicks</span>
+                      <span className="text-3xl font-semibold tabular-nums">
+                        {analytics.total.toLocaleString()}
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <HourlyChart
+                      data={analytics.hourly}
+                      height={260}
+                      granularity={analytics.granularity}
+                    />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Sources</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <BarList
+                      rows={analytics.topSources}
+                      emptyLabel="No source data yet."
+                      height={260}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Media</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <BarList rows={mediaRows} />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Links</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <BarList rows={linkRows} />
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+
+            {analytics.unregisteredSources.length > 0 ? (
+              <Card className="border-amber-300/70 bg-amber-50/40 dark:bg-amber-950/10">
+                <CardHeader>
+                  <CardTitle className="text-sm">Unregistered sources detected</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {analytics.unregisteredSources.map((source) => (
+                    <div
+                      key={`${source.mediaId}:${source.code}`}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background p-3"
+                    >
+                      <div>
+                        <code className="text-sm">
+                          {source.mediaName} / {source.code}
+                        </code>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {source.clicks} clicks
+                        </span>
+                      </div>
+                      {media.find((item) => item.id === source.mediaId)?.archivedAt === null ? (
+                        <RegisterSourceDialog
+                          code={source.code}
+                          mediaId={source.mediaId}
+                          mediaName={source.mediaName}
+                        />
+                      ) : null}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            ) : null}
+          </div>
+        )}
       </div>
     </DashboardShell>
   );
@@ -507,6 +545,16 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
 
 type DetailMedium = Route.ComponentProps["loaderData"]["media"][number];
 type AssignableLink = Route.ComponentProps["loaderData"]["assignableLinks"][number];
+type DetailCampaign = Route.ComponentProps["loaderData"]["campaign"];
+type AvailableTag = Route.ComponentProps["loaderData"]["availableTags"][number];
+
+function shortHostOf(base: string): string {
+  try {
+    return new URL(base).host;
+  } catch {
+    return base.replace(/^https?:\/\//, "");
+  }
+}
 
 function CampaignScopeFilters({
   media,
@@ -557,7 +605,7 @@ function CampaignScopeFilters({
         </select>
       </div>
       <div className="min-w-56 flex-1 space-y-1">
-        <Label htmlFor="analytics-link">Link / creative</Label>
+        <Label htmlFor="analytics-link">Link</Label>
         <select
           id="analytics-link"
           value={selectedLinkId ?? ""}
@@ -567,7 +615,7 @@ function CampaignScopeFilters({
           <option value="">All links</option>
           {links.map((link) => (
             <option key={link.id} value={link.id}>
-              {link.mediaName} / {link.creativeName || link.title || link.slug}
+              {link.mediaName} / {link.description || link.title || link.slug}
             </option>
           ))}
         </select>
@@ -582,11 +630,27 @@ function CampaignScopeFilters({
 }
 
 function MediumCard({
+  campaign,
   medium,
+  owners,
+  availableTags,
   shortUrlBase,
   clicks,
-}: { medium: DetailMedium; shortUrlBase: string; clicks: Record<string, number> }) {
+}: {
+  campaign: DetailCampaign;
+  medium: DetailMedium;
+  owners: Record<string, UserSummary>;
+  availableTags: AvailableTag[];
+  shortUrlBase: string;
+  clicks: Record<string, number>;
+}) {
   const [open, setOpen] = useState(true);
+
+  async function copySourceParameter(code: string) {
+    await navigator.clipboard.writeText(`?s=${code}`);
+    toast.success("Source parameter copied");
+  }
+
   return (
     <Card className="gap-0 py-0">
       <div className="flex items-center gap-3 px-5 py-4">
@@ -615,7 +679,31 @@ function MediumCard({
             className={`ml-auto size-4 transition-transform ${open ? "rotate-180" : ""}`}
           />
         </button>
-        {medium.archivedAt === null ? <CreateSourceDialog mediaId={medium.id} /> : null}
+        {medium.archivedAt === null ? (
+          <>
+            <CreateSourceDialog mediaId={medium.id} />
+            <CreateLinkDialog
+              availableTags={availableTags}
+              defaultCampaignMediaId={medium.id}
+              campaignMediaOptions={[
+                {
+                  id: medium.id,
+                  campaignName: campaign.name,
+                  campaignCode: campaign.code,
+                  mediaName: medium.name,
+                  mediaCode: medium.code,
+                },
+              ]}
+              shortUrlBase={shortUrlBase}
+              trigger={
+                <Button size="sm">
+                  <Link2 className="size-4" />
+                  Create link
+                </Button>
+              }
+            />
+          </>
+        ) : null}
         <EditMediaDialog medium={medium} />
         <Form method="post">
           <input
@@ -654,6 +742,16 @@ function MediumCard({
                       Archived
                     </Badge>
                   ) : null}
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="size-7"
+                    onClick={() => copySourceParameter(source.code)}
+                  >
+                    <Copy className="size-3" />
+                    <span className="sr-only">Copy source parameter for {source.name}</span>
+                  </Button>
                   <EditSourceDialog source={source} />
                   <Form method="post">
                     <input
@@ -682,27 +780,31 @@ function MediumCard({
           ) : (
             <div className="space-y-3">
               {medium.links.map((link) => (
-                <div key={link.id} className="rounded-lg border p-4">
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <Link to={`/links/${link.id}`} className="font-medium hover:underline">
-                        {link.creativeName || link.title || link.slug}
-                      </Link>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {shortUrlBase}/{link.slug}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs tabular-nums text-muted-foreground">
-                        {(clicks[link.id] ?? 0).toLocaleString()} clicks
-                      </span>
-                      <a href={`${shortUrlBase}/${link.slug}`} target="_blank" rel="noreferrer">
-                        <ExternalLink className="size-4" />
-                        <span className="sr-only">Open link</span>
-                      </a>
-                    </div>
+                <div key={link.id} className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <LinkCard
+                      item={{
+                        link,
+                        owner: owners[link.ownerUserId] ?? {
+                          id: link.ownerUserId,
+                          name: "",
+                          email: "",
+                        },
+                        clicks: clicks[link.id] ?? 0,
+                        campaign: {
+                          campaignId: campaign.id,
+                          campaignName: campaign.name,
+                          campaignCode: campaign.code,
+                          mediaId: medium.id,
+                          mediaName: medium.name,
+                          mediaCode: medium.code,
+                        },
+                      }}
+                      shortUrlBase={shortUrlBase}
+                      shortHost={shortHostOf(shortUrlBase)}
+                    />
                   </div>
-                  <SourceUrlBuilder
+                  <SourceUrlDropdown
                     shortUrl={`${shortUrlBase}/${link.slug}`}
                     sources={medium.sources.filter((source) => source.archivedAt === null)}
                   />
@@ -948,7 +1050,7 @@ function AssignLinksDialog({ media, links }: { media: DetailMedium[]; links: Ass
         <DialogHeader className="border-b">
           <DialogTitle>Assign links to media</DialogTitle>
           <DialogDescription>
-            Selected links become chapter-owned and share one optional creative label.
+            Selected links become chapter-owned and are added to this campaign.
           </DialogDescription>
         </DialogHeader>
         <FetcherForm method="post" className="space-y-4 px-5 pb-5">
@@ -968,15 +1070,6 @@ function AssignLinksDialog({ media, links }: { media: DetailMedium[]; links: Ass
                 </option>
               ))}
             </select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="creative-name">Creative name (optional)</Label>
-            <Input
-              id="creative-name"
-              name="creativeName"
-              maxLength={80}
-              placeholder="Alice session announcement"
-            />
           </div>
           <fieldset className="max-h-64 space-y-2 overflow-y-auto rounded-lg border p-3">
             <legend className="px-1 text-sm font-medium">Links</legend>

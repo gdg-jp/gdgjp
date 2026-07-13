@@ -12,7 +12,6 @@ export type Link = {
   ownerUserId: string;
   ownerChapterId: number | null;
   campaignMediaId: number | null;
-  creativeName: string | null;
   visibility: LinkVisibility;
   createdAt: number;
   updatedAt: number;
@@ -29,7 +28,6 @@ type LinkRow = {
   owner_user_id: string;
   owner_chapter_id: number | null;
   campaign_media_id: number | null;
-  creative_name: string | null;
   visibility: LinkVisibility;
   created_at: number;
   updated_at: number;
@@ -47,7 +45,6 @@ export function toLink(row: LinkRow): Link {
     ownerUserId: row.owner_user_id,
     ownerChapterId: row.owner_chapter_id,
     campaignMediaId: row.campaign_media_id,
-    creativeName: row.creative_name,
     visibility: row.visibility,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -56,7 +53,7 @@ export function toLink(row: LinkRow): Link {
 }
 
 const LINK_COLS =
-  "id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, campaign_media_id, creative_name, visibility, created_at, updated_at, deleted_at";
+  "id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, campaign_media_id, visibility, created_at, updated_at, deleted_at";
 
 export async function listLinksForUser(db: D1Database, userId: string): Promise<Link[]> {
   const { results } = await db
@@ -102,7 +99,6 @@ export type CreateLinkInput = {
   ownerUserId: string;
   ownerChapterId?: number | null;
   campaignMediaId?: number | null;
-  creativeName?: string | null;
   visibility?: LinkVisibility;
 };
 
@@ -121,8 +117,8 @@ export async function createLink(
   try {
     const row = await db
       .prepare(
-        `INSERT INTO links (id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, campaign_media_id, creative_name, visibility)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO links (id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, campaign_media_id, visibility)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          RETURNING ${LINK_COLS}`,
       )
       .bind(
@@ -135,7 +131,6 @@ export async function createLink(
         input.ownerUserId,
         ownerChapterId,
         input.campaignMediaId ?? null,
-        input.creativeName ?? null,
         input.visibility ?? "private",
       )
       .first<LinkRow>();
@@ -155,7 +150,6 @@ export type UpdateLinkInput = {
   description?: string | null;
   ogImageUrl?: string | null;
   campaignMediaId?: number | null;
-  creativeName?: string | null;
   visibility?: LinkVisibility;
 };
 
@@ -195,10 +189,6 @@ export async function updateLink(
       sets.push("owner_chapter_id = ?");
       values.push(campaignOwnerChapterId);
     }
-  }
-  if (input.creativeName !== undefined) {
-    sets.push("creative_name = ?");
-    values.push(input.creativeName);
   }
   if (input.visibility !== undefined) {
     sets.push("visibility = ?");
@@ -779,7 +769,6 @@ export type AssignLinksToMediaInput = {
   linkIds: string[];
   mediaId: number;
   actorUserId: string;
-  creativeName?: string | null;
 };
 
 export type AssignLinksToMediaResult = {
@@ -804,14 +793,12 @@ export async function assignLinksToMedia(
   if (!medium) return { assignedIds: [], rejectedIds: linkIds };
 
   const statements = linkIds.map((linkId) => {
-    const creativeSet = input.creativeName === undefined ? "" : ", creative_name = ?";
     const values: (string | number | null)[] = [input.mediaId, medium.owner_chapter_id];
-    if (input.creativeName !== undefined) values.push(input.creativeName);
     values.push(linkId, input.actorUserId, medium.owner_chapter_id);
     return db
       .prepare(
         `UPDATE links
-         SET campaign_media_id = ?, owner_chapter_id = ?${creativeSet}, updated_at = unixepoch()
+         SET campaign_media_id = ?, owner_chapter_id = ?, updated_at = unixepoch()
          WHERE id = ? AND deleted_at IS NULL
            AND ((owner_user_id = ? AND owner_chapter_id IS NULL) OR owner_chapter_id = ?)`,
       )
@@ -837,7 +824,7 @@ export async function unassignLinksFromCampaign(
   const statements = ids.map((linkId) =>
     db
       .prepare(
-        `UPDATE links SET campaign_media_id = NULL, creative_name = NULL, updated_at = unixepoch()
+        `UPDATE links SET campaign_media_id = NULL, updated_at = unixepoch()
          WHERE id = ? AND deleted_at IS NULL AND campaign_media_id IS NOT NULL
            AND (owner_user_id = ? OR owner_chapter_id = ?)`,
       )

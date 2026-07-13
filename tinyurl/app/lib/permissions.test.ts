@@ -37,7 +37,6 @@ const link: Link = {
   ownerUserId: "u_owner",
   ownerChapterId: null,
   campaignMediaId: null,
-  creativeName: null,
   visibility: "private",
   createdAt: 0,
   updatedAt: 0,

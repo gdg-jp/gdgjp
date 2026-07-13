@@ -126,7 +126,6 @@ function CreateLinkForm({
   const [campaignMediaId, setCampaignMediaId] = useState(
     defaultCampaignMediaId === undefined ? "standalone" : String(defaultCampaignMediaId),
   );
-  const [creativeName, setCreativeName] = useState("");
 
   const lastOgpRef = useRef<unknown>(null);
   useEffect(() => {
@@ -247,55 +246,41 @@ function CreateLinkForm({
           </div>
 
           {campaignMediaOptions.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <FieldLabel htmlFor="create-campaign-media">Campaign / Media</FieldLabel>
-                <input
-                  type="hidden"
-                  name="campaignMediaId"
-                  value={campaignMediaId === "standalone" ? "" : campaignMediaId}
-                />
-                <Select
-                  value={campaignMediaId}
-                  onValueChange={(value) => {
-                    setCampaignMediaId(value);
-                    if (value === "standalone" || slug) return;
-                    const option = campaignMediaOptions.find(
-                      (candidate) => String(candidate.id) === value,
-                    );
-                    if (option?.campaignCode && option.mediaCode) {
-                      setSlug(`${option.campaignCode}${option.mediaCode}`);
-                    }
-                  }}
-                >
-                  <SelectTrigger id="create-campaign-media" size="sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="standalone">Standalone link</SelectItem>
-                    {campaignMediaOptions.map((option) => (
-                      <SelectItem key={option.id} value={String(option.id)}>
-                        {option.campaignName} / {option.mediaName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Campaign links are jointly owned by your chapter.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <FieldLabel htmlFor="create-creative-name">Creative name</FieldLabel>
-                <Input
-                  id="create-creative-name"
-                  name="creativeName"
-                  value={creativeName}
-                  onChange={(event) => setCreativeName(event.target.value)}
-                  maxLength={80}
-                  placeholder="Alice session"
-                  disabled={campaignMediaId === "standalone"}
-                />
-              </div>
+            <div className="space-y-2">
+              <FieldLabel htmlFor="create-campaign-media">Campaign / Media</FieldLabel>
+              <input
+                type="hidden"
+                name="campaignMediaId"
+                value={campaignMediaId === "standalone" ? "" : campaignMediaId}
+              />
+              <Select
+                value={campaignMediaId}
+                onValueChange={(value) => {
+                  setCampaignMediaId(value);
+                  if (value === "standalone" || slug) return;
+                  const option = campaignMediaOptions.find(
+                    (candidate) => String(candidate.id) === value,
+                  );
+                  if (option?.campaignCode && option.mediaCode) {
+                    setSlug(`${option.campaignCode}${option.mediaCode}`);
+                  }
+                }}
+              >
+                <SelectTrigger id="create-campaign-media" size="sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standalone">Standalone link</SelectItem>
+                  {campaignMediaOptions.map((option) => (
+                    <SelectItem key={option.id} value={String(option.id)}>
+                      {option.campaignName} / {option.mediaName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Campaign links are jointly owned by your chapter.
+              </p>
             </div>
           ) : null}
 

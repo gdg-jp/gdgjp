@@ -205,7 +205,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           it.link.slug.toLowerCase().includes(q) ||
           it.link.destinationUrl.toLowerCase().includes(q) ||
           (it.link.title?.toLowerCase().includes(q) ?? false) ||
-          (it.link.creativeName?.toLowerCase().includes(q) ?? false) ||
+          (it.link.description?.toLowerCase().includes(q) ?? false) ||
           (it.campaign?.campaignName.toLowerCase().includes(q) ?? false) ||
           (it.campaign?.mediaName.toLowerCase().includes(q) ?? false)
         );
