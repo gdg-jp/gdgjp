@@ -164,6 +164,7 @@ function CreateLinkForm({
   );
 
   const lastOgpRef = useRef<unknown>(null);
+  const prefetchedDefaultDestinationUrlRef = useRef<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const data = ogpFetcher.data;
@@ -200,6 +201,17 @@ function CreateLinkForm({
     fd.set("destinationUrl", url);
     ogpFetcher.submit(fd, { method: "post", action: "/api/links" });
   }
+
+  useEffect(() => {
+    if (
+      !defaults.destinationUrl ||
+      prefetchedDefaultDestinationUrlRef.current === defaults.destinationUrl
+    ) {
+      return;
+    }
+    prefetchedDefaultDestinationUrlRef.current = defaults.destinationUrl;
+    fetchOgpNow(defaults.destinationUrl);
+  }, [defaults.destinationUrl, ogpFetcher.submit]);
 
   async function uploadPreviewImage(file: File) {
     if (!file.type.startsWith("image/")) {
