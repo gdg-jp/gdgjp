@@ -210,7 +210,10 @@ function CreateLinkForm({
       return;
     }
     prefetchedDefaultDestinationUrlRef.current = defaults.destinationUrl;
-    fetchOgpNow(defaults.destinationUrl);
+    const fd = new FormData();
+    fd.set("intent", "fetchOgp");
+    fd.set("destinationUrl", defaults.destinationUrl);
+    ogpFetcher.submit(fd, { method: "post", action: "/api/links" });
   }, [defaults.destinationUrl, ogpFetcher.submit]);
 
   async function uploadPreviewImage(file: File) {
