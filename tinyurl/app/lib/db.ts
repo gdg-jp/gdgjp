@@ -11,6 +11,8 @@ export type Link = {
   ogImageUrl: string | null;
   ownerUserId: string;
   ownerChapterId: number | null;
+  campaignMediaId: number | null;
+  creativeName: string | null;
   visibility: LinkVisibility;
   createdAt: number;
   updatedAt: number;
@@ -26,6 +28,8 @@ type LinkRow = {
   og_image_url: string | null;
   owner_user_id: string;
   owner_chapter_id: number | null;
+  campaign_media_id: number | null;
+  creative_name: string | null;
   visibility: LinkVisibility;
   created_at: number;
   updated_at: number;
@@ -42,6 +46,8 @@ export function toLink(row: LinkRow): Link {
     ogImageUrl: row.og_image_url,
     ownerUserId: row.owner_user_id,
     ownerChapterId: row.owner_chapter_id,
+    campaignMediaId: row.campaign_media_id,
+    creativeName: row.creative_name,
     visibility: row.visibility,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -50,7 +56,7 @@ export function toLink(row: LinkRow): Link {
 }
 
 const LINK_COLS =
-  "id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, visibility, created_at, updated_at, deleted_at";
+  "id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, campaign_media_id, creative_name, visibility, created_at, updated_at, deleted_at";
 
 export async function listLinksForUser(db: D1Database, userId: string): Promise<Link[]> {
   const { results } = await db
@@ -95,6 +101,8 @@ export type CreateLinkInput = {
   ogImageUrl?: string | null;
   ownerUserId: string;
   ownerChapterId?: number | null;
+  campaignMediaId?: number | null;
+  creativeName?: string | null;
   visibility?: LinkVisibility;
 };
 
@@ -104,11 +112,17 @@ export async function createLink(
   db: D1Database,
   input: CreateLinkInput,
 ): Promise<CreateLinkResult> {
+  let ownerChapterId = input.ownerChapterId ?? null;
+  if (input.campaignMediaId != null) {
+    const campaignOwnerChapterId = await getChapterIdForCampaignMedia(db, input.campaignMediaId);
+    if (campaignOwnerChapterId === null) throw new RangeError("Campaign medium not found");
+    ownerChapterId = campaignOwnerChapterId;
+  }
   try {
     const row = await db
       .prepare(
-        `INSERT INTO links (id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, visibility)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO links (id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, campaign_media_id, creative_name, visibility)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          RETURNING ${LINK_COLS}`,
       )
       .bind(
@@ -119,7 +133,9 @@ export async function createLink(
         input.description ?? null,
         input.ogImageUrl ?? null,
         input.ownerUserId,
-        input.ownerChapterId ?? null,
+        ownerChapterId,
+        input.campaignMediaId ?? null,
+        input.creativeName ?? null,
         input.visibility ?? "private",
       )
       .first<LinkRow>();
@@ -138,6 +154,8 @@ export type UpdateLinkInput = {
   title?: string | null;
   description?: string | null;
   ogImageUrl?: string | null;
+  campaignMediaId?: number | null;
+  creativeName?: string | null;
   visibility?: LinkVisibility;
 };
 
@@ -168,6 +186,20 @@ export async function updateLink(
     sets.push("og_image_url = ?");
     values.push(input.ogImageUrl);
   }
+  if (input.campaignMediaId !== undefined) {
+    sets.push("campaign_media_id = ?");
+    values.push(input.campaignMediaId);
+    if (input.campaignMediaId !== null) {
+      const campaignOwnerChapterId = await getChapterIdForCampaignMedia(db, input.campaignMediaId);
+      if (campaignOwnerChapterId === null) throw new RangeError("Campaign medium not found");
+      sets.push("owner_chapter_id = ?");
+      values.push(campaignOwnerChapterId);
+    }
+  }
+  if (input.creativeName !== undefined) {
+    sets.push("creative_name = ?");
+    values.push(input.creativeName);
+  }
   if (input.visibility !== undefined) {
     sets.push("visibility = ?");
     values.push(input.visibility);
@@ -192,6 +224,649 @@ export async function softDeleteLink(db: D1Database, id: string): Promise<void> 
 
 export async function deleteLink(db: D1Database, id: string): Promise<void> {
   await db.prepare("DELETE FROM links WHERE id = ?").bind(id).run();
+}
+
+// ---------- Campaigns ----------
+
+export type Campaign = {
+  id: number;
+  name: string;
+  code: string;
+  ownerChapterId: number;
+  createdByUserId: string;
+  createdAt: number;
+  updatedAt: number;
+  archivedAt: number | null;
+};
+
+export type CampaignWithCounts = Campaign & {
+  mediaCount: number;
+  linkCount: number;
+};
+
+type CampaignRow = {
+  id: number;
+  name: string;
+  code: string;
+  owner_chapter_id: number;
+  created_by_user_id: string;
+  created_at: number;
+  updated_at: number;
+  archived_at: number | null;
+};
+
+type CampaignWithCountsRow = CampaignRow & {
+  media_count: number;
+  link_count: number;
+};
+
+const CAMPAIGN_COLS =
+  "id, name, code, owner_chapter_id, created_by_user_id, created_at, updated_at, archived_at";
+
+export function toCampaign(row: CampaignRow): Campaign {
+  return {
+    id: row.id,
+    name: row.name,
+    code: row.code,
+    ownerChapterId: row.owner_chapter_id,
+    createdByUserId: row.created_by_user_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    archivedAt: row.archived_at,
+  };
+}
+
+export type CampaignMedium = {
+  id: number;
+  campaignId: number;
+  name: string;
+  code: string;
+  sortOrder: number;
+  archivedAt: number | null;
+};
+
+type CampaignMediumRow = {
+  id: number;
+  campaign_id: number;
+  name: string;
+  code: string;
+  sort_order: number;
+  archived_at: number | null;
+};
+
+const CAMPAIGN_MEDIUM_COLS = "id, campaign_id, name, code, sort_order, archived_at";
+
+export function toCampaignMedium(row: CampaignMediumRow): CampaignMedium {
+  return {
+    id: row.id,
+    campaignId: row.campaign_id,
+    name: row.name,
+    code: row.code,
+    sortOrder: row.sort_order,
+    archivedAt: row.archived_at,
+  };
+}
+
+export type CampaignMediaSource = {
+  id: number;
+  mediaId: number;
+  name: string;
+  code: string;
+  archivedAt: number | null;
+};
+
+type CampaignMediaSourceRow = {
+  id: number;
+  media_id: number;
+  name: string;
+  code: string;
+  archived_at: number | null;
+};
+
+const CAMPAIGN_SOURCE_COLS = "id, media_id, name, code, archived_at";
+
+export function toCampaignMediaSource(row: CampaignMediaSourceRow): CampaignMediaSource {
+  return {
+    id: row.id,
+    mediaId: row.media_id,
+    name: row.name,
+    code: row.code,
+    archivedAt: row.archived_at,
+  };
+}
+
+export type CampaignMediumWithLinks = CampaignMedium & {
+  sources: CampaignMediaSource[];
+  links: Link[];
+};
+
+export type CampaignWithMediaLinks = Campaign & {
+  media: CampaignMediumWithLinks[];
+};
+
+export function normalizeCampaignCode(code: string): string {
+  const normalized = code.trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9_-]{0,31}$/.test(normalized)) {
+    throw new RangeError("Code must be 1-32 lowercase letters, numbers, underscores, or hyphens");
+  }
+  return normalized;
+}
+
+export async function listCampaignsForChapterWithCounts(
+  db: D1Database,
+  chapterId: number,
+  includeArchived = false,
+): Promise<CampaignWithCounts[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT c.${CAMPAIGN_COLS.split(", ").join(", c.")},
+              COUNT(DISTINCT m.id) AS media_count,
+              COUNT(DISTINCT l.id) AS link_count
+       FROM campaigns c
+       LEFT JOIN campaign_media m ON m.campaign_id = c.id
+       LEFT JOIN links l ON l.campaign_media_id = m.id AND l.deleted_at IS NULL
+       WHERE c.owner_chapter_id = ? AND (? = 1 OR c.archived_at IS NULL)
+       GROUP BY c.id
+       ORDER BY c.archived_at IS NOT NULL, c.created_at DESC`,
+    )
+    .bind(chapterId, includeArchived ? 1 : 0)
+    .all<CampaignWithCountsRow>();
+  return results.map((row) => ({
+    ...toCampaign(row),
+    mediaCount: row.media_count,
+    linkCount: row.link_count,
+  }));
+}
+
+export async function getCampaignById(db: D1Database, id: number): Promise<Campaign | null> {
+  const row = await db
+    .prepare(`SELECT ${CAMPAIGN_COLS} FROM campaigns WHERE id = ?`)
+    .bind(id)
+    .first<CampaignRow>();
+  return row ? toCampaign(row) : null;
+}
+
+export type CreateCampaignInput = {
+  name: string;
+  code: string;
+  ownerChapterId: number;
+  createdByUserId: string;
+};
+
+export type CampaignWriteResult =
+  | { ok: true; campaign: Campaign }
+  | { ok: false; reason: "code_taken" };
+
+export async function createCampaign(
+  db: D1Database,
+  input: CreateCampaignInput,
+): Promise<CampaignWriteResult> {
+  try {
+    const row = await db
+      .prepare(
+        `INSERT INTO campaigns (name, code, owner_chapter_id, created_by_user_id)
+         VALUES (?, ?, ?, ?) RETURNING ${CAMPAIGN_COLS}`,
+      )
+      .bind(
+        input.name.trim(),
+        normalizeCampaignCode(input.code),
+        input.ownerChapterId,
+        input.createdByUserId,
+      )
+      .first<CampaignRow>();
+    if (!row) throw new Error("Insert returned no row");
+    return { ok: true, campaign: toCampaign(row) };
+  } catch (error) {
+    if (isUniqueConstraintError(error)) return { ok: false, reason: "code_taken" };
+    throw error;
+  }
+}
+
+export async function updateCampaign(
+  db: D1Database,
+  id: number,
+  input: { name?: string; code?: string },
+): Promise<CampaignWriteResult | null> {
+  const sets: string[] = [];
+  const values: string[] = [];
+  if (input.name !== undefined) {
+    sets.push("name = ?");
+    values.push(input.name.trim());
+  }
+  if (input.code !== undefined) {
+    sets.push("code = ?");
+    values.push(normalizeCampaignCode(input.code));
+  }
+  if (sets.length === 0) {
+    const campaign = await getCampaignById(db, id);
+    return campaign ? { ok: true, campaign } : null;
+  }
+  sets.push("updated_at = unixepoch()");
+  try {
+    const row = await db
+      .prepare(`UPDATE campaigns SET ${sets.join(", ")} WHERE id = ? RETURNING ${CAMPAIGN_COLS}`)
+      .bind(...values, id)
+      .first<CampaignRow>();
+    return row ? { ok: true, campaign: toCampaign(row) } : null;
+  } catch (error) {
+    if (isUniqueConstraintError(error)) return { ok: false, reason: "code_taken" };
+    throw error;
+  }
+}
+
+export async function archiveCampaign(
+  db: D1Database,
+  id: number,
+  archived = true,
+): Promise<Campaign | null> {
+  const row = await db
+    .prepare(
+      `UPDATE campaigns
+       SET archived_at = CASE WHEN ? = 1 THEN unixepoch() ELSE NULL END,
+           updated_at = unixepoch()
+       WHERE id = ? RETURNING ${CAMPAIGN_COLS}`,
+    )
+    .bind(archived ? 1 : 0, id)
+    .first<CampaignRow>();
+  return row ? toCampaign(row) : null;
+}
+
+export async function deleteCampaign(db: D1Database, id: number): Promise<boolean> {
+  const result = await db.prepare("DELETE FROM campaigns WHERE id = ?").bind(id).run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
+export async function listCampaignMedia(
+  db: D1Database,
+  campaignId: number,
+  includeArchived = false,
+): Promise<CampaignMedium[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${CAMPAIGN_MEDIUM_COLS} FROM campaign_media
+       WHERE campaign_id = ? AND (? = 1 OR archived_at IS NULL)
+       ORDER BY archived_at IS NOT NULL, sort_order, id`,
+    )
+    .bind(campaignId, includeArchived ? 1 : 0)
+    .all<CampaignMediumRow>();
+  return results.map(toCampaignMedium);
+}
+
+export async function getCampaignMediaById(
+  db: D1Database,
+  id: number,
+): Promise<CampaignMedium | null> {
+  const row = await db
+    .prepare(`SELECT ${CAMPAIGN_MEDIUM_COLS} FROM campaign_media WHERE id = ?`)
+    .bind(id)
+    .first<CampaignMediumRow>();
+  return row ? toCampaignMedium(row) : null;
+}
+
+export type CampaignMediumWriteResult =
+  | { ok: true; medium: CampaignMedium }
+  | { ok: false; reason: "code_taken" };
+
+export async function createCampaignMedia(
+  db: D1Database,
+  input: { campaignId: number; name: string; code: string; sortOrder?: number },
+): Promise<CampaignMediumWriteResult> {
+  try {
+    const row = await db
+      .prepare(
+        `INSERT INTO campaign_media (campaign_id, name, code, sort_order)
+         VALUES (?, ?, ?, ?) RETURNING ${CAMPAIGN_MEDIUM_COLS}`,
+      )
+      .bind(
+        input.campaignId,
+        input.name.trim(),
+        normalizeCampaignCode(input.code),
+        input.sortOrder ?? 0,
+      )
+      .first<CampaignMediumRow>();
+    if (!row) throw new Error("Insert returned no row");
+    return { ok: true, medium: toCampaignMedium(row) };
+  } catch (error) {
+    if (isUniqueConstraintError(error)) return { ok: false, reason: "code_taken" };
+    throw error;
+  }
+}
+
+export async function updateCampaignMedia(
+  db: D1Database,
+  id: number,
+  input: { name?: string; code?: string; sortOrder?: number },
+): Promise<CampaignMediumWriteResult | null> {
+  const sets: string[] = [];
+  const values: (string | number)[] = [];
+  if (input.name !== undefined) {
+    sets.push("name = ?");
+    values.push(input.name.trim());
+  }
+  if (input.code !== undefined) {
+    sets.push("code = ?");
+    values.push(normalizeCampaignCode(input.code));
+  }
+  if (input.sortOrder !== undefined) {
+    sets.push("sort_order = ?");
+    values.push(input.sortOrder);
+  }
+  if (sets.length === 0) {
+    const medium = await getCampaignMediaById(db, id);
+    return medium ? { ok: true, medium } : null;
+  }
+  try {
+    const row = await db
+      .prepare(
+        `UPDATE campaign_media SET ${sets.join(", ")} WHERE id = ?
+         RETURNING ${CAMPAIGN_MEDIUM_COLS}`,
+      )
+      .bind(...values, id)
+      .first<CampaignMediumRow>();
+    return row ? { ok: true, medium: toCampaignMedium(row) } : null;
+  } catch (error) {
+    if (isUniqueConstraintError(error)) return { ok: false, reason: "code_taken" };
+    throw error;
+  }
+}
+
+export async function archiveCampaignMedia(
+  db: D1Database,
+  id: number,
+  archived = true,
+): Promise<CampaignMedium | null> {
+  const row = await db
+    .prepare(
+      `UPDATE campaign_media
+       SET archived_at = CASE WHEN ? = 1 THEN unixepoch() ELSE NULL END
+       WHERE id = ? RETURNING ${CAMPAIGN_MEDIUM_COLS}`,
+    )
+    .bind(archived ? 1 : 0, id)
+    .first<CampaignMediumRow>();
+  return row ? toCampaignMedium(row) : null;
+}
+
+export async function deleteCampaignMedia(db: D1Database, id: number): Promise<boolean> {
+  const result = await db.prepare("DELETE FROM campaign_media WHERE id = ?").bind(id).run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
+export async function listCampaignMediaSources(
+  db: D1Database,
+  mediaId: number,
+  includeArchived = false,
+): Promise<CampaignMediaSource[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${CAMPAIGN_SOURCE_COLS} FROM campaign_media_sources
+       WHERE media_id = ? AND (? = 1 OR archived_at IS NULL)
+       ORDER BY archived_at IS NOT NULL, name, id`,
+    )
+    .bind(mediaId, includeArchived ? 1 : 0)
+    .all<CampaignMediaSourceRow>();
+  return results.map(toCampaignMediaSource);
+}
+
+export async function getCampaignMediaSourceById(
+  db: D1Database,
+  id: number,
+): Promise<CampaignMediaSource | null> {
+  const row = await db
+    .prepare(`SELECT ${CAMPAIGN_SOURCE_COLS} FROM campaign_media_sources WHERE id = ?`)
+    .bind(id)
+    .first<CampaignMediaSourceRow>();
+  return row ? toCampaignMediaSource(row) : null;
+}
+
+export type CampaignMediaSourceWriteResult =
+  | { ok: true; source: CampaignMediaSource }
+  | { ok: false; reason: "code_taken" };
+
+export async function createCampaignMediaSource(
+  db: D1Database,
+  input: { mediaId: number; name: string; code: string },
+): Promise<CampaignMediaSourceWriteResult> {
+  try {
+    const row = await db
+      .prepare(
+        `INSERT INTO campaign_media_sources (media_id, name, code)
+         VALUES (?, ?, ?) RETURNING ${CAMPAIGN_SOURCE_COLS}`,
+      )
+      .bind(input.mediaId, input.name.trim(), normalizeCampaignCode(input.code))
+      .first<CampaignMediaSourceRow>();
+    if (!row) throw new Error("Insert returned no row");
+    return { ok: true, source: toCampaignMediaSource(row) };
+  } catch (error) {
+    if (isUniqueConstraintError(error)) return { ok: false, reason: "code_taken" };
+    throw error;
+  }
+}
+
+export async function updateCampaignMediaSource(
+  db: D1Database,
+  id: number,
+  input: { name?: string; code?: string },
+): Promise<CampaignMediaSourceWriteResult | null> {
+  const sets: string[] = [];
+  const values: string[] = [];
+  if (input.name !== undefined) {
+    sets.push("name = ?");
+    values.push(input.name.trim());
+  }
+  if (input.code !== undefined) {
+    sets.push("code = ?");
+    values.push(normalizeCampaignCode(input.code));
+  }
+  if (sets.length === 0) {
+    const source = await getCampaignMediaSourceById(db, id);
+    return source ? { ok: true, source } : null;
+  }
+  try {
+    const row = await db
+      .prepare(
+        `UPDATE campaign_media_sources SET ${sets.join(", ")} WHERE id = ?
+         RETURNING ${CAMPAIGN_SOURCE_COLS}`,
+      )
+      .bind(...values, id)
+      .first<CampaignMediaSourceRow>();
+    return row ? { ok: true, source: toCampaignMediaSource(row) } : null;
+  } catch (error) {
+    if (isUniqueConstraintError(error)) return { ok: false, reason: "code_taken" };
+    throw error;
+  }
+}
+
+export async function archiveCampaignMediaSource(
+  db: D1Database,
+  id: number,
+  archived = true,
+): Promise<CampaignMediaSource | null> {
+  const row = await db
+    .prepare(
+      `UPDATE campaign_media_sources
+       SET archived_at = CASE WHEN ? = 1 THEN unixepoch() ELSE NULL END
+       WHERE id = ?
+       RETURNING ${CAMPAIGN_SOURCE_COLS}`,
+    )
+    .bind(archived ? 1 : 0, id)
+    .first<CampaignMediaSourceRow>();
+  return row ? toCampaignMediaSource(row) : null;
+}
+
+export async function deleteCampaignMediaSource(db: D1Database, id: number): Promise<boolean> {
+  const result = await db.prepare("DELETE FROM campaign_media_sources WHERE id = ?").bind(id).run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
+export async function listLinksForCampaignMedia(db: D1Database, mediaId: number): Promise<Link[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${LINK_COLS} FROM links
+       WHERE campaign_media_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
+    )
+    .bind(mediaId)
+    .all<LinkRow>();
+  return results.map(toLink);
+}
+
+export async function listLinksForCampaign(db: D1Database, campaignId: number): Promise<Link[]> {
+  const linkCols = LINK_COLS.split(", ")
+    .map((column) => `l.${column}`)
+    .join(", ");
+  const { results } = await db
+    .prepare(
+      `SELECT ${linkCols} FROM links l
+       JOIN campaign_media m ON m.id = l.campaign_media_id
+       WHERE m.campaign_id = ? AND l.deleted_at IS NULL
+       ORDER BY m.sort_order, l.created_at DESC`,
+    )
+    .bind(campaignId)
+    .all<LinkRow>();
+  return results.map(toLink);
+}
+
+export async function listLinksForChapter(db: D1Database, chapterId: number): Promise<Link[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${LINK_COLS} FROM links
+       WHERE owner_chapter_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
+    )
+    .bind(chapterId)
+    .all<LinkRow>();
+  return results.map(toLink);
+}
+
+export async function listAssignableLinksForCampaign(
+  db: D1Database,
+  userId: string,
+  campaignId: number,
+): Promise<Link[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${LINK_COLS} FROM links
+       WHERE deleted_at IS NULL
+         AND campaign_media_id IS NULL
+         AND (
+           (owner_user_id = ? AND owner_chapter_id IS NULL)
+           OR owner_chapter_id = (SELECT owner_chapter_id FROM campaigns WHERE id = ?)
+         )
+       ORDER BY campaign_media_id IS NOT NULL, created_at DESC`,
+    )
+    .bind(userId, campaignId)
+    .all<LinkRow>();
+  return results.map(toLink);
+}
+
+export async function getCampaignWithMediaLinks(
+  db: D1Database,
+  campaignId: number,
+  includeArchived = false,
+): Promise<CampaignWithMediaLinks | null> {
+  const campaign = await getCampaignById(db, campaignId);
+  if (!campaign) return null;
+  const media = await listCampaignMedia(db, campaignId, includeArchived);
+  const enriched = await Promise.all(
+    media.map(async (medium) => ({
+      ...medium,
+      sources: await listCampaignMediaSources(db, medium.id, includeArchived),
+      links: await listLinksForCampaignMedia(db, medium.id),
+    })),
+  );
+  return { ...campaign, media: enriched };
+}
+
+export type AssignLinksToMediaInput = {
+  linkIds: string[];
+  mediaId: number;
+  actorUserId: string;
+  creativeName?: string | null;
+};
+
+export type AssignLinksToMediaResult = {
+  assignedIds: string[];
+  rejectedIds: string[];
+};
+
+export async function assignLinksToMedia(
+  db: D1Database,
+  input: AssignLinksToMediaInput,
+): Promise<AssignLinksToMediaResult> {
+  const linkIds = [...new Set(input.linkIds)];
+  if (linkIds.length === 0) return { assignedIds: [], rejectedIds: [] };
+  const medium = await db
+    .prepare(
+      `SELECT m.id, c.owner_chapter_id
+       FROM campaign_media m JOIN campaigns c ON c.id = m.campaign_id
+       WHERE m.id = ?`,
+    )
+    .bind(input.mediaId)
+    .first<{ id: number; owner_chapter_id: number }>();
+  if (!medium) return { assignedIds: [], rejectedIds: linkIds };
+
+  const statements = linkIds.map((linkId) => {
+    const creativeSet = input.creativeName === undefined ? "" : ", creative_name = ?";
+    const values: (string | number | null)[] = [input.mediaId, medium.owner_chapter_id];
+    if (input.creativeName !== undefined) values.push(input.creativeName);
+    values.push(linkId, input.actorUserId, medium.owner_chapter_id);
+    return db
+      .prepare(
+        `UPDATE links
+         SET campaign_media_id = ?, owner_chapter_id = ?${creativeSet}, updated_at = unixepoch()
+         WHERE id = ? AND deleted_at IS NULL
+           AND ((owner_user_id = ? AND owner_chapter_id IS NULL) OR owner_chapter_id = ?)`,
+      )
+      .bind(...values);
+  });
+  const results = await db.batch(statements);
+  const assignedIds = linkIds.filter((_, index) => (results[index]?.meta.changes ?? 0) > 0);
+  const assignedSet = new Set(assignedIds);
+  return {
+    assignedIds,
+    rejectedIds: linkIds.filter((id) => !assignedSet.has(id)),
+  };
+}
+
+export async function unassignLinksFromCampaign(
+  db: D1Database,
+  linkIds: string[],
+  actorUserId: string,
+  chapterId: number,
+): Promise<AssignLinksToMediaResult> {
+  const ids = [...new Set(linkIds)];
+  if (ids.length === 0) return { assignedIds: [], rejectedIds: [] };
+  const statements = ids.map((linkId) =>
+    db
+      .prepare(
+        `UPDATE links SET campaign_media_id = NULL, creative_name = NULL, updated_at = unixepoch()
+         WHERE id = ? AND deleted_at IS NULL AND campaign_media_id IS NOT NULL
+           AND (owner_user_id = ? OR owner_chapter_id = ?)`,
+      )
+      .bind(linkId, actorUserId, chapterId),
+  );
+  const results = await db.batch(statements);
+  const assignedIds = ids.filter((_, index) => (results[index]?.meta.changes ?? 0) > 0);
+  const assignedSet = new Set(assignedIds);
+  return { assignedIds, rejectedIds: ids.filter((id) => !assignedSet.has(id)) };
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("UNIQUE") || message.includes("unique constraint");
+}
+
+async function getChapterIdForCampaignMedia(
+  db: D1Database,
+  mediaId: number,
+): Promise<number | null> {
+  const row = await db
+    .prepare(
+      `SELECT c.owner_chapter_id
+       FROM campaign_media m JOIN campaigns c ON c.id = m.campaign_id
+       WHERE m.id = ?`,
+    )
+    .bind(mediaId)
+    .first<{ owner_chapter_id: number }>();
+  return row?.owner_chapter_id ?? null;
 }
 
 // ---------- Tags ----------

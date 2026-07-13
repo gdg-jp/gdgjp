@@ -36,6 +36,8 @@ const link: Link = {
   ogImageUrl: null,
   ownerUserId: "u_owner",
   ownerChapterId: null,
+  campaignMediaId: null,
+  creativeName: null,
   visibility: "private",
   createdAt: 0,
   updatedAt: 0,
@@ -101,10 +103,11 @@ describe("canViewLink / canEditLink", () => {
     expect(canEditLink(ctx, link, perms)).toBe(false);
   });
 
-  it("chapter-owned link grants view to chapter members", () => {
+  it("chapter-owned link grants view and edit to chapter members", () => {
     const ctx = { user: stranger, chapterId: 7 };
     const chapterLink: Link = { ...link, ownerChapterId: 7 };
     expect(canViewLink(ctx, chapterLink, [])).toBe(true);
+    expect(canEditLink(ctx, chapterLink, [])).toBe(true);
   });
 
   it("editor permission overrides a viewer permission on the same link", () => {

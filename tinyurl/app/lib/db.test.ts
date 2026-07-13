@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toLink } from "./db";
+import { normalizeCampaignCode, toLink } from "./db";
 
 describe("toLink", () => {
   const row = {
@@ -11,6 +11,8 @@ describe("toLink", () => {
     og_image_url: "https://example.com/og.png",
     owner_user_id: "user_abc",
     owner_chapter_id: 42,
+    campaign_media_id: 7,
+    creative_name: "Alice session",
     visibility: "private" as const,
     created_at: 1700000000,
     updated_at: 1700001000,
@@ -28,6 +30,8 @@ describe("toLink", () => {
       ogImageUrl: "https://example.com/og.png",
       ownerUserId: "user_abc",
       ownerChapterId: 42,
+      campaignMediaId: 7,
+      creativeName: "Alice session",
       visibility: "private",
       createdAt: 1700000000,
       updatedAt: 1700001000,
@@ -42,12 +46,29 @@ describe("toLink", () => {
       description: null,
       og_image_url: null,
       owner_chapter_id: null,
+      campaign_media_id: null,
+      creative_name: null,
       deleted_at: null,
     });
     expect(link.title).toBeNull();
     expect(link.description).toBeNull();
     expect(link.ogImageUrl).toBeNull();
     expect(link.ownerChapterId).toBeNull();
+    expect(link.campaignMediaId).toBeNull();
+    expect(link.creativeName).toBeNull();
     expect(link.deletedAt).toBeNull();
   });
+});
+
+describe("normalizeCampaignCode", () => {
+  it("trims and lowercases valid codes", () => {
+    expect(normalizeCampaignCode(" DF26_X ")).toBe("df26_x");
+  });
+
+  it.each(["", "-df26", "tokyo?", "東京", "a".repeat(33)])(
+    "rejects an invalid campaign code: %s",
+    (code) => {
+      expect(() => normalizeCampaignCode(code)).toThrow(RangeError);
+    },
+  );
 });

@@ -51,6 +51,7 @@ export function canEditLink(
 ): boolean {
   if (link.ownerUserId === ctx.user.id) return true;
   if (isSuperAdmin(ctx.user)) return true;
+  if (link.ownerChapterId !== null && ctx.chapterId === link.ownerChapterId) return true;
   return matchingRole(ctx, permissions) === "editor";
 }
 
