@@ -107,7 +107,12 @@ export async function loader(args: Route.LoaderArgs) {
   const { env, user, chapter, chapters, campaign, id } = await requireCampaignAccess(args);
   const [channels, assignableLinks, userTags, chapterTags] = await Promise.all([
     listCampaignChannelsWithLinks(env.DB, id, true),
-    listAssignableLinksForCampaign(env.DB, user.id, id),
+    listAssignableLinksForCampaign(env.DB, {
+      userId: user.id,
+      email: user.email,
+      chapterIds: chapters.map((item) => item.chapterId),
+      campaignId: id,
+    }),
     listTagsForUser(env.DB, user.id),
     listTagsForChapter(env.DB, chapter.chapterId),
   ]);
@@ -199,7 +204,7 @@ export async function loader(args: Route.LoaderArgs) {
 }
 
 export async function action(args: Route.ActionArgs) {
-  const { env, user, chapter, campaign, id } = await requireCampaignAccess(args);
+  const { env, user, chapter, chapters, campaign, id } = await requireCampaignAccess(args);
   const form = await args.request.formData();
   const intent = String(form.get("intent") ?? "");
 
@@ -280,7 +285,9 @@ export async function action(args: Route.ActionArgs) {
       linkIds,
       channelId,
       actorUserId: user.id,
+      actorEmail: user.email,
       actorChapterId: chapter.chapterId,
+      actorChapterIds: chapters.map((item) => item.chapterId),
     });
     if (result.assignedIds.length === 0)
       return { error: "The selected links could not be assigned." };

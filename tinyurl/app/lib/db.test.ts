@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { normalizeCampaignCode, toCampaign, toLink } from "./db";
+import {
+  assignLinksToChannel,
+  listAssignableLinksForCampaign,
+  normalizeCampaignCode,
+  toCampaign,
+  toLink,
+} from "./db";
 
 describe("toLink", () => {
   const row = {
@@ -93,5 +99,82 @@ describe("toCampaign", () => {
       updatedAt: 1700001000,
       archivedAt: null,
     });
+  });
+});
+
+describe("campaign link assignment permissions", () => {
+  it("includes links shared to the user or their chapters as editor candidates", async () => {
+    let sql = "";
+    let bindings: unknown[] = [];
+    const db = {
+      prepare(query: string) {
+        sql = query;
+        return {
+          bind(...values: unknown[]) {
+            bindings = values;
+            return this;
+          },
+          async all() {
+            return { results: [] };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    await listAssignableLinksForCampaign(db, {
+      userId: "user_editor",
+      email: "editor@example.com",
+      chapterIds: [42, 84],
+      campaignId: 7,
+    });
+
+    expect(sql).toContain("p.role = 'editor'");
+    expect(sql).toContain("p.principal_type = 'user'");
+    expect(sql).toContain("p.principal_type = 'chapter'");
+    expect(bindings).toEqual(["user_editor", 7, "editor@example.com", '["42","84"]']);
+  });
+
+  it("rechecks editor sharing when assigning links", async () => {
+    const prepared: { sql: string; bindings: unknown[] }[] = [];
+    const db = {
+      prepare(sql: string) {
+        const call = { sql, bindings: [] as unknown[] };
+        prepared.push(call);
+        return {
+          bind(...values: unknown[]) {
+            call.bindings = values;
+            return this;
+          },
+          async first() {
+            return { id: 9 };
+          },
+        };
+      },
+      async batch() {
+        return [{ meta: { changes: 1 } }];
+      },
+    } as unknown as D1Database;
+
+    const result = await assignLinksToChannel(db, {
+      linkIds: ["link_shared"],
+      channelId: 9,
+      actorUserId: "user_editor",
+      actorEmail: "editor@example.com",
+      actorChapterId: 42,
+      actorChapterIds: [42, 84],
+    });
+
+    const update = prepared.find((call) => call.sql.includes("UPDATE links"));
+    expect(update?.sql).toContain("p.role = 'editor'");
+    expect(update?.bindings).toEqual([
+      9,
+      42,
+      "link_shared",
+      "user_editor",
+      9,
+      "editor@example.com",
+      '["42","84"]',
+    ]);
+    expect(result).toEqual({ assignedIds: ["link_shared"], rejectedIds: [] });
   });
 });

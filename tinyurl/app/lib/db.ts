@@ -873,10 +873,26 @@ export async function listLinksForChapter(db: D1Database, chapterId: number): Pr
   return results.map(toLink);
 }
 
+const EDITOR_PERMISSION_SQL = `EXISTS (
+  SELECT 1 FROM link_permissions p
+  WHERE p.link_id = links.id
+    AND p.role = 'editor'
+    AND (
+      (p.principal_type = 'user' AND p.principal_id = ?)
+      OR (p.principal_type = 'chapter' AND p.principal_id IN (
+        SELECT value FROM json_each(?)
+      ))
+    )
+)`;
+
 export async function listAssignableLinksForCampaign(
   db: D1Database,
-  userId: string,
-  campaignId: number,
+  input: {
+    userId: string;
+    email: string;
+    chapterIds: number[];
+    campaignId: number;
+  },
 ): Promise<Link[]> {
   const { results } = await db
     .prepare(
@@ -888,10 +904,11 @@ export async function listAssignableLinksForCampaign(
            OR owner_chapter_id IN (
              SELECT chapter_id FROM campaign_chapters WHERE campaign_id = ?
            )
+           OR ${EDITOR_PERMISSION_SQL}
          )
        ORDER BY campaign_channel_id IS NOT NULL, created_at DESC`,
     )
-    .bind(userId, campaignId)
+    .bind(input.userId, input.campaignId, input.email, JSON.stringify(input.chapterIds.map(String)))
     .all<LinkRow>();
   return results.map(toLink);
 }
@@ -913,7 +930,9 @@ export type AssignLinksToChannelInput = {
   linkIds: string[];
   channelId: number;
   actorUserId: string;
+  actorEmail: string;
   actorChapterId: number;
+  actorChapterIds: number[];
 };
 
 export type AssignLinksToChannelResult = {
@@ -937,10 +956,9 @@ export async function assignLinksToChannel(
     .first<{ id: number }>();
   if (!channel) return { assignedIds: [], rejectedIds: linkIds };
 
-  const statements = linkIds.map((linkId) => {
-    const values: (string | number | null)[] = [input.channelId, input.actorChapterId];
-    values.push(linkId, input.actorUserId);
-    return db
+  const actorChapterIds = JSON.stringify(input.actorChapterIds.map(String));
+  const statements = linkIds.map((linkId) =>
+    db
       .prepare(
         `UPDATE links
          SET campaign_channel_id = ?,
@@ -952,10 +970,18 @@ export async function assignLinksToChannel(
              FROM campaign_chapters cc
              JOIN campaign_channels m ON m.campaign_id = cc.campaign_id
              WHERE m.id = ?
-           ))`,
+           ) OR ${EDITOR_PERMISSION_SQL})`,
       )
-      .bind(...values, input.channelId);
-  });
+      .bind(
+        input.channelId,
+        input.actorChapterId,
+        linkId,
+        input.actorUserId,
+        input.channelId,
+        input.actorEmail,
+        actorChapterIds,
+      ),
+  );
   const results = await db.batch(statements);
   const assignedIds = linkIds.filter((_, index) => (results[index]?.meta.changes ?? 0) > 0);
   const assignedSet = new Set(assignedIds);
