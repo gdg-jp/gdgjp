@@ -5,6 +5,7 @@ import {
   clicksByLinkIdAndSourceSql,
   granularityFor,
   hourlyClicks,
+  hourlyClicksByLinkIdAndSourceSql,
   hourlySql,
   topByBlob,
   topSql,
@@ -120,6 +121,17 @@ describe("analytics-engine SQL", () => {
     expect(sql).toContain("SELECT index1 AS linkId, blob10 AS source, count() AS clicks");
     expect(sql).toContain("AND blob10 IN ('discord-a')");
     expect(sql).toContain("GROUP BY linkId, source");
+  });
+
+  it("groups campaign trends by time, link, and source", () => {
+    const sql = hourlyClicksByLinkIdAndSourceSql([ID_A, ID_B], {
+      window: { kind: "rolling", hours: 24 },
+    });
+    expect(sql).toContain(
+      "SELECT toStartOfHour(timestamp) AS hour, index1 AS linkId, blob10 AS source",
+    );
+    expect(sql).toContain("GROUP BY hour, linkId, source");
+    expect(sql).toContain("ORDER BY hour");
   });
 
   it("rejects malformed link ids", () => {

@@ -12,21 +12,21 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Suspense, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import { Await, Form, Link, useLocation, useNavigation, useSearchParams } from "react-router";
 import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { FilterSuggestions } from "~/components/analytics/analytics-filter-button";
 import { AnalyticsFiltersBar } from "~/components/analytics/analytics-filters-bar";
 import { useCampaignActionDialog } from "~/components/campaigns/use-campaign-action-dialog";
 import { BarList } from "~/components/charts/bar-list";
-import { HourlyChart } from "~/components/charts/hourly-chart";
+import { CampaignTrendChart, type TrendMetric } from "~/components/charts/campaign-trend-chart";
 import { CreateLinkDialog } from "~/components/create-link-dialog";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { LinkCard } from "~/components/link-card";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -44,12 +44,12 @@ import {
   clicksByLinkId,
   clicksByLinkIdAndSource,
   granularityFor,
-  hourlyClicks,
+  hourlyClicksByLinkIdAndSource,
   totalClicks,
 } from "~/lib/analytics-engine";
 import { parseAnalyticsParams } from "~/lib/analytics-filters";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
-import { campaignSourceBreakdown } from "~/lib/campaign-analytics";
+import { type CampaignTrendDimension, campaignSourceBreakdown } from "~/lib/campaign-analytics";
 import { resolveCampaignScope, shouldReloadCampaign } from "~/lib/campaign-navigation";
 import {
   archiveCampaignChannel,
@@ -155,14 +155,14 @@ export async function loader(args: Route.LoaderArgs) {
     linkIds.length === 0
       ? Promise.resolve(0)
       : totalClicks(env, linkIds, opts).catch(fallback("total", 0)),
-    linkIds.length === 0
-      ? Promise.resolve([])
-      : hourlyClicks(env, linkIds, opts).catch(fallback("hourly", [])),
     clicks,
     linkIds.length === 0
       ? Promise.resolve([])
       : clicksByLinkIdAndSource(env, linkIds, opts).catch(fallback("sources", [])),
-  ]).then(([total, hourly, resolvedClicks, sourceClicks]) => {
+    linkIds.length === 0
+      ? Promise.resolve([])
+      : hourlyClicksByLinkIdAndSource(env, linkIds, opts).catch(fallback("trends", [])),
+  ]).then(([total, resolvedClicks, sourceClicks, trend]) => {
     const sourceBreakdown = campaignSourceBreakdown(channelsInScope, sourceClicks);
     const sourceSuggestions = new Set(
       channelsInScope.flatMap((item) => item.sources.map((source) => source.code)),
@@ -174,7 +174,7 @@ export async function loader(args: Route.LoaderArgs) {
     };
     return {
       total,
-      hourly,
+      trend,
       clicks: resolvedClicks,
       topSources: sourceBreakdown.rows,
       unregisteredSources: sourceBreakdown.unregistered,
@@ -553,6 +553,10 @@ function CampaignAnalyticsPanel({
   scopeSearchParams: URLSearchParams;
   scopePending: boolean;
 }) {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [breakdown, setBreakdown] = useState<CampaignTrendDimension>("total");
+  const [trendMetric, setTrendMetric] = useState<TrendMetric>("clicks");
+  const [graphFocus, setGraphFocus] = useState<{ key: string; label: string } | null>(null);
   const channelsInScope = selectedChannelId
     ? channels.filter((item) => item.id === selectedChannelId)
     : channels;
@@ -560,16 +564,38 @@ function CampaignAnalyticsPanel({
     .flatMap((item) => item.links)
     .filter((link) => !selectedLinkId || link.id === selectedLinkId)
     .map((link) => ({
+      key: `link:${link.id}`,
       name: `${shortUrlBase}/${link.slug}`,
+      description: link.description,
       clicks: analytics.clicks[link.id] ?? 0,
     }))
     .sort((a, b) => b.clicks - a.clicks);
   const channelRows = channelsInScope
     .map((item) => ({
+      key: `channel:${item.id}`,
       name: item.name,
       clicks: item.links.reduce((sum, link) => sum + (analytics.clicks[link.id] ?? 0), 0),
     }))
     .sort((a, b) => b.clicks - a.clicks);
+
+  function selectGraphItem(
+    dimension: Exclude<CampaignTrendDimension, "total">,
+    row: { key?: string; name: string },
+  ) {
+    if (!row.key) return;
+    setBreakdown(dimension);
+    setTrendMetric("clicks");
+    setGraphFocus({ key: row.key, label: row.name });
+    requestAnimationFrame(() =>
+      chartRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+    );
+  }
+
+  function changeBreakdown(value: CampaignTrendDimension) {
+    setBreakdown(value);
+    setGraphFocus(null);
+    if (value === "total") setTrendMetric("clicks");
+  }
 
   return (
     <div
@@ -600,7 +626,7 @@ function CampaignAnalyticsPanel({
           pending={scopePending}
         />
         <div className="grid gap-3 lg:grid-cols-[1.6fr_1fr]">
-          <Card>
+          <Card ref={chartRef}>
             <CardHeader className="border-b">
               <CardTitle className="flex items-end justify-between gap-4">
                 <span className="text-sm font-medium text-muted-foreground">Clicks</span>
@@ -610,37 +636,69 @@ function CampaignAnalyticsPanel({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <HourlyChart
-                data={analytics.hourly}
+              <CampaignTrendChart
+                rows={analytics.trend}
+                channels={channelsInScope}
                 height={260}
                 granularity={analytics.granularity}
+                breakdown={breakdown}
+                metric={trendMetric}
+                focusKey={graphFocus?.key}
+                focusLabel={graphFocus?.label}
+                onBreakdownChange={changeBreakdown}
+                onMetricChange={setTrendMetric}
+                onClearFocus={() => setGraphFocus(null)}
               />
             </CardContent>
           </Card>
           <Card>
-            <CardHeader>
+            <CardHeader className="gap-1">
               <CardTitle className="text-sm">Sources</CardTitle>
+              <CardDescription className="text-xs">
+                Select a row to isolate its trend.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <BarList rows={analytics.topSources} emptyLabel="No source data yet." height={260} />
+              <BarList
+                rows={analytics.topSources}
+                emptyLabel="No source data yet."
+                height={260}
+                selectedKey={breakdown === "source" ? graphFocus?.key : undefined}
+                onSelect={(row) => selectGraphItem("source", row)}
+              />
             </CardContent>
           </Card>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Card>
-            <CardHeader>
+            <CardHeader className="gap-1">
               <CardTitle className="text-sm">Channel</CardTitle>
+              <CardDescription className="text-xs">
+                Select a row to isolate its trend.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <BarList rows={channelRows} />
+              <BarList
+                rows={channelRows}
+                selectedKey={breakdown === "channel" ? graphFocus?.key : undefined}
+                onSelect={(row) => selectGraphItem("channel", row)}
+              />
             </CardContent>
           </Card>
           <Card>
-            <CardHeader>
+            <CardHeader className="gap-1">
               <CardTitle className="text-sm">Links</CardTitle>
+              <CardDescription className="text-xs">
+                Select a row to isolate its trend.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <BarList rows={linkRows} pending={scopePending} />
+              <BarList
+                rows={linkRows}
+                pending={scopePending}
+                selectedKey={breakdown === "link" ? graphFocus?.key : undefined}
+                onSelect={(row) => selectGraphItem("link", row)}
+              />
             </CardContent>
           </Card>
         </div>

@@ -311,6 +311,34 @@ export async function clicksByLinkId(
 
 export type LinkSourceClicks = { linkId: string; source: string; clicks: number };
 
+export type CampaignTrendClick = LinkSourceClicks & { hour: string };
+
+export function hourlyClicksByLinkIdAndSourceSql(linkIds: string[], opts: QueryOpts = {}): string {
+  const window = opts.window ?? DEFAULT_WINDOW;
+  const filter = linkIdsFilter(linkIds);
+  const bucketFn = bucketFnFor(granularityFor(window));
+  return `SELECT ${bucketFn}(timestamp) AS hour, index1 AS linkId, blob10 AS source, count() AS clicks
+FROM ${DATASET}
+WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}
+GROUP BY hour, linkId, source
+ORDER BY hour`;
+}
+
+export async function hourlyClicksByLinkIdAndSource(
+  env: AeEnv,
+  linkIds: string[],
+  opts: QueryOpts = {},
+): Promise<CampaignTrendClick[]> {
+  if (linkIds.length === 0) return [];
+  const rows = await aeQuery(env, hourlyClicksByLinkIdAndSourceSql(linkIds, opts));
+  return rows.map((row) => ({
+    hour: String(row.hour ?? ""),
+    linkId: String(row.linkId ?? ""),
+    source: String(row.source ?? ""),
+    clicks: Number(row.clicks ?? 0),
+  }));
+}
+
 export function clicksByLinkIdAndSourceSql(linkIds: string[], opts: QueryOpts = {}): string {
   const window = opts.window ?? DEFAULT_WINDOW;
   const filter = linkIdsFilter(linkIds);
