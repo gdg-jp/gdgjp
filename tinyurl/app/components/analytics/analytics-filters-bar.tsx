@@ -21,6 +21,7 @@ const DIMENSION_CHIP_LABELS: Record<TopBlob, string> = {
   os: "OS",
   device: "Device",
   referer: "Referrer",
+  source: "Source",
 };
 
 type Props = {

@@ -10,6 +10,7 @@ import {
   MapPin,
   Map as MapSquare,
   MonitorSmartphone,
+  Radio,
   SlidersHorizontal,
   Sparkles,
   Tag as TagIcon,
@@ -44,6 +45,7 @@ const DIMENSION_LABELS: Record<TopBlob, string> = {
   os: "OS",
   device: "Device",
   referer: "Referrer",
+  source: "Source",
 };
 
 const DIMENSION_ICONS: Record<TopBlob, IconType> = {
@@ -56,6 +58,7 @@ const DIMENSION_ICONS: Record<TopBlob, IconType> = {
   os: Laptop,
   device: MonitorSmartphone,
   referer: TagIcon,
+  source: Radio,
 };
 
 type Props = {

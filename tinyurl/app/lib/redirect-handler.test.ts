@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { writeClickEvent } from "./analytics-engine-write";
 import type { Link } from "./db";
 import { getLinkBySlug } from "./db";
 import { handleApexRedirect } from "./redirect-handler";
@@ -24,6 +25,8 @@ const link: Link = {
   ogImageUrl: "https://cdn.example.com/new-og.png",
   ownerUserId: "user_123",
   ownerChapterId: null,
+  campaignMediaId: null,
+  creativeName: null,
   visibility: "private",
   createdAt: 0,
   updatedAt: 0,
@@ -33,6 +36,7 @@ const link: Link = {
 const ctx = { waitUntil: vi.fn() } as unknown as ExecutionContext;
 const env = {} as Env;
 const getLinkBySlugMock = vi.mocked(getLinkBySlug);
+const writeClickEventMock = vi.mocked(writeClickEvent);
 
 describe("handleApexRedirect", () => {
   beforeEach(() => {
@@ -55,6 +59,16 @@ describe("handleApexRedirect", () => {
 
     expect(response?.status).toBe(302);
     expect(response?.headers.get("location")).toBe("https://events.example.com/conf");
+    expect(writeClickEventMock).toHaveBeenCalledOnce();
+    expect(writeClickEventMock.mock.calls[0][1].url).toBe("https://go.example/conf");
+  });
+
+  it("tracks source on the short URL without forwarding it to the destination", async () => {
+    const request = new Request("https://go.example/conf?s=Tokyo");
+    const response = await handleApexRedirect(env, ctx, request, "conf");
+
+    expect(response?.headers.get("location")).toBe("https://events.example.com/conf");
+    expect(writeClickEventMock).toHaveBeenCalledWith(env, request, link);
   });
 
   it("renders saved OGP metadata for crawler requests", async () => {
@@ -75,5 +89,6 @@ describe("handleApexRedirect", () => {
     expect(html).toContain('property="og:description" content="Fresh preview &amp; details"');
     expect(html).toContain('property="og:image" content="https://cdn.example.com/new-og.png"');
     expect(html).toContain('name="twitter:card" content="summary_large_image"');
+    expect(writeClickEventMock).not.toHaveBeenCalled();
   });
 });

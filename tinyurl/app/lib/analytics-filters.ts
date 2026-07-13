@@ -98,6 +98,7 @@ export const FILTER_DIMENSIONS: readonly TopBlob[] = [
   "os",
   "device",
   "referer",
+  "source",
 ] as const;
 
 export type DimensionFilters = Partial<Record<TopBlob, readonly string[]>>;
@@ -114,6 +115,7 @@ const VALIDATORS: Record<TopBlob, RegExp> = {
   os: /^[A-Za-z0-9 .\-_/]{1,64}$/,
   device: /^[A-Za-z0-9 .\-_/]{1,32}$/,
   referer: /^[A-Za-z0-9:/.\-_?=&%#+~]{1,200}$/,
+  source: /^[a-z0-9][a-z0-9_-]{0,31}$/,
 };
 
 export function isValidDimensionValue(dim: TopBlob, value: string): boolean {

@@ -62,11 +62,11 @@ export async function handleApexRedirect(
 ): Promise<Response | null> {
   const link = await getLinkBySlug(env.DB, slug);
   if (!link) return null;
-  ctx.waitUntil(Promise.resolve(writeClickEvent(env, request, link)));
   const userAgent = request.headers.get("user-agent");
   if (userAgent && isbot(userAgent)) {
     return renderBotPreview(link, new URL(request.url).toString());
   }
+  ctx.waitUntil(Promise.resolve(writeClickEvent(env, request, link)));
   return new Response(null, {
     status: 302,
     headers: {

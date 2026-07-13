@@ -99,7 +99,8 @@ export type TopBlob =
   | "referer"
   | "browser"
   | "os"
-  | "device";
+  | "device"
+  | "source";
 
 const BLOB_INDEX: Record<TopBlob, number> = {
   slug: 1,
@@ -111,6 +112,7 @@ const BLOB_INDEX: Record<TopBlob, number> = {
   browser: 7,
   os: 8,
   device: 9,
+  source: 10,
 };
 
 export const DEFAULT_WINDOW: AnalyticsWindow = { kind: "rolling", hours: 24 * 7 };
@@ -169,6 +171,7 @@ const DIMENSION_VALUE_RE: Record<TopBlob, RegExp> = {
   os: /^[A-Za-z0-9 .\-_/]{1,64}$/,
   device: /^[A-Za-z0-9 .\-_/]{1,32}$/,
   referer: /^[A-Za-z0-9:/.\-_?=&%#+~]{1,200}$/,
+  source: /^[a-z0-9][a-z0-9_-]{0,31}$/,
 };
 
 function dimensionValueOrThrow(dim: TopBlob, value: string): string {
@@ -304,6 +307,31 @@ export async function clicksByLinkId(
     if (id) map.set(id, clicks);
   }
   return map;
+}
+
+export type LinkSourceClicks = { linkId: string; source: string; clicks: number };
+
+export function clicksByLinkIdAndSourceSql(linkIds: string[], opts: QueryOpts = {}): string {
+  const window = opts.window ?? DEFAULT_WINDOW;
+  const filter = linkIdsFilter(linkIds);
+  return `SELECT index1 AS linkId, blob10 AS source, count() AS clicks
+FROM ${DATASET}
+WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}
+GROUP BY linkId, source`;
+}
+
+export async function clicksByLinkIdAndSource(
+  env: AeEnv,
+  linkIds: string[],
+  opts: QueryOpts = {},
+): Promise<LinkSourceClicks[]> {
+  if (linkIds.length === 0) return [];
+  const rows = await aeQuery(env, clicksByLinkIdAndSourceSql(linkIds, opts));
+  return rows.map((row) => ({
+    linkId: String(row.linkId ?? ""),
+    source: String(row.source ?? ""),
+    clicks: Number(row.clicks ?? 0),
+  }));
 }
 
 export function totalSql(linkIds: string[] | "all", opts: QueryOpts = {}): string {

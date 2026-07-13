@@ -22,6 +22,7 @@ import { requireUserWithChapter } from "~/lib/auth-redirect";
 import {
   getLinkById,
   listLinksAccessibleByEmail,
+  listLinksForChapter,
   listLinksForUser,
   listPermissionsForLink,
 } from "~/lib/db";
@@ -40,6 +41,7 @@ type AnalyticsData = {
   hourly: Awaited<ReturnType<typeof hourlyClicks>>;
   total: Awaited<ReturnType<typeof totalClicks>>;
   slugs: TopRow[];
+  sources: TopRow[];
   referrers: TopRow[];
   countries: TopRow[];
   regions: TopRow[];
@@ -79,11 +81,16 @@ export async function loader(args: Route.LoaderArgs) {
     };
     ids = [linkIdParam];
   } else {
-    const [own, shared] = await Promise.all([
+    const [own, chapterOwned, shared] = await Promise.all([
       listLinksForUser(env.DB, user.id),
+      listLinksForChapter(env.DB, chapter.chapterId),
       listLinksAccessibleByEmail(env.DB, user.email, chapter.chapterId),
     ]);
-    const idSet = new Set<string>([...own.map((l) => l.id), ...shared.map((l) => l.id)]);
+    const idSet = new Set<string>([
+      ...own.map((l) => l.id),
+      ...chapterOwned.map((l) => l.id),
+      ...shared.map((l) => l.id),
+    ]);
     ids = [...idSet];
   }
 
@@ -120,6 +127,7 @@ export async function loader(args: Route.LoaderArgs) {
     hourlyClicks(env, ids, opts).catch(aeFallback("hourly", [])),
     totalClicks(env, ids, opts).catch(aeFallback("total", 0)),
     topByBlob(env, "slug", ids, 10, opts).catch(aeFallback("slug", [])),
+    topByBlob(env, "source", ids, 10, opts).catch(aeFallback("source", [])),
     topByBlob(env, "referer", ids, 10, opts).catch(aeFallback("referer", [])),
     topByBlob(env, "country", ids, 10, opts).catch(aeFallback("country", [])),
     topByBlob(env, "region", ids, 10, opts).catch(aeFallback("region", [])),
@@ -133,6 +141,7 @@ export async function loader(args: Route.LoaderArgs) {
       hourly,
       total,
       slugs,
+      sources,
       referrers,
       countries,
       regions,
@@ -145,6 +154,7 @@ export async function loader(args: Route.LoaderArgs) {
       hourly,
       total,
       slugs,
+      sources,
       referrers,
       countries,
       regions,
@@ -159,6 +169,7 @@ export async function loader(args: Route.LoaderArgs) {
 
   const suggestions: Promise<FilterSuggestions> = analytics.then((d) => ({
     slug: d.slugs.map((r) => r.name).filter((n) => n !== "(unknown)"),
+    source: d.sources.map((r) => r.name).filter((n) => n !== "(unknown)"),
     country: d.countries.map((r) => r.name).filter((n) => n !== "(unknown)"),
     city: d.cities.map((r) => r.name).filter((n) => n !== "(unknown)"),
     region: d.regions.map((r) => r.name).filter((n) => n !== "(unknown)"),
@@ -236,6 +247,7 @@ function ClicksTile({ total }: { total: number }) {
 function AnalyticsContent({ data }: { data: AnalyticsData }) {
   const linksTabs: BarTab[] = [
     { key: "links", label: "Short Links", rows: data.slugs, emptyLabel: "No clicks yet." },
+    { key: "sources", label: "Sources", rows: data.sources, emptyLabel: "No sources yet." },
   ];
 
   const referrerTabs: BarTab[] = [

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   aeQuery,
   clearAeCache,
+  clicksByLinkIdAndSourceSql,
   granularityFor,
   hourlyClicks,
   hourlySql,
@@ -96,6 +97,7 @@ describe("analytics-engine SQL", () => {
     expect(topSql("device", "all", 5, { window: { kind: "rolling", hours: 24 * 30 } })).toContain(
       "INTERVAL '720' HOUR",
     );
+    expect(topSql("source", "all")).toContain("SELECT blob10 AS name");
   });
 
   it("topSql appends dimension filters", () => {
@@ -111,6 +113,15 @@ describe("analytics-engine SQL", () => {
     expect(totalSql([ID_A, ID_B, ID_C])).toContain(`index1 IN ('${ID_A}', '${ID_B}', '${ID_C}')`);
   });
 
+  it("groups campaign analysis by link and source", () => {
+    const sql = clicksByLinkIdAndSourceSql([ID_A, ID_B], {
+      filters: { source: ["discord-a"] },
+    });
+    expect(sql).toContain("SELECT index1 AS linkId, blob10 AS source, count() AS clicks");
+    expect(sql).toContain("AND blob10 IN ('discord-a')");
+    expect(sql).toContain("GROUP BY linkId, source");
+  });
+
   it("rejects malformed link ids", () => {
     expect(() => hourlySql(["not-a-link-id"])).toThrow(/link id/);
     expect(() => hourlySql(["link_short"])).toThrow(/link id/);
@@ -122,6 +133,9 @@ describe("analytics-engine SQL", () => {
     );
     expect(() => topSql("slug", "all", 10, { filters: { slug: ["abc; DROP TABLE"] } })).toThrow(
       /slug filter value/,
+    );
+    expect(() => topSql("source", "all", 10, { filters: { source: ["Tokyo"] } })).toThrow(
+      /source filter value/,
     );
   });
 
