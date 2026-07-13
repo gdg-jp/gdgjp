@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
-import { useState } from "react";
-import { Form } from "react-router";
+import { useEffect, useState } from "react";
+import { useFetcher } from "react-router";
+import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -17,6 +18,14 @@ import { SubmitButton } from "~/components/ui/submit-button";
 
 export function CampaignDialog() {
   const [open, setOpen] = useState(false);
+  const fetcher = useFetcher<{ ok: true } | { error: string }>();
+  const pending = fetcher.state !== "idle";
+
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data && "ok" in fetcher.data) {
+      setOpen(false);
+    }
+  }, [fetcher.data, fetcher.state]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -34,7 +43,7 @@ export function CampaignDialog() {
             them.
           </DialogDescription>
         </DialogHeader>
-        <Form method="post" className="space-y-5 px-5 pb-5">
+        <fetcher.Form method="post" className="space-y-5 px-5 pb-5">
           <input type="hidden" name="intent" value="create" />
           <div className="space-y-2">
             <Label htmlFor="campaign-name">Event name</Label>
@@ -55,10 +64,17 @@ export function CampaignDialog() {
               Letters, numbers, underscores, and hyphens. Saved in lowercase.
             </p>
           </div>
+          {fetcher.data && "error" in fetcher.data ? (
+            <Alert variant="destructive">
+              <AlertDescription>{fetcher.data.error}</AlertDescription>
+            </Alert>
+          ) : null}
           <DialogFooter>
-            <SubmitButton>Create campaign</SubmitButton>
+            <SubmitButton pending={pending} pendingLabel="Creating…">
+              Create campaign
+            </SubmitButton>
           </DialogFooter>
-        </Form>
+        </fetcher.Form>
       </DialogContent>
     </Dialog>
   );
