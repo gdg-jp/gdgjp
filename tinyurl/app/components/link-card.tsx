@@ -27,6 +27,7 @@ export type LinkOwner = {
   id: string;
   name: string;
   email: string;
+  image: string | null;
 };
 
 export type LinkCardItem = {
@@ -200,7 +201,7 @@ export function LinkCard({
 
       <div className="hidden items-center gap-2 sm:flex">
         <Avatar size="sm" title={owner?.name || owner?.email || "Owner"}>
-          <AvatarImage src={undefined} alt={owner?.name || owner?.email || ""} />
+          <AvatarImage src={owner?.image ?? undefined} alt={owner?.name || owner?.email || ""} />
           <AvatarFallback>{ownerInitials(owner)}</AvatarFallback>
         </Avatar>
         <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">

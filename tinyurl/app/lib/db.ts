@@ -1314,7 +1314,7 @@ export async function updatePermissionRole(
   return (result.meta.changes ?? 0) > 0;
 }
 
-export type UserSummary = { id: string; email: string; name: string };
+export type UserSummary = { id: string; email: string; name: string; image: string | null };
 
 export async function getUsersByIds(
   db: D1Database,
@@ -1323,7 +1323,7 @@ export async function getUsersByIds(
   if (ids.length === 0) return {};
   const placeholders = ids.map(() => "?").join(", ");
   const { results } = await db
-    .prepare(`SELECT id, email, name FROM "user" WHERE id IN (${placeholders})`)
+    .prepare(`SELECT id, email, name, image FROM "user" WHERE id IN (${placeholders})`)
     .bind(...ids)
     .all<UserSummary>();
   const out: Record<string, UserSummary> = {};

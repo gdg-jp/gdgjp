@@ -144,8 +144,8 @@ type CampaignFilter = "all" | "unclassified" | `campaign:${number}` | `channel:$
 
 function ownerOf(owners: Record<string, UserSummary>, id: string): LinkOwner | undefined {
   const u = owners[id];
-  if (!u) return { id, email: "", name: "" };
-  return { id: u.id, email: u.email, name: u.name };
+  if (!u) return { id, email: "", name: "", image: null };
+  return { id: u.id, email: u.email, name: u.name, image: u.image };
 }
 
 function shortHostOf(base: string): string {
