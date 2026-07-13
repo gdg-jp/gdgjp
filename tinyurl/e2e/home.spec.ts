@@ -13,3 +13,8 @@ test("home page redirects unauthenticated users to the accounts IdP sign-in", as
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/^http:\/\/localhost:5173\/signin\?return_to=/);
 });
+
+test("campaigns redirects unauthenticated users to the accounts IdP sign-in", async ({ page }) => {
+  await page.goto("/campaigns", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/^http:\/\/localhost:5173\/signin\?return_to=/);
+});
