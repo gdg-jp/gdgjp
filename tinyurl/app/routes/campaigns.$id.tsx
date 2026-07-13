@@ -4,7 +4,6 @@ import {
   BarChart3,
   ChevronDown,
   ChevronLeft,
-  Copy,
   Link2,
   Pencil,
   Plus,
@@ -15,7 +14,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Form, Link, useSearchParams } from "react-router";
-import { toast } from "sonner";
 import type { FilterSuggestions } from "~/components/analytics/analytics-filter-button";
 import { AnalyticsFiltersBar } from "~/components/analytics/analytics-filters-bar";
 import { useCampaignActionDialog } from "~/components/campaigns/use-campaign-action-dialog";
@@ -644,12 +642,6 @@ function MediumCard({
   clicks: Record<string, number>;
 }) {
   const [open, setOpen] = useState(true);
-
-  async function copySourceParameter(code: string) {
-    await navigator.clipboard.writeText(`?s=${code}`);
-    toast.success("Source parameter copied");
-  }
-
   return (
     <Card className="gap-0 py-0">
       <div className="flex items-center gap-3 px-5 py-4">
@@ -741,16 +733,6 @@ function MediumCard({
                       Archived
                     </Badge>
                   ) : null}
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="size-7"
-                    onClick={() => copySourceParameter(source.code)}
-                  >
-                    <Copy className="size-3" />
-                    <span className="sr-only">Copy source parameter for {source.name}</span>
-                  </Button>
                   <EditSourceDialog source={source} />
                   <Form method="post">
                     <input
