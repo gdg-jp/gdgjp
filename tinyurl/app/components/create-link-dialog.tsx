@@ -1,6 +1,14 @@
-import { RefreshCw, Shuffle } from "lucide-react";
+import { MAX_IMAGE_UPLOAD_BYTES } from "@gdgjp/gdg-lib";
+import { ImagePlus, LoaderCircle, RefreshCw, Shuffle, Upload } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type DragEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Link, useFetcher, useNavigation } from "react-router";
 import { toast } from "sonner";
 import { TagCombobox } from "~/components/tag-combobox";
@@ -37,6 +45,12 @@ export type CampaignChannelOption = {
   defaultDestinationUrl?: string | null;
   channelName: string;
   channelCode?: string;
+};
+
+type PendingShare = {
+  principalType: "user" | "chapter";
+  principalId: string;
+  role: "viewer" | "editor";
 };
 
 export function campaignLinkDefaults(option?: CampaignChannelOption) {
@@ -133,6 +147,8 @@ function CreateLinkForm({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [ogImageUrl, setOgImageUrl] = useState("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [tagIds, setTagIds] = useState<number[]>([]);
   const [newTagNames, setNewTagNames] = useState<string[]>([]);
   const [comment, setComment] = useState("");
@@ -140,11 +156,13 @@ function CreateLinkForm({
   const [sharePrincipalType, setSharePrincipalType] = useState<"user" | "chapter">("user");
   const [sharePrincipalId, setSharePrincipalId] = useState("");
   const [shareRole, setShareRole] = useState<"viewer" | "editor">("viewer");
+  const [pendingShares, setPendingShares] = useState<PendingShare[]>([]);
   const [campaignChannelId, setCampaignChannelId] = useState(
     defaultCampaignChannelId === undefined ? "standalone" : String(defaultCampaignChannelId),
   );
 
   const lastOgpRef = useRef<unknown>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const data = ogpFetcher.data;
     if (!data || !("ogp" in data) || !data.ogp) return;
@@ -178,6 +196,61 @@ function CreateLinkForm({
     fd.set("intent", "fetchOgp");
     fd.set("destinationUrl", url);
     ogpFetcher.submit(fd, { method: "post", action: "/api/links" });
+  }
+
+  async function uploadPreviewImage(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+      toast.error("Image must be 10 MB or smaller.");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const response = await fetch("/api/images/upload", { method: "POST", body: form });
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Upload failed (${response.status})`);
+      }
+      const result = (await response.json()) as { url: string };
+      setOgImageUrl(result.url);
+      toast.success("Preview image uploaded");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Image upload failed.");
+    } finally {
+      setIsUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  }
+
+  function onImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (file) void uploadPreviewImage(file);
+  }
+
+  function onImageDragOver(event: DragEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    if (!isUploadingImage) setIsDraggingImage(true);
+  }
+
+  function onImageDragLeave(event: DragEvent<HTMLButtonElement>) {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsDraggingImage(false);
+    }
+  }
+
+  function onImageDrop(event: DragEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    setIsDraggingImage(false);
+    if (isUploadingImage) return;
+    const file = event.dataTransfer.files[0];
+    if (file) void uploadPreviewImage(file);
   }
 
   const error =
@@ -352,9 +425,56 @@ function CreateLinkForm({
 
           <div className="space-y-3">
             <FieldLabel>Sharing</FieldLabel>
-            <div className="grid gap-2 rounded-md border bg-card p-3 sm:grid-cols-[140px_1fr_120px]">
-              <input type="hidden" name="sharePrincipalType" value={sharePrincipalType} />
-              <input type="hidden" name="shareRole" value={shareRole} />
+            <div className="rounded-md border bg-card">
+              {pendingShares.length === 0 ? (
+                <p className="px-3 py-4 text-sm text-muted-foreground">Not shared with anyone.</p>
+              ) : (
+                <div className="divide-y">
+                  {pendingShares.map((share) => (
+                    <div
+                      key={`${share.principalType}-${share.principalId}`}
+                      className="flex items-center justify-between gap-3 px-3 py-2"
+                    >
+                      <span className="min-w-0 truncate text-sm">
+                        {share.principalType === "chapter"
+                          ? (chapters.find(
+                              (chapter) => String(chapter.chapterId) === share.principalId,
+                            )?.chapterSlug ?? share.principalId)
+                          : share.principalId}
+                      </span>
+                      <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {share.role === "editor" ? "Editor" : "Viewer"}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          onClick={() =>
+                            setPendingShares((shares) =>
+                              shares.filter(
+                                (item) =>
+                                  item.principalType !== share.principalType ||
+                                  item.principalId !== share.principalId,
+                              ),
+                            )
+                          }
+                        >
+                          Remove
+                        </Button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="grid gap-2 rounded-md border bg-card p-3 sm:grid-cols-[140px_1fr_120px_auto]">
+              {pendingShares.map((share) => (
+                <input
+                  key={`${share.principalType}-${share.principalId}`}
+                  type="hidden"
+                  name="share"
+                  value={`${share.principalType}:${share.principalId}:${share.role}`}
+                />
+              ))}
               <Select
                 value={sharePrincipalType}
                 onValueChange={(value) => {
@@ -409,10 +529,31 @@ function CreateLinkForm({
                   <SelectItem value="editor">Editor</SelectItem>
                 </SelectContent>
               </Select>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  if (!sharePrincipalId.trim()) return;
+                  const share = {
+                    principalType: sharePrincipalType,
+                    principalId: sharePrincipalId.trim(),
+                    role: shareRole,
+                  };
+                  setPendingShares((shares) => [
+                    ...shares.filter(
+                      (item) =>
+                        item.principalType !== share.principalType ||
+                        item.principalId !== share.principalId,
+                    ),
+                    share,
+                  ]);
+                  if (sharePrincipalType === "user") setSharePrincipalId("");
+                }}
+                disabled={!sharePrincipalId.trim()}
+              >
+                Share
+              </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Optionally share this link with a person or chapter when it is created.
-            </p>
           </div>
         </div>
 
@@ -448,17 +589,56 @@ function CreateLinkForm({
             </div>
 
             <div className="overflow-hidden rounded-md border bg-card">
-              {ogImageUrl ? (
-                <img
-                  src={ogImageUrl}
-                  alt="OGP preview"
-                  className="aspect-video w-full bg-muted object-cover"
-                />
-              ) : (
-                <div className="flex aspect-video w-full items-center justify-center bg-muted text-xs text-muted-foreground">
-                  Enter a link to generate a preview
-                </div>
-              )}
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                disabled={isUploadingImage}
+                onChange={onImageChange}
+              />
+              <button
+                type="button"
+                aria-label="Upload a custom preview image"
+                disabled={isUploadingImage}
+                onClick={() => imageInputRef.current?.click()}
+                onDragEnter={onImageDragOver}
+                onDragOver={onImageDragOver}
+                onDragLeave={onImageDragLeave}
+                onDrop={onImageDrop}
+                className={`group relative block aspect-video w-full overflow-hidden bg-muted text-xs text-muted-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                  isDraggingImage ? "bg-primary/15 ring-2 ring-primary ring-inset" : ""
+                }`}
+              >
+                {ogImageUrl ? (
+                  <img src={ogImageUrl} alt="OGP preview" className="size-full object-cover" />
+                ) : (
+                  <span className="flex size-full flex-col items-center justify-center gap-2">
+                    <ImagePlus className="size-5" aria-hidden="true" />
+                    Click or drop an image
+                  </span>
+                )}
+                <span
+                  className={`absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 text-white transition-opacity ${
+                    isUploadingImage || isDraggingImage
+                      ? "opacity-100"
+                      : ogImageUrl
+                        ? "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+                        : "opacity-0"
+                  }`}
+                >
+                  {isUploadingImage ? (
+                    <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Upload className="size-5" aria-hidden="true" />
+                  )}
+                  {isUploadingImage
+                    ? "Uploading to img…"
+                    : isDraggingImage
+                      ? "Drop to upload"
+                      : "Replace image"}
+                </span>
+              </button>
               <div className="space-y-1 px-3 py-2">
                 <p className="truncate text-sm font-medium">{title || previewHost || "Untitled"}</p>
                 {description ? (

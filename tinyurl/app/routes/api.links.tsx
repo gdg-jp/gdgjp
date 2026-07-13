@@ -48,15 +48,21 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
   const commentBody = String(form.get("comment") ?? "").trim();
   const rawVisibility = String(form.get("visibility") ?? "private");
   const rawCampaignChannelId = String(form.get("campaignChannelId") ?? "").trim();
-  const sharePrincipalType = String(form.get("sharePrincipalType") ?? "");
-  const sharePrincipalId = String(form.get("sharePrincipalId") ?? "").trim();
-  const shareRole = String(form.get("shareRole") ?? "viewer");
+  const shares = form.getAll("share").map((value) => {
+    const [principalType, principalId, role] = String(value).split(":");
+    return { principalType, principalId: principalId?.trim() ?? "", role };
+  });
   if (rawVisibility !== "private" && rawVisibility !== "public") {
     return { error: "Visibility must be private or public." };
   }
   const visibility: LinkVisibility = rawVisibility;
 
-  if (sharePrincipalId) {
+  for (const share of shares) {
+    const {
+      principalType: sharePrincipalType,
+      principalId: sharePrincipalId,
+      role: shareRole,
+    } = share;
     if (sharePrincipalType !== "user" && sharePrincipalType !== "chapter") {
       return { error: "Invalid sharing principal type." };
     }
@@ -126,12 +132,12 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     if (commentBody) {
       await addComment(env.DB, { linkId, authorUserId: user.id, body: commentBody });
     }
-    if (sharePrincipalId) {
+    for (const share of shares) {
       await addPermission(env.DB, {
         linkId,
-        principalType: sharePrincipalType as "user" | "chapter",
-        principalId: sharePrincipalId,
-        role: shareRole as "viewer" | "editor",
+        principalType: share.principalType as "user" | "chapter",
+        principalId: share.principalId,
+        role: share.role as "viewer" | "editor",
       });
     }
   }
