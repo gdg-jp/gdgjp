@@ -75,7 +75,7 @@ export function CampaignTrendChart({
         })
       : points;
   const displayedTotal = series.reduce((sum, item) => sum + item.clicks, 0);
-  const peak = points.reduce(
+  const peak = points.reduce<{ hour: string; clicks: number }>(
     (best, point) => {
       const clicks = series.reduce((sum, item) => sum + Number(point[item.key] ?? 0), 0);
       return clicks > best.clicks ? { hour: String(point.hour), clicks } : best;

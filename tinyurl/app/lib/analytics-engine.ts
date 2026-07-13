@@ -135,11 +135,11 @@ function isoDateOrThrow(value: string, name: string): string {
   return value;
 }
 
-function windowClause(window: AnalyticsWindow): string {
+function windowClause(window: AnalyticsWindow, lookbackHours = 0): string {
   switch (window.kind) {
     case "rolling": {
       const h = intOrThrow(window.hours, "hours");
-      return `timestamp > now() - INTERVAL '${h}' HOUR`;
+      return `timestamp > now() - INTERVAL '${h + lookbackHours}' HOUR`;
     }
     case "toDate": {
       const fn =
@@ -148,7 +148,8 @@ function windowClause(window: AnalyticsWindow): string {
           : window.unit === "quarter"
             ? "toStartOfQuarter"
             : "toStartOfYear";
-      return `timestamp >= ${fn}(now())`;
+      const lookback = lookbackHours > 0 ? ` - INTERVAL '${lookbackHours}' HOUR` : "";
+      return `timestamp >= ${fn}(now())${lookback}`;
     }
     case "all":
       return "1=1";
@@ -156,7 +157,8 @@ function windowClause(window: AnalyticsWindow): string {
       const start = isoDateOrThrow(window.startIso, "start");
       const end = isoDateOrThrow(window.endIso, "end");
       // end is inclusive at the day level, so use < (end + 1 day)
-      return `timestamp >= toDateTime('${start} 00:00:00') AND timestamp < toDateTime('${end} 00:00:00') + INTERVAL '1' DAY`;
+      const lookback = lookbackHours > 0 ? ` - INTERVAL '${lookbackHours}' HOUR` : "";
+      return `timestamp >= toDateTime('${start} 00:00:00')${lookback} AND timestamp < toDateTime('${end} 00:00:00') + INTERVAL '1' DAY`;
     }
   }
 }
@@ -331,6 +333,32 @@ export async function hourlyClicksByLinkIdAndSource(
 ): Promise<CampaignTrendClick[]> {
   if (linkIds.length === 0) return [];
   const rows = await aeQuery(env, hourlyClicksByLinkIdAndSourceSql(linkIds, opts));
+  return rows.map((row) => ({
+    hour: String(row.hour ?? ""),
+    linkId: String(row.linkId ?? ""),
+    source: String(row.source ?? ""),
+    clicks: Number(row.clicks ?? 0),
+  }));
+}
+
+export function conversionClicksByHourSql(linkIds: string[], opts: QueryOpts = {}): string {
+  const window = opts.window ?? DEFAULT_WINDOW;
+  const filter = linkIdsFilter(linkIds);
+  return `SELECT toStartOfHour(timestamp) AS hour, index1 AS linkId, blob10 AS source, count() AS clicks
+FROM ${DATASET}
+WHERE ${filter} AND ${windowClause(window, 24)}${blobFiltersClause(opts.filters)}
+GROUP BY hour, linkId, source
+ORDER BY hour`;
+}
+
+/** Hour-level click buckets used to estimate registrations near click activity. */
+export async function conversionClicksByHour(
+  env: AeEnv,
+  linkIds: string[],
+  opts: QueryOpts = {},
+): Promise<CampaignTrendClick[]> {
+  if (linkIds.length === 0) return [];
+  const rows = await aeQuery(env, conversionClicksByHourSql(linkIds, opts));
   return rows.map((row) => ({
     hour: String(row.hour ?? ""),
     linkId: String(row.linkId ?? ""),

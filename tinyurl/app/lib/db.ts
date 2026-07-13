@@ -463,13 +463,19 @@ export async function createCampaign(
     if (!row) throw new Error("Insert returned no row");
     const chapterIds = [...new Set(input.chapterIds)];
     if (chapterIds.length === 0) throw new RangeError("A campaign must have at least one chapter");
-    await db.batch(
-      chapterIds.map((chapterId) =>
+    await db.batch([
+      ...chapterIds.map((chapterId) =>
         db
           .prepare("INSERT INTO campaign_chapters (campaign_id, chapter_id) VALUES (?, ?)")
           .bind(row.id, chapterId),
       ),
-    );
+      db
+        .prepare(
+          `INSERT INTO campaign_channels (campaign_id, name, code, sort_order)
+             VALUES (?, 'その他', 'other', 2147483647)`,
+        )
+        .bind(row.id),
+    ]);
     return { ok: true, campaign: toCampaign(row, chapterIds) };
   } catch (error) {
     if (isUniqueConstraintError(error)) return { ok: false, reason: "code_taken" };

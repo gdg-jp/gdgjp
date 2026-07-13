@@ -17,6 +17,12 @@ import { Await, Form, Link, useLocation, useNavigation, useSearchParams } from "
 import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { FilterSuggestions } from "~/components/analytics/analytics-filter-button";
 import { AnalyticsFiltersBar } from "~/components/analytics/analytics-filters-bar";
+import { CampaignConversionAttributionPanel } from "~/components/campaigns/conversion-attribution";
+import {
+  type CampaignChannelOption,
+  CampaignParticipantImportWizard,
+  type ConnpassImportDraft,
+} from "~/components/campaigns/participant-import-wizard";
 import { useCampaignActionDialog } from "~/components/campaigns/use-campaign-action-dialog";
 import { BarList } from "~/components/charts/bar-list";
 import { CampaignTrendChart, type TrendMetric } from "~/components/charts/campaign-trend-chart";
@@ -43,6 +49,7 @@ import { SubmitButton } from "~/components/ui/submit-button";
 import {
   clicksByLinkId,
   clicksByLinkIdAndSource,
+  conversionClicksByHour,
   granularityFor,
   hourlyClicksByLinkIdAndSource,
   totalClicks,
@@ -50,7 +57,13 @@ import {
 import { parseAnalyticsParams } from "~/lib/analytics-filters";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
 import { type CampaignTrendDimension, campaignSourceBreakdown } from "~/lib/campaign-analytics";
+import { campaignConversionAttribution } from "~/lib/campaign-conversion-attribution";
 import { resolveCampaignScope, shouldReloadCampaign } from "~/lib/campaign-navigation";
+import {
+  getCampaignParticipantAnalytics,
+  replaceCampaignParticipantAnalytics,
+} from "~/lib/campaign-participant-analytics-db";
+import { buildCampaignParticipantAnalyticsInput } from "~/lib/campaign-participant-import.server";
 import {
   archiveCampaignChannel,
   archiveCampaignChannelSource,
@@ -106,17 +119,20 @@ async function requireCampaignAccess(args: Route.LoaderArgs | Route.ActionArgs) 
 
 export async function loader(args: Route.LoaderArgs) {
   const { env, user, chapter, chapters, campaign, id } = await requireCampaignAccess(args);
-  const [channels, assignableLinks, userTags, chapterTags] = await Promise.all([
-    listCampaignChannelsWithLinks(env.DB, id, true),
-    listAssignableLinksForCampaign(env.DB, {
-      userId: user.id,
-      email: user.email,
-      chapterIds: chapters.map((item) => item.chapterId),
-      campaignId: id,
-    }),
-    listTagsForUser(env.DB, user.id),
-    listTagsForChapter(env.DB, chapter.chapterId),
-  ]);
+  const [channels, assignableLinks, userTags, chapterTags, participantSnapshot] = await Promise.all(
+    [
+      listCampaignChannelsWithLinks(env.DB, id, true),
+      listAssignableLinksForCampaign(env.DB, {
+        userId: user.id,
+        email: user.email,
+        chapterIds: chapters.map((item) => item.chapterId),
+        campaignId: id,
+      }),
+      listTagsForUser(env.DB, user.id),
+      listTagsForChapter(env.DB, chapter.chapterId),
+      getCampaignParticipantAnalytics(env.DB, id),
+    ],
+  );
   const ownerIds = [
     ...new Set(channels.flatMap((item) => item.links.map((link) => link.ownerUserId))),
   ];
@@ -168,7 +184,10 @@ export async function loader(args: Route.LoaderArgs) {
     linkIds.length === 0
       ? Promise.resolve([])
       : hourlyClicksByLinkIdAndSource(env, linkIds, opts).catch(fallback("trends", [])),
-  ]).then(([total, resolvedClicks, sourceClicks, trend]) => {
+    linkIds.length === 0
+      ? Promise.resolve([])
+      : conversionClicksByHour(env, linkIds, opts).catch(fallback("conversion", [])),
+  ]).then(([total, resolvedClicks, sourceClicks, trend, conversionClicks]) => {
     const sourceBreakdown = campaignSourceBreakdown(channelsInScope, sourceClicks);
     const sourceSuggestions = new Set(
       channelsInScope.flatMap((item) => item.sources.map((source) => source.code)),
@@ -186,6 +205,14 @@ export async function loader(args: Route.LoaderArgs) {
       unregisteredSources: sourceBreakdown.unregistered,
       granularity: granularityFor(parsed.window),
       suggestions,
+      conversion: participantSnapshot
+        ? campaignConversionAttribution({
+            snapshot: participantSnapshot,
+            channels: channelsInScope,
+            clicks: conversionClicks,
+            window: parsed.window,
+          })
+        : null,
     };
   });
 
@@ -214,6 +241,29 @@ export async function action(args: Route.ActionArgs) {
   const { env, user, chapter, chapters, campaign, id } = await requireCampaignAccess(args);
   const form = await args.request.formData();
   const intent = String(form.get("intent") ?? "");
+
+  if (intent === "replaceParticipantAnalytics") {
+    const connpassEventId = String(form.get("connpassEventId") ?? "").trim();
+    if (!/^\d+$/.test(connpassEventId)) {
+      return { error: "Enter a numeric connpass event ID." };
+    }
+    const campaignChannels = await listCampaignChannelsWithLinks(env.DB, id, false);
+    try {
+      const input = buildCampaignParticipantAnalyticsInput({
+        rawDraft: String(form.get("draft") ?? ""),
+        campaignId: id,
+        connpassEventId,
+        importedByUserId: user.id,
+        allowedChannelIds: campaignChannels.map((channel) => channel.id),
+      });
+      await replaceCampaignParticipantAnalytics(env.DB, input);
+      return { ok: true };
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error.message : "The registration import is invalid.",
+      };
+    }
+  }
 
   if (intent === "createChannel") {
     const name = String(form.get("name") ?? "").trim();
@@ -399,9 +449,10 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
                 Channel, links, and source performance
               </p>
             </div>
-            <div className="flex w-full gap-2 sm:w-auto">
+            <div className="flex w-full flex-wrap gap-2 sm:w-auto">
               <AssignLinksDialog channels={activeChannels} links={assignableLinks} />
               <CreateChannelDialog campaignCode={campaign.code} />
+              <ImportConnpassDialog channels={activeChannels} />
             </div>
           </div>
         </div>
@@ -715,6 +766,7 @@ function CampaignAnalyticsPanel({
             </CardContent>
           </Card>
         </div>
+        <CampaignConversionAttributionPanel analytics={analytics.conversion} />
       </section>
 
       {analytics.unregisteredSources.length > 0 ? (
@@ -748,6 +800,16 @@ function CampaignAnalyticsPanel({
       ) : null}
     </div>
   );
+}
+
+async function analyzeParticipantFile(
+  file: File,
+  channels: CampaignChannelOption[],
+): Promise<ConnpassImportDraft> {
+  const { analyzeConnpassParticipantsFile } = await import(
+    "~/lib/campaign-participant-import.client"
+  );
+  return analyzeConnpassParticipantsFile(file, channels);
 }
 
 type DetailChannel = Route.ComponentProps["loaderData"]["channels"][number];
@@ -1029,6 +1091,32 @@ function CreateChannelDialog({ campaignCode }: { campaignCode: string }) {
       intent="createChannel"
       codePlaceholder="x"
     />
+  );
+}
+
+function ImportConnpassDialog({ channels }: { channels: DetailChannel[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          <Plus className="size-4" /> Import connpass CSV
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="border-b">
+          <DialogTitle>Import connpass CSV</DialogTitle>
+          <DialogDescription>
+            Extract registration dates and map each questionnaire option to one Campaign channel.
+          </DialogDescription>
+        </DialogHeader>
+        <CampaignParticipantImportWizard
+          analyzeFile={analyzeParticipantFile}
+          channels={channels.map(({ id, name, code }) => ({ id, name, code }))}
+          onSaved={() => setOpen(false)}
+        />
+      </DialogContent>
+    </Dialog>
   );
 }
 

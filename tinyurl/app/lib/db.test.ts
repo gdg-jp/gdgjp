@@ -1,12 +1,56 @@
 import { describe, expect, it } from "vitest";
 import {
   assignLinksToChannel,
+  createCampaign,
   listAssignableLinksForCampaign,
   listLatestCommentsForCampaign,
   normalizeCampaignCode,
   toCampaign,
   toLink,
 } from "./db";
+
+describe("createCampaign", () => {
+  it("creates the default その他 channel after creating the Campaign", async () => {
+    const prepared: { sql: string; bindings: unknown[] }[] = [];
+    const db = {
+      prepare(sql: string) {
+        const call = { sql, bindings: [] as unknown[] };
+        prepared.push(call);
+        return {
+          bind(...values: unknown[]) {
+            call.bindings = values;
+            return this;
+          },
+          async first() {
+            return {
+              id: 7,
+              name: "DevFest 2026",
+              code: "df26",
+              default_destination_url: null,
+              owner_user_id: "user_abc",
+              created_at: 1700000000,
+              updated_at: 1700000000,
+              archived_at: null,
+            };
+          },
+        };
+      },
+      async batch() {
+        return [];
+      },
+    } as unknown as D1Database;
+
+    await createCampaign(db, {
+      name: "DevFest 2026",
+      code: "df26",
+      ownerUserId: "user_abc",
+      chapterIds: [42],
+    });
+
+    const defaultChannel = prepared.find((call) => call.sql.includes("'その他', 'other'"));
+    expect(defaultChannel?.bindings).toEqual([7]);
+  });
+});
 
 describe("toLink", () => {
   const row = {
