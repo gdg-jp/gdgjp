@@ -20,7 +20,7 @@ export type ApiLinksActionData = { error: string } | { ogp: OgpData | null } | n
 
 export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData> {
   const env = args.context.cloudflare.env;
-  const { user, chapter } = await requireUserWithChapter(env, args.request);
+  const { user, chapter, chapters } = await requireUserWithChapter(env, args.request);
 
   const form = await args.request.formData();
   const intent = String(form.get("intent") ?? "create");
@@ -84,16 +84,19 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     }
     const channel = await getCampaignChannelById(env.DB, campaignChannelId);
     const campaign = channel ? await getCampaignById(env.DB, channel.campaignId) : null;
+    const accessChapter = campaign?.chapterIds
+      .map((id) => chapters.find((item) => item.chapterId === id))
+      .find((item) => item !== undefined);
     if (
       !channel ||
       !campaign ||
       channel.archivedAt !== null ||
       campaign.archivedAt !== null ||
-      (campaign.ownerChapterId !== chapter.chapterId && !isSuperAdmin(user))
+      (!accessChapter && !isSuperAdmin(user))
     ) {
       return { error: "Campaign channel is not available for your chapter." };
     }
-    ownerChapterId = campaign.ownerChapterId;
+    ownerChapterId = accessChapter?.chapterId ?? chapter.chapterId;
     if (!destinationUrl && campaign.defaultDestinationUrl) {
       destinationUrl = campaign.defaultDestinationUrl;
     }

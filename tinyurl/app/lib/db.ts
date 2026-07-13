@@ -108,15 +108,7 @@ export async function createLink(
   db: D1Database,
   input: CreateLinkInput,
 ): Promise<CreateLinkResult> {
-  let ownerChapterId = input.ownerChapterId ?? null;
-  if (input.campaignChannelId != null) {
-    const campaignOwnerChapterId = await getChapterIdForCampaignChannel(
-      db,
-      input.campaignChannelId,
-    );
-    if (campaignOwnerChapterId === null) throw new RangeError("Campaign channel not found");
-    ownerChapterId = campaignOwnerChapterId;
-  }
+  const ownerChapterId = input.ownerChapterId ?? null;
   try {
     const row = await db
       .prepare(
@@ -186,15 +178,6 @@ export async function updateLink(
   if (input.campaignChannelId !== undefined) {
     sets.push("campaign_channel_id = ?");
     values.push(input.campaignChannelId);
-    if (input.campaignChannelId !== null) {
-      const campaignOwnerChapterId = await getChapterIdForCampaignChannel(
-        db,
-        input.campaignChannelId,
-      );
-      if (campaignOwnerChapterId === null) throw new RangeError("Campaign channel not found");
-      sets.push("owner_chapter_id = ?");
-      values.push(campaignOwnerChapterId);
-    }
   }
   if (input.visibility !== undefined) {
     sets.push("visibility = ?");
@@ -229,8 +212,8 @@ export type Campaign = {
   name: string;
   code: string;
   defaultDestinationUrl: string | null;
-  ownerChapterId: number;
-  createdByUserId: string;
+  ownerUserId: string;
+  chapterIds: number[];
   createdAt: number;
   updatedAt: number;
   archivedAt: number | null;
@@ -246,8 +229,7 @@ type CampaignRow = {
   name: string;
   code: string;
   default_destination_url: string | null;
-  owner_chapter_id: number;
-  created_by_user_id: string;
+  owner_user_id: string;
   created_at: number;
   updated_at: number;
   archived_at: number | null;
@@ -259,16 +241,16 @@ type CampaignWithCountsRow = CampaignRow & {
 };
 
 const CAMPAIGN_COLS =
-  "id, name, code, default_destination_url, owner_chapter_id, created_by_user_id, created_at, updated_at, archived_at";
+  "id, name, code, default_destination_url, owner_user_id, created_at, updated_at, archived_at";
 
-export function toCampaign(row: CampaignRow): Campaign {
+export function toCampaign(row: CampaignRow, chapterIds: number[] = []): Campaign {
   return {
     id: row.id,
     name: row.name,
     code: row.code,
     defaultDestinationUrl: row.default_destination_url,
-    ownerChapterId: row.owner_chapter_id,
-    createdByUserId: row.created_by_user_id,
+    ownerUserId: row.owner_user_id,
+    chapterIds,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     archivedAt: row.archived_at,
@@ -362,16 +344,55 @@ export async function listCampaignsForChapterWithCounts(
               COUNT(DISTINCT m.id) AS channel_count,
               COUNT(DISTINCT l.id) AS link_count
        FROM campaigns c
+       JOIN campaign_chapters cc ON cc.campaign_id = c.id
        LEFT JOIN campaign_channels m ON m.campaign_id = c.id
        LEFT JOIN links l ON l.campaign_channel_id = m.id AND l.deleted_at IS NULL
-       WHERE c.owner_chapter_id = ? AND (? = 1 OR c.archived_at IS NULL)
+       WHERE cc.chapter_id = ? AND (? = 1 OR c.archived_at IS NULL)
        GROUP BY c.id
        ORDER BY c.archived_at IS NOT NULL, c.created_at DESC`,
     )
     .bind(chapterId, includeArchived ? 1 : 0)
     .all<CampaignWithCountsRow>();
+  const chapterIdsByCampaign = await listCampaignChapterIds(
+    db,
+    results.map((row) => row.id),
+  );
   return results.map((row) => ({
-    ...toCampaign(row),
+    ...toCampaign(row, chapterIdsByCampaign.get(row.id) ?? []),
+    channelCount: row.channel_count,
+    linkCount: row.link_count,
+  }));
+}
+
+export async function listCampaignsForChaptersWithCounts(
+  db: D1Database,
+  chapterIds: number[],
+  includeArchived = false,
+): Promise<CampaignWithCounts[]> {
+  const ids = [...new Set(chapterIds)];
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(() => "?").join(", ");
+  const { results } = await db
+    .prepare(
+      `SELECT c.${CAMPAIGN_COLS.split(", ").join(", c.")},
+              COUNT(DISTINCT m.id) AS channel_count,
+              COUNT(DISTINCT l.id) AS link_count
+       FROM campaigns c
+       JOIN campaign_chapters cc ON cc.campaign_id = c.id
+       LEFT JOIN campaign_channels m ON m.campaign_id = c.id
+       LEFT JOIN links l ON l.campaign_channel_id = m.id AND l.deleted_at IS NULL
+       WHERE cc.chapter_id IN (${placeholders}) AND (? = 1 OR c.archived_at IS NULL)
+       GROUP BY c.id
+       ORDER BY c.archived_at IS NOT NULL, c.created_at DESC`,
+    )
+    .bind(...ids, includeArchived ? 1 : 0)
+    .all<CampaignWithCountsRow>();
+  const chapterIdsByCampaign = await listCampaignChapterIds(
+    db,
+    results.map((row) => row.id),
+  );
+  return results.map((row) => ({
+    ...toCampaign(row, chapterIdsByCampaign.get(row.id) ?? []),
     channelCount: row.channel_count,
     linkCount: row.link_count,
   }));
@@ -382,15 +403,39 @@ export async function getCampaignById(db: D1Database, id: number): Promise<Campa
     .prepare(`SELECT ${CAMPAIGN_COLS} FROM campaigns WHERE id = ?`)
     .bind(id)
     .first<CampaignRow>();
-  return row ? toCampaign(row) : null;
+  if (!row) return null;
+  const chapterIds = await listCampaignChapterIds(db, [id]);
+  return toCampaign(row, chapterIds.get(id) ?? []);
+}
+
+async function listCampaignChapterIds(
+  db: D1Database,
+  campaignIds: number[],
+): Promise<Map<number, number[]>> {
+  if (campaignIds.length === 0) return new Map();
+  const placeholders = campaignIds.map(() => "?").join(", ");
+  const { results } = await db
+    .prepare(
+      `SELECT campaign_id, chapter_id FROM campaign_chapters
+       WHERE campaign_id IN (${placeholders}) ORDER BY chapter_id`,
+    )
+    .bind(...campaignIds)
+    .all<{ campaign_id: number; chapter_id: number }>();
+  const values = new Map<number, number[]>();
+  for (const row of results) {
+    const ids = values.get(row.campaign_id) ?? [];
+    ids.push(row.chapter_id);
+    values.set(row.campaign_id, ids);
+  }
+  return values;
 }
 
 export type CreateCampaignInput = {
   name: string;
   code: string;
   defaultDestinationUrl?: string | null;
-  ownerChapterId: number;
-  createdByUserId: string;
+  ownerUserId: string;
+  chapterIds: number[];
 };
 
 export type CampaignWriteResult =
@@ -405,19 +450,27 @@ export async function createCampaign(
     const row = await db
       .prepare(
         `INSERT INTO campaigns
-           (name, code, default_destination_url, owner_chapter_id, created_by_user_id)
-         VALUES (?, ?, ?, ?, ?) RETURNING ${CAMPAIGN_COLS}`,
+           (name, code, default_destination_url, owner_user_id)
+         VALUES (?, ?, ?, ?) RETURNING ${CAMPAIGN_COLS}`,
       )
       .bind(
         input.name.trim(),
         normalizeCampaignCode(input.code),
         input.defaultDestinationUrl ?? null,
-        input.ownerChapterId,
-        input.createdByUserId,
+        input.ownerUserId,
       )
       .first<CampaignRow>();
     if (!row) throw new Error("Insert returned no row");
-    return { ok: true, campaign: toCampaign(row) };
+    const chapterIds = [...new Set(input.chapterIds)];
+    if (chapterIds.length === 0) throw new RangeError("A campaign must have at least one chapter");
+    await db.batch(
+      chapterIds.map((chapterId) =>
+        db
+          .prepare("INSERT INTO campaign_chapters (campaign_id, chapter_id) VALUES (?, ?)")
+          .bind(row.id, chapterId),
+      ),
+    );
+    return { ok: true, campaign: toCampaign(row, chapterIds) };
   } catch (error) {
     if (isUniqueConstraintError(error)) return { ok: false, reason: "code_taken" };
     throw error;
@@ -427,7 +480,12 @@ export async function createCampaign(
 export async function updateCampaign(
   db: D1Database,
   id: number,
-  input: { name?: string; code?: string; defaultDestinationUrl?: string | null },
+  input: {
+    name?: string;
+    code?: string;
+    defaultDestinationUrl?: string | null;
+    chapterIds?: number[];
+  },
 ): Promise<CampaignWriteResult | null> {
   const sets: string[] = [];
   const values: (string | null)[] = [];
@@ -443,7 +501,10 @@ export async function updateCampaign(
     sets.push("default_destination_url = ?");
     values.push(input.defaultDestinationUrl);
   }
-  if (sets.length === 0) {
+  if (input.chapterIds !== undefined && input.chapterIds.length === 0) {
+    throw new RangeError("A campaign must have at least one chapter");
+  }
+  if (sets.length === 0 && input.chapterIds === undefined) {
     const campaign = await getCampaignById(db, id);
     return campaign ? { ok: true, campaign } : null;
   }
@@ -453,7 +514,21 @@ export async function updateCampaign(
       .prepare(`UPDATE campaigns SET ${sets.join(", ")} WHERE id = ? RETURNING ${CAMPAIGN_COLS}`)
       .bind(...values, id)
       .first<CampaignRow>();
-    return row ? { ok: true, campaign: toCampaign(row) } : null;
+    if (!row) return null;
+    if (input.chapterIds !== undefined) {
+      const chapterIds = [...new Set(input.chapterIds)];
+      await db.batch([
+        db.prepare("DELETE FROM campaign_chapters WHERE campaign_id = ?").bind(id),
+        ...chapterIds.map((chapterId) =>
+          db
+            .prepare("INSERT INTO campaign_chapters (campaign_id, chapter_id) VALUES (?, ?)")
+            .bind(id, chapterId),
+        ),
+      ]);
+      return { ok: true, campaign: toCampaign(row, chapterIds) };
+    }
+    const chapterIds = await listCampaignChapterIds(db, [id]);
+    return { ok: true, campaign: toCampaign(row, chapterIds.get(id) ?? []) };
   } catch (error) {
     if (isUniqueConstraintError(error)) return { ok: false, reason: "code_taken" };
     throw error;
@@ -810,7 +885,9 @@ export async function listAssignableLinksForCampaign(
          AND campaign_channel_id IS NULL
          AND (
            (owner_user_id = ? AND owner_chapter_id IS NULL)
-           OR owner_chapter_id = (SELECT owner_chapter_id FROM campaigns WHERE id = ?)
+           OR owner_chapter_id IN (
+             SELECT chapter_id FROM campaign_chapters WHERE campaign_id = ?
+           )
          )
        ORDER BY campaign_channel_id IS NOT NULL, created_at DESC`,
     )
@@ -836,6 +913,7 @@ export type AssignLinksToChannelInput = {
   linkIds: string[];
   channelId: number;
   actorUserId: string;
+  actorChapterId: number;
 };
 
 export type AssignLinksToChannelResult = {
@@ -851,25 +929,32 @@ export async function assignLinksToChannel(
   if (linkIds.length === 0) return { assignedIds: [], rejectedIds: [] };
   const channel = await db
     .prepare(
-      `SELECT m.id, c.owner_chapter_id
-       FROM campaign_channels m JOIN campaigns c ON c.id = m.campaign_id
+      `SELECT m.id
+       FROM campaign_channels m
        WHERE m.id = ?`,
     )
     .bind(input.channelId)
-    .first<{ id: number; owner_chapter_id: number }>();
+    .first<{ id: number }>();
   if (!channel) return { assignedIds: [], rejectedIds: linkIds };
 
   const statements = linkIds.map((linkId) => {
-    const values: (string | number | null)[] = [input.channelId, channel.owner_chapter_id];
-    values.push(linkId, input.actorUserId, channel.owner_chapter_id);
+    const values: (string | number | null)[] = [input.channelId, input.actorChapterId];
+    values.push(linkId, input.actorUserId);
     return db
       .prepare(
         `UPDATE links
-         SET campaign_channel_id = ?, owner_chapter_id = ?, updated_at = unixepoch()
+         SET campaign_channel_id = ?,
+             owner_chapter_id = COALESCE(owner_chapter_id, ?),
+             updated_at = unixepoch()
          WHERE id = ? AND deleted_at IS NULL
-           AND ((owner_user_id = ? AND owner_chapter_id IS NULL) OR owner_chapter_id = ?)`,
+           AND (owner_user_id = ? OR owner_chapter_id IN (
+             SELECT chapter_id
+             FROM campaign_chapters cc
+             JOIN campaign_channels m ON m.campaign_id = cc.campaign_id
+             WHERE m.id = ?
+           ))`,
       )
-      .bind(...values);
+      .bind(...values, input.channelId);
   });
   const results = await db.batch(statements);
   const assignedIds = linkIds.filter((_, index) => (results[index]?.meta.changes ?? 0) > 0);
@@ -906,21 +991,6 @@ export async function unassignLinksFromCampaign(
 function isUniqueConstraintError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return message.includes("UNIQUE") || message.includes("unique constraint");
-}
-
-async function getChapterIdForCampaignChannel(
-  db: D1Database,
-  channelId: number,
-): Promise<number | null> {
-  const row = await db
-    .prepare(
-      `SELECT c.owner_chapter_id
-       FROM campaign_channels m JOIN campaigns c ON c.id = m.campaign_id
-       WHERE m.id = ?`,
-    )
-    .bind(channelId)
-    .first<{ owner_chapter_id: number }>();
-  return row?.owner_chapter_id ?? null;
 }
 
 // ---------- Tags ----------

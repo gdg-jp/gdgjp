@@ -23,7 +23,7 @@ import {
   type UserSummary,
   getUsersByIds,
   listCampaignChannels,
-  listCampaignsForChapterWithCounts,
+  listCampaignsForChaptersWithCounts,
   listLinksAccessibleByEmail,
   listLinksForChapter,
   listLinksForUser,
@@ -48,7 +48,11 @@ export async function loader(args: Route.LoaderArgs) {
       listPublicLinks(env.DB),
       listTagsForUser(env.DB, user.id),
       listTagsForChapter(env.DB, chapter.chapterId),
-      listCampaignsForChapterWithCounts(env.DB, chapter.chapterId, true),
+      listCampaignsForChaptersWithCounts(
+        env.DB,
+        chapters.map((item) => item.chapterId),
+        true,
+      ),
     ]);
   const ownLinks = [...personalLinks];
   const ownLinkIds = new Set(ownLinks.map((link) => link.id));

@@ -13,9 +13,11 @@ import {
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { SubmitButton } from "~/components/ui/submit-button";
+import type { UserChapter } from "~/lib/chapter.server";
+import { ChapterAccessSelect } from "./chapter-access-select";
 import { useCampaignActionDialog } from "./use-campaign-action-dialog";
 
-export function CampaignDialog() {
+export function CampaignDialog({ chapters }: { chapters: UserChapter[] }) {
   const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
 
   return (
@@ -40,6 +42,10 @@ export function CampaignDialog() {
             <Label htmlFor="campaign-name">Event name</Label>
             <Input id="campaign-name" name="name" required maxLength={80} autoFocus />
           </div>
+          <ChapterAccessSelect
+            chapters={chapters}
+            defaultChapterIds={chapters.slice(0, 1).map((chapter) => chapter.chapterId)}
+          />
           <div className="space-y-2">
             <Label htmlFor="campaign-code">Short code</Label>
             <Input

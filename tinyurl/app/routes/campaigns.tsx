@@ -2,6 +2,7 @@ import { Archive, BarChart3, ChevronRight, Megaphone, Pencil, RotateCcw } from "
 import { useMemo, useState } from "react";
 import { Form, Link } from "react-router";
 import { CampaignDialog } from "~/components/campaigns/campaign-dialog";
+import { ChapterAccessSelect } from "~/components/campaigns/chapter-access-select";
 import { useCampaignActionDialog } from "~/components/campaigns/use-campaign-action-dialog";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { Alert, AlertDescription } from "~/components/ui/alert";
@@ -25,7 +26,7 @@ import {
   archiveCampaign,
   createCampaign,
   getCampaignById,
-  listCampaignsForChapterWithCounts,
+  listCampaignsForChaptersWithCounts,
   updateCampaign,
 } from "~/lib/db";
 import { validatePublicHttpUrl } from "~/lib/ogp";
@@ -37,20 +38,40 @@ export function meta() {
 
 export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
-  const { user, chapter } = await requireUserWithChapter(env, args.request);
-  const campaigns = await listCampaignsForChapterWithCounts(env.DB, chapter.chapterId, true);
+  const { user, chapter, chapters } = await requireUserWithChapter(env, args.request);
+  const campaigns = await listCampaignsForChaptersWithCounts(
+    env.DB,
+    chapters.map((item) => item.chapterId),
+    true,
+  );
   return {
     user: { email: user.email, name: user.name },
     chapter,
+    chapters,
     campaigns,
   };
 }
 
 export async function action(args: Route.ActionArgs) {
   const env = args.context.cloudflare.env;
-  const { user, chapter } = await requireUserWithChapter(env, args.request);
+  const { user, chapters } = await requireUserWithChapter(env, args.request);
   const form = await args.request.formData();
   const intent = String(form.get("intent") ?? "");
+  const chapterIds = [
+    ...new Set(
+      form
+        .getAll("chapterId")
+        .map((value) => Number(value))
+        .filter((id) => Number.isInteger(id) && id > 0),
+    ),
+  ];
+  const availableChapterIds = new Set(chapters.map((item) => item.chapterId));
+  if (
+    (intent === "create" || intent === "update") &&
+    (chapterIds.length === 0 || chapterIds.some((id) => !availableChapterIds.has(id)))
+  ) {
+    return { error: "Select at least one chapter you belong to." };
+  }
 
   if (intent === "create") {
     const name = String(form.get("name") ?? "").trim();
@@ -72,8 +93,8 @@ export async function action(args: Route.ActionArgs) {
       name,
       code,
       defaultDestinationUrl: destinationValidation?.url.toString() ?? null,
-      ownerChapterId: chapter.chapterId,
-      createdByUserId: user.id,
+      ownerUserId: user.id,
+      chapterIds,
     });
     if (!result.ok) return { error: `Campaign code “${code}” is already in use.` };
     return { ok: true };
@@ -83,7 +104,7 @@ export async function action(args: Route.ActionArgs) {
     const id = Number(form.get("id"));
     if (!Number.isInteger(id) || id <= 0) return { error: "Invalid campaign." };
     const campaign = await getCampaignById(env.DB, id);
-    if (!campaign || campaign.ownerChapterId !== chapter.chapterId) {
+    if (!campaign || !campaign.chapterIds.some((id) => availableChapterIds.has(id))) {
       throw new Response("Forbidden", { status: 403 });
     }
     await archiveCampaign(env.DB, id, intent === "archive");
@@ -94,7 +115,7 @@ export async function action(args: Route.ActionArgs) {
     const id = Number(form.get("id"));
     if (!Number.isInteger(id) || id <= 0) return { error: "Invalid campaign." };
     const campaign = await getCampaignById(env.DB, id);
-    if (!campaign || campaign.ownerChapterId !== chapter.chapterId) {
+    if (!campaign || !campaign.chapterIds.some((id) => availableChapterIds.has(id))) {
       throw new Response("Forbidden", { status: 403 });
     }
     const name = String(form.get("name") ?? "").trim();
@@ -114,6 +135,7 @@ export async function action(args: Route.ActionArgs) {
       name,
       code,
       defaultDestinationUrl: destinationValidation?.url.toString() ?? null,
+      chapterIds,
     });
     if (result && !result.ok) return { error: `Campaign code “${code}” is already in use.` };
     return { ok: true };
@@ -123,7 +145,7 @@ export async function action(args: Route.ActionArgs) {
 }
 
 export default function Campaigns({ loaderData, actionData }: Route.ComponentProps) {
-  const { user, chapter, campaigns } = loaderData;
+  const { user, chapter, chapters, campaigns } = loaderData;
   const [showArchived, setShowArchived] = useState(false);
   const visible = useMemo(
     () => campaigns.filter((campaign) => (campaign.archivedAt !== null) === showArchived),
@@ -147,7 +169,7 @@ export default function Campaigns({ loaderData, actionData }: Route.ComponentPro
               Organize {chapter.chapterSlug} links by event, channel, and source.
             </p>
           </div>
-          <CampaignDialog />
+          <CampaignDialog chapters={chapters} />
         </div>
 
         <div className="flex gap-1 border-b" role="tablist" aria-label="Campaign status">
@@ -213,7 +235,7 @@ export default function Campaigns({ loaderData, actionData }: Route.ComponentPro
                     </span>
                     <ChevronRight className="ml-auto size-5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                   </Link>
-                  <EditCampaignDialog campaign={campaign} />
+                  <EditCampaignDialog campaign={campaign} chapters={chapters} />
                   <Form method="post">
                     <input type="hidden" name="id" value={campaign.id} />
                     <input
@@ -247,8 +269,10 @@ export default function Campaigns({ loaderData, actionData }: Route.ComponentPro
 
 function EditCampaignDialog({
   campaign,
+  chapters,
 }: {
   campaign: Route.ComponentProps["loaderData"]["campaigns"][number];
+  chapters: Route.ComponentProps["loaderData"]["chapters"];
 }) {
   const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
   const FetcherForm = fetcher.Form;
@@ -278,6 +302,7 @@ function EditCampaignDialog({
               maxLength={80}
             />
           </div>
+          <ChapterAccessSelect chapters={chapters} defaultChapterIds={campaign.chapterIds} />
           <div className="space-y-2">
             <Label htmlFor={`campaign-code-${campaign.id}`}>Short code</Label>
             <Input

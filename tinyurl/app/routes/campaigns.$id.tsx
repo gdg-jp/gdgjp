@@ -96,19 +96,20 @@ async function requireCampaignAccess(args: Route.LoaderArgs | Route.ActionArgs) 
   if (!Number.isInteger(id) || id <= 0) throw new Response("Not found", { status: 404 });
   const campaign = await getCampaignById(env.DB, id);
   if (!campaign) throw new Response("Not found", { status: 404 });
-  if (campaign.ownerChapterId !== chapter.chapterId && !isSuperAdmin(user)) {
+  const accessChapter = chapters.find((item) => campaign.chapterIds.includes(item.chapterId));
+  if (!accessChapter && !isSuperAdmin(user)) {
     throw new Response("Forbidden", { status: 403 });
   }
-  return { env, user, chapter, chapters, campaign, id };
+  return { env, user, chapter: accessChapter ?? chapter, chapters, campaign, id };
 }
 
 export async function loader(args: Route.LoaderArgs) {
-  const { env, user, chapters, campaign, id } = await requireCampaignAccess(args);
+  const { env, user, chapter, chapters, campaign, id } = await requireCampaignAccess(args);
   const [channels, assignableLinks, userTags, chapterTags] = await Promise.all([
     listCampaignChannelsWithLinks(env.DB, id, true),
     listAssignableLinksForCampaign(env.DB, user.id, id),
     listTagsForUser(env.DB, user.id),
-    listTagsForChapter(env.DB, campaign.ownerChapterId),
+    listTagsForChapter(env.DB, chapter.chapterId),
   ]);
   const ownerIds = [
     ...new Set(channels.flatMap((item) => item.links.map((link) => link.ownerUserId))),
@@ -198,7 +199,7 @@ export async function loader(args: Route.LoaderArgs) {
 }
 
 export async function action(args: Route.ActionArgs) {
-  const { env, user, campaign, id } = await requireCampaignAccess(args);
+  const { env, user, chapter, campaign, id } = await requireCampaignAccess(args);
   const form = await args.request.formData();
   const intent = String(form.get("intent") ?? "");
 
@@ -279,6 +280,7 @@ export async function action(args: Route.ActionArgs) {
       linkIds,
       channelId,
       actorUserId: user.id,
+      actorChapterId: chapter.chapterId,
     });
     if (result.assignedIds.length === 0)
       return { error: "The selected links could not be assigned." };

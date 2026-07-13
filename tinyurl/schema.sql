@@ -81,15 +81,22 @@ CREATE TABLE campaigns (
   name               TEXT NOT NULL,
   code               TEXT NOT NULL COLLATE NOCASE,
   default_destination_url TEXT,
-  owner_chapter_id   INTEGER NOT NULL,
-  created_by_user_id TEXT NOT NULL,
+  owner_user_id      TEXT NOT NULL,
   created_at         INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at         INTEGER NOT NULL DEFAULT (unixepoch()),
   archived_at        INTEGER,
-  UNIQUE(owner_chapter_id, code)
+  UNIQUE(owner_user_id, code)
 );
-CREATE INDEX idx_campaigns_chapter
-  ON campaigns(owner_chapter_id, archived_at, created_at DESC);
+CREATE INDEX idx_campaigns_owner
+  ON campaigns(owner_user_id, archived_at, created_at DESC);
+CREATE TABLE campaign_chapters (
+  campaign_id INTEGER NOT NULL,
+  chapter_id  INTEGER NOT NULL,
+  PRIMARY KEY (campaign_id, chapter_id),
+  FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_campaign_chapters_chapter
+  ON campaign_chapters(chapter_id, campaign_id);
 CREATE TABLE campaign_channels (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   campaign_id INTEGER NOT NULL,
