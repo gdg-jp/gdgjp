@@ -387,9 +387,11 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
           </Link>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-semibold tracking-tight">{campaign.name}</h1>
-                <Badge variant="outline" className="font-mono">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <h1 className="min-w-0 break-words text-2xl font-semibold tracking-tight">
+                  {campaign.name}
+                </h1>
+                <Badge variant="outline" className="shrink-0 font-mono">
                   {campaign.code}
                 </Badge>
               </div>
@@ -397,7 +399,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
                 Channel, links, and source performance
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex w-full gap-2 sm:w-auto">
               <AssignLinksDialog channels={activeChannels} links={assignableLinks} />
               <CreateChannelDialog campaignCode={campaign.code} />
             </div>
@@ -405,7 +407,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
         </div>
 
         <div
-          className="relative grid w-fit grid-cols-2 rounded-lg bg-muted p-1"
+          className="relative grid w-full grid-cols-2 rounded-lg bg-muted p-1 sm:w-fit"
           role="tablist"
           aria-label="Campaign view"
         >
@@ -636,8 +638,8 @@ function CampaignAnalyticsPanel({
           searchParams={scopeSearchParams}
           pending={scopePending}
         />
-        <div className="grid gap-3 lg:grid-cols-[1.6fr_1fr]">
-          <Card ref={chartRef}>
+        <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          <Card ref={chartRef} className="min-w-0">
             <CardHeader className="border-b">
               <CardTitle className="flex items-end justify-between gap-4">
                 <span className="text-sm font-medium text-muted-foreground">Clicks</span>
@@ -646,7 +648,7 @@ function CampaignAnalyticsPanel({
                 </span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-w-0 px-3 sm:px-6">
               <CampaignTrendChart
                 rows={analytics.trend}
                 channels={channelsInScope}
@@ -662,14 +664,14 @@ function CampaignAnalyticsPanel({
               />
             </CardContent>
           </Card>
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="gap-1">
               <CardTitle className="text-sm">Sources</CardTitle>
               <CardDescription className="text-xs">
                 Select a row to isolate its trend.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-w-0 px-4 sm:px-6">
               <BarList
                 rows={analytics.topSources}
                 emptyLabel="No source data yet."
@@ -680,15 +682,15 @@ function CampaignAnalyticsPanel({
             </CardContent>
           </Card>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Card>
+        <div className="grid min-w-0 gap-3 md:grid-cols-2">
+          <Card className="min-w-0">
             <CardHeader className="gap-1">
               <CardTitle className="text-sm">Channel</CardTitle>
               <CardDescription className="text-xs">
                 Select a row to isolate its trend.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-w-0 px-4 sm:px-6">
               <BarList
                 rows={channelRows}
                 selectedKey={breakdown === "channel" ? graphFocus?.key : undefined}
@@ -696,14 +698,14 @@ function CampaignAnalyticsPanel({
               />
             </CardContent>
           </Card>
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="gap-1">
               <CardTitle className="text-sm">Links</CardTitle>
               <CardDescription className="text-xs">
                 Select a row to isolate its trend.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-w-0 px-4 sm:px-6">
               <BarList
                 rows={linkRows}
                 pending={scopePending}
@@ -798,10 +800,10 @@ function CampaignScopeFilters({
 
   return (
     <div
-      className="flex flex-wrap items-end gap-3 rounded-lg border bg-muted/20 p-3"
+      className="flex min-w-0 flex-col items-stretch gap-3 rounded-lg border bg-muted/20 p-3 sm:flex-row sm:flex-wrap sm:items-end"
       aria-busy={pending || undefined}
     >
-      <div className="min-w-48 space-y-1">
+      <div className="min-w-0 space-y-1 sm:min-w-48">
         <Label htmlFor="analytics-channels">Channel</Label>
         <select
           id="analytics-channels"
@@ -818,7 +820,7 @@ function CampaignScopeFilters({
           ))}
         </select>
       </div>
-      <div className="min-w-56 flex-1 space-y-1">
+      <div className="min-w-0 flex-1 space-y-1 sm:min-w-56">
         <Label htmlFor="analytics-link">Link</Label>
         <select
           id="analytics-link"
@@ -864,7 +866,7 @@ function ChannelCard({
 
   return (
     <Card className="gap-0 py-0">
-      <div className="flex items-center gap-3 px-5 py-4">
+      <div className="flex flex-col items-stretch gap-3 px-4 py-4 sm:flex-row sm:items-center sm:px-5">
         <button
           type="button"
           className="flex min-w-0 flex-1 items-center gap-3 text-left"
@@ -890,55 +892,57 @@ function ChannelCard({
             className={`ml-auto size-4 transition-transform ${open ? "rotate-180" : ""}`}
           />
         </button>
-        {channel.archivedAt === null ? (
-          <>
-            <CreateSourceDialog channelId={channel.id} />
-            <CreateLinkDialog
-              availableTags={availableTags}
-              defaultCampaignChannelId={channel.id}
-              campaignChannelOptions={[
-                {
-                  id: channel.id,
-                  campaignName: campaign.name,
-                  campaignCode: campaign.code,
-                  defaultDestinationUrl: campaign.defaultDestinationUrl,
-                  channelName: channel.name,
-                  channelCode: channel.code,
-                },
-              ]}
-              chapters={chapters}
-              shortUrlBase={shortUrlBase}
-              trigger={
-                <Button size="sm">
-                  <Link2 className="size-4" />
-                  Create link
-                </Button>
-              }
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:flex-nowrap">
+          {channel.archivedAt === null ? (
+            <>
+              <CreateSourceDialog channelId={channel.id} />
+              <CreateLinkDialog
+                availableTags={availableTags}
+                defaultCampaignChannelId={channel.id}
+                campaignChannelOptions={[
+                  {
+                    id: channel.id,
+                    campaignName: campaign.name,
+                    campaignCode: campaign.code,
+                    defaultDestinationUrl: campaign.defaultDestinationUrl,
+                    channelName: channel.name,
+                    channelCode: channel.code,
+                  },
+                ]}
+                chapters={chapters}
+                shortUrlBase={shortUrlBase}
+                trigger={
+                  <Button size="sm">
+                    <Link2 className="size-4" />
+                    Create link
+                  </Button>
+                }
+              />
+            </>
+          ) : null}
+          <EditChannelDialog channel={channel} />
+          <Form method="post">
+            <input
+              type="hidden"
+              name="intent"
+              value={channel.archivedAt === null ? "archiveChannel" : "restoreChannel"}
             />
-          </>
-        ) : null}
-        <EditChannelDialog channel={channel} />
-        <Form method="post">
-          <input
-            type="hidden"
-            name="intent"
-            value={channel.archivedAt === null ? "archiveChannel" : "restoreChannel"}
-          />
-          <input type="hidden" name="channelId" value={channel.id} />
-          <Button type="submit" size="icon" variant="ghost">
-            {channel.archivedAt === null ? (
-              <Archive className="size-4" />
-            ) : (
-              <RotateCcw className="size-4" />
-            )}
-            <span className="sr-only">
-              {channel.archivedAt === null ? "Archive" : "Restore"} {channel.name}
-            </span>
-          </Button>
-        </Form>
+            <input type="hidden" name="channelId" value={channel.id} />
+            <Button type="submit" size="icon" variant="ghost">
+              {channel.archivedAt === null ? (
+                <Archive className="size-4" />
+              ) : (
+                <RotateCcw className="size-4" />
+              )}
+              <span className="sr-only">
+                {channel.archivedAt === null ? "Archive" : "Restore"} {channel.name}
+              </span>
+            </Button>
+          </Form>
+        </div>
       </div>
       {open ? (
-        <div className="border-t px-5 py-4">
+        <div className="min-w-0 border-t px-3 py-4 sm:px-5">
           {channel.sources.length > 0 ? (
             <div className="mb-4 flex flex-wrap gap-2">
               {channel.sources.map((source) => (

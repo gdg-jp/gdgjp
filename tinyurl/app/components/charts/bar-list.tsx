@@ -45,7 +45,7 @@ export function BarList({
   const max = Math.max(...rows.map((r) => r.clicks), 1);
   return (
     <ul
-      className="space-y-1.5 overflow-y-auto pr-1"
+      className="min-w-0 space-y-1.5 overflow-y-auto pr-1"
       style={height ? { maxHeight: height } : undefined}
       aria-busy={pending || undefined}
     >
@@ -95,14 +95,14 @@ export function BarList({
                 aria-pressed={selectedKey === rowKey}
                 onClick={() => onSelect(r)}
                 className={cn(
-                  "relative flex w-full cursor-pointer items-center justify-between gap-3 rounded px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none",
+                  "relative flex min-w-0 w-full cursor-pointer items-center justify-between gap-3 rounded px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none",
                   selectedKey === rowKey && "bg-accent ring-1 ring-ring/30",
                 )}
               >
                 {content}
               </button>
             ) : (
-              <div className="relative flex items-center justify-between gap-3 px-2 py-1.5 text-sm">
+              <div className="relative flex min-w-0 items-center justify-between gap-3 px-2 py-1.5 text-sm">
                 {content}
               </div>
             )}

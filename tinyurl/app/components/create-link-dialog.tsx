@@ -106,7 +106,7 @@ export function CreateLinkDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-hidden p-0 sm:max-w-3xl">
+      <DialogContent className="top-0 left-0 h-dvh max-h-dvh w-full max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 p-0 sm:top-1/2 sm:left-1/2 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-3xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:border">
         {open ? (
           <CreateLinkForm
             availableTags={availableTags}
@@ -278,17 +278,17 @@ function CreateLinkForm({
     <createFetcher.Form
       method="post"
       action="/api/links"
-      className="flex max-h-[calc(100dvh-2rem)] flex-col"
+      className="flex h-dvh min-w-0 flex-col sm:h-auto sm:max-h-[calc(100dvh-2rem)]"
     >
-      <div className="flex items-center justify-between gap-3 border-b px-5 py-3">
+      <div className="flex items-center justify-between gap-3 border-b py-3 pr-14 pl-4 sm:pl-5">
         <DialogTitle className="text-base font-semibold">Create new link</DialogTitle>
         <DialogDescription className="sr-only">
           Create a new short link with optional tags and comment.
         </DialogDescription>
       </div>
 
-      <div className="grid gap-6 overflow-y-auto p-5 md:grid-cols-3 md:p-6">
-        <div className="space-y-5 md:col-span-2">
+      <div className="grid min-h-0 min-w-0 flex-1 gap-6 overflow-y-auto p-4 sm:p-5 md:grid-cols-3 md:p-6">
+        <div className="min-w-0 space-y-5 md:col-span-2">
           {campaignChannelOptions.length > 0 ? (
             <div className="space-y-2">
               <input
@@ -313,7 +313,7 @@ function CreateLinkForm({
                   fetchOgpNow(nextDefaults.destinationUrl);
                 }}
               >
-                <SelectTrigger id="create-campaign-channel" size="sm">
+                <SelectTrigger id="create-campaign-channel" size="sm" className="w-full min-w-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -360,8 +360,8 @@ function CreateLinkForm({
                 <Shuffle className="size-3.5" />
               </Button>
             </div>
-            <div className="flex gap-2">
-              <span className="inline-flex h-9 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
+            <div className="flex min-w-0 gap-2">
+              <span className="inline-flex h-9 shrink-0 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
                 {shortHost}
               </span>
               <Input
@@ -429,7 +429,7 @@ function CreateLinkForm({
               value={visibility}
               onValueChange={(value) => setVisibility(value as LinkVisibility)}
             >
-              <SelectTrigger id="create-visibility" size="sm">
+              <SelectTrigger id="create-visibility" size="sm" className="w-full min-w-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -575,7 +575,7 @@ function CreateLinkForm({
           </div>
         </div>
 
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           <div className="space-y-2">
             <FieldLabel>QR Code</FieldLabel>
             <div className="flex items-center justify-center rounded-md border bg-card p-4">
@@ -715,7 +715,7 @@ function CreateLinkForm({
         </div>
       ) : null}
 
-      <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
+      <div className="flex shrink-0 items-center justify-end gap-2 border-t px-4 py-3 sm:px-5">
         <DialogClose asChild>
           <Button type="button" variant="ghost" disabled={isBusy}>
             Cancel

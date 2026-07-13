@@ -109,7 +109,7 @@ export function LinkCard({
   }
 
   return (
-    <div className="group flex items-center gap-3 rounded-xl border bg-card px-4 py-3 shadow-xs transition-shadow hover:shadow-sm">
+    <div className="group grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border bg-card px-3 py-3 shadow-xs transition-shadow hover:shadow-sm sm:flex sm:px-4">
       <div className="flex size-10 shrink-0 items-center justify-center rounded-full border bg-background">
         {favicon ? (
           <img
@@ -126,7 +126,7 @@ export function LinkCard({
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-1.5">
           <Link
             to={`/links/${link.id}`}
             prefetch="intent"
@@ -212,7 +212,7 @@ export function LinkCard({
       <Link
         to={`/analytics?linkId=${link.id}`}
         prefetch="intent"
-        className="inline-flex items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        className="col-start-2 row-start-2 inline-flex w-fit items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         title="View analytics"
       >
         <BarChart3 className="size-3.5 text-primary" />
@@ -222,7 +222,12 @@ export function LinkCard({
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Link actions">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Link actions"
+            className="col-start-3 row-start-2"
+          >
             <MoreHorizontal className="size-4" />
           </Button>
         </DropdownMenuTrigger>

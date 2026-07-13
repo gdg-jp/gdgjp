@@ -63,7 +63,7 @@ export function SourceCombobox({
           type="button"
           variant="outline"
           size="sm"
-          className="h-7 max-w-44 min-w-32 justify-between gap-2 px-2 text-xs font-normal"
+          className="h-7 max-w-full min-w-0 justify-between gap-2 px-2 text-xs font-normal sm:min-w-32"
         >
           <span className="truncate">
             {selected ? `${selected.name} (${selected.code})` : normalized || "Select source"}

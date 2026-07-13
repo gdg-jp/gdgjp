@@ -213,16 +213,16 @@ export default function Campaigns({ loaderData, actionData }: Route.ComponentPro
           <div className="grid gap-3">
             {visible.map((campaign) => (
               <Card key={campaign.id} className="py-0 transition-colors hover:border-foreground/20">
-                <CardContent className="flex flex-wrap items-center gap-4 py-5">
+                <CardContent className="flex flex-col items-stretch gap-3 py-4 sm:flex-row sm:items-center sm:gap-4 sm:py-5">
                   <Link
                     to={`/campaigns/${campaign.id}`}
-                    className="group flex min-w-0 flex-1 items-center gap-4"
+                    className="group flex min-w-0 flex-1 items-center gap-3 sm:gap-4"
                   >
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-gdg-blue/10 text-gdg-blue">
                       <Megaphone className="size-5" />
                     </span>
                     <span className="min-w-0">
-                      <span className="flex items-center gap-2">
+                      <span className="flex flex-wrap items-center gap-2">
                         <span className="truncate font-medium">{campaign.name}</span>
                         <Badge variant="outline" className="font-mono">
                           {campaign.code}
@@ -235,23 +235,25 @@ export default function Campaigns({ loaderData, actionData }: Route.ComponentPro
                     </span>
                     <ChevronRight className="ml-auto size-5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                   </Link>
-                  <EditCampaignDialog campaign={campaign} chapters={chapters} />
-                  <Form method="post">
-                    <input type="hidden" name="id" value={campaign.id} />
-                    <input
-                      type="hidden"
-                      name="intent"
-                      value={showArchived ? "restore" : "archive"}
-                    />
-                    <Button type="submit" size="sm" variant="ghost">
-                      {showArchived ? (
-                        <RotateCcw className="size-4" />
-                      ) : (
-                        <Archive className="size-4" />
-                      )}
-                      {showArchived ? "Restore" : "Archive"}
-                    </Button>
-                  </Form>
+                  <div className="flex items-center justify-end gap-1 border-t pt-2 sm:border-0 sm:pt-0">
+                    <EditCampaignDialog campaign={campaign} chapters={chapters} />
+                    <Form method="post">
+                      <input type="hidden" name="id" value={campaign.id} />
+                      <input
+                        type="hidden"
+                        name="intent"
+                        value={showArchived ? "restore" : "archive"}
+                      />
+                      <Button type="submit" size="sm" variant="ghost">
+                        {showArchived ? (
+                          <RotateCcw className="size-4" />
+                        ) : (
+                          <Archive className="size-4" />
+                        )}
+                        {showArchived ? "Restore" : "Archive"}
+                      </Button>
+                    </Form>
+                  </div>
                 </CardContent>
               </Card>
             ))}
