@@ -21,9 +21,9 @@ const ID_B = "link_01ARZ3NDEKTSV4RRFFQ69G5FBW";
 const ID_C = "link_01ARZ3NDEKTSV4RRFFQ69G5FCX";
 
 describe("analytics-engine SQL", () => {
-  it("hourlySql for a single link defaults to rolling 7 days, hourly buckets are switched to daily over 48h", () => {
+  it("hourlySql for a single link defaults to rolling 7 days with hourly buckets", () => {
     expect(hourlySql([ID_A])).toMatchInlineSnapshot(`
-      "SELECT toStartOfDay(timestamp) AS hour, count() AS clicks
+      "SELECT toStartOfHour(timestamp) AS hour, count() AS clicks
       FROM tinyurl_clicks
       WHERE index1 IN ('link_01ARZ3NDEKTSV4RRFFQ69G5FAV') AND timestamp > now() - INTERVAL '168' HOUR
       GROUP BY hour
@@ -173,11 +173,15 @@ describe("analytics-engine SQL", () => {
 describe("granularityFor", () => {
   it("picks hour/day/week based on range length", () => {
     expect(granularityFor({ kind: "rolling", hours: 24 })).toBe("hour");
-    expect(granularityFor({ kind: "rolling", hours: 24 * 7 })).toBe("day");
+    expect(granularityFor({ kind: "rolling", hours: 24 * 14 })).toBe("hour");
+    expect(granularityFor({ kind: "rolling", hours: 24 * 14 + 1 })).toBe("day");
     expect(granularityFor({ kind: "rolling", hours: 24 * 365 })).toBe("week");
     expect(granularityFor({ kind: "toDate", unit: "month" })).toBe("day");
     expect(granularityFor({ kind: "all" })).toBe("week");
-    expect(granularityFor({ kind: "custom", startIso: "2026-05-01", endIso: "2026-05-12" })).toBe(
+    expect(granularityFor({ kind: "custom", startIso: "2026-05-01", endIso: "2026-05-14" })).toBe(
+      "hour",
+    );
+    expect(granularityFor({ kind: "custom", startIso: "2026-05-01", endIso: "2026-05-15" })).toBe(
       "day",
     );
   });

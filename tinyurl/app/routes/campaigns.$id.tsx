@@ -411,6 +411,10 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
     navigatingWithinCampaign &&
     (selectedChannelId !== loadedChannelId || selectedLinkId !== loadedLinkId);
   const activeView = searchParams.get("view") === "analytics" ? "analytics" : "channels";
+  const analyticsPending =
+    navigatingWithinCampaign &&
+    (activeView === "analytics" ||
+      new URLSearchParams(navigation.location?.search).get("view") === "analytics");
   const activeChannels = channels.filter((item) => item.archivedAt === null);
 
   function setView(view: "channels" | "analytics") {
@@ -558,6 +562,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
                   filters={filters}
                   scopeSearchParams={scopeSearchParams}
                   scopePending={scopePending}
+                  analyticsPending={analyticsPending}
                 />
               )}
             </Await>
@@ -582,10 +587,23 @@ function CampaignAnalyticsSkeleton() {
   return (
     <div className="space-y-3" aria-label="Loading campaign analytics">
       <Skeleton className="h-9 w-full max-w-xl" />
-      <div className="grid gap-3 lg:grid-cols-[1.6fr_1fr]">
+      <Skeleton className="h-12 w-full" />
+      <Skeleton className="h-80 w-full rounded-xl" />
+      <div className="grid gap-3 md:grid-cols-3">
+        <Skeleton className="h-80 rounded-xl" />
         <Skeleton className="h-80 rounded-xl" />
         <Skeleton className="h-80 rounded-xl" />
       </div>
+    </div>
+  );
+}
+
+function AnalyticsBarListSkeleton() {
+  return (
+    <div className="space-y-3" aria-label="Loading analytics data">
+      {["first", "second", "third", "fourth", "fifth"].map((key) => (
+        <Skeleton key={key} className="h-7 w-full" />
+      ))}
     </div>
   );
 }
@@ -603,6 +621,7 @@ function CampaignAnalyticsPanel({
   filters,
   scopeSearchParams,
   scopePending,
+  analyticsPending,
 }: {
   analytics: Awaited<Route.ComponentProps["loaderData"]["analytics"]>;
   channels: DetailChannel[];
@@ -616,6 +635,7 @@ function CampaignAnalyticsPanel({
   filters: Route.ComponentProps["loaderData"]["filters"];
   scopeSearchParams: URLSearchParams;
   scopePending: boolean;
+  analyticsPending: boolean;
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [breakdown, setBreakdown] = useState<CampaignTrendDimension>("total");
@@ -689,17 +709,23 @@ function CampaignAnalyticsPanel({
           searchParams={scopeSearchParams}
           pending={scopePending}
         />
-        <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-          <Card ref={chartRef} className="min-w-0">
-            <CardHeader className="border-b">
-              <CardTitle className="flex items-end justify-between gap-4">
-                <span className="text-sm font-medium text-muted-foreground">Clicks</span>
+        <Card ref={chartRef} className="min-w-0">
+          <CardHeader className="border-b">
+            <CardTitle className="flex items-end justify-between gap-4">
+              <span className="text-sm font-medium text-muted-foreground">Clicks</span>
+              {analyticsPending ? (
+                <Skeleton className="h-9 w-20" />
+              ) : (
                 <span className="text-3xl font-semibold tabular-nums">
                   {analytics.total.toLocaleString()}
                 </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="min-w-0 px-3 sm:px-6">
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="min-w-0 px-3 sm:px-6">
+            {analyticsPending ? (
+              <Skeleton className="h-[260px] w-full" />
+            ) : (
               <CampaignTrendChart
                 rows={analytics.trend}
                 channels={channelsInScope}
@@ -713,6 +739,28 @@ function CampaignAnalyticsPanel({
                 onMetricChange={setTrendMetric}
                 onClearFocus={() => setGraphFocus(null)}
               />
+            )}
+          </CardContent>
+        </Card>
+        <div className="grid min-w-0 gap-3 md:grid-cols-3">
+          <Card className="min-w-0">
+            <CardHeader className="gap-1">
+              <CardTitle className="text-sm">Channel</CardTitle>
+              <CardDescription className="text-xs">
+                Select a row to isolate its trend.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="min-w-0 px-4 sm:px-6">
+              {analyticsPending ? (
+                <AnalyticsBarListSkeleton />
+              ) : (
+                <BarList
+                  rows={channelRows}
+                  height={260}
+                  selectedKey={breakdown === "channel" ? graphFocus?.key : undefined}
+                  onSelect={(row) => selectGraphItem("channel", row)}
+                />
+              )}
             </CardContent>
           </Card>
           <Card className="min-w-0">
@@ -723,30 +771,17 @@ function CampaignAnalyticsPanel({
               </CardDescription>
             </CardHeader>
             <CardContent className="min-w-0 px-4 sm:px-6">
-              <BarList
-                rows={analytics.topSources}
-                emptyLabel="No source data yet."
-                height={260}
-                selectedKey={breakdown === "source" ? graphFocus?.key : undefined}
-                onSelect={(row) => selectGraphItem("source", row)}
-              />
-            </CardContent>
-          </Card>
-        </div>
-        <div className="grid min-w-0 gap-3 md:grid-cols-2">
-          <Card className="min-w-0">
-            <CardHeader className="gap-1">
-              <CardTitle className="text-sm">Channel</CardTitle>
-              <CardDescription className="text-xs">
-                Select a row to isolate its trend.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="min-w-0 px-4 sm:px-6">
-              <BarList
-                rows={channelRows}
-                selectedKey={breakdown === "channel" ? graphFocus?.key : undefined}
-                onSelect={(row) => selectGraphItem("channel", row)}
-              />
+              {analyticsPending ? (
+                <AnalyticsBarListSkeleton />
+              ) : (
+                <BarList
+                  rows={analytics.topSources}
+                  emptyLabel="No source data yet."
+                  height={260}
+                  selectedKey={breakdown === "source" ? graphFocus?.key : undefined}
+                  onSelect={(row) => selectGraphItem("source", row)}
+                />
+              )}
             </CardContent>
           </Card>
           <Card className="min-w-0">
@@ -757,12 +792,17 @@ function CampaignAnalyticsPanel({
               </CardDescription>
             </CardHeader>
             <CardContent className="min-w-0 px-4 sm:px-6">
-              <BarList
-                rows={linkRows}
-                pending={scopePending}
-                selectedKey={breakdown === "link" ? graphFocus?.key : undefined}
-                onSelect={(row) => selectGraphItem("link", row)}
-              />
+              {analyticsPending ? (
+                <AnalyticsBarListSkeleton />
+              ) : (
+                <BarList
+                  rows={linkRows}
+                  height={260}
+                  pending={scopePending}
+                  selectedKey={breakdown === "link" ? graphFocus?.key : undefined}
+                  onSelect={(row) => selectGraphItem("link", row)}
+                />
+              )}
             </CardContent>
           </Card>
         </div>

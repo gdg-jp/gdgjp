@@ -201,7 +201,7 @@ export type Granularity = "hour" | "day" | "week";
 export function granularityFor(window: AnalyticsWindow): Granularity {
   switch (window.kind) {
     case "rolling":
-      if (window.hours <= 48) return "hour";
+      if (window.hours <= 24 * 14) return "hour";
       if (window.hours <= 24 * 60) return "day";
       return "week";
     case "toDate":
@@ -210,7 +210,7 @@ export function granularityFor(window: AnalyticsWindow): Granularity {
       const start = new Date(`${window.startIso}T00:00:00Z`).getTime();
       const end = new Date(`${window.endIso}T00:00:00Z`).getTime();
       const days = (end - start) / 86_400_000 + 1;
-      if (days <= 2) return "hour";
+      if (days <= 14) return "hour";
       if (days <= 60) return "day";
       return "week";
     }
