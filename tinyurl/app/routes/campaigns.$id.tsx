@@ -18,6 +18,7 @@ import { Form, Link, useSearchParams } from "react-router";
 import type { FilterSuggestions } from "~/components/analytics/analytics-filter-button";
 import { AnalyticsFiltersBar } from "~/components/analytics/analytics-filters-bar";
 import { SourceUrlBuilder } from "~/components/campaigns/source-url-builder";
+import { useCampaignActionDialog } from "~/components/campaigns/use-campaign-action-dialog";
 import { BarList } from "~/components/charts/bar-list";
 import { HourlyChart } from "~/components/charts/hourly-chart";
 import { CreateLinkDialog } from "~/components/create-link-dialog";
@@ -741,8 +742,10 @@ function CreateSourceDialog({ mediaId }: { mediaId: number }) {
 }
 
 function EditMediaDialog({ medium }: { medium: DetailMedium }) {
+  const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
+  const FetcherForm = fetcher.Form;
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button size="icon" variant="ghost">
           <Pencil className="size-4" />
@@ -754,7 +757,7 @@ function EditMediaDialog({ medium }: { medium: DetailMedium }) {
           <DialogTitle>Edit media</DialogTitle>
           <DialogDescription>Change its label, code, or campaign ordering.</DialogDescription>
         </DialogHeader>
-        <Form method="post" className="space-y-4 px-5 pb-5">
+        <FetcherForm method="post" className="space-y-4 px-5 pb-5">
           <input type="hidden" name="intent" value="updateMedia" />
           <input type="hidden" name="mediaId" value={medium.id} />
           <div className="space-y-2">
@@ -790,18 +793,27 @@ function EditMediaDialog({ medium }: { medium: DetailMedium }) {
               />
             </div>
           </div>
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
           <DialogFooter>
-            <SubmitButton>Save</SubmitButton>
+            <SubmitButton pending={pending} pendingLabel="Saving…">
+              Save
+            </SubmitButton>
           </DialogFooter>
-        </Form>
+        </FetcherForm>
       </DialogContent>
     </Dialog>
   );
 }
 
 function EditSourceDialog({ source }: { source: DetailMedium["sources"][number] }) {
+  const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
+  const FetcherForm = fetcher.Form;
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button size="icon" variant="ghost" className="size-7">
           <Pencil className="size-3" />
@@ -813,7 +825,7 @@ function EditSourceDialog({ source }: { source: DetailMedium["sources"][number] 
           <DialogTitle>Edit source</DialogTitle>
           <DialogDescription>Update the human-readable label or tracked code.</DialogDescription>
         </DialogHeader>
-        <Form method="post" className="space-y-4 px-5 pb-5">
+        <FetcherForm method="post" className="space-y-4 px-5 pb-5">
           <input type="hidden" name="intent" value="updateSource" />
           <input type="hidden" name="sourceId" value={source.id} />
           <div className="space-y-2">
@@ -837,10 +849,17 @@ function EditSourceDialog({ source }: { source: DetailMedium["sources"][number] 
               className="font-mono"
             />
           </div>
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
           <DialogFooter>
-            <SubmitButton>Save</SubmitButton>
+            <SubmitButton pending={pending} pendingLabel="Saving…">
+              Save
+            </SubmitButton>
           </DialogFooter>
-        </Form>
+        </FetcherForm>
       </DialogContent>
     </Dialog>
   );
@@ -861,8 +880,10 @@ function SimpleCreateDialog({
   codePlaceholder: string;
   hidden?: Record<string, string | number>;
 }) {
+  const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
+  const FetcherForm = fetcher.Form;
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
           <Plus className="size-4" />
@@ -874,7 +895,7 @@ function SimpleCreateDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <Form method="post" className="space-y-4 px-5 pb-5">
+        <FetcherForm method="post" className="space-y-4 px-5 pb-5">
           <input type="hidden" name="intent" value={intent} />
           {Object.entries(hidden ?? {}).map(([name, value]) => (
             <input key={name} type="hidden" name={name} value={value} />
@@ -895,10 +916,17 @@ function SimpleCreateDialog({
               className="font-mono"
             />
           </div>
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
           <DialogFooter>
-            <SubmitButton>Add</SubmitButton>
+            <SubmitButton pending={pending} pendingLabel="Adding…">
+              Add
+            </SubmitButton>
           </DialogFooter>
-        </Form>
+        </FetcherForm>
       </DialogContent>
     </Dialog>
   );
@@ -906,8 +934,10 @@ function SimpleCreateDialog({
 
 function AssignLinksDialog({ media, links }: { media: DetailMedium[]; links: AssignableLink[] }) {
   const activeMedia = media.filter((item) => item.archivedAt === null);
+  const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
+  const FetcherForm = fetcher.Form;
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
           <Link2 className="size-4" />
@@ -921,7 +951,7 @@ function AssignLinksDialog({ media, links }: { media: DetailMedium[]; links: Ass
             Selected links become chapter-owned and share one optional creative label.
           </DialogDescription>
         </DialogHeader>
-        <Form method="post" className="space-y-4 px-5 pb-5">
+        <FetcherForm method="post" className="space-y-4 px-5 pb-5">
           <input type="hidden" name="intent" value="assign" />
           <div className="space-y-2">
             <Label htmlFor="assign-media">Media</Label>
@@ -971,12 +1001,21 @@ function AssignLinksDialog({ media, links }: { media: DetailMedium[]; links: Ass
               ))
             )}
           </fieldset>
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
           <DialogFooter>
-            <SubmitButton disabled={activeMedia.length === 0 || links.length === 0}>
+            <SubmitButton
+              disabled={activeMedia.length === 0 || links.length === 0}
+              pending={pending}
+              pendingLabel="Assigning…"
+            >
               Assign selected
             </SubmitButton>
           </DialogFooter>
-        </Form>
+        </FetcherForm>
       </DialogContent>
     </Dialog>
   );
@@ -991,8 +1030,10 @@ function RegisterSourceDialog({
   mediaId: number;
   mediaName: string;
 }) {
+  const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
+  const FetcherForm = fetcher.Form;
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
           Register
@@ -1005,7 +1046,7 @@ function RegisterSourceDialog({
             Add a display name for the observed <code>{code}</code> source.
           </DialogDescription>
         </DialogHeader>
-        <Form method="post" className="space-y-4 px-5 pb-5">
+        <FetcherForm method="post" className="space-y-4 px-5 pb-5">
           <input type="hidden" name="intent" value="registerSource" />
           <input type="hidden" name="code" value={code} />
           <input type="hidden" name="mediaId" value={mediaId} />
@@ -1023,10 +1064,17 @@ function RegisterSourceDialog({
               maxLength={64}
             />
           </div>
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
           <DialogFooter>
-            <SubmitButton>Register</SubmitButton>
+            <SubmitButton pending={pending} pendingLabel="Registering…">
+              Register
+            </SubmitButton>
           </DialogFooter>
-        </Form>
+        </FetcherForm>
       </DialogContent>
     </Dialog>
   );

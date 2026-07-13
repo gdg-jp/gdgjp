@@ -1,6 +1,4 @@
 import { Plus } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useFetcher } from "react-router";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import {
@@ -15,20 +13,13 @@ import {
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { SubmitButton } from "~/components/ui/submit-button";
+import { useCampaignActionDialog } from "./use-campaign-action-dialog";
 
 export function CampaignDialog() {
-  const [open, setOpen] = useState(false);
-  const fetcher = useFetcher<{ ok: true } | { error: string }>();
-  const pending = fetcher.state !== "idle";
-
-  useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data && "ok" in fetcher.data) {
-      setOpen(false);
-    }
-  }, [fetcher.data, fetcher.state]);
+  const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm">
           <Plus className="size-4" />
@@ -64,9 +55,9 @@ export function CampaignDialog() {
               Letters, numbers, underscores, and hyphens. Saved in lowercase.
             </p>
           </div>
-          {fetcher.data && "error" in fetcher.data ? (
+          {error ? (
             <Alert variant="destructive">
-              <AlertDescription>{fetcher.data.error}</AlertDescription>
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
           <DialogFooter>

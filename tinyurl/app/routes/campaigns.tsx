@@ -2,6 +2,7 @@ import { Archive, BarChart3, ChevronRight, Megaphone, Pencil, RotateCcw } from "
 import { useMemo, useState } from "react";
 import { Form, Link } from "react-router";
 import { CampaignDialog } from "~/components/campaigns/campaign-dialog";
+import { useCampaignActionDialog } from "~/components/campaigns/use-campaign-action-dialog";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
@@ -229,8 +230,10 @@ function EditCampaignDialog({
 }: {
   campaign: Route.ComponentProps["loaderData"]["campaigns"][number];
 }) {
+  const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
+  const FetcherForm = fetcher.Form;
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button size="icon" variant="ghost">
           <Pencil className="size-4" />
@@ -242,7 +245,7 @@ function EditCampaignDialog({
           <DialogTitle>Edit campaign</DialogTitle>
           <DialogDescription>Update the event label and slug suggestion code.</DialogDescription>
         </DialogHeader>
-        <Form method="post" className="space-y-4 px-5 pb-5">
+        <FetcherForm method="post" className="space-y-4 px-5 pb-5">
           <input type="hidden" name="intent" value="update" />
           <input type="hidden" name="id" value={campaign.id} />
           <div className="space-y-2">
@@ -266,10 +269,17 @@ function EditCampaignDialog({
               className="font-mono"
             />
           </div>
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
           <DialogFooter>
-            <SubmitButton>Save</SubmitButton>
+            <SubmitButton pending={pending} pendingLabel="Saving…">
+              Save
+            </SubmitButton>
           </DialogFooter>
-        </Form>
+        </FetcherForm>
       </DialogContent>
     </Dialog>
   );
