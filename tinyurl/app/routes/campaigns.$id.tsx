@@ -2,6 +2,7 @@ import { isSuperAdmin } from "@gdgjp/gdg-lib";
 import {
   Archive,
   BarChart3,
+  Check,
   ChevronDown,
   ChevronLeft,
   Link2,
@@ -12,7 +13,8 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { Await, Form, Link, useLocation, useNavigation, useSearchParams } from "react-router";
 import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { FilterSuggestions } from "~/components/analytics/analytics-filter-button";
@@ -44,14 +46,27 @@ import {
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { Skeleton } from "~/components/ui/skeleton";
 import { SubmitButton } from "~/components/ui/submit-button";
 import {
+  type TimeBucketUnit,
   clicksByLinkId,
   clicksByLinkIdAndSource,
   conversionClicksByHour,
   granularityFor,
+  granularityForTimeBucket,
   hourlyClicksByLinkIdAndSource,
+  parseTimeBucket,
+  timeBucketFor,
+  timeBucketLabel,
+  timeBucketParam,
   totalClicks,
 } from "~/lib/analytics-engine";
 import { parseAnalyticsParams } from "~/lib/analytics-filters";
@@ -147,6 +162,8 @@ export async function loader(args: Route.LoaderArgs) {
   );
   const url = new URL(args.request.url);
   const parsed = parseAnalyticsParams(url.searchParams);
+  const requestedBucket = parseTimeBucket(url.searchParams.get("bucket"));
+  const effectiveBucket = requestedBucket ?? timeBucketFor(parsed.window);
   const { selectedChannelId, selectedLinkId } = resolveCampaignScope(channels, url.searchParams);
   const channelsInScope = selectedChannelId
     ? channels.filter((item) => item.id === selectedChannelId)
@@ -156,7 +173,11 @@ export async function loader(args: Route.LoaderArgs) {
       .filter((link) => !selectedLinkId || link.id === selectedLinkId)
       .map((link) => link.id),
   );
-  const opts = { window: parsed.window, filters: parsed.filters };
+  const opts = {
+    window: parsed.window,
+    filters: parsed.filters,
+    bucket: requestedBucket ?? undefined,
+  };
   const fallback =
     <T,>(label: string, value: T) =>
     (error: unknown): T => {
@@ -203,7 +224,10 @@ export async function loader(args: Route.LoaderArgs) {
       clicks: resolvedClicks,
       topSources: sourceBreakdown.rows,
       unregisteredSources: sourceBreakdown.unregistered,
-      granularity: granularityFor(parsed.window),
+      granularity: requestedBucket
+        ? granularityForTimeBucket(requestedBucket)
+        : granularityFor(parsed.window),
+      bucketLabel: timeBucketLabel(effectiveBucket),
       suggestions,
       conversion: participantSnapshot
         ? campaignConversionAttribution({
@@ -232,6 +256,7 @@ export async function loader(args: Route.LoaderArgs) {
     customStart: parsed.window.kind === "custom" ? parsed.window.startIso : undefined,
     customEnd: parsed.window.kind === "custom" ? parsed.window.endIso : undefined,
     filters: parsed.filters,
+    bucket: requestedBucket ? timeBucketParam(requestedBucket) : "",
     clicks,
     analytics,
   };
@@ -394,6 +419,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
     customStart,
     customEnd,
     filters,
+    bucket,
     clicks,
     analytics,
   } = loaderData;
@@ -560,6 +586,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
                   customStart={customStart}
                   customEnd={customEnd}
                   filters={filters}
+                  bucket={bucket}
                   scopeSearchParams={scopeSearchParams}
                   scopePending={scopePending}
                   analyticsPending={analyticsPending}
@@ -608,6 +635,113 @@ function AnalyticsBarListSkeleton() {
   );
 }
 
+function CampaignGraphInterval({ value, pending }: { value: string; pending: boolean }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initial = parseTimeBucket(value);
+  const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
+  const [unit, setUnit] = useState<TimeBucketUnit>(initial?.unit ?? "hour");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const parsed = parseTimeBucket(value);
+    setAmount(parsed ? String(parsed.amount) : "");
+    setUnit(parsed?.unit ?? "hour");
+    setError("");
+  }, [value]);
+
+  function applyInterval(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const numericAmount = Number(amount);
+    if (
+      amount &&
+      (!Number.isInteger(numericAmount) || numericAmount <= 0 || numericAmount > 9999)
+    ) {
+      setError("Enter a whole number from 1 to 9999.");
+      return;
+    }
+
+    const next = new URLSearchParams(searchParams);
+    if (amount) next.set("bucket", timeBucketParam({ amount: numericAmount, unit }));
+    else next.delete("bucket");
+    setError("");
+    setSearchParams(next, { preventScrollReset: true });
+  }
+
+  return (
+    <form className="ml-2 flex flex-wrap items-center gap-1.5" onSubmit={applyInterval}>
+      <Label htmlFor="campaign-graph-interval" className="text-xs text-muted-foreground">
+        Interval
+      </Label>
+      <Input
+        id="campaign-graph-interval"
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={9999}
+        step={1}
+        value={amount}
+        onChange={(event) => {
+          setAmount(event.target.value);
+          setError("");
+        }}
+        placeholder="Auto"
+        aria-label="Graph interval amount"
+        aria-invalid={Boolean(error)}
+        disabled={pending}
+        className="h-[30px] w-[60px] px-2 font-mono text-xs shadow-none"
+      />
+      <Select
+        value={unit}
+        onValueChange={(nextUnit) => setUnit(nextUnit as TimeBucketUnit)}
+        disabled={pending}
+      >
+        <SelectTrigger
+          size="sm"
+          aria-label="Graph interval unit"
+          className="w-20 px-2 text-xs shadow-none data-[size=sm]:h-[30px]"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="minute">Minutes</SelectItem>
+          <SelectItem value="hour">Hours</SelectItem>
+          <SelectItem value="day">Days</SelectItem>
+          <SelectItem value="week">Weeks</SelectItem>
+        </SelectContent>
+      </Select>
+      <Button
+        type="submit"
+        size="icon-xs"
+        variant="ghost"
+        disabled={pending}
+        aria-label="Apply graph interval"
+        title="Apply interval"
+      >
+        <Check className="size-3" />
+      </Button>
+      {value ? (
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          disabled={pending}
+          aria-label="Reset graph interval to automatic"
+          title="Use automatic interval"
+          onClick={() => {
+            setAmount("");
+            const next = new URLSearchParams(searchParams);
+            next.delete("bucket");
+            setSearchParams(next, { preventScrollReset: true });
+          }}
+        >
+          <RotateCcw className="size-3" />
+        </Button>
+      ) : null}
+      {error ? <span className="w-full text-xs text-destructive">{error}</span> : null}
+    </form>
+  );
+}
+
 function CampaignAnalyticsPanel({
   analytics,
   channels,
@@ -619,6 +753,7 @@ function CampaignAnalyticsPanel({
   customStart,
   customEnd,
   filters,
+  bucket,
   scopeSearchParams,
   scopePending,
   analyticsPending,
@@ -633,6 +768,7 @@ function CampaignAnalyticsPanel({
   customStart: string | undefined;
   customEnd: string | undefined;
   filters: Route.ComponentProps["loaderData"]["filters"];
+  bucket: string;
   scopeSearchParams: URLSearchParams;
   scopePending: boolean;
   analyticsPending: boolean;
@@ -731,6 +867,10 @@ function CampaignAnalyticsPanel({
                 channels={channelsInScope}
                 height={260}
                 granularity={analytics.granularity}
+                bucketLabel={analytics.bucketLabel}
+                intervalControl={
+                  <CampaignGraphInterval value={bucket} pending={analyticsPending} />
+                }
                 breakdown={breakdown}
                 metric={trendMetric}
                 focusKey={graphFocus?.key}

@@ -120,6 +120,7 @@ export const DEFAULT_WINDOW: AnalyticsWindow = { kind: "rolling", hours: 24 * 7 
 export type QueryOpts = {
   window?: AnalyticsWindow;
   filters?: DimensionFilters;
+  bucket?: TimeBucket;
 };
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -198,6 +199,42 @@ function blobFiltersClause(filters: DimensionFilters | undefined): string {
 
 export type Granularity = "hour" | "day" | "week";
 
+export type TimeBucketUnit = "minute" | "hour" | "day" | "week";
+
+export type TimeBucket = {
+  amount: number;
+  unit: TimeBucketUnit;
+};
+
+const TIME_BUCKET_RE =
+  /^(\d{1,4})\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|week|weeks)$/i;
+
+/** Parses user-facing intervals such as 30m, 2h, or 1day without exposing SQL input. */
+export function parseTimeBucket(value: string | null | undefined): TimeBucket | null {
+  const match = value?.trim().match(TIME_BUCKET_RE);
+  if (!match) return null;
+  const amount = Number(match[1]);
+  if (!Number.isInteger(amount) || amount <= 0) return null;
+  const rawUnit = match[2].toLowerCase();
+  const unit: TimeBucketUnit = rawUnit.startsWith("m")
+    ? "minute"
+    : rawUnit.startsWith("h")
+      ? "hour"
+      : rawUnit.startsWith("d")
+        ? "day"
+        : "week";
+  return { amount, unit };
+}
+
+export function timeBucketParam(bucket: TimeBucket): string {
+  const suffix = { minute: "m", hour: "h", day: "d", week: "w" }[bucket.unit];
+  return `${bucket.amount}${suffix}`;
+}
+
+export function timeBucketLabel(bucket: TimeBucket): string {
+  return `${bucket.amount} ${bucket.unit}${bucket.amount === 1 ? "" : "s"}`;
+}
+
 export function granularityFor(window: AnalyticsWindow): Granularity {
   switch (window.kind) {
     case "rolling":
@@ -219,6 +256,14 @@ export function granularityFor(window: AnalyticsWindow): Granularity {
   }
 }
 
+export function timeBucketFor(window: AnalyticsWindow): TimeBucket {
+  return { amount: 1, unit: granularityFor(window) };
+}
+
+export function granularityForTimeBucket(bucket: TimeBucket): Granularity {
+  return bucket.unit === "minute" || bucket.unit === "hour" ? "hour" : bucket.unit;
+}
+
 function bucketFnFor(granularity: Granularity): string {
   return granularity === "hour"
     ? "toStartOfHour"
@@ -227,13 +272,20 @@ function bucketFnFor(granularity: Granularity): string {
       : "toStartOfWeek";
 }
 
+function bucketExpression(window: AnalyticsWindow, bucket?: TimeBucket): string {
+  if (!bucket) return `${bucketFnFor(granularityFor(window))}(timestamp)`;
+  const amount = bucket.unit === "week" ? bucket.amount * 7 : bucket.amount;
+  const unit = bucket.unit === "week" ? "DAY" : bucket.unit.toUpperCase();
+  return `toStartOfInterval(timestamp, INTERVAL '${amount}' ${unit})`;
+}
+
 export type HourlyPoint = { hour: string; clicks: number };
 
 export function hourlySql(linkIds: string[] | "all", opts: QueryOpts = {}): string {
   const window = opts.window ?? DEFAULT_WINDOW;
   const filter = linkIdsFilter(linkIds);
-  const bucketFn = bucketFnFor(granularityFor(window));
-  return `SELECT ${bucketFn}(timestamp) AS hour, count() AS clicks
+  const bucket = bucketExpression(window, opts.bucket);
+  return `SELECT ${bucket} AS hour, count() AS clicks
 FROM ${DATASET}
 WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}
 GROUP BY hour
@@ -318,8 +370,8 @@ export type CampaignTrendClick = LinkSourceClicks & { hour: string };
 export function hourlyClicksByLinkIdAndSourceSql(linkIds: string[], opts: QueryOpts = {}): string {
   const window = opts.window ?? DEFAULT_WINDOW;
   const filter = linkIdsFilter(linkIds);
-  const bucketFn = bucketFnFor(granularityFor(window));
-  return `SELECT ${bucketFn}(timestamp) AS hour, index1 AS linkId, blob10 AS source, count() AS clicks
+  const bucket = bucketExpression(window, opts.bucket);
+  return `SELECT ${bucket} AS hour, index1 AS linkId, blob10 AS source, count() AS clicks
 FROM ${DATASET}
 WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}
 GROUP BY hour, linkId, source

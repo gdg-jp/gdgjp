@@ -8,6 +8,7 @@ import {
   hourlyClicks,
   hourlyClicksByLinkIdAndSourceSql,
   hourlySql,
+  parseTimeBucket,
   topByBlob,
   topSql,
   totalClicks,
@@ -135,6 +136,15 @@ describe("analytics-engine SQL", () => {
     expect(sql).toContain("ORDER BY hour");
   });
 
+  it("groups campaign trends by a requested arbitrary interval", () => {
+    const sql = hourlyClicksByLinkIdAndSourceSql([ID_A], {
+      window: { kind: "rolling", hours: 24 * 7 },
+      bucket: { amount: 12, unit: "hour" },
+    });
+
+    expect(sql).toContain("toStartOfInterval(timestamp, INTERVAL '12' HOUR) AS hour");
+  });
+
   it("keeps conversion attribution clicks at hourly granularity for long windows", () => {
     const sql = conversionClicksByHourSql([ID_A], {
       window: { kind: "rolling", hours: 24 * 365 },
@@ -184,6 +194,21 @@ describe("granularityFor", () => {
     expect(granularityFor({ kind: "custom", startIso: "2026-05-01", endIso: "2026-05-15" })).toBe(
       "day",
     );
+  });
+});
+
+describe("parseTimeBucket", () => {
+  it("accepts compact and long-form intervals", () => {
+    expect(parseTimeBucket("30m")).toEqual({ amount: 30, unit: "minute" });
+    expect(parseTimeBucket("12h")).toEqual({ amount: 12, unit: "hour" });
+    expect(parseTimeBucket("1day")).toEqual({ amount: 1, unit: "day" });
+    expect(parseTimeBucket("2 weeks")).toEqual({ amount: 2, unit: "week" });
+  });
+
+  it("rejects zero, missing units, and SQL-like input", () => {
+    expect(parseTimeBucket("0h")).toBeNull();
+    expect(parseTimeBucket("12")).toBeNull();
+    expect(parseTimeBucket("1h); DROP TABLE clicks")).toBeNull();
   });
 });
 

@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import type { ReactNode } from "react";
 import {
   Area,
   AreaChart,
@@ -41,6 +42,8 @@ export function CampaignTrendChart({
   rows,
   channels,
   granularity,
+  bucketLabel,
+  intervalControl,
   breakdown,
   metric,
   focusKey,
@@ -53,6 +56,8 @@ export function CampaignTrendChart({
   rows: CampaignTrendClick[];
   channels: CampaignAnalyticsChannel[];
   granularity: Granularity;
+  bucketLabel: string;
+  intervalControl?: ReactNode;
   breakdown: CampaignTrendDimension;
   metric: TrendMetric;
   focusKey?: string;
@@ -172,7 +177,7 @@ export function CampaignTrendChart({
               </strong>
             </span>
             <span>
-              Avg / active {granularity}{" "}
+              Avg / active {bucketLabel}{" "}
               <strong className="font-medium text-foreground">
                 {(displayedTotal / Math.max(points.length, 1)).toLocaleString(undefined, {
                   maximumFractionDigits: 1,
@@ -214,6 +219,7 @@ export function CampaignTrendChart({
               </Button>
             ))}
           </div>
+          {intervalControl}
         </div>
         <div className="flex items-center gap-2">
           {breakdown !== "total" && !focusKey ? (
