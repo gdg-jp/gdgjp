@@ -186,6 +186,7 @@ function CreateLinkForm({
 
   const navigation = useNavigation();
   const isSubmitting = createFetcher.state !== "idle" || navigation.state === "loading";
+  const isBusy = isSubmitting || isUploadingImage;
   const isFetchingOgp = ogpFetcher.state !== "idle";
 
   const previewSlug = slug || "preview";
@@ -701,11 +702,11 @@ function CreateLinkForm({
 
       <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
         <DialogClose asChild>
-          <Button type="button" variant="ghost" disabled={isSubmitting}>
+          <Button type="button" variant="ghost" disabled={isBusy}>
             Cancel
           </Button>
         </DialogClose>
-        <SubmitButton pending={isSubmitting} pendingLabel="Creating…">
+        <SubmitButton pending={isSubmitting} pendingLabel="Creating…" disabled={isUploadingImage}>
           {isSubmitting ? "Creating…" : "Create link"}
         </SubmitButton>
       </div>

@@ -6,6 +6,7 @@ export default [
   route("campaigns", "routes/campaigns.tsx"),
   route("campaigns/:id", "routes/campaigns.$id.tsx"),
   route("api/links", "routes/api.links.tsx"),
+  route("api/images/upload", "routes/api.images.upload.ts"),
   route("links/:id", "routes/links.$id.tsx"),
   route("analytics", "routes/analytics.tsx"),
   route("tags", "routes/tags.tsx"),

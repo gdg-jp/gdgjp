@@ -27,6 +27,15 @@ migrations_dir = "./migrations"
 binding = "CLICKS_AE"
 dataset = "tinyurl_clicks"
 
+[[services]]
+binding = "IMG_UPLOAD"
+service = "gdgjp-img"
+entrypoint = "ImageUploadService"
+
+[[services]]
+binding = "IMG_HTTP"
+service = "gdgjp-img"
+
 [[routes]]
 pattern = "url.gdgs.jp/*"
 zone_name = "gdgs.jp"

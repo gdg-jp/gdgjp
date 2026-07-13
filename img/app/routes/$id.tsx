@@ -25,16 +25,28 @@ export async function loader(args: Route.LoaderArgs) {
     image.mobileByteSize !== null &&
     image.mobileUpdatedAt !== null;
   const mobileRequested = url.searchParams.get("variant") === "mobile";
-  const selected =
+  const selected: {
+    r2Key: string;
+    contentType: string;
+    byteSize: number;
+    updatedAt: number;
+    variant: "mobile" | "default";
+  } =
     hasMobile && (mobileRequested || prefersMobileImage(args.request.headers))
       ? {
-          r2Key: image.mobileR2Key,
-          contentType: image.mobileContentType,
-          byteSize: image.mobileByteSize,
-          updatedAt: image.mobileUpdatedAt,
+          r2Key: image.mobileR2Key as string,
+          contentType: image.mobileContentType as string,
+          byteSize: image.mobileByteSize as number,
+          updatedAt: image.mobileUpdatedAt as number,
           variant: "mobile",
         }
-      : { ...image, variant: "default" };
+      : {
+          r2Key: image.r2Key,
+          contentType: image.contentType,
+          byteSize: image.byteSize,
+          updatedAt: image.updatedAt,
+          variant: "default",
+        };
   const deviceVary = hasMobile && !mobileRequested ? DEVICE_VARY : undefined;
 
   const etag = `"${id}-${selected.variant}-${selected.updatedAt}"`;

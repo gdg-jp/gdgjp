@@ -4,6 +4,7 @@ export default [
   index("routes/home.tsx"),
   route("i/:id", "routes/i.$id.tsx"),
   route("api/upload", "routes/api.upload.ts"),
+  route("api/internal/upload", "routes/api.internal-upload.ts"),
   route("api/replace/:id", "routes/api.replace.$id.ts"),
   route("api/mobile/:id", "routes/api.mobile.$id.ts"),
   route("api/delete/:id", "routes/api.delete.$id.ts"),
