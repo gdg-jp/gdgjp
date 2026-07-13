@@ -11,7 +11,7 @@ const link: Link = {
   ogImageUrl: null,
   ownerUserId: "user_123",
   ownerChapterId: null,
-  campaignMediaId: null,
+  campaignChannelId: null,
   visibility: "private",
   createdAt: 0,
   updatedAt: 0,

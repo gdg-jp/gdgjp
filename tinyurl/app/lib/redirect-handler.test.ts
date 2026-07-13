@@ -25,7 +25,7 @@ const link: Link = {
   ogImageUrl: "https://cdn.example.com/new-og.png",
   ownerUserId: "user_123",
   ownerChapterId: null,
-  campaignMediaId: null,
+  campaignChannelId: null,
   visibility: "private",
   createdAt: 0,
   updatedAt: 0,

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { campaignSourceBreakdown } from "./campaign-analytics";
 
 describe("campaignSourceBreakdown", () => {
-  it("keeps identical source codes scoped to their media and resolves display names", () => {
+  it("keeps identical source codes scoped to their channels and resolves display names", () => {
     const result = campaignSourceBreakdown(
       [
         {
@@ -31,7 +31,7 @@ describe("campaignSourceBreakdown", () => {
     expect(result.unregistered).toEqual([]);
   });
 
-  it("labels direct traffic and reports unregistered sources per medium", () => {
+  it("labels direct traffic and reports unregistered sources per channel", () => {
     const result = campaignSourceBreakdown(
       [{ id: 1, name: "X", links: [{ id: "x-link" }], sources: [] }],
       [
@@ -44,6 +44,8 @@ describe("campaignSourceBreakdown", () => {
       { name: "X / Direct / untagged", clicks: 4 },
       { name: "X / osaka (Unregistered)", clicks: 2 },
     ]);
-    expect(result.unregistered).toEqual([{ mediaId: 1, mediaName: "X", code: "osaka", clicks: 2 }]);
+    expect(result.unregistered).toEqual([
+      { channelId: 1, channelName: "X", code: "osaka", clicks: 2 },
+    ]);
   });
 });

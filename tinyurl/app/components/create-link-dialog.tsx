@@ -29,12 +29,13 @@ import type { LinkVisibility, Tag } from "~/lib/db";
 import { generateRandomSlug } from "~/lib/slug";
 import type { ApiLinksActionData } from "~/routes/api.links";
 
-export type CampaignMediaOption = {
+export type CampaignChannelOption = {
   id: number;
   campaignName: string;
   campaignCode?: string;
-  mediaName: string;
-  mediaCode?: string;
+  defaultDestinationUrl?: string | null;
+  channelName: string;
+  channelCode?: string;
 };
 
 function hostnameOf(url: string): string {
@@ -63,14 +64,14 @@ function FieldLabel({ children, htmlFor }: { children: ReactNode; htmlFor?: stri
 
 export function CreateLinkDialog({
   availableTags,
-  campaignMediaOptions = [],
-  defaultCampaignMediaId,
+  campaignChannelOptions = [],
+  defaultCampaignChannelId,
   shortUrlBase,
   trigger,
 }: {
   availableTags: Tag[];
-  campaignMediaOptions?: CampaignMediaOption[];
-  defaultCampaignMediaId?: number;
+  campaignChannelOptions?: CampaignChannelOption[];
+  defaultCampaignChannelId?: number;
   shortUrlBase: string;
   trigger: ReactNode;
 }) {
@@ -82,8 +83,8 @@ export function CreateLinkDialog({
         {open ? (
           <CreateLinkForm
             availableTags={availableTags}
-            campaignMediaOptions={campaignMediaOptions}
-            defaultCampaignMediaId={defaultCampaignMediaId}
+            campaignChannelOptions={campaignChannelOptions}
+            defaultCampaignChannelId={defaultCampaignChannelId}
             shortUrlBase={shortUrlBase}
           />
         ) : null}
@@ -94,26 +95,28 @@ export function CreateLinkDialog({
 
 function CreateLinkForm({
   availableTags,
-  campaignMediaOptions,
-  defaultCampaignMediaId,
+  campaignChannelOptions,
+  defaultCampaignChannelId,
   shortUrlBase,
 }: {
   availableTags: Tag[];
-  campaignMediaOptions: CampaignMediaOption[];
-  defaultCampaignMediaId?: number;
+  campaignChannelOptions: CampaignChannelOption[];
+  defaultCampaignChannelId?: number;
   shortUrlBase: string;
 }) {
   const shortHost = shortHostOf(shortUrlBase);
-  const defaultCampaignMedia = campaignMediaOptions.find(
-    (option) => option.id === defaultCampaignMediaId,
+  const defaultCampaignChannel = campaignChannelOptions.find(
+    (option) => option.id === defaultCampaignChannelId,
   );
   const ogpFetcher = useFetcher<ApiLinksActionData>();
   const createFetcher = useFetcher<ApiLinksActionData>();
 
-  const [destinationUrl, setDestinationUrl] = useState("");
+  const [destinationUrl, setDestinationUrl] = useState(
+    defaultCampaignChannel?.defaultDestinationUrl ?? "",
+  );
   const [slug, setSlug] = useState(
-    defaultCampaignMedia?.campaignCode && defaultCampaignMedia.mediaCode
-      ? `${defaultCampaignMedia.campaignCode}${defaultCampaignMedia.mediaCode}`
+    defaultCampaignChannel?.campaignCode && defaultCampaignChannel.channelCode
+      ? `${defaultCampaignChannel.campaignCode}${defaultCampaignChannel.channelCode}`
       : "",
   );
   const [title, setTitle] = useState("");
@@ -123,8 +126,8 @@ function CreateLinkForm({
   const [newTagNames, setNewTagNames] = useState<string[]>([]);
   const [comment, setComment] = useState("");
   const [visibility, setVisibility] = useState<LinkVisibility>("private");
-  const [campaignMediaId, setCampaignMediaId] = useState(
-    defaultCampaignMediaId === undefined ? "standalone" : String(defaultCampaignMediaId),
+  const [campaignChannelId, setCampaignChannelId] = useState(
+    defaultCampaignChannelId === undefined ? "standalone" : String(defaultCampaignChannelId),
   );
 
   const lastOgpRef = useRef<unknown>(null);
@@ -245,35 +248,38 @@ function CreateLinkForm({
             </Select>
           </div>
 
-          {campaignMediaOptions.length > 0 ? (
+          {campaignChannelOptions.length > 0 ? (
             <div className="space-y-2">
-              <FieldLabel htmlFor="create-campaign-media">Campaign / Media</FieldLabel>
+              <FieldLabel htmlFor="create-campaign-channel">Campaign / Channel</FieldLabel>
               <input
                 type="hidden"
-                name="campaignMediaId"
-                value={campaignMediaId === "standalone" ? "" : campaignMediaId}
+                name="campaignChannelId"
+                value={campaignChannelId === "standalone" ? "" : campaignChannelId}
               />
               <Select
-                value={campaignMediaId}
+                value={campaignChannelId}
                 onValueChange={(value) => {
-                  setCampaignMediaId(value);
-                  if (value === "standalone" || slug) return;
-                  const option = campaignMediaOptions.find(
+                  setCampaignChannelId(value);
+                  if (value === "standalone") return;
+                  const option = campaignChannelOptions.find(
                     (candidate) => String(candidate.id) === value,
                   );
-                  if (option?.campaignCode && option.mediaCode) {
-                    setSlug(`${option.campaignCode}${option.mediaCode}`);
+                  if (!destinationUrl && option?.defaultDestinationUrl) {
+                    setDestinationUrl(option.defaultDestinationUrl);
+                  }
+                  if (!slug && option?.campaignCode && option.channelCode) {
+                    setSlug(`${option.campaignCode}${option.channelCode}`);
                   }
                 }}
               >
-                <SelectTrigger id="create-campaign-media" size="sm">
+                <SelectTrigger id="create-campaign-channel" size="sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="standalone">Standalone link</SelectItem>
-                  {campaignMediaOptions.map((option) => (
+                  {campaignChannelOptions.map((option) => (
                     <SelectItem key={option.id} value={String(option.id)}>
-                      {option.campaignName} / {option.mediaName}
+                      {option.campaignName} / {option.channelName}
                     </SelectItem>
                   ))}
                 </SelectContent>

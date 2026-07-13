@@ -28,6 +28,7 @@ import {
   listCampaignsForChapterWithCounts,
   updateCampaign,
 } from "~/lib/db";
+import { validatePublicHttpUrl } from "~/lib/ogp";
 import type { Route } from "./+types/campaigns";
 
 export function meta() {
@@ -60,9 +61,17 @@ export async function action(args: Route.ActionArgs) {
     if (!/^[a-z0-9][a-z0-9_-]{0,15}$/.test(code)) {
       return { error: "Code must be 1–16 letters, numbers, underscores, or hyphens." };
     }
+    const defaultDestinationUrl = String(form.get("defaultDestinationUrl") ?? "").trim();
+    const destinationValidation = defaultDestinationUrl
+      ? await validatePublicHttpUrl(defaultDestinationUrl)
+      : null;
+    if (destinationValidation && !destinationValidation.ok) {
+      return { error: `Default destination ${destinationValidation.reason}` };
+    }
     const result = await createCampaign(env.DB, {
       name,
       code,
+      defaultDestinationUrl: destinationValidation?.url.toString() ?? null,
       ownerChapterId: chapter.chapterId,
       createdByUserId: user.id,
     });
@@ -94,7 +103,18 @@ export async function action(args: Route.ActionArgs) {
       .toLowerCase();
     if (!name || name.length > 80) return { error: "Event name must be 1–80 characters." };
     if (!/^[a-z0-9][a-z0-9_-]{0,15}$/.test(code)) return { error: "Invalid campaign code." };
-    const result = await updateCampaign(env.DB, id, { name, code });
+    const defaultDestinationUrl = String(form.get("defaultDestinationUrl") ?? "").trim();
+    const destinationValidation = defaultDestinationUrl
+      ? await validatePublicHttpUrl(defaultDestinationUrl)
+      : null;
+    if (destinationValidation && !destinationValidation.ok) {
+      return { error: `Default destination ${destinationValidation.reason}` };
+    }
+    const result = await updateCampaign(env.DB, id, {
+      name,
+      code,
+      defaultDestinationUrl: destinationValidation?.url.toString() ?? null,
+    });
     if (result && !result.ok) return { error: `Campaign code “${code}” is already in use.` };
     return { ok: true };
   }
@@ -187,7 +207,7 @@ export default function Campaigns({ loaderData, actionData }: Route.ComponentPro
                         </Badge>
                       </span>
                       <span className="mt-1 flex gap-4 text-xs text-muted-foreground">
-                        <span>{campaign.mediaCount} media</span>
+                        <span>{campaign.channelCount} channels</span>
                         <span>{campaign.linkCount} links</span>
                       </span>
                     </span>
@@ -268,6 +288,19 @@ function EditCampaignDialog({
               maxLength={16}
               className="font-mono"
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`campaign-destination-${campaign.id}`}>Default Destination URL</Label>
+            <Input
+              id={`campaign-destination-${campaign.id}`}
+              name="defaultDestinationUrl"
+              type="url"
+              defaultValue={campaign.defaultDestinationUrl ?? ""}
+              placeholder="https://example.com/event"
+            />
+            <p className="text-xs text-muted-foreground">
+              Used to prefill new links in every channel. Leave blank for no default.
+            </p>
           </div>
           {error ? (
             <Alert variant="destructive">

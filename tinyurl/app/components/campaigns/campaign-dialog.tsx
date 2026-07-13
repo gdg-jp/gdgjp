@@ -55,6 +55,18 @@ export function CampaignDialog() {
               Letters, numbers, underscores, and hyphens. Saved in lowercase.
             </p>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="campaign-destination">Default Destination URL</Label>
+            <Input
+              id="campaign-destination"
+              name="defaultDestinationUrl"
+              type="url"
+              placeholder="https://example.com/event"
+            />
+            <p className="text-xs text-muted-foreground">
+              Optional. Prefills the destination for links created in this campaign.
+            </p>
+          </div>
           {error ? (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>

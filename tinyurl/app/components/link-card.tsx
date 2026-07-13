@@ -37,9 +37,9 @@ export type LinkCardItem = {
     campaignId: number;
     campaignName: string;
     campaignCode: string;
-    mediaId: number;
-    mediaName: string;
-    mediaCode: string;
+    channelId: number;
+    channelName: string;
+    channelCode: string;
   };
 };
 
@@ -180,9 +180,9 @@ export function LinkCard({
             <Link
               to={`/campaigns/${campaign.campaignId}`}
               className="truncate hover:text-foreground hover:underline"
-              title={`${campaign.campaignName} / ${campaign.mediaName}`}
+              title={`${campaign.campaignName} / ${campaign.channelName}`}
             >
-              {campaign.campaignName} / {campaign.mediaName}
+              {campaign.campaignName} / {campaign.channelName}
             </Link>
           </div>
         ) : null}

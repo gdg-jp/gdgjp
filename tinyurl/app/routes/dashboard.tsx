@@ -20,7 +20,7 @@ import {
   type Tag as DbTag,
   type UserSummary,
   getUsersByIds,
-  listCampaignMedia,
+  listCampaignChannels,
   listCampaignsForChapterWithCounts,
   listLinksAccessibleByEmail,
   listLinksForChapter,
@@ -65,10 +65,10 @@ export async function loader(args: Route.LoaderArgs) {
   const ownerIds = [...new Set(allLinks.map((l) => l.ownerUserId))];
   const linkIds = allLinks.map((l) => l.id);
 
-  const mediaByCampaign = await Promise.all(
+  const channelsByCampaign = await Promise.all(
     campaigns.map(async (campaign) => ({
       campaign,
-      media: await listCampaignMedia(env.DB, campaign.id, true),
+      channels: await listCampaignChannels(env.DB, campaign.id, true),
     })),
   );
 
@@ -92,31 +92,32 @@ export async function loader(args: Route.LoaderArgs) {
     owners,
     clicks,
     availableTags: [...userTags, ...chapterTags],
-    campaignMediaCatalog: mediaByCampaign.flatMap(({ campaign, media }) =>
-      media.map((medium) => ({
-        id: medium.id,
-        mediaId: medium.id,
+    campaignChannelCatalog: channelsByCampaign.flatMap(({ campaign, channels }) =>
+      channels.map((channel) => ({
+        id: channel.id,
+        channelId: channel.id,
         campaignId: campaign.id,
         campaignName: campaign.name,
         campaignCode: campaign.code,
         campaignArchived: campaign.archivedAt !== null,
-        mediaName: medium.name,
-        mediaCode: medium.code,
-        mediaArchived: medium.archivedAt !== null,
+        channelName: channel.name,
+        channelCode: channel.code,
+        channelArchived: channel.archivedAt !== null,
       })),
     ),
-    campaignMediaOptions: mediaByCampaign.flatMap(({ campaign, media }) =>
+    campaignChannelOptions: channelsByCampaign.flatMap(({ campaign, channels }) =>
       campaign.archivedAt === null
-        ? media
-            .filter((medium) => medium.archivedAt === null)
-            .map((medium) => ({
-              id: medium.id,
-              mediaId: medium.id,
+        ? channels
+            .filter((channel) => channel.archivedAt === null)
+            .map((channel) => ({
+              id: channel.id,
+              channelId: channel.id,
               campaignId: campaign.id,
               campaignName: campaign.name,
               campaignCode: campaign.code,
-              mediaName: medium.name,
-              mediaCode: medium.code,
+              defaultDestinationUrl: campaign.defaultDestinationUrl,
+              channelName: channel.name,
+              channelCode: channel.code,
             }))
         : [],
     ),
@@ -130,7 +131,7 @@ function shellUser(loaderData: Route.ComponentProps["loaderData"]) {
 
 type Scope = "all" | "own" | "shared";
 type SortKey = "newest" | "oldest" | "mostClicks";
-type CampaignFilter = "all" | "unclassified" | `campaign:${number}` | `media:${number}`;
+type CampaignFilter = "all" | "unclassified" | `campaign:${number}` | `channel:${number}`;
 
 function ownerOf(owners: Record<string, UserSummary>, id: string): LinkOwner | undefined {
   const u = owners[id];
@@ -153,8 +154,8 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
     owners,
     clicks,
     availableTags,
-    campaignMediaCatalog,
-    campaignMediaOptions,
+    campaignChannelCatalog,
+    campaignChannelOptions,
     shortUrlBase,
   } = loaderData;
   const user = shellUser(loaderData);
@@ -165,9 +166,9 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
   const [sort, setSort] = useState<SortKey>("newest");
   const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>("all");
 
-  const mediaById = useMemo(
-    () => new Map(campaignMediaCatalog.map((option) => [option.id, option])),
-    [campaignMediaCatalog],
+  const channelById = useMemo(
+    () => new Map(campaignChannelCatalog.map((option) => [option.id, option])),
+    [campaignChannelCatalog],
   );
 
   const items = useMemo<LinkCardItem[]>(() => {
@@ -175,13 +176,13 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
       link,
       owner: ownerOf(owners, link.ownerUserId),
       clicks: clicks[link.id] ?? 0,
-      campaign: link.campaignMediaId ? mediaById.get(link.campaignMediaId) : undefined,
+      campaign: link.campaignChannelId ? channelById.get(link.campaignChannelId) : undefined,
     }));
     const shared: LinkCardItem[] = sharedLinks.map((link) => ({
       link,
       owner: ownerOf(owners, link.ownerUserId),
       clicks: clicks[link.id] ?? 0,
-      campaign: link.campaignMediaId ? mediaById.get(link.campaignMediaId) : undefined,
+      campaign: link.campaignChannelId ? channelById.get(link.campaignChannelId) : undefined,
     }));
     let combined: LinkCardItem[];
     if (scope === "own") combined = own;
@@ -189,13 +190,13 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
     else combined = [...own, ...shared];
 
     if (campaignFilter === "unclassified") {
-      combined = combined.filter((item) => item.link.campaignMediaId === null);
+      combined = combined.filter((item) => item.link.campaignChannelId === null);
     } else if (campaignFilter.startsWith("campaign:")) {
       const campaignId = Number(campaignFilter.slice("campaign:".length));
       combined = combined.filter((item) => item.campaign?.campaignId === campaignId);
-    } else if (campaignFilter.startsWith("media:")) {
-      const mediaId = Number(campaignFilter.slice("media:".length));
-      combined = combined.filter((item) => item.link.campaignMediaId === mediaId);
+    } else if (campaignFilter.startsWith("channel:")) {
+      const channelId = Number(campaignFilter.slice("channel:".length));
+      combined = combined.filter((item) => item.link.campaignChannelId === channelId);
     }
 
     const q = query.trim().toLowerCase();
@@ -207,7 +208,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           (it.link.title?.toLowerCase().includes(q) ?? false) ||
           (it.link.description?.toLowerCase().includes(q) ?? false) ||
           (it.campaign?.campaignName.toLowerCase().includes(q) ?? false) ||
-          (it.campaign?.mediaName.toLowerCase().includes(q) ?? false)
+          (it.campaign?.channelName.toLowerCase().includes(q) ?? false)
         );
       });
     }
@@ -217,7 +218,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
     else if (sort === "oldest") sorted.sort((a, b) => a.link.createdAt - b.link.createdAt);
     else sorted.sort((a, b) => b.clicks - a.clicks);
     return sorted;
-  }, [ownLinks, sharedLinks, owners, clicks, scope, query, sort, campaignFilter, mediaById]);
+  }, [ownLinks, sharedLinks, owners, clicks, scope, query, sort, campaignFilter, channelById]);
 
   const campaignFilterLabel = useMemo(() => {
     if (campaignFilter === "all") return "All campaigns";
@@ -225,31 +226,31 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
     if (campaignFilter.startsWith("campaign:")) {
       const campaignId = Number(campaignFilter.slice("campaign:".length));
       return (
-        campaignMediaCatalog.find((option) => option.campaignId === campaignId)?.campaignName ??
+        campaignChannelCatalog.find((option) => option.campaignId === campaignId)?.campaignName ??
         "Campaign"
       );
     }
-    const mediaId = Number(campaignFilter.slice("media:".length));
-    const option = mediaById.get(mediaId);
-    return option ? `${option.campaignName} / ${option.mediaName}` : "Media";
-  }, [campaignFilter, campaignMediaCatalog, mediaById]);
+    const channelId = Number(campaignFilter.slice("channel:".length));
+    const option = channelById.get(channelId);
+    return option ? `${option.campaignName} / ${option.channelName}` : "Channel";
+  }, [campaignFilter, campaignChannelCatalog, channelById]);
 
   const campaignGroups = useMemo(() => {
     const groups = new Map<
       number,
-      { id: number; name: string; media: typeof campaignMediaCatalog }
+      { id: number; name: string; channels: typeof campaignChannelCatalog }
     >();
-    for (const option of campaignMediaCatalog) {
+    for (const option of campaignChannelCatalog) {
       const group = groups.get(option.campaignId) ?? {
         id: option.campaignId,
         name: option.campaignName,
-        media: [],
+        channels: [],
       };
-      group.media.push(option);
+      group.channels.push(option);
       groups.set(option.campaignId, group);
     }
     return [...groups.values()];
-  }, [campaignMediaCatalog]);
+  }, [campaignChannelCatalog]);
 
   const totalCount = ownLinks.length + sharedLinks.length;
 
@@ -268,7 +269,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           </button>
           <CreateLinkDialog
             availableTags={availableTags}
-            campaignMediaOptions={campaignMediaOptions}
+            campaignChannelOptions={campaignChannelOptions}
             shortUrlBase={shortUrlBase}
             trigger={
               <Button size="sm">
@@ -344,14 +345,14 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
                     >
                       {campaign.name}
                     </DropdownMenuCheckboxItem>
-                    {campaign.media.map((medium) => (
+                    {campaign.channels.map((channel) => (
                       <DropdownMenuCheckboxItem
-                        key={medium.id}
-                        checked={campaignFilter === `media:${medium.id}`}
-                        onCheckedChange={() => setCampaignFilter(`media:${medium.id}`)}
+                        key={channel.id}
+                        checked={campaignFilter === `channel:${channel.id}`}
+                        onCheckedChange={() => setCampaignFilter(`channel:${channel.id}`)}
                         className="pl-8"
                       >
-                        {medium.mediaName}
+                        {channel.channelName}
                       </DropdownMenuCheckboxItem>
                     ))}
                   </div>
@@ -406,7 +407,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
         {totalCount === 0 ? (
           <EmptyState
             availableTags={availableTags}
-            campaignMediaOptions={campaignMediaOptions}
+            campaignChannelOptions={campaignChannelOptions}
             shortUrlBase={shortUrlBase}
           />
         ) : items.length === 0 ? (
@@ -440,11 +441,11 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
 
 function EmptyState({
   availableTags,
-  campaignMediaOptions,
+  campaignChannelOptions,
   shortUrlBase,
 }: {
   availableTags: DbTag[];
-  campaignMediaOptions: Route.ComponentProps["loaderData"]["campaignMediaOptions"];
+  campaignChannelOptions: Route.ComponentProps["loaderData"]["campaignChannelOptions"];
   shortUrlBase: string;
 }) {
   return (
@@ -456,7 +457,7 @@ function EmptyState({
       <div className="mt-4 inline-block">
         <CreateLinkDialog
           availableTags={availableTags}
-          campaignMediaOptions={campaignMediaOptions}
+          campaignChannelOptions={campaignChannelOptions}
           shortUrlBase={shortUrlBase}
           trigger={
             <Button size="sm">

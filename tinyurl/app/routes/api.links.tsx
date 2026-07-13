@@ -8,7 +8,7 @@ import {
   createTag,
   deleteLink,
   getCampaignById,
-  getCampaignMediaById,
+  getCampaignChannelById,
   setLinkTags,
 } from "~/lib/db";
 import { type OgpData, fetchOgp, validatePublicHttpUrl } from "~/lib/ogp";
@@ -32,7 +32,7 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
   }
 
   const rawSlug = String(form.get("slug") ?? "").trim();
-  const destinationUrl = String(form.get("destinationUrl") ?? "").trim();
+  let destinationUrl = String(form.get("destinationUrl") ?? "").trim();
   const title = String(form.get("title") ?? "").trim() || null;
   const description = String(form.get("description") ?? "").trim() || null;
   const ogImageUrl = String(form.get("ogImageUrl") ?? "").trim() || null;
@@ -46,31 +46,34 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     .filter((n) => n.length > 0 && n.length <= 32);
   const commentBody = String(form.get("comment") ?? "").trim();
   const rawVisibility = String(form.get("visibility") ?? "private");
-  const rawCampaignMediaId = String(form.get("campaignMediaId") ?? "").trim();
+  const rawCampaignChannelId = String(form.get("campaignChannelId") ?? "").trim();
   if (rawVisibility !== "private" && rawVisibility !== "public") {
     return { error: "Visibility must be private or public." };
   }
   const visibility: LinkVisibility = rawVisibility;
 
-  let campaignMediaId: number | null = null;
+  let campaignChannelId: number | null = null;
   let ownerChapterId: number | null = null;
-  if (rawCampaignMediaId) {
-    campaignMediaId = Number(rawCampaignMediaId);
-    if (!Number.isInteger(campaignMediaId) || campaignMediaId <= 0) {
-      return { error: "Campaign media is invalid." };
+  if (rawCampaignChannelId) {
+    campaignChannelId = Number(rawCampaignChannelId);
+    if (!Number.isInteger(campaignChannelId) || campaignChannelId <= 0) {
+      return { error: "Campaign channel is invalid." };
     }
-    const medium = await getCampaignMediaById(env.DB, campaignMediaId);
-    const campaign = medium ? await getCampaignById(env.DB, medium.campaignId) : null;
+    const channel = await getCampaignChannelById(env.DB, campaignChannelId);
+    const campaign = channel ? await getCampaignById(env.DB, channel.campaignId) : null;
     if (
-      !medium ||
+      !channel ||
       !campaign ||
-      medium.archivedAt !== null ||
+      channel.archivedAt !== null ||
       campaign.archivedAt !== null ||
       (campaign.ownerChapterId !== chapter.chapterId && !isSuperAdmin(user))
     ) {
-      return { error: "Campaign media is not available for your chapter." };
+      return { error: "Campaign channel is not available for your chapter." };
     }
     ownerChapterId = campaign.ownerChapterId;
+    if (!destinationUrl && campaign.defaultDestinationUrl) {
+      destinationUrl = campaign.defaultDestinationUrl;
+    }
   }
 
   if (!destinationUrl) return { error: "Destination URL is required." };
@@ -132,7 +135,7 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
         ogImageUrl,
         ownerUserId: user.id,
         ownerChapterId,
-        campaignMediaId,
+        campaignChannelId,
         visibility,
       });
       if (result.ok) {
@@ -160,7 +163,7 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     ogImageUrl,
     ownerUserId: user.id,
     ownerChapterId,
-    campaignMediaId,
+    campaignChannelId,
     visibility,
   });
   if (!result.ok) return { error: `The slug "${slug}" is already taken.` };

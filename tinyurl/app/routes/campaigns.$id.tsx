@@ -49,21 +49,22 @@ import { parseAnalyticsParams } from "~/lib/analytics-filters";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
 import { campaignSourceBreakdown } from "~/lib/campaign-analytics";
 import {
-  archiveCampaignMedia,
-  archiveCampaignMediaSource,
-  assignLinksToMedia,
-  createCampaignMedia,
-  createCampaignMediaSource,
+  archiveCampaignChannel,
+  archiveCampaignChannelSource,
+  assignLinksToChannel,
+  createCampaignChannel,
+  createCampaignChannelSource,
   getCampaignById,
-  getCampaignWithMediaLinks,
+  getCampaignWithChannelLinks,
   getUsersByIds,
   listAssignableLinksForCampaign,
   listTagsForChapter,
   listTagsForUser,
-  updateCampaignMedia,
-  updateCampaignMediaSource,
+  updateCampaignChannel,
+  updateCampaignChannelSource,
 } from "~/lib/db";
 import type { UserSummary } from "~/lib/db";
+import { cn } from "~/lib/utils";
 import type { Route } from "./+types/campaigns.$id";
 
 export function meta({ data }: Route.MetaArgs) {
@@ -92,16 +93,16 @@ async function requireCampaignAccess(args: Route.LoaderArgs | Route.ActionArgs) 
 export async function loader(args: Route.LoaderArgs) {
   const { env, user, campaign, id } = await requireCampaignAccess(args);
   const [tree, assignableLinks, userTags, chapterTags] = await Promise.all([
-    getCampaignWithMediaLinks(env.DB, id, true),
+    getCampaignWithChannelLinks(env.DB, id, true),
     listAssignableLinksForCampaign(env.DB, user.id, id),
     listTagsForUser(env.DB, user.id),
     listTagsForChapter(env.DB, campaign.ownerChapterId),
   ]);
   if (!tree) throw new Response("Not found", { status: 404 });
 
-  const media = tree.media;
+  const channels = tree.channels;
   const ownerIds = [
-    ...new Set(media.flatMap((item) => item.links.map((link) => link.ownerUserId))),
+    ...new Set(channels.flatMap((item) => item.links.map((link) => link.ownerUserId))),
   ];
   const owners =
     ownerIds.length > 0
@@ -109,20 +110,20 @@ export async function loader(args: Route.LoaderArgs) {
       : {};
   const url = new URL(args.request.url);
   const parsed = parseAnalyticsParams(url.searchParams);
-  const requestedMediaId = Number(url.searchParams.get("mediaId"));
-  const selectedMediaId = media.some((item) => item.id === requestedMediaId)
-    ? requestedMediaId
+  const requestedChannelId = Number(url.searchParams.get("channelId"));
+  const selectedChannelId = channels.some((item) => item.id === requestedChannelId)
+    ? requestedChannelId
     : null;
-  const mediaInScope = selectedMediaId
-    ? media.filter((item) => item.id === selectedMediaId)
-    : media;
+  const channelsInScope = selectedChannelId
+    ? channels.filter((item) => item.id === selectedChannelId)
+    : channels;
   const requestedLinkId = url.searchParams.get("linkId");
-  const selectedLinkId = mediaInScope.some((item) =>
+  const selectedLinkId = channelsInScope.some((item) =>
     item.links.some((link) => link.id === requestedLinkId),
   )
     ? requestedLinkId
     : null;
-  const linkIds = mediaInScope.flatMap((item) =>
+  const linkIds = channelsInScope.flatMap((item) =>
     item.links
       .filter((link) => !selectedLinkId || link.id === selectedLinkId)
       .map((link) => link.id),
@@ -145,25 +146,25 @@ export async function loader(args: Route.LoaderArgs) {
         ]);
   const clicks: Record<string, number> = {};
   for (const [linkId, count] of clickMap) clicks[linkId] = count;
-  const sourceBreakdown = campaignSourceBreakdown(mediaInScope, sourceClicks);
+  const sourceBreakdown = campaignSourceBreakdown(channelsInScope, sourceClicks);
   const sourceSuggestions = new Set(
-    mediaInScope.flatMap((item) => item.sources.map((source) => source.code)),
+    channelsInScope.flatMap((item) => item.sources.map((source) => source.code)),
   );
   for (const row of sourceClicks) if (row.source) sourceSuggestions.add(row.source);
   const suggestions: FilterSuggestions = {
     source: [...sourceSuggestions].sort(),
-    slug: mediaInScope.flatMap((item) => item.links.map((link) => link.slug)),
+    slug: channelsInScope.flatMap((item) => item.links.map((link) => link.slug)),
   };
 
   return {
     user: { email: user.email, name: user.name },
     campaign,
-    media,
+    channels,
     owners,
     assignableLinks,
     availableTags: [...userTags, ...chapterTags],
     shortUrlBase: env.SHORT_URL_BASE,
-    selectedMediaId,
+    selectedChannelId,
     selectedLinkId,
     preset: parsed.preset,
     customStart: parsed.window.kind === "custom" ? parsed.window.startIso : undefined,
@@ -186,39 +187,39 @@ export async function action(args: Route.ActionArgs) {
   const form = await args.request.formData();
   const intent = String(form.get("intent") ?? "");
 
-  if (intent === "createMedia") {
+  if (intent === "createChannel") {
     const name = String(form.get("name") ?? "").trim();
     const code = String(form.get("code") ?? "")
       .trim()
       .toLowerCase();
-    if (!name || name.length > 64) return { error: "Media name must be 1–64 characters." };
-    if (!/^[a-z0-9][a-z0-9_-]{0,15}$/.test(code)) return { error: "Invalid media code." };
-    const result = await createCampaignMedia(env.DB, { campaignId: id, name, code });
-    if (!result.ok) return { error: `Media code “${code}” is already in use.` };
+    if (!name || name.length > 64) return { error: "Channel name must be 1–64 characters." };
+    if (!/^[a-z0-9][a-z0-9_-]{0,15}$/.test(code)) return { error: "Invalid channel code." };
+    const result = await createCampaignChannel(env.DB, { campaignId: id, name, code });
+    if (!result.ok) return { error: `Channel code “${code}” is already in use.` };
     return { ok: true };
   }
 
   if (intent === "createSource" || intent === "registerSource") {
-    const mediaId = parseId(form.get("mediaId"), "media");
+    const channelId = parseId(form.get("channelId"), "channel");
     const name = String(form.get("name") ?? "").trim();
     const code = String(form.get("code") ?? "")
       .trim()
       .toLowerCase();
-    const belongs = (await getCampaignWithMediaLinks(env.DB, id))?.media.some(
-      (item) => item.id === mediaId,
+    const belongs = (await getCampaignWithChannelLinks(env.DB, id))?.channels.some(
+      (item) => item.id === channelId,
     );
     if (!belongs) throw new Response("Forbidden", { status: 403 });
     if (!name || name.length > 64) return { error: "Source name must be 1–64 characters." };
     if (!/^[a-z0-9][a-z0-9_-]{0,31}$/.test(code)) return { error: "Invalid source code." };
-    const result = await createCampaignMediaSource(env.DB, { mediaId, name, code });
+    const result = await createCampaignChannelSource(env.DB, { channelId, name, code });
     if (!result.ok) return { error: `Source code “${code}” is already registered.` };
     return { ok: true };
   }
 
-  if (intent === "updateMedia") {
-    const mediaId = parseId(form.get("mediaId"), "media");
-    const tree = await getCampaignWithMediaLinks(env.DB, id, true);
-    if (!tree?.media.some((item) => item.id === mediaId)) {
+  if (intent === "updateChannel") {
+    const channelId = parseId(form.get("channelId"), "channel");
+    const tree = await getCampaignWithChannelLinks(env.DB, id, true);
+    if (!tree?.channels.some((item) => item.id === channelId)) {
       throw new Response("Forbidden", { status: 403 });
     }
     const name = String(form.get("name") ?? "").trim();
@@ -226,18 +227,18 @@ export async function action(args: Route.ActionArgs) {
       .trim()
       .toLowerCase();
     const sortOrder = Number(form.get("sortOrder"));
-    if (!name || name.length > 64) return { error: "Media name must be 1–64 characters." };
-    if (!/^[a-z0-9][a-z0-9_-]{0,15}$/.test(code)) return { error: "Invalid media code." };
+    if (!name || name.length > 64) return { error: "Channel name must be 1–64 characters." };
+    if (!/^[a-z0-9][a-z0-9_-]{0,15}$/.test(code)) return { error: "Invalid channel code." };
     if (!Number.isInteger(sortOrder)) return { error: "Sort order must be an integer." };
-    const result = await updateCampaignMedia(env.DB, mediaId, { name, code, sortOrder });
-    if (result && !result.ok) return { error: `Media code “${code}” is already in use.` };
+    const result = await updateCampaignChannel(env.DB, channelId, { name, code, sortOrder });
+    if (result && !result.ok) return { error: `Channel code “${code}” is already in use.` };
     return { ok: true };
   }
 
   if (intent === "updateSource") {
     const sourceId = parseId(form.get("sourceId"), "source");
-    const tree = await getCampaignWithMediaLinks(env.DB, id, true);
-    if (!tree?.media.some((item) => item.sources.some((source) => source.id === sourceId))) {
+    const tree = await getCampaignWithChannelLinks(env.DB, id, true);
+    if (!tree?.channels.some((item) => item.sources.some((source) => source.id === sourceId))) {
       throw new Response("Forbidden", { status: 403 });
     }
     const name = String(form.get("name") ?? "").trim();
@@ -246,22 +247,22 @@ export async function action(args: Route.ActionArgs) {
       .toLowerCase();
     if (!name || name.length > 64) return { error: "Source name must be 1–64 characters." };
     if (!/^[a-z0-9][a-z0-9_-]{0,31}$/.test(code)) return { error: "Invalid source code." };
-    const result = await updateCampaignMediaSource(env.DB, sourceId, { name, code });
+    const result = await updateCampaignChannelSource(env.DB, sourceId, { name, code });
     if (result && !result.ok) return { error: `Source code “${code}” is already registered.` };
     return { ok: true };
   }
 
   if (intent === "assign") {
-    const mediaId = parseId(form.get("mediaId"), "media");
+    const channelId = parseId(form.get("channelId"), "channel");
     const linkIds = form.getAll("linkId").map(String);
     if (linkIds.length === 0) return { error: "Select at least one link." };
-    const tree = await getCampaignWithMediaLinks(env.DB, id);
-    if (!tree?.media.some((item) => item.id === mediaId)) {
+    const tree = await getCampaignWithChannelLinks(env.DB, id);
+    if (!tree?.channels.some((item) => item.id === channelId)) {
       throw new Response("Forbidden", { status: 403 });
     }
-    const result = await assignLinksToMedia(env.DB, {
+    const result = await assignLinksToChannel(env.DB, {
       linkIds,
-      mediaId,
+      channelId,
       actorUserId: user.id,
     });
     if (result.assignedIds.length === 0)
@@ -272,23 +273,23 @@ export async function action(args: Route.ActionArgs) {
     return { ok: true };
   }
 
-  if (intent === "archiveMedia" || intent === "restoreMedia") {
-    const mediaId = parseId(form.get("mediaId"), "media");
-    const belongs = (await getCampaignWithMediaLinks(env.DB, id, true))?.media.some(
-      (item) => item.id === mediaId,
+  if (intent === "archiveChannel" || intent === "restoreChannel") {
+    const channelId = parseId(form.get("channelId"), "channel");
+    const belongs = (await getCampaignWithChannelLinks(env.DB, id, true))?.channels.some(
+      (item) => item.id === channelId,
     );
     if (!belongs) throw new Response("Forbidden", { status: 403 });
-    await archiveCampaignMedia(env.DB, mediaId, intent === "archiveMedia");
+    await archiveCampaignChannel(env.DB, channelId, intent === "archiveChannel");
     return { ok: true };
   }
 
   if (intent === "archiveSource" || intent === "restoreSource") {
     const sourceId = parseId(form.get("sourceId"), "source");
-    const belongs = (await getCampaignWithMediaLinks(env.DB, id, true))?.media.some((item) =>
+    const belongs = (await getCampaignWithChannelLinks(env.DB, id, true))?.channels.some((item) =>
       item.sources.some((source) => source.id === sourceId),
     );
     if (!belongs) throw new Response("Forbidden", { status: 403 });
-    await archiveCampaignMediaSource(env.DB, sourceId, intent === "archiveSource");
+    await archiveCampaignChannelSource(env.DB, sourceId, intent === "archiveSource");
     return { ok: true };
   }
 
@@ -299,12 +300,12 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
   const {
     user,
     campaign,
-    media,
+    channels,
     owners,
     assignableLinks,
     availableTags,
     shortUrlBase,
-    selectedMediaId,
+    selectedChannelId,
     selectedLinkId,
     preset,
     customStart,
@@ -314,12 +315,12 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
     analytics,
   } = loaderData;
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeView = searchParams.get("view") === "analytics" ? "analytics" : "campaigns";
-  const activeMedia = media.filter((item) => item.archivedAt === null);
-  const mediaInScope = selectedMediaId
-    ? media.filter((item) => item.id === selectedMediaId)
-    : media;
-  const linkRows = mediaInScope
+  const activeView = searchParams.get("view") === "analytics" ? "analytics" : "channels";
+  const activeChannels = channels.filter((item) => item.archivedAt === null);
+  const channelsInScope = selectedChannelId
+    ? channels.filter((item) => item.id === selectedChannelId)
+    : channels;
+  const linkRows = channelsInScope
     .flatMap((item) => item.links)
     .filter((link) => !selectedLinkId || link.id === selectedLinkId)
     .map((link) => ({
@@ -327,14 +328,14 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
       clicks: analytics.clicks[link.id] ?? 0,
     }))
     .sort((a, b) => b.clicks - a.clicks);
-  const mediaRows = mediaInScope
+  const channelRows = channelsInScope
     .map((item) => ({
       name: item.name,
       clicks: item.links.reduce((sum, link) => sum + (analytics.clicks[link.id] ?? 0), 0),
     }))
     .sort((a, b) => b.clicks - a.clicks);
 
-  function setView(view: "campaigns" | "analytics") {
+  function setView(view: "channels" | "analytics") {
     const next = new URLSearchParams(searchParams);
     if (view === "analytics") next.set("view", "analytics");
     else next.delete("view");
@@ -365,61 +366,85 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
                 </Badge>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Media, links, and source performance
+                Channel, links, and source performance
               </p>
             </div>
             <div className="flex gap-2">
-              <AssignLinksDialog media={activeMedia} links={assignableLinks} />
-              <CreateMediaDialog campaignCode={campaign.code} />
+              <AssignLinksDialog channels={activeChannels} links={assignableLinks} />
+              <CreateChannelDialog campaignCode={campaign.code} />
             </div>
           </div>
         </div>
 
         <div
-          className="flex w-fit rounded-lg bg-muted p-1"
+          className="relative grid w-fit grid-cols-2 rounded-lg bg-muted p-1"
           role="tablist"
           aria-label="Campaign view"
         >
+          <span
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-md bg-background shadow-xs transition-transform duration-200 ease-out motion-reduce:transition-none",
+              activeView === "analytics" && "translate-x-full",
+            )}
+          />
           <Button
             type="button"
             size="sm"
-            variant={activeView === "campaigns" ? "secondary" : "ghost"}
+            variant="ghost"
             role="tab"
-            aria-selected={activeView === "campaigns"}
-            onClick={() => setView("campaigns")}
+            id="channels-tab"
+            aria-selected={activeView === "channels"}
+            aria-controls="channels-panel"
+            onClick={() => setView("channels")}
+            className={cn(
+              "relative z-10 min-w-24 transition-colors duration-200 aria-selected:hover:bg-transparent",
+              activeView === "channels" ? "text-foreground" : "text-muted-foreground",
+            )}
           >
-            Campaigns
+            Channel
           </Button>
           <Button
             type="button"
             size="sm"
-            variant={activeView === "analytics" ? "secondary" : "ghost"}
+            variant="ghost"
             role="tab"
+            id="analytics-tab"
             aria-selected={activeView === "analytics"}
+            aria-controls="analytics-panel"
             onClick={() => setView("analytics")}
+            className={cn(
+              "relative z-10 min-w-24 transition-colors duration-200 aria-selected:hover:bg-transparent",
+              activeView === "analytics" ? "text-foreground" : "text-muted-foreground",
+            )}
           >
             Analytics
           </Button>
         </div>
 
-        {activeView === "campaigns" ? (
-          <section aria-labelledby="media-heading" className="space-y-3">
+        {activeView === "channels" ? (
+          <section
+            id="channels-panel"
+            role="tabpanel"
+            aria-labelledby="channels-tab"
+            className="space-y-3 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-left-1 motion-safe:duration-200"
+          >
             <div className="flex items-center justify-between">
-              <h2 id="media-heading" className="text-lg font-semibold">
-                Campaigns
+              <h2 id="channels-heading" className="text-lg font-semibold">
+                Channels
               </h2>
-              <span className="text-sm text-muted-foreground">{media.length} media</span>
+              <span className="text-sm text-muted-foreground">{channels.length} channels</span>
             </div>
-            {media.length === 0 ? (
+            {channels.length === 0 ? (
               <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-                Add a medium such as X, Discord, or Instagram.
+                Add a channel such as X, Discord, or Instagram.
               </div>
             ) : (
-              media.map((item) => (
-                <MediumCard
+              channels.map((item) => (
+                <ChannelCard
                   key={item.id}
                   campaign={campaign}
-                  medium={item}
+                  channel={item}
                   owners={owners}
                   availableTags={availableTags}
                   shortUrlBase={shortUrlBase}
@@ -429,7 +454,12 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
             )}
           </section>
         ) : (
-          <div className="space-y-6">
+          <div
+            id="analytics-panel"
+            role="tabpanel"
+            aria-labelledby="analytics-tab"
+            className="space-y-6 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-1 motion-safe:duration-200"
+          >
             <section aria-labelledby="analytics-heading" className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2
@@ -447,8 +477,8 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
                 />
               </div>
               <CampaignScopeFilters
-                media={media}
-                selectedMediaId={selectedMediaId}
+                channels={channels}
+                selectedChannelId={selectedChannelId}
                 selectedLinkId={selectedLinkId}
               />
               <div className="grid gap-3 lg:grid-cols-[1.6fr_1fr]">
@@ -485,10 +515,10 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
               <div className="grid gap-3 sm:grid-cols-2">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm">Media</CardTitle>
+                    <CardTitle className="text-sm">Channel</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <BarList rows={mediaRows} />
+                    <BarList rows={channelRows} />
                   </CardContent>
                 </Card>
                 <Card>
@@ -510,22 +540,23 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
                 <CardContent className="space-y-2">
                   {analytics.unregisteredSources.map((source) => (
                     <div
-                      key={`${source.mediaId}:${source.code}`}
+                      key={`${source.channelId}:${source.code}`}
                       className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background p-3"
                     >
                       <div>
                         <code className="text-sm">
-                          {source.mediaName} / {source.code}
+                          {source.channelName} / {source.code}
                         </code>
                         <span className="ml-2 text-xs text-muted-foreground">
                           {source.clicks} clicks
                         </span>
                       </div>
-                      {media.find((item) => item.id === source.mediaId)?.archivedAt === null ? (
+                      {channels.find((item) => item.id === source.channelId)?.archivedAt ===
+                      null ? (
                         <RegisterSourceDialog
                           code={source.code}
-                          mediaId={source.mediaId}
-                          mediaName={source.mediaName}
+                          channelId={source.channelId}
+                          channelName={source.channelName}
                         />
                       ) : null}
                     </div>
@@ -540,7 +571,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
   );
 }
 
-type DetailMedium = Route.ComponentProps["loaderData"]["media"][number];
+type DetailChannel = Route.ComponentProps["loaderData"]["channels"][number];
 type AssignableLink = Route.ComponentProps["loaderData"]["assignableLinks"][number];
 type DetailCampaign = Route.ComponentProps["loaderData"]["campaign"];
 type AvailableTag = Route.ComponentProps["loaderData"]["availableTags"][number];
@@ -554,30 +585,30 @@ function shortHostOf(base: string): string {
 }
 
 function CampaignScopeFilters({
-  media,
-  selectedMediaId,
+  channels,
+  selectedChannelId,
   selectedLinkId,
 }: {
-  media: DetailMedium[];
-  selectedMediaId: number | null;
+  channels: DetailChannel[];
+  selectedChannelId: number | null;
   selectedLinkId: string | null;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const links = (
-    selectedMediaId ? media.filter((item) => item.id === selectedMediaId) : media
-  ).flatMap((item) => item.links.map((link) => ({ ...link, mediaName: item.name })));
+    selectedChannelId ? channels.filter((item) => item.id === selectedChannelId) : channels
+  ).flatMap((item) => item.links.map((link) => ({ ...link, channelName: item.name })));
 
-  function setScope(name: "mediaId" | "linkId", value: string) {
+  function setScope(name: "channelId" | "linkId", value: string) {
     const next = new URLSearchParams(searchParams);
     if (value) next.set(name, value);
     else next.delete(name);
-    if (name === "mediaId") next.delete("linkId");
+    if (name === "channelId") next.delete("linkId");
     setSearchParams(next, { preventScrollReset: true });
   }
 
   function clearScope() {
     const next = new URLSearchParams(searchParams);
-    next.delete("mediaId");
+    next.delete("channelId");
     next.delete("linkId");
     setSearchParams(next, { preventScrollReset: true });
   }
@@ -585,15 +616,15 @@ function CampaignScopeFilters({
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-muted/20 p-3">
       <div className="min-w-48 space-y-1">
-        <Label htmlFor="analytics-media">Media</Label>
+        <Label htmlFor="analytics-channels">Channel</Label>
         <select
-          id="analytics-media"
-          value={selectedMediaId ?? ""}
-          onChange={(event) => setScope("mediaId", event.target.value)}
+          id="analytics-channels"
+          value={selectedChannelId ?? ""}
+          onChange={(event) => setScope("channelId", event.target.value)}
           className="h-9 w-full rounded-md border bg-background px-3 text-sm"
         >
-          <option value="">All media</option>
-          {media.map((item) => (
+          <option value="">All channels</option>
+          {channels.map((item) => (
             <option key={item.id} value={item.id}>
               {item.name}
               {item.archivedAt !== null ? " (Archived)" : ""}
@@ -612,12 +643,12 @@ function CampaignScopeFilters({
           <option value="">All links</option>
           {links.map((link) => (
             <option key={link.id} value={link.id}>
-              {link.mediaName} / {link.description || link.title || link.slug}
+              {link.channelName} / {link.description || link.title || link.slug}
             </option>
           ))}
         </select>
       </div>
-      {selectedMediaId || selectedLinkId ? (
+      {selectedChannelId || selectedLinkId ? (
         <Button type="button" variant="ghost" size="sm" onClick={clearScope}>
           <X className="size-4" /> Clear scope
         </Button>
@@ -626,22 +657,23 @@ function CampaignScopeFilters({
   );
 }
 
-function MediumCard({
+function ChannelCard({
   campaign,
-  medium,
+  channel,
   owners,
   availableTags,
   shortUrlBase,
   clicks,
 }: {
   campaign: DetailCampaign;
-  medium: DetailMedium;
+  channel: DetailChannel;
   owners: Record<string, UserSummary>;
   availableTags: AvailableTag[];
   shortUrlBase: string;
   clicks: Record<string, number>;
 }) {
   const [open, setOpen] = useState(true);
+
   return (
     <Card className="gap-0 py-0">
       <div className="flex items-center gap-3 px-5 py-4">
@@ -655,34 +687,35 @@ function MediumCard({
             <Radio className="size-4" />
           </span>
           <span className="min-w-0">
-            <span className="font-medium">{medium.name}</span>
-            <span className="ml-2 font-mono text-xs text-muted-foreground">{medium.code}</span>
-            {medium.archivedAt !== null ? (
+            <span className="font-medium">{channel.name}</span>
+            <span className="ml-2 font-mono text-xs text-muted-foreground">{channel.code}</span>
+            {channel.archivedAt !== null ? (
               <Badge variant="secondary" className="ml-2">
                 Archived
               </Badge>
             ) : null}
             <span className="block text-xs text-muted-foreground">
-              {medium.links.length} links · {medium.sources.length} sources
+              {channel.links.length} links · {channel.sources.length} sources
             </span>
           </span>
           <ChevronDown
             className={`ml-auto size-4 transition-transform ${open ? "rotate-180" : ""}`}
           />
         </button>
-        {medium.archivedAt === null ? (
+        {channel.archivedAt === null ? (
           <>
-            <CreateSourceDialog mediaId={medium.id} />
+            <CreateSourceDialog channelId={channel.id} />
             <CreateLinkDialog
               availableTags={availableTags}
-              defaultCampaignMediaId={medium.id}
-              campaignMediaOptions={[
+              defaultCampaignChannelId={channel.id}
+              campaignChannelOptions={[
                 {
-                  id: medium.id,
+                  id: channel.id,
                   campaignName: campaign.name,
                   campaignCode: campaign.code,
-                  mediaName: medium.name,
-                  mediaCode: medium.code,
+                  defaultDestinationUrl: campaign.defaultDestinationUrl,
+                  channelName: channel.name,
+                  channelCode: channel.code,
                 },
               ]}
               shortUrlBase={shortUrlBase}
@@ -695,31 +728,31 @@ function MediumCard({
             />
           </>
         ) : null}
-        <EditMediaDialog medium={medium} />
+        <EditChannelDialog channel={channel} />
         <Form method="post">
           <input
             type="hidden"
             name="intent"
-            value={medium.archivedAt === null ? "archiveMedia" : "restoreMedia"}
+            value={channel.archivedAt === null ? "archiveChannel" : "restoreChannel"}
           />
-          <input type="hidden" name="mediaId" value={medium.id} />
+          <input type="hidden" name="channelId" value={channel.id} />
           <Button type="submit" size="icon" variant="ghost">
-            {medium.archivedAt === null ? (
+            {channel.archivedAt === null ? (
               <Archive className="size-4" />
             ) : (
               <RotateCcw className="size-4" />
             )}
             <span className="sr-only">
-              {medium.archivedAt === null ? "Archive" : "Restore"} {medium.name}
+              {channel.archivedAt === null ? "Archive" : "Restore"} {channel.name}
             </span>
           </Button>
         </Form>
       </div>
       {open ? (
         <div className="border-t px-5 py-4">
-          {medium.sources.length > 0 ? (
+          {channel.sources.length > 0 ? (
             <div className="mb-4 flex flex-wrap gap-2">
-              {medium.sources.map((source) => (
+              {channel.sources.map((source) => (
                 <div
                   key={source.id}
                   className="flex items-center rounded-md border bg-muted/50 pl-2"
@@ -756,11 +789,11 @@ function MediumCard({
               ))}
             </div>
           ) : null}
-          {medium.links.length === 0 ? (
+          {channel.links.length === 0 ? (
             <p className="py-5 text-center text-sm text-muted-foreground">No links assigned yet.</p>
           ) : (
             <div className="space-y-3">
-              {medium.links.map((link) => (
+              {channel.links.map((link) => (
                 <div key={link.id}>
                   <LinkCard
                     item={{
@@ -775,14 +808,14 @@ function MediumCard({
                         campaignId: campaign.id,
                         campaignName: campaign.name,
                         campaignCode: campaign.code,
-                        mediaId: medium.id,
-                        mediaName: medium.name,
-                        mediaCode: medium.code,
+                        channelId: channel.id,
+                        channelName: channel.name,
+                        channelCode: channel.code,
                       },
                     }}
                     shortUrlBase={shortUrlBase}
                     shortHost={shortHostOf(shortUrlBase)}
-                    sources={medium.sources.filter((source) => source.archivedAt === null)}
+                    sources={channel.sources.filter((source) => source.archivedAt === null)}
                   />
                 </div>
               ))}
@@ -794,19 +827,19 @@ function MediumCard({
   );
 }
 
-function CreateMediaDialog({ campaignCode }: { campaignCode: string }) {
+function CreateChannelDialog({ campaignCode }: { campaignCode: string }) {
   return (
     <SimpleCreateDialog
-      title="Add media"
+      title="Add channel"
       description={`Create a channel under ${campaignCode}.`}
-      triggerLabel="Add media"
-      intent="createMedia"
+      triggerLabel="Add channel"
+      intent="createChannel"
       codePlaceholder="x"
     />
   );
 }
 
-function CreateSourceDialog({ mediaId }: { mediaId: number }) {
+function CreateSourceDialog({ channelId }: { channelId: number }) {
   return (
     <SimpleCreateDialog
       title="Add source"
@@ -814,12 +847,12 @@ function CreateSourceDialog({ mediaId }: { mediaId: number }) {
       triggerLabel="Source"
       intent="createSource"
       codePlaceholder="tokyo"
-      hidden={{ mediaId }}
+      hidden={{ channelId }}
     />
   );
 }
 
-function EditMediaDialog({ medium }: { medium: DetailMedium }) {
+function EditChannelDialog({ channel }: { channel: DetailChannel }) {
   const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
   const FetcherForm = fetcher.Form;
   return (
@@ -827,46 +860,46 @@ function EditMediaDialog({ medium }: { medium: DetailMedium }) {
       <DialogTrigger asChild>
         <Button size="icon" variant="ghost">
           <Pencil className="size-4" />
-          <span className="sr-only">Edit {medium.name}</span>
+          <span className="sr-only">Edit {channel.name}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader className="border-b">
-          <DialogTitle>Edit media</DialogTitle>
+          <DialogTitle>Edit channel</DialogTitle>
           <DialogDescription>Change its label, code, or campaign ordering.</DialogDescription>
         </DialogHeader>
         <FetcherForm method="post" className="space-y-4 px-5 pb-5">
-          <input type="hidden" name="intent" value="updateMedia" />
-          <input type="hidden" name="mediaId" value={medium.id} />
+          <input type="hidden" name="intent" value="updateChannel" />
+          <input type="hidden" name="channelId" value={channel.id} />
           <div className="space-y-2">
-            <Label htmlFor={`edit-media-name-${medium.id}`}>Display name</Label>
+            <Label htmlFor={`edit-channel-name-${channel.id}`}>Display name</Label>
             <Input
-              id={`edit-media-name-${medium.id}`}
+              id={`edit-channel-name-${channel.id}`}
               name="name"
-              defaultValue={medium.name}
+              defaultValue={channel.name}
               required
               maxLength={64}
             />
           </div>
           <div className="grid grid-cols-[1fr_7rem] gap-3">
             <div className="space-y-2">
-              <Label htmlFor={`edit-media-code-${medium.id}`}>Code</Label>
+              <Label htmlFor={`edit-channel-code-${channel.id}`}>Code</Label>
               <Input
-                id={`edit-media-code-${medium.id}`}
+                id={`edit-channel-code-${channel.id}`}
                 name="code"
-                defaultValue={medium.code}
+                defaultValue={channel.code}
                 required
                 maxLength={16}
                 className="font-mono"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor={`edit-media-order-${medium.id}`}>Order</Label>
+              <Label htmlFor={`edit-channel-order-${channel.id}`}>Order</Label>
               <Input
-                id={`edit-media-order-${medium.id}`}
+                id={`edit-channel-order-${channel.id}`}
                 name="sortOrder"
                 type="number"
-                defaultValue={medium.sortOrder}
+                defaultValue={channel.sortOrder}
                 required
               />
             </div>
@@ -887,7 +920,7 @@ function EditMediaDialog({ medium }: { medium: DetailMedium }) {
   );
 }
 
-function EditSourceDialog({ source }: { source: DetailMedium["sources"][number] }) {
+function EditSourceDialog({ source }: { source: DetailChannel["sources"][number] }) {
   const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
   const FetcherForm = fetcher.Form;
   return (
@@ -1010,8 +1043,11 @@ function SimpleCreateDialog({
   );
 }
 
-function AssignLinksDialog({ media, links }: { media: DetailMedium[]; links: AssignableLink[] }) {
-  const activeMedia = media.filter((item) => item.archivedAt === null);
+function AssignLinksDialog({
+  channels,
+  links,
+}: { channels: DetailChannel[]; links: AssignableLink[] }) {
+  const activeChannels = channels.filter((item) => item.archivedAt === null);
   const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
   const FetcherForm = fetcher.Form;
   return (
@@ -1024,7 +1060,7 @@ function AssignLinksDialog({ media, links }: { media: DetailMedium[]; links: Ass
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="border-b">
-          <DialogTitle>Assign links to media</DialogTitle>
+          <DialogTitle>Assign links to channels</DialogTitle>
           <DialogDescription>
             Selected links become chapter-owned and are added to this campaign.
           </DialogDescription>
@@ -1032,15 +1068,15 @@ function AssignLinksDialog({ media, links }: { media: DetailMedium[]; links: Ass
         <FetcherForm method="post" className="space-y-4 px-5 pb-5">
           <input type="hidden" name="intent" value="assign" />
           <div className="space-y-2">
-            <Label htmlFor="assign-media">Media</Label>
+            <Label htmlFor="assign-channel">Channel</Label>
             <select
-              id="assign-media"
-              name="mediaId"
+              id="assign-channel"
+              name="channelId"
               required
               className="h-9 w-full rounded-md border bg-background px-3 text-sm"
             >
-              <option value="">Select media</option>
-              {activeMedia.map((item) => (
+              <option value="">Select channel</option>
+              {activeChannels.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name} ({item.code})
                 </option>
@@ -1077,7 +1113,7 @@ function AssignLinksDialog({ media, links }: { media: DetailMedium[]; links: Ass
           ) : null}
           <DialogFooter>
             <SubmitButton
-              disabled={activeMedia.length === 0 || links.length === 0}
+              disabled={activeChannels.length === 0 || links.length === 0}
               pending={pending}
               pendingLabel="Assigning…"
             >
@@ -1092,12 +1128,12 @@ function AssignLinksDialog({ media, links }: { media: DetailMedium[]; links: Ass
 
 function RegisterSourceDialog({
   code,
-  mediaId,
-  mediaName,
+  channelId,
+  channelName,
 }: {
   code: string;
-  mediaId: number;
-  mediaName: string;
+  channelId: number;
+  channelName: string;
 }) {
   const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
   const FetcherForm = fetcher.Form;
@@ -1118,10 +1154,10 @@ function RegisterSourceDialog({
         <FetcherForm method="post" className="space-y-4 px-5 pb-5">
           <input type="hidden" name="intent" value="registerSource" />
           <input type="hidden" name="code" value={code} />
-          <input type="hidden" name="mediaId" value={mediaId} />
+          <input type="hidden" name="channelId" value={channelId} />
           <div className="space-y-2">
-            <Label>Media</Label>
-            <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm">{mediaName}</p>
+            <Label>Channel</Label>
+            <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm">{channelName}</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor={`register-name-${code}`}>Display name</Label>

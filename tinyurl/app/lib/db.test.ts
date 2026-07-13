@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeCampaignCode, toLink } from "./db";
+import { normalizeCampaignCode, toCampaign, toLink } from "./db";
 
 describe("toLink", () => {
   const row = {
@@ -11,7 +11,7 @@ describe("toLink", () => {
     og_image_url: "https://example.com/og.png",
     owner_user_id: "user_abc",
     owner_chapter_id: 42,
-    campaign_media_id: 7,
+    campaign_channel_id: 7,
     visibility: "private" as const,
     created_at: 1700000000,
     updated_at: 1700001000,
@@ -29,7 +29,7 @@ describe("toLink", () => {
       ogImageUrl: "https://example.com/og.png",
       ownerUserId: "user_abc",
       ownerChapterId: 42,
-      campaignMediaId: 7,
+      campaignChannelId: 7,
       visibility: "private",
       createdAt: 1700000000,
       updatedAt: 1700001000,
@@ -44,14 +44,14 @@ describe("toLink", () => {
       description: null,
       og_image_url: null,
       owner_chapter_id: null,
-      campaign_media_id: null,
+      campaign_channel_id: null,
       deleted_at: null,
     });
     expect(link.title).toBeNull();
     expect(link.description).toBeNull();
     expect(link.ogImageUrl).toBeNull();
     expect(link.ownerChapterId).toBeNull();
-    expect(link.campaignMediaId).toBeNull();
+    expect(link.campaignChannelId).toBeNull();
     expect(link.deletedAt).toBeNull();
   });
 });
@@ -67,4 +67,32 @@ describe("normalizeCampaignCode", () => {
       expect(() => normalizeCampaignCode(code)).toThrow(RangeError);
     },
   );
+});
+
+describe("toCampaign", () => {
+  it("maps the default destination URL and channel-era campaign fields", () => {
+    expect(
+      toCampaign({
+        id: 3,
+        name: "DevFest 2026",
+        code: "df26",
+        default_destination_url: "https://example.com/devfest",
+        owner_chapter_id: 42,
+        created_by_user_id: "user_abc",
+        created_at: 1700000000,
+        updated_at: 1700001000,
+        archived_at: null,
+      }),
+    ).toEqual({
+      id: 3,
+      name: "DevFest 2026",
+      code: "df26",
+      defaultDestinationUrl: "https://example.com/devfest",
+      ownerChapterId: 42,
+      createdByUserId: "user_abc",
+      createdAt: 1700000000,
+      updatedAt: 1700001000,
+      archivedAt: null,
+    });
+  });
 });
