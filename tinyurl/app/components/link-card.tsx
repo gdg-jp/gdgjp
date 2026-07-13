@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Check,
   Copy,
   ExternalLink,
   FolderTree,
@@ -7,9 +8,8 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { toast } from "sonner";
 import { SourceCombobox, type SourceOption } from "~/components/campaigns/source-combobox";
 import { campaignSourceUrl } from "~/components/campaigns/source-url";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { Popover, PopoverAnchor, PopoverContent } from "~/components/ui/popover";
 import type { Link as DbLink } from "~/lib/db";
 
 export type LinkOwner = {
@@ -88,15 +89,22 @@ export function LinkCard({
   sources?: SourceOption[];
 }) {
   const [source, setSource] = useState("");
+  const [copyFeedback, setCopyFeedback] = useState<{ url: string } | null>(null);
   const { link, owner, clicks, campaign } = item;
   const favicon = faviconUrl(link.destinationUrl);
   const shortUrl = `${shortUrlBase}/${link.slug}`;
   const shortDisplay = `${shortHost}/${link.slug}`;
 
+  useEffect(() => {
+    if (!copyFeedback) return;
+    const timeout = window.setTimeout(() => setCopyFeedback(null), 3000);
+    return () => window.clearTimeout(timeout);
+  }, [copyFeedback]);
+
   async function copyShort() {
     const url = (source && campaignSourceUrl(shortUrl, source)) || shortUrl;
     await navigator.clipboard.writeText(url);
-    toast.success("Copied to clipboard");
+    setCopyFeedback({ url });
   }
 
   return (
@@ -129,16 +137,42 @@ export function LinkCard({
           {sources ? (
             <SourceCombobox value={source} sources={sources} onValueChange={setSource} />
           ) : null}
-          <button
-            type="button"
-            onClick={copyShort}
-            aria-label="Copy short URL"
-            className={`rounded p-1 text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 ${
-              sources ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-            }`}
+          <Popover
+            open={copyFeedback !== null}
+            onOpenChange={(open) => {
+              if (!open) setCopyFeedback(null);
+            }}
           >
-            <Copy className="size-3.5" />
-          </button>
+            <PopoverAnchor asChild>
+              <button
+                type="button"
+                onClick={copyShort}
+                aria-label={copyFeedback ? "Copied short URL" : "Copy short URL"}
+                className={`rounded p-1 transition-colors transition-opacity focus-visible:opacity-100 ${
+                  copyFeedback
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                } ${sources ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+              >
+                {copyFeedback ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+              </button>
+            </PopoverAnchor>
+            <PopoverContent
+              side="bottom"
+              align="end"
+              sideOffset={6}
+              className="w-72 space-y-1.5 p-3"
+              onOpenAutoFocus={(event) => event.preventDefault()}
+              onCloseAutoFocus={(event) => event.preventDefault()}
+            >
+              <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                <Check className="size-3.5" /> Copied
+              </div>
+              <p className="break-all font-mono text-xs text-muted-foreground" aria-live="polite">
+                {copyFeedback?.url}
+              </p>
+            </PopoverContent>
+          </Popover>
         </div>
         {campaign ? (
           <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
