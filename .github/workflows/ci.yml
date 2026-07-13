@@ -27,11 +27,8 @@ jobs:
       - run: pnpm lint
 
   typecheck:
-    name: Typecheck (${{ matrix.app }})
+    name: Typecheck
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        app: [accounts, tinyurl, wiki, img, scheduler, gdg-lib]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -40,14 +37,23 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @gdgjp/${{ matrix.app }} typecheck
+      - parallel:
+          - name: Typecheck accounts
+            run: pnpm --filter @gdgjp/accounts typecheck
+          - name: Typecheck tinyurl
+            run: pnpm --filter @gdgjp/tinyurl typecheck
+          - name: Typecheck wiki
+            run: pnpm --filter @gdgjp/wiki typecheck
+          - name: Typecheck img
+            run: pnpm --filter @gdgjp/img typecheck
+          - name: Typecheck scheduler
+            run: pnpm --filter @gdgjp/scheduler typecheck
+          - name: Typecheck gdg-lib
+            run: pnpm --filter @gdgjp/gdg-lib typecheck
 
   test:
-    name: Unit tests (${{ matrix.app }})
+    name: Unit tests
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        app: [accounts, tinyurl, wiki, img, scheduler, gdg-lib]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -56,14 +62,23 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @gdgjp/${{ matrix.app }} test
+      - parallel:
+          - name: Test accounts
+            run: pnpm --filter @gdgjp/accounts test
+          - name: Test tinyurl
+            run: pnpm --filter @gdgjp/tinyurl test
+          - name: Test wiki
+            run: pnpm --filter @gdgjp/wiki test
+          - name: Test img
+            run: pnpm --filter @gdgjp/img test
+          - name: Test scheduler
+            run: pnpm --filter @gdgjp/scheduler test
+          - name: Test gdg-lib
+            run: pnpm --filter @gdgjp/gdg-lib test
 
   build:
-    name: Build (${{ matrix.app }})
+    name: Build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        app: [accounts, tinyurl, wiki, img, scheduler]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -72,7 +87,17 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @gdgjp/${{ matrix.app }} build
+      - parallel:
+          - name: Build accounts
+            run: pnpm --filter @gdgjp/accounts build
+          - name: Build tinyurl
+            run: pnpm --filter @gdgjp/tinyurl build
+          - name: Build wiki
+            run: pnpm --filter @gdgjp/wiki build
+          - name: Build img
+            run: pnpm --filter @gdgjp/img build
+          - name: Build scheduler
+            run: pnpm --filter @gdgjp/scheduler build
 
   e2e:
     name: E2E (${{ matrix.app }})

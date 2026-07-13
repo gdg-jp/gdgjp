@@ -14,20 +14,11 @@ env:
 
 jobs:
   deploy:
-    name: Deploy ${{ matrix.app }}
+    name: Deploy
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        app:
-          - accounts
-          - tinyurl
-          - wiki
-          - img
-          - scheduler
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -38,13 +29,55 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Build
-        run: pnpm --filter @gdgjp/${{ matrix.app }} build
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: ${{ matrix.app }}
-          packageManager: pnpm
-          command: deploy
+      - parallel:
+          - name: Build accounts
+            run: pnpm --filter @gdgjp/accounts build
+          - name: Build tinyurl
+            run: pnpm --filter @gdgjp/tinyurl build
+          - name: Build wiki
+            run: pnpm --filter @gdgjp/wiki build
+          - name: Build img
+            run: pnpm --filter @gdgjp/img build
+          - name: Build scheduler
+            run: pnpm --filter @gdgjp/scheduler build
+      - parallel:
+          - name: Deploy accounts to Cloudflare Workers
+            uses: cloudflare/wrangler-action@v3
+            with:
+              apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+              accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+              workingDirectory: accounts
+              packageManager: pnpm
+              command: deploy
+          - name: Deploy tinyurl to Cloudflare Workers
+            uses: cloudflare/wrangler-action@v3
+            with:
+              apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+              accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+              workingDirectory: tinyurl
+              packageManager: pnpm
+              command: deploy
+          - name: Deploy wiki to Cloudflare Workers
+            uses: cloudflare/wrangler-action@v3
+            with:
+              apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+              accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+              workingDirectory: wiki
+              packageManager: pnpm
+              command: deploy
+          - name: Deploy img to Cloudflare Workers
+            uses: cloudflare/wrangler-action@v3
+            with:
+              apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+              accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+              workingDirectory: img
+              packageManager: pnpm
+              command: deploy
+          - name: Deploy scheduler to Cloudflare Workers
+            uses: cloudflare/wrangler-action@v3
+            with:
+              apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+              accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+              workingDirectory: scheduler
+              packageManager: pnpm
+              command: deploy
