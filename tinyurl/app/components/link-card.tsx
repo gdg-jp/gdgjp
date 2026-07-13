@@ -7,8 +7,11 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
+import { SourceCombobox, type SourceOption } from "~/components/campaigns/source-combobox";
+import { campaignSourceUrl } from "~/components/campaigns/source-url";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import {
@@ -77,18 +80,22 @@ export function LinkCard({
   item,
   shortUrlBase,
   shortHost,
+  sources,
 }: {
   item: LinkCardItem;
   shortUrlBase: string;
   shortHost: string;
+  sources?: SourceOption[];
 }) {
+  const [source, setSource] = useState("");
   const { link, owner, clicks, campaign } = item;
   const favicon = faviconUrl(link.destinationUrl);
   const shortUrl = `${shortUrlBase}/${link.slug}`;
   const shortDisplay = `${shortHost}/${link.slug}`;
 
   async function copyShort() {
-    await navigator.clipboard.writeText(shortUrl);
+    const url = (source && campaignSourceUrl(shortUrl, source)) || shortUrl;
+    await navigator.clipboard.writeText(url);
     toast.success("Copied to clipboard");
   }
 
@@ -119,11 +126,16 @@ export function LinkCard({
           >
             {shortDisplay}
           </Link>
+          {sources ? (
+            <SourceCombobox value={source} sources={sources} onValueChange={setSource} />
+          ) : null}
           <button
             type="button"
             onClick={copyShort}
             aria-label="Copy short URL"
-            className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+            className={`rounded p-1 text-muted-foreground transition-opacity hover:bg-accent hover:text-foreground focus-visible:opacity-100 ${
+              sources ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            }`}
           >
             <Copy className="size-3.5" />
           </button>

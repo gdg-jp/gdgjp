@@ -18,7 +18,6 @@ import { Form, Link, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import type { FilterSuggestions } from "~/components/analytics/analytics-filter-button";
 import { AnalyticsFiltersBar } from "~/components/analytics/analytics-filters-bar";
-import { SourceUrlDropdown } from "~/components/campaigns/source-url-dropdown";
 import { useCampaignActionDialog } from "~/components/campaigns/use-campaign-action-dialog";
 import { BarList } from "~/components/charts/bar-list";
 import { HourlyChart } from "~/components/charts/hourly-chart";
@@ -780,32 +779,27 @@ function MediumCard({
           ) : (
             <div className="space-y-3">
               {medium.links.map((link) => (
-                <div key={link.id} className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    <LinkCard
-                      item={{
-                        link,
-                        owner: owners[link.ownerUserId] ?? {
-                          id: link.ownerUserId,
-                          name: "",
-                          email: "",
-                        },
-                        clicks: clicks[link.id] ?? 0,
-                        campaign: {
-                          campaignId: campaign.id,
-                          campaignName: campaign.name,
-                          campaignCode: campaign.code,
-                          mediaId: medium.id,
-                          mediaName: medium.name,
-                          mediaCode: medium.code,
-                        },
-                      }}
-                      shortUrlBase={shortUrlBase}
-                      shortHost={shortHostOf(shortUrlBase)}
-                    />
-                  </div>
-                  <SourceUrlDropdown
-                    shortUrl={`${shortUrlBase}/${link.slug}`}
+                <div key={link.id}>
+                  <LinkCard
+                    item={{
+                      link,
+                      owner: owners[link.ownerUserId] ?? {
+                        id: link.ownerUserId,
+                        name: "",
+                        email: "",
+                      },
+                      clicks: clicks[link.id] ?? 0,
+                      campaign: {
+                        campaignId: campaign.id,
+                        campaignName: campaign.name,
+                        campaignCode: campaign.code,
+                        mediaId: medium.id,
+                        mediaName: medium.name,
+                        mediaCode: medium.code,
+                      },
+                    }}
+                    shortUrlBase={shortUrlBase}
+                    shortHost={shortHostOf(shortUrlBase)}
                     sources={medium.sources.filter((source) => source.archivedAt === null)}
                   />
                 </div>
