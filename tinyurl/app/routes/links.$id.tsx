@@ -959,7 +959,7 @@ function ShareForm({ chapters }: { chapters: UserChapter[] }) {
   const navigation = useNavigation();
   const isSharing =
     navigation.state !== "idle" && navigation.formData?.get("intent") === "addPermission";
-  const [principalType, setPrincipalType] = useState<"user" | "chapter">("user");
+  const [principalType, setPrincipalType] = useState<"user" | "chapter">("chapter");
   const [chapterId, setChapterId] = useState<string>(
     chapters[0] ? String(chapters[0].chapterId) : "",
   );

@@ -153,8 +153,10 @@ function CreateLinkForm({
   const [newTagNames, setNewTagNames] = useState<string[]>([]);
   const [comment, setComment] = useState("");
   const [visibility, setVisibility] = useState<LinkVisibility>("private");
-  const [sharePrincipalType, setSharePrincipalType] = useState<"user" | "chapter">("user");
-  const [sharePrincipalId, setSharePrincipalId] = useState("");
+  const [sharePrincipalType, setSharePrincipalType] = useState<"user" | "chapter">("chapter");
+  const [sharePrincipalId, setSharePrincipalId] = useState(
+    chapters[0] ? String(chapters[0].chapterId) : "",
+  );
   const [shareRole, setShareRole] = useState<"viewer" | "editor">("viewer");
   const [pendingShares, setPendingShares] = useState<PendingShare[]>([]);
   const [campaignChannelId, setCampaignChannelId] = useState(
