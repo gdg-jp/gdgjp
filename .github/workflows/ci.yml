@@ -126,17 +126,20 @@ jobs:
       - name: Create accounts dev vars
         run: |
           cat > accounts/.dev.vars <<EOF
-          CLERK_PUBLISHABLE_KEY=${{ vars.CLERK_PUBLISHABLE_KEY }}
-          CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}
+          IDP_SESSION_SECRET=ci-idp-session-secret
+          TINYURL_CLIENT_SECRET=ci-idp-client-secret
           SCHEDULER_CLIENT_SECRET=ci-idp-client-secret
           WIKI_CLIENT_SECRET=ci-idp-client-secret
+          APP_URL=http://localhost:5173
+          TINYURL_REDIRECT_URLS=http://localhost:5174/api/auth/callback/gdgjp
           EOF
 
           cat > tinyurl/.dev.vars <<EOF
-          CLERK_PUBLISHABLE_KEY=${{ vars.CLERK_PUBLISHABLE_KEY }}
-          CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}
+          RP_SESSION_SECRET=ci-rp-session-secret
+          IDP_CLIENT_SECRET=ci-idp-client-secret
           APP_URL=http://localhost:5174
           ACCOUNTS_URL=http://localhost:5173
+          IDP_URL=http://localhost:5173
           SHORT_URL_BASE=http://localhost:5174
           EOF
 
