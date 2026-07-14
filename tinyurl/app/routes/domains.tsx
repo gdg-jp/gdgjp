@@ -23,7 +23,11 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
-import { createDomainProvider } from "~/lib/domain-provider";
+import {
+  DomainProviderHttpError,
+  type ProviderDomainState,
+  createDomainProvider,
+} from "~/lib/domain-provider";
 import {
   type Domain,
   type DomainMode,
@@ -99,7 +103,15 @@ async function syncDomain(env: Env, domain: Domain): Promise<void> {
   if (domain.kind !== "custom" || domain.deletedAt !== null) return;
   const provider = createDomainProvider(env);
   try {
-    let state = await provider.check(domain.hostname);
+    let state: ProviderDomainState;
+    try {
+      state = await provider.check(domain.hostname);
+    } catch (error) {
+      // A previous attempt can fail before the Vercel domain is created. Once
+      // provisioning configuration is fixed, retrying should create it.
+      if (!(error instanceof DomainProviderHttpError) || error.status !== 404) throw error;
+      state = await provider.create(domain.hostname);
+    }
     if (!state.verified) state = await provider.verify(domain.hostname);
     await updateDomainProviderState(env.DB, domain.id, {
       status: state.verified && state.configured ? "active" : "verifying",

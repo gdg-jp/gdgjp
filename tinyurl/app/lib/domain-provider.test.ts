@@ -58,4 +58,13 @@ describe("VercelDomainProvider", () => {
     await expect(provider.create("example.jp")).rejects.toThrow("domain limit");
     await expect(provider.create("example.jp")).rejects.not.toThrow("super-secret");
   });
+
+  it("exposes the provider response status for retry handling", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ error: { message: "not found" } }, { status: 404 })),
+    );
+    const provider = new VercelDomainProvider("token", "project");
+    await expect(provider.check("missing.example.jp")).rejects.toMatchObject({ status: 404 });
+  });
 });

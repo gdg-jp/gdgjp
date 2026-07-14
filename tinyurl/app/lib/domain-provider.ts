@@ -15,6 +15,16 @@ export interface DomainProvider {
   remove(hostname: string): Promise<void>;
 }
 
+export class DomainProviderHttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "DomainProviderHttpError";
+  }
+}
+
 type VercelVerification = {
   type?: string;
   domain?: string;
@@ -100,7 +110,10 @@ export class VercelDomainProvider implements DomainProvider {
       const body = (await response.json().catch(() => null)) as VercelDomain | null;
       const detail =
         typeof body?.error === "string" ? body.error : body?.error?.message || response.statusText;
-      throw new Error(`Vercel API ${response.status}: ${detail}`);
+      throw new DomainProviderHttpError(
+        response.status,
+        `Vercel API ${response.status}: ${detail}`,
+      );
     }
     if (response.status === 204) return undefined as T;
     return response.json<T>();
