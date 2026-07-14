@@ -12,6 +12,13 @@ type RuntimeEnv = {
   GATEWAY_SHARED_SECRET: string;
 };
 
+type GatewayRequest = {
+  url: string;
+  method?: string;
+  headers: Headers | Record<string, unknown>;
+  body?: unknown;
+};
+
 const CONFIG_TTL_MS = 30_000;
 const CONFIG_CACHE_LIMIT = 200;
 const ORIGIN_TIMEOUT_MS = 8_000;
@@ -31,6 +38,58 @@ const HOP_BY_HOP = new Set([
 
 export function clearConfigCacheForTests(): void {
   configCache.clear();
+}
+
+function requestMethod(request: GatewayRequest): string {
+  return (request.method ?? "GET").toUpperCase();
+}
+
+function headerValue(value: unknown): string | null {
+  if (Array.isArray(value)) return value.map(String).join(", ");
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  return null;
+}
+
+function requestHeader(request: GatewayRequest, name: string): string | null {
+  if (typeof (request.headers as Headers).get === "function") {
+    return (request.headers as Headers).get(name);
+  }
+  const entry = Object.entries(request.headers).find(
+    ([key]) => key.toLowerCase() === name.toLowerCase(),
+  );
+  return headerValue(entry?.[1]);
+}
+
+function requestHeaderEntries(request: GatewayRequest): Array<[string, string]> {
+  if (typeof (request.headers as Headers).entries === "function") {
+    return [...(request.headers as Headers).entries()];
+  }
+  return Object.entries(request.headers).flatMap(([name, value]) => {
+    const normalized = headerValue(value);
+    return normalized === null ? [] : [[name, normalized]];
+  });
+}
+
+function requestBody(request: GatewayRequest): BodyInit | undefined {
+  const body = request.body;
+  if (body === null || body === undefined) return undefined;
+  if (
+    typeof body === "string" ||
+    body instanceof ArrayBuffer ||
+    body instanceof Blob ||
+    body instanceof FormData ||
+    body instanceof URLSearchParams ||
+    body instanceof ReadableStream
+  ) {
+    return body;
+  }
+  if (ArrayBuffer.isView(body)) {
+    const copy = new Uint8Array(body.byteLength);
+    copy.set(new Uint8Array(body.buffer, body.byteOffset, body.byteLength));
+    return copy.buffer;
+  }
+  return JSON.stringify(body);
 }
 
 function runtimeEnv(): RuntimeEnv {
@@ -61,11 +120,12 @@ async function internalRequest(
   path: "/api/internal/gateway/config" | "/api/internal/gateway/resolve",
   hostname: string,
   search: URLSearchParams,
-  originalRequest?: Request,
+  originalRequest?: GatewayRequest,
+  originalUrl?: string,
 ): Promise<Response> {
   const env = runtimeEnv();
   const timestamp = String(Math.floor(Date.now() / 1000));
-  const method = originalRequest?.method === "HEAD" ? "HEAD" : "GET";
+  const method = originalRequest && requestMethod(originalRequest) === "HEAD" ? "HEAD" : "GET";
   search.set("hostname", hostname);
   const url = new URL(path, env.TINYURL_INTERNAL_BASE);
   url.search = search.toString();
@@ -78,10 +138,10 @@ async function internalRequest(
     ),
   });
   if (originalRequest) {
-    headers.set("x-gdg-original-url", originalRequest.url);
-    const userAgent = originalRequest.headers.get("user-agent");
+    headers.set("x-gdg-original-url", originalUrl ?? originalRequest.url);
+    const userAgent = requestHeader(originalRequest, "user-agent");
     if (userAgent) headers.set("user-agent", userAgent);
-    const referer = originalRequest.headers.get("referer");
+    const referer = requestHeader(originalRequest, "referer");
     if (referer) headers.set("referer", referer);
   }
   return fetch(url, { method, headers });
@@ -162,9 +222,9 @@ export async function validateUpstreamOrigin(origin: string, publicHostname: str
   return url;
 }
 
-function forwardedHeaders(request: Request, hostname: string): Headers {
+function forwardedHeaders(request: GatewayRequest, hostname: string): Headers {
   const headers = new Headers();
-  for (const [name, value] of request.headers) {
+  for (const [name, value] of requestHeaderEntries(request)) {
     if (!HOP_BY_HOP.has(name.toLowerCase()) && !name.toLowerCase().startsWith("x-gdg-")) {
       headers.set(name, value);
     }
@@ -175,19 +235,21 @@ function forwardedHeaders(request: Request, hostname: string): Headers {
 }
 
 async function resolveShortLink(
-  request: Request,
+  request: GatewayRequest,
   hostname: string,
   slug: string,
+  originalUrl: string,
 ): Promise<Response> {
   return internalRequest(
     "/api/internal/gateway/resolve",
     hostname,
     new URLSearchParams({ slug }),
     request,
+    originalUrl,
   );
 }
 
-function publicRequestUrl(request: Request): URL | null {
+function publicRequestUrl(request: GatewayRequest): URL | null {
   try {
     const absolute = new URL(request.url);
     if (absolute.protocol === "http:" || absolute.protocol === "https:") return absolute;
@@ -195,8 +257,8 @@ function publicRequestUrl(request: Request): URL | null {
     // Vercel's Node runtime can pass only the request target (for example `/`).
   }
 
-  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
-  const host = forwardedHost || request.headers.get("host")?.trim();
+  const forwardedHost = requestHeader(request, "x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwardedHost || requestHeader(request, "host")?.trim();
   if (!host || !request.url.startsWith("/") || request.url.startsWith("//")) return null;
   try {
     return new URL(request.url, `https://${host}`);
@@ -205,10 +267,11 @@ function publicRequestUrl(request: Request): URL | null {
   }
 }
 
-export async function handleGatewayRequest(request: Request): Promise<Response> {
+export async function handleGatewayRequest(request: GatewayRequest): Promise<Response> {
   const publicUrl = publicRequestUrl(request);
   if (!publicUrl) return new Response("Invalid Request URL", { status: 400 });
   const hostname = publicUrl.hostname.toLowerCase();
+  const method = requestMethod(request);
   let config: DomainConfig | null;
   try {
     config = await getConfig(hostname);
@@ -219,10 +282,10 @@ export async function handleGatewayRequest(request: Request): Promise<Response> 
 
   const slug = publicUrl.pathname.slice(1).split("/")[0] ?? "";
   if (config.mode === "short-only") {
-    if (request.method !== "GET" && request.method !== "HEAD") {
+    if (method !== "GET" && method !== "HEAD") {
       return new Response("Method Not Allowed", { status: 405, headers: { Allow: "GET, HEAD" } });
     }
-    const resolved = await resolveShortLink(request, hostname, slug);
+    const resolved = await resolveShortLink(request, hostname, slug, publicUrl.toString());
     return resolved.status === 204 ? new Response("Not Found", { status: 404 }) : resolved;
   }
   if (!config.upstreamOrigin) return new Response("Invalid domain configuration", { status: 502 });
@@ -239,23 +302,24 @@ export async function handleGatewayRequest(request: Request): Promise<Response> 
   const timeout = setTimeout(() => controller.abort(), ORIGIN_TIMEOUT_MS);
   let originResponse: Response;
   try {
+    const body = method === "GET" || method === "HEAD" ? undefined : requestBody(request);
     originResponse = await fetch(upstream, {
-      method: request.method,
+      method,
       headers: forwardedHeaders(request, hostname),
-      body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
+      body,
       redirect: "manual",
       signal: controller.signal,
-      duplex: request.body ? "half" : undefined,
+      duplex: body ? "half" : undefined,
     } as RequestInit & { duplex?: "half" });
   } catch {
     return new Response("Bad Gateway", { status: 502 });
   } finally {
     clearTimeout(timeout);
   }
-  if (originResponse.status !== 404 || (request.method !== "GET" && request.method !== "HEAD")) {
+  if (originResponse.status !== 404 || (method !== "GET" && method !== "HEAD")) {
     return originResponse;
   }
-  const resolved = await resolveShortLink(request, hostname, slug);
+  const resolved = await resolveShortLink(request, hostname, slug, publicUrl.toString());
   return resolved.status === 204 ? originResponse : resolved;
 }
 

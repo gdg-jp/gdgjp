@@ -45,14 +45,47 @@ describe("gateway", () => {
         throw new Error(`Unexpected request to ${url}`);
       }),
     );
-    const request = new Request("https://placeholder.invalid/", {
+    const request = {
+      url: "/",
+      method: "GET",
       headers: { "x-forwarded-host": "custom.example" },
-    });
-    Object.defineProperty(request, "url", { value: "/" });
+    };
 
     const response = await handleGatewayRequest(request);
     expect(response.status).toBe(404);
     expect(await response.text()).toBe("Not Found");
+  });
+
+  it("forwards plain-object headers from the Vercel Node runtime", async () => {
+    let forwardedUserAgent: string | null = null;
+    let forwardedRequestId: string | null = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input));
+        if (url.pathname.endsWith("/config")) {
+          return config("origin-first", "https://origin.example");
+        }
+        const headers = new Headers(init?.headers);
+        forwardedUserAgent = headers.get("user-agent");
+        forwardedRequestId = headers.get("x-request-id");
+        return new Response("origin", { status: 200 });
+      }),
+    );
+
+    const response = await handleGatewayRequest({
+      url: "/about",
+      method: "GET",
+      headers: {
+        host: "custom.example",
+        "user-agent": "vercel-node-test",
+        "x-request-id": "request-1",
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(forwardedUserAgent).toBe("vercel-node-test");
+    expect(forwardedRequestId).toBe("request-1");
   });
 
   it("falls back only when a GET origin returns 404", async () => {
