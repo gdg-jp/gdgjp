@@ -122,7 +122,6 @@ jobs:
   e2e:
     name: E2E (${{ matrix.app }})
     runs-on: ubuntu-latest
-    environment: Development
     strategy:
       matrix:
         # wiki's inherited e2e suite (tests/e2e/access-control.spec.ts) seeds
