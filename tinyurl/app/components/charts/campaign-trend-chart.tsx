@@ -1,14 +1,6 @@
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { AnalyticsAreaChart, formatAnalyticsTick } from "~/components/charts/analytics-area-chart";
 import { Button } from "~/components/ui/button";
 import type { CampaignTrendClick, Granularity } from "~/lib/analytics-engine";
 import {
@@ -28,15 +20,6 @@ const BREAKDOWN_OPTIONS: Array<{ value: CampaignTrendDimension; label: string }>
   { value: "source", label: "Source" },
   { value: "link", label: "Links" },
 ];
-
-function formatTick(value: string, granularity: Granularity): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  if (granularity === "hour") {
-    return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit" });
-  }
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
 
 export function CampaignTrendChart({
   rows,
@@ -87,7 +70,13 @@ export function CampaignTrendChart({
     },
     { hour: "", clicks: 0 },
   );
-  const formatter = (value: string) => formatTick(value, granularity);
+  const formatter = (value: string) => formatAnalyticsTick(value, granularity);
+  const chartSeries = series.map((item, index) => ({
+    key: item.key,
+    label: item.label,
+    color: COLORS[index % COLORS.length],
+    fillOpacity: series.length > 1 ? 0.18 : 0.12,
+  }));
 
   return (
     <div className="space-y-3">
@@ -100,59 +89,17 @@ export function CampaignTrendChart({
         </div>
       ) : (
         <>
-          <ResponsiveContainer width="100%" height={height}>
-            <AreaChart data={displayPoints} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-              <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey="hour"
-                tickFormatter={formatter}
-                tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
-                stroke="var(--color-border)"
-                tickLine={false}
-                minTickGap={48}
-              />
-              <YAxis
-                allowDecimals={metric === "share"}
-                domain={metric === "share" ? [0, 100] : undefined}
-                tickFormatter={metric === "share" ? (value) => `${value}%` : undefined}
-                tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
-                stroke="var(--color-border)"
-                axisLine={false}
-                tickLine={false}
-                width={metric === "share" ? 42 : 32}
-              />
-              <Tooltip
-                labelFormatter={formatter}
-                formatter={(value, name) => [
-                  metric === "share"
-                    ? `${Number(value ?? 0).toFixed(1)}%`
-                    : Number(value ?? 0).toLocaleString(),
-                  series.find((item) => item.key === String(name))?.label ?? String(name),
-                ]}
-                cursor={{ stroke: "var(--color-border)", strokeDasharray: "3 3" }}
-                contentStyle={{
-                  background: "var(--color-popover)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "0.5rem",
-                  fontSize: 12,
-                }}
-              />
-              {series.map((item, index) => (
-                <Area
-                  key={item.key}
-                  type="monotone"
-                  dataKey={item.key}
-                  name={item.key}
-                  stackId={metric === "share" && series.length > 1 ? "campaign" : undefined}
-                  stroke={COLORS[index % COLORS.length]}
-                  strokeWidth={2}
-                  fill={COLORS[index % COLORS.length]}
-                  fillOpacity={series.length > 1 ? 0.18 : 0.12}
-                  activeDot={{ r: 4, strokeWidth: 0 }}
-                />
-              ))}
-            </AreaChart>
-          </ResponsiveContainer>
+          <AnalyticsAreaChart
+            data={displayPoints}
+            granularity={granularity}
+            height={height}
+            series={chartSeries}
+            percentage={metric === "share"}
+            stackSeries={metric === "share" && series.length > 1}
+            formatValue={(value) =>
+              metric === "share" ? `${value.toFixed(1)}%` : value.toLocaleString()
+            }
+          />
           {series.length > 1 ? (
             <ul className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-xs text-muted-foreground">
               {series.map((item, index) => (

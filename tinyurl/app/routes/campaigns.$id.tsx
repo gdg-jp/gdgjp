@@ -17,6 +17,12 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Await, Form, Link, useLocation, useNavigation, useSearchParams } from "react-router";
 import type { ShouldRevalidateFunctionArgs } from "react-router";
+import {
+  AnalyticsBarListCard,
+  AnalyticsBarListSkeleton,
+  AnalyticsClicksChartCard,
+  AnalyticsDimensionCards,
+} from "~/components/analytics/analytics-breakdown-cards";
 import type { FilterSuggestions } from "~/components/analytics/analytics-filter-button";
 import { AnalyticsFiltersBar } from "~/components/analytics/analytics-filters-bar";
 import { CampaignConversionAttributionPanel } from "~/components/campaigns/conversion-attribution";
@@ -26,7 +32,6 @@ import {
   type ConnpassImportDraft,
 } from "~/components/campaigns/participant-import-wizard";
 import { useCampaignActionDialog } from "~/components/campaigns/use-campaign-action-dialog";
-import { BarList } from "~/components/charts/bar-list";
 import { CampaignTrendChart, type TrendMetric } from "~/components/charts/campaign-trend-chart";
 import { CreateLinkDialog } from "~/components/create-link-dialog";
 import { DashboardPage, DashboardPageHeader } from "~/components/dashboard-page";
@@ -35,7 +40,7 @@ import { LinkCard } from "~/components/link-card";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +64,7 @@ import { SubmitButton } from "~/components/ui/submit-button";
 import {
   type TimeBucketUnit,
   type TopBlob,
+  type TopRow,
   clicksByLinkId,
   clicksByLinkIdAndSource,
   conversionClicksByHour,
@@ -212,15 +218,15 @@ export async function loader(args: Route.LoaderArgs) {
     for (const [linkId, count] of resolved) counts[linkId] = count;
     return counts;
   });
-  const dimensionSuggestions =
+  const dimensionRows =
     linkIds.length === 0
-      ? Promise.resolve([] as Array<readonly [TopBlob, string[]]>)
+      ? Promise.resolve([] as Array<readonly [TopBlob, TopRow[]]>)
       : Promise.all(
           CAMPAIGN_FILTER_DIMENSIONS.map(async (dimension) => {
             const rows = await topByBlob(env, dimension, linkIds, 10, opts).catch(
               fallback(`filter:${dimension}`, []),
             );
-            return [dimension, filterSuggestionNames(rows)] as const;
+            return [dimension, rows] as const;
           }),
         );
   const analytics = Promise.all([
@@ -237,15 +243,33 @@ export async function loader(args: Route.LoaderArgs) {
     linkIds.length === 0
       ? Promise.resolve([])
       : conversionClicksByHour(env, linkIds, opts).catch(fallback("conversion", [])),
-    dimensionSuggestions,
+    dimensionRows,
   ]).then(([total, resolvedClicks, sourceClicks, trend, conversionClicks, dimensions]) => {
     const sourceBreakdown = campaignSourceBreakdown(channelsInScope, sourceClicks);
+    const breakdowns: Record<TopBlob, TopRow[]> = {
+      slug: [],
+      country: [],
+      region: [],
+      city: [],
+      continent: [],
+      referer: [],
+      browser: [],
+      os: [],
+      device: [],
+      source: [],
+      ...Object.fromEntries(dimensions),
+    };
     const sourceSuggestions = new Set(
       channelsInScope.flatMap((item) => item.sources.map((source) => source.code)),
     );
     for (const row of sourceClicks) if (row.source) sourceSuggestions.add(row.source);
     const suggestions: FilterSuggestions = {
-      ...Object.fromEntries(dimensions),
+      ...Object.fromEntries(
+        Object.entries(breakdowns).map(([dimension, rows]) => [
+          dimension,
+          filterSuggestionNames(rows),
+        ]),
+      ),
       source: [...sourceSuggestions].sort(),
       slug: channelsInScope.flatMap((item) => item.links.map((link) => link.slug)),
     };
@@ -255,6 +279,14 @@ export async function loader(args: Route.LoaderArgs) {
       clicks: resolvedClicks,
       topSources: sourceBreakdown.rows,
       unregisteredSources: sourceBreakdown.unregistered,
+      referrers: breakdowns.referer,
+      countries: breakdowns.country,
+      cities: breakdowns.city,
+      regions: breakdowns.region,
+      continents: breakdowns.continent,
+      devices: breakdowns.device,
+      browsers: breakdowns.browser,
+      oses: breakdowns.os,
       granularity: requestedBucket
         ? granularityForTimeBucket(requestedBucket)
         : granularityFor(parsed.window),
@@ -648,16 +680,11 @@ function CampaignAnalyticsSkeleton() {
         <Skeleton className="h-80 rounded-xl" />
         <Skeleton className="h-80 rounded-xl" />
       </div>
-    </div>
-  );
-}
-
-function AnalyticsBarListSkeleton() {
-  return (
-    <div className="space-y-3" aria-label="Loading analytics data">
-      {["first", "second", "third", "fourth", "fifth"].map((key) => (
-        <Skeleton key={key} className="h-7 w-full" />
-      ))}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-80 rounded-xl" />
+      </div>
     </div>
   );
 }
@@ -872,107 +899,59 @@ function CampaignAnalyticsPanel({
           searchParams={scopeSearchParams}
           pending={scopePending}
         />
-        <Card ref={chartRef} className="min-w-0">
-          <CardHeader className="border-b">
-            <CardTitle className="flex items-end justify-between gap-4">
-              <span className="text-sm font-medium text-muted-foreground">Clicks</span>
-              {analyticsPending ? (
-                <Skeleton className="h-9 w-20" />
-              ) : (
-                <span className="text-3xl font-semibold tabular-nums">
-                  {analytics.total.toLocaleString()}
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="min-w-0 px-3 sm:px-6">
-            {analyticsPending ? (
-              <Skeleton className="h-[260px] w-full" />
-            ) : (
-              <CampaignTrendChart
-                rows={analytics.trend}
-                channels={channelsInScope}
-                height={260}
-                granularity={analytics.granularity}
-                bucketLabel={analytics.bucketLabel}
-                intervalControl={
-                  <CampaignGraphInterval value={bucket} pending={analyticsPending} />
-                }
-                breakdown={breakdown}
-                metric={trendMetric}
-                focusKey={graphFocus?.key}
-                focusLabel={graphFocus?.label}
-                onBreakdownChange={changeBreakdown}
-                onMetricChange={setTrendMetric}
-                onClearFocus={() => setGraphFocus(null)}
-              />
-            )}
-          </CardContent>
-        </Card>
+        <AnalyticsClicksChartCard ref={chartRef} total={analytics.total} pending={analyticsPending}>
+          {analyticsPending ? (
+            <Skeleton className="h-[260px] w-full" />
+          ) : (
+            <CampaignTrendChart
+              rows={analytics.trend}
+              channels={channelsInScope}
+              height={260}
+              granularity={analytics.granularity}
+              bucketLabel={analytics.bucketLabel}
+              intervalControl={<CampaignGraphInterval value={bucket} pending={analyticsPending} />}
+              breakdown={breakdown}
+              metric={trendMetric}
+              focusKey={graphFocus?.key}
+              focusLabel={graphFocus?.label}
+              onBreakdownChange={changeBreakdown}
+              onMetricChange={setTrendMetric}
+              onClearFocus={() => setGraphFocus(null)}
+            />
+          )}
+        </AnalyticsClicksChartCard>
         <div className="grid min-w-0 gap-3 md:grid-cols-3">
-          <Card className="min-w-0">
-            <CardHeader className="gap-1">
-              <CardTitle className="text-sm">Channel</CardTitle>
-              <CardDescription className="text-xs">
-                Select a row to isolate its trend.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="min-w-0 px-4 sm:px-6">
-              {analyticsPending ? (
-                <AnalyticsBarListSkeleton />
-              ) : (
-                <BarList
-                  rows={channelRows}
-                  height={260}
-                  selectedKey={breakdown === "channel" ? graphFocus?.key : undefined}
-                  onSelect={(row) => selectGraphItem("channel", row)}
-                />
-              )}
-            </CardContent>
-          </Card>
-          <Card className="min-w-0">
-            <CardHeader className="gap-1">
-              <CardTitle className="text-sm">Sources</CardTitle>
-              <CardDescription className="text-xs">
-                Select a row to isolate its trend.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="min-w-0 px-4 sm:px-6">
-              {analyticsPending ? (
-                <AnalyticsBarListSkeleton />
-              ) : (
-                <BarList
-                  rows={analytics.topSources}
-                  emptyLabel="No source data yet."
-                  height={260}
-                  selectedKey={breakdown === "source" ? graphFocus?.key : undefined}
-                  onSelect={(row) => selectGraphItem("source", row)}
-                />
-              )}
-            </CardContent>
-          </Card>
-          <Card className="min-w-0">
-            <CardHeader className="gap-1">
-              <CardTitle className="text-sm">Links</CardTitle>
-              <CardDescription className="text-xs">
-                Select a row to isolate its trend.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="min-w-0 px-4 sm:px-6">
-              {analyticsPending ? (
-                <AnalyticsBarListSkeleton />
-              ) : (
-                <BarList
-                  rows={linkRows}
-                  height={260}
-                  pending={scopePending}
-                  selectedKey={breakdown === "link" ? graphFocus?.key : undefined}
-                  onSelect={(row) => selectGraphItem("link", row)}
-                />
-              )}
-            </CardContent>
-          </Card>
+          <AnalyticsBarListCard
+            title="Channel"
+            description="Select a row to isolate its trend."
+            rows={channelRows}
+            loading={analyticsPending}
+            loadingContent={<AnalyticsBarListSkeleton />}
+            selectedKey={breakdown === "channel" ? graphFocus?.key : undefined}
+            onSelect={(row) => selectGraphItem("channel", row)}
+          />
+          <AnalyticsBarListCard
+            title="Sources"
+            description="Select a row to isolate its trend."
+            rows={analytics.topSources}
+            emptyLabel="No source data yet."
+            loading={analyticsPending}
+            loadingContent={<AnalyticsBarListSkeleton />}
+            selectedKey={breakdown === "source" ? graphFocus?.key : undefined}
+            onSelect={(row) => selectGraphItem("source", row)}
+          />
+          <AnalyticsBarListCard
+            title="Links"
+            description="Select a row to isolate its trend."
+            rows={linkRows}
+            pending={scopePending}
+            loading={analyticsPending}
+            loadingContent={<AnalyticsBarListSkeleton />}
+            selectedKey={breakdown === "link" ? graphFocus?.key : undefined}
+            onSelect={(row) => selectGraphItem("link", row)}
+          />
         </div>
+        <AnalyticsDimensionCards analytics={analytics} />
         <CampaignConversionAttributionPanel analytics={analytics.conversion} />
       </section>
 

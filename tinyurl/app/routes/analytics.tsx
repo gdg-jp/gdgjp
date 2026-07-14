@@ -1,14 +1,20 @@
-import { ExternalLink, Globe, Laptop, Link as LinkIcon, Smartphone, Tablet, X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 import { Suspense } from "react";
-import { Await, Link } from "react-router";
+import { Await, Link, useLocation, useNavigation, useSearchParams } from "react-router";
+import {
+  AnalyticsBarListCard,
+  AnalyticsBarListSkeleton,
+  AnalyticsClicksChartCard,
+  AnalyticsDimensionCards,
+} from "~/components/analytics/analytics-breakdown-cards";
 import type { FilterSuggestions } from "~/components/analytics/analytics-filter-button";
 import { AnalyticsFiltersBar } from "~/components/analytics/analytics-filters-bar";
 import { HourlyChart } from "~/components/charts/hourly-chart";
-import { type BarTab, TabbedBarCard } from "~/components/charts/tabbed-bar-card";
 import { DashboardPage, DashboardPageHeader } from "~/components/dashboard-page";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
+import { Skeleton } from "~/components/ui/skeleton";
 import {
   type Granularity,
   type QueryOpts,
@@ -18,7 +24,11 @@ import {
   topByBlob,
   totalClicks,
 } from "~/lib/analytics-engine";
-import { parseAnalyticsParams } from "~/lib/analytics-filters";
+import {
+  type DimensionFilters,
+  parseAnalyticsParams,
+  serializeAnalyticsParams,
+} from "~/lib/analytics-filters";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
 import {
   getLinkById,
@@ -194,168 +204,115 @@ export async function loader(args: Route.LoaderArgs) {
   };
 }
 
-const REGIONAL_OFFSET = 0x1f1e6 - "A".charCodeAt(0);
+function AnalyticsContent({
+  data,
+  filters,
+  pending,
+}: {
+  data: AnalyticsData;
+  filters: DimensionFilters;
+  pending: boolean;
+}) {
+  const [searchParams, setSearchParams] = useSearchParams();
 
-function countryFlag(code: string): string {
-  const trimmed = code.trim().toUpperCase();
-  if (!/^[A-Z]{2}$/.test(trimmed)) return "🌐";
-  return [...trimmed].map((c) => String.fromCodePoint(c.charCodeAt(0) + REGIONAL_OFFSET)).join("");
-}
-
-function CountryIcon({ row }: { row: TopRow }) {
-  return <span className="text-base leading-none">{countryFlag(row.name)}</span>;
-}
-
-function ReferrerIcon({ row }: { row: TopRow }) {
-  if (!row.name || row.name === "(unknown)") {
-    return <LinkIcon className="size-4 text-muted-foreground" />;
+  function isolateTrend(dimension: "source" | "slug", row: TopRow) {
+    if (row.name === "(unknown)") return;
+    const params = serializeAnalyticsParams(searchParams, {
+      filters: { ...filters, [dimension]: [row.name] },
+    });
+    setSearchParams(params, { preventScrollReset: true });
   }
-  try {
-    const host = new URL(row.name).hostname || row.name;
-    return host ? (
-      <Globe className="size-4 text-muted-foreground" />
-    ) : (
-      <LinkIcon className="size-4 text-muted-foreground" />
-    );
-  } catch {
-    return <LinkIcon className="size-4 text-muted-foreground" />;
-  }
-}
-
-function DeviceIcon({ row }: { row: TopRow }) {
-  const name = (row.name ?? "").toLowerCase();
-  if (name.includes("mobile") || name.includes("phone")) {
-    return <Smartphone className="size-4 text-muted-foreground" />;
-  }
-  if (name.includes("tablet")) {
-    return <Tablet className="size-4 text-muted-foreground" />;
-  }
-  return <Laptop className="size-4 text-muted-foreground" />;
-}
-
-function ClicksTile({ total }: { total: number }) {
-  return (
-    <div className="flex max-w-xs flex-col gap-2 border-b-2 border-foreground pb-4">
-      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <span className="size-2 rounded-sm bg-gdg-blue" aria-hidden />
-        Clicks
-      </div>
-      <p className="text-3xl font-medium tracking-tight">{total.toLocaleString()}</p>
-    </div>
-  );
-}
-
-function AnalyticsContent({ data }: { data: AnalyticsData }) {
-  const linksTabs: BarTab[] = [
-    { key: "links", label: "Short Links", rows: data.slugs, emptyLabel: "No clicks yet." },
-    { key: "sources", label: "Sources", rows: data.sources, emptyLabel: "No sources yet." },
-  ];
-
-  const referrerTabs: BarTab[] = [
-    {
-      key: "referrers",
-      label: "Referrers",
-      rows: data.referrers,
-      emptyLabel: "No referrers yet.",
-      renderIcon: (r) => <ReferrerIcon row={r} />,
-    },
-  ];
-
-  const locationTabs: BarTab[] = [
-    {
-      key: "countries",
-      label: "Countries",
-      rows: data.countries,
-      renderIcon: (r) => <CountryIcon row={r} />,
-    },
-    { key: "cities", label: "Cities", rows: data.cities },
-    { key: "regions", label: "Regions", rows: data.regions },
-    { key: "continents", label: "Continents", rows: data.continents },
-  ];
-
-  const deviceTabs: BarTab[] = [
-    {
-      key: "devices",
-      label: "Devices",
-      rows: data.devices,
-      renderIcon: (r) => <DeviceIcon row={r} />,
-    },
-    { key: "browsers", label: "Browsers", rows: data.browsers },
-    { key: "os", label: "OS", rows: data.oses },
-  ];
 
   return (
     <>
-      <Card className="gap-0 py-0">
-        <div className="border-b px-6 pt-5">
-          <ClicksTile total={data.total} />
-        </div>
-        <div className="px-4 pb-4 pt-6 sm:px-6">
-          <HourlyChart data={data.hourly} granularity={data.granularity} />
-        </div>
-      </Card>
+      <AnalyticsClicksChartCard total={data.total} pending={pending}>
+        {pending ? (
+          <Skeleton className="h-[260px] w-full" />
+        ) : (
+          <HourlyChart data={data.hourly} height={260} granularity={data.granularity} />
+        )}
+      </AnalyticsClicksChartCard>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <TabbedBarCard tabs={linksTabs} tone="amber" />
-        <TabbedBarCard tabs={referrerTabs} tone="rose" />
-        <TabbedBarCard tabs={locationTabs} tone="blue" />
-        <TabbedBarCard tabs={deviceTabs} tone="emerald" />
+      <div className="grid min-w-0 gap-3 md:grid-cols-2">
+        <AnalyticsBarListCard
+          title="Sources"
+          description="Select a row to isolate its trend."
+          rows={data.sources}
+          emptyLabel="No source data yet."
+          loading={pending}
+          loadingContent={<AnalyticsBarListSkeleton />}
+          selectedKey={filters.source?.length === 1 ? filters.source[0] : undefined}
+          onSelect={(row) => isolateTrend("source", row)}
+        />
+        <AnalyticsBarListCard
+          title="Links"
+          description="Select a row to isolate its trend."
+          rows={data.slugs}
+          emptyLabel="No clicks yet."
+          loading={pending}
+          loadingContent={<AnalyticsBarListSkeleton />}
+          selectedKey={filters.slug?.length === 1 ? filters.slug[0] : undefined}
+          onSelect={(row) => isolateTrend("slug", row)}
+        />
       </div>
+      <AnalyticsDimensionCards analytics={data} />
     </>
   );
 }
 
-function SkeletonBarCard() {
-  return (
-    <Card className="gap-0 py-0" aria-hidden>
-      <div className="flex items-center justify-between gap-3 border-b px-5 pt-4">
-        <div className="flex items-center gap-3 pb-3">
-          <div className="h-4 w-20 animate-pulse rounded bg-muted" />
-          <div className="h-4 w-16 animate-pulse rounded bg-muted" />
-        </div>
-        <div className="h-3 w-10 animate-pulse rounded bg-muted pb-3" />
-      </div>
-      <div className="flex flex-col gap-3 px-5 py-4" style={{ minHeight: 272 }}>
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div
-            // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
-            key={i}
-            className="h-6 animate-pulse rounded bg-muted"
-            style={{ width: `${90 - i * 12}%` }}
-          />
-        ))}
-      </div>
-    </Card>
-  );
-}
-
 function AnalyticsSkeleton() {
+  const emptyDimensions = {
+    referrers: [],
+    countries: [],
+    cities: [],
+    regions: [],
+    continents: [],
+    devices: [],
+    browsers: [],
+    oses: [],
+  };
+
   return (
     <>
-      <Card className="gap-0 py-0" aria-hidden>
-        <div className="border-b px-6 pt-5">
-          <div className="flex max-w-xs flex-col gap-2 border-b-2 border-foreground pb-4">
-            <div className="h-4 w-16 animate-pulse rounded bg-muted" />
-            <div className="h-8 w-24 animate-pulse rounded bg-muted" />
-          </div>
-        </div>
-        <div className="px-4 pb-4 pt-6 sm:px-6">
-          <div className="h-64 w-full animate-pulse rounded bg-muted" />
-        </div>
-      </Card>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <SkeletonBarCard />
-        <SkeletonBarCard />
-        <SkeletonBarCard />
-        <SkeletonBarCard />
+      <AnalyticsClicksChartCard total={0} pending>
+        <Skeleton className="h-[260px] w-full" />
+      </AnalyticsClicksChartCard>
+      <div className="grid min-w-0 gap-3 md:grid-cols-2">
+        <AnalyticsBarListCard
+          title="Sources"
+          description="Select a row to isolate its trend."
+          rows={[]}
+          loading
+          loadingContent={<AnalyticsBarListSkeleton />}
+        />
+        <AnalyticsBarListCard
+          title="Links"
+          description="Select a row to isolate its trend."
+          rows={[]}
+          loading
+          loadingContent={<AnalyticsBarListSkeleton />}
+        />
       </div>
+      <AnalyticsDimensionCards analytics={emptyDimensions} loading />
     </>
   );
 }
 
 export default function Analytics({ loaderData }: Route.ComponentProps) {
-  const { user, hasLinks, focus, analytics, suggestions, preset, customStart, customEnd, filters } =
-    loaderData;
+  const { user, hasLinks, focus, analytics, suggestions } = loaderData;
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const navigation = useNavigation();
+  const navigatingWithinAnalytics = navigation.location?.pathname === location.pathname;
+  const displaySearchParams = navigatingWithinAnalytics
+    ? new URLSearchParams(navigation.location?.search)
+    : searchParams;
+  const displayParams = parseAnalyticsParams(displaySearchParams);
+  const displayCustomStart =
+    displayParams.window.kind === "custom" ? displayParams.window.startIso : undefined;
+  const displayCustomEnd =
+    displayParams.window.kind === "custom" ? displayParams.window.endIso : undefined;
+  const analyticsPending = navigatingWithinAnalytics;
 
   return (
     <DashboardShell user={user}>
@@ -364,14 +321,39 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
           title="Analytics"
           description={focus ? <span className="font-mono">{focus.shortUrl}</span> : undefined}
           actions={
-            focus ? (
-              <Button asChild variant="outline" size="sm">
-                <a href={focus.destinationUrl} target="_blank" rel="noopener noreferrer">
-                  Visit destination
-                  <ExternalLink className="size-3" />
-                </a>
-              </Button>
-            ) : undefined
+            <>
+              {focus ? (
+                <Button asChild variant="outline" size="sm">
+                  <a href={focus.destinationUrl} target="_blank" rel="noopener noreferrer">
+                    Visit destination
+                    <ExternalLink className="size-3" />
+                  </a>
+                </Button>
+              ) : null}
+              <Suspense
+                fallback={
+                  <AnalyticsFiltersBar
+                    preset={displayParams.preset}
+                    startIso={displayCustomStart}
+                    endIso={displayCustomEnd}
+                    filters={displayParams.filters}
+                    suggestions={{}}
+                  />
+                }
+              >
+                <Await resolve={suggestions ?? Promise.resolve({} as FilterSuggestions)}>
+                  {(s) => (
+                    <AnalyticsFiltersBar
+                      preset={displayParams.preset}
+                      startIso={displayCustomStart}
+                      endIso={displayCustomEnd}
+                      filters={displayParams.filters}
+                      suggestions={s ?? {}}
+                    />
+                  )}
+                </Await>
+              </Suspense>
+            </>
           }
         />
 
@@ -384,31 +366,7 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
               </Link>
             </Button>
           </div>
-        ) : (
-          <Suspense
-            fallback={
-              <AnalyticsFiltersBar
-                preset={preset}
-                startIso={customStart}
-                endIso={customEnd}
-                filters={filters}
-                suggestions={{}}
-              />
-            }
-          >
-            <Await resolve={suggestions ?? Promise.resolve({} as FilterSuggestions)}>
-              {(s) => (
-                <AnalyticsFiltersBar
-                  preset={preset}
-                  startIso={customStart}
-                  endIso={customEnd}
-                  filters={filters}
-                  suggestions={s ?? {}}
-                />
-              )}
-            </Await>
-          </Suspense>
-        )}
+        ) : null}
 
         {!hasLinks ? (
           <Card className="px-6 py-8 text-center">
@@ -420,7 +378,15 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
         ) : (
           <Suspense fallback={<AnalyticsSkeleton />}>
             <Await resolve={analytics}>
-              {(data) => (data ? <AnalyticsContent data={data} /> : null)}
+              {(data) =>
+                data ? (
+                  <AnalyticsContent
+                    data={data}
+                    filters={displayParams.filters}
+                    pending={analyticsPending}
+                  />
+                ) : null
+              }
             </Await>
           </Suspense>
         )}
