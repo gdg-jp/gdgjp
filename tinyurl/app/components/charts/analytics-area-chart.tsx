@@ -52,7 +52,7 @@ export function AnalyticsAreaChart({
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+      <AreaChart data={[...data]} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
         {definitions ? <defs>{definitions}</defs> : null}
         <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
         <XAxis

@@ -170,7 +170,7 @@ export function AnalyticsDimensionCards({
   analytics: DimensionRows;
   loading?: boolean;
   pending?: boolean;
-  selected?: Partial<Record<Dimension, string[]>>;
+  selected?: Partial<Record<Dimension, readonly string[]>>;
   onSelect?: (dimension: Dimension, row: TopRow) => void;
 }) {
   const referrerTabs: BarTab[] = [
