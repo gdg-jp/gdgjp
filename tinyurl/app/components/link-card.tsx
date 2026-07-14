@@ -109,7 +109,13 @@ export function LinkCard({
   }
 
   return (
-    <div className="group grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border bg-card px-3 py-3 shadow-xs transition-shadow hover:shadow-sm sm:flex sm:px-4">
+    <div className="group relative grid min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border bg-card px-3 py-3 shadow-xs transition-shadow hover:shadow-sm sm:flex sm:px-4">
+      <Link
+        to={`/links/${link.id}`}
+        prefetch="intent"
+        aria-label={`View details for ${shortDisplay}`}
+        className="peer absolute inset-0 z-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      />
       <div className="flex size-10 shrink-0 items-center justify-center rounded-full border bg-background">
         {favicon ? (
           <img
@@ -127,16 +133,16 @@ export function LinkCard({
 
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-1.5">
-          <Link
-            to={`/links/${link.id}`}
-            prefetch="intent"
-            className="truncate text-sm font-medium text-foreground hover:underline"
+          <span
+            className="truncate text-sm font-medium text-foreground peer-hover:underline peer-focus-visible:underline"
             title={shortDisplay}
           >
             {shortDisplay}
-          </Link>
+          </span>
           {sources ? (
-            <SourceCombobox value={source} sources={sources} onValueChange={setSource} />
+            <div className="relative z-10">
+              <SourceCombobox value={source} sources={sources} onValueChange={setSource} />
+            </div>
           ) : null}
           <Popover
             open={copyFeedback !== null}
@@ -149,7 +155,7 @@ export function LinkCard({
                 type="button"
                 onClick={copyShort}
                 aria-label={copyFeedback ? "Copied short URL" : "Copy short URL"}
-                className={`rounded p-1 transition-colors transition-opacity focus-visible:opacity-100 ${
+                className={`relative z-10 rounded p-1 transition-colors transition-opacity focus-visible:opacity-100 ${
                   copyFeedback
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -180,7 +186,7 @@ export function LinkCard({
             <FolderTree className="size-3 shrink-0" />
             <Link
               to={`/campaigns/${campaign.campaignId}`}
-              className="truncate hover:text-foreground hover:underline"
+              className="relative z-10 truncate hover:text-foreground hover:underline"
               title={`${campaign.campaignName} / ${campaign.channelName}`}
             >
               {campaign.campaignName} / {campaign.channelName}
@@ -191,7 +197,7 @@ export function LinkCard({
           href={link.destinationUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          className="relative z-10 inline-flex w-fit max-w-full min-w-0 self-start items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           title={link.destinationUrl}
         >
           <span className="text-muted-foreground/70">↳</span>
@@ -212,7 +218,7 @@ export function LinkCard({
       <Link
         to={`/analytics?linkId=${link.id}`}
         prefetch="intent"
-        className="col-start-2 row-start-2 inline-flex w-fit items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        className="relative z-10 col-start-2 row-start-2 inline-flex w-fit items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         title="View analytics"
       >
         <BarChart3 className="size-3.5 text-primary" />
@@ -226,7 +232,7 @@ export function LinkCard({
             variant="ghost"
             size="icon-sm"
             aria-label="Link actions"
-            className="col-start-3 row-start-2"
+            className="relative z-10 col-start-3 row-start-2"
           >
             <MoreHorizontal className="size-4" />
           </Button>
