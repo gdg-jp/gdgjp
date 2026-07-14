@@ -34,7 +34,8 @@ export const shouldRevalidate: ShouldRevalidateFunction = ({
 export const handle = { i18n: ["common"] };
 
 export const links: Route.LinksFunction = () => [
-  { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+  { rel: "icon", href: "/app-icon.png", type: "image/png" },
+  { rel: "apple-touch-icon", href: "/app-icon.png" },
   { rel: "stylesheet", href: stylesheet },
 ];
 

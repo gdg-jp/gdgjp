@@ -4,7 +4,11 @@ import { ThemeProvider, themeInitScript } from "~/lib/theme";
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 
-export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: stylesheet }];
+export const links: Route.LinksFunction = () => [
+  { rel: "icon", href: "/app-icon.png", type: "image/png" },
+  { rel: "apple-touch-icon", href: "/app-icon.png" },
+  { rel: "stylesheet", href: stylesheet },
+];
 
 export function Layout({ children }: { children: ReactNode }) {
   return (

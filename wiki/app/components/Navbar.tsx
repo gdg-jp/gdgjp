@@ -277,18 +277,15 @@ export default function Navbar({
       )}
 
       {/* Logo */}
-      <Link to="/" className="flex-shrink-0">
+      <Link to="/" className="flex flex-shrink-0 items-center gap-2">
         <img
-          src="/logo.png"
+          src="/app-icon.png"
           alt="GDG Japan Wiki"
-          className="hidden h-8 w-auto sm:block dark:hidden"
+          width={1254}
+          height={1254}
+          className="size-8 object-contain"
         />
-        <img
-          src="/logo_dark.png"
-          alt="GDG Japan Wiki"
-          className="hidden h-8 w-auto dark:sm:block"
-        />
-        <img src="/logo_square.png" alt="GDG Japan Wiki" className="h-8 w-auto sm:hidden" />
+        <span className="hidden text-sm font-semibold tracking-tight sm:block">GDG Japan Wiki</span>
       </Link>
 
       {/* Search */}

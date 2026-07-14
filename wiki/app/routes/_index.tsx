@@ -169,7 +169,16 @@ function LpHeader({ onLoginClick }: { onLoginClick: () => void }) {
   const { t } = useTranslation();
   return (
     <header className="force-light sticky top-0 z-40 flex h-14 items-center justify-between border-b border-black bg-white px-6">
-      <img src="/logo.png" alt={t("app_name")} className="h-8 w-auto" />
+      <div className="flex items-center gap-2">
+        <img
+          src="/app-icon.png"
+          alt=""
+          width={1254}
+          height={1254}
+          className="size-8 object-contain"
+        />
+        <span className="font-semibold tracking-tight">{t("app_name")}</span>
+      </div>
       <button
         type="button"
         onClick={onLoginClick}

@@ -17,10 +17,10 @@ export function GdgMark({
 }) {
   return (
     <img
-      src="/gdg_logo.png"
-      alt="GDG"
-      width={512}
-      height={512}
+      src="/app-icon.png"
+      alt="GDG Japan Accounts"
+      width={1254}
+      height={1254}
       className={cn(SIZE_MAP[size], "select-none object-contain", className)}
       draggable={false}
     />

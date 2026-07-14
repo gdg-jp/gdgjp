@@ -18,7 +18,8 @@ import { FirebaseConfigContext } from "./lib/firebase-config-context";
 import appStylesHref from "./app.css?url";
 
 export const links: LinksFunction = () => [
-  { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+  { rel: "icon", href: "/app-icon.png", type: "image/png" },
+  { rel: "apple-touch-icon", href: "/app-icon.png" },
   {
     rel: "preconnect",
     href: "https://fonts.googleapis.com",

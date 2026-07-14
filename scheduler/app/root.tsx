@@ -6,12 +6,12 @@ import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 
 export const links: Route.LinksFunction = () => [
-  { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
-  { rel: "apple-touch-icon", href: "/gdg_logo.png" },
+  { rel: "icon", href: "/app-icon.png", type: "image/png" },
+  { rel: "apple-touch-icon", href: "/app-icon.png" },
   { rel: "stylesheet", href: stylesheet },
 ];
 
-export const meta: Route.MetaFunction = () => [{ property: "og:image", content: "/gdg_logo.png" }];
+export const meta: Route.MetaFunction = () => [{ property: "og:image", content: "/app-icon.png" }];
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
