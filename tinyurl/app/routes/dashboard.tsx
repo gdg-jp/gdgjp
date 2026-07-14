@@ -1,7 +1,14 @@
 import { ChevronsUpDown, FolderTree, Plus, Search, SlidersHorizontal } from "lucide-react";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { Await } from "react-router";
 import { CreateLinkDialog } from "~/components/create-link-dialog";
+import {
+  DEFAULT_DISPLAY_PROPERTIES,
+  DashboardDisplayMenu,
+  type DisplayLayout,
+  type DisplayProperty,
+} from "~/components/dashboard-display-menu";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { LinkCard, type LinkCardItem, type LinkOwner } from "~/components/link-card";
 import { Button } from "~/components/ui/button";
@@ -29,8 +36,10 @@ import {
   listLinksForUser,
   listPublicLinks,
   listTagsForChapter,
+  listTagsForLinks,
   listTagsForUser,
 } from "~/lib/db";
+import { listDomainsForChapters } from "~/lib/domains";
 import type { Route } from "./+types/dashboard";
 
 export function meta() {
@@ -40,20 +49,32 @@ export function meta() {
 export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
   const { user, chapter, chapters } = await requireUserWithChapter(env, args.request);
-  const [personalLinks, chapterLinks, sharedLinks, publicLinks, userTags, chapterTags, campaigns] =
-    await Promise.all([
-      listLinksForUser(env.DB, user.id),
-      listLinksForChapter(env.DB, chapter.chapterId),
-      listLinksAccessibleByEmail(env.DB, user.email, chapter.chapterId),
-      listPublicLinks(env.DB),
-      listTagsForUser(env.DB, user.id),
-      listTagsForChapter(env.DB, chapter.chapterId),
-      listCampaignsForChaptersWithCounts(
-        env.DB,
-        chapters.map((item) => item.chapterId),
-        true,
-      ),
-    ]);
+  const [
+    personalLinks,
+    chapterLinks,
+    sharedLinks,
+    publicLinks,
+    userTags,
+    chapterTags,
+    campaigns,
+    domains,
+  ] = await Promise.all([
+    listLinksForUser(env.DB, user.id, true),
+    listLinksForChapter(env.DB, chapter.chapterId, true),
+    listLinksAccessibleByEmail(env.DB, user.email, chapter.chapterId, true),
+    listPublicLinks(env.DB, true),
+    listTagsForUser(env.DB, user.id),
+    listTagsForChapter(env.DB, chapter.chapterId),
+    listCampaignsForChaptersWithCounts(
+      env.DB,
+      chapters.map((item) => item.chapterId),
+      true,
+    ),
+    listDomainsForChapters(
+      env.DB,
+      chapters.map((item) => item.chapterId),
+    ),
+  ]);
   const ownLinks = [...personalLinks];
   const ownLinkIds = new Set(ownLinks.map((link) => link.id));
   for (const link of chapterLinks) {
@@ -84,7 +105,7 @@ export async function loader(args: Route.LoaderArgs) {
       return {} as Record<string, number>;
     });
 
-  const [channelsByCampaign, owners] = await Promise.all([
+  const [channelsByCampaign, owners, tagsByLinkId] = await Promise.all([
     Promise.all(
       campaigns.map(async (campaign) => ({
         campaign,
@@ -94,6 +115,7 @@ export async function loader(args: Route.LoaderArgs) {
     ownerIds.length > 0
       ? getUsersByIds(env.DB, ownerIds).catch(() => ({}) as Record<string, UserSummary>)
       : Promise.resolve({} as Record<string, UserSummary>),
+    listTagsForLinks(env.DB, linkIds),
   ]);
 
   return {
@@ -103,6 +125,7 @@ export async function loader(args: Route.LoaderArgs) {
     ownLinks,
     sharedLinks: sharedFiltered,
     owners,
+    tagsByLinkId,
     clicks,
     availableTags: [...userTags, ...chapterTags],
     campaignChannelCatalog: channelsByCampaign.flatMap(({ campaign, channels }) =>
@@ -135,6 +158,9 @@ export async function loader(args: Route.LoaderArgs) {
         : [],
     ),
     shortUrlBase: env.SHORT_URL_BASE,
+    domainOptions: domains
+      .filter((domain) => domain.status === "active")
+      .map((domain) => ({ id: domain.id, hostname: domain.hostname })),
   };
 }
 
@@ -145,6 +171,45 @@ function shellUser(loaderData: Route.ComponentProps["loaderData"]) {
 type Scope = "all" | "own" | "shared";
 type SortKey = "newest" | "oldest" | "mostClicks";
 type CampaignFilter = "all" | "unclassified" | `campaign:${number}` | `channel:${number}`;
+
+const DISPLAY_PREFERENCES_KEY = "gdgjp-tinyurl-display-v1";
+const DISPLAY_PROPERTIES = new Set<DisplayProperty>([
+  "shortLink",
+  "destinationUrl",
+  "title",
+  "description",
+  "createdDate",
+  "creator",
+  "tags",
+  "analytics",
+]);
+
+type DisplayPreferences = {
+  layout: DisplayLayout;
+  sort: SortKey;
+  showArchived: boolean;
+  properties: DisplayProperty[];
+};
+
+const BUILT_IN_DISPLAY_DEFAULTS: DisplayPreferences = {
+  layout: "cards",
+  sort: "newest",
+  showArchived: false,
+  properties: DEFAULT_DISPLAY_PROPERTIES,
+};
+
+function displayPreferencesEqual(left: DisplayPreferences, right: DisplayPreferences): boolean {
+  if (
+    left.layout !== right.layout ||
+    left.sort !== right.sort ||
+    left.showArchived !== right.showArchived ||
+    left.properties.length !== right.properties.length
+  ) {
+    return false;
+  }
+  const rightProperties = new Set(right.properties);
+  return left.properties.every((property) => rightProperties.has(property));
+}
 
 function ownerOf(owners: Record<string, UserSummary>, id: string): LinkOwner | undefined {
   const u = owners[id];
@@ -165,11 +230,13 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
     ownLinks,
     sharedLinks,
     owners,
+    tagsByLinkId,
     availableTags,
     campaignChannelCatalog,
     campaignChannelOptions,
     chapters,
     shortUrlBase,
+    domainOptions,
   } = loaderData;
   const user = shellUser(loaderData);
   const shortHost = shortHostOf(shortUrlBase);
@@ -178,6 +245,102 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
   const [scope, setScope] = useState<Scope>("all");
   const [sort, setSort] = useState<SortKey>("newest");
   const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>("all");
+  const [layout, setLayout] = useState<DisplayLayout>("cards");
+  const [showArchived, setShowArchived] = useState(false);
+  const [displayProperties, setDisplayProperties] = useState<DisplayProperty[]>(
+    DEFAULT_DISPLAY_PROPERTIES,
+  );
+  const [defaultPreferences, setDefaultPreferences] =
+    useState<DisplayPreferences>(BUILT_IN_DISPLAY_DEFAULTS);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(DISPLAY_PREFERENCES_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as {
+          layout?: unknown;
+          sort?: unknown;
+          showArchived?: unknown;
+          properties?: unknown;
+        };
+        const nextDefaults: DisplayPreferences = {
+          layout: parsed.layout === "cards" || parsed.layout === "rows" ? parsed.layout : "cards",
+          sort:
+            parsed.sort === "newest" || parsed.sort === "oldest" || parsed.sort === "mostClicks"
+              ? parsed.sort
+              : "newest",
+          showArchived: typeof parsed.showArchived === "boolean" ? parsed.showArchived : false,
+          properties: Array.isArray(parsed.properties)
+            ? parsed.properties.filter(
+                (property): property is DisplayProperty =>
+                  typeof property === "string" &&
+                  DISPLAY_PROPERTIES.has(property as DisplayProperty),
+              )
+            : DEFAULT_DISPLAY_PROPERTIES,
+        };
+        setLayout(nextDefaults.layout);
+        setSort(nextDefaults.sort);
+        setShowArchived(nextDefaults.showArchived);
+        setDisplayProperties(nextDefaults.properties);
+        setDefaultPreferences(nextDefaults);
+      }
+    } catch {
+      // Invalid or unavailable storage should not prevent the dashboard from rendering.
+    } finally {
+      setPreferencesLoaded(true);
+    }
+  }, []);
+
+  const currentPreferences: DisplayPreferences = {
+    layout,
+    sort,
+    showArchived,
+    properties: displayProperties,
+  };
+  const displayPreferencesChanged =
+    preferencesLoaded && !displayPreferencesEqual(currentPreferences, defaultPreferences);
+
+  function applyDisplayPreferences(nextPreferences: DisplayPreferences) {
+    const apply = () => {
+      setLayout(nextPreferences.layout);
+      setSort(nextPreferences.sort);
+      setShowArchived(nextPreferences.showArchived);
+      setDisplayProperties([...nextPreferences.properties]);
+    };
+    const transitionDocument = document as Document & {
+      startViewTransition?: (update: () => void) => unknown;
+    };
+    if (nextPreferences.layout === layout || !transitionDocument.startViewTransition) {
+      apply();
+      return;
+    }
+    transitionDocument.startViewTransition(() => {
+      flushSync(apply);
+    });
+  }
+
+  function changeLayout(nextLayout: DisplayLayout) {
+    if (nextLayout === layout) return;
+    applyDisplayPreferences({ ...currentPreferences, layout: nextLayout });
+  }
+
+  function resetDisplayPreferences() {
+    applyDisplayPreferences(defaultPreferences);
+  }
+
+  function setCurrentAsDefault() {
+    const nextDefaults = {
+      ...currentPreferences,
+      properties: [...currentPreferences.properties],
+    };
+    setDefaultPreferences(nextDefaults);
+    try {
+      window.localStorage.setItem(DISPLAY_PREFERENCES_KEY, JSON.stringify(nextDefaults));
+    } catch {
+      // The default remains active for this session when browser storage is unavailable.
+    }
+  }
 
   const channelById = useMemo(
     () => new Map(campaignChannelCatalog.map((option) => [option.id, option])),
@@ -236,6 +399,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             campaignChannelOptions={campaignChannelOptions}
             chapters={chapters}
             shortUrlBase={shortUrlBase}
+            domainOptions={domainOptions}
             trigger={
               <Button size="sm">
                 <Plus className="size-4" />
@@ -325,36 +489,19 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <SlidersHorizontal className="size-4 rotate-90" />
-                  Display
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-44">
-                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                <DropdownMenuCheckboxItem
-                  checked={sort === "newest"}
-                  onCheckedChange={() => setSort("newest")}
-                >
-                  Newest first
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={sort === "oldest"}
-                  onCheckedChange={() => setSort("oldest")}
-                >
-                  Oldest first
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                  checked={sort === "mostClicks"}
-                  onCheckedChange={() => setSort("mostClicks")}
-                >
-                  Most clicks
-                </DropdownMenuCheckboxItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <DashboardDisplayMenu
+              layout={layout}
+              onLayoutChange={changeLayout}
+              sort={sort}
+              onSortChange={setSort}
+              showArchived={showArchived}
+              onShowArchivedChange={setShowArchived}
+              properties={displayProperties}
+              onPropertiesChange={setDisplayProperties}
+              showDefaultActions={displayPreferencesChanged}
+              onResetToDefault={resetDisplayPreferences}
+              onSetAsDefault={setCurrentAsDefault}
+            />
           </div>
 
           <div className="relative w-full max-w-xs">
@@ -375,6 +522,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             campaignChannelOptions={campaignChannelOptions}
             chapters={chapters}
             shortUrlBase={shortUrlBase}
+            domainOptions={domainOptions}
           />
         ) : (
           <Suspense fallback={<LinksSkeleton />}>
@@ -384,11 +532,15 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
                   ownLinks={ownLinks}
                   sharedLinks={sharedLinks}
                   owners={owners}
+                  tagsByLinkId={tagsByLinkId}
                   clicks={clicks}
                   scope={scope}
                   query={query}
                   sort={sort}
                   campaignFilter={campaignFilter}
+                  layout={layout}
+                  showArchived={showArchived}
+                  displayProperties={displayProperties}
                   channelById={channelById}
                   shortUrlBase={shortUrlBase}
                   shortHost={shortHost}
@@ -416,11 +568,15 @@ function DashboardResults({
   ownLinks,
   sharedLinks,
   owners,
+  tagsByLinkId,
   clicks,
   scope,
   query,
   sort,
   campaignFilter,
+  layout,
+  showArchived,
+  displayProperties,
   channelById,
   shortUrlBase,
   shortHost,
@@ -428,11 +584,15 @@ function DashboardResults({
   ownLinks: DbLink[];
   sharedLinks: DbLink[];
   owners: Record<string, UserSummary>;
+  tagsByLinkId: Route.ComponentProps["loaderData"]["tagsByLinkId"];
   clicks: Record<string, number>;
   scope: Scope;
   query: string;
   sort: SortKey;
   campaignFilter: CampaignFilter;
+  layout: DisplayLayout;
+  showArchived: boolean;
+  displayProperties: DisplayProperty[];
   channelById: Map<number, Route.ComponentProps["loaderData"]["campaignChannelCatalog"][number]>;
   shortUrlBase: string;
   shortHost: string;
@@ -442,11 +602,14 @@ function DashboardResults({
       link,
       owner: ownerOf(owners, link.ownerUserId),
       clicks: clicks[link.id] ?? 0,
+      tags: tagsByLinkId[link.id] ?? [],
       campaign: link.campaignChannelId ? channelById.get(link.campaignChannelId) : undefined,
     });
     const own = ownLinks.map(toItem);
     const shared = sharedLinks.map(toItem);
     let combined = scope === "own" ? own : scope === "shared" ? shared : [...own, ...shared];
+
+    if (!showArchived) combined = combined.filter((item) => item.link.archivedAt === null);
 
     if (campaignFilter === "unclassified") {
       combined = combined.filter((item) => item.link.campaignChannelId === null);
@@ -476,7 +639,19 @@ function DashboardResults({
     else if (sort === "oldest") sorted.sort((a, b) => a.link.createdAt - b.link.createdAt);
     else sorted.sort((a, b) => b.clicks - a.clicks);
     return sorted;
-  }, [ownLinks, sharedLinks, owners, clicks, scope, query, sort, campaignFilter, channelById]);
+  }, [
+    ownLinks,
+    sharedLinks,
+    owners,
+    tagsByLinkId,
+    clicks,
+    scope,
+    query,
+    sort,
+    campaignFilter,
+    channelById,
+    showArchived,
+  ]);
 
   if (items.length === 0) {
     return (
@@ -486,20 +661,32 @@ function DashboardResults({
     );
   }
 
+  const accessibleCount = showArchived
+    ? ownLinks.length + sharedLinks.length
+    : [...ownLinks, ...sharedLinks].filter((link) => link.archivedAt === null).length;
+
   return (
     <>
-      <div className="flex flex-col gap-2">
+      <div
+        className={
+          layout === "cards"
+            ? "flex flex-col gap-2"
+            : "divide-y overflow-x-auto rounded-xl border bg-card"
+        }
+      >
         {items.map((item) => (
           <LinkCard
             key={item.link.id}
             item={item}
             shortUrlBase={shortUrlBase}
             shortHost={shortHost}
+            layout={layout}
+            properties={displayProperties}
           />
         ))}
       </div>
       <p className="text-center text-xs text-muted-foreground">
-        Viewing 1–{items.length} of {ownLinks.length + sharedLinks.length} links
+        Viewing 1–{items.length} of {accessibleCount} links
       </p>
     </>
   );
@@ -510,11 +697,13 @@ function EmptyState({
   campaignChannelOptions,
   chapters,
   shortUrlBase,
+  domainOptions,
 }: {
   availableTags: DbTag[];
   campaignChannelOptions: Route.ComponentProps["loaderData"]["campaignChannelOptions"];
   chapters: Route.ComponentProps["loaderData"]["chapters"];
   shortUrlBase: string;
+  domainOptions: Route.ComponentProps["loaderData"]["domainOptions"];
 }) {
   return (
     <div className="rounded-xl border bg-card p-10 text-center">
@@ -528,6 +717,7 @@ function EmptyState({
           campaignChannelOptions={campaignChannelOptions}
           chapters={chapters}
           shortUrlBase={shortUrlBase}
+          domainOptions={domainOptions}
           trigger={
             <Button size="sm">
               <Plus className="size-4" />

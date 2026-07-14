@@ -118,3 +118,25 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-group(*) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+::view-transition-group(display-menu) {
+  z-index: 1000;
+  animation: none;
+}
+
+::view-transition-old(display-menu),
+::view-transition-new(display-menu) {
+  animation: none;
+  mix-blend-mode: normal;
+}
