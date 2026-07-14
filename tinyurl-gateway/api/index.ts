@@ -323,4 +323,12 @@ export async function handleGatewayRequest(request: GatewayRequest): Promise<Res
   return resolved.status === 204 ? originResponse : resolved;
 }
 
-export default handleGatewayRequest;
+// Vercel treats a default export as the legacy `(req, res)` Node.js signature and ignores a
+// returned Web `Response`. Named HTTP-method exports opt into Vercel's Web Handler API.
+export const GET = handleGatewayRequest;
+export const HEAD = handleGatewayRequest;
+export const POST = handleGatewayRequest;
+export const PUT = handleGatewayRequest;
+export const PATCH = handleGatewayRequest;
+export const DELETE = handleGatewayRequest;
+export const OPTIONS = handleGatewayRequest;

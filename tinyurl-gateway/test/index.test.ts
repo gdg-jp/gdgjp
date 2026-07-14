@@ -5,7 +5,9 @@ vi.mock("node:dns/promises", () => ({
   resolve6: vi.fn(async () => []),
 }));
 
-import { clearConfigCacheForTests, handleGatewayRequest } from "../api/index.js";
+import * as gatewayModule from "../api/index.js";
+
+const { GET, POST, clearConfigCacheForTests, handleGatewayRequest } = gatewayModule;
 
 function config(mode: "short-only" | "origin-first", upstreamOrigin: string | null) {
   return new Response(JSON.stringify({ hostname: "custom.example", mode, upstreamOrigin }), {
@@ -19,6 +21,12 @@ describe("gateway", () => {
     process.env.TINYURL_INTERNAL_BASE = "https://url.gdgs.jp";
     process.env.GATEWAY_SHARED_SECRET = "test-secret";
     vi.restoreAllMocks();
+  });
+
+  it("exports Vercel Web Handlers instead of a legacy default handler", () => {
+    expect(gatewayModule).not.toHaveProperty("default");
+    expect(GET).toBe(handleGatewayRequest);
+    expect(POST).toBe(handleGatewayRequest);
   });
 
   it("passes through a successful origin response", async () => {
