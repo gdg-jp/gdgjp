@@ -44,14 +44,6 @@ jobs:
             run: pnpm --filter @gdgjp/tinyurl-gateway build
           - name: Build go extension
             run: pnpm --filter @gdgjp/go-extension build
-      - name: Apply tinyurl D1 migrations
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: tinyurl
-          packageManager: pnpm
-          command: d1 migrations apply gdgjp-tinyurl-db --remote
       - parallel:
           - name: Deploy accounts to Cloudflare Workers
             uses: cloudflare/wrangler-action@v3
