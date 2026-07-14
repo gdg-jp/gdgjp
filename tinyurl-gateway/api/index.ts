@@ -144,7 +144,7 @@ async function internalRequest(
     const referer = requestHeader(originalRequest, "referer");
     if (referer) headers.set("referer", referer);
   }
-  return fetch(url, { method, headers });
+  return fetch(url, { method, headers, redirect: "manual" });
 }
 
 async function getConfig(hostname: string): Promise<DomainConfig | null> {

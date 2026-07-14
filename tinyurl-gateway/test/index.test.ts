@@ -129,21 +129,25 @@ describe("gateway", () => {
   });
 
   it("falls back only when a GET origin returns 404", async () => {
+    let resolverRedirect: RequestRedirect | undefined;
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = new URL(String(input));
         if (url.pathname.endsWith("/config"))
           return config("origin-first", "https://origin.example");
-        if (url.pathname.endsWith("/resolve"))
+        if (url.pathname.endsWith("/resolve")) {
+          resolverRedirect = init?.redirect;
           return new Response(null, {
             status: 302,
             headers: { location: "https://destination.example" },
           });
+        }
         return new Response("origin missing", { status: 404 });
       }),
     );
     const response = await handleGatewayRequest(new Request("https://custom.example/about"));
+    expect(resolverRedirect).toBe("manual");
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe("https://destination.example");
   });
