@@ -1,6 +1,6 @@
 import { Archive, BarChart3, ChevronRight, Megaphone, Pencil, RotateCcw } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Form, Link } from "react-router";
+import { Suspense, useMemo, useState } from "react";
+import { Await, Form, Link } from "react-router";
 import { CampaignDialog } from "~/components/campaigns/campaign-dialog";
 import { ChapterAccessSelect } from "~/components/campaigns/chapter-access-select";
 import { useCampaignActionDialog } from "~/components/campaigns/use-campaign-action-dialog";
@@ -20,6 +20,7 @@ import {
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { Skeleton } from "~/components/ui/skeleton";
 import { SubmitButton } from "~/components/ui/submit-button";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
 import {
@@ -39,7 +40,7 @@ export function meta() {
 export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
   const { user, chapter, chapters } = await requireUserWithChapter(env, args.request);
-  const campaigns = await listCampaignsForChaptersWithCounts(
+  const campaigns = listCampaignsForChaptersWithCounts(
     env.DB,
     chapters.map((item) => item.chapterId),
     true,
@@ -146,13 +147,6 @@ export async function action(args: Route.ActionArgs) {
 
 export default function Campaigns({ loaderData, actionData }: Route.ComponentProps) {
   const { user, chapter, chapters, campaigns } = loaderData;
-  const [showArchived, setShowArchived] = useState(false);
-  const visible = useMemo(
-    () => campaigns.filter((campaign) => (campaign.archivedAt !== null) === showArchived),
-    [campaigns, showArchived],
-  );
-  const activeCount = campaigns.filter((campaign) => campaign.archivedAt === null).length;
-  const archivedCount = campaigns.length - activeCount;
 
   return (
     <DashboardShell user={user}>
@@ -172,93 +166,13 @@ export default function Campaigns({ loaderData, actionData }: Route.ComponentPro
           <CampaignDialog chapters={chapters} />
         </div>
 
-        <div className="flex gap-1 border-b" role="tablist" aria-label="Campaign status">
-          <Button
-            type="button"
-            variant="ghost"
-            className={
-              showArchived ? "rounded-b-none" : "rounded-b-none border-b-2 border-foreground"
-            }
-            onClick={() => setShowArchived(false)}
-            role="tab"
-            aria-selected={!showArchived}
-          >
-            Active <Badge variant="secondary">{activeCount}</Badge>
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className={
-              showArchived ? "rounded-b-none border-b-2 border-foreground" : "rounded-b-none"
-            }
-            onClick={() => setShowArchived(true)}
-            role="tab"
-            aria-selected={showArchived}
-          >
-            Archived <Badge variant="secondary">{archivedCount}</Badge>
-          </Button>
-        </div>
-
-        {visible.length === 0 ? (
-          <div className="rounded-xl border border-dashed px-6 py-16 text-center">
-            <Megaphone className="mx-auto size-9 text-muted-foreground" />
-            <h2 className="mt-4 font-medium">
-              {showArchived ? "No archived campaigns" : "Create your first campaign"}
-            </h2>
-            <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-              Campaigns group event links without imposing a naming scheme on their slugs.
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-3">
-            {visible.map((campaign) => (
-              <Card key={campaign.id} className="py-0 transition-colors hover:border-foreground/20">
-                <CardContent className="flex flex-col items-stretch gap-3 py-4 sm:flex-row sm:items-center sm:gap-4 sm:py-5">
-                  <Link
-                    to={`/campaigns/${campaign.id}`}
-                    className="group flex min-w-0 flex-1 items-center gap-3 sm:gap-4"
-                  >
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-gdg-blue/10 text-gdg-blue">
-                      <Megaphone className="size-5" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span className="truncate font-medium">{campaign.name}</span>
-                        <Badge variant="outline" className="font-mono">
-                          {campaign.code}
-                        </Badge>
-                      </span>
-                      <span className="mt-1 flex gap-4 text-xs text-muted-foreground">
-                        <span>{campaign.channelCount} channels</span>
-                        <span>{campaign.linkCount} links</span>
-                      </span>
-                    </span>
-                    <ChevronRight className="ml-auto size-5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                  </Link>
-                  <div className="flex items-center justify-end gap-1 border-t pt-2 sm:border-0 sm:pt-0">
-                    <EditCampaignDialog campaign={campaign} chapters={chapters} />
-                    <Form method="post">
-                      <input type="hidden" name="id" value={campaign.id} />
-                      <input
-                        type="hidden"
-                        name="intent"
-                        value={showArchived ? "restore" : "archive"}
-                      />
-                      <Button type="submit" size="sm" variant="ghost">
-                        {showArchived ? (
-                          <RotateCcw className="size-4" />
-                        ) : (
-                          <Archive className="size-4" />
-                        )}
-                        {showArchived ? "Restore" : "Archive"}
-                      </Button>
-                    </Form>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+        <Suspense fallback={<CampaignsSkeleton />}>
+          <Await resolve={campaigns}>
+            {(resolvedCampaigns) => (
+              <CampaignResults campaigns={resolvedCampaigns} chapters={chapters} />
+            )}
+          </Await>
+        </Suspense>
 
         <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
           <BarChart3 className="size-4" />
@@ -269,11 +183,137 @@ export default function Campaigns({ loaderData, actionData }: Route.ComponentPro
   );
 }
 
+type Campaign = Awaited<Route.ComponentProps["loaderData"]["campaigns"]>[number];
+
+function CampaignResults({
+  campaigns,
+  chapters,
+}: {
+  campaigns: Campaign[];
+  chapters: Route.ComponentProps["loaderData"]["chapters"];
+}) {
+  const [showArchived, setShowArchived] = useState(false);
+  const visible = useMemo(
+    () => campaigns.filter((campaign) => (campaign.archivedAt !== null) === showArchived),
+    [campaigns, showArchived],
+  );
+  const activeCount = campaigns.filter((campaign) => campaign.archivedAt === null).length;
+  const archivedCount = campaigns.length - activeCount;
+
+  return (
+    <>
+      <div className="flex gap-1 border-b" role="tablist" aria-label="Campaign status">
+        <Button
+          type="button"
+          variant="ghost"
+          className={
+            showArchived ? "rounded-b-none" : "rounded-b-none border-b-2 border-foreground"
+          }
+          onClick={() => setShowArchived(false)}
+          role="tab"
+          aria-selected={!showArchived}
+        >
+          Active <Badge variant="secondary">{activeCount}</Badge>
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className={
+            showArchived ? "rounded-b-none border-b-2 border-foreground" : "rounded-b-none"
+          }
+          onClick={() => setShowArchived(true)}
+          role="tab"
+          aria-selected={showArchived}
+        >
+          Archived <Badge variant="secondary">{archivedCount}</Badge>
+        </Button>
+      </div>
+
+      {visible.length === 0 ? (
+        <div className="rounded-xl border border-dashed px-6 py-16 text-center">
+          <Megaphone className="mx-auto size-9 text-muted-foreground" />
+          <h2 className="mt-4 font-medium">
+            {showArchived ? "No archived campaigns" : "Create your first campaign"}
+          </h2>
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+            Campaigns group event links without imposing a naming scheme on their slugs.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {visible.map((campaign) => (
+            <Card key={campaign.id} className="py-0 transition-colors hover:border-foreground/20">
+              <CardContent className="flex flex-col items-stretch gap-3 py-4 sm:flex-row sm:items-center sm:gap-4 sm:py-5">
+                <Link
+                  to={`/campaigns/${campaign.id}`}
+                  className="group flex min-w-0 flex-1 items-center gap-3 sm:gap-4"
+                >
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-gdg-blue/10 text-gdg-blue">
+                    <Megaphone className="size-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="truncate font-medium">{campaign.name}</span>
+                      <Badge variant="outline" className="font-mono">
+                        {campaign.code}
+                      </Badge>
+                    </span>
+                    <span className="mt-1 flex gap-4 text-xs text-muted-foreground">
+                      <span>{campaign.channelCount} channels</span>
+                      <span>{campaign.linkCount} links</span>
+                    </span>
+                  </span>
+                  <ChevronRight className="ml-auto size-5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </Link>
+                <div className="flex items-center justify-end gap-1 border-t pt-2 sm:border-0 sm:pt-0">
+                  <EditCampaignDialog campaign={campaign} chapters={chapters} />
+                  <Form method="post">
+                    <input type="hidden" name="id" value={campaign.id} />
+                    <input
+                      type="hidden"
+                      name="intent"
+                      value={showArchived ? "restore" : "archive"}
+                    />
+                    <Button type="submit" size="sm" variant="ghost">
+                      {showArchived ? (
+                        <RotateCcw className="size-4" />
+                      ) : (
+                        <Archive className="size-4" />
+                      )}
+                      {showArchived ? "Restore" : "Archive"}
+                    </Button>
+                  </Form>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function CampaignsSkeleton() {
+  return (
+    <div className="space-y-6" aria-label="Loading campaigns">
+      <div className="flex gap-2 border-b pb-2">
+        <Skeleton className="h-8 w-24" />
+        <Skeleton className="h-8 w-28" />
+      </div>
+      <div className="grid gap-3">
+        {[0, 1, 2].map((index) => (
+          <Skeleton key={index} className="h-[74px] w-full rounded-xl sm:h-[82px]" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function EditCampaignDialog({
   campaign,
   chapters,
 }: {
-  campaign: Route.ComponentProps["loaderData"]["campaigns"][number];
+  campaign: Campaign;
   chapters: Route.ComponentProps["loaderData"]["chapters"];
 }) {
   const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
