@@ -69,7 +69,7 @@ import {
   topByBlob,
   totalClicks,
 } from "~/lib/analytics-engine";
-import { parseAnalyticsParams } from "~/lib/analytics-filters";
+import { parseAnalyticsParams, serializeAnalyticsParams } from "~/lib/analytics-filters";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
 import { type CampaignTrendDimension, campaignSourceBreakdown } from "~/lib/campaign-analytics";
 import { campaignConversionAttribution } from "~/lib/campaign-conversion-attribution";
@@ -711,6 +711,7 @@ function CampaignAnalyticsPanel({
   scopePending: boolean;
   analyticsPending: boolean;
 }) {
+  const [, setSearchParams] = useSearchParams();
   const chartRef = useRef<HTMLDivElement>(null);
   const [breakdown, setBreakdown] = useState<CampaignTrendDimension>("total");
   const [trendMetric, setTrendMetric] = useState<TrendMetric>("clicks");
@@ -753,6 +754,14 @@ function CampaignAnalyticsPanel({
     setBreakdown(value);
     setGraphFocus(null);
     if (value === "total") setTrendMetric("clicks");
+  }
+
+  function applyDimensionFilter(dimension: Exclude<TopBlob, "slug" | "source">, row: TopRow) {
+    if (row.name === "(unknown)") return;
+    const next = serializeAnalyticsParams(scopeSearchParams, {
+      filters: { ...filters, [dimension]: [row.name] },
+    });
+    setSearchParams(next, { preventScrollReset: true });
   }
 
   return (
@@ -835,7 +844,12 @@ function CampaignAnalyticsPanel({
             onSelect={(row) => selectGraphItem("link", row)}
           />
         </div>
-        <AnalyticsDimensionCards analytics={analytics} />
+        <AnalyticsDimensionCards
+          analytics={analytics}
+          pending={analyticsPending}
+          selected={filters}
+          onSelect={applyDimensionFilter}
+        />
         <CampaignConversionAttributionPanel analytics={analytics.conversion} />
       </section>
 
