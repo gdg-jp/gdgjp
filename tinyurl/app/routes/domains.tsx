@@ -8,7 +8,7 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Form, useFetcher, useRevalidator } from "react-router";
 import { parse } from "tldts";
 import { DashboardShell } from "~/components/dashboard-shell";
@@ -253,6 +253,7 @@ function DomainStatusIcon({ domain }: { domain: Domain }) {
 export default function Domains({ loaderData, actionData }: Route.ComponentProps) {
   const revalidator = useRevalidator();
   const syncer = useFetcher();
+  const [mode, setMode] = useState<DomainMode>("short-only");
   const pending = loaderData.domains.some(
     (domain) =>
       domain.kind === "custom" && domain.status !== "active" && domain.status !== "deleted",
@@ -314,7 +315,8 @@ export default function Domains({ loaderData, actionData }: Route.ComponentProps
             </div>
             <div className="space-y-2">
               <Label htmlFor="domain-mode">Delivery mode</Label>
-              <Select name="mode" defaultValue="short-only">
+              <input type="hidden" name="mode" value={mode} />
+              <Select value={mode} onValueChange={(value) => setMode(value as DomainMode)}>
                 <SelectTrigger id="domain-mode">
                   <SelectValue />
                 </SelectTrigger>
@@ -324,15 +326,27 @@ export default function Domains({ loaderData, actionData }: Route.ComponentProps
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="domain-origin">Upstream origin (origin-first only)</Label>
-              <Input
-                id="domain-origin"
-                name="upstreamOrigin"
-                type="url"
-                placeholder="https://origin.gdg-tokyo.jp"
-              />
-            </div>
+            {mode === "origin-first" ? (
+              <div className="space-y-2">
+                <Label htmlFor="domain-origin">Upstream origin</Label>
+                <Input
+                  id="domain-origin"
+                  name="upstreamOrigin"
+                  type="url"
+                  placeholder="https://origin.gdg-tokyo.jp"
+                  required
+                  aria-describedby="domain-origin-help"
+                />
+                <p id="domain-origin-help" className="text-xs text-muted-foreground">
+                  Required. Use a public HTTPS hostname other than this custom domain. Requests that
+                  are not short links are served from this origin.
+                </p>
+              </div>
+            ) : (
+              <p className="self-end text-xs text-muted-foreground">
+                This domain will serve short links only. No upstream origin is required.
+              </p>
+            )}
             <div className="md:col-span-2">
               <Button type="submit" disabled={loaderData.remainingDomains === 0}>
                 <Plus className="size-4" /> Add domain
