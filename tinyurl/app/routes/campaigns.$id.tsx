@@ -57,6 +57,7 @@ import { Skeleton } from "~/components/ui/skeleton";
 import { SubmitButton } from "~/components/ui/submit-button";
 import {
   type TimeBucketUnit,
+  type TopBlob,
   clicksByLinkId,
   clicksByLinkIdAndSource,
   conversionClicksByHour,
@@ -67,6 +68,7 @@ import {
   timeBucketFor,
   timeBucketLabel,
   timeBucketParam,
+  topByBlob,
   totalClicks,
 } from "~/lib/analytics-engine";
 import { parseAnalyticsParams } from "~/lib/analytics-filters";
@@ -110,6 +112,21 @@ export function shouldRevalidate({
   defaultShouldRevalidate,
 }: ShouldRevalidateFunctionArgs) {
   return shouldReloadCampaign(currentUrl, nextUrl, defaultShouldRevalidate);
+}
+
+const CAMPAIGN_FILTER_DIMENSIONS = [
+  "referer",
+  "country",
+  "city",
+  "region",
+  "continent",
+  "device",
+  "browser",
+  "os",
+] as const satisfies readonly TopBlob[];
+
+function filterSuggestionNames(rows: Awaited<ReturnType<typeof topByBlob>>): string[] {
+  return rows.map((row) => row.name).filter((name) => name !== "(unknown)");
 }
 
 function parseId(value: FormDataEntryValue | null, label: string): number {
@@ -194,6 +211,17 @@ export async function loader(args: Route.LoaderArgs) {
     for (const [linkId, count] of resolved) counts[linkId] = count;
     return counts;
   });
+  const dimensionSuggestions =
+    linkIds.length === 0
+      ? Promise.resolve([] as Array<readonly [TopBlob, string[]]>)
+      : Promise.all(
+          CAMPAIGN_FILTER_DIMENSIONS.map(async (dimension) => {
+            const rows = await topByBlob(env, dimension, linkIds, 10, opts).catch(
+              fallback(`filter:${dimension}`, []),
+            );
+            return [dimension, filterSuggestionNames(rows)] as const;
+          }),
+        );
   const analytics = Promise.all([
     linkIds.length === 0
       ? Promise.resolve(0)
@@ -208,13 +236,15 @@ export async function loader(args: Route.LoaderArgs) {
     linkIds.length === 0
       ? Promise.resolve([])
       : conversionClicksByHour(env, linkIds, opts).catch(fallback("conversion", [])),
-  ]).then(([total, resolvedClicks, sourceClicks, trend, conversionClicks]) => {
+    dimensionSuggestions,
+  ]).then(([total, resolvedClicks, sourceClicks, trend, conversionClicks, dimensions]) => {
     const sourceBreakdown = campaignSourceBreakdown(channelsInScope, sourceClicks);
     const sourceSuggestions = new Set(
       channelsInScope.flatMap((item) => item.sources.map((source) => source.code)),
     );
     for (const row of sourceClicks) if (row.source) sourceSuggestions.add(row.source);
     const suggestions: FilterSuggestions = {
+      ...Object.fromEntries(dimensions),
       source: [...sourceSuggestions].sort(),
       slug: channelsInScope.flatMap((item) => item.links.map((link) => link.slug)),
     };
