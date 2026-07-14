@@ -50,6 +50,10 @@ jobs:
             run: pnpm --filter @gdgjp/scheduler typecheck
           - name: Typecheck gdg-lib
             run: pnpm --filter @gdgjp/gdg-lib typecheck
+          - name: Typecheck tinyurl gateway
+            run: pnpm --filter @gdgjp/tinyurl-gateway typecheck
+          - name: Typecheck go extension
+            run: pnpm --filter @gdgjp/go-extension typecheck
 
   test:
     name: Unit tests
@@ -75,6 +79,10 @@ jobs:
             run: pnpm --filter @gdgjp/scheduler test
           - name: Test gdg-lib
             run: pnpm --filter @gdgjp/gdg-lib test
+          - name: Test tinyurl gateway
+            run: pnpm --filter @gdgjp/tinyurl-gateway test
+          - name: Test go extension
+            run: pnpm --filter @gdgjp/go-extension test
 
   build:
     name: Build
@@ -98,6 +106,18 @@ jobs:
             run: pnpm --filter @gdgjp/img build
           - name: Build scheduler
             run: pnpm --filter @gdgjp/scheduler build
+          - name: Build tinyurl gateway
+            run: pnpm --filter @gdgjp/tinyurl-gateway build
+          - name: Build go extension
+            run: pnpm --filter @gdgjp/go-extension build
+      - name: Validate go extension package
+        run: unzip -t go-extension/dist/gdg-japan-go-links.zip
+      - name: Upload go extension package
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdg-japan-go-links
+          path: go-extension/dist/gdg-japan-go-links.zip
+          retention-days: 14
 
   e2e:
     name: E2E (${{ matrix.app }})

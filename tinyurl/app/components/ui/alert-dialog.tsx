@@ -1,13 +1,37 @@
 "use client";
 
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
+import { createContext, useContext, useState } from "react";
 import type * as React from "react";
 
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 
-function AlertDialog({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;
+const AlertDialogDismissContext = createContext<(() => void) | null>(null);
+
+function AlertDialog({
+  open,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen ?? false);
+  const currentOpen = open ?? uncontrolledOpen;
+  const setOpen = (nextOpen: boolean) => {
+    if (open === undefined) setUncontrolledOpen(nextOpen);
+    onOpenChange?.(nextOpen);
+  };
+
+  return (
+    <AlertDialogDismissContext.Provider value={() => setOpen(false)}>
+      <AlertDialogPrimitive.Root
+        data-slot="alert-dialog"
+        open={currentOpen}
+        onOpenChange={setOpen}
+        {...props}
+      />
+    </AlertDialogDismissContext.Provider>
+  );
 }
 
 function AlertDialogTrigger({
@@ -22,15 +46,22 @@ function AlertDialogPortal({ ...props }: React.ComponentProps<typeof AlertDialog
 
 function AlertDialogOverlay({
   className,
+  onClick,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Overlay>) {
+  const dismiss = useContext(AlertDialogDismissContext);
+
   return (
     <AlertDialogPrimitive.Overlay
       data-slot="alert-dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+        "fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
         className,
       )}
+      onClick={(event) => {
+        onClick?.(event);
+        if (!event.defaultPrevented) dismiss?.();
+      }}
       {...props}
     />
   );

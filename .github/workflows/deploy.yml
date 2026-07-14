@@ -40,6 +40,18 @@ jobs:
             run: pnpm --filter @gdgjp/img build
           - name: Build scheduler
             run: pnpm --filter @gdgjp/scheduler build
+          - name: Build tinyurl gateway
+            run: pnpm --filter @gdgjp/tinyurl-gateway build
+          - name: Build go extension
+            run: pnpm --filter @gdgjp/go-extension build
+      - name: Apply tinyurl D1 migrations
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: tinyurl
+          packageManager: pnpm
+          command: d1 migrations apply gdgjp-tinyurl-db --remote
       - parallel:
           - name: Deploy accounts to Cloudflare Workers
             uses: cloudflare/wrangler-action@v3
@@ -81,3 +93,15 @@ jobs:
               workingDirectory: scheduler
               packageManager: pnpm
               command: deploy
+          - name: Deploy tinyurl gateway to Vercel
+            run: pnpm --filter @gdgjp/tinyurl-gateway exec vercel deploy --prod --yes --token="$VERCEL_TOKEN"
+            env:
+              VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+              VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+              VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      - name: Upload go extension package
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdg-japan-go-links-${{ github.sha }}
+          path: go-extension/dist/gdg-japan-go-links.zip
+          retention-days: 30

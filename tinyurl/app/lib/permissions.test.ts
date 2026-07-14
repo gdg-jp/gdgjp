@@ -1,7 +1,7 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { describe, expect, it } from "vitest";
 import type { Link, LinkPermission } from "./db";
-import { canEditLink, canViewLink } from "./permissions";
+import { canEditLink, canManageChapterDomains, canViewLink } from "./permissions";
 
 const owner: AuthUser = {
   id: "u_owner",
@@ -41,6 +41,7 @@ const link: Link = {
   createdAt: 0,
   updatedAt: 0,
   deletedAt: null,
+  archivedAt: null,
 };
 
 function perm(overrides: Partial<LinkPermission>): LinkPermission {
@@ -135,5 +136,19 @@ describe("canViewLink / canEditLink", () => {
   it("private link without perms still hidden from non-members", () => {
     const ctx = { user: stranger, chapterId: 42 };
     expect(canViewLink(ctx, link, [])).toBe(false);
+  });
+});
+
+describe("canManageChapterDomains", () => {
+  it("allows organizers and superadmins, but not ordinary members", () => {
+    expect(
+      canManageChapterDomains(owner, { chapterId: 1, chapterSlug: "tokyo", role: "organizer" }),
+    ).toBe(true);
+    expect(
+      canManageChapterDomains(owner, { chapterId: 1, chapterSlug: "tokyo", role: "member" }),
+    ).toBe(false);
+    expect(
+      canManageChapterDomains(admin, { chapterId: 1, chapterSlug: "tokyo", role: "member" }),
+    ).toBe(true);
   });
 });

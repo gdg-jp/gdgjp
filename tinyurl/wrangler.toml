@@ -12,6 +12,7 @@ ACCOUNTS_URL = "https://accounts.gdgs.jp"
 SHORT_URL_BASE = "https://gdgs.jp"
 IDP_URL = "https://accounts.gdgs.jp"
 IDP_CLIENT_ID = "tinyurl"
+DOMAINS_ENABLED = "true"
 
 [assets]
 binding = "ASSETS"
@@ -42,6 +43,10 @@ zone_name = "gdgs.jp"
 
 [[routes]]
 pattern = "gdgs.jp/*"
+zone_name = "gdgs.jp"
+
+[[routes]]
+pattern = "go.gdgs.jp/*"
 zone_name = "gdgs.jp"
 
 [observability]

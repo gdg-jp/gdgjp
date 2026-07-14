@@ -1,7 +1,7 @@
-import { BarChart3, FolderTree, LinkIcon, Menu, Tag as TagIcon, X } from "lucide-react";
+import { BarChart3, FolderTree, Globe2, LinkIcon, Menu, Tag as TagIcon, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { type ReactNode, useState } from "react";
-import { Link, useLocation, useNavigation } from "react-router";
+import { Link, useLocation, useNavigation, useRouteLoaderData } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { UserMenu, type UserMenuUser } from "~/components/user-menu";
@@ -31,7 +31,10 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     heading: "Library",
-    items: [{ to: "/tags", label: "Tags", icon: TagIcon }],
+    items: [
+      { to: "/tags", label: "Tags", icon: TagIcon },
+      { to: "/domains", label: "Domains", icon: Globe2 },
+    ],
   },
 ];
 
@@ -65,6 +68,7 @@ function SidebarLink({
 
 function Sidebar({ user }: { user: UserMenuUser | null }) {
   const { pathname } = useLocation();
+  const rootData = useRouteLoaderData("root") as { domainsEnabled?: boolean } | undefined;
   return (
     <aside className="hidden w-60 shrink-0 border-r bg-muted/40 md:sticky md:top-0 md:flex md:h-dvh md:flex-col">
       <div className="flex h-14 items-center gap-2 border-b px-4">
@@ -82,9 +86,11 @@ function Sidebar({ user }: { user: UserMenuUser | null }) {
                 </p>
               ) : null}
               <div className="space-y-0.5">
-                {group.items.map((item) => (
-                  <SidebarLink key={item.to} item={item} active={isItemActive(item, pathname)} />
-                ))}
+                {group.items
+                  .filter((item) => item.to !== "/domains" || rootData?.domainsEnabled)
+                  .map((item) => (
+                    <SidebarLink key={item.to} item={item} active={isItemActive(item, pathname)} />
+                  ))}
               </div>
             </div>
           ))}
@@ -106,10 +112,11 @@ function isItemActive(item: NavItem, pathname: string) {
 
 function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { pathname } = useLocation();
+  const rootData = useRouteLoaderData("root") as { domainsEnabled?: boolean } | undefined;
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
           aria-label="Navigation menu"
           className="fixed inset-y-0 left-0 z-50 w-72 bg-background shadow-lg duration-200 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:animate-in data-[state=open]:slide-in-from-left focus:outline-none"
@@ -141,14 +148,16 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
                     </p>
                   ) : null}
                   <div className="space-y-0.5">
-                    {group.items.map((item) => (
-                      <SidebarLink
-                        key={item.to}
-                        item={item}
-                        active={isItemActive(item, pathname)}
-                        onClick={onClose}
-                      />
-                    ))}
+                    {group.items
+                      .filter((item) => item.to !== "/domains" || rootData?.domainsEnabled)
+                      .map((item) => (
+                        <SidebarLink
+                          key={item.to}
+                          item={item}
+                          active={isItemActive(item, pathname)}
+                          onClick={onClose}
+                        />
+                      ))}
                   </div>
                 </div>
               ))}

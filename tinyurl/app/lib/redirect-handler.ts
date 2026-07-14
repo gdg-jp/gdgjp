@@ -19,7 +19,7 @@ function twitterMetaTag(name: string, content: string | null | undefined): strin
   return content ? `<meta name="${name}" content="${escapeHtml(content)}">` : "";
 }
 
-function renderBotPreview(link: Link, shortUrl: string): Response {
+export function renderBotPreview(link: Link, shortUrl: string): Response {
   const title = link.title || link.slug;
   const description = link.description || link.destinationUrl;
   const image = link.ogImageUrl;
@@ -59,14 +59,15 @@ export async function handleApexRedirect(
   ctx: ExecutionContext,
   request: Request,
   slug: string,
+  hostname = new URL(request.url).hostname,
 ): Promise<Response | null> {
-  const link = await getLinkBySlug(env.DB, slug);
+  const link = await getLinkBySlug(env.DB, slug, hostname);
   if (!link) return null;
   const userAgent = request.headers.get("user-agent");
   if (userAgent && isbot(userAgent)) {
     return renderBotPreview(link, new URL(request.url).toString());
   }
-  ctx.waitUntil(Promise.resolve(writeClickEvent(env, request, link)));
+  ctx.waitUntil(Promise.resolve(writeClickEvent(env, request, link, hostname)));
   return new Response(null, {
     status: 302,
     headers: {

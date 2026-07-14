@@ -12,6 +12,7 @@ import {
   getCampaignChannelById,
   setLinkTags,
 } from "~/lib/db";
+import { getDomainById } from "~/lib/domains";
 import { type OgpData, fetchOgp, validatePublicHttpUrl } from "~/lib/ogp";
 import { generateRandomSlug, validateSlug } from "~/lib/slug";
 import type { Route } from "./+types/api.links";
@@ -48,6 +49,17 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
   const commentBody = String(form.get("comment") ?? "").trim();
   const rawVisibility = String(form.get("visibility") ?? "private");
   const rawCampaignChannelId = String(form.get("campaignChannelId") ?? "").trim();
+  const domainId = Number(form.get("domainId") ?? 1);
+  if (!Number.isInteger(domainId) || domainId <= 0) return { error: "Domain is invalid." };
+  const domain = await getDomainById(env.DB, domainId);
+  if (!domain || domain.status !== "active") return { error: "Domain is not active." };
+  if (
+    domain.ownerChapterId !== null &&
+    !chapters.some((item) => item.chapterId === domain.ownerChapterId) &&
+    !isSuperAdmin(user)
+  ) {
+    return { error: "Domain is not available for your chapter." };
+  }
   const shares = form.getAll("share").map((value) => {
     const [principalType, principalId, role] = String(value).split(":");
     return { principalType, principalId: principalId?.trim() ?? "", role };
@@ -100,6 +112,12 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     if (!destinationUrl && campaign.defaultDestinationUrl) {
       destinationUrl = campaign.defaultDestinationUrl;
     }
+  }
+  if (domain.ownerChapterId !== null) {
+    if (ownerChapterId !== null && ownerChapterId !== domain.ownerChapterId) {
+      return { error: "Campaign and domain must belong to the same chapter." };
+    }
+    ownerChapterId = domain.ownerChapterId;
   }
 
   if (!destinationUrl) return { error: "Destination URL is required." };
@@ -162,6 +180,7 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     for (let attempt = 0; attempt < 5; attempt++) {
       slug = generateRandomSlug(8);
       const result = await createLinkWithExtras({
+        domainId,
         slug,
         destinationUrl,
         title,
@@ -190,6 +209,7 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
   }
 
   const result = await createLinkWithExtras({
+    domainId,
     slug,
     destinationUrl,
     title,

@@ -20,21 +20,6 @@ CREATE UNIQUE INDEX idx_tags_user_name
   ON tags(owner_user_id, name) WHERE owner_user_id IS NOT NULL;
 CREATE UNIQUE INDEX idx_tags_chapter_name
   ON tags(owner_chapter_id, name) WHERE owner_chapter_id IS NOT NULL;
-CREATE TABLE links (
-  id              TEXT PRIMARY KEY,
-  slug            TEXT NOT NULL UNIQUE,
-  destination_url TEXT NOT NULL,
-  title           TEXT,
-  description     TEXT,
-  og_image_url    TEXT,
-  owner_user_id   TEXT NOT NULL,
-  owner_chapter_id INTEGER,
-  created_at      INTEGER NOT NULL DEFAULT (unixepoch()),
-  updated_at      INTEGER NOT NULL DEFAULT (unixepoch()),
-  deleted_at      INTEGER
-, visibility TEXT NOT NULL DEFAULT 'private'
-  CHECK (visibility IN ('private', 'public')), campaign_channel_id INTEGER
-  REFERENCES campaign_channels(id) ON DELETE SET NULL);
 CREATE TABLE link_tags (
   link_id TEXT NOT NULL,
   tag_id  INTEGER NOT NULL,
@@ -60,8 +45,6 @@ CREATE TABLE link_permissions (
   UNIQUE(link_id, principal_type, principal_id),
   FOREIGN KEY (link_id) REFERENCES links(id) ON DELETE CASCADE
 );
-CREATE INDEX idx_links_owner            ON links(owner_user_id, deleted_at);
-CREATE INDEX idx_links_chapter          ON links(owner_chapter_id, deleted_at);
 CREATE INDEX idx_link_tags_tag          ON link_tags(tag_id);
 CREATE INDEX idx_comments_link          ON comments(link_id, created_at);
 CREATE INDEX idx_link_permissions_link  ON link_permissions(link_id);
@@ -75,7 +58,6 @@ CREATE TABLE IF NOT EXISTS "user" (
   "email"         TEXT NOT NULL UNIQUE,
   "image"         TEXT,
   "is_admin" INTEGER NOT NULL DEFAULT 0, "created_at" INTEGER NOT NULL DEFAULT 0, "updated_at" INTEGER NOT NULL DEFAULT 0);
-CREATE INDEX idx_links_visibility ON links(visibility, deleted_at);
 CREATE TABLE campaigns (
   id                 INTEGER PRIMARY KEY AUTOINCREMENT,
   name               TEXT NOT NULL,
@@ -120,8 +102,6 @@ CREATE TABLE campaign_channel_sources (
 );
 CREATE INDEX idx_campaign_channel_sources_channel
   ON campaign_channel_sources(channel_id, archived_at, name, id);
-CREATE INDEX idx_links_campaign_channel
-  ON links(campaign_channel_id, deleted_at, created_at DESC);
 CREATE TABLE campaign_participant_analytics (
   campaign_id         INTEGER PRIMARY KEY,
   connpass_event_id   TEXT NOT NULL,
@@ -185,3 +165,58 @@ CREATE TABLE campaign_participant_channels (
   FOREIGN KEY (campaign_id, campaign_channel_id)
     REFERENCES campaign_channels(campaign_id, id) ON DELETE CASCADE
 );
+CREATE TABLE domains (
+  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+  hostname              TEXT NOT NULL COLLATE NOCASE UNIQUE,
+  kind                  TEXT NOT NULL CHECK (kind IN ('system', 'custom')),
+  mode                  TEXT NOT NULL CHECK (mode IN ('short-only', 'origin-first')),
+  upstream_origin       TEXT,
+  owner_chapter_id      INTEGER,
+  status                TEXT NOT NULL DEFAULT 'pending'
+                          CHECK (status IN ('pending', 'verifying', 'active', 'error', 'deleted')),
+  provider_domain_id    TEXT,
+  verification_records TEXT NOT NULL DEFAULT '[]',
+  provider_error        TEXT,
+  created_by_user_id    TEXT,
+  created_at            INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at            INTEGER NOT NULL DEFAULT (unixepoch()),
+  checked_at            INTEGER,
+  deleted_at            INTEGER,
+  CHECK (
+    (mode = 'short-only' AND upstream_origin IS NULL) OR
+    (mode = 'origin-first' AND upstream_origin IS NOT NULL)
+  )
+);
+CREATE INDEX idx_domains_chapter_status
+  ON domains(owner_chapter_id, status, hostname);
+CREATE TABLE IF NOT EXISTS "links" (
+  id                  TEXT PRIMARY KEY,
+  domain_id           INTEGER NOT NULL,
+  slug                TEXT NOT NULL,
+  destination_url     TEXT NOT NULL,
+  title               TEXT,
+  description         TEXT,
+  og_image_url        TEXT,
+  owner_user_id       TEXT NOT NULL,
+  owner_chapter_id    INTEGER,
+  campaign_channel_id INTEGER,
+  visibility          TEXT NOT NULL DEFAULT 'private'
+                        CHECK (visibility IN ('private', 'public')),
+  created_at          INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at          INTEGER NOT NULL DEFAULT (unixepoch()),
+  archived_at         INTEGER,
+  deleted_at          INTEGER,
+  UNIQUE(domain_id, slug),
+  FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE RESTRICT,
+  FOREIGN KEY (campaign_channel_id) REFERENCES campaign_channels(id) ON DELETE SET NULL
+);
+CREATE INDEX idx_links_owner
+  ON links(owner_user_id, deleted_at);
+CREATE INDEX idx_links_chapter
+  ON links(owner_chapter_id, deleted_at);
+CREATE INDEX idx_links_campaign_channel
+  ON links(campaign_channel_id, deleted_at, created_at DESC);
+CREATE INDEX idx_links_archive
+  ON links(archived_at, deleted_at, created_at DESC);
+CREATE INDEX idx_links_domain_slug
+  ON links(domain_id, slug, deleted_at);

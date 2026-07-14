@@ -30,6 +30,7 @@ const link: Link = {
   createdAt: 0,
   updatedAt: 0,
   deletedAt: null,
+  archivedAt: null,
 };
 
 const ctx = { waitUntil: vi.fn() } as unknown as ExecutionContext;
@@ -67,7 +68,7 @@ describe("handleApexRedirect", () => {
     const response = await handleApexRedirect(env, ctx, request, "conf");
 
     expect(response?.headers.get("location")).toBe("https://events.example.com/conf");
-    expect(writeClickEventMock).toHaveBeenCalledWith(env, request, link);
+    expect(writeClickEventMock).toHaveBeenCalledWith(env, request, link, "go.example");
   });
 
   it("renders saved OGP metadata for crawler requests", async () => {

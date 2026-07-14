@@ -1,4 +1,6 @@
+import { isSuperAdmin } from "@gdgjp/gdg-lib";
 import {
+  Archive,
   BarChart3,
   Check,
   ChevronRight,
@@ -15,6 +17,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Await, Form, Link, redirect, useNavigation } from "react-router";
 import { toast } from "sonner";
 import { DashboardShell } from "~/components/dashboard-shell";
+import { type LinkAction, LinkActionDialog } from "~/components/link-action-dialog";
 import { TagCombobox } from "~/components/tag-combobox";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import {
@@ -59,6 +62,7 @@ import {
   type UserSummary,
   addComment,
   addPermission,
+  archiveLink,
   createTag,
   deleteComment,
   getLinkById,
@@ -69,14 +73,17 @@ import {
   listTagsForLink,
   listTagsForUser,
   removePermission,
+  restoreLink,
   setLinkTags,
   softDeleteLink,
   updateLink,
   updatePermissionRole,
 } from "~/lib/db";
+import { getDomainById, listDomainsForChapters } from "~/lib/domains";
 import { isLinkId } from "~/lib/id";
 import { fetchOgp, validatePublicHttpUrl } from "~/lib/ogp";
 import { type ViewerContext, canEditLink, canViewLink } from "~/lib/permissions";
+import { shortDomainLabel, shortLinkDisplay } from "~/lib/short-url";
 import { validateSlug } from "~/lib/slug";
 import type { Route } from "./+types/links.$id";
 
@@ -103,12 +110,16 @@ export async function loader(args: Route.LoaderArgs) {
   const clicks = clicksByLinkId(env, [link.id])
     .then((clickMap) => clickMap.get(link.id) ?? 0)
     .catch(() => 0);
-  const [tags, userTags, chapterTags, comments, users] = await Promise.all([
+  const [tags, userTags, chapterTags, comments, users, domains] = await Promise.all([
     listTagsForLink(env.DB, link.id),
     listTagsForUser(env.DB, user.id),
     listTagsForChapter(env.DB, chapter.chapterId),
     listComments(env.DB, link.id),
     getUsersByIds(env.DB, [link.ownerUserId]),
+    listDomainsForChapters(
+      env.DB,
+      chapters.map((item) => item.chapterId),
+    ),
   ]);
   const latestComment = comments.length > 0 ? comments[comments.length - 1] : null;
   const chapterNameById: Record<string, string> = {};
@@ -126,6 +137,9 @@ export async function loader(args: Route.LoaderArgs) {
     chapterNameById,
     appUrl: env.APP_URL,
     shortUrlBase: env.SHORT_URL_BASE,
+    domainOptions: domains
+      .filter((domain) => domain.status === "active" || domain.id === link.domainId)
+      .map((domain) => ({ id: domain.id, hostname: domain.hostname })),
     clicks,
   };
 }
@@ -135,7 +149,7 @@ export function meta({ data }: Route.MetaArgs) {
 }
 
 export async function action(args: Route.ActionArgs) {
-  const { env, user, link, editable, id } = await ensureAccess(args);
+  const { env, user, chapters, link, editable, id } = await ensureAccess(args);
   const form = await args.request.formData();
   const intent = form.get("intent");
 
@@ -146,8 +160,40 @@ export async function action(args: Route.ActionArgs) {
     throw redirect("/links");
   }
 
+  if (intent === "archive") {
+    await archiveLink(env.DB, id);
+    throw redirect("/links");
+  }
+
+  if (intent === "restore") {
+    await restoreLink(env.DB, id);
+    throw redirect("/links");
+  }
+
   if (intent === "update") {
     const update: Parameters<typeof updateLink>[2] = {};
+
+    if (form.has("domainId")) {
+      const domainId = Number(form.get("domainId"));
+      const domain = Number.isInteger(domainId) ? await getDomainById(env.DB, domainId) : null;
+      if (!domain || domain.status !== "active") return { error: "Domain is not active." };
+      if (
+        domain.ownerChapterId !== null &&
+        !chapters.some((chapter) => chapter.chapterId === domain.ownerChapterId) &&
+        !isSuperAdmin(user)
+      ) {
+        return { error: "Domain is not available for your chapter." };
+      }
+      if (
+        link.campaignChannelId !== null &&
+        domain.ownerChapterId !== null &&
+        link.ownerChapterId !== domain.ownerChapterId
+      ) {
+        return { error: "Campaign and domain must belong to the same chapter." };
+      }
+      update.domainId = domain.id;
+      if (domain.ownerChapterId !== null) update.ownerChapterId = domain.ownerChapterId;
+    }
 
     if (form.has("destinationUrl")) {
       const destinationUrl = String(form.get("destinationUrl") ?? "").trim();
@@ -442,6 +488,7 @@ function PermissionRow({
 }
 
 type Draft = {
+  domainId: number;
   destinationUrl: string;
   slug: string;
   title: string;
@@ -455,6 +502,7 @@ type Draft = {
 
 function buildInitial(loaderData: Route.ComponentProps["loaderData"]): Draft {
   return {
+    domainId: loaderData.link.domainId ?? 1,
     destinationUrl: loaderData.link.destinationUrl,
     slug: loaderData.link.slug,
     title: loaderData.link.title ?? "",
@@ -469,6 +517,7 @@ function buildInitial(loaderData: Route.ComponentProps["loaderData"]): Draft {
 
 function draftEqual(a: Draft, b: Draft): boolean {
   if (
+    a.domainId !== b.domainId ||
     a.destinationUrl !== b.destinationUrl ||
     a.slug !== b.slug ||
     a.title !== b.title ||
@@ -499,16 +548,20 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
     chapters,
     chapterNameById,
     shortUrlBase,
+    domainOptions,
   } = loaderData;
-  const apexShortUrl = `${shortUrlBase}/${link.slug}`;
-  const shortHost = shortHostOf(shortUrlBase);
-  const favicon = faviconUrl(link.destinationUrl);
   const owner = users[link.ownerUserId];
 
   const initial = useMemo(() => buildInitial(loaderData), [loaderData]);
   const [draft, setDraft] = useState<Draft>(initial);
   const [slugUnlocked, setSlugUnlocked] = useState(false);
   const [slugDialogOpen, setSlugDialogOpen] = useState(false);
+  const [linkAction, setLinkAction] = useState<LinkAction | null>(null);
+  const selectedDomain = domainOptions.find((domain) => domain.id === draft.domainId);
+  const shortHost = selectedDomain?.hostname ?? link.domainHostname ?? shortHostOf(shortUrlBase);
+  const apexShortUrl = `https://${shortHost}/${draft.slug}`;
+  const shortDisplay = shortLinkDisplay(shortHost, draft.slug);
+  const favicon = faviconUrl(draft.destinationUrl);
   useEffect(() => {
     setDraft(initial);
     setSlugUnlocked(false);
@@ -517,7 +570,6 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
   const navigation = useNavigation();
   const submittingIntent = navigation.formData?.get("intent");
   const isSaving = navigation.state !== "idle" && submittingIntent === "update";
-  const isDeleting = navigation.state !== "idle" && submittingIntent === "delete";
   const isFetchingOgp = navigation.state !== "idle" && submittingIntent === "fetchOgp";
 
   const lastToastedRef = useRef<unknown>(null);
@@ -540,6 +592,10 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
 
   function copyShort() {
     navigator.clipboard.writeText(apexShortUrl).then(() => toast.success("Copied to clipboard"));
+  }
+
+  function copyGoAlias() {
+    navigator.clipboard.writeText(shortDisplay).then(() => toast.success("Copied go link"));
   }
 
   function setField<K extends keyof Draft>(key: K, value: Draft[K]) {
@@ -566,12 +622,16 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
               ) : (
                 <ExternalLink className="size-4 text-muted-foreground" />
               )}
-              <span className="truncate">
-                {shortHost}/{link.slug}
-              </span>
+              <span className="truncate">{shortDisplay}</span>
             </span>
           </nav>
           <div className="flex items-center gap-1.5">
+            {shortHost === "go.gdgs.jp" ? (
+              <Button variant="outline" size="sm" onClick={copyGoAlias}>
+                <Copy className="size-4" />
+                Copy go link
+              </Button>
+            ) : null}
             <Button variant="outline" size="sm" onClick={copyShort}>
               <Copy className="size-4" />
               Copy link
@@ -593,6 +653,12 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {shortHost === "go.gdgs.jp" ? (
+                  <DropdownMenuItem onSelect={copyGoAlias}>
+                    <Copy className="size-4" />
+                    Copy go/{draft.slug}
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuItem onSelect={copyShort}>
                   <Copy className="size-4" />
                   Copy short URL
@@ -612,46 +678,36 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                 {editable ? (
                   <>
                     <DropdownMenuSeparator />
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onSelect={(e) => e.preventDefault()}
-                        >
-                          <Trash2 className="size-4" />
-                          Delete link…
-                        </DropdownMenuItem>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete "{link.slug}"?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently remove the short link.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <Form method="post">
-                            <input type="hidden" name="intent" value="delete" />
-                            <AlertDialogAction
-                              type="submit"
-                              className="bg-destructive"
-                              disabled={isDeleting}
-                              aria-busy={isDeleting || undefined}
-                            >
-                              {isDeleting ? <Spinner size="sm" label="Deleting" /> : null}
-                              Delete
-                            </AlertDialogAction>
-                          </Form>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    {link.archivedAt === null ? (
+                      <DropdownMenuItem onSelect={() => setLinkAction("archive")}>
+                        <Archive className="size-4" />
+                        Archive link…
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => setLinkAction("delete")}
+                    >
+                      <Trash2 className="size-4" />
+                      Delete link…
+                    </DropdownMenuItem>
                   </>
                 ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
+
+        {linkAction ? (
+          <LinkActionDialog
+            action={linkAction}
+            linkId={link.id}
+            linkSlug={shortDisplay}
+            destinationUrl={link.destinationUrl}
+            open
+            onOpenChange={(open) => !open && setLinkAction(null)}
+          />
+        ) : null}
 
         {actionData && "error" in actionData && actionData.error ? (
           <Alert variant="destructive">
@@ -664,6 +720,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
         <Form id="link-update" method="post" className="hidden">
           <input type="hidden" name="intent" value="update" />
           <input type="hidden" name="manageTags" value="1" />
+          <input type="hidden" name="domainId" value={draft.domainId} />
           <input type="hidden" name="destinationUrl" value={draft.destinationUrl} />
           <input type="hidden" name="slug" value={draft.slug} />
           <input type="hidden" name="title" value={draft.title} />
@@ -737,9 +794,25 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                 ) : null}
               </div>
               <div className="flex gap-2">
-                <div className="inline-flex h-9 items-center gap-1 rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
-                  {shortHost}
-                </div>
+                <Select
+                  value={String(draft.domainId)}
+                  onValueChange={(value) => setField("domainId", Number(value))}
+                  disabled={!editable || !slugUnlocked}
+                >
+                  <SelectTrigger
+                    aria-label="Short link domain"
+                    className="h-9 min-w-32 shrink-0 bg-muted text-muted-foreground shadow-none"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    {domainOptions.map((domain) => (
+                      <SelectItem key={domain.id} value={String(domain.id)}>
+                        {shortDomainLabel(domain.hostname)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Input
                   id="slug"
                   value={draft.slug}

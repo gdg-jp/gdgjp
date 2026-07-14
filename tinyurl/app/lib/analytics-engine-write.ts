@@ -10,7 +10,12 @@ export function sourceFromRequest(request: Request): string {
   return SOURCE_RE.test(source) ? source : "";
 }
 
-export function writeClickEvent(env: Env, request: Request, link: Link): void {
+export function writeClickEvent(
+  env: Env,
+  request: Request,
+  link: Link,
+  hostname = new URL(request.url).hostname,
+): void {
   if (!env.CLICKS_AE) return;
   const cf = (request as Request & { cf?: Record<string, string> }).cf ?? {};
   const ua = request.headers.get("user-agent");
@@ -34,6 +39,7 @@ export function writeClickEvent(env: Env, request: Request, link: Link): void {
       os,
       device,
       source,
+      hostname.toLowerCase(),
     ],
     indexes: [link.id],
   });

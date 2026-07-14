@@ -4,6 +4,10 @@ import { ThemeProvider, themeInitScript } from "~/lib/theme";
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 
+export function loader({ context }: Route.LoaderArgs) {
+  return { domainsEnabled: String(context.cloudflare.env.DOMAINS_ENABLED) === "true" };
+}
+
 export const links: Route.LinksFunction = () => [
   { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
   { rel: "stylesheet", href: stylesheet },

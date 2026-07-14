@@ -1,4 +1,4 @@
-import type { AuthUser } from "@gdgjp/gdg-lib";
+import type { AuthUser, UserChapter } from "@gdgjp/gdg-lib";
 import { isSuperAdmin } from "@gdgjp/gdg-lib";
 import type { Link, LinkPermission, LinkRole } from "./db";
 
@@ -6,6 +6,10 @@ export function requireSuperAdmin(user: AuthUser): void {
   if (!isSuperAdmin(user)) {
     throw new Response("Forbidden", { status: 403 });
   }
+}
+
+export function canManageChapterDomains(user: AuthUser, chapter: UserChapter): boolean {
+  return isSuperAdmin(user) || chapter.role === "organizer";
 }
 
 export type ViewerContext = {

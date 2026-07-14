@@ -16,6 +16,7 @@ const link: Link = {
   createdAt: 0,
   updatedAt: 0,
   deletedAt: null,
+  archivedAt: null,
 };
 
 describe("writeClickEvent", () => {
@@ -41,10 +42,11 @@ describe("writeClickEvent", () => {
     writeClickEvent(env, request, link);
 
     const blobs = writeDataPoint.mock.calls[0][0].blobs;
-    expect(blobs).toHaveLength(10);
+    expect(blobs).toHaveLength(11);
     expect(blobs[0]).toBe("example");
     expect(blobs[5]).toBe("https://ref.example");
     expect(blobs[9]).toBe("tokyo");
+    expect(blobs[10]).toBe("go.example");
   });
 
   it("stores only the referer origin", () => {

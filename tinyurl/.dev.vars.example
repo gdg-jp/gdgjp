@@ -17,3 +17,8 @@ APP_URL=http://localhost:5174
 ACCOUNTS_URL=http://localhost:5173
 IDP_URL=http://localhost:5173
 SHORT_URL_BASE=http://localhost:5174
+# Custom domain provisioning (secrets in production)
+VERCEL_TOKEN=""
+VERCEL_PROJECT_ID=""
+VERCEL_TEAM_ID=""
+GATEWAY_SHARED_SECRET=""

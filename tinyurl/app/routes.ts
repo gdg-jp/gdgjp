@@ -10,6 +10,7 @@ export default [
   route("links/:id", "routes/links.$id.tsx"),
   route("analytics", "routes/analytics.tsx"),
   route("tags", "routes/tags.tsx"),
+  route("domains", "routes/domains.tsx"),
   route("signin", "routes/signin.tsx"),
   route("no-chapter", "routes/no-chapter.tsx"),
   route("api/auth/*", "routes/api.auth.$.ts"),

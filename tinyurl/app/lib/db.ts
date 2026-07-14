@@ -4,6 +4,8 @@ export type LinkVisibility = "private" | "public";
 
 export type Link = {
   id: string;
+  domainId?: number;
+  domainHostname?: string;
   slug: string;
   destinationUrl: string;
   title: string | null;
@@ -15,11 +17,14 @@ export type Link = {
   visibility: LinkVisibility;
   createdAt: number;
   updatedAt: number;
+  archivedAt: number | null;
   deletedAt: number | null;
 };
 
 type LinkRow = {
   id: string;
+  domain_id?: number;
+  domain_hostname?: string;
   slug: string;
   destination_url: string;
   title: string | null;
@@ -31,12 +36,15 @@ type LinkRow = {
   visibility: LinkVisibility;
   created_at: number;
   updated_at: number;
+  archived_at: number | null;
   deleted_at: number | null;
 };
 
 export function toLink(row: LinkRow): Link {
   return {
     id: row.id,
+    domainId: row.domain_id ?? 1,
+    domainHostname: row.domain_hostname ?? "gdgs.jp",
     slug: row.slug,
     destinationUrl: row.destination_url,
     title: row.title,
@@ -48,36 +56,80 @@ export function toLink(row: LinkRow): Link {
     visibility: row.visibility,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    archivedAt: row.archived_at,
     deletedAt: row.deleted_at,
   };
 }
 
-const LINK_COLS =
-  "id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, campaign_channel_id, visibility, created_at, updated_at, deleted_at";
+function linkColumns(tableRef: "links" | "l" = "links"): string {
+  const columns = [
+    "id",
+    "domain_id",
+    "slug",
+    "destination_url",
+    "title",
+    "description",
+    "og_image_url",
+    "owner_user_id",
+    "owner_chapter_id",
+    "campaign_channel_id",
+    "visibility",
+    "created_at",
+    "updated_at",
+    "archived_at",
+    "deleted_at",
+  ];
+  const qualified = columns.map((column) => `${tableRef}.${column}`);
+  qualified.splice(
+    2,
+    0,
+    `(SELECT d.hostname FROM domains AS d WHERE d.id = ${tableRef}.domain_id) AS domain_hostname`,
+  );
+  return qualified.join(", ");
+}
 
-export async function listLinksForUser(db: D1Database, userId: string): Promise<Link[]> {
+const LINK_COLS = linkColumns();
+
+export async function listLinksForUser(
+  db: D1Database,
+  userId: string,
+  includeArchived = false,
+): Promise<Link[]> {
   const { results } = await db
     .prepare(
-      `SELECT ${LINK_COLS} FROM links WHERE owner_user_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
+      `SELECT ${LINK_COLS} FROM links
+       WHERE owner_user_id = ? AND (? = 1 OR archived_at IS NULL) AND deleted_at IS NULL
+       ORDER BY created_at DESC`,
     )
-    .bind(userId)
+    .bind(userId, includeArchived ? 1 : 0)
     .all<LinkRow>();
   return results.map(toLink);
 }
 
-export async function listPublicLinks(db: D1Database): Promise<Link[]> {
+export async function listPublicLinks(db: D1Database, includeArchived = false): Promise<Link[]> {
   const { results } = await db
     .prepare(
-      `SELECT ${LINK_COLS} FROM links WHERE visibility = 'public' AND deleted_at IS NULL ORDER BY created_at DESC`,
+      `SELECT ${LINK_COLS} FROM links
+       WHERE visibility = 'public' AND (? = 1 OR archived_at IS NULL) AND deleted_at IS NULL
+       ORDER BY created_at DESC`,
     )
+    .bind(includeArchived ? 1 : 0)
     .all<LinkRow>();
   return results.map(toLink);
 }
 
-export async function getLinkBySlug(db: D1Database, slug: string): Promise<Link | null> {
+export async function getLinkBySlug(
+  db: D1Database,
+  slug: string,
+  hostname = "gdgs.jp",
+): Promise<Link | null> {
   const row = await db
-    .prepare(`SELECT ${LINK_COLS} FROM links WHERE slug = ? AND deleted_at IS NULL`)
-    .bind(slug)
+    .prepare(
+      `SELECT ${LINK_COLS} FROM links
+       WHERE domain_id = (SELECT id FROM domains WHERE hostname = ? COLLATE NOCASE AND status = 'active' AND deleted_at IS NULL)
+         AND slug = ? AND deleted_at IS NULL`,
+    )
+    .bind(hostname, slug)
     .first<LinkRow>();
   return row ? toLink(row) : null;
 }
@@ -91,6 +143,7 @@ export async function getLinkById(db: D1Database, id: string): Promise<Link | nu
 }
 
 export type CreateLinkInput = {
+  domainId?: number;
   slug: string;
   destinationUrl: string;
   title?: string | null;
@@ -112,12 +165,13 @@ export async function createLink(
   try {
     const row = await db
       .prepare(
-        `INSERT INTO links (id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, campaign_channel_id, visibility)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO links (id, domain_id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, campaign_channel_id, visibility)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          RETURNING ${LINK_COLS}`,
       )
       .bind(
         newLinkId(),
+        input.domainId ?? 1,
         input.slug,
         input.destinationUrl,
         input.title ?? null,
@@ -139,6 +193,7 @@ export async function createLink(
 }
 
 export type UpdateLinkInput = {
+  domainId?: number;
   slug?: string;
   destinationUrl?: string;
   title?: string | null;
@@ -146,6 +201,7 @@ export type UpdateLinkInput = {
   ogImageUrl?: string | null;
   campaignChannelId?: number | null;
   visibility?: LinkVisibility;
+  ownerChapterId?: number | null;
 };
 
 export async function updateLink(
@@ -155,6 +211,10 @@ export async function updateLink(
 ): Promise<Link | null> {
   const sets: string[] = [];
   const values: (string | number | null)[] = [];
+  if (input.domainId !== undefined) {
+    sets.push("domain_id = ?");
+    values.push(input.domainId);
+  }
   if (input.slug !== undefined) {
     sets.push("slug = ?");
     values.push(input.slug);
@@ -183,6 +243,10 @@ export async function updateLink(
     sets.push("visibility = ?");
     values.push(input.visibility);
   }
+  if (input.ownerChapterId !== undefined) {
+    sets.push("owner_chapter_id = ?");
+    values.push(input.ownerChapterId);
+  }
   if (sets.length === 0) return getLinkById(db, id);
   sets.push("updated_at = unixepoch()");
   const row = await db
@@ -197,6 +261,24 @@ export async function updateLink(
 export async function softDeleteLink(db: D1Database, id: string): Promise<void> {
   await db
     .prepare("UPDATE links SET deleted_at = unixepoch() WHERE id = ? AND deleted_at IS NULL")
+    .bind(id)
+    .run();
+}
+
+export async function archiveLink(db: D1Database, id: string): Promise<void> {
+  await db
+    .prepare(
+      "UPDATE links SET archived_at = unixepoch(), updated_at = unixepoch() WHERE id = ? AND archived_at IS NULL AND deleted_at IS NULL",
+    )
+    .bind(id)
+    .run();
+}
+
+export async function restoreLink(db: D1Database, id: string): Promise<void> {
+  await db
+    .prepare(
+      "UPDATE links SET archived_at = NULL, updated_at = unixepoch() WHERE id = ? AND archived_at IS NOT NULL AND deleted_at IS NULL",
+    )
     .bind(id)
     .run();
 }
@@ -346,7 +428,8 @@ export async function listCampaignsForChapterWithCounts(
        FROM campaigns c
        JOIN campaign_chapters cc ON cc.campaign_id = c.id
        LEFT JOIN campaign_channels m ON m.campaign_id = c.id
-       LEFT JOIN links l ON l.campaign_channel_id = m.id AND l.deleted_at IS NULL
+       LEFT JOIN links l ON l.campaign_channel_id = m.id
+         AND l.archived_at IS NULL AND l.deleted_at IS NULL
        WHERE cc.chapter_id = ? AND (? = 1 OR c.archived_at IS NULL)
        GROUP BY c.id
        ORDER BY c.archived_at IS NOT NULL, c.created_at DESC`,
@@ -380,7 +463,8 @@ export async function listCampaignsForChaptersWithCounts(
        FROM campaigns c
        JOIN campaign_chapters cc ON cc.campaign_id = c.id
        LEFT JOIN campaign_channels m ON m.campaign_id = c.id
-       LEFT JOIN links l ON l.campaign_channel_id = m.id AND l.deleted_at IS NULL
+       LEFT JOIN links l ON l.campaign_channel_id = m.id
+         AND l.archived_at IS NULL AND l.deleted_at IS NULL
        WHERE cc.chapter_id IN (${placeholders}) AND (? = 1 OR c.archived_at IS NULL)
        GROUP BY c.id
        ORDER BY c.archived_at IS NOT NULL, c.created_at DESC`,
@@ -795,7 +879,8 @@ export async function listLinksForCampaignChannel(
   const { results } = await db
     .prepare(
       `SELECT ${LINK_COLS} FROM links
-       WHERE campaign_channel_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
+       WHERE campaign_channel_id = ? AND archived_at IS NULL AND deleted_at IS NULL
+       ORDER BY created_at DESC`,
     )
     .bind(channelId)
     .all<LinkRow>();
@@ -803,14 +888,12 @@ export async function listLinksForCampaignChannel(
 }
 
 export async function listLinksForCampaign(db: D1Database, campaignId: number): Promise<Link[]> {
-  const linkCols = LINK_COLS.split(", ")
-    .map((column) => `l.${column}`)
-    .join(", ");
+  const linkCols = linkColumns("l");
   const { results } = await db
     .prepare(
       `SELECT ${linkCols} FROM links l
        JOIN campaign_channels m ON m.id = l.campaign_channel_id
-       WHERE m.campaign_id = ? AND l.deleted_at IS NULL
+       WHERE m.campaign_id = ? AND l.archived_at IS NULL AND l.deleted_at IS NULL
        ORDER BY m.sort_order, l.created_at DESC`,
     )
     .bind(campaignId)
@@ -868,13 +951,18 @@ export async function listCampaignChannelsWithLinks(
   }));
 }
 
-export async function listLinksForChapter(db: D1Database, chapterId: number): Promise<Link[]> {
+export async function listLinksForChapter(
+  db: D1Database,
+  chapterId: number,
+  includeArchived = false,
+): Promise<Link[]> {
   const { results } = await db
     .prepare(
       `SELECT ${LINK_COLS} FROM links
-       WHERE owner_chapter_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
+       WHERE owner_chapter_id = ? AND (? = 1 OR archived_at IS NULL) AND deleted_at IS NULL
+       ORDER BY created_at DESC`,
     )
-    .bind(chapterId)
+    .bind(chapterId, includeArchived ? 1 : 0)
     .all<LinkRow>();
   return results.map(toLink);
 }
@@ -903,7 +991,7 @@ export async function listAssignableLinksForCampaign(
   const { results } = await db
     .prepare(
       `SELECT ${LINK_COLS} FROM links
-       WHERE deleted_at IS NULL
+       WHERE archived_at IS NULL AND deleted_at IS NULL
          AND campaign_channel_id IS NULL
          AND (
            (owner_user_id = ? AND owner_chapter_id IS NULL)
@@ -970,7 +1058,7 @@ export async function assignLinksToChannel(
          SET campaign_channel_id = ?,
              owner_chapter_id = COALESCE(owner_chapter_id, ?),
              updated_at = unixepoch()
-         WHERE id = ? AND deleted_at IS NULL
+         WHERE id = ? AND archived_at IS NULL AND deleted_at IS NULL
            AND (owner_user_id = ? OR owner_chapter_id IN (
              SELECT chapter_id
              FROM campaign_chapters cc
@@ -1009,7 +1097,8 @@ export async function unassignLinksFromCampaign(
     db
       .prepare(
         `UPDATE links SET campaign_channel_id = NULL, updated_at = unixepoch()
-         WHERE id = ? AND deleted_at IS NULL AND campaign_channel_id IS NOT NULL
+         WHERE id = ? AND archived_at IS NULL AND deleted_at IS NULL
+           AND campaign_channel_id IS NOT NULL
            AND (owner_user_id = ? OR owner_chapter_id = ?)`,
       )
       .bind(linkId, actorUserId, chapterId),
@@ -1091,6 +1180,33 @@ export async function listTagsForLink(db: D1Database, linkId: string): Promise<T
   return results.map(toTag);
 }
 
+export async function listTagsForLinks(
+  db: D1Database,
+  linkIds: string[],
+): Promise<Record<string, Tag[]>> {
+  if (linkIds.length === 0) return {};
+  const cols = TAG_COLS.split(", ")
+    .map((column) => `t.${column}`)
+    .join(", ");
+  const { results } = await db
+    .prepare(
+      `SELECT lt.link_id, ${cols}
+       FROM link_tags lt
+       JOIN tags t ON t.id = lt.tag_id
+       WHERE lt.link_id IN (SELECT value FROM json_each(?))
+       ORDER BY t.name`,
+    )
+    .bind(JSON.stringify(linkIds))
+    .all<TagRow & { link_id: string }>();
+  const tagsByLinkId: Record<string, Tag[]> = {};
+  for (const row of results) {
+    const tags = tagsByLinkId[row.link_id] ?? [];
+    tags.push(toTag(row));
+    tagsByLinkId[row.link_id] = tags;
+  }
+  return tagsByLinkId;
+}
+
 export type CreateTagInput = {
   name: string;
   color?: string | null;
@@ -1168,7 +1284,7 @@ const TAG_WITH_COUNT_SELECT = `
     .join(", ")},
     (SELECT COUNT(*) FROM link_tags lt
        JOIN links l ON l.id = lt.link_id
-      WHERE lt.tag_id = t.id AND l.deleted_at IS NULL) AS link_count
+      WHERE lt.tag_id = t.id AND l.archived_at IS NULL AND l.deleted_at IS NULL) AS link_count
   FROM tags t
 `;
 
@@ -1265,7 +1381,7 @@ export async function listLatestCommentsForCampaign(
          FROM comments c
          JOIN links l ON l.id = c.link_id
          JOIN campaign_channels channel ON channel.id = l.campaign_channel_id
-         WHERE channel.campaign_id = ? AND l.deleted_at IS NULL
+         WHERE channel.campaign_id = ? AND l.archived_at IS NULL AND l.deleted_at IS NULL
        )
        WHERE row_number = 1`,
     )
@@ -1347,21 +1463,20 @@ export async function listLinksAccessibleByEmail(
   db: D1Database,
   email: string,
   chapterId: number | null,
+  includeArchived = false,
 ): Promise<Link[]> {
-  const linkCols = LINK_COLS.split(", ")
-    .map((c) => `l.${c}`)
-    .join(", ");
+  const linkCols = linkColumns("l");
   if (chapterId == null) {
     const { results } = await db
       .prepare(
         `SELECT DISTINCT ${linkCols}
          FROM links l
          JOIN link_permissions p ON p.link_id = l.id
-         WHERE l.deleted_at IS NULL
+         WHERE (? = 1 OR l.archived_at IS NULL) AND l.deleted_at IS NULL
            AND p.principal_type = 'user' AND p.principal_id = ?
          ORDER BY l.created_at DESC`,
       )
-      .bind(email)
+      .bind(includeArchived ? 1 : 0, email)
       .all<LinkRow>();
     return results.map(toLink);
   }
@@ -1370,14 +1485,14 @@ export async function listLinksAccessibleByEmail(
       `SELECT DISTINCT ${linkCols}
        FROM links l
        JOIN link_permissions p ON p.link_id = l.id
-       WHERE l.deleted_at IS NULL
+       WHERE (? = 1 OR l.archived_at IS NULL) AND l.deleted_at IS NULL
          AND (
            (p.principal_type = 'user' AND p.principal_id = ?)
            OR (p.principal_type = 'chapter' AND p.principal_id = ?)
          )
        ORDER BY l.created_at DESC`,
     )
-    .bind(email, String(chapterId))
+    .bind(includeArchived ? 1 : 0, email, String(chapterId))
     .all<LinkRow>();
   return results.map(toLink);
 }

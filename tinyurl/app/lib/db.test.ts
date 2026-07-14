@@ -1,13 +1,127 @@
 import { describe, expect, it } from "vitest";
 import {
+  archiveLink,
   assignLinksToChannel,
   createCampaign,
   listAssignableLinksForCampaign,
   listLatestCommentsForCampaign,
+  listLinksAccessibleByEmail,
   normalizeCampaignCode,
+  restoreLink,
   toCampaign,
   toLink,
+  updateLink,
 } from "./db";
+
+describe("domain-aware aliased link queries", () => {
+  it("qualifies simple columns without prefixing the hostname subquery", async () => {
+    let sql = "";
+    const db = {
+      prepare(query: string) {
+        sql = query;
+        return {
+          bind() {
+            return this;
+          },
+          async all() {
+            return { results: [] };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    await listLinksAccessibleByEmail(db, "member@example.com", 42);
+
+    expect(sql).toContain("l.id, l.domain_id");
+    expect(sql).toContain("d.id = l.domain_id");
+    expect(sql).not.toContain("l.(SELECT");
+  });
+});
+
+describe("updateLink domain", () => {
+  it("updates the domain and chapter ownership in one statement", async () => {
+    let sql = "";
+    let bindings: unknown[] = [];
+    const db = {
+      prepare(query: string) {
+        sql = query;
+        return {
+          bind(...values: unknown[]) {
+            bindings = values;
+            return this;
+          },
+          async first() {
+            return null;
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    await updateLink(db, "link_1", { domainId: 3, ownerChapterId: 42 });
+
+    expect(sql).toContain("domain_id = ?");
+    expect(sql).toContain("owner_chapter_id = ?");
+    expect(bindings).toEqual([3, 42, "link_1"]);
+  });
+});
+
+describe("archiveLink", () => {
+  it("archives an active link without deleting it", async () => {
+    let sql = "";
+    let bindings: unknown[] = [];
+    const db = {
+      prepare(query: string) {
+        sql = query;
+        return {
+          bind(...values: unknown[]) {
+            bindings = values;
+            return this;
+          },
+          async run() {
+            return { meta: { changes: 1 } };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    await archiveLink(db, "link_active");
+
+    expect(sql).toContain("archived_at = unixepoch()");
+    expect(sql).toContain("updated_at = unixepoch()");
+    expect(sql).toContain("archived_at IS NULL");
+    expect(sql).toContain("deleted_at IS NULL");
+    expect(bindings).toEqual(["link_active"]);
+  });
+});
+
+describe("restoreLink", () => {
+  it("restores an archived link without changing deleted links", async () => {
+    let sql = "";
+    let bindings: unknown[] = [];
+    const db = {
+      prepare(query: string) {
+        sql = query;
+        return {
+          bind(...values: unknown[]) {
+            bindings = values;
+            return this;
+          },
+          async run() {
+            return { meta: { changes: 1 } };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    await restoreLink(db, "link_archived");
+
+    expect(sql).toContain("archived_at = NULL");
+    expect(sql).toContain("updated_at = unixepoch()");
+    expect(sql).toContain("archived_at IS NOT NULL");
+    expect(sql).toContain("deleted_at IS NULL");
+    expect(bindings).toEqual(["link_archived"]);
+  });
+});
 
 describe("createCampaign", () => {
   it("creates the default その他 channel after creating the Campaign", async () => {
@@ -66,6 +180,7 @@ describe("toLink", () => {
     visibility: "private" as const,
     created_at: 1700000000,
     updated_at: 1700001000,
+    archived_at: null,
     deleted_at: null,
   };
 
@@ -73,6 +188,8 @@ describe("toLink", () => {
     const link = toLink(row);
     expect(link).toEqual({
       id: "link_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      domainId: 1,
+      domainHostname: "gdgs.jp",
       slug: "test-slug",
       destinationUrl: "https://example.com",
       title: "Example",
@@ -84,6 +201,7 @@ describe("toLink", () => {
       visibility: "private",
       createdAt: 1700000000,
       updatedAt: 1700001000,
+      archivedAt: null,
       deletedAt: null,
     });
   });
@@ -96,6 +214,7 @@ describe("toLink", () => {
       og_image_url: null,
       owner_chapter_id: null,
       campaign_channel_id: null,
+      archived_at: null,
       deleted_at: null,
     });
     expect(link.title).toBeNull();
@@ -103,6 +222,7 @@ describe("toLink", () => {
     expect(link.ogImageUrl).toBeNull();
     expect(link.ownerChapterId).toBeNull();
     expect(link.campaignChannelId).toBeNull();
+    expect(link.archivedAt).toBeNull();
     expect(link.deletedAt).toBeNull();
   });
 });

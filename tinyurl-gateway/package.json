@@ -1,0 +1,16 @@
+{
+  "name": "@gdgjp/tinyurl-gateway",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vercel": "56.1.0",
+    "vitest": "^2.1.8"
+  }
+}

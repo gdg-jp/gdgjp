@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "GDG Japan Go Links",
+  "version": "1.0.0",
+  "description": "Open go/example as https://go.gdgs.jp/example.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": ["declarativeNetRequest", "webNavigation", "tabs"],
+  "host_permissions": [
+    "http://go/*",
+    "https://go/*",
+    "https://www.google.com/search*",
+    "https://www.google.co.jp/search*",
+    "https://www.bing.com/search*",
+    "https://duckduckgo.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "omnibox": { "keyword": "go" },
+  "declarative_net_request": {
+    "rule_resources": [{ "id": "go_rules", "enabled": true, "path": "rules.json" }]
+  }
+}

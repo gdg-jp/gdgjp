@@ -35,6 +35,7 @@ import { SubmitButton } from "~/components/ui/submit-button";
 import { Textarea } from "~/components/ui/textarea";
 import type { UserChapter } from "~/lib/chapter.server";
 import type { LinkVisibility, Tag } from "~/lib/db";
+import { shortDomainLabel } from "~/lib/short-url";
 import { generateRandomSlug } from "~/lib/slug";
 import type { ApiLinksActionData } from "~/routes/api.links";
 
@@ -46,6 +47,8 @@ export type CampaignChannelOption = {
   channelName: string;
   channelCode?: string;
 };
+
+export type LinkDomainOption = { id: number; hostname: string };
 
 type PendingShare = {
   principalType: "user" | "chapter";
@@ -92,6 +95,7 @@ export function CreateLinkDialog({
   campaignChannelOptions = [],
   chapters = [],
   defaultCampaignChannelId,
+  domainOptions,
   shortUrlBase,
   trigger,
 }: {
@@ -99,6 +103,7 @@ export function CreateLinkDialog({
   campaignChannelOptions?: CampaignChannelOption[];
   chapters?: UserChapter[];
   defaultCampaignChannelId?: number;
+  domainOptions?: LinkDomainOption[];
   shortUrlBase: string;
   trigger: ReactNode;
 }) {
@@ -113,6 +118,7 @@ export function CreateLinkDialog({
             campaignChannelOptions={campaignChannelOptions}
             chapters={chapters}
             defaultCampaignChannelId={defaultCampaignChannelId}
+            domainOptions={domainOptions}
             shortUrlBase={shortUrlBase}
           />
         ) : null}
@@ -127,14 +133,18 @@ function CreateLinkForm({
   chapters,
   defaultCampaignChannelId,
   shortUrlBase,
+  domainOptions = [{ id: 1, hostname: shortHostOf(shortUrlBase) }],
 }: {
   availableTags: Tag[];
   campaignChannelOptions: CampaignChannelOption[];
   chapters: UserChapter[];
   defaultCampaignChannelId?: number;
+  domainOptions?: LinkDomainOption[];
   shortUrlBase: string;
 }) {
-  const shortHost = shortHostOf(shortUrlBase);
+  const [domainId, setDomainId] = useState(String(domainOptions[0]?.id ?? 1));
+  const selectedDomain = domainOptions.find((domain) => String(domain.id) === domainId);
+  const shortHost = selectedDomain?.hostname ?? shortHostOf(shortUrlBase);
   const defaultCampaignChannel = campaignChannelOptions.find(
     (option) => option.id === defaultCampaignChannelId,
   );
@@ -191,7 +201,9 @@ function CreateLinkForm({
   const isFetchingOgp = ogpFetcher.state !== "idle";
 
   const previewSlug = slug || "preview";
-  const apexShortUrl = `${shortUrlBase}/${previewSlug}`;
+  const apexShortUrl = `https://${shortHost}/${previewSlug}`;
+  const shortDisplay =
+    shortHost === "go.gdgs.jp" ? `go/${previewSlug}` : `${shortHost}/${previewSlug}`;
   const previewHost = hostnameOf(destinationUrl);
 
   function fetchOgpNow(url = destinationUrl) {
@@ -361,9 +373,23 @@ function CreateLinkForm({
               </Button>
             </div>
             <div className="flex min-w-0 gap-2">
-              <span className="inline-flex h-9 shrink-0 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
-                {shortHost}
-              </span>
+              <input type="hidden" name="domainId" value={domainId} />
+              <Select value={domainId} onValueChange={setDomainId}>
+                <SelectTrigger
+                  id="create-domain"
+                  aria-label="Short link domain"
+                  className="h-9 min-w-32 shrink-0 bg-muted text-muted-foreground shadow-none"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="start">
+                  {domainOptions.map((domain) => (
+                    <SelectItem key={domain.id} value={String(domain.id)}>
+                      {shortDomainLabel(domain.hostname)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Input
                 id="create-slug"
                 name="slug"
@@ -587,7 +613,7 @@ function CreateLinkForm({
               />
             </div>
             <p className="break-all text-center font-mono text-xs text-muted-foreground">
-              {apexShortUrl}
+              {shortDisplay}
             </p>
           </div>
 
