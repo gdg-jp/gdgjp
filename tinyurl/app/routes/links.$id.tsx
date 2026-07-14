@@ -126,7 +126,7 @@ export async function loader(args: Route.LoaderArgs) {
   const chapterNameById: Record<string, string> = {};
   for (const c of chapters) chapterNameById[String(c.chapterId)] = c.chapterSlug;
   return {
-    user: { email: user.email, name: user.name },
+    user: { email: user.email, image: user.image, name: user.name },
     link,
     permissions,
     tags,

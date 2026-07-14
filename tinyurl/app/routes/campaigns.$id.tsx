@@ -296,7 +296,7 @@ export async function loader(args: Route.LoaderArgs) {
 
   return {
     chapters,
-    user: { email: user.email, name: user.name },
+    user: { email: user.email, image: user.image, name: user.name },
     campaign,
     channels,
     owners,

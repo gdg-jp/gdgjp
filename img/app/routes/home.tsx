@@ -22,7 +22,7 @@ export async function loader(args: Route.LoaderArgs) {
       filename: r.filename,
     })),
   );
-  return { user: { email: user.email, name: user.name }, items };
+  return { user: { email: user.email, image: user.image, name: user.name }, items };
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {

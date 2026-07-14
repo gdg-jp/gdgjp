@@ -137,7 +137,12 @@ export async function loader(args: Route.LoaderArgs) {
     listTagsForUserWithCounts(env.DB, user.id),
     listTagsForChapterWithCounts(env.DB, chapter.chapterId),
   ]);
-  return { user: { email: user.email, name: user.name }, userTags, chapterTags, chapter };
+  return {
+    user: { email: user.email, image: user.image, name: user.name },
+    userTags,
+    chapterTags,
+    chapter,
+  };
 }
 
 type ActionData = { ok: true } | { error: string };

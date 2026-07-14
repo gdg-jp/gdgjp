@@ -13,7 +13,7 @@ export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
   const user = await requireUser(env, args.request);
   const events = await listEventsForUser(env.DB, user.id);
-  return { user: { name: user.name, email: user.email }, events };
+  return { user: { name: user.name, email: user.email, image: user.image }, events };
 }
 
 export default function MyEvents({ loaderData }: Route.ComponentProps) {

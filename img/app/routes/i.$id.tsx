@@ -28,7 +28,7 @@ export async function loader(args: Route.LoaderArgs) {
     throw new Response("Forbidden", { status: 403 });
   }
   return {
-    user: { email: user.email, name: user.name },
+    user: { email: user.email, image: user.image, name: user.name },
     image: {
       id: image.id,
       url: deliveryUrl(image.id, { w: 1600 }),

@@ -77,7 +77,7 @@ export async function loader(args: Route.LoaderArgs) {
       )
     : new Set<number>();
   return {
-    user: user ? { name: user.name, email: user.email } : null,
+    user: user ? { name: user.name, email: user.email, image: user.image } : null,
     isOwner: !!user && user.id === bundle.event.ownerUserId,
     event: bundle.event,
     slots: bundle.slots,

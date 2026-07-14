@@ -23,7 +23,7 @@ export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
   const user = await getOptionalUser(env, args.request);
   return {
-    user: user ? { name: user.name, email: user.email } : null,
+    user: user ? { name: user.name, email: user.email, image: user.image } : null,
   };
 }
 

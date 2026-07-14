@@ -26,7 +26,7 @@ export async function loader(args: Route.LoaderArgs) {
     throw new Response("Forbidden", { status: 403 });
   }
   return {
-    user: { name: user.name, email: user.email },
+    user: { name: user.name, email: user.email, image: user.image },
     event: bundle.event,
     initialDays: deriveDayRanges(bundle.slots, bundle.event.slotMinutes),
   };

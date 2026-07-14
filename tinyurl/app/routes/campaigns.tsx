@@ -47,7 +47,7 @@ export async function loader(args: Route.LoaderArgs) {
     true,
   );
   return {
-    user: { email: user.email, name: user.name },
+    user: { email: user.email, image: user.image, name: user.name },
     chapter,
     chapters,
     campaigns,
