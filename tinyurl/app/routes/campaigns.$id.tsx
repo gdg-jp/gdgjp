@@ -29,6 +29,7 @@ import { useCampaignActionDialog } from "~/components/campaigns/use-campaign-act
 import { BarList } from "~/components/charts/bar-list";
 import { CampaignTrendChart, type TrendMetric } from "~/components/charts/campaign-trend-chart";
 import { CreateLinkDialog } from "~/components/create-link-dialog";
+import { DashboardPage, DashboardPageHeader } from "~/components/dashboard-page";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { LinkCard } from "~/components/link-card";
 import { Alert, AlertDescription } from "~/components/ui/alert";
@@ -482,40 +483,36 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
 
   return (
     <DashboardShell user={user}>
-      <div className="mx-auto flex max-w-5xl flex-col gap-6">
+      <DashboardPage>
         {actionData && "error" in actionData ? (
           <Alert variant="destructive">
             <AlertDescription>{actionData.error}</AlertDescription>
           </Alert>
         ) : null}
-        <div>
-          <Link
-            to="/campaigns"
-            className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ChevronLeft className="size-4" /> Campaigns
-          </Link>
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <h1 className="min-w-0 break-words text-2xl font-semibold tracking-tight">
-                  {campaign.name}
-                </h1>
-                <Badge variant="outline" className="shrink-0 font-mono">
-                  {campaign.code}
-                </Badge>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Channel, links, and source performance
-              </p>
-            </div>
-            <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+        <DashboardPageHeader
+          title={campaign.name}
+          description="Channel, links, and source performance"
+          titleAccessory={
+            <Badge variant="outline" className="shrink-0 font-mono">
+              {campaign.code}
+            </Badge>
+          }
+          eyebrow={
+            <Link
+              to="/campaigns"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ChevronLeft className="size-4" /> Campaigns
+            </Link>
+          }
+          actions={
+            <>
               <AssignLinksDialog channels={activeChannels} links={assignableLinks} />
               <CreateChannelDialog campaignCode={campaign.code} />
               <ImportConnpassDialog channels={activeChannels} />
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         <div
           className="relative grid w-full grid-cols-2 rounded-lg bg-muted p-1 sm:w-fit"
@@ -625,7 +622,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
             </Await>
           </Suspense>
         )}
-      </div>
+      </DashboardPage>
     </DashboardShell>
   );
 }

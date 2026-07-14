@@ -1,4 +1,4 @@
-import { ChevronsUpDown, FolderTree, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { FolderTree, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { Await } from "react-router";
@@ -9,6 +9,7 @@ import {
   type DisplayLayout,
   type DisplayProperty,
 } from "~/components/dashboard-display-menu";
+import { DashboardPage, DashboardPageHeader } from "~/components/dashboard-page";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { LinkCard, type LinkCardItem, type LinkOwner } from "~/components/link-card";
 import { Button } from "~/components/ui/button";
@@ -383,34 +384,28 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
 
   return (
     <DashboardShell user={user}>
-      <div className="mx-auto flex max-w-5xl flex-col gap-6">
-        <div className="flex items-center justify-between gap-4">
-          <button
-            type="button"
-            className="flex items-center gap-1.5 text-2xl font-semibold tracking-tight"
-            onClick={() => setSort(sort === "newest" ? "oldest" : "newest")}
-            aria-label="Toggle sort"
-          >
-            Links
-            <ChevronsUpDown className="size-5 text-muted-foreground" />
-          </button>
-          <CreateLinkDialog
-            availableTags={availableTags}
-            campaignChannelOptions={campaignChannelOptions}
-            chapters={chapters}
-            shortUrlBase={shortUrlBase}
-            domainOptions={domainOptions}
-            trigger={
-              <Button size="sm">
-                <Plus className="size-4" />
-                Create link
-                <kbd className="ml-1 rounded bg-primary-foreground/15 px-1.5 py-0.5 text-[10px] font-medium tracking-wider">
-                  C
-                </kbd>
-              </Button>
-            }
-          />
-        </div>
+      <DashboardPage>
+        <DashboardPageHeader
+          title="Links"
+          actions={
+            <CreateLinkDialog
+              availableTags={availableTags}
+              campaignChannelOptions={campaignChannelOptions}
+              chapters={chapters}
+              shortUrlBase={shortUrlBase}
+              domainOptions={domainOptions}
+              trigger={
+                <Button size="sm">
+                  <Plus className="size-4" />
+                  Create link
+                  <kbd className="ml-1 rounded bg-primary-foreground/15 px-1.5 py-0.5 text-[10px] font-medium tracking-wider">
+                    C
+                  </kbd>
+                </Button>
+              }
+            />
+          }
+        />
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -549,7 +544,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             </Await>
           </Suspense>
         )}
-      </div>
+      </DashboardPage>
     </DashboardShell>
   );
 }

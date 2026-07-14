@@ -2,7 +2,6 @@ import {
   CheckCircle2,
   CircleAlert,
   Copy,
-  Globe2,
   LoaderCircle,
   Plus,
   RefreshCw,
@@ -11,6 +10,7 @@ import {
 import { useEffect, useState } from "react";
 import { Form, useFetcher, useRevalidator } from "react-router";
 import { parse } from "tldts";
+import { DashboardPage, DashboardPageHeader } from "~/components/dashboard-page";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -274,16 +274,11 @@ export default function Domains({ loaderData, actionData }: Route.ComponentProps
   );
   return (
     <DashboardShell user={loaderData.user}>
-      <div className="mx-auto flex max-w-5xl flex-col gap-6">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <Globe2 className="size-6" /> Domains
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {loaderData.remainingDomains} of {VERCEL_HOBBY_DOMAIN_LIMIT} Vercel project slots
-            remain.
-          </p>
-        </div>
+      <DashboardPage>
+        <DashboardPageHeader
+          title="Domains"
+          description={`${loaderData.remainingDomains} of ${VERCEL_HOBBY_DOMAIN_LIMIT} Vercel project slots remain.`}
+        />
 
         {actionData && "error" in actionData ? (
           <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
@@ -432,7 +427,7 @@ export default function Domains({ loaderData, actionData }: Route.ComponentProps
             </section>
           ))}
         </div>
-      </div>
+      </DashboardPage>
     </DashboardShell>
   );
 }

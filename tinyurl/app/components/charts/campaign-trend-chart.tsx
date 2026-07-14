@@ -143,7 +143,7 @@ export function CampaignTrendChart({
                   type="monotone"
                   dataKey={item.key}
                   name={item.key}
-                  stackId={series.length > 1 ? "campaign" : undefined}
+                  stackId={metric === "share" && series.length > 1 ? "campaign" : undefined}
                   stroke={COLORS[index % COLORS.length]}
                   strokeWidth={2}
                   fill={COLORS[index % COLORS.length]}

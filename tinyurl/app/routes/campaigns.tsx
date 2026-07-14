@@ -4,6 +4,7 @@ import { Await, Form, Link } from "react-router";
 import { CampaignDialog } from "~/components/campaigns/campaign-dialog";
 import { ChapterAccessSelect } from "~/components/campaigns/chapter-access-select";
 import { useCampaignActionDialog } from "~/components/campaigns/use-campaign-action-dialog";
+import { DashboardPage, DashboardPageHeader } from "~/components/dashboard-page";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
@@ -150,21 +151,17 @@ export default function Campaigns({ loaderData, actionData }: Route.ComponentPro
 
   return (
     <DashboardShell user={user}>
-      <div className="mx-auto flex max-w-5xl flex-col gap-6">
+      <DashboardPage>
         {actionData && "error" in actionData ? (
           <Alert variant="destructive">
             <AlertDescription>{actionData.error}</AlertDescription>
           </Alert>
         ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Campaigns</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Organize {chapter.chapterSlug} links by event, channel, and source.
-            </p>
-          </div>
-          <CampaignDialog chapters={chapters} />
-        </div>
+        <DashboardPageHeader
+          title="Campaigns"
+          description={`Organize ${chapter.chapterSlug} links by event, channel, and source.`}
+          actions={<CampaignDialog chapters={chapters} />}
+        />
 
         <Suspense fallback={<CampaignsSkeleton />}>
           <Await resolve={campaigns}>
@@ -178,7 +175,7 @@ export default function Campaigns({ loaderData, actionData }: Route.ComponentPro
           <BarChart3 className="size-4" />
           Click analytics are available inside each campaign.
         </div>
-      </div>
+      </DashboardPage>
     </DashboardShell>
   );
 }

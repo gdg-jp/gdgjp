@@ -22,19 +22,19 @@ const NAV_GROUPS: NavGroup[] = [
   {
     items: [
       { to: "/links", label: "Links", icon: LinkIcon },
-      { to: "/campaigns", label: "Campaigns", icon: FolderTree },
+      { to: "/domains", label: "Domains", icon: Globe2 },
     ],
   },
   {
     heading: "Insights",
-    items: [{ to: "/analytics", label: "Analytics", icon: BarChart3 }],
+    items: [
+      { to: "/analytics", label: "Analytics", icon: BarChart3 },
+      { to: "/campaigns", label: "Campaigns", icon: FolderTree },
+    ],
   },
   {
     heading: "Library",
-    items: [
-      { to: "/tags", label: "Tags", icon: TagIcon },
-      { to: "/domains", label: "Domains", icon: Globe2 },
-    ],
+    items: [{ to: "/tags", label: "Tags", icon: TagIcon }],
   },
 ];
 
@@ -76,7 +76,6 @@ function Sidebar({ user }: { user: UserMenuUser | null }) {
         <span className="font-medium tracking-tight">GDG Japan Links</span>
       </div>
       <nav className="flex-1 overflow-y-auto p-3">
-        <p className="px-2 pb-2 pt-1 text-base font-semibold tracking-tight">Short Links</p>
         <div className="space-y-4">
           {NAV_GROUPS.map((group, idx) => (
             <div key={group.heading ?? `group-${idx}`}>

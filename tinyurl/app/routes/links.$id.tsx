@@ -16,6 +16,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Await, Form, Link, redirect, useNavigation } from "react-router";
 import { toast } from "sonner";
+import { DashboardPage } from "~/components/dashboard-page";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { type LinkAction, LinkActionDialog } from "~/components/link-action-dialog";
 import { TagCombobox } from "~/components/tag-combobox";
@@ -604,7 +605,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
 
   return (
     <DashboardShell user={loaderData.user}>
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-24">
+      <DashboardPage className="pb-24">
         {/* Top bar: breadcrumb + actions */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <nav className="flex min-w-0 items-center gap-2 text-sm" aria-label="Breadcrumb">
@@ -1021,7 +1022,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
             </div>
           </div>
         </div>
-      </div>
+      </DashboardPage>
 
       {editable && isDirty ? <FloatingBar onDiscard={discard} isSaving={isSaving} /> : null}
     </DashboardShell>

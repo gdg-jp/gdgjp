@@ -5,6 +5,7 @@ import type { FilterSuggestions } from "~/components/analytics/analytics-filter-
 import { AnalyticsFiltersBar } from "~/components/analytics/analytics-filters-bar";
 import { HourlyChart } from "~/components/charts/hourly-chart";
 import { type BarTab, TabbedBarCard } from "~/components/charts/tabbed-bar-card";
+import { DashboardPage, DashboardPageHeader } from "~/components/dashboard-page";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
@@ -358,25 +359,21 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
 
   return (
     <DashboardShell user={user}>
-      <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
-            {focus ? (
-              <p className="text-sm text-muted-foreground">
-                <span className="font-mono">{focus.shortUrl}</span>
-              </p>
-            ) : null}
-          </div>
-          {focus ? (
-            <Button asChild variant="outline" size="sm">
-              <a href={focus.destinationUrl} target="_blank" rel="noopener noreferrer">
-                Visit destination
-                <ExternalLink className="size-3" />
-              </a>
-            </Button>
-          ) : null}
-        </div>
+      <DashboardPage>
+        <DashboardPageHeader
+          title="Analytics"
+          description={focus ? <span className="font-mono">{focus.shortUrl}</span> : undefined}
+          actions={
+            focus ? (
+              <Button asChild variant="outline" size="sm">
+                <a href={focus.destinationUrl} target="_blank" rel="noopener noreferrer">
+                  Visit destination
+                  <ExternalLink className="size-3" />
+                </a>
+              </Button>
+            ) : undefined
+          }
+        />
 
         {focus ? (
           <div className="flex flex-wrap items-center gap-2">
@@ -427,7 +424,7 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
             </Await>
           </Suspense>
         )}
-      </div>
+      </DashboardPage>
     </DashboardShell>
   );
 }

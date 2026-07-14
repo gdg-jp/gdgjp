@@ -10,6 +10,7 @@ import {
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Form, useFetcher } from "react-router";
 import { toast } from "sonner";
+import { DashboardPage, DashboardPageHeader } from "~/components/dashboard-page";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { GdgMark } from "~/components/gdg-mark";
 import {
@@ -240,11 +241,11 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
   }, []);
 
   return (
-    <DashboardShell user={user} className="md:py-6">
-      <div className="mx-auto w-full max-w-5xl">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-1.5">
-            <h1 className="text-2xl font-semibold tracking-tight">Tags</h1>
+    <DashboardShell user={user}>
+      <DashboardPage>
+        <DashboardPageHeader
+          title="Tags"
+          titleAccessory={
             <a
               href="https://dub.co/help/article/how-to-use-tags"
               target="_blank"
@@ -254,23 +255,25 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
             >
               <HelpCircle className="size-4" />
             </a>
-          </div>
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 bg-foreground text-background hover:bg-foreground/90">
-                Create tag
-                <kbd className="rounded border border-background/30 bg-background/10 px-1.5 py-0.5 text-[10px] font-medium leading-none">
-                  C
-                </kbd>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md p-0 sm:max-w-md">
-              <CreateTagForm chapter={chapter} onDone={() => setCreateOpen(false)} />
-            </DialogContent>
-          </Dialog>
-        </div>
+          }
+          actions={
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2 bg-foreground text-background hover:bg-foreground/90">
+                  Create tag
+                  <kbd className="rounded border border-background/30 bg-background/10 px-1.5 py-0.5 text-[10px] font-medium leading-none">
+                    C
+                  </kbd>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md p-0 sm:max-w-md">
+                <CreateTagForm chapter={chapter} onDone={() => setCreateOpen(false)} />
+              </DialogContent>
+            </Dialog>
+          }
+        />
 
-        <div className="mt-6 rounded-xl border bg-card">
+        <div className="rounded-xl border bg-card">
           <div className="p-4">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -330,7 +333,7 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
             </div>
           </div>
         ) : null}
-      </div>
+      </DashboardPage>
 
       <Dialog open={editTarget !== null} onOpenChange={(open) => !open && setEditTarget(null)}>
         <DialogContent className="max-w-md p-0 sm:max-w-md">
