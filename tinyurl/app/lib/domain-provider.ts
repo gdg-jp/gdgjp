@@ -41,9 +41,13 @@ type VercelDomain = {
 
 type VercelConfig = {
   misconfigured?: boolean;
-  recommendedIPv4?: Array<{ rank?: number; value?: string }>;
-  recommendedCNAME?: Array<{ rank?: number; value?: string }>;
+  recommendedIPv4?: Array<{ rank?: number; value?: string | string[] }>;
+  recommendedCNAME?: Array<{ rank?: number; value?: string | string[] }>;
 };
+
+function valuesOf(value: string | string[] | undefined): string[] {
+  return typeof value === "string" ? [value] : (value ?? []);
+}
 
 function recordsFrom(domain: VercelDomain, config?: VercelConfig): DnsRecord[] {
   const records: DnsRecord[] = [];
@@ -56,20 +60,38 @@ function recordsFrom(domain: VercelDomain, config?: VercelConfig): DnsRecord[] {
     ) {
       continue;
     }
-    records.push({ type, name: item.domain, value: item.value, reason: item.reason });
+    records.push({
+      type,
+      name: item.domain,
+      value: item.value,
+      reason: item.reason,
+      purpose: "ownership",
+      status: domain.verified ? "verified" : "pending",
+    });
   }
   for (const item of config?.recommendedIPv4 ?? []) {
-    if (item.rank === 1 && item.value) {
-      records.push({ type: "A", name: "@", value: item.value, reason: "Vercel apex routing" });
+    for (const value of item.rank === 1 ? valuesOf(item.value) : []) {
+      records.push({
+        type: "A",
+        name: "@",
+        value,
+        reason: "Vercel apex routing",
+        purpose: "routing",
+        status: config?.misconfigured === false ? "verified" : "pending",
+        alternativeGroup: "apex-routing",
+      });
     }
   }
   for (const item of config?.recommendedCNAME ?? []) {
-    if (item.rank === 1 && item.value) {
+    for (const value of item.rank === 1 ? valuesOf(item.value) : []) {
       records.push({
         type: "CNAME",
         name: "@",
-        value: item.value,
+        value,
         reason: "Vercel routing",
+        purpose: "routing",
+        status: config?.misconfigured === false ? "verified" : "pending",
+        alternativeGroup: "apex-routing",
       });
     }
   }
@@ -121,7 +143,7 @@ export class VercelDomainProvider implements DomainProvider {
 
   private async state(domain: VercelDomain): Promise<ProviderDomainState> {
     const config = await this.request<VercelConfig>(
-      `/v6/domains/${encodeURIComponent(domain.name ?? "")}/config?projectId=${encodeURIComponent(this.projectId)}`,
+      `/v6/domains/${encodeURIComponent(domain.name ?? "")}/config?projectIdOrName=${encodeURIComponent(this.projectId)}`,
     );
     return {
       providerDomainId: domain.name ?? null,

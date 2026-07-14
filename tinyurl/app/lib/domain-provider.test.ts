@@ -28,10 +28,45 @@ describe("VercelDomainProvider", () => {
     expect(state.verified).toBe(false);
     expect(state.configured).toBe(false);
     expect(state.records).toEqual([
-      { type: "TXT", name: "_vercel.example.jp", value: "challenge", reason: "ownership" },
-      { type: "A", name: "@", value: "203.0.113.8", reason: "Vercel apex routing" },
+      {
+        type: "TXT",
+        name: "_vercel.example.jp",
+        value: "challenge",
+        reason: "ownership",
+        purpose: "ownership",
+        status: "pending",
+      },
+      {
+        type: "A",
+        name: "@",
+        value: "203.0.113.8",
+        reason: "Vercel apex routing",
+        purpose: "routing",
+        status: "pending",
+        alternativeGroup: "apex-routing",
+      },
     ]);
     expect(String(fetchMock.mock.calls[0][0])).toContain("teamId=team");
+    expect(String(fetchMock.mock.calls[1][0])).toContain("projectIdOrName=project");
+  });
+
+  it("expands the current array form of recommended IPv4 records", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json({ name: "example.jp", verified: true }))
+        .mockResolvedValueOnce(
+          Response.json({
+            misconfigured: false,
+            recommendedIPv4: [{ rank: 1, value: ["203.0.113.8", "203.0.113.9"] }],
+          }),
+        ),
+    );
+
+    const state = await new VercelDomainProvider("token", "project").check("example.jp");
+    expect(state.records.map((record) => record.value)).toEqual(["203.0.113.8", "203.0.113.9"]);
+    expect(state.records.every((record) => record.status === "verified")).toBe(true);
   });
 
   it("verifies, checks, and removes through project domain endpoints", async () => {

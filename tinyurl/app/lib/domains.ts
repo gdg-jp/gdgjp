@@ -7,6 +7,9 @@ export type DnsRecord = {
   name: string;
   value: string;
   reason?: string;
+  purpose?: "ownership" | "routing";
+  status?: "pending" | "verified";
+  alternativeGroup?: "apex-routing";
 };
 
 export type Domain = {
