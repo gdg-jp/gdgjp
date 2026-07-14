@@ -229,9 +229,26 @@ function forwardedHeaders(request: GatewayRequest, hostname: string): Headers {
       headers.set(name, value);
     }
   }
+  // Node's fetch transparently decompresses upstream responses but retains content-encoding.
+  // Request an uncompressed representation so the proxy never forwards a stale encoding label.
+  headers.set("accept-encoding", "identity");
   headers.set("x-forwarded-host", hostname);
   headers.set("x-forwarded-proto", "https");
   return headers;
+}
+
+function proxyOriginResponse(response: Response): Response {
+  const headers = new Headers(response.headers);
+  // The body exposed by Node's fetch is already decoded. These headers describe the upstream
+  // wire representation and would make the client decode the body a second time or trust a stale
+  // byte count.
+  headers.delete("content-encoding");
+  headers.delete("content-length");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 async function resolveShortLink(
@@ -317,18 +334,14 @@ export async function handleGatewayRequest(request: GatewayRequest): Promise<Res
     clearTimeout(timeout);
   }
   if (originResponse.status !== 404 || (method !== "GET" && method !== "HEAD")) {
-    return originResponse;
+    return proxyOriginResponse(originResponse);
   }
   const resolved = await resolveShortLink(request, hostname, slug, publicUrl.toString());
-  return resolved.status === 204 ? originResponse : resolved;
+  return resolved.status === 204 ? proxyOriginResponse(originResponse) : resolved;
 }
 
-// Vercel treats a default export as the legacy `(req, res)` Node.js signature and ignores a
-// returned Web `Response`. Named HTTP-method exports opt into Vercel's Web Handler API.
-export const GET = handleGatewayRequest;
-export const HEAD = handleGatewayRequest;
-export const POST = handleGatewayRequest;
-export const PUT = handleGatewayRequest;
-export const PATCH = handleGatewayRequest;
-export const DELETE = handleGatewayRequest;
-export const OPTIONS = handleGatewayRequest;
+// A default function uses Vercel's legacy `(req, res)` signature. A default object with `fetch`
+// opts into the recommended Web Handler API and handles every HTTP method.
+export default {
+  fetch: handleGatewayRequest,
+};

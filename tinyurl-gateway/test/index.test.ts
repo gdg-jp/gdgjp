@@ -7,7 +7,7 @@ vi.mock("node:dns/promises", () => ({
 
 import * as gatewayModule from "../api/index.js";
 
-const { GET, POST, clearConfigCacheForTests, handleGatewayRequest } = gatewayModule;
+const { clearConfigCacheForTests, handleGatewayRequest } = gatewayModule;
 
 function config(mode: "short-only" | "origin-first", upstreamOrigin: string | null) {
   return new Response(JSON.stringify({ hostname: "custom.example", mode, upstreamOrigin }), {
@@ -23,10 +23,9 @@ describe("gateway", () => {
     vi.restoreAllMocks();
   });
 
-  it("exports Vercel Web Handlers instead of a legacy default handler", () => {
-    expect(gatewayModule).not.toHaveProperty("default");
-    expect(GET).toBe(handleGatewayRequest);
-    expect(POST).toBe(handleGatewayRequest);
+  it("exports Vercel's fetch Web Handler instead of a legacy default function", () => {
+    expect(typeof gatewayModule.default).toBe("object");
+    expect(gatewayModule.default.fetch).toBe(handleGatewayRequest);
   });
 
   it("passes through a successful origin response", async () => {
@@ -41,6 +40,39 @@ describe("gateway", () => {
     const response = await handleGatewayRequest(new Request("https://custom.example/about"));
     expect(response.status).toBe(200);
     expect(await response.text()).toBe("origin");
+  });
+
+  it("prevents clients from decoding an already-decoded origin response", async () => {
+    let upstreamAcceptEncoding: string | null = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input));
+        if (url.hostname === "url.gdgs.jp") {
+          return config("origin-first", "https://origin.example");
+        }
+        upstreamAcceptEncoding = new Headers(init?.headers).get("accept-encoding");
+        return new Response("decoded origin", {
+          headers: {
+            "content-encoding": "br",
+            "content-length": "7",
+            "content-type": "text/html",
+          },
+        });
+      }),
+    );
+
+    const response = await handleGatewayRequest(
+      new Request("https://custom.example/", {
+        headers: { "accept-encoding": "gzip, br" },
+      }),
+    );
+
+    expect(upstreamAcceptEncoding).toBe("identity");
+    expect(response.headers.get("content-encoding")).toBeNull();
+    expect(response.headers.get("content-length")).toBeNull();
+    expect(response.headers.get("content-type")).toBe("text/html");
+    expect(await response.text()).toBe("decoded origin");
   });
 
   it("reconstructs relative request targets provided by the Vercel runtime", async () => {
