@@ -1,5 +1,13 @@
 import { MAX_IMAGE_UPLOAD_BYTES } from "@gdgjp/gdg-lib";
-import { ImagePlus, LoaderCircle, RefreshCw, Shuffle, Upload } from "lucide-react";
+import {
+  CircleHelp,
+  Download,
+  ImagePlus,
+  LoaderCircle,
+  RefreshCw,
+  Shuffle,
+  Upload,
+} from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import {
   type ChangeEvent,
@@ -143,8 +151,10 @@ function CreateLinkForm({
   shortUrlBase: string;
 }) {
   const [domainId, setDomainId] = useState(String(domainOptions[0]?.id ?? 1));
+  const [goLinksHelpOpen, setGoLinksHelpOpen] = useState(false);
   const selectedDomain = domainOptions.find((domain) => String(domain.id) === domainId);
   const shortHost = selectedDomain?.hostname ?? shortHostOf(shortUrlBase);
+  const isGoLinkDomain = shortHost.toLowerCase() === "go.gdgs.jp";
   const defaultCampaignChannel = campaignChannelOptions.find(
     (option) => option.id === defaultCampaignChannelId,
   );
@@ -202,8 +212,7 @@ function CreateLinkForm({
 
   const previewSlug = slug || "preview";
   const apexShortUrl = `https://${shortHost}/${previewSlug}`;
-  const shortDisplay =
-    shortHost === "go.gdgs.jp" ? `go/${previewSlug}` : `${shortHost}/${previewSlug}`;
+  const shortDisplay = isGoLinkDomain ? `go/${previewSlug}` : `${shortHost}/${previewSlug}`;
   const previewHost = hostnameOf(destinationUrl);
 
   function fetchOgpNow(url = destinationUrl) {
@@ -374,22 +383,75 @@ function CreateLinkForm({
             </div>
             <div className="flex min-w-0 gap-2">
               <input type="hidden" name="domainId" value={domainId} />
-              <Select value={domainId} onValueChange={setDomainId}>
-                <SelectTrigger
-                  id="create-domain"
-                  aria-label="Short link domain"
-                  className="h-9 min-w-32 shrink-0 bg-muted text-muted-foreground shadow-none"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent align="start">
-                  {domainOptions.map((domain) => (
-                    <SelectItem key={domain.id} value={String(domain.id)}>
-                      {shortDomainLabel(domain.hostname)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="relative shrink-0">
+                <Select value={domainId} onValueChange={setDomainId}>
+                  <SelectTrigger
+                    id="create-domain"
+                    aria-label="Short link domain"
+                    className="h-9 min-w-32 bg-muted text-muted-foreground shadow-none"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    {domainOptions.map((domain) => (
+                      <SelectItem key={domain.id} value={String(domain.id)}>
+                        {shortDomainLabel(domain.hostname)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isGoLinkDomain ? (
+                  <Dialog open={goLinksHelpOpen} onOpenChange={setGoLinksHelpOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label="How to use go links in Chrome"
+                        className="absolute top-1/2 right-8 z-10 -translate-y-1/2"
+                      >
+                        <CircleHelp className="size-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-[24rem] gap-0 overflow-hidden p-0 sm:max-w-[24rem]">
+                      <div className="border-b px-5 py-4 pr-14">
+                        <DialogTitle>Use go/ links in Chrome</DialogTitle>
+                        <DialogDescription className="mt-1">
+                          Install the GDG Japan Go Links extension to open links such as go/docs
+                          directly from Chrome.
+                        </DialogDescription>
+                      </div>
+                      <div className="space-y-5 px-5 py-4">
+                        <Button asChild className="w-full">
+                          <a href="https://github.com/gdg-jp/gdgjp/releases/latest/download/gdg-japan-go-links.zip">
+                            <Download className="size-4" />
+                            Download Chrome Extension
+                          </a>
+                        </Button>
+                        <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+                          <li>Download and unzip the extension file.</li>
+                          <li>
+                            Open{" "}
+                            <code className="rounded bg-muted px-1 py-0.5">
+                              chrome://extensions
+                            </code>{" "}
+                            in Chrome.
+                          </li>
+                          <li>Turn on Developer mode.</li>
+                          <li>Select Load unpacked, then choose the folder you unzipped.</li>
+                        </ol>
+                      </div>
+                      <div className="flex justify-end border-t px-5 py-3">
+                        <DialogClose asChild>
+                          <Button type="button" variant="outline">
+                            Close
+                          </Button>
+                        </DialogClose>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                ) : null}
+              </div>
               <Input
                 id="create-slug"
                 name="slug"
