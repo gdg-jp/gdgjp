@@ -5,7 +5,7 @@ vi.mock("node:dns/promises", () => ({
   resolve6: vi.fn(async () => []),
 }));
 
-import { clearConfigCacheForTests, handleGatewayRequest } from "./index.js";
+import { clearConfigCacheForTests, handleGatewayRequest } from "../api/index.js";
 
 function config(mode: "short-only" | "origin-first", upstreamOrigin: string | null) {
   return new Response(JSON.stringify({ hostname: "custom.example", mode, upstreamOrigin }), {
