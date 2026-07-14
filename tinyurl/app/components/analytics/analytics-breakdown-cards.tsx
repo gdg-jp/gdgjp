@@ -4,7 +4,7 @@ import { BarList, type BarListRow } from "~/components/charts/bar-list";
 import { type BarTab, TabbedBarCard } from "~/components/charts/tabbed-bar-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
-import type { TopRow } from "~/lib/analytics-engine";
+import type { TopBlob, TopRow } from "~/lib/analytics-engine";
 
 type DimensionRows = {
   referrers: TopRow[];
@@ -16,6 +16,11 @@ type DimensionRows = {
   browsers: TopRow[];
   oses: TopRow[];
 };
+
+type Dimension = Extract<
+  TopBlob,
+  "referer" | "country" | "city" | "region" | "continent" | "device" | "browser" | "os"
+>;
 
 export const AnalyticsClicksChartCard = forwardRef<
   HTMLDivElement,
@@ -158,9 +163,15 @@ function AnalyticsTabbedBarCardSkeleton() {
 export function AnalyticsDimensionCards({
   analytics,
   loading = false,
+  pending = false,
+  selected = {},
+  onSelect,
 }: {
   analytics: DimensionRows;
   loading?: boolean;
+  pending?: boolean;
+  selected?: Partial<Record<Dimension, string[]>>;
+  onSelect?: (dimension: Dimension, row: TopRow) => void;
 }) {
   const referrerTabs: BarTab[] = [
     {
@@ -169,6 +180,9 @@ export function AnalyticsDimensionCards({
       rows: analytics.referrers,
       emptyLabel: "No referrers yet.",
       renderIcon: (row) => <ReferrerIcon row={row} />,
+      pending,
+      selectedKey: selected.referer?.length === 1 ? selected.referer[0] : undefined,
+      onSelect: onSelect ? (row) => onSelect("referer", row) : undefined,
     },
   ];
   const locationTabs: BarTab[] = [
@@ -177,10 +191,34 @@ export function AnalyticsDimensionCards({
       label: "Countries",
       rows: analytics.countries,
       renderIcon: (row) => <CountryIcon row={row} />,
+      pending,
+      selectedKey: selected.country?.length === 1 ? selected.country[0] : undefined,
+      onSelect: onSelect ? (row) => onSelect("country", row) : undefined,
     },
-    { key: "campaign-cities", label: "Cities", rows: analytics.cities },
-    { key: "campaign-regions", label: "Regions", rows: analytics.regions },
-    { key: "campaign-continents", label: "Continents", rows: analytics.continents },
+    {
+      key: "campaign-cities",
+      label: "Cities",
+      rows: analytics.cities,
+      pending,
+      selectedKey: selected.city?.length === 1 ? selected.city[0] : undefined,
+      onSelect: onSelect ? (row) => onSelect("city", row) : undefined,
+    },
+    {
+      key: "campaign-regions",
+      label: "Regions",
+      rows: analytics.regions,
+      pending,
+      selectedKey: selected.region?.length === 1 ? selected.region[0] : undefined,
+      onSelect: onSelect ? (row) => onSelect("region", row) : undefined,
+    },
+    {
+      key: "campaign-continents",
+      label: "Continents",
+      rows: analytics.continents,
+      pending,
+      selectedKey: selected.continent?.length === 1 ? selected.continent[0] : undefined,
+      onSelect: onSelect ? (row) => onSelect("continent", row) : undefined,
+    },
   ];
   const deviceTabs: BarTab[] = [
     {
@@ -188,9 +226,26 @@ export function AnalyticsDimensionCards({
       label: "Devices",
       rows: analytics.devices,
       renderIcon: (row) => <DeviceIcon row={row} />,
+      pending,
+      selectedKey: selected.device?.length === 1 ? selected.device[0] : undefined,
+      onSelect: onSelect ? (row) => onSelect("device", row) : undefined,
     },
-    { key: "campaign-browsers", label: "Browsers", rows: analytics.browsers },
-    { key: "campaign-os", label: "OS", rows: analytics.oses },
+    {
+      key: "campaign-browsers",
+      label: "Browsers",
+      rows: analytics.browsers,
+      pending,
+      selectedKey: selected.browser?.length === 1 ? selected.browser[0] : undefined,
+      onSelect: onSelect ? (row) => onSelect("browser", row) : undefined,
+    },
+    {
+      key: "campaign-os",
+      label: "OS",
+      rows: analytics.oses,
+      pending,
+      selectedKey: selected.os?.length === 1 ? selected.os[0] : undefined,
+      onSelect: onSelect ? (row) => onSelect("os", row) : undefined,
+    },
   ];
 
   return (

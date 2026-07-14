@@ -6,6 +6,7 @@ import {
   conversionClicksByHourSql,
   granularityFor,
   hourlyClicks,
+  hourlyClicksByBlobSql,
   hourlyClicksByLinkIdAndSourceSql,
   hourlySql,
   parseTimeBucket,
@@ -143,6 +144,17 @@ describe("analytics-engine SQL", () => {
     });
 
     expect(sql).toContain("toStartOfInterval(timestamp, INTERVAL '12' HOUR) AS hour");
+  });
+
+  it("groups analytics trends by a requested blob dimension", () => {
+    const sql = hourlyClicksByBlobSql("source", [ID_A], {
+      window: { kind: "rolling", hours: 24 },
+      bucket: { amount: 2, unit: "hour" },
+    });
+
+    expect(sql).toContain("toStartOfInterval(timestamp, INTERVAL '2' HOUR) AS hour");
+    expect(sql).toContain("blob10 AS name");
+    expect(sql).toContain("GROUP BY hour, name");
   });
 
   it("keeps conversion attribution clicks at hourly granularity for long windows", () => {

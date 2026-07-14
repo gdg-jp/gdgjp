@@ -304,6 +304,38 @@ export async function hourlyClicks(
   }));
 }
 
+export type BlobTrendPoint = { hour: string; name: string; clicks: number };
+
+export function hourlyClicksByBlobSql(
+  field: TopBlob,
+  linkIds: string[] | "all",
+  opts: QueryOpts = {},
+): string {
+  const window = opts.window ?? DEFAULT_WINDOW;
+  const filter = linkIdsFilter(linkIds);
+  const bucket = bucketExpression(window, opts.bucket);
+  const blob = `blob${BLOB_INDEX[field]}`;
+  return `SELECT ${bucket} AS hour, ${blob} AS name, count() AS clicks
+FROM ${DATASET}
+WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}
+GROUP BY hour, name
+ORDER BY hour`;
+}
+
+export async function hourlyClicksByBlob(
+  env: AeEnv,
+  field: TopBlob,
+  linkIds: string[] | "all",
+  opts: QueryOpts = {},
+): Promise<BlobTrendPoint[]> {
+  const rows = await aeQuery(env, hourlyClicksByBlobSql(field, linkIds, opts));
+  return rows.map((row) => ({
+    hour: String(row.hour ?? ""),
+    name: String(row.name ?? "") || "(unknown)",
+    clicks: Number(row.clicks ?? 0),
+  }));
+}
+
 export type TopRow = { name: string; clicks: number };
 
 export function topSql(

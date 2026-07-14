@@ -10,6 +10,9 @@ export type BarTab = {
   rows: TopRow[];
   emptyLabel?: string;
   renderIcon?: (row: TopRow) => ReactNode;
+  pending?: boolean;
+  selectedKey?: string;
+  onSelect?: (row: TopRow) => void;
 };
 
 export function TabbedBarCard({
@@ -62,6 +65,9 @@ export function TabbedBarCard({
           tone={tone}
           renderIcon={current.renderIcon}
           height={272}
+          pending={current.pending}
+          selectedKey={current.selectedKey}
+          onSelect={current.onSelect}
         />
       </div>
     </Card>

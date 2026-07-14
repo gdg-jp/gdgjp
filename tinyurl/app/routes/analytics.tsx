@@ -1,5 +1,5 @@
 import { ExternalLink, X } from "lucide-react";
-import { Suspense } from "react";
+import { Suspense, useRef, useState } from "react";
 import { Await, Link, useLocation, useNavigation, useSearchParams } from "react-router";
 import {
   AnalyticsBarListCard,
@@ -9,18 +9,27 @@ import {
 } from "~/components/analytics/analytics-breakdown-cards";
 import type { FilterSuggestions } from "~/components/analytics/analytics-filter-button";
 import { AnalyticsFiltersBar } from "~/components/analytics/analytics-filters-bar";
-import { HourlyChart } from "~/components/charts/hourly-chart";
+import { AnalyticsGraphInterval } from "~/components/analytics/analytics-graph-interval";
+import { AnalyticsTrendChart } from "~/components/charts/analytics-trend-chart";
 import { DashboardPage, DashboardPageHeader } from "~/components/dashboard-page";
 import { DashboardShell } from "~/components/dashboard-shell";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
 import {
+  type BlobTrendPoint,
   type Granularity,
   type QueryOpts,
+  type TopBlob,
   type TopRow,
   granularityFor,
+  granularityForTimeBucket,
   hourlyClicks,
+  hourlyClicksByBlob,
+  parseTimeBucket,
+  timeBucketFor,
+  timeBucketLabel,
+  timeBucketParam,
   topByBlob,
   totalClicks,
 } from "~/lib/analytics-engine";
@@ -62,6 +71,9 @@ type AnalyticsData = {
   oses: TopRow[];
   devices: TopRow[];
   granularity: Granularity;
+  bucketLabel: string;
+  sourceTrend: BlobTrendPoint[];
+  linkTrend: BlobTrendPoint[];
 };
 
 export async function loader(args: Route.LoaderArgs) {
@@ -106,6 +118,8 @@ export async function loader(args: Route.LoaderArgs) {
   }
 
   const { preset, window, filters } = parseAnalyticsParams(url.searchParams);
+  const requestedBucket = parseTimeBucket(url.searchParams.get("bucket"));
+  const effectiveBucket = requestedBucket ?? timeBucketFor(window);
   const customStart = window.kind === "custom" ? window.startIso : undefined;
   const customEnd = window.kind === "custom" ? window.endIso : undefined;
   const granularity = granularityFor(window);
@@ -122,6 +136,7 @@ export async function loader(args: Route.LoaderArgs) {
       customStart,
       customEnd,
       filters,
+      bucket: requestedBucket ? timeBucketParam(requestedBucket) : "",
     };
   }
 
@@ -132,7 +147,7 @@ export async function loader(args: Route.LoaderArgs) {
     };
   }
 
-  const opts: QueryOpts = { window, filters };
+  const opts: QueryOpts = { window, filters, bucket: requestedBucket ?? undefined };
 
   const analytics: Promise<AnalyticsData> = Promise.all([
     hourlyClicks(env, ids, opts).catch(aeFallback("hourly", [])),
@@ -147,6 +162,8 @@ export async function loader(args: Route.LoaderArgs) {
     topByBlob(env, "browser", ids, 10, opts).catch(aeFallback("browser", [])),
     topByBlob(env, "os", ids, 10, opts).catch(aeFallback("os", [])),
     topByBlob(env, "device", ids, 10, opts).catch(aeFallback("device", [])),
+    hourlyClicksByBlob(env, "source", ids, opts).catch(aeFallback("sourceTrend", [])),
+    hourlyClicksByBlob(env, "slug", ids, opts).catch(aeFallback("linkTrend", [])),
   ]).then(
     ([
       hourly,
@@ -161,6 +178,8 @@ export async function loader(args: Route.LoaderArgs) {
       browsers,
       oses,
       devices,
+      sourceTrend,
+      linkTrend,
     ]) => ({
       hourly,
       total,
@@ -174,7 +193,10 @@ export async function loader(args: Route.LoaderArgs) {
       browsers,
       oses,
       devices,
-      granularity,
+      granularity: requestedBucket ? granularityForTimeBucket(requestedBucket) : granularity,
+      bucketLabel: timeBucketLabel(effectiveBucket),
+      sourceTrend,
+      linkTrend,
     }),
   );
 
@@ -201,21 +223,82 @@ export async function loader(args: Route.LoaderArgs) {
     customStart,
     customEnd,
     filters,
+    bucket: requestedBucket ? timeBucketParam(requestedBucket) : "",
   };
+}
+
+type AnalyticsTrendDimension = "total" | "source" | "link";
+
+function trendFromRows(rows: BlobTrendPoint[], focusName?: string) {
+  const totals = new Map<string, number>();
+  const buckets = new Map<string, Map<string, number>>();
+  for (const row of rows) {
+    if (focusName && row.name !== focusName) continue;
+    totals.set(row.name, (totals.get(row.name) ?? 0) + row.clicks);
+    const bucket = buckets.get(row.hour) ?? new Map<string, number>();
+    bucket.set(row.name, (bucket.get(row.name) ?? 0) + row.clicks);
+    buckets.set(row.hour, bucket);
+  }
+  const ranked = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+  const keepCount = ranked.length > 6 ? 5 : ranked.length;
+  const kept = ranked.slice(0, keepCount);
+  const keptNames = new Set(kept.map(([name]) => name));
+  const hasOther = ranked.length > kept.length;
+  const series = kept.map(([name, clicks]) => ({ key: name, label: name, clicks }));
+  if (hasOther) {
+    series.push({
+      key: "other",
+      label: "Other",
+      clicks: ranked.slice(keepCount).reduce((sum, [, clicks]) => sum + clicks, 0),
+    });
+  }
+  const points = [...buckets.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([hour, bucket]) => {
+      const point: { hour: string; [key: string]: string | number } = { hour };
+      for (const item of series) point[item.key] = 0;
+      for (const [name, clicks] of bucket) {
+        if (keptNames.has(name)) point[name] = clicks;
+        else if (hasOther) point.other = Number(point.other ?? 0) + clicks;
+      }
+      return point;
+    });
+  return { points, series };
 }
 
 function AnalyticsContent({
   data,
   filters,
+  bucket,
   pending,
 }: {
   data: AnalyticsData;
   filters: DimensionFilters;
+  bucket: string;
   pending: boolean;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [breakdown, setBreakdown] = useState<AnalyticsTrendDimension>("total");
+  const [focus, setFocus] = useState<{ name: string; label: string } | null>(null);
+  const trendRows = breakdown === "source" ? data.sourceTrend : data.linkTrend;
+  const trend =
+    breakdown === "total"
+      ? {
+          points: data.hourly.map(({ hour, clicks }) => ({ hour, total: clicks })),
+          series: [{ key: "total", label: "Clicks", clicks: data.total }],
+        }
+      : trendFromRows(trendRows, focus?.name);
 
-  function isolateTrend(dimension: "source" | "slug", row: TopRow) {
+  function selectGraphItem(dimension: Exclude<AnalyticsTrendDimension, "total">, row: TopRow) {
+    setBreakdown(dimension);
+    setFocus({ name: row.name, label: row.name });
+    requestAnimationFrame(() =>
+      chartRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+    );
+  }
+
+  function isolateTrend(dimension: Exclude<TopBlob, "source" | "slug">, row: TopRow) {
     if (row.name === "(unknown)") return;
     const params = serializeAnalyticsParams(searchParams, {
       filters: { ...filters, [dimension]: [row.name] },
@@ -223,13 +306,34 @@ function AnalyticsContent({
     setSearchParams(params, { preventScrollReset: true });
   }
 
+  function changeBreakdown(value: string) {
+    setBreakdown(value as AnalyticsTrendDimension);
+    setFocus(null);
+  }
+
   return (
     <>
-      <AnalyticsClicksChartCard total={data.total} pending={pending}>
+      <AnalyticsClicksChartCard ref={chartRef} total={data.total} pending={pending}>
         {pending ? (
           <Skeleton className="h-[260px] w-full" />
         ) : (
-          <HourlyChart data={data.hourly} height={260} granularity={data.granularity} />
+          <AnalyticsTrendChart
+            points={trend.points}
+            series={trend.series}
+            granularity={data.granularity}
+            bucketLabel={data.bucketLabel}
+            intervalControl={<AnalyticsGraphInterval value={bucket} pending={pending} />}
+            breakdownOptions={[
+              { value: "total", label: "Total" },
+              { value: "source", label: "Sources" },
+              { value: "link", label: "Links" },
+            ]}
+            breakdown={breakdown}
+            focusKey={focus?.name}
+            focusLabel={focus?.label}
+            onBreakdownChange={changeBreakdown}
+            onClearFocus={() => setFocus(null)}
+          />
         )}
       </AnalyticsClicksChartCard>
 
@@ -241,8 +345,8 @@ function AnalyticsContent({
           emptyLabel="No source data yet."
           loading={pending}
           loadingContent={<AnalyticsBarListSkeleton />}
-          selectedKey={filters.source?.length === 1 ? filters.source[0] : undefined}
-          onSelect={(row) => isolateTrend("source", row)}
+          selectedKey={breakdown === "source" ? focus?.name : undefined}
+          onSelect={(row) => selectGraphItem("source", row)}
         />
         <AnalyticsBarListCard
           title="Links"
@@ -251,11 +355,16 @@ function AnalyticsContent({
           emptyLabel="No clicks yet."
           loading={pending}
           loadingContent={<AnalyticsBarListSkeleton />}
-          selectedKey={filters.slug?.length === 1 ? filters.slug[0] : undefined}
-          onSelect={(row) => isolateTrend("slug", row)}
+          selectedKey={breakdown === "link" ? focus?.name : undefined}
+          onSelect={(row) => selectGraphItem("link", row)}
         />
       </div>
-      <AnalyticsDimensionCards analytics={data} />
+      <AnalyticsDimensionCards
+        analytics={data}
+        pending={pending}
+        selected={filters}
+        onSelect={isolateTrend}
+      />
     </>
   );
 }
@@ -299,7 +408,7 @@ function AnalyticsSkeleton() {
 }
 
 export default function Analytics({ loaderData }: Route.ComponentProps) {
-  const { user, hasLinks, focus, analytics, suggestions } = loaderData;
+  const { user, hasLinks, focus, analytics, suggestions, bucket } = loaderData;
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigation = useNavigation();
@@ -383,6 +492,7 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
                   <AnalyticsContent
                     data={data}
                     filters={displayParams.filters}
+                    bucket={bucket}
                     pending={analyticsPending}
                   />
                 ) : null
