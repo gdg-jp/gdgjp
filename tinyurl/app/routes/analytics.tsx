@@ -124,7 +124,7 @@ export async function loader(args: Route.LoaderArgs) {
   const customEnd = window.kind === "custom" ? window.endIso : undefined;
   const granularity = granularityFor(window);
 
-  const shellUser = { email: user.email, name: user.name };
+  const shellUser = { email: user.email, image: user.image, name: user.name };
   if (ids.length === 0) {
     return {
       user: shellUser,

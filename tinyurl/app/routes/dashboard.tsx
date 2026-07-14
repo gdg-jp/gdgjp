@@ -166,7 +166,11 @@ export async function loader(args: Route.LoaderArgs) {
 }
 
 function shellUser(loaderData: Route.ComponentProps["loaderData"]) {
-  return { email: loaderData.user.email, name: loaderData.user.name };
+  return {
+    email: loaderData.user.email,
+    image: loaderData.user.image,
+    name: loaderData.user.name,
+  };
 }
 
 type Scope = "all" | "own" | "shared";
