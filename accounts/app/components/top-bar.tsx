@@ -1,22 +1,13 @@
-import { LogOut } from "lucide-react";
+import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { LocaleSwitcher } from "~/components/locale-switcher";
 import { ThemeToggle } from "~/components/theme-toggle";
-import { Avatar, AvatarFallback } from "~/components/ui/avatar";
-import { Button } from "~/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
 
 export type TopBarUser = {
   email: string;
+  image: string | null;
   name: string;
 };
 
@@ -32,6 +23,7 @@ export function TopBar({ user }: { user: TopBarUser | null }) {
         <div className="flex items-center gap-2">
           <LocaleSwitcher />
           <ThemeToggle />
+          {user ? <GdgAppLauncher /> : null}
           <UserMenu user={user} />
         </div>
       </div>
@@ -42,41 +34,17 @@ export function TopBar({ user }: { user: TopBarUser | null }) {
 function UserMenu({ user }: { user: TopBarUser | null }) {
   const { t } = useTranslation();
   if (!user) return null;
-  const initials = (user.name || user.email)
-    .split(/\s+|@/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((s) => s[0]?.toUpperCase())
-    .join("");
 
   function signOut() {
     window.location.assign("/auth/signout");
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={t("auth.userMenuAria")}>
-          <Avatar size="sm">
-            <AvatarFallback>{initials || "?"}</AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>
-          <div className="flex flex-col">
-            <span className="truncate font-medium">{user.name || user.email}</span>
-            {user.name ? (
-              <span className="truncate text-xs text-muted-foreground">{user.email}</span>
-            ) : null}
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={signOut}>
-          <LogOut className="size-4" />
-          {t("auth.signOut")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <GdgAccountMenu
+      accountUrl="/dashboard"
+      onSignOut={signOut}
+      signOutLabel={t("auth.signOut")}
+      user={user}
+    />
   );
 }

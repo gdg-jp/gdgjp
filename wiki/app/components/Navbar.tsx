@@ -1,14 +1,5 @@
-import {
-  ChartPie,
-  Globe,
-  ListTodo,
-  LogOut,
-  Moon,
-  PanelLeft,
-  PanelLeftClose,
-  Settings,
-  Sun,
-} from "lucide-react";
+import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
+import { ChartPie, Globe, ListTodo, Moon, PanelLeft, PanelLeftClose, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form, Link, useFetcher, useSearchParams } from "react-router";
@@ -79,76 +70,14 @@ function UiLangSwitcher() {
 
 function UserMenu({ user }: { user: NonNullable<NavbarProps["user"]> }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const initial = user.name[0]?.toUpperCase() ?? "?";
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-haspopup="true"
-        className="flex h-8 w-8 select-none items-center justify-center overflow-hidden rounded-full bg-blue-500 text-sm font-medium text-white hover:ring-2 hover:ring-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
-        title={user.name}
-      >
-        {user.image ? (
-          <img src={user.image} alt={user.name} className="h-full w-full object-cover" />
-        ) : (
-          initial
-        )}
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 min-w-[14rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg">
-          {/* Identity header */}
-          <div className="flex items-center gap-2.5 px-3 py-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-500 text-sm font-medium text-white">
-              {user.image ? (
-                <img src={user.image} alt={user.name} className="h-full w-full object-cover" />
-              ) : (
-                initial
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
-              <p className="truncate text-xs text-gray-500">{user.email}</p>
-            </div>
-          </div>
-
-          <div className="my-1 border-t border-gray-100" />
-
-          <Link
-            to="/settings"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            <Settings className="h-4 w-4 text-gray-400" aria-hidden="true" />
-            {t("settings.title")}
-          </Link>
-
-          <div className="my-1 border-t border-gray-100" />
-
-          <Link
-            to="/logout"
-            reloadDocument
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            <LogOut className="h-4 w-4 text-gray-400" aria-hidden="true" />
-            {t("auth.sign_out")}
-          </Link>
-        </div>
-      )}
-    </div>
+    <GdgAccountMenu
+      accountUrl="https://accounts.gdgs.jp/dashboard"
+      onSignOut={() => window.location.assign("/logout")}
+      settings={{ href: "/settings", label: t("settings.title") }}
+      signOutLabel={t("auth.sign_out")}
+      user={user}
+    />
   );
 }
 
@@ -311,7 +240,10 @@ export default function Navbar({
         <UiLangSwitcher />
 
         {user ? (
-          <UserMenu user={user} />
+          <>
+            <GdgAppLauncher />
+            <UserMenu user={user} />
+          </>
         ) : (
           <Link to="/login" className="text-sm font-medium text-blue-500 hover:underline">
             {t("auth.sign_in")}

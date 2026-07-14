@@ -1,4 +1,7 @@
 @import "tailwindcss";
+
+@source "../../gdg-lib/src/ui";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* Remote collaborative cursors in CodeMirror */
@@ -42,6 +45,15 @@
 
 @theme {
   --font-sans: "Google Sans", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
 
   /* ── Blue scale (anchored: blue-500=#4285f4, blue-100=pastel-blue, blue-300=halftone-blue) ── */
   --color-blue-50: #e8f0fe;
@@ -123,10 +135,26 @@
 
 :root {
   color-scheme: light;
+  --popover: #ffffff;
+  --popover-foreground: #1e1e1e;
+  --muted: #f0f0f0;
+  --muted-foreground: #636363;
+  --accent: #f0f0f0;
+  --accent-foreground: #1e1e1e;
+  --border: #e4e4e4;
+  --ring: #4285f4;
 }
 
 .dark {
   color-scheme: dark;
+  --popover: #2a2a2a;
+  --popover-foreground: #ffffff;
+  --muted: #444444;
+  --muted-foreground: #cccccc;
+  --accent: #444444;
+  --accent-foreground: #ffffff;
+  --border: #444444;
+  --ring: #57caff;
 
   /* ── Gray scale: fully inverted (light ↔ dark) ── */
   --color-gray-50: #1e1e1e;

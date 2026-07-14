@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@source "../../gdg-lib/src/ui";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @font-face {

@@ -1,10 +1,12 @@
-import { LogOut, Monitor, Moon, Sun } from "lucide-react";
+import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { Link } from "react-router";
 import { Button } from "~/components/ui/button";
 import { type Theme, useTheme } from "~/lib/theme";
 
 export type TopBarUser = {
   email: string;
+  image: string | null;
   name: string;
 };
 
@@ -24,7 +26,16 @@ export function TopBar({ user }: { user: TopBarUser | null }) {
         </Link>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          {user ? <SignOutButton /> : null}
+          {user ? (
+            <>
+              <GdgAppLauncher />
+              <GdgAccountMenu
+                accountUrl="https://accounts.gdgs.jp/dashboard"
+                onSignOut={() => window.location.assign("/auth/signout")}
+                user={user}
+              />
+            </>
+          ) : null}
         </div>
       </div>
     </header>
@@ -43,16 +54,6 @@ function ThemeToggle() {
       onClick={() => setTheme(next)}
     >
       <Icon className="size-4 transition-transform duration-300 hover:rotate-12" />
-    </Button>
-  );
-}
-
-function SignOutButton() {
-  return (
-    <Button variant="ghost" size="icon" aria-label="Sign out" asChild>
-      <a href="/auth/signout">
-        <LogOut className="size-4" />
-      </a>
     </Button>
   );
 }

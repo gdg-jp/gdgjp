@@ -96,7 +96,7 @@ function Sidebar({ user }: { user: UserMenuUser | null }) {
         </div>
       </nav>
       <div className="flex items-center justify-between border-t px-3 py-2">
-        <UserMenu user={user} />
+        <UserMenu user={user} launcherPosition="right" />
         <ThemeToggle />
       </div>
     </aside>

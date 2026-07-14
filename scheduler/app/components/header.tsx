@@ -1,9 +1,10 @@
+import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
 import { Link } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { Button } from "~/components/ui/button";
 
-export type HeaderUser = { name: string; email: string };
+export type HeaderUser = { name: string; email: string; image: string | null };
 
 export function Header({ user }: { user: HeaderUser | null }) {
   return (
@@ -20,12 +21,12 @@ export function Header({ user }: { user: HeaderUser | null }) {
               <Link to="/events" className="px-2 text-muted-foreground hover:text-foreground">
                 My events
               </Link>
-              <span className="hidden max-w-[10rem] truncate text-muted-foreground sm:inline">
-                {user.name || user.email}
-              </span>
-              <Button variant="ghost" size="sm" asChild>
-                <a href="/auth/signout">Sign out</a>
-              </Button>
+              <GdgAppLauncher />
+              <GdgAccountMenu
+                accountUrl="https://accounts.gdgs.jp/dashboard"
+                onSignOut={() => window.location.assign("/auth/signout")}
+                user={user}
+              />
             </>
           ) : (
             <Button variant="ghost" size="sm" asChild>
