@@ -2,6 +2,7 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleAlert,
+  CloudOff,
   Copy,
   EllipsisVertical,
   ExternalLink,
@@ -571,6 +572,17 @@ function DomainCard({ domain, chapterSlug }: { domain: Domain; chapterSlug?: str
       ownershipRecords.every((record) => record.status === "verified"));
   const routingDone = active || routingRecords.some((record) => record.status === "verified");
   const originPending = domain.providerError?.startsWith("Connect ") === true;
+  const hasApexAAlternative = domain.verificationRecords.some(
+    (record) => record.alternativeGroup === "apex-routing" && record.type === "A",
+  );
+  const displayedRecords = domain.verificationRecords.filter(
+    (record) =>
+      !(
+        hasApexAAlternative &&
+        record.alternativeGroup === "apex-routing" &&
+        record.type === "CNAME"
+      ),
+  );
 
   if (domain.kind === "system") {
     return (
@@ -660,9 +672,21 @@ function DomainCard({ domain, chapterSlug }: { domain: Domain; chapterSlug?: str
               <div>
                 <h3 className="text-sm font-semibold">DNS records</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Add the pending records at your DNS provider. Routing alternatives are grouped;
-                  only the option supported by your provider is required.
+                  Add the pending ownership and routing records at your DNS provider. When an A
+                  record is shown for the apex, do not add a CNAME for the same name.
                 </p>
+              </div>
+
+              <div className="mt-4 flex gap-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
+                <CloudOff className="mt-0.5 size-4 shrink-0" />
+                <div>
+                  <p className="font-medium">Using Cloudflare DNS?</p>
+                  <p className="mt-1 text-sky-800 dark:text-sky-200">
+                    Keep Proxy status OFF for the A, AAAA, or CNAME routing record. It must show as
+                    DNS only with a gray cloud. Cloudflare does not allow an apex CNAME alongside an
+                    existing A/AAAA record, so use the displayed A record instead of adding both.
+                  </p>
+                </div>
               </div>
 
               {domain.mode === "origin-first" && domain.upstreamOrigin ? (
@@ -676,7 +700,7 @@ function DomainCard({ domain, chapterSlug }: { domain: Domain; chapterSlug?: str
                 </div>
               ) : null}
 
-              {domain.verificationRecords.length > 0 ? (
+              {displayedRecords.length > 0 ? (
                 <div className="mt-4 overflow-x-auto rounded-lg border">
                   <table className="w-full min-w-[620px] text-left text-sm">
                     <caption className="sr-only">
@@ -695,7 +719,7 @@ function DomainCard({ domain, chapterSlug }: { domain: Domain; chapterSlug?: str
                       </tr>
                     </thead>
                     <tbody>
-                      {domain.verificationRecords.map((record) => {
+                      {displayedRecords.map((record) => {
                         const verified = active || record.status === "verified";
                         return (
                           <tr

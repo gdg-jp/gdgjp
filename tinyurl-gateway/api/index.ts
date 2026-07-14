@@ -187,8 +187,27 @@ async function resolveShortLink(
   );
 }
 
+function publicRequestUrl(request: Request): URL | null {
+  try {
+    const absolute = new URL(request.url);
+    if (absolute.protocol === "http:" || absolute.protocol === "https:") return absolute;
+  } catch {
+    // Vercel's Node runtime can pass only the request target (for example `/`).
+  }
+
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwardedHost || request.headers.get("host")?.trim();
+  if (!host || !request.url.startsWith("/") || request.url.startsWith("//")) return null;
+  try {
+    return new URL(request.url, `https://${host}`);
+  } catch {
+    return null;
+  }
+}
+
 export async function handleGatewayRequest(request: Request): Promise<Response> {
-  const publicUrl = new URL(request.url);
+  const publicUrl = publicRequestUrl(request);
+  if (!publicUrl) return new Response("Invalid Request URL", { status: 400 });
   const hostname = publicUrl.hostname.toLowerCase();
   let config: DomainConfig | null;
   try {

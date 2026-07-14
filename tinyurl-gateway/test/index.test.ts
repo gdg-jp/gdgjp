@@ -35,6 +35,26 @@ describe("gateway", () => {
     expect(await response.text()).toBe("origin");
   });
 
+  it("reconstructs relative request targets provided by the Vercel runtime", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.pathname.endsWith("/config")) return config("short-only", null);
+        if (url.pathname.endsWith("/resolve")) return new Response(null, { status: 204 });
+        throw new Error(`Unexpected request to ${url}`);
+      }),
+    );
+    const request = new Request("https://placeholder.invalid/", {
+      headers: { "x-forwarded-host": "custom.example" },
+    });
+    Object.defineProperty(request, "url", { value: "/" });
+
+    const response = await handleGatewayRequest(request);
+    expect(response.status).toBe(404);
+    expect(await response.text()).toBe("Not Found");
+  });
+
   it("falls back only when a GET origin returns 404", async () => {
     vi.stubGlobal(
       "fetch",
