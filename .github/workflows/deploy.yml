@@ -17,8 +17,9 @@ jobs:
     name: Deploy
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: Production
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -97,3 +98,16 @@ jobs:
           name: gdg-japan-go-links-${{ github.sha }}
           path: go-extension/dist/gdg-japan-go-links.zip
           retention-days: 30
+      - name: Create go extension release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: go-extension-${{ github.sha }}
+        run: |
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" go-extension/dist/gdg-japan-go-links.zip --clobber
+          else
+            gh release create "$TAG_NAME" go-extension/dist/gdg-japan-go-links.zip \
+              --target "$GITHUB_SHA" \
+              --title "GDG Japan Go Links ($GITHUB_SHA)" \
+              --notes "Automated extension package for commit $GITHUB_SHA."
+          fi
