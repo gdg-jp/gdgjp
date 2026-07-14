@@ -1,6 +1,6 @@
 import { goUrl, searchFallback } from "./redirect.js";
 
-chrome.omnibox.setDefaultSuggestion({ description: "Open GDG Japan go/<slug>" });
+chrome.omnibox.setDefaultSuggestion({ description: "Open GDG Japan go/&lt;slug&gt;" });
 chrome.omnibox.onInputEntered.addListener((text) => {
   const destination = goUrl(text);
   if (destination) void chrome.tabs.update({ url: destination });
