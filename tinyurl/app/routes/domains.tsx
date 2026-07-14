@@ -309,7 +309,7 @@ function ConnectDomainDialog({
   }, [creator.data, creator.state, onOpenChange, revalidator]);
 
   const inspection: DomainDetection | null =
-    inspector.data && "inspection" in inspector.data ? inspector.data.inspection : null;
+    inspector.data && "inspection" in inspector.data ? (inspector.data.inspection ?? null) : null;
   const currentHostname = hostname.trim().toLowerCase().replace(/\.$/, "");
   const displayedInspection = inspection?.hostname === currentHostname ? inspection : null;
   const inspectError =
