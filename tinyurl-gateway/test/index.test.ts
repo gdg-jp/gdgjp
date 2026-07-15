@@ -1,18 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("node:dns/promises", () => ({
-  resolve4: vi.fn(async () => ["203.0.113.10"]),
-  resolve6: vi.fn(async () => []),
-}));
-
 import * as gatewayModule from "../api/index.js";
 
-const { clearConfigCacheForTests, handleGatewayRequest } = gatewayModule;
+const { clearConfigCacheForTests, handleGatewayRequest, validateUpstreamOrigin } = gatewayModule;
 
 function config(mode: "short-only" | "origin-first", upstreamOrigin: string | null) {
   return new Response(JSON.stringify({ hostname: "custom.example", mode, upstreamOrigin }), {
     headers: { "content-type": "application/json" },
   });
+}
+
+function dnsResponse(input: RequestInfo | URL): Response | null {
+  const url = new URL(String(input));
+  if (url.hostname !== "cloudflare-dns.com") return null;
+  const answer = url.searchParams.get("type") === "A" ? [{ type: 1, data: "203.0.113.10" }] : [];
+  return Response.json({ Status: 0, Answer: answer });
 }
 
 describe("gateway", () => {
@@ -23,15 +25,17 @@ describe("gateway", () => {
     vi.restoreAllMocks();
   });
 
-  it("exports Vercel's fetch Web Handler instead of a legacy default function", () => {
-    expect(typeof gatewayModule.default).toBe("object");
-    expect(gatewayModule.default.fetch).toBe(handleGatewayRequest);
+  it("exports an Edge Runtime handler in the Tokyo region", () => {
+    expect(gatewayModule.config).toEqual({ runtime: "edge", regions: ["hnd1"] });
+    expect(typeof gatewayModule.default).toBe("function");
   });
 
   it("passes through a successful origin response", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
+        const dns = dnsResponse(input);
+        if (dns) return dns;
         const url = new URL(String(input));
         if (url.hostname === "url.gdgs.jp") return config("origin-first", "https://origin.example");
         return new Response("origin", { status: 200 });
@@ -47,6 +51,8 @@ describe("gateway", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const dns = dnsResponse(input);
+        if (dns) return dns;
         const url = new URL(String(input));
         if (url.hostname === "url.gdgs.jp") {
           return config("origin-first", "https://origin.example");
@@ -79,6 +85,8 @@ describe("gateway", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
+        const dns = dnsResponse(input);
+        if (dns) return dns;
         const url = new URL(String(input));
         if (url.pathname.endsWith("/config")) return config("short-only", null);
         if (url.pathname.endsWith("/resolve")) return new Response(null, { status: 204 });
@@ -96,12 +104,14 @@ describe("gateway", () => {
     expect(await response.text()).toBe("Not Found");
   });
 
-  it("forwards plain-object headers from the Vercel Node runtime", async () => {
+  it("forwards plain-object headers from compatibility adapters", async () => {
     let forwardedUserAgent: string | null = null;
     let forwardedRequestId: string | null = null;
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const dns = dnsResponse(input);
+        if (dns) return dns;
         const url = new URL(String(input));
         if (url.pathname.endsWith("/config")) {
           return config("origin-first", "https://origin.example");
@@ -133,6 +143,8 @@ describe("gateway", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const dns = dnsResponse(input);
+        if (dns) return dns;
         const url = new URL(String(input));
         if (url.pathname.endsWith("/config"))
           return config("origin-first", "https://origin.example");
@@ -156,6 +168,8 @@ describe("gateway", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
+        const dns = dnsResponse(input);
+        if (dns) return dns;
         const url = new URL(String(input));
         if (url.pathname.endsWith("/config"))
           return config("origin-first", "https://origin.example");
@@ -173,6 +187,8 @@ describe("gateway", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const dns = dnsResponse(input);
+        if (dns) return dns;
         const url = new URL(String(input));
         methods.push(init?.method ?? "GET");
         if (url.pathname.endsWith("/config"))
@@ -197,6 +213,8 @@ describe("gateway", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
+        const dns = dnsResponse(input);
+        if (dns) return dns;
         const url = new URL(String(input));
         if (url.hostname === "url.gdgs.jp") return config("origin-first", "https://origin.example");
         if (networkFailure) throw new Error("offline");
@@ -213,6 +231,8 @@ describe("gateway", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
+        const dns = dnsResponse(input);
+        if (dns) return dns;
         const url = new URL(String(input));
         return url.hostname === "url.gdgs.jp" ? config("short-only", null) : new Response(null);
       }),
@@ -238,5 +258,34 @@ describe("gateway", () => {
     );
     const response = await handleGatewayRequest(new Request("https://custom.example/a"));
     expect(response.status).toBe(502);
+  });
+
+  it("rejects upstream hostnames that resolve to private addresses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        const answer = url.searchParams.get("type") === "A" ? [{ type: 1, data: "10.0.0.1" }] : [];
+        return Response.json({ Status: 0, Answer: answer });
+      }),
+    );
+
+    await expect(
+      validateUpstreamOrigin("https://origin.custom.example", "custom.example"),
+    ).rejects.toThrow("private address");
+  });
+
+  it("caches successful DNS validation independently from domain configuration", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const response = dnsResponse(input);
+      if (!response) throw new Error("Unexpected non-DNS request");
+      return response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await validateUpstreamOrigin("https://origin.custom.example", "custom.example");
+    await validateUpstreamOrigin("https://origin.custom.example", "custom.example");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

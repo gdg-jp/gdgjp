@@ -4,8 +4,9 @@ Deploy this workspace package as one Vercel Hobby project with **Root Directory*
 `tinyurl-gateway`. Configure `TINYURL_INTERNAL_BASE=https://url.gdgs.jp` and set the same long,
 random `GATEWAY_SHARED_SECRET` in Vercel and in the Cloudflare Worker.
 
-The gateway owns TLS for every custom apex domain. It proxies an optional HTTPS upstream first and
-uses the signed tinyurl resolver only when a GET/HEAD upstream response is exactly 404.
+The gateway owns TLS for every custom apex domain. It runs in Vercel's Edge Runtime in Tokyo to
+avoid Node.js function cold starts, proxies an optional HTTPS upstream first, and uses the signed
+tinyurl resolver only when a GET/HEAD upstream response is exactly 404.
 
 The Vercel token, project ID, and optional team ID belong only to the tinyurl Worker:
 

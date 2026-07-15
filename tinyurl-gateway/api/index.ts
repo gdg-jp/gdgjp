@@ -1,6 +1,3 @@
-import { resolve4, resolve6 } from "node:dns/promises";
-import { isIP } from "node:net";
-
 type DomainConfig = {
   hostname: string;
   mode: "short-only" | "origin-first";
@@ -21,8 +18,11 @@ type GatewayRequest = {
 
 const CONFIG_TTL_MS = 30_000;
 const CONFIG_CACHE_LIMIT = 200;
+const DNS_TTL_MS = 5 * 60_000;
 const ORIGIN_TIMEOUT_MS = 8_000;
+const DNS_QUERY_ENDPOINT = "https://cloudflare-dns.com/dns-query";
 const configCache = new Map<string, { config: DomainConfig; expiresAt: number }>();
+const dnsCache = new Map<string, { safe: boolean; expiresAt: number }>();
 const encoder = new TextEncoder();
 const HOP_BY_HOP = new Set([
   "connection",
@@ -38,7 +38,10 @@ const HOP_BY_HOP = new Set([
 
 export function clearConfigCacheForTests(): void {
   configCache.clear();
+  dnsCache.clear();
 }
+
+export const config = { runtime: "edge", regions: ["hnd1"] };
 
 function requestMethod(request: GatewayRequest): string {
   return (request.method ?? "GET").toUpperCase();
@@ -165,6 +168,15 @@ async function getConfig(hostname: string): Promise<DomainConfig | null> {
   return config;
 }
 
+function isIpv4(ip: string): boolean {
+  const parts = ip.split(".");
+  return parts.length === 4 && parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+}
+
+function isIpLiteral(hostname: string): boolean {
+  return isIpv4(hostname) || hostname.includes(":");
+}
+
 function isPrivateIpv4(ip: string): boolean {
   const parts = ip.split(".").map(Number);
   return (
@@ -179,7 +191,7 @@ function isPrivateIpv4(ip: string): boolean {
 }
 
 function isPrivateIpv6(ip: string): boolean {
-  const normalized = ip.toLowerCase();
+  const normalized = ip.toLowerCase().replace(/^\[|\]$/g, "");
   return (
     normalized === "::" ||
     normalized === "::1" ||
@@ -193,13 +205,53 @@ function isPrivateIpv6(ip: string): boolean {
   );
 }
 
+type DnsJsonResponse = {
+  Status?: number;
+  Answer?: Array<{ data?: string; type?: number; TTL?: number }>;
+};
+
+async function queryAddresses(hostname: string, type: "A" | "AAAA"): Promise<string[]> {
+  const query = new URL(DNS_QUERY_ENDPOINT);
+  query.searchParams.set("name", hostname);
+  query.searchParams.set("type", type);
+  const response = await fetch(query, {
+    headers: { accept: "application/dns-json" },
+    signal: AbortSignal.timeout(2_000),
+  });
+  if (!response.ok) throw new Error("DNS lookup failed");
+  const data = (await response.json()) as DnsJsonResponse;
+  if (typeof data.Status === "number" && data.Status !== 0 && data.Status !== 3) {
+    throw new Error("DNS lookup failed");
+  }
+  const expectedType = type === "A" ? 1 : 28;
+  return (data.Answer ?? []).flatMap((answer) =>
+    answer.type === expectedType && answer.data ? [answer.data.trim()] : [],
+  );
+}
+
+async function resolvesOnlyToPublicAddresses(hostname: string): Promise<boolean> {
+  const cached = dnsCache.get(hostname);
+  if (cached && cached.expiresAt > Date.now()) return cached.safe;
+  const [ipv4, ipv6] = await Promise.all([
+    queryAddresses(hostname, "A"),
+    queryAddresses(hostname, "AAAA"),
+  ]);
+  const safe =
+    ipv4.length + ipv6.length > 0 &&
+    ipv4.every((address) => isIpv4(address) && !isPrivateIpv4(address)) &&
+    ipv6.every((address) => address.includes(":") && !isPrivateIpv6(address));
+  if (dnsCache.size >= CONFIG_CACHE_LIMIT) dnsCache.delete(dnsCache.keys().next().value ?? "");
+  dnsCache.set(hostname, { safe, expiresAt: Date.now() + DNS_TTL_MS });
+  return safe;
+}
+
 export async function validateUpstreamOrigin(origin: string, publicHostname: string): Promise<URL> {
   const url = new URL(origin);
   const hostname = url.hostname.toLowerCase();
   if (
     url.protocol !== "https:" ||
     url.origin !== origin ||
-    isIP(hostname) !== 0 ||
+    isIpLiteral(hostname) ||
     hostname === "localhost" ||
     hostname.endsWith(".localhost") ||
     hostname.endsWith(".local") ||
@@ -211,12 +263,7 @@ export async function validateUpstreamOrigin(origin: string, publicHostname: str
   ) {
     throw new Error("Unsafe upstream origin");
   }
-  const [ipv4, ipv6] = await Promise.all([
-    resolve4(hostname).catch(() => []),
-    resolve6(hostname).catch(() => []),
-  ]);
-  if (ipv4.length + ipv6.length === 0) throw new Error("Upstream hostname did not resolve");
-  if (ipv4.some(isPrivateIpv4) || ipv6.some(isPrivateIpv6)) {
+  if (!(await resolvesOnlyToPublicAddresses(hostname))) {
     throw new Error("Upstream resolves to a private address");
   }
   return url;
@@ -229,7 +276,6 @@ function forwardedHeaders(request: GatewayRequest, hostname: string): Headers {
       headers.set(name, value);
     }
   }
-  // Node's fetch transparently decompresses upstream responses but retains content-encoding.
   // Request an uncompressed representation so the proxy never forwards a stale encoding label.
   headers.set("accept-encoding", "identity");
   headers.set("x-forwarded-host", hostname);
@@ -239,9 +285,8 @@ function forwardedHeaders(request: GatewayRequest, hostname: string): Headers {
 
 function proxyOriginResponse(response: Response): Response {
   const headers = new Headers(response.headers);
-  // The body exposed by Node's fetch is already decoded. These headers describe the upstream
-  // wire representation and would make the client decode the body a second time or trust a stale
-  // byte count.
+  // Fetch exposes a decoded body, so wire-representation headers would make the client decode the
+  // body a second time or trust a stale byte count.
   headers.delete("content-encoding");
   headers.delete("content-length");
   return new Response(response.body, {
@@ -271,7 +316,7 @@ function publicRequestUrl(request: GatewayRequest): URL | null {
     const absolute = new URL(request.url);
     if (absolute.protocol === "http:" || absolute.protocol === "https:") return absolute;
   } catch {
-    // Vercel's Node runtime can pass only the request target (for example `/`).
+    // Some local and compatibility adapters pass only the request target (for example `/`).
   }
 
   const forwardedHost = requestHeader(request, "x-forwarded-host")?.split(",")[0]?.trim();
@@ -326,8 +371,7 @@ export async function handleGatewayRequest(request: GatewayRequest): Promise<Res
       body,
       redirect: "manual",
       signal: controller.signal,
-      duplex: body ? "half" : undefined,
-    } as RequestInit & { duplex?: "half" });
+    });
   } catch {
     return new Response("Bad Gateway", { status: 502 });
   } finally {
@@ -340,8 +384,6 @@ export async function handleGatewayRequest(request: GatewayRequest): Promise<Res
   return resolved.status === 204 ? proxyOriginResponse(originResponse) : resolved;
 }
 
-// A default function uses Vercel's legacy `(req, res)` signature. A default object with `fetch`
-// opts into the recommended Web Handler API and handles every HTTP method.
-export default {
-  fetch: handleGatewayRequest,
-};
+export default function gateway(request: Request): Promise<Response> {
+  return handleGatewayRequest(request);
+}
