@@ -14,6 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Form, useFetcher, useRevalidator } from "react-router";
 import { parse } from "tldts";
 import { DashboardPage, DashboardPageHeader } from "~/components/dashboard-page";
@@ -45,6 +46,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { MotionPresence, MotionSwap } from "~/components/ui/motion";
 import {
   Select,
   SelectContent,
@@ -325,6 +327,37 @@ function ConnectDomainDialog({
     displayedInspection.dns.status !== "error" &&
     displayedInspection.https.status !== "unsafe-redirect";
   const canCreate = inspectionReady && !disabled;
+  let inspectionStateKey = "hint";
+  let inspectionStatus: ReactNode = (
+    <span className="text-muted-foreground">Enter the apex domain without a path.</span>
+  );
+
+  if (checking) {
+    inspectionStateKey = "checking";
+    inspectionStatus = (
+      <span className="inline-flex items-center gap-2 text-muted-foreground">
+        <LoaderCircle className="size-4 animate-spin" /> Checking DNS and HTTPS…
+      </span>
+    );
+  } else if (inspectError) {
+    inspectionStateKey = "error";
+    inspectionStatus = <span className="text-destructive">{inspectError}</span>;
+  } else if (displayedInspection && inspectionReady) {
+    inspectionStateKey = "ready";
+    inspectionStatus = (
+      <span className="inline-flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+        <CheckCircle2 className="size-4" /> {displayedInspection.hostname} is ready to connect.
+      </span>
+    );
+  } else if (displayedInspection) {
+    inspectionStateKey = "unsafe";
+    inspectionStatus = (
+      <span className="inline-flex items-center gap-2 text-destructive">
+        <CircleAlert className="size-4" /> We couldn’t safely verify this domain. Check its DNS and
+        try again.
+      </span>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -353,27 +386,16 @@ function ConnectDomainDialog({
                 autoFocus
               />
               <div id="domain-check-result" aria-live="polite" className="min-h-6 text-sm">
-                {checking ? (
-                  <span className="inline-flex items-center gap-2 text-muted-foreground">
-                    <LoaderCircle className="size-4 animate-spin" /> Checking DNS and HTTPS…
-                  </span>
-                ) : inspectError ? (
-                  <span className="text-destructive">{inspectError}</span>
-                ) : displayedInspection && inspectionReady ? (
-                  <span className="inline-flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 className="size-4" /> {displayedInspection.hostname} is ready to
-                    connect.
-                  </span>
-                ) : displayedInspection ? (
-                  <span className="inline-flex items-center gap-2 text-destructive">
-                    <CircleAlert className="size-4" /> We couldn’t safely verify this domain. Check
-                    its DNS and try again.
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">
-                    Enter the apex domain without a path.
-                  </span>
-                )}
+                <MotionSwap
+                  stateKey={inspectionStateKey}
+                  distance={4}
+                  enterDuration={180}
+                  exitDuration={120}
+                  reducedDuration={120}
+                  reducedOpacity={0.85}
+                >
+                  {inspectionStatus}
+                </MotionSwap>
               </div>
             </div>
 
@@ -395,39 +417,48 @@ function ConnectDomainDialog({
               </div>
             ) : null}
 
-            {displayedInspection && inspectionReady ? (
-              <div className="rounded-xl border bg-muted/35 p-4">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 rounded-full border bg-background p-2">
-                    {displayedInspection.existingSite ? (
-                      <Server className="size-4" />
-                    ) : (
-                      <Globe2 className="size-4" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-medium">
-                      {displayedInspection.existingSite
-                        ? "Existing website detected"
-                        : "Short-link-only domain"}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {displayedInspection.existingSite
-                        ? `We’ll preserve the site first and use ${displayedInspection.suggestedUpstreamOrigin} as its private origin.`
-                        : "No current HTTPS website was found, so every path will be handled as a short link."}
-                    </p>
-                    {displayedInspection.existingSite ? (
-                      <p className="mt-3 border-t pt-3 text-sm">
-                        After adding the domain, connect{" "}
-                        <code>origin.{displayedInspection.hostname}</code> to the existing hosting
-                        project. The domain stays Invalid until that origin and the gateway DNS
-                        records are ready.
+            <MotionPresence
+              present={displayedInspection !== null && inspectionReady}
+              distance={4}
+              enterDuration={180}
+              exitDuration={120}
+              reducedDuration={120}
+              reducedOpacity={0.85}
+            >
+              {displayedInspection && inspectionReady ? (
+                <div className="rounded-xl border bg-muted/35 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 rounded-full border bg-background p-2">
+                      {displayedInspection.existingSite ? (
+                        <Server className="size-4" />
+                      ) : (
+                        <Globe2 className="size-4" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium">
+                        {displayedInspection.existingSite
+                          ? "Existing website detected"
+                          : "Short-link-only domain"}
                       </p>
-                    ) : null}
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {displayedInspection.existingSite
+                          ? `We’ll preserve the site first and use ${displayedInspection.suggestedUpstreamOrigin} as its private origin.`
+                          : "No current HTTPS website was found, so every path will be handled as a short link."}
+                      </p>
+                      {displayedInspection.existingSite ? (
+                        <p className="mt-3 border-t pt-3 text-sm">
+                          After adding the domain, connect{" "}
+                          <code>origin.{displayedInspection.hostname}</code> to the existing hosting
+                          project. The domain stays Invalid until that origin and the gateway DNS
+                          records are ready.
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
+            </MotionPresence>
 
             {createError ? (
               <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
@@ -643,7 +674,13 @@ function DomainCard({ domain, chapterSlug }: { domain: Domain; chapterSlug?: str
         </div>
       </div>
 
-      {expanded ? (
+      <MotionPresence
+        present={expanded}
+        distance={-4}
+        enterDuration={180}
+        exitDuration={140}
+        reducedDuration={100}
+      >
         <div id={`domain-setup-${domain.id}`} className="border-t px-4 py-5">
           <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
             <div>
@@ -775,7 +812,7 @@ function DomainCard({ domain, chapterSlug }: { domain: Domain; chapterSlug?: str
             </div>
           </div>
         </div>
-      ) : null}
+      </MotionPresence>
     </section>
   );
 }

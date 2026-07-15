@@ -42,20 +42,51 @@ function Button({
   size = "default",
   asChild = false,
   type = "button",
+  disabled,
+  onPointerDown,
+  onPointerUp,
+  onPointerCancel,
+  onPointerLeave,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
   }) {
   const Comp = asChild ? Slot.Root : "button";
+  const pointerFeedback = asChild
+    ? { onPointerDown, onPointerUp, onPointerCancel, onPointerLeave }
+    : {
+        onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
+          if (!disabled && event.button === 0) event.currentTarget.dataset.pointerPressed = "true";
+          onPointerDown?.(event);
+        },
+        onPointerUp: (event: React.PointerEvent<HTMLButtonElement>) => {
+          delete event.currentTarget.dataset.pointerPressed;
+          onPointerUp?.(event);
+        },
+        onPointerCancel: (event: React.PointerEvent<HTMLButtonElement>) => {
+          delete event.currentTarget.dataset.pointerPressed;
+          onPointerCancel?.(event);
+        },
+        onPointerLeave: (event: React.PointerEvent<HTMLButtonElement>) => {
+          delete event.currentTarget.dataset.pointerPressed;
+          onPointerLeave?.(event);
+        },
+      };
 
   return (
     <Comp
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={cn(
+        buttonVariants({ variant, size, className }),
+        !asChild &&
+          "duration-[120ms] ease-[var(--motion-ease-out)] data-[pointer-pressed=true]:scale-[0.985] motion-reduce:duration-[100ms] motion-reduce:data-[pointer-pressed=true]:scale-[0.995]",
+      )}
       {...(!asChild ? { type } : {})}
+      disabled={disabled}
+      {...pointerFeedback}
       {...props}
     />
   );

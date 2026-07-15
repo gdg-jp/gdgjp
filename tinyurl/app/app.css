@@ -57,6 +57,7 @@
 
 :root {
   --radius: 0.625rem;
+  --motion-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -83,6 +84,52 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.624 0.214 259.815);
+}
+
+.motion-presence {
+  opacity: 1;
+  transform: translateY(0);
+  transition-property: opacity, transform;
+  transition-duration: var(--motion-enter-duration);
+  transition-timing-function: var(--motion-ease-out);
+}
+
+.motion-presence[data-motion-state="closed"] {
+  opacity: 0;
+  transform: translateY(var(--motion-distance));
+  transition-duration: var(--motion-exit-duration);
+}
+
+.motion-import-reveal {
+  --motion-reveal-start-opacity: 0;
+  --motion-reveal-distance: 6px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 220ms var(--motion-ease-out), transform 220ms var(--motion-ease-out);
+}
+
+@starting-style {
+  .motion-import-reveal {
+    opacity: var(--motion-reveal-start-opacity);
+    transform: translateY(var(--motion-reveal-distance));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-presence {
+    transition-duration: var(--motion-reduced-duration);
+  }
+
+  .motion-presence[data-motion-state="closed"] {
+    opacity: var(--motion-reduced-opacity);
+    transform: none;
+  }
+
+  .motion-import-reveal {
+    --motion-reveal-start-opacity: 0.9;
+    --motion-reveal-distance: 0px;
+    transition-duration: 120ms;
+  }
 }
 
 .dark {
@@ -129,7 +176,7 @@
 
 ::view-transition-group(*) {
   animation-duration: 280ms;
-  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation-timing-function: var(--motion-ease-out);
 }
 
 ::view-transition-group(display-menu) {

@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
+import { MotionPresence } from "~/components/ui/motion";
 import { Skeleton } from "~/components/ui/skeleton";
 import { clicksByLinkId } from "~/lib/analytics-engine";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
@@ -527,23 +528,31 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           <Suspense fallback={<LinksSkeleton />}>
             <Await resolve={loaderData.clicks}>
               {(clicks) => (
-                <DashboardResults
-                  ownLinks={ownLinks}
-                  sharedLinks={sharedLinks}
-                  owners={owners}
-                  tagsByLinkId={tagsByLinkId}
-                  clicks={clicks}
-                  scope={scope}
-                  query={query}
-                  sort={sort}
-                  campaignFilter={campaignFilter}
-                  layout={layout}
-                  showArchived={showArchived}
-                  displayProperties={displayProperties}
-                  channelById={channelById}
-                  shortUrlBase={shortUrlBase}
-                  shortHost={shortHost}
-                />
+                <MotionPresence
+                  present
+                  distance={0}
+                  enterDuration={160}
+                  exitDuration={100}
+                  reducedDuration={100}
+                >
+                  <DashboardResults
+                    ownLinks={ownLinks}
+                    sharedLinks={sharedLinks}
+                    owners={owners}
+                    tagsByLinkId={tagsByLinkId}
+                    clicks={clicks}
+                    scope={scope}
+                    query={query}
+                    sort={sort}
+                    campaignFilter={campaignFilter}
+                    layout={layout}
+                    showArchived={showArchived}
+                    displayProperties={displayProperties}
+                    channelById={channelById}
+                    shortUrlBase={shortUrlBase}
+                    shortHost={shortHost}
+                  />
+                </MotionPresence>
               )}
             </Await>
           </Suspense>

@@ -183,7 +183,7 @@ export function CampaignParticipantImportWizard({
         {draft ? (
           <fetcher.Form
             method="post"
-            className="space-y-6"
+            className="motion-import-reveal space-y-6"
             onSubmit={(event) => {
               setValidationAttempted(true);
               if (
