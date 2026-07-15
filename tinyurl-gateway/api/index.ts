@@ -1,3 +1,5 @@
+import { getCache } from "@vercel/functions";
+
 type DomainConfig = {
   hostname: string;
   mode: "short-only" | "origin-first";
@@ -19,12 +21,16 @@ type GatewayRequest = {
 const CONFIG_TTL_MS = 30_000;
 const CONFIG_CACHE_LIMIT = 200;
 const DNS_TTL_MS = 5 * 60_000;
+const SHARED_CONFIG_TTL_SECONDS = 7 * 24 * 60 * 60;
+const SHARED_DNS_TTL_SECONDS = 60 * 60;
 const ORIGIN_TIMEOUT_MS = 8_000;
 const DNS_QUERY_ENDPOINT = "https://cloudflare-dns.com/dns-query";
 const VERCEL_CDN_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=86400";
 const CACHEABLE_ORIGIN_STATUSES = new Set([200, 301, 302, 307, 308]);
 const configCache = new Map<string, { config: DomainConfig; expiresAt: number }>();
 const dnsCache = new Map<string, { safe: boolean; expiresAt: number }>();
+const runtimeCache = getCache({ namespace: "tinyurl-gateway" });
+const sharedCacheKeysForTests = new Set<string>();
 const encoder = new TextEncoder();
 const HOP_BY_HOP = new Set([
   "connection",
@@ -38,12 +44,29 @@ const HOP_BY_HOP = new Set([
   "host",
 ]);
 
-export function clearConfigCacheForTests(): void {
+export function clearLocalCachesForTests(): void {
   configCache.clear();
   dnsCache.clear();
 }
 
+export async function clearConfigCacheForTests(): Promise<void> {
+  clearLocalCachesForTests();
+  await Promise.all([...sharedCacheKeysForTests].map((key) => runtimeCache.delete(key)));
+  sharedCacheKeysForTests.clear();
+}
+
 export const config = { runtime: "edge", regions: ["hnd1"] };
+
+function runtimeCacheFailure(operation: "get" | "set", key: string, error: unknown): void {
+  console.warn(
+    JSON.stringify({
+      event: "runtime_cache_failure",
+      operation,
+      keyType: key.split(":", 1)[0],
+      error: error instanceof Error ? error.message : String(error),
+    }),
+  );
+}
 
 function requestMethod(request: GatewayRequest): string {
   return (request.method ?? "GET").toUpperCase();
@@ -155,6 +178,27 @@ async function internalRequest(
 async function getConfig(hostname: string): Promise<DomainConfig | null> {
   const cached = configCache.get(hostname);
   if (cached && cached.expiresAt > Date.now()) return cached.config;
+  const sharedKey = `config:${hostname}`;
+  sharedCacheKeysForTests.add(sharedKey);
+  const shared = await runtimeCache.get(sharedKey).catch((error) => {
+    runtimeCacheFailure("get", sharedKey, error);
+    return null;
+  });
+  if (
+    shared &&
+    typeof shared === "object" &&
+    "hostname" in shared &&
+    typeof shared.hostname === "string" &&
+    shared.hostname.toLowerCase() === hostname &&
+    "mode" in shared &&
+    (shared.mode === "short-only" || shared.mode === "origin-first") &&
+    "upstreamOrigin" in shared &&
+    (typeof shared.upstreamOrigin === "string" || shared.upstreamOrigin === null)
+  ) {
+    const config = shared as DomainConfig;
+    configCache.set(hostname, { config, expiresAt: Date.now() + CONFIG_TTL_MS });
+    return config;
+  }
   const response = await internalRequest(
     "/api/internal/gateway/config",
     hostname,
@@ -167,6 +211,12 @@ async function getConfig(hostname: string): Promise<DomainConfig | null> {
   if (configCache.size >= CONFIG_CACHE_LIMIT)
     configCache.delete(configCache.keys().next().value ?? "");
   configCache.set(hostname, { config, expiresAt: Date.now() + CONFIG_TTL_MS });
+  await runtimeCache
+    .set(sharedKey, config, {
+      ttl: SHARED_CONFIG_TTL_SECONDS,
+      tags: [`domain-${hostname}`],
+    })
+    .catch((error) => runtimeCacheFailure("set", sharedKey, error));
   return config;
 }
 
@@ -234,6 +284,16 @@ async function queryAddresses(hostname: string, type: "A" | "AAAA"): Promise<str
 async function resolvesOnlyToPublicAddresses(hostname: string): Promise<boolean> {
   const cached = dnsCache.get(hostname);
   if (cached && cached.expiresAt > Date.now()) return cached.safe;
+  const sharedKey = `dns:${hostname}`;
+  sharedCacheKeysForTests.add(sharedKey);
+  const shared = await runtimeCache.get(sharedKey).catch((error) => {
+    runtimeCacheFailure("get", sharedKey, error);
+    return null;
+  });
+  if (typeof shared === "boolean") {
+    dnsCache.set(hostname, { safe: shared, expiresAt: Date.now() + DNS_TTL_MS });
+    return shared;
+  }
   const [ipv4, ipv6] = await Promise.all([
     queryAddresses(hostname, "A"),
     queryAddresses(hostname, "AAAA"),
@@ -244,6 +304,12 @@ async function resolvesOnlyToPublicAddresses(hostname: string): Promise<boolean>
     ipv6.every((address) => address.includes(":") && !isPrivateIpv6(address));
   if (dnsCache.size >= CONFIG_CACHE_LIMIT) dnsCache.delete(dnsCache.keys().next().value ?? "");
   dnsCache.set(hostname, { safe, expiresAt: Date.now() + DNS_TTL_MS });
+  await runtimeCache
+    .set(sharedKey, safe, {
+      ttl: SHARED_DNS_TTL_SECONDS,
+      tags: [`domain-${hostname.replace(/^origin\./, "")}`],
+    })
+    .catch((error) => runtimeCacheFailure("set", sharedKey, error));
   return safe;
 }
 

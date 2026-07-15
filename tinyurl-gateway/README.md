@@ -8,6 +8,10 @@ The gateway owns TLS for every custom apex domain. It runs in Vercel's Edge Runt
 avoid Node.js function cold starts, proxies an optional HTTPS upstream first, and uses the signed
 tinyurl resolver only when a GET/HEAD upstream response is exactly 404.
 
+Active domain configuration and successful upstream DNS validation are also kept in Vercel Runtime
+Cache. This cache survives individual Edge isolate recycling, so a regional CDN miss does not put
+the Cloudflare configuration lookup and DNS-over-HTTPS validation back on the request path.
+
 The Vercel token, project ID, and optional team ID belong only to the tinyurl Worker:
 
 ```sh

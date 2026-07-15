@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as gatewayModule from "../api/index.js";
 
-const { clearConfigCacheForTests, handleGatewayRequest, validateUpstreamOrigin } = gatewayModule;
+const {
+  clearConfigCacheForTests,
+  clearLocalCachesForTests,
+  handleGatewayRequest,
+  validateUpstreamOrigin,
+} = gatewayModule;
 
 function config(mode: "short-only" | "origin-first", upstreamOrigin: string | null) {
   return new Response(JSON.stringify({ hostname: "custom.example", mode, upstreamOrigin }), {
@@ -18,8 +23,8 @@ function dnsResponse(input: RequestInfo | URL): Response | null {
 }
 
 describe("gateway", () => {
-  beforeEach(() => {
-    clearConfigCacheForTests();
+  beforeEach(async () => {
+    await clearConfigCacheForTests();
     process.env.TINYURL_INTERNAL_BASE = "https://url.gdgs.jp";
     process.env.GATEWAY_SHARED_SECRET = "test-secret";
     vi.restoreAllMocks();
@@ -103,6 +108,38 @@ describe("gateway", () => {
     expect(response.headers.get("vercel-cdn-cache-control")).toBe(
       "public, max-age=60, stale-while-revalidate=86400",
     );
+  });
+
+  it("keeps routing configuration after the local isolate cache is reset", async () => {
+    let configRequests = 0;
+    let dnsRequests = 0;
+    let originRequests = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        if (url.hostname === "cloudflare-dns.com") {
+          dnsRequests += 1;
+          return dnsResponse(input) ?? new Response(null, { status: 500 });
+        }
+        if (url.hostname === "url.gdgs.jp") {
+          configRequests += 1;
+          return config("origin-first", "https://origin.example");
+        }
+        originRequests += 1;
+        return new Response("origin", {
+          headers: { "cache-control": "public, max-age=0, must-revalidate" },
+        });
+      }),
+    );
+
+    await handleGatewayRequest(new Request("https://custom.example/?request=1"));
+    clearLocalCachesForTests();
+    await handleGatewayRequest(new Request("https://custom.example/?request=2"));
+
+    expect(configRequests).toBe(1);
+    expect(dnsRequests).toBe(2);
+    expect(originRequests).toBe(2);
   });
 
   it.each([
@@ -277,7 +314,7 @@ describe("gateway", () => {
       }),
     );
     expect((await handleGatewayRequest(new Request("https://custom.example/a"))).status).toBe(503);
-    clearConfigCacheForTests();
+    await clearConfigCacheForTests();
     networkFailure = true;
     expect((await handleGatewayRequest(new Request("https://custom.example/a"))).status).toBe(502);
   });
@@ -297,7 +334,7 @@ describe("gateway", () => {
     );
     expect(post.status).toBe(405);
 
-    clearConfigCacheForTests();
+    await clearConfigCacheForTests();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response("missing", { status: 404 })),
@@ -330,7 +367,7 @@ describe("gateway", () => {
     ).rejects.toThrow("private address");
   });
 
-  it("caches successful DNS validation independently from domain configuration", async () => {
+  it("keeps successful DNS validation after the local isolate cache is reset", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const response = dnsResponse(input);
       if (!response) throw new Error("Unexpected non-DNS request");
@@ -339,6 +376,7 @@ describe("gateway", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await validateUpstreamOrigin("https://origin.custom.example", "custom.example");
+    clearLocalCachesForTests();
     await validateUpstreamOrigin("https://origin.custom.example", "custom.example");
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
