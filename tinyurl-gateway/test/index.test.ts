@@ -81,6 +81,59 @@ describe("gateway", () => {
     expect(await response.text()).toBe("decoded origin");
   });
 
+  it("caches public origin responses at Vercel without changing the browser policy", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const dns = dnsResponse(input);
+        if (dns) return dns;
+        const url = new URL(String(input));
+        if (url.hostname === "url.gdgs.jp") {
+          return config("origin-first", "https://origin.example");
+        }
+        return new Response("origin", {
+          headers: { "cache-control": "public, max-age=0, must-revalidate" },
+        });
+      }),
+    );
+
+    const response = await handleGatewayRequest(new Request("https://custom.example/asset.css"));
+
+    expect(response.headers.get("cache-control")).toBe("public, max-age=0, must-revalidate");
+    expect(response.headers.get("vercel-cdn-cache-control")).toBe(
+      "public, max-age=60, stale-while-revalidate=86400",
+    );
+  });
+
+  it.each([
+    ["private response", {}, { "cache-control": "private, max-age=60" }],
+    ["cookie request", { cookie: "session=1" }, { "cache-control": "public, max-age=60" }],
+    [
+      "set-cookie response",
+      {},
+      { "cache-control": "public, max-age=60", "set-cookie": "session=1" },
+    ],
+  ])("does not CDN-cache a %s", async (_name, requestHeaders, responseHeaders) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const dns = dnsResponse(input);
+        if (dns) return dns;
+        const url = new URL(String(input));
+        if (url.hostname === "url.gdgs.jp") {
+          return config("origin-first", "https://origin.example");
+        }
+        return new Response("origin", { headers: responseHeaders });
+      }),
+    );
+
+    const response = await handleGatewayRequest(
+      new Request("https://custom.example/", { headers: requestHeaders }),
+    );
+
+    expect(response.headers.get("vercel-cdn-cache-control")).toBeNull();
+  });
+
   it("reconstructs relative request targets provided by the Vercel runtime", async () => {
     vi.stubGlobal(
       "fetch",
@@ -162,6 +215,7 @@ describe("gateway", () => {
     expect(resolverRedirect).toBe("manual");
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe("https://destination.example");
+    expect(response.headers.get("vercel-cdn-cache-control")).toBeNull();
   });
 
   it("preserves a 404 when no short link exists", async () => {
@@ -180,6 +234,7 @@ describe("gateway", () => {
     const response = await handleGatewayRequest(new Request("https://custom.example/missing"));
     expect(response.status).toBe(404);
     expect(await response.text()).toBe("origin missing");
+    expect(response.headers.get("vercel-cdn-cache-control")).toBeNull();
   });
 
   it("supports HEAD fallback with a HEAD-signed resolver request", async () => {

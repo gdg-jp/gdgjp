@@ -21,6 +21,8 @@ const CONFIG_CACHE_LIMIT = 200;
 const DNS_TTL_MS = 5 * 60_000;
 const ORIGIN_TIMEOUT_MS = 8_000;
 const DNS_QUERY_ENDPOINT = "https://cloudflare-dns.com/dns-query";
+const VERCEL_CDN_CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=86400";
+const CACHEABLE_ORIGIN_STATUSES = new Set([200, 301, 302, 307, 308]);
 const configCache = new Map<string, { config: DomainConfig; expiresAt: number }>();
 const dnsCache = new Map<string, { safe: boolean; expiresAt: number }>();
 const encoder = new TextEncoder();
@@ -283,12 +285,40 @@ function forwardedHeaders(request: GatewayRequest, hostname: string): Headers {
   return headers;
 }
 
-function proxyOriginResponse(response: Response): Response {
+function isPubliclyCacheable(request: GatewayRequest, response: Response): boolean {
+  const method = requestMethod(request);
+  if (method !== "GET" && method !== "HEAD") return false;
+  if (!CACHEABLE_ORIGIN_STATUSES.has(response.status)) return false;
+  if (requestHeader(request, "authorization") || requestHeader(request, "cookie")) return false;
+  if (response.headers.has("set-cookie")) return false;
+
+  const vary = response.headers.get("vary");
+  if (vary?.split(",").some((value) => value.trim() === "*")) return false;
+
+  const directives = new Set(
+    (response.headers.get("cache-control") ?? "")
+      .split(",")
+      .map((value) => value.trim().split("=", 1)[0]?.toLowerCase())
+      .filter(Boolean),
+  );
+  return (
+    directives.has("public") &&
+    !directives.has("private") &&
+    !directives.has("no-cache") &&
+    !directives.has("no-store")
+  );
+}
+
+function proxyOriginResponse(request: GatewayRequest, response: Response): Response {
   const headers = new Headers(response.headers);
   // Fetch exposes a decoded body, so wire-representation headers would make the client decode the
   // body a second time or trust a stale byte count.
   headers.delete("content-encoding");
   headers.delete("content-length");
+  if (isPubliclyCacheable(request, response)) {
+    // Keep the origin's browser policy intact while caching only at Vercel's CDN.
+    headers.set("Vercel-CDN-Cache-Control", VERCEL_CDN_CACHE_CONTROL);
+  }
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -378,10 +408,10 @@ export async function handleGatewayRequest(request: GatewayRequest): Promise<Res
     clearTimeout(timeout);
   }
   if (originResponse.status !== 404 || (method !== "GET" && method !== "HEAD")) {
-    return proxyOriginResponse(originResponse);
+    return proxyOriginResponse(request, originResponse);
   }
   const resolved = await resolveShortLink(request, hostname, slug, publicUrl.toString());
-  return resolved.status === 204 ? proxyOriginResponse(originResponse) : resolved;
+  return resolved.status === 204 ? proxyOriginResponse(request, originResponse) : resolved;
 }
 
 export default function gateway(request: Request): Promise<Response> {
