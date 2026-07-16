@@ -144,3 +144,52 @@ CREATE TABLE IF NOT EXISTS "oauthConsent" (
 );
 CREATE INDEX "oauthConsent_clientId_idx" ON "oauthConsent" ("clientId");
 CREATE INDEX "oauthConsent_userId_idx" ON "oauthConsent" ("userId");
+CREATE TRIGGER disable_owned_oauth_clients_after_membership_delete
+AFTER DELETE ON memberships
+WHEN OLD.status = 'active'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM memberships
+    WHERE user_id = OLD.user_id AND status = 'active'
+  )
+BEGIN
+  DELETE FROM oauthAccessToken
+  WHERE clientId IN (
+    SELECT clientId FROM oauthClient WHERE userId = OLD.user_id
+  );
+
+  DELETE FROM oauthRefreshToken
+  WHERE clientId IN (
+    SELECT clientId FROM oauthClient WHERE userId = OLD.user_id
+  );
+
+  UPDATE oauthClient
+  SET disabled = 1,
+      updatedAt = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE userId = OLD.user_id;
+END;
+CREATE TRIGGER disable_owned_oauth_clients_after_membership_deactivation
+AFTER UPDATE OF status ON memberships
+WHEN OLD.status = 'active'
+  AND NEW.status <> 'active'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM memberships
+    WHERE user_id = OLD.user_id AND status = 'active'
+  )
+BEGIN
+  DELETE FROM oauthAccessToken
+  WHERE clientId IN (
+    SELECT clientId FROM oauthClient WHERE userId = OLD.user_id
+  );
+
+  DELETE FROM oauthRefreshToken
+  WHERE clientId IN (
+    SELECT clientId FROM oauthClient WHERE userId = OLD.user_id
+  );
+
+  UPDATE oauthClient
+  SET disabled = 1,
+      updatedAt = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE userId = OLD.user_id;
+END;

@@ -24,7 +24,10 @@
     "chapters": "チャプター — GDG Japan Accounts",
     "adminChapters": "チャプター管理 — GDG Japan Accounts",
     "adminRequests": "参加リクエスト — GDG Japan Accounts",
-    "organize": "{{slug}} を運営 — GDG Japan Accounts"
+    "organize": "{{slug}} を運営 — GDG Japan Accounts",
+    "developerApps": "開発者向けアプリ — GDG Japan Accounts",
+    "developerAppsNew": "アプリを登録 — GDG Japan Accounts",
+    "developerAppsDetail": "アプリを管理 — GDG Japan Accounts"
   },
   "dashboard": {
     "title": "ダッシュボード",
@@ -56,6 +59,107 @@
       "description": "GDG Japan のチャプターを作成・編集・削除し、すべての参加リクエストを確認できます。",
       "manageCta": "チャプターを管理",
       "requestsCta": "参加リクエストを確認"
+    },
+    "developerApps": {
+      "title": "開発者向けアプリ",
+      "description": "開発しているアプリで GDG Accounts のサインインを利用できます。",
+      "cta": "開発者向けアプリを管理"
+    }
+  },
+  "developerApps": {
+    "back": "開発者向けアプリに戻る",
+    "copy": "{{label}} をコピー",
+    "status": {
+      "active": "有効",
+      "disabled": "停止中"
+    },
+    "access": {
+      "title": "アクティブなチャプター所属が必要です",
+      "description": "GDG または GDGoC チャプターのアクティブメンバーだけがアプリを登録・管理できます。承認待ちの場合は、オーガナイザーの承認をお待ちください。",
+      "cta": "チャプターを探す",
+      "signedInAs": "{{email}} としてサインイン中"
+    },
+    "list": {
+      "title": "開発者向けアプリ",
+      "subtitle": "GDG Accounts を OpenID Connect Provider として利用するアプリを登録します。",
+      "create": "アプリを登録",
+      "emptyTitle": "登録済みのアプリはありません",
+      "emptyDescription": "最初のサーバーサイドWebアプリを登録して、Client ID と Client Secret を取得してください。",
+      "createdAt": "{{date}} に作成",
+      "manage": "管理"
+    },
+    "create": {
+      "title": "アプリを登録",
+      "subtitle": "サーバーサイドWebアプリ用の機密 OpenID Connect クライアントを作成します。",
+      "cardTitle": "アプリケーション情報",
+      "cardDescription": "設定は後から変更できます。Redirect URI は完全一致で照合されます。",
+      "submit": "アプリを登録",
+      "pending": "登録中…",
+      "manage": "このアプリを管理"
+    },
+    "detail": {
+      "subtitle": "認証情報、Redirect URI、scope、アプリの状態を管理します。",
+      "credentials": "クライアント認証情報",
+      "credentialsDescription": "認証情報はアプリケーションのサーバーでのみ使用してください。",
+      "settings": "アプリケーション設定",
+      "settingsDescription": "Redirect URI と scope の変更はすぐに反映されます。",
+      "save": "変更を保存",
+      "saving": "保存中…",
+      "saved": "変更を保存しました",
+      "rotate": "Client Secret をローテーション",
+      "dangerZone": "アプリの停止と削除",
+      "dangerDescription": "アプリを停止または削除すると、既存の access token と refresh token は失効します。",
+      "enable": "アプリを再開",
+      "disable": "アプリを停止",
+      "delete": "アプリを削除"
+    },
+    "fields": {
+      "name": "アプリケーション名",
+      "appUrl": "アプリケーションURL",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "redirectUris": "Redirect URI",
+      "redirectUrisDescription": "1行に1件、最大10件。localhost・ループバックの開発用URLを除き HTTPS が必要です。",
+      "postLogoutRedirectUris": "ログアウト後のRedirect URI",
+      "postLogoutRedirectUrisDescription": "任意。1行に1件、最大10件。サインアウト後は完全一致するURIにのみ戻れます。",
+      "scopes": "許可するscope",
+      "scopesDescription": "openid は常に必須です。アプリが要求できる追加情報と機能を選択してください。"
+    },
+    "scope": {
+      "openid": "サインインしたユーザーを識別します。",
+      "email": "ユーザーのメールアドレスを取得します。",
+      "profile": "ユーザーの名前とプロフィール画像を取得します。",
+      "offline_access": "オフラインアクセス用の refresh token を取得します。",
+      "chapters": "ユーザーが所属するアクティブなチャプターとロールを取得します。"
+    },
+    "security": {
+      "title": "サーバーサイドWebアプリ",
+      "description": "Authorization Code、PKCE S256、client_secret_basic が必須です。Client Secret をブラウザやモバイルアプリのコードに含めないでください。"
+    },
+    "secret": {
+      "title": "Client Secret を今すぐ保存してください",
+      "description": "Client Secret が表示されるのは今回だけです。このページを離れる前に安全な場所へ保存してください。",
+      "notShown": "現在の Client Secret は再表示できません。紛失または漏えいした場合はローテーションしてください。"
+    },
+    "dialog": {
+      "cancel": "キャンセル",
+      "rotateTitle": "Client Secret をローテーションしますか？",
+      "rotateDescription": "現在のSecretはただちに使えなくなります。再度サインインする前に、新しいSecretをアプリへ設定してください。",
+      "rotateConfirm": "Secretをローテーション",
+      "enableTitle": "このアプリを再開しますか？",
+      "enableDescription": "ユーザーは再度サインインできるようになります。停止中に失効したtokenは復元されません。",
+      "enableConfirm": "アプリを再開",
+      "disableTitle": "このアプリを停止しますか？",
+      "disableDescription": "サインインを停止し、既存のaccess tokenとrefresh tokenをただちに失効させます。",
+      "disableConfirm": "アプリを停止",
+      "deleteTitle": "このアプリを完全に削除しますか？",
+      "deleteDescription": "すべての認証情報とtokenが失効します。この操作は取り消せません。",
+      "deleteConfirm": "アプリを削除"
+    },
+    "errors": {
+      "title": "アプリを保存できませんでした",
+      "create": "アプリケーション情報とRedirect URIを確認して、もう一度お試しください。",
+      "update": "操作を完了できませんでした。設定を確認して、もう一度お試しください。"
     }
   },
   "chapters": {

@@ -19,6 +19,12 @@ Only authorization-code + refresh-token grants are enabled. PKCE S256 is require
 registration is disabled. First-party clients have `skipConsent` and `enableEndSession` set by the
 admin-only `/admin/seed-clients` route.
 
+Active chapter members can create individually owned confidential web clients through
+`/developers/apps`. `app/lib/oauth-clients.server.ts` is the authorization and validation boundary:
+it fixes clients to `client_secret_basic`, authorization code + refresh token, PKCE, and the allowed
+scope set. Self-service clients skip consent by product policy. Client secrets are returned only by
+create/rotate responses, which must retain `Cache-Control: no-store`.
+
 Chapter authorization uses the dedicated `https://gdgs.jp/scopes/chapters` scope. UserInfo and ID
 tokens include `https://gdgs.jp/claims/chapters` and `https://gdgs.jp/claims/is_admin` only when that
 scope was granted. Memberships are read fresh from D1 when claims are minted.
@@ -30,8 +36,10 @@ and the domain-owned `user`, `chapters`, and `memberships` tables. Trusted clien
 as SHA-256 hashes in `oauthClient`; source secrets remain Wrangler secrets.
 
 Migration history is non-trivial: Better Auth was added in 0002, removed in 0011, and restored with
-the current provider in 0013. The `user` table must only be changed in place: dropping/recreating it
-can cascade-delete `memberships` under D1's migration transaction behavior.
+the current provider in 0013. Migration 0014 installs membership triggers that disable individually
+owned clients and revoke their tokens when their owner loses their final active membership. The
+`user` table must only be changed in place: dropping/recreating it can cascade-delete `memberships`
+under D1's migration transaction behavior.
 
 ## Bindings and secrets
 

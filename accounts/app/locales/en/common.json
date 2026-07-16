@@ -24,7 +24,10 @@
     "chapters": "Chapters — GDG Japan Accounts",
     "adminChapters": "Manage chapters — GDG Japan Accounts",
     "adminRequests": "Join requests — GDG Japan Accounts",
-    "organize": "Organize {{slug}} — GDG Japan Accounts"
+    "organize": "Organize {{slug}} — GDG Japan Accounts",
+    "developerApps": "Developer apps — GDG Japan Accounts",
+    "developerAppsNew": "Register an app — GDG Japan Accounts",
+    "developerAppsDetail": "Manage app — GDG Japan Accounts"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -56,6 +59,107 @@
       "description": "Create, edit, or delete chapters and review every join request across GDG Japan.",
       "manageCta": "Manage chapters",
       "requestsCta": "Review join requests"
+    },
+    "developerApps": {
+      "title": "Developer apps",
+      "description": "Use GDG Accounts sign-in in an app you develop.",
+      "cta": "Manage developer apps"
+    }
+  },
+  "developerApps": {
+    "back": "Back to developer apps",
+    "copy": "Copy {{label}}",
+    "status": {
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "access": {
+      "title": "Active chapter membership required",
+      "description": "Only active members of a GDG or GDGoC chapter can register and manage apps. If your request is pending, wait for an organizer to approve it.",
+      "cta": "Browse chapters",
+      "signedInAs": "Signed in as {{email}}"
+    },
+    "list": {
+      "title": "Developer apps",
+      "subtitle": "Register apps that use GDG Accounts as their OpenID Connect provider.",
+      "create": "Register app",
+      "emptyTitle": "No apps registered",
+      "emptyDescription": "Register your first confidential web application to get a Client ID and Client Secret.",
+      "createdAt": "Created {{date}}",
+      "manage": "Manage"
+    },
+    "create": {
+      "title": "Register an app",
+      "subtitle": "Create a confidential OpenID Connect client for a server-side web application.",
+      "cardTitle": "Application details",
+      "cardDescription": "You can change these settings later. Redirect URIs must match exactly.",
+      "submit": "Register app",
+      "pending": "Registering…",
+      "manage": "Manage this app"
+    },
+    "detail": {
+      "subtitle": "Manage credentials, redirect URIs, scopes, and app status.",
+      "credentials": "Client credentials",
+      "credentialsDescription": "Use these credentials only on your application's server.",
+      "settings": "Application settings",
+      "settingsDescription": "Changes to redirect URIs and scopes take effect immediately.",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "saved": "Changes saved",
+      "rotate": "Rotate Client Secret",
+      "dangerZone": "App status and deletion",
+      "dangerDescription": "Disabling or deleting an app revokes its existing access and refresh tokens.",
+      "enable": "Enable app",
+      "disable": "Disable app",
+      "delete": "Delete app"
+    },
+    "fields": {
+      "name": "Application name",
+      "appUrl": "Application URL",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "redirectUris": "Redirect URIs",
+      "redirectUrisDescription": "One URI per line, up to 10. HTTPS is required except for localhost and loopback development URLs.",
+      "postLogoutRedirectUris": "Post-logout redirect URIs",
+      "postLogoutRedirectUrisDescription": "Optional. One URI per line, up to 10. Users may return to these exact URIs after signing out.",
+      "scopes": "Allowed scopes",
+      "scopesDescription": "openid is always required. Select the additional information and capabilities your app may request."
+    },
+    "scope": {
+      "openid": "Identify the signed-in user.",
+      "email": "Read the user's email address.",
+      "profile": "Read the user's name and profile image.",
+      "offline_access": "Receive refresh tokens for offline access.",
+      "chapters": "Read the user's active chapter memberships and roles."
+    },
+    "security": {
+      "title": "Confidential web application",
+      "description": "Authorization Code with PKCE S256 and client_secret_basic are required. Never place the Client Secret in browser or mobile code."
+    },
+    "secret": {
+      "title": "Save your Client Secret now",
+      "description": "This is the only time the Client Secret will be shown. Store it securely before leaving this page.",
+      "notShown": "The existing Client Secret cannot be displayed again. Rotate it if it has been lost or exposed."
+    },
+    "dialog": {
+      "cancel": "Cancel",
+      "rotateTitle": "Rotate the Client Secret?",
+      "rotateDescription": "The current secret will stop working immediately. Update your application with the new secret before users sign in again.",
+      "rotateConfirm": "Rotate secret",
+      "enableTitle": "Enable this app?",
+      "enableDescription": "Users will be able to sign in again. Tokens revoked while the app was disabled will not be restored.",
+      "enableConfirm": "Enable app",
+      "disableTitle": "Disable this app?",
+      "disableDescription": "Sign-in will stop and all existing access and refresh tokens will be revoked immediately.",
+      "disableConfirm": "Disable app",
+      "deleteTitle": "Permanently delete this app?",
+      "deleteDescription": "All credentials and tokens will be revoked. This action cannot be undone.",
+      "deleteConfirm": "Delete app"
+    },
+    "errors": {
+      "title": "Couldn't save the app",
+      "create": "Check the application details and redirect URIs, then try again.",
+      "update": "The operation could not be completed. Check the settings and try again."
     }
   },
   "chapters": {

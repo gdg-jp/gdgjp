@@ -1,5 +1,5 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { ArrowRight, ListChecks, LogOut, Plus, Settings2, ShieldCheck } from "lucide-react";
+import { ArrowRight, Blocks, ListChecks, LogOut, Plus, Settings2, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useFetcher } from "react-router";
 import { PageShell } from "~/components/page-shell";
@@ -204,6 +204,7 @@ function LeaveDialog({
 export default function Dashboard({ loaderData }: Route.ComponentProps) {
   const { t } = useTranslation();
   const { user, memberships } = loaderData;
+  const canRegisterApps = memberships.some((membership) => membership.status === "active");
   return (
     <PageShell user={user}>
       <div className="space-y-1">
@@ -215,6 +216,24 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
       <div className="mt-6">
         <MembershipsSection memberships={memberships} />
       </div>
+      {canRegisterApps ? (
+        <Card className="mt-6">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Blocks className="size-4 text-gdg-blue" />
+              <CardTitle className="text-base">{t("dashboard.developerApps.title")}</CardTitle>
+            </div>
+            <CardDescription>{t("dashboard.developerApps.description")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/developers/apps" prefetch="intent">
+                {t("dashboard.developerApps.cta")} <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
       {user.isAdmin ? (
         <Card className="mt-6 border-gdg-blue/30 bg-gdg-blue/5">
           <CardHeader>

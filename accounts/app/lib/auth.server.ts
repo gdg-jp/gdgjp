@@ -98,6 +98,25 @@ function buildAuth(env: Env) {
         loginPage: "/signin",
         consentPage: "/oauth/consent",
         scopes: ["openid", "email", "profile", "offline_access", CHAPTERS_SCOPE],
+        clientRegistrationDefaultScopes: ["openid"],
+        clientRegistrationAllowedScopes: [
+          "openid",
+          "email",
+          "profile",
+          "offline_access",
+          CHAPTERS_SCOPE,
+        ],
+        allowDynamicClientRegistration: false,
+        allowUnauthenticatedClientRegistration: false,
+        clientPrivileges: async ({ user }) => {
+          if (!user) return false;
+          const membership = await env.DB.prepare(
+            "SELECT 1 AS ok FROM memberships WHERE user_id = ? AND status = 'active' LIMIT 1",
+          )
+            .bind(user.id)
+            .first<{ ok: number }>();
+          return membership?.ok === 1;
+        },
         advertisedMetadata: {
           claims_supported: [CHAPTERS_CLAIM, IS_ADMIN_CLAIM],
         },
