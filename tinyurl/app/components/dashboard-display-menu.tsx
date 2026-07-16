@@ -2,6 +2,7 @@ import {
   Archive,
   ArrowDownWideNarrow,
   ArrowUpDown,
+  ChevronDown,
   LayoutGrid,
   Rows3,
   SlidersHorizontal,
@@ -58,6 +59,7 @@ export function DashboardDisplayMenu({
   showDefaultActions,
   onResetToDefault,
   onSetAsDefault,
+  triggerClassName,
 }: {
   layout: DisplayLayout;
   onLayoutChange: (layout: DisplayLayout) => void;
@@ -70,6 +72,7 @@ export function DashboardDisplayMenu({
   showDefaultActions: boolean;
   onResetToDefault: () => void;
   onSetAsDefault: () => void;
+  triggerClassName?: string;
 }) {
   function toggleProperty(property: DisplayProperty) {
     onPropertiesChange(
@@ -82,9 +85,10 @@ export function DashboardDisplayMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" className={triggerClassName}>
           <SlidersHorizontal className="size-4 rotate-90" />
-          Display
+          <span className="truncate">Display</span>
+          <ChevronDown className="ml-auto size-4 text-muted-foreground sm:hidden" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

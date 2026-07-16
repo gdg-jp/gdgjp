@@ -6,6 +6,7 @@ import {
   ExternalLink,
   FolderTree,
   MoreHorizontal,
+  MousePointerClick,
   Pencil,
   RotateCcw,
   Trash2,
@@ -128,7 +129,7 @@ export function LinkCard({
       <>
         <div
           className={cn(
-            "group relative flex min-h-14 min-w-[780px] items-center gap-3 bg-card px-4 py-2 transition-colors hover:bg-muted/35",
+            "group relative flex min-h-14 min-w-0 items-center gap-2 bg-card px-3 py-2 transition-colors hover:bg-muted/35 sm:min-w-[780px] sm:gap-3 sm:px-4",
             link.archivedAt !== null && "bg-muted/25 opacity-75",
           )}
           style={{ viewTransitionName }}
@@ -140,7 +141,7 @@ export function LinkCard({
             className="peer absolute inset-0 z-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
           />
 
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-background">
+          <div className="hidden size-7 shrink-0 items-center justify-center rounded-full border bg-background sm:flex">
             {favicon ? (
               <img
                 src={favicon}
@@ -156,7 +157,7 @@ export function LinkCard({
           </div>
 
           {properties.includes("shortLink") ? (
-            <div className="flex w-52 min-w-0 shrink-0 items-center gap-1">
+            <div className="flex min-w-0 flex-[1.1] items-center gap-0.5 sm:w-52 sm:flex-none sm:gap-1">
               <span
                 className="truncate text-sm font-semibold peer-hover:underline peer-focus-visible:underline"
                 title={shortDisplay}
@@ -174,7 +175,7 @@ export function LinkCard({
                     type="button"
                     onClick={copyShort}
                     aria-label={copyFeedback ? "Copied short URL" : "Copy short URL"}
-                    className="relative z-10 shrink-0 rounded p-1 text-muted-foreground opacity-60 transition hover:bg-accent hover:text-foreground hover:opacity-100 focus-visible:opacity-100"
+                    className="relative z-10 shrink-0 rounded p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground focus-visible:opacity-100 sm:opacity-60 sm:hover:opacity-100"
                   >
                     {copyFeedback ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
                   </button>
@@ -201,7 +202,11 @@ export function LinkCard({
             </div>
           ) : null}
 
-          {link.archivedAt !== null ? <Badge variant="secondary">Archived</Badge> : null}
+          {link.archivedAt !== null ? (
+            <Badge variant="secondary" className="hidden sm:inline-flex">
+              Archived
+            </Badge>
+          ) : null}
 
           {properties.includes("destinationUrl") ? (
             <a
@@ -221,34 +226,36 @@ export function LinkCard({
           )}
 
           {properties.includes("title") && link.title ? (
-            <span className="max-w-32 truncate text-sm" title={link.title}>
+            <span className="hidden max-w-32 truncate text-sm sm:inline" title={link.title}>
               {link.title}
             </span>
           ) : null}
           {properties.includes("description") && link.description ? (
             <span
-              className="max-w-40 truncate text-sm text-muted-foreground"
+              className="hidden max-w-40 truncate text-sm text-muted-foreground sm:inline"
               title={link.description}
             >
               {link.description}
             </span>
           ) : null}
           {properties.includes("creator") ? (
-            <Avatar size="sm" title={owner?.name || owner?.email || "Owner"}>
-              <AvatarImage
-                src={owner?.image ?? undefined}
-                alt={owner?.name || owner?.email || ""}
-              />
-              <AvatarFallback>{ownerInitials(owner)}</AvatarFallback>
-            </Avatar>
+            <span className="hidden sm:inline-flex">
+              <Avatar size="sm" title={owner?.name || owner?.email || "Owner"}>
+                <AvatarImage
+                  src={owner?.image ?? undefined}
+                  alt={owner?.name || owner?.email || ""}
+                />
+                <AvatarFallback>{ownerInitials(owner)}</AvatarFallback>
+              </Avatar>
+            </span>
           ) : null}
           {properties.includes("createdDate") ? (
-            <span className="w-16 shrink-0 text-right text-sm text-muted-foreground tabular-nums">
+            <span className="hidden w-16 shrink-0 text-right text-sm text-muted-foreground tabular-nums sm:inline">
               {formatDate(link.createdAt)}
             </span>
           ) : null}
           {properties.includes("tags") && tags.length > 0 ? (
-            <div className="relative z-10 flex max-w-28 shrink-0 items-center gap-1">
+            <div className="relative z-10 hidden max-w-28 shrink-0 items-center gap-1 sm:flex">
               <Badge variant="outline" className="max-w-20 truncate text-xs">
                 {tags[0].name}
               </Badge>
@@ -261,12 +268,13 @@ export function LinkCard({
             <Link
               to={`/analytics?linkId=${link.id}`}
               prefetch="intent"
-              className="relative z-10 inline-flex shrink-0 items-center gap-1.5 rounded-md border bg-background px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="relative z-10 inline-flex shrink-0 items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:gap-1.5 sm:px-2.5 sm:py-1"
               title="View analytics"
             >
-              <BarChart3 className="size-3.5 text-primary" />
+              <MousePointerClick className="size-3.5 text-primary sm:hidden" />
+              <BarChart3 className="hidden size-3.5 text-primary sm:block" />
               <span className="tabular-nums">{clicks}</span>
-              <span>{clicks === 1 ? "click" : "clicks"}</span>
+              <span className="hidden sm:inline">{clicks === 1 ? "click" : "clicks"}</span>
             </Link>
           ) : null}
           <LinkActionsMenu link={link} copyShort={copyShort} onAction={setLinkAction} />
@@ -289,8 +297,8 @@ export function LinkCard({
     <>
       <div
         className={cn(
-          "group relative grid min-w-0 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center border bg-card shadow-xs transition-shadow hover:shadow-sm sm:flex",
-          layout === "cards" ? "gap-3 rounded-xl px-3 py-3 sm:px-4" : "gap-2 rounded-md px-3 py-2",
+          "group relative grid min-w-0 cursor-pointer grid-cols-[minmax(0,1fr)_auto_auto] items-center border bg-card shadow-xs transition-shadow hover:shadow-sm sm:flex",
+          layout === "cards" ? "gap-3 rounded-xl px-4 py-3 sm:px-4" : "gap-2 rounded-md px-3 py-2",
           link.archivedAt !== null && "bg-muted/30 opacity-75",
         )}
         style={{ viewTransitionName }}
@@ -303,7 +311,7 @@ export function LinkCard({
         />
         <div
           className={cn(
-            "flex shrink-0 items-center justify-center rounded-full border bg-background",
+            "hidden shrink-0 items-center justify-center rounded-full border bg-background sm:flex",
             layout === "cards" ? "size-10" : "size-8",
           )}
         >
@@ -322,7 +330,12 @@ export function LinkCard({
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-1.5">
+          <div
+            className={cn(
+              "flex min-w-0 sm:flex-row sm:items-center sm:gap-1.5",
+              sources ? "flex-col items-start gap-1" : "flex-row items-center gap-1.5",
+            )}
+          >
             {properties.includes("shortLink") ? (
               <span
                 className="truncate text-sm font-medium text-foreground peer-hover:underline peer-focus-visible:underline"
@@ -352,7 +365,7 @@ export function LinkCard({
                     copyFeedback
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                  } ${sources ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                  } ${sources ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"}`}
                 >
                   {copyFeedback ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
                 </button>
@@ -440,12 +453,13 @@ export function LinkCard({
           <Link
             to={`/analytics?linkId=${link.id}`}
             prefetch="intent"
-            className="relative z-10 col-start-2 row-start-2 inline-flex w-fit items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="relative z-10 col-start-2 row-start-1 inline-flex w-fit items-center gap-1.5 self-center rounded-lg border bg-background px-2.5 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:rounded-full sm:px-2.5 sm:py-1"
             title="View analytics"
           >
-            <BarChart3 className="size-3.5 text-primary" />
+            <MousePointerClick className="size-4 text-primary sm:hidden" />
+            <BarChart3 className="hidden size-3.5 text-primary sm:block" />
             <span className="tabular-nums">{clicks}</span>
-            <span>{clicks === 1 ? "click" : "clicks"}</span>
+            <span className="hidden sm:inline">{clicks === 1 ? "click" : "clicks"}</span>
           </Link>
         ) : null}
 
@@ -481,9 +495,9 @@ function LinkActionsMenu({
           variant="ghost"
           size="icon-sm"
           aria-label="Link actions"
-          className="relative z-10 col-start-3 row-start-2 shrink-0"
+          className="relative z-10 col-start-3 row-start-1 shrink-0 self-center"
         >
-          <MoreHorizontal className="size-4" />
+          <MoreHorizontal className="size-4 rotate-90 sm:rotate-0" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

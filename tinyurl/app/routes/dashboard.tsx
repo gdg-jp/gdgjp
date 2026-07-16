@@ -1,4 +1,4 @@
-import { FolderTree, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, FolderTree, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { Await } from "react-router";
@@ -389,9 +389,10 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
 
   return (
     <DashboardShell user={user}>
-      <DashboardPage>
+      <DashboardPage className="pb-20 md:pb-0">
         <DashboardPageHeader
           title="Links"
+          actionsClassName="hidden sm:flex"
           actions={
             <CreateLinkDialog
               availableTags={availableTags}
@@ -412,13 +413,18 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           }
         />
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
+          <div className="grid min-w-0 grid-cols-3 gap-2 sm:flex sm:items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-11 min-w-0 justify-start px-3 sm:h-8"
+                >
                   <SlidersHorizontal className="size-4" />
-                  Filter
+                  <span className="truncate">Filter</span>
+                  <ChevronDown className="ml-auto size-4 text-muted-foreground sm:hidden" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-44">
@@ -446,9 +452,14 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="max-w-56">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-11 min-w-0 justify-start px-3 sm:h-8 sm:max-w-56"
+                >
                   <FolderTree className="size-4" />
                   <span className="truncate">{campaignFilterLabel}</span>
+                  <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground sm:hidden" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="max-h-96 w-64 overflow-y-auto">
@@ -501,17 +512,18 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
               showDefaultActions={displayPreferencesChanged}
               onResetToDefault={resetDisplayPreferences}
               onSetAsDefault={setCurrentAsDefault}
+              triggerClassName="h-11 min-w-0 justify-start px-3 sm:h-8"
             />
           </div>
 
-          <div className="relative w-full max-w-xs">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by short link or URL"
-              className="h-8 pl-8 text-sm"
+              className="h-11 pl-9 text-sm sm:h-8 sm:pl-8"
             />
           </div>
         </div>
@@ -558,6 +570,22 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           </Suspense>
         )}
       </DashboardPage>
+
+      <div className="fixed inset-x-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 rounded-xl border bg-background/95 p-2 shadow-lg backdrop-blur md:hidden">
+        <CreateLinkDialog
+          availableTags={availableTags}
+          campaignChannelOptions={campaignChannelOptions}
+          chapters={chapters}
+          shortUrlBase={shortUrlBase}
+          domainOptions={domainOptions}
+          trigger={
+            <Button className="h-12 w-full text-base">
+              <Plus className="size-5" />
+              Create link
+            </Button>
+          }
+        />
+      </div>
     </DashboardShell>
   );
 }
@@ -679,7 +707,7 @@ function DashboardResults({
         className={
           layout === "cards"
             ? "flex flex-col gap-2"
-            : "divide-y overflow-x-auto rounded-xl border bg-card"
+            : "min-w-0 divide-y overflow-hidden rounded-xl border bg-card"
         }
       >
         {items.map((item) => (

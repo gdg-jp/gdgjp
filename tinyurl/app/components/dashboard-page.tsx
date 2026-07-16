@@ -9,7 +9,9 @@ export function DashboardPage({
   className?: string;
 }) {
   return (
-    <div className={cn("mx-auto flex w-full max-w-6xl flex-col gap-6", className)}>{children}</div>
+    <div className={cn("mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6", className)}>
+      {children}
+    </div>
   );
 }
 
@@ -19,12 +21,14 @@ export function DashboardPageHeader({
   titleAccessory,
   eyebrow,
   actions,
+  actionsClassName,
 }: {
   title: ReactNode;
   description?: ReactNode;
   titleAccessory?: ReactNode;
   eyebrow?: ReactNode;
   actions?: ReactNode;
+  actionsClassName?: string;
 }) {
   return (
     <header className="flex flex-wrap items-start justify-between gap-4">
@@ -36,7 +40,11 @@ export function DashboardPageHeader({
         </div>
         {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
       </div>
-      {actions ? <div className="flex w-full flex-wrap gap-2 sm:w-auto">{actions}</div> : null}
+      {actions ? (
+        <div className={cn("flex w-full flex-wrap gap-2 sm:w-auto", actionsClassName)}>
+          {actions}
+        </div>
+      ) : null}
     </header>
   );
 }

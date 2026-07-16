@@ -607,7 +607,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
     <DashboardShell user={loaderData.user}>
       <DashboardPage className="pb-24">
         {/* Top bar: breadcrumb + actions */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
           <nav className="flex min-w-0 items-center gap-2 text-sm" aria-label="Breadcrumb">
             <Link
               to="/links"
@@ -626,7 +626,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
               <span className="truncate">{shortDisplay}</span>
             </span>
           </nav>
-          <div className="flex items-center gap-1.5">
+          <div className="flex max-w-full flex-wrap items-center gap-1.5">
             {shortHost === "go.gdgs.jp" ? (
               <Button variant="outline" size="sm" onClick={copyGoAlias}>
                 <Copy className="size-4" />
@@ -738,9 +738,9 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
         </Form>
 
         {/* Body grid */}
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           {/* LEFT COLUMN */}
-          <div className="space-y-8 lg:col-span-2">
+          <div className="min-w-0 space-y-8">
             {/* Destination URL */}
             <div className="space-y-2">
               <FieldLabel htmlFor="destinationUrl">Destination URL</FieldLabel>
@@ -794,7 +794,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                   </AlertDialog>
                 ) : null}
               </div>
-              <div className="flex gap-2">
+              <div className="flex min-w-0 gap-2">
                 <Select
                   value={String(draft.domainId)}
                   onValueChange={(value) => setField("domainId", Number(value))}
@@ -821,7 +821,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                   pattern="[a-zA-Z0-9_\-]{1,64}"
                   required
                   disabled={!editable || !slugUnlocked}
-                  className="flex-1"
+                  className="min-w-0 flex-1"
                 />
               </div>
             </div>
@@ -864,7 +864,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                 onValueChange={(value) => setField("visibility", value as LinkVisibility)}
                 disabled={!editable}
               >
-                <SelectTrigger id="visibility" size="sm">
+                <SelectTrigger id="visibility" size="sm" className="max-w-full min-w-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -899,13 +899,13 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
             </div>
 
             {/* Created by footer */}
-            <div className="flex items-center gap-2 border-t pt-4 text-sm text-muted-foreground">
+            <div className="flex min-w-0 items-center gap-2 border-t pt-4 text-sm text-muted-foreground">
               <Avatar size="sm">
                 <AvatarFallback>{userInitials(users, link.ownerUserId)}</AvatarFallback>
               </Avatar>
-              <span>
+              <span className="min-w-0 break-words">
                 Created by{" "}
-                <span className="font-medium text-foreground">
+                <span className="break-all font-medium text-foreground">
                   {owner ? owner.email || owner.name || link.ownerUserId : link.ownerUserId}
                 </span>
                 {" · "}
@@ -915,7 +915,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
           </div>
 
           {/* RIGHT COLUMN */}
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             {/* QR Code */}
             <div className="space-y-2">
               <FieldLabel>QR Code</FieldLabel>
@@ -1041,7 +1041,7 @@ function ShareForm({ chapters }: { chapters: UserChapter[] }) {
   return (
     <Form
       method="post"
-      className="grid gap-2 rounded-md border bg-card p-3 sm:grid-cols-[140px_1fr_120px_auto]"
+      className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 rounded-md border bg-card p-3 sm:grid-cols-[140px_minmax(0,1fr)_120px_auto]"
     >
       <input type="hidden" name="intent" value="addPermission" />
       <input type="hidden" name="principalType" value={principalType} />
@@ -1049,7 +1049,7 @@ function ShareForm({ chapters }: { chapters: UserChapter[] }) {
         value={principalType}
         onValueChange={(v) => setPrincipalType(v as "user" | "chapter")}
       >
-        <SelectTrigger size="sm">
+        <SelectTrigger size="sm" className="w-full min-w-0">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -1072,7 +1072,7 @@ function ShareForm({ chapters }: { chapters: UserChapter[] }) {
         <>
           <input type="hidden" name="principalId" value={chapterId} />
           <Select value={chapterId} onValueChange={setChapterId}>
-            <SelectTrigger size="sm">
+            <SelectTrigger size="sm" className="w-full min-w-0">
               <SelectValue placeholder="Choose a chapter" />
             </SelectTrigger>
             <SelectContent>
@@ -1086,7 +1086,7 @@ function ShareForm({ chapters }: { chapters: UserChapter[] }) {
         </>
       )}
       <Select name="role" defaultValue="viewer">
-        <SelectTrigger size="sm">
+        <SelectTrigger size="sm" className="w-full min-w-0">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -1096,6 +1096,7 @@ function ShareForm({ chapters }: { chapters: UserChapter[] }) {
       </Select>
       <SubmitButton
         size="sm"
+        className="max-w-full"
         pending={isSharing}
         pendingLabel="Sharing"
         disabled={principalType === "chapter" ? chapterId === "" : email.trim() === ""}
