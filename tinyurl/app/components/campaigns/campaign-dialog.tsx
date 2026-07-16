@@ -1,4 +1,5 @@
 import { Plus } from "lucide-react";
+import type { ReactNode } from "react";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import {
@@ -17,16 +18,24 @@ import type { UserChapter } from "~/lib/chapter.server";
 import { ChapterAccessSelect } from "./chapter-access-select";
 import { useCampaignActionDialog } from "./use-campaign-action-dialog";
 
-export function CampaignDialog({ chapters }: { chapters: UserChapter[] }) {
+export function CampaignDialog({
+  chapters,
+  trigger,
+}: {
+  chapters: UserChapter[];
+  trigger?: ReactNode;
+}) {
   const { open, onOpenChange, fetcher, pending, error } = useCampaignActionDialog();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus className="size-4" />
-          Create campaign
-        </Button>
+        {trigger ?? (
+          <Button size="sm">
+            <Plus className="size-4" />
+            Create campaign
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader className="border-b">

@@ -417,11 +417,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           <div className="grid min-w-0 grid-cols-3 gap-2 sm:flex sm:items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-11 min-w-0 justify-start px-3 sm:h-8"
-                >
+                <Button variant="outline" size="sm" className="min-w-0 justify-start">
                   <SlidersHorizontal className="size-4" />
                   <span className="truncate">Filter</span>
                   <ChevronDown className="ml-auto size-4 text-muted-foreground sm:hidden" />
@@ -452,11 +448,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-11 min-w-0 justify-start px-3 sm:h-8 sm:max-w-56"
-                >
+                <Button variant="outline" size="sm" className="min-w-0 justify-start sm:max-w-56">
                   <FolderTree className="size-4" />
                   <span className="truncate">{campaignFilterLabel}</span>
                   <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground sm:hidden" />
@@ -512,7 +504,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
               showDefaultActions={displayPreferencesChanged}
               onResetToDefault={resetDisplayPreferences}
               onSetAsDefault={setCurrentAsDefault}
-              triggerClassName="h-11 min-w-0 justify-start px-3 sm:h-8"
+              triggerClassName="min-w-0 justify-start"
             />
           </div>
 
@@ -523,7 +515,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by short link or URL"
-              className="h-11 pl-9 text-sm sm:h-8 sm:pl-8"
+              className="h-8 pl-8 text-sm"
             />
           </div>
         </div>
@@ -579,8 +571,8 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
           shortUrlBase={shortUrlBase}
           domainOptions={domainOptions}
           trigger={
-            <Button className="h-12 w-full text-base">
-              <Plus className="size-5" />
+            <Button className="w-full">
+              <Plus className="size-4" />
               Create link
             </Button>
           }

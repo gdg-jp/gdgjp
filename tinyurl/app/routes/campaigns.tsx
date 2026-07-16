@@ -1,4 +1,4 @@
-import { Archive, BarChart3, ChevronRight, Megaphone, Pencil, RotateCcw } from "lucide-react";
+import { Archive, BarChart3, ChevronRight, Megaphone, Pencil, Plus, RotateCcw } from "lucide-react";
 import { Suspense, useMemo, useState } from "react";
 import { Await, Form, Link } from "react-router";
 import { CampaignDialog } from "~/components/campaigns/campaign-dialog";
@@ -151,7 +151,7 @@ export default function Campaigns({ loaderData, actionData }: Route.ComponentPro
 
   return (
     <DashboardShell user={user}>
-      <DashboardPage>
+      <DashboardPage className="pb-20 md:pb-0">
         {actionData && "error" in actionData ? (
           <Alert variant="destructive">
             <AlertDescription>{actionData.error}</AlertDescription>
@@ -160,6 +160,7 @@ export default function Campaigns({ loaderData, actionData }: Route.ComponentPro
         <DashboardPageHeader
           title="Campaigns"
           description={`Organize ${chapter.chapterSlug} links by event, channel, and source.`}
+          actionsClassName="hidden sm:flex"
           actions={<CampaignDialog chapters={chapters} />}
         />
 
@@ -176,6 +177,18 @@ export default function Campaigns({ loaderData, actionData }: Route.ComponentPro
           Click analytics are available inside each campaign.
         </div>
       </DashboardPage>
+
+      <div className="fixed inset-x-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 rounded-xl border bg-background/95 p-2 shadow-lg backdrop-blur md:hidden">
+        <CampaignDialog
+          chapters={chapters}
+          trigger={
+            <Button className="w-full">
+              <Plus className="size-4" />
+              Create campaign
+            </Button>
+          }
+        />
+      </div>
     </DashboardShell>
   );
 }
