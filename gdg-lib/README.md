@@ -4,8 +4,8 @@ Shared auth building blocks for GDG Japan apps. The package ships TypeScript
 sources directly (no build step) and is consumed via `workspace:*`.
 
 It provides the RP factory used by `tinyurl/`, `img/`, `scheduler/`, and
-`wiki/` to delegate sign-in to the `accounts/` IdP, plus the shared signed-
-cookie helpers used by both the RPs and the IdP.
+`wiki/` to delegate sign-in to the `accounts/` IdP, plus shared signed-cookie
+helpers.
 
 | Export                  | Purpose                                                                       |
 | ----------------------- | ----------------------------------------------------------------------------- |
@@ -16,21 +16,18 @@ cookie helpers used by both the RPs and the IdP.
 | `ClaimsUnavailableError`| Thrown by `getFreshClaims(request)` when the IdP can't be queried             |
 | `SSO_PROVIDER_ID`       | Constant identifying the IdP provider (`"gdgjp"`)                             |
 
-The IdP itself is built directly on `@cloudflare/workers-oauth-provider` in
-`accounts/` — it doesn't go through this lib.
+The IdP itself is built with Better Auth's OAuth Provider plugin in `accounts/`;
+it only consumes shared user types from this library.
 
 ---
 
 ## Implementing a Relying Party (RP)
 
-The accounts IdP exposes an OIDC-flavoured OAuth 2.1 discovery document at
+The accounts IdP exposes an OpenID Connect discovery document at
 `${IDP_URL}/.well-known/openid-configuration`. The RP redirects users there
-to sign in, receives an access + refresh token, calls `/userinfo` to fetch
-user attributes, and stores a signed session cookie scoped to the RP origin.
-
-> Note: the IdP does **not** issue `id_token`s. The RP must pass
-> `idTokenExpected: false` when calling `openid-client` directly; the
-> factory in this package handles that internally.
+to sign in, validates the RS256 ID Token (including nonce), and calls UserInfo
+with subject binding. The cookie contains only local session identity; access,
+refresh, and ID tokens are stored server-side in the RP's D1 database.
 
 ### 1. Add the dependency
 
@@ -70,7 +67,7 @@ The IdP also needs to know about your client: ensure the RP's
 `{APP}_CLIENT_ID`, `{APP}_CLIENT_SECRET`, and `{APP}_REDIRECT_URLS`
 (pointing at `${APP_URL}/api/auth/callback/gdgjp`) are set on the
 `accounts/` worker, and run `POST /admin/seed-clients` there to register
-the client in `OAUTH_KV`.
+the client in D1.
 
 ### 3. Wire the factory
 
@@ -102,9 +99,8 @@ export function getAuth(env: Env): RpAuthInstance {
 
 - `getSessionUser(request)` / `requireUser(request)` — read the signed session cookie
 - `handleAuthRequest(request)` — handler for `/api/auth/*` (signin, callback, signout, me)
-- `handleSignOutRedirect(request, opts?)` — 302 to the IdP's federated sign-out
-- `handleSignOutIframe(request)` — clear the RP session from an iframe (CSP-locked to the IdP origin)
-- `getFreshClaims(request)` — fetch live `/userinfo` from the IdP; refreshes access token via the stored refresh token. Throws `ClaimsUnavailableError` if the IdP can't be reached.
+- `handleSignOutRedirect(request, opts?)` — OIDC RP-Initiated Logout
+- `getFreshClaims(request)` — fetch live UserInfo; refreshes and persists rotated tokens in D1. Throws `ClaimsUnavailableError` if the IdP can't be reached.
 
 ### 4. Add the routes
 
@@ -130,21 +126,11 @@ export const loader = ({ request, context }: Route.LoaderArgs) =>
   getAuth(context.cloudflare.env).handleSignOutRedirect(request);
 ```
 
-```ts
-// app/routes/auth.signout-iframe.ts — called from the IdP's federated sign-out page
-import { getAuth } from "~/lib/auth.server";
-import type { Route } from "./+types/auth.signout-iframe";
-
-export const loader = ({ request, context }: Route.LoaderArgs) =>
-  getAuth(context.cloudflare.env).handleSignOutIframe(request);
-```
-
 ### 5. Add migrations
 
-Each RP keeps a tiny local `user` table (id, email, name, image, is_admin,
-created_at, updated_at) used to attribute domain rows like links/images.
-The factory's upsert looks up the user by email, mints a UUID for new
-sign-ups, and updates name/image/is_admin on every callback.
+Each RP keeps a local `user` table used to attribute domain rows. The stable
+identity key is `(oidc_issuer, oidc_subject)`. A verified email can link one
+pre-migration row once, but is not used as the continuing identity key.
 
 ```sql
 CREATE TABLE "user" (
@@ -153,10 +139,28 @@ CREATE TABLE "user" (
   name       TEXT NOT NULL,
   image      TEXT,
   is_admin   INTEGER NOT NULL DEFAULT 0,
+  oidc_issuer TEXT,
+  oidc_subject TEXT,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
-```
 
-That's the only auth-related table you need — sessions are signed cookies
-and OAuth state lives entirely on the IdP.
+CREATE UNIQUE INDEX user_oidc_identity
+  ON "user" (oidc_issuer, oidc_subject)
+  WHERE oidc_issuer IS NOT NULL AND oidc_subject IS NOT NULL;
+
+CREATE TABLE oidc_session (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  issuer TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT,
+  id_token TEXT NOT NULL,
+  access_token_expires_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (user_id) REFERENCES "user" (id) ON DELETE CASCADE
+);
+```

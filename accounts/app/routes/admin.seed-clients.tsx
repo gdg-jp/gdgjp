@@ -1,4 +1,4 @@
-// One-shot admin route to (re-)seed the trusted OAuth clients into OAUTH_KV.
+// One-shot admin route to (re-)seed the trusted OAuth clients into D1.
 // Idempotent — safe to re-run after rotating a client secret.
 
 import { redirect, useActionData, useNavigation } from "react-router";
@@ -44,7 +44,7 @@ export default function SeedClientsPage() {
       <h1 className="text-2xl font-medium">Seed OAuth clients</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Writes the four trusted OAuth client records (tinyurl, wiki, img, scheduler) into{" "}
-        <code>OAUTH_KV</code> from the configured env vars. Idempotent — safe to re-run.
+        <code>oauthClient</code> in D1 from the configured env vars. Idempotent — safe to re-run.
       </p>
       <form method="post" className="mt-6">
         <button

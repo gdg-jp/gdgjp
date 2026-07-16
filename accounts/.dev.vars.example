@@ -1,10 +1,10 @@
 # Secrets — set as production secrets with `wrangler secret put <NAME>`.
 GOOGLE_CLIENT_SECRET=""
-# HMAC key for the IdP login-session cookie. Generate with e.g. `openssl rand -base64 48`.
-IDP_SESSION_SECRET=""
+# Better Auth encryption/signing key. Generate with e.g. `openssl rand -base64 48`.
+BETTER_AUTH_SECRET=""
 
 # Per-RP client secrets (one per app registered as a trusted OIDC client; written
-# into OAUTH_KV by the /admin/seed-clients route).
+# into D1 by the /admin/seed-clients route).
 TINYURL_CLIENT_SECRET=""
 WIKI_CLIENT_SECRET=""
 IMG_CLIENT_SECRET=""

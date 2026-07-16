@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS "user" (
   "name"          TEXT NOT NULL,
   "email"         TEXT NOT NULL UNIQUE,
   "image"         TEXT,
-  "is_admin" INTEGER NOT NULL DEFAULT 0, "created_at" INTEGER NOT NULL DEFAULT 0, "updated_at" INTEGER NOT NULL DEFAULT 0);
+  "is_admin" INTEGER NOT NULL DEFAULT 0, "created_at" INTEGER NOT NULL DEFAULT 0, "updated_at" INTEGER NOT NULL DEFAULT 0, oidc_issuer TEXT, oidc_subject TEXT);
 CREATE TABLE campaigns (
   id                 INTEGER PRIMARY KEY AUTOINCREMENT,
   name               TEXT NOT NULL,
@@ -220,3 +220,18 @@ CREATE INDEX idx_links_archive
   ON links(archived_at, deleted_at, created_at DESC);
 CREATE INDEX idx_links_domain_slug
   ON links(domain_id, slug, deleted_at);
+CREATE UNIQUE INDEX user_oidc_identity_idx ON "user" (oidc_issuer, oidc_subject);
+CREATE TABLE oidc_session (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+  issuer TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT,
+  id_token TEXT NOT NULL,
+  access_token_expires_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX oidc_session_user_idx ON oidc_session (user_id);

@@ -5,8 +5,8 @@ import { LocaleSwitcher } from "~/components/locale-switcher";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { SubmitButton } from "~/components/ui/submit-button";
 import { safeReturnTo } from "~/lib/auth-redirect";
+import { getSessionUser } from "~/lib/auth.server";
 import { i18n } from "~/lib/i18n/i18n.server";
-import { readIdpSession } from "~/lib/idp-session.server";
 import type { Route } from "./+types/signin";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
@@ -15,7 +15,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const returnTo = safeReturnTo(url.searchParams.get("return_to")) ?? "/dashboard";
   // If already signed in, jump straight to return_to.
-  const session = await readIdpSession(request, env.IDP_SESSION_SECRET);
+  const session = await getSessionUser(env, request);
   if (session) throw redirect(returnTo);
   return { title: t("meta.signin"), returnTo };
 }
@@ -58,6 +58,7 @@ export default function SignInPage() {
   const { t } = useTranslation();
   const [params] = useSearchParams();
   const returnTo = safeReturnTo(params.get("return_to")) ?? "/dashboard";
+  const oauthQuery = params.has("client_id") ? params.toString() : "";
 
   return (
     <div className="relative min-h-dvh overflow-hidden bg-muted/40">
@@ -80,6 +81,7 @@ export default function SignInPage() {
           </div>
           <Form method="get" action="/oauth/google/start" className="w-full">
             <input type="hidden" name="return_to" value={returnTo} />
+            {oauthQuery ? <input type="hidden" name="oauth_query" value={oauthQuery} /> : null}
             <SubmitButton type="submit" className="w-full" size="lg" variant="outline">
               <GoogleGlyph />
               {t("auth.signin.continueWithGoogle")}

@@ -14,10 +14,17 @@ export default [
   route("chapters/:slug/organize", "routes/chapters.$slug.organize.tsx"),
   route("api/locale", "routes/api.locale.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
-  // OAuth / OIDC IdP endpoints — workers-oauth-provider handles /oauth/token
-  // and /userinfo internally; everything below is the user-facing portion.
+  route("api/auth/*", "routes/api.auth.$.ts"),
+  // Compatibility routes keep in-flight requests working across the provider cutover.
   route("authorize", "routes/authorize.tsx"),
+  route("oauth/token", "routes/oauth.compat.ts"),
+  route("userinfo", "routes/userinfo.compat.ts"),
+  route("oauth/consent", "routes/oauth.consent.tsx"),
   route("oauth/google/start", "routes/oauth.google.start.ts"),
   route("oauth/google/callback", "routes/oauth.google.callback.ts"),
   route(".well-known/openid-configuration", "routes/well-known.openid-configuration.ts"),
+  route(
+    ".well-known/oauth-authorization-server",
+    "routes/well-known.oauth-authorization-server.ts",
+  ),
 ] satisfies RouteConfig;
