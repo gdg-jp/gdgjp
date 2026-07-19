@@ -7,6 +7,13 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 
 export const CHAPTERS_SCOPE = "https://gdgs.jp/scopes/chapters";
 
@@ -89,10 +96,160 @@ export function SecretRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function DeveloperClientForm({ client }: { client?: DeveloperClientView }) {
+export function DeveloperClientForm({
+  client,
+  variant = "settings",
+}: {
+  client?: DeveloperClientView;
+  variant?: "create" | "settings";
+}) {
   const { t } = useTranslation();
   const selected = new Set(client?.scopes ?? ["openid", "email", "profile"]);
   const optionalScopes = ["email", "profile", "offline_access", CHAPTERS_SCOPE] as const;
+
+  if (variant === "create") {
+    return (
+      <div className="space-y-12">
+        <section aria-labelledby="client-details-heading" className="space-y-6">
+          <div>
+            <h2 id="client-details-heading" className="text-xl font-medium tracking-tight">
+              {t("developerApps.create.basics")}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t("developerApps.create.basicsDescription")}
+            </p>
+          </div>
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="applicationType">
+                {t("developerApps.fields.applicationType")} <RequiredMark />
+              </Label>
+              <Select defaultValue="web">
+                <SelectTrigger id="applicationType" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="web">{t("developerApps.fields.webApplication")}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {t("developerApps.fields.applicationTypeDescription")}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">
+                {t("developerApps.fields.name")} <RequiredMark />
+              </Label>
+              <Input
+                id="name"
+                name="name"
+                required
+                maxLength={100}
+                autoComplete="off"
+                placeholder={t("developerApps.fields.namePlaceholder")}
+                defaultValue={client?.name}
+                className="h-10"
+              />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {t("developerApps.fields.nameDescription")}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="appUrl">
+                {t("developerApps.fields.appUrl")} <RequiredMark />
+              </Label>
+              <Input
+                id="appUrl"
+                name="appUrl"
+                type="url"
+                inputMode="url"
+                required
+                placeholder="https://example.com"
+                defaultValue={client?.appUrl ?? ""}
+                className="h-10 font-mono text-sm"
+              />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {t("developerApps.fields.appUrlDescription")}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="redirect-uri-heading" className="space-y-7">
+          <UriListField
+            id="redirectUris"
+            headingId="redirect-uri-heading"
+            label={t("developerApps.fields.redirectUris")}
+            description={t("developerApps.fields.redirectUrisDescription")}
+            required
+            spacious
+            values={client?.redirectUris}
+          />
+          <UriListField
+            id="postLogoutRedirectUris"
+            label={t("developerApps.fields.postLogoutRedirectUris")}
+            description={t("developerApps.fields.postLogoutRedirectUrisDescription")}
+            spacious
+            values={client?.postLogoutRedirectUris}
+          />
+        </section>
+
+        <fieldset className="space-y-4">
+          <div>
+            <legend className="text-xl font-medium tracking-tight">
+              {t("developerApps.create.permissions")}
+            </legend>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              {t("developerApps.fields.scopesDescription")}
+            </p>
+          </div>
+          <input type="hidden" name="scopes" value="openid" />
+          <div className="divide-y border-y">
+            <div className="flex items-start gap-3 py-3.5">
+              <input type="checkbox" checked disabled className="mt-0.5 size-4 accent-primary" />
+              <span>
+                <span className="block font-mono text-sm">openid</span>
+                <span className="text-xs text-muted-foreground">
+                  {t("developerApps.scope.openid")}
+                </span>
+              </span>
+            </div>
+            {optionalScopes.map((scope) => (
+              <label key={scope} className="flex cursor-pointer items-start gap-3 py-3.5">
+                <input
+                  type="checkbox"
+                  name="scopes"
+                  value={scope}
+                  defaultChecked={selected.has(scope)}
+                  className="mt-0.5 size-4 accent-primary"
+                />
+                <span>
+                  <span className="block break-all font-mono text-sm">{scope}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t(`developerApps.scope.${scope === CHAPTERS_SCOPE ? "chapters" : scope}`)}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div className="flex gap-3 rounded-md bg-muted/70 px-4 py-3 text-sm">
+          <ShieldCheck
+            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <div>
+            <p className="font-medium">{t("developerApps.security.title")}</p>
+            <p className="mt-0.5 leading-relaxed text-muted-foreground">
+              {t("developerApps.security.description")}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="divide-y">
       <section
@@ -235,11 +392,21 @@ export function DeveloperClientForm({ client }: { client?: DeveloperClientView }
 
 function UriListField({
   id,
+  headingId,
   label,
   description,
   required,
+  spacious = false,
   values,
-}: { id: string; label: string; description: string; required?: boolean; values?: string[] }) {
+}: {
+  id: string;
+  headingId?: string;
+  label: string;
+  description: string;
+  required?: boolean;
+  spacious?: boolean;
+  values?: string[];
+}) {
   const { t } = useTranslation();
   const nextEntryId = useRef(0);
   const [entries, setEntries] = useState(() =>
@@ -260,11 +427,32 @@ function UriListField({
   }
 
   return (
-    <div className="space-y-3">
-      <Label htmlFor={`${id}-0`}>
-        {label} {required ? <RequiredLabel /> : <OptionalLabel />}
-      </Label>
-      <p className="text-xs text-muted-foreground">{description}</p>
+    <div className={spacious ? "space-y-4" : "space-y-3"}>
+      <div>
+        <Label
+          asChild={spacious}
+          className={spacious ? "text-xl font-medium tracking-tight" : undefined}
+        >
+          {spacious ? (
+            <h2 id={headingId}>
+              {label} {required ? <RequiredMark /> : null}
+            </h2>
+          ) : (
+            <span>
+              {label} {required ? <RequiredLabel /> : <OptionalLabel />}
+            </span>
+          )}
+        </Label>
+        <p
+          className={
+            spacious
+              ? "mt-1 text-sm leading-relaxed text-muted-foreground"
+              : "mt-2 text-xs text-muted-foreground"
+          }
+        >
+          {description}
+        </p>
+      </div>
       <div className="space-y-2">
         {entries.map((entry, index) => (
           <div key={entry.key} className="flex gap-2">
@@ -276,11 +464,11 @@ function UriListField({
               value={entry.value}
               onChange={(event) => updateEntry(index, event.target.value)}
               placeholder="https://example.com/callback"
-              className="font-mono text-sm"
+              className={spacious ? "h-10 font-mono text-sm" : "font-mono text-sm"}
             />
             <Button
               type="button"
-              variant="ghost"
+              variant={spacious ? "outline" : "ghost"}
               size="icon"
               disabled={required && entries.length === 1}
               onClick={() => removeEntry(index)}
@@ -315,6 +503,14 @@ function RequiredLabel() {
   return (
     <span className="text-xs font-normal text-muted-foreground">
       ({t("developerApps.form.required")})
+    </span>
+  );
+}
+
+function RequiredMark() {
+  return (
+    <span className="text-destructive" aria-hidden="true">
+      *
     </span>
   );
 }

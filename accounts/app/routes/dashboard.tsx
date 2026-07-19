@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useFetcher } from "react-router";
-import { PageHeader } from "~/components/page-header";
 import { PageShell } from "~/components/page-shell";
 import { StatusBadge } from "~/components/status-badge";
 import {
@@ -241,12 +240,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
   );
   return (
     <PageShell user={user} size="lg">
-      <PageHeader
-        eyebrow={t("dashboard.eyebrow")}
-        title={t("dashboard.title")}
-        description={t("dashboard.signedInAs", { email: user.email })}
-      />
-      <div className="mt-8">
+      <div>
         <MembershipsSection memberships={memberships} />
       </div>
       {canRegisterApps || organizerMemberships.length > 0 || user.isAdmin ? (

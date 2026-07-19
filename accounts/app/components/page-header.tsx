@@ -25,23 +25,23 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={cn("space-y-3", className)}>
+    <header className={cn("border-b pb-4", className)}>
       {back ? (
-        <Button asChild variant="ghost" size="sm" className="-ml-2 text-muted-foreground">
+        <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
           <Link to={back.to} prefetch="intent">
             <ArrowLeft className="size-4" />
             {back.label}
           </Link>
         </Button>
       ) : null}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 space-y-1">
           {eyebrow ? (
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               {eyebrow}
             </p>
           ) : null}
-          <h1 className="text-3xl font-medium tracking-tight text-balance">{title}</h1>
+          <h1 className="text-xl font-medium tracking-tight text-balance">{title}</h1>
           {description ? (
             <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>
           ) : null}

@@ -10,14 +10,6 @@ import { PageHeader } from "~/components/page-header";
 import { PageShell } from "~/components/page-shell";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
 import { SubmitButton } from "~/components/ui/submit-button";
 import { loadDeveloperAccess } from "~/lib/developer-access.server";
 import { parseDeveloperClientForm } from "~/lib/developer-app-form.server";
@@ -72,11 +64,9 @@ export default function NewDeveloperApp({ loaderData, actionData }: Route.Compon
     <PageShell user={loaderData.user} size="lg">
       <PageHeader
         back={{ to: "/developers/apps", label: t("developerApps.back") }}
-        eyebrow={t("developerApps.list.title")}
         title={t("developerApps.create.title")}
-        description={t("developerApps.create.subtitle")}
       />
-      <div className="mt-8">
+      <div className="mt-7">
         {!loaderData.eligible ? (
           <DeveloperAccessRequired user={loaderData.user} />
         ) : actionData?.ok ? (
@@ -94,40 +84,39 @@ export default function NewDeveloperApp({ loaderData, actionData }: Route.Compon
             </Button>
           </div>
         ) : (
-          <Card className="overflow-hidden">
-            <CardHeader className="border-b bg-muted/20">
-              <CardTitle className="text-xl">{t("developerApps.create.cardTitle")}</CardTitle>
-              <CardDescription className="max-w-3xl">
-                {t("developerApps.create.cardDescription")}
-              </CardDescription>
-            </CardHeader>
-            <Form method="post">
-              <CardContent className="space-y-6 p-6 md:p-8">
-                <Alert>
-                  <Info />
-                  <AlertTitle>{t("developerApps.create.beforeYouStart")}</AlertTitle>
-                  <AlertDescription>
-                    {t("developerApps.create.beforeYouStartDescription")}
-                  </AlertDescription>
-                </Alert>
+          <div className="max-w-2xl">
+            <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+              {t("developerApps.create.subtitle")}
+            </p>
+            <Form method="post" className="mt-7 space-y-10">
+              <div className="flex gap-3 rounded-md bg-muted/70 px-4 py-3 text-sm">
+                <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <p className="leading-relaxed">
+                  {t("developerApps.create.beforeYouStartDescription")}
+                </p>
+              </div>
+              <div className="space-y-6">
                 {actionData && !actionData.ok ? (
                   <Alert variant="destructive">
                     <AlertTitle>{t("developerApps.errors.title")}</AlertTitle>
                     <AlertDescription>{actionData.error}</AlertDescription>
                   </Alert>
                 ) : null}
-                <DeveloperClientForm />
-              </CardContent>
-              <CardFooter className="flex-col-reverse items-stretch gap-2 border-t bg-muted/20 px-6 py-4 sm:flex-row sm:items-center sm:justify-end md:px-8">
-                <Button asChild variant="ghost">
-                  <Link to="/developers/apps">{t("developerApps.create.cancel")}</Link>
-                </Button>
+                <DeveloperClientForm variant="create" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {t("developerApps.create.effectNote")}
+              </p>
+              <div className="flex flex-wrap items-center gap-3 border-t pt-6">
                 <SubmitButton pending={pending} pendingLabel={t("developerApps.create.pending")}>
                   {t("developerApps.create.submit")}
                 </SubmitButton>
-              </CardFooter>
+                <Button asChild variant="ghost">
+                  <Link to="/developers/apps">{t("developerApps.create.cancel")}</Link>
+                </Button>
+              </div>
             </Form>
-          </Card>
+          </div>
         )}
       </div>
     </PageShell>

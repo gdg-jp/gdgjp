@@ -268,11 +268,7 @@ export default function AdminRequests({ loaderData }: Route.ComponentProps) {
   }, [query, requests]);
   return (
     <PageShell user={user} size="lg">
-      <PageHeader
-        eyebrow={t("nav.administration")}
-        title={t("adminRequests.title")}
-        description={t("adminRequests.subtitle")}
-      />
+      <PageHeader title={t("adminRequests.title")} />
 
       {requests.length > 0 ? (
         <div className="relative mt-6 max-w-xl">

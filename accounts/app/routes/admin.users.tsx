@@ -236,11 +236,7 @@ export default function AdminUsers({ loaderData }: Route.ComponentProps) {
 
   return (
     <PageShell user={user} size="lg">
-      <PageHeader
-        eyebrow={t("nav.administration")}
-        title={t("adminUsers.title")}
-        description={t("adminUsers.subtitle")}
-      />
+      <PageHeader title={t("adminUsers.title")} />
 
       <Form method="get" className="mt-6 flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">

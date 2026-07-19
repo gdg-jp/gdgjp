@@ -14,6 +14,6 @@ type PageShellProps = {
 };
 
 export function PageShell({ children, className, size = "md" }: PageShellProps) {
-  const max = size === "sm" ? "max-w-xl" : size === "lg" ? "max-w-5xl" : "max-w-3xl";
+  const max = size === "sm" ? "max-w-xl" : size === "lg" ? "max-w-none" : "max-w-3xl";
   return <div className={cn("mx-auto w-full", max, className)}>{children}</div>;
 }

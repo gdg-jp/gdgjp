@@ -224,9 +224,7 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
   return (
     <PageShell user={loaderData.user} size="lg">
       <PageHeader
-        eyebrow={t("nav.administration")}
         title={t("admin.title")}
-        description={t("admin.subtitle")}
         actions={
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>

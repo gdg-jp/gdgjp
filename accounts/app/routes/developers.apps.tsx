@@ -1,11 +1,19 @@
-import { ArrowLeft, ArrowRight, Blocks, ExternalLink, Globe2, Plus } from "lucide-react";
+import { KeyRound, Pencil, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { DeveloperAccessRequired, type DeveloperClientView } from "~/components/developer-apps";
+import { PageHeader } from "~/components/page-header";
 import { PageShell } from "~/components/page-shell";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "~/components/ui/table";
 import { loadDeveloperAccess } from "~/lib/developer-access.server";
 import { i18n } from "~/lib/i18n/i18n.server";
 import { listDeveloperClients } from "~/lib/oauth-clients.server";
@@ -26,61 +34,72 @@ export function meta({ data }: Route.MetaArgs) {
   return [{ title: data?.title }];
 }
 
-function ClientCard({ client, locale }: { client: DeveloperClientView; locale: string }) {
+function ClientRow({ client, locale }: { client: DeveloperClientView; locale: string }) {
   const { t } = useTranslation();
   const createdAt = new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(
     new Date(client.createdAt),
   );
   return (
-    <li>
-      <Card className="transition-shadow hover:shadow-sm">
-        <CardHeader className="pb-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <CardTitle className="truncate text-base">{client.name}</CardTitle>
-              {client.appUrl ? (
-                <a
-                  href={client.appUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
-                >
-                  <Globe2 className="size-3 shrink-0" aria-hidden="true" />
-                  <span className="truncate">{client.appUrl}</span>
-                  <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
-                </a>
-              ) : null}
-            </div>
-            <Badge variant={client.disabled ? "secondary" : "default"}>
-              {client.disabled
-                ? t("developerApps.status.disabled")
-                : t("developerApps.status.active")}
-            </Badge>
+    <TableRow>
+      <TableCell className="min-w-48 font-medium">
+        <Link
+          to={`/developers/apps/${encodeURIComponent(client.clientId)}`}
+          prefetch="intent"
+          className="text-primary hover:underline"
+        >
+          {client.name}
+        </Link>
+      </TableCell>
+      <TableCell className="text-muted-foreground">{createdAt}</TableCell>
+      <TableCell>{t("developerApps.fields.webApplication")}</TableCell>
+      <TableCell>
+        <span className="block max-w-52 truncate font-mono text-xs" title={client.clientId}>
+          {client.clientId}
+        </span>
+      </TableCell>
+      <TableCell>
+        <Badge variant={client.disabled ? "secondary" : "default"}>
+          {client.disabled ? t("developerApps.status.disabled") : t("developerApps.status.active")}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right">
+        <Button asChild variant="ghost" size="icon-sm">
+          <Link
+            to={`/developers/apps/${encodeURIComponent(client.clientId)}`}
+            prefetch="intent"
+            aria-label={t("developerApps.list.manageClient", { name: client.name })}
+          >
+            <Pencil className="size-4" />
+          </Link>
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function ClientsEmptyState() {
+  const { t } = useTranslation();
+  return (
+    <div className="flex min-h-[34rem] items-start justify-center px-4 pt-24 text-center sm:pt-28">
+      <div className="flex max-w-md flex-col items-center">
+        <div className="relative mb-7 h-32 w-36" aria-hidden="true">
+          <div className="absolute left-8 top-1 h-24 w-24 rotate-3 rounded-xl border-2 border-dashed border-gdg-green" />
+          <div className="absolute left-[4.4rem] top-0 grid size-7 place-items-center rounded-full bg-background text-foreground">
+            <KeyRound className="size-5" />
           </div>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-end justify-between gap-4 border-t pt-4">
-          <dl className="grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
-            <div>
-              <dt className="text-muted-foreground">{t("developerApps.list.clientId")}</dt>
-              <dd className="max-w-48 truncate font-mono" title={client.clientId}>
-                {client.clientId}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">
-                {t("developerApps.list.createdAt", { date: createdAt })}
-              </dt>
-              <dd>{t("developerApps.list.scopeCount", { count: client.scopes.length })}</dd>
-            </div>
-          </dl>
-          <Button asChild variant="outline" size="sm">
-            <Link to={`/developers/apps/${encodeURIComponent(client.clientId)}`} prefetch="intent">
-              {t("developerApps.list.manage")} <ArrowRight className="size-4" />
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
-    </li>
+          <div className="absolute bottom-0 left-1/2 h-14 w-16 -translate-x-1/2 rounded-t-lg border-2 border-b-0 border-foreground" />
+          <div className="absolute bottom-0 left-[2.9rem] h-12 w-0.5 -rotate-[25deg] bg-foreground" />
+          <div className="absolute bottom-0 right-[2.9rem] h-12 w-0.5 rotate-[25deg] bg-foreground" />
+        </div>
+        <h2 className="text-xl font-medium tracking-tight">{t("developerApps.list.emptyTitle")}</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          {t("developerApps.list.emptyDescription")}
+        </p>
+        <Button asChild className="mt-6">
+          <Link to="/developers/apps/new">{t("developerApps.list.getStarted")}</Link>
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -88,53 +107,44 @@ export default function DeveloperApps({ loaderData }: Route.ComponentProps) {
   const { t } = useTranslation();
   return (
     <PageShell user={loaderData.user} size="lg">
-      <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
-        <Link to="/dashboard" prefetch="intent">
-          <ArrowLeft className="size-4" /> {t("nav.backToDashboard")}
-        </Link>
-      </Button>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Blocks className="size-6 text-gdg-blue" />
-            <h1 className="text-3xl font-medium tracking-tight">{t("developerApps.list.title")}</h1>
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground">{t("developerApps.list.subtitle")}</p>
-        </div>
-        {loaderData.eligible ? (
-          <Button asChild>
-            <Link to="/developers/apps/new">
-              <Plus className="size-4" /> {t("developerApps.list.create")}
-            </Link>
-          </Button>
-        ) : null}
-      </div>
-      <div className="mt-8">
+      <PageHeader title={t("developerApps.list.title")} />
+      <div>
         {!loaderData.eligible ? (
-          <DeveloperAccessRequired user={loaderData.user} />
+          <div className="pt-7">
+            <DeveloperAccessRequired user={loaderData.user} />
+          </div>
         ) : loaderData.clients.length === 0 ? (
-          <Card className="border-dashed">
-            <CardHeader className="items-start gap-4 sm:flex-row">
-              <div className="grid size-10 shrink-0 place-items-center rounded-full bg-gdg-blue/10 text-gdg-blue">
-                <Blocks className="size-5" aria-hidden="true" />
-              </div>
-              <div className="space-y-1.5">
-                <CardTitle>{t("developerApps.list.emptyTitle")}</CardTitle>
-                <CardDescription>{t("developerApps.list.emptyDescription")}</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Button asChild>
-                <Link to="/developers/apps/new">{t("developerApps.list.create")}</Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <ClientsEmptyState />
         ) : (
-          <ul className="space-y-3">
-            {loaderData.clients.map((client: DeveloperClientView) => (
-              <ClientCard key={client.clientId} client={client} locale={loaderData.locale} />
-            ))}
-          </ul>
+          <div className="pt-5">
+            <div className="mb-8 flex flex-wrap items-center gap-2">
+              <Button asChild variant="ghost" className="-ml-3 text-primary hover:text-primary">
+                <Link to="/developers/apps/new">
+                  <Plus className="size-4" /> {t("developerApps.list.create")}
+                </Link>
+              </Button>
+            </div>
+            <h2 className="mb-3 text-xl font-medium tracking-tight">
+              {t("developerApps.list.tableTitle")}
+            </h2>
+            <Table>
+              <TableHeader className="bg-muted/70">
+                <TableRow className="hover:bg-muted/70">
+                  <TableHead>{t("developerApps.list.name")}</TableHead>
+                  <TableHead>{t("developerApps.list.creationDate")}</TableHead>
+                  <TableHead>{t("developerApps.list.type")}</TableHead>
+                  <TableHead>{t("developerApps.list.clientId")}</TableHead>
+                  <TableHead>{t("developerApps.list.status")}</TableHead>
+                  <TableHead className="text-right">{t("developerApps.list.actions")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loaderData.clients.map((client: DeveloperClientView) => (
+                  <ClientRow key={client.clientId} client={client} locale={loaderData.locale} />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </div>
     </PageShell>

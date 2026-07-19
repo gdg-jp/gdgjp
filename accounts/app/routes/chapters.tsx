@@ -18,7 +18,7 @@ import {
   AlertDialogTrigger,
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { SubmitButton } from "~/components/ui/submit-button";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
@@ -178,11 +178,7 @@ export default function ChaptersPage({ loaderData }: Route.ComponentProps) {
   ];
   return (
     <PageShell user={user} size="lg">
-      <PageHeader
-        back={{ to: "/dashboard", label: t("nav.backToDashboard") }}
-        title={t("chapters.title")}
-        description={t("chapters.subtitle")}
-      />
+      <PageHeader title={t("chapters.title")} />
 
       {items.length === 0 ? (
         <Card className="mt-6">
@@ -233,9 +229,9 @@ export default function ChaptersPage({ loaderData }: Route.ComponentProps) {
               </CardHeader>
             </Card>
           ) : (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map(({ chapter, state }, i) => (
-                <ChapterCard key={chapter.id} chapter={chapter} state={state} index={i} />
+            <div className="mt-4 divide-y overflow-x-auto rounded-xl border bg-card">
+              {filtered.map(({ chapter, state }) => (
+                <ChapterRow key={chapter.id} chapter={chapter} state={state} />
               ))}
             </div>
           )}
@@ -247,20 +243,17 @@ export default function ChaptersPage({ loaderData }: Route.ComponentProps) {
 
 type ChapterCardFetcher = ReturnType<typeof useFetcher<typeof action>>;
 
-function ChapterCard({
+function ChapterRow({
   chapter,
   state,
-  index,
 }: {
   chapter: Route.ComponentProps["loaderData"]["items"][number]["chapter"];
   state: ChapterState;
-  index: number;
 }) {
   const { t } = useTranslation();
   const fetcher = useFetcher<typeof action>();
   const accent = chapter.kind === "gdg" ? "text-gdg-blue" : "text-gdg-green";
   const kindLabel = chapter.kind === "gdg" ? t("kind.gdg") : t("kind.gdgoc");
-  const animationDelay = `${Math.min(index, 9) * 30}ms`;
 
   useEffect(() => {
     if (fetcher.state !== "idle" || !fetcher.data) return;
@@ -275,51 +268,40 @@ function ChapterCard({
   }, [fetcher.state, fetcher.data, t]);
 
   return (
-    <div
-      className="animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
-      style={{ animationDelay, animationFillMode: "both" }}
-    >
-      <Card className="flex h-full flex-col overflow-hidden">
-        <CardHeader>
-          <div className="flex items-start justify-between gap-2">
-            <CardTitle className="text-lg leading-tight">{chapter.name}</CardTitle>
-            <span className={cn("font-mono text-xs", accent)}>{kindLabel}</span>
-          </div>
-          <CardDescription className="font-mono text-xs">{chapter.slug}</CardDescription>
-          <p className="text-sm text-muted-foreground">{stateDescription(t, state)}</p>
-        </CardHeader>
-        <CardContent className="mt-auto flex flex-col gap-3">
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <Users className="size-3.5" />
-              {t("chapters.memberCount", { count: chapter.activeCount })}
-            </span>
-            {state === "pending" ? (
-              <StatusBadge status="pending">{t("dashboard.pending.badge")}</StatusBadge>
-            ) : state === "active-member" ? (
-              <StatusBadge status="member">{t("dashboard.active.memberBadge")}</StatusBadge>
-            ) : state === "active-organizer" ? (
-              <StatusBadge status="organizer">{t("dashboard.active.organizerBadge")}</StatusBadge>
-            ) : null}
-          </div>
-          <ChapterAction chapter={chapter} state={state} fetcher={fetcher} />
-        </CardContent>
-      </Card>
+    <div className="flex min-h-14 min-w-[760px] items-center gap-3 bg-card px-4 py-2 transition-colors hover:bg-muted/35">
+      <div className="w-56 min-w-0 shrink-0">
+        <p className="truncate text-sm font-semibold" title={chapter.name}>
+          {chapter.name}
+        </p>
+        <p className="truncate font-mono text-xs text-muted-foreground" title={chapter.slug}>
+          {chapter.slug}
+        </p>
+      </div>
+
+      <span className={cn("w-20 shrink-0 font-mono text-xs", accent)}>{kindLabel}</span>
+
+      <span className="min-w-0 flex-1" />
+
+      <span className="inline-flex w-24 shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+        <Users className="size-3.5" aria-hidden="true" />
+        {t("chapters.memberCount", { count: chapter.activeCount })}
+      </span>
+
+      <div className="flex w-24 shrink-0 justify-start">
+        {state === "pending" ? (
+          <StatusBadge status="pending">{t("dashboard.pending.badge")}</StatusBadge>
+        ) : state === "active-member" ? (
+          <StatusBadge status="member">{t("dashboard.active.memberBadge")}</StatusBadge>
+        ) : state === "active-organizer" ? (
+          <StatusBadge status="organizer">{t("dashboard.active.organizerBadge")}</StatusBadge>
+        ) : null}
+      </div>
+
+      <div className="w-48 shrink-0">
+        <ChapterAction chapter={chapter} state={state} fetcher={fetcher} />
+      </div>
     </div>
   );
-}
-
-function stateDescription(t: ReturnType<typeof useTranslation>["t"], state: ChapterState) {
-  switch (state) {
-    case "pending":
-      return t("chapters.state.pendingDescription");
-    case "active-member":
-      return t("chapters.state.memberDescription");
-    case "active-organizer":
-      return t("chapters.state.organizerDescription");
-    default:
-      return t("chapters.state.joinableDescription");
-  }
 }
 
 function ChapterAction({

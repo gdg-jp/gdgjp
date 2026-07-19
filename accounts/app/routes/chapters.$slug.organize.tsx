@@ -430,9 +430,7 @@ export default function OrganizeChapter({ loaderData }: Route.ComponentProps) {
     <PageShell user={user} size="lg">
       <PageHeader
         back={{ to: "/chapters", label: t("organize.back") }}
-        eyebrow={chapter.slug}
         title={t("organize.title", { chapter: chapter.name })}
-        description={t("organize.subtitle")}
       />
 
       <section aria-labelledby="pending-heading" className="mt-8">

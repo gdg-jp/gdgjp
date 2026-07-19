@@ -1,4 +1,4 @@
-import { Blocks, ClipboardList, Code2, LayoutDashboard, Settings2, Users, X } from "lucide-react";
+import { Blocks, ClipboardList, Code2, Settings2, Users, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -61,13 +61,13 @@ function Navigation({
   onNavigate?: () => void;
 }) {
   const { t } = useTranslation();
-  const homeItems: NavItem[] = [
-    { to: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, exact: true },
+  const items: NavItem[] = [
     { to: "/chapters", label: t("nav.chapters"), icon: Blocks, exact: true },
   ];
-  const developerItems: NavItem[] = [
-    { to: "/developers/apps", label: t("nav.developerApps"), icon: Code2 },
-  ];
+  const canUseDeveloperTools = memberships.some((membership) => membership.status === "active");
+  if (canUseDeveloperTools) {
+    items.push({ to: "/developers/apps", label: t("nav.developerApps"), icon: Code2 });
+  }
   const organizerItems = memberships
     .filter((membership) => membership.status === "active" && membership.role === "organizer")
     .map<NavItem>((membership) => ({
@@ -75,39 +75,34 @@ function Navigation({
       label: membership.chapter.name,
       icon: Settings2,
     }));
-  const adminItems: NavItem[] = [
-    { to: "/admin/users", label: t("nav.users"), icon: Users },
-    { to: "/admin/chapters", label: t("nav.manageChapters"), icon: Blocks },
-    { to: "/admin/requests", label: t("nav.joinRequests"), icon: ClipboardList },
-  ];
-  const canUseDeveloperTools = memberships.some((membership) => membership.status === "active");
-
-  function NavSection({ label, items }: { label: string; items: NavItem[] }) {
-    return (
-      <section aria-label={label}>
-        <p className="px-2 pb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {label}
-        </p>
-        <div className="space-y-0.5">
-          {items.map((item) => (
-            <NavigationLink key={item.to} item={item} onClick={onNavigate} />
-          ))}
-        </div>
-      </section>
+  if (user?.isAdmin) {
+    items.push(
+      { to: "/admin/users", label: t("nav.users"), icon: Users },
+      { to: "/admin/chapters", label: t("nav.manageChapters"), icon: Blocks },
+      { to: "/admin/requests", label: t("nav.joinRequests"), icon: ClipboardList },
     );
   }
 
   return (
     <nav aria-label={t("nav.navigation")} className="flex-1 overflow-y-auto p-3">
       <div className="space-y-5">
-        <NavSection label={t("nav.homeAndChapters")} items={homeItems} />
-        {canUseDeveloperTools ? (
-          <NavSection label={t("nav.developerTools")} items={developerItems} />
-        ) : null}
+        <div className="space-y-0.5">
+          {items.map((item) => (
+            <NavigationLink key={item.to} item={item} onClick={onNavigate} />
+          ))}
+        </div>
         {organizerItems.length > 0 ? (
-          <NavSection label={t("nav.organizerTools")} items={organizerItems} />
+          <section aria-label={t("nav.chapters")}>
+            <p className="px-2 pb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              {t("nav.chapters")}
+            </p>
+            <div className="space-y-0.5">
+              {organizerItems.map((item) => (
+                <NavigationLink key={item.to} item={item} onClick={onNavigate} />
+              ))}
+            </div>
+          </section>
         ) : null}
-        {user?.isAdmin ? <NavSection label={t("nav.administration")} items={adminItems} /> : null}
       </div>
     </nav>
   );
@@ -217,7 +212,7 @@ export function DashboardShell({
       />
       <div className="flex min-h-0 flex-1">
         <Sidebar user={user} memberships={memberships} />
-        <main className={cn("min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8", className)}>
+        <main className={cn("min-w-0 flex-1 px-4 py-4 md:px-6 md:py-5", className)}>
           {children}
         </main>
       </div>

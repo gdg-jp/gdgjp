@@ -49,11 +49,7 @@ export default function SeedClientsPage({ loaderData }: Route.ComponentProps) {
   const submitting = nav.state !== "idle";
   return (
     <PageShell user={loaderData.user} size="sm">
-      <PageHeader
-        eyebrow={t("nav.administration")}
-        title={t("adminSeed.title")}
-        description={t("adminSeed.description")}
-      />
+      <PageHeader title={t("adminSeed.title")} />
       <Card className="mt-6">
         <CardContent className="space-y-4">
           <Alert>
