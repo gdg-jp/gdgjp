@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Blocks, Plus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Blocks, ExternalLink, Globe2, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { DeveloperAccessRequired, type DeveloperClientView } from "~/components/developer-apps";
@@ -33,14 +33,23 @@ function ClientCard({ client, locale }: { client: DeveloperClientView; locale: s
   );
   return (
     <li>
-      <Card>
-        <CardHeader>
+      <Card className="transition-shadow hover:shadow-sm">
+        <CardHeader className="pb-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <CardTitle className="truncate text-base">{client.name}</CardTitle>
-              <CardDescription className="mt-1 truncate font-mono text-xs">
-                {client.clientId}
-              </CardDescription>
+              {client.appUrl ? (
+                <a
+                  href={client.appUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  <Globe2 className="size-3 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{client.appUrl}</span>
+                  <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
+                </a>
+              ) : null}
             </div>
             <Badge variant={client.disabled ? "secondary" : "default"}>
               {client.disabled
@@ -49,10 +58,21 @@ function ClientCard({ client, locale }: { client: DeveloperClientView; locale: s
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-xs text-muted-foreground">
-            {t("developerApps.list.createdAt", { date: createdAt })}
-          </span>
+        <CardContent className="flex flex-wrap items-end justify-between gap-4 border-t pt-4">
+          <dl className="grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
+            <div>
+              <dt className="text-muted-foreground">{t("developerApps.list.clientId")}</dt>
+              <dd className="max-w-48 truncate font-mono" title={client.clientId}>
+                {client.clientId}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">
+                {t("developerApps.list.createdAt", { date: createdAt })}
+              </dt>
+              <dd>{t("developerApps.list.scopeCount", { count: client.scopes.length })}</dd>
+            </div>
+          </dl>
           <Button asChild variant="outline" size="sm">
             <Link to={`/developers/apps/${encodeURIComponent(client.clientId)}`} prefetch="intent">
               {t("developerApps.list.manage")} <ArrowRight className="size-4" />
@@ -67,13 +87,13 @@ function ClientCard({ client, locale }: { client: DeveloperClientView; locale: s
 export default function DeveloperApps({ loaderData }: Route.ComponentProps) {
   const { t } = useTranslation();
   return (
-    <PageShell user={loaderData.user}>
+    <PageShell user={loaderData.user} size="lg">
       <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
         <Link to="/dashboard" prefetch="intent">
           <ArrowLeft className="size-4" /> {t("nav.backToDashboard")}
         </Link>
       </Button>
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <Blocks className="size-6 text-gdg-blue" />
@@ -89,14 +109,19 @@ export default function DeveloperApps({ loaderData }: Route.ComponentProps) {
           </Button>
         ) : null}
       </div>
-      <div className="mt-6">
+      <div className="mt-8">
         {!loaderData.eligible ? (
           <DeveloperAccessRequired user={loaderData.user} />
         ) : loaderData.clients.length === 0 ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("developerApps.list.emptyTitle")}</CardTitle>
-              <CardDescription>{t("developerApps.list.emptyDescription")}</CardDescription>
+          <Card className="border-dashed">
+            <CardHeader className="items-start gap-4 sm:flex-row">
+              <div className="grid size-10 shrink-0 place-items-center rounded-full bg-gdg-blue/10 text-gdg-blue">
+                <Blocks className="size-5" aria-hidden="true" />
+              </div>
+              <div className="space-y-1.5">
+                <CardTitle>{t("developerApps.list.emptyTitle")}</CardTitle>
+                <CardDescription>{t("developerApps.list.emptyDescription")}</CardDescription>
+              </div>
             </CardHeader>
             <CardContent>
               <Button asChild>

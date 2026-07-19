@@ -14,7 +14,20 @@
     "localeLabel": "Language",
     "localeJa": "日本語",
     "localeEn": "English",
-    "backToDashboard": "Back to dashboard"
+    "backToDashboard": "Back to dashboard",
+    "dashboard": "Dashboard",
+    "chapters": "Chapters",
+    "homeAndChapters": "Home & chapters",
+    "developerApps": "OIDC clients",
+    "developerTools": "Developer tools",
+    "organizerTools": "Organizer tools",
+    "administration": "Administration",
+    "users": "Users",
+    "manageChapters": "Manage chapters",
+    "joinRequests": "Join requests",
+    "navigation": "Navigation",
+    "openNavigation": "Open navigation",
+    "closeNavigation": "Close navigation"
   },
   "meta": {
     "signin": "Sign in — GDG Japan Accounts",
@@ -23,20 +36,28 @@
     "onboarding": "Choose your chapter — GDG Japan Accounts",
     "chapters": "Chapters — GDG Japan Accounts",
     "adminChapters": "Manage chapters — GDG Japan Accounts",
+    "adminUsers": "Manage users — GDG Japan Accounts",
     "adminRequests": "Join requests — GDG Japan Accounts",
     "organize": "Organize {{slug}} — GDG Japan Accounts",
-    "developerApps": "Developer apps — GDG Japan Accounts",
-    "developerAppsNew": "Register an app — GDG Japan Accounts",
-    "developerAppsDetail": "Manage app — GDG Japan Accounts"
+    "developerApps": "OIDC clients — GDG Japan Accounts",
+    "developerAppsNew": "Create an OIDC client — GDG Japan Accounts",
+    "developerAppsDetail": "Manage OIDC client — GDG Japan Accounts",
+    "oauthConsent": "Authorize application — GDG Japan Accounts"
   },
   "dashboard": {
+    "eyebrow": "Your GDG Japan account",
     "title": "Dashboard",
     "signedInAs": "Signed in as {{email}}",
     "memberships": {
       "heading": "Your chapters",
+      "description": "Track your membership status and the actions available to you.",
       "browseCta": "Browse chapters",
       "leave": "Leave",
-      "manage": "Manage"
+      "manage": "Manage",
+      "cancel": "Cancel request",
+      "cancelTitle": "Cancel your request to join {{name}}?",
+      "cancelDescription": "Your request will be removed. You can request to join again later.",
+      "cancelConfirm": "Cancel request"
     },
     "noChapter": {
       "title": "No chapter yet",
@@ -56,18 +77,27 @@
     },
     "superAdmin": {
       "title": "Super admin tools",
-      "description": "Create, edit, or delete chapters and review every join request across GDG Japan.",
+      "description": "Manage user access, GDG Japan chapters, and every join request.",
+      "usersCta": "Manage users",
       "manageCta": "Manage chapters",
       "requestsCta": "Review join requests"
     },
     "developerApps": {
-      "title": "Developer apps",
-      "description": "Use GDG Accounts sign-in in an app you develop.",
-      "cta": "Manage developer apps"
+      "title": "OIDC clients",
+      "description": "Use GDG Accounts sign-in in a service you develop.",
+      "cta": "Manage OIDC clients"
+    },
+    "roleTools": {
+      "heading": "Your tools",
+      "description": "Extra tools are available based on your chapter role and account access."
+    },
+    "organizerTools": {
+      "title": "Chapter organizer tools",
+      "description": "Review incoming requests and keep your chapter's member list up to date."
     }
   },
   "developerApps": {
-    "back": "Back to developer apps",
+    "back": "Back to OIDC clients",
     "copy": "Copy {{label}}",
     "status": {
       "active": "Active",
@@ -75,30 +105,42 @@
     },
     "access": {
       "title": "Active chapter membership required",
-      "description": "Only active members of a GDG or GDGoC chapter can register and manage apps. If your request is pending, wait for an organizer to approve it.",
+      "description": "Only active members of a GDG or GDGoC chapter can register and manage OIDC clients. If your request is pending, wait for an organizer to approve it.",
       "cta": "Browse chapters",
       "signedInAs": "Signed in as {{email}}"
     },
     "list": {
-      "title": "Developer apps",
-      "subtitle": "Register apps that use GDG Accounts as their OpenID Connect provider.",
-      "create": "Register app",
-      "emptyTitle": "No apps registered",
-      "emptyDescription": "Register your first confidential web application to get a Client ID and Client Secret.",
+      "title": "OIDC clients",
+      "subtitle": "Manage clients that use GDG Accounts as their OpenID Connect provider.",
+      "create": "Create client",
+      "emptyTitle": "No OIDC clients yet",
+      "emptyDescription": "Create your first confidential web client to get a Client ID and Client Secret.",
       "createdAt": "Created {{date}}",
+      "clientId": "Client ID",
+      "appUrl": "App URL",
+      "scopeCount_one": "{{count}} allowed scope",
+      "scopeCount_other": "{{count}} allowed scopes",
       "manage": "Manage"
     },
     "create": {
-      "title": "Register an app",
-      "subtitle": "Create a confidential OpenID Connect client for a server-side web application.",
-      "cardTitle": "Application details",
-      "cardDescription": "You can change these settings later. Redirect URIs must match exactly.",
-      "submit": "Register app",
-      "pending": "Registering…",
-      "manage": "Manage this app"
+      "title": "Create an OIDC client",
+      "subtitle": "Configure a confidential OpenID Connect client for a server-side web application.",
+      "cardTitle": "Client configuration",
+      "cardDescription": "Configure the client identity, redirect URIs, and scopes it may request. You can change these settings later.",
+      "beforeYouStart": "Before you create the client",
+      "beforeYouStartDescription": "Redirect URIs are matched exactly. Register the HTTPS URLs your application actually uses.",
+      "basics": "Basic information",
+      "basicsDescription": "The client type and information used to identify it in this console.",
+      "redirects": "Redirect URIs",
+      "redirectsDescription": "Register the URLs users may safely return to after authentication or sign-out.",
+      "permissions": "Allowed scopes",
+      "submit": "Create client",
+      "pending": "Creating…",
+      "cancel": "Cancel",
+      "manage": "Manage this client"
     },
     "detail": {
-      "subtitle": "Manage credentials, redirect URIs, scopes, and app status.",
+      "subtitle": "Manage credentials, redirect URIs, scopes, and client status.",
       "credentials": "Client credentials",
       "credentialsDescription": "Use these credentials only on your application's server.",
       "settings": "Application settings",
@@ -107,21 +149,29 @@
       "saving": "Saving…",
       "saved": "Changes saved",
       "rotate": "Rotate Client Secret",
-      "dangerZone": "App status and deletion",
-      "dangerDescription": "Disabling or deleting an app revokes its existing access and refresh tokens.",
-      "enable": "Enable app",
-      "disable": "Disable app",
-      "delete": "Delete app"
+      "dangerZone": "Client status and deletion",
+      "dangerDescription": "Disabling or deleting a client revokes its existing access and refresh tokens.",
+      "disableDescription": "Stop new sign-ins and revoke the client's current access.",
+      "enableDescription": "Allow new sign-ins again. Previously revoked tokens stay revoked.",
+      "deleteDescription": "Permanently remove this client, its credentials, and its active access.",
+      "enable": "Enable client",
+      "disable": "Disable client",
+      "delete": "Delete client"
     },
     "fields": {
-      "name": "Application name",
+      "applicationType": "Application type",
+      "applicationTypeDescription": "Currently supported for web applications that can store a Client Secret securely on the server.",
+      "webApplication": "Web application",
+      "name": "Client name",
+      "nameDescription": "Used to identify the client in this console. It is not shown to end users.",
       "appUrl": "Application URL",
+      "appUrlDescription": "Enter the public home page for the application.",
       "clientId": "Client ID",
       "clientSecret": "Client Secret",
       "redirectUris": "Redirect URIs",
-      "redirectUrisDescription": "One URI per line, up to 10. HTTPS is required except for localhost and loopback development URLs.",
+      "redirectUrisDescription": "Callback destinations after authentication. Up to 10. HTTPS is required except for localhost and loopback development URLs.",
       "postLogoutRedirectUris": "Post-logout redirect URIs",
-      "postLogoutRedirectUrisDescription": "Optional. One URI per line, up to 10. Users may return to these exact URIs after signing out.",
+      "postLogoutRedirectUrisDescription": "Optional. Up to 10. Users may return to these exact URIs after signing out.",
       "scopes": "Allowed scopes",
       "scopesDescription": "openid is always required. Select the additional information and capabilities your app may request."
     },
@@ -136,6 +186,12 @@
       "title": "Confidential web application",
       "description": "Authorization Code with PKCE S256 and client_secret_basic are required. Never place the Client Secret in browser or mobile code."
     },
+    "form": {
+      "required": "Required",
+      "optional": "Optional",
+      "addUri": "Add URI",
+      "removeUri": "Remove URI {{index}}"
+    },
     "secret": {
       "title": "Save your Client Secret now",
       "description": "This is the only time the Client Secret will be shown. Store it securely before leaving this page.",
@@ -146,18 +202,18 @@
       "rotateTitle": "Rotate the Client Secret?",
       "rotateDescription": "The current secret will stop working immediately. Update your application with the new secret before users sign in again.",
       "rotateConfirm": "Rotate secret",
-      "enableTitle": "Enable this app?",
-      "enableDescription": "Users will be able to sign in again. Tokens revoked while the app was disabled will not be restored.",
-      "enableConfirm": "Enable app",
-      "disableTitle": "Disable this app?",
+      "enableTitle": "Enable this client?",
+      "enableDescription": "Users will be able to sign in again. Tokens revoked while the client was disabled will not be restored.",
+      "enableConfirm": "Enable client",
+      "disableTitle": "Disable this client?",
       "disableDescription": "Sign-in will stop and all existing access and refresh tokens will be revoked immediately.",
-      "disableConfirm": "Disable app",
-      "deleteTitle": "Permanently delete this app?",
+      "disableConfirm": "Disable client",
+      "deleteTitle": "Permanently delete this client?",
       "deleteDescription": "All credentials and tokens will be revoked. This action cannot be undone.",
-      "deleteConfirm": "Delete app"
+      "deleteConfirm": "Delete client"
     },
     "errors": {
-      "title": "Couldn't save the app",
+      "title": "Couldn't save the client",
       "create": "Check the application details and redirect URIs, then try again.",
       "update": "The operation could not be completed. Check the settings and try again."
     }
@@ -190,13 +246,29 @@
     "search": {
       "placeholder": "Search chapters by name or slug",
       "ariaLabel": "Search chapters",
-      "noMatches": "No chapters match your search."
+      "noMatches": "No chapters match your search.",
+      "noMatchesDescription": "Try a different name, slug, or membership filter."
+    },
+    "filters": {
+      "ariaLabel": "Filter chapters",
+      "all": "All chapters",
+      "joinable": "Available to join",
+      "mine": "My chapters",
+      "pending": "Pending"
+    },
+    "state": {
+      "joinableDescription": "Request to join this chapter and an organizer will review it.",
+      "pendingDescription": "Your membership request is waiting for organizer approval.",
+      "memberDescription": "You are an active member of this chapter.",
+      "organizerDescription": "You organize this chapter and can manage its members."
     }
   },
   "adminRequests": {
     "title": "Join requests",
     "subtitle": "Every pending join request across all chapters.",
     "empty": "No pending requests right now.",
+    "noMatches": "No requests match your search.",
+    "searchPlaceholder": "Search by requester or chapter",
     "tableRequester": "Requester",
     "tableChapter": "Chapter",
     "tableRequested": "Requested",
@@ -208,6 +280,65 @@
       "approved": "Request approved",
       "rejected": "Request rejected"
     }
+  },
+  "adminUsers": {
+    "title": "Manage users",
+    "subtitle": "Manage GDG Japan Accounts users, privileges, and sign-in sessions.",
+    "searchPlaceholder": "Search by name or email",
+    "search": "Search",
+    "clear": "Clear",
+    "empty": "No users match your search.",
+    "resultCount": "{{count}} users",
+    "table": {
+      "user": "User",
+      "memberships": "Chapters",
+      "sessions": "Sessions",
+      "created": "Joined",
+      "role": "Role",
+      "actions": "Actions"
+    },
+    "activeMemberships": "{{active}} active / {{total}} total",
+    "adminBadge": "Admin",
+    "userBadge": "User",
+    "promote": "Make admin",
+    "demote": "Remove admin",
+    "revoke": "Revoke all sessions",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {{page}} of {{pages}}",
+    "dialog": {
+      "cancel": "Cancel",
+      "promoteTitle": "Make {{name}} an admin?",
+      "promoteDescription": "They will be able to manage all chapters, join requests, and users.",
+      "demoteTitle": "Remove admin access from {{name}}?",
+      "demoteDescription": "They will return to a regular user and lose access to administration tools.",
+      "revokeTitle": "Revoke every session for {{name}}?",
+      "revokeDescription": "They will be signed out of Accounts and connected apps, and must sign in again.",
+      "revokeConfirm": "Revoke sessions"
+    },
+    "toast": {
+      "promoted": "Admin access granted",
+      "demoted": "Admin access removed",
+      "revoked": "All sessions revoked"
+    },
+    "errors": {
+      "lastAdmin": "The final admin cannot be demoted.",
+      "selfRevoke": "You cannot revoke your own session here. Sign out from the account menu instead.",
+      "selfAdmin": "You cannot change your own admin access. Ask another administrator.",
+      "notFound": "User not found.",
+      "unknown": "The operation could not be completed."
+    }
+  },
+  "adminSeed": {
+    "title": "Trusted OAuth clients",
+    "description": "Synchronize the built-in applications with the current Worker configuration.",
+    "noticeTitle": "Administrative operation",
+    "noticeDescription": "This idempotent operation writes configured tinyurl, wiki, img, and scheduler clients to D1.",
+    "submit": "Synchronize clients",
+    "pending": "Synchronizing…",
+    "result": "Result at {{at}}",
+    "written": "Written: {{value}}",
+    "skipped": "Skipped: {{value}}"
   },
   "onboarding": {
     "title": "Choose your chapter",
@@ -222,8 +353,10 @@
   },
   "admin": {
     "title": "Manage chapters",
+    "subtitle": "Create chapters and manage their membership and organizer teams.",
     "create": {
       "cardTitle": "Create a chapter",
+      "description": "Add a GDG or GDGoC chapter to the Accounts directory.",
       "slugLabel": "Slug",
       "slugPlaceholder": "gdg-tokyo",
       "nameLabel": "Name",
@@ -242,6 +375,8 @@
       "actions": "Actions",
       "empty": "No chapters yet.",
       "organize": "Organize",
+      "delete": "Delete",
+      "memberSummary": "{{active}} active · {{pending}} pending",
       "deleteAria": "Delete {{name}}",
       "dialogTitle": "Delete {{name}}?",
       "dialogDesc": "Members will lose their membership. This action cannot be undone.",
@@ -251,8 +386,12 @@
   },
   "organize": {
     "title": "Organize {{chapter}}",
+    "back": "Back to chapters",
+    "subtitle": "Review requests first, then maintain roles and membership for this chapter.",
     "pending": "Pending requests ({{count}})",
+    "pendingDescription": "Approve people who belong here, or reject requests that should not join.",
     "members": "Members ({{count}})",
+    "membersDescription": "Roles determine who can review requests and manage this chapter.",
     "noPending": "No pending requests.",
     "noMembers": "No members yet.",
     "approve": "Approve",
@@ -263,7 +402,24 @@
     "errorTitle": "Couldn't perform action",
     "memberBadge": "Member",
     "organizerBadge": "Organizer",
-    "manageAria": "Manage {{name}}"
+    "currentUser": "Your account",
+    "manageAria": "Manage {{name}}",
+    "search": {
+      "placeholder": "Search members by name or email",
+      "ariaLabel": "Search members",
+      "noMatches": "No members match your search."
+    },
+    "dialog": {
+      "cancel": "Cancel",
+      "promoteTitle": "Make {{name}} an organizer?",
+      "promoteDescription": "Organizers can review requests and manage other chapter members.",
+      "demoteTitle": "Demote {{name}} to member?",
+      "demoteDescription": "They will no longer be able to review requests or manage this chapter.",
+      "removeTitle": "Remove {{name}} from this chapter?",
+      "removeDescription": "They will lose active membership immediately and can request to rejoin later.",
+      "rejectTitle": "Reject {{name}}'s request?",
+      "rejectDescription": "Their pending request will be removed. They can submit a new request later."
+    }
   },
   "kind": {
     "gdg": "GDG",
@@ -273,8 +429,30 @@
     "signin": {
       "title": "Sign in",
       "subtitle": "Use your Google account to continue.",
+      "welcome": "One account for your GDG Japan chapters and developer tools.",
+      "secure": "You'll choose a Google account on the next screen.",
       "continueWithGoogle": "Continue with Google",
       "continueWithGooglePending": "Signing in…"
+    },
+    "consent": {
+      "eyebrow": "GDG Japan Accounts",
+      "title": "Authorize {{appName}}?",
+      "unknownApp": "this application",
+      "description": "Review what this application wants to access before continuing.",
+      "website": "Application website",
+      "permissions": "Requested permissions",
+      "noPermissions": "Basic account access",
+      "allow": "Allow and continue",
+      "deny": "Cancel",
+      "privacy": "Only approve applications you trust. You can revoke access by contacting the application owner.",
+      "scope": {
+        "openid": "Confirm your identity",
+        "email": "View your email address",
+        "profile": "View your name and profile image",
+        "offline_access": "Keep access when you are away",
+        "chapters": "View your active chapter memberships and roles",
+        "unknown": "Request additional account access"
+      }
     },
     "userMenuAria": "Account menu",
     "signOut": "Sign out"

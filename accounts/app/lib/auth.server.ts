@@ -73,7 +73,9 @@ function buildAuth(env: Env) {
     },
     session: {
       expiresIn: 60 * 60 * 24 * 14,
-      cookieCache: { enabled: true, maxAge: 5 * 60 },
+      // Admin revocation deletes sessions in D1. Keep the database authoritative
+      // so revoked users cannot continue with a cached, self-contained cookie.
+      cookieCache: { enabled: false },
     },
     socialProviders: {
       google: {

@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { CheckCircle2, Info } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Form, Link, data, useNavigation } from "react-router";
 import {
@@ -6,6 +6,7 @@ import {
   DeveloperAccessRequired,
   DeveloperClientForm,
 } from "~/components/developer-apps";
+import { PageHeader } from "~/components/page-header";
 import { PageShell } from "~/components/page-shell";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
@@ -68,19 +69,23 @@ export default function NewDeveloperApp({ loaderData, actionData }: Route.Compon
   const navigation = useNavigation();
   const pending = navigation.state !== "idle";
   return (
-    <PageShell user={loaderData.user}>
-      <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
-        <Link to="/developers/apps" prefetch="intent">
-          <ArrowLeft className="size-4" /> {t("developerApps.back")}
-        </Link>
-      </Button>
-      <h1 className="text-3xl font-medium tracking-tight">{t("developerApps.create.title")}</h1>
-      <p className="mt-2 text-sm text-muted-foreground">{t("developerApps.create.subtitle")}</p>
-      <div className="mt-6">
+    <PageShell user={loaderData.user} size="lg">
+      <PageHeader
+        back={{ to: "/developers/apps", label: t("developerApps.back") }}
+        eyebrow={t("developerApps.list.title")}
+        title={t("developerApps.create.title")}
+        description={t("developerApps.create.subtitle")}
+      />
+      <div className="mt-8">
         {!loaderData.eligible ? (
           <DeveloperAccessRequired user={loaderData.user} />
         ) : actionData?.ok ? (
           <div className="space-y-4">
+            <Alert>
+              <CheckCircle2 />
+              <AlertTitle>{t("developerApps.create.submit")}</AlertTitle>
+              <AlertDescription>{t("developerApps.secret.description")}</AlertDescription>
+            </Alert>
             <ClientSecret clientId={actionData.clientId} secret={actionData.clientSecret} />
             <Button asChild>
               <Link to={`/developers/apps/${encodeURIComponent(actionData.clientId)}`}>
@@ -89,13 +94,22 @@ export default function NewDeveloperApp({ loaderData, actionData }: Route.Compon
             </Button>
           </div>
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("developerApps.create.cardTitle")}</CardTitle>
-              <CardDescription>{t("developerApps.create.cardDescription")}</CardDescription>
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b bg-muted/20">
+              <CardTitle className="text-xl">{t("developerApps.create.cardTitle")}</CardTitle>
+              <CardDescription className="max-w-3xl">
+                {t("developerApps.create.cardDescription")}
+              </CardDescription>
             </CardHeader>
             <Form method="post">
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-6 p-6 md:p-8">
+                <Alert>
+                  <Info />
+                  <AlertTitle>{t("developerApps.create.beforeYouStart")}</AlertTitle>
+                  <AlertDescription>
+                    {t("developerApps.create.beforeYouStartDescription")}
+                  </AlertDescription>
+                </Alert>
                 {actionData && !actionData.ok ? (
                   <Alert variant="destructive">
                     <AlertTitle>{t("developerApps.errors.title")}</AlertTitle>
@@ -104,7 +118,10 @@ export default function NewDeveloperApp({ loaderData, actionData }: Route.Compon
                 ) : null}
                 <DeveloperClientForm />
               </CardContent>
-              <CardFooter className="justify-end border-t pt-6">
+              <CardFooter className="flex-col-reverse items-stretch gap-2 border-t bg-muted/20 px-6 py-4 sm:flex-row sm:items-center sm:justify-end md:px-8">
+                <Button asChild variant="ghost">
+                  <Link to="/developers/apps">{t("developerApps.create.cancel")}</Link>
+                </Button>
                 <SubmitButton pending={pending} pendingLabel={t("developerApps.create.pending")}>
                   {t("developerApps.create.submit")}
                 </SubmitButton>

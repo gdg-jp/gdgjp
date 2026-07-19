@@ -1,4 +1,12 @@
-import { ArrowLeft, KeyRound, Power, PowerOff, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ExternalLink,
+  KeyRound,
+  Power,
+  PowerOff,
+  Settings2,
+  Trash2,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Form, Link, data, redirect, useNavigation } from "react-router";
 import {
@@ -159,7 +167,7 @@ export default function DeveloperAppDetail({ loaderData, actionData }: Route.Com
   const isUpdating = navigation.state !== "idle" && navigation.formData?.get("intent") === "update";
   return (
     <PageShell user={loaderData.user} size="lg">
-      <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
+      <Button asChild variant="ghost" size="sm" className="-ml-2 mb-3 text-muted-foreground">
         <Link to="/developers/apps" prefetch="intent">
           <ArrowLeft className="size-4" /> {t("developerApps.back")}
         </Link>
@@ -170,7 +178,7 @@ export default function DeveloperAppDetail({ loaderData, actionData }: Route.Com
         <>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-3xl font-medium tracking-tight">{client.name}</h1>
                 <Badge variant={client.disabled ? "secondary" : "default"}>
                   {client.disabled
@@ -181,9 +189,19 @@ export default function DeveloperAppDetail({ loaderData, actionData }: Route.Com
               <p className="mt-2 text-sm text-muted-foreground">
                 {t("developerApps.detail.subtitle")}
               </p>
+              {client.appUrl ? (
+                <a
+                  href={client.appUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex items-center gap-1 text-sm text-gdg-blue hover:underline"
+                >
+                  {client.appUrl} <ExternalLink className="size-3.5" aria-hidden="true" />
+                </a>
+              ) : null}
             </div>
           </div>
-          <div className="mt-6 space-y-6">
+          <div className="mt-8 space-y-6">
             {actionData?.ok &&
             actionData.intent === "rotate" &&
             actionData.clientId &&
@@ -208,25 +226,32 @@ export default function DeveloperAppDetail({ loaderData, actionData }: Route.Com
                   {t("developerApps.detail.credentialsDescription")}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-5">
                 <SecretRow label={t("developerApps.fields.clientId")} value={client.clientId} />
-                <p className="text-xs text-muted-foreground">
-                  {t("developerApps.secret.notShown")}
-                </p>
-                <ConfirmAction
-                  intent="rotate"
-                  icon={<KeyRound className="size-4" />}
-                  trigger={t("developerApps.detail.rotate")}
-                  title={t("developerApps.dialog.rotateTitle")}
-                  description={t("developerApps.dialog.rotateDescription")}
-                  confirm={t("developerApps.dialog.rotateConfirm")}
-                />
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 p-4">
+                  <p className="max-w-xl text-sm text-muted-foreground">
+                    {t("developerApps.secret.notShown")}
+                  </p>
+                  <ConfirmAction
+                    intent="rotate"
+                    icon={<KeyRound className="size-4" />}
+                    trigger={t("developerApps.detail.rotate")}
+                    title={t("developerApps.dialog.rotateTitle")}
+                    description={t("developerApps.dialog.rotateDescription")}
+                    confirm={t("developerApps.dialog.rotateConfirm")}
+                  />
+                </div>
               </CardContent>
             </Card>
             <Card>
-              <CardHeader>
-                <CardTitle>{t("developerApps.detail.settings")}</CardTitle>
-                <CardDescription>{t("developerApps.detail.settingsDescription")}</CardDescription>
+              <CardHeader className="items-start gap-3 sm:flex-row">
+                <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+                  <Settings2 className="size-4" aria-hidden="true" />
+                </div>
+                <div className="space-y-1.5">
+                  <CardTitle>{t("developerApps.detail.settings")}</CardTitle>
+                  <CardDescription>{t("developerApps.detail.settingsDescription")}</CardDescription>
+                </div>
               </CardHeader>
               <Form method="post">
                 <input type="hidden" name="intent" value="update" />
@@ -248,35 +273,57 @@ export default function DeveloperAppDetail({ loaderData, actionData }: Route.Com
                 <CardTitle>{t("developerApps.detail.dangerZone")}</CardTitle>
                 <CardDescription>{t("developerApps.detail.dangerDescription")}</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-wrap gap-3">
-                {client.disabled ? (
+              <CardContent className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border p-4">
+                  <div>
+                    <p className="font-medium">
+                      {client.disabled
+                        ? t("developerApps.detail.enable")
+                        : t("developerApps.detail.disable")}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {client.disabled
+                        ? t("developerApps.detail.enableDescription")
+                        : t("developerApps.detail.disableDescription")}
+                    </p>
+                  </div>
+                  {client.disabled ? (
+                    <ConfirmAction
+                      intent="enable"
+                      icon={<Power className="size-4" />}
+                      trigger={t("developerApps.detail.enable")}
+                      title={t("developerApps.dialog.enableTitle")}
+                      description={t("developerApps.dialog.enableDescription")}
+                      confirm={t("developerApps.dialog.enableConfirm")}
+                    />
+                  ) : (
+                    <ConfirmAction
+                      intent="disable"
+                      icon={<PowerOff className="size-4" />}
+                      trigger={t("developerApps.detail.disable")}
+                      title={t("developerApps.dialog.disableTitle")}
+                      description={t("developerApps.dialog.disableDescription")}
+                      confirm={t("developerApps.dialog.disableConfirm")}
+                    />
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-destructive/30 p-4">
+                  <div>
+                    <p className="font-medium">{t("developerApps.detail.delete")}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {t("developerApps.detail.deleteDescription")}
+                    </p>
+                  </div>
                   <ConfirmAction
-                    intent="enable"
-                    icon={<Power className="size-4" />}
-                    trigger={t("developerApps.detail.enable")}
-                    title={t("developerApps.dialog.enableTitle")}
-                    description={t("developerApps.dialog.enableDescription")}
-                    confirm={t("developerApps.dialog.enableConfirm")}
+                    intent="delete"
+                    icon={<Trash2 className="size-4" />}
+                    trigger={t("developerApps.detail.delete")}
+                    title={t("developerApps.dialog.deleteTitle")}
+                    description={t("developerApps.dialog.deleteDescription")}
+                    confirm={t("developerApps.dialog.deleteConfirm")}
+                    destructive
                   />
-                ) : (
-                  <ConfirmAction
-                    intent="disable"
-                    icon={<PowerOff className="size-4" />}
-                    trigger={t("developerApps.detail.disable")}
-                    title={t("developerApps.dialog.disableTitle")}
-                    description={t("developerApps.dialog.disableDescription")}
-                    confirm={t("developerApps.dialog.disableConfirm")}
-                  />
-                )}
-                <ConfirmAction
-                  intent="delete"
-                  icon={<Trash2 className="size-4" />}
-                  trigger={t("developerApps.detail.delete")}
-                  title={t("developerApps.dialog.deleteTitle")}
-                  description={t("developerApps.dialog.deleteDescription")}
-                  confirm={t("developerApps.dialog.deleteConfirm")}
-                  destructive
-                />
+                </div>
               </CardContent>
             </Card>
           </div>

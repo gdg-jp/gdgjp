@@ -388,6 +388,62 @@ export async function removeMembership(
     .run();
 }
 
+export type ProtectedMembershipMutationResult = "updated" | "last_active_organizer" | "not_found";
+
+/** Demotes an active organizer only when another active organizer remains. */
+export async function demoteMembershipUnlessLastOrganizer(
+  db: D1Database,
+  userId: string,
+  chapterId: number,
+): Promise<ProtectedMembershipMutationResult> {
+  const existing = await getMembership(db, userId, chapterId);
+  if (!existing) return "not_found";
+  const result = await db
+    .prepare(
+      `UPDATE memberships SET role = 'member'
+       WHERE user_id = ? AND chapter_id = ? AND status = 'active'
+         AND (
+           role <> 'organizer'
+           OR EXISTS (
+             SELECT 1 FROM memberships AS other
+             WHERE other.chapter_id = ? AND other.status = 'active'
+               AND other.role = 'organizer' AND other.user_id <> ?
+           )
+         )`,
+    )
+    .bind(userId, chapterId, chapterId, userId)
+    .run();
+  const changes = (result.meta as { changes?: number } | undefined)?.changes ?? 0;
+  return changes > 0 ? "updated" : "last_active_organizer";
+}
+
+/** Removes a membership only when doing so keeps an active organizer in the chapter. */
+export async function removeMembershipUnlessLastOrganizer(
+  db: D1Database,
+  userId: string,
+  chapterId: number,
+): Promise<ProtectedMembershipMutationResult> {
+  const existing = await getMembership(db, userId, chapterId);
+  if (!existing) return "not_found";
+  const result = await db
+    .prepare(
+      `DELETE FROM memberships
+       WHERE user_id = ? AND chapter_id = ?
+         AND (
+           status <> 'active' OR role <> 'organizer'
+           OR EXISTS (
+             SELECT 1 FROM memberships AS other
+             WHERE other.chapter_id = ? AND other.status = 'active'
+               AND other.role = 'organizer' AND other.user_id <> ?
+           )
+         )`,
+    )
+    .bind(userId, chapterId, chapterId, userId)
+    .run();
+  const changes = (result.meta as { changes?: number } | undefined)?.changes ?? 0;
+  return changes > 0 ? "updated" : "last_active_organizer";
+}
+
 export type SelfLeaveResult = "deleted" | "last_active_organizer" | "not_found";
 
 /**

@@ -10,8 +10,8 @@ export function parseDeveloperClientForm(form: FormData): DeveloperClientFormInp
   return {
     name: String(form.get("name") ?? "").trim(),
     appUrl: String(form.get("appUrl") ?? "").trim(),
-    redirectUris: parseLines(form.get("redirectUris")),
-    postLogoutRedirectUris: parseLines(form.get("postLogoutRedirectUris")),
+    redirectUris: parseEntries(form.getAll("redirectUris")),
+    postLogoutRedirectUris: parseEntries(form.getAll("postLogoutRedirectUris")),
     scopes: form
       .getAll("scopes")
       .map(String)
@@ -20,9 +20,9 @@ export function parseDeveloperClientForm(form: FormData): DeveloperClientFormInp
   };
 }
 
-function parseLines(value: FormDataEntryValue | null): string[] {
-  return String(value ?? "")
-    .split(/\r?\n/)
+function parseEntries(values: FormDataEntryValue[]): string[] {
+  return values
+    .flatMap((value) => String(value).split(/\r?\n/))
     .map((line) => line.trim())
     .filter(Boolean);
 }

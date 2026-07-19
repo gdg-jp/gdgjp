@@ -14,7 +14,20 @@
     "localeLabel": "言語",
     "localeJa": "日本語",
     "localeEn": "English",
-    "backToDashboard": "ダッシュボードに戻る"
+    "backToDashboard": "ダッシュボードに戻る",
+    "dashboard": "ダッシュボード",
+    "chapters": "チャプター",
+    "homeAndChapters": "ホーム・チャプター",
+    "developerApps": "OIDC クライアント",
+    "developerTools": "開発ツール",
+    "organizerTools": "運営",
+    "administration": "管理",
+    "users": "ユーザー",
+    "manageChapters": "チャプター管理",
+    "joinRequests": "参加リクエスト",
+    "navigation": "ナビゲーション",
+    "openNavigation": "ナビゲーションを開く",
+    "closeNavigation": "ナビゲーションを閉じる"
   },
   "meta": {
     "signin": "サインイン — GDG Japan Accounts",
@@ -23,20 +36,28 @@
     "onboarding": "チャプターを選ぶ — GDG Japan Accounts",
     "chapters": "チャプター — GDG Japan Accounts",
     "adminChapters": "チャプター管理 — GDG Japan Accounts",
+    "adminUsers": "ユーザー管理 — GDG Japan Accounts",
     "adminRequests": "参加リクエスト — GDG Japan Accounts",
     "organize": "{{slug}} を運営 — GDG Japan Accounts",
-    "developerApps": "開発者向けアプリ — GDG Japan Accounts",
-    "developerAppsNew": "アプリを登録 — GDG Japan Accounts",
-    "developerAppsDetail": "アプリを管理 — GDG Japan Accounts"
+    "developerApps": "OIDC クライアント — GDG Japan Accounts",
+    "developerAppsNew": "OIDC クライアントを作成 — GDG Japan Accounts",
+    "developerAppsDetail": "OIDC クライアントを管理 — GDG Japan Accounts",
+    "oauthConsent": "アプリケーションを認可 — GDG Japan Accounts"
   },
   "dashboard": {
+    "eyebrow": "GDG Japan アカウント",
     "title": "ダッシュボード",
     "signedInAs": "{{email}} としてサインイン中",
     "memberships": {
       "heading": "所属チャプター",
+      "description": "所属状況と、現在行える操作を確認できます。",
       "browseCta": "チャプターを探す",
       "leave": "退会",
-      "manage": "運営"
+      "manage": "運営",
+      "cancel": "リクエストを取り消す",
+      "cancelTitle": "{{name}} への参加リクエストを取り消しますか？",
+      "cancelDescription": "リクエストは削除されます。後からもう一度参加をリクエストできます。",
+      "cancelConfirm": "リクエストを取り消す"
     },
     "noChapter": {
       "title": "チャプター未所属",
@@ -56,18 +77,27 @@
     },
     "superAdmin": {
       "title": "スーパー管理者ツール",
-      "description": "GDG Japan のチャプターを作成・編集・削除し、すべての参加リクエストを確認できます。",
+      "description": "ユーザー権限、GDG Japan のチャプター、すべての参加リクエストを管理できます。",
+      "usersCta": "ユーザーを管理",
       "manageCta": "チャプターを管理",
       "requestsCta": "参加リクエストを確認"
     },
     "developerApps": {
-      "title": "開発者向けアプリ",
-      "description": "開発しているアプリで GDG Accounts のサインインを利用できます。",
-      "cta": "開発者向けアプリを管理"
+      "title": "OIDC クライアント",
+      "description": "開発しているサービスで GDG Accounts のサインインを利用できます。",
+      "cta": "OIDC クライアントを管理"
+    },
+    "roleTools": {
+      "heading": "利用できるツール",
+      "description": "チャプターでの役割とアカウント権限に応じて、追加のツールを利用できます。"
+    },
+    "organizerTools": {
+      "title": "チャプター運営ツール",
+      "description": "参加リクエストを確認し、チャプターのメンバー一覧を最新に保ちます。"
     }
   },
   "developerApps": {
-    "back": "開発者向けアプリに戻る",
+    "back": "OIDC クライアントに戻る",
     "copy": "{{label}} をコピー",
     "status": {
       "active": "有効",
@@ -75,30 +105,42 @@
     },
     "access": {
       "title": "アクティブなチャプター所属が必要です",
-      "description": "GDG または GDGoC チャプターのアクティブメンバーだけがアプリを登録・管理できます。承認待ちの場合は、オーガナイザーの承認をお待ちください。",
+      "description": "GDG または GDGoC チャプターのアクティブメンバーだけが OIDC クライアントを登録・管理できます。承認待ちの場合は、オーガナイザーの承認をお待ちください。",
       "cta": "チャプターを探す",
       "signedInAs": "{{email}} としてサインイン中"
     },
     "list": {
-      "title": "開発者向けアプリ",
-      "subtitle": "GDG Accounts を OpenID Connect Provider として利用するアプリを登録します。",
-      "create": "アプリを登録",
-      "emptyTitle": "登録済みのアプリはありません",
-      "emptyDescription": "最初のサーバーサイドWebアプリを登録して、Client ID と Client Secret を取得してください。",
+      "title": "OIDC クライアント",
+      "subtitle": "GDG Accounts を OpenID Connect Provider として利用するクライアントを管理します。",
+      "create": "クライアントを作成",
+      "emptyTitle": "OIDC クライアントはまだありません",
+      "emptyDescription": "最初のサーバーサイド Web クライアントを作成して、Client ID と Client Secret を取得してください。",
       "createdAt": "{{date}} に作成",
+      "clientId": "Client ID",
+      "appUrl": "アプリケーションURL",
+      "scopeCount_one": "許可する scope: {{count}} 件",
+      "scopeCount_other": "許可する scope: {{count}} 件",
       "manage": "管理"
     },
     "create": {
-      "title": "アプリを登録",
-      "subtitle": "サーバーサイドWebアプリ用の機密 OpenID Connect クライアントを作成します。",
-      "cardTitle": "アプリケーション情報",
-      "cardDescription": "設定は後から変更できます。Redirect URI は完全一致で照合されます。",
-      "submit": "アプリを登録",
-      "pending": "登録中…",
-      "manage": "このアプリを管理"
+      "title": "OIDC クライアントを作成",
+      "subtitle": "サーバーサイド Web アプリケーション用の機密 OpenID Connect クライアントを設定します。",
+      "cardTitle": "クライアント設定",
+      "cardDescription": "クライアントを識別する情報、Redirect URI、要求可能な scope を設定します。設定は後から変更できます。",
+      "beforeYouStart": "作成前に確認してください",
+      "beforeYouStartDescription": "Redirect URI は完全一致で検証されます。アプリケーションで実際に使用する HTTPS URL を登録してください。",
+      "basics": "基本情報",
+      "basicsDescription": "クライアントの種類と、管理画面で識別するための情報です。",
+      "redirects": "Redirect URI",
+      "redirectsDescription": "認証またはログアウト完了後に、ユーザーを安全に戻す URL を登録します。",
+      "permissions": "許可する scope",
+      "submit": "クライアントを作成",
+      "pending": "作成中…",
+      "cancel": "キャンセル",
+      "manage": "このクライアントを管理"
     },
     "detail": {
-      "subtitle": "認証情報、Redirect URI、scope、アプリの状態を管理します。",
+      "subtitle": "認証情報、Redirect URI、scope、クライアントの状態を管理します。",
       "credentials": "クライアント認証情報",
       "credentialsDescription": "認証情報はアプリケーションのサーバーでのみ使用してください。",
       "settings": "アプリケーション設定",
@@ -107,21 +149,29 @@
       "saving": "保存中…",
       "saved": "変更を保存しました",
       "rotate": "Client Secret をローテーション",
-      "dangerZone": "アプリの停止と削除",
-      "dangerDescription": "アプリを停止または削除すると、既存の access token と refresh token は失効します。",
-      "enable": "アプリを再開",
-      "disable": "アプリを停止",
-      "delete": "アプリを削除"
+      "dangerZone": "クライアントの停止と削除",
+      "dangerDescription": "クライアントを停止または削除すると、既存の access token と refresh token は失効します。",
+      "disableDescription": "新しいサインインを停止し、現在のアクセス権を失効させます。",
+      "enableDescription": "新しいサインインを再開します。すでに失効した token は復元されません。",
+      "deleteDescription": "このクライアント、認証情報、現在のアクセス権を完全に削除します。",
+      "enable": "クライアントを再開",
+      "disable": "クライアントを停止",
+      "delete": "クライアントを削除"
     },
     "fields": {
-      "name": "アプリケーション名",
+      "applicationType": "アプリケーションの種類",
+      "applicationTypeDescription": "現在はサーバー側で Client Secret を安全に保管できる Web アプリケーションに対応しています。",
+      "webApplication": "Web アプリケーション",
+      "name": "クライアント名",
+      "nameDescription": "管理画面でクライアントを識別するための名称です。ユーザーには表示されません。",
       "appUrl": "アプリケーションURL",
+      "appUrlDescription": "アプリケーションの公開トップページを指定してください。",
       "clientId": "Client ID",
       "clientSecret": "Client Secret",
       "redirectUris": "Redirect URI",
-      "redirectUrisDescription": "1行に1件、最大10件。localhost・ループバックの開発用URLを除き HTTPS が必要です。",
+      "redirectUrisDescription": "認証完了後のコールバック先です。最大10件。localhost・ループバックの開発用URLを除き HTTPS が必要です。",
       "postLogoutRedirectUris": "ログアウト後のRedirect URI",
-      "postLogoutRedirectUrisDescription": "任意。1行に1件、最大10件。サインアウト後は完全一致するURIにのみ戻れます。",
+      "postLogoutRedirectUrisDescription": "任意。最大10件。サインアウト後は完全一致するURIにのみ戻れます。",
       "scopes": "許可するscope",
       "scopesDescription": "openid は常に必須です。アプリが要求できる追加情報と機能を選択してください。"
     },
@@ -136,6 +186,12 @@
       "title": "サーバーサイドWebアプリ",
       "description": "Authorization Code、PKCE S256、client_secret_basic が必須です。Client Secret をブラウザやモバイルアプリのコードに含めないでください。"
     },
+    "form": {
+      "required": "必須",
+      "optional": "任意",
+      "addUri": "URI を追加",
+      "removeUri": "URI {{index}} を削除"
+    },
     "secret": {
       "title": "Client Secret を今すぐ保存してください",
       "description": "Client Secret が表示されるのは今回だけです。このページを離れる前に安全な場所へ保存してください。",
@@ -146,18 +202,18 @@
       "rotateTitle": "Client Secret をローテーションしますか？",
       "rotateDescription": "現在のSecretはただちに使えなくなります。再度サインインする前に、新しいSecretをアプリへ設定してください。",
       "rotateConfirm": "Secretをローテーション",
-      "enableTitle": "このアプリを再開しますか？",
+      "enableTitle": "このクライアントを再開しますか？",
       "enableDescription": "ユーザーは再度サインインできるようになります。停止中に失効したtokenは復元されません。",
-      "enableConfirm": "アプリを再開",
-      "disableTitle": "このアプリを停止しますか？",
+      "enableConfirm": "クライアントを再開",
+      "disableTitle": "このクライアントを停止しますか？",
       "disableDescription": "サインインを停止し、既存のaccess tokenとrefresh tokenをただちに失効させます。",
-      "disableConfirm": "アプリを停止",
-      "deleteTitle": "このアプリを完全に削除しますか？",
+      "disableConfirm": "クライアントを停止",
+      "deleteTitle": "このクライアントを完全に削除しますか？",
       "deleteDescription": "すべての認証情報とtokenが失効します。この操作は取り消せません。",
-      "deleteConfirm": "アプリを削除"
+      "deleteConfirm": "クライアントを削除"
     },
     "errors": {
-      "title": "アプリを保存できませんでした",
+      "title": "クライアントを保存できませんでした",
       "create": "アプリケーション情報とRedirect URIを確認して、もう一度お試しください。",
       "update": "操作を完了できませんでした。設定を確認して、もう一度お試しください。"
     }
@@ -190,13 +246,29 @@
     "search": {
       "placeholder": "チャプター名またはスラッグで検索",
       "ariaLabel": "チャプターを検索",
-      "noMatches": "検索条件に一致するチャプターがありません。"
+      "noMatches": "検索条件に一致するチャプターがありません。",
+      "noMatchesDescription": "名前、スラッグ、または所属状況の絞り込みを変更してください。"
+    },
+    "filters": {
+      "ariaLabel": "チャプターを絞り込む",
+      "all": "すべて",
+      "joinable": "参加可能",
+      "mine": "所属中",
+      "pending": "承認待ち"
+    },
+    "state": {
+      "joinableDescription": "参加をリクエストすると、オーガナイザーが確認します。",
+      "pendingDescription": "参加リクエストはオーガナイザーの承認待ちです。",
+      "memberDescription": "このチャプターのアクティブメンバーです。",
+      "organizerDescription": "このチャプターを運営し、メンバーを管理できます。"
     }
   },
   "adminRequests": {
     "title": "参加リクエスト",
     "subtitle": "すべてのチャプターの保留中の参加リクエスト一覧。",
     "empty": "保留中のリクエストはありません。",
+    "noMatches": "検索条件に一致するリクエストはありません。",
+    "searchPlaceholder": "申請者またはチャプターで検索",
     "tableRequester": "リクエスト元",
     "tableChapter": "チャプター",
     "tableRequested": "リクエスト日時",
@@ -208,6 +280,64 @@
       "approved": "リクエストを承認しました",
       "rejected": "リクエストを却下しました"
     }
+  },
+  "adminUsers": {
+    "title": "ユーザー管理",
+    "subtitle": "GDG Japan Accounts のユーザー、権限、ログインセッションを管理します。",
+    "searchPlaceholder": "名前またはメールアドレスで検索",
+    "search": "検索",
+    "clear": "クリア",
+    "empty": "条件に一致するユーザーはいません。",
+    "resultCount": "{{count}} 名のユーザー",
+    "table": {
+      "user": "ユーザー",
+      "memberships": "チャプター",
+      "sessions": "セッション",
+      "created": "登録日",
+      "role": "権限",
+      "actions": "操作"
+    },
+    "activeMemberships": "有効 {{active}} / 全 {{total}}",
+    "adminBadge": "管理者",
+    "userBadge": "ユーザー",
+    "promote": "管理者にする",
+    "demote": "管理者から外す",
+    "revoke": "全セッションを失効",
+    "previous": "前へ",
+    "next": "次へ",
+    "page": "{{page}} / {{pages}} ページ",
+    "dialog": {
+      "cancel": "キャンセル",
+      "promoteTitle": "{{name}} を管理者にしますか？",
+      "promoteDescription": "チャプター、参加リクエスト、ユーザーを含むすべての管理機能へアクセスできるようになります。",
+      "demoteTitle": "{{name}} を管理者から外しますか？",
+      "demoteDescription": "通常ユーザーに戻り、管理機能へアクセスできなくなります。",
+      "revokeTitle": "{{name}} の全セッションを失効しますか？",
+      "revokeDescription": "Accounts と連携アプリからサインアウトされます。再利用するにはサインインが必要です。"
+    },
+    "toast": {
+      "promoted": "管理者権限を付与しました",
+      "demoted": "管理者権限を解除しました",
+      "revoked": "すべてのセッションを失効しました"
+    },
+    "errors": {
+      "lastAdmin": "最後の管理者は権限を解除できません。",
+      "selfRevoke": "この画面から自分自身のセッションは失効できません。アカウントメニューからサインアウトしてください。",
+      "selfAdmin": "自分自身の管理者権限は変更できません。別の管理者に依頼してください。",
+      "notFound": "ユーザーが見つかりません。",
+      "unknown": "操作を完了できませんでした。"
+    }
+  },
+  "adminSeed": {
+    "title": "信頼済み OAuth クライアント",
+    "description": "組み込みアプリを現在の Worker 設定と同期します。",
+    "noticeTitle": "管理者向け操作",
+    "noticeDescription": "設定済みの tinyurl、wiki、img、scheduler クライアントを D1 に反映します。繰り返し実行しても安全です。",
+    "submit": "クライアントを同期",
+    "pending": "同期中…",
+    "result": "{{at}} の実行結果",
+    "written": "反映: {{value}}",
+    "skipped": "スキップ: {{value}}"
   },
   "onboarding": {
     "title": "チャプターを選ぶ",
@@ -222,8 +352,10 @@
   },
   "admin": {
     "title": "チャプター管理",
+    "subtitle": "チャプターの作成と、メンバー・オーガナイザーの管理を行います。",
     "create": {
       "cardTitle": "チャプターを作成",
+      "description": "Accounts の一覧に GDG または GDGoC チャプターを追加します。",
       "slugLabel": "Slug",
       "slugPlaceholder": "gdg-tokyo",
       "nameLabel": "名前",
@@ -242,6 +374,8 @@
       "actions": "操作",
       "empty": "チャプターはまだありません。",
       "organize": "運営",
+      "delete": "削除",
+      "memberSummary": "有効 {{active}} 名・承認待ち {{pending}} 名",
       "deleteAria": "{{name}} を削除",
       "dialogTitle": "{{name}} を削除しますか？",
       "dialogDesc": "メンバーはメンバーシップを失います。この操作は取り消せません。",
@@ -251,8 +385,12 @@
   },
   "organize": {
     "title": "{{chapter}} を運営",
+    "back": "チャプターに戻る",
+    "subtitle": "まず参加リクエストを確認し、その後メンバーと役割を管理します。",
     "pending": "保留中のリクエスト ({{count}})",
+    "pendingDescription": "チャプターに所属する方を承認し、参加を見送るリクエストは却下します。",
     "members": "メンバー ({{count}})",
+    "membersDescription": "オーガナイザーは参加リクエストの確認と、このチャプターのメンバー管理を行えます。",
     "noPending": "保留中のリクエストはありません。",
     "noMembers": "メンバーはまだいません。",
     "approve": "承認",
@@ -263,7 +401,24 @@
     "errorTitle": "操作を実行できませんでした",
     "memberBadge": "メンバー",
     "organizerBadge": "オーガナイザー",
-    "manageAria": "{{name}} を管理"
+    "currentUser": "あなたのアカウント",
+    "manageAria": "{{name}} を管理",
+    "search": {
+      "placeholder": "名前またはメールアドレスでメンバーを検索",
+      "ariaLabel": "メンバーを検索",
+      "noMatches": "検索条件に一致するメンバーはいません。"
+    },
+    "dialog": {
+      "cancel": "キャンセル",
+      "promoteTitle": "{{name}} をオーガナイザーにしますか？",
+      "promoteDescription": "オーガナイザーは参加リクエストの確認と、他のメンバーの管理を行えます。",
+      "demoteTitle": "{{name}} をメンバーに降格しますか？",
+      "demoteDescription": "参加リクエストの確認と、このチャプターの管理はできなくなります。",
+      "removeTitle": "{{name}} をこのチャプターから削除しますか？",
+      "removeDescription": "ただちにアクティブな所属状態が失われます。後から再度参加をリクエストできます。",
+      "rejectTitle": "{{name}} のリクエストを却下しますか？",
+      "rejectDescription": "承認待ちのリクエストを削除します。後からもう一度リクエストできます。"
+    }
   },
   "kind": {
     "gdg": "GDG",
@@ -273,8 +428,30 @@
     "signin": {
       "title": "サインイン",
       "subtitle": "Google アカウントで続行します。",
+      "welcome": "GDG Japan のチャプターと開発者ツールを、ひとつのアカウントで。",
+      "secure": "次の画面で Google アカウントを選択します。",
       "continueWithGoogle": "Google で続行",
       "continueWithGooglePending": "サインイン中…"
+    },
+    "consent": {
+      "eyebrow": "GDG Japan Accounts",
+      "title": "{{appName}} を認可しますか？",
+      "unknownApp": "このアプリケーション",
+      "description": "続行する前に、このアプリケーションが求めるアクセス権を確認してください。",
+      "website": "アプリケーションのウェブサイト",
+      "permissions": "リクエストされた権限",
+      "noPermissions": "基本的なアカウントアクセス",
+      "allow": "許可して続行",
+      "deny": "キャンセル",
+      "privacy": "信頼できるアプリケーションだけを許可してください。アクセス権を取り消す場合は、アプリケーションの提供者へお問い合わせください。",
+      "scope": {
+        "openid": "本人確認を行う",
+        "email": "メールアドレスを表示する",
+        "profile": "名前とプロフィール画像を表示する",
+        "offline_access": "離席中もアクセスを継続する",
+        "chapters": "アクティブな所属チャプターとロールを表示する",
+        "unknown": "追加のアカウントアクセスをリクエストする"
+      }
     },
     "userMenuAria": "アカウントメニュー",
     "signOut": "サインアウト"
