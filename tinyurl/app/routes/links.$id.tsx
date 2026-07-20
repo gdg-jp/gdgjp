@@ -64,10 +64,12 @@ import {
   addComment,
   addPermission,
   archiveLink,
+  canEditFolder,
   createTag,
   deleteComment,
   getLinkById,
   getUsersByIds,
+  listAllAccessibleFolders,
   listComments,
   listPermissionsForLink,
   listTagsForChapter,
@@ -111,17 +113,24 @@ export async function loader(args: Route.LoaderArgs) {
   const clicks = clicksByLinkId(env, [link.id])
     .then((clickMap) => clickMap.get(link.id) ?? 0)
     .catch(() => 0);
-  const [tags, userTags, chapterTags, comments, users, domains] = await Promise.all([
-    listTagsForLink(env.DB, link.id),
-    listTagsForUser(env.DB, user.id),
-    listTagsForChapter(env.DB, chapter.chapterId),
-    listComments(env.DB, link.id),
-    getUsersByIds(env.DB, [link.ownerUserId]),
-    listDomainsForChapters(
-      env.DB,
-      chapters.map((item) => item.chapterId),
-    ),
-  ]);
+  const [tags, userTags, chapterTags, comments, users, domains, availableFolders] =
+    await Promise.all([
+      listTagsForLink(env.DB, link.id),
+      listTagsForUser(env.DB, user.id),
+      listTagsForChapter(env.DB, chapter.chapterId),
+      listComments(env.DB, link.id),
+      getUsersByIds(env.DB, [link.ownerUserId]),
+      listDomainsForChapters(
+        env.DB,
+        chapters.map((item) => item.chapterId),
+      ),
+      listAllAccessibleFolders(env.DB, {
+        userId: user.id,
+        email: user.email,
+        chapterIds: chapters.map((item) => item.chapterId),
+        isSuperAdmin: isSuperAdmin(user),
+      }),
+    ]);
   const latestComment = comments.length > 0 ? comments[comments.length - 1] : null;
   const chapterNameById: Record<string, string> = {};
   for (const c of chapters) chapterNameById[String(c.chapterId)] = c.chapterSlug;
@@ -131,6 +140,7 @@ export async function loader(args: Route.LoaderArgs) {
     permissions,
     tags,
     availableTags: [...userTags, ...chapterTags],
+    availableFolders,
     comment: latestComment?.body ?? "",
     users,
     editable,
@@ -246,6 +256,27 @@ export async function action(args: Route.ActionArgs) {
         return { error: "Visibility must be private or public." };
       }
       update.visibility = v;
+    }
+    if (form.has("folderId")) {
+      const rawFolderId = String(form.get("folderId") ?? "").trim();
+      if (!rawFolderId) {
+        update.folderId = null;
+      } else {
+        const folderId = Number(rawFolderId);
+        if (
+          !Number.isInteger(folderId) ||
+          folderId <= 0 ||
+          !(await canEditFolder(env.DB, folderId, {
+            userId: user.id,
+            email: user.email,
+            chapterIds: chapters.map((item) => item.chapterId),
+            isSuperAdmin: isSuperAdmin(user),
+          }))
+        ) {
+          return { error: "Folder is not available." };
+        }
+        update.folderId = folderId;
+      }
     }
 
     try {
@@ -496,6 +527,7 @@ type Draft = {
   description: string;
   ogImageUrl: string;
   visibility: LinkVisibility;
+  folderId: number | null;
   tagIds: number[];
   newTagNames: string[];
   comment: string;
@@ -510,6 +542,7 @@ function buildInitial(loaderData: Route.ComponentProps["loaderData"]): Draft {
     description: loaderData.link.description ?? "",
     ogImageUrl: loaderData.link.ogImageUrl ?? "",
     visibility: loaderData.link.visibility,
+    folderId: loaderData.link.folderId,
     tagIds: loaderData.tags.map((t) => t.id),
     newTagNames: [],
     comment: loaderData.comment,
@@ -525,6 +558,7 @@ function draftEqual(a: Draft, b: Draft): boolean {
     a.description !== b.description ||
     a.ogImageUrl !== b.ogImageUrl ||
     a.visibility !== b.visibility ||
+    a.folderId !== b.folderId ||
     a.comment !== b.comment ||
     a.tagIds.length !== b.tagIds.length ||
     a.newTagNames.length !== b.newTagNames.length
@@ -543,6 +577,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
   const {
     link,
     availableTags,
+    availableFolders,
     permissions,
     users,
     editable,
@@ -729,6 +764,7 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
           <input type="hidden" name="ogImageUrl" value={draft.ogImageUrl} />
           <input type="hidden" name="comment" value={draft.comment} />
           <input type="hidden" name="visibility" value={draft.visibility} />
+          <input type="hidden" name="folderId" value={draft.folderId ?? ""} />
           {draft.tagIds.map((tagId) => (
             <input key={`tag-${tagId}`} type="hidden" name="tagId" value={tagId} />
           ))}
@@ -840,6 +876,39 @@ export default function EditLink({ loaderData, actionData }: Route.ComponentProp
                 }
                 disabled={!editable}
               />
+            </div>
+
+            {/* Folder */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <FieldLabel htmlFor="folder">Folder</FieldLabel>
+                <Link
+                  to="/folders"
+                  prefetch="intent"
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Manage
+                </Link>
+              </div>
+              <Select
+                value={draft.folderId === null ? "none" : String(draft.folderId)}
+                onValueChange={(value) =>
+                  setField("folderId", value === "none" ? null : Number(value))
+                }
+                disabled={!editable}
+              >
+                <SelectTrigger id="folder" size="sm" className="max-w-full min-w-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No folder</SelectItem>
+                  {availableFolders.map((folder) => (
+                    <SelectItem key={folder.id} value={String(folder.id)}>
+                      {folder.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Comment (single) */}

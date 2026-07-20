@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Folder,
   FolderTree,
   Globe2,
   LinkIcon,
@@ -46,7 +47,10 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     heading: "Library",
-    items: [{ to: "/tags", label: "Tags", icon: TagIcon }],
+    items: [
+      { to: "/folders", label: "Folders", icon: Folder },
+      { to: "/tags", label: "Tags", icon: TagIcon },
+    ],
   },
 ];
 
@@ -129,6 +133,7 @@ const MOBILE_NAV_ITEMS: NavItem[] = [
 
 const MOBILE_MORE_ITEMS: NavItem[] = [
   { to: "/domains", label: "Domains", icon: Globe2 },
+  { to: "/folders", label: "Folders", icon: Folder },
   { to: "/tags", label: "Tags", icon: TagIcon },
 ];
 

@@ -14,6 +14,7 @@ export type Link = {
   ownerUserId: string;
   ownerChapterId: number | null;
   campaignChannelId: number | null;
+  folderId: number | null;
   visibility: LinkVisibility;
   createdAt: number;
   updatedAt: number;
@@ -33,6 +34,7 @@ type LinkRow = {
   owner_user_id: string;
   owner_chapter_id: number | null;
   campaign_channel_id: number | null;
+  folder_id: number | null;
   visibility: LinkVisibility;
   created_at: number;
   updated_at: number;
@@ -53,6 +55,7 @@ export function toLink(row: LinkRow): Link {
     ownerUserId: row.owner_user_id,
     ownerChapterId: row.owner_chapter_id,
     campaignChannelId: row.campaign_channel_id,
+    folderId: row.folder_id ?? null,
     visibility: row.visibility,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -73,6 +76,7 @@ function linkColumns(tableRef: "links" | "l" = "links"): string {
     "owner_user_id",
     "owner_chapter_id",
     "campaign_channel_id",
+    "folder_id",
     "visibility",
     "created_at",
     "updated_at",
@@ -152,6 +156,7 @@ export type CreateLinkInput = {
   ownerUserId: string;
   ownerChapterId?: number | null;
   campaignChannelId?: number | null;
+  folderId?: number | null;
   visibility?: LinkVisibility;
 };
 
@@ -165,8 +170,8 @@ export async function createLink(
   try {
     const row = await db
       .prepare(
-        `INSERT INTO links (id, domain_id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, campaign_channel_id, visibility)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO links (id, domain_id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, campaign_channel_id, folder_id, visibility)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          RETURNING ${LINK_COLS}`,
       )
       .bind(
@@ -180,6 +185,7 @@ export async function createLink(
         input.ownerUserId,
         ownerChapterId,
         input.campaignChannelId ?? null,
+        input.folderId ?? null,
         input.visibility ?? "private",
       )
       .first<LinkRow>();
@@ -200,6 +206,7 @@ export type UpdateLinkInput = {
   description?: string | null;
   ogImageUrl?: string | null;
   campaignChannelId?: number | null;
+  folderId?: number | null;
   visibility?: LinkVisibility;
   ownerChapterId?: number | null;
 };
@@ -238,6 +245,10 @@ export async function updateLink(
   if (input.campaignChannelId !== undefined) {
     sets.push("campaign_channel_id = ?");
     values.push(input.campaignChannelId);
+  }
+  if (input.folderId !== undefined) {
+    sets.push("folder_id = ?");
+    values.push(input.folderId);
   }
   if (input.visibility !== undefined) {
     sets.push("visibility = ?");
@@ -1114,6 +1125,503 @@ function isUniqueConstraintError(error: unknown): boolean {
   return message.includes("UNIQUE") || message.includes("unique constraint");
 }
 
+// ---------- Folders ----------
+
+export type Folder = {
+  id: number;
+  name: string;
+  ownerUserId: string;
+  parentFolderId: number | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+type FolderRow = {
+  id: number;
+  name: string;
+  owner_user_id: string;
+  parent_folder_id: number | null;
+  created_at: number;
+  updated_at: number;
+};
+
+const FOLDER_COLS = "id, name, owner_user_id, parent_folder_id, created_at, updated_at";
+
+function toFolder(row: FolderRow): Folder {
+  return {
+    id: row.id,
+    name: row.name,
+    ownerUserId: row.owner_user_id,
+    parentFolderId: row.parent_folder_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export type LinkRole = "editor" | "viewer";
+export type PrincipalType = "user" | "chapter";
+
+export type FolderViewer = {
+  userId: string;
+  email: string;
+  chapterIds: number[];
+  isSuperAdmin?: boolean;
+};
+
+export type FolderWithCounts = Folder & {
+  linkCount: number;
+  childFolderCount: number;
+};
+
+export type FolderPermission = {
+  id: number;
+  folderId: number;
+  principalType: PrincipalType;
+  principalId: string;
+  role: LinkRole;
+  createdAt: number;
+};
+
+type FolderPermissionRow = {
+  id: number;
+  folder_id: number;
+  principal_type: PrincipalType;
+  principal_id: string;
+  role: LinkRole;
+  created_at: number;
+};
+
+const FOLDER_PERMISSION_COLS = "id, folder_id, principal_type, principal_id, role, created_at";
+const FOLDER_ACCESS_SQL = `(
+  f.owner_user_id = ?
+  OR EXISTS (
+    SELECT 1 FROM folder_permissions fp
+    WHERE fp.folder_id = f.id AND (
+      (fp.principal_type = 'user' AND fp.principal_id = ?)
+      OR (fp.principal_type = 'chapter' AND fp.principal_id IN (SELECT value FROM json_each(?)))
+    )
+  )
+)`;
+const PARENT_FOLDER_ACCESS_SQL = `(
+  parent.owner_user_id = ?
+  OR EXISTS (
+    SELECT 1 FROM folder_permissions parent_permission
+    WHERE parent_permission.folder_id = parent.id AND (
+      (parent_permission.principal_type = 'user' AND parent_permission.principal_id = ?)
+      OR (parent_permission.principal_type = 'chapter' AND parent_permission.principal_id IN (SELECT value FROM json_each(?)))
+    )
+  )
+)`;
+const CHILD_FOLDER_ACCESS_SQL = `(
+  child.owner_user_id = ?
+  OR EXISTS (
+    SELECT 1 FROM folder_permissions child_permission
+    WHERE child_permission.folder_id = child.id AND (
+      (child_permission.principal_type = 'user' AND child_permission.principal_id = ?)
+      OR (child_permission.principal_type = 'chapter' AND child_permission.principal_id IN (SELECT value FROM json_each(?)))
+    )
+  )
+)`;
+const LINK_ACCESS_SQL = `(
+  l.owner_user_id = ?
+  OR l.owner_chapter_id IN (SELECT value FROM json_each(?))
+  OR l.visibility = 'public'
+  OR EXISTS (
+    SELECT 1 FROM link_permissions lp
+    WHERE lp.link_id = l.id AND (
+      (lp.principal_type = 'user' AND lp.principal_id = ?)
+      OR (lp.principal_type = 'chapter' AND lp.principal_id IN (SELECT value FROM json_each(?)))
+    )
+  )
+)`;
+
+function folderAccessBindings(viewer: FolderViewer): [string, string, string] {
+  return [viewer.userId, viewer.email, JSON.stringify(viewer.chapterIds.map(String))];
+}
+
+function linkAccessBindings(viewer: FolderViewer): [string, string, string, string] {
+  const chapterIds = JSON.stringify(viewer.chapterIds.map(String));
+  return [viewer.userId, chapterIds, viewer.email, chapterIds];
+}
+
+function toFolderPermission(row: FolderPermissionRow): FolderPermission {
+  return {
+    id: row.id,
+    folderId: row.folder_id,
+    principalType: row.principal_type,
+    principalId: row.principal_id,
+    role: row.role,
+    createdAt: row.created_at,
+  };
+}
+
+export async function getFolderById(db: D1Database, id: number): Promise<Folder | null> {
+  const row = await db
+    .prepare(`SELECT ${FOLDER_COLS} FROM folders WHERE id = ?`)
+    .bind(id)
+    .first<FolderRow>();
+  return row ? toFolder(row) : null;
+}
+
+export async function getAccessibleFolder(
+  db: D1Database,
+  id: number,
+  viewer: FolderViewer,
+): Promise<Folder | null> {
+  if (viewer.isSuperAdmin) return getFolderById(db, id);
+  const row = await db
+    .prepare(`SELECT ${FOLDER_COLS} FROM folders f WHERE f.id = ? AND ${FOLDER_ACCESS_SQL}`)
+    .bind(id, ...folderAccessBindings(viewer))
+    .first<FolderRow>();
+  return row ? toFolder(row) : null;
+}
+
+export async function getFolderAccessRole(
+  db: D1Database,
+  id: number,
+  viewer: FolderViewer,
+): Promise<LinkRole | null> {
+  if (viewer.isSuperAdmin) return (await getFolderById(db, id)) ? "editor" : null;
+  const row = await db
+    .prepare(
+      `SELECT CASE
+        WHEN f.owner_user_id = ? THEN 'editor'
+        WHEN EXISTS (
+          SELECT 1 FROM folder_permissions fp
+          WHERE fp.folder_id = f.id AND fp.role = 'editor' AND (
+            (fp.principal_type = 'user' AND fp.principal_id = ?)
+            OR (fp.principal_type = 'chapter' AND fp.principal_id IN (SELECT value FROM json_each(?)))
+          )
+        ) THEN 'editor'
+        WHEN EXISTS (
+          SELECT 1 FROM folder_permissions fp
+          WHERE fp.folder_id = f.id AND (
+            (fp.principal_type = 'user' AND fp.principal_id = ?)
+            OR (fp.principal_type = 'chapter' AND fp.principal_id IN (SELECT value FROM json_each(?)))
+          )
+        ) THEN 'viewer'
+        ELSE NULL
+      END AS role
+      FROM folders f WHERE f.id = ?`,
+    )
+    .bind(
+      viewer.userId,
+      viewer.email,
+      JSON.stringify(viewer.chapterIds.map(String)),
+      viewer.email,
+      JSON.stringify(viewer.chapterIds.map(String)),
+      id,
+    )
+    .first<{ role: LinkRole | null }>();
+  return row?.role ?? null;
+}
+
+export async function canViewFolder(
+  db: D1Database,
+  id: number,
+  viewer: FolderViewer,
+): Promise<boolean> {
+  return (await getFolderAccessRole(db, id, viewer)) !== null;
+}
+
+export async function canEditFolder(
+  db: D1Database,
+  id: number,
+  viewer: FolderViewer,
+): Promise<boolean> {
+  return (await getFolderAccessRole(db, id, viewer)) === "editor";
+}
+
+export const canUserEditFolder = canEditFolder;
+
+async function listAccessibleFoldersWithCounts(
+  db: D1Database,
+  viewer: FolderViewer,
+  parentFolderId: number | null | undefined,
+): Promise<FolderWithCounts[]> {
+  const isSuperAdmin = viewer.isSuperAdmin === true;
+  const parentCondition =
+    parentFolderId === undefined
+      ? ""
+      : parentFolderId === null
+        ? isSuperAdmin
+          ? " AND f.parent_folder_id IS NULL"
+          : ` AND (
+            f.parent_folder_id IS NULL
+            OR NOT EXISTS (
+              SELECT 1 FROM folders parent
+              WHERE parent.id = f.parent_folder_id AND ${PARENT_FOLDER_ACCESS_SQL}
+            )
+          )`
+        : " AND f.parent_folder_id = ?";
+  const folderCols = FOLDER_COLS.split(", ")
+    .map((column) => `f.${column}`)
+    .join(", ");
+  const linkCountAccess = isSuperAdmin ? "" : ` AND ${LINK_ACCESS_SQL}`;
+  const childFolderCountAccess = isSuperAdmin ? "" : ` AND ${CHILD_FOLDER_ACCESS_SQL}`;
+  const folderAccess = isSuperAdmin ? "1 = 1" : FOLDER_ACCESS_SQL;
+  const { results } = await db
+    .prepare(
+      `SELECT ${folderCols},
+        (SELECT COUNT(*) FROM links l
+          WHERE l.folder_id = f.id AND l.archived_at IS NULL AND l.deleted_at IS NULL
+            ${linkCountAccess}) AS link_count,
+        (SELECT COUNT(*) FROM folders child
+          WHERE child.parent_folder_id = f.id${childFolderCountAccess}) AS child_folder_count
+       FROM folders f
+       WHERE ${folderAccess}${parentCondition}
+       ORDER BY f.name, f.id`,
+    )
+    .bind(
+      ...(isSuperAdmin ? [] : linkAccessBindings(viewer)),
+      ...(isSuperAdmin ? [] : folderAccessBindings(viewer)),
+      ...(isSuperAdmin ? [] : folderAccessBindings(viewer)),
+      ...(parentFolderId === null && !isSuperAdmin ? folderAccessBindings(viewer) : []),
+      ...(parentFolderId === null || parentFolderId === undefined ? [] : [parentFolderId]),
+    )
+    .all<FolderRow & { link_count: number; child_folder_count: number }>();
+  return results.map((row) => ({
+    ...toFolder(row),
+    linkCount: row.link_count,
+    childFolderCount: row.child_folder_count,
+  }));
+}
+
+export async function listAccessibleRootFoldersWithCounts(
+  db: D1Database,
+  viewer: FolderViewer,
+): Promise<FolderWithCounts[]> {
+  return listAccessibleFoldersWithCounts(db, viewer, null);
+}
+
+export async function listAccessibleChildFoldersWithCounts(
+  db: D1Database,
+  parentFolderId: number,
+  viewer: FolderViewer,
+): Promise<FolderWithCounts[]> {
+  return listAccessibleFoldersWithCounts(db, viewer, parentFolderId);
+}
+
+export async function listAllAccessibleFolders(
+  db: D1Database,
+  viewer: FolderViewer,
+): Promise<Folder[]> {
+  if (viewer.isSuperAdmin) {
+    const { results } = await db
+      .prepare(`SELECT ${FOLDER_COLS} FROM folders ORDER BY name, id`)
+      .all<FolderRow>();
+    return results.map(toFolder);
+  }
+  const { results } = await db
+    .prepare(
+      `SELECT ${FOLDER_COLS} FROM folders f WHERE ${FOLDER_ACCESS_SQL} ORDER BY f.name, f.id`,
+    )
+    .bind(...folderAccessBindings(viewer))
+    .all<FolderRow>();
+  return results.map(toFolder);
+}
+
+export async function listLinksInFolderAccessible(
+  db: D1Database,
+  input: FolderViewer & { folderId: number; includeArchived?: boolean },
+): Promise<Link[]> {
+  const linkAccess = input.isSuperAdmin ? "1 = 1" : LINK_ACCESS_SQL;
+  const { results } = await db
+    .prepare(
+      `SELECT ${linkColumns("l")} FROM links l
+       WHERE l.folder_id = ? AND l.deleted_at IS NULL AND (? = 1 OR l.archived_at IS NULL)
+         AND ${linkAccess}
+       ORDER BY l.created_at DESC`,
+    )
+    .bind(
+      input.folderId,
+      input.includeArchived ? 1 : 0,
+      ...(input.isSuperAdmin ? [] : linkAccessBindings(input)),
+    )
+    .all<LinkRow>();
+  return results.map(toLink);
+}
+
+export type CreateFolderInput = {
+  name: string;
+  actor: FolderViewer;
+  parentFolderId?: number | null;
+};
+
+export type FolderMutationResult =
+  | { ok: true; folder: Folder }
+  | { ok: false; reason: "duplicate" | "forbidden" | "not_found" };
+
+export async function createFolder(
+  db: D1Database,
+  input: CreateFolderInput,
+): Promise<FolderMutationResult> {
+  let ownerUserId = input.actor.userId;
+  const parentFolderId = input.parentFolderId ?? null;
+  if (parentFolderId !== null) {
+    const parent = await getFolderById(db, parentFolderId);
+    if (!parent) return { ok: false, reason: "not_found" };
+    if (!(await canEditFolder(db, parentFolderId, input.actor))) {
+      return { ok: false, reason: "forbidden" };
+    }
+    ownerUserId = parent.ownerUserId;
+  }
+  try {
+    const row = await db
+      .prepare(
+        `INSERT INTO folders (name, owner_user_id, parent_folder_id)
+         VALUES (?, ?, ?) RETURNING ${FOLDER_COLS}`,
+      )
+      .bind(input.name, ownerUserId, parentFolderId)
+      .first<FolderRow>();
+    if (!row) throw new Error("Insert returned no row");
+    if (parentFolderId !== null) await copyFolderPermissions(db, parentFolderId, row.id);
+    return { ok: true, folder: toFolder(row) };
+  } catch (error) {
+    if (isUniqueConstraintError(error)) return { ok: false, reason: "duplicate" };
+    throw error;
+  }
+}
+
+export async function updateFolder(
+  db: D1Database,
+  input: { id: number; name: string; actor: FolderViewer },
+): Promise<FolderMutationResult> {
+  if (!(await canEditFolder(db, input.id, input.actor))) return { ok: false, reason: "forbidden" };
+  try {
+    const row = await db
+      .prepare(
+        `UPDATE folders SET name = ?, updated_at = unixepoch()
+         WHERE id = ? RETURNING ${FOLDER_COLS}`,
+      )
+      .bind(input.name, input.id)
+      .first<FolderRow>();
+    return row ? { ok: true, folder: toFolder(row) } : { ok: false, reason: "not_found" };
+  } catch (error) {
+    if (isUniqueConstraintError(error)) return { ok: false, reason: "duplicate" };
+    throw error;
+  }
+}
+
+export async function deleteFolder(
+  db: D1Database,
+  input: { id: number; actor: FolderViewer },
+): Promise<boolean> {
+  if (!(await canEditFolder(db, input.id, input.actor))) return false;
+  const result = await db.prepare("DELETE FROM folders WHERE id = ?").bind(input.id).run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
+export async function listFolderPermissions(
+  db: D1Database,
+  folderId: number,
+): Promise<FolderPermission[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT ${FOLDER_PERMISSION_COLS} FROM folder_permissions
+       WHERE folder_id = ? ORDER BY created_at, id`,
+    )
+    .bind(folderId)
+    .all<FolderPermissionRow>();
+  return results.map(toFolderPermission);
+}
+
+export type FolderPermissionMutationResult =
+  | { ok: true; permission: FolderPermission }
+  | { ok: false; reason: "duplicate" | "forbidden" | "not_found" };
+
+export async function addFolderPermission(
+  db: D1Database,
+  input: FolderViewer & {
+    folderId: number;
+    principalType: PrincipalType;
+    principalId: string;
+    role: LinkRole;
+  },
+): Promise<FolderPermissionMutationResult> {
+  if (!(await canEditFolder(db, input.folderId, input))) return { ok: false, reason: "forbidden" };
+  try {
+    const row = await db
+      .prepare(
+        `INSERT INTO folder_permissions (folder_id, principal_type, principal_id, role)
+         VALUES (?, ?, ?, ?) RETURNING ${FOLDER_PERMISSION_COLS}`,
+      )
+      .bind(input.folderId, input.principalType, input.principalId, input.role)
+      .first<FolderPermissionRow>();
+    if (!row) throw new Error("Insert returned no row");
+    return { ok: true, permission: toFolderPermission(row) };
+  } catch (error) {
+    if (isUniqueConstraintError(error)) return { ok: false, reason: "duplicate" };
+    throw error;
+  }
+}
+
+export async function removeFolderPermission(
+  db: D1Database,
+  input: FolderViewer & { folderId: number; id: number },
+): Promise<boolean> {
+  if (!(await canEditFolder(db, input.folderId, input))) return false;
+  const result = await db
+    .prepare("DELETE FROM folder_permissions WHERE id = ? AND folder_id = ?")
+    .bind(input.id, input.folderId)
+    .run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
+export async function updateFolderPermissionRole(
+  db: D1Database,
+  input: FolderViewer & { folderId: number; id: number; role: LinkRole },
+): Promise<boolean> {
+  if (!(await canEditFolder(db, input.folderId, input))) return false;
+  const result = await db
+    .prepare("UPDATE folder_permissions SET role = ? WHERE id = ? AND folder_id = ?")
+    .bind(input.role, input.id, input.folderId)
+    .run();
+  return (result.meta.changes ?? 0) > 0;
+}
+
+export async function copyFolderPermissions(
+  db: D1Database,
+  sourceFolderId: number,
+  destinationFolderId: number,
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO folder_permissions (folder_id, principal_type, principal_id, role)
+       SELECT ?, principal_type, principal_id, role FROM folder_permissions WHERE folder_id = ?
+       ON CONFLICT(folder_id, principal_type, principal_id) DO NOTHING`,
+    )
+    .bind(destinationFolderId, sourceFolderId)
+    .run();
+}
+
+export async function copyFolderPermissionsToLink(
+  db: D1Database,
+  folderId: number,
+  linkId: string,
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO link_permissions (link_id, principal_type, principal_id, role)
+       SELECT ?, principal_type, principal_id, role FROM folder_permissions WHERE folder_id = ?
+       ON CONFLICT(link_id, principal_type, principal_id) DO NOTHING`,
+    )
+    .bind(linkId, folderId)
+    .run();
+}
+
+// Compatibility for existing callers while they move to FolderViewer-based access checks.
+export async function isFolderAvailableForLinkOwner(
+  db: D1Database,
+  input: { id: number; ownerUserId: string; ownerChapterId: number | null },
+): Promise<boolean> {
+  const row = await db
+    .prepare("SELECT id FROM folders WHERE id = ? AND owner_user_id = ?")
+    .bind(input.id, input.ownerUserId)
+    .first<{ id: number }>();
+  return row !== null;
+}
+
 // ---------- Tags ----------
 
 export type Tag = {
@@ -1413,9 +1921,6 @@ export async function deleteComment(db: D1Database, id: number): Promise<void> {
 }
 
 // ---------- Permissions ----------
-
-export type LinkRole = "editor" | "viewer";
-export type PrincipalType = "user" | "chapter";
 
 export type LinkPermission = {
   id: number;

@@ -103,6 +103,7 @@ export function CreateLinkDialog({
   campaignChannelOptions = [],
   chapters = [],
   defaultCampaignChannelId,
+  defaultFolderId,
   domainOptions,
   shortUrlBase,
   trigger,
@@ -111,6 +112,8 @@ export function CreateLinkDialog({
   campaignChannelOptions?: CampaignChannelOption[];
   chapters?: UserChapter[];
   defaultCampaignChannelId?: number;
+  /** The destination folder for links created from a folder detail page. */
+  defaultFolderId?: number;
   domainOptions?: LinkDomainOption[];
   shortUrlBase: string;
   trigger: ReactNode;
@@ -126,6 +129,7 @@ export function CreateLinkDialog({
             campaignChannelOptions={campaignChannelOptions}
             chapters={chapters}
             defaultCampaignChannelId={defaultCampaignChannelId}
+            defaultFolderId={defaultFolderId}
             domainOptions={domainOptions}
             shortUrlBase={shortUrlBase}
           />
@@ -140,6 +144,7 @@ function CreateLinkForm({
   campaignChannelOptions,
   chapters,
   defaultCampaignChannelId,
+  defaultFolderId,
   shortUrlBase,
   domainOptions = [{ id: 1, hostname: shortHostOf(shortUrlBase) }],
 }: {
@@ -147,6 +152,7 @@ function CreateLinkForm({
   campaignChannelOptions: CampaignChannelOption[];
   chapters: UserChapter[];
   defaultCampaignChannelId?: number;
+  defaultFolderId?: number;
   domainOptions?: LinkDomainOption[];
   shortUrlBase: string;
 }) {
@@ -179,9 +185,6 @@ function CreateLinkForm({
   );
   const [shareRole, setShareRole] = useState<"viewer" | "editor">("viewer");
   const [pendingShares, setPendingShares] = useState<PendingShare[]>([]);
-  const [campaignChannelId, setCampaignChannelId] = useState(
-    defaultCampaignChannelId === undefined ? "standalone" : String(defaultCampaignChannelId),
-  );
 
   const lastOgpRef = useRef<unknown>(null);
   const prefetchedDefaultDestinationUrlRef = useRef<string | null>(null);
@@ -310,46 +313,11 @@ function CreateLinkForm({
 
       <div className="grid min-h-0 min-w-0 flex-1 gap-6 overflow-y-auto p-4 sm:p-5 md:grid-cols-3 md:p-6">
         <div className="min-w-0 space-y-5 md:col-span-2">
-          {campaignChannelOptions.length > 0 ? (
-            <div className="space-y-2">
-              <input
-                type="hidden"
-                name="campaignChannelId"
-                value={campaignChannelId === "standalone" ? "" : campaignChannelId}
-              />
-              <Select
-                value={campaignChannelId}
-                onValueChange={(value) => {
-                  setCampaignChannelId(value);
-                  if (value === "standalone") return;
-                  const option = campaignChannelOptions.find(
-                    (candidate) => String(candidate.id) === value,
-                  );
-                  const nextDefaults = campaignLinkDefaults(option);
-                  setDestinationUrl(nextDefaults.destinationUrl);
-                  setSlug(nextDefaults.slug);
-                  setTitle("");
-                  setDescription("");
-                  setOgImageUrl("");
-                  fetchOgpNow(nextDefaults.destinationUrl);
-                }}
-              >
-                <SelectTrigger id="create-campaign-channel" size="sm" className="w-full min-w-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="standalone">Standalone link</SelectItem>
-                  {campaignChannelOptions.map((option) => (
-                    <SelectItem key={option.id} value={String(option.id)}>
-                      {option.campaignName} / {option.channelName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Campaign links are jointly owned by your chapter.
-              </p>
-            </div>
+          {defaultCampaignChannelId !== undefined ? (
+            <input type="hidden" name="campaignChannelId" value={defaultCampaignChannelId} />
+          ) : null}
+          {defaultFolderId !== undefined ? (
+            <input type="hidden" name="folderId" value={defaultFolderId} />
           ) : null}
 
           <div className="space-y-2">
