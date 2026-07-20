@@ -11,9 +11,9 @@ import { Link, redirect, useFetcher, useLoaderData } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
 import * as schema from "~/db/schema";
 import { useThemeMode } from "~/hooks/useThemeMode";
-import { requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
-import { canUserSeePageAsync } from "~/lib/page-visibility.server";
+import { getEffectivePagePermissions } from "~/lib/page-access.server";
 import { tiptapToMarkdown } from "~/lib/tiptap-convert";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
@@ -50,6 +50,7 @@ type VersionFullRaw = VersionRaw & {
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const sessionUser = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
   const page = await db
@@ -60,6 +61,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       slug: schema.pages.slug,
       status: schema.pages.status,
       visibility: schema.pages.visibility,
+      generalRole: schema.pages.generalRole,
       chapterId: schema.pages.chapterId,
       authorId: schema.pages.authorId,
       contentJa: schema.pages.contentJa,
@@ -73,7 +75,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     throw new Response("Not Found", { status: 404 });
   }
 
-  if (!(await canUserSeePageAsync(db, sessionUser, page))) {
+  const permissions = await getEffectivePagePermissions(db, page, sessionUser, identity.chapterIds);
+  if (!permissions.canView) {
     throw new Response("Not Found", { status: 404 });
   }
 
@@ -137,7 +140,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     }
   }
 
-  const canRevert = sessionUser.isAdmin || page.authorId === sessionUser.id;
+  const canRevert = permissions.canEdit;
 
   return {
     page: {
@@ -157,6 +160,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
 
   const formData = await request.formData();
   const intent = formData.get("intent");
@@ -177,6 +181,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       titleJa: schema.pages.titleJa,
       titleEn: schema.pages.titleEn,
       status: schema.pages.status,
+      visibility: schema.pages.visibility,
+      generalRole: schema.pages.generalRole,
     })
     .from(schema.pages)
     .where(eq(schema.pages.slug, params.slug ?? ""))
@@ -184,8 +190,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   if (!page || page.status !== "published") throw new Response("Not Found", { status: 404 });
 
-  const isAdmin = user.isAdmin;
-  if (!user.isAdmin && page.authorId !== user.id) {
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  if (!permissions.canEdit) {
     throw new Response("Forbidden", { status: 403 });
   }
 

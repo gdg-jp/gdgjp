@@ -157,14 +157,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
         );
       }
 
-      // Auto-insert author as owner in page_access
-      statements.push(
-        env.DB.prepare(
-          `INSERT OR IGNORE INTO page_access (id, page_id, email, user_id, page_role, granted_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, 'owner', ?, unixepoch(), unixepoch())`,
-        ).bind(nanoid(), pageId, user.email, user.id, user.id),
-      );
-
       translationPageIds.push(pageId);
     } else if (op.type === "update" && op.pageId) {
       pageIds.push(op.pageId);

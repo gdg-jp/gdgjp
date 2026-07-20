@@ -112,7 +112,10 @@ export const pages = sqliteTable("pages", {
   pageMetadata: text("page_metadata"),
   ingestionSessionId: text("ingestion_session_id").references(() => ingestionSessions.id),
   actionabilityScore: integer("actionability_score"),
-  visibility: text("visibility").notNull().default("public"),
+  // "restricted" | "unlisted" | "public"
+  visibility: text("visibility").notNull().default("restricted"),
+  // Used only for unlisted/public pages. Restricted pages have no general role.
+  generalRole: text("general_role").notNull().default("viewer"),
   chapterId: text("chapter_id").references(() => chapters.id, { onDelete: "set null" }),
   authorId: text("author_id").notNull(),
   lastEditedBy: text("last_edited_by").notNull(),
@@ -360,17 +363,20 @@ export const pageViews = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
-// page_access (per-page fine-grained access control)
+// page_access (per-page share subjects)
 // ---------------------------------------------------------------------------
 export const pageAccess = sqliteTable("page_access", {
   id: text("id").primaryKey(),
   pageId: text("page_id")
     .notNull()
     .references(() => pages.id, { onDelete: "cascade" }),
-  email: text("email").notNull(),
+  // "email" | "chapter". subjectKey is a normalized email or an accounts chapter ID.
+  subjectType: text("subject_type").notNull(),
+  subjectKey: text("subject_key").notNull(),
+  subjectLabel: text("subject_label").notNull(),
   userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
-  // "owner" | "editor" | "viewer"
-  pageRole: text("page_role").notNull().default("viewer"),
+  // "viewer" | "commenter" | "editor". Owners are implicit page authors.
+  role: text("role").notNull().default("viewer"),
   grantedBy: text("granted_by")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),

@@ -1,77 +1,145 @@
-import { Check, Copy, Link, Loader2, Minus, UserPlus, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  Copy,
+  Globe2,
+  Link2,
+  Loader2,
+  LockKeyhole,
+  Send,
+  Trash2,
+  UserRound,
+  UsersRound,
+  X,
+} from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
-import type { PageAccessEntry, PageRole } from "~/lib/page-access.server";
+
+type PageRole = "viewer" | "commenter" | "editor";
+type GeneralAccess = "restricted" | "unlisted" | "public";
+type SubjectType = "email" | "chapter";
+
+interface ShareSubject {
+  type: SubjectType;
+  key: string;
+  label: string;
+  secondary: string;
+  image?: string | null;
+}
+
+interface PageAccessEntry {
+  id: string;
+  subjectType?: SubjectType;
+  subjectKey?: string;
+  subjectLabel?: string;
+  role?: PageRole;
+  userName?: string | null;
+  userImage?: string | null;
+  email?: string;
+  pageRole?: PageRole;
+}
+
+interface AccessData {
+  accessList: PageAccessEntry[];
+  owner?: { label?: string; name?: string; email?: string; image?: string | null } | null;
+  myRole?: "owner" | PageRole | null;
+  canManageSharing?: boolean;
+  permissions?: { canManageSharing?: boolean };
+  generalAccess?: GeneralAccess;
+  generalRole?: PageRole;
+  visibility?: GeneralAccess;
+}
+
+interface CandidateData {
+  candidates: Array<
+    Partial<ShareSubject> & {
+      subjectType?: SubjectType;
+      subjectKey?: string;
+      subjectLabel?: string;
+      secondaryText?: string;
+    }
+  >;
+}
 
 interface ShareDialogProps {
   open: boolean;
   onClose: () => void;
   pageId: string;
   pageTitle: string;
-  currentVisibility: string;
-  canManageAccess: boolean;
-  canChangeVisibility: boolean;
+  /** Kept optional while callers move to the new page-access response. */
+  currentVisibility?: string;
+  canManageAccess?: boolean;
+  canChangeVisibility?: boolean;
 }
 
-interface AccessData {
-  accessList: PageAccessEntry[];
-  myRole: PageRole | null;
-  canChangeVisibility: boolean;
-  visibility: string;
+const ROLES: PageRole[] = ["viewer", "commenter", "editor"];
+const listboxRole = "listbox";
+const optionRole = "option";
+const GENERAL_ACCESS: { value: GeneralAccess; icon: typeof LockKeyhole; label: string }[] = [
+  { value: "restricted", icon: LockKeyhole, label: "share_access_restricted" },
+  { value: "unlisted", icon: Link2, label: "share_access_unlisted" },
+  { value: "public", icon: Globe2, label: "share_access_public" },
+];
+
+function initial(value: string) {
+  return value.trim().charAt(0).toLocaleUpperCase() || "?";
 }
 
-interface SearchUser {
-  id: string;
-  name: string;
-  email: string;
-  image: string | null;
+function isEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-interface SearchData {
-  users: SearchUser[];
-}
-
-interface PendingUser {
-  email: string;
-  userId?: string;
-  name?: string;
-  image?: string;
-}
-
-const ROLE_OPTIONS: PageRole[] = ["owner", "editor", "viewer"];
-
-const VISIBILITY_OPTIONS = [
-  { value: "restricted", labelKey: "wiki.visibility_restricted" },
-  { value: "public", labelKey: "wiki.visibility_public" },
-  { value: "private_to_chapter", labelKey: "wiki.visibility_chapter" },
-  { value: "private_to_lead", labelKey: "wiki.visibility_lead" },
-] as const;
-
-function initials(nameOrEmail: string) {
-  return nameOrEmail.charAt(0).toUpperCase();
-}
-
-function Avatar({
-  image,
-  name,
-  size = 8,
-}: {
-  image?: string | null;
-  name: string;
-  size?: number;
-}) {
-  const cls = `h-${size} w-${size} rounded-full`;
-  if (image) {
-    return <img src={image} alt={name} className={`${cls} object-cover`} />;
+function Avatar({ subject, size = "h-10 w-10" }: { subject: ShareSubject; size?: string }) {
+  if (subject.image) {
+    return (
+      <img src={subject.image} alt="" className={`${size} shrink-0 rounded-full object-cover`} />
+    );
   }
+  const ChapterIcon = subject.type === "chapter" ? UsersRound : UserRound;
   return (
     <span
-      className={`flex ${cls} shrink-0 items-center justify-center bg-gray-200 text-xs font-medium text-gray-600`}
+      aria-hidden="true"
+      className={`flex ${size} shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700`}
     >
-      {initials(name)}
+      {subject.type === "chapter" ? <ChapterIcon size={18} /> : initial(subject.label)}
     </span>
   );
+}
+
+function AccessIcon({ value }: { value: GeneralAccess }) {
+  const Icon = GENERAL_ACCESS.find((option) => option.value === value)?.icon ?? LockKeyhole;
+  return <Icon size={20} aria-hidden="true" />;
+}
+
+function normalizeEntry(entry: PageAccessEntry): ShareSubject & { id: string; role: PageRole } {
+  const type = entry.subjectType ?? "email";
+  const secondary =
+    type === "chapter" ? (entry.subjectKey ?? "") : (entry.email ?? entry.subjectKey ?? "");
+  return {
+    id: entry.id,
+    type,
+    key: entry.subjectKey ?? secondary,
+    label: entry.subjectLabel ?? entry.userName ?? entry.email ?? secondary,
+    secondary,
+    image: entry.userImage,
+    role: entry.role ?? entry.pageRole ?? "viewer",
+  };
+}
+
+function normalizeCandidate(candidate: CandidateData["candidates"][number]): ShareSubject | null {
+  const type = candidate.type ?? candidate.subjectType;
+  const key = candidate.key ?? candidate.subjectKey;
+  const label = candidate.label ?? candidate.subjectLabel;
+  if ((type !== "email" && type !== "chapter") || !key || !label) return null;
+  return {
+    type,
+    key,
+    label,
+    secondary: candidate.secondary ?? candidate.secondaryText ?? key,
+    image: candidate.image,
+  };
 }
 
 export default function ShareDialog({
@@ -79,486 +147,677 @@ export default function ShareDialog({
   onClose,
   pageId,
   pageTitle,
-  currentVisibility,
-  canManageAccess,
-  canChangeVisibility,
+  currentVisibility = "restricted",
+  canManageAccess = false,
+  canChangeVisibility = false,
 }: ShareDialogProps) {
   const { t } = useTranslation("common");
-  const dataFetcher = useFetcher<AccessData>();
-  const mutateFetcher = useFetcher();
-  const searchFetcher = useFetcher<SearchData>();
-
-  // Add-people state
-  const [query, setQuery] = useState("");
-  const [pendingUser, setPendingUser] = useState<PendingUser | null>(null);
-  const [addRole, setAddRole] = useState<PageRole>("viewer");
-  const [showDropdown, setShowDropdown] = useState(false);
-
-  const [copied, setCopied] = useState(false);
-  const [localVisibility, setLocalVisibility] = useState(currentVisibility);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const accessFetcher = useFetcher<AccessData>();
+  const candidatesFetcher = useFetcher<CandidateData>();
+  const mutationFetcher = useFetcher<{
+    ok?: boolean;
+    error?: string;
+    warning?: string;
+    notificationFailures?: number;
+  }>();
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchAreaRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const processedMutation = useRef<unknown>(undefined);
+  const listboxId = useId();
 
-  // Load access list when dialog opens
-  // biome-ignore lint/correctness/useExhaustiveDependencies: dataFetcher.load is stable
-  useEffect(() => {
-    if (!open) return;
-    setLocalVisibility(currentVisibility);
-    if (canManageAccess) {
-      dataFetcher.load(`/api/page-access/${pageId}`);
+  const [screen, setScreen] = useState<"overview" | "grant">("overview");
+  const [query, setQuery] = useState("");
+  const [isListOpen, setIsListOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [selected, setSelected] = useState<ShareSubject[]>([]);
+  const [grantRole, setGrantRole] = useState<PageRole>("viewer");
+  const [notify, setNotify] = useState(true);
+  const [message, setMessage] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [localAccess, setLocalAccess] = useState<GeneralAccess>(currentVisibility as GeneralAccess);
+  const [localGeneralRole, setLocalGeneralRole] = useState<PageRole>("viewer");
+
+  const responseCanManage =
+    accessFetcher.data?.canManageSharing ?? accessFetcher.data?.permissions?.canManageSharing;
+  const canManage = responseCanManage ?? canManageAccess;
+  const accessList = useMemo(
+    () => (accessFetcher.data?.accessList ?? []).map(normalizeEntry),
+    [accessFetcher.data?.accessList],
+  );
+  const grantedKeys = useMemo(
+    () => new Set(accessList.map((item) => `${item.type}:${item.key}`)),
+    [accessList],
+  );
+  const candidateRows = useMemo(() => {
+    const candidates = (candidatesFetcher.data?.candidates ?? []).flatMap((candidate) => {
+      const normalized = normalizeCandidate(candidate);
+      return normalized ? [normalized] : [];
+    });
+    const normalizedQuery = query.trim().toLowerCase();
+    const rows = candidates.filter(
+      (candidate) =>
+        !grantedKeys.has(`${candidate.type}:${candidate.key}`) &&
+        !selected.some((item) => item.type === candidate.type && item.key === candidate.key),
+    );
+    if (
+      isEmail(query) &&
+      !rows.some(
+        (candidate) =>
+          candidate.type === "email" && candidate.key.toLowerCase() === normalizedQuery,
+      )
+    ) {
+      rows.unshift({
+        type: "email",
+        key: query.trim().toLowerCase(),
+        label: query.trim(),
+        secondary: t("wiki.share_unregistered"),
+      });
     }
-  }, [open, pageId, currentVisibility, canManageAccess]);
+    return rows;
+  }, [candidatesFetcher.data?.candidates, grantedKeys, query, selected, t]);
 
-  // Update local visibility when data loads
-  useEffect(() => {
-    if (dataFetcher.data) {
-      setLocalVisibility(dataFetcher.data.visibility);
-    }
-  }, [dataFetcher.data]);
+  const isMutating = mutationFetcher.state !== "idle";
+  const isLoading = accessFetcher.state !== "idle" && !accessFetcher.data;
 
-  // Reload after mutations
-  // biome-ignore lint/correctness/useExhaustiveDependencies: dataFetcher.load and t are stable
+  // Keep the last focused control while the closed dialog remains mounted.
+  // React may move focus to <body> between the trigger click and this dialog's
+  // open effect, so capturing only after `open` changes is too late.
   useEffect(() => {
-    if (mutateFetcher.state === "idle" && mutateFetcher.data) {
-      const d = mutateFetcher.data as { ok?: boolean; error?: string };
-      if (d.error) {
-        setErrorMsg(t(`wiki.share_error_${d.error}`, { defaultValue: d.error }));
-      } else {
-        setErrorMsg(null);
-        setPendingUser(null);
-        setQuery("");
-        if (canManageAccess) {
-          dataFetcher.load(`/api/page-access/${pageId}`);
-        }
-      }
-    }
-  }, [mutateFetcher.state, mutateFetcher.data, pageId, canManageAccess]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    if (open) return;
+    const rememberFocus = (event: FocusEvent) => {
+      if (event.target instanceof HTMLElement) triggerRef.current = event.target;
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [open, onClose]);
+    if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
+      triggerRef.current = document.activeElement;
+    }
+    document.addEventListener("focusin", rememberFocus);
+    return () => document.removeEventListener("focusin", rememberFocus);
+  }, [open]);
 
-  // Debounced search
-  // biome-ignore lint/correctness/useExhaustiveDependencies: searchFetcher.load is stable
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetcher functions are stable
   useEffect(() => {
-    if (pendingUser || !query) {
-      setShowDropdown(false);
+    if (!open) return;
+    if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
+      triggerRef.current = document.activeElement;
+    }
+    setScreen("overview");
+    setQuery("");
+    setSelected([]);
+    setError(null);
+    setWarning(null);
+    setLocalAccess(currentVisibility as GeneralAccess);
+    accessFetcher.load(`/api/page-access/${pageId}`);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+    return () => triggerRef.current?.focus();
+  }, [open, pageId]);
+
+  useEffect(() => {
+    if (!accessFetcher.data) return;
+    setLocalAccess(
+      accessFetcher.data.generalAccess ?? accessFetcher.data.visibility ?? "restricted",
+    );
+    setLocalGeneralRole(accessFetcher.data.generalRole ?? "viewer");
+  }, [accessFetcher.data]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetcher functions are stable
+  useEffect(() => {
+    if (!open || !isListOpen) return;
+    const timer = window.setTimeout(() => {
+      candidatesFetcher.load(
+        `/api/share-candidates?pageId=${encodeURIComponent(pageId)}&q=${encodeURIComponent(query)}`,
+      );
+    }, 160);
+    return () => window.clearTimeout(timer);
+  }, [open, isListOpen, query]);
+
+  useEffect(() => {
+    if (!open || !isListOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!searchAreaRef.current?.contains(event.target as Node)) {
+        setIsListOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [open, isListOpen]);
+
+  useEffect(() => {
+    setActiveIndex((index) => Math.min(Math.max(index, 0), Math.max(candidateRows.length - 1, 0)));
+  }, [candidateRows.length]);
+
+  // Refresh authoritative state only once a mutation completes. Local selection is retained for
+  // role/access edits and reset only after a successful batch grant.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetcher functions are stable
+  useEffect(() => {
+    if (mutationFetcher.state !== "idle" || !mutationFetcher.data) return;
+    if (processedMutation.current === mutationFetcher.data) return;
+    processedMutation.current = mutationFetcher.data;
+    if (mutationFetcher.data.error) {
+      setError(t("wiki.share_error_generic", { defaultValue: mutationFetcher.data.error }));
       return;
     }
-    const timer = setTimeout(() => {
-      searchFetcher.load(`/api/users/search?q=${encodeURIComponent(query)}`);
-      setShowDropdown(true);
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [query, pendingUser]);
+    setError(null);
+    setWarning(
+      mutationFetcher.data.warning ??
+        ("notificationFailures" in mutationFetcher.data && mutationFetcher.data.notificationFailures
+          ? t("wiki.share_notification_warning")
+          : null),
+    );
+    accessFetcher.load(`/api/page-access/${pageId}`);
+    if (screen === "grant") {
+      setSelected([]);
+      setQuery("");
+      setMessage("");
+      setScreen("overview");
+    }
+  }, [mutationFetcher.state, mutationFetcher.data, pageId, screen, t]);
 
-  // Click-outside to close dropdown
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  function close() {
+    if (isMutating) return;
+    const returnTarget = triggerRef.current;
+    onClose();
+    window.requestAnimationFrame(() => returnTarget?.focus());
+  }
+
+  function chooseCandidate(subject: ShareSubject) {
+    setSelected((items) => [...items, subject]);
+    setQuery("");
+    setIsListOpen(false);
+    setActiveIndex(0);
+    setScreen("grant");
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function removeSelection(subject: ShareSubject) {
+    setSelected((items) =>
+      items.filter((item) => item.type !== subject.type || item.key !== subject.key),
+    );
+  }
+
+  function submitMutation(body: Record<string, unknown>) {
+    setError(null);
+    setWarning(null);
+    mutationFetcher.submit(JSON.stringify(body), {
+      method: "post",
+      action: `/api/page-access/${pageId}`,
+      encType: "application/json",
+    });
+  }
+
+  function grantSelected() {
+    if (!selected.length) return;
+    submitMutation({
+      intent: "batchGrant",
+      subjects: selected.map(({ type, key, label }) => ({ type, key, label })),
+      targets: selected.map(({ type, key, label }) => ({ type, key, label })),
+      role: grantRole,
+      notify,
+      message,
+      pageTitle,
+      pageUrl: window.location.href,
+    });
+  }
+
+  function updateRole(accessId: string, role: PageRole) {
+    submitMutation({ intent: "update", accessId, role });
+  }
+
+  function removeAccess(accessId: string) {
+    submitMutation({ intent: "remove", accessId });
+  }
+
+  function setGeneralAccess(generalAccess: GeneralAccess, generalRole = localGeneralRole) {
+    setLocalAccess(generalAccess);
+    setLocalGeneralRole(generalRole);
+    submitMutation({
+      intent: "setGeneralAccess",
+      generalAccess,
+      visibility: generalAccess,
+      generalRole,
+    });
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setError(t("wiki.share_copy_failed"));
+    }
+  }
+
+  function handleInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setIsListOpen(true);
+      setActiveIndex((index) => Math.min(index + 1, Math.max(candidateRows.length - 1, 0)));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setIsListOpen(true);
+      setActiveIndex((index) => Math.max(index - 1, 0));
+    } else if (event.key === "Home" && isListOpen) {
+      event.preventDefault();
+      setActiveIndex(0);
+    } else if (event.key === "End" && isListOpen) {
+      event.preventDefault();
+      setActiveIndex(Math.max(candidateRows.length - 1, 0));
+    } else if (event.key === "Enter" && isListOpen && candidateRows[activeIndex]) {
+      event.preventDefault();
+      chooseCandidate(candidateRows[activeIndex]);
+    }
+  }
+
+  function handleDialogKeyDown(event: React.KeyboardEvent<HTMLDialogElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      if (isListOpen) setIsListOpen(false);
+      else if (screen === "grant") setScreen("overview");
+      else close();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+      "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
+    );
+    if (!focusable?.length) return;
+    const targets = Array.from(focusable);
+    const first = targets[0];
+    const last = targets[targets.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
   if (!open) return null;
 
-  const accessList = dataFetcher.data?.accessList ?? [];
-  const myRole = dataFetcher.data?.myRole ?? null;
-  const effectiveCanChangeVisibility = dataFetcher.data?.canChangeVisibility ?? canChangeVisibility;
-  const isLoading = dataFetcher.state !== "idle";
-
-  function canGrantRole(targetRole: PageRole): boolean {
-    if (!canManageAccess) return false;
-    if (myRole === "owner") return true;
-    if (myRole === "editor") return targetRole !== "owner";
-    return false;
-  }
-
-  const grantableRoles = ROLE_OPTIONS.filter((r) => canGrantRole(r));
-
-  function handleAdd(email: string, role: PageRole) {
-    setErrorMsg(null);
-    mutateFetcher.submit(JSON.stringify({ intent: "add", email, pageRole: role }), {
-      method: "post",
-      action: `/api/page-access/${pageId}`,
-      encType: "application/json",
-    });
-  }
-
-  function handleUpdateRole(accessId: string, pageRole: PageRole) {
-    mutateFetcher.submit(JSON.stringify({ intent: "update", accessId, pageRole }), {
-      method: "post",
-      action: `/api/page-access/${pageId}`,
-      encType: "application/json",
-    });
-  }
-
-  function handleRemove(accessId: string) {
-    setErrorMsg(null);
-    mutateFetcher.submit(JSON.stringify({ intent: "remove", accessId }), {
-      method: "post",
-      action: `/api/page-access/${pageId}`,
-      encType: "application/json",
-    });
-  }
-
-  function handleVisibilityChange(visibility: string) {
-    setLocalVisibility(visibility);
-    mutateFetcher.submit(JSON.stringify({ intent: "setVisibility", visibility }), {
-      method: "post",
-      action: `/api/page-access/${pageId}`,
-      encType: "application/json",
-    });
-  }
-
-  function handleCopyLink() {
-    navigator.clipboard.writeText(window.location.href).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }
-
-  function clearPending() {
-    setPendingUser(null);
-    setQuery("");
-    setShowDropdown(false);
-    setTimeout(() => inputRef.current?.focus(), 0);
-  }
-
-  function pickCandidate(user: SearchUser) {
-    setPendingUser({
-      email: user.email,
-      userId: user.id,
-      name: user.name,
-      image: user.image ?? undefined,
-    });
-    setQuery("");
-    setShowDropdown(false);
-  }
-
-  function pickUnregistered(email: string) {
-    setPendingUser({ email });
-    setQuery("");
-    setShowDropdown(false);
-  }
-
-  const searchResults: SearchUser[] = searchFetcher.data?.users ?? [];
-  const isValidEmail = query.includes("@");
-  const emailInResults = searchResults.some((u) => u.email.toLowerCase() === query.toLowerCase());
-  const showUnregisteredRow = isValidEmail && !emailInResults;
-
-  const dropdownVisible = showDropdown && query.length > 0;
+  const owner = accessFetcher.data?.owner;
+  const ownerSubject: ShareSubject | null = owner
+    ? {
+        type: "email",
+        key: owner.email ?? owner.label ?? "owner",
+        label: owner.name ?? owner.label ?? owner.email ?? t("wiki.share_role_owner"),
+        secondary: owner.email ?? "",
+        image: owner.image,
+      }
+    : null;
+  const activeOptionId =
+    isListOpen && candidateRows[activeIndex] ? `${listboxId}-${activeIndex}` : undefined;
 
   return (
-    /* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop handled; Escape via window keydown */
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 sm:p-6"
+      onMouseDown={(event) => event.target === event.currentTarget && close()}
     >
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: stop propagation */}
       <dialog
+        ref={dialogRef}
         open
-        onClick={(e) => e.stopPropagation()}
-        className="relative m-4 w-full max-w-lg rounded-xl bg-white p-0 shadow-xl"
         aria-modal="true"
         aria-labelledby="share-dialog-title"
+        onKeyDown={handleDialogKeyDown}
+        className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-xl bg-white text-gray-900 shadow-xl sm:max-h-[calc(100dvh-3rem)]"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <h2 id="share-dialog-title" className="text-base font-semibold text-gray-900">
+        <header className="flex items-center gap-2 px-5 pb-3 pt-5 sm:px-6">
+          {screen === "grant" && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsListOpen(false);
+                setScreen("overview");
+              }}
+              className="-ml-2 rounded-full p-2 hover:bg-gray-100"
+              aria-label={t("wiki.share_back")}
+            >
+              <ChevronLeft size={26} />
+            </button>
+          )}
+          <h2 id="share-dialog-title" className="min-w-0 flex-1 truncate text-xl font-normal">
             {t("wiki.share_dialog_title", { title: pageTitle })}
           </h2>
           <button
             type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            onClick={close}
+            disabled={isMutating}
+            className="rounded-full p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
             aria-label={t("close")}
           >
-            <X size={18} />
+            <X size={24} />
           </button>
-        </div>
+        </header>
 
-        <div className="space-y-5 px-5 py-4">
-          {/* Add people */}
-          {canManageAccess && (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {t("wiki.share_add_people")}
-              </p>
-
-              {pendingUser ? (
-                /* Chip + role + action buttons */
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    {/* Chip */}
-                    <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-2 py-1.5">
-                      <Avatar
-                        image={pendingUser.image}
-                        name={pendingUser.name ?? pendingUser.email}
-                        size={6}
-                      />
-                      <span className="min-w-0 flex-1 truncate text-sm text-gray-800">
-                        {pendingUser.name ?? pendingUser.email}
-                      </span>
-                      {pendingUser.name && (
-                        <span className="shrink-0 truncate text-xs text-gray-400">
-                          {pendingUser.email}
-                        </span>
-                      )}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 sm:px-6">
+          {canManage ? (
+            <div ref={searchAreaRef} className="relative">
+              <div
+                className={`flex min-h-11 flex-wrap items-center gap-1.5 rounded-md border px-2 py-1 transition ${isListOpen ? "border-blue-600 ring-1 ring-blue-600" : "border-gray-300"}`}
+              >
+                {selected.map((subject) => (
+                  <span
+                    key={`${subject.type}:${subject.key}`}
+                    className="flex max-w-full items-center gap-1.5 rounded-full border border-gray-300 bg-gray-50 py-0.5 pl-0.5 pr-2 text-sm text-gray-700"
+                  >
+                    <Avatar subject={subject} size="h-8 w-8" />
+                    <span className="max-w-48 truncate">{subject.label}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeSelection(subject)}
+                      className="rounded-full p-0.5 hover:bg-gray-200"
+                      aria-label={t("wiki.share_remove_subject", { name: subject.label })}
+                    >
+                      <X size={18} />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  ref={inputRef}
+                  value={query}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setIsListOpen(true);
+                    setActiveIndex(0);
+                  }}
+                  onFocus={() => setIsListOpen(true)}
+                  onKeyDown={handleInputKeyDown}
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={isListOpen}
+                  aria-controls={listboxId}
+                  aria-activedescendant={activeOptionId}
+                  placeholder={
+                    selected.length ? t("wiki.share_add_more") : t("wiki.share_search_placeholder")
+                  }
+                  className="min-w-44 flex-1 border-0 bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-gray-500"
+                />
+              </div>
+              {isListOpen && (
+                <div
+                  id={listboxId}
+                  role={listboxRole}
+                  tabIndex={-1}
+                  aria-label={t("wiki.share_search_placeholder")}
+                  className="absolute left-0 right-0 z-10 max-h-64 overflow-y-auto rounded-b-md border border-t-0 border-gray-200 bg-[#edf3fe] py-1 shadow-lg"
+                >
+                  {candidatesFetcher.state !== "idle" && candidateRows.length === 0 ? (
+                    <p className="flex items-center gap-2 px-5 py-4 text-sm text-gray-600">
+                      <Loader2 className="animate-spin" size={16} />
+                      {t("wiki.share_loading_candidates")}
+                    </p>
+                  ) : candidateRows.length ? (
+                    candidateRows.map((subject, index) => (
                       <button
+                        id={`${listboxId}-${index}`}
+                        key={`${subject.type}:${subject.key}`}
                         type="button"
-                        onClick={clearPending}
-                        className="ml-1 shrink-0 rounded p-0.5 text-gray-400 hover:bg-blue-100 hover:text-gray-600"
-                        aria-label={t("wiki.share_chip_remove_aria")}
+                        role={optionRole}
+                        aria-selected={activeIndex === index}
+                        onMouseEnter={() => setActiveIndex(index)}
+                        onClick={() => chooseCandidate(subject)}
+                        className={`flex w-full items-center gap-3 px-4 py-2 text-left ${activeIndex === index ? "bg-blue-100" : "hover:bg-blue-50"}`}
                       >
-                        <X size={13} />
-                      </button>
-                    </div>
-                    {/* Role dropdown */}
-                    <select
-                      value={addRole}
-                      onChange={(e) => setAddRole(e.target.value as PageRole)}
-                      className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-700"
-                    >
-                      {grantableRoles.map((r) => (
-                        <option key={r} value={r}>
-                          {t(`wiki.share_role_${r}`)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={clearPending}
-                      className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-                    >
-                      {t("cancel")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAdd(pendingUser.email, addRole)}
-                      disabled={mutateFetcher.state !== "idle"}
-                      className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      <UserPlus size={14} />
-                      {t("wiki.share_add_button")}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* Search input + dropdown */
-                <div ref={dropdownRef} className="relative">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        if (searchResults.length === 1) {
-                          pickCandidate(searchResults[0]);
-                        } else if (searchResults.length === 0 && showUnregisteredRow) {
-                          pickUnregistered(query);
-                        }
-                      } else if (e.key === "Escape") {
-                        setShowDropdown(false);
-                      }
-                    }}
-                    placeholder={t("wiki.share_search_placeholder")}
-                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-
-                  {dropdownVisible && (
-                    <div className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg">
-                      {searchResults.map((u) => (
-                        /* biome-ignore lint/a11y/useKeyWithClickEvents: mouse-driven dropdown */
-                        <div
-                          key={u.id}
-                          onClick={() => pickCandidate(u)}
-                          className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50"
-                        >
-                          <Avatar image={u.image} name={u.name} size={8} />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-gray-800">{u.name}</p>
-                            <p className="truncate text-xs text-gray-400">{u.email}</p>
-                          </div>
-                        </div>
-                      ))}
-                      {showUnregisteredRow && (
-                        /* biome-ignore lint/a11y/useKeyWithClickEvents: mouse-driven dropdown */
-                        <div
-                          onClick={() => pickUnregistered(query)}
-                          className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50"
-                        >
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-500">
-                            ?
+                        <Avatar subject={subject} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm">{subject.label}</span>
+                          <span className="block truncate text-sm text-gray-600">
+                            {subject.secondary}
                           </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm text-gray-800">{query}</p>
-                            <p className="text-xs text-gray-400">{t("wiki.share_unregistered")}</p>
-                          </div>
-                        </div>
-                      )}
-                      {searchResults.length === 0 && !showUnregisteredRow && (
-                        <div className="px-3 py-2 text-sm text-gray-400">
-                          {searchFetcher.state !== "idle" ? (
-                            <Loader2 size={14} className="inline animate-spin" />
-                          ) : (
-                            t("wiki.share_no_access")
-                          )}
-                        </div>
-                      )}
-                    </div>
+                        </span>
+                        {subject.type === "chapter" && (
+                          <UsersRound
+                            className="text-gray-500"
+                            size={18}
+                            aria-label={t("wiki.share_chapter")}
+                          />
+                        )}
+                      </button>
+                    ))
+                  ) : (
+                    <p className="px-5 py-4 text-sm text-gray-600">
+                      {t("wiki.share_no_candidates")}
+                    </p>
                   )}
                 </div>
               )}
-
-              {errorMsg && <p className="mt-1.5 text-xs text-red-600">{errorMsg}</p>}
             </div>
-          )}
+          ) : null}
 
-          {/* People with access */}
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-              {t("wiki.share_people_with_access")}
-            </p>
-            {isLoading && accessList.length === 0 ? (
-              <div className="flex justify-center py-4">
-                <Loader2 size={18} className="animate-spin text-gray-400" />
+          {screen === "grant" ? (
+            <section className="pt-5" aria-label={t("wiki.share_add_people")}>
+              <div className="grid gap-4 sm:grid-cols-[1fr_144px] sm:items-start">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={notify}
+                    onChange={(event) => setNotify(event.target.checked)}
+                    className="h-5 w-5 accent-[#1a73e8]"
+                  />
+                  {t("wiki.share_notify")}
+                </label>
+                <label className="sr-only" htmlFor="grant-role">
+                  {t("wiki.share_role")}
+                </label>
+                <select
+                  id="grant-role"
+                  value={grantRole}
+                  onChange={(event) => setGrantRole(event.target.value as PageRole)}
+                  className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm"
+                >
+                  {ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      {t(`wiki.share_role_${role}`)}
+                    </option>
+                  ))}
+                </select>
               </div>
-            ) : accessList.length === 0 ? (
-              <p className="text-sm text-gray-400">{t("wiki.share_no_access")}</p>
-            ) : (
-              <ul className="space-y-2">
-                {accessList.map((entry) => (
-                  <li key={entry.id} className="flex items-center gap-3">
-                    {/* Avatar */}
-                    {entry.userImage ? (
-                      <img
-                        src={entry.userImage}
-                        alt={entry.userName ?? entry.email}
-                        className="h-8 w-8 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
-                        {(entry.userName ?? entry.email).charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                    {/* Info */}
-                    <div className="min-w-0 flex-1">
-                      {entry.userName ? (
-                        <>
-                          <p className="truncate text-sm font-medium text-gray-800">
-                            {entry.userName}
-                          </p>
-                          <p className="truncate text-xs text-gray-400">{entry.email}</p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="truncate text-sm text-gray-800">{entry.email}</p>
-                          <p className="text-xs text-gray-400">{t("wiki.share_pending")}</p>
-                        </>
-                      )}
-                    </div>
-                    {/* Role dropdown */}
-                    {canManageAccess && canGrantRole(entry.pageRole as PageRole) ? (
-                      <select
-                        value={entry.pageRole}
-                        onChange={(e) => handleUpdateRole(entry.id, e.target.value as PageRole)}
-                        className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700"
-                      >
-                        {ROLE_OPTIONS.filter((r) => canGrantRole(r)).map((r) => (
-                          <option key={r} value={r}>
-                            {t(`wiki.share_role_${r}`)}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-xs text-gray-500">
-                        {t(`wiki.share_role_${entry.pageRole}`)}
-                      </span>
-                    )}
-                    {/* Remove */}
-                    {canManageAccess && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemove(entry.id)}
-                        className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                        aria-label={t("wiki.share_remove")}
-                      >
-                        <Minus size={14} />
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* General access */}
-          {effectiveCanChangeVisibility && (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {t("wiki.share_general_access")}
-              </p>
-              <select
-                value={localVisibility}
-                onChange={(e) => handleVisibilityChange(e.target.value)}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700"
-              >
-                {VISIBILITY_OPTIONS.map(({ value, labelKey }) => (
-                  <option key={value} value={value}>
-                    {t(labelKey)}
-                  </option>
-                ))}
-              </select>
-              {localVisibility === "restricted" && (
-                <p className="mt-1 text-xs text-gray-500">
-                  {t("wiki.share_general_restricted_desc")}
+              <label className="mt-5 block">
+                <span className="sr-only">{t("wiki.share_message")}</span>
+                <textarea
+                  value={message}
+                  onChange={(event) => setMessage(event.target.value)}
+                  placeholder={t("wiki.share_message")}
+                  rows={5}
+                  className="w-full resize-none rounded-md border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                />
+              </label>
+              {error && (
+                <p role="alert" className="mt-3 text-sm text-red-700">
+                  {error}
                 </p>
               )}
-            </div>
-          )}
-        </div>
+              <footer className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsListOpen(false);
+                    setScreen("overview");
+                  }}
+                  disabled={isMutating}
+                  className="px-3 py-2 text-sm text-[#1a73e8] hover:underline disabled:opacity-50"
+                >
+                  {t("cancel")}
+                </button>
+                <button
+                  type="button"
+                  onClick={grantSelected}
+                  disabled={!selected.length || isMutating}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#0b57d0] px-5 py-2 text-sm text-white hover:bg-[#0842a0] disabled:opacity-50"
+                >
+                  {isMutating ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                  {t("wiki.share_send")}
+                </button>
+              </footer>
+            </section>
+          ) : (
+            <>
+              <section className="pt-5">
+                <h3 className="mb-3 text-base">{t("wiki.share_people_with_access")}</h3>
+                {isLoading ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="animate-spin text-gray-500" />
+                  </div>
+                ) : (
+                  <ul className="space-y-3">
+                    {ownerSubject && (
+                      <li className="flex items-center gap-3">
+                        <Avatar subject={ownerSubject} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-base">{ownerSubject.label}</p>
+                          {ownerSubject.secondary && (
+                            <p className="truncate text-sm text-gray-600">
+                              {ownerSubject.secondary}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-base text-gray-500">
+                          {t("wiki.share_role_owner")}
+                        </span>
+                      </li>
+                    )}
+                    {accessList.map((entry) => (
+                      <li key={entry.id} className="flex items-center gap-3">
+                        <Avatar subject={entry} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-base">{entry.label}</p>
+                          <p className="truncate text-sm text-gray-600">{entry.secondary}</p>
+                        </div>
+                        {canManage ? (
+                          <>
+                            <label className="sr-only" htmlFor={`role-${entry.id}`}>
+                              {t("wiki.share_role")}
+                            </label>
+                            <select
+                              id={`role-${entry.id}`}
+                              value={entry.role}
+                              disabled={isMutating}
+                              onChange={(event) =>
+                                updateRole(entry.id, event.target.value as PageRole)
+                              }
+                              className="max-w-36 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+                            >
+                              <option value="viewer">{t("wiki.share_role_viewer")}</option>
+                              <option value="commenter">{t("wiki.share_role_commenter")}</option>
+                              <option value="editor">{t("wiki.share_role_editor")}</option>
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => removeAccess(entry.id)}
+                              disabled={isMutating}
+                              className="rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-red-700"
+                              aria-label={t("wiki.share_remove_subject", { name: entry.label })}
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-sm text-gray-500">
+                            {t(`wiki.share_role_${entry.role}`)}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                    {!ownerSubject && accessList.length === 0 && (
+                      <li className="text-sm text-gray-600">{t("wiki.share_no_access")}</li>
+                    )}
+                  </ul>
+                )}
+              </section>
 
-        {/* Footer */}
-        <div className="flex justify-between border-t border-gray-100 px-5 py-3">
-          <button
-            type="button"
-            onClick={handleCopyLink}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-          >
-            {copied ? (
-              <>
-                <Check size={14} className="text-green-600" />
-                {t("wiki.share_copied")}
-              </>
-            ) : (
-              <>
-                <Link size={14} />
-                {t("wiki.share_copy_link")}
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100"
-          >
-            {t("close")}
-          </button>
+              {canManage && (
+                <section className="mt-6">
+                  <h3 className="mb-3 text-base">{t("wiki.share_general_access")}</h3>
+                  <div className="flex flex-wrap items-center gap-3 sm:flex-nowrap">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700">
+                      <AccessIcon value={localAccess} />
+                    </span>
+                    <label className="sr-only" htmlFor="general-access">
+                      {t("wiki.share_general_access")}
+                    </label>
+                    <div className="min-w-0 flex-1">
+                      <div className="relative inline-flex max-w-full items-center">
+                        <select
+                          id="general-access"
+                          value={localAccess}
+                          disabled={isMutating}
+                          onChange={(event) =>
+                            setGeneralAccess(event.target.value as GeneralAccess)
+                          }
+                          className="max-w-full appearance-none bg-transparent py-1 pr-7 text-sm outline-none"
+                        >
+                          <option value="restricted">{t("wiki.share_access_restricted")}</option>
+                          <option value="unlisted">{t("wiki.share_access_unlisted")}</option>
+                          <option value="public">{t("wiki.share_access_public")}</option>
+                        </select>
+                        <ChevronDown
+                          className="pointer-events-none absolute right-0 text-gray-600"
+                          size={18}
+                        />
+                      </div>
+                      <p className="mt-1 text-sm text-gray-600">
+                        {t(`wiki.share_access_${localAccess}_desc`)}
+                      </p>
+                    </div>
+                    {localAccess !== "restricted" && (
+                      <div className="relative ml-auto shrink-0">
+                        <label htmlFor="general-role" className="sr-only">
+                          {t("wiki.share_link_role")}
+                        </label>
+                        <select
+                          id="general-role"
+                          value={localGeneralRole}
+                          disabled={isMutating}
+                          onChange={(event) =>
+                            setGeneralAccess(localAccess, event.target.value as PageRole)
+                          }
+                          className="appearance-none rounded-md bg-transparent py-2 pl-3 pr-8 text-sm outline-none hover:bg-gray-50"
+                        >
+                          <option value="viewer">{t("wiki.share_role_viewer")}</option>
+                          <option value="commenter">{t("wiki.share_role_commenter")}</option>
+                          <option value="editor">{t("wiki.share_role_editor")}</option>
+                        </select>
+                        <ChevronDown
+                          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-600"
+                          size={18}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+              {(error || warning) && (
+                <p
+                  role={error ? "alert" : "status"}
+                  className={`mt-4 text-sm ${error ? "text-red-700" : "text-amber-700"}`}
+                >
+                  {error ?? warning}
+                </p>
+              )}
+              <footer className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+                <button
+                  type="button"
+                  onClick={copyLink}
+                  className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-4 py-2 text-sm text-[#0b57d0] hover:bg-blue-50"
+                >
+                  {copied ? <Check size={20} /> : <Copy size={20} />}
+                  {copied ? t("wiki.share_copied") : t("wiki.share_copy_link")}
+                </button>
+                <button
+                  type="button"
+                  onClick={close}
+                  disabled={isMutating}
+                  className="rounded-full bg-[#0b57d0] px-5 py-2 text-sm text-white hover:bg-[#0842a0] disabled:opacity-50"
+                >
+                  {t("wiki.share_done")}
+                </button>
+              </footer>
+            </>
+          )}
         </div>
       </dialog>
     </div>

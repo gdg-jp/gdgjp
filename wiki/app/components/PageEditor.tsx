@@ -27,7 +27,6 @@ interface Page {
 interface PageEditorProps {
   page: Page;
   canPublish: boolean;
-  canChangeVisibility: boolean;
   currentUser: CollabUser;
 }
 
@@ -53,22 +52,15 @@ function formatRelativeTime(
 // Component
 // ---------------------------------------------------------------------------
 
-export default function PageEditor({
-  page,
-  canPublish,
-  canChangeVisibility,
-  currentUser,
-}: PageEditorProps) {
+export default function PageEditor({ page, canPublish, currentUser }: PageEditorProps) {
   const { t } = useTranslation();
   const fetcher = useFetcher<{ ok: boolean; savedAt: string }>();
-  const visibilityFetcher = useFetcher();
   const theme = useThemeMode();
 
   const [titleJa, setTitleJa] = useState(page.titleJa);
   const [titleEn, setTitleEn] = useState(page.titleEn);
   const [activeLang, setActiveLangLocal] = useState<"ja" | "en">("ja");
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
-  const [visibility, setVisibility] = useState(page.visibility);
   const isJaActive = activeLang === "ja";
   const isEnActive = activeLang === "en";
 
@@ -272,26 +264,7 @@ export default function PageEditor({
             ))}
           </div>
 
-          {/* Visibility + actions */}
-          {canChangeVisibility && (
-            <select
-              aria-label={t("wiki.visibility")}
-              value={visibility}
-              onChange={(e) => {
-                const next = e.target.value;
-                setVisibility(next);
-                visibilityFetcher.submit(
-                  { intent: "setVisibility", visibility: next },
-                  { method: "post", action: `/wiki/${page.slug}` },
-                );
-              }}
-              className="max-w-36 shrink-0 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-700"
-            >
-              <option value="public">{t("wiki.visibility_public")}</option>
-              <option value="private_to_chapter">{t("wiki.visibility_chapter")}</option>
-              <option value="private_to_lead">{t("wiki.visibility_lead")}</option>
-            </select>
-          )}
+          {/* Publishing actions. Sharing is managed from the page Share dialog. */}
           {page.status === "draft" ? (
             <button
               type="submit"

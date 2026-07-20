@@ -53,10 +53,32 @@
     "share_add_button": "Add",
     "share_role_owner": "Owner",
     "share_role_editor": "Editor",
+    "share_role_commenter": "Commenter",
     "share_role_viewer": "Viewer",
+    "share_role": "Role",
     "share_general_access": "General access",
     "share_general_restricted_desc": "Only people added above can access this page.",
+    "share_access_restricted": "Restricted",
+    "share_access_unlisted": "Anyone with the link",
+    "share_access_public": "Public",
+    "share_access_restricted_desc": "Only people and Chapter members with access can open this page.",
+    "share_access_unlisted_desc": "Anyone with the link can view this page.",
+    "share_access_public_desc": "Anyone can view this page and it appears in public page lists.",
+    "share_link_role": "Role for people with the link",
     "share_copy_link": "Copy link",
+    "share_copy_failed": "Could not copy the link.",
+    "share_done": "Done",
+    "share_send": "Send",
+    "share_notify": "Notify people",
+    "share_message": "Message",
+    "share_back": "Back",
+    "share_add_more": "Add people or Chapters",
+    "share_loading_candidates": "Loading suggestions…",
+    "share_no_candidates": "No matching people or Chapters.",
+    "share_chapter": "Chapter",
+    "share_remove_subject": "Remove {{name}}",
+    "share_error_generic": "Could not update sharing settings.",
+    "share_notification_warning": "Sharing was updated, but some notifications could not be sent.",
     "share_pending": "Invitation pending",
     "share_remove": "Remove access",
     "share_error_invalid_email": "Please enter a valid email address.",
@@ -135,6 +157,11 @@
     "no_activity_pages": "No recent page activity.",
     "no_activity_comments": "No recent comments."
   },
+  "public_pages": {
+    "title": "Public pages",
+    "description": "Browse knowledge shared publicly by the GDG Japan community.",
+    "empty": "There are no public pages yet."
+  },
   "recent": {
     "title": "Recent",
     "recently_updated": "Recently Updated",
@@ -146,12 +173,6 @@
   "auth": {
     "sign_in": "Sign in",
     "sign_out": "Sign out"
-  },
-  "login": {
-    "title": "GDG Japan Wiki",
-    "subtitle": "Sign in to continue",
-    "google_signin": "Sign in with Google",
-    "access_restricted": "Access is restricted to GDG Japan members."
   },
   "admin": {
     "label": "Admin",

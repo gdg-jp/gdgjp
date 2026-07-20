@@ -1,8 +1,14 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { redirect } from "react-router";
+import { buildSignInRedirect } from "./auth-redirect";
 import { createAuth } from "./auth.server";
 
 export type { AuthUser };
+
+export interface AccessIdentity {
+  user: AuthUser | null;
+  chapterIds: string[];
+  claimsAvailable: boolean;
+}
 
 /**
  * Returns the current session user, or null if not signed in.
@@ -12,13 +18,36 @@ export function getSessionUser(request: Request, env: Env): Promise<AuthUser | n
 }
 
 /**
- * Require an authenticated session. Throws a redirect to /login if not signed in.
+ * Resolve the identity used by page authorization. Chapter memberships are
+ * deliberately fetched from fresh IdP claims so a membership removal takes
+ * effect without waiting for the 30-day RP session cookie to expire.
+ */
+export async function getAccessIdentity(request: Request, env: Env): Promise<AccessIdentity> {
+  const auth = createAuth(env);
+  const user = await auth.getSessionUser(request);
+  if (!user) return { user: null, chapterIds: [], claimsAvailable: true };
+
+  try {
+    const claims = await auth.getFreshClaims(request);
+    return {
+      user,
+      chapterIds: claims.chapters.map((chapter) => String(chapter.chapterId)),
+      claimsAvailable: true,
+    };
+  } catch (error) {
+    console.error("[access] unable to refresh chapter claims", error);
+    return { user, chapterIds: [], claimsAvailable: false };
+  }
+}
+
+/**
+ * Require an authenticated session. Starts the accounts IdP sign-in flow if not signed in.
  * Does NOT enforce admin or chapter membership — wiki delegates those to the
  * accounts IdP and consumes the resulting isAdmin claim via user.isAdmin.
  */
 export async function requireUser(request: Request, env: Env): Promise<AuthUser> {
   const user = await getSessionUser(request, env);
-  if (!user) throw redirect("/login");
+  if (!user) throw buildSignInRedirect(request);
   return user;
 }
 

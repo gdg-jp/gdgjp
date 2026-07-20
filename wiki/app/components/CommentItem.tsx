@@ -25,6 +25,7 @@ interface CommentItemProps {
   comment: CommentThread;
   currentUserId: string;
   isAdmin: boolean | null | undefined;
+  canComment: boolean;
   depth: 0 | 1;
   onReply: (parentId: string, contentJson: string) => void;
   onDelete: (commentId: string) => void;
@@ -76,6 +77,7 @@ export default function CommentItem({
   comment,
   currentUserId,
   isAdmin,
+  canComment,
   depth,
   onReply,
   onDelete,
@@ -131,9 +133,10 @@ export default function CommentItem({
             <EmojiReactionBar
               reactions={comment.reactions}
               onToggleReaction={(emoji) => onToggleReaction(comment.id, emoji)}
+              readOnly={!canComment}
             />
 
-            {depth === 0 && (
+            {canComment && depth === 0 && (
               <button
                 type="button"
                 onClick={() => setPendingReplyId(showReplyEditor ? null : comment.id)}
@@ -177,6 +180,7 @@ export default function CommentItem({
                 comment={reply}
                 currentUserId={currentUserId}
                 isAdmin={isAdmin}
+                canComment={canComment}
                 depth={1}
                 onReply={onReply}
                 onDelete={onDelete}

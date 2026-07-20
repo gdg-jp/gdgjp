@@ -59,6 +59,7 @@ interface PageTreeProps {
   currentSlug?: string;
   isCollapsed?: boolean;
   canReorder?: boolean;
+  canCreate?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -496,6 +497,7 @@ export default function PageTree({
   currentSlug,
   isCollapsed = false,
   canReorder = false,
+  canCreate = true,
 }: PageTreeProps) {
   const { t } = useTranslation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -533,54 +535,56 @@ export default function PageTree({
         </ul>
       )}
 
-      <div className="relative border-t border-gray-100 px-2 pt-2 pb-1" ref={dropdownRef}>
-        <button
-          type="button"
-          title={isCollapsed ? t("pageTree.newPage") : undefined}
-          onClick={() => setDropdownOpen((v) => !v)}
-          className="flex min-h-8 w-full items-center gap-1.5 rounded px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-100 hover:text-blue-500"
-        >
-          <Plus size={14} className="flex-shrink-0" />
-          {!isCollapsed && <span>{t("pageTree.newPage")}</span>}
-        </button>
+      {canCreate && (
+        <div className="relative border-t border-gray-100 px-2 pt-2 pb-1" ref={dropdownRef}>
+          <button
+            type="button"
+            title={isCollapsed ? t("pageTree.newPage") : undefined}
+            onClick={() => setDropdownOpen((v) => !v)}
+            className="flex min-h-8 w-full items-center gap-1.5 rounded px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-100 hover:text-blue-500"
+          >
+            <Plus size={14} className="flex-shrink-0" />
+            {!isCollapsed && <span>{t("pageTree.newPage")}</span>}
+          </button>
 
-        {dropdownOpen && (
-          <div className="absolute bottom-full left-2 right-2 mb-1 overflow-hidden rounded-md border border-gray-200 bg-white shadow-md">
-            <Link
-              to="/ingest"
-              onClick={() => setDropdownOpen(false)}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            >
-              <span>✦</span>
-              <span>{t("pageTree.newPage_ai")}</span>
-            </Link>
-            <Link
-              to="/analyze"
-              onClick={() => setDropdownOpen(false)}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            >
-              <ChartPie size={14} />
-              <span>{t("pageTree.newPage_analyze")}</span>
-            </Link>
-            <Link
-              to="/wiki/new"
-              onClick={() => setDropdownOpen(false)}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            >
-              <span>✎</span>
-              <span>{t("pageTree.newPage_manual")}</span>
-            </Link>
-            <Link
-              to="/tasks/new"
-              onClick={() => setDropdownOpen(false)}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            >
-              <ListTodo size={14} />
-              <span>{t("pageTree.newTaskList")}</span>
-            </Link>
-          </div>
-        )}
-      </div>
+          {dropdownOpen && (
+            <div className="absolute bottom-full left-2 right-2 mb-1 overflow-hidden rounded-md border border-gray-200 bg-white shadow-md">
+              <Link
+                to="/ingest"
+                onClick={() => setDropdownOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                <span>✦</span>
+                <span>{t("pageTree.newPage_ai")}</span>
+              </Link>
+              <Link
+                to="/analyze"
+                onClick={() => setDropdownOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                <ChartPie size={14} />
+                <span>{t("pageTree.newPage_analyze")}</span>
+              </Link>
+              <Link
+                to="/wiki/new"
+                onClick={() => setDropdownOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                <span>✎</span>
+                <span>{t("pageTree.newPage_manual")}</span>
+              </Link>
+              <Link
+                to="/tasks/new"
+                onClick={() => setDropdownOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                <ListTodo size={14} />
+                <span>{t("pageTree.newTaskList")}</span>
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
     </nav>
   );
 }

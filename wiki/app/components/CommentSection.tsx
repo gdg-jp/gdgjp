@@ -9,8 +9,9 @@ interface CommentSectionProps {
   comments: CommentThread[];
   pageId: string;
   pageSlug: string;
-  currentUserId: string;
+  currentUserId: string | null;
   isAdmin: boolean | null | undefined;
+  canComment: boolean;
 }
 
 export default function CommentSection({
@@ -19,6 +20,7 @@ export default function CommentSection({
   pageSlug,
   currentUserId,
   isAdmin,
+  canComment,
 }: CommentSectionProps) {
   const { t } = useTranslation("common");
   const fetcher = useFetcher();
@@ -64,13 +66,15 @@ export default function CommentSection({
         {t("wiki.comment.heading")} · {totalCount}
       </h2>
 
-      <div className="mb-8">
-        <CommentEditor
-          onSubmit={handleAddComment}
-          onCancel={() => {}}
-          isSubmitting={isSubmitting}
-        />
-      </div>
+      {canComment && (
+        <div className="mb-8">
+          <CommentEditor
+            onSubmit={handleAddComment}
+            onCancel={() => {}}
+            isSubmitting={isSubmitting}
+          />
+        </div>
+      )}
 
       {topLevel.length > 0 && (
         <div className="space-y-6">
@@ -78,8 +82,9 @@ export default function CommentSection({
             <CommentItem
               key={comment.id}
               comment={comment}
-              currentUserId={currentUserId}
+              currentUserId={currentUserId ?? ""}
               isAdmin={isAdmin}
+              canComment={canComment}
               depth={0}
               onReply={handleAddReply}
               onDelete={handleDelete}

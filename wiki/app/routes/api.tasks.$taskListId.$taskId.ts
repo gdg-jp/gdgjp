@@ -1,13 +1,14 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
-import { canUserEditTask } from "~/lib/task-visibility.server";
+import { getEffectivePagePermissions } from "~/lib/page-access.server";
 
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
   const { taskListId, taskId } = params;
@@ -26,7 +27,12 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   }
 
   const listPage = await db
-    .select({ authorId: schema.pages.authorId })
+    .select({
+      id: schema.pages.id,
+      authorId: schema.pages.authorId,
+      visibility: schema.pages.visibility,
+      generalRole: schema.pages.generalRole,
+    })
     .from(schema.pages)
     .where(eq(schema.pages.id, taskListId))
     .get();
@@ -35,7 +41,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     return Response.json({ error: "Task list not found" }, { status: 404 });
   }
 
-  if (!canUserEditTask(user, task, listPage)) {
+  if (!(await getEffectivePagePermissions(db, listPage, user, identity.chapterIds)).canEdit) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

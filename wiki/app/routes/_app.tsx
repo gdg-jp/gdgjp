@@ -13,7 +13,7 @@ import SidebarPopover from "~/components/SidebarPopover";
 import StarredContent from "~/components/StarredContent";
 import * as schema from "~/db/schema";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
-import { getSessionUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { buildTree } from "~/lib/page-tree";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
@@ -24,15 +24,11 @@ import { buildVisibilityFilter } from "~/lib/page-visibility.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await getSessionUser(request, env);
-
-  if (!user) {
-    return { user: null, pageTree: [] as ReturnType<typeof buildTree>, unreadNotificationCount: 0 };
-  }
-
+  const identity = await getAccessIdentity(request, env);
+  const { user } = identity;
   const db = getDb(env);
 
-  const visFilter = buildVisibilityFilter(user);
+  const visFilter = buildVisibilityFilter(user, identity.chapterIds);
   const treeRows = await db
     .select({
       id: schema.pages.id,
@@ -48,13 +44,15 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     .orderBy(schema.pages.sortOrder)
     .all();
 
-  const countResult = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(schema.notifications)
-    .where(and(eq(schema.notifications.userId, user.id), isNull(schema.notifications.readAt)))
-    .get();
-
-  const unreadNotificationCount = countResult?.count ?? 0;
+  const unreadNotificationCount = user
+    ? ((
+        await db
+          .select({ count: sql<number>`count(*)` })
+          .from(schema.notifications)
+          .where(and(eq(schema.notifications.userId, user.id), isNull(schema.notifications.readAt)))
+          .get()
+      )?.count ?? 0)
+    : 0;
 
   return { user, pageTree: buildTree(treeRows), unreadNotificationCount };
 }
@@ -105,9 +103,6 @@ export default function AppLayout() {
     setActivePanel(null);
   }, [isMobile]);
 
-  // When unauthenticated, render only the outlet (child handles its own UI)
-  if (!user) return <Outlet />;
-
   function toggleSidebar() {
     if (isMobile) {
       setMobileOpen((v) => !v);
@@ -139,7 +134,8 @@ export default function AppLayout() {
         <Sidebar
           pages={pageTree}
           currentSlug={slug}
-          isAdmin={user.isAdmin}
+          isAuthenticated={Boolean(user)}
+          isAdmin={user?.isAdmin}
           isOpen={sidebarOpen}
           isMobile={isMobile}
           onClose={() => setMobileOpen(false)}
@@ -159,72 +155,75 @@ export default function AppLayout() {
           <Footer />
         </div>
       </div>
-      {/* Recent panel */}
-      {isMobile ? (
-        <SidebarDialog open={activePanel === "recent"} onClose={() => setActivePanel(null)}>
-          <RecentContent
+      {/* Signed-in only panels */}
+      {user &&
+        (isMobile ? (
+          <SidebarDialog open={activePanel === "recent"} onClose={() => setActivePanel(null)}>
+            <RecentContent
+              open={activePanel === "recent"}
+              onClose={() => setActivePanel(null)}
+              lang={lang}
+            />
+          </SidebarDialog>
+        ) : (
+          <SidebarPopover
             open={activePanel === "recent"}
             onClose={() => setActivePanel(null)}
-            lang={lang}
-          />
-        </SidebarDialog>
-      ) : (
-        <SidebarPopover
-          open={activePanel === "recent"}
-          onClose={() => setActivePanel(null)}
-          anchorRef={recentButtonRef}
-        >
-          <RecentContent
-            open={activePanel === "recent"}
-            onClose={() => setActivePanel(null)}
-            lang={lang}
-          />
-        </SidebarPopover>
-      )}
+            anchorRef={recentButtonRef}
+          >
+            <RecentContent
+              open={activePanel === "recent"}
+              onClose={() => setActivePanel(null)}
+              lang={lang}
+            />
+          </SidebarPopover>
+        ))}
       {/* Starred panel */}
-      {isMobile ? (
-        <SidebarDialog open={activePanel === "starred"} onClose={() => setActivePanel(null)}>
-          <StarredContent
+      {user &&
+        (isMobile ? (
+          <SidebarDialog open={activePanel === "starred"} onClose={() => setActivePanel(null)}>
+            <StarredContent
+              open={activePanel === "starred"}
+              onClose={() => setActivePanel(null)}
+              lang={lang}
+            />
+          </SidebarDialog>
+        ) : (
+          <SidebarPopover
             open={activePanel === "starred"}
             onClose={() => setActivePanel(null)}
-            lang={lang}
-          />
-        </SidebarDialog>
-      ) : (
-        <SidebarPopover
-          open={activePanel === "starred"}
-          onClose={() => setActivePanel(null)}
-          anchorRef={starredButtonRef}
-        >
-          <StarredContent
-            open={activePanel === "starred"}
-            onClose={() => setActivePanel(null)}
-            lang={lang}
-          />
-        </SidebarPopover>
-      )}
+            anchorRef={starredButtonRef}
+          >
+            <StarredContent
+              open={activePanel === "starred"}
+              onClose={() => setActivePanel(null)}
+              lang={lang}
+            />
+          </SidebarPopover>
+        ))}
       {/* Archived panel */}
-      {isMobile ? (
-        <SidebarDialog open={activePanel === "archived"} onClose={() => setActivePanel(null)}>
-          <ArchivedContent
+      {user &&
+        (isMobile ? (
+          <SidebarDialog open={activePanel === "archived"} onClose={() => setActivePanel(null)}>
+            <ArchivedContent
+              open={activePanel === "archived"}
+              onClose={() => setActivePanel(null)}
+              lang={lang}
+            />
+          </SidebarDialog>
+        ) : (
+          <SidebarPopover
             open={activePanel === "archived"}
             onClose={() => setActivePanel(null)}
-            lang={lang}
-          />
-        </SidebarDialog>
-      ) : (
-        <SidebarPopover
-          open={activePanel === "archived"}
-          onClose={() => setActivePanel(null)}
-          anchorRef={archivedButtonRef}
-        >
-          <ArchivedContent
-            open={activePanel === "archived"}
-            onClose={() => setActivePanel(null)}
-            lang={lang}
-          />
-        </SidebarPopover>
-      )}
+            anchorRef={archivedButtonRef}
+          >
+            <ArchivedContent
+              open={activePanel === "archived"}
+              onClose={() => setActivePanel(null)}
+              lang={lang}
+            />
+          </SidebarPopover>
+        ))}
     </div>
   );
 }

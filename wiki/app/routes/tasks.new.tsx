@@ -3,14 +3,12 @@ import { ArrowLeft } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Form, Link, data, redirect, useActionData, useLoaderData } from "react-router";
+import { Form, Link, data, redirect, useActionData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
-import DropdownMenu, { type DropdownOption } from "~/components/tasks/DropdownMenu";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { generateSlug } from "~/lib/ingestion-pipeline.server";
-import { insertPageOwner } from "~/lib/page-access.server";
 
 // ---------------------------------------------------------------------------
 // Meta
@@ -24,9 +22,8 @@ export const meta: MetaFunction = () => [{ title: "New Task List — GDG Japan W
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireUser(request, env);
-  const canLead = user.isAdmin;
-  return { canChangeVisibility: canLead };
+  await requireUser(request, env);
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -41,16 +38,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const formData = await request.formData();
   const titleJa = (formData.get("titleJa") as string) ?? "";
   const titleEn = (formData.get("titleEn") as string) ?? "";
-  const ALLOWED_VISIBILITY = ["public", "private_to_chapter", "private_to_lead"] as const;
-  type Visibility = (typeof ALLOWED_VISIBILITY)[number];
-  const rawVisibility = formData.get("visibility") as string;
-  const canLead = user.isAdmin;
-  const visibility: Visibility =
-    (ALLOWED_VISIBILITY as readonly string[]).includes(rawVisibility) &&
-    (rawVisibility === "public" || canLead)
-      ? (rawVisibility as Visibility)
-      : "public";
-
   if (!titleJa && !titleEn) {
     return data({ error: "Title is required" }, { status: 400 });
   }
@@ -80,7 +67,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
       contentEn: "",
       status: "published",
       pageType: "task-list",
-      visibility,
+      visibility: "restricted",
+      generalRole: "viewer",
       chapterId: null,
       authorId: user.id,
       lastEditedBy: user.id,
@@ -91,8 +79,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
     }),
   ]);
 
-  await insertPageOwner(db, pageId, user.id, user.email);
-
   return redirect(`/tasks/${slug}`);
 }
 
@@ -101,17 +87,9 @@ export async function action({ request, context }: ActionFunctionArgs) {
 // ---------------------------------------------------------------------------
 
 export default function NewTaskList() {
-  const { canChangeVisibility } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const { t } = useTranslation();
   const [activeLang, setActiveLang] = useState<"ja" | "en">("ja");
-  const [visibility, setVisibility] = useState("public");
-
-  const visibilityOptions: DropdownOption[] = [
-    { value: "public", label: t("wiki.visibility_public") },
-    { value: "private_to_chapter", label: t("wiki.visibility_chapter") },
-    { value: "private_to_lead", label: t("wiki.visibility_lead") },
-  ];
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -179,22 +157,6 @@ export default function NewTaskList() {
             />
           </label>
         </div>
-
-        {/* Visibility */}
-        {canChangeVisibility && (
-          <div>
-            <span className="mb-1 block text-sm font-medium text-gray-700">
-              {t("wiki.visibility")}
-            </span>
-            <input type="hidden" name="visibility" value={visibility} />
-            <DropdownMenu
-              value={visibility}
-              options={visibilityOptions}
-              onChange={setVisibility}
-              variant="field"
-            />
-          </div>
-        )}
 
         {actionData?.error && (
           <p role="alert" className="text-sm text-red-600">

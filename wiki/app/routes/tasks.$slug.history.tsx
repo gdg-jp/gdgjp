@@ -4,9 +4,9 @@ import { useTranslation } from "react-i18next";
 import { Link, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
-import { canUserSeePageAsync } from "~/lib/page-visibility.server";
+import { getEffectivePagePermissions } from "~/lib/page-access.server";
 import { timeAgo } from "~/lib/time";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
@@ -20,6 +20,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => [
 export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
   const { slug } = params;
@@ -43,7 +44,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
 
   if (!page) throw new Response("Not found", { status: 404 });
 
-  if (!(await canUserSeePageAsync(db, user, page))) {
+  if (!(await getEffectivePagePermissions(db, page, user, identity.chapterIds)).canView) {
     throw new Response("Forbidden", { status: 403 });
   }
 

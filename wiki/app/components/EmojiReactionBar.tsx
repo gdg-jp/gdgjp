@@ -16,9 +16,14 @@ export interface ReactionGroup {
 interface EmojiReactionBarProps {
   reactions: ReactionGroup[];
   onToggleReaction: (emoji: string) => void;
+  readOnly?: boolean;
 }
 
-export default function EmojiReactionBar({ reactions, onToggleReaction }: EmojiReactionBarProps) {
+export default function EmojiReactionBar({
+  reactions,
+  onToggleReaction,
+  readOnly = false,
+}: EmojiReactionBarProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -52,9 +57,11 @@ export default function EmojiReactionBar({ reactions, onToggleReaction }: EmojiR
           key={r.emoji}
           type="button"
           onClick={() => onToggleReaction(r.emoji)}
+          disabled={readOnly}
           className={[
             "flex items-center gap-1 rounded-full px-2 py-0.5 text-sm transition-colors",
             r.reactedByMe ? "reaction-active hover:brightness-95" : "bg-gray-100 hover:bg-gray-200",
+            readOnly ? "cursor-default" : "",
           ].join(" ")}
         >
           <Emoji unified={toUnified(r.emoji)} emojiStyle={EmojiStyle.TWITTER} size={16} />
@@ -69,17 +76,19 @@ export default function EmojiReactionBar({ reactions, onToggleReaction }: EmojiR
         </button>
       ))}
 
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setPickerOpen((v) => !v)}
-        className="rounded-full border border-gray-200 bg-white p-1 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-        aria-label="Add reaction"
-      >
-        <Smile size={15} />
-      </button>
+      {!readOnly && (
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setPickerOpen((v) => !v)}
+          className="rounded-full border border-gray-200 bg-white p-1 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+          aria-label="Add reaction"
+        >
+          <Smile size={15} />
+        </button>
+      )}
 
-      {pickerOpen && (
+      {!readOnly && pickerOpen && (
         <div ref={pickerRef} className="absolute bottom-full left-0 z-50 mb-1">
           <EmojiPicker
             onEmojiClick={handlePickerSelect}

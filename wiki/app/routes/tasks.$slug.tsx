@@ -19,15 +19,13 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 import ConfirmDialog from "~/components/ConfirmDialog";
 import ShareDialog from "~/components/ShareDialog";
 import Tooltip from "~/components/Tooltip";
-import DropdownMenu, { type DropdownOption } from "~/components/tasks/DropdownMenu";
 import TaskRemainingView from "~/components/tasks/TaskRemainingView";
 import TaskTableView from "~/components/tasks/TaskTableView";
 import TaskTimelineView from "~/components/tasks/TaskTimelineView";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
-import { canUserManageAccess } from "~/lib/page-access.server";
-import { canUserChangeVisibility, canUserSeePageAsync } from "~/lib/page-visibility.server";
+import { getEffectivePagePermissions } from "~/lib/page-access.server";
 
 // ---------------------------------------------------------------------------
 // Meta
@@ -35,6 +33,7 @@ import { canUserChangeVisibility, canUserSeePageAsync } from "~/lib/page-visibil
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   { title: data ? `${data.page.titleJa || data.page.titleEn} — GDG Japan Wiki` : "Tasks" },
+  ...(data?.page.visibility !== "public" ? [{ name: "robots", content: "noindex,nofollow" }] : []),
 ];
 
 // ---------------------------------------------------------------------------
@@ -43,7 +42,8 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => [
 
 export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
+  const user = identity.user;
   const db = getDb(env);
 
   const { slug } = params;
@@ -57,7 +57,11 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
 
   if (!page) throw new Response("Not found", { status: 404 });
 
-  if (!(await canUserSeePageAsync(db, user, page))) {
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  if (!permissions.canView) {
+    if (!identity.claimsAvailable && page.visibility === "restricted") {
+      throw new Response("Access service temporarily unavailable", { status: 503 });
+    }
     throw new Response("Forbidden", { status: 403 });
   }
 
@@ -105,20 +109,24 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
   // Assignee list: pre-SSO this scoped to the task list's chapter members.
   // Wiki no longer stores per-user chapter, so all users are candidates;
   // re-scope once chapter membership is read from IdP claims.
-  const members = await db
-    .select({ id: schema.user.id, name: schema.user.name, image: schema.user.image })
-    .from(schema.user)
-    .all();
+  const members = permissions.canEdit
+    ? await db
+        .select({ id: schema.user.id, name: schema.user.name, image: schema.user.image })
+        .from(schema.user)
+        .all()
+    : [];
 
-  const canManage = user.isAdmin || user.id === page.authorId;
+  const canManage = permissions.canEdit;
 
-  const fav = await db
-    .select()
-    .from(schema.pageFavorites)
-    .where(and(eq(schema.pageFavorites.userId, user.id), eq(schema.pageFavorites.pageId, page.id)))
-    .get();
-
-  const canManagePageAccess = await canUserManageAccess(db, page.id, user, page.authorId);
+  const fav = user
+    ? await db
+        .select()
+        .from(schema.pageFavorites)
+        .where(
+          and(eq(schema.pageFavorites.userId, user.id), eq(schema.pageFavorites.pageId, page.id)),
+        )
+        .get()
+    : undefined;
 
   return {
     page,
@@ -130,12 +138,13 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
     members,
     taskListId: page.id,
     canManage,
-    canChangeVisibility: canUserChangeVisibility(user, page),
-    canManageAccess: canManagePageAccess,
-    userId: user.id,
+    canChangeVisibility: permissions.canManageSharing,
+    canManageAccess: permissions.canManageSharing,
+    userId: user?.id ?? null,
+    isAuthenticated: !!user,
     nextTaskNumber: taskListMeta.nextTaskNumber,
     isStarred: !!fav,
-    canArchive: user.isAdmin || user.id === page.authorId,
+    canArchive: !!user && (user.isAdmin || user.id === page.authorId),
   };
 }
 
@@ -146,6 +155,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
   const { slug } = params;
@@ -163,8 +173,8 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   const intent = formData.get("intent") as string;
 
   if (intent === "toggleFavorite") {
-    if (!(await canUserSeePageAsync(db, user, page)))
-      throw new Response("Forbidden", { status: 403 });
+    const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+    if (!permissions.canView) throw new Response("Forbidden", { status: 403 });
 
     const existing = await db
       .select()
@@ -196,30 +206,18 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     return redirect("/");
   }
 
-  const canManage = user.isAdmin || user.id === page.authorId;
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  const canManage = permissions.canEdit;
 
   if (!canManage) throw new Response("Forbidden", { status: 403 });
 
   if (intent === "updateSettings") {
     const titleJa = (formData.get("titleJa") as string) ?? page.titleJa;
     const titleEn = (formData.get("titleEn") as string) ?? page.titleEn;
-    const visibility = (formData.get("visibility") as string) ?? page.visibility;
 
     await db
       .update(schema.pages)
-      .set({ titleJa, titleEn, visibility, updatedAt: new Date() })
-      .where(eq(schema.pages.id, page.id));
-
-    return { ok: true };
-  }
-
-  if (intent === "setVisibility") {
-    if (!canUserChangeVisibility(user, page)) throw new Response("Forbidden", { status: 403 });
-    const visibility = (formData.get("visibility") as string) ?? page.visibility;
-
-    await db
-      .update(schema.pages)
-      .set({ visibility, updatedAt: new Date() })
+      .set({ titleJa, titleEn, updatedAt: new Date() })
       .where(eq(schema.pages.id, page.id));
 
     return { ok: true };
@@ -251,6 +249,7 @@ export default function TaskListView() {
     canManage,
     canChangeVisibility,
     canManageAccess,
+    isAuthenticated,
     nextTaskNumber,
     isStarred,
     canArchive,
@@ -258,7 +257,6 @@ export default function TaskListView() {
   const { t, i18n } = useTranslation();
   const revalidator = useRevalidator();
   const settingsFetcher = useFetcher<{ ok: boolean }>();
-  const visibilityFetcher = useFetcher<{ ok: boolean }>();
   const favFetcher = useFetcher<{ ok: boolean; starred: boolean }>();
   const archiveFetcher = useFetcher();
   const [activeTab, setActiveTab] = useState<ViewTab>("table");
@@ -272,9 +270,6 @@ export default function TaskListView() {
   const [editTitleJa, setEditTitleJa] = useState(page.titleJa);
   const [editTitleEn, setEditTitleEn] = useState(page.titleEn);
 
-  // Single visibility state: used by the always-visible dropdown
-  const [currentVisibility, setCurrentVisibility] = useState(page.visibility);
-
   // Star / share / archive state
   const [currentStarred, setCurrentStarred] = useState(isStarred);
   const [shareOpen, setShareOpen] = useState(false);
@@ -283,11 +278,6 @@ export default function TaskListView() {
   const moreRef = useRef<HTMLDivElement>(null);
   const optimisticStarred = favFetcher.state !== "idle" ? !currentStarred : currentStarred;
 
-  // Sync visibility with reloaded page data (when not editing, or when Cancel is clicked)
-  useEffect(() => {
-    if (!editMode) setCurrentVisibility(page.visibility);
-  }, [page.visibility, editMode]);
-
   // Exit edit mode when save succeeds; revalidate to refresh page data
   useEffect(() => {
     if (settingsFetcher.data?.ok) {
@@ -295,13 +285,6 @@ export default function TaskListView() {
       revalidator.revalidate();
     }
   }, [settingsFetcher.data, revalidator]);
-
-  // Revalidate after immediate visibility change
-  useEffect(() => {
-    if (visibilityFetcher.data?.ok) {
-      revalidator.revalidate();
-    }
-  }, [visibilityFetcher.data, revalidator]);
 
   // Sync star state on navigation
   useEffect(() => {
@@ -335,18 +318,7 @@ export default function TaskListView() {
     fd.set("intent", "updateSettings");
     fd.set("titleJa", editTitleJa);
     fd.set("titleEn", editTitleEn);
-    fd.set("visibility", currentVisibility);
     settingsFetcher.submit(fd, { method: "post" });
-  }
-
-  function handleVisibilityChange(val: string) {
-    setCurrentVisibility(val);
-    if (!editMode) {
-      const fd = new FormData();
-      fd.set("intent", "setVisibility");
-      fd.set("visibility", val);
-      visibilityFetcher.submit(fd, { method: "post" });
-    }
   }
 
   function handleToggleStar() {
@@ -412,13 +384,6 @@ export default function TaskListView() {
     { key: "remaining", label: t("tasks.view_remaining"), icon: <ListChecks size={14} /> },
   ];
 
-  const visibilityOptions: DropdownOption[] = [
-    { value: "restricted", label: t("wiki.visibility_restricted") },
-    { value: "public", label: t("wiki.visibility_public") },
-    { value: "private_to_chapter", label: t("wiki.visibility_chapter") },
-    { value: "private_to_lead", label: t("wiki.visibility_lead") },
-  ];
-
   const btnBase =
     "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700";
 
@@ -432,22 +397,26 @@ export default function TaskListView() {
             <History size={14} />
             {t("tasks.history")}
           </Link>
-          <button
-            type="button"
-            onClick={handleToggleStar}
-            className={btnBase}
-            style={optimisticStarred ? { color: "#E06C00" } : undefined}
-          >
-            <Star
-              size={14}
-              style={optimisticStarred ? { fill: "#E06C00", color: "#E06C00" } : undefined}
-            />
-            {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
-          </button>
-          <button type="button" onClick={handleShare} className={btnBase}>
-            <Share2 size={14} />
-            {t("wiki.share")}
-          </button>
+          {isAuthenticated && (
+            <button
+              type="button"
+              onClick={handleToggleStar}
+              className={btnBase}
+              style={optimisticStarred ? { color: "#E06C00" } : undefined}
+            >
+              <Star
+                size={14}
+                style={optimisticStarred ? { fill: "#E06C00", color: "#E06C00" } : undefined}
+              />
+              {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
+            </button>
+          )}
+          {isAuthenticated && (
+            <button type="button" onClick={handleShare} className={btnBase}>
+              <Share2 size={14} />
+              {t("wiki.share")}
+            </button>
+          )}
           <Tooltip label={t("tasks.archive_no_permission")} disabled={!canArchive}>
             <button
               type="button"
@@ -481,32 +450,36 @@ export default function TaskListView() {
                 <History size={14} />
                 {t("tasks.history")}
               </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  handleToggleStar();
-                  setMoreOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
-                style={optimisticStarred ? { color: "#E06C00" } : undefined}
-              >
-                <Star
-                  size={14}
-                  style={optimisticStarred ? { fill: "#E06C00", color: "#E06C00" } : undefined}
-                />
-                {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleShare();
-                  setMoreOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
-              >
-                <Share2 size={14} />
-                {t("wiki.share")}
-              </button>
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleToggleStar();
+                    setMoreOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                  style={optimisticStarred ? { color: "#E06C00" } : undefined}
+                >
+                  <Star
+                    size={14}
+                    style={optimisticStarred ? { fill: "#E06C00", color: "#E06C00" } : undefined}
+                  />
+                  {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
+                </button>
+              )}
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleShare();
+                    setMoreOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                >
+                  <Share2 size={14} />
+                  {t("wiki.share")}
+                </button>
+              )}
               <Tooltip label={t("tasks.archive_no_permission")} disabled={!canArchive}>
                 <button
                   type="button"
@@ -565,16 +538,6 @@ export default function TaskListView() {
                 </button>
               ))}
             </div>
-
-            {/* Visibility: always a dropdown for leads */}
-            {canChangeVisibility && (
-              <DropdownMenu
-                value={currentVisibility}
-                options={visibilityOptions}
-                onChange={handleVisibilityChange}
-                variant="filter"
-              />
-            )}
 
             {/* Edit / Save+Cancel */}
             {editMode ? (
@@ -669,15 +632,17 @@ export default function TaskListView() {
         onCancel={() => setArchiveDialogOpen(false)}
       />
 
-      <ShareDialog
-        open={shareOpen}
-        onClose={() => setShareOpen(false)}
-        pageId={page.id}
-        pageTitle={title}
-        currentVisibility={page.visibility}
-        canManageAccess={canManageAccess}
-        canChangeVisibility={canChangeVisibility}
-      />
+      {isAuthenticated && (
+        <ShareDialog
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          pageId={page.id}
+          pageTitle={title}
+          currentVisibility={page.visibility}
+          canManageAccess={canManageAccess}
+          canChangeVisibility={canChangeVisibility}
+        />
+      )}
     </div>
   );
 }

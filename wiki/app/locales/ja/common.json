@@ -53,10 +53,32 @@
     "share_add_button": "追加",
     "share_role_owner": "オーナー",
     "share_role_editor": "編集者",
+    "share_role_commenter": "閲覧者（コメント可）",
     "share_role_viewer": "閲覧者",
+    "share_role": "ロール",
     "share_general_access": "一般アクセス",
     "share_general_restricted_desc": "上記で追加したユーザーのみがこのページにアクセスできます。",
+    "share_access_restricted": "制限付き",
+    "share_access_unlisted": "限定公開",
+    "share_access_public": "公開",
+    "share_access_restricted_desc": "アクセス権を持つユーザーとChapterのメンバーのみが開くことができます。",
+    "share_access_unlisted_desc": "リンクを知っているすべてのユーザーが閲覧できます。",
+    "share_access_public_desc": "すべてのユーザーが閲覧でき、公開ページ一覧に表示されます。",
+    "share_link_role": "リンクを知っているユーザーのロール",
     "share_copy_link": "リンクをコピー",
+    "share_copy_failed": "リンクをコピーできませんでした。",
+    "share_done": "完了",
+    "share_send": "送信",
+    "share_notify": "通知",
+    "share_message": "メッセージ",
+    "share_back": "戻る",
+    "share_add_more": "ユーザーまたはChapterを追加",
+    "share_loading_candidates": "候補を読み込んでいます…",
+    "share_no_candidates": "一致するユーザーまたはChapterはありません。",
+    "share_chapter": "Chapter",
+    "share_remove_subject": "{{name}} を削除",
+    "share_error_generic": "共有設定を更新できませんでした。",
+    "share_notification_warning": "共有設定は更新されましたが、一部の通知を送信できませんでした。",
     "share_pending": "招待中",
     "share_remove": "アクセス権を削除",
     "share_error_invalid_email": "有効なメールアドレスを入力してください。",
@@ -135,6 +157,11 @@
     "no_activity_pages": "最近のページ活動はありません。",
     "no_activity_comments": "最近のコメントはありません。"
   },
+  "public_pages": {
+    "title": "公開ページ",
+    "description": "GDG Japanコミュニティが公開しているナレッジを閲覧できます。",
+    "empty": "公開されているページはまだありません。"
+  },
   "recent": {
     "title": "最近",
     "recently_updated": "最近の更新",
@@ -146,12 +173,6 @@
   "auth": {
     "sign_in": "サインイン",
     "sign_out": "サインアウト"
-  },
-  "login": {
-    "title": "GDG Japan Wiki",
-    "subtitle": "続けるにはサインインしてください",
-    "google_signin": "Googleでサインイン",
-    "access_restricted": "GDG Japanメンバー限定のアクセスです。"
   },
   "admin": {
     "label": "管理",

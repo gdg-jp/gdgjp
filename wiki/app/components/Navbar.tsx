@@ -2,7 +2,7 @@ import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
 import { ChartPie, Globe, ListTodo, Moon, PanelLeft, PanelLeftClose, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Form, Link, useFetcher, useSearchParams } from "react-router";
+import { Form, Link, useFetcher, useLocation, useSearchParams } from "react-router";
 import NotificationBell from "./NotificationBell";
 
 interface NavbarProps {
@@ -181,6 +181,7 @@ export default function Navbar({
   unreadNotificationCount,
 }: NavbarProps) {
   const { t } = useTranslation();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const currentQuery = searchParams.get("q") ?? "";
   const [queryInput, setQueryInput] = useState(currentQuery);
@@ -245,7 +246,10 @@ export default function Navbar({
             <UserMenu user={user} />
           </>
         ) : (
-          <Link to="/login" className="text-sm font-medium text-blue-500 hover:underline">
+          <Link
+            to={`/signin?return_to=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
+            className="text-sm font-medium text-blue-500 hover:underline"
+          >
             {t("auth.sign_in")}
           </Link>
         )}

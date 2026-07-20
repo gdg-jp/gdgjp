@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import Database from "better-sqlite3";
+import { DatabaseSync } from "node:sqlite";
 
 // IDs are stable across runs so storageState files stay valid.
 // `kind` distinguishes admin/author/member for the storage-state filename;
@@ -74,7 +74,7 @@ function findD1Sqlite(): string {
  * Reads RP_SESSION_SECRET from .dev.vars. We need to sign cookies with the
  * exact same key the dev server uses to verify them.
  */
-function readSessionSecret(): string {
+function readSessionConfig(): { secret: string; issuer: string } {
   const devVars = path.join(process.cwd(), ".dev.vars");
   if (!fs.existsSync(devVars)) {
     throw new Error(
@@ -94,7 +94,13 @@ function readSessionSecret(): string {
     secret = secret.slice(1, -1);
   }
   if (!secret) throw new Error("RP_SESSION_SECRET is empty in .dev.vars");
-  return secret;
+  const issuerMatch = content.match(/^\s*IDP_URL\s*=\s*(.+?)\s*$/m);
+  if (!issuerMatch) throw new Error("IDP_URL is not set in .dev.vars");
+  const issuer = issuerMatch[1]
+    .trim()
+    .replace(/^['\"]|['\"]$/g, "")
+    .replace(/\/$/, "");
+  return { secret, issuer };
 }
 
 function b64url(buf: Buffer): string {
@@ -112,7 +118,7 @@ function signCookie(payload: unknown, secret: string): string {
 }
 
 function seedDb(dbPath: string): void {
-  const db = new Database(dbPath);
+  const db = new DatabaseSync(dbPath);
 
   const now = Math.floor(Date.now() / 1000);
 
@@ -139,9 +145,9 @@ function seedDb(dbPath: string): void {
 
   // Test page (authored by E2E Author) — pages schema unchanged in PR 2.
   const upsertPage = db.prepare(`
-    INSERT INTO pages (id, title_ja, title_en, slug, content_ja, content_en, author_id, last_edited_by, visibility, status, sort_order, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'public', 'published', 0, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET visibility = 'public', updated_at = excluded.updated_at
+    INSERT INTO pages (id, title_ja, title_en, slug, content_ja, content_en, author_id, last_edited_by, visibility, general_role, status, sort_order, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'restricted', 'viewer', 'published', 0, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET visibility = 'restricted', general_role = 'viewer', updated_at = excluded.updated_at
   `);
 
   upsertPage.run(
@@ -164,33 +170,40 @@ function seedDb(dbPath: string): void {
  * Builds the SessionPayload struct the RP factory expects (see
  * `interface SessionPayload` in gdg-lib/src/auth/rp.ts), then HMAC-signs it
  * with the same RP_SESSION_SECRET the dev server uses. The access/refresh
- * tokens are dummy values — these e2e tests exercise UI behaviour against
- * the signed session, not the IdP, so getFreshClaims is never invoked.
+ * Chapter claims intentionally fail closed when the local IdP is unavailable.
  */
-function buildSessionCookieValue(user: (typeof USERS)[keyof typeof USERS], secret: string): string {
+function buildSessionCookieValue(
+  user: (typeof USERS)[keyof typeof USERS],
+  secret: string,
+  issuer: string,
+): string {
   const farFuture = Date.now() + 30 * 24 * 60 * 60 * 1000;
   const payload = {
+    version: 3,
+    sessionId: `e2e-session-${user.id}`,
     userId: user.id,
+    issuer,
+    subject: user.id,
     email: user.email,
     name: user.name,
     picture: null,
     isAdmin: user.isAdmin === 1,
-    accessToken: "e2e-fake-access-token",
-    refreshToken: null,
-    accessTokenExpiresAt: farFuture,
-    chapters: [],
-    claimsCacheUntil: farFuture,
+    expiresAt: farFuture,
   };
   return signCookie(payload, secret);
 }
 
-function writeStorageState(user: (typeof USERS)[keyof typeof USERS], secret: string): void {
+function writeStorageState(
+  user: (typeof USERS)[keyof typeof USERS],
+  secret: string,
+  issuer: string,
+): void {
   fs.mkdirSync(STORAGE_STATE_DIR, { recursive: true });
   const state = {
     cookies: [
       {
         name: SESSION_COOKIE,
-        value: buildSessionCookieValue(user, secret),
+        value: buildSessionCookieValue(user, secret, issuer),
         domain: "localhost",
         path: "/",
         expires: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
@@ -209,12 +222,12 @@ function writeStorageState(user: (typeof USERS)[keyof typeof USERS], secret: str
 
 export default async function globalSetup() {
   const dbPath = findD1Sqlite();
-  const secret = readSessionSecret();
+  const { secret, issuer } = readSessionConfig();
   console.log(`\n[E2E setup] Seeding D1 SQLite: ${dbPath}`);
   seedDb(dbPath);
 
   for (const u of Object.values(USERS)) {
-    writeStorageState(u, secret);
+    writeStorageState(u, secret, issuer);
   }
   console.log(`[E2E setup] Storage state written to ${STORAGE_STATE_DIR}`);
 }

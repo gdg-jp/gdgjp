@@ -140,6 +140,13 @@ export class CollabDurableObject extends DurableObject<Env> {
    * Handle WebSocket upgrade request.
    */
   async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (request.method === "POST" && url.pathname === "/access-changed") {
+      for (const ws of this.connections.keys()) {
+        ws.close(4003, "Page permissions changed");
+      }
+      return new Response(null, { status: 204 });
+    }
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 });
     }
@@ -150,7 +157,6 @@ export class CollabDurableObject extends DurableObject<Env> {
     }
 
     // Extract slug from URL
-    const url = new URL(request.url);
     const slug = url.pathname.split("/")[3];
     if (!slug) return new Response("Missing slug", { status: 400 });
 

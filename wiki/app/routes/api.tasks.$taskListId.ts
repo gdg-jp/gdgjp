@@ -2,9 +2,9 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
-import { canUserSeePageAsync } from "~/lib/page-visibility.server";
+import { getEffectivePagePermissions } from "~/lib/page-access.server";
 
 // ---------------------------------------------------------------------------
 // GET — list tasks for a task list
@@ -12,6 +12,7 @@ import { canUserSeePageAsync } from "~/lib/page-visibility.server";
 export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
   const { taskListId } = params;
@@ -23,6 +24,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
     .select({
       id: schema.pages.id,
       visibility: schema.pages.visibility,
+      generalRole: schema.pages.generalRole,
       chapterId: schema.pages.chapterId,
       authorId: schema.pages.authorId,
     })
@@ -31,7 +33,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
     .get();
 
   if (!page) return Response.json({ error: "Task list not found" }, { status: 404 });
-  if (!(await canUserSeePageAsync(db, user, page))) {
+  if (!(await getEffectivePagePermissions(db, page, user, identity.chapterIds)).canView) {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -68,6 +70,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
   const { taskListId } = params;
@@ -77,13 +80,18 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   // appends to it). Only the page author or an admin may do that — same
   // gate as /tasks/:slug intent="updateSettings".
   const page = await db
-    .select({ id: schema.pages.id, authorId: schema.pages.authorId })
+    .select({
+      id: schema.pages.id,
+      authorId: schema.pages.authorId,
+      visibility: schema.pages.visibility,
+      generalRole: schema.pages.generalRole,
+    })
     .from(schema.pages)
     .where(eq(schema.pages.id, taskListId))
     .get();
 
   if (!page) return Response.json({ error: "Task list not found" }, { status: 404 });
-  if (!user.isAdmin && page.authorId !== user.id) {
+  if (!(await getEffectivePagePermissions(db, page, user, identity.chapterIds)).canEdit) {
     return new Response("Forbidden", { status: 403 });
   }
 

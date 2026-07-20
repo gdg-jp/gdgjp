@@ -12,7 +12,6 @@ import { useThemeMode } from "~/hooks/useThemeMode";
 import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { generateSlug } from "~/lib/ingestion-pipeline.server";
-import { insertPageOwner } from "~/lib/page-access.server";
 
 // ---------------------------------------------------------------------------
 // Meta
@@ -30,7 +29,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const canLead = user.isAdmin;
   return {
     canPublish: canLead,
-    canChangeVisibility: canLead,
   };
 }
 
@@ -49,8 +47,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const titleEn = (formData.get("titleEn") as string) ?? "";
   const contentJa = (formData.get("contentJa") as string) ?? "";
   const contentEn = (formData.get("contentEn") as string) ?? "";
-  const visibility = (formData.get("visibility") as string) || "public";
-
   const canLead = user.isAdmin;
   const isPublish = intent === "publish" && canLead;
 
@@ -76,13 +72,12 @@ export async function action({ request, context }: ActionFunctionArgs) {
     contentJa,
     contentEn,
     status: isPublish ? "published" : "draft",
-    visibility,
+    visibility: "restricted",
+    generalRole: "viewer",
     chapterId: null,
     authorId: user.id,
     lastEditedBy: user.id,
   });
-
-  await insertPageOwner(db, pageId, user.id, user.email);
 
   if (isPublish) {
     await env.TRANSLATION_QUEUE.send({ pageId });
@@ -97,7 +92,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
 // ---------------------------------------------------------------------------
 
 export default function NewPage() {
-  const { canPublish, canChangeVisibility } = useLoaderData<typeof loader>();
+  const { canPublish } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
   const theme = useThemeMode();
 
@@ -106,7 +101,6 @@ export default function NewPage() {
   const [contentJa, setContentJa] = useState("");
   const [contentEn, setContentEn] = useState("");
   const [activeLang, setActiveLang] = useState<"ja" | "en">("ja");
-  const [visibility, setVisibility] = useState("public");
 
   const isJaActive = activeLang === "ja";
   const isEnActive = activeLang === "en";
@@ -116,7 +110,6 @@ export default function NewPage() {
       {/* Hidden content fields — always kept in sync */}
       <input type="hidden" name="contentJa" value={contentJa} />
       <input type="hidden" name="contentEn" value={contentEn} />
-      {canChangeVisibility && <input type="hidden" name="visibility" value={visibility} />}
 
       {/* ------------------------------------------------------------------ */}
       {/* Mini-header                                                          */}
@@ -171,20 +164,6 @@ export default function NewPage() {
               </button>
             ))}
           </div>
-
-          {/* Visibility select */}
-          {canChangeVisibility && (
-            <select
-              aria-label={t("wiki.visibility")}
-              value={visibility}
-              onChange={(e) => setVisibility(e.target.value)}
-              className="max-w-36 shrink-0 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-700"
-            >
-              <option value="public">{t("wiki.visibility_public")}</option>
-              <option value="private_to_chapter">{t("wiki.visibility_chapter")}</option>
-              <option value="private_to_lead">{t("wiki.visibility_lead")}</option>
-            </select>
-          )}
 
           <button
             type="submit"

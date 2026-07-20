@@ -19,6 +19,7 @@ export default [
     route("chapters/:slug/organize", "routes/chapters.$slug.organize.tsx"),
   ]),
   route("api/locale", "routes/api.locale.ts"),
+  route("api/chapters/directory", "routes/api.chapters.directory.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
   route("api/auth/*", "routes/api.auth.$.ts"),
   // Compatibility routes keep in-flight requests working across the provider cutover.

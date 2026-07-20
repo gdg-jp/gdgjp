@@ -31,6 +31,7 @@ export function NavItem({ to, icon, label, isCollapsed, isActive }: NavItemProps
 interface SidebarProps {
   pages: PageNode[];
   currentSlug?: string;
+  isAuthenticated?: boolean;
   isAdmin?: boolean | null;
   isOpen?: boolean;
   isMobile?: boolean;
@@ -46,6 +47,7 @@ interface SidebarProps {
 export default function Sidebar({
   pages,
   currentSlug,
+  isAuthenticated = true,
   isAdmin = false,
   isOpen = true,
   isMobile = false,
@@ -78,88 +80,91 @@ export default function Sidebar({
               isCollapsed={isCollapsed}
               isActive={location.pathname === "/"}
             />
-            {onRecentClick ? (
-              <button
-                ref={recentButtonRef}
-                type="button"
-                title={isCollapsed ? t("nav.recent") : undefined}
-                onClick={onRecentClick}
-                className="flex min-h-8 w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                <span className="flex-shrink-0">
-                  <Clock size={16} />
-                </span>
-                {!isCollapsed && (
-                  <>
-                    <span className="flex-1 truncate text-left">{t("nav.recent")}</span>
-                    <ChevronRight size={14} className="shrink-0 text-gray-400" />
-                  </>
-                )}
-              </button>
-            ) : (
-              <NavItem
-                to="/recent"
-                icon={<Clock size={16} />}
-                label={t("nav.recent")}
-                isCollapsed={isCollapsed}
-                isActive={location.pathname === "/recent"}
-              />
-            )}
-            {onStarredClick ? (
-              <button
-                ref={starredButtonRef}
-                type="button"
-                title={isCollapsed ? t("nav.starred") : undefined}
-                onClick={onStarredClick}
-                className="flex min-h-8 w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                <span className="flex-shrink-0">
-                  <Star size={16} />
-                </span>
-                {!isCollapsed && (
-                  <>
-                    <span className="flex-1 truncate text-left">{t("nav.starred")}</span>
-                    <ChevronRight size={14} className="shrink-0 text-gray-400" />
-                  </>
-                )}
-              </button>
-            ) : (
-              <NavItem
-                to="/starred"
-                icon={<Star size={16} />}
-                label={t("nav.starred")}
-                isCollapsed={isCollapsed}
-                isActive={location.pathname === "/starred"}
-              />
-            )}
-            {onArchivedClick ? (
-              <button
-                ref={archivedButtonRef}
-                type="button"
-                title={isCollapsed ? t("nav.archived") : undefined}
-                onClick={onArchivedClick}
-                className="flex min-h-8 w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                <span className="flex-shrink-0">
-                  <Archive size={16} />
-                </span>
-                {!isCollapsed && (
-                  <>
-                    <span className="flex-1 truncate text-left">{t("nav.archived")}</span>
-                    <ChevronRight size={14} className="shrink-0 text-gray-400" />
-                  </>
-                )}
-              </button>
-            ) : (
-              <NavItem
-                to="/archived"
-                icon={<Archive size={16} />}
-                label={t("nav.archived")}
-                isCollapsed={isCollapsed}
-                isActive={location.pathname === "/archived"}
-              />
-            )}
-            {isAdmin && (
+            {isAuthenticated &&
+              (onRecentClick ? (
+                <button
+                  ref={recentButtonRef}
+                  type="button"
+                  title={isCollapsed ? t("nav.recent") : undefined}
+                  onClick={onRecentClick}
+                  className="flex min-h-8 w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <span className="flex-shrink-0">
+                    <Clock size={16} />
+                  </span>
+                  {!isCollapsed && (
+                    <>
+                      <span className="flex-1 truncate text-left">{t("nav.recent")}</span>
+                      <ChevronRight size={14} className="shrink-0 text-gray-400" />
+                    </>
+                  )}
+                </button>
+              ) : (
+                <NavItem
+                  to="/recent"
+                  icon={<Clock size={16} />}
+                  label={t("nav.recent")}
+                  isCollapsed={isCollapsed}
+                  isActive={location.pathname === "/recent"}
+                />
+              ))}
+            {isAuthenticated &&
+              (onStarredClick ? (
+                <button
+                  ref={starredButtonRef}
+                  type="button"
+                  title={isCollapsed ? t("nav.starred") : undefined}
+                  onClick={onStarredClick}
+                  className="flex min-h-8 w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <span className="flex-shrink-0">
+                    <Star size={16} />
+                  </span>
+                  {!isCollapsed && (
+                    <>
+                      <span className="flex-1 truncate text-left">{t("nav.starred")}</span>
+                      <ChevronRight size={14} className="shrink-0 text-gray-400" />
+                    </>
+                  )}
+                </button>
+              ) : (
+                <NavItem
+                  to="/starred"
+                  icon={<Star size={16} />}
+                  label={t("nav.starred")}
+                  isCollapsed={isCollapsed}
+                  isActive={location.pathname === "/starred"}
+                />
+              ))}
+            {isAuthenticated &&
+              (onArchivedClick ? (
+                <button
+                  ref={archivedButtonRef}
+                  type="button"
+                  title={isCollapsed ? t("nav.archived") : undefined}
+                  onClick={onArchivedClick}
+                  className="flex min-h-8 w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <span className="flex-shrink-0">
+                    <Archive size={16} />
+                  </span>
+                  {!isCollapsed && (
+                    <>
+                      <span className="flex-1 truncate text-left">{t("nav.archived")}</span>
+                      <ChevronRight size={14} className="shrink-0 text-gray-400" />
+                    </>
+                  )}
+                </button>
+              ) : (
+                <NavItem
+                  to="/archived"
+                  icon={<Archive size={16} />}
+                  label={t("nav.archived")}
+                  isCollapsed={isCollapsed}
+                  isActive={location.pathname === "/archived"}
+                />
+              ))}
+            {isAuthenticated && isAdmin && (
               <NavItem
                 to="/admin"
                 icon={<Settings size={16} />}
@@ -179,7 +184,8 @@ export default function Sidebar({
               pages={pages}
               currentSlug={currentSlug}
               isCollapsed={isCollapsed}
-              canReorder={!isMobile && !isCollapsed}
+              canReorder={isAuthenticated && !isMobile && !isCollapsed}
+              canCreate={isAuthenticated}
             />
           </div>
         </div>

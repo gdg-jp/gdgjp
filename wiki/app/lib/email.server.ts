@@ -182,3 +182,74 @@ export async function sendInvitationEmail(env: Env, opts: InvitationEmailOpts): 
 
   await sendViaResend(env.RESEND_API_KEY, safeToHeader, subject, htmlBody, textBody);
 }
+
+// ---------------------------------------------------------------------------
+// Page share email
+// ---------------------------------------------------------------------------
+
+export interface PageShareEmailOpts {
+  to: string;
+  pageTitle: string;
+  pageUrl: string;
+  role: "viewer" | "commenter" | "editor";
+  sharedByName: string;
+  message?: string;
+}
+
+const PAGE_ROLE_LABEL: Record<PageShareEmailOpts["role"], string> = {
+  viewer: "Viewer",
+  commenter: "Commenter",
+  editor: "Editor",
+};
+
+/** Sends a sharing notice for a directly-addressed email grant (never Chapters). */
+export async function sendPageShareEmail(env: Env, opts: PageShareEmailOpts): Promise<void> {
+  // Development uses a localhost URL and only logs the notification; production
+  // mail links must remain HTTPS.
+  const pageUrl =
+    env.ENVIRONMENT === "production"
+      ? requireHttpsUrl(opts.pageUrl)
+      : new URL(opts.pageUrl).toString();
+  const subject = `${opts.sharedByName} shared “${opts.pageTitle}” with you`;
+  const roleLabel = PAGE_ROLE_LABEL[opts.role];
+  const safeTitle = escapeHtml(opts.pageTitle);
+  const safeSharedBy = escapeHtml(opts.sharedByName);
+  const safeUrl = escapeHtml(pageUrl);
+  const safeMessage = opts.message?.trim() ? escapeHtml(opts.message.trim()) : null;
+
+  const textBody = [
+    "Hi,",
+    "",
+    `${opts.sharedByName} shared “${opts.pageTitle}” with you as a ${roleLabel}.`,
+    ...(opts.message?.trim() ? ["", opts.message.trim()] : []),
+    "",
+    pageUrl,
+    "",
+    "— GDG Japan Wiki",
+  ].join("\n");
+  const htmlBody = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>${escapeHtml(subject)}</title></head>
+<body style="font-family:sans-serif;max-width:480px;margin:40px auto;color:#111;">
+  <h2 style="font-size:20px;">A page was shared with you</h2>
+  <p><strong>${safeSharedBy}</strong> shared <strong>${safeTitle}</strong> with you as a <strong>${roleLabel}</strong>.</p>
+  ${safeMessage ? `<p style="white-space:pre-wrap;">${safeMessage}</p>` : ""}
+  <p style="margin:24px 0;"><a href="${safeUrl}" style="background:#1a73e8;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">Open page</a></p>
+</body>
+</html>`;
+
+  if (env.ENVIRONMENT !== "production") {
+    console.log("[email.server] DEV MODE — would send page-share email:");
+    console.log(`  To: ${opts.to}`);
+    console.log(`  Subject: ${subject}`);
+    return;
+  }
+
+  await sendViaResend(
+    env.RESEND_API_KEY,
+    sanitizeEmailHeader(opts.to),
+    subject,
+    htmlBody,
+    textBody,
+  );
+}

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
 import { timeAgo } from "~/lib/time";
@@ -17,9 +17,10 @@ export const meta: MetaFunction = () => [{ title: "Recent — GDG Japan Wiki" }]
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
-  const visFilter = buildVisibilityFilter(user);
+  const visFilter = buildVisibilityFilter(user, identity.chapterIds);
 
   const [recentUpdated, recentViewed] = await Promise.all([
     db

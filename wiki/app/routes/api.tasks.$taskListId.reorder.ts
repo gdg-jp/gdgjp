@@ -1,8 +1,9 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
+import { getEffectivePagePermissions } from "~/lib/page-access.server";
 
 // ---------------------------------------------------------------------------
 // POST — reorder tasks within a task list
@@ -10,6 +11,7 @@ import { getDb } from "~/lib/db.server";
 export async function action({ request, params, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
   const { taskListId } = params;
@@ -17,13 +19,18 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
 
   // Only the task list's page author or an admin may reorder.
   const page = await db
-    .select({ authorId: schema.pages.authorId })
+    .select({
+      id: schema.pages.id,
+      authorId: schema.pages.authorId,
+      visibility: schema.pages.visibility,
+      generalRole: schema.pages.generalRole,
+    })
     .from(schema.pages)
     .where(eq(schema.pages.id, taskListId))
     .get();
 
   if (!page) return Response.json({ error: "Task list not found" }, { status: 404 });
-  if (!user.isAdmin && page.authorId !== user.id) {
+  if (!(await getEffectivePagePermissions(db, page, user, identity.chapterIds)).canEdit) {
     return new Response("Forbidden", { status: 403 });
   }
 

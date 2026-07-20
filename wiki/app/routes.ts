@@ -3,7 +3,7 @@ import { type RouteConfig, index, layout, route } from "@react-router/dev/routes
 export default [
   // Public routes (no app shell)
   route("/api/auth/*", "routes/api-auth.tsx"),
-  route("/login", "routes/login.tsx"),
+  route("/signin", "routes/signin.tsx"),
   route("/logout", "routes/logout.tsx"),
 
   // Task API routes (no app shell)
@@ -33,6 +33,7 @@ export default [
   route("/api/recent", "routes/api.recent.ts"),
   route("/api/archived", "routes/api.archived.ts"),
   route("/api/page-access/:pageId", "routes/api.page-access.$pageId.tsx"),
+  route("/api/share-candidates", "routes/api.share-candidates.ts"),
   route("/api/users/search", "routes/api.users.search.ts"),
 
   // Admin routes — separate layout with admin sidebar.

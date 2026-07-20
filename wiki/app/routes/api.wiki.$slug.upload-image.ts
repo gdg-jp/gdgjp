@@ -3,7 +3,8 @@ import { drizzle } from "drizzle-orm/d1";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
+import { getEffectivePagePermissions } from "~/lib/page-access.server";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -14,11 +15,18 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = drizzle(env.DB, { schema });
 
   const slug = params.slug ?? "";
   const page = await db
-    .select({ id: schema.pages.id, status: schema.pages.status, authorId: schema.pages.authorId })
+    .select({
+      id: schema.pages.id,
+      status: schema.pages.status,
+      authorId: schema.pages.authorId,
+      visibility: schema.pages.visibility,
+      generalRole: schema.pages.generalRole,
+    })
     .from(schema.pages)
     .where(eq(schema.pages.slug, slug))
     .get();
@@ -31,8 +39,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     return new Response("Not Found", { status: 404 });
   }
 
-  const canEditAny = user.isAdmin;
-  if (!canEditAny && page.authorId !== user.id) {
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  if (!permissions.canEdit) {
     return new Response("Forbidden", { status: 403 });
   }
 

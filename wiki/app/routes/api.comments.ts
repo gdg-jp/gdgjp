@@ -2,17 +2,40 @@ import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { createNotification } from "~/lib/notify.server";
+import { getEffectivePagePermissions } from "~/lib/page-access.server";
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const sessionUser = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
   const form = await request.formData();
   const intent = form.get("intent");
+
+  async function requireCommentPermission(pageId: string) {
+    const page = await db
+      .select({
+        id: schema.pages.id,
+        authorId: schema.pages.authorId,
+        visibility: schema.pages.visibility,
+        generalRole: schema.pages.generalRole,
+      })
+      .from(schema.pages)
+      .where(eq(schema.pages.id, pageId))
+      .get();
+    if (!page) throw new Response("Not Found", { status: 404 });
+    const permissions = await getEffectivePagePermissions(
+      db,
+      page,
+      sessionUser,
+      identity.chapterIds,
+    );
+    if (!permissions.canComment) throw new Response("Forbidden", { status: 403 });
+  }
 
   // -------------------------------------------------------------------------
   // addComment — insert a top-level comment
@@ -23,6 +46,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     if (typeof pageId !== "string" || !pageId || typeof contentJson !== "string" || !contentJson) {
       return Response.json({ error: "Missing fields" }, { status: 400 });
     }
+    await requireCommentPermission(pageId);
 
     const id = nanoid();
     await db.insert(schema.pageComments).values({
@@ -58,6 +82,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     ) {
       return Response.json({ error: "Missing fields" }, { status: 400 });
     }
+    await requireCommentPermission(pageId);
 
     const parentComment = await db
       .select({ id: schema.pageComments.id, authorId: schema.pageComments.authorId })
@@ -141,6 +166,14 @@ export async function action({ request, context }: ActionFunctionArgs) {
     if (typeof commentId !== "string" || !commentId || typeof emoji !== "string" || !emoji) {
       return Response.json({ error: "Missing fields" }, { status: 400 });
     }
+
+    const commentPage = await db
+      .select({ pageId: schema.pageComments.pageId })
+      .from(schema.pageComments)
+      .where(eq(schema.pageComments.id, commentId))
+      .get();
+    if (!commentPage) return Response.json({ error: "Comment not found" }, { status: 404 });
+    await requireCommentPermission(commentPage.pageId);
 
     const existing = await db
       .select()

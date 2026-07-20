@@ -1,8 +1,8 @@
-import { type SQL, and, eq, or, sql } from "drizzle-orm";
+import { type SQL, and, eq, ne, or, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import type * as schema from "~/db/schema";
 import { pages } from "~/db/schema";
-import { getUserPageRole } from "./page-access.server";
+import { getEffectivePagePermissions } from "./page-access.server";
 
 type UserLike = {
   id: string;
@@ -10,67 +10,66 @@ type UserLike = {
   email?: string | null;
 };
 
-type PageLike = {
+export type PageLike = {
   id?: string;
   visibility: string;
-  chapterId?: string | null;
+  generalRole?: string | null;
   authorId: string;
 };
 
 /**
- * Page-visibility decisions for the SSO-migrated wiki.
- *
- * Pre-migration this honored four visibilities — public, private_to_chapter,
- * private_to_lead, restricted — keyed off user.role and user.chapterId.
- * After moving user provisioning to the accounts IdP, wiki no longer stores
- * per-user chapter membership, so chapter-scoped visibilities collapse to
- * "author or admin only". Existing `pages.visibility` values are preserved
- * verbatim so the data is intact when/if richer scoping is reintroduced.
+ * Fast direct-access check for pages that do not require an explicit grant.
+ * Restricted grants are resolved by the async evaluator below.
  */
-export function canUserSeePage(user: UserLike, page: PageLike): boolean {
-  if (user.isAdmin) return true;
-  if (user.id === page.authorId) return true;
-  if (page.visibility === "public") return true;
-  // private_to_chapter / private_to_lead: chapter membership no longer
-  // available locally; only author + admin (handled above) can see.
-  // restricted: requires page_access lookup — handled by the async variant.
-  return false;
+export function canUserSeePage(user: UserLike | null, page: PageLike): boolean {
+  if (user?.isAdmin || (user && user.id === page.authorId)) return true;
+  return page.visibility === "public" || page.visibility === "unlisted";
+}
+
+export async function canUserSeePageAsync(
+  db: DrizzleD1Database<typeof schema>,
+  user: UserLike | null,
+  page: PageLike & { id: string },
+  chapterIds: readonly (string | number)[] = [],
+): Promise<boolean> {
+  if (canUserSeePage(user, page)) return true;
+  const permissions = await getEffectivePagePermissions(db, page, user, chapterIds);
+  return permissions.canView;
 }
 
 /**
- * Async variant that handles "restricted" pages by checking page_access records.
- * For non-restricted pages falls back to the sync canUserSeePage.
+ * Visibility filter for discoverable surfaces (home, sidebar, search, recent).
+ * Unlisted pages are intentionally absent even for their owner; they are only
+ * reachable by their direct URL.
  */
-export async function canUserSeePageAsync(
-  db: DrizzleD1Database<typeof schema>,
-  user: UserLike,
-  page: PageLike & { id: string },
-): Promise<boolean> {
-  if (page.visibility !== "restricted") return canUserSeePage(user, page);
-  if (user.isAdmin) return true;
-  if (user.id === page.authorId) return true;
-  const role = await getUserPageRole(db, page.id, user.id, user.email);
-  return role !== null;
-}
+export function buildVisibilityFilter(
+  user: UserLike | null,
+  chapterIds: readonly (string | number)[] = [],
+): SQL {
+  if (!user) return eq(pages.visibility, "public");
+  if (user.isAdmin) return ne(pages.visibility, "unlisted");
 
-export function canUserChangeVisibility(user: UserLike, page: PageLike): boolean {
-  if (user.isAdmin) return true;
-  if (user.id === page.authorId) return true;
-  return false;
-}
+  const normalizedEmail = user.email?.trim().toLowerCase() ?? "";
+  const chapterKeys = chapterIds.map(String);
+  const chapterSql =
+    chapterKeys.length > 0
+      ? sql` OR (subject_type = 'chapter' AND subject_key IN (${sql.join(
+          chapterKeys.map((id) => sql`${id}`),
+          sql`, `,
+        )}))`
+      : sql``;
 
-export function buildVisibilityFilter(user: UserLike): SQL | undefined {
-  if (user.isAdmin) return undefined;
+  const restrictedGrant = sql`(
+    ${pages.visibility} = 'restricted'
+    AND EXISTS (
+      SELECT 1 FROM page_access
+      WHERE page_id = ${pages.id}
+        AND ((subject_type = 'email' AND subject_key = ${normalizedEmail})${chapterSql})
+    )
+  )`;
 
-  const conditions: SQL[] = [eq(pages.authorId, user.id), eq(pages.visibility, "public")];
-
-  // Restricted pages: visible if user has a page_access record.
-  const restrictedMatch = and(
-    eq(pages.visibility, "restricted"),
-    sql`EXISTS (SELECT 1 FROM page_access WHERE page_id = ${pages.id}
-      AND (user_id = ${user.id} OR email = ${user.email ?? ""}))`,
-  );
-  if (restrictedMatch) conditions.push(restrictedMatch);
-
-  return or(...conditions);
+  return and(
+    ne(pages.visibility, "unlisted"),
+    or(eq(pages.authorId, user.id), eq(pages.visibility, "public"), restrictedGrant),
+  ) as SQL;
 }

@@ -120,7 +120,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function VisibilityBadge({ visibility }: { visibility: string }) {
   if (visibility === "public") return null;
-  const label = visibility === "private_to_chapter" ? "chapter" : "lead";
+  const label = visibility === "unlisted" ? "unlisted" : "restricted";
   return (
     <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">
       {label}

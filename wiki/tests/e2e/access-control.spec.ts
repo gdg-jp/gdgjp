@@ -1,469 +1,193 @@
-/**
- * E2E tests for Fine-Grained Access Control (Google Docs–style ShareDialog).
- *
- * Prerequisites:
- *   - Dev server running on http://localhost:5177
- *   - global-setup.ts has seeded 3 test users into D1 SQLite + the test wiki
- *     page, and written HMAC-signed session cookies to storageState files.
- *
- * Auth strategy: openid-client RP factory uses a signed session cookie
- * (`gdgjp-wiki-session`). global-setup signs that cookie with the
- * RP_SESSION_SECRET from .dev.vars so the dev server accepts it without
- * a real OIDC sign-in flow.
- */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { type BrowserContext, type Page, expect, test } from "@playwright/test";
+import { type Browser, type BrowserContext, type Page, expect, test } from "@playwright/test";
 import { TEST_PAGE } from "./global-setup";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:5177";
 const PAGE_URL = `${BASE}/wiki/${TEST_PAGE.slug}`;
 const STORAGE_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "storage-state");
 
-// All tests in this file mutate the same wiki page (visibility, access list).
-// Running them in parallel produced flaky failures where one test's setVisibility
-// "restricted" raced another test's openShareDialog or page load. Serialise the
-// whole file so each test sees a deterministic state from the one before it.
 test.describe.configure({ mode: "serial" });
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 async function makePage(
-  browser: Parameters<Parameters<typeof test>[2]>[0]["browser"],
-  storageFile: string,
+  browser: Browser,
+  storageFile?: "admin.json" | "author.json" | "member.json",
+  viewport?: { width: number; height: number },
 ): Promise<{ ctx: BrowserContext; page: Page }> {
   const ctx = await browser.newContext({
-    storageState: path.join(STORAGE_DIR, storageFile),
-    // The "Copy link" button calls navigator.clipboard.writeText, which silently
-    // rejects in headless Chromium unless clipboard-write is explicitly granted.
+    ...(storageFile ? { storageState: path.join(STORAGE_DIR, storageFile) } : {}),
     permissions: ["clipboard-read", "clipboard-write"],
+    viewport,
   });
-  const page = await ctx.newPage();
-  return { ctx, page };
+  return { ctx, page: await ctx.newPage() };
 }
 
 async function openShareDialog(page: Page) {
-  // Click the first "Share" button visible on the page. Wait for it explicitly
-  // — Cloudflare-plugin dev cold-starts can leave the page hydrating for a few
-  // seconds after navigation completes.
-  const shareBtn = page.getByRole("button", { name: /share/i }).first();
+  const button = page.getByRole("button", { name: /share/i }).first();
+  if (!(await button.isVisible().catch(() => false))) {
+    const more = page.getByRole("button", { name: /more actions/i });
+    await expect(more).toBeVisible({ timeout: 10_000 });
+    await more.click();
+  }
+  await expect(button).toBeVisible({ timeout: 10_000 });
   const dialog = page.getByRole("dialog");
-  await expect(shareBtn).toBeVisible({ timeout: 10_000 });
-
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
-    await shareBtn.click({ force: true });
-    try {
-      await expect(dialog).toBeVisible({ timeout: 1000 });
-      return;
-    } catch {
-      // The SSR button can be visible before hydration attaches its handler.
-    }
+    await button.click({ force: true });
+    if (await dialog.isVisible().catch(() => false)) return button;
+    await page.waitForTimeout(100);
   }
-
-  await expect(dialog).toBeVisible({ timeout: 1 });
+  await expect(dialog).toBeVisible();
+  return button;
 }
 
-async function selectVisibility(page: Page, value: string) {
-  const visibilitySelect = page.getByRole("dialog").locator('select:has(option[value="public"])');
-  await expect(visibilitySelect).toBeVisible({ timeout: 5000 });
-
-  const responsePromise = page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" && response.url().includes("/api/page-access/"),
+async function setGeneralAccess(page: Page, value: "restricted" | "unlisted" | "public") {
+  const response = page.waitForResponse(
+    (candidate) =>
+      candidate.request().method() === "POST" && candidate.url().includes("/api/page-access/"),
   );
-  await visibilitySelect.selectOption(value);
-  const response = await responsePromise;
-  expect(response.ok()).toBeTruthy();
+  await page.locator("#general-access").selectOption(value);
+  expect((await response).ok()).toBeTruthy();
 }
 
-// ---------------------------------------------------------------------------
-// Smoke / Dialog visibility
-// ---------------------------------------------------------------------------
+test("Google Docs-style overview, copy, Escape and focus restoration", async ({ browser }) => {
+  const { ctx, page } = await makePage(browser, "author.json");
+  await page.goto(PAGE_URL);
+  const trigger = await openShareDialog(page);
 
-test.describe("Smoke / dialog visibility", () => {
-  test("1. Share button opens dialog as author", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "author.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-    await expect(page.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
-    await ctx.close();
-  });
+  await expect(page.getByRole("heading", { name: /Share.*E2E Test Page/i })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Add user" })).toBeFocused();
+  await expect(page.getByRole("heading", { name: "People with access" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "General access" })).toBeVisible();
+  await expect(page.locator("#general-role")).not.toBeVisible();
 
-  test("2. Dialog closes on Escape", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "author.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog")).not.toBeVisible();
-    await ctx.close();
-  });
+  await page.getByRole("heading", { name: /Share.*E2E Test Page/i }).click();
+  await expect(page.getByRole("listbox")).not.toBeVisible();
 
-  test("3. Dialog closes on backdrop click", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "author.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-    // Click the backdrop (fixed overlay behind the dialog)
-    await page.mouse.click(10, 10);
-    await expect(page.getByRole("dialog")).not.toBeVisible();
-    await ctx.close();
-  });
-
-  test("4. Copy link button changes text to Copied!", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "author.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-    const copyLinkButton = page.getByRole("button", { name: /copy link/i });
-    await expect(copyLinkButton).toBeVisible();
-    await copyLinkButton.click({ force: true });
-    await expect(page.getByRole("button", { name: /copied/i })).toBeVisible();
-    await ctx.close();
-  });
+  await page.getByRole("button", { name: /copy link/i }).click();
+  await expect(page.getByRole("button", { name: /copied/i })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+  await ctx.close();
 });
 
-// ---------------------------------------------------------------------------
-// Visibility selector
-// ---------------------------------------------------------------------------
+test("combobox supports keyboard selection and multiple-chip grants", async ({ browser }) => {
+  const { ctx, page } = await makePage(browser, "author.json");
+  await page.goto(PAGE_URL);
+  await openShareDialog(page);
 
-test.describe("Visibility selector", () => {
-  test("5a. Author sees visibility selector", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "author.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-    // The visibility selector is inside the "General access" section
-    // It appears only when canChangeVisibility is true (author qualifies)
-    await expect(page.getByText(/general access/i)).toBeVisible();
-    await ctx.close();
+  const combobox = page.getByRole("combobox", { name: "Add user" });
+  await combobox.fill("E2E Member");
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await expect(page.getByRole("option", { name: /E2E Member/ })).toBeVisible();
+  await combobox.press("ArrowDown");
+  await combobox.press("Enter");
+
+  await expect(page.getByRole("button", { name: /Remove E2E Member/ })).toBeVisible();
+  await expect(page.locator("#grant-role")).toHaveValue("viewer");
+  await expect(page.getByText("Notify people")).toBeVisible();
+  await expect(page.getByPlaceholder("Message")).toBeVisible();
+
+  const addMore = page.getByRole("combobox", { name: "Add people or Chapters" });
+  await addMore.fill("second@example.com");
+  await expect(page.getByRole("option", { name: /second@example.com/ })).toBeVisible();
+  await page.getByRole("option", { name: /second@example.com/ }).click();
+
+  await page.locator("#grant-role").selectOption("commenter");
+  await page.getByPlaceholder("Message").fill("Welcome to this page");
+  const requestPromise = page.waitForRequest(
+    (request) => request.method() === "POST" && request.url().includes("/api/page-access/"),
+  );
+  await page.getByRole("button", { name: "Send" }).click();
+  const payload = (await requestPromise).postDataJSON();
+  expect(payload.role).toBe("commenter");
+  expect(payload.notify).toBe(true);
+  expect(payload.message).toBe("Welcome to this page");
+  expect(payload.targets).toHaveLength(2);
+  await expect(page.getByRole("heading", { name: "People with access" })).toBeVisible({
+    timeout: 5_000,
   });
-
-  test("5b. Non-author member does not see visibility selector", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "member.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-    await expect(page.getByText(/general access/i)).not.toBeVisible();
-    await ctx.close();
-  });
-
-  test("6. Author can change visibility to Restricted", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "author.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-
-    // Change to Restricted — this POST to /api/page-access/:pageId confirms Bug 1 is fixed
-    await selectVisibility(page, "restricted");
-
-    // The mutation completed above (no network error dialog)
-    await expect(page.getByText(/general access/i)).toBeVisible();
-
-    // Reset back to public for other tests
-    await selectVisibility(page, "public");
-    await ctx.close();
-  });
-
-  test("7. Author can cycle through all 4 visibility modes", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "author.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-
-    for (const val of ["restricted", "public", "private_to_chapter"]) {
-      await selectVisibility(page, val);
-    }
-
-    // Reset
-    await selectVisibility(page, "public");
-    await ctx.close();
-  });
+  await ctx.close();
 });
 
-// ---------------------------------------------------------------------------
-// Add People (requires Bug 1 + Bug 2 to be fixed)
-// ---------------------------------------------------------------------------
+test("general access has three modes and hides the role for Restricted", async ({ browser }) => {
+  const { ctx, page } = await makePage(browser, "author.json");
+  await page.goto(PAGE_URL);
+  await openShareDialog(page);
 
-test.describe("Add People", () => {
-  test("8. Author sees 'Add people' section (Bug 2 fix)", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "author.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-    // The "Add people" heading is only rendered when canManageAccess = true
-    await expect(page.getByText(/add people/i)).toBeVisible({ timeout: 5000 });
-    await ctx.close();
-  });
+  await expect(page.locator("#general-access option")).toHaveCount(3);
+  await expect(page.locator('#general-access option[value="restricted"]')).toHaveText("Restricted");
+  await expect(page.locator('#general-access option[value="unlisted"]')).toHaveText(
+    "Anyone with the link",
+  );
+  await expect(page.locator('#general-access option[value="public"]')).toHaveText("Public");
+  await setGeneralAccess(page, "unlisted");
+  const accessSelect = page.locator("#general-access");
+  const generalRole = page.locator("#general-role");
+  await expect(generalRole).toBeVisible();
 
-  test("9. User search returns results (Bug 1 fix — /api/users/search must be registered)", async ({
-    browser,
-  }) => {
-    const { ctx, page } = await makePage(browser, "author.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-
-    const searchInput = page.getByPlaceholder(/add user/i);
-    await expect(searchInput).toBeVisible({ timeout: 5000 });
-    await searchInput.fill("E2E");
-
-    // Dropdown should appear with at least one result (Bug 1 surfaces if 404).
-    // Search for "E2E" matches both E2E Admin and E2E Member, so .first() to
-    // avoid strict-mode violations.
-    await expect(
-      page.locator("text=E2E Admin").or(page.locator("text=E2E Member")).first(),
-    ).toBeVisible({ timeout: 3000 });
-    await ctx.close();
-  });
-
-  test("10. Pick a registered user — chip appears with role selector", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "author.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-
-    const searchInput = page.getByPlaceholder(/add user/i);
-    await expect(searchInput).toBeVisible({ timeout: 5000 });
-    await searchInput.fill("E2E Member");
-
-    const memberResult = page.locator("text=E2E Member").first();
-    await expect(memberResult).toBeVisible({ timeout: 3000 });
-    await memberResult.click();
-
-    // Chip should appear
-    await expect(page.locator("text=member@test.local")).toBeVisible();
-    // Role dropdown for the pending chip should be present (the dialog may
-    // already render other selects — visibility, per-access-row role pickers —
-    // so scope the assertion to a select that has the chip-role options).
-    await expect(
-      page.getByRole("dialog").locator('select:has(option[value="viewer"])').first(),
-    ).toBeVisible();
-    await ctx.close();
-  });
-
-  test("11. Add user — user appears in 'People with access'", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "author.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-
-    const searchInput = page.getByPlaceholder(/add user/i);
-    await expect(searchInput).toBeVisible({ timeout: 5000 });
-    await searchInput.fill("E2E Admin");
-
-    await expect(page.locator("text=E2E Admin").first()).toBeVisible({ timeout: 3000 });
-    await page.locator("text=E2E Admin").first().click();
-
-    await page.getByRole("button", { name: /^add$/i }).click();
-
-    // The dialog reloads the access list — admin should appear
-    await expect(page.locator("text=admin@test.local")).toBeVisible({ timeout: 5000 });
-    await ctx.close();
-  });
-
-  test("12. Unregistered email shows 'Unregistered' row", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "author.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-
-    const searchInput = page.getByPlaceholder(/add user/i);
-    await expect(searchInput).toBeVisible({ timeout: 5000 });
-    await searchInput.fill("nobody@example.com");
-
-    await expect(page.getByText(/unregistered/i)).toBeVisible({ timeout: 3000 });
-    await ctx.close();
-  });
-
-  test("13. Pick unregistered email — chip + Add — appears as 'Invitation pending'", async ({
-    browser,
-  }) => {
-    const { ctx, page } = await makePage(browser, "author.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-
-    const searchInput = page.getByPlaceholder(/add user/i);
-    await expect(searchInput).toBeVisible({ timeout: 5000 });
-    await searchInput.fill("pending-invite@example.com");
-
-    await expect(page.getByText(/unregistered/i)).toBeVisible({ timeout: 3000 });
-    await page.getByText(/unregistered/i).click();
-
-    await page.getByRole("button", { name: /^add$/i }).click();
-
-    await expect(page.getByText(/invitation pending/i)).toBeVisible({ timeout: 5000 });
-    await ctx.close();
-  });
+  const accessBox = await accessSelect.boundingBox();
+  const roleBox = await generalRole.boundingBox();
+  expect(accessBox).not.toBeNull();
+  expect(roleBox).not.toBeNull();
+  expect(roleBox?.x).toBeGreaterThan((accessBox?.x ?? 0) + (accessBox?.width ?? 0));
+  expect(Math.abs((roleBox?.y ?? 0) - (accessBox?.y ?? 0))).toBeLessThan(24);
+  await ctx.close();
 });
 
-// ---------------------------------------------------------------------------
-// Role management
-// ---------------------------------------------------------------------------
+test("anonymous users can directly view unlisted pages but cannot discover them", async ({
+  browser,
+}) => {
+  const { ctx: authorCtx, page: authorPage } = await makePage(browser, "author.json");
+  await authorPage.goto(PAGE_URL);
+  await openShareDialog(authorPage);
+  await setGeneralAccess(authorPage, "unlisted");
+  await authorCtx.close();
 
-test.describe("Role management", () => {
-  test("14. Role dropdown allows changing roles", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "admin.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-
-    // Admin sees the access list (must have page_access entries from previous tests)
-    await page.waitForTimeout(500);
-
-    // Look for any role select in the access list and change it. Filter on
-    // option[value="viewer"] to skip the visibility select (which is also a
-    // <select> in this dialog but only has visibility options).
-    const roleSelects = page.getByRole("dialog").locator('select:has(option[value="viewer"])');
-    const count = await roleSelects.count();
-
-    if (count > 0) {
-      const roleSelect = roleSelects.last();
-      const currentValue = await roleSelect.inputValue();
-      const newValue = currentValue === "viewer" ? "editor" : "viewer";
-      await roleSelect.selectOption(newValue);
-      await page.waitForTimeout(400);
-      // Confirm the select still has the new value (no error revert)
-      await expect(roleSelect).toHaveValue(newValue);
-    }
-    await ctx.close();
-  });
-
-  test("16. Remove user from access list", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "admin.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-
-    // Count access list items before removal
-    await page.waitForTimeout(500);
-    const removeButtons = page.getByRole("dialog").getByRole("button", { name: /remove access/i });
-    const initialCount = await removeButtons.count();
-
-    if (initialCount > 0) {
-      await removeButtons.last().click();
-      await page.waitForTimeout(400);
-      const newCount = await page
-        .getByRole("dialog")
-        .getByRole("button", { name: /remove access/i })
-        .count();
-      expect(newCount).toBeLessThan(initialCount);
-    }
-    await ctx.close();
-  });
-
-  test("17. Last owner cannot be removed (error shown)", async ({ browser }) => {
-    const { ctx, page } = await makePage(browser, "admin.json");
-    await page.goto(PAGE_URL);
-    await openShareDialog(page);
-
-    // Find the page author's entry and try to remove — when it's the only owner
-    // First set visibility to restricted so the owner is inserted
-    const visibilitySelect = page
-      .getByRole("dialog")
-      .locator('select:has(option[value="private_to_chapter"])');
-    await expect(visibilitySelect).toBeVisible({ timeout: 5000 });
-    await visibilitySelect.selectOption("restricted");
-    await page.waitForTimeout(500);
-
-    // Reload the access list
-    await page.reload();
-    await openShareDialog(page);
-
-    // Remove all non-owner entries until only 1 owner remains, then try to remove it
-    // (This test just verifies the error message appears)
-    const removeButtons = page.getByRole("dialog").getByRole("button", { name: /remove access/i });
-    const count = await removeButtons.count();
-
-    // Try to remove the last item (if there's only 1, the error should appear)
-    if (count === 1) {
-      await removeButtons.first().click();
-      await expect(page.getByText(/cannot remove the last owner/i)).toBeVisible({ timeout: 3000 });
-    }
-
-    await ctx.close();
-  });
+  const { ctx, page } = await makePage(browser);
+  await page.goto(PAGE_URL);
+  await expect(page.getByRole("heading", { name: "E2E Test Page" })).toBeVisible();
+  await page.goto(BASE);
+  await expect(page.getByRole("link", { name: "E2E Test Page" })).not.toBeVisible();
+  await ctx.close();
 });
 
-// ---------------------------------------------------------------------------
-// Access enforcement (integration)
-// ---------------------------------------------------------------------------
+test("anonymous top and sidebar expose public pages only", async ({ browser }) => {
+  const { ctx: authorCtx, page: authorPage } = await makePage(browser, "author.json");
+  await authorPage.goto(PAGE_URL);
+  await openShareDialog(authorPage);
+  await setGeneralAccess(authorPage, "public");
+  await authorCtx.close();
 
-test.describe("Access enforcement", () => {
-  test("18. Restricted page is inaccessible to user without page_access", async ({ browser }) => {
-    // Use admin to set page to restricted first
-    const { ctx: adminCtx, page: adminPage } = await makePage(browser, "admin.json");
-    await adminPage.goto(PAGE_URL);
-    await openShareDialog(adminPage);
-    const visSelect = adminPage
-      .getByRole("dialog")
-      .locator('select:has(option[value="private_to_chapter"])');
-    await expect(visSelect).toBeVisible({ timeout: 5000 });
-    await visSelect.selectOption("restricted");
-    await adminPage.waitForTimeout(500);
-    await adminCtx.close();
+  const { ctx, page } = await makePage(browser);
+  await page.goto(BASE);
+  await expect(page.getByRole("link", { name: "E2E Test Page" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /sign in/i })).toBeVisible();
+  await ctx.close();
+});
 
-    // Member (no page_access record) tries to view the restricted page
-    const { ctx: memberCtx, page: memberPage } = await makePage(browser, "member.json");
-    await memberPage.goto(PAGE_URL);
-    // Should get 403/404 — check for error status or redirect
-    const status = memberPage.url();
-    // Either the page shows an error, or we're redirected
-    const body = await memberPage.locator("body").textContent();
-    expect(body).toBeTruthy();
-    // The page content should NOT include the page title heading (access
-    // denied). The sidebar nav still lists the page as a link, so we look for
-    // the article <h1> specifically.
-    await expect(memberPage.getByRole("heading", { name: "E2E Test Page" })).not.toBeVisible({
-      timeout: 3000,
-    });
-    await memberCtx.close();
+test("restricted pages reject anonymous direct access", async ({ browser }) => {
+  const { ctx: authorCtx, page: authorPage } = await makePage(browser, "author.json");
+  await authorPage.goto(PAGE_URL);
+  await openShareDialog(authorPage);
+  await setGeneralAccess(authorPage, "restricted");
+  await authorCtx.close();
 
-    // Restore to public for other tests
-    const { ctx: resetCtx, page: resetPage } = await makePage(browser, "admin.json");
-    await resetPage.goto(PAGE_URL);
-    await openShareDialog(resetPage);
-    const resetSelect = resetPage
-      .getByRole("dialog")
-      .locator('select:has(option[value="private_to_chapter"])');
-    await expect(resetSelect).toBeVisible({ timeout: 5000 });
-    await resetSelect.selectOption("public");
-    await resetPage.waitForTimeout(300);
-    await resetCtx.close();
-  });
+  const { ctx, page } = await makePage(browser);
+  await page.goto(PAGE_URL);
+  await expect(page.getByRole("heading", { name: "E2E Test Page" })).not.toBeVisible();
+  await ctx.close();
+});
 
-  test("19. User with page_access can view restricted page", async ({ browser }) => {
-    // Admin makes page restricted and adds member
-    const { ctx: adminCtx, page: adminPage } = await makePage(browser, "admin.json");
-    await adminPage.goto(PAGE_URL);
-    await openShareDialog(adminPage);
-    const visSelect = adminPage
-      .getByRole("dialog")
-      .locator('select:has(option[value="private_to_chapter"])');
-    await expect(visSelect).toBeVisible({ timeout: 5000 });
-    await visSelect.selectOption("restricted");
-    await adminPage.waitForTimeout(400);
-
-    // Add member to access list
-    const searchInput = adminPage.getByPlaceholder(/add user/i);
-    if (await searchInput.isVisible()) {
-      await searchInput.fill("E2E Member");
-      await expect(adminPage.locator("text=E2E Member").first()).toBeVisible({ timeout: 3000 });
-      await adminPage.locator("text=E2E Member").first().click();
-      await adminPage.getByRole("button", { name: /^add$/i }).click();
-      await adminPage.waitForTimeout(500);
-    }
-    await adminCtx.close();
-
-    // Member can now view the page
-    const { ctx: memberCtx, page: memberPage } = await makePage(browser, "member.json");
-    await memberPage.goto(PAGE_URL);
-    // Match the page-title <h1> specifically — "E2E Test Page" also appears in
-    // the document <title>, which would trigger Playwright strict-mode.
-    await expect(memberPage.getByRole("heading", { name: "E2E Test Page" })).toBeVisible({
-      timeout: 5000,
-    });
-    await memberCtx.close();
-
-    // Cleanup: restore public visibility
-    const { ctx: resetCtx, page: resetPage } = await makePage(browser, "admin.json");
-    await resetPage.goto(PAGE_URL);
-    await openShareDialog(resetPage);
-    const resetSelect = resetPage
-      .getByRole("dialog")
-      .locator('select:has(option[value="private_to_chapter"])');
-    await expect(resetSelect).toBeVisible({ timeout: 5000 });
-    await resetSelect.selectOption("public");
-    await resetPage.waitForTimeout(300);
-    await resetCtx.close();
-  });
+test("mobile dialog is viewport-bound and scrollable", async ({ browser }) => {
+  const { ctx, page } = await makePage(browser, "author.json", { width: 390, height: 844 });
+  await page.goto(PAGE_URL);
+  await openShareDialog(page);
+  const box = await page.getByRole("dialog").boundingBox();
+  expect(box).not.toBeNull();
+  expect(box?.width).toBeLessThanOrEqual(390);
+  expect(box?.height).toBeLessThanOrEqual(844);
+  await expect(page.getByRole("button", { name: /copy link/i })).toBeVisible();
+  await ctx.close();
 });

@@ -10,9 +10,9 @@ import type {
 import { useLoaderData } from "react-router";
 import PageEditor from "~/components/PageEditor";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
-import { canUserChangeVisibility } from "~/lib/page-visibility.server";
+import { getEffectivePagePermissions } from "~/lib/page-access.server";
 import { tiptapToMarkdown } from "~/lib/tiptap-convert";
 
 // ---------------------------------------------------------------------------
@@ -47,6 +47,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => [
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
   const page = await db
@@ -59,6 +60,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       contentJa: schema.pages.contentJa,
       contentEn: schema.pages.contentEn,
       visibility: schema.pages.visibility,
+      generalRole: schema.pages.generalRole,
       chapterId: schema.pages.chapterId,
       authorId: schema.pages.authorId,
     })
@@ -69,10 +71,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   if (!page) throw new Response("Not Found", { status: 404 });
   if (page.status === "archived") throw new Response("Not Found", { status: 404 });
 
-  const canEditAny = !!user.isAdmin;
-
-  // Members can only edit their own pages
-  if (!canEditAny && page.authorId !== user.id) {
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  if (!permissions.canEdit) {
     throw new Response("Forbidden", { status: 403 });
   }
 
@@ -82,8 +82,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       contentJa: tiptapToMarkdown(page.contentJa ?? ""),
       contentEn: tiptapToMarkdown(page.contentEn ?? ""),
     },
-    canPublish: canEditAny,
-    canChangeVisibility: canUserChangeVisibility(user, page),
+    canPublish: !!user.isAdmin,
     currentUser: { id: user.id, name: user.name, image: user.image ?? null },
   };
 }
@@ -95,6 +94,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
   const formData = await request.formData();
@@ -113,6 +113,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       contentEn: schema.pages.contentEn,
       titleJa: schema.pages.titleJa,
       titleEn: schema.pages.titleEn,
+      visibility: schema.pages.visibility,
+      generalRole: schema.pages.generalRole,
     })
     .from(schema.pages)
     .where(eq(schema.pages.slug, params.slug ?? ""))
@@ -120,13 +122,12 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   if (!page) throw new Response("Not Found", { status: 404 });
 
-  const canEditAny = !!user.isAdmin;
-
-  if (!canEditAny && page.authorId !== user.id) {
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  if (!permissions.canEdit) {
     throw new Response("Forbidden", { status: 403 });
   }
 
-  const isPublish = intent === "publish" && canEditAny;
+  const isPublish = intent === "publish" && !!user.isAdmin;
   const newStatus = isPublish ? "published" : page.status;
 
   const versionId = nanoid();
@@ -185,14 +186,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 // ---------------------------------------------------------------------------
 
 export default function EditPage() {
-  const { page, canPublish, canChangeVisibility, currentUser } = useLoaderData<typeof loader>();
+  const { page, canPublish, currentUser } = useLoaderData<typeof loader>();
 
-  return (
-    <PageEditor
-      page={page}
-      canPublish={canPublish}
-      canChangeVisibility={canChangeVisibility}
-      currentUser={currentUser}
-    />
-  );
+  return <PageEditor page={page} canPublish={canPublish} currentUser={currentUser} />;
 }

@@ -2,8 +2,10 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { createRequestHandler } from "react-router";
 import * as schema from "../app/db/schema";
+import { createAuth } from "../app/lib/auth.server";
 import { sendDueTaskReminders } from "../app/lib/discord-reminders.server";
 import { isIngestionQueueMessage } from "../app/lib/ingestion-jobs.server";
+import { getEffectivePagePermissions } from "../app/lib/page-access.server";
 import {
   isTranslationQueueBody,
   processIngestionMessage,
@@ -18,7 +20,7 @@ const requestHandler = createRequestHandler(
 );
 
 export default {
-  fetch(request: Request, env: Env, ctx: ExecutionContext): Response | Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Route WebSocket collab connections to Durable Object
     const url = new URL(request.url);
     if (
@@ -27,6 +29,31 @@ export default {
     ) {
       const slug = url.pathname.split("/")[3];
       if (!slug) return new Response("Missing slug", { status: 400 });
+      const auth = createAuth(env);
+      const user = await auth.getSessionUser(request);
+      if (!user) return new Response("Unauthorized", { status: 401 });
+      const db = drizzle(env.DB, { schema });
+      const page = await db
+        .select({
+          id: schema.pages.id,
+          authorId: schema.pages.authorId,
+          visibility: schema.pages.visibility,
+          generalRole: schema.pages.generalRole,
+        })
+        .from(schema.pages)
+        .where(eq(schema.pages.slug, slug))
+        .get();
+      if (!page) return new Response("Not Found", { status: 404 });
+      let chapterIds: number[] = [];
+      try {
+        chapterIds = (await auth.getFreshClaims(request)).chapters.map(
+          (chapter) => chapter.chapterId,
+        );
+      } catch {
+        // Chapter-derived access fails closed; email/general grants still work.
+      }
+      const permissions = await getEffectivePagePermissions(db, page, user, chapterIds);
+      if (!permissions.canEdit) return new Response("Forbidden", { status: 403 });
       const doId = env.COLLAB_DO.idFromName(slug);
       return env.COLLAB_DO.get(doId).fetch(request);
     }

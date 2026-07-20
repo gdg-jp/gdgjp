@@ -1,12 +1,10 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import LandingContent, { GoogleIcon } from "~/components/LandingContent";
 import TagChip from "~/components/TagChip";
 import * as schema from "~/db/schema";
-import { getSessionUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
 import { timeAgo } from "~/lib/time";
@@ -37,15 +35,29 @@ export const meta: MetaFunction<typeof loader> = ({ matches }) => {
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const user = await getSessionUser(request, env);
+  const identity = await getAccessIdentity(request, env);
+  const { user } = identity;
+  const db = getDb(env);
+  const visFilter = buildVisibilityFilter(user, identity.chapterIds);
 
   if (!user) {
-    return { mode: "lp" as const };
+    const publicPages = await db
+      .select({
+        id: schema.pages.id,
+        slug: schema.pages.slug,
+        titleJa: schema.pages.titleJa,
+        titleEn: schema.pages.titleEn,
+        summaryJa: schema.pages.summaryJa,
+        summaryEn: schema.pages.summaryEn,
+        updatedAt: schema.pages.updatedAt,
+      })
+      .from(schema.pages)
+      .where(and(eq(schema.pages.status, "published"), visFilter))
+      .orderBy(desc(schema.pages.updatedAt))
+      .all();
+
+    return { mode: "public" as const, publicPages };
   }
-
-  const db = getDb(env);
-
-  const visFilter = buildVisibilityFilter(user);
 
   const [recentPages, allTags, recentComments] = await Promise.all([
     // 8 most recently updated published pages
@@ -101,123 +113,68 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Sign-in Modal
-// ---------------------------------------------------------------------------
-
-function SignInModal({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation();
-
-  function handleGoogleSignIn() {
-    window.location.assign("/api/auth/signin?return_to=%2F");
-  }
-
-  return (
-    <div
-      className="force-light fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
-      }}
-    >
-      <dialog
-        open
-        className="relative m-0 w-full max-w-sm rounded-2xl border-2 border-black bg-white p-8 shadow-[8px_8px_0px_0px_#000]"
-        aria-labelledby="signin-modal-title"
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50"
-          aria-label={t("close")}
-        >
-          ×
-        </button>
-
-        <div className="mb-6 text-center">
-          <h2 id="signin-modal-title" className="text-lg font-semibold text-gray-900">
-            {t("lp.signin_modal_title")}
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">{t("lp.signin_modal_subtitle")}</p>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleGoogleSignIn}
-          className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        >
-          <GoogleIcon />
-          {t("lp.cta_signin")}
-        </button>
-
-        <p className="mt-4 text-center text-xs text-gray-400">{t("login.access_restricted")}</p>
-      </dialog>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// LP Header
-// ---------------------------------------------------------------------------
-
-function LpHeader({ onLoginClick }: { onLoginClick: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <header className="force-light sticky top-0 z-40 flex h-14 items-center justify-between border-b border-black bg-white px-6">
-      <div className="flex items-center gap-2">
-        <img
-          src="/app-icon.png"
-          alt=""
-          width={1254}
-          height={1254}
-          className="size-8 object-contain"
-        />
-        <span className="font-semibold tracking-tight">{t("app_name")}</span>
-      </div>
-      <button
-        type="button"
-        onClick={onLoginClick}
-        className="rounded-xl border-2 border-black bg-blue-500 px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-blue-600"
-      >
-        {t("auth.sign_in")}
-      </button>
-    </header>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export default function Index() {
   const data = useLoaderData<typeof loader>();
   const { t, i18n } = useTranslation();
-  const [modalOpen, setModalOpen] = useState(false);
 
-  // Landing page for unauthenticated visitors
-  if (data.mode === "lp") {
-    const ctaSlot = (
-      <button
-        type="button"
-        onClick={() => setModalOpen(true)}
-        className="inline-flex items-center gap-3 rounded-xl border-2 border-black bg-blue-500 px-6 py-3 text-base font-semibold text-white shadow-[4px_4px_0px_0px_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#000]"
-      >
-        <GoogleIcon />
-        {t("lp.cta_signin")}
-      </button>
-    );
-
+  if (data.mode === "public") {
+    const isJa = i18n.language !== "en";
     return (
-      <>
-        <LpHeader onLoginClick={() => setModalOpen(true)} />
-        <LandingContent ctaSlot={ctaSlot} />
-        {modalOpen && <SignInModal onClose={() => setModalOpen(false)} />}
-      </>
+      <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8 md:py-10">
+        <section aria-labelledby="public-pages-heading">
+          <div className="mb-8 max-w-2xl">
+            <h1
+              id="public-pages-heading"
+              className="text-2xl font-bold tracking-tight text-gray-900 md:text-3xl"
+            >
+              {t("public_pages.title")}
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-gray-600 md:text-base">
+              {t("public_pages.description")}
+            </p>
+          </div>
+
+          {data.publicPages.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-gray-300 px-5 py-8 text-sm text-gray-500">
+              {t("public_pages.empty")}
+            </p>
+          ) : (
+            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {data.publicPages.map((page) => {
+                const title = isJa ? page.titleJa || page.titleEn : page.titleEn || page.titleJa;
+                const summary = isJa
+                  ? page.summaryJa || page.summaryEn
+                  : page.summaryEn || page.summaryJa;
+                return (
+                  <li key={page.id}>
+                    <Link
+                      to={`/wiki/${page.slug}`}
+                      className="group flex h-full flex-col rounded-xl border border-gray-200 bg-white p-5 transition-colors hover:border-blue-300 hover:bg-blue-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                    >
+                      <h2 className="line-clamp-2 font-semibold text-gray-900 group-hover:text-blue-700">
+                        {title}
+                      </h2>
+                      {summary && (
+                        <p className="mt-2 line-clamp-3 text-sm leading-6 text-gray-600">
+                          {summary}
+                        </p>
+                      )}
+                      {page.updatedAt && (
+                        <time className="mt-4 text-xs text-gray-400">
+                          {timeAgo(new Date(page.updatedAt), t)}
+                        </time>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      </div>
     );
   }
 

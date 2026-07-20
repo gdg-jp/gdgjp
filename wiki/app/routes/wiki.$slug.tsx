@@ -27,23 +27,28 @@ import WikiRightSidebar from "~/components/WikiRightSidebar";
 import * as schema from "~/db/schema";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useThemeMode } from "~/hooks/useThemeMode";
-import { requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { deletePageEmbeddings } from "~/lib/embedding-pipeline.server";
-import { canUserManageAccess } from "~/lib/page-access.server";
-import { canUserChangeVisibility, canUserSeePageAsync } from "~/lib/page-visibility.server";
+import { getEffectivePagePermissions } from "~/lib/page-access.server";
 import { timeAgo } from "~/lib/time";
 import { tiptapToMarkdown } from "~/lib/tiptap-convert";
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => [
-  {
-    title: data ? `${data.page.titleEn || data.page.titleJa} — GDG Japan Wiki` : "Page not found",
-  },
-];
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
+  return [
+    {
+      title: data ? `${data.page.titleEn || data.page.titleJa} — GDG Japan Wiki` : "Page not found",
+    },
+    ...(data?.page.visibility !== "public"
+      ? [{ name: "robots", content: "noindex,nofollow" }]
+      : []),
+  ];
+};
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const sessionUser = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
+  const sessionUser = identity.user;
   const db = getDb(env);
 
   const page = await db
@@ -61,6 +66,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       summaryEn: schema.pages.summaryEn,
       pageType: schema.pages.pageType,
       visibility: schema.pages.visibility,
+      generalRole: schema.pages.generalRole,
       chapterId: schema.pages.chapterId,
       authorId: schema.pages.authorId,
       lastEditedBy: schema.pages.lastEditedBy,
@@ -74,7 +80,11 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     throw new Response("Not Found", { status: 404 });
   }
 
-  if (!(await canUserSeePageAsync(db, sessionUser, page))) {
+  const permissions = await getEffectivePagePermissions(db, page, sessionUser, identity.chapterIds);
+  if (!permissions.canView) {
+    if (!identity.claimsAvailable && page.visibility === "restricted") {
+      throw new Response("Access service temporarily unavailable", { status: 503 });
+    }
     throw new Response("Not Found", { status: 404 });
   }
 
@@ -100,16 +110,18 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       .from(schema.user)
       .where(eq(schema.user.id, page.lastEditedBy))
       .get(),
-    db
-      .select()
-      .from(schema.pageFavorites)
-      .where(
-        and(
-          eq(schema.pageFavorites.userId, sessionUser.id),
-          eq(schema.pageFavorites.pageId, page.id),
-        ),
-      )
-      .get(),
+    sessionUser
+      ? db
+          .select()
+          .from(schema.pageFavorites)
+          .where(
+            and(
+              eq(schema.pageFavorites.userId, sessionUser.id),
+              eq(schema.pageFavorites.pageId, page.id),
+            ),
+          )
+          .get()
+      : Promise.resolve(undefined),
     db
       .select({ url: schema.pageSources.url, title: schema.pageSources.title })
       .from(schema.pageSources)
@@ -169,9 +181,9 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     const existing = list.find((x) => x.emoji === r.emoji);
     if (existing) {
       existing.count++;
-      if (r.userId === sessionUser.id) existing.reactedByMe = true;
+      if (r.userId === sessionUser?.id) existing.reactedByMe = true;
     } else {
-      list.push({ emoji: r.emoji, count: 1, reactedByMe: r.userId === sessionUser.id });
+      list.push({ emoji: r.emoji, count: 1, reactedByMe: r.userId === sessionUser?.id });
     }
     reactionsByComment.set(r.commentId, list);
   }
@@ -198,18 +210,18 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   }
 
   // Fire-and-forget view tracking
-  context.cloudflare.ctx.waitUntil(
-    db
-      .insert(schema.pageViews)
-      .values({ userId: sessionUser.id, pageId: page.id, viewedAt: new Date() })
-      .onConflictDoUpdate({
-        target: [schema.pageViews.userId, schema.pageViews.pageId],
-        set: { viewedAt: new Date() },
-      })
-      .run(),
-  );
-
-  const canManageAccess = await canUserManageAccess(db, page.id, sessionUser, page.authorId);
+  if (sessionUser) {
+    context.cloudflare.ctx.waitUntil(
+      db
+        .insert(schema.pageViews)
+        .values({ userId: sessionUser.id, pageId: page.id, viewedAt: new Date() })
+        .onConflictDoUpdate({
+          target: [schema.pageViews.userId, schema.pageViews.pageId],
+          set: { viewedAt: new Date() },
+        })
+        .run(),
+    );
+  }
 
   return {
     page: {
@@ -221,13 +233,16 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     author: authorRow ?? null,
     editor: editorRow ?? null,
     lang,
-    isAdmin: sessionUser.isAdmin,
-    isAuthor: sessionUser.id === page.authorId,
-    canArchive: sessionUser.id === page.authorId || sessionUser.isAdmin,
-    currentUserId: sessionUser.id,
+    isAdmin: sessionUser?.isAdmin ?? false,
+    isAuthor: sessionUser?.id === page.authorId,
+    canArchive: !!sessionUser && (sessionUser.id === page.authorId || sessionUser.isAdmin),
+    currentUserId: sessionUser?.id ?? null,
+    isAuthenticated: !!sessionUser,
+    canComment: permissions.canComment,
+    canEdit: permissions.canEdit,
     visibility: page.visibility,
-    canChangeVisibility: canUserChangeVisibility(sessionUser, page),
-    canManageAccess,
+    canChangeVisibility: permissions.canManageSharing,
+    canManageAccess: permissions.canManageSharing,
     isStarred: !!fav,
     sources,
     attachments,
@@ -239,8 +254,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 // Action
 // ---------------------------------------------------------------------------
 
-const VALID_VISIBILITY = ["public", "private_to_chapter", "private_to_lead", "restricted"] as const;
-
 export async function action({ request, context, params }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const sessionUser = await requireUser(request, env);
@@ -248,41 +261,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   const form = await request.formData();
   const intent = form.get("intent");
-
-  if (intent === "setVisibility") {
-    const newVisibility = form.get("visibility") as string;
-    if (!VALID_VISIBILITY.includes(newVisibility as (typeof VALID_VISIBILITY)[number])) {
-      return new Response("Invalid visibility value", { status: 400 });
-    }
-
-    const page = await db
-      .select({
-        id: schema.pages.id,
-        visibility: schema.pages.visibility,
-        chapterId: schema.pages.chapterId,
-        authorId: schema.pages.authorId,
-      })
-      .from(schema.pages)
-      .where(eq(schema.pages.slug, params.slug ?? ""))
-      .get();
-
-    if (!page) throw new Response("Not Found", { status: 404 });
-
-    if (!canUserChangeVisibility(sessionUser, page)) {
-      throw new Response("Forbidden", { status: 403 });
-    }
-
-    // Pre-SSO this auto-assigned the caller's chapterId for chapter-scoped
-    // visibility. Wiki no longer tracks user chapter; chapterId on the page
-    // is left as-is. Setting chapter-scoped visibility on a page with no
-    // chapterId falls through to "admin/author only" per page-visibility rules.
-    await db
-      .update(schema.pages)
-      .set({ visibility: newVisibility, chapterId: page.chapterId })
-      .where(eq(schema.pages.id, page.id));
-
-    return { ok: true };
-  }
 
   if (intent === "toggleFavorite") {
     const pageId = form.get("pageId");
@@ -371,6 +349,9 @@ export default function WikiPage() {
     attachments,
     comments,
     currentUserId,
+    isAuthenticated,
+    canComment,
+    canEdit: canEditPage,
     canManageAccess,
     canChangeVisibility,
     visibility,
@@ -398,7 +379,7 @@ export default function WikiPage() {
   const displayContent = hasContent ? primaryContent : (fallbackContent ?? "");
 
   const [tocItems, setTocItems] = useState<TocItem[]>(() => parseMdHeadings(displayContent));
-  const canEdit = isAdmin;
+  const canEdit = canEditPage;
 
   // Stable callback — avoids re-render loop when MdPreview fires onGetCatalog every render
   const handleGetCatalog = useCallback((list: Array<{ text: string; level: number }>) => {
@@ -553,22 +534,26 @@ export default function WikiPage() {
             <History size={14} />
             {t("wiki.history")}
           </Link>
-          <button
-            type="button"
-            onClick={handleToggleStar}
-            className={btnBase}
-            style={optimisticStarred ? { color: "#E06C00" } : undefined}
-          >
-            <Star
-              size={14}
-              style={optimisticStarred ? { fill: "#E06C00", color: "#E06C00" } : undefined}
-            />
-            {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
-          </button>
-          <button type="button" onClick={handleShare} className={btnBase}>
-            <Share2 size={14} />
-            {t("wiki.share")}
-          </button>
+          {isAuthenticated && (
+            <>
+              <button
+                type="button"
+                onClick={handleToggleStar}
+                className={btnBase}
+                style={optimisticStarred ? { color: "#E06C00" } : undefined}
+              >
+                <Star
+                  size={14}
+                  style={optimisticStarred ? { fill: "#E06C00", color: "#E06C00" } : undefined}
+                />
+                {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
+              </button>
+              <button type="button" onClick={handleShare} className={btnBase}>
+                <Share2 size={14} />
+                {t("wiki.share")}
+              </button>
+            </>
+          )}
           <Tooltip label={t("wiki.archive_no_permission")} disabled={!canArchive}>
             <button
               type="button"
@@ -612,32 +597,36 @@ export default function WikiPage() {
                 <History size={14} />
                 {t("wiki.history")}
               </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  handleToggleStar();
-                  setMoreOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
-                style={optimisticStarred ? { color: "#E06C00" } : undefined}
-              >
-                <Star
-                  size={14}
-                  style={optimisticStarred ? { fill: "#E06C00", color: "#E06C00" } : undefined}
-                />
-                {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleShare();
-                  setMoreOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
-              >
-                <Share2 size={14} />
-                {t("wiki.share")}
-              </button>
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleToggleStar();
+                    setMoreOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                  style={optimisticStarred ? { color: "#E06C00" } : undefined}
+                >
+                  <Star
+                    size={14}
+                    style={optimisticStarred ? { fill: "#E06C00", color: "#E06C00" } : undefined}
+                  />
+                  {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
+                </button>
+              )}
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleShare();
+                    setMoreOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                >
+                  <Share2 size={14} />
+                  {t("wiki.share")}
+                </button>
+              )}
               <Tooltip label={t("wiki.archive_no_permission")} disabled={!canArchive}>
                 <button
                   type="button"
@@ -739,6 +728,7 @@ export default function WikiPage() {
           pageSlug={page.slug}
           currentUserId={currentUserId}
           isAdmin={isAdmin}
+          canComment={canComment}
         />
       </div>
 
@@ -755,15 +745,17 @@ export default function WikiPage() {
         onCancel={() => setArchiveDialogOpen(false)}
       />
 
-      <ShareDialog
-        open={shareOpen}
-        onClose={() => setShareOpen(false)}
-        pageId={page.id}
-        pageTitle={title}
-        currentVisibility={visibility}
-        canManageAccess={canManageAccess}
-        canChangeVisibility={canChangeVisibility}
-      />
+      {isAuthenticated && (
+        <ShareDialog
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          pageId={page.id}
+          pageTitle={title}
+          currentVisibility={visibility}
+          canManageAccess={canManageAccess}
+          canChangeVisibility={canChangeVisibility}
+        />
+      )}
 
       {/* Mobile contents bottom sheet */}
       {mobileContentsOpen && (
