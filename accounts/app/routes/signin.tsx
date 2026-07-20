@@ -1,6 +1,6 @@
 import { Check, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Form, Link, redirect, useSearchParams } from "react-router";
+import { Link, redirect, useSearchParams } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { LocaleSwitcher } from "~/components/locale-switcher";
 import { ThemeToggle } from "~/components/theme-toggle";
@@ -87,14 +87,14 @@ export default function SignInPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <p className="text-center text-sm text-muted-foreground">{t("auth.signin.welcome")}</p>
-            <Form method="get" action="/oauth/google/start" reloadDocument className="space-y-3">
+            <form method="get" action="/oauth/google/start" className="space-y-3">
               <input type="hidden" name="return_to" value={returnTo} />
               {oauthQuery ? <input type="hidden" name="oauth_query" value={oauthQuery} /> : null}
               <SubmitButton type="submit" className="w-full" size="lg" variant="outline">
                 <GoogleGlyph />
                 {t("auth.signin.continueWithGoogle")}
               </SubmitButton>
-            </Form>
+            </form>
             <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-xs leading-relaxed text-muted-foreground">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-gdg-blue" aria-hidden="true" />
               <span>{t("auth.signin.secure")}</span>
