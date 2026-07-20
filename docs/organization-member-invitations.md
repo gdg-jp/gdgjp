@@ -1,8 +1,12 @@
 # Organization member invitations
 
 The `Sync organization invitations` workflow runs every Monday at 00:17 JST. It invites every
-member of `gdsc-osaka` who is not already a member of `gdg-jp` and does not have a pending
-invitation. It can also be started manually with dry-run enabled by default.
+member of `gdsc-osaka` who is not already a member of `gdg-jp` and has no pending, failed, or
+expired invitation. It can also be started manually with dry-run enabled by default.
+
+Scheduled runs invite only new members. Users with a failed or expired invitation are not invited
+again. For an intentional manual retry, enable `reinvite_failed`; this option is disabled by
+default and does not affect scheduled runs.
 
 ## Required secrets
 
@@ -26,6 +30,9 @@ installation tokens during each run instead of storing installation tokens as re
 2. Open **Actions → Sync organization invitations → Run workflow**.
 3. Leave **dry_run** enabled and confirm the candidate list in the job summary.
 4. Run it again with **dry_run** disabled to send invitations.
+
+Leave **reinvite_failed** disabled for normal runs. Enable it only when failed or expired
+invitations should be sent again deliberately.
 
 Scheduled runs send invitations automatically. GitHub may reject invitations when the target
 organization has reached its member limit or when its invitation policy does not allow the token

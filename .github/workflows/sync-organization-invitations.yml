@@ -11,6 +11,11 @@ on:
         required: false
         type: boolean
         default: true
+      reinvite_failed:
+        description: Include users whose previous invitation failed or expired
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: sync-organization-invitations
@@ -33,4 +38,5 @@ jobs:
           SOURCE_ORG_TOKEN: ${{ secrets.SOURCE_ORG_MEMBERS_TOKEN }}
           TARGET_ORG_TOKEN: ${{ secrets.TARGET_ORG_MEMBERS_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          REINVITE_FAILED: ${{ inputs.reinvite_failed || 'false' }}
         run: node .github/scripts/sync-org-invitations.mjs

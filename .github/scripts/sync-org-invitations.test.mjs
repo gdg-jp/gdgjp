@@ -10,7 +10,7 @@ function jsonResponse(body, status = 200) {
   });
 }
 
-test("invites only users who are neither members nor pending invitees", async () => {
+test("invites only users without membership or invitation history", async () => {
   const requests = [];
   const fetchImpl = async (url, options) => {
     const { pathname } = new URL(url);
@@ -23,7 +23,8 @@ test("invites only users who are neither members nor pending invitees", async ()
       return jsonResponse([
         { id: 1, login: "existing" },
         { id: 2, login: "pending" },
-        { id: 3, login: "new-member" },
+        { id: 3, login: "expired" },
+        { id: 4, login: "new-member" },
       ]);
     }
     if (pathname === "/orgs/gdg-jp/members") {
@@ -31,6 +32,9 @@ test("invites only users who are neither members nor pending invitees", async ()
     }
     if (pathname === "/orgs/gdg-jp/invitations") {
       return jsonResponse([{ login: "Pending" }]);
+    }
+    if (pathname === "/orgs/gdg-jp/failed_invitations") {
+      return jsonResponse([{ login: "Expired", failed_reason: "Invitation expired" }]);
     }
     throw new Error(`Unexpected request: ${url}`);
   };
@@ -49,7 +53,7 @@ test("invites only users who are neither members nor pending invitees", async ()
   assert.equal(result.invitationsSent, 1);
   const invitation = requests.find(({ options }) => options.method === "POST");
   assert.deepEqual(JSON.parse(invitation.options.body), {
-    invitee_id: 3,
+    invitee_id: 4,
     role: "direct_member",
   });
   assert.equal(invitation.options.headers.Authorization, "Bearer target-token");
@@ -119,4 +123,37 @@ test("continues inviting remaining candidates after an invitation fails", async 
     result.failures.map(({ login }) => login),
     ["a-failing-member"],
   );
+});
+
+test("can explicitly include failed invitees during a manual re-invite", async () => {
+  const attemptedIds = [];
+  const fetchImpl = async (url, options) => {
+    const { pathname } = new URL(url);
+    if (options.method === "POST") {
+      attemptedIds.push(JSON.parse(options.body).invitee_id);
+      return jsonResponse({ id: 100 }, 201);
+    }
+    if (pathname === "/orgs/gdsc-osaka/members") {
+      return jsonResponse([{ id: 7, login: "expired" }]);
+    }
+    if (pathname === "/orgs/gdg-jp/failed_invitations") {
+      return jsonResponse([{ login: "expired", failed_reason: "Invitation expired" }]);
+    }
+    return jsonResponse([]);
+  };
+
+  const result = await syncOrganizationInvitations({
+    sourceOrg: "gdsc-osaka",
+    targetOrg: "gdg-jp",
+    sourceToken: "source-token",
+    targetToken: "target-token",
+    reinviteFailed: true,
+    fetchImpl,
+    sleep: async () => {},
+    log: () => {},
+  });
+
+  assert.deepEqual(attemptedIds, [7]);
+  assert.deepEqual(result.candidates, ["expired"]);
+  assert.equal(result.reinviteFailed, true);
 });

@@ -61,6 +61,7 @@ export async function syncOrganizationInvitations({
   sourceToken,
   targetToken,
   dryRun = false,
+  reinviteFailed = false,
   fetchImpl = fetch,
   sleep = defaultSleep,
   log = console.log,
@@ -71,6 +72,7 @@ export async function syncOrganizationInvitations({
   const sourceMembers = await sourceClient.list(`/orgs/${sourceOrg}/members`);
   const targetMembers = await targetClient.list(`/orgs/${targetOrg}/members`);
   const pendingInvitations = await targetClient.list(`/orgs/${targetOrg}/invitations`);
+  const failedInvitations = await targetClient.list(`/orgs/${targetOrg}/failed_invitations`);
 
   const targetMemberIds = new Set(targetMembers.map((member) => member.id));
   const pendingLogins = new Set(
@@ -78,19 +80,28 @@ export async function syncOrganizationInvitations({
       .map((invitation) => invitation.login?.toLowerCase())
       .filter((login) => login !== undefined),
   );
+  const failedLogins = new Set(
+    failedInvitations
+      .map((invitation) => invitation.login?.toLowerCase())
+      .filter((login) => login !== undefined),
+  );
   const candidates = sourceMembers
     .filter(
-      (member) => !targetMemberIds.has(member.id) && !pendingLogins.has(member.login.toLowerCase()),
+      (member) =>
+        !targetMemberIds.has(member.id) &&
+        !pendingLogins.has(member.login.toLowerCase()) &&
+        (reinviteFailed || !failedLogins.has(member.login.toLowerCase())),
     )
     .sort((a, b) => a.login.localeCompare(b.login));
 
   log(
     `Found ${sourceMembers.length} ${sourceOrg} members, ${targetMembers.length} ` +
-      `${targetOrg} members, and ${pendingInvitations.length} pending invitations.`,
+      `${targetOrg} members, ${pendingInvitations.length} pending invitations, and ` +
+      `${failedInvitations.length} failed invitations.`,
   );
 
   if (candidates.length === 0) {
-    log("All source organization members are already members or have pending invitations.");
+    log("All source organization members are already members or have invitation history.");
   }
 
   const failures = [];
@@ -125,10 +136,12 @@ export async function syncOrganizationInvitations({
     sourceMembers: sourceMembers.length,
     targetMembers: targetMembers.length,
     pendingInvitations: pendingInvitations.length,
+    failedInvitations: failedInvitations.length,
     candidates: candidates.map((member) => member.login),
     invitationsSent,
     failures,
     dryRun,
+    reinviteFailed,
   };
 }
 
@@ -160,8 +173,10 @@ async function writeSummary(result, sourceOrg, targetOrg) {
     `- Source: \`${sourceOrg}\` (${result.sourceMembers} members)`,
     `- Target: \`${targetOrg}\` (${result.targetMembers} members)`,
     `- Pending invitations: ${result.pendingInvitations}`,
+    `- Failed or expired invitations: ${result.failedInvitations}`,
+    `- Re-invite failed users: ${result.reinviteFailed ? "Yes" : "No"}`,
     `- ${mode}: ${result.dryRun ? result.candidates.length : result.invitationsSent}`,
-    `- Failed: ${result.failures.length}`,
+    `- Invitation attempts failed: ${result.failures.length}`,
     `- Candidates: ${candidates}`,
     "",
   ].join("\n");
@@ -178,6 +193,7 @@ export async function main() {
     sourceToken: requireEnvironment("SOURCE_ORG_TOKEN"),
     targetToken: requireEnvironment("TARGET_ORG_TOKEN"),
     dryRun: process.env.DRY_RUN === "true",
+    reinviteFailed: process.env.REINVITE_FAILED === "true",
   });
   await writeSummary(result, sourceOrg, targetOrg);
 
