@@ -1,5 +1,15 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { ArrowRight, ListChecks, LogOut, Plus, Settings2, ShieldCheck } from "lucide-react";
+import {
+  ArrowRight,
+  Blocks,
+  Compass,
+  ListChecks,
+  LogOut,
+  Plus,
+  Settings2,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useFetcher } from "react-router";
 import { PageShell } from "~/components/page-shell";
@@ -53,8 +63,11 @@ function MembershipsSection({
   const { t } = useTranslation();
   if (memberships.length === 0) {
     return (
-      <Card>
-        <CardHeader>
+      <Card className="overflow-hidden border-gdg-blue/25">
+        <CardHeader className="bg-gdg-blue/5">
+          <div className="flex size-10 items-center justify-center rounded-full bg-gdg-blue/10 text-gdg-blue">
+            <Compass className="size-5" aria-hidden="true" />
+          </div>
           <CardTitle>{t("dashboard.noChapter.title")}</CardTitle>
           <CardDescription>{t("dashboard.noChapter.description")}</CardDescription>
         </CardHeader>
@@ -69,9 +82,14 @@ function MembershipsSection({
     );
   }
   return (
-    <div className="space-y-3">
+    <section aria-labelledby="membership-heading" className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-medium">{t("dashboard.memberships.heading")}</h2>
+        <div>
+          <h2 id="membership-heading" className="text-lg font-medium tracking-tight">
+            {t("dashboard.memberships.heading")}
+          </h2>
+          <p className="text-sm text-muted-foreground">{t("dashboard.memberships.description")}</p>
+        </div>
         <Button asChild variant="ghost" size="sm">
           <Link to="/chapters" prefetch="intent">
             <Plus className="size-4" /> {t("dashboard.memberships.browseCta")}
@@ -83,7 +101,7 @@ function MembershipsSection({
           <MembershipRow key={`${m.userId}-${m.chapterId}`} membership={m} index={i} />
         ))}
       </ul>
-    </div>
+    </section>
   );
 }
 
@@ -117,7 +135,7 @@ function MembershipRow({
       className={`animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ${exitCls}`}
       style={{ animationDelay, animationFillMode: "both" }}
     >
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="min-w-0">
@@ -128,7 +146,7 @@ function MembershipRow({
             </div>
             <StatusBadge status={status}>{statusLabel}</StatusBadge>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">{desc}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{desc}</p>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-2">
           {isOrganizer && !isPending ? (
@@ -145,6 +163,7 @@ function MembershipRow({
             isOrganizer={isOrganizer && !isPending}
             fetcher={fetcher}
             isLeaving={isLeaving}
+            isPending={isPending}
           />
         </CardContent>
       </Card>
@@ -158,12 +177,14 @@ function LeaveDialog({
   isOrganizer,
   fetcher,
   isLeaving,
+  isPending,
 }: {
   chapterId: number;
   chapterName: string;
   isOrganizer: boolean;
   fetcher: ReturnType<typeof useFetcher>;
   isLeaving: boolean;
+  isPending: boolean;
 }) {
   const { t } = useTranslation();
   // Organizers should resign role before leaving; we still allow the dialog so
@@ -172,15 +193,22 @@ function LeaveDialog({
     <AlertDialog>
       <AlertDialogTrigger asChild>
         <Button variant={isOrganizer ? "ghost" : "outline"} size="sm">
-          <LogOut className="size-4" /> {t("dashboard.memberships.leave")}
+          <LogOut className="size-4" />
+          {isPending ? t("dashboard.memberships.cancel") : t("dashboard.memberships.leave")}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {t("chapters.leaveDialog.title", { name: chapterName })}
+            {isPending
+              ? t("dashboard.memberships.cancelTitle", { name: chapterName })
+              : t("chapters.leaveDialog.title", { name: chapterName })}
           </AlertDialogTitle>
-          <AlertDialogDescription>{t("chapters.leaveDialog.desc")}</AlertDialogDescription>
+          <AlertDialogDescription>
+            {isPending
+              ? t("dashboard.memberships.cancelDescription")
+              : t("chapters.leaveDialog.desc")}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{t("chapters.leaveDialog.cancel")}</AlertDialogCancel>
@@ -192,7 +220,9 @@ function LeaveDialog({
               pending={isLeaving}
               pendingLabel={t("common.loading")}
             >
-              {t("chapters.leaveDialog.confirm")}
+              {isPending
+                ? t("dashboard.memberships.cancelConfirm")
+                : t("chapters.leaveDialog.confirm")}
             </SubmitButton>
           </fetcher.Form>
         </AlertDialogFooter>
@@ -204,39 +234,96 @@ function LeaveDialog({
 export default function Dashboard({ loaderData }: Route.ComponentProps) {
   const { t } = useTranslation();
   const { user, memberships } = loaderData;
+  const canRegisterApps = memberships.some((membership) => membership.status === "active");
+  const organizerMemberships = memberships.filter(
+    (membership) => membership.status === "active" && membership.role === "organizer",
+  );
   return (
-    <PageShell user={user}>
-      <div className="space-y-1">
-        <h1 className="text-3xl font-medium tracking-tight">{t("dashboard.title")}</h1>
-        <p className="text-sm text-muted-foreground">
-          {t("dashboard.signedInAs", { email: user.email })}
-        </p>
-      </div>
-      <div className="mt-6">
+    <PageShell user={user} size="lg">
+      <div>
         <MembershipsSection memberships={memberships} />
       </div>
-      {user.isAdmin ? (
-        <Card className="mt-6 border-gdg-blue/30 bg-gdg-blue/5">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="size-4 text-gdg-blue" />
-              <CardTitle className="text-base">{t("dashboard.superAdmin.title")}</CardTitle>
-            </div>
-            <CardDescription>{t("dashboard.superAdmin.description")}</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link to="/admin/requests" prefetch="intent">
-                <ListChecks className="size-4" /> {t("dashboard.superAdmin.requestsCta")}
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/admin/chapters" prefetch="intent">
-                {t("dashboard.superAdmin.manageCta")}
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+      {canRegisterApps || organizerMemberships.length > 0 || user.isAdmin ? (
+        <section aria-labelledby="role-tools-heading" className="mt-10 space-y-3">
+          <div>
+            <h2 id="role-tools-heading" className="text-lg font-medium tracking-tight">
+              {t("dashboard.roleTools.heading")}
+            </h2>
+            <p className="text-sm text-muted-foreground">{t("dashboard.roleTools.description")}</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {organizerMemberships.length > 0 ? (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Settings2 className="size-4 text-gdg-green" />
+                    <CardTitle className="text-base">
+                      {t("dashboard.organizerTools.title")}
+                    </CardTitle>
+                  </div>
+                  <CardDescription>{t("dashboard.organizerTools.description")}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-2">
+                  {organizerMemberships.map((membership) => (
+                    <Button asChild key={membership.chapterId} variant="outline" size="sm">
+                      <Link to={`/chapters/${membership.chapter.slug}/organize`} prefetch="intent">
+                        {membership.chapter.name}
+                      </Link>
+                    </Button>
+                  ))}
+                </CardContent>
+              </Card>
+            ) : null}
+            {canRegisterApps ? (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Blocks className="size-4 text-gdg-blue" />
+                    <CardTitle className="text-base">
+                      {t("dashboard.developerApps.title")}
+                    </CardTitle>
+                  </div>
+                  <CardDescription>{t("dashboard.developerApps.description")}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline" size="sm">
+                    <Link to="/developers/apps" prefetch="intent">
+                      {t("dashboard.developerApps.cta")} <ArrowRight className="size-4" />
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : null}
+            {user.isAdmin ? (
+              <Card className="border-gdg-blue/30 bg-gdg-blue/5 md:col-span-2">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="size-4 text-gdg-blue" />
+                    <CardTitle className="text-base">{t("dashboard.superAdmin.title")}</CardTitle>
+                  </div>
+                  <CardDescription>{t("dashboard.superAdmin.description")}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-2">
+                  <Button asChild variant="outline" size="sm">
+                    <Link to="/admin/users" prefetch="intent">
+                      <Users className="size-4" /> {t("dashboard.superAdmin.usersCta")}
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" size="sm">
+                    <Link to="/admin/requests" prefetch="intent">
+                      <ListChecks className="size-4" /> {t("dashboard.superAdmin.requestsCta")}
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" size="sm">
+                    <Link to="/admin/chapters" prefetch="intent">
+                      {t("dashboard.superAdmin.manageCta")}
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : null}
+          </div>
+        </section>
       ) : null}
     </PageShell>
   );

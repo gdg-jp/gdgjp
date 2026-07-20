@@ -1,7 +1,14 @@
-// One-shot admin route to (re-)seed the trusted OAuth clients into OAUTH_KV.
+// One-shot admin route to (re-)seed the trusted OAuth clients into D1.
 // Idempotent — safe to re-run after rotating a client secret.
 
+import { Database } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { redirect, useActionData, useNavigation } from "react-router";
+import { PageHeader } from "~/components/page-header";
+import { PageShell } from "~/components/page-shell";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
+import { Card, CardContent } from "~/components/ui/card";
+import { SubmitButton } from "~/components/ui/submit-button";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { requireUser } from "~/lib/auth.server";
 import { seedClients } from "~/lib/seed-clients.server";
@@ -35,33 +42,37 @@ export async function action({ request, context }: Route.ActionArgs) {
   return { ...result, at: new Date().toISOString() };
 }
 
-export default function SeedClientsPage() {
+export default function SeedClientsPage({ loaderData }: Route.ComponentProps) {
+  const { t } = useTranslation();
   const actionData = useActionData<typeof action>();
   const nav = useNavigation();
   const submitting = nav.state !== "idle";
   return (
-    <main className="mx-auto max-w-xl px-4 py-12">
-      <h1 className="text-2xl font-medium">Seed OAuth clients</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Writes the four trusted OAuth client records (tinyurl, wiki, img, scheduler) into{" "}
-        <code>OAUTH_KV</code> from the configured env vars. Idempotent — safe to re-run.
-      </p>
-      <form method="post" className="mt-6">
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-60"
-        >
-          {submitting ? "Seeding…" : "(Re)seed clients"}
-        </button>
-      </form>
+    <PageShell user={loaderData.user} size="sm">
+      <PageHeader title={t("adminSeed.title")} />
+      <Card className="mt-6">
+        <CardContent className="space-y-4">
+          <Alert>
+            <Database />
+            <AlertTitle>{t("adminSeed.noticeTitle")}</AlertTitle>
+            <AlertDescription>{t("adminSeed.noticeDescription")}</AlertDescription>
+          </Alert>
+          <form method="post">
+            <SubmitButton pending={submitting} pendingLabel={t("adminSeed.pending")}>
+              {t("adminSeed.submit")}
+            </SubmitButton>
+          </form>
+        </CardContent>
+      </Card>
       {actionData ? (
-        <div className="mt-6 space-y-2 text-sm">
-          <p className="font-medium">Result at {actionData.at}</p>
-          <p>Written: {actionData.written.join(", ") || "(none)"}</p>
-          <p>Skipped (missing secret/urls): {actionData.skipped.join(", ") || "(none)"}</p>
-        </div>
+        <Alert className="mt-6">
+          <AlertTitle>{t("adminSeed.result", { at: actionData.at })}</AlertTitle>
+          <AlertDescription className="space-y-1">
+            <p>{t("adminSeed.written", { value: actionData.written.join(", ") || "—" })}</p>
+            <p>{t("adminSeed.skipped", { value: actionData.skipped.join(", ") || "—" })}</p>
+          </AlertDescription>
+        </Alert>
       ) : null}
-    </main>
+    </PageShell>
   );
 }

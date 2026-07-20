@@ -8,11 +8,10 @@ APP_URL = "https://accounts.gdgs.jp"
 GOOGLE_CLIENT_ID = "144403252439-hnm3r310icb0l9o6v5hqrurf6h2faidi.apps.googleusercontent.com"
 EMAIL_FROM = "GDG Japan <noreply@gdgs.jp>"
 # Placeholder so cf-typegen surfaces this on Env. The real value MUST be set
-# per-environment with `wrangler secret put IDP_SESSION_SECRET` — secrets
+# per-environment with `wrangler secret put BETTER_AUTH_SECRET` — secrets
 # override [vars] at runtime.
-IDP_SESSION_SECRET = "set-via-wrangler-secret-put"
-# Trusted OAuth clients. These are read only by `pnpm seed:clients` (not at
-# request time) — running that script after deploy writes them into OAUTH_KV.
+BETTER_AUTH_SECRET = "set-via-wrangler-secret-put"
+# Trusted OAuth clients. The admin seed route writes them into D1's oauthClient table.
 TINYURL_CLIENT_ID = "tinyurl"
 TINYURL_REDIRECT_URLS = "https://url.gdgs.jp/api/auth/callback/gdgjp"
 WIKI_CLIENT_ID = "wiki"
@@ -31,15 +30,6 @@ binding = "DB"
 database_name = "gdgjp-accounts-db"
 database_id = "87860848-d6bc-43e0-97c5-346ab8a88e31"
 migrations_dir = "./migrations"
-
-# OAuth state (grants, tokens, clients) for @cloudflare/workers-oauth-provider.
-# Create the namespace with:
-#   wrangler kv namespace create gdgjp-accounts-oauth
-# and paste the returned id below. For local dev, wrangler creates a local KV
-# automatically when this binding exists.
-[[kv_namespaces]]
-binding = "OAUTH_KV"
-id = "31a011bcae0944b483e8919f339fdbe3"
 
 [observability]
 enabled = false

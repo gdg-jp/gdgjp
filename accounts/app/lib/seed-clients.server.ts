@@ -1,9 +1,4 @@
-// Seeds the trusted OAuth client records into OAUTH_KV.
-// Reads {APP}_CLIENT_ID / {APP}_CLIENT_SECRET / {APP}_REDIRECT_URLS env vars
-// and writes a `client:${clientId}` record per app. Idempotent — overwrites any
-// existing record for the same clientId.
-//
-// Run via POST /admin/seed-clients (admin-only).
+import { CHAPTERS_SCOPE } from "./auth.server";
 
 interface ClientSpec {
   clientId: string;
@@ -12,96 +7,100 @@ interface ClientSpec {
   redirectUris: string[];
 }
 
-interface StoredClient {
-  clientId: string;
-  redirectUris: string[];
-  clientName?: string;
-  grantTypes: string[];
-  responseTypes: string[];
-  registrationDate: number;
-  tokenEndpointAuthMethod: string;
-  clientSecret: string; // hash, NOT the plaintext
-}
-
 export async function seedClients(env: Env): Promise<{ written: string[]; skipped: string[] }> {
-  const specs = collectSpecs(env);
   const written: string[] = [];
   const skipped: string[] = [];
-  const now = Math.floor(Date.now() / 1000);
+  const now = new Date().toISOString();
 
-  for (const spec of specs) {
-    if (!spec.clientId || !spec.clientSecret || spec.redirectUris.length === 0) {
-      skipped.push(spec.clientId || "(unknown)");
+  for (const spec of collectSpecs(env)) {
+    if (!spec.clientSecret || spec.redirectUris.length === 0) {
+      skipped.push(spec.clientId);
       continue;
     }
-    const record: StoredClient = {
-      clientId: spec.clientId,
-      redirectUris: spec.redirectUris,
-      clientName: spec.clientName,
-      grantTypes: ["authorization_code", "refresh_token"],
-      responseTypes: ["code"],
-      registrationDate: now,
-      tokenEndpointAuthMethod: "client_secret_basic",
-      clientSecret: await sha256Hex(spec.clientSecret),
-    };
-    await env.OAUTH_KV.put(`client:${spec.clientId}`, JSON.stringify(record));
+    const postLogoutRedirectUris = spec.redirectUris.map((uri) =>
+      new URL("/signin", new URL(uri).origin).toString(),
+    );
+    await env.DB.prepare(
+      `INSERT INTO oauthClient (
+         id, clientId, clientSecret, disabled, skipConsent, enableEndSession,
+         subjectType, scopes, createdAt, updatedAt, name, redirectUris,
+         postLogoutRedirectUris, tokenEndpointAuthMethod, grantTypes,
+         responseTypes, public, type, requirePKCE
+       ) VALUES (?, ?, ?, 0, 1, 1, 'public', ?, ?, ?, ?, ?, ?,
+                 'client_secret_basic', ?, ?, 0, 'web', 1)
+       ON CONFLICT(clientId) DO UPDATE SET
+         clientSecret = excluded.clientSecret,
+         disabled = 0,
+         skipConsent = 1,
+         enableEndSession = 1,
+         scopes = excluded.scopes,
+         updatedAt = excluded.updatedAt,
+         name = excluded.name,
+         redirectUris = excluded.redirectUris,
+         postLogoutRedirectUris = excluded.postLogoutRedirectUris,
+         tokenEndpointAuthMethod = excluded.tokenEndpointAuthMethod,
+         grantTypes = excluded.grantTypes,
+         responseTypes = excluded.responseTypes,
+         requirePKCE = 1`,
+    )
+      .bind(
+        crypto.randomUUID(),
+        spec.clientId,
+        await sha256Base64Url(spec.clientSecret),
+        JSON.stringify(["openid", "email", "profile", "offline_access", CHAPTERS_SCOPE]),
+        now,
+        now,
+        spec.clientName,
+        JSON.stringify(spec.redirectUris),
+        JSON.stringify(postLogoutRedirectUris),
+        JSON.stringify(["authorization_code", "refresh_token"]),
+        JSON.stringify(["code"]),
+      )
+      .run();
     written.push(spec.clientId);
   }
   return { written, skipped };
 }
 
 function collectSpecs(env: Env): ClientSpec[] {
-  const specs: ClientSpec[] = [];
-  const apps: Array<{
-    name: string;
-    id: string | undefined;
-    secret: string | undefined;
-    urls: string | undefined;
-  }> = [
-    {
-      name: "GDG Japan Links",
-      id: env.TINYURL_CLIENT_ID,
-      secret: env.TINYURL_CLIENT_SECRET,
-      urls: env.TINYURL_REDIRECT_URLS,
-    },
-    {
-      name: "GDG Japan Wiki",
-      id: env.WIKI_CLIENT_ID,
-      secret: env.WIKI_CLIENT_SECRET,
-      urls: env.WIKI_REDIRECT_URLS,
-    },
-    {
-      name: "GDG Japan Image",
-      id: env.IMG_CLIENT_ID,
-      secret: env.IMG_CLIENT_SECRET,
-      urls: env.IMG_REDIRECT_URLS,
-    },
-    {
-      name: "GDG Japan Scheduler",
-      id: env.SCHEDULER_CLIENT_ID,
-      secret: env.SCHEDULER_CLIENT_SECRET,
-      urls: env.SCHEDULER_REDIRECT_URLS,
-    },
-  ];
-  for (const app of apps) {
-    if (!app.id) continue;
-    specs.push({
-      clientId: app.id,
-      clientSecret: app.secret ?? "",
-      clientName: app.name,
-      redirectUris: (app.urls ?? "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    });
-  }
-  return specs;
+  const apps = [
+    [
+      "GDG Japan Links",
+      env.TINYURL_CLIENT_ID,
+      env.TINYURL_CLIENT_SECRET,
+      env.TINYURL_REDIRECT_URLS,
+    ],
+    ["GDG Japan Wiki", env.WIKI_CLIENT_ID, env.WIKI_CLIENT_SECRET, env.WIKI_REDIRECT_URLS],
+    ["GDG Japan Image", env.IMG_CLIENT_ID, env.IMG_CLIENT_SECRET, env.IMG_REDIRECT_URLS],
+    [
+      "GDG Japan Scheduler",
+      env.SCHEDULER_CLIENT_ID,
+      env.SCHEDULER_CLIENT_SECRET,
+      env.SCHEDULER_REDIRECT_URLS,
+    ],
+  ] as const;
+  return apps.flatMap(([clientName, clientId, clientSecret, redirectUrls]) =>
+    clientId
+      ? [
+          {
+            clientId,
+            clientSecret: clientSecret ?? "",
+            clientName,
+            redirectUris: (redirectUrls ?? "")
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean),
+          },
+        ]
+      : [],
+  );
 }
 
-async function sha256Hex(input: string): Promise<string> {
-  const data = new TextEncoder().encode(input);
-  const buf = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+async function sha256Base64Url(value: string): Promise<string> {
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)),
+  );
+  let binary = "";
+  for (const byte of digest) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }

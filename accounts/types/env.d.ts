@@ -19,12 +19,8 @@ declare global {
     SCHEDULER_CLIENT_SECRET: string;
     RESEND_API_KEY?: string;
     EMAIL_FROM?: string;
-    /**
-     * HMAC key for signing the IdP login-session cookie. Set via
-     * `wrangler secret put IDP_SESSION_SECRET`; the wrangler.toml [vars]
-     * entry is a placeholder so cf-typegen exposes the property.
-     */
-    IDP_SESSION_SECRET: string;
+    /** Better Auth encryption/signing secret. Set with wrangler secret put. */
+    BETTER_AUTH_SECRET: string;
   }
 }
 

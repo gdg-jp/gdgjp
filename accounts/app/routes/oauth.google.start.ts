@@ -1,26 +1,31 @@
 import { safeReturnTo } from "~/lib/auth-redirect";
-import { buildGoogleAuthorizeRedirect } from "~/lib/google.server";
+import { getAuth } from "~/lib/auth.server";
 import type { Route } from "./+types/oauth.google.start";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-  const env = context.cloudflare.env;
   const url = new URL(request.url);
-  // Sanitize: only same-origin paths and trusted *.gdgs.jp absolute URLs are
-  // accepted. Without this, an attacker could craft
-  // /oauth/google/start?return_to=https://evil.example and the callback's
-  // post-sign-in 302 would deliver the victim to evil.example with a fresh
-  // session cookie attached. safeReturnTo matches the signin.tsx contract.
-  const returnTo = safeReturnTo(url.searchParams.get("return_to")) ?? "/dashboard";
-  return buildGoogleAuthorizeRedirect({
-    clientId: env.GOOGLE_CLIENT_ID,
-    clientSecret: env.GOOGLE_CLIENT_SECRET,
-    redirectUri: `${trimTrailing(env.APP_URL)}/oauth/google/callback`,
-    returnTo,
-    secret: env.IDP_SESSION_SECRET,
-    isLocal: env.APP_URL.startsWith("http://localhost"),
+  const callbackURL = safeReturnTo(url.searchParams.get("return_to")) ?? "/dashboard";
+  const oauthQuery = url.searchParams.get("oauth_query") ?? undefined;
+  // oauth-provider's pre-login middleware consumes this signed continuation
+  // value before Better Auth validates the core social-sign-in body.
+  const body = { provider: "google" as const, callbackURL, oauth_query: oauthQuery };
+  const response = await getAuth(context.cloudflare.env).api.signInSocial({
+    headers: request.headers,
+    body,
+    asResponse: true,
   });
+  return redirectSocialResponse(response);
 }
 
-function trimTrailing(s: string): string {
-  return s.endsWith("/") ? s.slice(0, -1) : s;
+export function redirectSocialResponse(response: Response): Response {
+  const location = response.headers.get("Location");
+  if (!location) return response;
+
+  // Better Auth's server API serializes the redirect target as a 200 JSON
+  // response. Turn it into a browser redirect while preserving the signed
+  // OAuth state cookie emitted by Better Auth.
+  const headers = new Headers(response.headers);
+  headers.delete("Content-Length");
+  headers.delete("Content-Type");
+  return new Response(null, { status: 302, headers });
 }

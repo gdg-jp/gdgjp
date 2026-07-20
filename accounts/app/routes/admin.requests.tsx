@@ -1,12 +1,14 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { ArrowLeft, Check, X } from "lucide-react";
-import { useEffect } from "react";
+import { Check, Inbox, Search, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useFetcher } from "react-router";
 import { toast } from "sonner";
+import { EmptyState } from "~/components/empty-state";
+import { PageHeader } from "~/components/page-header";
 import { PageShell } from "~/components/page-shell";
-import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
 import { SubmitButton } from "~/components/ui/submit-button";
 import {
   Table,
@@ -142,19 +144,12 @@ function formatRelative(now: number, then: number, locale: string): string {
 
 type RequestRowData = Route.ComponentProps["loaderData"]["requests"][number];
 
-function RequestRow({
-  req,
-  index,
-  locale,
-  now,
-}: { req: RequestRowData; index: number; locale: string; now: number }) {
+function RequestActions({ req }: { req: RequestRowData }) {
   const { t } = useTranslation();
   const fetcher = useFetcher<typeof action>();
   const submittingIntent = fetcher.formData?.get("intent");
   const isApproving = fetcher.state !== "idle" && submittingIntent === "approve";
   const isRejecting = fetcher.state !== "idle" && submittingIntent === "reject";
-  const isExiting = isApproving || isRejecting;
-  const animationDelay = `${Math.min(index, 9) * 30}ms`;
 
   useEffect(() => {
     if (fetcher.state !== "idle" || !fetcher.data) return;
@@ -169,12 +164,37 @@ function RequestRow({
   }, [fetcher.state, fetcher.data, t]);
 
   return (
-    <TableRow
-      className={`animate-in fade-in-0 duration-300 ${
-        isExiting ? "animate-out fade-out-0 duration-200" : ""
-      }`}
-      style={{ animationDelay, animationFillMode: "both" }}
-    >
+    <div className="flex items-center gap-2">
+      <fetcher.Form method="post">
+        <input type="hidden" name="intent" value="approve" />
+        <input type="hidden" name="userId" value={req.userId} />
+        <input type="hidden" name="chapterId" value={req.chapterId} />
+        <SubmitButton size="sm" pending={isApproving} pendingLabel={t("common.loading")}>
+          {isApproving ? null : <Check className="size-4" />}
+          {t("adminRequests.approve")}
+        </SubmitButton>
+      </fetcher.Form>
+      <fetcher.Form method="post">
+        <input type="hidden" name="intent" value="reject" />
+        <input type="hidden" name="userId" value={req.userId} />
+        <input type="hidden" name="chapterId" value={req.chapterId} />
+        <SubmitButton
+          size="sm"
+          variant="outline"
+          pending={isRejecting}
+          pendingLabel={t("common.loading")}
+        >
+          {isRejecting ? null : <X className="size-4" />}
+          {t("adminRequests.reject")}
+        </SubmitButton>
+      </fetcher.Form>
+    </div>
+  );
+}
+
+function RequestRow({ req, locale, now }: { req: RequestRowData; locale: string; now: number }) {
+  return (
+    <TableRow>
       <TableCell>
         <div className="font-medium">{req.user.name || req.user.email}</div>
         {req.user.name ? (
@@ -194,52 +214,75 @@ function RequestRow({
       <TableCell className="text-sm text-muted-foreground">
         {formatRelative(now, req.createdAt, locale)}
       </TableCell>
-      <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-2">
-          <fetcher.Form method="post">
-            <input type="hidden" name="intent" value="approve" />
-            <input type="hidden" name="userId" value={req.userId} />
-            <input type="hidden" name="chapterId" value={req.chapterId} />
-            <SubmitButton size="sm" pending={isApproving} pendingLabel={t("common.loading")}>
-              {isApproving ? null : <Check className="size-4" />}
-              {t("adminRequests.approve")}
-            </SubmitButton>
-          </fetcher.Form>
-          <fetcher.Form method="post">
-            <input type="hidden" name="intent" value="reject" />
-            <input type="hidden" name="userId" value={req.userId} />
-            <input type="hidden" name="chapterId" value={req.chapterId} />
-            <SubmitButton
-              size="sm"
-              variant="outline"
-              pending={isRejecting}
-              pendingLabel={t("common.loading")}
-            >
-              {isRejecting ? null : <X className="size-4" />}
-              {t("adminRequests.reject")}
-            </SubmitButton>
-          </fetcher.Form>
+      <TableCell>
+        <div className="flex justify-end">
+          <RequestActions req={req} />
         </div>
       </TableCell>
     </TableRow>
   );
 }
 
+function RequestCard({ req, locale, now }: { req: RequestRowData; locale: string; now: number }) {
+  const { t } = useTranslation();
+  return (
+    <li className="space-y-4 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-medium">{req.user.name || req.user.email}</p>
+          {req.user.name ? (
+            <p className="truncate text-xs text-muted-foreground">{req.user.email}</p>
+          ) : null}
+        </div>
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {formatRelative(now, req.createdAt, locale)}
+        </span>
+      </div>
+      <div className="rounded-md bg-muted/60 px-3 py-2">
+        <p className="text-xs text-muted-foreground">{t("adminRequests.tableChapter")}</p>
+        <Link
+          to={`/chapters/${req.chapter.slug}/organize`}
+          prefetch="intent"
+          className="mt-0.5 block font-medium hover:underline"
+        >
+          {req.chapter.name}
+        </Link>
+      </div>
+      <RequestActions req={req} />
+    </li>
+  );
+}
+
 export default function AdminRequests({ loaderData }: Route.ComponentProps) {
   const { t } = useTranslation();
   const { user, requests, locale, now } = loaderData;
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return requests;
+    return requests.filter((request) =>
+      [request.user.name, request.user.email, request.chapter.name, request.chapter.slug]
+        .filter(Boolean)
+        .some((value) => value?.toLowerCase().includes(normalized)),
+    );
+  }, [query, requests]);
   return (
     <PageShell user={user} size="lg">
-      <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
-        <Link to="/dashboard" prefetch="intent">
-          <ArrowLeft className="size-4" /> {t("nav.backToDashboard")}
-        </Link>
-      </Button>
+      <PageHeader title={t("adminRequests.title")} />
 
-      <div className="space-y-1">
-        <h1 className="text-3xl font-medium tracking-tight">{t("adminRequests.title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("adminRequests.subtitle")}</p>
-      </div>
+      {requests.length > 0 ? (
+        <div className="relative mt-6 max-w-xl">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("adminRequests.searchPlaceholder")}
+            aria-label={t("adminRequests.searchPlaceholder")}
+            className="pl-9"
+          />
+        </div>
+      ) : null}
 
       <Card className="mt-6">
         <CardHeader>
@@ -247,29 +290,46 @@ export default function AdminRequests({ loaderData }: Route.ComponentProps) {
         </CardHeader>
         <CardContent>
           {requests.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("adminRequests.empty")}</p>
+            <EmptyState icon={Inbox} title={t("adminRequests.empty")} className="border-0" />
+          ) : filtered.length === 0 ? (
+            <EmptyState title={t("adminRequests.noMatches")} className="border-0" />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("adminRequests.tableRequester")}</TableHead>
-                  <TableHead>{t("adminRequests.tableChapter")}</TableHead>
-                  <TableHead>{t("adminRequests.tableRequested")}</TableHead>
-                  <TableHead className="text-right">{t("adminRequests.tableActions")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {requests.map((r, i) => (
-                  <RequestRow
-                    key={`${r.userId}-${r.chapterId}`}
-                    req={r}
-                    index={i}
+            <>
+              <ul className="divide-y md:hidden">
+                {filtered.map((request) => (
+                  <RequestCard
+                    key={`${request.userId}-${request.chapterId}`}
+                    req={request}
                     locale={locale}
                     now={now}
                   />
                 ))}
-              </TableBody>
-            </Table>
+              </ul>
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("adminRequests.tableRequester")}</TableHead>
+                      <TableHead>{t("adminRequests.tableChapter")}</TableHead>
+                      <TableHead>{t("adminRequests.tableRequested")}</TableHead>
+                      <TableHead className="text-right">
+                        {t("adminRequests.tableActions")}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((r) => (
+                      <RequestRow
+                        key={`${r.userId}-${r.chapterId}`}
+                        req={r}
+                        locale={locale}
+                        now={now}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

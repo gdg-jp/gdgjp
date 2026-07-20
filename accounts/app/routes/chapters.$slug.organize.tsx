@@ -1,20 +1,25 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { ArrowLeft, Check, MoreHorizontal, X } from "lucide-react";
-import { useEffect } from "react";
+import { Check, Search, ShieldCheck, UserRound, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useFetcher } from "react-router";
+import { useFetcher } from "react-router";
 import { toast } from "sonner";
+import { PageHeader } from "~/components/page-header";
 import { PageShell } from "~/components/page-shell";
 import { StatusBadge } from "~/components/status-badge";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
 import { SubmitButton } from "~/components/ui/submit-button";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { requireUser } from "~/lib/auth.server";
@@ -22,13 +27,14 @@ import {
   type UserSummary,
   approveMembership,
   bustChaptersWithCountsCache,
+  demoteMembershipUnlessLastOrganizer,
   getChapterBySlug,
   getMembership,
   getUserById,
   getUsersByIds,
   listMembersForChapter,
   listPendingForChapter,
-  removeMembership,
+  removeMembershipUnlessLastOrganizer,
   setRole,
 } from "~/lib/db";
 import { sendJoinRequestApproved, sendJoinRequestRejected } from "~/lib/email.server";
@@ -64,7 +70,6 @@ async function resolveUserAndChapter(args: Route.LoaderArgs | Route.ActionArgs) 
 
 export async function loader(args: Route.LoaderArgs) {
   const { env, user, chapter } = await resolveUserAndChapter(args);
-  // Membership check, both list queries, and i18n run in a single round-trip.
   const [t, viewerMembership, pending, members] = await Promise.all([
     i18n.getFixedT(args.request),
     getMembership(env.DB, user.id, chapter.id),
@@ -74,8 +79,7 @@ export async function loader(args: Route.LoaderArgs) {
   if (!canManageChapter(user, chapter.id, viewerMembership)) {
     throw new Response("Forbidden", { status: 403 });
   }
-  const idSet = new Set([...pending.map((m) => m.userId), ...members.map((m) => m.userId)]);
-  const ids = [...idSet];
+  const ids = [...new Set([...pending.map((m) => m.userId), ...members.map((m) => m.userId)])];
   const users = ids.length > 0 ? await getUsersByIds(env.DB, ids) : {};
   return {
     user,
@@ -109,19 +113,17 @@ export async function action(args: Route.ActionArgs) {
   }
 
   const target = await getMembership(env.DB, targetUserId, chapter.id);
-  if (!target) {
-    return { error: t("errors.userNotInChapter") };
-  }
+  if (!target) return { error: t("errors.userNotInChapter") };
 
   switch (intent) {
     case "approve": {
       await approveMembership(env.DB, targetUserId, chapter.id);
       await bustChaptersWithCountsCache();
-      const u = await getUserById(env.DB, targetUserId);
-      if (u?.email) {
+      const targetUser = await getUserById(env.DB, targetUserId);
+      if (targetUser?.email) {
         sendJoinRequestApproved(
           { env, ctx: args.context.cloudflare.ctx, locale },
-          { chapter, userEmail: u.email },
+          { chapter, userEmail: targetUser.email },
         );
       }
       return null;
@@ -129,18 +131,23 @@ export async function action(args: Route.ActionArgs) {
     case "promote":
       await setRole(env.DB, targetUserId, "organizer", chapter.id);
       return null;
-    case "demote":
-      await setRole(env.DB, targetUserId, "member", chapter.id);
+    case "demote": {
+      const outcome = await demoteMembershipUnlessLastOrganizer(env.DB, targetUserId, chapter.id);
+      if (outcome === "last_active_organizer") return { error: t("errors.lastOrganizer") };
+      if (outcome === "not_found") return { error: t("errors.userNotInChapter") };
       return null;
+    }
     case "remove": {
       const wasPending = target.status === "pending";
-      const u = wasPending ? await getUserById(env.DB, targetUserId) : null;
-      await removeMembership(env.DB, targetUserId, chapter.id);
+      const targetUser = wasPending ? await getUserById(env.DB, targetUserId) : null;
+      const outcome = await removeMembershipUnlessLastOrganizer(env.DB, targetUserId, chapter.id);
+      if (outcome === "last_active_organizer") return { error: t("errors.lastOrganizer") };
+      if (outcome === "not_found") return { error: t("errors.userNotInChapter") };
       await bustChaptersWithCountsCache();
-      if (wasPending && u?.email) {
+      if (wasPending && targetUser?.email) {
         sendJoinRequestRejected(
           { env, ctx: args.context.cloudflare.ctx, locale },
-          { chapter, userEmail: u.email },
+          { chapter, userEmail: targetUser.email },
         );
       }
       return null;
@@ -151,149 +158,258 @@ export async function action(args: Route.ActionArgs) {
 }
 
 function userLabel(users: Record<string, UserSummary>, id: string) {
-  const u = users[id];
-  if (!u) return { name: id, email: "" };
-  return { name: u.name || u.email || id, email: u.name ? u.email : "" };
+  const user = users[id];
+  if (!user) return { name: id, email: "" };
+  return { name: user.name || user.email || id, email: user.name ? user.email : "" };
 }
 
 type PendingMember = Route.ComponentProps["loaderData"]["pending"][number];
 type ChapterMember = Route.ComponentProps["loaderData"]["members"][number];
 type RowFetcher = ReturnType<typeof useFetcher<typeof action>>;
+type MemberIntent = "promote" | "demote" | "remove";
 
 function useToastError(fetcher: RowFetcher) {
   const { t } = useTranslation();
   useEffect(() => {
-    if (fetcher.state !== "idle" || !fetcher.data) return;
-    if (fetcher.data.error) {
-      toast.error(fetcher.data.error, { description: t("organize.errorTitle") });
-    }
-  }, [fetcher.state, fetcher.data, t]);
+    if (fetcher.state !== "idle" || !fetcher.data?.error) return;
+    toast.error(fetcher.data.error, { description: t("organize.errorTitle") });
+  }, [fetcher.data, fetcher.state, t]);
+}
+
+function Person({ name, email }: { name: string; email: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="truncate font-medium">{name}</p>
+      {email ? <p className="truncate text-xs text-muted-foreground">{email}</p> : null}
+    </div>
+  );
+}
+
+function ConfirmMemberAction({
+  fetcher,
+  userId,
+  name,
+  intent,
+  compact = false,
+}: {
+  fetcher: RowFetcher;
+  userId: string;
+  name: string;
+  intent: MemberIntent;
+  compact?: boolean;
+}) {
+  const { t } = useTranslation();
+  const isPending = fetcher.state !== "idle" && fetcher.formData?.get("intent") === intent;
+  const config = {
+    promote: {
+      label: t("organize.promote"),
+      title: t("organize.dialog.promoteTitle", { name }),
+      description: t("organize.dialog.promoteDescription"),
+      confirm: t("organize.promote"),
+      variant: "default" as const,
+    },
+    demote: {
+      label: t("organize.demote"),
+      title: t("organize.dialog.demoteTitle", { name }),
+      description: t("organize.dialog.demoteDescription"),
+      confirm: t("organize.demote"),
+      variant: "outline" as const,
+    },
+    remove: {
+      label: t("organize.remove"),
+      title: t("organize.dialog.removeTitle", { name }),
+      description: t("organize.dialog.removeDescription"),
+      confirm: t("organize.remove"),
+      variant: "destructive" as const,
+    },
+  }[intent];
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          type="button"
+          variant={config.variant}
+          size={compact ? "sm" : "default"}
+          disabled={fetcher.state !== "idle"}
+          className={compact ? "w-full justify-start" : undefined}
+        >
+          {config.label}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{config.title}</AlertDialogTitle>
+          <AlertDialogDescription>{config.description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isPending}>{t("organize.dialog.cancel")}</AlertDialogCancel>
+          <fetcher.Form method="post">
+            <input type="hidden" name="intent" value={intent} />
+            <input type="hidden" name="userId" value={userId} />
+            <SubmitButton
+              variant={config.variant === "destructive" ? "destructive" : "default"}
+              pending={isPending}
+              pendingLabel={t("common.loading")}
+            >
+              {config.confirm}
+            </SubmitButton>
+          </fetcher.Form>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 }
 
 function PendingRow({
   member,
   users,
-  index,
 }: {
   member: PendingMember;
   users: Record<string, UserSummary>;
-  index: number;
 }) {
   const { t } = useTranslation();
   const fetcher = useFetcher<typeof action>();
   useToastError(fetcher);
-  const submittingIntent = fetcher.formData?.get("intent");
-  const isApproving = fetcher.state !== "idle" && submittingIntent === "approve";
-  const isRejecting = fetcher.state !== "idle" && submittingIntent === "remove";
-  const isExiting = isApproving || isRejecting;
-  const u = userLabel(users, member.userId);
-  const animationDelay = `${Math.min(index, 9) * 30}ms`;
+  const user = userLabel(users, member.userId);
+  const isApproving = fetcher.state !== "idle" && fetcher.formData?.get("intent") === "approve";
+  const isRejecting = fetcher.state !== "idle" && fetcher.formData?.get("intent") === "remove";
   return (
-    <li
-      className={`flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0 animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ${
-        isExiting ? "animate-out fade-out-0 zoom-out-95 duration-200" : ""
-      }`}
-      style={{ animationDelay, animationFillMode: "both" }}
-    >
-      <div className="min-w-0">
-        <div className="truncate font-medium">{u.name}</div>
-        {u.email ? <div className="truncate text-xs text-muted-foreground">{u.email}</div> : null}
+    <li className="grid gap-3 rounded-lg border p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:rounded-none sm:border-x-0 sm:border-t-0 sm:px-0">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300">
+          <UserRound className="size-4" aria-hidden="true" />
+        </div>
+        <Person {...user} />
       </div>
-      <div className="flex items-center gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:flex">
         <fetcher.Form method="post">
           <input type="hidden" name="intent" value="approve" />
           <input type="hidden" name="userId" value={member.userId} />
-          <SubmitButton size="sm" pending={isApproving} pendingLabel={t("common.loading")}>
+          <SubmitButton
+            className="w-full"
+            size="sm"
+            pending={isApproving}
+            pendingLabel={t("common.loading")}
+          >
             {isApproving ? null : <Check className="size-4" />}
             {t("organize.approve")}
           </SubmitButton>
         </fetcher.Form>
-        <fetcher.Form method="post">
-          <input type="hidden" name="intent" value="remove" />
-          <input type="hidden" name="userId" value={member.userId} />
-          <SubmitButton
-            size="sm"
-            variant="outline"
-            pending={isRejecting}
-            pendingLabel={t("common.loading")}
-          >
-            {isRejecting ? null : <X className="size-4" />}
-            {t("organize.reject")}
-          </SubmitButton>
-        </fetcher.Form>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={fetcher.state !== "idle"}
+              className="w-full"
+            >
+              <X className="size-4" /> {t("organize.reject")}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t("organize.dialog.rejectTitle", { name: user.name })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("organize.dialog.rejectDescription")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isRejecting}>
+                {t("organize.dialog.cancel")}
+              </AlertDialogCancel>
+              <fetcher.Form method="post">
+                <input type="hidden" name="intent" value="remove" />
+                <input type="hidden" name="userId" value={member.userId} />
+                <SubmitButton
+                  variant="destructive"
+                  pending={isRejecting}
+                  pendingLabel={t("common.loading")}
+                >
+                  {t("organize.reject")}
+                </SubmitButton>
+              </fetcher.Form>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </li>
+  );
+}
+
+function MemberActions({
+  member,
+  name,
+  fetcher,
+  isCurrentUser,
+  compact,
+}: {
+  member: ChapterMember;
+  name: string;
+  fetcher: RowFetcher;
+  isCurrentUser: boolean;
+  compact?: boolean;
+}) {
+  const { t } = useTranslation();
+  const isOrganizer = member.role === "organizer";
+  if (isCurrentUser) {
+    return <p className="text-xs text-muted-foreground">{t("organize.currentUser")}</p>;
+  }
+  return (
+    <div className={compact ? "grid gap-2" : "flex flex-wrap justify-end gap-2"}>
+      <ConfirmMemberAction
+        fetcher={fetcher}
+        userId={member.userId}
+        name={name}
+        intent={isOrganizer ? "demote" : "promote"}
+        compact={compact}
+      />
+      <ConfirmMemberAction
+        fetcher={fetcher}
+        userId={member.userId}
+        name={name}
+        intent="remove"
+        compact={compact}
+      />
+    </div>
   );
 }
 
 function MemberRow({
   member,
   users,
-  index,
+  viewerId,
 }: {
   member: ChapterMember;
   users: Record<string, UserSummary>;
-  index: number;
+  viewerId: string;
 }) {
   const { t } = useTranslation();
   const fetcher = useFetcher<typeof action>();
   useToastError(fetcher);
-  const submittingIntent = fetcher.formData?.get("intent");
-  const isBusy = fetcher.state !== "idle";
-  const isRemoving = isBusy && submittingIntent === "remove";
-  const u = userLabel(users, member.userId);
+  const user = userLabel(users, member.userId);
   const isOrganizer = member.role === "organizer";
-  const animationDelay = `${Math.min(index, 9) * 30}ms`;
   return (
-    <li
-      data-pending={isBusy || undefined}
-      className={`flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0 transition-opacity animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ${
-        isBusy && !isRemoving ? "opacity-70" : ""
-      } ${isRemoving ? "animate-out fade-out-0 zoom-out-95 duration-200" : ""}`}
-      style={{ animationDelay, animationFillMode: "both" }}
-    >
+    <li className="grid gap-4 rounded-lg border p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:rounded-none sm:border-x-0 sm:border-t-0 sm:px-0">
       <div className="flex min-w-0 items-center gap-3">
-        <StatusBadge status={isOrganizer ? "organizer" : "member"}>
-          {isOrganizer ? t("organize.organizerBadge") : t("organize.memberBadge")}
-        </StatusBadge>
-        <div className="min-w-0">
-          <div className="truncate font-medium">{u.name}</div>
-          {u.email ? <div className="truncate text-xs text-muted-foreground">{u.email}</div> : null}
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+          <UserRound className="size-4" aria-hidden="true" />
         </div>
+        <Person {...user} />
       </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("organize.manageAria", { name: u.name })}
-          >
-            <MoreHorizontal className="size-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <fetcher.Form method="post">
-            <input type="hidden" name="intent" value={isOrganizer ? "demote" : "promote"} />
-            <input type="hidden" name="userId" value={member.userId} />
-            <DropdownMenuItem asChild>
-              {/* onClick is required: Radix DropdownMenuItem swallows native submit otherwise */}
-              <button type="submit" className="w-full text-left" onClick={() => {}}>
-                {isOrganizer ? t("organize.demote") : t("organize.promote")}
-              </button>
-            </DropdownMenuItem>
-          </fetcher.Form>
-          <DropdownMenuSeparator />
-          <fetcher.Form method="post">
-            <input type="hidden" name="intent" value="remove" />
-            <input type="hidden" name="userId" value={member.userId} />
-            <DropdownMenuItem asChild variant="destructive">
-              <button type="submit" className="w-full text-left" onClick={() => {}}>
-                {t("organize.remove")}
-              </button>
-            </DropdownMenuItem>
-          </fetcher.Form>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <StatusBadge status={isOrganizer ? "organizer" : "member"}>
+        {isOrganizer ? <ShieldCheck className="size-3" aria-hidden="true" /> : null}
+        {isOrganizer ? t("organize.organizerBadge") : t("organize.memberBadge")}
+      </StatusBadge>
+      <MemberActions
+        member={member}
+        name={user.name}
+        fetcher={fetcher}
+        isCurrentUser={member.userId === viewerId}
+      />
     </li>
   );
 }
@@ -301,54 +417,83 @@ function MemberRow({
 export default function OrganizeChapter({ loaderData }: Route.ComponentProps) {
   const { t } = useTranslation();
   const { user, chapter, pending, members, users } = loaderData;
+  const [query, setQuery] = useState("");
+  const filteredMembers = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    if (!normalizedQuery) return members;
+    return members.filter((member) => {
+      const target = userLabel(users, member.userId);
+      return `${target.name} ${target.email}`.toLocaleLowerCase().includes(normalizedQuery);
+    });
+  }, [members, query, users]);
   return (
-    <PageShell user={user}>
-      <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
-        <Link to="/dashboard" prefetch="intent">
-          <ArrowLeft className="size-4" /> {t("nav.backToDashboard")}
-        </Link>
-      </Button>
+    <PageShell user={user} size="lg">
+      <PageHeader
+        back={{ to: "/chapters", label: t("organize.back") }}
+        title={t("organize.title", { chapter: chapter.name })}
+      />
 
-      <div className="space-y-1">
-        <h1 className="text-3xl font-medium tracking-tight">
-          {t("organize.title", { chapter: chapter.name })}
-        </h1>
-        <p className="font-mono text-xs text-muted-foreground">{chapter.slug}</p>
-      </div>
+      <section aria-labelledby="pending-heading" className="mt-8">
+        <Card className="overflow-hidden border-amber-500/25">
+          <CardHeader className="bg-amber-500/5">
+            <CardTitle id="pending-heading">
+              {t("organize.pending", { count: pending.length })}
+            </CardTitle>
+            <CardDescription>{t("organize.pendingDescription")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {pending.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("organize.noPending")}</p>
+            ) : (
+              <ul className="space-y-3 sm:space-y-0">
+                {pending.map((member) => (
+                  <PendingRow key={member.userId} member={member} users={users} />
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </section>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>{t("organize.pending", { count: pending.length })}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {pending.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("organize.noPending")}</p>
-          ) : (
-            <ul className="divide-y">
-              {pending.map((m, i) => (
-                <PendingRow key={m.userId} member={m} users={users} index={i} />
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>{t("organize.members", { count: members.length })}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {members.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("organize.noMembers")}</p>
-          ) : (
-            <ul className="divide-y">
-              {members.map((m, i) => (
-                <MemberRow key={m.userId} member={m} users={users} index={i} />
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <section aria-labelledby="members-heading" className="mt-8">
+        <Card>
+          <CardHeader>
+            <CardTitle id="members-heading">
+              {t("organize.members", { count: members.length })}
+            </CardTitle>
+            <CardDescription>{t("organize.membersDescription")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {members.length > 0 ? (
+              <div className="relative max-w-md">
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <Input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={t("organize.search.placeholder")}
+                  aria-label={t("organize.search.ariaLabel")}
+                  className="pl-9"
+                />
+              </div>
+            ) : null}
+            {members.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("organize.noMembers")}</p>
+            ) : filteredMembers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("organize.search.noMatches")}</p>
+            ) : (
+              <ul className="space-y-3 sm:space-y-0">
+                {filteredMembers.map((member) => (
+                  <MemberRow key={member.userId} member={member} users={users} viewerId={user.id} />
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </section>
     </PageShell>
   );
 }

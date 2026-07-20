@@ -1,74 +1,62 @@
 # CLAUDE.md — `@gdgjp/accounts`
 
-OIDC IdP at accounts.gdgs.jp. Repo-wide conventions in `../CLAUDE.md`.
+OIDC identity provider at accounts.gdgs.jp. Repo-wide conventions are in `../CLAUDE.md`.
 
-## Architecture — IdP, not a normal RR7 app
+## Authentication architecture
 
-`workers/app.ts` does NOT mount RR directly. It wraps RR in `@cloudflare/workers-oauth-provider`:
+React Router mounts Better Auth at `/api/auth/*`. `app/lib/auth.server.ts` is the single source of
+truth for Google sign-in, sessions, OAuth/OIDC endpoints, token lifetimes, scopes, and claims. The
+provider is the current `@better-auth/oauth-provider`, not Better Auth's deprecated
+`oidcProvider` plugin.
 
-```
-request → OAuthProvider.fetch
-  ├─ /oauth/token, /oauth/register  → handled by the lib
-  ├─ /userinfo                      → apiHandler (validates bearer, calls our handler)
-  └─ everything else                → defaultHandler = RR7 SSR
-```
+The issuer is the `APP_URL` origin. Discovery advertises:
 
-Provider built once per `env.APP_URL` (cached on module) so env changes between deploys take effect. `buildOAuthOptions` in `app/lib/oauth-provider.server.ts` is the single source of truth for endpoint paths, TTLs, scopes — read by both `workers/app.ts` and route loaders (via `getOAuthHelpers(env)`).
+- `/.well-known/openid-configuration`
+- `/api/auth/oauth2/authorize`, `/api/auth/oauth2/token`, `/api/auth/oauth2/userinfo`
+- `/api/auth/jwks` (RS256) and `/api/auth/oauth2/end-session`
 
-Two credential systems side-by-side — don't conflate:
+Only authorization-code + refresh-token grants are enabled. PKCE S256 is required. Dynamic client
+registration is disabled. First-party clients have `skipConsent` and `enableEndSession` set by the
+admin-only `/admin/seed-clients` route.
 
-| | IdP login session | OAuth grants & tokens |
-|---|---|---|
-| What | Who's signed into accounts.gdgs.jp | RP access to the IdP |
-| Mechanism | Signed cookie (`idp-session.server.ts`, HMAC `IDP_SESSION_SECRET`) | `@cloudflare/workers-oauth-provider` |
-| Storage | Cookie only, no server row | `OAUTH_KV` |
-| Used by | RR loaders (`getSessionUser`/`requireUser` in `app/lib/auth.server.ts`) | `/authorize`, `/oauth/token`, `/userinfo` |
+Active chapter members can create individually owned confidential web clients through
+`/developers/apps`. `app/lib/oauth-clients.server.ts` is the authorization and validation boundary:
+it fixes clients to `client_secret_basic`, authorization code + refresh token, PKCE, and the allowed
+scope set. Self-service clients skip consent by product policy. Client secrets are returned only by
+create/rotate responses, which must retain `Cache-Control: no-store`.
 
-`getSessionUser` reads `is_admin` (and name/image) **fresh from D1 on every call** — the cookie is identity-only. Otherwise a 14d cookie would let demoted admins keep super-admin powers. `/userinfo` does the same: `props` is grant-time snapshot, can be up to `refreshTokenTTL` (30d) stale → re-fetch row per call.
+Chapter authorization uses the dedicated `https://gdgs.jp/scopes/chapters` scope. UserInfo and ID
+tokens include `https://gdgs.jp/claims/chapters` and `https://gdgs.jp/claims/is_admin` only when that
+scope was granted. Memberships are read fresh from D1 when claims are minted.
 
-## OAuth flow
+## Storage and schema
 
-1. RP redirects user to `/authorize?...` → `routes/authorize.tsx`.
-2. No IdP session: redirect to `/signin` → `/oauth/google/start` → Google → `/oauth/google/callback`. These are **Google-as-upstream**, NOT OAuthProvider endpoints.
-3. Callback creates/updates `user` in D1, sets signed IdP-session cookie, bounces back to `/authorize`.
-4. `/authorize` calls `oauthHelpers.completeAuthorization({ props: GrantProps, userId: sub, ... })`. `GrantProps` (`sub`, `email`, `name`, `picture`, `isAdmin`) becomes `ctx.props` on every later `/userinfo`.
-5. RP exchanges code at `/oauth/token` (lib-handled), calls `/userinfo` with bearer.
+D1 contains Better Auth's core session/social-account tables, OAuth clients/tokens/consents, JWKS,
+and the domain-owned `user`, `chapters`, and `memberships` tables. Trusted client secrets are stored
+as SHA-256 hashes in `oauthClient`; source secrets remain Wrangler secrets.
 
-`scopes_supported = openid email profile offline_access`. `allowImplicitFlow` + `allowPlainPKCE` both off. **Dynamic client registration is intentionally disabled** — `clientRegistrationEndpoint` omitted because RPs are pre-seeded.
+Migration history is non-trivial: Better Auth was added in 0002, removed in 0011, and restored with
+the current provider in 0013. Migration 0014 installs membership triggers that disable individually
+owned clients and revoke their tokens when their owner loses their final active membership. The
+`user` table must only be changed in place: dropping/recreating it can cascade-delete `memberships`
+under D1's migration transaction behavior.
 
-## Trusted clients are seeded, not registered
+## Bindings and secrets
 
-Four RPs pre-registered in `OAUTH_KV` by `app/lib/seed-clients.server.ts`, invoked via `/admin/seed-clients` route (super-admin gated). Reading the client list at request time is the lib's job — our code never touches KV directly for clients.
+- `DB`: D1 `gdgjp-accounts-db`
+- `ASSETS`: static assets from `./build/client`
+- Secrets: `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_SECRET`, `RESEND_API_KEY`, and one
+  `<APP>_CLIENT_SECRET` per trusted RP
 
-Client IDs + redirect URLs in `wrangler.toml [vars]` as `<APP>_CLIENT_ID` / `<APP>_REDIRECT_URLS`. Client secrets in `.dev.vars` (local) / `wrangler secret put` (prod). **After changing any of these, run `/admin/seed-clients`** — change doesn't take effect until KV re-seeded.
-
-Adding a new RP: add `<APP>_CLIENT_ID` + `<APP>_REDIRECT_URLS` to `wrangler.toml [vars]`, `<APP>_CLIENT_SECRET` to `.dev.vars.example` + local `.dev.vars` (+ `wrangler secret put` for prod), extend `seed-clients.server.ts`, re-run `pnpm cf-typegen`, hit `/admin/seed-clients` after deploy.
-
-## Schema (D1 `gdgjp-accounts-db`)
-
-Only three tables (see `schema.sql`):
-
-- `user` — id (text, Google `sub`), email, name, image, `is_admin`, timestamps.
-- `chapters` — GDG/GDGoC, `kind ∈ {gdg, gdgoc}`, unique `slug`.
-- `memberships` — `(user_id, chapter_id)` composite PK, `role ∈ {organizer, member}`, `status ∈ {pending, active}`. Multi-chapter per user allowed (migration 0006).
-
-Migration history is non-trivial: better-auth added (0002) and removed (0011); `user` was simplified **in place via ALTER** (0012, commit `1f5590c`) because dropping it would cascade-delete memberships. **Don't add a migration that recreates `user`** — keep using ALTER.
-
-## Bindings & secrets
-
-- `DB` — D1 `gdgjp-accounts-db`
-- `OAUTH_KV` — KV for OAuth grants/tokens/clients (id `31a011bcae0944b483e8919f339fdbe3`)
-- `ASSETS` — static assets from `./build/client`
-
-Secrets (`wrangler secret put` / `.dev.vars`): `GOOGLE_CLIENT_SECRET`, `IDP_SESSION_SECRET` (HMAC; `openssl rand -base64 48`), `RESEND_API_KEY`, one `<APP>_CLIENT_SECRET` per RP.
+After changing a client ID, secret, redirect URI, or post-logout URI, deploy and run
+`/admin/seed-clients` again.
 
 ## Commands
 
-```
-pnpm --filter @gdgjp/accounts dev / test / test:e2e
-pnpm --filter @gdgjp/accounts migrate:local    # also regenerates schema.sql
+```sh
+pnpm --filter @gdgjp/accounts dev
+pnpm --filter @gdgjp/accounts test
+pnpm --filter @gdgjp/accounts typecheck
+pnpm --filter @gdgjp/accounts migrate:local
 pnpm --filter @gdgjp/accounts migrate:remote
-pnpm --filter @gdgjp/accounts cf-typegen       # after wrangler.toml binding/var changes
 ```
-
-Single test: `pnpm --filter @gdgjp/accounts exec vitest run <path>` / `exec playwright test <spec>`.

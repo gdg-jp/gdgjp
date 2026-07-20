@@ -8,7 +8,15 @@ import {
   signPayload,
   verifyPayload,
 } from "./cookie";
-import { type AuthUser, ClaimsUnavailableError, type UserChapter, type UserClaims } from "./index";
+import {
+  type AuthUser,
+  CHAPTERS_CLAIM,
+  CHAPTERS_SCOPE,
+  ClaimsUnavailableError,
+  IS_ADMIN_CLAIM,
+  type UserChapter,
+  type UserClaims,
+} from "./index";
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 
@@ -23,15 +31,13 @@ export interface RpAuthConfig {
 export interface RpAuthInstance {
   getSessionUser(request: Request): Promise<AuthUser | null>;
   requireUser(request: Request): Promise<AuthUser>;
-  signOut(request: Request): Promise<Response>;
   handleAuthRequest(request: Request): Promise<Response>;
-  handleSignOutRedirect(request: Request, options?: { returnTo?: string }): Response;
-  handleSignOutIframe(request: Request): Promise<Response>;
+  handleSignOutRedirect(request: Request, options?: { returnTo?: string }): Promise<Response>;
   /**
    * Fetch the user's current claims from the IdP /userinfo endpoint.
-   * Reads access/refresh tokens from the signed session cookie on the request;
-   * refreshes via refresh_token when expired. Throws ClaimsUnavailableError if
-   * the cookie is absent, the refresh token is invalid, or /userinfo errors.
+   * Resolves access/refresh tokens from the server-side D1 session and refreshes
+   * them when expired. Throws ClaimsUnavailableError if the login session is
+   * absent, the refresh token is invalid, or /userinfo errors.
    * Callers should catch and redirect to /signin to force re-auth.
    */
   getFreshClaims(request: Request): Promise<UserClaims>;
@@ -47,40 +53,10 @@ export function initializeRpAuth(config: RpAuthConfig): RpAuthInstance {
       if (!user) throw new Response("Unauthorized", { status: 401 });
       return user;
     },
-    signOut: async (_request) => {
-      return new Response(null, {
-        status: 302,
-        headers: {
-          Location: "/",
-          "Set-Cookie": clearedCookie(sessionCookieName(config)),
-        },
-      });
-    },
     handleAuthRequest: (request) => handleAuthRequest(config, request),
-    handleSignOutRedirect: (_request, options) => {
-      const returnTo = options?.returnTo ?? `${config.appUrl}/signin`;
-      const location = `${config.idp.url}/auth/signout?return_to=${encodeURIComponent(returnTo)}`;
-      return new Response(null, {
-        status: 302,
-        headers: {
-          Location: location,
-          "Set-Cookie": clearedCookie(sessionCookieName(config)),
-        },
-      });
-    },
-    handleSignOutIframe: async (request) => {
-      const csp = frameAncestorsCsp(config.idp.url, request.url);
-      const headers = new Headers({
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "no-store",
-        "Content-Security-Policy": csp,
-        "Referrer-Policy": "no-referrer",
-        "Set-Cookie": clearedCookie(sessionCookieName(config)),
-      });
-      return new Response("<!doctype html><meta charset=utf-8><title>ok</title>", {
-        status: 200,
-        headers,
-      });
+    handleSignOutRedirect: (request, options) => {
+      const returnTo = safeReturnTo(options?.returnTo ?? "/signin", config.appUrl);
+      return handleEndSession(config, request, returnTo);
     },
     getFreshClaims: (request) => fetchUserClaims(config, request),
   };
@@ -128,17 +104,28 @@ function txCookieName(config: RpAuthConfig): string {
 // ─── Session payload ───────────────────────────────────────────────────────────
 
 interface SessionPayload {
+  version: 3;
+  sessionId: string;
   userId: string;
+  issuer: string;
+  subject: string;
   email: string;
   name: string;
   picture: string | null;
   isAdmin: boolean;
+  expiresAt: number;
+}
+
+interface TokenSessionRow {
+  id: string;
+  userId: string;
+  issuer: string;
+  subject: string;
   accessToken: string;
   refreshToken: string | null;
+  idToken: string;
   accessTokenExpiresAt: number;
-  chapters: UserChapter[];
-  // Cached chapters/claims valid until this epoch ms; refresh from /userinfo after.
-  claimsCacheUntil: number;
+  expiresAt: number;
 }
 
 interface TxPayload {
@@ -151,7 +138,6 @@ interface TxPayload {
 
 const SESSION_MAX_AGE_S = 60 * 60 * 24 * 30; // 30d
 const TX_MAX_AGE_S = 60 * 10; // 10m
-const CLAIMS_CACHE_MS = 5 * 60 * 1000; // 5m
 const REFRESH_LEEWAY_MS = 30_000;
 
 // ─── Request handler ───────────────────────────────────────────────────────────
@@ -164,7 +150,7 @@ async function handleAuthRequest(config: RpAuthConfig, request: Request): Promis
     return handleCallback(config, request, url);
   }
   if (pathname === "/api/auth/signout" || pathname === "/api/auth/sign-out") {
-    return handleSignOut(config);
+    return handleSignOut(config, request);
   }
   if (pathname === "/api/auth/me") return handleMe(config, request);
   return new Response("Not found", { status: 404 });
@@ -180,7 +166,7 @@ async function handleSignIn(config: RpAuthConfig, _request: Request, url: URL): 
 
   const authUrl = oidc.buildAuthorizationUrl(issuerConfig, {
     redirect_uri: callbackUrl(config),
-    scope: "openid email profile offline_access",
+    scope: `openid email profile offline_access ${CHAPTERS_SCOPE}`,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
     state,
@@ -221,41 +207,86 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
   const issuerConfig = await getIssuerConfig(config);
   let tokens: oidc.TokenEndpointResponse & oidc.TokenEndpointResponseHelpers;
   try {
-    // idTokenExpected: false — the accounts IdP (workers-oauth-provider) is
-    // OAuth 2.1 only and doesn't issue id_tokens. We fetch user attributes
-    // from /userinfo below instead. expectedNonce is dropped since there's
-    // no id_token to validate the nonce against.
     tokens = await oidc.authorizationCodeGrant(issuerConfig, url, {
       pkceCodeVerifier: tx.codeVerifier,
       expectedState: tx.state,
-      idTokenExpected: false,
+      expectedNonce: tx.nonce,
+      idTokenExpected: true,
     });
   } catch (err) {
     console.error("oidc callback failed", err);
     return new Response("Authentication failed", { status: 400 });
   }
 
+  const idTokenClaims = tokens.claims();
+  const oidcSub = idTokenClaims?.sub;
+  if (!tokens.id_token || typeof oidcSub !== "string" || oidcSub.length === 0) {
+    console.error("oidc callback returned no valid id_token subject");
+    return new Response("Authentication failed", { status: 400 });
+  }
+
   let userClaims: UserClaims;
   try {
-    userClaims = await fetchUserinfoClaims(issuerConfig, tokens.access_token);
+    userClaims = await fetchUserinfoClaims(issuerConfig, tokens.access_token, oidcSub);
   } catch (err) {
     console.error("oidc userinfo failed", err);
     return new Response("Failed to fetch user info", { status: 400 });
   }
 
-  const internalUserId = await upsertUser(config.db, userClaims);
+  const issuer = issuerConfig.serverMetadata().issuer;
+  if (typeof issuer !== "string" || issuer.length === 0) {
+    console.error("OIDC discovery metadata has no issuer");
+    return new Response("Authentication failed", { status: 400 });
+  }
+
+  let internalUserId: string;
+  try {
+    internalUserId = await upsertUser(config.db, issuer, oidcSub, userClaims);
+  } catch (err) {
+    console.error("OIDC account linking failed", err);
+    return new Response("Authentication failed", { status: 400 });
+  }
+
+  const sessionId = crypto.randomUUID();
+  const sessionExpiresAt = Date.now() + SESSION_MAX_AGE_S * 1000;
+  try {
+    // Bound server-side token storage without requiring a scheduled cleanup job.
+    await config.db.prepare("DELETE FROM oidc_session WHERE expires_at <= ?").bind(Date.now()).run();
+    await config.db
+      .prepare(
+        `INSERT INTO oidc_session
+         (id, user_id, issuer, subject, access_token, refresh_token, id_token,
+          access_token_expires_at, expires_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())`,
+      )
+      .bind(
+        sessionId,
+        internalUserId,
+        issuer,
+        oidcSub,
+        tokens.access_token,
+        tokens.refresh_token ?? null,
+        tokens.id_token,
+        Date.now() + (tokens.expires_in ?? 3600) * 1000,
+        sessionExpiresAt,
+      )
+      .run();
+  } catch (err) {
+    console.error("OIDC session persistence failed", err);
+    return new Response("Authentication failed", { status: 500 });
+  }
 
   const session: SessionPayload = {
+    version: 3,
+    sessionId,
     userId: internalUserId,
+    issuer,
+    subject: oidcSub,
     email: userClaims.email ?? "",
     name: userClaims.name ?? userClaims.email ?? "",
     picture: userClaims.picture,
     isAdmin: userClaims.isAdmin,
-    accessToken: tokens.access_token,
-    refreshToken: tokens.refresh_token ?? null,
-    accessTokenExpiresAt: Date.now() + (tokens.expires_in ?? 3600) * 1000,
-    chapters: userClaims.chapters,
-    claimsCacheUntil: Date.now() + CLAIMS_CACHE_MS,
+    expiresAt: sessionExpiresAt,
   };
 
   const headers = new Headers({ Location: tx.returnTo });
@@ -272,11 +303,43 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
   return new Response(null, { status: 302, headers });
 }
 
-async function handleSignOut(config: RpAuthConfig): Promise<Response> {
+async function handleSignOut(config: RpAuthConfig, request: Request): Promise<Response> {
+  return handleEndSession(config, request, `${config.appUrl}/signin`);
+}
+
+async function handleEndSession(
+  config: RpAuthConfig,
+  request: Request,
+  returnTo: string,
+): Promise<Response> {
+  const value = readCookie(request, sessionCookieName(config));
+  const session = value ? await verifyPayload<SessionPayload>(value, config.secret) : null;
+  let location = returnTo;
+
+  const tokenSession = isCurrentSession(session, config)
+    ? await readTokenSession(config.db, session.sessionId)
+    : null;
+  if (tokenSession) {
+    await config.db.prepare("DELETE FROM oidc_session WHERE id = ?").bind(tokenSession.id).run();
+    try {
+      const issuerConfig = await getIssuerConfig(config);
+      if (issuerConfig.serverMetadata().issuer === tokenSession.issuer) {
+        location = oidc
+          .buildEndSessionUrl(issuerConfig, {
+            id_token_hint: tokenSession.idToken,
+            post_logout_redirect_uri: returnTo,
+          })
+          .toString();
+      }
+    } catch (err) {
+      console.warn("OIDC end-session endpoint unavailable; clearing local session", err);
+    }
+  }
+
   return new Response(null, {
     status: 302,
     headers: {
-      Location: `${config.idp.url}/auth/signout?return_to=${encodeURIComponent(`${config.appUrl}/signin`)}`,
+      Location: location,
       "Set-Cookie": clearedCookie(sessionCookieName(config)),
     },
   });
@@ -296,7 +359,7 @@ async function getSessionUser(config: RpAuthConfig, request: Request): Promise<A
   const value = parseCookies(request.headers.get("cookie"))[sessionCookieName(config)];
   if (!value) return null;
   const session = await verifyPayload<SessionPayload>(value, config.secret);
-  if (!session) return null;
+  if (!isCurrentSession(session, config)) return null;
   return {
     id: session.userId,
     email: session.email,
@@ -311,92 +374,194 @@ async function getSessionUser(config: RpAuthConfig, request: Request): Promise<A
 const inflightClaims = new Map<string, Promise<UserClaims>>();
 
 async function fetchUserClaims(config: RpAuthConfig, request: Request): Promise<UserClaims> {
-  // Read the signed session cookie for access/refresh tokens — the cookie is
-  // the only source of truth (no DB-side token storage on the RP). We can't
-  // write a new cookie back from here since this isn't a response context, so
-  // a refreshed access_token is used in-memory for this call only; on next
-  // sign-in / token expiry the user re-authorizes.
   const value = parseCookies(request.headers.get("cookie"))[sessionCookieName(config)];
   if (!value) throw new ClaimsUnavailableError("no_linked_account");
   const session = await verifyPayload<SessionPayload>(value, config.secret);
-  if (!session) throw new ClaimsUnavailableError("no_linked_account");
+  if (!isCurrentSession(session, config)) throw new ClaimsUnavailableError("no_linked_account");
 
-  // De-dupe inflight requests by userId.
-  const inflight = inflightClaims.get(session.userId);
+  // De-dupe refresh/userinfo work for this login within an isolate.
+  const inflight = inflightClaims.get(session.sessionId);
   if (inflight) return inflight;
 
   const promise = (async () => {
     const issuerConfig = await getIssuerConfig(config);
-    let accessToken = session.accessToken;
-    if (accessToken && session.accessTokenExpiresAt - REFRESH_LEEWAY_MS < Date.now()) {
-      accessToken = "";
+    let stored = await readTokenSession(config.db, session.sessionId);
+    if (
+      !stored ||
+      stored.userId !== session.userId ||
+      stored.issuer !== session.issuer ||
+      stored.subject !== session.subject ||
+      stored.expiresAt <= Date.now()
+    ) {
+      throw new ClaimsUnavailableError("no_linked_account");
     }
-    if (!accessToken) {
-      if (!session.refreshToken) throw new ClaimsUnavailableError("refresh_failed");
-      try {
-        const refreshed = await oidc.refreshTokenGrant(issuerConfig, session.refreshToken);
-        accessToken = refreshed.access_token;
-      } catch (err) {
-        throw new ClaimsUnavailableError("refresh_failed", err);
-      }
+    if (stored.accessTokenExpiresAt - REFRESH_LEEWAY_MS < Date.now()) {
+      stored = await refreshStoredTokens(config.db, issuerConfig, stored);
     }
 
     try {
-      // fetchProtectedResource, not fetchUserInfo: the latter validates that
-      // the returned `sub` matches an expected subject, but our session.userId
-      // is an RP-local UUID (minted by upsertUser via email lookup) while the
-      // IdP keys /userinfo by its own internal sub. We already trust the
-      // response via the bearer token we obtained from the same IdP, so
-      // skipping the sub-equality check is safe.
-      return await fetchUserinfoClaims(issuerConfig, accessToken);
+      if (issuerConfig.serverMetadata().issuer !== session.issuer) {
+        throw new ClaimsUnavailableError("userinfo_failed");
+      }
+      return await fetchUserinfoClaims(issuerConfig, stored.accessToken, session.subject);
     } catch (err) {
       if (err instanceof ClaimsUnavailableError) throw err;
       throw new ClaimsUnavailableError("userinfo_failed", err);
     }
-  })().finally(() => inflightClaims.delete(session.userId));
+  })().finally(() => inflightClaims.delete(session.sessionId));
 
-  inflightClaims.set(session.userId, promise);
+  inflightClaims.set(session.sessionId, promise);
   return promise;
+}
+
+function isCurrentSession(
+  session: SessionPayload | null,
+  config: RpAuthConfig,
+): session is SessionPayload {
+  return (
+    session?.version === 3 &&
+    typeof session.sessionId === "string" &&
+    session.sessionId.length > 0 &&
+    typeof session.issuer === "string" &&
+    session.issuer === trimTrailingSlash(config.idp.url) &&
+    typeof session.subject === "string" &&
+    session.subject.length > 0 &&
+    typeof session.expiresAt === "number" &&
+    session.expiresAt > Date.now()
+  );
+}
+
+async function readTokenSession(db: D1Database, id: string): Promise<TokenSessionRow | null> {
+  return db
+    .prepare(
+      `SELECT id, user_id AS userId, issuer, subject, access_token AS accessToken,
+              refresh_token AS refreshToken, id_token AS idToken,
+              access_token_expires_at AS accessTokenExpiresAt, expires_at AS expiresAt
+       FROM oidc_session WHERE id = ? LIMIT 1`,
+    )
+    .bind(id)
+    .first<TokenSessionRow>();
+}
+
+async function refreshStoredTokens(
+  db: D1Database,
+  issuerConfig: oidc.Configuration,
+  current: TokenSessionRow,
+): Promise<TokenSessionRow> {
+  if (!current.refreshToken) throw new ClaimsUnavailableError("refresh_failed");
+
+  let refreshed: oidc.TokenEndpointResponse & oidc.TokenEndpointResponseHelpers;
+  try {
+    refreshed = await oidc.refreshTokenGrant(issuerConfig, current.refreshToken);
+  } catch (err) {
+    // Another isolate may have completed refresh-token rotation first.
+    const winner = await readTokenSession(db, current.id);
+    if (
+      winner?.refreshToken &&
+      winner.refreshToken !== current.refreshToken &&
+      winner.accessTokenExpiresAt - REFRESH_LEEWAY_MS >= Date.now()
+    ) {
+      return winner;
+    }
+    throw new ClaimsUnavailableError("refresh_failed", err);
+  }
+
+  const nextAccessExpiry = Date.now() + (refreshed.expires_in ?? 3600) * 1000;
+  const result = await db
+    .prepare(
+      `UPDATE oidc_session
+       SET access_token = ?, refresh_token = ?, id_token = ?,
+           access_token_expires_at = ?, updated_at = unixepoch()
+       WHERE id = ? AND refresh_token = ?`,
+    )
+    .bind(
+      refreshed.access_token,
+      refreshed.refresh_token ?? current.refreshToken,
+      refreshed.id_token ?? current.idToken,
+      nextAccessExpiry,
+      current.id,
+      current.refreshToken,
+    )
+    .run();
+
+  if (result.meta.changes !== 1) {
+    const winner = await readTokenSession(db, current.id);
+    if (winner) return winner;
+    throw new ClaimsUnavailableError("refresh_failed");
+  }
+  return {
+    ...current,
+    accessToken: refreshed.access_token,
+    refreshToken: refreshed.refresh_token ?? current.refreshToken,
+    idToken: refreshed.id_token ?? current.idToken,
+    accessTokenExpiresAt: nextAccessExpiry,
+  };
 }
 
 // ─── User upsert ───────────────────────────────────────────────────────────────
 
-/**
- * Upserts the local user row by email. Returns the internal user.id (which
- * we want to be stable for existing users — so we look up by email rather
- * than trusting the IdP's `sub` to match our DB's id). For new users we
- * mint a fresh UUID.
- *
- * Writes against the post-PR-2 simplified schema (snake_case, no
- * emailVerified column).
- */
-async function upsertUser(db: D1Database, claims: UserClaims): Promise<string> {
+/** Resolve users by the stable OIDC identity. A verified email may link one
+ * pre-OIDC row exactly once; it is never used as the ongoing identity key. */
+async function upsertUser(
+  db: D1Database,
+  issuer: string,
+  subject: string,
+  claims: UserClaims,
+): Promise<string> {
   const email = claims.email ?? "";
   const name = claims.name ?? email;
   const image = claims.picture;
   const isAdmin = claims.isAdmin ? 1 : 0;
   const now = Math.floor(Date.now() / 1000);
 
-  const existing = await db
-    .prepare(`SELECT id FROM "user" WHERE email = ? LIMIT 1`)
-    .bind(email)
+  const linked = await db
+    .prepare(`SELECT id FROM "user" WHERE oidc_issuer = ? AND oidc_subject = ? LIMIT 1`)
+    .bind(issuer, subject)
     .first<{ id: string }>();
 
-  if (existing) {
+  if (linked) {
     await db
       .prepare(`UPDATE "user" SET name = ?, image = ?, is_admin = ?, updated_at = ? WHERE id = ?`)
-      .bind(name, image, isAdmin, now, existing.id)
+      .bind(name, image, isAdmin, now, linked.id)
       .run();
-    return existing.id;
+    return linked.id;
+  }
+
+  if (!email || !claims.emailVerified) {
+    throw new Error("Cannot link a new OIDC identity without a verified email");
+  }
+
+  const existingByEmail = await db
+    .prepare(`SELECT id, oidc_issuer, oidc_subject FROM "user" WHERE email = ? LIMIT 1`)
+    .bind(email)
+    .first<{ id: string; oidc_issuer: string | null; oidc_subject: string | null }>();
+
+  if (existingByEmail) {
+    if (existingByEmail.oidc_issuer || existingByEmail.oidc_subject) {
+      throw new Error("Email is already linked to a different OIDC identity");
+    }
+    const result = await db
+      .prepare(
+        `UPDATE "user"
+         SET oidc_issuer = ?, oidc_subject = ?, name = ?, image = ?, is_admin = ?, updated_at = ?
+         WHERE id = ? AND oidc_issuer IS NULL AND oidc_subject IS NULL`,
+      )
+      .bind(issuer, subject, name, image, isAdmin, now, existingByEmail.id)
+      .run();
+    if (result.meta.changes !== 1) {
+      throw new Error("OIDC identity link changed concurrently");
+    }
+    return existingByEmail.id;
   }
 
   const id = crypto.randomUUID();
   await db
     .prepare(
-      `INSERT INTO "user" (id, email, name, image, is_admin, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO "user"
+       (id, email, name, image, is_admin, oidc_issuer, oidc_subject, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(id, email, name, image, isAdmin, now, now)
+    .bind(id, email, name, image, isAdmin, issuer, subject, now, now)
     .run();
   return id;
 }
@@ -404,42 +569,24 @@ async function upsertUser(db: D1Database, claims: UserClaims): Promise<string> {
 // ─── /userinfo fetch ───────────────────────────────────────────────────────────
 
 /**
- * Fetches the IdP's /userinfo endpoint with the given access token and parses
- * the response into UserClaims. Uses oidc.fetchProtectedResource (which does
- * not enforce a `sub` equality check) — the bearer token already authorises
- * the call, and our local user.id is not the IdP's sub.
+ * Fetches the IdP's /userinfo endpoint and requires its `sub` to match the
+ * subject of the validated ID Token, as required by OpenID Connect Core.
  */
 async function fetchUserinfoClaims(
   issuerConfig: oidc.Configuration,
   accessToken: string,
+  expectedSubject: string,
 ): Promise<UserClaims> {
-  const userinfoEndpoint = issuerConfig.serverMetadata().userinfo_endpoint;
-  if (!userinfoEndpoint) {
-    throw new ClaimsUnavailableError("userinfo_failed");
-  }
-  const res = await oidc.fetchProtectedResource(
-    issuerConfig,
-    accessToken,
-    new URL(userinfoEndpoint),
-    "GET",
-  );
-  if (!res.ok) throw new ClaimsUnavailableError("userinfo_failed");
-  const json = (await res.json()) as Record<string, unknown>;
-  return parseClaims(json);
+  const claims = await oidc.fetchUserInfo(issuerConfig, accessToken, expectedSubject);
+  return parseClaims(claims as Record<string, unknown>);
 }
 
 // ─── Claims parsing ────────────────────────────────────────────────────────────
 
 function parseClaims(json: Record<string, unknown>): UserClaims {
-  const role = json.chapterRole;
-  const chapter: UserChapter | null =
-    typeof json.chapterId === "number" &&
-    typeof json.chapterSlug === "string" &&
-    (role === "organizer" || role === "member")
-      ? { chapterId: json.chapterId, chapterSlug: json.chapterSlug, role }
-      : null;
-  const parsedArray: UserChapter[] = Array.isArray(json.chapters)
-    ? (json.chapters as unknown[]).flatMap((entry) => {
+  const namespacedChapters = json[CHAPTERS_CLAIM];
+  const chapters: UserChapter[] = Array.isArray(namespacedChapters)
+    ? (namespacedChapters as unknown[]).flatMap((entry) => {
         if (!entry || typeof entry !== "object") return [];
         const e = entry as Record<string, unknown>;
         const r = e.role;
@@ -453,15 +600,14 @@ function parseClaims(json: Record<string, unknown>): UserClaims {
         return [];
       })
     : [];
-  const chapters: UserChapter[] = parsedArray.length ? parsedArray : chapter ? [chapter] : [];
   return {
     sub: typeof json.sub === "string" ? json.sub : "",
     email: typeof json.email === "string" ? json.email : null,
     name: typeof json.name === "string" ? json.name : null,
     picture: typeof json.picture === "string" ? json.picture : null,
     emailVerified: json.email_verified === true,
-    isAdmin: json.isAdmin === true,
-    chapter,
+    isAdmin: json[IS_ADMIN_CLAIM] === true,
+    chapter: chapters[0] ?? null,
     chapters,
   };
 }
@@ -493,14 +639,4 @@ function safeReturnTo(value: string | null, appUrl: string): string {
     if (u.origin === new URL(appUrl).origin) return u.toString();
   } catch {}
   return new URL("/", appUrl).toString();
-}
-
-function frameAncestorsCsp(idpUrl: string | undefined, requestUrl: string): string {
-  if (!idpUrl) return "frame-ancestors 'self'";
-  try {
-    return `frame-ancestors 'self' ${new URL(idpUrl).origin}`;
-  } catch {
-    console.warn("rp signout-iframe: invalid IDP URL", { idpUrl, requestUrl });
-    return "frame-ancestors 'self'";
-  }
 }
