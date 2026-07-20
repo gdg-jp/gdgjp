@@ -39,13 +39,13 @@ function NavigationLink({
       prefetch="intent"
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+        "group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-[color,background-color,transform] duration-[var(--motion-fast)] ease-[var(--ease-out-quart)] active:scale-[0.98] motion-reduce:transform-none",
         active
           ? "bg-accent font-medium text-foreground [&_svg]:text-primary"
           : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
       )}
     >
-      <Icon className="size-4" />
+      <Icon className="size-4 transition-transform duration-[var(--motion-fast)] ease-[var(--ease-out-quart)] group-hover:translate-x-0.5 motion-reduce:transform-none" />
       {item.label}
     </Link>
   );
@@ -199,7 +199,7 @@ export function DashboardShell({
             aria-hidden="true"
             className="fixed inset-x-0 top-0 z-[100] h-0.5 overflow-hidden bg-primary/20"
           >
-            <div className="h-full w-1/2 animate-pulse rounded-full bg-primary motion-reduce:w-full" />
+            <div className="navigation-progress h-full w-2/5 rounded-full bg-primary motion-reduce:w-full" />
           </div>
         </>
       ) : null}
@@ -212,7 +212,10 @@ export function DashboardShell({
       />
       <div className="flex min-h-0 flex-1">
         <Sidebar user={user} memberships={memberships} />
-        <main className={cn("min-w-0 flex-1 px-4 py-4 md:px-6 md:py-5", className)}>
+        <main
+          aria-busy={busy || undefined}
+          className={cn("min-w-0 flex-1 px-4 py-4 md:px-6 md:py-5", className)}
+        >
           {children}
         </main>
       </div>

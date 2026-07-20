@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useLocation } from "react-router";
 import type { TopBarUser } from "~/components/top-bar";
 import { cn } from "~/lib/utils";
 
@@ -14,6 +15,13 @@ type PageShellProps = {
 };
 
 export function PageShell({ children, className, size = "md" }: PageShellProps) {
+  const location = useLocation();
   const max = size === "sm" ? "max-w-xl" : size === "lg" ? "max-w-none" : "max-w-3xl";
-  return <div className={cn("mx-auto w-full", max, className)}>{children}</div>;
+  return (
+    <div
+      className={cn(location.key !== "default" && "route-enter", "mx-auto w-full", max, className)}
+    >
+      {children}
+    </div>
+  );
 }

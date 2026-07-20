@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { LocaleSwitcher } from "~/components/locale-switcher";
 import { ThemeToggle } from "~/components/theme-toggle";
+import { cn } from "~/lib/utils";
 
 export type TopBarUser = {
   email: string;
@@ -24,11 +25,20 @@ export function TopBar({
 }) {
   const { t } = useTranslation();
   return (
-    <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur transition-[background-color,border-color,box-shadow] duration-[var(--motion-base)] ease-[var(--ease-out-quart)] supports-[backdrop-filter]:bg-background/60 motion-reduce:transition-none">
       <div className="flex h-14 w-full items-center justify-between px-4">
-        <Link to="/dashboard" prefetch="intent" className="flex items-center gap-3">
-          <GdgMark size="sm" />
-          <span className="font-medium tracking-tight">{t("app.name")}</span>
+        <Link
+          to="/dashboard"
+          prefetch="intent"
+          className="group flex items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          <GdgMark
+            size="sm"
+            className="transition-transform duration-[var(--motion-base)] ease-[var(--ease-out-quart)] group-hover:rotate-2 group-hover:scale-105 group-active:scale-95 motion-reduce:transform-none motion-reduce:transition-none"
+          />
+          <span className="font-medium tracking-tight transition-colors duration-[var(--motion-fast)] group-hover:text-primary motion-reduce:transition-none">
+            {t("app.name")}
+          </span>
         </Link>
         <div className="flex items-center gap-2">
           <LocaleSwitcher />
@@ -41,9 +51,17 @@ export function TopBar({
               onClick={onOpenNavigation}
               aria-label={t("nav.openNavigation")}
               aria-expanded={navigationOpen}
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden motion-reduce:transition-none"
+              className={cn(
+                "group rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-[var(--motion-fast)] ease-[var(--ease-out-quart)] hover:bg-accent hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden motion-reduce:transform-none motion-reduce:transition-none",
+                navigationOpen && "bg-accent text-foreground",
+              )}
             >
-              <Menu className="size-5" />
+              <Menu
+                className={cn(
+                  "size-5 transition-transform duration-[var(--motion-base)] ease-[var(--ease-out-quart)] motion-reduce:transform-none motion-reduce:transition-none",
+                  navigationOpen && "rotate-90",
+                )}
+              />
             </button>
           ) : null}
         </div>

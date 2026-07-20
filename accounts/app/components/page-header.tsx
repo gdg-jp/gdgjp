@@ -25,11 +25,16 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={cn("border-b pb-4", className)}>
+    <header className={cn("page-header relative pb-4", className)}>
       {back ? (
-        <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="group -ml-2 mb-2 text-muted-foreground"
+        >
           <Link to={back.to} prefetch="intent">
-            <ArrowLeft className="size-4" />
+            <ArrowLeft className="size-4 group-hover:-translate-x-0.5 motion-reduce:transform-none" />
             {back.label}
           </Link>
         </Button>
