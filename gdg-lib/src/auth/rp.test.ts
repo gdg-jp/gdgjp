@@ -23,6 +23,7 @@ const oidc = vi.hoisted(() => ({
     return url;
   }),
   allowInsecureRequests: Symbol("allowInsecureRequests"),
+  customFetch: Symbol("customFetch"),
 }));
 
 vi.mock("openid-client", () => oidc);
@@ -108,13 +109,13 @@ function database(options?: {
   return { db: db as unknown as D1Database, calls };
 }
 
-function auth(db: D1Database, issuer = "https://issuer.example") {
+function auth(db: D1Database, issuer = "https://issuer.example", idpFetch?: typeof fetch) {
   return initializeRpAuth({
     db,
     appUrl: "https://app.example",
     cookiePrefix: "app",
     secret,
-    idp: { url: issuer, clientId: "client", clientSecret: "client-secret" },
+    idp: { url: issuer, clientId: "client", clientSecret: "client-secret", fetch: idpFetch },
   });
 }
 
@@ -177,6 +178,57 @@ describe("OIDC RP", () => {
     );
     expect(location.searchParams.get("code_challenge_method")).toBe("S256");
     expect(location.searchParams.get("nonce")).toBe("nonce");
+  });
+
+  it("uses a bounded internal transport for every OIDC endpoint", async () => {
+    const { db } = database();
+    const idpFetch = vi.fn<typeof fetch>();
+    await auth(db, "https://service-bound-issuer.example", idpFetch).handleAuthRequest(
+      new Request("https://app.example/api/auth/signin"),
+    );
+
+    expect(oidc.discovery).toHaveBeenCalledWith(
+      new URL("https://service-bound-issuer.example"),
+      "client",
+      "client-secret",
+      undefined,
+      expect.objectContaining({
+        timeout: 10,
+        [oidc.customFetch]: idpFetch,
+      }),
+    );
+  });
+
+  it("turns discovery timeouts during claims refresh into an unavailable-claims error", async () => {
+    oidc.discovery.mockRejectedValueOnce(new DOMException("timed out", "TimeoutError"));
+    const sessionId = "session-with-discovery-timeout";
+    const session = await signPayload(
+      {
+        version: 3,
+        sessionId,
+        userId: "local-user",
+        issuer: "https://timeout-issuer.example",
+        subject: "subject-1",
+        email: "user@example.com",
+        name: "Example User",
+        picture: null,
+        isAdmin: false,
+        expiresAt: Date.now() + 60_000,
+      },
+      secret,
+    );
+    const { db } = database();
+
+    await expect(
+      auth(db, "https://timeout-issuer.example").getFreshClaims(
+        new Request("https://app.example/", {
+          headers: { Cookie: `app-session=${session}` },
+        }),
+      ),
+    ).rejects.toMatchObject({
+      name: "ClaimsUnavailableError",
+      reason: "userinfo_failed",
+    });
   });
 
   it("requires an ID Token, validates nonce, and binds UserInfo to its subject", async () => {

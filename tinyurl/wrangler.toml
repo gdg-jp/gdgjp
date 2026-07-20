@@ -37,6 +37,10 @@ entrypoint = "ImageUploadService"
 binding = "IMG_HTTP"
 service = "gdgjp-img"
 
+[[services]]
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+
 [[routes]]
 pattern = "url.gdgs.jp/*"
 zone_name = "gdgs.jp"

@@ -25,7 +25,13 @@ export interface RpAuthConfig {
   appUrl: string;
   cookiePrefix: string;
   secret: string;
-  idp: { url: string; clientId: string; clientSecret: string };
+  idp: {
+    url: string;
+    clientId: string;
+    clientSecret: string;
+    /** Optional internal transport, such as a Cloudflare service binding. */
+    fetch?: typeof fetch;
+  };
 }
 
 export interface RpAuthInstance {
@@ -65,6 +71,7 @@ export function initializeRpAuth(config: RpAuthConfig): RpAuthInstance {
 // ─── Discovery (cached per issuer URL) ─────────────────────────────────────────
 
 const issuerCache = new Map<string, Promise<oidc.Configuration>>();
+const OIDC_HTTP_TIMEOUT_S = 10;
 
 function getIssuerConfig(config: RpAuthConfig): Promise<oidc.Configuration> {
   const key = `${config.idp.url}|${config.idp.clientId}`;
@@ -75,14 +82,13 @@ function getIssuerConfig(config: RpAuthConfig): Promise<oidc.Configuration> {
     // localhost so RPs can talk to a `wrangler dev` IdP; production stays
     // HTTPS-only (the issuer URL comes from wrangler.toml [vars]).
     const isLocal = issuerUrl.protocol === "http:";
+    const options: oidc.DiscoveryRequestOptions = {
+      timeout: OIDC_HTTP_TIMEOUT_S,
+      ...(config.idp.fetch ? { [oidc.customFetch]: config.idp.fetch } : {}),
+      ...(isLocal ? { execute: [oidc.allowInsecureRequests] } : {}),
+    };
     p = oidc
-      .discovery(
-        issuerUrl,
-        config.idp.clientId,
-        config.idp.clientSecret,
-        undefined,
-        isLocal ? { execute: [oidc.allowInsecureRequests] } : undefined,
-      )
+      .discovery(issuerUrl, config.idp.clientId, config.idp.clientSecret, undefined, options)
       .catch((err) => {
         issuerCache.delete(key);
         throw err;
@@ -251,7 +257,10 @@ async function handleCallback(config: RpAuthConfig, request: Request, url: URL):
   const sessionExpiresAt = Date.now() + SESSION_MAX_AGE_S * 1000;
   try {
     // Bound server-side token storage without requiring a scheduled cleanup job.
-    await config.db.prepare("DELETE FROM oidc_session WHERE expires_at <= ?").bind(Date.now()).run();
+    await config.db
+      .prepare("DELETE FROM oidc_session WHERE expires_at <= ?")
+      .bind(Date.now())
+      .run();
     await config.db
       .prepare(
         `INSERT INTO oidc_session
@@ -384,7 +393,12 @@ async function fetchUserClaims(config: RpAuthConfig, request: Request): Promise<
   if (inflight) return inflight;
 
   const promise = (async () => {
-    const issuerConfig = await getIssuerConfig(config);
+    let issuerConfig: oidc.Configuration;
+    try {
+      issuerConfig = await getIssuerConfig(config);
+    } catch (err) {
+      throw new ClaimsUnavailableError("userinfo_failed", err);
+    }
     let stored = await readTokenSession(config.db, session.sessionId);
     if (
       !stored ||

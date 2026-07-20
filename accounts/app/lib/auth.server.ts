@@ -7,6 +7,7 @@ import { listActiveChaptersForUser } from "./db";
 export const CHAPTERS_SCOPE = "https://gdgs.jp/scopes/chapters";
 export const CHAPTERS_CLAIM = "https://gdgs.jp/claims/chapters";
 export const IS_ADMIN_CLAIM = "https://gdgs.jp/claims/is_admin";
+export const OAUTH_STATE_STORAGE = "cookie" as const;
 
 type AuthInstance = ReturnType<typeof buildAuth>;
 
@@ -76,6 +77,12 @@ function buildAuth(env: Env) {
       // Admin revocation deletes sessions in D1. Keep the database authoritative
       // so revoked users cannot continue with a cached, self-contained cookie.
       cookieCache: { enabled: false },
+    },
+    account: {
+      // OAuth state is short-lived, encrypted, and bound to the browser. Keeping
+      // it in the state cookie avoids a D1 write on every Google sign-in start;
+      // user accounts and sessions remain database-backed.
+      storeStateStrategy: OAUTH_STATE_STORAGE,
     },
     socialProviders: {
       google: {

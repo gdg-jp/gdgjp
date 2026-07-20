@@ -18,7 +18,7 @@ Scoped to `tinyurl/`. Monorepo-wide conventions in `../CLAUDE.md`.
 
 ## Auth
 
-OAuth RP of `accounts/` via `gdg-lib`'s `initializeRpAuth` in `app/lib/auth.server.ts`. Cookie prefix `gdgjp-tinyurl`. `RP_SESSION_SECRET` for HMAC. **No local password/account table** — `user` is a userinfo cache only (migrations 0006–0015 stripped better-auth down to it).
+OAuth RP of `accounts/` via `gdg-lib`'s `initializeRpAuth` in `app/lib/auth.server.ts`. OIDC HTTP calls use the `ACCOUNTS` service binding. Cookie prefix `gdgjp-tinyurl`. `RP_SESSION_SECRET` for HMAC. **No local password/account table** — `user` is a userinfo cache only (migrations 0006–0015 stripped better-auth down to it).
 
 Chapter membership comes from the IdP `/userinfo`, not DB. `app/lib/chapter.server.ts` calls `getFreshClaims(request)` and caches per-user in-process for 30s.
 

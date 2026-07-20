@@ -27,7 +27,7 @@ pnpm --filter @gdgjp/gdg-lib exec vitest run src/auth/cookie.test.ts   # single 
 - **Two cookies**: `{cookiePrefix}-session` (30d) and `{cookiePrefix}-oidc-tx` (10m, PKCE verifier + state + nonce + return_to). Prefix is per-app, isolating cookies on the same parent domain.
 - **`secure` flips on `appUrl`**: `isLocalAppUrl` strips `Secure` for `localhost`/`127.0.0.1` so `wrangler dev` works over HTTP. Prod stays HTTPS-only.
 - **HTTP discovery only for localhost.** `getIssuerConfig` passes `oidc.allowInsecureRequests` only when IdP issuer URL is `http:`. Don't widen.
-- **Module-level caches.** `issuerCache` (per issuer/client) and `inflightClaims` (per session ID; dedupes concurrent UserInfo work within one isolate). Discovery promise evicted on rejection so transient failures don't poison the isolate.
+- **Module-level caches.** `issuerCache` (per issuer/client) and `inflightClaims` (per session ID; dedupes concurrent UserInfo work within one isolate). Discovery promise evicted on rejection so transient failures don't poison the isolate. OIDC HTTP calls have a 10-second bound and may use an RP-provided internal `fetch` transport.
 - **`getFreshClaims` persists rotation in D1.** Concurrent isolates recover by re-reading the winning token row.
 - **`safeReturnTo`** enforces same-origin redirect targets. Route new redirect entry points through it.
 - **Logout follows RP-Initiated Logout.** Use discovery's `end_session_endpoint`, an `id_token_hint`, and an allowlisted same-origin post-logout redirect.
