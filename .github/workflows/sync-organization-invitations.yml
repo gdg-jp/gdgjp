@@ -1,0 +1,36 @@
+name: Sync organization invitations
+
+on:
+  schedule:
+    # Every Monday at 00:17 JST (Sunday 15:17 UTC).
+    - cron: "17 15 * * 0"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Show who would be invited without sending invitations
+        required: false
+        type: boolean
+        default: true
+
+concurrency:
+  group: sync-organization-invitations
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  invite:
+    name: Invite new members to gdg-jp
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sync organization invitations
+        env:
+          SOURCE_ORG: gdsc-osaka
+          TARGET_ORG: gdg-jp
+          SOURCE_ORG_TOKEN: ${{ secrets.SOURCE_ORG_MEMBERS_TOKEN }}
+          TARGET_ORG_TOKEN: ${{ secrets.TARGET_ORG_MEMBERS_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: node .github/scripts/sync-org-invitations.mjs

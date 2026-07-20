@@ -9,7 +9,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "test": "turbo test",
+    "test": "node --test .github/scripts/*.test.mjs && turbo test",
     "test:e2e": "turbo test:e2e --concurrency=1"
   },
   "devDependencies": {
