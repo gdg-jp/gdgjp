@@ -1,17 +1,18 @@
-import { ChevronDown, FolderTree, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { isSuperAdmin } from "@gdgjp/gdg-lib";
+import { ChevronDown, Folder, Megaphone, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { Await } from "react-router";
 import { CreateLinkDialog } from "~/components/create-link-dialog";
 import {
-  DEFAULT_DISPLAY_PROPERTIES,
   DashboardDisplayMenu,
   type DisplayLayout,
   type DisplayProperty,
 } from "~/components/dashboard-display-menu";
 import { DashboardPage, DashboardPageHeader } from "~/components/dashboard-page";
 import { DashboardShell } from "~/components/dashboard-shell";
-import { LinkCard, type LinkCardItem, type LinkOwner } from "~/components/link-card";
+import type { LinkCardItem, LinkOwner } from "~/components/link-card";
+import { LinkList } from "~/components/link-list";
 import { Button } from "~/components/ui/button";
 import {
   DropdownMenu,
@@ -31,6 +32,7 @@ import {
   type Tag as DbTag,
   type UserSummary,
   getUsersByIds,
+  listAllAccessibleFolders,
   listCampaignChannels,
   listCampaignsForChaptersWithCounts,
   listLinksAccessibleByEmail,
@@ -41,6 +43,13 @@ import {
   listTagsForLinks,
   listTagsForUser,
 } from "~/lib/db";
+import {
+  BUILT_IN_DISPLAY_DEFAULTS,
+  DISPLAY_PREFERENCES_KEY,
+  type DisplayPreferences,
+  type LinkSortKey,
+  readDisplayPreferences,
+} from "~/lib/display-preferences";
 import { listDomainsForChapters } from "~/lib/domains";
 import type { Route } from "./+types/dashboard";
 
@@ -60,6 +69,7 @@ export async function loader(args: Route.LoaderArgs) {
     chapterTags,
     campaigns,
     domains,
+    folders,
   ] = await Promise.all([
     listLinksForUser(env.DB, user.id, true),
     listLinksForChapter(env.DB, chapter.chapterId, true),
@@ -76,6 +86,12 @@ export async function loader(args: Route.LoaderArgs) {
       env.DB,
       chapters.map((item) => item.chapterId),
     ),
+    listAllAccessibleFolders(env.DB, {
+      userId: user.id,
+      email: user.email,
+      chapterIds: chapters.map((item) => item.chapterId),
+      isSuperAdmin: isSuperAdmin(user),
+    }),
   ]);
   const ownLinks = [...personalLinks];
   const ownLinkIds = new Set(ownLinks.map((link) => link.id));
@@ -163,6 +179,7 @@ export async function loader(args: Route.LoaderArgs) {
     domainOptions: domains
       .filter((domain) => domain.status === "active")
       .map((domain) => ({ id: domain.id, hostname: domain.hostname })),
+    folders,
   };
 }
 
@@ -175,34 +192,9 @@ function shellUser(loaderData: Route.ComponentProps["loaderData"]) {
 }
 
 type Scope = "all" | "own" | "shared";
-type SortKey = "newest" | "oldest" | "mostClicks";
+type SortKey = LinkSortKey;
 type CampaignFilter = "all" | "unclassified" | `campaign:${number}` | `channel:${number}`;
-
-const DISPLAY_PREFERENCES_KEY = "gdgjp-tinyurl-display-v1";
-const DISPLAY_PROPERTIES = new Set<DisplayProperty>([
-  "shortLink",
-  "destinationUrl",
-  "title",
-  "description",
-  "createdDate",
-  "creator",
-  "tags",
-  "analytics",
-]);
-
-type DisplayPreferences = {
-  layout: DisplayLayout;
-  sort: SortKey;
-  showArchived: boolean;
-  properties: DisplayProperty[];
-};
-
-const BUILT_IN_DISPLAY_DEFAULTS: DisplayPreferences = {
-  layout: "cards",
-  sort: "newest",
-  showArchived: false,
-  properties: DEFAULT_DISPLAY_PROPERTIES,
-};
+type FolderFilter = "all" | "unfiled" | `folder:${number}`;
 
 function displayPreferencesEqual(left: DisplayPreferences, right: DisplayPreferences): boolean {
   if (
@@ -243,6 +235,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
     chapters,
     shortUrlBase,
     domainOptions,
+    folders,
   } = loaderData;
   const user = shellUser(loaderData);
   const shortHost = shortHostOf(shortUrlBase);
@@ -251,10 +244,11 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
   const [scope, setScope] = useState<Scope>("all");
   const [sort, setSort] = useState<SortKey>("newest");
   const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>("all");
+  const [folderFilter, setFolderFilter] = useState<FolderFilter>("all");
   const [layout, setLayout] = useState<DisplayLayout>("cards");
   const [showArchived, setShowArchived] = useState(false);
   const [displayProperties, setDisplayProperties] = useState<DisplayProperty[]>(
-    DEFAULT_DISPLAY_PROPERTIES,
+    BUILT_IN_DISPLAY_DEFAULTS.properties,
   );
   const [defaultPreferences, setDefaultPreferences] =
     useState<DisplayPreferences>(BUILT_IN_DISPLAY_DEFAULTS);
@@ -262,35 +256,12 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
 
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem(DISPLAY_PREFERENCES_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as {
-          layout?: unknown;
-          sort?: unknown;
-          showArchived?: unknown;
-          properties?: unknown;
-        };
-        const nextDefaults: DisplayPreferences = {
-          layout: parsed.layout === "cards" || parsed.layout === "rows" ? parsed.layout : "cards",
-          sort:
-            parsed.sort === "newest" || parsed.sort === "oldest" || parsed.sort === "mostClicks"
-              ? parsed.sort
-              : "newest",
-          showArchived: typeof parsed.showArchived === "boolean" ? parsed.showArchived : false,
-          properties: Array.isArray(parsed.properties)
-            ? parsed.properties.filter(
-                (property): property is DisplayProperty =>
-                  typeof property === "string" &&
-                  DISPLAY_PROPERTIES.has(property as DisplayProperty),
-              )
-            : DEFAULT_DISPLAY_PROPERTIES,
-        };
-        setLayout(nextDefaults.layout);
-        setSort(nextDefaults.sort);
-        setShowArchived(nextDefaults.showArchived);
-        setDisplayProperties(nextDefaults.properties);
-        setDefaultPreferences(nextDefaults);
-      }
+      const nextDefaults = readDisplayPreferences(window.localStorage);
+      setLayout(nextDefaults.layout);
+      setSort(nextDefaults.sort);
+      setShowArchived(nextDefaults.showArchived);
+      setDisplayProperties(nextDefaults.properties);
+      setDefaultPreferences(nextDefaults);
     } catch {
       // Invalid or unavailable storage should not prevent the dashboard from rendering.
     } finally {
@@ -386,6 +357,16 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
   }, [campaignChannelCatalog]);
 
   const totalCount = ownLinks.length + sharedLinks.length;
+  const folderFilterLabel =
+    folderFilter === "all"
+      ? "All folders"
+      : folderFilter === "unfiled"
+        ? "Unfiled"
+        : (folders.find((folder) => folder.id === Number(folderFilter.slice(7)))?.name ?? "Folder");
+  const folderById = useMemo(
+    () => new Map(folders.map((folder) => [folder.id, folder])),
+    [folders],
+  );
 
   return (
     <DashboardShell user={user}>
@@ -414,7 +395,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
         />
 
         <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
-          <div className="grid min-w-0 grid-cols-3 gap-2 sm:flex sm:items-center">
+          <div className="grid min-w-0 grid-cols-2 gap-2 sm:flex sm:items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="min-w-0 justify-start">
@@ -449,7 +430,42 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="min-w-0 justify-start sm:max-w-56">
-                  <FolderTree className="size-4" />
+                  <Folder className="size-4" />
+                  <span className="truncate">{folderFilterLabel}</span>
+                  <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground sm:hidden" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="max-h-80 w-56 overflow-y-auto">
+                <DropdownMenuLabel>Folder</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={folderFilter === "all"}
+                  onCheckedChange={() => setFolderFilter("all")}
+                >
+                  All folders
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={folderFilter === "unfiled"}
+                  onCheckedChange={() => setFolderFilter("unfiled")}
+                >
+                  Unfiled
+                </DropdownMenuCheckboxItem>
+                {folders.length > 0 ? <DropdownMenuSeparator /> : null}
+                {folders.map((folder) => (
+                  <DropdownMenuCheckboxItem
+                    key={folder.id}
+                    checked={folderFilter === `folder:${folder.id}`}
+                    onCheckedChange={() => setFolderFilter(`folder:${folder.id}`)}
+                  >
+                    {folder.name}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="min-w-0 justify-start sm:max-w-56">
+                  <Megaphone className="size-4" />
                   <span className="truncate">{campaignFilterLabel}</span>
                   <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground sm:hidden" />
                 </Button>
@@ -549,10 +565,12 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
                     query={query}
                     sort={sort}
                     campaignFilter={campaignFilter}
+                    folderFilter={folderFilter}
                     layout={layout}
                     showArchived={showArchived}
                     displayProperties={displayProperties}
                     channelById={channelById}
+                    folderById={folderById}
                     shortUrlBase={shortUrlBase}
                     shortHost={shortHost}
                   />
@@ -602,10 +620,12 @@ function DashboardResults({
   query,
   sort,
   campaignFilter,
+  folderFilter,
   layout,
   showArchived,
   displayProperties,
   channelById,
+  folderById,
   shortUrlBase,
   shortHost,
 }: {
@@ -618,10 +638,12 @@ function DashboardResults({
   query: string;
   sort: SortKey;
   campaignFilter: CampaignFilter;
+  folderFilter: FolderFilter;
   layout: DisplayLayout;
   showArchived: boolean;
   displayProperties: DisplayProperty[];
   channelById: Map<number, Route.ComponentProps["loaderData"]["campaignChannelCatalog"][number]>;
+  folderById: Map<number, Route.ComponentProps["loaderData"]["folders"][number]>;
   shortUrlBase: string;
   shortHost: string;
 }) {
@@ -632,12 +654,20 @@ function DashboardResults({
       clicks: clicks[link.id] ?? 0,
       tags: tagsByLinkId[link.id] ?? [],
       campaign: link.campaignChannelId ? channelById.get(link.campaignChannelId) : undefined,
+      folder: link.folderId ? folderById.get(link.folderId) : undefined,
     });
     const own = ownLinks.map(toItem);
     const shared = sharedLinks.map(toItem);
     let combined = scope === "own" ? own : scope === "shared" ? shared : [...own, ...shared];
 
     if (!showArchived) combined = combined.filter((item) => item.link.archivedAt === null);
+
+    if (folderFilter === "unfiled") {
+      combined = combined.filter((item) => item.link.folderId === null);
+    } else if (folderFilter.startsWith("folder:")) {
+      const folderId = Number(folderFilter.slice("folder:".length));
+      combined = combined.filter((item) => item.link.folderId === folderId);
+    }
 
     if (campaignFilter === "unclassified") {
       combined = combined.filter((item) => item.link.campaignChannelId === null);
@@ -677,7 +707,9 @@ function DashboardResults({
     query,
     sort,
     campaignFilter,
+    folderFilter,
     channelById,
+    folderById,
     showArchived,
   ]);
 
@@ -695,24 +727,13 @@ function DashboardResults({
 
   return (
     <>
-      <div
-        className={
-          layout === "cards"
-            ? "flex flex-col gap-2"
-            : "min-w-0 divide-y overflow-hidden rounded-xl border bg-card"
-        }
-      >
-        {items.map((item) => (
-          <LinkCard
-            key={item.link.id}
-            item={item}
-            shortUrlBase={shortUrlBase}
-            shortHost={shortHost}
-            layout={layout}
-            properties={displayProperties}
-          />
-        ))}
-      </div>
+      <LinkList
+        items={items}
+        shortUrlBase={shortUrlBase}
+        shortHost={shortHost}
+        layout={layout}
+        properties={displayProperties}
+      />
       <p className="text-center text-xs text-muted-foreground">
         Viewing 1–{items.length} of {accessibleCount} links
       </p>

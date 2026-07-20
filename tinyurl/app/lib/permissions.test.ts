@@ -37,6 +37,7 @@ const link: Link = {
   ownerUserId: "u_owner",
   ownerChapterId: null,
   campaignChannelId: null,
+  folderId: null,
   visibility: "private",
   createdAt: 0,
   updatedAt: 0,

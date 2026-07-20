@@ -2,10 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   archiveLink,
   assignLinksToChannel,
+  copyFolderPermissionsToLink,
   createCampaign,
+  getFolderAccessRole,
+  isFolderAvailableForLinkOwner,
+  listAccessibleRootFoldersWithCounts,
   listAssignableLinksForCampaign,
   listLatestCommentsForCampaign,
   listLinksAccessibleByEmail,
+  listLinksInFolderAccessible,
   normalizeCampaignCode,
   restoreLink,
   toCampaign,
@@ -62,6 +67,226 @@ describe("updateLink domain", () => {
     expect(sql).toContain("domain_id = ?");
     expect(sql).toContain("owner_chapter_id = ?");
     expect(bindings).toEqual([3, 42, "link_1"]);
+  });
+});
+
+describe("folder ownership", () => {
+  it("matches a folder against the link owner's user identity", async () => {
+    let bindings: unknown[] = [];
+    const db = {
+      prepare() {
+        return {
+          bind(...values: unknown[]) {
+            bindings = values;
+            return this;
+          },
+          async first() {
+            return { id: 8 };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    await expect(
+      isFolderAvailableForLinkOwner(db, {
+        id: 8,
+        ownerUserId: "user_abc",
+        ownerChapterId: 42,
+      }),
+    ).resolves.toBe(true);
+    expect(bindings).toEqual([8, "user_abc"]);
+  });
+});
+
+describe("folder permissions", () => {
+  const viewer = {
+    userId: "user_editor",
+    email: "editor@example.com",
+    chapterIds: [42, 84],
+  };
+
+  it("uses user and every chapter membership when checking a folder role", async () => {
+    let sql = "";
+    let bindings: unknown[] = [];
+    const db = {
+      prepare(query: string) {
+        sql = query;
+        return {
+          bind(...values: unknown[]) {
+            bindings = values;
+            return this;
+          },
+          async first() {
+            return { role: "editor" };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    await expect(getFolderAccessRole(db, 8, viewer)).resolves.toBe("editor");
+    expect(sql).toContain("folder_permissions fp");
+    expect(sql).toContain("fp.role = 'editor'");
+    expect(bindings).toEqual([
+      "user_editor",
+      "editor@example.com",
+      '["42","84"]',
+      "editor@example.com",
+      '["42","84"]',
+      8,
+    ]);
+  });
+
+  it("treats an existing folder as editable for a super admin", async () => {
+    const db = {
+      prepare() {
+        return {
+          bind() {
+            return this;
+          },
+          async first() {
+            return {
+              id: 8,
+              name: "Shared",
+              owner_user_id: "owner",
+              parent_folder_id: null,
+              created_at: 1,
+              updated_at: 1,
+            };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    await expect(getFolderAccessRole(db, 8, { ...viewer, isSuperAdmin: true })).resolves.toBe(
+      "editor",
+    );
+  });
+
+  it("surfaces directly shared children at the root when their parent is inaccessible", async () => {
+    let sql = "";
+    let bindings: unknown[] = [];
+    const db = {
+      prepare(query: string) {
+        sql = query;
+        return {
+          bind(...values: unknown[]) {
+            bindings = values;
+            return this;
+          },
+          async all() {
+            return { results: [] };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    await listAccessibleRootFoldersWithCounts(db, viewer);
+
+    expect(sql).toContain("f.parent_folder_id IS NULL");
+    expect(sql).toContain("NOT EXISTS");
+    expect(sql).toContain("FROM folders parent");
+    expect(sql).toContain("FROM link_permissions lp");
+    expect(sql).toContain("FROM folder_permissions child_permission");
+    expect(bindings).toEqual([
+      "user_editor",
+      '["42","84"]',
+      "editor@example.com",
+      '["42","84"]',
+      "user_editor",
+      "editor@example.com",
+      '["42","84"]',
+      "user_editor",
+      "editor@example.com",
+      '["42","84"]',
+      "user_editor",
+      "editor@example.com",
+      '["42","84"]',
+    ]);
+  });
+
+  it("lets super admins see every root folder without ACL bindings", async () => {
+    let sql = "";
+    let bindings: unknown[] = [];
+    const db = {
+      prepare(query: string) {
+        sql = query;
+        return {
+          bind(...values: unknown[]) {
+            bindings = values;
+            return this;
+          },
+          async all() {
+            return { results: [] };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    await listAccessibleRootFoldersWithCounts(db, { ...viewer, isSuperAdmin: true });
+
+    expect(sql).toContain("WHERE 1 = 1 AND f.parent_folder_id IS NULL");
+    expect(sql).not.toContain("folder_permissions fp");
+    expect(sql).not.toContain("link_permissions lp");
+    expect(bindings).toEqual([]);
+  });
+
+  it("filters a folder's links through their own ACLs", async () => {
+    let sql = "";
+    let bindings: unknown[] = [];
+    const db = {
+      prepare(query: string) {
+        sql = query;
+        return {
+          bind(...values: unknown[]) {
+            bindings = values;
+            return this;
+          },
+          async all() {
+            return { results: [] };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    await listLinksInFolderAccessible(db, { ...viewer, folderId: 8 });
+
+    expect(sql).toContain("l.owner_user_id = ?");
+    expect(sql).toContain("l.owner_chapter_id IN");
+    expect(sql).toContain("l.visibility = 'public'");
+    expect(sql).toContain("FROM link_permissions lp");
+    expect(bindings).toEqual([
+      8,
+      0,
+      "user_editor",
+      '["42","84"]',
+      "editor@example.com",
+      '["42","84"]',
+    ]);
+  });
+
+  it("copies folder permissions to a new link without overwriting explicit permissions", async () => {
+    let sql = "";
+    let bindings: unknown[] = [];
+    const db = {
+      prepare(query: string) {
+        sql = query;
+        return {
+          bind(...values: unknown[]) {
+            bindings = values;
+            return this;
+          },
+          async run() {
+            return { meta: { changes: 1 } };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    await copyFolderPermissionsToLink(db, 8, "link_1");
+
+    expect(sql).toContain("SELECT ?, principal_type, principal_id, role FROM folder_permissions");
+    expect(sql).toContain("ON CONFLICT(link_id, principal_type, principal_id) DO NOTHING");
+    expect(bindings).toEqual(["link_1", 8]);
   });
 });
 
@@ -177,6 +402,7 @@ describe("toLink", () => {
     owner_user_id: "user_abc",
     owner_chapter_id: 42,
     campaign_channel_id: 7,
+    folder_id: 9,
     visibility: "private" as const,
     created_at: 1700000000,
     updated_at: 1700001000,
@@ -198,6 +424,7 @@ describe("toLink", () => {
       ownerUserId: "user_abc",
       ownerChapterId: 42,
       campaignChannelId: 7,
+      folderId: 9,
       visibility: "private",
       createdAt: 1700000000,
       updatedAt: 1700001000,
@@ -214,6 +441,7 @@ describe("toLink", () => {
       og_image_url: null,
       owner_chapter_id: null,
       campaign_channel_id: null,
+      folder_id: null,
       archived_at: null,
       deleted_at: null,
     });
@@ -222,6 +450,7 @@ describe("toLink", () => {
     expect(link.ogImageUrl).toBeNull();
     expect(link.ownerChapterId).toBeNull();
     expect(link.campaignChannelId).toBeNull();
+    expect(link.folderId).toBeNull();
     expect(link.archivedAt).toBeNull();
     expect(link.deletedAt).toBeNull();
   });

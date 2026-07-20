@@ -4,6 +4,7 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Folder,
   FolderTree,
   MoreHorizontal,
   MousePointerClick,
@@ -42,6 +43,7 @@ export type LinkCardItem = {
   owner?: LinkOwner;
   clicks: number;
   tags?: DbTag[];
+  folder?: { id: number; name: string };
   campaign?: {
     campaignId: number;
     campaignName: string;
@@ -104,7 +106,7 @@ export function LinkCard({
   const [source, setSource] = useState("");
   const [copyFeedback, setCopyFeedback] = useState<{ url: string } | null>(null);
   const [linkAction, setLinkAction] = useState<LinkAction | null>(null);
-  const { link, owner, clicks, campaign, tags = [] } = item;
+  const { link, owner, clicks, campaign, folder, tags = [] } = item;
   const favicon = faviconUrl(link.destinationUrl);
   const linkHost = link.domainHostname ?? shortHost;
   const shortUrl = `https://${linkHost}/${link.slug}`;
@@ -397,6 +399,14 @@ export function LinkCard({
               >
                 {campaign.campaignName} / {campaign.channelName}
               </Link>
+            </div>
+          ) : null}
+          {folder ? (
+            <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Folder className="size-3 shrink-0" />
+              <span className="truncate" title={folder.name}>
+                {folder.name}
+              </span>
             </div>
           ) : null}
           {properties.includes("title") && link.title ? (

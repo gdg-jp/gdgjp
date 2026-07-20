@@ -5,12 +5,17 @@ import {
   type LinkVisibility,
   addComment,
   addPermission,
+  canEditFolder,
+  copyFolderPermissionsToLink,
   createLink,
   createTag,
   deleteLink,
   getCampaignById,
   getCampaignChannelById,
+  getFolderById,
+  listPermissionsForLink,
   setLinkTags,
+  updatePermissionRole,
 } from "~/lib/db";
 import { getDomainById } from "~/lib/domains";
 import { type OgpData, fetchOgp, validatePublicHttpUrl } from "~/lib/ogp";
@@ -49,6 +54,7 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
   const commentBody = String(form.get("comment") ?? "").trim();
   const rawVisibility = String(form.get("visibility") ?? "private");
   const rawCampaignChannelId = String(form.get("campaignChannelId") ?? "").trim();
+  const rawFolderId = String(form.get("folderId") ?? "").trim();
   const domainId = Number(form.get("domainId") ?? 1);
   if (!Number.isInteger(domainId) || domainId <= 0) return { error: "Domain is invalid." };
   const domain = await getDomainById(env.DB, domainId);
@@ -88,6 +94,8 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
   }
 
   let campaignChannelId: number | null = null;
+  let folderId: number | null = null;
+  let linkOwnerUserId = user.id;
   let ownerChapterId: number | null = null;
   if (rawCampaignChannelId) {
     campaignChannelId = Number(rawCampaignChannelId);
@@ -119,6 +127,24 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     }
     ownerChapterId = domain.ownerChapterId;
   }
+  if (rawFolderId) {
+    folderId = Number(rawFolderId);
+    if (
+      !Number.isInteger(folderId) ||
+      folderId <= 0 ||
+      !(await canEditFolder(env.DB, folderId, {
+        userId: user.id,
+        email: user.email,
+        chapterIds: chapters.map((item) => item.chapterId),
+        isSuperAdmin: isSuperAdmin(user),
+      }))
+    ) {
+      return { error: "Folder is not available." };
+    }
+    const folder = await getFolderById(env.DB, folderId);
+    if (!folder?.ownerUserId) return { error: "Folder is not available." };
+    linkOwnerUserId = folder.ownerUserId;
+  }
 
   if (!destinationUrl) return { error: "Destination URL is required." };
   const [destinationValidation, imageValidation] = await Promise.all([
@@ -135,6 +161,16 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
   }
 
   async function applyExtras(linkId: string) {
+    const inheritedPermissions = new Map<string, { id: number }>();
+    if (folderId !== null) {
+      await copyFolderPermissionsToLink(env.DB, folderId, linkId);
+      for (const permission of await listPermissionsForLink(env.DB, linkId)) {
+        inheritedPermissions.set(
+          `${permission.principalType}:${permission.principalId}`,
+          permission,
+        );
+      }
+    }
     const finalTagIds = new Set(tagIds);
     for (const name of newTagNames) {
       const result = await createTag(env.DB, { name, color: null, ownerUserId: user.id });
@@ -154,12 +190,23 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
       await addComment(env.DB, { linkId, authorUserId: user.id, body: commentBody });
     }
     for (const share of shares) {
-      await addPermission(env.DB, {
+      const result = await addPermission(env.DB, {
         linkId,
         principalType: share.principalType as "user" | "chapter",
         principalId: share.principalId,
         role: share.role as "viewer" | "editor",
       });
+      if (!result.ok) {
+        const inherited = inheritedPermissions.get(`${share.principalType}:${share.principalId}`);
+        if (inherited) {
+          await updatePermissionRole(
+            env.DB,
+            linkId,
+            inherited.id,
+            share.role as "viewer" | "editor",
+          );
+        }
+      }
     }
   }
 
@@ -186,9 +233,10 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
         title,
         description,
         ogImageUrl,
-        ownerUserId: user.id,
+        ownerUserId: linkOwnerUserId,
         ownerChapterId,
         campaignChannelId,
+        folderId,
         visibility,
       });
       if (result.ok) {
@@ -215,9 +263,10 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     title,
     description,
     ogImageUrl,
-    ownerUserId: user.id,
+    ownerUserId: linkOwnerUserId,
     ownerChapterId,
     campaignChannelId,
+    folderId,
     visibility,
   });
   if (!result.ok) return { error: `The slug "${slug}" is already taken.` };
