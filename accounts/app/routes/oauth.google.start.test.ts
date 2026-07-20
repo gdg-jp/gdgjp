@@ -18,6 +18,7 @@ describe("redirectSocialResponse", () => {
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe("https://accounts.google.com/oauth");
     expect(response.headers.get("Set-Cookie")).toContain("oauth-state=signed");
+    expect(response.headers.get("X-Remix-Reload-Document")).toBe("true");
     expect(response.headers.get("Content-Type")).toBeNull();
     expect(response.headers.get("Content-Length")).toBeNull();
   });

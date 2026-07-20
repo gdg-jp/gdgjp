@@ -1,6 +1,6 @@
 import { Check, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Form, Link, redirect, useNavigation, useSearchParams } from "react-router";
+import { Form, Link, redirect, useSearchParams } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { LocaleSwitcher } from "~/components/locale-switcher";
 import { ThemeToggle } from "~/components/theme-toggle";
@@ -59,7 +59,6 @@ function GoogleGlyph() {
 
 export default function SignInPage() {
   const { t } = useTranslation();
-  const navigation = useNavigation();
   const [params] = useSearchParams();
   const returnTo = safeReturnTo(params.get("return_to")) ?? "/dashboard";
   const oauthQuery = params.has("client_id") ? params.toString() : "";
@@ -88,17 +87,10 @@ export default function SignInPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <p className="text-center text-sm text-muted-foreground">{t("auth.signin.welcome")}</p>
-            <Form method="get" action="/oauth/google/start" className="space-y-3">
+            <Form method="get" action="/oauth/google/start" reloadDocument className="space-y-3">
               <input type="hidden" name="return_to" value={returnTo} />
               {oauthQuery ? <input type="hidden" name="oauth_query" value={oauthQuery} /> : null}
-              <SubmitButton
-                type="submit"
-                className="w-full"
-                size="lg"
-                variant="outline"
-                pending={navigation.state !== "idle"}
-                pendingLabel={t("auth.signin.continueWithGooglePending")}
-              >
+              <SubmitButton type="submit" className="w-full" size="lg" variant="outline">
                 <GoogleGlyph />
                 {t("auth.signin.continueWithGoogle")}
               </SubmitButton>

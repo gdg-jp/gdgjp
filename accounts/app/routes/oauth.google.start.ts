@@ -1,3 +1,4 @@
+import { redirectDocument } from "react-router";
 import { safeReturnTo } from "~/lib/auth-redirect";
 import { getAuth } from "~/lib/auth.server";
 import type { Route } from "./+types/oauth.google.start";
@@ -27,5 +28,5 @@ export function redirectSocialResponse(response: Response): Response {
   const headers = new Headers(response.headers);
   headers.delete("Content-Length");
   headers.delete("Content-Type");
-  return new Response(null, { status: 302, headers });
+  return redirectDocument(location, { status: 302, headers });
 }
