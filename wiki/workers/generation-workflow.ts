@@ -1,10 +1,11 @@
 import { AgentWorkflow } from "agents/workflows";
-import type { AgentWorkflowEvent, AgentWorkflowStep, ApprovalEventPayload } from "agents/workflows";
+import type { AgentWorkflowEvent, AgentWorkflowStep } from "agents/workflows";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../app/db/schema";
 import { executeIngestionPhase } from "../app/features/ingestion/execution.server";
 import type { IngestionResumeMode } from "../app/features/ingestion/session.server";
+import { assertWorkflowApprovalKind } from "../app/features/ingestion/workflow-approval";
 import type { WikiGenerationAgent } from "./generation-agent";
 
 interface GenerationWorkflowParams {
@@ -40,12 +41,10 @@ export class WikiGenerationWorkflow extends AgentWorkflow<
 
     if (status === "awaiting_url_selection") {
       await this.reportProgress({ step: "url_selection", status });
-      const approval = await this.waitForApproval<ApprovalEventPayload>(step, {
+      const approval = await this.waitForApproval(step, {
         stepName: "wait-for-url-selection",
       });
-      if (approval.metadata?.kind !== "url_selection") {
-        throw new Error("Unexpected URL selection approval payload");
-      }
+      assertWorkflowApprovalKind(approval, "url_selection");
       status = await this.runPhase(
         step,
         "post-url-selection",
@@ -57,12 +56,10 @@ export class WikiGenerationWorkflow extends AgentWorkflow<
 
     if (status === "awaiting_clarification") {
       await this.reportProgress({ step: "clarification", status });
-      const approval = await this.waitForApproval<ApprovalEventPayload>(step, {
+      const approval = await this.waitForApproval(step, {
         stepName: "wait-for-clarification",
       });
-      if (approval.metadata?.kind !== "clarification") {
-        throw new Error("Unexpected clarification approval payload");
-      }
+      assertWorkflowApprovalKind(approval, "clarification");
       status = await this.runPhase(
         step,
         "post-clarification",
