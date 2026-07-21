@@ -7,6 +7,6 @@ export async function startWikiGeneration(
   sessionId: string,
   userId: string,
 ): Promise<void> {
-  const agent = await getAgentByName<Env, WikiGenerationAgent>(env.GENERATION_AGENT, sessionId);
+  const agent = await getAgentByName<Env, WikiGenerationAgent>(env.WikiGenerationAgent, sessionId);
   context.waitUntil(agent.startIngestion(sessionId, userId));
 }

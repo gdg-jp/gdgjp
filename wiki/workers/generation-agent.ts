@@ -86,7 +86,7 @@ export class WikiGenerationAgent extends Agent<Env, WikiGenerationAgentState> {
       { sessionId, userId },
       {
         id: sessionId,
-        agentBinding: "GENERATION_AGENT",
+        agentBinding: "WikiGenerationAgent",
         metadata: { sessionId, userId, kind: "wiki-generation" },
       },
     );

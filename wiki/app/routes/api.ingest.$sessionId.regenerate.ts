@@ -24,6 +24,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   if (!session) return new Response("Not found", { status: 404 });
   if (session.user_id !== user.id) return new Response("Forbidden", { status: 403 });
   if (session.status !== "done") return new Response("Session not complete", { status: 409 });
-  const agent = await getAgentByName<Env, WikiGenerationAgent>(env.GENERATION_AGENT, sessionId);
+  const agent = await getAgentByName<Env, WikiGenerationAgent>(env.WikiGenerationAgent, sessionId);
   return Response.json(await agent.regenerateOperation(parsed.data));
 }

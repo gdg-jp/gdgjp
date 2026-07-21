@@ -88,7 +88,7 @@ index_name = "gdgjp-wiki-pages"
 [durable_objects]
 bindings = [
   { name = "COLLAB_DO", class_name = "CollabDurableObject" },
-  { name = "GENERATION_AGENT", class_name = "WikiGenerationAgent" }
+  { name = "WikiGenerationAgent", class_name = "WikiGenerationAgent" }
 ]
 
 [[migrations]]

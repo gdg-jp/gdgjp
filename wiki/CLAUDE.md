@@ -36,7 +36,7 @@ Single `ExportedHandler<Env>` — understand all three before touching:
 | `AI` | Workers AI; `bge-m3` for 1024-dim embeddings. |
 | `VECTORIZE` | Index `gdgjp-wiki-pages`, cosine, 1024 dims — semantic page search. |
 | `COLLAB_DO` | `CollabDurableObject`; one instance per page slug (`idFromName(slug)`). |
-| `GENERATION_AGENT` / `GENERATION_WORKFLOW` | Durable Wiki generation state and workflow. |
+| `WikiGenerationAgent` / `GENERATION_WORKFLOW` | Durable Wiki generation state and workflow. The Agent binding name must match the exported class for automatic `/agents/*` routing. |
 
 `worker-configuration.d.ts` is generated — don't hand-edit. Access via `context.cloudflare.env`.
 

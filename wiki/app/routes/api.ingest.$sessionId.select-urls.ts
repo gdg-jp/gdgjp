@@ -21,6 +21,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   if (session.user_id !== user.id) return new Response("Forbidden", { status: 403 });
   if (session.status !== "awaiting_url_selection")
     return new Response("Session is not awaiting URL selection", { status: 409 });
-  const agent = await getAgentByName<Env, WikiGenerationAgent>(env.GENERATION_AGENT, sessionId);
+  const agent = await getAgentByName<Env, WikiGenerationAgent>(env.WikiGenerationAgent, sessionId);
   return Response.json(await agent.selectUrls(parsed.data));
 }
