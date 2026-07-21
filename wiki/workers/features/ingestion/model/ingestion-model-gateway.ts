@@ -12,16 +12,14 @@ import type {
   IngestionInputs,
   OperationPlan,
 } from "../../../../shared/ingestion/domain";
-import {
-  ClarificationResultSchema,
-  OperationPlanSchema,
-} from "../../../../shared/ingestion/domain";
+import { ClarificationResultSchema } from "../../../../shared/ingestion/domain";
 import type { ExecutionEventSink } from "../orchestration/ports/tool-event-sink";
 import type { WorkspaceManifest } from "../tools/workspace/contracts";
 import { createWorkspaceToolCatalog } from "../tools/workspace/tool-catalog";
 import type { MountedWorkspace } from "../tools/workspace/workspace";
 import { GENERATION_EXPLORATION_STEP_LIMIT } from "./agent-loop";
 import type { ModelProgram } from "./event-sink";
+import { OperationPlanOutputSchema } from "./operation-plan-output";
 import { type ResolvedEvidence, createPageDraftProgram } from "./page-draft-program";
 import {
   CLARIFICATION_PROMPT,
@@ -199,7 +197,7 @@ export function createIngestionModelGateway(
       const plan = await runAgentObject({
         program: "plan",
         workspace: context.workspace,
-        schema: OperationPlanSchema,
+        schema: OperationPlanOutputSchema,
         name: "OperationPlan",
         system: PLANNING_PROMPT,
         prompt: "一次資料を読み、必要な既存ページだけ探索して操作計画を作成してください。",
