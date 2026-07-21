@@ -3,7 +3,9 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ className = "" }: SkeletonProps) {
-  return <div className={`animate-pulse rounded bg-gray-200 motion-reduce:animate-none ${className}`} />;
+  return (
+    <div className={`animate-pulse rounded bg-gray-200 motion-reduce:animate-none ${className}`} />
+  );
 }
 
 export function ListItemSkeleton() {

@@ -1,4 +1,4 @@
-import { isSuperAdmin } from "@gdgjp/gdg-lib";
+import { type AuthUser, isSuperAdmin } from "@gdgjp/gdg-lib";
 import { Folder, MoreHorizontal, Pencil, Plus, Share2, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Form, Link, useFetcher } from "react-router";
@@ -52,10 +52,7 @@ export function meta() {
 
 export type FolderActionData = { ok: true; message?: string } | { error: string };
 
-export function folderViewer(
-  user: { id: string; email: string },
-  chapters: { chapterId: number }[],
-) {
+export function folderViewer(user: AuthUser, chapters: { chapterId: number }[]) {
   return {
     userId: user.id,
     email: user.email,

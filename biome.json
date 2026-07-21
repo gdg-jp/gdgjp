@@ -12,6 +12,7 @@
       "**/dist",
       "**/.react-router",
       "**/.wrangler",
+      "**/.vercel",
       "**/.turbo",
       "**/playwright-report",
       "**/test-results",
