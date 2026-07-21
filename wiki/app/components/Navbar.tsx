@@ -1,8 +1,17 @@
 import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
 import { ChartPie, Globe, ListTodo, Moon, PanelLeft, PanelLeftClose, Sun } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form, Link, useFetcher, useLocation, useSearchParams } from "react-router";
+import { Button } from "~/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import NotificationBell from "./NotificationBell";
 
 interface NavbarProps {
@@ -14,57 +23,42 @@ interface NavbarProps {
 
 function UiLangSwitcher() {
   const { t, i18n } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
   const langFetcher = useFetcher();
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
 
   function selectLang(lang: "ja" | "en") {
     i18n.changeLanguage(lang);
     localStorage.setItem("ui_lang", lang);
     langFetcher.submit({ lang }, { method: "post", action: "/api/set-ui-lang" });
-    setOpen(false);
   }
 
   const current = i18n.language === "en" ? "en" : "ja";
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        title={t("language.switch_ui")}
-        className="flex items-center gap-1 rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-        aria-label={t("language.switch_ui")}
-      >
-        <Globe size={18} aria-hidden="true" />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 min-w-[7rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          title={t("language.switch_ui")}
+          aria-label={t("language.switch_ui")}
+          className="text-muted-foreground"
+        >
+          <Globe size={18} aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-28">
+        <DropdownMenuRadioGroup
+          value={current}
+          onValueChange={(value) => selectLang(value as "ja" | "en")}
+        >
           {(["ja", "en"] as const).map((lang) => (
-            <button
-              key={lang}
-              type="button"
-              onClick={() => selectLang(lang)}
-              className={[
-                "block w-full px-3 py-1.5 text-left text-sm",
-                current === lang ? "font-semibold text-blue-600" : "text-gray-700 hover:bg-gray-50",
-              ].join(" ")}
-            >
+            <DropdownMenuRadioItem key={lang} value={lang}>
               {t(`language.${lang}`)}
-            </button>
+            </DropdownMenuRadioItem>
           ))}
-        </div>
-      )}
-    </div>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -100,77 +94,65 @@ function ThemeSwitcher() {
   const title = isDark ? t("theme.switch_to_light") : t("theme.switch_to_dark");
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="icon"
       onClick={toggleTheme}
       title={title}
       aria-label={title}
-      className="flex items-center justify-center rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+      className="relative text-muted-foreground"
     >
-      {isDark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
-    </button>
+      <Sun
+        size={18}
+        aria-hidden="true"
+        className={`absolute transition-[opacity,scale,filter] duration-200 ease-[var(--motion-ease-out)] motion-reduce:scale-100 motion-reduce:blur-0 motion-reduce:duration-100 ${isDark ? "scale-100 opacity-100 blur-0" : "scale-25 opacity-0 blur-[4px]"}`}
+      />
+      <Moon
+        size={18}
+        aria-hidden="true"
+        className={`transition-[opacity,scale,filter] duration-200 ease-[var(--motion-ease-out)] motion-reduce:scale-100 motion-reduce:blur-0 motion-reduce:duration-100 ${isDark ? "scale-25 opacity-0 blur-[4px]" : "scale-100 opacity-100 blur-0"}`}
+      />
+    </Button>
   );
 }
 
 function NewPageDropdown() {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
 
   return (
-    <div ref={ref} className="relative hidden sm:block">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="whitespace-nowrap rounded-md bg-blue-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-600"
-      >
-        + {t("nav.new_page")}
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-md border border-gray-200 bg-white shadow-md">
-          <Link
-            to="/ingest"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" className="hidden whitespace-nowrap sm:inline-flex">
+          + {t("nav.new_page")}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuItem asChild>
+          <Link to="/ingest">
             <span>✦</span>
             <span>{t("pageTree.newPage_ai")}</span>
           </Link>
-          <Link
-            to="/analyze"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/analyze">
             <ChartPie size={14} />
             <span>{t("pageTree.newPage_analyze")}</span>
           </Link>
-          <Link
-            to="/wiki/new"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/wiki/new">
             <span>✎</span>
             <span>{t("pageTree.newPage_manual")}</span>
           </Link>
-          <Link
-            to="/tasks/new"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/tasks/new">
             <ListTodo size={14} />
             <span>{t("pageTree.newTaskList")}</span>
           </Link>
-        </div>
-      )}
-    </div>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -195,15 +177,16 @@ export default function Navbar({
     <header className="fixed top-0 right-0 left-0 z-50 flex h-14 items-center gap-2 border-b border-gray-200 bg-white px-3 sm:gap-4 sm:px-4">
       {/* Sidebar toggle */}
       {onToggleSidebar && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onToggleSidebar}
           title={sidebarOpen ? t("nav.close_sidebar") : t("nav.open_sidebar")}
           aria-label={sidebarOpen ? t("nav.close_sidebar") : t("nav.open_sidebar")}
-          className="flex items-center justify-center rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          className="text-muted-foreground"
         >
           {sidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeft size={20} />}
-        </button>
+        </Button>
       )}
 
       {/* Logo */}

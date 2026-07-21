@@ -42,11 +42,17 @@ async function openShareDialog(page: Page) {
 }
 
 async function setGeneralAccess(page: Page, value: "restricted" | "unlisted" | "public") {
+  const labels = {
+    restricted: "Restricted",
+    unlisted: "Anyone with the link",
+    public: "Public",
+  } as const;
   const response = page.waitForResponse(
     (candidate) =>
       candidate.request().method() === "POST" && candidate.url().includes("/api/page-access/"),
   );
-  await page.locator("#general-access").selectOption(value);
+  await page.locator("#general-access").click();
+  await page.getByRole("option", { name: labels[value], exact: true }).click();
   expect((await response).ok()).toBeTruthy();
 }
 
@@ -56,7 +62,7 @@ test("Google Docs-style overview, copy, Escape and focus restoration", async ({ 
   const trigger = await openShareDialog(page);
 
   await expect(page.getByRole("heading", { name: /Share.*E2E Test Page/i })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Add user" })).toBeFocused();
+  await expect(page.getByRole("combobox", { name: "Add user" })).not.toBeFocused();
   await expect(page.getByRole("heading", { name: "People with access" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "General access" })).toBeVisible();
   await expect(page.locator("#general-role")).not.toBeVisible();
@@ -114,17 +120,28 @@ test("combobox supports keyboard selection and multiple-chip grants", async ({ b
   await combobox.press("ArrowDown");
   await combobox.press("Enter");
 
+  await expect(page.locator('input[role="combobox"]')).not.toBeFocused();
   await expect(page.getByRole("button", { name: /Remove E2E Member/ })).toBeVisible();
-  await expect(page.locator("#grant-role")).toHaveValue("viewer");
+  await expect(page.locator("#grant-role")).toHaveText("Viewer");
   await expect(page.getByText("Notify people")).toBeVisible();
   await expect(page.getByPlaceholder("Message")).toBeVisible();
+
+  const notifyCheckbox = page.getByRole("checkbox", { name: "Notify people" });
+  await notifyCheckbox.uncheck();
+  await expect(page.getByPlaceholder("Message")).toBeHidden();
+  await expect(page.getByRole("button", { name: "Share", exact: true })).toBeVisible();
+  await notifyCheckbox.check();
+  await expect(page.getByPlaceholder("Message")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeVisible();
 
   const addMore = page.getByRole("combobox", { name: "Add people or Chapters" });
   await addMore.fill("second@example.com");
   await expect(page.getByRole("option", { name: /second@example.com/ })).toBeVisible();
   await page.getByRole("option", { name: /second@example.com/ }).click();
+  await expect(addMore).not.toBeFocused();
 
-  await page.locator("#grant-role").selectOption("commenter");
+  await page.locator("#grant-role").click();
+  await page.getByRole("option", { name: "Commenter", exact: true }).click();
   await page.getByPlaceholder("Message").fill("Welcome to this page");
   const requestPromise = page.waitForRequest(
     (request) => request.method() === "POST" && request.url().includes("/api/page-access/"),
@@ -138,6 +155,11 @@ test("combobox supports keyboard selection and multiple-chip grants", async ({ b
   await expect(page.getByRole("heading", { name: "People with access" })).toBeVisible({
     timeout: 5_000,
   });
+  const memberRow = page.getByRole("listitem").filter({ hasText: "E2E Member" });
+  await memberRow.getByRole("combobox").click();
+  await expect(page.getByRole("option", { name: "Transfer ownership" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Remove access" })).toBeVisible();
+  await expect(memberRow.getByRole("button", { name: /remove/i })).toHaveCount(0);
   await ctx.close();
 });
 
@@ -146,12 +168,14 @@ test("general access has three modes and hides the role for Restricted", async (
   await page.goto(PAGE_URL);
   await openShareDialog(page);
 
-  await expect(page.locator("#general-access option")).toHaveCount(3);
-  await expect(page.locator('#general-access option[value="restricted"]')).toHaveText("Restricted");
-  await expect(page.locator('#general-access option[value="unlisted"]')).toHaveText(
-    "Anyone with the link",
-  );
-  await expect(page.locator('#general-access option[value="public"]')).toHaveText("Public");
+  await page.locator("#general-access").click();
+  await expect(page.getByRole("option")).toHaveCount(3);
+  await expect(page.getByRole("option", { name: "Restricted", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("option", { name: "Anyone with the link", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("option", { name: "Public", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
   await setGeneralAccess(page, "unlisted");
   const accessSelect = page.locator("#general-access");
   const generalRole = page.locator("#general-role");
@@ -219,5 +243,36 @@ test("mobile dialog is viewport-bound and scrollable", async ({ browser }) => {
   expect(box?.width).toBeLessThanOrEqual(390);
   expect(box?.height).toBeLessThanOrEqual(844);
   await expect(page.getByRole("button", { name: /copy link/i })).toBeVisible();
+  await ctx.close();
+});
+
+test("owner can transfer ownership from the role select", async ({ browser }) => {
+  const { ctx, page } = await makePage(browser, "author.json");
+  await page.goto(PAGE_URL);
+  const grantResponse = await page.request.post(`${BASE}/api/page-access/${TEST_PAGE.id}`, {
+    data: {
+      intent: "add",
+      subjectType: "email",
+      subjectKey: "member@test.local",
+      subjectLabel: "E2E Member",
+      role: "editor",
+    },
+  });
+  expect(grantResponse.ok()).toBeTruthy();
+
+  await openShareDialog(page);
+  const memberRow = page.getByRole("listitem").filter({ hasText: "E2E Member" });
+  await memberRow.getByRole("combobox").click();
+  const response = page.waitForResponse(
+    (candidate) =>
+      candidate.request().method() === "POST" &&
+      candidate.url().includes(`/api/page-access/${TEST_PAGE.id}`),
+  );
+  await page.getByRole("option", { name: "Transfer ownership" }).click();
+  expect((await response).ok()).toBeTruthy();
+
+  await expect(memberRow.getByText("Owner", { exact: true })).toBeVisible();
+  const formerOwnerRow = page.getByRole("listitem").filter({ hasText: "E2E Author" });
+  await expect(formerOwnerRow.getByRole("combobox")).toHaveText("Editor");
   await ctx.close();
 });

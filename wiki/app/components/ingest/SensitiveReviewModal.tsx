@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "~/components/ui/alert-dialog";
 import type { SensitiveItem } from "~/lib/gemini.server";
 
 // ---------------------------------------------------------------------------
@@ -63,14 +72,10 @@ export default function SensitiveReviewModal({ items, onProceed }: SensitiveRevi
   }
 
   return (
-    <dialog
-      open
-      className="fixed inset-0 z-50 flex h-full w-full items-center justify-center bg-black/40 p-4"
-      aria-labelledby="sensitive-review-title"
-    >
-      <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
+    <AlertDialog open>
+      <AlertDialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl gap-0 overflow-hidden rounded-2xl bg-card p-0 text-card-foreground shadow-2xl shadow-black/20">
         {/* Header */}
-        <div className="flex items-start gap-3 border-b border-gray-100 px-6 py-5">
+        <AlertDialogHeader className="flex grid-cols-none grid-rows-none flex-row items-start gap-3 border-b border-border px-6 py-5 text-left">
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-yellow-100">
             <svg
               className="h-5 w-5 text-yellow-600"
@@ -88,12 +93,14 @@ export default function SensitiveReviewModal({ items, onProceed }: SensitiveRevi
             </svg>
           </div>
           <div>
-            <h2 id="sensitive-review-title" className="text-base font-semibold text-gray-900">
+            <AlertDialogTitle className="text-base font-semibold text-foreground">
               {t("ingest.sensitive.title")}
-            </h2>
-            <p className="mt-0.5 text-sm text-gray-500">{t("ingest.sensitive.subtitle")}</p>
+            </AlertDialogTitle>
+            <AlertDialogDescription className="mt-0.5 text-sm text-muted-foreground">
+              {t("ingest.sensitive.subtitle")}
+            </AlertDialogDescription>
           </div>
-        </div>
+        </AlertDialogHeader>
 
         {/* Items */}
         <div className="max-h-96 overflow-y-auto px-6 py-4">
@@ -141,17 +148,12 @@ export default function SensitiveReviewModal({ items, onProceed }: SensitiveRevi
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end border-t border-gray-100 px-6 py-4">
-          <button
-            type="button"
-            onClick={handleProceed}
-            disabled={!allResolved}
-            className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+        <AlertDialogFooter className="border-t border-border px-6 py-4">
+          <AlertDialogAction onClick={handleProceed} disabled={!allResolved} size="lg">
             {t("ingest.sensitive.proceed")}
-          </button>
-        </div>
-      </div>
-    </dialog>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

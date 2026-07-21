@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 @source "../../gdg-lib/src/ui";
 
@@ -46,14 +47,26 @@
 @theme {
   --font-sans: "Google Sans", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
 
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
 
   /* ── Blue scale (anchored: blue-500=#4285f4, blue-100=pastel-blue, blue-300=halftone-blue) ── */
   --color-blue-50: #e8f0fe;
@@ -135,26 +148,59 @@
 
 :root {
   color-scheme: light;
+  --radius: 0.625rem;
+  --motion-duration-micro: 140ms;
+  --motion-duration-enter: 200ms;
+  --motion-duration-exit: 140ms;
+  --motion-distance-sm: 4px;
+  --motion-distance-md: 8px;
+  --motion-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  --background: #f9f9f9;
+  --foreground: #1e1e1e;
+  --card: #ffffff;
+  --card-foreground: #1e1e1e;
   --popover: #ffffff;
   --popover-foreground: #1e1e1e;
+  --primary: #4285f4;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f0f0;
+  --secondary-foreground: #2a2a2a;
   --muted: #f0f0f0;
   --muted-foreground: #636363;
   --accent: #f0f0f0;
   --accent-foreground: #1e1e1e;
+  --destructive: #d33828;
+  --destructive-foreground: #ffffff;
   --border: #e4e4e4;
+  --input: #cccccc;
   --ring: #4285f4;
+  --overlay: oklch(0 0 0 / 0.5);
 }
 
 .dark {
   color-scheme: dark;
+  --background: #1e1e1e;
+  --foreground: #f0f0f0;
+  --card: #2a2a2a;
+  --card-foreground: #f0f0f0;
   --popover: #2a2a2a;
   --popover-foreground: #ffffff;
+  --primary: #8ab4f8;
+  --primary-foreground: #141414;
+  --secondary: #444444;
+  --secondary-foreground: #f0f0f0;
   --muted: #444444;
   --muted-foreground: #cccccc;
   --accent: #444444;
   --accent-foreground: #ffffff;
+  --destructive: #f07070;
+  --destructive-foreground: #141414;
   --border: #444444;
+  --input: #636363;
   --ring: #57caff;
+  --overlay: oklch(0 0 0 / 0.65);
 
   /* ── Gray scale: fully inverted (light ↔ dark) ── */
   --color-gray-50: #1e1e1e;
@@ -200,6 +246,96 @@
   --color-yellow-100: #9a4d00; /* subtle surface (was yellow-900) */
   --color-yellow-700: #ffd427; /* on-surface text — bright (was yellow-300) */
   --color-yellow-800: #ffd880; /* on-surface text — muted (was yellow-200) */
+}
+
+/* Shared motion layer: short, interruptible transitions for product UI. */
+.motion-presence {
+  opacity: 1;
+  transform: translateY(0);
+  transition-property: opacity, transform;
+  transition-duration: var(--motion-enter-duration, var(--motion-duration-enter));
+  transition-timing-function: var(--motion-ease-out);
+}
+
+.motion-presence[data-motion-state="closed"] {
+  opacity: 0;
+  transform: translateY(var(--motion-distance, var(--motion-distance-sm)));
+  transition-duration: var(--motion-exit-duration, var(--motion-duration-exit));
+}
+
+.motion-enter {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: opacity var(--motion-duration-enter) var(--motion-ease-out), transform
+    var(--motion-duration-enter) var(--motion-ease-out);
+}
+
+@starting-style {
+  .motion-enter {
+    opacity: 0;
+    transform: translateY(var(--motion-distance-sm)) scale(0.98);
+  }
+}
+
+.ui-pressable {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: var(--motion-duration-micro);
+  transition-timing-function: var(--motion-ease-out);
+}
+
+.ui-pressable:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+[data-slot="dialog-overlay"],
+[data-slot="alert-dialog-overlay"],
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"],
+[data-slot="popover-content"],
+[data-slot="sheet-content"] {
+  animation-duration: var(--motion-duration-enter);
+  animation-timing-function: var(--motion-ease-out);
+}
+
+[data-state="closed"][data-slot="dialog-overlay"],
+[data-state="closed"][data-slot="alert-dialog-overlay"],
+[data-state="closed"][data-slot="dialog-content"],
+[data-state="closed"][data-slot="alert-dialog-content"],
+[data-state="closed"][data-slot="popover-content"],
+[data-state="closed"][data-slot="sheet-content"] {
+  animation-duration: var(--motion-duration-exit);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-presence {
+    transition-duration: 100ms;
+  }
+
+  .motion-presence[data-motion-state="closed"] {
+    opacity: 0.85;
+    transform: none;
+  }
+
+  .motion-enter {
+    transform: none;
+    transition-duration: 100ms;
+  }
+
+  .ui-pressable:active:not(:disabled) {
+    transform: none;
+  }
+
+  [data-slot="dialog-content"],
+  [data-slot="alert-dialog-content"],
+  [data-slot="popover-content"],
+  [data-slot="sheet-content"] {
+    --tw-enter-translate-x: 0;
+    --tw-enter-translate-y: 0;
+    --tw-enter-scale: 1;
+    --tw-exit-translate-x: 0;
+    --tw-exit-translate-y: 0;
+    --tw-exit-scale: 1;
+  }
 }
 
 .dark .bg-white {

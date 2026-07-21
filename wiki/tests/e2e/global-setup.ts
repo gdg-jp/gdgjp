@@ -147,7 +147,12 @@ function seedDb(dbPath: string): void {
   const upsertPage = db.prepare(`
     INSERT INTO pages (id, title_ja, title_en, slug, content_ja, content_en, author_id, last_edited_by, visibility, general_role, status, sort_order, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'restricted', 'viewer', 'published', 0, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET visibility = 'restricted', general_role = 'viewer', updated_at = excluded.updated_at
+    ON CONFLICT(id) DO UPDATE SET
+      author_id = excluded.author_id,
+      last_edited_by = excluded.last_edited_by,
+      visibility = 'restricted',
+      general_role = 'viewer',
+      updated_at = excluded.updated_at
   `);
 
   upsertPage.run(

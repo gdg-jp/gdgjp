@@ -80,6 +80,7 @@
     "share_error_generic": "共有設定を更新できませんでした。",
     "share_notification_warning": "共有設定は更新されましたが、一部の通知を送信できませんでした。",
     "share_pending": "招待中",
+    "share_transfer": "オーナー権限の譲渡",
     "share_remove": "アクセス権を削除",
     "share_error_invalid_email": "有効なメールアドレスを入力してください。",
     "share_error_last_owner": "最後のオーナーを削除することはできません。",

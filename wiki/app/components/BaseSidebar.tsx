@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Sheet, SheetContent, SheetTitle } from "~/components/ui/sheet";
 
 export const COLLAPSE_THRESHOLD = 120;
 export const DEFAULT_WIDTH = 240;
@@ -27,14 +28,13 @@ export default function BaseSidebar({
   });
 
   const isDragging = useRef(false);
+  const mobileTriggerRef = useRef<HTMLElement | null>(null);
   const startX = useRef(0);
   const startWidth = useRef(0);
   const [isResizing, setIsResizing] = useState(false);
-  const originalOverflowRef = useRef<string | null>(null);
-
   const isCollapsed = isMobile ? false : width < COLLAPSE_THRESHOLD;
   const displayWidth = isOpen ? width : 0;
-  const transition = isResizing ? "none" : "width 200ms ease";
+  const transition = isResizing ? "none" : "width 200ms var(--motion-ease-out)";
 
   const onMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging.current) return;
@@ -80,51 +80,28 @@ export default function BaseSidebar({
     };
   }, [onMouseMove, onMouseUp]);
 
-  // Escape key closes mobile drawer
-  useEffect(() => {
-    if (!isMobile || !isOpen || !onClose) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isMobile, isOpen, onClose]);
-
-  // Lock body scroll when mobile drawer is open
-  useEffect(() => {
-    if (!isMobile) return;
-    if (isOpen && originalOverflowRef.current === null) {
-      originalOverflowRef.current = document.body.style.overflow;
-    }
-    document.body.style.overflow = isOpen ? "hidden" : (originalOverflowRef.current ?? "");
-    return () => {
-      document.body.style.overflow = originalOverflowRef.current ?? "";
-      if (!isOpen) originalOverflowRef.current = null;
-    };
-  }, [isMobile, isOpen]);
-
   if (isMobile) {
     return (
-      <>
-        {/* Backdrop */}
-        {isOpen && (
-          /* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop closes via pointer; Escape handled by window keydown */
-          <div
-            className="fixed inset-0 top-14 z-30 bg-black/40"
-            onClick={onClose}
-            aria-hidden="true"
-          />
-        )}
-
-        {/* Drawer */}
-        {isOpen && (
-          <aside className="fixed bottom-0 left-0 top-14 z-40 w-64 overflow-hidden border-r border-gray-200 bg-white">
-            {children({ isCollapsed: false })}
-          </aside>
-        )}
-      </>
+      <Sheet open={isOpen} onOpenChange={(nextOpen) => !nextOpen && onClose?.()}>
+        <SheetContent
+          side="left"
+          aria-describedby={undefined}
+          overlayClassName="top-14"
+          className="bottom-0 top-14 w-64 bg-card text-card-foreground"
+          onOpenAutoFocus={() => {
+            if (document.activeElement instanceof HTMLElement) {
+              mobileTriggerRef.current = document.activeElement;
+            }
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            mobileTriggerRef.current?.focus();
+          }}
+        >
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
+          {children({ isCollapsed: false })}
+        </SheetContent>
+      </Sheet>
     );
   }
 

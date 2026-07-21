@@ -80,6 +80,7 @@
     "share_error_generic": "Could not update sharing settings.",
     "share_notification_warning": "Sharing was updated, but some notifications could not be sent.",
     "share_pending": "Invitation pending",
+    "share_transfer": "Transfer ownership",
     "share_remove": "Remove access",
     "share_error_invalid_email": "Please enter a valid email address.",
     "share_error_last_owner": "Cannot remove the last owner.",

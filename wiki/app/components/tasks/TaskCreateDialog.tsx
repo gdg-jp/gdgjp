@@ -1,6 +1,8 @@
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "~/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
 import DropdownMenu, { type DropdownOption } from "./DropdownMenu";
 
 interface Team {
@@ -67,8 +69,6 @@ export default function TaskCreateDialog({
     setTeamId(initial?.teamId ?? "");
   }, [open, initial]);
 
-  if (!open) return null;
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
@@ -118,19 +118,25 @@ export default function TaskCreateDialog({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        aria-describedby={undefined}
+        className="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-card p-6 text-card-foreground shadow-2xl shadow-black/20"
+      >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">
+          <DialogTitle className="text-lg font-semibold">
             {initial ? t("tasks.edit_task") : t("tasks.new_task")}
-          </h2>
-          <button
-            type="button"
+          </DialogTitle>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="-mr-2 rounded-full text-muted-foreground"
+            aria-label={t("close")}
           >
             <X size={18} />
-          </button>
+          </Button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -226,23 +232,15 @@ export default function TaskCreateDialog({
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
+            <Button type="button" variant="outline" onClick={onClose}>
               {t("cancel")}
-            </button>
-            <button
-              type="submit"
-              disabled={!title.trim()}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
+            </Button>
+            <Button type="submit" disabled={!title.trim()}>
               {initial ? t("tasks.save") : t("tasks.create")}
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

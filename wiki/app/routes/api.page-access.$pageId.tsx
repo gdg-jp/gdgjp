@@ -258,6 +258,74 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     return result.ok ? Response.json({ ok: true }) : new Response("Not Found", { status: 404 });
   }
 
+  if (intent === "transfer") {
+    // Ownership is implicit via pages.authorId, so only the current owner may
+    // transfer it. Editors (and admins acting as admins) cannot replace one.
+    if (user.id !== page.authorId) return new Response("Forbidden", { status: 403 });
+    const accessId = body.accessId;
+    if (typeof accessId !== "string") {
+      return Response.json({ error: "invalid_params" }, { status: 400 });
+    }
+
+    const target = await db
+      .select({
+        id: schema.pageAccess.id,
+        pageId: schema.pageAccess.pageId,
+        subjectType: schema.pageAccess.subjectType,
+        subjectKey: schema.pageAccess.subjectKey,
+        userId: schema.pageAccess.userId,
+      })
+      .from(schema.pageAccess)
+      .where(eq(schema.pageAccess.id, accessId))
+      .get();
+    if (!target || target.pageId !== pageId || target.subjectType !== "email") {
+      return Response.json({ error: "invalid_transfer_target" }, { status: 400 });
+    }
+
+    const newOwner = target.userId
+      ? await db
+          .select({ id: schema.user.id })
+          .from(schema.user)
+          .where(eq(schema.user.id, target.userId))
+          .get()
+      : await db
+          .select({ id: schema.user.id })
+          .from(schema.user)
+          .where(eq(schema.user.email, normalizeEmail(target.subjectKey)))
+          .get();
+    if (!newOwner || newOwner.id === page.authorId) {
+      return Response.json({ error: "invalid_transfer_target" }, { status: 400 });
+    }
+
+    const previousOwner = await db
+      .select({ email: schema.user.email, name: schema.user.name })
+      .from(schema.user)
+      .where(eq(schema.user.id, page.authorId))
+      .get();
+    if (!previousOwner) return new Response("Not Found", { status: 404 });
+
+    // The former owner remains an editor. The ownership switch and removal of
+    // the new owner's redundant explicit grant happen in one D1 batch.
+    await upsertPageAccess(db, {
+      pageId,
+      subjectType: "email",
+      subjectKey: previousOwner.email,
+      subjectLabel: previousOwner.name,
+      userId: page.authorId,
+      role: "editor",
+      grantedBy: user.id,
+    });
+    await db.batch([
+      db
+        .update(schema.pages)
+        .set({ authorId: newOwner.id, updatedAt: new Date() })
+        .where(eq(schema.pages.id, pageId)),
+      db.delete(schema.pageAccess).where(eq(schema.pageAccess.id, accessId)),
+    ]);
+    await invalidateCollaborationBestEffort(env, page.slug);
+    return Response.json({ ok: true });
+  }
+
   if (intent === "setGeneralAccess" || intent === "setVisibility") {
     const visibility = body.visibility ?? body.generalAccess;
     const generalRole = body.generalRole ?? body.role;
@@ -266,11 +334,13 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     if (visibility !== "restricted" && !isPageRole(generalRole)) {
       return Response.json({ error: "invalid_role" }, { status: 400 });
     }
+    const nextGeneralRole: PageRole =
+      visibility === "restricted" ? "viewer" : isPageRole(generalRole) ? generalRole : "viewer";
     await db
       .update(schema.pages)
       .set({
         visibility,
-        generalRole: visibility === "restricted" ? "viewer" : generalRole,
+        generalRole: nextGeneralRole,
         updatedAt: new Date(),
       })
       .where(eq(schema.pages.id, pageId));

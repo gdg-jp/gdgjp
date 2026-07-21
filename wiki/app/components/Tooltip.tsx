@@ -1,4 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  TooltipContent,
+  Tooltip as TooltipPrimitive,
+  TooltipProvider,
+  TooltipTrigger,
+} from "~/components/ui/tooltip";
 
 /**
  * Wraps children with a tooltip label.
@@ -40,22 +46,21 @@ export default function Tooltip({
   if (!disabled) return <>{children}</>;
 
   return (
-    <span
-      className="relative inline-block"
-      onPointerEnter={show}
-      onPointerLeave={hide}
-      onClick={show}
-      onKeyUp={show}
-    >
-      <span className="pointer-events-none">{children}</span>
-      {visible && (
-        <span
-          role="tooltip"
-          className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white dark:bg-gray-100"
-        >
-          {label}
-        </span>
-      )}
-    </span>
+    <TooltipProvider>
+      <TooltipPrimitive open={visible} onOpenChange={setVisible}>
+        <TooltipTrigger asChild>
+          <span
+            className="inline-flex"
+            onPointerEnter={show}
+            onPointerLeave={hide}
+            onClick={show}
+            onKeyUp={show}
+          >
+            <span className="pointer-events-none">{children}</span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </TooltipPrimitive>
+    </TooltipProvider>
   );
 }

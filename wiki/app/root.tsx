@@ -97,7 +97,7 @@ export function ErrorBoundary() {
         <Meta />
         <Links />
       </head>
-      <body className="bg-gray-50 text-gray-900">
+      <body className="bg-background text-foreground antialiased">
         <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4">
           <Icon className="w-16 h-16 text-blue-500" strokeWidth={1.5} />
           <div className="text-center space-y-2">
@@ -136,7 +136,7 @@ export default function App() {
         <Meta />
         <Links />
       </head>
-      <body className="bg-gray-50 text-gray-900">
+      <body className="bg-background text-foreground antialiased">
         <FirebaseConfigContext value={firebaseConfig}>
           <Outlet />
         </FirebaseConfigContext>

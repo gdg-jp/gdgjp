@@ -500,6 +500,12 @@ importers:
       '@tiptap/starter-kit':
         specifier: ^3.20.0
         version: 3.23.4
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
       diff:
         specifier: ^8.0.3
         version: 8.0.4
@@ -539,6 +545,9 @@ importers:
       nanoid:
         specifier: ^5.1.6
         version: 5.1.11
+      radix-ui:
+        specifier: ^1.4.3
+        version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       react:
         specifier: ^19.0.0
         version: 19.2.5
@@ -554,6 +563,9 @@ importers:
       remix-i18next:
         specifier: ^7.4.2
         version: 7.5.0(i18next@25.10.10(typescript@5.9.3))(react-i18next@16.6.6(i18next@25.10.10(typescript@5.9.3))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(typescript@5.9.3))(react-router@7.13.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react@19.2.5)
+      tailwind-merge:
+        specifier: ^3.5.0
+        version: 3.5.0
       y-protocols:
         specifier: ^1.0.7
         version: 1.0.7(yjs@13.6.30)
@@ -609,6 +621,9 @@ importers:
       tailwindcss:
         specifier: ^4.0.0
         version: 4.2.4
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

@@ -1,5 +1,7 @@
+import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { MotionPresence } from "~/components/ui/motion";
 import type { ChangesetOperation } from "~/lib/ingestion-pipeline.server";
 
 // ---------------------------------------------------------------------------
@@ -158,22 +160,26 @@ export default function PageStructurePreview({
   );
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50">
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left"
+        aria-expanded={open}
+        className="ui-pressable flex min-h-11 w-full items-center justify-between px-4 py-3 text-left hover:bg-accent/60"
       >
-        <span className="text-sm font-medium text-gray-700">
+        <span className="text-sm font-medium text-foreground">
           {t("ingest.review.structure_preview")}
         </span>
-        <span className="text-xs text-gray-400">{open ? "▲" : "▼"}</span>
+        <ChevronDown
+          className={`size-4 text-muted-foreground transition-transform duration-200 ease-[var(--motion-ease-in-out)] ${open ? "rotate-180" : "rotate-0"}`}
+          aria-hidden="true"
+        />
       </button>
 
-      {open && (
-        <div className="border-t border-gray-200 px-4 py-3">
+      <MotionPresence present={open} distance={-4}>
+        <div className="border-t border-border px-4 py-3">
           {roots.length === 0 ? (
-            <p className="text-xs text-gray-400">{t("ingest.review.parent_none")}</p>
+            <p className="text-xs text-muted-foreground">{t("ingest.review.parent_none")}</p>
           ) : (
             <div className="font-mono">
               {roots.map((node) => (
@@ -182,7 +188,7 @@ export default function PageStructurePreview({
             </div>
           )}
         </div>
-      )}
+      </MotionPresence>
     </div>
   );
 }
