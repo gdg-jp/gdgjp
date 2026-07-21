@@ -10,9 +10,9 @@ import {
   isTranslationQueueBody,
   processTranslationMessage,
 } from "../app/lib/queue-processors.server";
+import { WikiGenerationAgent } from "./agents/wiki-generation-agent";
 import { CollabDurableObject } from "./collab-durable-object";
-import { WikiGenerationAgent } from "./generation-agent";
-import { WikiGenerationWorkflow } from "./generation-workflow";
+import { WikiGenerationPhaseWorkflow } from "./workflows/wiki-generation-phase-workflow";
 
 // The server build is a virtual module provided by @react-router/dev/vite at build time.
 const requestHandler = createRequestHandler(
@@ -127,4 +127,4 @@ export default {
 
 // Re-export Durable Object class so wrangler registers it
 export { CollabDurableObject };
-export { WikiGenerationAgent, WikiGenerationWorkflow };
+export { WikiGenerationAgent, WikiGenerationPhaseWorkflow };

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { nanoid } from "nanoid";
 import { useTranslation } from "react-i18next";
@@ -6,10 +6,10 @@ import { redirect, useActionData, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import InputPanel from "~/components/ingest/InputPanel";
 import * as schema from "~/db/schema";
-import { type IngestionInputs, createAccessContext } from "~/features/ingestion/contracts";
-import { startWikiGeneration } from "~/features/ingestion/start.server";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { isGoogleDriveUrl } from "~/lib/google-drive-utils";
+import { createAccessContext } from "../../shared/ingestion/domain";
+import { createAndStartIngestion } from "../../workers/features/ingestion/start-ingestion.server";
 
 export const meta: MetaFunction = () => [{ title: "Add Content — GDG Japan Wiki" }];
 
@@ -55,7 +55,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const { env, ctx } = context.cloudflare;
   const user = await requireUser(request, env);
   const identity = await getAccessIdentity(request, env);
-  const db = drizzle(env.DB, { schema });
 
   const formData = await request.formData();
   const text = String(formData.get("text") ?? "").trim();
@@ -68,8 +67,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   // Collect image files
   const imageEntries = formData.getAll("images");
-  const imageFiles: Array<{ key: string; buffer: ArrayBuffer; mimeType: string; name: string }> =
-    [];
+  const imageFiles: Array<{ buffer: ArrayBuffer; mimeType: string; name: string }> = [];
 
   if (imageEntries.length > MAX_IMAGES) {
     return { errorKey: "ingest.errors.too_many_images", errorParams: { max: MAX_IMAGES } };
@@ -77,7 +75,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   // Collect PDF files
   const pdfEntries = formData.getAll("pdfs");
-  const pdfFiles: Array<{ key: string; buffer: ArrayBuffer; mimeType: string; name: string }> = [];
+  const pdfFiles: Array<{ buffer: ArrayBuffer; mimeType: string; name: string }> = [];
 
   if (pdfEntries.length > MAX_PDFS) {
     return { errorKey: "ingest.errors.too_many_pdfs", errorParams: { max: MAX_PDFS } };
@@ -98,10 +96,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       return { errorKey: "ingest.errors.image_too_large", errorParams: { name: entry.name } };
     }
     const buffer = await entry.arrayBuffer();
-    const key = `ingestion/${user.id}/${sessionId}/${crypto.randomUUID()}-${entry.name}`;
-    // Store in R2
-    await env.BUCKET.put(key, buffer, { httpMetadata: { contentType: entry.type } });
-    imageFiles.push({ key, buffer, mimeType: entry.type, name: entry.name });
+    imageFiles.push({ buffer, mimeType: entry.type, name: entry.name });
   }
 
   for (const entry of pdfEntries) {
@@ -113,34 +108,14 @@ export async function action({ request, context }: ActionFunctionArgs) {
       return { errorKey: "ingest.errors.not_a_pdf", errorParams: { name: entry.name } };
     }
     const buffer = await entry.arrayBuffer();
-    const key = `ingestion/${user.id}/${sessionId}/${crypto.randomUUID()}-${entry.name}`;
-    await env.BUCKET.put(key, buffer, { httpMetadata: { contentType: "application/pdf" } });
-    pdfFiles.push({ key, buffer, mimeType: "application/pdf", name: entry.name });
+    pdfFiles.push({ buffer, mimeType: "application/pdf", name: entry.name });
   }
 
-  // Build inputs
-  const inputs: IngestionInputs = {
-    texts: [text],
-    imageKeys: imageFiles.map((f) => f.key),
-    googleDocUrls: googleDocUrl ? [googleDocUrl] : [],
-    imageFiles,
-    pdfKeys: pdfFiles.map((f) => f.key),
-    pdfFiles,
-  };
-
-  // Create session row
-  await db.insert(schema.ingestionSessions).values({
-    id: sessionId,
-    userId: user.id,
-    status: "processing",
-    inputsJson: JSON.stringify({
-      texts: inputs.texts,
-      imageKeys: inputs.imageKeys,
-      googleDocUrls: inputs.googleDocUrls,
-      pdfKeys: inputs.pdfKeys,
-    }),
-    accessContextJson: JSON.stringify(
-      createAccessContext({
+  try {
+    await createAndStartIngestion(env, ctx, {
+      sessionId,
+      userId: user.id,
+      access: createAccessContext({
         userId: user.id,
         email: user.email,
         isAdmin: user.isAdmin,
@@ -148,30 +123,13 @@ export async function action({ request, context }: ActionFunctionArgs) {
         claimsAvailable: identity.user?.id === user.id && identity.claimsAvailable,
         source: "web",
       }),
-    ),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-
-  try {
-    await startWikiGeneration(env, ctx, sessionId, user.id);
+      texts: [text],
+      googleDocUrls: googleDocUrl ? [googleDocUrl] : [],
+      images: imageFiles,
+      pdfs: pdfFiles,
+    });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
     console.error("ingest: failed to enqueue ingestion job", { sessionId, userId: user.id, err });
-    await db
-      .update(schema.ingestionSessions)
-      .set({
-        status: "error",
-        errorMessage: `Queue enqueue failed: ${message}`,
-        phaseMessage: "queue_enqueue_failed",
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(schema.ingestionSessions.id, sessionId),
-          eq(schema.ingestionSessions.userId, user.id),
-        ),
-      );
     return { errorKey: "ingest.errors.enqueue_failed" };
   }
 

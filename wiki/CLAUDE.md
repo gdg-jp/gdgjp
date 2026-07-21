@@ -57,9 +57,14 @@ Wiki is the only app on Drizzle. Schema in `app/db/schema.ts`, `drizzle.config.t
 
 Agents SDK multi-phase flow: user-uploaded docs / URLs / Google Drive → wiki pages via the configured AI SDK model.
 
-- `WikiGenerationAgent` owns session synchronization/RPCs and `WikiGenerationWorkflow` owns durable execution and approval waits.
-- `app/features/ingestion/wiki-workspace.server.ts` exposes bounded, permission-aware `ls/cd/pwd/cat/find/grep`; generation never uses Vectorize.
-- `/ingest/:sessionId` synchronizes lightweight state with `useAgent()` and revalidates D1-backed drafts on revision changes.
+- `WikiGenerationAgent` is a runtime adapter for RPC, coarse state projection, Workflow tracking,
+  and realtime broadcasts. Each user checkpoint starts a separate
+  `WikiGenerationPhaseWorkflow` instance.
+- Business logic lives under `workers/features/ingestion/`, split into orchestration, model,
+  tools, and persistence. The bounded, permission-aware Wiki workspace exposes
+  `ls/cd/pwd/cat/find/grep`; generation never uses Vectorize.
+- `/ingest/:sessionId` consumes display-safe realtime events through `useAgent()` while D1-backed
+  loaders remain authoritative and provide the reconnect fallback.
 - AI search remains independent under `app/features/ai-search/` and continues to use Workers AI + Vectorize.
 
 ## Realtime collab editor

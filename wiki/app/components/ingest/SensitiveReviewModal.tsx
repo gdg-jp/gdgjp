@@ -9,7 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
-import type { SensitiveItem } from "~/features/ingestion/contracts";
+import type { SensitiveItem } from "../../../shared/ingestion/domain";
 
 // ---------------------------------------------------------------------------
 // Types

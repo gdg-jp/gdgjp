@@ -5,10 +5,10 @@ import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import TagChip from "~/components/TagChip";
 import * as schema from "~/db/schema";
 import { type RagSearchResult, performRagSearch } from "~/features/ai-search/rag-search.server";
-import { createAccessContext } from "~/features/ingestion/contracts";
 import { getAccessIdentity } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
+import { createAccessContext } from "../../shared/ingestion/domain";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   { title: data?.q ? `"${data.q}" — Search — GDG Japan Wiki` : "Search — GDG Japan Wiki" },

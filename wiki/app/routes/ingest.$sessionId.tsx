@@ -1,4 +1,3 @@
-import { useAgent } from "agents/react";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { useEffect, useRef, useState } from "react";
@@ -11,15 +10,16 @@ import SensitiveReviewModal from "~/components/ingest/SensitiveReviewModal";
 import type { ResolvedItem } from "~/components/ingest/SensitiveReviewModal";
 import { MotionSwap } from "~/components/ui/motion";
 import * as schema from "~/db/schema";
+import { useIngestionAgent } from "~/features/ingestion/use-ingestion-agent";
+import { requireUser } from "~/lib/auth-utils.server";
+import type { ExtractedUrl } from "~/lib/url-extract";
+import type { IngestionStatus } from "../../shared/ingestion/agent-state";
 import type {
   AiDraftJson,
   ChangesetOperation,
   ClarificationQuestion,
-  GenerationAgentState,
-} from "~/features/ingestion/contracts";
-import { requireUser } from "~/lib/auth-utils.server";
-import type { ExtractedUrl } from "~/lib/url-extract";
-import type { WikiGenerationAgent } from "../../workers/generation-agent";
+} from "../../shared/ingestion/domain";
+import type { IngestionRealtimeEvent } from "../../shared/ingestion/realtime-events";
 
 // ---------------------------------------------------------------------------
 // Loader
@@ -146,8 +146,13 @@ function getActiveStep(phaseMessage: string | null): number {
 
 function ProcessingScreen({
   phaseMessage,
+  events,
   t,
-}: { phaseMessage: string | null; t: (k: string) => string }) {
+}: {
+  phaseMessage: string | null;
+  events: IngestionRealtimeEvent[];
+  t: (k: string) => string;
+}) {
   const activeStep = getActiveStep(phaseMessage);
   const stepLabels = [
     t("ingest.phase_step_1"),
@@ -205,10 +210,65 @@ function ProcessingScreen({
           );
         })}
       </div>
+      {events.length > 0 && (
+        <div className="w-72" aria-live="polite" aria-label="Live generation activity">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+            Live activity
+          </p>
+          <ul className="space-y-1">
+            {events.slice(-5).map((event, index) => (
+              <li
+                key={eventListKey(event, index)}
+                className="truncate text-xs text-gray-500"
+                title={eventDescription(event)}
+              >
+                {eventDescription(event)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <p className="text-sm text-gray-500">{t("ingest.processing_hint")}</p>
       <p className="text-xs text-gray-400">{t("ingest.processing_leave_hint")}</p>
     </div>
   );
+}
+
+function eventListKey(event: IngestionRealtimeEvent, index: number): string {
+  if ("toolCallId" in event) return `${event.type}:${event.toolCallId}`;
+  return `${event.type}:${index}`;
+}
+
+function eventDescription(event: IngestionRealtimeEvent): string {
+  switch (event.type) {
+    case "workflow_started":
+      return "Generation started";
+    case "model_started":
+      return `Running ${event.program}`;
+    case "model_step":
+      return `${event.program}: step ${event.step} of ${event.limit}`;
+    case "tool_started":
+      return displaySafeSummary(event.summary);
+    case "tool_completed":
+      return `${event.tool} completed`;
+    case "tool_failed":
+      return `${event.tool} could not complete`;
+    case "operation_started":
+      return `Preparing operation ${event.index + 1} of ${event.total}`;
+    case "operation_completed":
+      return `Prepared operation ${event.index + 1} of ${event.total}`;
+    case "awaiting_input":
+      return "Waiting for your input";
+    case "completed":
+      return "Generation completed";
+    case "failed":
+      return "Generation could not complete";
+  }
+}
+
+function displaySafeSummary(summary: string): string {
+  const compact = summary.replaceAll(/\s+/g, " ").trim();
+  return compact.length > 160 ? `${compact.slice(0, 157)}…` : compact;
 }
 
 // ---------------------------------------------------------------------------
@@ -445,14 +505,13 @@ export default function IngestSessionPage() {
   const loaderData = useLoaderData<typeof loader>();
   const { t } = useTranslation();
   const revalidator = useRevalidator();
-  const generationAgent = useAgent<WikiGenerationAgent, GenerationAgentState>({
-    agent: "WikiGenerationAgent",
-    name: loaderData.sessionId,
-  });
+  const {
+    agent: generationAgent,
+    client: generationClient,
+    events,
+  } = useIngestionAgent(loaderData.sessionId);
   const imageKeys = loaderData.imageKeys;
-  const [optimisticStatus, setOptimisticStatus] = useState<GenerationAgentState["status"] | null>(
-    null,
-  );
+  const [optimisticStatus, setOptimisticStatus] = useState<IngestionStatus | null>(null);
   const [sensitiveResolved, setSensitiveResolved] = useState(false);
   const [resolvedDraft, setResolvedDraft] = useState<ResultDraft | null>(null);
   const [showToast, setShowToast] = useState(false);
@@ -481,6 +540,14 @@ export default function IngestSessionPage() {
     previousStatus.current = status;
   }, [status]);
 
+  // D1 remains authoritative. Poll only while the realtime transport is
+  // unavailable so rolling deploys and transient WebSocket failures recover.
+  useEffect(() => {
+    if (generationAgent.identified || status !== "processing") return;
+    const timer = window.setInterval(() => revalidator.revalidate(), 5_000);
+    return () => window.clearInterval(timer);
+  }, [generationAgent.identified, revalidator, status]);
+
   async function postIngestionAction(path: string, body: unknown): Promise<void> {
     const response = await fetch(`/api/ingest/${loaderData.sessionId}/${path}`, {
       method: "POST",
@@ -496,7 +563,7 @@ export default function IngestSessionPage() {
     answers: Array<{ id: string; question: string; answer: string }>,
   ): Promise<void> {
     if (generationAgent.identified) {
-      await generationAgent.stub.submitClarification({ answers });
+      await generationClient.submitClarification({ answers });
     } else {
       await postIngestionAction("clarify", { answers });
     }
@@ -506,7 +573,7 @@ export default function IngestSessionPage() {
 
   async function selectUrls(selectedUrls: string[]): Promise<void> {
     if (generationAgent.identified) {
-      await generationAgent.stub.selectUrls({ selectedUrls });
+      await generationClient.selectUrls({ selectedUrls });
     } else {
       await postIngestionAction("select-urls", { selectedUrls });
     }
@@ -520,7 +587,7 @@ export default function IngestSessionPage() {
   }): Promise<{ operation: ChangesetOperation } | null> {
     if (!generationAgent.identified) return null;
     try {
-      return await generationAgent.stub.regenerateOperation(input);
+      return await generationClient.regenerateOperation(input);
     } catch (error) {
       // The HTTP endpoint remains an intentionally compatible fallback while
       // clients reconnect or an Agent deployment is rolling out.
@@ -531,7 +598,7 @@ export default function IngestSessionPage() {
 
   // Processing state
   if (status === "processing") {
-    return <ProcessingScreen phaseMessage={phaseMessage ?? null} t={t} />;
+    return <ProcessingScreen phaseMessage={phaseMessage ?? null} events={events} t={t} />;
   }
 
   // Clarification state

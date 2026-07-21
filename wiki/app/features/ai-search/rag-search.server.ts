@@ -1,6 +1,6 @@
 import type { drizzle } from "drizzle-orm/d1";
 import { createWikiModel } from "~/features/ai/model/index.server";
-import type { AccessContext } from "~/features/ingestion/contracts";
+import type { AccessContext } from "../../../shared/ingestion/domain";
 import { createKnowledgeRetriever } from "./knowledge-retriever.server";
 
 type Db = ReturnType<typeof drizzle>;

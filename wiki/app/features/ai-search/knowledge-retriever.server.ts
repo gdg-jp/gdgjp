@@ -1,8 +1,8 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
-import type { AccessContext } from "~/features/ingestion/contracts";
 import { canUserSeePageAsync } from "~/lib/page-visibility.server";
+import type { AccessContext } from "../../../shared/ingestion/domain";
 import { type ContentChunk, chunkPageContent } from "./chunker.server";
 
 type Db = ReturnType<typeof drizzle>;

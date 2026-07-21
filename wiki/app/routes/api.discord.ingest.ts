@@ -3,8 +3,8 @@ import { drizzle } from "drizzle-orm/d1";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { createAccessContext } from "~/features/ingestion/contracts";
-import { startWikiGeneration } from "~/features/ingestion/start.server";
+import { createAccessContext } from "../../shared/ingestion/domain";
+import { createAndStartIngestion } from "../../workers/features/ingestion/start-ingestion.server";
 
 // Constant-time string comparison to prevent timing attacks
 function secureCompare(a: string, b: string): boolean {
@@ -54,13 +54,11 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   const sessionId = nanoid();
 
-  await db.insert(schema.ingestionSessions).values({
-    id: sessionId,
-    userId: wikiUser.id,
-    status: "processing",
-    inputsJson: JSON.stringify({ texts: [text], imageKeys: [], googleDocUrls: [] }),
-    accessContextJson: JSON.stringify(
-      createAccessContext({
+  try {
+    await createAndStartIngestion(env, ctx, {
+      sessionId,
+      userId: wikiUser.id,
+      access: createAccessContext({
         userId: wikiUser.id,
         email: wikiUser.email,
         isAdmin: wikiUser.isAdmin,
@@ -68,19 +66,13 @@ export async function action({ request, context }: ActionFunctionArgs) {
         claimsAvailable: false,
         source: "discord",
       }),
-    ),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-
-  try {
-    await startWikiGeneration(env, ctx, sessionId, wikiUser.id);
+      texts: [text],
+      googleDocUrls: [],
+      images: [],
+      pdfs: [],
+    });
   } catch (err) {
     console.error("discord/ingest: failed to enqueue ingestion job", { sessionId, err });
-    await db
-      .update(schema.ingestionSessions)
-      .set({ status: "error", errorMessage: err instanceof Error ? err.message : String(err) })
-      .where(eq(schema.ingestionSessions.id, sessionId));
     return Response.json({ error: "enqueue_failed" }, { status: 500 });
   }
 

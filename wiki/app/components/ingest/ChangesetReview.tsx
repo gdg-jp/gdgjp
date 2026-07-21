@@ -2,9 +2,9 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import TipTapEditor from "~/components/TipTapEditor";
 import PageStructurePreview from "~/components/ingest/PageStructurePreview";
-import type { AiDraftJson, ChangesetOperation } from "~/features/ingestion/contracts";
 import { buildTree, flattenTree } from "~/lib/page-tree";
 import { applyPatchesToMarkdown, tiptapToMarkdown } from "~/lib/tiptap-convert";
+import type { AiDraftJson, ChangesetOperation } from "../../../shared/ingestion/domain";
 
 type ResultDraft = Extract<AiDraftJson, { planRationale: string }>;
 
@@ -577,12 +577,14 @@ function initOpState(op: ChangesetOperation): OperationState {
   };
 }
 
-function buildMarkdownFromDraft(draft: import("~/features/ingestion/contracts").PageDraft): string {
+function buildMarkdownFromDraft(
+  draft: import("../../../shared/ingestion/domain").PageDraft,
+): string {
   return draft.sections.map((section) => `## ${section.heading}\n\n${section.body}`).join("\n\n");
 }
 
 function buildMarkdownFromPatch(
-  patch: import("~/features/ingestion/contracts").SectionPatchResponse,
+  patch: import("../../../shared/ingestion/domain").SectionPatchResponse,
   existingTipTapJson?: string,
 ): string {
   const existingMarkdown = existingTipTapJson ? tiptapToMarkdown(existingTipTapJson) : "";

@@ -8,14 +8,22 @@ export default defineConfig({
     passWithNoTests: true,
     include: [
       "app/**/*.test.{ts,tsx}",
+      "shared/**/*.test.{ts,tsx}",
       "tests/unit/**/*.test.{ts,tsx}",
       "tests/golden/**/*.test.{ts,tsx}",
+      "workers/**/*.test.{ts,tsx}",
     ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["app/**/*.{ts,tsx}"],
-      exclude: ["app/**/*.test.{ts,tsx}", "app/routes/**", "tests/golden/**"],
+      include: ["app/**/*.{ts,tsx}", "shared/**/*.ts", "workers/**/*.ts"],
+      exclude: [
+        "app/**/*.test.{ts,tsx}",
+        "shared/**/*.test.ts",
+        "workers/**/*.test.{ts,tsx}",
+        "app/routes/**",
+        "tests/golden/**",
+      ],
     },
   },
 });

@@ -107,7 +107,7 @@ deleted_classes = ["WikiIngestionAgent"]
 [[workflows]]
 name = "gdgjp-wiki-generation"
 binding = "GENERATION_WORKFLOW"
-class_name = "WikiGenerationWorkflow"
+class_name = "WikiGenerationPhaseWorkflow"
 
 # ---------------------------------------------------------------------------
 # Cron Triggers
