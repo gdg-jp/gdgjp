@@ -1,3 +1,4 @@
+import { Marked, Renderer } from "marked";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TipTapRenderer } from "~/components/TipTapRenderer";
 import type { TipTapDoc } from "~/lib/tiptap-convert";
@@ -7,24 +8,49 @@ type OgImageHtmlInput = {
   title: string;
 };
 
-function parseContent(content: string): TipTapDoc {
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+const markdownRenderer = new Renderer();
+markdownRenderer.html = ({ text }) => escapeHtml(text);
+markdownRenderer.link = function renderLink({ tokens }) {
+  return `<span class="link">${this.parser.parseInline(tokens)}</span>`;
+};
+markdownRenderer.image = ({ text }) => (text ? `<span>${escapeHtml(text)}</span>` : "");
+
+const markdownParser = new Marked({
+  async: false,
+  gfm: true,
+  renderer: markdownRenderer,
+});
+
+function parseTipTapContent(content: string): TipTapDoc | null {
   try {
     const parsed = JSON.parse(content) as Partial<TipTapDoc>;
     if (parsed.type === "doc" && Array.isArray(parsed.content)) {
       return parsed as TipTapDoc;
     }
   } catch {
-    // Legacy pages can contain plain text instead of TipTap JSON.
+    // Markdown content is rendered by Marked below.
   }
 
-  return {
-    type: "doc",
-    content: [{ type: "paragraph", content: [{ type: "text", text: content }] }],
-  };
+  return null;
+}
+
+function renderContent(content: string) {
+  const tipTapDoc = parseTipTapContent(content);
+  if (tipTapDoc) return renderToStaticMarkup(<TipTapRenderer doc={tipTapDoc} />);
+  return markdownParser.parse(content) as string;
 }
 
 export function buildOgImageHtml({ content, title }: OgImageHtmlInput) {
-  const renderedContent = renderToStaticMarkup(<TipTapRenderer doc={parseContent(content)} />);
+  const renderedContent = renderContent(content);
   const renderedTitle = renderToStaticMarkup(title);
 
   return `<!doctype html>
@@ -36,7 +62,7 @@ export function buildOgImageHtml({ content, title }: OgImageHtmlInput) {
       * { box-sizing: border-box; }
       html, body { width: 1200px; height: 630px; margin: 0; overflow: hidden; }
       body {
-        background: #f8fafc;
+        background: #ffffff;
         color: #1f2937;
         font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
       }
@@ -44,31 +70,12 @@ export function buildOgImageHtml({ content, title }: OgImageHtmlInput) {
         position: relative;
         width: 1200px;
         min-height: 630px;
-        padding: 48px 68px 64px;
-        background:
-          radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.14), transparent 34%),
-          #ffffff;
-      }
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 24px;
-        color: #2563eb;
-        font-size: 22px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-      }
-      .brand-mark {
-        width: 18px;
-        height: 18px;
-        border-radius: 5px;
-        background: #3b82f6;
-        box-shadow: 7px 7px 0 #facc15;
+        padding: 54px 68px 64px;
+        background: #ffffff;
       }
       h1.page-title {
         max-width: 1030px;
-        margin: 0 0 28px;
+        margin: 0 0 32px;
         color: #111827;
         font-size: 48px;
         font-weight: 750;
@@ -109,26 +116,16 @@ export function buildOgImageHtml({ content, title }: OgImageHtmlInput) {
         line-height: 1.5;
       }
       .content code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .content .link { color: #2563eb; text-decoration: underline; }
       .content table { width: 100%; border-collapse: collapse; font-size: 18px; }
       .content th, .content td { padding: 8px 12px; border: 1px solid #d1d5db; }
       .content img { display: none; }
-      .fade {
-        position: absolute;
-        right: 0;
-        bottom: 0;
-        left: 0;
-        height: 54px;
-        background: linear-gradient(transparent, #ffffff 80%);
-        pointer-events: none;
-      }
     </style>
   </head>
   <body>
     <main>
-      <div class="brand"><span class="brand-mark"></span>GDG Japan Wiki</div>
       <h1 class="page-title">${renderedTitle}</h1>
       <article class="content">${renderedContent}</article>
-      <div class="fade"></div>
     </main>
   </body>
 </html>`;

@@ -28,4 +28,35 @@ describe("buildOgImageHtml", () => {
     expect(html).toContain("&lt;script&gt;title&lt;/script&gt;");
     expect(html).toContain("&lt;b&gt;body&lt;/b&gt;");
   });
+
+  it("renders Markdown structure instead of showing Markdown syntax", () => {
+    const html = buildOgImageHtml({
+      title: "Markdown page",
+      content: [
+        "# 用語",
+        "",
+        "- Codelab",
+        "- [Agent Skills](https://example.com)",
+        "",
+        "`claude` コマンドを使います。",
+      ].join("\n"),
+    });
+
+    expect(html).toContain("<h1>用語</h1>");
+    expect(html).toContain("<ul>");
+    expect(html).toContain("<li>Codelab</li>");
+    expect(html).toContain('<span class="link">Agent Skills</span>');
+    expect(html).toContain("<code>claude</code>");
+    expect(html).not.toContain("# 用語");
+    expect(html).not.toContain("https://example.com");
+  });
+
+  it("uses a completely white background without branding", () => {
+    const html = buildOgImageHtml({ title: "Page", content: "Body" });
+
+    expect(html).toContain("background: #ffffff;");
+    expect(html).not.toContain("radial-gradient");
+    expect(html).not.toContain("GDG Japan Wiki");
+    expect(html).not.toContain('class="brand"');
+  });
 });
