@@ -7,7 +7,7 @@ import type {
   SectionPatchResponse,
   UpdateOperation,
 } from "../../../../shared/ingestion/domain";
-import { PageDraftSchema, SectionPatchResponseSchema } from "../../../../shared/ingestion/domain";
+import { PageDraftOutputSchema, SectionPatchResponseOutputSchema } from "./page-content-output";
 import { DRAFT_PROMPT } from "./prompts";
 
 /**
@@ -83,7 +83,7 @@ export function createPageDraftProgram(model: Pick<WikiModel, "generateObject">)
 
       if (input.operation.type === "create") {
         const draft = await model.generateObject({
-          schema: PageDraftSchema,
+          schema: PageDraftOutputSchema,
           schemaName: "PageDraft",
           system: DRAFT_PROMPT,
           messages,
@@ -104,7 +104,7 @@ export function createPageDraftProgram(model: Pick<WikiModel, "generateObject">)
         throw new Error(`Planned update page no longer exists: ${input.operation.pageId}`);
       }
       const patch = await model.generateObject({
-        schema: SectionPatchResponseSchema,
+        schema: SectionPatchResponseOutputSchema,
         schemaName: "SectionPatchResponse",
         system: DRAFT_PROMPT,
         messages,

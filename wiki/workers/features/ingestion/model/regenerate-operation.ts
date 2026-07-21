@@ -2,9 +2,9 @@ import type { FilePart } from "ai";
 import type { z } from "zod";
 import { createWikiModelFromEnv } from "../../../../app/features/ai/model/index.server";
 import type { ChangesetOperation } from "../../../../shared/ingestion/domain";
-import { PageDraftSchema, SectionPatchResponseSchema } from "../../../../shared/ingestion/domain";
 import type { ExecutionEventSink } from "../orchestration/ports/tool-event-sink";
 import { noopExecutionEventSink } from "../orchestration/ports/tool-event-sink";
+import { PageDraftOutputSchema, SectionPatchResponseOutputSchema } from "./page-content-output";
 import { DRAFT_PROMPT } from "./prompts";
 
 async function generateReplacement<T extends z.ZodType>(
@@ -38,14 +38,20 @@ export async function regenerateOperationWithModel(
   if (operation.type === "create") {
     return {
       ...operation,
-      draft: await generateReplacement(env, PageDraftSchema, "PageDraft", prompt, attachments),
+      draft: await generateReplacement(
+        env,
+        PageDraftOutputSchema,
+        "PageDraft",
+        prompt,
+        attachments,
+      ),
     };
   }
   return {
     ...operation,
     patch: await generateReplacement(
       env,
-      SectionPatchResponseSchema,
+      SectionPatchResponseOutputSchema,
       "SectionPatchResponse",
       prompt,
       attachments,
