@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implement GDG Japan Worker OIDC Client"
+  short_description: "Wire a Cloudflare Worker to GDG Japan SSO"
+  default_prompt: "Use $implement-gdgjp-worker-oidc-client to add GDG Japan OIDC sign-in to this Cloudflare Worker app."

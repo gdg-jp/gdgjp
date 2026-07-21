@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implement GDG Japan OIDC Client"
+  short_description: "Build secure clients for accounts.gdgs.jp"
+  default_prompt: "Use $implement-gdgjp-oidc-client to integrate this server-side web app with the GDG Japan accounts OIDC provider."
