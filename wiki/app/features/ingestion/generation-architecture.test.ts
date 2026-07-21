@@ -17,10 +17,11 @@ describe("generation architecture", () => {
       expect(generation).toContain(`${name}: tool(`);
     }
     expect(`${generation}\n${workspace}`).not.toMatch(/VECTORIZE|knowledgeRetriever|embedding/i);
-    expect(generation).toContain("GENERATION_TOOL_STEP_LIMIT = 12");
-    expect(generation).toContain("stepCountIs(GENERATION_TOOL_STEP_LIMIT)");
+    expect(generation).toContain("stepCountIs(GENERATION_EXPLORATION_STEP_LIMIT)");
+    expect(generation).toContain("prepareExplorationStep(stepNumber)");
+    expect(generation).toContain("...exploration.response.messages");
     expect(generation).toContain("maxRetries: 0");
-    expect(generation.match(/maxRetries: 0/g)).toHaveLength(3);
+    expect(generation.match(/maxRetries: 0/g)).toHaveLength(4);
     expect(modelAdapter).toContain("maxRetries: request.maxRetries");
     expect(workflow).toContain('retries: { limit: 0, delay: "1 minute"');
     expect(workspace).toContain("maxToolOutputTokens");

@@ -28,6 +28,7 @@ import {
   PageDraftSchema,
   SectionPatchResponseSchema,
 } from "./contracts";
+import { GENERATION_EXPLORATION_STEP_LIMIT, prepareExplorationStep } from "./generation-loop";
 import {
   CLARIFICATION_PROMPT,
   DRAFT_PROMPT,
@@ -44,8 +45,6 @@ import {
 } from "./wiki-workspace.server";
 
 type Db = DrizzleD1Database<typeof schema>;
-
-const GENERATION_TOOL_STEP_LIMIT = 12;
 
 export interface GenerationContext {
   db: Db;
@@ -156,18 +155,26 @@ async function agentObject<T>(options: {
       content,
     },
   ];
-  const result = await generateText({
-    model: createWikiLanguageModelFromEnv(options.env),
-    system: `${WORKSPACE_INSTRUCTIONS}\n\n${options.system}`,
+  const system = `${WORKSPACE_INSTRUCTIONS}\n\n${options.system}`;
+  const model = createWikiLanguageModelFromEnv(options.env);
+  const exploration = await generateText({
+    model,
+    system,
     messages,
     tools: workspaceTools(options.workspace),
-    // Two agentic passes plus URL fetches and at most five draft operations
-    // must fit within the free Workflow's 50 external-subrequest ceiling.
-    stopWhen: stepCountIs(GENERATION_TOOL_STEP_LIMIT),
+    // Exploration and finalization are separate so a last-step tool call can
+    // never terminate the run before a structured object is produced.
+    stopWhen: stepCountIs(GENERATION_EXPLORATION_STEP_LIMIT),
+    prepareStep: ({ stepNumber }) => prepareExplorationStep(stepNumber),
+    temperature: 0.2,
+    maxRetries: 0,
+  });
+  const result = await generateText({
+    model,
+    system: `${system}\n\n探索を終了し、ここまでの証拠から要求された構造化出力を必ず返してください。`,
+    messages: [...messages, ...exploration.response.messages],
     output: Output.object({ name: options.name, schema: options.schema }),
     temperature: 0.2,
-    // Workflow steps own durable retries. Retrying here as well multiplies
-    // provider calls and can exhaust a Worker's per-invocation subrequests.
     maxRetries: 0,
   });
   return result.output as T;
