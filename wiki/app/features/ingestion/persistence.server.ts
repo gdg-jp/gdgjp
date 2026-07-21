@@ -7,6 +7,14 @@ import type { AiDraftJson } from "./contracts";
 
 type Db = ReturnType<typeof drizzle>;
 
+export function isIngestionProviderError(message: string): boolean {
+  return (
+    /google\s*(drive|doc|form)|gemini|generativelanguage\.googleapis\.com|quota|rate.?limit|too many requests|resource_exhausted|invalid_grant|invalid_token|refresh.?token|oauth|access.?token|UNAUTHENTICATED|認証|接続/i.test(
+      message,
+    ) || /\b(?:40[13]|429)\b/.test(message)
+  );
+}
+
 export async function updateIngestionPhase(
   db: Db,
   sessionId: string,
@@ -94,10 +102,7 @@ export async function persistIngestionError(
   error: unknown,
 ): Promise<void> {
   const rawMessage = error instanceof Error ? error.message : String(error);
-  const isProviderError =
-    /google\s*(drive|doc|form)|invalid_grant|invalid_token|refresh.?token|oauth|access.?token|UNAUTHENTICATED|認証|接続/i.test(
-      rawMessage,
-    ) || /\b40[13]\b/.test(rawMessage);
+  const isProviderError = isIngestionProviderError(rawMessage);
   const errorMessage = isProviderError ? rawMessage : "Ingestion failed due to an internal error.";
   const db = drizzle(env.DB, { schema });
   await db

@@ -45,6 +45,8 @@ import {
 
 type Db = DrizzleD1Database<typeof schema>;
 
+const GENERATION_TOOL_STEP_LIMIT = 12;
+
 export interface GenerationContext {
   db: Db;
   actor: WorkspaceActor;
@@ -159,9 +161,14 @@ async function agentObject<T>(options: {
     system: `${WORKSPACE_INSTRUCTIONS}\n\n${options.system}`,
     messages,
     tools: workspaceTools(options.workspace),
-    stopWhen: stepCountIs(20),
+    // Two agentic passes plus URL fetches and at most five draft operations
+    // must fit within the free Workflow's 50 external-subrequest ceiling.
+    stopWhen: stepCountIs(GENERATION_TOOL_STEP_LIMIT),
     output: Output.object({ name: options.name, schema: options.schema }),
     temperature: 0.2,
+    // Workflow steps own durable retries. Retrying here as well multiplies
+    // provider calls and can exhaust a Worker's per-invocation subrequests.
+    maxRetries: 0,
   });
   return result.output as T;
 }
@@ -251,6 +258,7 @@ export async function generateOperations(
           },
         ],
         temperature: 0.2,
+        maxRetries: 0,
       });
       operations.push({
         type: "create",
@@ -283,6 +291,7 @@ export async function generateOperations(
           },
         ],
         temperature: 0.2,
+        maxRetries: 0,
       });
       operations.push({
         type: "update",

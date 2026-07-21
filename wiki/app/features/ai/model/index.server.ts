@@ -14,6 +14,7 @@ export interface TextGenerationRequest {
   messages?: ModelMessage[];
   temperature?: number;
   maxOutputTokens?: number;
+  maxRetries?: number;
 }
 
 export interface StructuredGenerationRequest<TSchema extends z.ZodType>
@@ -52,6 +53,7 @@ class AiSdkWikiModel implements WikiModel {
             messages: request.messages,
             temperature: request.temperature,
             maxOutputTokens: request.maxOutputTokens,
+            maxRetries: request.maxRetries,
           }
         : {
             model: this.model,
@@ -59,6 +61,7 @@ class AiSdkWikiModel implements WikiModel {
             prompt: request.prompt ?? "",
             temperature: request.temperature,
             maxOutputTokens: request.maxOutputTokens,
+            maxRetries: request.maxRetries,
           },
     );
     return result.text;
@@ -80,6 +83,7 @@ class AiSdkWikiModel implements WikiModel {
             messages: request.messages,
             temperature: request.temperature,
             maxOutputTokens: request.maxOutputTokens,
+            maxRetries: request.maxRetries,
             output,
           }
         : {
@@ -88,6 +92,7 @@ class AiSdkWikiModel implements WikiModel {
             prompt: request.prompt ?? "",
             temperature: request.temperature,
             maxOutputTokens: request.maxOutputTokens,
+            maxRetries: request.maxRetries,
             output,
           },
     );

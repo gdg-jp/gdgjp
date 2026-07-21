@@ -96,7 +96,10 @@ export class WikiGenerationWorkflow extends AgentWorkflow<
     const status = await step.do(
       stepName,
       {
-        retries: { limit: 3, delay: "5 seconds", backoff: "exponential" },
+        // This step can use most of the free-plan subrequest budget. Replaying
+        // the entire phase after a provider error exhausts the per-instance
+        // limit, so provider calls fail once and preserve the original error.
+        retries: { limit: 0, delay: "1 minute", backoff: "exponential" },
         timeout: "15 minutes",
       },
       async () => {
