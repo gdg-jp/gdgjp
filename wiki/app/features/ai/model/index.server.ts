@@ -100,20 +100,20 @@ class AiSdkWikiModel implements WikiModel {
  * this module depends on @ai-sdk/google, so replacing the provider is local.
  */
 export function createWikiModel(options: WikiModelOptions): WikiModel {
-  const modelId = options.modelId ?? "gemini-3-flash-preview";
+  const modelId = options.modelId ?? "gemini-3.1-flash-lite";
   return new AiSdkWikiModel(modelId, createWikiLanguageModel(options));
 }
 
 /** Used by agentic features that need AI SDK's native tools/step loop. */
 export function createWikiLanguageModel(options: WikiModelOptions): LanguageModel {
   const provider = createGoogleGenerativeAI({ apiKey: options.apiKey });
-  return provider(options.modelId ?? "gemini-3-flash-preview");
+  return provider(options.modelId ?? "gemini-3.1-flash-lite");
 }
 
 type ModelEnvironment = { GEMINI_MODEL_ID?: string };
 
 export function getWikiModelId(env: ModelEnvironment): string {
-  return env.GEMINI_MODEL_ID?.trim() || "gemini-3-flash-preview";
+  return env.GEMINI_MODEL_ID?.trim() || "gemini-3.1-flash-lite";
 }
 
 export function createWikiModelFromEnv(
