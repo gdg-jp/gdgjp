@@ -47,6 +47,7 @@ describe("ingestion structured-output schemas", () => {
         operations: [{ ...base.operations[0], evidencePaths: Array(13).fill("/wiki/page") }],
       }),
     ).toThrow();
+    expect(() => OperationPlanSchema.parse({ ...base, operations: [] })).toThrow();
   });
 
   it("normalizes nullable provider values to the public optional shape", () => {

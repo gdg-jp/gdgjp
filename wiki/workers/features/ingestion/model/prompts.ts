@@ -1,4 +1,4 @@
-export const GENERATION_PROMPT_VERSION = "2026-07-22.mounted-workspace.v4";
+export const GENERATION_PROMPT_VERSION = "2026-07-22.mounted-workspace.v5";
 
 export const WORKSPACE_INSTRUCTIONS = `You operate a mounted, read-only workspace using absolute
 paths. Start with ls("/") only when you do not know which mount is relevant. External material is
@@ -19,7 +19,7 @@ workspace の一次資料と必要な既存ページだけを探索し、create/
 推測したpath、ls/find/searchだけで見つけた未読path、または別operationに不要なpathは evidencePaths に入れてはいけません。
 create の場合は suggestedTitle と pageType を設定してください。既存ページを親にする場合はそのpathを cat して suggestedParentPath に指定し、ルートページなら null にしてください。pagePath は null にしてください。
 update の場合は pagePath を設定し、suggestedTitle、suggestedParentPath、pageType は null にしてください。
-操作は最大5件。短い入力は原則1ページにまとめ、重複を避けてください。`;
+操作は必ず1件以上、最大5件にしてください。空のoperationsを返してはいけません。短い入力は原則1ページにまとめ、重複を避けてください。`;
 
 export const DRAFT_PROMPT = `あなたはGDG Japan Wikiのナレッジマネジメント担当です。
 与えられた evidence に存在する情報だけを、情報量を落とさず日本語で整理してください。

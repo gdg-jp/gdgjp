@@ -86,9 +86,11 @@ export const OperationPlanOutputSchema: z.ZodType<OperationPlanCandidate> = z.ob
   planRationale: z.string(),
   operations: z
     .array(ProviderOperationSchema)
+    .min(1)
     .max(5)
     .describe(
-      "For create, set suggestedTitle/pageType, optionally set suggestedParentPath to an exact " +
+      "Return one to five operations; never return an empty array. " +
+        "For create, set suggestedTitle/pageType, optionally set suggestedParentPath to an exact " +
         "/wiki path that was read, and set pagePath to null. " +
         "For update, set pagePath to the exact /wiki path that was read and set " +
         "suggestedTitle/suggestedParentPath/pageType to null.",

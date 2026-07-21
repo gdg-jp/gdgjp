@@ -55,6 +55,7 @@ export const OperationPlanSchema = z.object({
   planRationale: z.string(),
   operations: z
     .array(z.discriminatedUnion("type", [CreateOperationSchema, UpdateOperationSchema]))
+    .min(1)
     .describe("Create or update operations; only the first five are used.")
     .transform((operations) => operations.slice(0, 5)),
 });

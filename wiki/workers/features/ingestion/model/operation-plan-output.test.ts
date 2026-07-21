@@ -4,11 +4,15 @@ import { OperationPlanOutputSchema } from "./operation-plan-output";
 
 describe("OperationPlanOutputSchema", () => {
   it("uses a flat provider schema without unsupported unions", () => {
-    const jsonSchema = JSON.stringify(zodSchema(OperationPlanOutputSchema).jsonSchema);
+    const providerSchema = zodSchema(OperationPlanOutputSchema).jsonSchema;
+    const jsonSchema = JSON.stringify(providerSchema);
 
     expect(jsonSchema).not.toContain('"oneOf"');
     expect(jsonSchema).toContain('"suggestedTitle"');
     expect(jsonSchema).toContain('"pagePath"');
+    expect(providerSchema).toMatchObject({
+      properties: { operations: { minItems: 1, maxItems: 5 } },
+    });
   });
 
   it("converts a create row into the strict domain operation", () => {
@@ -56,6 +60,18 @@ describe("OperationPlanOutputSchema", () => {
         "operations.0.suggestedTitle",
         "operations.0.pageType",
       ]);
+    }
+  });
+
+  it("rejects an empty plan before generation starts", () => {
+    const result = OperationPlanOutputSchema.safeParse({
+      planRationale: "操作は不要です",
+      operations: [],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path.join("."))).toContain("operations");
     }
   });
 
