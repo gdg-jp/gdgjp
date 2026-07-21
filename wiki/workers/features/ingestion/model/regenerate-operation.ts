@@ -36,25 +36,31 @@ export async function regenerateOperationWithModel(
   await events.emit({ type: "model_started", program: "regenerate" });
   const prompt = `ユーザー入力:\n${userInput}\n\n元の操作:\n${JSON.stringify(operation)}\nユーザーの再生成指示:\n${feedback ?? "品質を改善してください"}\n\n選択済みの一次資料:\n${evidence.slice(0, 120_000)}`;
   if (operation.type === "create") {
-    return {
-      ...operation,
-      draft: await generateReplacement(
-        env,
-        PageDraftOutputSchema,
-        "PageDraft",
-        prompt,
-        attachments,
-      ),
-    };
-  }
-  return {
-    ...operation,
-    patch: await generateReplacement(
+    const generated = await generateReplacement(
       env,
-      SectionPatchResponseOutputSchema,
-      "SectionPatchResponse",
+      PageDraftOutputSchema,
+      "PageDraft",
       prompt,
       attachments,
-    ),
+    );
+    return {
+      ...operation,
+      draft: {
+        ...generated,
+        suggestedParentId: operation.draft?.suggestedParentId ?? null,
+      },
+    };
+  }
+  if (!operation.pageId) throw new Error("Update operation is missing its system page ID");
+  const patch = await generateReplacement(
+    env,
+    SectionPatchResponseOutputSchema,
+    "SectionPatchResponse",
+    prompt,
+    attachments,
+  );
+  return {
+    ...operation,
+    patch: { ...patch, pageId: operation.pageId },
   };
 }

@@ -20,7 +20,13 @@ import { createR2ManifestWorkspaceAdapter } from "./persistence/r2/manifest-work
 import type { WorkspaceSourceReference } from "./persistence/serialization/context-manifest-codec";
 import { loadIngestionAttachmentParts as loadWorkerAttachmentParts } from "./tools/attachments";
 import type { WorkspaceManifest } from "./tools/workspace/contracts";
-import { WikiWorkspaceAdapter, type WorkspaceActor } from "./tools/workspace/wiki-adapter";
+import { normaliseAbsoluteWorkspacePath } from "./tools/workspace/paths";
+import {
+  WikiWorkspaceAdapter,
+  type WorkspaceActor,
+  resolveWikiWorkspacePage,
+  wikiWorkspacePageTitle,
+} from "./tools/workspace/wiki-adapter";
 import { createMountedWorkspace } from "./tools/workspace/workspace";
 
 type Db = DrizzleD1Database<typeof schema>;
@@ -35,12 +41,13 @@ export interface GenerationContext {
 }
 
 function makeModelContext(env: Env, context: GenerationContext): GenerationModelContext {
+  const wikiStore = createD1WikiWorkspaceStore(context.db, context.actor);
   return {
     userInput: context.userInput,
     clarificationAnswers: context.clarificationAnswers,
     inputs: context.inputs,
     workspace: createMountedWorkspace({
-      wiki: new WikiWorkspaceAdapter(createD1WikiWorkspaceStore(context.db, context.actor)),
+      wiki: new WikiWorkspaceAdapter(wikiStore),
       googleDocs: createR2ManifestWorkspaceAdapter(env.BUCKET, "/google-docs", context.sourceNodes),
       websites: createR2ManifestWorkspaceAdapter(env.BUCKET, "/websites", context.sourceNodes),
       additionalMounts: [
@@ -55,6 +62,18 @@ function makeModelContext(env: Env, context: GenerationContext): GenerationModel
       ],
     }),
     loadAttachments: () => loadIngestionAttachmentParts(env, context.inputs),
+    resolveExistingWikiPage: async (absolutePath) => {
+      let normalizedPath: string;
+      try {
+        normalizedPath = normaliseAbsoluteWorkspacePath(absolutePath);
+      } catch {
+        return null;
+      }
+      if (normalizedPath !== absolutePath || !normalizedPath.startsWith("/wiki/")) return null;
+      const page = await resolveWikiWorkspacePage(wikiStore, normalizedPath.slice("/wiki/".length));
+      if (!page || !(await wikiStore.canView(page))) return null;
+      return { pageId: page.id, pageTitle: wikiWorkspacePageTitle(page) };
+    },
     loadExistingPageContent: async (pageId) => {
       const row = await context.db
         .select({ contentJa: schema.pages.contentJa })

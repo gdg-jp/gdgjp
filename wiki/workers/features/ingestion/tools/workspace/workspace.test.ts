@@ -4,6 +4,7 @@ import {
   WikiWorkspaceAdapter,
   type WikiWorkspacePage,
   type WikiWorkspaceStore,
+  resolveWikiWorkspacePage,
 } from "./wiki-adapter";
 import { MountedWorkspace, createMountedWorkspace } from "./workspace";
 
@@ -28,7 +29,11 @@ function page(
   };
 }
 
-function wikiFixture(): { adapter: WikiWorkspaceAdapter; reads: string[] } {
+function wikiFixture(): {
+  adapter: WikiWorkspaceAdapter;
+  reads: string[];
+  store: WikiWorkspaceStore;
+} {
   const root = page({ id: "root", slug: "about-gdg", titleJa: "GDGについて" });
   const child = page({
     id: "child",
@@ -78,7 +83,7 @@ function wikiFixture(): { adapter: WikiWorkspaceAdapter; reads: string[] } {
         .map(body),
     canView: async (value) => value.id !== hidden.id,
   };
-  return { adapter: new WikiWorkspaceAdapter(store), reads };
+  return { adapter: new WikiWorkspaceAdapter(store), reads, store };
 }
 
 class EchoAdapter implements WorkspaceAdapter {
@@ -151,6 +156,16 @@ describe("MountedWorkspace", () => {
 });
 
 describe("WikiWorkspaceAdapter", () => {
+  it("resolves the full slug hierarchy to the system-owned page ID", async () => {
+    const { store } = wikiFixture();
+
+    await expect(
+      resolveWikiWorkspacePage(store, "about-gdg/about-gdgoc-osaka"),
+    ).resolves.toMatchObject({
+      id: "child",
+    });
+  });
+
   it("maps a D1 parent hierarchy to readable nodes without index files", async () => {
     const { adapter, reads } = wikiFixture();
     const workspace = createMountedWorkspace({ wiki: adapter });

@@ -8,7 +8,7 @@ describe("OperationPlanOutputSchema", () => {
 
     expect(jsonSchema).not.toContain('"oneOf"');
     expect(jsonSchema).toContain('"suggestedTitle"');
-    expect(jsonSchema).toContain('"pageId"');
+    expect(jsonSchema).toContain('"pagePath"');
   });
 
   it("converts a create row into the strict domain operation", () => {
@@ -18,10 +18,9 @@ describe("OperationPlanOutputSchema", () => {
         {
           type: "create",
           suggestedTitle: { ja: "小さなドキュメント" },
-          suggestedParentId: null,
+          suggestedParentPath: null,
           pageType: "how-to-guide",
-          pageId: null,
-          pageTitle: null,
+          pagePath: null,
           rationale: "既存ページがありません",
           evidencePaths: ["/google-docs/Small document"],
         },
@@ -31,7 +30,7 @@ describe("OperationPlanOutputSchema", () => {
     expect(result.operations[0]).toMatchObject({
       type: "create",
       suggestedTitle: { ja: "小さなドキュメント" },
-      tempId: expect.any(String),
+      suggestedParentPath: null,
     });
   });
 
@@ -42,10 +41,9 @@ describe("OperationPlanOutputSchema", () => {
         {
           type: "create",
           suggestedTitle: null,
-          suggestedParentId: null,
+          suggestedParentPath: null,
           pageType: null,
-          pageId: null,
-          pageTitle: null,
+          pagePath: null,
           rationale: "既存ページがありません",
           evidencePaths: [],
         },
@@ -59,5 +57,29 @@ describe("OperationPlanOutputSchema", () => {
         "operations.0.pageType",
       ]);
     }
+  });
+
+  it("keeps only the model-selected workspace path for an update row", () => {
+    const result = OperationPlanOutputSchema.parse({
+      planRationale: "既存ページを更新します",
+      operations: [
+        {
+          type: "update",
+          suggestedTitle: null,
+          suggestedParentPath: null,
+          pageType: null,
+          pagePath: "/wiki/tips-for-hands-on-preparation",
+          rationale: "同じ主題のページです",
+          evidencePaths: ["/wiki/tips-for-hands-on-preparation"],
+        },
+      ],
+    });
+
+    expect(result.operations[0]).toEqual({
+      type: "update",
+      pagePath: "/wiki/tips-for-hands-on-preparation",
+      rationale: "同じ主題のページです",
+      evidencePaths: ["/wiki/tips-for-hands-on-preparation"],
+    });
   });
 });

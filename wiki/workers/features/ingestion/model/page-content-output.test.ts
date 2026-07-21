@@ -23,7 +23,6 @@ describe("Gemini page content output schemas", () => {
       summary: { ja: "概要" },
       metadataEntries: [{ key: "event", value: "Build with AI" }],
       sections: [],
-      suggestedParentId: null,
       suggestedTags: ["ai"],
       suggestedSlug: null,
       actionabilityScore: "3",
@@ -38,7 +37,6 @@ describe("Gemini page content output schemas", () => {
 
   it("rejects a score outside the supported range before domain conversion", () => {
     const result = SectionPatchResponseOutputSchema.safeParse({
-      pageId: "page-1",
       sectionPatches: [],
       sensitiveItems: [],
       actionabilityScore: "4",
@@ -46,5 +44,13 @@ describe("Gemini page content output schemas", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("does not ask the model to generate page or parent IDs", () => {
+    const patchSchema = providerSchema(SectionPatchResponseOutputSchema);
+    const draftSchema = providerSchema(PageDraftOutputSchema);
+
+    expect(patchSchema).not.toContain('"pageId"');
+    expect(draftSchema).not.toContain('"suggestedParentId"');
   });
 });

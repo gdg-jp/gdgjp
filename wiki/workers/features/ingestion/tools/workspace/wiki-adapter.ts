@@ -67,7 +67,7 @@ export interface WikiWorkspaceStore {
   canView(page: WikiWorkspacePage): Promise<boolean>;
 }
 
-function titleOf(page: WikiWorkspacePage): string {
+export function wikiWorkspacePageTitle(page: WikiWorkspacePage): string {
   return page.titleJa || page.titleEn || page.slug;
 }
 
@@ -80,7 +80,7 @@ function contentOf(page: WikiWorkspacePageBody): string {
 }
 
 function pageContent(page: WikiWorkspacePageBody): string {
-  const parts = [`# ${titleOf(page)}`];
+  const parts = [`# ${wikiWorkspacePageTitle(page)}`];
   const summary = summaryOf(page);
   if (summary) parts.push(summary);
   const content = contentOf(page);
@@ -127,7 +127,7 @@ export class WikiWorkspaceAdapter implements WorkspaceAdapter {
 
   async ls(relativePath: string, options: ListOptions = {}): Promise<AdapterResult<ListResult>> {
     const path = normaliseRelativeWorkspacePath(relativePath);
-    const page = path ? await this.resolvePage(path) : null;
+    const page = path ? await resolveWikiWorkspacePage(this.store, path) : null;
     if (path && (!page || !(await this.store.canView(page)))) {
       throw new Error("Workspace path not found");
     }
@@ -148,7 +148,7 @@ export class WikiWorkspaceAdapter implements WorkspaceAdapter {
           path: path ? `${path}/${child.slug}` : child.slug,
           readable: true,
           hasChildren: "unknown",
-          title: titleOf(child),
+          title: wikiWorkspacePageTitle(child),
         }) satisfies WorkspaceEntry,
     );
     const hasMore = candidates.length > limit;
@@ -165,7 +165,7 @@ export class WikiWorkspaceAdapter implements WorkspaceAdapter {
   async cat(relativePath: string, options?: ReadOptions): Promise<AdapterResult<ReadResult>> {
     const path = normaliseRelativeWorkspacePath(relativePath);
     if (!path) throw new Error("Workspace resource not found");
-    const page = await this.resolvePage(path);
+    const page = await resolveWikiWorkspacePage(this.store, path);
     if (!page || !(await this.store.canView(page))) throw new Error("Workspace resource not found");
     const body = await this.store.getPageBody(page.id);
     if (!body) throw new Error("Workspace resource not found");
@@ -179,7 +179,7 @@ export class WikiWorkspaceAdapter implements WorkspaceAdapter {
   ): Promise<AdapterResult<SearchResult>> {
     const scope = normaliseRelativeWorkspacePath(relativePath);
     if (scope) {
-      const scopePage = await this.resolvePage(scope);
+      const scopePage = await resolveWikiWorkspacePage(this.store, scope);
       if (!scopePage || !(await this.store.canView(scopePage))) {
         throw new Error("Workspace path not found");
       }
@@ -202,7 +202,7 @@ export class WikiWorkspaceAdapter implements WorkspaceAdapter {
       if (scope && path !== scope && !path.startsWith(`${scope}/`)) continue;
       matches.push({
         path,
-        title: titleOf(page),
+        title: wikiWorkspacePageTitle(page),
         ...(summaryOf(page) ? { snippet: summaryOf(page).slice(0, 500) } : {}),
       });
     }
@@ -211,18 +211,6 @@ export class WikiWorkspaceAdapter implements WorkspaceAdapter {
       data: { matches, nextCursor: hasMore ? encodeOffsetCursor(offset + limit) : null },
       truncated: hasMore,
     };
-  }
-
-  private async resolvePage(path: string): Promise<WikiWorkspacePage | null> {
-    const segments = path.split("/");
-    let page: WikiWorkspacePage | null = null;
-    for (const segment of segments) {
-      page = page
-        ? await this.store.getChildPage(page.id, segment)
-        : await this.store.getRootPage(segment);
-      if (!page || page.status !== "published") return null;
-    }
-    return page;
   }
 
   private async pathForPage(page: WikiWorkspacePage): Promise<string> {
@@ -237,4 +225,19 @@ export class WikiWorkspaceAdapter implements WorkspaceAdapter {
     if (parentId) throw new Error("Wiki page hierarchy exceeds maximum depth");
     return segments.join("/");
   }
+}
+
+/** Resolves a relative slug hierarchy without exposing D1 IDs to the model. */
+export async function resolveWikiWorkspacePage(
+  store: WikiWorkspaceStore,
+  relativePath: string,
+): Promise<WikiWorkspacePage | null> {
+  const path = normaliseRelativeWorkspacePath(relativePath);
+  if (!path) return null;
+  let page: WikiWorkspacePage | null = null;
+  for (const segment of path.split("/")) {
+    page = page ? await store.getChildPage(page.id, segment) : await store.getRootPage(segment);
+    if (!page || page.status !== "published") return null;
+  }
+  return page;
 }

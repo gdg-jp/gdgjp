@@ -1,18 +1,34 @@
 import { z } from "zod";
-import {
-  CreateOperationSchema,
-  type OperationPlan,
-  UpdateOperationSchema,
-} from "../../../../shared/ingestion/domain";
+import { type CreateOperation, CreateOperationSchema } from "../../../../shared/ingestion/domain";
+
+export interface CreateOperationCandidate {
+  type: "create";
+  suggestedTitle: CreateOperation["suggestedTitle"];
+  suggestedParentPath: string | null;
+  pageType: CreateOperation["pageType"];
+  rationale: string;
+  evidencePaths: string[];
+}
+
+export interface UpdateOperationCandidate {
+  type: "update";
+  pagePath: string;
+  rationale: string;
+  evidencePaths: string[];
+}
+
+export interface OperationPlanCandidate {
+  planRationale: string;
+  operations: Array<CreateOperationCandidate | UpdateOperationCandidate>;
+}
 
 const ProviderOperationSchema = z
   .object({
     type: z.enum(["create", "update"]),
     suggestedTitle: CreateOperationSchema.shape.suggestedTitle.nullable(),
-    suggestedParentId: CreateOperationSchema.shape.suggestedParentId,
+    suggestedParentPath: z.string().nullable(),
     pageType: CreateOperationSchema.shape.pageType.nullable(),
-    pageId: UpdateOperationSchema.shape.pageId.nullable(),
-    pageTitle: UpdateOperationSchema.shape.pageTitle.nullable(),
+    pagePath: z.string().nullable(),
     rationale: z.string(),
     evidencePaths: z.array(z.string().min(1)).max(12),
   })
@@ -34,40 +50,31 @@ const ProviderOperationSchema = z
       }
       return;
     }
-    if (!operation.pageId) {
+    if (!operation.pagePath) {
       context.addIssue({
         code: "custom",
-        path: ["pageId"],
-        message: "pageId is required for update operations",
-      });
-    }
-    if (!operation.pageTitle) {
-      context.addIssue({
-        code: "custom",
-        path: ["pageTitle"],
-        message: "pageTitle is required for update operations",
+        path: ["pagePath"],
+        message: "pagePath is required for update operations",
       });
     }
   })
   .transform((operation) => {
     if (operation.type === "create") {
-      return CreateOperationSchema.parse({
+      return {
         type: "create",
-        tempId: crypto.randomUUID(),
-        suggestedTitle: operation.suggestedTitle,
-        suggestedParentId: operation.suggestedParentId,
-        pageType: operation.pageType,
+        suggestedTitle: operation.suggestedTitle as CreateOperation["suggestedTitle"],
+        suggestedParentPath: operation.suggestedParentPath,
+        pageType: operation.pageType as CreateOperationCandidate["pageType"],
         rationale: operation.rationale,
         evidencePaths: operation.evidencePaths,
-      });
+      } satisfies CreateOperationCandidate;
     }
-    return UpdateOperationSchema.parse({
+    return {
       type: "update",
-      pageId: operation.pageId,
-      pageTitle: operation.pageTitle,
+      pagePath: operation.pagePath as string,
       rationale: operation.rationale,
       evidencePaths: operation.evidencePaths,
-    });
+    } satisfies UpdateOperationCandidate;
   });
 
 /**
@@ -75,13 +82,15 @@ const ProviderOperationSchema = z
  * not reliably support unions. Keep the provider-facing shape flat, then
  * convert each validated row into the strict domain union.
  */
-export const OperationPlanOutputSchema: z.ZodType<OperationPlan> = z.object({
+export const OperationPlanOutputSchema: z.ZodType<OperationPlanCandidate> = z.object({
   planRationale: z.string(),
   operations: z
     .array(ProviderOperationSchema)
     .max(5)
     .describe(
-      "For create, set suggestedTitle and pageType and set pageId/pageTitle to null. " +
-        "For update, set pageId/pageTitle and set suggestedTitle/suggestedParentId/pageType to null.",
+      "For create, set suggestedTitle/pageType, optionally set suggestedParentPath to an exact " +
+        "/wiki path that was read, and set pagePath to null. " +
+        "For update, set pagePath to the exact /wiki path that was read and set " +
+        "suggestedTitle/suggestedParentPath/pageType to null.",
     ),
 });

@@ -12,14 +12,18 @@ import type {
   IngestionInputs,
   OperationPlan,
 } from "../../../../shared/ingestion/domain";
-import { ClarificationResultSchema } from "../../../../shared/ingestion/domain";
+import {
+  ClarificationResultSchema,
+  CreateOperationSchema,
+  OperationPlanSchema,
+} from "../../../../shared/ingestion/domain";
 import type { ExecutionEventSink } from "../orchestration/ports/tool-event-sink";
 import type { WorkspaceManifest } from "../tools/workspace/contracts";
 import { createWorkspaceToolCatalog } from "../tools/workspace/tool-catalog";
 import type { MountedWorkspace } from "../tools/workspace/workspace";
 import { GENERATION_EXPLORATION_STEP_LIMIT } from "./agent-loop";
 import type { ModelProgram } from "./event-sink";
-import { OperationPlanOutputSchema } from "./operation-plan-output";
+import { type OperationPlanCandidate, OperationPlanOutputSchema } from "./operation-plan-output";
 import { type ResolvedEvidence, createPageDraftProgram } from "./page-draft-program";
 import {
   CLARIFICATION_PROMPT,
@@ -37,6 +41,10 @@ export interface GenerationModelContext {
   inputs: IngestionInputs;
   workspace: MountedWorkspace;
   loadAttachments: () => Promise<FilePart[]>;
+  /** Resolves an access-checked `/wiki/...` slug hierarchy to durable D1 identity. */
+  resolveExistingWikiPage: (
+    absolutePath: string,
+  ) => Promise<{ pageId: string; pageTitle: string } | null>;
   /** Resolves content for an update after orchestration has authorized it. */
   loadExistingPageContent: (pageId: string) => Promise<string | null>;
 }
@@ -117,6 +125,63 @@ export function selectPlannedEvidenceReferences(
   return [...unique.values()];
 }
 
+export async function resolvePlannedWikiReferences(
+  candidate: OperationPlanCandidate,
+  resolveExistingWikiPage: GenerationModelContext["resolveExistingWikiPage"],
+  actualEvidence: readonly PlannerEvidenceReference[],
+): Promise<OperationPlan> {
+  const actualReadPaths = new Set(actualEvidence.map(({ path }) => path));
+  const operations = await Promise.all(
+    candidate.operations.map(async (operation) => {
+      if (operation.type === "create") {
+        let suggestedParentId: string | null = null;
+        if (operation.suggestedParentPath) {
+          if (
+            !operation.suggestedParentPath.startsWith("/wiki/") ||
+            !operation.evidencePaths.includes(operation.suggestedParentPath) ||
+            !actualReadPaths.has(operation.suggestedParentPath)
+          ) {
+            throw new Error(`Planned parent path was not read: ${operation.suggestedParentPath}`);
+          }
+          const parent = await resolveExistingWikiPage(operation.suggestedParentPath);
+          if (!parent) {
+            throw new Error(
+              `Planned parent page no longer exists: ${operation.suggestedParentPath}`,
+            );
+          }
+          suggestedParentId = parent.pageId;
+        }
+        return CreateOperationSchema.parse({
+          type: "create",
+          tempId: crypto.randomUUID(),
+          suggestedTitle: operation.suggestedTitle,
+          suggestedParentId,
+          pageType: operation.pageType,
+          rationale: operation.rationale,
+          evidencePaths: operation.evidencePaths,
+        });
+      }
+      if (
+        !operation.pagePath.startsWith("/wiki/") ||
+        !operation.evidencePaths.includes(operation.pagePath) ||
+        !actualReadPaths.has(operation.pagePath)
+      ) {
+        throw new Error(`Planned update path was not read: ${operation.pagePath}`);
+      }
+      const page = await resolveExistingWikiPage(operation.pagePath);
+      if (!page) throw new Error(`Planned update page no longer exists: ${operation.pagePath}`);
+      return {
+        type: "update" as const,
+        pageId: page.pageId,
+        pageTitle: page.pageTitle,
+        rationale: operation.rationale,
+        evidencePaths: operation.evidencePaths,
+      };
+    }),
+  );
+  return OperationPlanSchema.parse({ planRationale: candidate.planRationale, operations });
+}
+
 export function createIngestionModelGateway(
   env: Env,
   eventSink?: ExecutionEventSink,
@@ -194,7 +259,7 @@ export function createIngestionModelGateway(
     },
 
     async plan(context) {
-      const plan = await runAgentObject({
+      const candidate = await runAgentObject({
         program: "plan",
         workspace: context.workspace,
         schema: OperationPlanOutputSchema,
@@ -205,7 +270,13 @@ export function createIngestionModelGateway(
         clarificationAnswers: context.clarificationAnswers,
         attachments: await context.loadAttachments(),
       });
-      return { plan, manifest: context.workspace.manifest() };
+      const manifest = context.workspace.manifest();
+      const plan = await resolvePlannedWikiReferences(
+        candidate,
+        context.resolveExistingWikiPage,
+        manifest.references,
+      );
+      return { plan, manifest };
     },
 
     async generateOperations(context, plan, manifest) {

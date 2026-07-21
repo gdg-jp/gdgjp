@@ -42,8 +42,10 @@ const SectionPatchOutputSchema = z.object({
   content: z.string(),
 });
 
-/** Gemini-compatible PageDraft shape without unions or record schemas. */
-export const PageDraftOutputSchema: z.ZodType<PageDraft> = z
+export type PageDraftOutput = Omit<PageDraft, "suggestedParentId">;
+
+/** Gemini-compatible page content. The system supplies the durable parent ID. */
+export const PageDraftOutputSchema: z.ZodType<PageDraftOutput> = z
   .object({
     suggestedPageType: CreateOperationSchema.shape.pageType,
     pageTypeConfidence: z.enum(["high", "medium", "low"]),
@@ -54,7 +56,6 @@ export const PageDraftOutputSchema: z.ZodType<PageDraft> = z
       .max(30)
       .describe("Page metadata as key/value rows. Use an empty array when there is no metadata."),
     sections: z.array(SectionOutputSchema),
-    suggestedParentId: z.string().nullable(),
     suggestedTags: z.array(z.string()).max(5),
     suggestedSlug: z.string().nullable(),
     actionabilityScore: ActionabilityScoreOutputSchema,
@@ -62,19 +63,23 @@ export const PageDraftOutputSchema: z.ZodType<PageDraft> = z
     sensitiveItems: z.array(SensitiveItemSchema),
   })
   .transform(({ metadataEntries, ...output }) =>
-    PageDraftSchema.parse({
+    PageDraftSchema.omit({ suggestedParentId: true }).parse({
       ...output,
       metadata: Object.fromEntries(metadataEntries.map(({ key, value }) => [key, value])),
     }),
   );
 
-/** Gemini-compatible SectionPatchResponse shape without numeric literal unions. */
-export const SectionPatchResponseOutputSchema: z.ZodType<SectionPatchResponse> = z
+export type SectionPatchOutput = Omit<SectionPatchResponse, "pageId">;
+
+/** Gemini-compatible patch content. The system supplies the durable page ID. */
+export const SectionPatchResponseOutputSchema: z.ZodType<SectionPatchOutput> = z
   .object({
-    pageId: z.string(),
     sectionPatches: z.array(SectionPatchOutputSchema),
     sensitiveItems: z.array(SensitiveItemSchema),
     actionabilityScore: ActionabilityScoreOutputSchema,
     actionabilityNotes: z.string(),
   })
-  .transform((output) => SectionPatchResponseSchema.parse(output));
+  .transform((output) => {
+    const parsed = SectionPatchResponseSchema.omit({ pageId: true }).parse(output);
+    return parsed;
+  });

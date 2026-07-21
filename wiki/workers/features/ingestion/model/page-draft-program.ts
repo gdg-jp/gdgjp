@@ -82,7 +82,7 @@ export function createPageDraftProgram(model: Pick<WikiModel, "generateObject">)
       ];
 
       if (input.operation.type === "create") {
-        const draft = await model.generateObject({
+        const generated = await model.generateObject({
           schema: PageDraftOutputSchema,
           schemaName: "PageDraft",
           system: DRAFT_PROMPT,
@@ -95,7 +95,10 @@ export function createPageDraftProgram(model: Pick<WikiModel, "generateObject">)
           tempId: input.operation.tempId,
           rationale: input.operation.rationale,
           evidencePaths: input.operation.evidencePaths,
-          draft,
+          draft: {
+            ...generated,
+            suggestedParentId: input.operation.suggestedParentId,
+          },
           patch: null,
         };
       }
