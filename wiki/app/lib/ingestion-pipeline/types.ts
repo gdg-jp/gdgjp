@@ -43,6 +43,7 @@ export type AiDraftJson =
       summary: string;
       fileUris: { uri: string; mimeType: string }[];
       googleDocText?: string;
+      sourceArtifactKey?: string;
       sources?: SourceUrl[];
     }
   | {
@@ -50,12 +51,14 @@ export type AiDraftJson =
       urls: ExtractedUrl[];
       fileUris: { uri: string; mimeType: string }[];
       googleDocText?: string;
+      sourceArtifactKey?: string;
     }
   | {
       phase: "resume_post_clarification";
       fileUris: { uri: string; mimeType: string }[];
       clarificationAnswers: string;
       googleDocText?: string;
+      sourceArtifactKey?: string;
       sources?: SourceUrl[];
     }
   | {
@@ -63,6 +66,7 @@ export type AiDraftJson =
       fileUris: { uri: string; mimeType: string }[];
       selectedUrls: string[];
       googleDocText?: string;
+      sourceArtifactKey?: string;
     }
   | {
       phase?: "result";

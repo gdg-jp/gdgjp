@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS "ingestion_sessions" (
   "error_message" TEXT,
   "created_at"    INTEGER NOT NULL DEFAULT (unixepoch()),
   "updated_at"    INTEGER NOT NULL DEFAULT (unixepoch())
-, "phase_message" TEXT, notified_at INTEGER);
+, "phase_message" TEXT, notified_at INTEGER, "workflow_id" TEXT, "access_context_json" TEXT, "context_manifest_json" TEXT);
 CREATE TABLE IF NOT EXISTS "pages" (
   "id"                    TEXT NOT NULL PRIMARY KEY,
   "title_ja"              TEXT NOT NULL,

@@ -3,19 +3,16 @@ import { drizzle } from "drizzle-orm/d1";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
+import { createAccessContext } from "~/lib/agents/contracts";
+import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import {
   type CreateOperation,
   type UpdateOperation,
   buildFeedbackSuffix,
-  runPhase2Creator,
-  runPhase2Patcher,
 } from "~/lib/gemini.server";
-import {
-  type AiDraftJson,
-  type ChangesetOperation,
-  buildPageIndex,
-} from "~/lib/ingestion-pipeline.server";
+import { createGeminiGenerationProvider } from "~/lib/gemini/gemini-generation-provider.server";
+import type { AiDraftJson, ChangesetOperation } from "~/lib/ingestion-pipeline.server";
+import { createKnowledgeRetriever } from "~/lib/knowledge-retriever.server";
 import { tiptapToMarkdown } from "~/lib/tiptap-convert";
 
 type ResultDraft = Extract<AiDraftJson, { planRationale: string }>;
@@ -27,6 +24,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = drizzle(env.DB, { schema });
 
   const session = await db
@@ -81,6 +79,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   let updatedOp: ChangesetOperation;
 
   try {
+    const provider = createGeminiGenerationProvider(env.GEMINI_API_KEY);
     if (op.type === "create" && op.draft) {
       const createOp: CreateOperation = {
         type: "create",
@@ -90,16 +89,35 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
         pageType: op.draft.suggestedPageType,
         rationale: op.rationale,
       };
-      const pageIndex = await buildPageIndex(db, userTextWithFeedback);
-      const newDraft = await runPhase2Creator(
-        env.GEMINI_API_KEY,
-        userTextWithFeedback,
-        fileUris,
-        createOp,
+      const retrieved = await createKnowledgeRetriever(env, db).search({
+        query: userTextWithFeedback,
+        access: createAccessContext({
+          userId: user.id,
+          email: user.email,
+          isAdmin: user.isAdmin,
+          chapterIds: identity.user?.id === user.id ? identity.chapterIds : [],
+          claimsAvailable: identity.user?.id === user.id && identity.claimsAvailable,
+          source: "web",
+        }),
+      });
+      const pageIndex = retrieved.evidence.map((evidence) => ({
+        id: evidence.pageId,
+        title: evidence.title,
+        summary: [evidence.summary, ...evidence.chunks.map((chunk) => chunk.text)]
+          .filter(Boolean)
+          .join("\n")
+          .slice(0, 6_000),
+        slug: evidence.slug,
+        parentId: null,
+      }));
+      const newDraft = await provider.create({
+        userText: userTextWithFeedback,
+        files: fileUris,
+        operation: createOp,
         pageIndex,
-        [],
+        siblingOperations: [],
         currentDatetime,
-      );
+      });
       updatedOp = { ...op, draft: newDraft };
     } else if (op.type === "update" && op.patch) {
       const updateOp: UpdateOperation = {
@@ -109,14 +127,13 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
         rationale: op.rationale,
       };
       const existingMarkdown = tiptapToMarkdown(op.existingTipTapJson ?? "");
-      const newPatch = await runPhase2Patcher(
-        env.GEMINI_API_KEY,
-        userTextWithFeedback,
-        fileUris,
-        updateOp,
+      const newPatch = await provider.patch({
+        userText: userTextWithFeedback,
+        files: fileUris,
+        operation: updateOp,
         existingMarkdown,
         currentDatetime,
-      );
+      });
       updatedOp = { ...op, patch: newPatch };
     } else {
       return new Response("Cannot regenerate this operation type", { status: 400 });

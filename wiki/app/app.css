@@ -271,6 +271,13 @@
     var(--motion-duration-enter) var(--motion-ease-out);
 }
 
+/* Match tinyurl's Create link dialog: a 200ms fade + 95% zoom in both directions. */
+.share-dialog-overlay[data-state],
+.share-dialog-content[data-state] {
+  animation-duration: 200ms;
+  animation-timing-function: ease;
+}
+
 @starting-style {
   .motion-enter {
     opacity: 0;
@@ -293,6 +300,7 @@
 [data-slot="dialog-content"],
 [data-slot="alert-dialog-content"],
 [data-slot="popover-content"],
+[data-slot="select-content"],
 [data-slot="sheet-content"] {
   animation-duration: var(--motion-duration-enter);
   animation-timing-function: var(--motion-ease-out);
@@ -303,6 +311,7 @@
 [data-state="closed"][data-slot="dialog-content"],
 [data-state="closed"][data-slot="alert-dialog-content"],
 [data-state="closed"][data-slot="popover-content"],
+[data-state="closed"][data-slot="select-content"],
 [data-state="closed"][data-slot="sheet-content"] {
   animation-duration: var(--motion-duration-exit);
 }
@@ -326,6 +335,11 @@
     transition-duration: 100ms;
   }
 
+  .share-dialog-overlay[data-state],
+  .share-dialog-content[data-state] {
+    animation-duration: 180ms;
+  }
+
   .ui-pressable:active:not(:disabled) {
     transform: none;
   }
@@ -333,6 +347,7 @@
   [data-slot="dialog-content"],
   [data-slot="alert-dialog-content"],
   [data-slot="popover-content"],
+  [data-slot="select-content"],
   [data-slot="sheet-content"] {
     --tw-enter-translate-x: 0;
     --tw-enter-translate-y: 0;

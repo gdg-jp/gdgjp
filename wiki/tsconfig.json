@@ -14,6 +14,6 @@
     "paths": {
       "~/*": ["./app/*"]
     },
-    "types": ["@cloudflare/workers-types", "vite/client"]
+    "types": ["vite/client"]
   }
 }

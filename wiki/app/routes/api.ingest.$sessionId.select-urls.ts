@@ -1,22 +1,20 @@
+import { getAgentByName } from "agents";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/lib/auth-utils.server";
-import {
-  type IngestionResumePostUrlSelectionDraft,
-  buildIngestionQueueMessage,
-} from "~/lib/ingestion-jobs.server";
+import type { IngestionResumePostUrlSelectionDraft } from "~/lib/ingestion-jobs.server";
 import type { AiDraftJson } from "~/lib/ingestion-pipeline.server";
-import { sendOrRunIngestion } from "~/lib/queue-processors.server";
+import type { WikiIngestionAgent } from "../../workers/ingestion-agent";
 
 const SelectUrlsBodySchema = z.object({
   selectedUrls: z.array(z.string().url()).max(5),
 });
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
-  const { env, ctx } = context.cloudflare;
+  const { env } = context.cloudflare;
   const user = await requireUser(request, env);
   const db = drizzle(env.DB, { schema });
 
@@ -71,6 +69,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     fileUris,
     selectedUrls,
     googleDocText: googleDocText || undefined,
+    sourceArtifactKey: storedDraft.sourceArtifactKey,
   };
 
   // Transition status back to processing
@@ -85,11 +84,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     .where(eq(schema.ingestionSessions.id, session.id));
 
   try {
-    await sendOrRunIngestion(
-      env,
-      ctx,
-      buildIngestionQueueMessage(session.id, user.id, "post_url_selection"),
-    );
+    const agent = await getAgentByName<Env, WikiIngestionAgent>(env.INGESTION_AGENT, session.id);
+    await agent.resumeIngestion(session.id, user.id, "url_selection");
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await db

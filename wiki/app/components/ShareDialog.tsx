@@ -12,7 +12,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 import { Button } from "~/components/ui/button";
@@ -103,6 +103,153 @@ function isEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+const CHIP_EXIT_DURATION_MS = 180;
+
+function subjectKey(subject: ShareSubject) {
+  return `${subject.type}:${subject.key}`;
+}
+
+function useHeightTransition() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const content = contentRef.current;
+    if (!container || !content) return;
+
+    let initialized = false;
+    let animation: Animation | null = null;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    const resize = () => {
+      const targetHeight = content.getBoundingClientRect().height;
+      const currentHeight = container.getBoundingClientRect().height;
+
+      if (!initialized || reducedMotion.matches) {
+        initialized = true;
+        animation?.cancel();
+        container.style.height = `${targetHeight}px`;
+        return;
+      }
+      if (Math.abs(currentHeight - targetHeight) < 1) return;
+
+      animation?.cancel();
+      const nextAnimation = container.animate(
+        [{ height: `${currentHeight}px` }, { height: `${targetHeight}px` }],
+        {
+          duration: 240,
+          easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+          fill: "both",
+        },
+      );
+      animation = nextAnimation;
+      nextAnimation.onfinish = () => {
+        if (animation !== nextAnimation) return;
+        container.style.height = `${targetHeight}px`;
+        animation = null;
+      };
+    };
+
+    const observer = new ResizeObserver(resize);
+    observer.observe(content);
+    resize();
+
+    return () => {
+      observer.disconnect();
+      animation?.cancel();
+    };
+  }, []);
+
+  return { containerRef, contentRef };
+}
+
+function SelectedChip({
+  subject,
+  present,
+  onRemove,
+  onExited,
+  removeLabel,
+}: {
+  subject: ShareSubject;
+  present: boolean;
+  onRemove: (subject: ShareSubject) => void;
+  onExited: (subject: ShareSubject) => void;
+  removeLabel: string;
+}) {
+  const onExitedRef = useRef(onExited);
+  onExitedRef.current = onExited;
+
+  useEffect(() => {
+    if (present) return;
+    const timer = window.setTimeout(() => onExitedRef.current(subject), CHIP_EXIT_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [present, subject]);
+
+  return (
+    <MotionPresence
+      as="span"
+      present={present}
+      distance={0}
+      enterDuration={240}
+      exitDuration={CHIP_EXIT_DURATION_MS}
+      reducedDuration={180}
+      reducedOpacity={0}
+      scale={0.92}
+      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-secondary py-0.5 pl-0.5 pr-1.5 text-sm text-secondary-foreground"
+    >
+      <Avatar subject={subject} size="h-8 w-8" />
+      <span className="max-w-48 truncate">{subject.label}</span>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => onRemove(subject)}
+        className="rounded-full"
+        aria-label={removeLabel}
+      >
+        <X size={16} />
+      </Button>
+    </MotionPresence>
+  );
+}
+
+function SelectedChips({
+  selected,
+  onRemove,
+  removeLabel,
+}: {
+  selected: ShareSubject[];
+  onRemove: (subject: ShareSubject) => void;
+  removeLabel: (subject: ShareSubject) => string;
+}) {
+  const [rendered, setRendered] = useState(selected);
+  const selectedKeys = new Set(selected.map(subjectKey));
+
+  useEffect(() => {
+    setRendered((current) => {
+      const selectedByKey = new Map(selected.map((subject) => [subjectKey(subject), subject]));
+      const currentKeys = new Set(current.map(subjectKey));
+      return [
+        ...current.map((subject) => selectedByKey.get(subjectKey(subject)) ?? subject),
+        ...selected.filter((subject) => !currentKeys.has(subjectKey(subject))),
+      ];
+    });
+  }, [selected]);
+
+  return rendered.map((subject) => (
+    <SelectedChip
+      key={subjectKey(subject)}
+      subject={subject}
+      present={selectedKeys.has(subjectKey(subject))}
+      onRemove={onRemove}
+      onExited={(exited) => {
+        setRendered((items) => items.filter((item) => subjectKey(item) !== subjectKey(exited)));
+      }}
+      removeLabel={removeLabel(subject)}
+    />
+  ));
+}
+
 function Avatar({ subject, size = "h-10 w-10" }: { subject: ShareSubject; size?: string }) {
   if (subject.image) {
     return (
@@ -179,6 +326,7 @@ export default function ShareDialog({
   }>();
   const inputRef = useRef<HTMLInputElement>(null);
   const searchAreaRef = useRef<HTMLDivElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const processedMutation = useRef<unknown>(undefined);
   const listboxId = useId();
 
@@ -195,6 +343,7 @@ export default function ShareDialog({
   const [warning, setWarning] = useState<string | null>(null);
   const [localAccess, setLocalAccess] = useState<GeneralAccess>(currentVisibility as GeneralAccess);
   const [localGeneralRole, setLocalGeneralRole] = useState<PageRole>("viewer");
+  const searchInputHeight = useHeightTransition();
 
   const responseCanManage =
     accessFetcher.data?.canManageSharing ?? accessFetcher.data?.permissions?.canManageSharing;
@@ -444,12 +593,22 @@ export default function ShareDialog({
     >
       <DialogContent
         showCloseButton={false}
+        overlayClassName="share-dialog-overlay"
         aria-describedby={undefined}
+        onOpenAutoFocus={() => {
+          restoreFocusRef.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          restoreFocusRef.current?.focus();
+          restoreFocusRef.current = null;
+        }}
         onEscapeKeyDown={handleEscapeKeyDown}
         onPointerDownOutside={(event) => {
           if (isMutating) event.preventDefault();
         }}
-        className="flex max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-[37.5rem] flex-col gap-0 overflow-hidden rounded-2xl border-border bg-card p-0 text-card-foreground shadow-2xl shadow-black/20 sm:max-h-[calc(100dvh-3rem)] sm:max-w-[37.5rem]"
+        className="share-dialog-content flex max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-[37.5rem] flex-col gap-0 overflow-hidden rounded-2xl border-border bg-card p-0 text-card-foreground shadow-2xl shadow-black/20 sm:max-h-[calc(100dvh-3rem)] sm:max-w-[37.5rem]"
       >
         <header className="flex items-center gap-2 px-5 pb-3 pt-5 sm:px-6">
           {screen === "grant" && (
@@ -484,51 +643,51 @@ export default function ShareDialog({
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 sm:px-6">
           {canManage ? (
             <div ref={searchAreaRef} className="relative">
-              <div
-                className={`flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border bg-background px-2 py-1 shadow-sm transition-[border-color,box-shadow] duration-150 ${isListOpen ? "border-ring ring-2 ring-ring/20" : "border-input"}`}
-              >
-                {selected.map((subject) => (
-                  <span
-                    key={`${subject.type}:${subject.key}`}
-                    className="flex max-w-full items-center gap-1.5 rounded-full border border-border bg-secondary py-0.5 pl-0.5 pr-1.5 text-sm text-secondary-foreground"
-                  >
-                    <Avatar subject={subject} size="h-8 w-8" />
-                    <span className="max-w-48 truncate">{subject.label}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => removeSelection(subject)}
-                      className="rounded-full"
-                      aria-label={t("wiki.share_remove_subject", { name: subject.label })}
-                    >
-                      <X size={16} />
-                    </Button>
-                  </span>
-                ))}
-                <input
-                  ref={inputRef}
-                  value={query}
-                  onChange={(event) => {
-                    setQuery(event.target.value);
-                    setIsListOpen(true);
-                    setActiveIndex(0);
-                  }}
-                  onFocus={() => setIsListOpen(true)}
-                  onKeyDown={handleInputKeyDown}
-                  role="combobox"
-                  aria-autocomplete="list"
-                  aria-expanded={isListOpen}
-                  aria-controls={listboxId}
-                  aria-activedescendant={activeOptionId}
-                  placeholder={
-                    selected.length ? t("wiki.share_add_more") : t("wiki.share_search_placeholder")
-                  }
-                  className="min-w-44 flex-1 border-0 bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
-                />
+              <div ref={searchInputHeight.containerRef} className="overflow-hidden">
+                <div
+                  ref={searchInputHeight.contentRef}
+                  className={`flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border bg-background px-2 py-1 shadow-sm transition-[border-color,box-shadow] duration-150 ${isListOpen ? "border-ring ring-2 ring-ring/20" : "border-input"}`}
+                >
+                  <SelectedChips
+                    selected={selected}
+                    onRemove={removeSelection}
+                    removeLabel={(subject) =>
+                      t("wiki.share_remove_subject", { name: subject.label })
+                    }
+                  />
+                  <input
+                    ref={inputRef}
+                    value={query}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      setIsListOpen(true);
+                      setActiveIndex(0);
+                    }}
+                    onFocus={() => setIsListOpen(true)}
+                    onKeyDown={handleInputKeyDown}
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={isListOpen}
+                    aria-controls={listboxId}
+                    aria-activedescendant={activeOptionId}
+                    placeholder={
+                      selected.length
+                        ? t("wiki.share_add_more")
+                        : t("wiki.share_search_placeholder")
+                    }
+                    className="min-w-44 flex-1 border-0 bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
               </div>
               <MotionPresence
                 present={isListOpen}
-                distance={-4}
+                distance={-8}
+                enterDuration={260}
+                exitDuration={180}
+                reducedDuration={180}
+                reducedOpacity={0}
+                scale={0.92}
+                transformOrigin="top center"
                 className="absolute left-0 right-0 z-10 mt-1"
               >
                 <div
@@ -582,7 +741,7 @@ export default function ShareDialog({
             </div>
           ) : null}
 
-          <MotionSwap stateKey={screen} distance={6} className="min-h-0">
+          <MotionSwap autoHeight stateKey={screen} distance={8} className="min-h-0">
             {screen === "grant" ? (
               <section className="pt-5" aria-label={t("wiki.share_add_people")}>
                 <div className="grid gap-4 sm:grid-cols-[1fr_144px] sm:items-start">
@@ -618,19 +777,29 @@ export default function ShareDialog({
                     </SelectContent>
                   </Select>
                 </div>
-                <MotionPresence present={notify} className="mt-5" distance={-4}>
-                  <label className="block">
-                    <span className="sr-only">{t("wiki.share_message")}</span>
-                    <textarea
-                      value={message}
-                      onChange={(event) => setMessage(event.target.value)}
-                      placeholder={t("wiki.share_message")}
-                      rows={5}
-                      disabled={!notify}
-                      className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-2 focus:ring-ring/20"
-                    />
-                  </label>
-                </MotionPresence>
+                <div
+                  aria-hidden={!notify}
+                  inert={notify ? undefined : true}
+                  className={`grid transition-[grid-template-rows,opacity,transform,margin] ease-[var(--motion-ease-out)] motion-reduce:translate-y-0 motion-reduce:transition-[opacity] motion-reduce:duration-100 ${
+                    notify
+                      ? "visible mt-5 grid-rows-[1fr] translate-y-0 opacity-100 duration-[240ms]"
+                      : "invisible mt-0 grid-rows-[0fr] -translate-y-2 opacity-0 duration-[160ms]"
+                  }`}
+                >
+                  <div className="min-h-0 overflow-hidden">
+                    <label className="block">
+                      <span className="sr-only">{t("wiki.share_message")}</span>
+                      <textarea
+                        value={message}
+                        onChange={(event) => setMessage(event.target.value)}
+                        placeholder={t("wiki.share_message")}
+                        rows={5}
+                        disabled={!notify}
+                        className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-2 focus:ring-ring/20"
+                      />
+                    </label>
+                  </div>
+                </div>
                 <MotionPresence present={Boolean(error)} className="mt-3" distance={-3}>
                   <p role="alert" className="text-sm text-destructive">
                     {error}

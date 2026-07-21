@@ -20,6 +20,7 @@ import {
   step26FetchSelectedUrls,
 } from "./ingestion-pipeline/run-preprocess";
 import type { IngestionInputs } from "./ingestion-pipeline/types";
+import { persistNormalizedSource } from "./source-artifacts.server";
 
 export type {
   AiDraftJson,
@@ -82,7 +83,9 @@ export async function runIngestionPipeline(
       isPostClarification,
       isPostUrlSelection,
       clarificationAnswers,
+      sourceArtifactKey: preparedSourceArtifactKey,
     } = prepared.data;
+    let sourceArtifactKey = preparedSourceArtifactKey;
 
     if (
       isPostUrlSelection &&
@@ -98,6 +101,9 @@ export async function runIngestionPipeline(
         docTexts,
         sources,
       );
+      sourceArtifactKey =
+        (await persistNormalizedSource(env, db, sessionId, docTexts.join("\n\n---\n\n"))) ??
+        sourceArtifactKey;
     }
 
     // Build final user text (prepend clarification answers if resuming)
@@ -127,6 +133,7 @@ export async function runIngestionPipeline(
       warnings,
       skipPhase0,
       isPostClarification,
+      sourceArtifactKey,
     });
     if (draftResult.status === "needs_clarification") return;
 

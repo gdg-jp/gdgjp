@@ -21,7 +21,7 @@ async function fallbackImage(request: Request, env: Env) {
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const cache = caches.default;
+  const cache = (caches as CacheStorage & { default: Cache }).default;
   const db = getDb(env);
   const pageRecord = await db
     .select({
@@ -69,12 +69,19 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       type: "png",
       clip: { x: 0, y: 0, width: 1200, height: 630 },
     });
-    const response = new Response(screenshot, {
-      headers: {
-        "Cache-Control": CACHE_CONTROL,
-        "Content-Type": "image/png",
+    const screenshotBytes = new Uint8Array(screenshot);
+    const response = new Response(
+      screenshotBytes.buffer.slice(
+        screenshotBytes.byteOffset,
+        screenshotBytes.byteOffset + screenshotBytes.byteLength,
+      ) as ArrayBuffer,
+      {
+        headers: {
+          "Cache-Control": CACHE_CONTROL,
+          "Content-Type": "image/png",
+        },
       },
-    });
+    );
 
     context.cloudflare.ctx.waitUntil(cache.put(request, response.clone()));
     return response;

@@ -6,7 +6,8 @@ import { redirect, useActionData, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import InputPanel from "~/components/ingest/InputPanel";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
+import { createAccessContext } from "~/lib/agents/contracts";
+import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { isGoogleDriveUrl } from "~/lib/google-drive-utils";
 import { buildIngestionQueueMessage } from "~/lib/ingestion-jobs.server";
 import type { IngestionInputs } from "~/lib/ingestion-pipeline.server";
@@ -55,6 +56,7 @@ const MIN_TEXT_LENGTH = 10;
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env, ctx } = context.cloudflare;
   const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = drizzle(env.DB, { schema });
 
   const formData = await request.formData();
@@ -139,12 +141,22 @@ export async function action({ request, context }: ActionFunctionArgs) {
       googleDocUrls: inputs.googleDocUrls,
       pdfKeys: inputs.pdfKeys,
     }),
+    accessContextJson: JSON.stringify(
+      createAccessContext({
+        userId: user.id,
+        email: user.email,
+        isAdmin: user.isAdmin,
+        chapterIds: identity.user?.id === user.id ? identity.chapterIds : [],
+        claimsAvailable: identity.user?.id === user.id && identity.claimsAvailable,
+        source: "web",
+      }),
+    ),
     createdAt: new Date(),
     updatedAt: new Date(),
   });
 
   try {
-    await sendOrRunIngestion(env, ctx, buildIngestionQueueMessage(sessionId, user.id, "initial"));
+    await sendOrRunIngestion(env, ctx, buildIngestionQueueMessage(sessionId, user.id));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("ingest: failed to enqueue ingestion job", { sessionId, userId: user.id, err });

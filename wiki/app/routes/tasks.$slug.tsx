@@ -42,7 +42,7 @@ export const meta: MetaFunction<typeof loader> = ({ data, location, matches }) =
     title: data.page.titleJa || data.page.titleEn,
     description: data.page.summaryJa || data.page.summaryEn,
     visibility: data.page.visibility,
-    origin: origin ?? location.origin,
+    origin: origin ?? "",
     pathname: location.pathname,
   });
 };

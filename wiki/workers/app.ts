@@ -1,17 +1,22 @@
+import { getAgentByName } from "agents";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { createRequestHandler } from "react-router";
 import * as schema from "../app/db/schema";
 import { createAuth } from "../app/lib/auth.server";
 import { sendDueTaskReminders } from "../app/lib/discord-reminders.server";
-import { isIngestionQueueMessage } from "../app/lib/ingestion-jobs.server";
+import {
+  isIngestionQueueMessage,
+  isLegacyIngestionQueueMessage,
+} from "../app/lib/ingestion-jobs.server";
 import { getEffectivePagePermissions } from "../app/lib/page-access.server";
 import {
   isTranslationQueueBody,
-  processIngestionMessage,
   processTranslationMessage,
 } from "../app/lib/queue-processors.server";
 import { CollabDurableObject } from "./collab-durable-object";
+import { WikiIngestionAgent } from "./ingestion-agent";
+import { IngestionWorkflow } from "./ingestion-workflow";
 
 // The server build is a virtual module provided by @react-router/dev/vite at build time.
 const requestHandler = createRequestHandler(
@@ -85,7 +90,14 @@ export default {
       const body = message.body;
       try {
         if (isIngestionQueueMessage(body)) {
-          await processIngestionMessage(env, db, body);
+          const agent = await getAgentByName(env.INGESTION_AGENT, body.sessionId);
+          await agent.startIngestion(body.sessionId, body.userId);
+          message.ack();
+          continue;
+        }
+
+        if (isLegacyIngestionQueueMessage(body)) {
+          console.warn("queue: dropping legacy ingestion message", message.id, body.sessionId);
           message.ack();
           continue;
         }
@@ -100,8 +112,9 @@ export default {
         message.ack();
       } catch (err) {
         console.error("queue: failed to process message", message.id, err);
-        // Last-resort: try to mark the session as errored so the UI stops spinning
-        if (isIngestionQueueMessage(body)) {
+        // Do not poison a processable session before Queue has exhausted its
+        // delivery retries. A later duplicate is intentionally safe at the Agent.
+        if (isIngestionQueueMessage(body) && message.attempts >= 3) {
           try {
             await db
               .update(schema.ingestionSessions)
@@ -115,6 +128,8 @@ export default {
           } catch {
             // nothing we can do; log above is sufficient
           }
+          message.ack();
+          continue;
         }
         message.retry();
       }
@@ -124,3 +139,4 @@ export default {
 
 // Re-export Durable Object class so wrangler registers it
 export { CollabDurableObject };
+export { IngestionWorkflow, WikiIngestionAgent };

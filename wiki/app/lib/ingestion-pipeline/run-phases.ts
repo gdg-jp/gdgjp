@@ -3,19 +3,16 @@ import { drizzle } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
 import { sendIngestionCompleteEmail } from "../email.server";
 import { sendPushToUser } from "../fcm.server";
-import {
-  type CreateOperation,
-  type PageIndexEntry,
-  type SensitiveItem,
-  type UpdateOperation,
-  runPhase0Clarifier,
-  runPhase1Planner,
-  runPhase2Creator,
-  runPhase2Patcher,
+import type {
+  CreateOperation,
+  PageIndexEntry,
+  SensitiveItem,
+  UpdateOperation,
 } from "../gemini.server";
+import { createGeminiGenerationProvider } from "../gemini/gemini-generation-provider.server";
 import { tiptapToMarkdown } from "../tiptap-convert";
 import { updateIngestionPhase } from "./helpers";
-import { buildPageIndex } from "./page-index";
+import { buildKnowledgeContext } from "./knowledge-context";
 import type { AiDraftJson, ChangesetOperation, IngestionInputs, SourceUrl } from "./types";
 
 type Db = ReturnType<typeof drizzle>;
@@ -33,6 +30,26 @@ interface DraftPhaseParams {
   warnings: string[];
   skipPhase0: boolean;
   isPostClarification: boolean;
+  sourceArtifactKey?: string;
+}
+
+async function mapWithConcurrency<T, R>(
+  values: readonly T[],
+  concurrency: number,
+  mapper: (value: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(values.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (nextIndex < values.length) {
+      const index = nextIndex++;
+      results[index] = await mapper(values[index], index);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, () => worker()));
+  return results;
 }
 
 export async function runDraftPhases(
@@ -51,7 +68,9 @@ export async function runDraftPhases(
     warnings,
     skipPhase0,
     isPostClarification,
+    sourceArtifactKey,
   } = params;
+  const provider = createGeminiGenerationProvider(env.GEMINI_API_KEY);
 
   let pageIndex: PageIndexEntry[];
 
@@ -59,11 +78,27 @@ export async function runDraftPhases(
     await updateIngestionPhase(db, sessionId, "planning");
 
     if (skipPhase0) {
-      pageIndex = await buildPageIndex(db, effectiveUserText);
+      pageIndex = await buildKnowledgeContext({
+        env,
+        db,
+        sessionId,
+        userText: effectiveUserText,
+        files: fileUris,
+      });
     } else {
       const [pageIndexResult, clarifierResult] = await Promise.all([
-        buildPageIndex(db, effectiveUserText),
-        runPhase0Clarifier(env.GEMINI_API_KEY, effectiveUserText, fileUris, currentDatetime),
+        buildKnowledgeContext({
+          env,
+          db,
+          sessionId,
+          userText: effectiveUserText,
+          files: fileUris,
+        }),
+        provider.clarify({
+          userText: effectiveUserText,
+          files: fileUris,
+          currentDatetime,
+        }),
       ]);
 
       if (clarifierResult.needsClarification) {
@@ -72,8 +107,11 @@ export async function runDraftPhases(
           questions: clarifierResult.questions,
           summary: clarifierResult.summary,
           fileUris,
-          googleDocText: docTexts.join("\n\n---\n\n"),
+          // New sessions reconstruct normalized source text from R2 after a human wait.
+          // Keep the inline field only as a compatibility fallback for pre-migration drafts.
+          googleDocText: sourceArtifactKey ? undefined : docTexts.join("\n\n---\n\n"),
           sources: sources.length > 0 ? sources : undefined,
+          sourceArtifactKey,
         };
         await db
           .update(schema.ingestionSessions)
@@ -91,16 +129,21 @@ export async function runDraftPhases(
     }
   } else {
     await updateIngestionPhase(db, sessionId, "planning");
-    pageIndex = await buildPageIndex(db, effectiveUserText);
+    pageIndex = await buildKnowledgeContext({
+      env,
+      db,
+      sessionId,
+      userText: effectiveUserText,
+      files: fileUris,
+    });
   }
 
-  const plan = await runPhase1Planner(
-    env.GEMINI_API_KEY,
-    effectiveUserText,
-    fileUris,
+  const plan = await provider.plan({
+    userText: effectiveUserText,
+    files: fileUris,
     pageIndex,
     currentDatetime,
-  );
+  });
 
   const updateOps = plan.operations.filter((op) => op.type === "update") as UpdateOperation[];
   const existingContent: Record<string, string> = {};
@@ -131,42 +174,36 @@ export async function runDraftPhases(
       : (inputs.pdfKeys ?? []).map((k) => k.split("/").at(-1) ?? k)),
   ];
 
-  const creatorResults = await Promise.all(
-    createOps.map(async (op) => {
-      const result = await runPhase2Creator(
-        env.GEMINI_API_KEY,
-        effectiveUserText,
-        fileUris,
-        op,
-        pageIndex,
-        createOps.filter((o) => o.tempId !== op.tempId),
-        currentDatetime,
-        assetNames,
-      );
-      done++;
-      await updateIngestionPhase(db, sessionId, `generating:${done}/${total}`);
-      return result;
-    }),
-  );
+  const creatorResults = await mapWithConcurrency(createOps, 2, async (op) => {
+    const result = await provider.create({
+      userText: effectiveUserText,
+      files: fileUris,
+      operation: op,
+      pageIndex,
+      siblingOperations: createOps.filter((o) => o.tempId !== op.tempId),
+      currentDatetime,
+      imageNames: assetNames,
+    });
+    done++;
+    await updateIngestionPhase(db, sessionId, `generating:${done}/${total}`);
+    return result;
+  });
 
-  const patcherResults = await Promise.all(
-    updateOps.map(async (op) => {
-      const existing = existingContent[op.pageId] ?? "";
-      const markdown = tiptapToMarkdown(existing);
-      const result = await runPhase2Patcher(
-        env.GEMINI_API_KEY,
-        effectiveUserText,
-        fileUris,
-        op,
-        markdown,
-        currentDatetime,
-        assetNames,
-      );
-      done++;
-      await updateIngestionPhase(db, sessionId, `generating:${done}/${total}`);
-      return result;
-    }),
-  );
+  const patcherResults = await mapWithConcurrency(updateOps, 2, async (op) => {
+    const existing = existingContent[op.pageId] ?? "";
+    const markdown = tiptapToMarkdown(existing);
+    const result = await provider.patch({
+      userText: effectiveUserText,
+      files: fileUris,
+      operation: op,
+      existingMarkdown: markdown,
+      currentDatetime,
+      imageNames: assetNames,
+    });
+    done++;
+    await updateIngestionPhase(db, sessionId, `generating:${done}/${total}`);
+    return result;
+  });
 
   const operations: ChangesetOperation[] = [];
   const allSensitiveItems: SensitiveItem[] = [];
@@ -232,16 +269,21 @@ export async function persistDoneAndNotify(
 
   try {
     const reviewUrl = `/ingest/${sessionId}`;
-    const notificationId = crypto.randomUUID();
-    await db.insert(schema.notifications).values({
-      id: notificationId,
-      userId,
-      type: "ingestion_done",
-      titleJa: "下書きの確認準備完了",
-      titleEn: "Draft ready for review",
-      refId: sessionId,
-      refUrl: reviewUrl,
-    });
+    const notificationId = `ingestion:${sessionId}:done`;
+    const notificationInsert = await db
+      .insert(schema.notifications)
+      .values({
+        id: notificationId,
+        userId,
+        type: "ingestion_done",
+        titleJa: "下書きの確認準備完了",
+        titleEn: "Draft ready for review",
+        refId: sessionId,
+        refUrl: reviewUrl,
+      })
+      .onConflictDoNothing()
+      .run();
+    if (notificationInsert.meta.changes === 0) return;
 
     try {
       const userRow = await db
@@ -310,7 +352,14 @@ export async function persistPipelineError(
     ) ||
     rawMessage.includes("401") ||
     rawMessage.includes("403");
-  const errorMessage = isGoogleApiError ? rawMessage : "Ingestion failed due to an internal error.";
+  const errorCode =
+    err instanceof Error && "code" in err && typeof err.code === "string" ? err.code : undefined;
+  const errorMessage =
+    errorCode === "source_context_too_large"
+      ? "Source material exceeds the AI context limit. Split it into smaller ingestions and retry."
+      : isGoogleApiError
+        ? rawMessage
+        : "Ingestion failed due to an internal error.";
   const errorDb = drizzle(env.DB, { schema });
   try {
     await errorDb
@@ -330,15 +379,21 @@ export async function persistPipelineError(
   }
 
   try {
-    await errorDb.insert(schema.notifications).values({
-      id: crypto.randomUUID(),
-      userId,
-      type: "ingestion_error",
-      titleJa: "処理に失敗しました",
-      titleEn: "Processing failed",
-      refId: sessionId,
-      refUrl: `/ingest/${sessionId}`,
-    });
+    const notificationInsert = await errorDb
+      .insert(schema.notifications)
+      .values({
+        id: `ingestion:${sessionId}:error`,
+        userId,
+        type: "ingestion_error",
+        titleJa: "処理に失敗しました",
+        titleEn: "Processing failed",
+        refId: sessionId,
+        refUrl: `/ingest/${sessionId}`,
+      })
+      .onConflictDoNothing()
+      .run();
+
+    if (notificationInsert.meta.changes === 0) return;
 
     await sendPushToUser(
       env,

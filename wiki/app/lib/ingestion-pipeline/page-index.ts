@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
 import type { PageIndexEntry } from "~/lib/gemini.server";
@@ -7,21 +7,6 @@ export async function buildPageIndex(
   db: ReturnType<typeof drizzle>,
   userText: string,
 ): Promise<PageIndexEntry[]> {
-  const allPages = await db
-    .select({
-      id: schema.pages.id,
-      titleJa: schema.pages.titleJa,
-      summaryJa: schema.pages.summaryJa,
-      slug: schema.pages.slug,
-      parentId: schema.pages.parentId,
-    })
-    .from(schema.pages)
-    .where(eq(schema.pages.status, "published"))
-    .limit(200)
-    .all();
-
-  if (allPages.length === 0) return [];
-
   const ftsRankedIds: string[] = [];
   try {
     const sanitized = userText
@@ -36,18 +21,32 @@ export async function buildPageIndex(
         sql`SELECT page_id FROM pages_fts
             WHERE pages_fts MATCH ${orQuery}
             ORDER BY rank
-            LIMIT 200`,
+            LIMIT 12`,
       );
       for (const r of ftsResults) {
         ftsRankedIds.push(r.page_id);
       }
     }
   } catch {
-    // FTS5 query failed — proceed with unranked pages
+    // Do not fall back to all pages: passing all page titles to the model was
+    // the source of context overflows on large wikis.
   }
 
-  const ftsSet = new Set(ftsRankedIds);
-  const toEntry = (r: (typeof allPages)[number]): PageIndexEntry => ({
+  if (ftsRankedIds.length === 0) return [];
+
+  const pages = await db
+    .select({
+      id: schema.pages.id,
+      titleJa: schema.pages.titleJa,
+      summaryJa: schema.pages.summaryJa,
+      slug: schema.pages.slug,
+      parentId: schema.pages.parentId,
+    })
+    .from(schema.pages)
+    .where(and(eq(schema.pages.status, "published"), inArray(schema.pages.id, ftsRankedIds)))
+    .all();
+
+  const toEntry = (r: (typeof pages)[number]): PageIndexEntry => ({
     id: r.id,
     title: r.titleJa,
     summary: r.summaryJa,
@@ -55,15 +54,11 @@ export async function buildPageIndex(
     parentId: r.parentId,
   });
 
-  const allPagesById = new Map(allPages.map((p) => [p.id, p]));
-  const ranked = ftsRankedIds
-    .map((id) => allPagesById.get(id))
-    .filter((p): p is (typeof allPages)[number] => p != null)
+  const pagesById = new Map(pages.map((page) => [page.id, page]));
+  return ftsRankedIds
+    .map((id) => pagesById.get(id))
+    .filter((page): page is (typeof pages)[number] => page != null)
     .map(toEntry);
-
-  const unranked = allPages.filter((p) => !ftsSet.has(p.id)).map(toEntry);
-
-  return [...ranked, ...unranked];
 }
 
 export function generateSlug(title: string, englishHint?: string): string {

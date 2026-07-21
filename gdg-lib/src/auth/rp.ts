@@ -84,7 +84,13 @@ function getIssuerConfig(config: RpAuthConfig): Promise<oidc.Configuration> {
     const isLocal = issuerUrl.protocol === "http:";
     const options: oidc.DiscoveryRequestOptions = {
       timeout: OIDC_HTTP_TIMEOUT_S,
-      ...(config.idp.fetch ? { [oidc.customFetch]: config.idp.fetch } : {}),
+      ...(config.idp.fetch
+        ? {
+            [oidc.customFetch]: config.idp.fetch as NonNullable<
+              oidc.DiscoveryRequestOptions[typeof oidc.customFetch]
+            >,
+          }
+        : {}),
       ...(isLocal ? { execute: [oidc.allowInsecureRequests] } : {}),
     };
     p = oidc

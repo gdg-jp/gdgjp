@@ -7,11 +7,11 @@ import {
 
 describe("ingestion-jobs helpers", () => {
   it("builds an ingestion queue message", () => {
-    expect(buildIngestionQueueMessage("s1", "u1", "post_clarification")).toEqual({
+    expect(buildIngestionQueueMessage("s1", "u1")).toEqual({
       kind: "ingestion",
+      version: 2,
       sessionId: "s1",
       userId: "u1",
-      resumeMode: "post_clarification",
     });
   });
 
@@ -19,9 +19,9 @@ describe("ingestion-jobs helpers", () => {
     expect(
       isIngestionQueueMessage({
         kind: "ingestion",
+        version: 2,
         sessionId: "s1",
         userId: "u1",
-        resumeMode: "initial",
       }),
     ).toBe(true);
     expect(isIngestionQueueMessage({ pageId: "p1" })).toBe(false);

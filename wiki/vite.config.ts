@@ -19,6 +19,11 @@ export default defineConfig({
   resolve: {
     dedupe: ["react", "react-dom", "react-router"],
   },
+  // Durable Object and Workflow class names are part of Wrangler's deployment
+  // contract, so retain them when the Worker bundle is transformed.
+  esbuild: {
+    keepNames: true,
+  },
   build: {
     rollupOptions: {
       external: ["cloudflare:email"],

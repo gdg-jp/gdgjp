@@ -53,7 +53,7 @@ export const meta: MetaFunction<typeof loader> = ({ data, location, matches }) =
     description,
     imagePath: `/og/wiki/${encodeURIComponent(data.page.slug)}?lang=${isEnglish ? "en" : "ja"}&v=${new Date(data.page.updatedAt).getTime()}`,
     visibility: data.page.visibility,
-    origin: origin ?? location.origin,
+    origin: origin ?? "",
     pathname: isEnglish ? `${location.pathname}?lang=en` : location.pathname,
   });
 };

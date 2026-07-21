@@ -11,6 +11,7 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { pushFilePartsWithHint } from "./gemini/parts";
 import {
+  GEMINI_MODEL,
   PDF_CONVERTER_SYSTEM_PROMPT,
   PHASE0_SYSTEM_PROMPT,
   PHASE1_SYSTEM_PROMPT,
@@ -256,7 +257,7 @@ export async function runPdfConverter(
   let response: Awaited<ReturnType<typeof ai.models.generateContent>>;
   try {
     response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: GEMINI_MODEL,
       contents: [{ role: "user", parts }],
       config: { systemInstruction: PDF_CONVERTER_SYSTEM_PROMPT },
     });
@@ -282,6 +283,7 @@ export async function runPhase0Clarifier(
   userText: string,
   fileUris: { uri: string; mimeType: string }[],
   currentDatetime: string,
+  repairFeedback?: string,
 ): Promise<ClarificationResult> {
   const ai = new GoogleGenAI({ apiKey });
 
@@ -292,9 +294,11 @@ export async function runPhase0Clarifier(
   parts.push({
     text: "\n\n---\n上記の入力を分析し、高品質なWikiページを作成するために必要な情報が十分かどうか判断してください。",
   });
+  if (repairFeedback)
+    parts.push({ text: `\n前回の出力検証エラー: ${repairFeedback}\nJSONを修正してください。` });
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: GEMINI_MODEL,
     contents: [{ role: "user", parts }],
     config: {
       systemInstruction: PHASE0_SYSTEM_PROMPT,
@@ -317,6 +321,7 @@ export async function runPhase1Planner(
   fileUris: { uri: string; mimeType: string }[],
   pageIndex: PageIndexEntry[],
   currentDatetime: string,
+  repairFeedback?: string,
 ): Promise<OperationPlan> {
   const ai = new GoogleGenAI({ apiKey });
 
@@ -329,9 +334,11 @@ export async function runPhase1Planner(
   parts.push({
     text: `\n\n## 既存Wikiページ一覧（最大200件、ツリー形式）\n${formatPageIndexAsTree(pageIndex)}\n※ FTS5で関連性の高いページを上位に並べ替え済み\n※ [id:xxx] の値をsuggestedParentIdに使用できます\n\n---\n上記をもとに、OperationPlan JSONを出力してください。`,
   });
+  if (repairFeedback)
+    parts.push({ text: `\n前回の出力検証エラー: ${repairFeedback}\nJSONを修正してください。` });
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: GEMINI_MODEL,
     contents: [{ role: "user", parts }],
     config: {
       systemInstruction: PHASE1_SYSTEM_PROMPT,
@@ -358,6 +365,7 @@ export async function runPhase2Creator(
   siblingOps: CreateOperation[],
   currentDatetime: string,
   imageNames?: string[],
+  repairFeedback?: string,
 ): Promise<PageDraft> {
   const ai = new GoogleGenAI({ apiKey });
 
@@ -379,9 +387,11 @@ export async function runPhase2Creator(
   parts.push({
     text: `\n\n## 操作計画\n${JSON.stringify(op)}\n\n## 既存Wikiページ構造（親ページ候補選定用、ツリー形式）\n${formatPageIndexAsTree(pageIndex.slice(0, 50))}${siblingContext}\n\n---\n上記のユーザー入力に含まれる情報のみを使用して、PageDraft JSONを出力してください。\n入力に存在しないコンテキスト・手順・前提条件を追加しないでください。\n入力が短い場合は、出力も短くしてください。`,
   });
+  if (repairFeedback)
+    parts.push({ text: `\n前回の出力検証エラー: ${repairFeedback}\nJSONを修正してください。` });
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: GEMINI_MODEL,
     contents: [{ role: "user", parts }],
     config: {
       systemInstruction: PHASE2_SYSTEM_PROMPT,
@@ -407,6 +417,7 @@ export async function runPhase2Patcher(
   existingMarkdown: string,
   currentDatetime: string,
   imageNames?: string[],
+  repairFeedback?: string,
 ): Promise<SectionPatchResponse> {
   const ai = new GoogleGenAI({ apiKey });
 
@@ -424,9 +435,11 @@ export async function runPhase2Patcher(
   parts.push({
     text: `\n\n## 更新対象ページの現在の内容（Markdown変換済み）\n# ${op.pageTitle}\n${existingMarkdown}\n\n## 操作計画\n${JSON.stringify(op)}\n\n---\n既存ページの構造・文体・見出しレベルに従い、SectionPatch JSONを出力してください。\n既存のコンテンツは削除・置換せず、追記のみ行ってください。`,
   });
+  if (repairFeedback)
+    parts.push({ text: `\n前回の出力検証エラー: ${repairFeedback}\nJSONを修正してください。` });
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: GEMINI_MODEL,
     contents: [{ role: "user", parts }],
     config: {
       systemInstruction: PHASE2_SYSTEM_PROMPT,
@@ -449,6 +462,7 @@ export async function runTranslation(
   contentJa: string,
   titleJa: string,
   summaryJa: string,
+  repairFeedback?: string,
 ): Promise<{ contentEn: string; titleEn: string; summaryEn: string }> {
   const ai = new GoogleGenAI({ apiKey });
 
@@ -466,10 +480,10 @@ Title (Japanese): ${titleJa}
 Summary (Japanese): ${summaryJa}
 
 Content (TipTap JSON):
-${contentJa}`;
+${contentJa}${repairFeedback ? `\n\nPrevious output validation error: ${repairFeedback}\nReturn corrected JSON.` : ""}`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: GEMINI_MODEL,
     contents: prompt,
     config: {
       responseMimeType: "application/json",

@@ -1,4 +1,11 @@
-import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { cn } from "~/lib/utils";
 
@@ -30,6 +37,59 @@ type MotionOptions = {
 const MOTION_DURATION_ENTER_MS = 200;
 const MOTION_DURATION_EXIT_MS = 140;
 const MOTION_DURATION_REDUCED_MS = 100;
+
+function useAutoHeightMotion(enabled: boolean) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const content = contentRef.current;
+    if (!enabled || !container || !content) return;
+
+    let initialized = false;
+    let animation: Animation | null = null;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    const resize = () => {
+      const targetHeight = content.getBoundingClientRect().height;
+      const currentHeight = container.getBoundingClientRect().height;
+
+      if (!initialized || reducedMotion.matches) {
+        initialized = true;
+        animation?.cancel();
+        container.style.height = `${targetHeight}px`;
+        return;
+      }
+      if (Math.abs(currentHeight - targetHeight) < 1) return;
+
+      animation?.cancel();
+      animation = container.animate(
+        [{ height: `${currentHeight}px` }, { height: `${targetHeight}px` }],
+        {
+          duration: 240,
+          easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+          fill: "both",
+        },
+      );
+      animation.onfinish = () => {
+        container.style.height = `${targetHeight}px`;
+        animation = null;
+      };
+    };
+
+    const observer = new ResizeObserver(resize);
+    observer.observe(content);
+    resize();
+
+    return () => {
+      observer.disconnect();
+      animation?.cancel();
+    };
+  }, [enabled]);
+
+  return { containerRef, contentRef };
+}
 
 function motionStyle({
   axis = "y",
@@ -78,22 +138,33 @@ function MotionPresence({
   if (present) lastPresentChildren.current = children;
 
   useEffect(() => {
-    let frame = 0;
     let timer = 0;
 
     if (present) {
       setRendered(true);
-      frame = window.requestAnimationFrame(() => setVisible(true));
     } else {
       setVisible(false);
       timer = window.setTimeout(() => setRendered(false), exitDuration);
     }
 
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
-    };
+    return () => window.clearTimeout(timer);
   }, [exitDuration, present]);
+
+  useEffect(() => {
+    if (!present || !rendered) return;
+
+    // Mount and reveal must happen in separate painted frames. A single RAF can
+    // still be batched with the mount in React 19, skipping the transition.
+    let revealFrame = 0;
+    const mountFrame = window.requestAnimationFrame(() => {
+      revealFrame = window.requestAnimationFrame(() => setVisible(true));
+    });
+
+    return () => {
+      window.cancelAnimationFrame(mountFrame);
+      window.cancelAnimationFrame(revealFrame);
+    };
+  }, [present, rendered]);
 
   if (!rendered) return null;
 
@@ -124,6 +195,7 @@ function MotionPresence({
  */
 function MotionSwap({
   as: Comp = "div",
+  autoHeight = false,
   stateKey,
   children,
   className,
@@ -135,31 +207,62 @@ function MotionSwap({
   reducedOpacity = 0.9,
   scale = 1,
   transformOrigin,
-}: MotionOptions & { stateKey: string; children: ReactNode }) {
+}: MotionOptions & { autoHeight?: boolean; stateKey: string; children: ReactNode }) {
   const [displayed, setDisplayed] = useState({ key: stateKey, children });
   const [visible, setVisible] = useState(false);
   const latestChildren = useRef(children);
+  const { containerRef, contentRef } = useAutoHeightMotion(autoHeight);
   latestChildren.current = children;
 
   useEffect(() => {
-    let frame = 0;
+    let revealFrame = 0;
     let timer = 0;
 
     if (stateKey === displayed.key) {
-      frame = window.requestAnimationFrame(() => setVisible(true));
-    } else {
-      setVisible(false);
-      timer = window.setTimeout(() => {
-        setDisplayed({ key: stateKey, children: latestChildren.current });
-        frame = window.requestAnimationFrame(() => setVisible(true));
-      }, exitDuration);
+      const mountFrame = window.requestAnimationFrame(() => {
+        revealFrame = window.requestAnimationFrame(() => setVisible(true));
+      });
+      return () => {
+        window.cancelAnimationFrame(mountFrame);
+        window.cancelAnimationFrame(revealFrame);
+      };
     }
 
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
-    };
+    setVisible(false);
+    timer = window.setTimeout(() => {
+      setDisplayed({ key: stateKey, children: latestChildren.current });
+    }, exitDuration);
+
+    return () => window.clearTimeout(timer);
   }, [displayed.key, exitDuration, stateKey]);
+
+  const displayedChildren = displayed.key === stateKey && visible ? children : displayed.children;
+  const style = motionStyle({
+    axis,
+    distance,
+    enterDuration,
+    exitDuration,
+    reducedDuration,
+    reducedOpacity,
+    scale,
+    transformOrigin,
+  });
+
+  if (autoHeight) {
+    return (
+      <div
+        ref={containerRef}
+        data-motion-auto-height
+        data-motion-state={visible ? "open" : "closed"}
+        aria-hidden={visible ? undefined : true}
+        inert={visible ? undefined : true}
+        className={cn("motion-presence overflow-hidden", className)}
+        style={style}
+      >
+        <div ref={contentRef}>{displayedChildren}</div>
+      </div>
+    );
+  }
 
   return (
     <Comp
@@ -167,18 +270,9 @@ function MotionSwap({
       aria-hidden={visible ? undefined : true}
       inert={visible ? undefined : true}
       className={cn("motion-presence", className)}
-      style={motionStyle({
-        axis,
-        distance,
-        enterDuration,
-        exitDuration,
-        reducedDuration,
-        reducedOpacity,
-        scale,
-        transformOrigin,
-      })}
+      style={style}
     >
-      {displayed.key === stateKey && visible ? children : displayed.children}
+      {displayedChildren}
     </Comp>
   );
 }

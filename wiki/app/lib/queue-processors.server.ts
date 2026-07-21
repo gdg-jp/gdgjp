@@ -1,12 +1,16 @@
+import { getAgentByName } from "agents";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
+import type { WikiIngestionAgent } from "../../workers/ingestion-agent";
 import { indexPageEmbeddings } from "./embedding-pipeline.server";
-import { runTranslation } from "./gemini.server";
-import type { IngestionQueueMessage } from "./ingestion-jobs.server";
+import { createGeminiGenerationProvider } from "./gemini/gemini-generation-provider.server";
+import type { IngestionExecutionRequest } from "./ingestion-jobs.server";
 import { parseSessionInputsJson } from "./ingestion-jobs.server";
 import type { AiDraftJson, IngestionInputs, SourceUrl } from "./ingestion-pipeline.server";
 import { runIngestionPipeline } from "./ingestion-pipeline.server";
+import type { IngestionResumeContext } from "./ingestion-pipeline/run-preprocess";
+import { loadNormalizedSource } from "./source-artifacts.server";
 
 type Db = ReturnType<typeof drizzle>;
 
@@ -22,7 +26,7 @@ export function isTranslationQueueBody(body: unknown): body is { pageId: string 
 export async function processIngestionMessage(
   env: Env,
   db: Db,
-  body: IngestionQueueMessage,
+  body: IngestionExecutionRequest,
 ): Promise<void> {
   console.log("[ingestion-jobs] processIngestionMessage called", {
     sessionId: body.sessionId,
@@ -82,15 +86,7 @@ export async function processIngestionMessage(
     return;
   }
 
-  let resumeContext:
-    | {
-        fileUris: { uri: string; mimeType: string }[];
-        clarificationAnswers: string;
-        googleDocText?: string;
-        selectedUrls?: string[];
-        priorSources?: SourceUrl[];
-      }
-    | undefined;
+  let resumeContext: IngestionResumeContext | undefined;
 
   if (body.resumeMode === "post_clarification") {
     console.log(
@@ -125,7 +121,10 @@ export async function processIngestionMessage(
       clarificationAnswers: draft.clarificationAnswers,
       googleDocText: draft.googleDocText,
       priorSources: draft.sources,
+      sourceArtifactKey: draft.sourceArtifactKey,
     };
+    resumeContext.googleDocText =
+      (await loadNormalizedSource(env, draft.sourceArtifactKey)) ?? resumeContext.googleDocText;
   } else if (body.resumeMode === "post_url_selection") {
     console.log(
       "[ingestion-jobs] resume mode: post_url_selection, aiDraftJson length:",
@@ -159,7 +158,10 @@ export async function processIngestionMessage(
       clarificationAnswers: "",
       googleDocText: draft.googleDocText,
       selectedUrls: draft.selectedUrls,
+      sourceArtifactKey: draft.sourceArtifactKey,
     };
+    resumeContext.googleDocText =
+      (await loadNormalizedSource(env, draft.sourceArtifactKey)) ?? resumeContext.googleDocText;
   } else {
     console.log("[ingestion-jobs] fresh run (no resumeMode)");
   }
@@ -222,12 +224,9 @@ export async function processTranslationMessage(
     return;
   }
 
-  const { contentEn, titleEn, summaryEn } = await runTranslation(
+  const { contentEn, titleEn, summaryEn } = await createGeminiGenerationProvider(
     env.GEMINI_API_KEY,
-    page.contentJa,
-    page.titleJa,
-    page.summaryJa,
-  );
+  ).translate({ contentJa: page.contentJa, titleJa: page.titleJa, summaryJa: page.summaryJa });
 
   await db
     .update(schema.pages)
@@ -261,23 +260,26 @@ export async function processTranslationMessage(
 export async function sendOrRunIngestion(
   env: Env,
   ctx: ExecutionContext,
-  message: IngestionQueueMessage,
+  message: import("./ingestion-jobs.server").IngestionQueueMessage,
 ): Promise<void> {
   if (env.INGESTION_QUEUE && (env.ENVIRONMENT as string) !== "development") {
     console.log("[ingestion-jobs] sending to INGESTION_QUEUE", {
       sessionId: message.sessionId,
-      resumeMode: message.resumeMode,
+      version: message.version,
     });
     await env.INGESTION_QUEUE.send(message);
     console.log("[ingestion-jobs] INGESTION_QUEUE.send() succeeded");
   } else {
-    console.warn("[ingestion-jobs] running inline (local dev or queue unavailable)", {
+    console.warn("[ingestion-jobs] starting agent directly (local dev or queue unavailable)", {
       sessionId: message.sessionId,
       environment: env.ENVIRONMENT,
     });
-    const db = drizzle(env.DB, { schema });
-    ctx.waitUntil(processIngestionMessage(env, db, message));
-    console.log("[ingestion-jobs] ctx.waitUntil scheduled");
+    const agent = await getAgentByName<Env, WikiIngestionAgent>(
+      env.INGESTION_AGENT,
+      message.sessionId,
+    );
+    ctx.waitUntil(agent.startIngestion(message.sessionId, message.userId));
+    console.log("[ingestion-jobs] agent start scheduled with ctx.waitUntil");
   }
 }
 

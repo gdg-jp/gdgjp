@@ -4,6 +4,7 @@ import { Link, useLoaderData, useNavigate, useNavigation } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import TagChip from "~/components/TagChip";
 import * as schema from "~/db/schema";
+import { createAccessContext } from "~/lib/agents/contracts";
 import { getAccessIdentity } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
@@ -64,7 +65,19 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   if (mode === "ai" && q) {
     let ragResult: RagSearchResult | null = null;
     try {
-      ragResult = await performRagSearch(env, db, q, visFilter);
+      ragResult = await performRagSearch(
+        env,
+        db,
+        q,
+        createAccessContext({
+          userId: identity.user?.id ?? "anonymous",
+          email: identity.user?.email,
+          isAdmin: identity.user?.isAdmin,
+          chapterIds: identity.chapterIds,
+          claimsAvailable: identity.claimsAvailable,
+          source: "web",
+        }),
+      );
     } catch (err) {
       console.error("search: RAG search failed", err);
       ragResult = { answer: "", sources: [], ragAvailable: false };

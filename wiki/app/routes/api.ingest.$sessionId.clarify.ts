@@ -1,15 +1,13 @@
+import { getAgentByName } from "agents";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/lib/auth-utils.server";
-import {
-  type IngestionResumePostClarificationDraft,
-  buildIngestionQueueMessage,
-} from "~/lib/ingestion-jobs.server";
+import type { IngestionResumePostClarificationDraft } from "~/lib/ingestion-jobs.server";
 import type { AiDraftJson } from "~/lib/ingestion-pipeline.server";
-import { sendOrRunIngestion } from "~/lib/queue-processors.server";
+import type { WikiIngestionAgent } from "../../workers/ingestion-agent";
 
 const ClarifyBodySchema = z.object({
   answers: z.array(
@@ -22,7 +20,7 @@ const ClarifyBodySchema = z.object({
 });
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
-  const { env, ctx } = context.cloudflare;
+  const { env } = context.cloudflare;
   const user = await requireUser(request, env);
   const db = drizzle(env.DB, { schema });
 
@@ -70,6 +68,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     fileUris,
     clarificationAnswers,
     googleDocText: googleDocText || undefined,
+    sourceArtifactKey: storedDraft.sourceArtifactKey,
     sources: storedDraft.sources,
   };
 
@@ -85,11 +84,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     .where(eq(schema.ingestionSessions.id, session.id));
 
   try {
-    await sendOrRunIngestion(
-      env,
-      ctx,
-      buildIngestionQueueMessage(session.id, user.id, "post_clarification"),
-    );
+    const agent = await getAgentByName<Env, WikiIngestionAgent>(env.INGESTION_AGENT, session.id);
+    await agent.resumeIngestion(session.id, user.id, "clarification");
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await db

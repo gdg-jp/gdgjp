@@ -12,6 +12,7 @@ import {
   refreshAccessToken,
 } from "../google-drive.server";
 import { extractFormId, fetchFormData } from "../google-forms.server";
+import { persistNormalizedSource } from "../source-artifacts.server";
 import { computeSurveyStats, formatSurveyStatsAsText } from "../survey-stats.server";
 import { type ExtractedUrl, extractUrls, fetchUrlAsPdf, fetchUrlViaJina } from "../url-extract";
 import { updateIngestionPhase } from "./helpers";
@@ -28,6 +29,7 @@ export interface IngestionResumeContext {
   googleDocText?: string;
   selectedUrls?: string[];
   priorSources?: SourceUrl[];
+  sourceArtifactKey?: string;
 }
 
 export interface PreparedPipelineData {
@@ -40,6 +42,7 @@ export interface PreparedPipelineData {
   isPostClarification: boolean;
   isPostUrlSelection: boolean;
   clarificationAnswers?: string;
+  sourceArtifactKey?: string;
 }
 
 export async function preparePipelineInputs(
@@ -58,6 +61,7 @@ export async function preparePipelineInputs(
   const docTexts: string[] = [];
   const sources: SourceUrl[] = resumeContext?.priorSources ? [...resumeContext.priorSources] : [];
   let skipPhase0 = false;
+  let sourceArtifactKey = resumeContext?.sourceArtifactKey;
 
   const isPostClarification = !!resumeContext?.clarificationAnswers;
   const isPostUrlSelection = !!resumeContext?.selectedUrls && !isPostClarification;
@@ -144,12 +148,18 @@ export async function preparePipelineInputs(
     skipPhase0 = await step24ProcessGoogleForm(env, db, userId, inputs, docTexts, sources);
 
     const urlsToShow = collectExtractedUrls(baseUserText, docTexts);
+    sourceArtifactKey = await persistNormalizedSource(
+      env,
+      db,
+      sessionId,
+      docTexts.join("\n\n---\n\n"),
+    );
     if (urlsToShow.length > 0) {
       const aiDraftJson: AiDraftJson = {
         phase: "url_selection",
         urls: urlsToShow,
         fileUris,
-        googleDocText: docTexts.join("\n\n---\n\n"),
+        sourceArtifactKey,
       };
       await db
         .update(schema.ingestionSessions)
@@ -176,6 +186,7 @@ export async function preparePipelineInputs(
       isPostClarification,
       isPostUrlSelection,
       clarificationAnswers: resumeContext?.clarificationAnswers,
+      sourceArtifactKey,
     },
   };
 }

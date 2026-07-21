@@ -6,7 +6,8 @@ import { useTranslation } from "react-i18next";
 import { redirect, useActionData, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
+import { createAccessContext } from "~/lib/agents/contracts";
+import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { isGoogleFormUrl } from "~/lib/google-forms-utils";
 import { buildIngestionQueueMessage } from "~/lib/ingestion-jobs.server";
 import type { IngestionInputs } from "~/lib/ingestion-pipeline.server";
@@ -39,6 +40,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env, ctx } = context.cloudflare;
   const user = await requireUser(request, env);
+  const identity = await getAccessIdentity(request, env);
   const db = drizzle(env.DB, { schema });
 
   const formData = await request.formData();
@@ -72,12 +74,22 @@ export async function action({ request, context }: ActionFunctionArgs) {
       googleFormUrl,
       eventTitle,
     }),
+    accessContextJson: JSON.stringify(
+      createAccessContext({
+        userId: user.id,
+        email: user.email,
+        isAdmin: user.isAdmin,
+        chapterIds: identity.user?.id === user.id ? identity.chapterIds : [],
+        claimsAvailable: identity.user?.id === user.id && identity.claimsAvailable,
+        source: "web",
+      }),
+    ),
     createdAt: new Date(),
     updatedAt: new Date(),
   });
 
   try {
-    await sendOrRunIngestion(env, ctx, buildIngestionQueueMessage(sessionId, user.id, "initial"));
+    await sendOrRunIngestion(env, ctx, buildIngestionQueueMessage(sessionId, user.id));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("analyze: failed to enqueue ingestion job", { sessionId, userId: user.id, err });

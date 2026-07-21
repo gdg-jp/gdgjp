@@ -95,12 +95,22 @@ index_name = "gdgjp-wiki-pages"
 # ---------------------------------------------------------------------------
 [durable_objects]
 bindings = [
-  { name = "COLLAB_DO", class_name = "CollabDurableObject" }
+  { name = "COLLAB_DO", class_name = "CollabDurableObject" },
+  { name = "INGESTION_AGENT", class_name = "WikiIngestionAgent" }
 ]
 
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["CollabDurableObject"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["WikiIngestionAgent"]
+
+[[workflows]]
+name = "gdgjp-wiki-ingestion"
+binding = "INGESTION_WORKFLOW"
+class_name = "IngestionWorkflow"
 
 # ---------------------------------------------------------------------------
 # Cron Triggers

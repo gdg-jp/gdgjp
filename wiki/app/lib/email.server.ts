@@ -36,12 +36,14 @@ async function sendViaResend(
   subject: string,
   html: string,
   text: string,
+  idempotencyKey?: string,
 ): Promise<void> {
   const res = await fetch(RESEND_API_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
     body: JSON.stringify({ from: FROM_ADDRESS, to, subject, html, text }),
   });
@@ -113,7 +115,14 @@ export async function sendIngestionCompleteEmail(
     return;
   }
 
-  await sendViaResend(env.RESEND_API_KEY, safeToHeader, subject, htmlBody, textBody);
+  await sendViaResend(
+    env.RESEND_API_KEY,
+    safeToHeader,
+    subject,
+    htmlBody,
+    textBody,
+    `ingestion-complete/${sessionId}`,
+  );
 }
 
 // ---------------------------------------------------------------------------

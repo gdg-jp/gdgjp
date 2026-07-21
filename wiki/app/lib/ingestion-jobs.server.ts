@@ -8,6 +8,13 @@ export type IngestionResumeMode = "initial" | "post_clarification" | "post_url_s
 
 export interface IngestionQueueMessage {
   kind: "ingestion";
+  version: 2;
+  sessionId: string;
+  userId: string;
+}
+
+/** Internal execution request used by the durable workflow for each resumable phase. */
+export interface IngestionExecutionRequest {
   sessionId: string;
   userId: string;
   resumeMode: IngestionResumeMode;
@@ -29,9 +36,8 @@ function isStringArray(value: unknown): value is string[] {
 export function buildIngestionQueueMessage(
   sessionId: string,
   userId: string,
-  resumeMode: IngestionResumeMode,
 ): IngestionQueueMessage {
-  return { kind: "ingestion", sessionId, userId, resumeMode };
+  return { kind: "ingestion", version: 2, sessionId, userId };
 }
 
 export function isIngestionQueueMessage(body: unknown): body is IngestionQueueMessage {
@@ -39,11 +45,22 @@ export function isIngestionQueueMessage(body: unknown): body is IngestionQueueMe
   const data = body as Record<string, unknown>;
   return (
     data.kind === "ingestion" &&
+    data.version === 2 &&
     typeof data.sessionId === "string" &&
-    typeof data.userId === "string" &&
-    (data.resumeMode === "initial" ||
-      data.resumeMode === "post_clarification" ||
-      data.resumeMode === "post_url_selection")
+    typeof data.userId === "string"
+  );
+}
+
+export function isLegacyIngestionQueueMessage(
+  body: unknown,
+): body is { kind: "ingestion"; sessionId: string; userId: string } {
+  if (typeof body !== "object" || body === null) return false;
+  const data = body as Record<string, unknown>;
+  return (
+    data.kind === "ingestion" &&
+    data.version !== 2 &&
+    typeof data.sessionId === "string" &&
+    typeof data.userId === "string"
   );
 }
 

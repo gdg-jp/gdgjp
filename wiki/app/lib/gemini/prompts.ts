@@ -1,3 +1,20 @@
+export const GEMINI_MODEL = "gemini-3-flash-preview";
+
+/** Recorded with generation manifests so a result can be reproduced or audited later. */
+export const PROMPT_VERSIONS = {
+  clarification: "2026-07-21.phase0.v1",
+  creator: "2026-07-21.phase2-creator.v1",
+  patcher: "2026-07-21.phase2-patcher.v1",
+  pdfConverter: "2026-07-21.pdf-converter.v1",
+  planner: "2026-07-21.phase1.v1",
+  searchAnswer: "2026-07-21.search-answer.v1",
+  translation: "2026-07-21.translation.v1",
+} as const;
+
+export const SEARCH_ANSWER_SYSTEM_PROMPT = `You are a helpful assistant for the GDG Japan Wiki.
+Answer only from the supplied, access-controlled evidence. Cite page titles when using information.
+If the evidence is insufficient, say so clearly. Respond in the same language as the question using Markdown.`;
+
 export const PHASE0_SYSTEM_PROMPT = `あなたはGDG Japan WikiのAI取り込みクラリファイアーです。
 ユーザーの入力を読んで、高品質なWikiページを作成するために必要な重要な情報が不足しているかどうかを判断します。
 

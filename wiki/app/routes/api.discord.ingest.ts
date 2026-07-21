@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
+import { createAccessContext } from "~/lib/agents/contracts";
 import { buildIngestionQueueMessage } from "~/lib/ingestion-jobs.server";
 import { sendOrRunIngestion } from "~/lib/queue-processors.server";
 
@@ -42,7 +43,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   // Lookup wiki user by Discord ID (linked via user_preferences)
   const wikiUser = await db
-    .select({ id: schema.user.id })
+    .select({ id: schema.user.id, email: schema.user.email, isAdmin: schema.user.isAdmin })
     .from(schema.user)
     .innerJoin(schema.userPreferences, eq(schema.userPreferences.userId, schema.user.id))
     .where(eq(schema.userPreferences.discordId, discordUserId))
@@ -59,16 +60,22 @@ export async function action({ request, context }: ActionFunctionArgs) {
     userId: wikiUser.id,
     status: "processing",
     inputsJson: JSON.stringify({ texts: [text], imageKeys: [], googleDocUrls: [] }),
+    accessContextJson: JSON.stringify(
+      createAccessContext({
+        userId: wikiUser.id,
+        email: wikiUser.email,
+        isAdmin: wikiUser.isAdmin,
+        chapterIds: [],
+        claimsAvailable: false,
+        source: "discord",
+      }),
+    ),
     createdAt: new Date(),
     updatedAt: new Date(),
   });
 
   try {
-    await sendOrRunIngestion(
-      env,
-      ctx,
-      buildIngestionQueueMessage(sessionId, wikiUser.id, "initial"),
-    );
+    await sendOrRunIngestion(env, ctx, buildIngestionQueueMessage(sessionId, wikiUser.id));
   } catch (err) {
     console.error("discord/ingest: failed to enqueue ingestion job", { sessionId, err });
     await db

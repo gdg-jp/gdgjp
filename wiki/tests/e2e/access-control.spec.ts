@@ -1,6 +1,13 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { type Browser, type BrowserContext, type Page, expect, test } from "@playwright/test";
+import {
+  type Browser,
+  type BrowserContext,
+  type Locator,
+  type Page,
+  expect,
+  test,
+} from "@playwright/test";
 import { TEST_PAGE } from "./global-setup";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:5177";
@@ -56,6 +63,12 @@ async function setGeneralAccess(page: Page, value: "restricted" | "unlisted" | "
   expect((await response).ok()).toBeTruthy();
 }
 
+async function hasRunningAnimation(locator: Locator) {
+  return locator.evaluate((element) =>
+    element.getAnimations().some((animation) => animation.playState === "running"),
+  );
+}
+
 test("Google Docs-style overview, copy, Escape and focus restoration", async ({ browser }) => {
   const { ctx, page } = await makePage(browser, "author.json");
   await page.goto(PAGE_URL);
@@ -105,6 +118,72 @@ test("share suggestions and actions use the active color theme", async ({ browse
     (element) => getComputedStyle(element).color,
   );
   expect(darkForeground).not.toBe(lightForeground);
+  await ctx.close();
+});
+
+test("share dialog motion remains observable throughout its interaction flow", async ({
+  browser,
+}) => {
+  const { ctx, page } = await makePage(browser, "author.json");
+  await page.goto(PAGE_URL);
+  const shareButton = page.getByRole("button", { name: /share/i }).first();
+  await expect(shareButton).toBeVisible();
+  await shareButton.click({ force: true });
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await page.waitForTimeout(40);
+  expect(await hasRunningAnimation(dialog)).toBe(true);
+
+  const combobox = page.getByRole("combobox", { name: "Add user" });
+  await combobox.fill("E2E Member");
+  const listbox = page.getByRole("listbox");
+  await expect(listbox).toBeVisible();
+  const suggestionMotion = page
+    .locator("[data-motion-state]")
+    .filter({ has: page.locator('[role="listbox"]') });
+  await page.waitForTimeout(50);
+  expect(await hasRunningAnimation(suggestionMotion)).toBe(true);
+
+  await combobox.press("Escape");
+  await page.waitForTimeout(30);
+  expect(await hasRunningAnimation(suggestionMotion)).toBe(true);
+  await expect(listbox).toBeHidden();
+  await combobox.press("ArrowDown");
+  await expect(listbox).toBeVisible();
+
+  await page.getByRole("option", { name: /E2E Member/ }).click();
+  const removeChip = page.getByRole("button", { name: /Remove E2E Member/ });
+  await expect(removeChip).toBeVisible();
+  const chipMotion = page
+    .locator("[data-motion-state]")
+    .filter({ has: page.locator('button[aria-label*="Remove E2E Member"]') });
+  await page.waitForTimeout(50);
+  expect(await hasRunningAnimation(chipMotion)).toBe(true);
+
+  const autoHeight = page.locator("[data-motion-auto-height]");
+  await page.waitForTimeout(120);
+  expect(await hasRunningAnimation(autoHeight)).toBe(true);
+
+  const notifyCheckbox = page.getByRole("checkbox", { name: "Notify people" });
+  await notifyCheckbox.uncheck();
+  await page.waitForTimeout(50);
+  expect(await hasRunningAnimation(autoHeight)).toBe(true);
+  await notifyCheckbox.check();
+  await page.waitForTimeout(50);
+  expect(await hasRunningAnimation(autoHeight)).toBe(true);
+
+  await removeChip.click();
+  await page.waitForTimeout(30);
+  expect(await hasRunningAnimation(chipMotion)).toBe(true);
+  await expect(removeChip).toBeHidden();
+
+  const closeButton = dialog.getByRole("button", { name: "Close", exact: true });
+  await closeButton.click();
+  await page.waitForTimeout(30);
+  expect(await hasRunningAnimation(dialog)).toBe(true);
+  await expect(dialog).toBeHidden();
+
   await ctx.close();
 });
 

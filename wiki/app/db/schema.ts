@@ -64,6 +64,11 @@ export const ingestionSessions = sqliteTable("ingestion_sessions", {
   aiDraftJson: text("ai_draft_json"),
   errorMessage: text("error_message"),
   phaseMessage: text("phase_message"),
+  // Durable Workflow identity plus the access and retrieval audit records.
+  // These are JSON strings because D1 has no native JSON column type.
+  workflowId: text("workflow_id"),
+  accessContextJson: text("access_context_json"),
+  contextManifestJson: text("context_manifest_json"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 });
