@@ -1,4 +1,10 @@
 import type { ExtractedUrl, IngestionInputs, SourceUrl } from "../../../../shared/ingestion/domain";
+import {
+  toolCompletedEvent,
+  toolFailedEvent,
+  toolStartedEvent,
+} from "../../../../shared/ingestion/realtime-events";
+import type { ToolArgumentsByName, ToolName } from "../../../../shared/ingestion/realtime-events";
 import type { ExecutionEventSink } from "../orchestration/ports/tool-event-sink";
 import { googleDocsPathSegment } from "./google-docs/workspace";
 import { websiteWorkspacePath } from "./websites/path";
@@ -74,32 +80,27 @@ async function emitSafely(
   }
 }
 
-async function callSourceTool<T>(
+type SourceToolName = Extract<ToolName, "google_drive" | "google_forms" | "web_fetch">;
+
+async function callSourceTool<Name extends SourceToolName, T>(
   deps: SourcePreprocessorDependencies,
-  tool: "google_drive" | "google_forms" | "web_fetch",
+  tool: Name,
   summary: string,
+  args: ToolArgumentsByName[Name],
   execute: () => Promise<T>,
 ): Promise<T> {
   const toolCallId = crypto.randomUUID();
   const startedAt = Date.now();
-  await emitSafely(deps.eventSink, { type: "tool_started", toolCallId, tool, summary });
+  await emitSafely(deps.eventSink, toolStartedEvent(tool, toolCallId, args, summary));
   try {
     const result = await execute();
-    await emitSafely(deps.eventSink, {
-      type: "tool_completed",
-      toolCallId,
-      tool,
-      durationMs: Date.now() - startedAt,
-      truncated: false,
-    });
+    await emitSafely(
+      deps.eventSink,
+      toolCompletedEvent(tool, toolCallId, args, Date.now() - startedAt, false),
+    );
     return result;
   } catch (error) {
-    await emitSafely(deps.eventSink, {
-      type: "tool_failed",
-      toolCallId,
-      tool,
-      errorCode: "source_tool_failed",
-    });
+    await emitSafely(deps.eventSink, toolFailedEvent(tool, toolCallId, args, "source_tool_failed"));
     throw error;
   }
 }
@@ -176,8 +177,12 @@ export async function prepareSources(
       });
     }
     for (const url of inputs.googleDocUrls) {
-      const document = await callSourceTool(deps, "google_drive", "Reading a Google document", () =>
-        deps.exportGoogleDocument(url),
+      const document = await callSourceTool(
+        deps,
+        "google_drive",
+        "Reading a Google document",
+        { url },
+        () => deps.exportGoogleDocument(url),
       );
       sources.push({ url, title: document.title });
       const root = document.nodes.find((node) => node.parentPath === null)?.path ?? document.title;
@@ -194,8 +199,13 @@ export async function prepareSources(
       );
     }
     if (inputs.googleFormUrl) {
-      const form = await callSourceTool(deps, "google_forms", "Reading a Google Form", () =>
-        deps.exportGoogleForm(inputs.googleFormUrl as string, inputs.eventTitle),
+      const url = inputs.googleFormUrl;
+      const args: ToolArgumentsByName["google_forms"] = {
+        url,
+        ...(inputs.eventTitle === undefined ? {} : { eventTitle: inputs.eventTitle }),
+      };
+      const form = await callSourceTool(deps, "google_forms", "Reading a Google Form", args, () =>
+        deps.exportGoogleForm(url, inputs.eventTitle),
       );
       const name = googleDocsPathSegment(form.title, "Google Form");
       workspaceNodes.push({
@@ -213,8 +223,12 @@ export async function prepareSources(
 
   if (resume?.selectedUrls) {
     for (const url of resume.selectedUrls.slice(0, 5)) {
-      const result = await callSourceTool(deps, "web_fetch", "Fetching a selected web page", () =>
-        deps.fetchWebPage(url),
+      const result = await callSourceTool(
+        deps,
+        "web_fetch",
+        "Fetching a selected web page",
+        { url },
+        () => deps.fetchWebPage(url),
       );
       if (result.error !== undefined) {
         warnings.push(`${url}: ${result.error}`);

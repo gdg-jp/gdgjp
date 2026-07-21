@@ -1,6 +1,14 @@
 import { tool } from "ai";
 import { z } from "zod";
-import type { ToolName } from "../../../../../shared/ingestion/realtime-events";
+import {
+  toolCompletedEvent,
+  toolFailedEvent,
+  toolStartedEvent,
+} from "../../../../../shared/ingestion/realtime-events";
+import type {
+  ToolArgumentsByName,
+  ToolName,
+} from "../../../../../shared/ingestion/realtime-events";
 import type { ExecutionEventSink } from "../../orchestration/ports/tool-event-sink";
 import type { MountedWorkspace } from "./workspace";
 
@@ -22,36 +30,31 @@ export function createWorkspaceToolCatalog(
 ) {
   const cache = new Map<string, Promise<{ data: unknown; truncated: boolean }>>();
 
-  async function execute<T>(
-    name: Extract<ToolName, "ls" | "cat" | "search">,
+  async function execute<Name extends Extract<ToolName, "ls" | "cat" | "search">, T>(
+    name: Name,
     summary: string,
-    input: unknown,
+    input: ToolArgumentsByName[Name],
     operation: () => Promise<{ data: T; truncated: boolean }>,
   ): Promise<T> {
     const toolCallId = crypto.randomUUID();
     const startedAt = Date.now();
-    await emitSafely(eventSink, { type: "tool_started", toolCallId, tool: name, summary });
+    await emitSafely(eventSink, toolStartedEvent(name, toolCallId, input, summary));
     const cacheKey = `${name}:${JSON.stringify(input)}`;
     try {
       const pending = cache.get(cacheKey) ?? operation();
       cache.set(cacheKey, pending as Promise<{ data: unknown; truncated: boolean }>);
       const result = (await pending) as { data: T; truncated: boolean };
-      await emitSafely(eventSink, {
-        type: "tool_completed",
-        toolCallId,
-        tool: name,
-        durationMs: Date.now() - startedAt,
-        truncated: result.truncated,
-      });
+      await emitSafely(
+        eventSink,
+        toolCompletedEvent(name, toolCallId, input, Date.now() - startedAt, result.truncated),
+      );
       return result.data;
     } catch (error) {
       cache.delete(cacheKey);
-      await emitSafely(eventSink, {
-        type: "tool_failed",
-        toolCallId,
-        tool: name,
-        errorCode: "workspace_tool_failed",
-      });
+      await emitSafely(
+        eventSink,
+        toolFailedEvent(name, toolCallId, input, "workspace_tool_failed"),
+      );
       throw error;
     }
   }

@@ -10,6 +10,11 @@ import SensitiveReviewModal from "~/components/ingest/SensitiveReviewModal";
 import type { ResolvedItem } from "~/components/ingest/SensitiveReviewModal";
 import { MotionSwap } from "~/components/ui/motion";
 import * as schema from "~/db/schema";
+import {
+  type ToolActivityItem,
+  buildLiveActivity,
+  formatToolArguments,
+} from "~/features/ingestion/live-activity";
 import { useIngestionAgent } from "~/features/ingestion/use-ingestion-agent";
 import { requireUser } from "~/lib/auth-utils.server";
 import type { ExtractedUrl } from "~/lib/url-extract";
@@ -160,6 +165,7 @@ function ProcessingScreen({
     t("ingest.phase_step_3"),
     t("ingest.phase_step_4"),
   ];
+  const activity = buildLiveActivity(events);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gray-50">
@@ -210,21 +216,25 @@ function ProcessingScreen({
           );
         })}
       </div>
-      {events.length > 0 && (
-        <div className="w-72" aria-live="polite" aria-label="Live generation activity">
+      {activity.length > 0 && (
+        <div
+          className="w-full max-w-xl px-4"
+          aria-live="polite"
+          aria-label="Live generation activity"
+        >
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
             Live activity
           </p>
-          <ul className="space-y-1">
-            {events.slice(-5).map((event, index) => (
-              <li
-                key={eventListKey(event, index)}
-                className="truncate text-xs text-gray-500"
-                title={eventDescription(event)}
-              >
-                {eventDescription(event)}
-              </li>
-            ))}
+          <ul className="space-y-2">
+            {activity.map((item) =>
+              item.kind === "tool" ? (
+                <ToolActivityCard key={item.key} activity={item} />
+              ) : (
+                <li key={item.key} className="text-xs text-gray-500">
+                  {eventDescription(item.event)}
+                </li>
+              ),
+            )}
           </ul>
         </div>
       )}
@@ -234,9 +244,41 @@ function ProcessingScreen({
   );
 }
 
-function eventListKey(event: IngestionRealtimeEvent, index: number): string {
-  if ("toolCallId" in event) return `${event.type}:${event.toolCallId}`;
-  return `${event.type}:${index}`;
+function ToolActivityCard({ activity }: { activity: ToolActivityItem }) {
+  const statusLabel =
+    activity.status === "running"
+      ? "Running"
+      : activity.status === "completed"
+        ? "Completed"
+        : "Failed";
+  const statusClass =
+    activity.status === "running"
+      ? "bg-blue-50 text-blue-700"
+      : activity.status === "completed"
+        ? "bg-green-50 text-green-700"
+        : "bg-red-50 text-red-700";
+
+  return (
+    <li className="rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <code className="font-semibold text-gray-900">{activity.tool}</code>
+        <span className={`rounded-full px-2 py-0.5 font-medium ${statusClass}`}>{statusLabel}</span>
+      </div>
+      {activity.summary && <p className="mt-1 text-gray-500">{activity.summary}</p>}
+      <pre className="mt-2 whitespace-pre-wrap break-all rounded-md bg-gray-50 p-2 font-mono text-[11px] leading-4 text-gray-700">
+        {formatToolArguments(activity.args)}
+      </pre>
+      {(activity.durationMs !== undefined ||
+        activity.truncated ||
+        activity.errorCode !== undefined) && (
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
+          {activity.durationMs !== undefined && <span>{activity.durationMs} ms</span>}
+          {activity.truncated && <span>Output truncated</span>}
+          {activity.errorCode !== undefined && <span>{activity.errorCode}</span>}
+        </div>
+      )}
+    </li>
+  );
 }
 
 function eventDescription(event: IngestionRealtimeEvent): string {
