@@ -9,6 +9,7 @@ import type {
 } from "../../../../shared/ingestion/domain";
 import { PageDraftOutputSchema, SectionPatchResponseOutputSchema } from "./page-content-output";
 import { DRAFT_PROMPT } from "./prompts";
+import type { StructuredOutputTelemetry } from "./structured-output";
 
 /**
  * Content deliberately selected by planning/exploration. A draft program has
@@ -68,7 +69,13 @@ function draftPrompt(input: PageDraftProgramInput): string {
  * planner conversation, workspace, or tools, so one operation cannot make a
  * later operation inherit accidental context or continue exploring.
  */
-export function createPageDraftProgram(model: Pick<WikiModel, "generateObject">): PageDraftProgram {
+export function createPageDraftProgram(
+  model: Pick<WikiModel, "generateObject">,
+  telemetry?: (
+    input: PageDraftProgramInput,
+    schemaName: "PageDraft" | "SectionPatchResponse",
+  ) => StructuredOutputTelemetry | undefined,
+): PageDraftProgram {
   return {
     async generate(input) {
       const messages = [
@@ -89,6 +96,7 @@ export function createPageDraftProgram(model: Pick<WikiModel, "generateObject">)
           messages,
           temperature: 0.2,
           maxRetries: 0,
+          telemetry: telemetry?.(input, "PageDraft"),
         });
         return {
           type: "create",
@@ -113,6 +121,7 @@ export function createPageDraftProgram(model: Pick<WikiModel, "generateObject">)
         messages,
         temperature: 0.2,
         maxRetries: 0,
+        telemetry: telemetry?.(input, "SectionPatchResponse"),
       });
       return {
         type: "update",

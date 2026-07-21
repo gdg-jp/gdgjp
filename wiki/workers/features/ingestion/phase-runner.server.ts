@@ -8,6 +8,7 @@ import {
   generationManifest,
   planGeneration,
 } from "./generation-adapter.server";
+import type { GenerationObservability, GenerationTraceContext } from "./observability";
 import { runGenerationValidation } from "./orchestration/generation-validation";
 import type { ExecutionEventSink } from "./orchestration/ports/tool-event-sink";
 import { noopExecutionEventSink } from "./orchestration/ports/tool-event-sink";
@@ -45,9 +46,21 @@ export async function runIngestion(
   inputs: IngestionInputs,
   resume?: IngestionResumeContext,
   events: ExecutionEventSink = noopExecutionEventSink,
+  observability?: GenerationObservability,
+  trace?: GenerationTraceContext,
 ): Promise<void> {
   const db = drizzle(env.DB, { schema });
+  const sourcePreparationStartedAt = Date.now();
   const prepared = await prepareSources(env, db, sessionId, userId, inputs, resume, events);
+  if (observability && trace) {
+    observability.event("source_preparation_completed", trace, {
+      outcome: prepared.status,
+      durationMs: Date.now() - sourcePreparationStartedAt,
+      data: {
+        sourceCount: prepared.status === "continue" ? prepared.data.sources.length : undefined,
+      },
+    });
+  }
   if (prepared.status === "awaiting_url_selection") return;
 
   const session = await db
@@ -76,8 +89,14 @@ export async function runIngestion(
   };
 
   if (!prepared.data.skipClarification && !prepared.data.isPostClarification) {
+    if (observability && trace) {
+      observability.event("state_transition", trace, {
+        outcome: "clarifying",
+        data: { state: "clarifying" },
+      });
+    }
     await updateIngestionPhase(db, sessionId, "clarifying");
-    const clarification = await clarifySources(env, context, events);
+    const clarification = await clarifySources(env, context, events, observability, trace);
     if (clarification.result.needsClarification) {
       const draft: AiDraftJson = {
         phase: "clarification",
@@ -99,11 +118,55 @@ export async function runIngestion(
     }
   }
 
+  if (observability && trace) {
+    observability.event("state_transition", trace, {
+      outcome: "planning",
+      data: { state: "planning" },
+    });
+  }
   await updateIngestionPhase(db, sessionId, "planning");
-  const planned = await planGeneration(env, context, events);
+  const planned = await planGeneration(env, context, events, observability, trace);
+  if (observability && trace) {
+    observability.event("state_transition", trace, {
+      outcome: "generating",
+      data: { state: "generating", operationCount: planned.plan.operations.length },
+    });
+  }
   await updateIngestionPhase(db, sessionId, `generating:0/${planned.plan.operations.length}`);
-  const operations = await generateOperations(env, context, planned.plan, planned.manifest, events);
-  await runGenerationValidation({ operations, workspace: planned.manifest });
+  const operations = await generateOperations(
+    env,
+    context,
+    planned.plan,
+    planned.manifest,
+    events,
+    observability,
+    trace,
+  );
+  const validationStartedAt = Date.now();
+  try {
+    await runGenerationValidation({ operations, workspace: planned.manifest });
+    if (observability && trace) {
+      observability.event("validation_completed", trace, {
+        outcome: "success",
+        durationMs: Date.now() - validationStartedAt,
+        data: { operationCount: operations.length },
+      });
+    }
+  } catch (error) {
+    if (observability && trace) {
+      observability.event(
+        "validation_failed",
+        trace,
+        {
+          outcome: "error",
+          durationMs: Date.now() - validationStartedAt,
+          data: { error, operationCount: operations.length },
+        },
+        "error",
+      );
+    }
+    throw error;
+  }
   const sensitiveItems = operations.flatMap(
     (operation) => operation.draft?.sensitiveItems ?? operation.patch?.sensitiveItems ?? [],
   );
@@ -137,5 +200,13 @@ export async function runIngestion(
       updatedAt: new Date(),
     })
     .where(eq(schema.ingestionSessions.id, sessionId));
+  const persistenceStartedAt = Date.now();
   await persistDoneAndNotify(env, db, sessionId, userId, result);
+  if (observability && trace) {
+    observability.event("result_persisted", trace, {
+      outcome: "success",
+      durationMs: Date.now() - persistenceStartedAt,
+      data: { operationCount: operations.length },
+    });
+  }
 }

@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../../../app/db/schema";
 import type { ChangesetOperation } from "../../../shared/ingestion/domain";
 import { regenerateOperationWithModel } from "./model/regenerate-operation";
+import type { GenerationObservability, GenerationTraceContext } from "./observability";
 import type { ExecutionEventSink } from "./orchestration/ports/tool-event-sink";
 import { noopExecutionEventSink } from "./orchestration/ports/tool-event-sink";
 import { D1IngestionSessionRepository } from "./persistence/d1/ingestion-session-repository";
@@ -17,6 +18,8 @@ export async function regenerateDraftOperation(
   userId: string,
   params: { operationIndex: number; feedback?: string },
   events: ExecutionEventSink = noopExecutionEventSink,
+  observability?: GenerationObservability,
+  trace?: GenerationTraceContext,
 ): Promise<ChangesetOperation> {
   const sessions = new D1IngestionSessionRepository(env.DB);
   const session = await sessions.findOwned(sessionId, userId);
@@ -69,6 +72,9 @@ export async function regenerateDraftOperation(
     attachments,
     params.feedback,
     events,
+    params.operationIndex,
+    observability,
+    trace,
   );
   await sessions.replaceOperation(sessionId, params.operationIndex, replacement);
   return replacement;

@@ -18,4 +18,11 @@ IDP_URL=http://localhost:5173
 # Optional — only needed for AI ingestion/translation features
 GEMINI_API_KEY=
 
+# Optional for local AI generation observability. Leave both values empty to use
+# the direct Gemini fallback in local development. In production, set
+# AI_GATEWAY_BASE_URL as a Wrangler var and AI_GATEWAY_TOKEN with
+# `wrangler secret put`; do not put either production value in this file.
+AI_GATEWAY_BASE_URL=
+AI_GATEWAY_TOKEN=
+
 ENVIRONMENT=development

@@ -9,6 +9,7 @@ import type {
   ToolArgumentsByName,
   ToolName,
 } from "../../../../../shared/ingestion/realtime-events";
+import type { GenerationObservability, GenerationTraceContext } from "../../observability";
 import type { ExecutionEventSink } from "../../orchestration/ports/tool-event-sink";
 import type { MountedWorkspace } from "./workspace";
 
@@ -27,6 +28,9 @@ async function emitSafely(
 export function createWorkspaceToolCatalog(
   workspace: MountedWorkspace,
   eventSink?: ExecutionEventSink,
+  observability?: GenerationObservability,
+  trace?: GenerationTraceContext,
+  program?: string,
 ) {
   const cache = new Map<string, Promise<{ data: unknown; truncated: boolean }>>();
 
@@ -40,14 +44,47 @@ export function createWorkspaceToolCatalog(
     const startedAt = Date.now();
     await emitSafely(eventSink, toolStartedEvent(name, toolCallId, input, summary));
     const cacheKey = `${name}:${JSON.stringify(input)}`;
+    const cacheHit = cache.has(cacheKey);
+    if (observability && trace) {
+      observability.event("tool_started", trace, {
+        program,
+        outcome: "processing",
+        data: { toolCallId, tool: name, args: input, cacheHit },
+      });
+    }
     try {
-      const pending = cache.get(cacheKey) ?? operation();
+      const executeOperation = () => operation();
+      const pending =
+        cache.get(cacheKey) ??
+        (observability && trace
+          ? observability.span(
+              "generation.tool",
+              trace,
+              { "generation.tool": name, "generation.program": program },
+              executeOperation,
+            )
+          : executeOperation());
       cache.set(cacheKey, pending as Promise<{ data: unknown; truncated: boolean }>);
       const result = (await pending) as { data: T; truncated: boolean };
       await emitSafely(
         eventSink,
         toolCompletedEvent(name, toolCallId, input, Date.now() - startedAt, result.truncated),
       );
+      if (observability && trace) {
+        observability.event("tool_completed", trace, {
+          program,
+          outcome: "success",
+          durationMs: Date.now() - startedAt,
+          data: {
+            toolCallId,
+            tool: name,
+            args: input,
+            result: result.data,
+            cacheHit,
+            truncated: result.truncated,
+          },
+        });
+      }
       return result.data;
     } catch (error) {
       cache.delete(cacheKey);
@@ -55,6 +92,19 @@ export function createWorkspaceToolCatalog(
         eventSink,
         toolFailedEvent(name, toolCallId, input, "workspace_tool_failed"),
       );
+      if (observability && trace) {
+        observability.event(
+          "tool_failed",
+          trace,
+          {
+            program,
+            outcome: "error",
+            durationMs: Date.now() - startedAt,
+            data: { toolCallId, tool: name, args: input, cacheHit, error },
+          },
+          "error",
+        );
+      }
       throw error;
     }
   }

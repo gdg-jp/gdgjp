@@ -1,3 +1,4 @@
+import { tracing } from "cloudflare:workers";
 import { AgentWorkflow } from "agents/workflows";
 import type { AgentWorkflowEvent, AgentWorkflowStep } from "agents/workflows";
 import type { IngestionAgentState } from "../../shared/ingestion/agent-state";
@@ -5,6 +6,10 @@ import type { PhaseOutcome, WorkflowPhase } from "../../shared/ingestion/public-
 import type { IngestionRealtimeEvent } from "../../shared/ingestion/realtime-events";
 import type { WikiGenerationAgent } from "../agents/wiki-generation-agent";
 import { createIngestionApplication } from "../features/ingestion/composition.server";
+import {
+  createGenerationObservability,
+  createGenerationTraceContext,
+} from "../features/ingestion/observability";
 import type { ExecutionEventSink } from "../features/ingestion/orchestration/ports/tool-event-sink";
 
 export interface GenerationPhaseWorkflowParams {
@@ -52,6 +57,14 @@ export class WikiGenerationPhaseWorkflow extends AgentWorkflow<
     step: AgentWorkflowStep,
   ): Promise<PhaseOutcome> {
     const { sessionId, userId, phase } = event.payload;
+    const runId = crypto.randomUUID();
+    const trace = createGenerationTraceContext({
+      sessionId,
+      workflowId: this.workflowId,
+      runId,
+      phase,
+    });
+    const observability = createGenerationObservability(this.env, tracing);
     const events: ExecutionEventSink = {
       emit: (realtimeEvent: IngestionRealtimeEvent) => {
         this.broadcastToClients(realtimeEvent);
@@ -59,16 +72,33 @@ export class WikiGenerationPhaseWorkflow extends AgentWorkflow<
     };
 
     await events.emit({ type: "workflow_started", workflowId: this.workflowId, phase });
+    observability.event("workflow_started", trace, { outcome: "processing" });
     await this.reportProgress({ step: phase, status: "processing" });
 
-    const outcome = await step.do(
-      `execute-${phase}`,
-      {
-        retries: { limit: 0, delay: "1 minute", backoff: "exponential" },
-        timeout: "15 minutes",
-      },
-      () => createIngestionApplication(this.env).executePhase({ sessionId, userId, phase }, events),
-    );
+    const startedAt = Date.now();
+    let outcome: PhaseOutcome;
+    try {
+      outcome = await step.do(
+        `execute-${phase}`,
+        {
+          retries: { limit: 0, delay: "1 minute", backoff: "exponential" },
+          timeout: "15 minutes",
+        },
+        () =>
+          createIngestionApplication(this.env).executePhase(
+            { sessionId, userId, phase, workflowId: this.workflowId, runId },
+            events,
+          ),
+      );
+    } catch (error) {
+      observability.event(
+        "workflow_failed",
+        trace,
+        { outcome: "error", durationMs: Date.now() - startedAt, data: { error } },
+        "error",
+      );
+      throw error;
+    }
 
     await step.mergeAgentState({
       sessionId,
@@ -77,6 +107,10 @@ export class WikiGenerationPhaseWorkflow extends AgentWorkflow<
       ...outcomeState(outcome),
     });
     await this.reportProgress({ step: phase, status: "complete" });
+    observability.event("workflow_completed", trace, {
+      outcome: outcome.kind,
+      durationMs: Date.now() - startedAt,
+    });
     await step.reportComplete(outcome);
     return outcome;
   }

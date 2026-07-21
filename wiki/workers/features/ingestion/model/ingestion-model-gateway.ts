@@ -2,6 +2,7 @@ import type { FilePart, ModelMessage, TextPart } from "ai";
 import { generateText, stepCountIs } from "ai";
 import type { z } from "zod";
 import {
+  type WikiGenerationModelEnvironment,
   createWikiLanguageModelFromEnv,
   createWikiModelFromEnv,
   getWikiModelId,
@@ -17,6 +18,13 @@ import {
   CreateOperationSchema,
   OperationPlanSchema,
 } from "../../../../shared/ingestion/domain";
+import {
+  type GenerationObservability,
+  type GenerationTraceContext,
+  type ModelCallTraceContext,
+  createAiGatewayTelemetryHeaders,
+  createModelCallTraceContext,
+} from "../observability";
 import type { ExecutionEventSink } from "../orchestration/ports/tool-event-sink";
 import type { WorkspaceManifest } from "../tools/workspace/contracts";
 import { createWorkspaceToolCatalog } from "../tools/workspace/tool-catalog";
@@ -31,7 +39,11 @@ import {
   PLANNING_PROMPT,
   WORKSPACE_INSTRUCTIONS,
 } from "./prompts";
-import { generateValidatedObject } from "./structured-output";
+import {
+  type StructuredOutputAttemptResult,
+  type StructuredOutputTelemetry,
+  generateValidatedObject,
+} from "./structured-output";
 
 /** The Model layer owns LLM execution but never creates a database client. */
 export interface GenerationModelContext {
@@ -185,7 +197,126 @@ export async function resolvePlannedWikiReferences(
 export function createIngestionModelGateway(
   env: Env,
   eventSink?: ExecutionEventSink,
+  observability?: GenerationObservability,
+  trace?: GenerationTraceContext,
 ): ModelGateway {
+  const modelEnv: WikiGenerationModelEnvironment = env;
+  function gatewayHeaders(
+    context: ModelCallTraceContext,
+    program: ModelProgram,
+  ): Record<string, string> | undefined {
+    return createAiGatewayTelemetryHeaders(modelEnv, context, program);
+  }
+
+  function messageTextCharacters(messages: readonly ModelMessage[]): number {
+    let total = 0;
+    for (const message of messages) {
+      if (typeof message.content === "string") {
+        total += message.content.length;
+        continue;
+      }
+      for (const part of message.content) {
+        if (part.type === "text") total += part.text.length;
+      }
+    }
+    return total;
+  }
+
+  function attachmentDescriptors(attachments: readonly FilePart[]) {
+    return attachments.map((attachment) => {
+      const data = attachment.data;
+      const sizeBytes =
+        typeof data === "string"
+          ? Math.floor((data.length * 3) / 4)
+          : data instanceof URL
+            ? undefined
+            : data instanceof ArrayBuffer
+              ? data.byteLength
+              : ArrayBuffer.isView(data)
+                ? data.byteLength
+                : undefined;
+      return {
+        filename: attachment.filename,
+        mediaType: attachment.mediaType,
+        sizeBytes,
+        source: data instanceof URL ? "url" : "inline",
+      };
+    });
+  }
+
+  function recordStructuredAttempt(
+    context: ModelCallTraceContext,
+    program: ModelProgram,
+    inputChars: number,
+    result: StructuredOutputAttemptResult,
+    operationIndex?: number,
+  ): void {
+    if (!observability) return;
+    observability.modelCall({
+      context,
+      model: result.responseModelId ?? getWikiModelId(env),
+      promptVersion: GENERATION_PROMPT_VERSION,
+      program,
+      stage: result.stage,
+      outcome: result.outcome,
+      finishReason: result.finishReason,
+      latencyMs: result.durationMs,
+      inputTokens: result.usage?.inputTokens,
+      outputTokens: result.usage?.outputTokens,
+      totalTokens: result.usage?.totalTokens,
+      inputChars,
+      outputChars: result.outputChars,
+      toolCount: 0,
+      repairCount: result.stage === "repair" ? 1 : 0,
+    });
+    if (result.outcome !== "success") {
+      observability.event(
+        "model_call_error_detail",
+        context,
+        {
+          modelCallId: context.modelCallId,
+          program,
+          operationIndex,
+          outcome: result.outcome,
+          durationMs: result.durationMs,
+          data: { stage: result.stage, error: result.error },
+        },
+        result.outcome === "error" ? "error" : "warn",
+      );
+    }
+  }
+
+  function structuredTelemetry(
+    program: ModelProgram,
+    inputChars: number,
+    operationIndex?: number,
+  ): StructuredOutputTelemetry | undefined {
+    if (!trace) return undefined;
+    const attempts = new Map<string, ModelCallTraceContext>();
+    return {
+      start(stage) {
+        const context = createModelCallTraceContext(trace);
+        attempts.set(context.modelCallId, context);
+        observability?.event("model_call_started", context, {
+          modelCallId: context.modelCallId,
+          program,
+          operationIndex,
+          outcome: "processing",
+          data: { stage },
+        });
+        return {
+          modelCallId: context.modelCallId,
+          headers: gatewayHeaders(context, program),
+        };
+      },
+      finish(result) {
+        const context = attempts.get(result.modelCallId);
+        if (!context) return;
+        recordStructuredAttempt(context, program, inputChars, result, operationIndex);
+      },
+    };
+  }
+
   async function runAgentObject<T>(options: {
     program: Extract<ModelProgram, "clarify" | "plan">;
     workspace: MountedWorkspace;
@@ -211,35 +342,147 @@ export function createIngestionModelGateway(
         content: [{ type: "text", text: directContext } as TextPart, ...options.attachments],
       },
     ];
+    if (observability && trace) {
+      observability.event("model_input_prepared", trace, {
+        program: options.program,
+        outcome: "ready",
+        data: {
+          inputChars: directContext.length,
+          attachments: attachmentDescriptors(options.attachments),
+          schemaName: options.name,
+        },
+      });
+    }
     const system = `${WORKSPACE_INSTRUCTIONS}\n\n${options.system}`;
     const model = createWikiLanguageModelFromEnv(env);
-    const exploration = await generateText({
-      model,
-      system,
-      messages,
-      tools: createWorkspaceToolCatalog(options.workspace, eventSink),
-      stopWhen: stepCountIs(GENERATION_EXPLORATION_STEP_LIMIT),
-      prepareStep: async ({ stepNumber }) => {
-        await emitSafely(eventSink, {
-          type: "model_step",
+    const explorationContext = trace ? createModelCallTraceContext(trace) : undefined;
+    const explorationStartedAt = Date.now();
+    const stepStartedAt = new Map<number, number>();
+    const stepInputChars = new Map<number, number>();
+    const generateExploration = () =>
+      generateText({
+        model,
+        system,
+        messages,
+        headers: explorationContext
+          ? gatewayHeaders(explorationContext, options.program)
+          : undefined,
+        tools: createWorkspaceToolCatalog(
+          options.workspace,
+          eventSink,
+          observability,
+          trace,
+          options.program,
+        ),
+        stopWhen: stepCountIs(GENERATION_EXPLORATION_STEP_LIMIT),
+        prepareStep: async ({ stepNumber, messages: stepMessages }) => {
+          stepStartedAt.set(stepNumber, Date.now());
+          stepInputChars.set(stepNumber, messageTextCharacters(stepMessages));
+          await emitSafely(eventSink, {
+            type: "model_step",
+            program: options.program,
+            step: stepNumber,
+            limit: GENERATION_EXPLORATION_STEP_LIMIT,
+          });
+          return {};
+        },
+        onStepFinish: (step) => {
+          if (!explorationContext || !observability) return;
+          observability.modelCall({
+            context: explorationContext,
+            model: step.response.modelId ?? getWikiModelId(env),
+            promptVersion: GENERATION_PROMPT_VERSION,
+            program: options.program,
+            stage: `exploration:${step.stepNumber}`,
+            outcome: step.finishReason === "error" ? "error" : "success",
+            finishReason: step.finishReason,
+            latencyMs: Date.now() - (stepStartedAt.get(step.stepNumber) ?? Date.now()),
+            inputTokens: step.usage.inputTokens,
+            outputTokens: step.usage.outputTokens,
+            totalTokens: step.usage.totalTokens,
+            inputChars: stepInputChars.get(step.stepNumber),
+            outputChars: step.text.length,
+            toolCount: step.toolCalls.length,
+            repairCount: 0,
+          });
+        },
+        temperature: 0.2,
+        maxRetries: 0,
+      });
+    if (observability && explorationContext) {
+      observability.event("model_call_started", explorationContext, {
+        program: options.program,
+        outcome: "started",
+        data: {
+          model: getWikiModelId(env),
+          promptVersion: GENERATION_PROMPT_VERSION,
+          stage: "exploration",
+          inputChars: messageTextCharacters(messages),
+        },
+      });
+    }
+    let exploration: Awaited<ReturnType<typeof generateExploration>>;
+    try {
+      exploration = await (observability && trace
+        ? observability.span(
+            "generation.model",
+            trace,
+            {
+              "generation.program": options.program,
+              "generation.stage": "exploration",
+              "generation.model": getWikiModelId(env),
+            },
+            generateExploration,
+          )
+        : generateExploration());
+    } catch (error) {
+      if (observability && explorationContext) {
+        observability.modelCall({
+          context: explorationContext,
+          model: getWikiModelId(env),
+          promptVersion: GENERATION_PROMPT_VERSION,
           program: options.program,
-          step: stepNumber,
-          limit: GENERATION_EXPLORATION_STEP_LIMIT,
+          stage: "exploration",
+          outcome: "error",
+          latencyMs: Date.now() - explorationStartedAt,
+          inputChars: messageTextCharacters(messages),
+          toolCount: 0,
+          repairCount: 0,
         });
-        return {};
-      },
-      temperature: 0.2,
-      maxRetries: 0,
-    });
-    return generateValidatedObject({
-      model,
-      schema: options.schema,
-      schemaName: options.name,
-      system: `${system}\n\n探索を終了し、ここまでの証拠から要求された構造化出力を必ず返してください。`,
-      messages: [...messages, ...exploration.response.messages],
-      temperature: 0.2,
-      maxRetries: 0,
-    });
+        observability.event("model_call_failed", explorationContext, {
+          program: options.program,
+          outcome: "error",
+          durationMs: Date.now() - explorationStartedAt,
+          error,
+          data: { stage: "exploration" },
+        });
+      }
+      throw error;
+    }
+    const structuredMessages = [...messages, ...exploration.response.messages];
+    const generateStructured = () =>
+      generateValidatedObject({
+        model,
+        schema: options.schema,
+        schemaName: options.name,
+        system: `${system}\n\n探索を終了し、ここまでの証拠から要求された構造化出力を必ず返してください。`,
+        messages: structuredMessages,
+        temperature: 0.2,
+        maxRetries: 0,
+        telemetry: structuredTelemetry(options.program, messageTextCharacters(structuredMessages)),
+      });
+    return observability && trace
+      ? observability.span(
+          "generation.model",
+          trace,
+          {
+            "generation.program": options.program,
+            "generation.stage": "structured",
+            "generation.model": getWikiModelId(env),
+          },
+          generateStructured,
+        )
+      : generateStructured();
   }
 
   return {
@@ -282,10 +525,21 @@ export function createIngestionModelGateway(
     async generateOperations(context, plan, manifest) {
       const attachments = await context.loadAttachments();
       const model = createWikiModelFromEnv(env);
-      const pageDraftProgram = createPageDraftProgram(model);
+      let currentOperationIndex = 0;
+      const pageDraftProgram = createPageDraftProgram(model, (input) =>
+        structuredTelemetry(
+          "draft",
+          input.userInput.length +
+            (input.clarificationAnswers?.length ?? 0) +
+            input.evidence.reduce((total, item) => total + item.content.length, 0) +
+            (input.existingTipTapJson?.length ?? 0),
+          currentOperationIndex,
+        ),
+      );
       const operations: ChangesetOperation[] = [];
 
       for (const [index, operation] of plan.operations.entries()) {
+        currentOperationIndex = index;
         await emitSafely(eventSink, {
           type: "operation_started",
           index,
@@ -298,15 +552,42 @@ export function createIngestionModelGateway(
             ? await context.loadExistingPageContent(operation.pageId)
             : undefined;
         const evidence = await loadEvidence(context.workspace, manifest, operation.evidencePaths);
-        operations.push(
-          await pageDraftProgram.generate({
+        if (observability && trace) {
+          observability.event("model_input_prepared", trace, {
+            program: "draft",
+            operationIndex: index,
+            outcome: "ready",
+            data: {
+              evidencePaths: operation.evidencePaths,
+              evidenceChars: evidence.reduce((total, item) => total + item.content.length, 0),
+              attachments: attachmentDescriptors(attachments),
+              operationType: operation.type,
+            },
+          });
+        }
+        const generateDraft = () =>
+          pageDraftProgram.generate({
             userInput: context.userInput,
             clarificationAnswers: context.clarificationAnswers,
             operation,
             evidence,
             attachments,
             existingTipTapJson: existingTipTapJson ?? undefined,
-          }),
+          });
+        operations.push(
+          await (observability && trace
+            ? observability.span(
+                "generation.model",
+                trace,
+                {
+                  "generation.program": "draft",
+                  "generation.stage": "structured",
+                  "generation.model": getWikiModelId(env),
+                  "generation.operation_index": index,
+                },
+                generateDraft,
+              )
+            : generateDraft()),
         );
         await emitSafely(eventSink, {
           type: "operation_completed",

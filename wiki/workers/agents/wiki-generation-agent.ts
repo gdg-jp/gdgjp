@@ -1,3 +1,4 @@
+import { tracing } from "cloudflare:workers";
 import { Agent, type Connection, callable } from "agents";
 import { z } from "zod";
 import type { IngestionAgentState, IngestionSnapshot } from "../../shared/ingestion/agent-state";
@@ -8,6 +9,10 @@ import type {
 } from "../../shared/ingestion/commands";
 import type { WorkflowPhase } from "../../shared/ingestion/public-results";
 import type { IngestionRealtimeEvent } from "../../shared/ingestion/realtime-events";
+import {
+  createGenerationObservability,
+  createGenerationTraceContext,
+} from "../features/ingestion/observability";
 import {
   prepareClarificationResume,
   prepareUrlSelectionResume,
@@ -182,15 +187,60 @@ export class WikiGenerationAgent extends Agent<Env, WikiGenerationAgentState> {
   ): Promise<{ operation: import("../../shared/ingestion/domain").ChangesetOperation }> {
     const params = RegenerateInputSchema.parse(input);
     const session = await this.getOwnedSession();
+    const trace = createGenerationTraceContext({
+      sessionId: session.id,
+      workflowId: session.workflowId ?? `regeneration:${session.id}`,
+      phase: "regeneration",
+    });
+    const observability = createGenerationObservability(this.env, tracing);
     this.emitRealtime({
       type: "operation_started",
       index: params.operationIndex,
       total: 1,
       operationType: "regeneration",
     });
-    const operation = await regenerateDraftOperation(this.env, session.id, session.userId, params, {
-      emit: (event) => this.emitRealtime(event),
-    });
+    const startedAt = Date.now();
+    const operation = await observability.span(
+      "generation.regenerate",
+      trace,
+      { "generation.operation_index": params.operationIndex },
+      async () => {
+        observability.event("regeneration_started", trace, {
+          operationIndex: params.operationIndex,
+          outcome: "processing",
+        });
+        try {
+          const result = await regenerateDraftOperation(
+            this.env,
+            session.id,
+            session.userId,
+            params,
+            { emit: (event) => this.emitRealtime(event) },
+            observability,
+            trace,
+          );
+          observability.event("regeneration_completed", trace, {
+            operationIndex: params.operationIndex,
+            outcome: "success",
+            durationMs: Date.now() - startedAt,
+          });
+          return result;
+        } catch (error) {
+          observability.event(
+            "regeneration_failed",
+            trace,
+            {
+              operationIndex: params.operationIndex,
+              outcome: "error",
+              durationMs: Date.now() - startedAt,
+              data: { error },
+            },
+            "error",
+          );
+          throw error;
+        }
+      },
+    );
     this.emitRealtime({ type: "operation_completed", index: params.operationIndex, total: 1 });
     this.updateState({
       sessionId: session.id,

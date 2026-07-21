@@ -1,5 +1,6 @@
 import {
   type LanguageModel,
+  type LanguageModelUsage,
   type ModelMessage,
   NoObjectGeneratedError,
   Output,
@@ -19,6 +20,32 @@ export interface ValidatedObjectRequest<TSchema extends z.ZodType> {
   temperature?: number;
   maxOutputTokens?: number;
   maxRetries?: number;
+  headers?: Record<string, string>;
+  telemetry?: StructuredOutputTelemetry;
+}
+
+export type StructuredOutputStage = "structured" | "repair";
+
+export interface StructuredOutputAttempt {
+  modelCallId: string;
+  headers?: Record<string, string>;
+}
+
+export interface StructuredOutputAttemptResult {
+  stage: StructuredOutputStage;
+  modelCallId: string;
+  outcome: "success" | "schema_mismatch" | "error";
+  durationMs: number;
+  finishReason?: string;
+  usage?: LanguageModelUsage;
+  responseModelId?: string;
+  outputChars?: number;
+  error?: unknown;
+}
+
+export interface StructuredOutputTelemetry {
+  start(stage: StructuredOutputStage): StructuredOutputAttempt;
+  finish(result: StructuredOutputAttemptResult): void;
 }
 
 function repairMessages(messages: ModelMessage[], invalidText: string): ModelMessage[] {
@@ -80,20 +107,84 @@ export async function generateValidatedObject<TSchema extends z.ZodType>(
     description: request.schemaDescription,
     schema: request.schema,
   });
-  const generate = (messages: ModelMessage[]) =>
-    generateText({
-      model: request.model,
-      system: request.system,
-      messages,
-      temperature: request.temperature,
-      maxOutputTokens: request.maxOutputTokens,
-      maxRetries: request.maxRetries,
-      output,
-    });
+  const generate = async (messages: ModelMessage[], stage: StructuredOutputStage) => {
+    const fallbackAttempt: StructuredOutputAttempt = { modelCallId: crypto.randomUUID() };
+    let attempt = fallbackAttempt;
+    try {
+      attempt = request.telemetry?.start(stage) ?? fallbackAttempt;
+    } catch {
+      // Telemetry setup must not block model execution.
+    }
+    const startedAt = Date.now();
+    try {
+      const result = await generateText({
+        model: request.model,
+        system: request.system,
+        messages,
+        temperature: request.temperature,
+        maxOutputTokens: request.maxOutputTokens,
+        maxRetries: request.maxRetries,
+        headers:
+          request.headers || attempt.headers
+            ? { ...request.headers, ...attempt.headers }
+            : undefined,
+        output,
+      });
+      try {
+        const value = result.output as z.infer<TSchema>;
+        try {
+          request.telemetry?.finish({
+            stage,
+            modelCallId: attempt.modelCallId,
+            outcome: "success",
+            durationMs: Date.now() - startedAt,
+            finishReason: result.finishReason,
+            usage: result.usage,
+            responseModelId: result.response.modelId,
+            outputChars: result.text.length,
+          });
+        } catch {
+          // Telemetry failures are isolated from valid model output.
+        }
+        return value;
+      } catch (error) {
+        try {
+          request.telemetry?.finish({
+            stage,
+            modelCallId: attempt.modelCallId,
+            outcome: NoObjectGeneratedError.isInstance(error) ? "schema_mismatch" : "error",
+            durationMs: Date.now() - startedAt,
+            finishReason: result.finishReason,
+            usage: result.usage,
+            responseModelId: result.response.modelId,
+            outputChars: result.text.length,
+            error,
+          });
+        } catch {
+          // Telemetry failures are isolated from schema handling.
+        }
+        throw error;
+      }
+    } catch (error) {
+      if (!NoObjectGeneratedError.isInstance(error)) {
+        try {
+          request.telemetry?.finish({
+            stage,
+            modelCallId: attempt.modelCallId,
+            outcome: "error",
+            durationMs: Date.now() - startedAt,
+            error,
+          });
+        } catch {
+          // Telemetry failures are isolated from provider failures.
+        }
+      }
+      throw error;
+    }
+  };
 
   try {
-    const result = await generate(request.messages);
-    return result.output as z.infer<TSchema>;
+    return await generate(request.messages, "structured");
   } catch (error) {
     if (!NoObjectGeneratedError.isInstance(error) || !error.text?.trim()) throw error;
 
@@ -102,8 +193,7 @@ export async function generateValidatedObject<TSchema extends z.ZodType>(
       ...failureMetadata(error),
     });
     try {
-      const repaired = await generate(repairMessages(request.messages, error.text));
-      return repaired.output as z.infer<TSchema>;
+      return await generate(repairMessages(request.messages, error.text), "repair");
     } catch (repairError) {
       if (NoObjectGeneratedError.isInstance(repairError)) {
         const metadata = failureMetadata(repairError);

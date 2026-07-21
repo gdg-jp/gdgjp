@@ -1,11 +1,23 @@
 name = "gdgjp-wiki"
 main = "./workers/app.ts"
-compatibility_date = "2025-03-01"
+compatibility_date = "2026-07-21"
 compatibility_flags = ["nodejs_compat"]
+# Preserve deployment-specific dashboard vars such as AI_GATEWAY_BASE_URL.
+keep_vars = true
+
+[observability]
+enabled = true
 
 [observability.logs]
 enabled = true
+head_sampling_rate = 1
+persist = true
 invocation_logs = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 0.1
+persist = true
 
 # Static assets are served alongside the Worker
 [assets]
@@ -25,6 +37,7 @@ ACCOUNTS_URL = "https://accounts.gdgs.jp"
 IDP_URL = "https://accounts.gdgs.jp"
 IDP_CLIENT_ID = "wiki"
 GEMINI_MODEL_ID = "gemini-3.1-flash-lite"
+AI_GATEWAY_BASE_URL = "https://gateway.ai.cloudflare.com/v1/ca5917238ec18ca3365e7b05b11eee5e/gdgjp-wiki-generation/google-ai-studio/v1beta"
 FIREBASE_API_KEY = "AIzaSyBDHVMd25wph9m8x4smxTvfGJ3C6OmfrDY"
 FIREBASE_AUTH_DOMAIN = "gdgsjp.firebaseapp.com"
 FIREBASE_PROJECT_ID = "gdgsjp"
@@ -75,6 +88,13 @@ binding = "BROWSER"
 binding = "AI"
 
 # ---------------------------------------------------------------------------
+# Cloudflare Analytics Engine — AI generation model-call metrics
+# ---------------------------------------------------------------------------
+[[analytics_engine_datasets]]
+binding = "WIKI_AI_TELEMETRY"
+dataset = "wiki_ai_model_calls"
+
+# ---------------------------------------------------------------------------
 # Vectorize — semantic search index for page embeddings
 # Create with: wrangler vectorize create gdgjp-wiki-pages --dimensions 1024 --metric cosine
 # ---------------------------------------------------------------------------
@@ -121,6 +141,7 @@ crons = ["0 15 * * *"]
 # IDP_CLIENT_SECRET       — OAuth client secret shared with accounts IdP
 #                           (matches WIKI_CLIENT_SECRET in accounts)
 # GEMINI_API_KEY          — Google Gemini API key (for AI features)
+# AI_GATEWAY_TOKEN        — Cloudflare AI Gateway token (for generation observability)
 # GOOGLE_DOCS_CLIENT_ID   — Google Docs API client ID (for ingestion)
 # GOOGLE_DOCS_CLIENT_SECRET — Google Docs API client secret (for ingestion)
 # RESEND_API_KEY          — Resend transactional email API key

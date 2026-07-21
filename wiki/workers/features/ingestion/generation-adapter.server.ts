@@ -13,6 +13,7 @@ import {
   type GenerationModelContext,
   createIngestionModelGateway,
 } from "./model/ingestion-model-gateway";
+import type { GenerationObservability, GenerationTraceContext } from "./observability";
 import type { ExecutionEventSink } from "./orchestration/ports/tool-event-sink";
 import { noopExecutionEventSink } from "./orchestration/ports/tool-event-sink";
 import { createD1WikiWorkspaceStore } from "./persistence/d1/wiki-read-repository";
@@ -96,16 +97,24 @@ export async function clarifySources(
   env: Env,
   context: GenerationContext,
   events: ExecutionEventSink = noopExecutionEventSink,
+  observability?: GenerationObservability,
+  trace?: GenerationTraceContext,
 ): Promise<{ result: ClarificationResult; manifest: WorkspaceManifest }> {
-  return createIngestionModelGateway(env, events).clarify(makeModelContext(env, context));
+  return createIngestionModelGateway(env, events, observability, trace).clarify(
+    makeModelContext(env, context),
+  );
 }
 
 export async function planGeneration(
   env: Env,
   context: GenerationContext,
   events: ExecutionEventSink = noopExecutionEventSink,
+  observability?: GenerationObservability,
+  trace?: GenerationTraceContext,
 ): Promise<{ plan: OperationPlan; manifest: WorkspaceManifest }> {
-  return createIngestionModelGateway(env, events).plan(makeModelContext(env, context));
+  return createIngestionModelGateway(env, events, observability, trace).plan(
+    makeModelContext(env, context),
+  );
 }
 
 export async function generateOperations(
@@ -114,8 +123,10 @@ export async function generateOperations(
   plan: OperationPlan,
   manifest: WorkspaceManifest,
   events: ExecutionEventSink = noopExecutionEventSink,
+  observability?: GenerationObservability,
+  trace?: GenerationTraceContext,
 ): Promise<ChangesetOperation[]> {
-  return createIngestionModelGateway(env, events).generateOperations(
+  return createIngestionModelGateway(env, events, observability, trace).generateOperations(
     makeModelContext(env, context),
     plan,
     manifest,

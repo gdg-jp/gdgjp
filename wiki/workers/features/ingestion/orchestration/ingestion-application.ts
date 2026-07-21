@@ -5,6 +5,8 @@ export interface ExecuteIngestionPhaseCommand {
   sessionId: string;
   userId: string;
   phase: WorkflowPhase;
+  workflowId: string;
+  runId: string;
 }
 
 export interface IngestionPhaseRunner {

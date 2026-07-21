@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/d1";
 import * as schema from "../../../app/db/schema";
 import type { AiDraftJson, IngestionInputs } from "../../../shared/ingestion/domain";
+import type { GenerationObservability, GenerationTraceContext } from "./observability";
 import type { ExecutionEventSink } from "./orchestration/ports/tool-event-sink";
 import { noopExecutionEventSink } from "./orchestration/ports/tool-event-sink";
 import type { IngestionExecutionRequest } from "./persistence/serialization/session-execution";
@@ -25,6 +26,8 @@ export async function executeIngestionPhase(
   db: Db,
   request: IngestionExecutionRequest,
   events: ExecutionEventSink = noopExecutionEventSink,
+  observability?: GenerationObservability,
+  trace?: GenerationTraceContext,
 ): Promise<void> {
   const session = await db
     .select({
@@ -37,8 +40,23 @@ export async function executeIngestionPhase(
     .from(schema.ingestionSessions)
     .where(eq(schema.ingestionSessions.id, request.sessionId))
     .get();
-  if (!session || session.userId !== request.userId) return;
-  if (session.status !== "processing") return;
+  if (!session || session.userId !== request.userId) {
+    if (observability && trace) {
+      observability.event("session_skipped", trace, {
+        outcome: "not_owned_or_missing",
+      });
+    }
+    return;
+  }
+  if (session.status !== "processing") {
+    if (observability && trace) {
+      observability.event("session_skipped", trace, {
+        outcome: "not_processing",
+        data: { status: session.status },
+      });
+    }
+    return;
+  }
 
   let inputs: IngestionInputs;
   try {
@@ -53,6 +71,9 @@ export async function executeIngestionPhase(
         updatedAt: new Date(),
       })
       .where(eq(schema.ingestionSessions.id, session.id));
+    if (observability && trace) {
+      observability.event("session_inputs_invalid", trace, { outcome: "error" }, "error");
+    }
     return;
   }
 
@@ -80,7 +101,16 @@ export async function executeIngestionPhase(
     };
   }
 
-  await runIngestion(env, session.id, session.userId, inputs, resumeContext, events);
+  await runIngestion(
+    env,
+    session.id,
+    session.userId,
+    inputs,
+    resumeContext,
+    events,
+    observability,
+    trace,
+  );
   const finalSession = await db
     .select({ status: schema.ingestionSessions.status })
     .from(schema.ingestionSessions)
@@ -96,5 +126,8 @@ export async function executeIngestionPhase(
         updatedAt: new Date(),
       })
       .where(eq(schema.ingestionSessions.id, session.id));
+    if (observability && trace) {
+      observability.event("pipeline_incomplete", trace, { outcome: "error" }, "error");
+    }
   }
 }

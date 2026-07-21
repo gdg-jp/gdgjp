@@ -1,7 +1,9 @@
+import { tracing } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../../../app/db/schema";
 import type { PhaseOutcome, WorkflowPhase } from "../../../shared/ingestion/public-results";
+import { createGenerationObservability, createGenerationTraceContext } from "./observability";
 import {
   IngestionApplication,
   type IngestionPhaseRunner,
@@ -27,15 +29,46 @@ export function createIngestionApplication(env: Env): IngestionApplication {
   const db = drizzle(env.DB, { schema });
   const phases: IngestionPhaseRunner = {
     async execute(command, events): Promise<PhaseOutcome> {
-      await executeIngestionPhase(
-        env,
-        db,
-        {
-          sessionId: command.sessionId,
-          userId: command.userId,
-          resumeMode: toResumeMode(command.phase),
+      const trace = createGenerationTraceContext(command);
+      const observability = createGenerationObservability(env, tracing);
+      await observability.span(
+        "generation.phase",
+        trace,
+        { "generation.workflow_phase": command.phase },
+        async () => {
+          const startedAt = Date.now();
+          observability.event("phase_started", trace, { outcome: "processing" });
+          try {
+            await executeIngestionPhase(
+              env,
+              db,
+              {
+                sessionId: command.sessionId,
+                userId: command.userId,
+                resumeMode: toResumeMode(command.phase),
+              },
+              events,
+              observability,
+              trace,
+            );
+            observability.event("phase_completed", trace, {
+              outcome: "success",
+              durationMs: Date.now() - startedAt,
+            });
+          } catch (error) {
+            observability.event(
+              "phase_failed",
+              trace,
+              {
+                outcome: "error",
+                durationMs: Date.now() - startedAt,
+                data: { error },
+              },
+              "error",
+            );
+            throw error;
+          }
         },
-        events,
       );
       const row = await db
         .select({ status: schema.ingestionSessions.status })

@@ -95,4 +95,29 @@ describe("generateValidatedObject", () => {
     );
     expect(mockedGenerateText).toHaveBeenCalledTimes(2);
   });
+
+  it("does not fail valid generation when telemetry throws", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { value: 42 },
+      text: '{"value":42}',
+      finishReason: "stop",
+      usage: { inputTokens: 5, outputTokens: 4, totalTokens: 9 },
+      response: { modelId: "fixture-model" },
+    } as never);
+
+    const result = await generateValidatedObject({
+      model: {} as never,
+      schema: z.object({ value: z.number() }),
+      schemaName: "Fixture",
+      messages: [{ role: "user", content: "Return a fixture." }],
+      telemetry: {
+        start: () => ({ modelCallId: "call-1" }),
+        finish: () => {
+          throw new Error("telemetry unavailable");
+        },
+      },
+    });
+
+    expect(result).toEqual({ value: 42 });
+  });
 });
