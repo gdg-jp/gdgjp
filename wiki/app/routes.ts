@@ -36,6 +36,9 @@ export default [
   route("/api/share-candidates", "routes/api.share-candidates.ts"),
   route("/api/users/search", "routes/api.users.search.ts"),
 
+  // Public OGP image for public and unlisted wiki pages.
+  route("/og/wiki/:slug", "routes/og.wiki.$slug.tsx"),
+
   // Admin routes — separate layout with admin sidebar.
   // User and chapter management are owned by the accounts IdP and no longer
   // live here; admins land on /admin/pages.

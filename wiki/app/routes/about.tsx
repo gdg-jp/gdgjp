@@ -22,6 +22,9 @@ export const meta: MetaFunction = ({ matches }) => {
         "Learn about GDG Japan Wiki — an AI-powered bilingual knowledge sharing platform built for GDG Japan chapters.",
     },
     { property: "og:url", content: `${origin}/about` },
+    { property: "og:image", content: `${origin}/og-image.png` },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary_large_image" },
   ];
 };
 

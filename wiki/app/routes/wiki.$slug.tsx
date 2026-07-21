@@ -31,18 +31,31 @@ import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { deletePageEmbeddings } from "~/lib/embedding-pipeline.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
+import { buildPageMeta } from "~/lib/page-meta";
 import { timeAgo } from "~/lib/time";
 import { tiptapToMarkdown } from "~/lib/tiptap-convert";
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => {
-  return [
-    {
-      title: data ? `${data.page.titleEn || data.page.titleJa} — GDG Japan Wiki` : "Page not found",
-    },
-    ...(data?.page.visibility !== "public"
-      ? [{ name: "robots", content: "noindex,nofollow" }]
-      : []),
-  ];
+export const meta: MetaFunction<typeof loader> = ({ data, location, matches }) => {
+  if (!data) return [{ title: "Page not found" }];
+
+  const origin = (matches.find((match) => match.id === "root")?.data as { origin?: string })
+    ?.origin;
+  const isEnglish = data.lang === "en";
+  const title =
+    (isEnglish ? data.page.titleEn : data.page.titleJa) || data.page.titleJa || data.page.titleEn;
+  const description =
+    (isEnglish ? data.page.summaryEn : data.page.summaryJa) ||
+    data.page.summaryJa ||
+    data.page.summaryEn;
+
+  return buildPageMeta({
+    title,
+    description,
+    imagePath: `/og/wiki/${encodeURIComponent(data.page.slug)}?lang=${isEnglish ? "en" : "ja"}&v=${new Date(data.page.updatedAt).getTime()}`,
+    visibility: data.page.visibility,
+    origin: origin ?? location.origin,
+    pathname: isEnglish ? `${location.pathname}?lang=en` : location.pathname,
+  });
 };
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {

@@ -26,6 +26,9 @@ export const meta: MetaFunction<typeof loader> = ({ matches }) => {
         "AI-powered bilingual knowledge base for Google Developer Groups Japan chapters. Share chapter know-how, resources, and best practices — all in one place.",
     },
     { property: "og:url", content: `${origin}/` },
+    { property: "og:image", content: `${origin}/og-image.png` },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary_large_image" },
   ];
 };
 

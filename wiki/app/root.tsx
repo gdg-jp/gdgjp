@@ -74,11 +74,8 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   return { locale, theme, origin, firebaseConfig };
 }
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => [
+export const meta: MetaFunction<typeof loader> = () => [
   { property: "og:site_name", content: "GDG Japan Wiki" },
-  { property: "og:image", content: `${data?.origin ?? ""}/og-image.png` },
-  { property: "og:type", content: "website" },
-  { name: "twitter:card", content: "summary_large_image" },
 ];
 
 export function ErrorBoundary() {

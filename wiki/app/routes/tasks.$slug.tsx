@@ -26,15 +26,26 @@ import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
+import { buildPageMeta } from "~/lib/page-meta";
 
 // ---------------------------------------------------------------------------
 // Meta
 // ---------------------------------------------------------------------------
 
-export const meta: MetaFunction<typeof loader> = ({ data }) => [
-  { title: data ? `${data.page.titleJa || data.page.titleEn} — GDG Japan Wiki` : "Tasks" },
-  ...(data?.page.visibility !== "public" ? [{ name: "robots", content: "noindex,nofollow" }] : []),
-];
+export const meta: MetaFunction<typeof loader> = ({ data, location, matches }) => {
+  if (!data) return [{ title: "Tasks" }];
+
+  const origin = (matches.find((match) => match.id === "root")?.data as { origin?: string })
+    ?.origin;
+
+  return buildPageMeta({
+    title: data.page.titleJa || data.page.titleEn,
+    description: data.page.summaryJa || data.page.summaryEn,
+    visibility: data.page.visibility,
+    origin: origin ?? location.origin,
+    pathname: location.pathname,
+  });
+};
 
 // ---------------------------------------------------------------------------
 // Loader
