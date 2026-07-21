@@ -1,6 +1,7 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { type LanguageModel, type ModelMessage, Output, generateText } from "ai";
+import { type LanguageModel, type ModelMessage, generateText } from "ai";
 import type { z } from "zod";
+import { generateValidatedObject } from "./structured-output.server";
 
 /**
  * Provider-neutral boundary for every non-agent model call in the Wiki app.
@@ -70,33 +71,17 @@ class AiSdkWikiModel implements WikiModel {
   async generateObject<TSchema extends z.ZodType>(
     request: StructuredGenerationRequest<TSchema>,
   ): Promise<z.infer<TSchema>> {
-    const output = Output.object({
-      name: request.schemaName,
-      description: request.schemaDescription,
+    return generateValidatedObject({
+      model: this.model,
       schema: request.schema,
+      schemaName: request.schemaName,
+      schemaDescription: request.schemaDescription,
+      system: request.system,
+      messages: request.messages ?? [{ role: "user", content: request.prompt ?? "" }],
+      temperature: request.temperature,
+      maxOutputTokens: request.maxOutputTokens,
+      maxRetries: request.maxRetries,
     });
-    const result = await generateText(
-      request.messages
-        ? {
-            model: this.model,
-            system: request.system,
-            messages: request.messages,
-            temperature: request.temperature,
-            maxOutputTokens: request.maxOutputTokens,
-            maxRetries: request.maxRetries,
-            output,
-          }
-        : {
-            model: this.model,
-            system: request.system,
-            prompt: request.prompt ?? "",
-            temperature: request.temperature,
-            maxOutputTokens: request.maxOutputTokens,
-            maxRetries: request.maxRetries,
-            output,
-          },
-    );
-    return result.output as z.infer<TSchema>;
   }
 }
 

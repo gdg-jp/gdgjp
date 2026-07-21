@@ -11,6 +11,6 @@ describe("prepareExplorationStep", () => {
 
   it("uses automatic bounded exploration after the source read", () => {
     expect(prepareExplorationStep(1)).toBeUndefined();
-    expect(GENERATION_EXPLORATION_STEP_LIMIT).toBe(11);
+    expect(GENERATION_EXPLORATION_STEP_LIMIT).toBe(8);
   });
 });

@@ -1,7 +1,6 @@
 import {
   type FilePart,
   type ModelMessage,
-  Output,
   type TextPart,
   generateText,
   stepCountIs,
@@ -16,6 +15,7 @@ import {
   createWikiModelFromEnv,
   getWikiModelId,
 } from "~/features/ai/model/index.server";
+import { generateValidatedObject } from "~/features/ai/model/structured-output.server";
 import type {
   ChangesetOperation,
   ClarificationResult,
@@ -169,15 +169,15 @@ async function agentObject<T>(options: {
     temperature: 0.2,
     maxRetries: 0,
   });
-  const result = await generateText({
+  return generateValidatedObject({
     model,
+    schema: options.schema,
+    schemaName: options.name,
     system: `${system}\n\n探索を終了し、ここまでの証拠から要求された構造化出力を必ず返してください。`,
     messages: [...messages, ...exploration.response.messages],
-    output: Output.object({ name: options.name, schema: options.schema }),
     temperature: 0.2,
     maxRetries: 0,
   });
-  return result.output as T;
 }
 
 export async function clarifySources(

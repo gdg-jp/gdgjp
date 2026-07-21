@@ -20,6 +20,8 @@ describe("generation architecture", () => {
     expect(generation).toContain("stepCountIs(GENERATION_EXPLORATION_STEP_LIMIT)");
     expect(generation).toContain("prepareExplorationStep(stepNumber)");
     expect(generation).toContain("...exploration.response.messages");
+    expect(generation).toContain("generateValidatedObject({");
+    expect(modelAdapter).toContain("generateValidatedObject({");
     expect(generation).toContain("maxRetries: 0");
     expect(generation.match(/maxRetries: 0/g)).toHaveLength(4);
     expect(modelAdapter).toContain("maxRetries: request.maxRetries");
