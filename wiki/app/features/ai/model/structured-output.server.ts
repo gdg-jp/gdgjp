@@ -40,10 +40,29 @@ function repairMessages(messages: ModelMessage[], invalidText: string): ModelMes
   ];
 }
 
+function validationPaths(error: unknown): string[] {
+  const paths = new Set<string>();
+  const seen = new Set<unknown>();
+  let current = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const issues = (current as { issues?: unknown }).issues;
+    if (Array.isArray(issues)) {
+      for (const issue of issues) {
+        const path = (issue as { path?: unknown }).path;
+        if (Array.isArray(path)) paths.add(path.length ? path.join(".") : "<root>");
+      }
+    }
+    current = (current as { cause?: unknown }).cause;
+  }
+  return [...paths].slice(0, 8);
+}
+
 function failureMetadata(error: NoObjectGeneratedError) {
   return {
     finishReason: error.finishReason,
     cause: error.cause instanceof Error ? error.cause.name : "unknown",
+    validationPaths: validationPaths(error),
   };
 }
 
@@ -87,10 +106,17 @@ export async function generateValidatedObject<TSchema extends z.ZodType>(
       return repaired.output as z.infer<TSchema>;
     } catch (repairError) {
       if (NoObjectGeneratedError.isInstance(repairError)) {
+        const metadata = failureMetadata(repairError);
         console.error("Structured output repair failed", {
           schemaName: request.schemaName,
-          ...failureMetadata(repairError),
+          ...metadata,
         });
+        throw new Error(
+          `Structured output repair failed for ${request.schemaName} ` +
+            `(finishReason=${metadata.finishReason ?? "unknown"}, ` +
+            `validationPaths=${metadata.validationPaths.join(",") || "unknown"})`,
+          { cause: repairError },
+        );
       }
       throw repairError;
     }

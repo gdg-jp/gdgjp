@@ -46,7 +46,8 @@ export const OperationPlanSchema = z.object({
   planRationale: z.string(),
   operations: z
     .array(z.discriminatedUnion("type", [CreateOperationSchema, UpdateOperationSchema]))
-    .max(5),
+    .describe("Create or update operations; only the first five are used.")
+    .transform((operations) => operations.slice(0, 5)),
 });
 
 export type CreateOperation = z.infer<typeof CreateOperationSchema>;
@@ -78,8 +79,16 @@ export const PageDraftSchema = z.object({
   metadata: z.record(z.string(), z.string()),
   sections: z.array(SectionSchema),
   suggestedParentId: z.string().nullable(),
-  suggestedTags: z.array(z.string()).max(5),
-  suggestedSlug: z.string().optional(),
+  suggestedTags: z
+    .array(z.string())
+    .describe("Suggested tags; only the first five are used.")
+    .transform((tags) => tags.slice(0, 5)),
+  // Gemini represents an absent structured-output value as null. Keep the
+  // provider schema required + nullable, then normalize to the public optional shape.
+  suggestedSlug: z
+    .string()
+    .nullable()
+    .transform((value) => value ?? undefined),
   actionabilityScore: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   actionabilityNotes: z.string(),
   sensitiveItems: z.array(SensitiveItemSchema),
@@ -90,7 +99,10 @@ export type PageDraft = z.infer<typeof PageDraftSchema>;
 const SectionPatchSchema = z.object({
   headingMatch: z.string().nullable(),
   operation: z.enum(["append", "prepend"]),
-  newHeading: z.string().optional(),
+  newHeading: z
+    .string()
+    .nullable()
+    .transform((value) => value ?? undefined),
   content: z.string(),
 });
 
@@ -108,12 +120,18 @@ export const ClarificationQuestionSchema = z.object({
   id: z.string(),
   question: z.string(),
   context: z.string(),
-  suggestions: z.array(z.string()).optional(),
+  suggestions: z
+    .array(z.string())
+    .nullable()
+    .transform((value) => value ?? undefined),
 });
 
 export const ClarificationResultSchema = z.object({
   needsClarification: z.boolean(),
-  questions: z.array(ClarificationQuestionSchema).max(4),
+  questions: z
+    .array(ClarificationQuestionSchema)
+    .describe("Clarification questions; only the first four are used.")
+    .transform((questions) => questions.slice(0, 4)),
   summary: z.string(),
 });
 

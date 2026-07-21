@@ -11,9 +11,10 @@ vi.mock("ai", async (importOriginal) => {
 const mockedGenerateText = vi.mocked(generateText);
 
 function schemaMismatch(text: string) {
+  const validationError = z.object({ value: z.number() }).safeParse({ value: "invalid" }).error;
   return new NoObjectGeneratedError({
     message: "No object generated: response did not match schema.",
-    cause: new Error("validation failed"),
+    cause: new Error("validation failed", { cause: validationError }),
     text,
     response: {} as never,
     usage: {} as never,
@@ -89,7 +90,9 @@ describe("generateValidatedObject", () => {
         schemaName: "Fixture",
         messages: [{ role: "user", content: "Return a fixture." }],
       }),
-    ).rejects.toSatisfy(NoObjectGeneratedError.isInstance);
+    ).rejects.toThrow(
+      "Structured output repair failed for Fixture (finishReason=stop, validationPaths=value)",
+    );
     expect(mockedGenerateText).toHaveBeenCalledTimes(2);
   });
 });
