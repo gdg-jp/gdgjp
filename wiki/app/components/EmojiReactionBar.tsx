@@ -1,6 +1,7 @@
 import EmojiPicker, { Emoji, EmojiStyle, type EmojiClickData } from "emoji-picker-react";
 import { Smile } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { MotionPresence } from "~/components/ui/motion";
 
 /** Convert a raw emoji character to the unified hex string expected by the Emoji component. */
 function toUnified(emoji: string): string {
@@ -88,15 +89,26 @@ export default function EmojiReactionBar({
         </button>
       )}
 
-      {!readOnly && pickerOpen && (
-        <div ref={pickerRef} className="absolute bottom-full left-0 z-50 mb-1">
-          <EmojiPicker
-            onEmojiClick={handlePickerSelect}
-            emojiStyle={EmojiStyle.TWITTER}
-            height={350}
-            width={300}
-          />
-        </div>
+      {!readOnly && (
+        <MotionPresence
+          present={pickerOpen}
+          distance={4}
+          scale={0.98}
+          transformOrigin="bottom left"
+          enterDuration={200}
+          exitDuration={140}
+          reducedOpacity={0.85}
+          className="absolute bottom-full left-0 z-50 mb-1"
+        >
+          <div ref={pickerRef}>
+            <EmojiPicker
+              onEmojiClick={handlePickerSelect}
+              emojiStyle={EmojiStyle.TWITTER}
+              height={350}
+              width={300}
+            />
+          </div>
+        </MotionPresence>
       )}
     </div>
   );

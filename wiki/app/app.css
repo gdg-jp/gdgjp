@@ -251,7 +251,7 @@
 /* Shared motion layer: short, interruptible transitions for product UI. */
 .motion-presence {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateX(0) translateY(0) scale(1);
   transition-property: opacity, transform;
   transition-duration: var(--motion-enter-duration, var(--motion-duration-enter));
   transition-timing-function: var(--motion-ease-out);
@@ -259,7 +259,8 @@
 
 .motion-presence[data-motion-state="closed"] {
   opacity: 0;
-  transform: translateY(var(--motion-distance, var(--motion-distance-sm)));
+  transform: translateX(var(--motion-translate-x, 0))
+    translateY(var(--motion-translate-y, var(--motion-distance-sm))) scale(var(--motion-scale, 1));
   transition-duration: var(--motion-exit-duration, var(--motion-duration-exit));
 }
 
@@ -308,11 +309,11 @@
 
 @media (prefers-reduced-motion: reduce) {
   .motion-presence {
-    transition-duration: 100ms;
+    transition-duration: var(--motion-reduced-duration, 100ms);
   }
 
   .motion-presence[data-motion-state="closed"] {
-    opacity: 0.85;
+    opacity: var(--motion-reduced-opacity, 0.85);
     transform: none;
   }
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { MotionPresence } from "~/components/ui/motion";
 import { isGoogleDriveUrl } from "~/lib/google-drive-utils";
 
 interface InputPanelProps {
@@ -132,7 +133,7 @@ export default function InputPanel({ driveConnected, serverError }: InputPanelPr
   return (
     <form method="post" encType="multipart/form-data" onSubmit={handleSubmit} className="space-y-6">
       {/* Errors */}
-      {allErrors.length > 0 && (
+      <MotionPresence present={allErrors.length > 0} distance={-4}>
         <div className="rounded-lg border border-red-200 bg-red-50 p-4">
           <ul className="list-disc pl-4 text-sm text-red-700">
             {allErrors.map((e) => (
@@ -140,7 +141,7 @@ export default function InputPanel({ driveConnected, serverError }: InputPanelPr
             ))}
           </ul>
         </div>
-      )}
+      </MotionPresence>
 
       {/* Text input */}
       <div>

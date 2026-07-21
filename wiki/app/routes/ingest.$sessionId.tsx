@@ -8,6 +8,7 @@ import Toast from "~/components/Toast";
 import ChangesetReview from "~/components/ingest/ChangesetReview";
 import SensitiveReviewModal from "~/components/ingest/SensitiveReviewModal";
 import type { ResolvedItem } from "~/components/ingest/SensitiveReviewModal";
+import { MotionSwap } from "~/components/ui/motion";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/lib/auth-utils.server";
 import type { AiDraftJson, ClarificationQuestion } from "~/lib/ingestion-pipeline.server";
@@ -159,9 +160,18 @@ function ProcessingScreen({
           const label = stepLabels[i];
           const isDone = i < activeStep;
           const isActive = i === activeStep;
+          const visualState = isDone ? "done" : isActive ? "active" : "pending";
+          const detail =
+            isActive && phaseMessage?.includes(":")
+              ? ` — ${phaseMessage.split(":").slice(1).join(":")}`
+              : "";
           return (
             <div key={step.key} className="flex items-center gap-3">
-              <span className="w-5 text-center text-sm">
+              <MotionSwap
+                as="span"
+                stateKey={visualState}
+                className="inline-flex w-5 justify-center text-center text-sm"
+              >
                 {isDone ? (
                   "✓"
                 ) : isActive ? (
@@ -169,21 +179,21 @@ function ProcessingScreen({
                 ) : (
                   "○"
                 )}
-              </span>
-              <span
-                className={
-                  isDone
-                    ? "text-sm text-green-600"
-                    : isActive
-                      ? "text-sm font-medium text-gray-900"
-                      : "text-sm text-gray-400"
-                }
-              >
-                {label}
-                {isActive && phaseMessage?.includes(":")
-                  ? ` — ${phaseMessage.split(":").slice(1).join(":")}`
-                  : ""}
-              </span>
+              </MotionSwap>
+              <MotionSwap as="span" stateKey={`${visualState}:${detail}`} className="inline-block">
+                <span
+                  className={
+                    isDone
+                      ? "text-sm text-green-600"
+                      : isActive
+                        ? "text-sm font-medium text-gray-900"
+                        : "text-sm text-gray-400"
+                  }
+                >
+                  {label}
+                  {detail}
+                </span>
+              </MotionSwap>
             </div>
           );
         })}

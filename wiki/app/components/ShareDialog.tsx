@@ -842,8 +842,16 @@ export default function ShareDialog({
                     onClick={copyLink}
                     className="rounded-full text-primary"
                   >
-                    {copied ? <Check size={20} /> : <Copy size={20} />}
-                    {copied ? t("wiki.share_copied") : t("wiki.share_copy_link")}
+                    <MotionSwap
+                      as="span"
+                      stateKey={copied ? "copied" : "copy"}
+                      distance={0}
+                      enterDuration={140}
+                      className="inline-flex items-center gap-2"
+                    >
+                      {copied ? <Check size={20} /> : <Copy size={20} />}
+                      {copied ? t("wiki.share_copied") : t("wiki.share_copy_link")}
+                    </MotionSwap>
                   </Button>
                   <Button onClick={close} disabled={isMutating} className="rounded-full px-5">
                     {t("wiki.share_done")}
