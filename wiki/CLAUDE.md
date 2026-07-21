@@ -19,9 +19,9 @@ Re-run `cf-typegen` (or `typecheck`) after `wrangler.toml` binding edits.
 
 Single `ExportedHandler<Env>` — understand all three before touching:
 
-- `fetch` — short-circuits WS upgrades on `/ws/collab/:slug` to `COLLAB_DO` (via `run_worker_first = ["/ws/*"]` in `wrangler.toml`); otherwise → RR.
+- `fetch` — authenticates `/agents/wiki-generation-agent/:session` and routes it through the Agents SDK; short-circuits `/ws/collab/:slug` to `COLLAB_DO`; otherwise → RR.
 - `scheduled` — cron `0 15 * * *` (15:00 UTC = 00:00 JST). Calls `sendDueTaskReminders(env)` to DM users whose task due-date is today JST.
-- `queue` — consumes BOTH `TRANSLATION_QUEUE` and `INGESTION_QUEUE`. Discriminates via `isTranslationQueueBody` / `isIngestionQueueMessage`. On ingestion-job failure: best-effort mark `ingestionSessions.status = "error"` so UI stops spinning, then `message.retry()`.
+- `queue` — consumes `TRANSLATION_QUEUE`. Wiki generation runs in the durable Agent Workflow instead of a Queue.
 
 `CollabDurableObject` (Yjs/WebSocket; awareness via `y-protocols`) re-exported from same file so wrangler registers it.
 
@@ -31,11 +31,12 @@ Single `ExportedHandler<Env>` — understand all three before touching:
 |---|---|
 | `DB` | D1, primary store. Via Drizzle (`getDb(env)` in `app/lib/db.server.ts`). |
 | `BUCKET` | R2 — page attachments + ingestion uploads. |
-| `TRANSLATION_QUEUE` / `INGESTION_QUEUE` | Producer+consumer; `app/lib/queue-processors.server.ts`. |
+| `TRANSLATION_QUEUE` | Translation producer+consumer; `app/lib/queue-processors.server.ts`. |
 | `BROWSER` | Browser Rendering, headless Chromium for PDF. |
 | `AI` | Workers AI; `bge-m3` for 1024-dim embeddings. |
 | `VECTORIZE` | Index `gdgjp-wiki-pages`, cosine, 1024 dims — semantic page search. |
 | `COLLAB_DO` | `CollabDurableObject`; one instance per page slug (`idFromName(slug)`). |
+| `GENERATION_AGENT` / `GENERATION_WORKFLOW` | Durable Wiki generation state and workflow. |
 
 `worker-configuration.d.ts` is generated — don't hand-edit. Access via `context.cloudflare.env`.
 
@@ -52,14 +53,14 @@ OAuth **client** of accounts.gdgs.jp. No local password / better-auth (migration
 
 Wiki is the only app on Drizzle. Schema in `app/db/schema.ts`, `drizzle.config.ts` writes to `migrations/`. Migrations are **hand-written SQL** (not generated). `schema.sql` is the generated post-migration dump — edit migrations, not the dump.
 
-## Ingestion pipeline
+## Wiki generation
 
-Queue-driven multi-phase flow: user-uploaded docs / URLs / Google Drive → wiki pages via Gemini.
+Agents SDK multi-phase flow: user-uploaded docs / URLs / Google Drive → wiki pages via the configured AI SDK model.
 
-- HTTP routes `app/routes/api.ingest.$sessionId.*.ts` enqueue onto `INGESTION_QUEUE` + serve status.
-- Queue handler dispatches to `app/lib/ingestion-pipeline/run-phases.ts` (orchestration) + `run-preprocess.ts`. Gemini prompts/schemas/parts under `app/lib/gemini/`.
-- Phase progress writes to `ingestion_sessions.phaseMessage` for the polling UI (`/ingest/:sessionId`).
-- Embeddings flow through `app/lib/embedding-pipeline.server.ts` → Workers AI → `VECTORIZE`. `vectorize_embedding_status` column (migration 0013) tracks per-page sync state.
+- `WikiGenerationAgent` owns session synchronization/RPCs and `WikiGenerationWorkflow` owns durable execution and approval waits.
+- `app/features/ingestion/wiki-workspace.server.ts` exposes bounded, permission-aware `ls/cd/pwd/cat/find/grep`; generation never uses Vectorize.
+- `/ingest/:sessionId` synchronizes lightweight state with `useAgent()` and revalidates D1-backed drafts on revision changes.
+- AI search remains independent under `app/features/ai-search/` and continues to use Workers AI + Vectorize.
 
 ## Realtime collab editor
 
@@ -84,4 +85,4 @@ UI strings: `app/locales/{ja,en}/*.json` via `remix-i18next` (`i18n.server.ts` /
 - `~/*` → `./app/*`.
 - `.server.ts` modules are server-only (enforced by Vite's import boundary) — never import from client code.
 - Cron set up for ONE trigger; adding another → update `[triggers].crons` + the `scheduled` handler discriminator together.
-- Queue messages MUST be discriminable by guards in `queue-processors.server.ts` / `ingestion-jobs.server.ts`. New message shape → extend a guard. Worker drops unrecognized via `ack()` (no retry).
+- Translation Queue messages MUST be discriminable by the guard in `queue-processors.server.ts`. Worker drops unrecognized messages via `ack()`.

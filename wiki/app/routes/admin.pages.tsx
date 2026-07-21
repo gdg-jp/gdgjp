@@ -3,9 +3,9 @@ import { useTranslation } from "react-i18next";
 import { Form, Link, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
+import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
 import { requireAdmin } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
-import { deletePageEmbeddings } from "~/lib/embedding-pipeline.server";
 
 // ---------------------------------------------------------------------------
 // Loader

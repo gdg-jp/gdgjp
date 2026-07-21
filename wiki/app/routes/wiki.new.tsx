@@ -8,10 +8,10 @@ import { useTranslation } from "react-i18next";
 import { Form, Link, redirect, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
+import { generateSlug } from "~/features/ingestion/slug";
 import { useThemeMode } from "~/hooks/useThemeMode";
 import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
-import { generateSlug } from "~/lib/ingestion-pipeline.server";
 
 // ---------------------------------------------------------------------------
 // Meta

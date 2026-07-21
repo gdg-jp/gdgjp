@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { KNOWLEDGE_RETRIEVAL_LIMITS, mergeRrfRankings } from "./knowledge-retriever.server";
+import {
+  KNOWLEDGE_RETRIEVAL_LIMITS,
+  mergeRrfRankings,
+} from "~/features/ai-search/knowledge-retriever.server";
 
 describe("mergeRrfRankings", () => {
   it("rewards pages found by both vector and FTS without expanding either result set", () => {

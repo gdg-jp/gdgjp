@@ -1,9 +1,9 @@
 import { and, eq, isNull, ne, or } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
+import { indexPageEmbeddings } from "~/features/ai-search/embedding.server";
 import { requireAdmin } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
-import { indexPageEmbeddings } from "~/lib/embedding-pipeline.server";
 
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;

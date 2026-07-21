@@ -1,8 +1,9 @@
+import { useAgent } from "agents/react";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLoaderData } from "react-router";
+import { useLoaderData, useRevalidator } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import Toast from "~/components/Toast";
 import ChangesetReview from "~/components/ingest/ChangesetReview";
@@ -10,9 +11,15 @@ import SensitiveReviewModal from "~/components/ingest/SensitiveReviewModal";
 import type { ResolvedItem } from "~/components/ingest/SensitiveReviewModal";
 import { MotionSwap } from "~/components/ui/motion";
 import * as schema from "~/db/schema";
+import type {
+  AiDraftJson,
+  ChangesetOperation,
+  ClarificationQuestion,
+  GenerationAgentState,
+} from "~/features/ingestion/contracts";
 import { requireUser } from "~/lib/auth-utils.server";
-import type { AiDraftJson, ClarificationQuestion } from "~/lib/ingestion-pipeline.server";
 import type { ExtractedUrl } from "~/lib/url-extract";
+import type { WikiGenerationAgent } from "../../workers/generation-agent";
 
 // ---------------------------------------------------------------------------
 // Loader
@@ -209,16 +216,14 @@ function ProcessingScreen({
 // ---------------------------------------------------------------------------
 
 function ClarificationScreen({
-  sessionId,
   questions,
   summary,
   onSubmitted,
   t,
 }: {
-  sessionId: string;
   questions: ClarificationQuestion[];
   summary: string;
-  onSubmitted: () => void;
+  onSubmitted: (answers: Array<{ id: string; question: string; answer: string }>) => Promise<void>;
   t: (k: string) => string;
 }) {
   const [selected, setSelected] = useState<Record<string, string[]>>(() =>
@@ -234,25 +239,15 @@ function ClarificationScreen({
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const res = await fetch(`/api/ingest/${sessionId}/clarify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          answers: questions.map((q) => ({
-            id: q.id,
-            question: q.question,
-            answer: freeText[q.id] ?? "",
-          })),
-        }),
-      });
-      if (res.ok) {
-        onSubmitted();
-      } else {
-        const text = await res.text().catch(() => "");
-        setSubmitError(text || `Error ${res.status}`);
-      }
-    } catch {
-      setSubmitError(t("ingest.error_heading"));
+      await onSubmitted(
+        questions.map((q) => ({
+          id: q.id,
+          question: q.question,
+          answer: freeText[q.id] ?? "",
+        })),
+      );
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : t("ingest.error_heading"));
     } finally {
       setSubmitting(false);
     }
@@ -346,14 +341,12 @@ function ClarificationScreen({
 // ---------------------------------------------------------------------------
 
 function UrlSelectionScreen({
-  sessionId,
   urls,
   onSubmitted,
   t,
 }: {
-  sessionId: string;
   urls: ExtractedUrl[];
-  onSubmitted: () => void;
+  onSubmitted: (selectedUrls: string[]) => Promise<void>;
   t: (k: string) => string;
 }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set(urls.map((u) => u.url)));
@@ -373,19 +366,9 @@ function UrlSelectionScreen({
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const res = await fetch(`/api/ingest/${sessionId}/select-urls`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selectedUrls }),
-      });
-      if (res.ok) {
-        onSubmitted();
-      } else {
-        const text = await res.text().catch(() => "");
-        setSubmitError(text || `Error ${res.status}`);
-      }
-    } catch {
-      setSubmitError(t("ingest.error_heading"));
+      await onSubmitted(selectedUrls);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : t("ingest.error_heading"));
     } finally {
       setSubmitting(false);
     }
@@ -461,55 +444,90 @@ function UrlSelectionScreen({
 export default function IngestSessionPage() {
   const loaderData = useLoaderData<typeof loader>();
   const { t } = useTranslation();
+  const revalidator = useRevalidator();
+  const generationAgent = useAgent<WikiGenerationAgent, GenerationAgentState>({
+    agent: "WikiGenerationAgent",
+    name: loaderData.sessionId,
+  });
   const imageKeys = loaderData.imageKeys;
-  const [status, setStatus] = useState(loaderData.status);
-  const [draft, setDraft] = useState(loaderData.draft);
-  const [phaseMessage, setPhaseMessage] = useState(loaderData.phaseMessage);
-  const [errorMessage, setErrorMessage] = useState(loaderData.errorMessage);
+  const [optimisticStatus, setOptimisticStatus] = useState<GenerationAgentState["status"] | null>(
+    null,
+  );
   const [sensitiveResolved, setSensitiveResolved] = useState(false);
   const [resolvedDraft, setResolvedDraft] = useState<ResultDraft | null>(null);
   const [showToast, setShowToast] = useState(false);
+  const lastRevision = useRef<number | null>(null);
+  const previousStatus = useRef<string | null>(null);
 
-  const isPolling = status === "processing";
+  const agentState =
+    generationAgent.state?.sessionId === loaderData.sessionId ? generationAgent.state : undefined;
+  const status = agentState?.status ?? optimisticStatus ?? loaderData.status;
+  const draft = loaderData.draft;
+  const phaseMessage = agentState?.phaseMessage ?? loaderData.phaseMessage;
+  const errorMessage = agentState?.errorMessage ?? loaderData.errorMessage;
 
-  // Poll status every 2s while processing
+  // The Agent state is deliberately small; a new revision means the workflow
+  // wrote a durable session change, so refresh the loader for the full draft.
   useEffect(() => {
-    if (!isPolling) return;
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/ingest/${loaderData.sessionId}/status`);
-        if (!res.ok) return;
-        const data = (await res.json()) as {
-          status: string;
-          errorMessage: string | null;
-          phaseMessage: string | null;
-        };
-        setStatus(data.status);
-        if (data.phaseMessage !== undefined) setPhaseMessage(data.phaseMessage);
-        if (data.errorMessage) setErrorMessage(data.errorMessage);
-        if (
-          data.status === "done" ||
-          data.status === "awaiting_clarification" ||
-          data.status === "awaiting_url_selection"
-        ) {
-          sessionStorage.setItem(`ingest-done-${loaderData.sessionId}`, "1");
-          window.location.reload();
-        }
-      } catch {
-        // ignore network errors during polling
-      }
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [isPolling, loaderData.sessionId]);
+    if (agentState?.revision === undefined || lastRevision.current === agentState.revision) return;
+    lastRevision.current = agentState.revision;
+    revalidator.revalidate();
+  }, [agentState?.revision, revalidator]);
 
-  // Show toast after reload when ingestion completes
   useEffect(() => {
-    const key = `ingest-done-${loaderData.sessionId}`;
-    if (sessionStorage.getItem(key)) {
-      sessionStorage.removeItem(key);
+    if (previousStatus.current === "processing" && status === "done") {
       setShowToast(true);
     }
-  }, [loaderData.sessionId]);
+    previousStatus.current = status;
+  }, [status]);
+
+  async function postIngestionAction(path: string, body: unknown): Promise<void> {
+    const response = await fetch(`/api/ingest/${loaderData.sessionId}/${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (response.ok) return;
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `Error ${response.status}`);
+  }
+
+  async function submitClarification(
+    answers: Array<{ id: string; question: string; answer: string }>,
+  ): Promise<void> {
+    if (generationAgent.identified) {
+      await generationAgent.stub.submitClarification({ answers });
+    } else {
+      await postIngestionAction("clarify", { answers });
+    }
+    setOptimisticStatus("processing");
+    revalidator.revalidate();
+  }
+
+  async function selectUrls(selectedUrls: string[]): Promise<void> {
+    if (generationAgent.identified) {
+      await generationAgent.stub.selectUrls({ selectedUrls });
+    } else {
+      await postIngestionAction("select-urls", { selectedUrls });
+    }
+    setOptimisticStatus("processing");
+    revalidator.revalidate();
+  }
+
+  async function regenerateOperation(input: {
+    operationIndex: number;
+    feedback: string;
+  }): Promise<{ operation: ChangesetOperation } | null> {
+    if (!generationAgent.identified) return null;
+    try {
+      return await generationAgent.stub.regenerateOperation(input);
+    } catch (error) {
+      // The HTTP endpoint remains an intentionally compatible fallback while
+      // clients reconnect or an Agent deployment is rolling out.
+      console.warn("Agent regeneration RPC failed; falling back to HTTP", error);
+      return null;
+    }
+  }
 
   // Processing state
   if (status === "processing") {
@@ -520,10 +538,9 @@ export default function IngestSessionPage() {
   if (status === "awaiting_clarification" && isClarification(draft)) {
     return (
       <ClarificationScreen
-        sessionId={loaderData.sessionId}
         questions={draft.questions}
         summary={draft.summary}
-        onSubmitted={() => setStatus("processing")}
+        onSubmitted={submitClarification}
         t={t}
       />
     );
@@ -531,14 +548,7 @@ export default function IngestSessionPage() {
 
   // URL selection state
   if (status === "awaiting_url_selection" && isUrlSelection(draft)) {
-    return (
-      <UrlSelectionScreen
-        sessionId={loaderData.sessionId}
-        urls={draft.urls}
-        onSubmitted={() => setStatus("processing")}
-        t={t}
-      />
-    );
+    return <UrlSelectionScreen urls={draft.urls} onSubmitted={selectUrls} t={t} />;
   }
 
   // Error state
@@ -602,6 +612,7 @@ export default function IngestSessionPage() {
         isAdmin={loaderData.isAdmin}
         imageKeys={imageKeys}
         pageIndex={loaderData.pageIndex}
+        onRegenerate={regenerateOperation}
       />
     </div>
   );

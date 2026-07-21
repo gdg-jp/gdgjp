@@ -1,22 +1,18 @@
-import { getAgentByName } from "agents";
+import { routeAgentRequest } from "agents";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { createRequestHandler } from "react-router";
 import * as schema from "../app/db/schema";
 import { createAuth } from "../app/lib/auth.server";
 import { sendDueTaskReminders } from "../app/lib/discord-reminders.server";
-import {
-  isIngestionQueueMessage,
-  isLegacyIngestionQueueMessage,
-} from "../app/lib/ingestion-jobs.server";
 import { getEffectivePagePermissions } from "../app/lib/page-access.server";
 import {
   isTranslationQueueBody,
   processTranslationMessage,
 } from "../app/lib/queue-processors.server";
 import { CollabDurableObject } from "./collab-durable-object";
-import { WikiIngestionAgent } from "./ingestion-agent";
-import { IngestionWorkflow } from "./ingestion-workflow";
+import { WikiGenerationAgent } from "./generation-agent";
+import { WikiGenerationWorkflow } from "./generation-workflow";
 
 // The server build is a virtual module provided by @react-router/dev/vite at build time.
 const requestHandler = createRequestHandler(
@@ -24,10 +20,34 @@ const requestHandler = createRequestHandler(
   import.meta.env?.MODE ?? "production",
 );
 
+async function authorizeGenerationAgentRequest(
+  request: Request,
+  env: Env,
+): Promise<Response | undefined> {
+  const url = new URL(request.url);
+  const match = /^\/agents\/wiki-generation-agent\/([^/]+)/.exec(url.pathname);
+  if (!match) return new Response("Not Found", { status: 404 });
+  const sessionId = decodeURIComponent(match[1]);
+  const user = await createAuth(env).getSessionUser(request);
+  if (!user) return new Response("Unauthorized", { status: 401 });
+  const session = await env.DB.prepare("SELECT user_id FROM ingestion_sessions WHERE id = ?")
+    .bind(sessionId)
+    .first<{ user_id: string }>();
+  if (!session) return new Response("Not Found", { status: 404 });
+  if (session.user_id !== user.id) return new Response("Forbidden", { status: 403 });
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Route WebSocket collab connections to Durable Object
     const url = new URL(request.url);
+    if (url.pathname.startsWith("/agents/wiki-generation-agent/")) {
+      const response = await routeAgentRequest(request, env, {
+        onBeforeConnect: (agentRequest) => authorizeGenerationAgentRequest(agentRequest, env),
+        onBeforeRequest: (agentRequest) => authorizeGenerationAgentRequest(agentRequest, env),
+      });
+      return response ?? new Response("Not Found", { status: 404 });
+    }
     if (
       url.pathname.startsWith("/ws/collab/") &&
       request.headers.get("Upgrade")?.toLowerCase() === "websocket"
@@ -89,19 +109,6 @@ export default {
       console.log("[queue] processing message", message.id, "body:", JSON.stringify(message.body));
       const body = message.body;
       try {
-        if (isIngestionQueueMessage(body)) {
-          const agent = await getAgentByName(env.INGESTION_AGENT, body.sessionId);
-          await agent.startIngestion(body.sessionId, body.userId);
-          message.ack();
-          continue;
-        }
-
-        if (isLegacyIngestionQueueMessage(body)) {
-          console.warn("queue: dropping legacy ingestion message", message.id, body.sessionId);
-          message.ack();
-          continue;
-        }
-
         if (isTranslationQueueBody(body)) {
           await processTranslationMessage(env, db, body);
           message.ack();
@@ -112,25 +119,6 @@ export default {
         message.ack();
       } catch (err) {
         console.error("queue: failed to process message", message.id, err);
-        // Do not poison a processable session before Queue has exhausted its
-        // delivery retries. A later duplicate is intentionally safe at the Agent.
-        if (isIngestionQueueMessage(body) && message.attempts >= 3) {
-          try {
-            await db
-              .update(schema.ingestionSessions)
-              .set({
-                status: "error",
-                errorMessage: "Ingestion failed due to an unexpected error.",
-                phaseMessage: null,
-                updatedAt: new Date(),
-              })
-              .where(eq(schema.ingestionSessions.id, body.sessionId));
-          } catch {
-            // nothing we can do; log above is sufficient
-          }
-          message.ack();
-          continue;
-        }
         message.retry();
       }
     }
@@ -139,4 +127,4 @@ export default {
 
 // Re-export Durable Object class so wrangler registers it
 export { CollabDurableObject };
-export { IngestionWorkflow, WikiIngestionAgent };
+export { WikiGenerationAgent, WikiGenerationWorkflow };

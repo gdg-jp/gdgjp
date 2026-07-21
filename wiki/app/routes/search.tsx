@@ -4,11 +4,11 @@ import { Link, useLoaderData, useNavigate, useNavigation } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import TagChip from "~/components/TagChip";
 import * as schema from "~/db/schema";
-import { createAccessContext } from "~/lib/agents/contracts";
+import { type RagSearchResult, performRagSearch } from "~/features/ai-search/rag-search.server";
+import { createAccessContext } from "~/features/ingestion/contracts";
 import { getAccessIdentity } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
-import { type RagSearchResult, performRagSearch } from "~/lib/rag-search.server";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   { title: data?.q ? `"${data.q}" — Search — GDG Japan Wiki` : "Search — GDG Japan Wiki" },

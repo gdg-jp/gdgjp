@@ -7,9 +7,9 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 import ConfirmDialog from "~/components/ConfirmDialog";
 import Tooltip from "~/components/Tooltip";
 import * as schema from "~/db/schema";
+import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
 import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
-import { deletePageEmbeddings } from "~/lib/embedding-pipeline.server";
 import { timeAgo } from "~/lib/time";
 
 export const meta: MetaFunction = () => [{ title: "Archived — GDG Japan Wiki" }];

@@ -1,0 +1,129 @@
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/d1";
+import * as schema from "~/db/schema";
+import type { AccessContext, AiDraftJson, IngestionInputs } from "./contracts";
+import {
+  clarifySources,
+  generateOperations,
+  generationManifest,
+  planGeneration,
+} from "./generation.server";
+import { persistDoneAndNotify, updateIngestionPhase } from "./persistence.server";
+import { type IngestionResumeContext, prepareSources } from "./source-preprocessor.server";
+import { runGenerationValidation } from "./validation.server";
+
+function parseAccessContext(value: string | null, userId: string): AccessContext {
+  if (value) {
+    try {
+      const parsed = JSON.parse(value) as AccessContext;
+      if (parsed.userId === userId) return parsed;
+    } catch {
+      // Old sessions did not store an access snapshot. They receive the least privilege fallback.
+    }
+  }
+  return {
+    userId,
+    email: "",
+    isAdmin: false,
+    chapterIds: [],
+    capturedAt: new Date().toISOString(),
+    claimsAvailable: false,
+    source: "system",
+  };
+}
+
+export async function runIngestion(
+  env: Env,
+  sessionId: string,
+  userId: string,
+  inputs: IngestionInputs,
+  resume?: IngestionResumeContext,
+): Promise<void> {
+  const db = drizzle(env.DB, { schema });
+  const prepared = await prepareSources(env, db, sessionId, userId, inputs, resume);
+  if (prepared.status === "awaiting_url_selection") return;
+
+  const session = await db
+    .select({
+      access: schema.ingestionSessions.accessContextJson,
+      manifest: schema.ingestionSessions.contextManifestJson,
+    })
+    .from(schema.ingestionSessions)
+    .where(eq(schema.ingestionSessions.id, sessionId))
+    .get();
+  if (!session) throw new Error("Ingestion session not found");
+  const access = parseAccessContext(session.access, userId);
+  const context = {
+    db,
+    actor: {
+      userId,
+      email: access.email,
+      isAdmin: access.isAdmin,
+      chapterIds: access.chapterIds,
+    },
+    sourceText: prepared.data.userText,
+    inputs,
+  };
+
+  if (!prepared.data.skipClarification && !prepared.data.isPostClarification) {
+    await updateIngestionPhase(db, sessionId, "clarifying");
+    const clarification = await clarifySources(env, context);
+    if (clarification.result.needsClarification) {
+      const draft: AiDraftJson = {
+        phase: "clarification",
+        questions: clarification.result.questions,
+        summary: clarification.result.summary,
+        fileUris: prepared.data.fileUris,
+        sourceArtifactKey: prepared.data.sourceArtifactKey,
+        sources: prepared.data.sources.length ? prepared.data.sources : undefined,
+      };
+      await db
+        .update(schema.ingestionSessions)
+        .set({
+          aiDraftJson: JSON.stringify(draft),
+          status: "awaiting_clarification",
+          phaseMessage: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.ingestionSessions.id, sessionId));
+      return;
+    }
+  }
+
+  await updateIngestionPhase(db, sessionId, "planning");
+  const planned = await planGeneration(env, context);
+  await updateIngestionPhase(db, sessionId, `generating:0/${planned.plan.operations.length}`);
+  const operations = await generateOperations(env, context, planned.plan, planned.manifest);
+  await runGenerationValidation({ operations, workspace: planned.manifest });
+  const sensitiveItems = operations.flatMap(
+    (operation) => operation.draft?.sensitiveItems ?? operation.patch?.sensitiveItems ?? [],
+  );
+  const result: AiDraftJson = {
+    phase: "result",
+    planRationale: planned.plan.planRationale,
+    operations,
+    sensitiveItems,
+    warnings: prepared.data.warnings,
+    sources: prepared.data.sources,
+    imageKeys: inputs.imageKeys,
+    pdfKeys: inputs.pdfKeys ?? [],
+  };
+  let oldManifest: Record<string, unknown> = {};
+  try {
+    oldManifest = session.manifest ? JSON.parse(session.manifest) : {};
+  } catch {
+    oldManifest = {};
+  }
+  const sourceArtifact = oldManifest.sourceArtifact as { sha256?: string } | undefined;
+  await db
+    .update(schema.ingestionSessions)
+    .set({
+      contextManifestJson: JSON.stringify({
+        ...oldManifest,
+        generation: generationManifest(env, planned.manifest, sourceArtifact?.sha256),
+      }),
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.ingestionSessions.id, sessionId));
+  await persistDoneAndNotify(env, db, sessionId, userId, result);
+}

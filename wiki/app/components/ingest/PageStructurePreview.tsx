@@ -2,7 +2,7 @@ import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MotionPresence } from "~/components/ui/motion";
-import type { ChangesetOperation } from "~/lib/ingestion-pipeline.server";
+import type { ChangesetOperation } from "~/features/ingestion/contracts";
 
 // ---------------------------------------------------------------------------
 // Types

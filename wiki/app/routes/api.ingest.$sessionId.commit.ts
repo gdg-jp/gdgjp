@@ -4,8 +4,8 @@ import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import * as schema from "~/db/schema";
+import { generateSlug } from "~/features/ingestion/slug";
 import { requireUser } from "~/lib/auth-utils.server";
-import { generateSlug } from "~/lib/ingestion-pipeline.server";
 import { sendOrRunTranslation } from "~/lib/queue-processors.server";
 
 // ---------------------------------------------------------------------------

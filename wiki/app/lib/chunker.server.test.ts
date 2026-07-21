@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chunkPageContent } from "./chunker.server";
+import { chunkPageContent } from "~/features/ai-search/chunker.server";
 
 const TIPTAP_DOC_JA = JSON.stringify({
   type: "doc",

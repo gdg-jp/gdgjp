@@ -3,9 +3,8 @@ import { drizzle } from "drizzle-orm/d1";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { createAccessContext } from "~/lib/agents/contracts";
-import { buildIngestionQueueMessage } from "~/lib/ingestion-jobs.server";
-import { sendOrRunIngestion } from "~/lib/queue-processors.server";
+import { createAccessContext } from "~/features/ingestion/contracts";
+import { startWikiGeneration } from "~/features/ingestion/start.server";
 
 // Constant-time string comparison to prevent timing attacks
 function secureCompare(a: string, b: string): boolean {
@@ -75,7 +74,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   });
 
   try {
-    await sendOrRunIngestion(env, ctx, buildIngestionQueueMessage(sessionId, wikiUser.id));
+    await startWikiGeneration(env, ctx, sessionId, wikiUser.id);
   } catch (err) {
     console.error("discord/ingest: failed to enqueue ingestion job", { sessionId, err });
     await db

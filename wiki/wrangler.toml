@@ -11,7 +11,7 @@ invocation_logs = true
 [assets]
 directory = "./build/client"
 binding = "ASSETS"
-run_worker_first = ["/ws/*"]
+run_worker_first = ["/ws/*", "/agents/*"]
 
 [[routes]]
 pattern = "wiki.gdgs.jp/*"
@@ -24,6 +24,7 @@ APP_URL = "https://wiki.gdgs.jp"
 ACCOUNTS_URL = "https://accounts.gdgs.jp"
 IDP_URL = "https://accounts.gdgs.jp"
 IDP_CLIENT_ID = "wiki"
+GEMINI_MODEL_ID = "gemini-3-flash-preview"
 FIREBASE_API_KEY = "AIzaSyBDHVMd25wph9m8x4smxTvfGJ3C6OmfrDY"
 FIREBASE_AUTH_DOMAIN = "gdgsjp.firebaseapp.com"
 FIREBASE_PROJECT_ID = "gdgsjp"
@@ -50,25 +51,16 @@ binding = "BUCKET"
 bucket_name = "gdgjp-wiki-storage"
 
 # ---------------------------------------------------------------------------
-# Cloudflare Queues — background translation / ingestion jobs
+# Cloudflare Queues — background translation jobs
 # ---------------------------------------------------------------------------
 [[queues.producers]]
 binding = "TRANSLATION_QUEUE"
 queue = "gdgjp-wiki-translation-jobs"
 
-[[queues.producers]]
-binding = "INGESTION_QUEUE"
-queue = "gdgjp-wiki-ingestion-jobs"
-
 [[queues.consumers]]
 queue = "gdgjp-wiki-translation-jobs"
 max_batch_size = 10
 max_batch_timeout = 30
-
-[[queues.consumers]]
-queue = "gdgjp-wiki-ingestion-jobs"
-max_batch_size = 1
-max_batch_timeout = 5
 
 # ---------------------------------------------------------------------------
 # Cloudflare Browser Rendering — headless Chromium for PDF generation
@@ -96,7 +88,7 @@ index_name = "gdgjp-wiki-pages"
 [durable_objects]
 bindings = [
   { name = "COLLAB_DO", class_name = "CollabDurableObject" },
-  { name = "INGESTION_AGENT", class_name = "WikiIngestionAgent" }
+  { name = "GENERATION_AGENT", class_name = "WikiGenerationAgent" }
 ]
 
 [[migrations]]
@@ -107,10 +99,15 @@ new_sqlite_classes = ["CollabDurableObject"]
 tag = "v2"
 new_sqlite_classes = ["WikiIngestionAgent"]
 
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["WikiGenerationAgent"]
+deleted_classes = ["WikiIngestionAgent"]
+
 [[workflows]]
-name = "gdgjp-wiki-ingestion"
-binding = "INGESTION_WORKFLOW"
-class_name = "IngestionWorkflow"
+name = "gdgjp-wiki-generation"
+binding = "GENERATION_WORKFLOW"
+class_name = "WikiGenerationWorkflow"
 
 # ---------------------------------------------------------------------------
 # Cron Triggers

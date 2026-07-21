@@ -1,6 +1,7 @@
 import { cloudflare } from "@cloudflare/vite-plugin";
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
+import agents from "agents/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
@@ -11,6 +12,7 @@ export default defineConfig({
   // regardless of which app `pnpm dev` starts first.
   server: { port: 5177, strictPort: true },
   plugins: [
+    agents(),
     cloudflare({ viteEnvironment: { name: "ssr" }, remoteBindings: false }),
     reactRouter(),
     tailwindcss(),

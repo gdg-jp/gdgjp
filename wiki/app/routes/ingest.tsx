@@ -6,12 +6,10 @@ import { redirect, useActionData, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import InputPanel from "~/components/ingest/InputPanel";
 import * as schema from "~/db/schema";
-import { createAccessContext } from "~/lib/agents/contracts";
+import { type IngestionInputs, createAccessContext } from "~/features/ingestion/contracts";
+import { startWikiGeneration } from "~/features/ingestion/start.server";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { isGoogleDriveUrl } from "~/lib/google-drive-utils";
-import { buildIngestionQueueMessage } from "~/lib/ingestion-jobs.server";
-import type { IngestionInputs } from "~/lib/ingestion-pipeline.server";
-import { sendOrRunIngestion } from "~/lib/queue-processors.server";
 
 export const meta: MetaFunction = () => [{ title: "Add Content — GDG Japan Wiki" }];
 
@@ -156,7 +154,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   });
 
   try {
-    await sendOrRunIngestion(env, ctx, buildIngestionQueueMessage(sessionId, user.id));
+    await startWikiGeneration(env, ctx, sessionId, user.id);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("ingest: failed to enqueue ingestion job", { sessionId, userId: user.id, err });

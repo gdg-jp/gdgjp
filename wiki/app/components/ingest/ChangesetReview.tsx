@@ -2,14 +2,11 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import TipTapEditor from "~/components/TipTapEditor";
 import PageStructurePreview from "~/components/ingest/PageStructurePreview";
-import type { ChangesetOperation } from "~/lib/ingestion-pipeline.server";
+import type { AiDraftJson, ChangesetOperation } from "~/features/ingestion/contracts";
 import { buildTree, flattenTree } from "~/lib/page-tree";
 import { applyPatchesToMarkdown, tiptapToMarkdown } from "~/lib/tiptap-convert";
 
-type ResultDraft = Extract<
-  import("~/lib/ingestion-pipeline.server").AiDraftJson,
-  { planRationale: string }
->;
+type ResultDraft = Extract<AiDraftJson, { planRationale: string }>;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -64,6 +61,10 @@ interface ChangesetReviewProps {
   isAdmin: boolean | null | undefined;
   imageKeys?: string[];
   pageIndex?: PageIndexEntry[];
+  onRegenerate?: (input: {
+    operationIndex: number;
+    feedback: string;
+  }) => Promise<{ operation: ChangesetOperation } | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +77,7 @@ export default function ChangesetReview({
   isAdmin,
   imageKeys,
   pageIndex = [],
+  onRegenerate,
 }: ChangesetReviewProps) {
   const { t } = useTranslation();
   const imageUrlMap = buildImageUrlMap(imageKeys ?? []);
@@ -175,41 +177,35 @@ export default function ChangesetReview({
       return n;
     });
     try {
-      const res = await fetch(`/api/ingest/${sessionId}/regenerate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          operationIndex: idx,
-          feedback: feedback[idx],
-        }),
-      });
-      if (res.ok) {
-        const data = (await res.json()) as { operation: ChangesetOperation };
-        setOperations((prev) => {
-          const next = [...prev];
-          next[idx] = data.operation;
-          return next;
-        });
-        setOpStates((prev) => {
-          const next = [...prev];
-          const prevParentId = next[idx]?.parentId ?? null;
-          next[idx] = { ...initOpState(data.operation), parentId: prevParentId };
-          return next;
-        });
-        setRegenerateErrors((prev) => {
-          const next = [...prev];
-          next[idx] = null;
-          return next;
-        });
+      const input = { operationIndex: idx, feedback: feedback[idx] };
+      const agentResult = await onRegenerate?.(input);
+      if (agentResult) {
+        applyRegeneratedOperation(idx, agentResult.operation);
       } else {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        const msg = data.error ?? t("ingest.review.regenerate_error_generic");
-        setRegenerateErrors((prev) => {
-          const next = [...prev];
-          next[idx] = msg;
-          return next;
+        const res = await fetch(`/api/ingest/${sessionId}/regenerate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
         });
+        if (res.ok) {
+          const data = (await res.json()) as { operation: ChangesetOperation };
+          applyRegeneratedOperation(idx, data.operation);
+        } else {
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          const msg = data.error ?? t("ingest.review.regenerate_error_generic");
+          setRegenerateErrors((prev) => {
+            const next = [...prev];
+            next[idx] = msg;
+            return next;
+          });
+        }
       }
+    } catch {
+      setRegenerateErrors((prev) => {
+        const next = [...prev];
+        next[idx] = t("ingest.review.regenerate_error_generic");
+        return next;
+      });
     } finally {
       setRegenerating((prev) => {
         const n = [...prev];
@@ -217,6 +213,25 @@ export default function ChangesetReview({
         return n;
       });
     }
+  }
+
+  function applyRegeneratedOperation(idx: number, operation: ChangesetOperation) {
+    setOperations((prev) => {
+      const next = [...prev];
+      next[idx] = operation;
+      return next;
+    });
+    setOpStates((prev) => {
+      const next = [...prev];
+      const prevParentId = next[idx]?.parentId ?? null;
+      next[idx] = { ...initOpState(operation), parentId: prevParentId };
+      return next;
+    });
+    setRegenerateErrors((prev) => {
+      const next = [...prev];
+      next[idx] = null;
+      return next;
+    });
   }
 
   async function handleSubmit(publishStatus: "draft" | "published") {
@@ -562,12 +577,12 @@ function initOpState(op: ChangesetOperation): OperationState {
   };
 }
 
-function buildMarkdownFromDraft(draft: import("~/lib/gemini.server").PageDraft): string {
+function buildMarkdownFromDraft(draft: import("~/features/ingestion/contracts").PageDraft): string {
   return draft.sections.map((section) => `## ${section.heading}\n\n${section.body}`).join("\n\n");
 }
 
 function buildMarkdownFromPatch(
-  patch: import("~/lib/gemini.server").SectionPatchResponse,
+  patch: import("~/features/ingestion/contracts").SectionPatchResponse,
   existingTipTapJson?: string,
 ): string {
   const existingMarkdown = existingTipTapJson ? tiptapToMarkdown(existingTipTapJson) : "";
