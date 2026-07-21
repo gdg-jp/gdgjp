@@ -6,13 +6,13 @@ describe("ingestion realtime event protocol", () => {
     const started = parseIngestionRealtimeEvent({
       type: "tool_started",
       toolCallId: "call-1",
-      tool: "grep",
+      tool: "search",
       summary: "Searching page titles",
     });
     const completed = parseIngestionRealtimeEvent({
       type: "tool_completed",
       toolCallId: "call-1",
-      tool: "grep",
+      tool: "search",
       durationMs: 120,
       truncated: false,
     });

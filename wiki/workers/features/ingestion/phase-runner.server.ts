@@ -15,6 +15,7 @@ import {
   persistDoneAndNotify,
   updateIngestionPhase,
 } from "./persistence/ingestion-result-writer.server";
+import { parseIngestionContextManifest } from "./persistence/serialization/context-manifest-codec";
 import { type IngestionResumeContext, prepareSources } from "./source-preparation.server";
 
 function parseAccessContext(value: string | null, userId: string): AccessContext {
@@ -59,6 +60,7 @@ export async function runIngestion(
     .get();
   if (!session) throw new Error("Ingestion session not found");
   const access = parseAccessContext(session.access, userId);
+  const contextManifest = parseIngestionContextManifest(session.manifest);
   const context = {
     db,
     actor: {
@@ -67,7 +69,9 @@ export async function runIngestion(
       isAdmin: access.isAdmin,
       chapterIds: access.chapterIds,
     },
-    sourceText: prepared.data.userText,
+    userInput: prepared.data.userInput,
+    clarificationAnswers: prepared.data.clarificationAnswers,
+    sourceNodes: contextManifest.sourceNodes ?? [],
     inputs,
   };
 
@@ -80,7 +84,6 @@ export async function runIngestion(
         questions: clarification.result.questions,
         summary: clarification.result.summary,
         fileUris: prepared.data.fileUris,
-        sourceArtifactKey: prepared.data.sourceArtifactKey,
         sources: prepared.data.sources.length ? prepared.data.sources : undefined,
       };
       await db
@@ -113,20 +116,23 @@ export async function runIngestion(
     sources: prepared.data.sources,
     imageKeys: inputs.imageKeys,
     pdfKeys: inputs.pdfKeys ?? [],
+    clarificationAnswers: prepared.data.clarificationAnswers,
   };
-  let oldManifest: Record<string, unknown> = {};
-  try {
-    oldManifest = session.manifest ? JSON.parse(session.manifest) : {};
-  } catch {
-    oldManifest = {};
-  }
-  const sourceArtifact = oldManifest.sourceArtifact as { sha256?: string } | undefined;
+  const latestSession = await db
+    .select({ manifest: schema.ingestionSessions.contextManifestJson })
+    .from(schema.ingestionSessions)
+    .where(eq(schema.ingestionSessions.id, sessionId))
+    .get();
+  const latestManifest = parseIngestionContextManifest(latestSession?.manifest ?? null);
+  const sourceHashes = (latestManifest.sourceNodes ?? []).flatMap((node) =>
+    node.sha256 ? [node.sha256] : [],
+  );
   await db
     .update(schema.ingestionSessions)
     .set({
       contextManifestJson: JSON.stringify({
-        ...oldManifest,
-        generation: generationManifest(env, planned.manifest, sourceArtifact?.sha256),
+        ...latestManifest,
+        generation: generationManifest(env, planned.manifest, sourceHashes),
       }),
       updatedAt: new Date(),
     })

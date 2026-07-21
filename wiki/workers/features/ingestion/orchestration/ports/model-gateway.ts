@@ -13,7 +13,8 @@ export interface IngestionModelContext {
     isAdmin: boolean;
     chapterIds: string[];
   };
-  sourceText: string;
+  userInput: string;
+  clarificationAnswers?: string;
   inputs: IngestionInputs;
 }
 

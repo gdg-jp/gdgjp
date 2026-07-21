@@ -38,6 +38,8 @@ export const CreateOperationSchema = z.object({
     "survey-report",
   ]),
   rationale: z.string(),
+  /** Paths read by the planner and selected as evidence for this operation. */
+  evidencePaths: z.array(z.string().min(1)).max(12),
 });
 
 export const UpdateOperationSchema = z.object({
@@ -45,6 +47,8 @@ export const UpdateOperationSchema = z.object({
   pageId: z.string(),
   pageTitle: z.string(),
   rationale: z.string(),
+  /** Paths read by the planner and selected as evidence for this operation. */
+  evidencePaths: z.array(z.string().min(1)).max(12),
 });
 
 export const OperationPlanSchema = z.object({
@@ -165,6 +169,8 @@ export interface ChangesetOperation {
   pageId?: string;
   pageTitle?: string;
   rationale: string;
+  /** Evidence selected by the planner; retained for isolated regeneration. */
+  evidencePaths: string[];
   draft: PageDraft | null;
   patch: SectionPatchResponse | null;
   existingTipTapJson?: string;
@@ -176,31 +182,27 @@ export type AiDraftJson =
       questions: ClarificationQuestion[];
       summary: string;
       fileUris: { uri: string; mimeType: string }[];
-      googleDocText?: string;
-      sourceArtifactKey?: string;
       sources?: SourceUrl[];
     }
   | {
       phase: "url_selection";
       urls: ExtractedUrl[];
       fileUris: { uri: string; mimeType: string }[];
-      googleDocText?: string;
-      sourceArtifactKey?: string;
+      sources?: SourceUrl[];
+      skipClarification?: boolean;
     }
   | {
       phase: "resume_post_clarification";
       fileUris: { uri: string; mimeType: string }[];
       clarificationAnswers: string;
-      googleDocText?: string;
-      sourceArtifactKey?: string;
       sources?: SourceUrl[];
     }
   | {
       phase: "resume_post_url_selection";
       fileUris: { uri: string; mimeType: string }[];
       selectedUrls: string[];
-      googleDocText?: string;
-      sourceArtifactKey?: string;
+      sources?: SourceUrl[];
+      skipClarification?: boolean;
     }
   | {
       phase?: "result";
@@ -211,6 +213,7 @@ export type AiDraftJson =
       sources: SourceUrl[];
       imageKeys: string[];
       pdfKeys: string[];
+      clarificationAnswers?: string;
     };
 
 export type IngestionResumePostClarificationDraft = Extract<

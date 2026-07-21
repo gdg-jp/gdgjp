@@ -24,7 +24,15 @@ export function parseIngestionDraft(value: string | null): AiDraftJson | null {
       return Array.isArray(parsed.fileUris) ? (parsed as AiDraftJson) : null;
     }
     // Result drafts historically have either phase: "result" or no phase.
-    return Array.isArray(parsed.operations) ? (parsed as AiDraftJson) : null;
+    if (!Array.isArray(parsed.operations)) return null;
+    return {
+      ...parsed,
+      operations: parsed.operations.map((operation) =>
+        isRecord(operation) && !Array.isArray(operation.evidencePaths)
+          ? { ...operation, evidencePaths: [] }
+          : operation,
+      ),
+    } as AiDraftJson;
   } catch {
     return null;
   }

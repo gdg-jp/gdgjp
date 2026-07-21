@@ -6,9 +6,9 @@ import { getEffectivePagePermissions } from "../../../../../app/lib/page-access.
 import type {
   WikiWorkspaceStore,
   WorkspaceActor,
-  WorkspacePage,
-  WorkspacePageBody,
-} from "../../tools/wiki-workspace/workspace";
+  WikiWorkspacePage as WorkspacePage,
+  WikiWorkspacePageBody as WorkspacePageBody,
+} from "../../tools/workspace/wiki-adapter";
 
 type Db = DrizzleD1Database<typeof schema>;
 type PageRow = Omit<WorkspacePage, "updatedAt"> & { updatedAt: Date };
@@ -53,6 +53,60 @@ export function createD1WikiWorkspaceStore(db: Db, actor: WorkspaceActor): WikiW
       .all();
     return { ...page, tags: tagRows.map(({ tag }) => tag) };
   }
+  const findPages: WikiWorkspaceStore["findPages"] = async (query, { limit, offset }) => {
+    const pattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
+    return db
+      .select(pageColumns)
+      .from(schema.pages)
+      .where(
+        and(
+          eq(schema.pages.status, "published"),
+          or(
+            like(schema.pages.slug, pattern),
+            like(schema.pages.titleJa, pattern),
+            like(schema.pages.titleEn, pattern),
+          ),
+        ),
+      )
+      .orderBy(asc(schema.pages.updatedAt), asc(schema.pages.id))
+      .limit(limit)
+      .offset(offset)
+      .all();
+  };
+  const searchPageBodies: WikiWorkspaceStore["searchPageBodies"] = async (
+    query,
+    { limit, offset },
+  ) => {
+    const pattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
+    const rows = await db
+      .select({
+        ...pageColumns,
+        contentJa: schema.pages.contentJa,
+        contentEn: schema.pages.contentEn,
+      })
+      .from(schema.pages)
+      .where(
+        and(
+          eq(schema.pages.status, "published"),
+          or(like(schema.pages.contentJa, pattern), like(schema.pages.contentEn, pattern)),
+        ),
+      )
+      .orderBy(asc(schema.pages.updatedAt), asc(schema.pages.id))
+      .limit(limit)
+      .offset(offset)
+      .all();
+    const pageIds = rows.map(({ id }) => id);
+    const tagRows = pageIds.length
+      ? await db
+          .select({ pageId: schema.pageTags.pageId, tag: schema.pageTags.tagSlug })
+          .from(schema.pageTags)
+          .where(inArray(schema.pageTags.pageId, pageIds))
+          .all()
+      : [];
+    const tags = new Map<string, string[]>();
+    for (const row of tagRows) tags.set(row.pageId, [...(tags.get(row.pageId) ?? []), row.tag]);
+    return rows.map((row) => ({ ...row, tags: tags.get(row.id) ?? [] }));
+  };
   return {
     getRootPage: (slug) => getPage(and(eq(schema.pages.slug, slug), isNull(schema.pages.parentId))),
     getChildPage: (parentId, slug) =>
@@ -73,59 +127,8 @@ export function createD1WikiWorkspaceStore(db: Db, actor: WorkspaceActor): WikiW
         .limit(limit)
         .offset(offset)
         .all(),
-    findPublicPages: async (query, { limit, offset }) => {
-      const pattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
-      return db
-        .select(pageColumns)
-        .from(schema.pages)
-        .where(
-          and(
-            eq(schema.pages.status, "published"),
-            eq(schema.pages.visibility, "public"),
-            or(
-              like(schema.pages.slug, pattern),
-              like(schema.pages.titleJa, pattern),
-              like(schema.pages.titleEn, pattern),
-            ),
-          ),
-        )
-        .orderBy(asc(schema.pages.updatedAt), asc(schema.pages.id))
-        .limit(limit)
-        .offset(offset)
-        .all();
-    },
-    grepPublicPages: async (query, { limit, offset }) => {
-      const pattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
-      const rows = await db
-        .select({
-          ...pageColumns,
-          contentJa: schema.pages.contentJa,
-          contentEn: schema.pages.contentEn,
-        })
-        .from(schema.pages)
-        .where(
-          and(
-            eq(schema.pages.status, "published"),
-            eq(schema.pages.visibility, "public"),
-            or(like(schema.pages.contentJa, pattern), like(schema.pages.contentEn, pattern)),
-          ),
-        )
-        .orderBy(asc(schema.pages.updatedAt), asc(schema.pages.id))
-        .limit(limit)
-        .offset(offset)
-        .all();
-      const pageIds = rows.map(({ id }) => id);
-      const tagRows = pageIds.length
-        ? await db
-            .select({ pageId: schema.pageTags.pageId, tag: schema.pageTags.tagSlug })
-            .from(schema.pageTags)
-            .where(inArray(schema.pageTags.pageId, pageIds))
-            .all()
-        : [];
-      const tags = new Map<string, string[]>();
-      for (const row of tagRows) tags.set(row.pageId, [...(tags.get(row.pageId) ?? []), row.tag]);
-      return rows.map((row) => ({ ...row, tags: tags.get(row.id) ?? [] }));
-    },
+    findPages,
+    searchPageBodies,
     canView: (page) =>
       getEffectivePagePermissions(
         db,

@@ -1,6 +1,11 @@
 import { Output } from "ai";
 import { describe, expect, it } from "vitest";
-import { ClarificationResultSchema, PageDraftSchema, SectionPatchResponseSchema } from "./domain";
+import {
+  ClarificationResultSchema,
+  OperationPlanSchema,
+  PageDraftSchema,
+  SectionPatchResponseSchema,
+} from "./domain";
 
 async function jsonSchemaFor(schema: Parameters<typeof Output.object>[0]["schema"]) {
   const responseFormat = await Output.object({ schema }).responseFormat;
@@ -12,6 +17,38 @@ async function jsonSchemaFor(schema: Parameters<typeof Output.object>[0]["schema
 }
 
 describe("ingestion structured-output schemas", () => {
+  it("requires operation-scoped, bounded evidence paths", () => {
+    const base = {
+      planRationale: "Plan",
+      operations: [
+        {
+          type: "create",
+          tempId: "new-page",
+          suggestedTitle: { ja: "New page" },
+          suggestedParentId: null,
+          pageType: "how-to-guide",
+          rationale: "Document the source",
+          evidencePaths: ["/google-docs/meeting/PR"],
+        },
+      ],
+    };
+    expect(OperationPlanSchema.parse(base).operations[0]?.evidencePaths).toEqual([
+      "/google-docs/meeting/PR",
+    ]);
+    expect(() =>
+      OperationPlanSchema.parse({
+        ...base,
+        operations: [{ ...base.operations[0], evidencePaths: undefined }],
+      }),
+    ).toThrow();
+    expect(() =>
+      OperationPlanSchema.parse({
+        ...base,
+        operations: [{ ...base.operations[0], evidencePaths: Array(13).fill("/wiki/page") }],
+      }),
+    ).toThrow();
+  });
+
   it("normalizes nullable provider values to the public optional shape", () => {
     const clarification = ClarificationResultSchema.parse({
       needsClarification: true,

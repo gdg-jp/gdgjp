@@ -35,4 +35,33 @@ describe("ingestion persistence codecs", () => {
   it("recovers an empty manifest from corrupt historical JSON", () => {
     expect(parseIngestionContextManifest("not json")).toEqual({});
   });
+
+  it("keeps valid mounted source nodes and drops malformed nodes", () => {
+    expect(
+      parseIngestionContextManifest(
+        JSON.stringify({
+          sourceNodes: [
+            {
+              path: "/google-docs/Meeting/PR",
+              parentPath: "/google-docs/Meeting",
+              title: "PR",
+              kind: "google_tab",
+              artifactKey: "ingestion/session/workspace/google-docs/Meeting/PR",
+              bytes: 42,
+            },
+            { path: "relative", title: "invalid", kind: "website" },
+          ],
+        }),
+      ).sourceNodes,
+    ).toEqual([
+      {
+        path: "/google-docs/Meeting/PR",
+        parentPath: "/google-docs/Meeting",
+        title: "PR",
+        kind: "google_tab",
+        artifactKey: "ingestion/session/workspace/google-docs/Meeting/PR",
+        bytes: 42,
+      },
+    ]);
+  });
 });

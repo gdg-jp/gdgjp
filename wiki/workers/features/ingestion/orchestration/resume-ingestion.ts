@@ -58,8 +58,6 @@ export async function prepareClarificationResume(
     phase: "resume_post_clarification",
     fileUris: previousDraft.fileUris,
     clarificationAnswers,
-    googleDocText: previousDraft.googleDocText,
-    sourceArtifactKey: previousDraft.sourceArtifactKey,
     sources: previousDraft.sources,
   };
   const transitioned = await sessions.transition(
@@ -99,8 +97,8 @@ export async function prepareUrlSelectionResume(
     phase: "resume_post_url_selection",
     fileUris: previousDraft.fileUris,
     selectedUrls: [...selectedUrls],
-    googleDocText: previousDraft.googleDocText,
-    sourceArtifactKey: previousDraft.sourceArtifactKey,
+    sources: previousDraft.sources,
+    skipClarification: previousDraft.skipClarification,
   };
   const transitioned = await sessions.transition(
     sessionId,

@@ -1,15 +1,24 @@
 import type { IngestionSessionRepository } from "../d1/ingestion-session-repository";
-import type { SourceArtifactReference } from "../serialization/context-manifest-codec";
+import type {
+  WorkspaceSourceKind,
+  WorkspaceSourceReference,
+} from "../serialization/context-manifest-codec";
 
-export const MAX_NORMALIZED_SOURCE_BYTES = 5 * 1024 * 1024;
+export const MAX_WORKSPACE_NODE_BYTES = 5 * 1024 * 1024;
 
-export interface SourceArtifactStore {
-  persist(sessionId: string, text: string): Promise<SourceArtifactReference | undefined>;
-  load(key: string | undefined): Promise<string | undefined>;
+export interface PersistWorkspaceSourceNode {
+  path: string;
+  parentPath: string;
+  title: string;
+  kind: WorkspaceSourceKind;
+  content?: string;
+  mimeType?: string;
+  sourceUrl?: string;
+  externalId?: string;
 }
 
 function sourceTooLargeError(): Error & { code: string } {
-  return Object.assign(new Error("Normalized source exceeds the ingestion artifact limit"), {
+  return Object.assign(new Error("Workspace node exceeds the ingestion artifact limit"), {
     code: "source_context_too_large",
   });
 }
@@ -22,42 +31,70 @@ async function sha256(value: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export class R2SourceArtifactStore implements SourceArtifactStore {
+function artifactKey(sessionId: string, path: string): string {
+  const encodedPath = path
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `ingestion/${sessionId}/workspace/${encodedPath}`;
+}
+
+export class R2WorkspaceSourceStore {
   constructor(
     private readonly bucket: R2Bucket,
     private readonly sessions: IngestionSessionRepository,
   ) {}
 
-  async persist(sessionId: string, text: string): Promise<SourceArtifactReference | undefined> {
-    if (!text) return undefined;
-    const bytes = new TextEncoder().encode(text);
-    if (bytes.byteLength > MAX_NORMALIZED_SOURCE_BYTES) throw sourceTooLargeError();
-    const key = `ingestion/${sessionId}/normalized/sources.md`;
-    const reference: SourceArtifactReference = {
-      key,
-      sha256: await sha256(bytes),
-      bytes: bytes.byteLength,
-      mimeType: "text/markdown",
-      provenance: "normalized_ingestion_sources",
-    };
-    await this.bucket.put(key, bytes, {
-      httpMetadata: { contentType: "text/markdown; charset=utf-8" },
-      customMetadata: { sha256: reference.sha256 },
-    });
+  async persistWorkspaceNodes(
+    sessionId: string,
+    nodes: readonly PersistWorkspaceSourceNode[],
+  ): Promise<WorkspaceSourceReference[]> {
+    const references = await Promise.all(
+      nodes.map(async (node): Promise<WorkspaceSourceReference> => {
+        if (node.content === undefined) {
+          return {
+            path: node.path,
+            parentPath: node.parentPath,
+            title: node.title,
+            kind: node.kind,
+            sourceUrl: node.sourceUrl,
+            externalId: node.externalId,
+          };
+        }
+        const bytes = new TextEncoder().encode(node.content);
+        if (bytes.byteLength > MAX_WORKSPACE_NODE_BYTES) throw sourceTooLargeError();
+        const key = artifactKey(sessionId, node.path);
+        const digest = await sha256(bytes);
+        const mimeType = node.mimeType ?? "text/plain; charset=utf-8";
+        await this.bucket.put(key, bytes, {
+          httpMetadata: { contentType: mimeType },
+          customMetadata: { sha256: digest, workspacePath: node.path },
+        });
+        return {
+          path: node.path,
+          parentPath: node.parentPath,
+          title: node.title,
+          kind: node.kind,
+          artifactKey: key,
+          sha256: digest,
+          bytes: bytes.byteLength,
+          mimeType,
+          sourceUrl: node.sourceUrl,
+          externalId: node.externalId,
+        };
+      }),
+    );
     const session = await this.sessions.findById(sessionId);
     if (!session) throw new Error("Ingestion session not found");
+    const sourceNodes = new Map(
+      (session.contextManifest.sourceNodes ?? []).map((reference) => [reference.path, reference]),
+    );
+    for (const reference of references) sourceNodes.set(reference.path, reference);
     await this.sessions.updateContextManifest(sessionId, {
       ...session.contextManifest,
-      sourceArtifact: reference,
+      sourceNodes: [...sourceNodes.values()],
     });
-    return reference;
-  }
-
-  async load(key: string | undefined): Promise<string | undefined> {
-    if (!key) return undefined;
-    const object = await this.bucket.get(key);
-    if (!object) throw new Error("Normalized ingestion source not found");
-    if (object.size > MAX_NORMALIZED_SOURCE_BYTES) throw sourceTooLargeError();
-    return object.text();
+    return references;
   }
 }

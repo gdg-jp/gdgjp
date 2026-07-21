@@ -1,4 +1,4 @@
-/** Compatibility facade for the worker-owned source Tool layer. */
+/** Worker composition facade for source adapters and node persistence. */
 import { eq } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/d1";
 import * as schema from "../../../app/db/schema";
@@ -9,7 +9,7 @@ import type { ExecutionEventSink } from "./orchestration/ports/tool-event-sink";
 import { noopExecutionEventSink } from "./orchestration/ports/tool-event-sink";
 import { D1IngestionSessionRepository } from "./persistence/d1/ingestion-session-repository";
 import { updateIngestionPhase } from "./persistence/ingestion-result-writer.server";
-import { R2SourceArtifactStore } from "./persistence/r2/source-artifact-store";
+import { R2WorkspaceSourceStore } from "./persistence/r2/source-artifact-store";
 import { createGoogleDriveTool } from "./tools/google-drive";
 import { createGoogleFormsTool } from "./tools/google-forms";
 import {
@@ -27,14 +27,13 @@ export interface IngestionResumeContext extends SourcePreparationResume {
 }
 
 export interface PreparedSources {
-  userText: string;
+  userInput: string;
+  clarificationAnswers?: string;
   fileUris: { uri: string; mimeType: string }[];
   warnings: string[];
-  sourceTexts: string[];
   sources: SourceUrl[];
   skipClarification: boolean;
   isPostClarification: boolean;
-  sourceArtifactKey?: string;
 }
 
 async function getDriveAccessToken(env: Env, db: Db, userId: string): Promise<string> {
@@ -76,6 +75,10 @@ export async function prepareSources(
   const tokens = { getAccessToken: () => getDriveAccessToken(env, db, userId) };
   const drive = createGoogleDriveTool(tokens);
   const forms = createGoogleFormsTool(tokens);
+  const artifactStore = new R2WorkspaceSourceStore(
+    env.BUCKET,
+    new D1IngestionSessionRepository(env.DB),
+  );
   const prepared = await prepareWorkerSources(
     inputs,
     {
@@ -87,16 +90,8 @@ export async function prepareSources(
       exportGoogleForm: (url, eventTitle) => forms.exportForm(url, eventTitle),
       extractUrls,
       fetchWebPage: fetchWebSource,
-      artifacts: {
-        saveNormalizedSource: async (text) => {
-          const store = new R2SourceArtifactStore(
-            env.BUCKET,
-            new D1IngestionSessionRepository(env.DB),
-          );
-          const reference = await store.persist(sessionId, text);
-          return reference ? { key: reference.key } : undefined;
-        },
-      },
+      persistWorkspaceNodes: (nodes) =>
+        artifactStore.persistWorkspaceNodes(sessionId, nodes).then(() => {}),
       eventSink: events,
     },
     resume,
@@ -106,7 +101,8 @@ export async function prepareSources(
       phase: "url_selection",
       urls: prepared.urlCandidates,
       fileUris: prepared.fileUris,
-      sourceArtifactKey: prepared.sourceArtifactKey,
+      sources: prepared.sources.length ? prepared.sources : undefined,
+      skipClarification: prepared.skipClarification,
     };
     await db
       .update(schema.ingestionSessions)
@@ -122,14 +118,13 @@ export async function prepareSources(
   return {
     status: "continue",
     data: {
-      userText: prepared.userText,
+      userInput: prepared.userInput,
+      clarificationAnswers: prepared.clarificationAnswers,
       fileUris: prepared.fileUris,
       warnings: prepared.warnings,
-      sourceTexts: prepared.sourceTexts,
       sources: prepared.sources,
       skipClarification: prepared.skipClarification,
       isPostClarification: prepared.isPostClarification,
-      sourceArtifactKey: prepared.sourceArtifactKey,
     },
   };
 }

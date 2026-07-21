@@ -3,7 +3,12 @@ import {
   exportFileAsText,
   extractFileId,
   getDriveFileName,
+  getGoogleDocumentWithTabs,
 } from "../../../../app/lib/google-drive.server";
+import {
+  type GoogleDocsWorkspaceNode,
+  flattenGoogleDocsWorkspaceNodes,
+} from "./google-docs/workspace";
 
 export interface GoogleAccessTokenProvider {
   getAccessToken(): Promise<string>;
@@ -13,12 +18,33 @@ export interface GoogleAccessTokenProvider {
  * Persistence layer, keeping database access out of this Tool implementation. */
 export function createGoogleDriveTool(tokens: GoogleAccessTokenProvider) {
   return {
-    async exportDocument(url: string): Promise<{ title: string; text: string }> {
+    async exportDocument(
+      url: string,
+    ): Promise<{ title: string; nodes: GoogleDocsWorkspaceNode[] }> {
       const fileId = extractFileId(url);
       const token = await tokens.getAccessToken();
+      if (!isGoogleSheetsUrl(url)) {
+        const document = await getGoogleDocumentWithTabs(fileId, token);
+        const title = document.title?.trim() || fileId;
+        return {
+          title,
+          nodes: flattenGoogleDocsWorkspaceNodes([{ document, id: fileId }]),
+        };
+      }
       const title = await getDriveFileName(fileId, token).catch(() => fileId);
-      const mimeType = isGoogleSheetsUrl(url) ? "text/csv" : "text/plain";
-      return { title, text: await exportFileAsText(fileId, token, mimeType) };
+      return {
+        title,
+        nodes: [
+          {
+            path: title,
+            parentPath: null,
+            title,
+            kind: "google_document",
+            content: await exportFileAsText(fileId, token, "text/csv"),
+            externalId: fileId,
+          },
+        ],
+      };
     },
   };
 }

@@ -1,5 +1,7 @@
 import type { ExtractedUrl, IngestionInputs, SourceUrl } from "../../../../shared/ingestion/domain";
 import type { ExecutionEventSink } from "../orchestration/ports/tool-event-sink";
+import { googleDocsPathSegment } from "./google-docs/workspace";
+import { websiteWorkspacePath } from "./websites/path";
 
 export type ExternalSourceCandidate = ExtractedUrl;
 
@@ -8,39 +10,56 @@ export interface PreparedSourceFile {
   mimeType: string;
 }
 
-export interface SourceArtifactWriter {
-  saveNormalizedSource(text: string): Promise<{ key: string } | undefined>;
+export interface PreparedWorkspaceNode {
+  path: string;
+  parentPath: string;
+  title: string;
+  kind: "google_document" | "google_tab" | "google_form" | "website";
+  content?: string;
+  mimeType?: string;
+  sourceUrl?: string;
+  externalId?: string;
 }
 
-/** All side effects are injected so this Tool layer has no knowledge of D1. */
+export interface GoogleDocumentSource {
+  title: string;
+  nodes: Array<{
+    path: string;
+    parentPath: string | null;
+    title: string;
+    kind: "google_document" | "google_tab";
+    content?: string;
+    externalId: string;
+  }>;
+}
+
+/** All side effects are injected so this Tool layer has no knowledge of D1 or R2. */
 export interface SourcePreprocessorDependencies {
   attachmentExists(key: string): Promise<{ mimeType?: string } | null>;
-  exportGoogleDocument(url: string): Promise<{ title: string; text: string }>;
+  exportGoogleDocument(url: string): Promise<GoogleDocumentSource>;
   exportGoogleForm(url: string, eventTitle?: string): Promise<{ title: string; text: string }>;
   extractUrls(text: string, origin: "user_text" | "google_doc"): ExternalSourceCandidate[];
   fetchWebPage(url: string): Promise<{ markdown?: string; error?: string }>;
-  artifacts: SourceArtifactWriter;
+  persistWorkspaceNodes(nodes: readonly PreparedWorkspaceNode[]): Promise<void>;
   eventSink?: ExecutionEventSink;
 }
 
 export interface SourcePreparationResume {
   fileUris: PreparedSourceFile[];
   clarificationAnswers?: string;
-  googleDocText?: string;
   selectedUrls?: string[];
   priorSources?: SourceUrl[];
-  sourceArtifactKey?: string;
+  skipClarification?: boolean;
 }
 
 export interface PreparedSources {
-  userText: string;
+  userInput: string;
+  clarificationAnswers?: string;
   fileUris: PreparedSourceFile[];
   warnings: string[];
-  sourceTexts: string[];
   sources: SourceUrl[];
   skipClarification: boolean;
   isPostClarification: boolean;
-  sourceArtifactKey?: string;
   urlCandidates: ExternalSourceCandidate[];
 }
 
@@ -55,17 +74,13 @@ async function emitSafely(
   }
 }
 
-function sourceToolId(): string {
-  return crypto.randomUUID();
-}
-
 async function callSourceTool<T>(
   deps: SourcePreprocessorDependencies,
   tool: "google_drive" | "google_forms" | "web_fetch",
   summary: string,
   execute: () => Promise<T>,
 ): Promise<T> {
-  const toolCallId = sourceToolId();
+  const toolCallId = crypto.randomUUID();
   const startedAt = Date.now();
   await emitSafely(deps.eventSink, { type: "tool_started", toolCallId, tool, summary });
   try {
@@ -90,15 +105,15 @@ async function callSourceTool<T>(
 }
 
 function collectUrls(
-  baseText: string,
-  sourceTexts: readonly string[],
+  userInput: string,
+  googleNodeContents: readonly string[],
   deps: SourcePreprocessorDependencies,
 ): ExternalSourceCandidate[] {
   const seen = new Set<string>();
   const results: ExternalSourceCandidate[] = [];
   for (const candidate of [
-    ...deps.extractUrls(baseText, "user_text"),
-    ...sourceTexts.flatMap((text) => deps.extractUrls(text, "google_doc")),
+    ...deps.extractUrls(userInput, "user_text"),
+    ...googleNodeContents.flatMap((text) => deps.extractUrls(text, "google_doc")),
   ]) {
     if (seen.has(candidate.url)) continue;
     seen.add(candidate.url);
@@ -107,57 +122,96 @@ function collectUrls(
   return results.slice(0, 5);
 }
 
+function mountGoogleDocumentNodes(
+  sourceUrl: string,
+  nodes: GoogleDocumentSource["nodes"],
+  rootName: string,
+): PreparedWorkspaceNode[] {
+  const originalRoot = nodes.find((node) => node.parentPath === null)?.path;
+  return nodes.map((node) => {
+    const relativePath = originalRoot
+      ? `${rootName}${node.path.slice(originalRoot.length)}`
+      : `${rootName}/${node.path}`;
+    const relativeParent = node.parentPath
+      ? originalRoot
+        ? `${rootName}${node.parentPath.slice(originalRoot.length)}`
+        : rootName
+      : null;
+    return {
+      ...node,
+      path: `/google-docs/${relativePath}`,
+      parentPath: relativeParent ? `/google-docs/${relativeParent}` : "/google-docs",
+      sourceUrl,
+    };
+  });
+}
+
 /**
- * Normalizes uploads, Google sources and user-selected web pages into a
- * source artifact. State transitions and D1 writes deliberately belong to
- * orchestration/persistence, not this tool.
+ * Prepares only references and independently persisted workspace nodes. User-authored
+ * text is returned separately and is never copied into the virtual filesystem.
  */
 export async function prepareSources(
   inputs: IngestionInputs,
   deps: SourcePreprocessorDependencies,
   resume?: SourcePreparationResume,
 ): Promise<PreparedSources> {
-  const baseText = inputs.texts.join("\n\n");
+  const userInput = inputs.texts.join("\n\n");
   const fileUris = resume ? [...resume.fileUris] : [];
   const warnings: string[] = [];
-  const sourceTexts = resume?.googleDocText ? [resume.googleDocText] : [];
   const sources = resume?.priorSources ? [...resume.priorSources] : [];
-  let sourceArtifactKey = resume?.sourceArtifactKey;
-  let skipClarification = false;
+  const workspaceNodes: PreparedWorkspaceNode[] = [];
+  const googleNodeContents: string[] = [];
+  const googleRootOccurrences = new Map<string, number>();
+  let skipClarification = resume?.skipClarification ?? false;
 
   if (!resume) {
-    for (const key of inputs.imageKeys) {
+    for (const key of [...inputs.imageKeys, ...(inputs.pdfKeys ?? [])]) {
       const object = await deps.attachmentExists(key);
-      if (!object) throw new Error(`Uploaded image not found in R2: ${key}`);
+      if (!object) throw new Error(`Uploaded attachment not found in R2: ${key}`);
       fileUris.push({
         uri: `r2://${key}`,
-        mimeType: object.mimeType ?? "application/octet-stream",
+        mimeType:
+          object.mimeType ??
+          (key.endsWith(".pdf") ? "application/pdf" : "application/octet-stream"),
       });
-    }
-    for (const key of inputs.pdfKeys ?? []) {
-      const object = await deps.attachmentExists(key);
-      if (!object) throw new Error(`Uploaded PDF not found in R2: ${key}`);
-      fileUris.push({ uri: `r2://${key}`, mimeType: object.mimeType ?? "application/pdf" });
     }
     for (const url of inputs.googleDocUrls) {
       const document = await callSourceTool(deps, "google_drive", "Reading a Google document", () =>
         deps.exportGoogleDocument(url),
       );
       sources.push({ url, title: document.title });
-      sourceTexts.push(document.text);
+      const root = document.nodes.find((node) => node.parentPath === null)?.path ?? document.title;
+      const occurrence = (googleRootOccurrences.get(root) ?? 0) + 1;
+      googleRootOccurrences.set(root, occurrence);
+      const nodes = mountGoogleDocumentNodes(
+        url,
+        document.nodes,
+        occurrence === 1 ? root : `${root} (${occurrence})`,
+      );
+      workspaceNodes.push(...nodes);
+      googleNodeContents.push(
+        ...nodes.flatMap((node) => (node.content === undefined ? [] : [node.content])),
+      );
     }
     if (inputs.googleFormUrl) {
       const form = await callSourceTool(deps, "google_forms", "Reading a Google Form", () =>
         deps.exportGoogleForm(inputs.googleFormUrl as string, inputs.eventTitle),
       );
-      sourceTexts.push(form.text);
+      const name = googleDocsPathSegment(form.title, "Google Form");
+      workspaceNodes.push({
+        path: `/google-forms/${name}`,
+        parentPath: "/google-forms",
+        title: form.title,
+        kind: "google_form",
+        content: form.text,
+        sourceUrl: inputs.googleFormUrl,
+      });
       sources.push({ url: inputs.googleFormUrl, title: `Google Form: ${form.title}` });
       skipClarification = true;
     }
   }
 
   if (resume?.selectedUrls) {
-    const fetched: string[] = [];
     for (const url of resume.selectedUrls.slice(0, 5)) {
       const result = await callSourceTool(deps, "web_fetch", "Fetching a selected web page", () =>
         deps.fetchWebPage(url),
@@ -167,29 +221,31 @@ export async function prepareSources(
         sources.push({ url, title: url });
         continue;
       }
-      const markdown = result.markdown ?? "";
-      fetched.push(`### ${url}\n${markdown}`);
-      const title = markdown.match(/^(?:Title:\s*(.+)|#\s+(.+))/m);
-      sources.push({ url, title: (title?.[1] ?? title?.[2])?.trim() || url });
+      const content = result.markdown ?? "";
+      const location = websiteWorkspacePath(url);
+      const heading = content.match(/^(?:Title:\s*(.+)|#\s+(.+))/m);
+      const title = (heading?.[1] ?? heading?.[2])?.trim() || location.title;
+      workspaceNodes.push({
+        path: location.path,
+        parentPath: location.parentPath,
+        title,
+        kind: "website",
+        content,
+        sourceUrl: location.canonicalUrl,
+      });
+      sources.push({ url: location.canonicalUrl, title });
     }
-    if (fetched.length) sourceTexts.push(`## 参考URL\n${fetched.join("\n\n")}`);
   }
 
-  const normalized = [baseText, ...sourceTexts].filter(Boolean).join("\n\n---\n\n");
-  if (!sourceArtifactKey || resume?.selectedUrls) {
-    sourceArtifactKey = (await deps.artifacts.saveNormalizedSource(normalized))?.key;
-  }
+  if (workspaceNodes.length > 0) await deps.persistWorkspaceNodes(workspaceNodes);
   return {
-    userText: [resume?.clarificationAnswers, baseText, ...sourceTexts]
-      .filter((value): value is string => Boolean(value?.trim()))
-      .join("\n\n---\n\n"),
+    userInput,
+    ...(resume?.clarificationAnswers ? { clarificationAnswers: resume.clarificationAnswers } : {}),
     fileUris,
     warnings,
-    sourceTexts,
     sources,
     skipClarification,
     isPostClarification: Boolean(resume?.clarificationAnswers),
-    sourceArtifactKey,
-    urlCandidates: resume ? [] : collectUrls(baseText, sourceTexts, deps),
+    urlCandidates: resume ? [] : collectUrls(userInput, googleNodeContents, deps),
   };
 }

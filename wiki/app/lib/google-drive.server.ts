@@ -45,6 +45,7 @@ interface TokenResponse {
 
 const TOKEN_TIMEOUT_MS = 10_000;
 const EXPORT_TIMEOUT_MS = 30_000;
+const DOCUMENTS_TIMEOUT_MS = 30_000;
 
 function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
@@ -208,6 +209,82 @@ export async function exportFileAsText(
     text = text.slice(0, MAX_TEXT_CHARS);
   }
   return text;
+}
+
+// ---------------------------------------------------------------------------
+// Google Docs tab-aware document retrieval
+// ---------------------------------------------------------------------------
+
+/**
+ * The subset of the Google Docs API shape that the ingestion workspace needs.
+ *
+ * Keep this as a structural type instead of importing a Node Google API client:
+ * Workers already provide `fetch`, and the result is later transformed into a
+ * lazy, read-only workspace tree. In particular, callers must not concatenate
+ * all tab contents into one prompt string.
+ */
+export interface GoogleDocsTextRun {
+  content?: string;
+}
+
+export interface GoogleDocsParagraphElement {
+  textRun?: GoogleDocsTextRun;
+}
+
+export interface GoogleDocsStructuralElement {
+  paragraph?: { elements?: GoogleDocsParagraphElement[] };
+  table?: {
+    tableRows?: Array<{
+      tableCells?: Array<{ content?: GoogleDocsStructuralElement[] }>;
+    }>;
+  };
+  tableOfContents?: { content?: GoogleDocsStructuralElement[] };
+}
+
+export interface GoogleDocsDocumentTab {
+  body?: { content?: GoogleDocsStructuralElement[] };
+}
+
+export interface GoogleDocsTab {
+  tabProperties?: {
+    tabId?: string;
+    title?: string;
+    index?: number;
+    nestingLevel?: number;
+  };
+  documentTab?: GoogleDocsDocumentTab;
+  childTabs?: GoogleDocsTab[];
+}
+
+export interface GoogleDocsDocument {
+  documentId: string;
+  title?: string;
+  /** Present for legacy single-tab documents. */
+  body?: { content?: GoogleDocsStructuralElement[] };
+  /** Present with `includeTabsContent=true`. */
+  tabs?: GoogleDocsTab[];
+}
+
+/**
+ * Retrieves one Google Doc with its tab tree and each tab's own body.
+ * `drive.readonly`, already requested by this app, authorizes this endpoint.
+ */
+export async function getGoogleDocumentWithTabs(
+  fileId: string,
+  accessToken: string,
+): Promise<GoogleDocsDocument> {
+  const params = new URLSearchParams({ includeTabsContent: "true" });
+  const response = await fetchWithTimeout(
+    `https://docs.googleapis.com/v1/documents/${encodeURIComponent(fileId)}?${params}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+    DOCUMENTS_TIMEOUT_MS,
+  );
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Google Docs document retrieval failed (${response.status}): ${err}`);
+  }
+  return (await response.json()) as GoogleDocsDocument;
 }
 
 // ---------------------------------------------------------------------------

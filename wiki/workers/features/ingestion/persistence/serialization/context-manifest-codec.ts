@@ -1,9 +1,17 @@
-export interface SourceArtifactReference {
-  key: string;
-  sha256: string;
-  bytes: number;
-  mimeType: string;
-  provenance: "normalized_ingestion_sources";
+export type WorkspaceSourceKind = "google_document" | "google_tab" | "google_form" | "website";
+
+/** A persisted external-source node mounted directly below the workspace root. */
+export interface WorkspaceSourceReference {
+  path: string;
+  parentPath: string;
+  title: string;
+  kind: WorkspaceSourceKind;
+  artifactKey?: string;
+  sha256?: string;
+  bytes?: number;
+  mimeType?: string;
+  sourceUrl?: string;
+  externalId?: string;
 }
 
 /**
@@ -11,30 +19,35 @@ export interface SourceArtifactReference {
  * compatible while giving ingestion code a typed source-artifact reference.
  */
 export type IngestionContextManifest = Record<string, unknown> & {
-  sourceArtifact?: SourceArtifactReference;
+  sourceNodes?: WorkspaceSourceReference[];
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function parseSourceArtifact(value: unknown): SourceArtifactReference | undefined {
+function parseSourceNode(value: unknown): WorkspaceSourceReference | undefined {
   if (!isRecord(value)) return undefined;
   if (
-    typeof value.key !== "string" ||
-    typeof value.sha256 !== "string" ||
-    typeof value.bytes !== "number" ||
-    typeof value.mimeType !== "string" ||
-    value.provenance !== "normalized_ingestion_sources"
+    typeof value.path !== "string" ||
+    !value.path.startsWith("/") ||
+    typeof value.parentPath !== "string" ||
+    typeof value.title !== "string" ||
+    !["google_document", "google_tab", "google_form", "website"].includes(String(value.kind))
   ) {
     return undefined;
   }
   return {
-    key: value.key,
-    sha256: value.sha256,
-    bytes: value.bytes,
-    mimeType: value.mimeType,
-    provenance: value.provenance,
+    path: value.path,
+    parentPath: value.parentPath,
+    title: value.title,
+    kind: value.kind as WorkspaceSourceKind,
+    ...(typeof value.artifactKey === "string" ? { artifactKey: value.artifactKey } : {}),
+    ...(typeof value.sha256 === "string" ? { sha256: value.sha256 } : {}),
+    ...(typeof value.bytes === "number" ? { bytes: value.bytes } : {}),
+    ...(typeof value.mimeType === "string" ? { mimeType: value.mimeType } : {}),
+    ...(typeof value.sourceUrl === "string" ? { sourceUrl: value.sourceUrl } : {}),
+    ...(typeof value.externalId === "string" ? { externalId: value.externalId } : {}),
   };
 }
 
@@ -43,8 +56,16 @@ export function parseIngestionContextManifest(value: string | null): IngestionCo
   try {
     const parsed: unknown = JSON.parse(value);
     if (!isRecord(parsed)) return {};
-    const sourceArtifact = parseSourceArtifact(parsed.sourceArtifact);
-    return sourceArtifact ? { ...parsed, sourceArtifact } : { ...parsed };
+    const sourceNodes = Array.isArray(parsed.sourceNodes)
+      ? parsed.sourceNodes.flatMap((node) => {
+          const parsedNode = parseSourceNode(node);
+          return parsedNode ? [parsedNode] : [];
+        })
+      : undefined;
+    return {
+      ...parsed,
+      ...(sourceNodes ? { sourceNodes } : {}),
+    };
   } catch {
     return {};
   }

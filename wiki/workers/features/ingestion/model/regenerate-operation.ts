@@ -27,13 +27,14 @@ async function generateReplacement<T extends z.ZodType>(
 export async function regenerateOperationWithModel(
   env: Env,
   operation: ChangesetOperation,
+  userInput: string,
   evidence: string,
   attachments: FilePart[],
   feedback?: string,
   events: ExecutionEventSink = noopExecutionEventSink,
 ): Promise<ChangesetOperation> {
   await events.emit({ type: "model_started", program: "regenerate" });
-  const prompt = `元の操作:\n${JSON.stringify(operation)}\nユーザーの再生成指示:\n${feedback ?? "品質を改善してください"}\n\n一次資料:\n${evidence.slice(0, 120_000)}`;
+  const prompt = `ユーザー入力:\n${userInput}\n\n元の操作:\n${JSON.stringify(operation)}\nユーザーの再生成指示:\n${feedback ?? "品質を改善してください"}\n\n選択済みの一次資料:\n${evidence.slice(0, 120_000)}`;
   if (operation.type === "create") {
     return {
       ...operation,

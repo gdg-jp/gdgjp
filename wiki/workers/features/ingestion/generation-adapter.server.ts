@@ -16,34 +16,43 @@ import {
 import type { ExecutionEventSink } from "./orchestration/ports/tool-event-sink";
 import { noopExecutionEventSink } from "./orchestration/ports/tool-event-sink";
 import { createD1WikiWorkspaceStore } from "./persistence/d1/wiki-read-repository";
+import { createR2ManifestWorkspaceAdapter } from "./persistence/r2/manifest-workspace-adapter";
+import type { WorkspaceSourceReference } from "./persistence/serialization/context-manifest-codec";
 import { loadIngestionAttachmentParts as loadWorkerAttachmentParts } from "./tools/attachments";
-import {
-  type SourceFile,
-  type WorkspaceActor,
-  type WorkspaceManifest,
-  createWikiWorkspace,
-} from "./tools/wiki-workspace/workspace";
+import type { WorkspaceManifest } from "./tools/workspace/contracts";
+import { WikiWorkspaceAdapter, type WorkspaceActor } from "./tools/workspace/wiki-adapter";
+import { createMountedWorkspace } from "./tools/workspace/workspace";
 
 type Db = DrizzleD1Database<typeof schema>;
 
 export interface GenerationContext {
   db: Db;
   actor: WorkspaceActor;
-  sourceText: string;
+  userInput: string;
+  clarificationAnswers?: string;
+  sourceNodes: readonly WorkspaceSourceReference[];
   inputs: IngestionInputs;
-}
-
-function sourceFiles(sourceText: string): SourceFile[] {
-  return [{ name: "source.md", load: async () => sourceText }];
 }
 
 function makeModelContext(env: Env, context: GenerationContext): GenerationModelContext {
   return {
-    sourceText: context.sourceText,
+    userInput: context.userInput,
+    clarificationAnswers: context.clarificationAnswers,
     inputs: context.inputs,
-    workspace: createWikiWorkspace({
-      store: createD1WikiWorkspaceStore(context.db, context.actor),
-      sources: sourceFiles(context.sourceText),
+    workspace: createMountedWorkspace({
+      wiki: new WikiWorkspaceAdapter(createD1WikiWorkspaceStore(context.db, context.actor)),
+      googleDocs: createR2ManifestWorkspaceAdapter(env.BUCKET, "/google-docs", context.sourceNodes),
+      websites: createR2ManifestWorkspaceAdapter(env.BUCKET, "/websites", context.sourceNodes),
+      additionalMounts: [
+        {
+          mount: "/google-forms",
+          adapter: createR2ManifestWorkspaceAdapter(
+            env.BUCKET,
+            "/google-forms",
+            context.sourceNodes,
+          ),
+        },
+      ],
     }),
     loadAttachments: () => loadIngestionAttachmentParts(env, context.inputs),
     loadExistingPageContent: async (pageId) => {
@@ -97,7 +106,7 @@ export async function generateOperations(
 export function generationManifest(
   env: Env,
   workspace: WorkspaceManifest,
-  sourceHash?: string,
+  sourceHashes?: readonly string[],
 ): Record<string, unknown> {
-  return createIngestionModelGateway(env).generationManifest(workspace, sourceHash);
+  return createIngestionModelGateway(env).generationManifest(workspace, sourceHashes);
 }

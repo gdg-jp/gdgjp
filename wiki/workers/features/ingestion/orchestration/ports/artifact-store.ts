@@ -1,6 +1,11 @@
-export interface SourceArtifactStore {
-  load(key: string | undefined): Promise<string | undefined>;
-  save(sessionId: string, text: string): Promise<{ key: string; sha256: string } | undefined>;
+export interface WorkspaceSourceArtifact {
+  path: string;
+  parentPath: string;
+  content?: string;
+}
+
+export interface WorkspaceSourceStore {
+  saveNodes(sessionId: string, nodes: readonly WorkspaceSourceArtifact[]): Promise<void>;
 }
 
 export interface AttachmentReference {

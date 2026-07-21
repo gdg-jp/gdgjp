@@ -4,8 +4,6 @@ import * as schema from "../../../app/db/schema";
 import type { AiDraftJson, IngestionInputs } from "../../../shared/ingestion/domain";
 import type { ExecutionEventSink } from "./orchestration/ports/tool-event-sink";
 import { noopExecutionEventSink } from "./orchestration/ports/tool-event-sink";
-import { D1IngestionSessionRepository } from "./persistence/d1/ingestion-session-repository";
-import { R2SourceArtifactStore } from "./persistence/r2/source-artifact-store";
 import type { IngestionExecutionRequest } from "./persistence/serialization/session-execution";
 import { parseSessionInputsJson } from "./persistence/serialization/session-execution";
 import { runIngestion } from "./phase-runner.server";
@@ -28,7 +26,6 @@ export async function executeIngestionPhase(
   request: IngestionExecutionRequest,
   events: ExecutionEventSink = noopExecutionEventSink,
 ): Promise<void> {
-  const artifacts = new R2SourceArtifactStore(env.BUCKET, new D1IngestionSessionRepository(env.DB));
   const session = await db
     .select({
       id: schema.ingestionSessions.id,
@@ -68,9 +65,7 @@ export async function executeIngestionPhase(
     resumeContext = {
       fileUris: draft.fileUris,
       clarificationAnswers: draft.clarificationAnswers,
-      googleDocText: (await artifacts.load(draft.sourceArtifactKey)) ?? draft.googleDocText,
       priorSources: draft.sources,
-      sourceArtifactKey: draft.sourceArtifactKey,
     };
   } else if (request.resumeMode === "post_url_selection") {
     if (!draft || draft.phase !== "resume_post_url_selection") {
@@ -79,9 +74,9 @@ export async function executeIngestionPhase(
     resumeContext = {
       fileUris: draft.fileUris,
       clarificationAnswers: "",
-      googleDocText: (await artifacts.load(draft.sourceArtifactKey)) ?? draft.googleDocText,
       selectedUrls: draft.selectedUrls,
-      sourceArtifactKey: draft.sourceArtifactKey,
+      priorSources: draft.sources,
+      skipClarification: draft.skipClarification,
     };
   }
 

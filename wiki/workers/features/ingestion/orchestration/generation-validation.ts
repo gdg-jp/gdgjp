@@ -1,5 +1,5 @@
 import type { ChangesetOperation } from "../../../../shared/ingestion/domain";
-import type { WorkspaceManifest } from "../tools/wiki-workspace/workspace";
+import type { WorkspaceManifest } from "../tools/workspace/contracts";
 
 export interface GenerationValidationContext {
   operations: readonly ChangesetOperation[];

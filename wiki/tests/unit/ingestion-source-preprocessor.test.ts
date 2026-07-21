@@ -5,6 +5,7 @@ import { prepareSources } from "../../workers/features/ingestion/tools/source-pr
 describe("prepareSources", () => {
   it("keeps source content out of realtime events", async () => {
     const events: Array<{ type: string; summary?: string }> = [];
+    const persisted: Array<{ path: string; content?: string }> = [];
     const prepared = await prepareSources(
       {
         texts: ["Input with https://example.test/private"],
@@ -13,17 +14,34 @@ describe("prepareSources", () => {
       },
       {
         attachmentExists: async () => null,
-        exportGoogleDocument: async () => ({ title: "Private doc", text: "secret body" }),
+        exportGoogleDocument: async () => ({
+          title: "Private doc",
+          nodes: [
+            {
+              path: "Private doc",
+              parentPath: null,
+              title: "Private doc",
+              kind: "google_document",
+              content: "secret body",
+              externalId: "a",
+            },
+          ],
+        }),
         exportGoogleForm: async () => ({ title: "unused", text: "unused" }),
         extractUrls: () => [],
         fetchWebPage: async () => ({ markdown: "unused" }),
-        artifacts: { saveNormalizedSource: async () => ({ key: "source/key" }) },
+        persistWorkspaceNodes: async (nodes) => {
+          persisted.push(...nodes);
+        },
         eventSink: createCollectingEventSink(events as never),
       },
     );
 
-    expect(prepared.sourceArtifactKey).toBe("source/key");
-    expect(prepared.userText).toContain("secret body");
+    expect(prepared.userInput).toBe("Input with https://example.test/private");
+    expect(prepared.userInput).not.toContain("secret body");
+    expect(persisted).toEqual([
+      expect.objectContaining({ path: "/google-docs/Private doc", content: "secret body" }),
+    ]);
     expect(events).toEqual([
       expect.objectContaining({ type: "tool_started", summary: "Reading a Google document" }),
       expect.objectContaining({ type: "tool_completed" }),

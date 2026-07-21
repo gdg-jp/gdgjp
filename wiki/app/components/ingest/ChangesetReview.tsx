@@ -138,6 +138,7 @@ export default function ChangesetReview({
       type: "create",
       tempId: newTempId,
       rationale: t("ingest.review.add_parent_page"),
+      evidencePaths: [],
       draft: null,
       patch: null,
     };

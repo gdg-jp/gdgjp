@@ -2,16 +2,7 @@ import type { IngestionWorkflowPhase } from "./commands";
 
 export type ModelProgram = "clarify" | "plan" | "draft" | "regenerate";
 
-export type ToolName =
-  | "pwd"
-  | "cd"
-  | "ls"
-  | "cat"
-  | "find"
-  | "grep"
-  | "google_drive"
-  | "google_forms"
-  | "web_fetch";
+export type ToolName = "ls" | "cat" | "search" | "google_drive" | "google_forms" | "web_fetch";
 
 /**
  * Display-safe execution events. Tool outputs, prompts, and source content

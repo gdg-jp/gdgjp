@@ -15,17 +15,16 @@ import type {
 import {
   ClarificationResultSchema,
   OperationPlanSchema,
-  PageDraftSchema,
-  SectionPatchResponseSchema,
 } from "../../../../shared/ingestion/domain";
 import type { ExecutionEventSink } from "../orchestration/ports/tool-event-sink";
-import { createWorkspaceToolCatalog } from "../tools/wiki-workspace/tool-catalog";
-import type { WikiWorkspace, WorkspaceManifest } from "../tools/wiki-workspace/workspace";
-import { GENERATION_EXPLORATION_STEP_LIMIT, prepareExplorationStep } from "./agent-loop";
+import type { WorkspaceManifest } from "../tools/workspace/contracts";
+import { createWorkspaceToolCatalog } from "../tools/workspace/tool-catalog";
+import type { MountedWorkspace } from "../tools/workspace/workspace";
+import { GENERATION_EXPLORATION_STEP_LIMIT } from "./agent-loop";
 import type { ModelProgram } from "./event-sink";
+import { type ResolvedEvidence, createPageDraftProgram } from "./page-draft-program";
 import {
   CLARIFICATION_PROMPT,
-  DRAFT_PROMPT,
   GENERATION_PROMPT_VERSION,
   PLANNING_PROMPT,
   WORKSPACE_INSTRUCTIONS,
@@ -34,9 +33,11 @@ import { generateValidatedObject } from "./structured-output";
 
 /** The Model layer owns LLM execution but never creates a database client. */
 export interface GenerationModelContext {
-  sourceText: string;
+  /** Trusted user-authored text is always direct model context, never a workspace node. */
+  userInput: string;
+  clarificationAnswers?: string;
   inputs: IngestionInputs;
-  workspace: WikiWorkspace;
+  workspace: MountedWorkspace;
   loadAttachments: () => Promise<FilePart[]>;
   /** Resolves content for an update after orchestration has authorized it. */
   loadExistingPageContent: (pageId: string) => Promise<string | null>;
@@ -55,7 +56,10 @@ export interface ModelGateway {
     plan: OperationPlan,
     manifest: WorkspaceManifest,
   ): Promise<ChangesetOperation[]>;
-  generationManifest(workspace: WorkspaceManifest, sourceHash?: string): Record<string, unknown>;
+  generationManifest(
+    workspace: WorkspaceManifest,
+    sourceHashes?: readonly string[],
+  ): Record<string, unknown>;
 }
 
 async function emitSafely(
@@ -70,31 +74,49 @@ async function emitSafely(
 }
 
 async function loadEvidence(
-  workspace: WikiWorkspace,
+  workspace: MountedWorkspace,
   manifest: WorkspaceManifest,
-): Promise<string> {
-  const unique = new Map<string, { path: string; start?: number; end?: number }>();
-  for (const reference of manifest.references) {
-    unique.set(`${reference.path}:${reference.lineStart ?? 1}:${reference.lineEnd ?? ""}`, {
+  requestedPaths: readonly string[],
+): Promise<ResolvedEvidence[]> {
+  const references = selectPlannedEvidenceReferences(manifest.references, requestedPaths);
+  const chunks: ResolvedEvidence[] = [];
+  for (const reference of references) {
+    const read = await workspace.cat(reference.path, { cursor: reference.cursor });
+    chunks.push({
       path: reference.path,
-      start: reference.lineStart,
-      end: reference.lineEnd,
+      content: read.data.content,
     });
   }
-  if (![...unique.values()].some((reference) => reference.path === "/sources/source.md")) {
-    unique.set("source", { path: "/sources/source.md", start: 1, end: 400 });
-  }
-  const chunks: string[] = [];
-  for (const reference of [...unique.values()].slice(0, 12)) {
-    const read = await workspace.cat(reference.path, {
-      startLine: reference.start,
-      endLine: reference.end,
+  return chunks;
+}
+
+type PlannerEvidenceReference = {
+  path: string;
+  cursor?: string;
+};
+
+/**
+ * Filters untrusted model-selected evidence paths against the immutable trace
+ * of files the planner actually read. This is pure so future workspace
+ * adapters can supply the same contract without coupling this policy to D1.
+ */
+export function selectPlannedEvidenceReferences(
+  manifestReferences: readonly PlannerEvidenceReference[],
+  requestedPaths: readonly string[],
+): Array<{ path: string; cursor?: string }> {
+  // The plan may be model output, so it is not allowed to turn arbitrary
+  // workspace paths into draft context. Only paths recorded by planner reads
+  // are eligible. Unknown paths are deliberately ignored rather than read.
+  const requested = new Set(requestedPaths);
+  const unique = new Map<string, { path: string; cursor?: string }>();
+  for (const reference of manifestReferences) {
+    if (!requested.has(reference.path)) continue;
+    unique.set(`${reference.path}:${reference.cursor ?? ""}`, {
+      path: reference.path,
+      ...(reference.cursor ? { cursor: reference.cursor } : {}),
     });
-    chunks.push(
-      `## ${reference.path}:${read.data.lineStart}-${read.data.lineEnd}\n${read.data.content}`,
-    );
   }
-  return chunks.join("\n\n");
+  return [...unique.values()];
 }
 
 export function createIngestionModelGateway(
@@ -103,18 +125,27 @@ export function createIngestionModelGateway(
 ): ModelGateway {
   async function runAgentObject<T>(options: {
     program: Extract<ModelProgram, "clarify" | "plan">;
-    workspace: WikiWorkspace;
+    workspace: MountedWorkspace;
     schema: z.ZodType<T>;
     name: string;
     system: string;
     prompt: string;
+    userInput: string;
+    clarificationAnswers?: string;
     attachments: FilePart[];
   }): Promise<T> {
     await emitSafely(eventSink, { type: "model_started", program: options.program });
+    const directContext = [
+      options.prompt,
+      `ユーザー入力:\n${options.userInput}`,
+      options.clarificationAnswers ? `確認回答:\n${options.clarificationAnswers}` : undefined,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join("\n\n");
     const messages: ModelMessage[] = [
       {
         role: "user",
-        content: [{ type: "text", text: options.prompt } as TextPart, ...options.attachments],
+        content: [{ type: "text", text: directContext } as TextPart, ...options.attachments],
       },
     ];
     const system = `${WORKSPACE_INSTRUCTIONS}\n\n${options.system}`;
@@ -132,7 +163,7 @@ export function createIngestionModelGateway(
           step: stepNumber,
           limit: GENERATION_EXPLORATION_STEP_LIMIT,
         });
-        return prepareExplorationStep(stepNumber);
+        return {};
       },
       temperature: 0.2,
       maxRetries: 0,
@@ -157,6 +188,8 @@ export function createIngestionModelGateway(
         name: "ClarificationResult",
         system: CLARIFICATION_PROMPT,
         prompt: "一次資料を workspace から読み、確認質問の必要性を判定してください。",
+        userInput: context.userInput,
+        clarificationAnswers: context.clarificationAnswers,
         attachments: await context.loadAttachments(),
       });
       return { result, manifest: context.workspace.manifest() };
@@ -170,15 +203,17 @@ export function createIngestionModelGateway(
         name: "OperationPlan",
         system: PLANNING_PROMPT,
         prompt: "一次資料を読み、必要な既存ページだけ探索して操作計画を作成してください。",
+        userInput: context.userInput,
+        clarificationAnswers: context.clarificationAnswers,
         attachments: await context.loadAttachments(),
       });
       return { plan, manifest: context.workspace.manifest() };
     },
 
     async generateOperations(context, plan, manifest) {
-      const evidence = await loadEvidence(context.workspace, manifest);
       const attachments = await context.loadAttachments();
       const model = createWikiModelFromEnv(env);
+      const pageDraftProgram = createPageDraftProgram(model);
       const operations: ChangesetOperation[] = [];
 
       for (const [index, operation] of plan.operations.entries()) {
@@ -189,67 +224,21 @@ export function createIngestionModelGateway(
           operationType: operation.type,
         });
         await emitSafely(eventSink, { type: "model_started", program: "draft" });
-        if (operation.type === "create") {
-          const draft = await model.generateObject({
-            schema: PageDraftSchema,
-            schemaName: "PageDraft",
-            system: DRAFT_PROMPT,
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: `操作:\n${JSON.stringify(operation)}\n\nEvidence:\n${evidence}`,
-                  },
-                  ...attachments,
-                ],
-              },
-            ],
-            temperature: 0.2,
-            maxRetries: 0,
-          });
-          operations.push({
-            type: "create",
-            tempId: operation.tempId,
-            rationale: operation.rationale,
-            draft,
-            patch: null,
-          });
-        } else {
-          const existingTipTapJson = await context.loadExistingPageContent(operation.pageId);
-          if (!existingTipTapJson) {
-            throw new Error(`Planned update page no longer exists: ${operation.pageId}`);
-          }
-          const patch = await model.generateObject({
-            schema: SectionPatchResponseSchema,
-            schemaName: "SectionPatchResponse",
-            system: DRAFT_PROMPT,
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: `更新操作:\n${JSON.stringify(operation)}\n\nEvidence:\n${evidence}`,
-                  },
-                  ...attachments,
-                ],
-              },
-            ],
-            temperature: 0.2,
-            maxRetries: 0,
-          });
-          operations.push({
-            type: "update",
-            pageId: operation.pageId,
-            pageTitle: operation.pageTitle,
-            rationale: operation.rationale,
-            draft: null,
-            patch: { ...patch, pageId: operation.pageId },
-            existingTipTapJson,
-          });
-        }
+        const existingTipTapJson =
+          operation.type === "update"
+            ? await context.loadExistingPageContent(operation.pageId)
+            : undefined;
+        const evidence = await loadEvidence(context.workspace, manifest, operation.evidencePaths);
+        operations.push(
+          await pageDraftProgram.generate({
+            userInput: context.userInput,
+            clarificationAnswers: context.clarificationAnswers,
+            operation,
+            evidence,
+            attachments,
+            existingTipTapJson: existingTipTapJson ?? undefined,
+          }),
+        );
         await emitSafely(eventSink, {
           type: "operation_completed",
           index,
@@ -259,14 +248,13 @@ export function createIngestionModelGateway(
       return operations;
     },
 
-    generationManifest(workspace, sourceHash) {
+    generationManifest(workspace, sourceHashes) {
       return {
         model: getWikiModelId(env),
         promptVersion: GENERATION_PROMPT_VERSION,
-        sourceHash,
+        sourceHashes,
         evidence: workspace.references,
         toolOutcomes: workspace.tools,
-        tokenUsage: workspace.budget,
         generatedAt: new Date().toISOString(),
       };
     },

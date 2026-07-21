@@ -14,13 +14,13 @@ describe("generation architecture", () => {
       .join("\n");
   }
 
-  it("uses bounded filesystem tools and never imports semantic search bindings", () => {
+  it("uses mounted absolute-path tools without a cumulative token budget", () => {
     const generation = readFileSync(
       new URL("model/ingestion-model-gateway.ts", import.meta.url),
       "utf8",
     );
     const toolCatalog = readFileSync(
-      new URL("tools/wiki-workspace/tool-catalog.ts", import.meta.url),
+      new URL("tools/workspace/tool-catalog.ts", import.meta.url),
       "utf8",
     );
     const modelAdapter = readFileSync(
@@ -32,23 +32,28 @@ describe("generation architecture", () => {
       "utf8",
     );
     const workspace = readFileSync(
-      new URL("tools/wiki-workspace/workspace.ts", import.meta.url),
+      new URL("tools/workspace/workspace.ts", import.meta.url),
       "utf8",
     );
-    for (const name of ["pwd", "cd", "ls", "cat", "find", "grep"]) {
+    for (const name of ["ls", "cat", "search"]) {
       expect(toolCatalog).toContain(`${name}: tool(`);
     }
+    expect(toolCatalog).not.toMatch(/\b(?:pwd|cd|find|grep): tool\(/);
     expect(`${generation}\n${workspace}`).not.toMatch(/VECTORIZE|knowledgeRetriever|embedding/i);
     expect(generation).toContain("stepCountIs(GENERATION_EXPLORATION_STEP_LIMIT)");
-    expect(generation).toContain("prepareExplorationStep(stepNumber)");
     expect(generation).toContain("...exploration.response.messages");
     expect(generation).toContain("generateValidatedObject({");
     expect(modelAdapter).toContain("generateValidatedObject({");
     expect(generation).toContain("maxRetries: 0");
-    expect(generation.match(/maxRetries: 0/g)).toHaveLength(4);
+    expect(generation.match(/maxRetries: 0/g)).toHaveLength(2);
     expect(modelAdapter).toContain("maxRetries: request.maxRetries");
     expect(workflow).toContain('retries: { limit: 0, delay: "1 minute"');
-    expect(workspace).toContain("maxToolOutputTokens");
+    expect(workspace).toContain('mount: "/wiki"');
+    expect(workspace).toContain('mount: "/google-docs"');
+    expect(workspace).toContain('mount: "/websites"');
+    expect(`${generation}\n${workspace}\n${toolCatalog}`).not.toMatch(
+      /tokenBudget|maxToolOutputTokens/,
+    );
     expect(workspace).not.toMatch(/select\(\)\.from\(schema\.pages\)\.all/);
   });
 
