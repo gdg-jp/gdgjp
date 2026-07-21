@@ -57,7 +57,8 @@ CREATE TABLE IF NOT EXISTS "pages" (
   "last_edited_by"        TEXT NOT NULL,
   "created_at"            INTEGER NOT NULL DEFAULT (unixepoch()),
   "updated_at"            INTEGER NOT NULL DEFAULT (unixepoch())
-, visibility TEXT NOT NULL DEFAULT 'restricted', chapter_id TEXT REFERENCES chapters(id) ON DELETE SET NULL, "general_role" TEXT NOT NULL DEFAULT 'viewer');
+, visibility TEXT NOT NULL DEFAULT 'restricted', chapter_id TEXT REFERENCES chapters(id) ON DELETE SET NULL, "general_role" TEXT NOT NULL DEFAULT 'viewer'
+  CHECK ("general_role" IN ('viewer', 'commenter', 'editor')));
 CREATE TABLE IF NOT EXISTS "page_tags" (
   "page_id"   TEXT NOT NULL REFERENCES "pages"("id") ON DELETE CASCADE,
   "tag_slug"  TEXT NOT NULL REFERENCES "tags"("slug") ON DELETE CASCADE,

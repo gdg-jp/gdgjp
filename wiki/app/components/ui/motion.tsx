@@ -25,12 +25,18 @@ type MotionOptions = {
   transformOrigin?: CSSProperties["transformOrigin"];
 };
 
+// Mirrors the canonical CSS tokens in wiki/app/app.css:152-154. These remain
+// numeric because exit timers require millisecond values.
+const MOTION_DURATION_ENTER_MS = 200;
+const MOTION_DURATION_EXIT_MS = 140;
+const MOTION_DURATION_REDUCED_MS = 100;
+
 function motionStyle({
   axis = "y",
   distance = 4,
-  enterDuration = 180,
-  exitDuration = 120,
-  reducedDuration = 100,
+  enterDuration = MOTION_DURATION_ENTER_MS,
+  exitDuration = MOTION_DURATION_EXIT_MS,
+  reducedDuration = MOTION_DURATION_REDUCED_MS,
   reducedOpacity = 0.9,
   scale = 1,
   transformOrigin,
@@ -58,9 +64,9 @@ function MotionPresence({
   className,
   axis = "y",
   distance = 4,
-  enterDuration = 180,
-  exitDuration = 120,
-  reducedDuration = 100,
+  enterDuration = MOTION_DURATION_ENTER_MS,
+  exitDuration = MOTION_DURATION_EXIT_MS,
+  reducedDuration = MOTION_DURATION_REDUCED_MS,
   reducedOpacity = 0.9,
   scale = 1,
   transformOrigin,
@@ -123,9 +129,9 @@ function MotionSwap({
   className,
   axis = "y",
   distance = 4,
-  enterDuration = 180,
-  exitDuration = 120,
-  reducedDuration = 100,
+  enterDuration = MOTION_DURATION_ENTER_MS,
+  exitDuration = MOTION_DURATION_EXIT_MS,
+  reducedDuration = MOTION_DURATION_REDUCED_MS,
   reducedOpacity = 0.9,
   scale = 1,
   transformOrigin,

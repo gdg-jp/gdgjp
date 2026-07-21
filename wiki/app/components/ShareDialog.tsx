@@ -540,7 +540,7 @@ export default function ShareDialog({
                 >
                   {candidatesFetcher.state !== "idle" && candidateRows.length === 0 ? (
                     <p className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">
-                      <Loader2 className="animate-spin" size={16} />
+                      <Loader2 className="animate-spin motion-reduce:animate-none" size={16} />
                       {t("wiki.share_loading_candidates")}
                     </p>
                   ) : candidateRows.length ? (
@@ -618,27 +618,19 @@ export default function ShareDialog({
                     </SelectContent>
                   </Select>
                 </div>
-                <div
-                  aria-hidden={!notify}
-                  inert={notify ? undefined : true}
-                  className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-[var(--motion-ease-out)] motion-reduce:duration-100 ${notify ? "mt-5 grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0"}`}
-                >
-                  <div
-                    className={`min-h-0 overflow-hidden transition-[visibility] duration-0 ${notify ? "visible delay-0" : "invisible delay-300 motion-reduce:delay-100"}`}
-                  >
-                    <label className="block">
-                      <span className="sr-only">{t("wiki.share_message")}</span>
-                      <textarea
-                        value={message}
-                        onChange={(event) => setMessage(event.target.value)}
-                        placeholder={t("wiki.share_message")}
-                        rows={5}
-                        disabled={!notify}
-                        className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-2 focus:ring-ring/20"
-                      />
-                    </label>
-                  </div>
-                </div>
+                <MotionPresence present={notify} className="mt-5" distance={-4}>
+                  <label className="block">
+                    <span className="sr-only">{t("wiki.share_message")}</span>
+                    <textarea
+                      value={message}
+                      onChange={(event) => setMessage(event.target.value)}
+                      placeholder={t("wiki.share_message")}
+                      rows={5}
+                      disabled={!notify}
+                      className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-2 focus:ring-ring/20"
+                    />
+                  </label>
+                </MotionPresence>
                 <MotionPresence present={Boolean(error)} className="mt-3" distance={-3}>
                   <p role="alert" className="text-sm text-destructive">
                     {error}
@@ -662,7 +654,7 @@ export default function ShareDialog({
                     className="rounded-full px-5"
                   >
                     {isMutating ? (
-                      <Loader2 size={18} className="animate-spin" />
+                      <Loader2 size={18} className="animate-spin motion-reduce:animate-none" />
                     ) : notify ? (
                       <Send size={18} />
                     ) : (
@@ -678,7 +670,7 @@ export default function ShareDialog({
                   <h3 className="mb-3 text-base">{t("wiki.share_people_with_access")}</h3>
                   {isLoading ? (
                     <div className="flex justify-center py-6">
-                      <Loader2 className="animate-spin text-muted-foreground" />
+                      <Loader2 className="animate-spin text-muted-foreground motion-reduce:animate-none" />
                     </div>
                   ) : (
                     <ul className="space-y-3">

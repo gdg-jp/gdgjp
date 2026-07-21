@@ -308,6 +308,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .desktop-sidebar {
+    transition-duration: 0ms !important;
+  }
+
   .motion-presence {
     transition-duration: var(--motion-reduced-duration, 100ms);
   }

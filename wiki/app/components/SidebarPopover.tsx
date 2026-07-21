@@ -9,6 +9,8 @@ interface SidebarPopoverProps {
   children: React.ReactNode;
 }
 
+type PopoverPosition = { top: number; left: number; originY: number };
+
 export default function SidebarPopover({
   open,
   onClose,
@@ -16,29 +18,37 @@ export default function SidebarPopover({
   children,
 }: SidebarPopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [pos, setPos] = useState<PopoverPosition | null>(null);
 
-  // Track anchor position with rAF while open
+  // Calculate the anchor position when it can change while the panel is open.
   const updatePosition = useCallback(() => {
     const anchor = anchorRef.current;
     if (!anchor) return;
     const rect = anchor.getBoundingClientRect();
     const top = Math.max(8, Math.min(rect.top, window.innerHeight - 400));
     const left = rect.right + 8;
-    setPos({ top, left });
+    const originY = Math.max(0, Math.min(400, rect.top + rect.height / 2 - top));
+    setPos({ top, left, originY });
   }, [anchorRef]);
 
   useEffect(() => {
     if (!open) return;
 
-    let rafId: number;
-    function loop() {
-      updatePosition();
-      rafId = requestAnimationFrame(loop);
+    let frame = 0;
+    function schedulePositionUpdate() {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(updatePosition);
     }
-    loop();
 
-    return () => cancelAnimationFrame(rafId);
+    schedulePositionUpdate();
+    window.addEventListener("scroll", schedulePositionUpdate, true);
+    window.addEventListener("resize", schedulePositionUpdate);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedulePositionUpdate, true);
+      window.removeEventListener("resize", schedulePositionUpdate);
+    };
   }, [open, updatePosition]);
 
   // Close on Escape
@@ -73,7 +83,7 @@ export default function SidebarPopover({
         axis="x"
         distance={-4}
         scale={0.98}
-        transformOrigin="left center"
+        transformOrigin={`left ${pos.originY}px`}
         enterDuration={200}
         exitDuration={140}
         reducedOpacity={0.85}

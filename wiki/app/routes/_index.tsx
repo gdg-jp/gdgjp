@@ -224,7 +224,7 @@ export default function Index() {
             </div>
             <Link
               to="/ingest"
-              className="inline-flex shrink-0 items-center gap-2 rounded-xl border-2 border-black bg-blue-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[3px_3px_0px_0px_#000] transition-all hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_0px_#000]"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl border-2 border-black bg-blue-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[3px_3px_0px_0px_#000] transition-[transform,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-x-[1px] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-y-[1px] hover:shadow-[1px_1px_0px_0px_#000]"
             >
               <svg
                 aria-hidden="true"

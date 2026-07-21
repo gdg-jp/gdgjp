@@ -151,7 +151,7 @@ function ProcessingScreen({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gray-50">
-      <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+      <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600 motion-reduce:animate-none" />
       <div className="text-center">
         <p className="text-lg font-medium text-gray-800">{t("ingest.processing_message")}</p>
       </div>
@@ -175,7 +175,7 @@ function ProcessingScreen({
                 {isDone ? (
                   "✓"
                 ) : isActive ? (
-                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-600" />
+                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-600 motion-reduce:animate-none" />
                 ) : (
                   "○"
                 )}

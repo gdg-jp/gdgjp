@@ -33,8 +33,9 @@ export default function BaseSidebar({
   const startWidth = useRef(0);
   const [isResizing, setIsResizing] = useState(false);
   const isCollapsed = isMobile ? false : width < COLLAPSE_THRESHOLD;
-  const displayWidth = isOpen ? width : 0;
-  const transition = isResizing ? "none" : "width 200ms var(--motion-ease-out)";
+  const sidebarTransition = isResizing
+    ? "none"
+    : "transform var(--motion-duration-enter) var(--motion-ease-out)";
 
   const onMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging.current) return;
@@ -109,8 +110,12 @@ export default function BaseSidebar({
     <>
       {/* Sidebar */}
       <aside
-        style={{ width: displayWidth, transition }}
-        className="fixed bottom-0 left-0 top-14 overflow-hidden border-r border-gray-200 bg-white"
+        style={{
+          width,
+          transform: isOpen ? "translateX(0)" : "translateX(-100%)",
+          transition: sidebarTransition,
+        }}
+        className="desktop-sidebar fixed bottom-0 left-0 top-14 overflow-hidden border-r border-gray-200 bg-white"
       >
         {children({ isCollapsed })}
 
@@ -125,7 +130,7 @@ export default function BaseSidebar({
       </aside>
 
       {/* Spacer for main content */}
-      <div style={{ width: displayWidth, transition }} className="flex-shrink-0" />
+      <div style={{ width: isOpen ? width : 0 }} className="flex-shrink-0" />
     </>
   );
 }

@@ -332,7 +332,7 @@ export default function SearchPage() {
                 <li key={page.id}>
                   <Link
                     to={`/wiki/${page.slug}`}
-                    className="block rounded-lg border border-gray-200 bg-white p-4 transition-all hover:border-blue-500/40 hover:shadow-sm"
+                    className="block rounded-lg border border-gray-200 bg-white p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-blue-500/40 hover:shadow-sm"
                   >
                     <span className="font-medium text-gray-900 hover:text-blue-600">{title}</span>
 
@@ -396,7 +396,7 @@ function AiSearchResults({
   if (isNavigating) {
     return (
       <div className="flex items-center gap-2 py-8 text-sm text-gray-500">
-        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent motion-reduce:animate-none" />
         {t("search.ai_searching")}
       </div>
     );
@@ -446,7 +446,7 @@ function AiSearchResults({
                 <li key={source.pageId}>
                   <Link
                     to={`/wiki/${source.slug}`}
-                    className="block rounded-lg border border-gray-200 bg-white p-4 transition-all hover:border-blue-500/40 hover:shadow-sm"
+                    className="block rounded-lg border border-gray-200 bg-white p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-blue-500/40 hover:shadow-sm"
                   >
                     <span className="font-medium text-gray-900 hover:text-blue-600">{title}</span>
 

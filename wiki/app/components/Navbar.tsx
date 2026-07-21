@@ -105,12 +105,12 @@ function ThemeSwitcher() {
       <Sun
         size={18}
         aria-hidden="true"
-        className={`absolute transition-[opacity,scale,filter] duration-200 ease-[var(--motion-ease-out)] motion-reduce:scale-100 motion-reduce:blur-0 motion-reduce:duration-100 ${isDark ? "scale-100 opacity-100 blur-0" : "scale-25 opacity-0 blur-[4px]"}`}
+        className={`absolute transition-[opacity,scale,filter] duration-200 ease-[var(--motion-ease-out)] motion-reduce:scale-100 motion-reduce:blur-0 motion-reduce:duration-100 ${isDark ? "scale-100 opacity-100 blur-0" : "scale-95 opacity-0 blur-[4px]"}`}
       />
       <Moon
         size={18}
         aria-hidden="true"
-        className={`transition-[opacity,scale,filter] duration-200 ease-[var(--motion-ease-out)] motion-reduce:scale-100 motion-reduce:blur-0 motion-reduce:duration-100 ${isDark ? "scale-25 opacity-0 blur-[4px]" : "scale-100 opacity-100 blur-0"}`}
+        className={`transition-[opacity,scale,filter] duration-200 ease-[var(--motion-ease-out)] motion-reduce:scale-100 motion-reduce:blur-0 motion-reduce:duration-100 ${isDark ? "scale-95 opacity-0 blur-[4px]" : "scale-100 opacity-100 blur-0"}`}
       />
     </Button>
   );

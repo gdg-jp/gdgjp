@@ -130,7 +130,7 @@ function PageGrid({ pages, emptyKey }: { pages: PageCard[]; emptyKey: string }) 
           <Link
             key={page.id}
             to={`/wiki/${page.slug}`}
-            className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-4 transition-all hover:border-blue-500/40 hover:shadow-sm"
+            className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-blue-500/40 hover:shadow-sm"
           >
             <h3 className="line-clamp-2 font-medium text-gray-900">
               {isJa ? page.titleJa || page.titleEn : page.titleEn || page.titleJa}

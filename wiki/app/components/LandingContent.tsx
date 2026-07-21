@@ -302,6 +302,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
         {/* Mesh blobs */}
         <div
           aria-hidden="true"
+          className="lp-floating-decoration"
           style={{
             position: "absolute",
             top: "-120px",
@@ -316,6 +317,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
         />
         <div
           aria-hidden="true"
+          className="lp-floating-decoration"
           style={{
             position: "absolute",
             top: "-80px",
@@ -330,6 +332,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
         />
         <div
           aria-hidden="true"
+          className="lp-floating-decoration"
           style={{
             position: "absolute",
             bottom: "-100px",
@@ -344,6 +347,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
         />
         <div
           aria-hidden="true"
+          className="lp-floating-decoration"
           style={{
             position: "absolute",
             bottom: "-60px",
@@ -360,7 +364,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
         {/* Floating GDG dots — decorative */}
         <div
           aria-hidden="true"
-          className="absolute"
+          className="absolute lp-floating-decoration"
           style={{
             top: "18%",
             left: "8%",
@@ -374,7 +378,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
         />
         <div
           aria-hidden="true"
-          className="absolute"
+          className="absolute lp-floating-decoration"
           style={{
             top: "25%",
             right: "12%",
@@ -388,7 +392,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
         />
         <div
           aria-hidden="true"
-          className="absolute"
+          className="absolute lp-floating-decoration"
           style={{
             bottom: "28%",
             left: "15%",
@@ -402,7 +406,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
         />
         <div
           aria-hidden="true"
-          className="absolute"
+          className="absolute lp-floating-decoration"
           style={{
             bottom: "22%",
             right: "18%",
@@ -418,7 +422,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
         {/* Tiny squares */}
         <div
           aria-hidden="true"
-          className="absolute"
+          className="absolute lp-floating-decoration"
           style={{
             top: "40%",
             left: "5%",
@@ -427,13 +431,13 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
             borderRadius: 3,
             background: "#f9ab00",
             opacity: 0.5,
-            transform: "rotate(15deg)",
+            rotate: "15deg",
             animation: "lp-float 11s ease-in-out infinite",
           }}
         />
         <div
           aria-hidden="true"
-          className="absolute"
+          className="absolute lp-floating-decoration"
           style={{
             top: "55%",
             right: "6%",
@@ -442,7 +446,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
             borderRadius: 3,
             background: "#4285f4",
             opacity: 0.5,
-            transform: "rotate(-20deg)",
+            rotate: "-20deg",
             animation: "lp-float 9s ease-in-out infinite reverse",
           }}
         />
@@ -523,6 +527,12 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
         @keyframes lp-float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-14px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .lp-floating-decoration {
+            animation: none !important;
+            transform: none !important;
+          }
         }
         .lp-feature-card {
           transition: transform 0.22s cubic-bezier(.22,1,.36,1), box-shadow 0.22s cubic-bezier(.22,1,.36,1);
