@@ -72,6 +72,36 @@ test("Google Docs-style overview, copy, Escape and focus restoration", async ({ 
   await ctx.close();
 });
 
+test("share suggestions and actions use the active color theme", async ({ browser }) => {
+  const { ctx, page } = await makePage(browser, "author.json");
+  await page.addInitScript(() => localStorage.setItem("theme", "dark"));
+  await page.goto(PAGE_URL);
+  await openShareDialog(page);
+
+  const combobox = page.getByRole("combobox", { name: "Add user" });
+  await combobox.fill("E2E");
+  const listbox = page.getByRole("listbox");
+  await expect(listbox).toBeVisible();
+
+  const backgroundChannels = await listbox.evaluate((element) => {
+    const match = getComputedStyle(element).backgroundColor.match(/[\d.]+/g);
+    return match?.slice(0, 3).map(Number) ?? [];
+  });
+  expect(backgroundChannels).toHaveLength(3);
+  expect(Math.max(...backgroundChannels)).toBeLessThan(128);
+
+  const copyLinkButton = page.getByRole("button", { name: /copy link/i });
+  const darkForeground = await copyLinkButton.evaluate(
+    (element) => getComputedStyle(element).color,
+  );
+  await page.evaluate(() => document.documentElement.classList.remove("dark"));
+  const lightForeground = await copyLinkButton.evaluate(
+    (element) => getComputedStyle(element).color,
+  );
+  expect(darkForeground).not.toBe(lightForeground);
+  await ctx.close();
+});
+
 test("combobox supports keyboard selection and multiple-chip grants", async ({ browser }) => {
   const { ctx, page } = await makePage(browser, "author.json");
   await page.goto(PAGE_URL);

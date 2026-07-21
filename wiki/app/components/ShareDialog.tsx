@@ -543,7 +543,7 @@ export default function ShareDialog({
                   role={listboxRole}
                   tabIndex={-1}
                   aria-label={t("wiki.share_search_placeholder")}
-                  className="absolute left-0 right-0 z-10 max-h-64 overflow-y-auto rounded-b-md border border-t-0 border-gray-200 bg-[#edf3fe] py-1 shadow-lg"
+                  className="absolute left-0 right-0 z-10 max-h-64 overflow-y-auto rounded-b-md border border-t-0 border-gray-200 bg-blue-50 py-1 shadow-lg"
                 >
                   {candidatesFetcher.state !== "idle" && candidateRows.length === 0 ? (
                     <p className="flex items-center gap-2 px-5 py-4 text-sm text-gray-600">
@@ -802,7 +802,7 @@ export default function ShareDialog({
                 <button
                   type="button"
                   onClick={copyLink}
-                  className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-4 py-2 text-sm text-[#0b57d0] hover:bg-blue-50"
+                  className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-4 py-2 text-sm text-blue-700 hover:bg-blue-50"
                 >
                   {copied ? <Check size={20} /> : <Copy size={20} />}
                   {copied ? t("wiki.share_copied") : t("wiki.share_copy_link")}
