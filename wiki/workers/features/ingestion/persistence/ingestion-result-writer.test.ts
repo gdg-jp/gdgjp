@@ -5,7 +5,7 @@ describe("isIngestionProviderError", () => {
   it("recognizes Gemini quota and rate-limit failures", () => {
     expect(
       isIngestionProviderError(
-        "Quota exceeded for generativelanguage.googleapis.com, model: gemini-3.1-flash-lite",
+        "Quota exceeded for generativelanguage.googleapis.com, model: gemini-3.5-flash-lite",
       ),
     ).toBe(true);
     expect(isIngestionProviderError("Google API request failed with status 429")).toBe(true);

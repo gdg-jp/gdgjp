@@ -224,7 +224,7 @@ describe("Analytics Engine model call writer", () => {
     } as AnalyticsEngineDataset);
     writer.write({
       context: createModelCallTraceContext(trace, "call-1"),
-      model: "gemini-3.1-flash-lite",
+      model: "gemini-3.5-flash-lite",
       promptVersion: "2026-07-22",
       program: "plan",
       stage: "structured_output_repair",
@@ -243,7 +243,7 @@ describe("Analytics Engine model call writer", () => {
     expect(writeDataPoint).toHaveBeenCalledWith({
       indexes: ["session-1"],
       blobs: [
-        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash-lite",
         "2026-07-22",
         "plan",
         "structured_output_repair",
