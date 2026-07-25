@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "gdgjp-accounts-oidc-client-demo",
+  "account_id": "ca5917238ec18ca3365e7b05b11eee5e",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-07-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "IDP_ISSUER": "https://accounts.gdgs.jp",
+    "IDP_CLIENT_ID": "FgqcHbJYexeQBJQHAzRTSwgQxHJebeaG"
+  }
+}

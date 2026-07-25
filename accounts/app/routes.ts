@@ -22,6 +22,7 @@ export default [
   route("api/chapters/directory", "routes/api.chapters.directory.ts"),
   route("api/cli/logout", "routes/api.cli.logout.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
+  route("api/auth/oauth2/end-session", "routes/oauth2.end-session.ts"),
   route("api/auth/*", "routes/api.auth.$.ts"),
   // Compatibility routes keep in-flight requests working across the provider cutover.
   route("authorize", "routes/authorize.tsx"),

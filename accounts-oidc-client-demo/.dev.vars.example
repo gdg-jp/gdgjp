@@ -1,0 +1,4 @@
+# Copy to .dev.vars and replace after registering this Worker as an OIDC client.
+IDP_CLIENT_SECRET=replace-with-the-client-secret
+# Use at least 32 random bytes, e.g. `openssl rand -base64 32`.
+SESSION_SECRET=replace-with-a-long-random-secret

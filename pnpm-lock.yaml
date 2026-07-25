@@ -127,6 +127,25 @@ importers:
         specifier: ~4.73.0
         version: 4.73.0(@cloudflare/workers-types@4.20260426.1)
 
+  accounts-oidc-client-demo:
+    dependencies:
+      openid-client:
+        specifier: ^6.8.4
+        version: 6.8.4
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20250726.0
+        version: 4.20260426.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@22.19.19)(lightningcss@1.32.0)
+      wrangler:
+        specifier: ~4.73.0
+        version: 4.73.0(@cloudflare/workers-types@4.20260426.1)
+
   gdg-lib:
     dependencies:
       '@opentelemetry/api':

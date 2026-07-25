@@ -7,3 +7,4 @@ packages:
   - "tinyurl-gateway"
   - "go-extension"
   - "gdg-lib"
+  - "accounts-oidc-client-demo"
