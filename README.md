@@ -38,6 +38,20 @@ pnpm --filter @gdgjp/scheduler migrate:remote   # apply D1 migrations to the dep
 
 Every app except `gdg-lib` has D1 migrations and exposes `migrate:local` / `migrate:remote`.
 
+## GDG CLI
+
+Install the `gdg` CLI with the command for your operating system:
+
+```sh
+curl -fsSL https://gdgs.jp/cli/install.sh | sh
+```
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://gdgs.jp/cli/install.ps1 | iex"
+```
+
+Then sign in with `gdg login`. Run `gdg update` to install the latest stable release.
+
 ## Local development
 
 Each D1-backed app needs a `.dev.vars` file with `RP_SESSION_SECRET`, `IDP_CLIENT_SECRET`, and the local URLs:

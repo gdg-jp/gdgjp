@@ -3,7 +3,7 @@ set -eu
 
 repo="gdg-jp/gdgjp"
 api="https://api.github.com/repos/$repo/releases?per_page=100"
-tag=$(curl -fsSL "$api" | grep -oE '"tag_name":"cli/v[0-9]+\.[0-9]+\.[0-9]+"' | head -n 1 | cut -d '"' -f 4)
+tag=$(curl -fsSL "$api" | grep -oE '"tag_name"[[:space:]]*:[[:space:]]*"cli/v[0-9]+\.[0-9]+\.[0-9]+"' | head -n 1 | cut -d '"' -f 4)
 [ -n "$tag" ] || { echo "No gdg CLI release found." >&2; exit 1; }
 
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
