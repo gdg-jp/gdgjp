@@ -71,6 +71,14 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Apply accounts D1 migrations
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: accounts
+          packageManager: pnpm
+          command: d1 migrations apply gdgjp-accounts-db --remote
       - parallel:
           - name: Build accounts
             run: pnpm --filter @gdgjp/accounts build

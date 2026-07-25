@@ -128,12 +128,89 @@ func callbackHandler(expectedState string, result chan<- string) http.Handler {
 		}
 		select {
 		case result <- code:
-			fmt.Fprint(writer, "Login complete. You can close this window.")
+			writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprint(writer, loginCompletePage)
 		default:
 			http.Error(writer, "Login callback was already received.", http.StatusConflict)
 		}
 	})
 }
+
+const loginCompletePage = `<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ログインが完了しました · GDG Japan</title>
+    <style>
+      :root { color-scheme: light dark; }
+      * { box-sizing: border-box; }
+      body {
+        align-items: center;
+        background: #f8f9fa;
+        color: #202124;
+        display: flex;
+        font-family: "Google Sans", "Noto Sans JP", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        justify-content: center;
+        margin: 0;
+        min-height: 100vh;
+        overflow: hidden;
+        padding: 24px;
+      }
+      body::before, body::after {
+        border-radius: 999px;
+        content: "";
+        filter: blur(56px);
+        opacity: .2;
+        pointer-events: none;
+        position: fixed;
+      }
+      body::before { background: #4285f4; height: 280px; right: -100px; top: -100px; width: 280px; }
+      body::after { background: #fbbc04; bottom: -110px; height: 260px; left: -100px; width: 260px; }
+      main { position: relative; width: min(100%, 400px); }
+      .card {
+        background: rgba(255, 255, 255, .94);
+        border: 1px solid #e3e6e9;
+        border-radius: 16px;
+        box-shadow: 0 10px 28px rgba(60, 64, 67, .12);
+        padding: 40px 32px;
+        text-align: center;
+      }
+      .mark {
+        align-items: center;
+        background: #e8f0fe;
+        border-radius: 999px;
+        color: #1a73e8;
+        display: inline-flex;
+        height: 48px;
+        justify-content: center;
+        margin-bottom: 20px;
+        width: 48px;
+      }
+      h1 { font-size: 24px; letter-spacing: -.02em; margin: 0; }
+      p { color: #5f6368; font-size: 15px; line-height: 1.6; margin: 12px 0 0; }
+      .badge { color: #5f6368; font-size: 12px; margin-top: 28px; }
+      @media (prefers-color-scheme: dark) {
+        body { background: #202124; color: #e8eaed; }
+        .card { background: rgba(32, 33, 36, .94); border-color: #3c4043; }
+        p, .badge { color: #bdc1c6; }
+        .mark { background: #1a3b6d; color: #8ab4f8; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card" aria-labelledby="title">
+        <div class="mark" aria-hidden="true">
+          <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4.2 4.2L19 6.5"/></svg>
+        </div>
+        <h1 id="title">ログインが完了しました</h1>
+        <p>GDG Japan CLI にログインしました。<br>このウィンドウは閉じて構いません。</p>
+        <div class="badge">GDG Japan</div>
+      </section>
+    </main>
+  </body>
+</html>`
 
 func exchange(ctx context.Context, code, verifier string) (store.Credentials, error) {
 	form := url.Values{
