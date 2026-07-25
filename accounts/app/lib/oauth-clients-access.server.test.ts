@@ -3,13 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const authMocks = vi.hoisted(() => ({
   requireUser: vi.fn(),
-  getAuth: vi.fn(),
 }));
 
 vi.mock("./auth.server", () => ({
   CHAPTERS_SCOPE: "https://gdgs.jp/scopes/chapters",
+  CLI_SCOPE: "https://gdgs.jp/scopes/cli",
   requireUser: authMocks.requireUser,
-  getAuth: authMocks.getAuth,
 }));
 
 import {
@@ -43,11 +42,16 @@ const clientRow = {
 
 type Call = { sql: string; args: unknown[]; operation: "first" | "all" | "run" };
 
-function testEnv(options?: { active?: boolean; ownedClient?: typeof clientRow | null }) {
+function testEnv(options?: {
+  active?: boolean;
+  ownedClient?: typeof clientRow | null;
+  cliToken?: { userId: string; scopes: string } | null;
+}) {
   const calls: Call[] = [];
   const batches: string[][] = [];
   const active = options?.active ?? true;
   const ownedClient = options && "ownedClient" in options ? options.ownedClient : clientRow;
+  const cliToken = options?.cliToken ?? null;
 
   const db = {
     prepare(sql: string) {
@@ -60,6 +64,7 @@ function testEnv(options?: { active?: boolean; ownedClient?: typeof clientRow | 
         async first() {
           calls.push({ sql, args, operation: "first" });
           if (sql.includes("FROM memberships")) return active ? { ok: 1 } : null;
+          if (sql.includes("FROM oauthAccessToken")) return cliToken;
           if (sql.includes("FROM oauthClient")) return ownedClient;
           return null;
         },
@@ -143,11 +148,6 @@ describe("developer client access", () => {
   });
 
   it("creates a confidential PKCE client and returns its secret once", async () => {
-    const createOAuthClient = vi.fn().mockResolvedValue({
-      client_id: "client-1",
-      client_secret: "one-time-secret",
-    });
-    authMocks.getAuth.mockReturnValue({ api: { createOAuthClient } });
     const { env, calls } = testEnv();
 
     const result = await createDeveloperClient(env, new Request("https://accounts.example"), {
@@ -157,23 +157,14 @@ describe("developer client access", () => {
       scopes: ["openid", "email"],
     });
 
-    expect(result.clientSecret).toBe("one-time-secret");
-    expect(createOAuthClient).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({
-          token_endpoint_auth_method: "client_secret_basic",
-          grant_types: ["authorization_code", "refresh_token"],
-          response_types: ["code"],
-          type: "web",
-        }),
-      }),
+    expect(result.clientSecret).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const insert = calls.find(
+      (call) => call.operation === "run" && call.sql.includes("INSERT INTO oauthClient"),
     );
-    const hardening = calls.find(
-      (call) => call.operation === "run" && call.sql.includes("UPDATE oauthClient"),
-    );
-    expect(hardening?.sql).toContain("skipConsent = 1");
-    expect(hardening?.sql).toContain("enableEndSession = 1");
-    expect(hardening?.sql).toContain("requirePKCE = 1");
+    expect(insert?.sql).toContain("skipConsent");
+    expect(insert?.sql).toContain("enableEndSession");
+    expect(insert?.sql).toContain("requirePKCE");
+    expect(insert?.sql).toContain("client_secret_basic");
   });
 
   it("revokes access and refresh tokens when disabling a client", async () => {
@@ -201,5 +192,36 @@ describe("developer client access", () => {
 
     expect(preparedSql).toContain("DELETE FROM oauthAccessToken WHERE clientId = ?");
     expect(preparedSql).toContain("DELETE FROM oauthRefreshToken WHERE clientId = ?");
+  });
+
+  it("accepts a valid scoped gdg-cli bearer token", async () => {
+    const { env, calls } = testEnv({
+      cliToken: { userId: user.id, scopes: '["openid","https://gdgs.jp/scopes/cli"]' },
+    });
+
+    await listDeveloperClients(
+      env,
+      new Request("https://accounts.example", {
+        headers: { Authorization: "Bearer cli-access-token" },
+      }),
+    );
+
+    const tokenLookup = calls.find((call) => call.sql.includes("FROM oauthAccessToken"));
+    expect(tokenLookup?.args).toContain("cli-access-token");
+    expect(tokenLookup?.args).toContain("gdg-cli");
+  });
+
+  it("rejects CLI tokens without the CLI scope", async () => {
+    const { env } = testEnv({ cliToken: { userId: user.id, scopes: '["openid"]' } });
+
+    await expect(
+      listDeveloperClients(
+        env,
+        new Request("https://accounts.example", {
+          headers: { Authorization: "Bearer cli-access-token" },
+        }),
+      ),
+    ).rejects.toMatchObject({ status: 401 });
+    expect(authMocks.requireUser).not.toHaveBeenCalled();
   });
 });

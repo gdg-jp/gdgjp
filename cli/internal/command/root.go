@@ -19,11 +19,7 @@ func NewRoot() *cobra.Command {
 		Version: version,
 	}
 	root.AddCommand(newLoginCommand(credentials), newLogoutCommand(credentials), newUpdateCommand())
-	root.AddCommand(&cobra.Command{
-		Use:   "accounts",
-		Short: "Manage GDG Japan Accounts resources",
-		Long:  "Accounts commands will be added in a future gdg release.",
-	})
+	root.AddCommand(newAccountsCommand(credentials))
 	return root
 }
 

@@ -1,5 +1,4 @@
-import type { AuthUser } from "@gdgjp/gdg-lib";
-import { CHAPTERS_SCOPE, getAuth, requireUser } from "./auth.server";
+import { CHAPTERS_SCOPE, CLI_SCOPE, requireUser } from "./auth.server";
 
 export const DEVELOPER_CLIENT_SCOPES = [
   "openid",
@@ -76,9 +75,14 @@ type NormalizedDeveloperClientInput = {
 const MAX_NAME_LENGTH = 100;
 const MAX_URI_LENGTH = 2048;
 const MAX_URIS_PER_KIND = 10;
+const CLI_CLIENT_ID = "gdg-cli";
 
-export async function requireDeveloperAccess(env: Env, request: Request): Promise<AuthUser> {
-  const user = await requireUser(env, request);
+export async function requireDeveloperAccess(
+  env: Env,
+  request: Request,
+): Promise<{ id: string }> {
+  const authorization = request.headers.get("Authorization");
+  const user = authorization ? await requireCliTokenUser(env, authorization) : await requireUser(env, request);
   const membership = await env.DB.prepare(
     "SELECT 1 AS ok FROM memberships WHERE user_id = ? AND status = 'active' LIMIT 1",
   )
@@ -116,71 +120,32 @@ export async function createDeveloperClient(
 ): Promise<DeveloperClientSecret> {
   const user = await requireDeveloperAccess(env, request);
   const normalized = validateDeveloperClientInput(input);
-  const auth = getAuth(env);
-  const created = await auth.api.createOAuthClient({
-    headers: request.headers,
-    body: {
-      client_name: normalized.name,
-      client_uri: normalized.appUrl ?? undefined,
-      redirect_uris: normalized.redirectUris,
-      post_logout_redirect_uris:
-        normalized.postLogoutRedirectUris.length > 0
-          ? normalized.postLogoutRedirectUris
-          : undefined,
-      scope: normalized.scopes.join(" "),
-      token_endpoint_auth_method: "client_secret_basic",
-      grant_types: ["authorization_code", "refresh_token"],
-      response_types: ["code"],
-      type: "web",
-    },
-  });
-
-  const clientId = created.client_id;
-  const clientSecret = created.client_secret;
-  if (!clientId || !clientSecret) {
-    if (clientId) await deleteOwnedClientDirect(env.DB, user.id, clientId);
-    throw new Error("OAuth provider did not issue a confidential client secret");
-  }
-
-  try {
-    const result = await env.DB.prepare(
-      `UPDATE oauthClient
-       SET disabled = 0,
-           skipConsent = 1,
-           enableEndSession = 1,
-           subjectType = 'public',
-           scopes = ?,
-           updatedAt = ?,
-           name = ?,
-           uri = ?,
-           redirectUris = ?,
-           postLogoutRedirectUris = ?,
-           tokenEndpointAuthMethod = 'client_secret_basic',
-           grantTypes = ?,
-           responseTypes = ?,
-           public = 0,
-           type = 'web',
-           requirePKCE = 1
-       WHERE clientId = ? AND userId = ?`,
+  const clientId = crypto.randomUUID();
+  const clientSecret = randomSecret();
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO oauthClient (
+       id, clientId, clientSecret, disabled, skipConsent, enableEndSession, subjectType, scopes,
+       userId, createdAt, updatedAt, name, uri, redirectUris, postLogoutRedirectUris,
+       tokenEndpointAuthMethod, grantTypes, responseTypes, public, type, requirePKCE
+     ) VALUES (?, ?, ?, 0, 1, 1, 'public', ?, ?, ?, ?, ?, ?, ?, ?, 'client_secret_basic', ?, ?, 0, 'web', 1)`,
+  )
+    .bind(
+      crypto.randomUUID(),
+      clientId,
+      await sha256Base64Url(clientSecret),
+      JSON.stringify(normalized.scopes),
+      user.id,
+      now,
+      now,
+      normalized.name,
+      normalized.appUrl,
+      JSON.stringify(normalized.redirectUris),
+      JSON.stringify(normalized.postLogoutRedirectUris),
+      JSON.stringify(["authorization_code", "refresh_token"]),
+      JSON.stringify(["code"]),
     )
-      .bind(
-        JSON.stringify(normalized.scopes),
-        new Date().toISOString(),
-        normalized.name,
-        normalized.appUrl,
-        JSON.stringify(normalized.redirectUris),
-        JSON.stringify(normalized.postLogoutRedirectUris),
-        JSON.stringify(["authorization_code", "refresh_token"]),
-        JSON.stringify(["code"]),
-        clientId,
-        user.id,
-      )
-      .run();
-    if (result.meta.changes !== 1) throw new Error("Unable to harden the OAuth client");
-  } catch (error) {
-    await deleteOwnedClientDirect(env.DB, user.id, clientId);
-    throw error;
-  }
+    .run();
 
   return {
     client: await getOwnedClientDirect(env.DB, user.id, clientId),
@@ -256,14 +221,15 @@ export async function rotateDeveloperClientSecret(
 ): Promise<DeveloperClientSecret> {
   const user = await requireDeveloperAccess(env, request);
   await requireOwnedClient(env, user.id, clientId);
-  const rotated = await getAuth(env).api.rotateClientSecret({
-    headers: request.headers,
-    body: { client_id: clientId },
-  });
-  if (!rotated.client_secret) throw new Error("OAuth provider did not issue a client secret");
+  const clientSecret = randomSecret();
+  await env.DB.prepare(
+    "UPDATE oauthClient SET clientSecret = ?, updatedAt = ? WHERE clientId = ? AND userId = ?",
+  )
+    .bind(await sha256Base64Url(clientSecret), new Date().toISOString(), clientId, user.id)
+    .run();
   return {
     client: await getOwnedClientDirect(env.DB, user.id, clientId),
-    clientSecret: rotated.client_secret,
+    clientSecret,
   };
 }
 
@@ -274,10 +240,7 @@ export async function deleteDeveloperClient(
 ): Promise<void> {
   const user = await requireDeveloperAccess(env, request);
   await requireOwnedClient(env, user.id, clientId);
-  await getAuth(env).api.deleteOAuthClient({
-    headers: request.headers,
-    body: { client_id: clientId },
-  });
+  await deleteOwnedClientDirect(env.DB, user.id, clientId);
 }
 
 export function validateDeveloperClientInput(
@@ -431,6 +394,46 @@ function sameStringArray(left: string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
+async function requireCliTokenUser(env: Env, authorization: string): Promise<{ id: string }> {
+  const token = /^Bearer ([^\s]+)$/i.exec(authorization)?.[1];
+  if (!token) throw unauthorized();
+  const row = await env.DB.prepare(
+    `SELECT userId, scopes
+     FROM oauthAccessToken
+     WHERE token = ? AND clientId = ? AND expiresAt > ? AND userId IS NOT NULL
+     LIMIT 1`,
+  )
+    .bind(token, CLI_CLIENT_ID, new Date().toISOString())
+    .first<{ userId: string; scopes: string }>();
+  if (!row || !hasScope(row.scopes, CLI_SCOPE)) throw unauthorized();
+  return { id: row.userId };
+}
+
+function hasScope(value: string, required: string): boolean {
+  try {
+    const scopes: unknown = JSON.parse(value);
+    return Array.isArray(scopes) && scopes.includes(required);
+  } catch {
+    return false;
+  }
+}
+
+function randomSecret(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+async function sha256Base64Url(value: string): Promise<string> {
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)),
+  );
+  let binary = "";
+  for (const byte of digest) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
 function trustedClientIds(env: Env): Set<string> {
   return new Set<string>(
     [env.TINYURL_CLIENT_ID, env.WIKI_CLIENT_ID, env.IMG_CLIENT_ID, env.SCHEDULER_CLIENT_ID].filter(
@@ -441,4 +444,8 @@ function trustedClientIds(env: Env): Set<string> {
 
 function notFound(): Response {
   return new Response("Not Found", { status: 404 });
+}
+
+function unauthorized(): Response {
+  return Response.json({ error: "invalid_token" }, { status: 401 });
 }

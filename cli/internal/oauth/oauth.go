@@ -74,7 +74,7 @@ func Login(ctx context.Context) (store.Credentials, error) {
 func Logout(ctx context.Context, credentials store.Credentials) error {
 	accessToken := credentials.AccessToken
 	if accessToken == "" {
-		refreshed, err := refresh(ctx, credentials.RefreshToken)
+		refreshed, err := Refresh(ctx, credentials.RefreshToken)
 		if err != nil {
 			return fmt.Errorf("refresh access token for logout: %w", err)
 		}
@@ -223,7 +223,8 @@ func exchange(ctx context.Context, code, verifier string) (store.Credentials, er
 	return requestToken(ctx, form)
 }
 
-func refresh(ctx context.Context, refreshToken string) (store.Credentials, error) {
+// Refresh exchanges a saved refresh token for a fresh CLI credential set.
+func Refresh(ctx context.Context, refreshToken string) (store.Credentials, error) {
 	return requestToken(ctx, url.Values{
 		"grant_type":    {"refresh_token"},
 		"client_id":     {clientID},
