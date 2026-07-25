@@ -3,6 +3,7 @@ name: Deploy
 on:
   push:
     branches: [main]
+    tags: ["cli/v*"]
   workflow_dispatch:
 
 concurrency:
@@ -13,6 +14,46 @@ env:
   NODE_VERSION: "20"
 
 jobs:
+  release-cli:
+    name: Release CLI
+    if: startsWith(github.ref, 'refs/tags/cli/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+      - name: Test and build release archives
+        working-directory: cli
+        env:
+          CLI_VERSION: ${{ github.ref_name }}
+        run: |
+          go test ./...
+          VERSION="${CLI_VERSION#cli/v}"
+          mkdir -p dist
+          for TARGET in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            OS="${TARGET%/*}"
+            ARCH="${TARGET#*/}"
+            BINARY="gdg"
+            if [ "$OS" = windows ]; then BINARY="gdg.exe"; fi
+            STAGE="dist/gdg_${VERSION}_${OS}_${ARCH}"
+            mkdir -p "$STAGE"
+            GOOS="$OS" GOARCH="$ARCH" go build -trimpath -ldflags "-s -w -X github.com/gdg-jp/gdgjp/cli/internal/command.version=$VERSION" -o "$STAGE/$BINARY" ./cmd/gdg
+            (cd "$STAGE" && zip -q "../gdg_${VERSION}_${OS}_${ARCH}.zip" "$BINARY")
+            rm -rf "$STAGE"
+          done
+          (cd dist && sha256sum gdg_*.zip > checksums.txt)
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: gh release create "$TAG_NAME" cli/dist/* --title "GDG CLI ${TAG_NAME#cli/}" --generate-notes
+
   deploy:
     name: Deploy
     if: github.ref == 'refs/heads/main'

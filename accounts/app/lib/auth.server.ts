@@ -5,6 +5,7 @@ import { jwt } from "better-auth/plugins";
 import { listActiveChaptersForUser } from "./db";
 
 export const CHAPTERS_SCOPE = "https://gdgs.jp/scopes/chapters";
+export const CLI_SCOPE = "https://gdgs.jp/scopes/cli";
 export const CHAPTERS_CLAIM = "https://gdgs.jp/claims/chapters";
 export const IS_ADMIN_CLAIM = "https://gdgs.jp/claims/is_admin";
 export const OAUTH_STATE_STORAGE = "cookie" as const;
@@ -106,7 +107,7 @@ function buildAuth(env: Env) {
       oauthProvider({
         loginPage: "/signin",
         consentPage: "/oauth/consent",
-        scopes: ["openid", "email", "profile", "offline_access", CHAPTERS_SCOPE],
+        scopes: ["openid", "email", "profile", "offline_access", CHAPTERS_SCOPE, CLI_SCOPE],
         clientRegistrationDefaultScopes: ["openid"],
         clientRegistrationAllowedScopes: [
           "openid",
@@ -114,6 +115,7 @@ function buildAuth(env: Env) {
           "profile",
           "offline_access",
           CHAPTERS_SCOPE,
+          CLI_SCOPE,
         ],
         allowDynamicClientRegistration: false,
         allowUnauthenticatedClientRegistration: false,
