@@ -3,7 +3,7 @@ name: Deploy
 on:
   push:
     branches: [main]
-    tags: ["cli/v*"]
+    tags: ["cli/v*", "extension/v*"]
   workflow_dispatch:
 
 concurrency:
@@ -54,6 +54,30 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         run: gh release create "$TAG_NAME" cli/dist/* --title "GDG CLI ${TAG_NAME#cli/}" --generate-notes
 
+  release-go-extension:
+    name: Release Go extension
+    if: startsWith(github.ref, 'refs/tags/extension/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "9.15.0"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build Go extension
+        run: pnpm --filter @gdgjp/go-extension build
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: gh release create "$TAG_NAME" go-extension/dist/gdg-japan-go-links.zip --title "GDG Japan Go Links ${TAG_NAME#extension/}" --generate-notes
+
   deploy:
     name: Deploy
     if: github.ref == 'refs/heads/main'
@@ -92,8 +116,6 @@ jobs:
             run: pnpm --filter @gdgjp/scheduler build
           - name: Build tinyurl gateway
             run: pnpm --filter @gdgjp/tinyurl-gateway build
-          - name: Build go extension
-            run: pnpm --filter @gdgjp/go-extension build
       - parallel:
           - name: Deploy accounts to Cloudflare Workers
             uses: cloudflare/wrangler-action@v3
@@ -141,22 +163,3 @@ jobs:
               VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
               VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
               VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      - name: Upload go extension package
-        uses: actions/upload-artifact@v4
-        with:
-          name: gdg-japan-go-links-${{ github.sha }}
-          path: go-extension/dist/gdg-japan-go-links.zip
-          retention-days: 30
-      - name: Create go extension release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG_NAME: go-extension-${{ github.sha }}
-        run: |
-          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            gh release upload "$TAG_NAME" go-extension/dist/gdg-japan-go-links.zip --clobber
-          else
-            gh release create "$TAG_NAME" go-extension/dist/gdg-japan-go-links.zip \
-              --target "$GITHUB_SHA" \
-              --title "GDG Japan Go Links ($GITHUB_SHA)" \
-              --notes "Automated extension package for commit $GITHUB_SHA."
-          fi
