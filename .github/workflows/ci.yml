@@ -173,6 +173,7 @@ jobs:
           APP_URL=http://localhost:5175
           ACCOUNTS_URL=http://localhost:5173
           IDP_URL=http://localhost:5173
+          IDP_CLIENT_ID=img
           EOF
 
           cat > scheduler/.dev.vars <<EOF

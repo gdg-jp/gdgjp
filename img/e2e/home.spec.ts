@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-test("home page redirects unauthenticated users to the local sign-in route", async ({ page }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page).toHaveURL(/\/signin\?return_to=%2F/);
+test("home page redirects unauthenticated users to the local sign-in route", async ({ request }) => {
+  const response = await request.get("/", { maxRedirects: 0 });
+
+  expect(response.status()).toBe(302);
+  expect(response.headers().location).toBe("/signin?return_to=%2F");
 });
