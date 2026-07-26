@@ -306,6 +306,28 @@ function normalizeCandidate(candidate: CandidateData["candidates"][number]): Sha
   };
 }
 
+async function copyText(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Clipboard access can be unavailable in embedded or insecure contexts.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("Clipboard copy was rejected");
+}
+
 export default function ShareDialog({
   open,
   onClose,
@@ -535,7 +557,7 @@ export default function ShareDialog({
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await copyText(window.location.href);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
