@@ -6,6 +6,7 @@ import { z } from "zod";
 import * as schema from "~/db/schema";
 import { generateSlug } from "~/features/ingestion/slug";
 import { requireUser } from "~/lib/auth-utils.server";
+import { canonicalMarkdown, ingestionImageKeysFromMarkdown } from "~/lib/content-format";
 import { sendOrRunTranslation } from "~/lib/queue-processors.server";
 
 // ---------------------------------------------------------------------------
@@ -87,6 +88,9 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   // for parent-child relationships within the same plan.
   const tempIdMap: Record<string, string> = {};
   for (const op of body.operations) {
+    // Ingestion continues to submit TipTap JSON for the review editor, but the
+    // database contract is Markdown. Invalid JSON is deliberately preserved.
+    const contentMarkdown = canonicalMarkdown(op.tiptapJson);
     if (op.type === "create") {
       if (!op.tempId) {
         return new Response("All create operations must include a tempId", { status: 400 });
@@ -133,7 +137,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
           pageId,
           op.title,
           slug,
-          op.tiptapJson,
+          contentMarkdown,
           op.summaryJa,
           op.pageType,
           metadata,
@@ -199,7 +203,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
             ingestion_session_id = ?, last_edited_by = ?, updated_at = unixepoch()
            WHERE id = ?`,
         ).bind(
-          op.tiptapJson,
+          contentMarkdown,
           op.title,
           op.summaryJa,
           publishStatus,
@@ -247,7 +251,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     // best-effort; fall back to image/jpeg below
   }
 
-  // Scan each op's tiptapJson for ingestion image references and create page_attachments.
+  // Scan canonical Markdown for ingestion image references and create page_attachments.
   // Track (pageId → Set<r2Key>) to avoid duplicate inserts when saving all uploaded files below.
   const insertedAttachments = new Map<string, Set<string>>();
   for (const op of body.operations) {
@@ -258,12 +262,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     // biome-ignore lint/style/noNonNullAssertion: set above
     const pageInserted = insertedAttachments.get(pageId)!;
 
-    const imgRegex = /"src":"\/api\/images\/(ingestion\/[^"]+)"/g;
-    const seenKeys = new Set<string>();
-    for (const match of op.tiptapJson.matchAll(imgRegex)) {
-      const r2Key = match[1];
-      if (seenKeys.has(r2Key)) continue;
-      seenKeys.add(r2Key);
+    const contentMarkdown = canonicalMarkdown(op.tiptapJson);
+    for (const r2Key of ingestionImageKeysFromMarkdown(contentMarkdown)) {
       pageInserted.add(r2Key);
       const fileName = r2Key.split("/").at(-1) ?? r2Key;
       const mimeType = r2KeyMimeMap[r2Key] ?? "image/jpeg";

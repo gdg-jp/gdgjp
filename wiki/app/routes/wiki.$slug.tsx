@@ -29,11 +29,11 @@ import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useThemeMode } from "~/hooks/useThemeMode";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
+import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
 import { buildPageMeta } from "~/lib/page-meta";
 import { timeAgo } from "~/lib/time";
-import { tiptapToMarkdown } from "~/lib/tiptap-convert";
 
 export const meta: MetaFunction<typeof loader> = ({ data, location, matches }) => {
   if (!data) return [{ title: "Page not found" }];
@@ -239,8 +239,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   return {
     page: {
       ...page,
-      contentJa: tiptapToMarkdown(page.contentJa ?? ""),
-      contentEn: tiptapToMarkdown(page.contentEn ?? ""),
+      contentJa: canonicalMarkdown(page.contentJa),
+      contentEn: canonicalMarkdown(page.contentEn),
     },
     tags: pageTags,
     author: authorRow ?? null,

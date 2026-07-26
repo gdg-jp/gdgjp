@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
 import { indexPageEmbeddings } from "~/features/ai-search/embedding.server";
 import { translatePageWithEnv } from "~/features/translation/translation.server";
+import { canonicalMarkdown } from "~/lib/content-format";
 
 type Db = ReturnType<typeof drizzle>;
 
@@ -32,7 +33,13 @@ export async function processTranslationMessage(
   const translated = await translatePageWithEnv(env, page);
   await db
     .update(schema.pages)
-    .set({ ...translated, translationStatusEn: "ai", updatedAt: new Date() })
+    .set({
+      ...translated,
+      // Defend the storage contract if a model ignores the Markdown-only prompt.
+      contentEn: canonicalMarkdown(translated.contentEn),
+      translationStatusEn: "ai",
+      updatedAt: new Date(),
+    })
     .where(eq(schema.pages.id, body.pageId));
   try {
     await indexPageEmbeddings(env, db, body.pageId);

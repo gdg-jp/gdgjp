@@ -4,6 +4,7 @@ import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import * as schema from "~/db/schema";
 import { getCliIdentity } from "~/lib/cli-identity.server";
+import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions, isGeneralAccess, isPageRole } from "~/lib/page-access.server";
 
@@ -190,6 +191,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
         return Response.json({ error: "parent_forbidden", id: page.parentId }, { status: 403 });
     }
     const meta = page.meta;
+    const contentJa = canonicalMarkdown(page.ja.content);
+    const contentEn = canonicalMarkdown(page.en.content);
     if (!isGeneralAccess(meta.visibility) || !isPageRole(meta.generalRole))
       return Response.json({ error: "invalid_access" }, { status: 400 });
     if (meta.pageType === "task-list")
@@ -205,8 +208,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
           page.ja.title,
           page.en.title,
           page.slug,
-          page.ja.content,
-          page.en.content,
+          contentJa,
+          contentEn,
           page.ja.translationStatus,
           page.en.translationStatus,
           page.ja.summary,
@@ -230,8 +233,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
         ).bind(
           nanoid(),
           id,
-          current.contentJa,
-          current.contentEn,
+          canonicalMarkdown(current.contentJa),
+          canonicalMarkdown(current.contentEn),
           current.titleJa,
           current.titleEn,
           identity.user.id,
@@ -244,8 +247,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
           page.ja.title,
           page.en.title,
           page.slug,
-          page.ja.content,
-          page.en.content,
+          contentJa,
+          contentEn,
           page.ja.translationStatus,
           page.en.translationStatus,
           page.ja.summary,

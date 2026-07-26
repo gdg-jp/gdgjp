@@ -11,9 +11,9 @@ import { useLoaderData } from "react-router";
 import PageEditor from "~/components/PageEditor";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
+import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
-import { tiptapToMarkdown } from "~/lib/tiptap-convert";
 
 // ---------------------------------------------------------------------------
 // Revalidation
@@ -79,8 +79,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   return {
     page: {
       ...page,
-      contentJa: tiptapToMarkdown(page.contentJa ?? ""),
-      contentEn: tiptapToMarkdown(page.contentEn ?? ""),
+      contentJa: canonicalMarkdown(page.contentJa),
+      contentEn: canonicalMarkdown(page.contentEn),
     },
     canPublish: !!user.isAdmin,
     currentUser: { id: user.id, name: user.name, image: user.image ?? null },
@@ -101,8 +101,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   const intent = formData.get("intent") as "save" | "publish" | "autosave";
   const titleJa = (formData.get("titleJa") as string) ?? "";
   const titleEn = (formData.get("titleEn") as string) ?? "";
-  const contentJa = (formData.get("contentJa") as string) ?? "";
-  const contentEn = (formData.get("contentEn") as string) ?? "";
+  const contentJa = canonicalMarkdown((formData.get("contentJa") as string) ?? "");
+  const contentEn = canonicalMarkdown((formData.get("contentEn") as string) ?? "");
 
   const page = await db
     .select({
@@ -141,8 +141,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     ).bind(
       versionId,
       page.id,
-      page.contentJa,
-      page.contentEn,
+      canonicalMarkdown(page.contentJa),
+      canonicalMarkdown(page.contentEn),
       page.titleJa,
       page.titleEn,
       user.id,

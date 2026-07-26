@@ -428,3 +428,7 @@ CREATE TRIGGER page_access_sync_revision_update AFTER UPDATE ON page_access
 BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
 CREATE TRIGGER page_access_sync_revision_delete AFTER DELETE ON page_access
 BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
+CREATE TABLE content_backfills (
+  name TEXT NOT NULL PRIMARY KEY,
+  completed_at INTEGER NOT NULL DEFAULT (unixepoch())
+);

@@ -1,5 +1,3 @@
-import { tiptapToMarkdown } from "~/lib/tiptap-convert";
-
 export interface ContentChunk {
   text: string;
   pageId: string;
@@ -81,7 +79,7 @@ function chunkLanguage(
 ): ContentChunk[] {
   if (!content) return [];
 
-  const md = tiptapToMarkdown(content);
+  const md = content;
   if (!md.trim()) return [];
 
   const fullMd = `# ${title}\n\n${summary}\n\n${md}`;

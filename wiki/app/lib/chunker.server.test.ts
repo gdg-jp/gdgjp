@@ -1,48 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { chunkPageContent } from "~/features/ai-search/chunker.server";
 
-const TIPTAP_DOC_JA = JSON.stringify({
-  type: "doc",
-  content: [
-    {
-      type: "heading",
-      attrs: { level: 2 },
-      content: [{ type: "text", text: "概要" }],
-    },
-    {
-      type: "paragraph",
-      content: [
-        { type: "text", text: "これはテストページの概要です。GDGの活動について説明します。" },
-      ],
-    },
-    {
-      type: "heading",
-      attrs: { level: 2 },
-      content: [{ type: "text", text: "詳細" }],
-    },
-    {
-      type: "paragraph",
-      content: [{ type: "text", text: "詳細なコンテンツがここに入ります。" }],
-    },
-  ],
-});
+const MARKDOWN_JA = `## 概要
 
-const TIPTAP_DOC_EN = JSON.stringify({
-  type: "doc",
-  content: [
-    {
-      type: "heading",
-      attrs: { level: 2 },
-      content: [{ type: "text", text: "Overview" }],
-    },
-    {
-      type: "paragraph",
-      content: [
-        { type: "text", text: "This is the overview of the test page about GDG activities." },
-      ],
-    },
-  ],
-});
+これはテストページの概要です。GDGの活動について説明します。
+
+## 詳細
+
+詳細なコンテンツがここに入ります。`;
+
+const MARKDOWN_EN = `## Overview
+
+This is the overview of the test page about GDG activities.`;
 
 describe("chunkPageContent", () => {
   it("produces chunks for both JA and EN content", () => {
@@ -53,8 +22,8 @@ describe("chunkPageContent", () => {
       titleEn: "Test Page",
       summaryJa: "テストの要約",
       summaryEn: "Test summary",
-      contentJa: TIPTAP_DOC_JA,
-      contentEn: TIPTAP_DOC_EN,
+      contentJa: MARKDOWN_JA,
+      contentEn: MARKDOWN_EN,
     });
 
     const jaChunks = chunks.filter((c) => c.language === "ja");
@@ -92,7 +61,7 @@ describe("chunkPageContent", () => {
       titleEn: "Page with headings",
       summaryJa: "テスト要約",
       summaryEn: "Test summary",
-      contentJa: TIPTAP_DOC_JA,
+      contentJa: MARKDOWN_JA,
       contentEn: "",
     });
 
@@ -108,8 +77,8 @@ describe("chunkPageContent", () => {
       titleEn: "Test",
       summaryJa: "要約",
       summaryEn: "Summary",
-      contentJa: TIPTAP_DOC_JA,
-      contentEn: TIPTAP_DOC_EN,
+      contentJa: MARKDOWN_JA,
+      contentEn: MARKDOWN_EN,
     });
 
     const jaChunks = chunks.filter((c) => c.language === "ja");
@@ -131,7 +100,6 @@ describe("chunkPageContent", () => {
       contentEn: "",
     });
 
-    // tiptapToMarkdown falls back to returning the string as-is for non-JSON
     expect(chunks.length).toBe(1);
     expect(chunks[0].text).toContain(
       "これは通常のテキストです。JSONではないコンテンツをテストしています。",

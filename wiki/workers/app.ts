@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { createRequestHandler } from "react-router";
 import * as schema from "../app/db/schema";
 import { createAuth } from "../app/lib/auth.server";
+import { backfillMarkdownContent } from "../app/lib/content-backfill.server";
 import { sendDueTaskReminders } from "../app/lib/discord-reminders.server";
 import { getEffectivePagePermissions } from "../app/lib/page-access.server";
 import {
@@ -96,6 +97,11 @@ export default {
     ctx.waitUntil(
       sendDueTaskReminders(env).catch((err) => {
         console.error("[scheduled] sendDueTaskReminders failed:", err);
+      }),
+    );
+    ctx.waitUntil(
+      backfillMarkdownContent(env.DB).catch((err) => {
+        console.error("[scheduled] markdown content backfill failed:", err);
       }),
     );
   },

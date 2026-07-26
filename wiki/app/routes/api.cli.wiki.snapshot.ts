@@ -2,8 +2,17 @@ import { eq } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { getCliIdentity } from "~/lib/cli-identity.server";
+import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
+
+/**
+ * Snapshot is an external contract: retain this normalization while old rows
+ * may exist during a rolling migration, even though persisted content is Markdown.
+ */
+export function snapshotContentAsMarkdown(content: string): string {
+  return canonicalMarkdown(content);
+}
 
 /** GET /api/cli/wiki/snapshot -- all non-archived, non-task pages the token can view. */
 export async function loader({ request, context }: LoaderFunctionArgs) {
@@ -34,13 +43,13 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         title: page.titleJa,
         summary: page.summaryJa,
         translationStatus: page.translationStatusJa,
-        content: page.contentJa,
+        content: snapshotContentAsMarkdown(page.contentJa),
       },
       en: {
         title: page.titleEn,
         summary: page.summaryEn,
         translationStatus: page.translationStatusEn,
-        content: page.contentEn,
+        content: snapshotContentAsMarkdown(page.contentEn),
       },
       status: page.status,
       pageType: page.pageType,

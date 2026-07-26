@@ -69,7 +69,7 @@ Agents SDK multi-phase flow: user-uploaded docs / URLs / Google Drive → wiki p
 
 ## Realtime collab editor
 
-TipTap on client, Yjs CRDT over WebSocket to `COLLAB_DO`. Awareness via `PresenceAvatars.tsx` + `remote-cursors-extension.ts`. `tiptap-convert.ts` round-trips TipTap JSON ↔ storage. Golden suite (`tests/golden/tiptap-*.test.tsx`) snapshots both directions — when editor schema changes, run `test:golden:update` and review diff.
+TipTap on client, Yjs CRDT over WebSocket to `COLLAB_DO`. Awareness via `PresenceAvatars.tsx` + `remote-cursors-extension.ts`. Page and version storage is canonical Markdown; `tiptap-convert.ts` is only a legacy TipTap JSON → Markdown boundary converter. Golden suite (`tests/golden/tiptap-*.test.tsx`) snapshots conversion and rendering — when editor schema changes, run `test:golden:update` and review diff.
 
 ## i18n
 

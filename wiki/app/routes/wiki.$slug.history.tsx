@@ -12,9 +12,9 @@ import ConfirmDialog from "~/components/ConfirmDialog";
 import * as schema from "~/db/schema";
 import { useThemeMode } from "~/hooks/useThemeMode";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
+import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
-import { tiptapToMarkdown } from "~/lib/tiptap-convert";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   {
@@ -132,8 +132,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
         id: vRow.id,
         titleJa: vRow.title_ja,
         titleEn: vRow.title_en,
-        contentJa: tiptapToMarkdown(vRow.content_ja ?? ""),
-        contentEn: tiptapToMarkdown(vRow.content_en ?? ""),
+        contentJa: canonicalMarkdown(vRow.content_ja ?? ""),
+        contentEn: canonicalMarkdown(vRow.content_en ?? ""),
         savedAt: vRow.saved_at,
         editorName: vRow.editor_name,
       };
@@ -147,8 +147,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       slug: page.slug,
       titleJa: page.titleJa,
       titleEn: page.titleEn,
-      currentContentJa: tiptapToMarkdown(page.contentJa ?? ""),
-      currentContentEn: tiptapToMarkdown(page.contentEn ?? ""),
+      currentContentJa: canonicalMarkdown(page.contentJa),
+      currentContentEn: canonicalMarkdown(page.contentEn),
     },
     versions,
     selectedVersion,
@@ -220,8 +220,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     ).bind(
       snapshotId,
       page.id,
-      page.contentJa,
-      page.contentEn,
+      canonicalMarkdown(page.contentJa),
+      canonicalMarkdown(page.contentEn),
       page.titleJa,
       page.titleEn,
       user.id,
@@ -231,7 +231,14 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     env.DB.prepare(
       `UPDATE pages SET title_ja = ?, title_en = ?, content_ja = ?, content_en = ?,
           last_edited_by = ?, updated_at = unixepoch() WHERE id = ?`,
-    ).bind(vRow.title_ja, vRow.title_en, vRow.content_ja, vRow.content_en, user.id, page.id),
+    ).bind(
+      vRow.title_ja,
+      vRow.title_en,
+      canonicalMarkdown(vRow.content_ja),
+      canonicalMarkdown(vRow.content_en),
+      user.id,
+      page.id,
+    ),
     // Prune — keep last 10
     env.DB.prepare(
       `DELETE FROM page_versions WHERE page_id = ? AND id NOT IN (

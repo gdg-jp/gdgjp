@@ -1,4 +1,3 @@
-import { tiptapToMarkdown } from "../../../../../app/lib/tiptap-convert";
 import type {
   AdapterResult,
   ListOptions,
@@ -76,7 +75,7 @@ function summaryOf(page: WikiWorkspacePage): string {
 }
 
 function contentOf(page: WikiWorkspacePageBody): string {
-  return tiptapToMarkdown(page.contentJa || page.contentEn || "");
+  return page.contentJa || page.contentEn || "";
 }
 
 function pageContent(page: WikiWorkspacePageBody): string {

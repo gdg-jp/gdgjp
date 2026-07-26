@@ -2,8 +2,8 @@
  * Server-side TipTap JSON → Markdown converter.
  *
  * Pure JSON traversal — no DOM required, runs in Cloudflare Workers.
- * Used to convert existing page content_ja (TipTap JSON) to Markdown
- * for Phase 2b Patcher context.
+ * Used at legacy-data boundaries to convert historical TipTap JSON to Markdown.
+ * Page content is canonically stored as Markdown.
  */
 
 // ---------------------------------------------------------------------------
@@ -36,13 +36,22 @@ export function tiptapToMarkdown(doc: TipTapDoc | TipTapNode | string): string {
   if (typeof doc === "string") {
     try {
       const parsed = JSON.parse(doc) as TipTapDoc | TipTapNode;
-      return convertNode(parsed as TipTapNode).trim();
+      return isTipTapNode(parsed) ? convertNode(parsed).trim() : doc;
     } catch {
       return doc;
     }
   }
-  if (!doc || typeof doc !== "object") return "";
-  return convertNode(doc as TipTapNode).trim();
+  if (!isTipTapNode(doc)) return "";
+  return convertNode(doc).trim();
+}
+
+/** Returns true only for a TipTap/ProseMirror node, never arbitrary JSON text. */
+export function isTipTapNode(value: unknown): value is TipTapNode {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const node = value as Record<string, unknown>;
+  if (typeof node.type !== "string") return false;
+  if (node.type === "doc") return Array.isArray(node.content);
+  return Array.isArray(node.content) || typeof node.text === "string";
 }
 
 function convertNode(
