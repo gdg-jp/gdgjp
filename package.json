@@ -17,7 +17,8 @@
     "test:e2e": "turbo test:e2e --concurrency=1",
     "ci:go": "node scripts/run-ci.mjs go",
     "ci:quick": "node scripts/run-ci.mjs quick",
-    "ci:full": "node scripts/run-ci.mjs full"
+    "ci:full": "node scripts/run-ci.mjs full",
+    "prepare": "node scripts/install-git-hooks.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

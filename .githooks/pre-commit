@@ -1,0 +1,6 @@
+#!/bin/sh
+
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel)"
+exec node "$repo_root/scripts/run-pre-commit-ci.mjs"
