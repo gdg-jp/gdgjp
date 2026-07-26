@@ -21,6 +21,8 @@ declare global {
     EMAIL_FROM?: string;
     /** Better Auth encryption/signing secret. Set with wrangler secret put. */
     BETTER_AUTH_SECRET: string;
+    /** Enables isolated test-only setup for the local E2E environment. */
+    E2E_TEST_MODE?: string;
   }
 }
 

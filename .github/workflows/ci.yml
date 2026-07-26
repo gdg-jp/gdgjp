@@ -146,6 +146,7 @@ jobs:
         run: |
           cat > accounts/.dev.vars <<EOF
           BETTER_AUTH_SECRET=ci-better-auth-secret-for-e2e-tests
+          E2E_TEST_MODE=true
           TINYURL_CLIENT_ID=tinyurl
           TINYURL_CLIENT_SECRET=ci-idp-client-secret
           IMG_CLIENT_ID=img
