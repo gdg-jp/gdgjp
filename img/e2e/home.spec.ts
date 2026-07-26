@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-test("home page redirects unauthenticated users to the local sign-in route", async ({ request }) => {
+test("home page redirects unauthenticated users to the local sign-in route", async ({
+  request,
+}) => {
   const response = await request.get("/", { maxRedirects: 0 });
 
   expect(response.status()).toBe(302);
