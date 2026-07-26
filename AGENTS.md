@@ -34,6 +34,11 @@ Run commands from the repository root unless a single workspace is in scope.
 - `pnpm lint`, `pnpm lint:fix`, and `pnpm format` run Biome.
 - `pnpm test` runs repository script tests and workspace Vitest tests.
 - `pnpm test:e2e` runs workspace Playwright tests serially.
+- `pnpm ci:quick` runs Biome and Vitest tests.
+- `pnpm ci:full` runs `ci:quick` + workspace Playwright tests serially.
+
+Prefer `ci:quick` and `ci:full` than specific commands during development.
+Use specific commands only when fixing CI errors.
 
 Use package filters for focused work, for example:
 
