@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CHAPTERS_SCOPE } from "./auth.server";
 import { handleDeveloperOAuthApi } from "./developer-oauth-api.server";
 import {
   createDeveloperClient,
@@ -53,6 +54,25 @@ describe("developer OAuth management API", () => {
     );
     expect(response?.status).toBe(400);
     expect(createDeveloperClient).not.toHaveBeenCalled();
+  });
+
+  it("enables the chapters scope when a new client omits scope", async () => {
+    vi.mocked(createDeveloperClient).mockResolvedValue({
+      client: { ...client, scopes: [...client.scopes] },
+      clientSecret: "secret",
+    });
+    await handleDeveloperOAuthApi(
+      {} as Env,
+      post("/api/auth/oauth2/create-client", {
+        client_name: "Example",
+        redirect_uris: ["https://example.com/callback"],
+      }),
+    );
+    expect(createDeveloperClient).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(Request),
+      expect.objectContaining({ scopes: ["openid", CHAPTERS_SCOPE] }),
+    );
   });
 
   it("returns a newly issued secret once with no-store headers", async () => {

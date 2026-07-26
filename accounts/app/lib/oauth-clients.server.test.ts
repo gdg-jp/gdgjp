@@ -14,6 +14,15 @@ const validInput = {
 };
 
 describe("validateDeveloperClientInput", () => {
+  it("enables the chapters scope by default", () => {
+    expect(
+      validateDeveloperClientInput({
+        ...validInput,
+        scopes: undefined,
+      }).scopes,
+    ).toEqual(["openid", CHAPTERS_SCOPE]);
+  });
+
   it("normalizes values and always includes openid", () => {
     expect(
       validateDeveloperClientInput({

@@ -104,7 +104,7 @@ export function DeveloperClientForm({
   variant?: "create" | "settings";
 }) {
   const { t } = useTranslation();
-  const selected = new Set(client?.scopes ?? ["openid", "email", "profile"]);
+  const selected = new Set(client?.scopes ?? ["openid", "email", "profile", CHAPTERS_SCOPE]);
   const optionalScopes = ["email", "profile", "offline_access", CHAPTERS_SCOPE] as const;
 
   if (variant === "create") {

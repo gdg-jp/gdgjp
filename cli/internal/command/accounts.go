@@ -24,6 +24,8 @@ type accountsService struct {
 	client      *accountsapi.Client
 }
 
+const chaptersScope = "https://gdgs.jp/scopes/chapters"
+
 func newAccountsCommand(credentials store.CredentialStore) *cobra.Command {
 	return newAccountsCommandWithService(&accountsService{
 		credentials: credentials,
@@ -86,7 +88,7 @@ func newCreateOIDCClientCommand(service oidcClientService) *cobra.Command {
 		nil,
 		"Post-logout redirect URI (repeatable)",
 	)
-	command.Flags().StringSliceVar(&scopes, "scope", nil, "OIDC scope (repeatable)")
+	command.Flags().StringSliceVar(&scopes, "scope", []string{chaptersScope}, "OIDC scope (repeatable)")
 	_ = command.MarkFlagRequired("name")
 	_ = command.MarkFlagRequired("redirect-uri")
 	return command

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
@@ -58,8 +59,29 @@ func TestCreateOIDCClientWritesSecretJSON(t *testing.T) {
 	if got := service.createInput.RedirectURIs; len(got) != 1 || got[0] != "https://example.com/callback" {
 		t.Fatalf("redirect URIs = %#v", got)
 	}
+	if got, want := service.createInput.Scopes, []string{"email"}; !slices.Equal(got, want) {
+		t.Fatalf("scopes = %#v, want %#v", got, want)
+	}
 	if got := output.String(); !strings.Contains(got, `"client_secret":"one-time-secret"`) {
 		t.Fatalf("output = %s", got)
+	}
+}
+
+func TestCreateOIDCClientEnablesChaptersScopeByDefault(t *testing.T) {
+	service := &fakeOIDCClientService{}
+	root := newRootWithAccountsService(service)
+	root.SetOut(new(bytes.Buffer))
+	root.SetErr(new(bytes.Buffer))
+	root.SetArgs([]string{
+		"accounts", "oidc-client", "create", "--name", "Example",
+		"--redirect-uri", "https://example.com/callback",
+	})
+
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := service.createInput.Scopes, []string{chaptersScope}; !slices.Equal(got, want) {
+		t.Fatalf("scopes = %#v, want %#v", got, want)
 	}
 }
 

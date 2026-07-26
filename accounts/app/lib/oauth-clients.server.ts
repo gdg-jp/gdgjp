@@ -77,12 +77,11 @@ const MAX_URI_LENGTH = 2048;
 const MAX_URIS_PER_KIND = 10;
 const CLI_CLIENT_ID = "gdg-cli";
 
-export async function requireDeveloperAccess(
-  env: Env,
-  request: Request,
-): Promise<{ id: string }> {
+export async function requireDeveloperAccess(env: Env, request: Request): Promise<{ id: string }> {
   const authorization = request.headers.get("Authorization");
-  const user = authorization ? await requireCliTokenUser(env, authorization) : await requireUser(env, request);
+  const user = authorization
+    ? await requireCliTokenUser(env, authorization)
+    : await requireUser(env, request);
   const membership = await env.DB.prepare(
     "SELECT 1 AS ok FROM memberships WHERE user_id = ? AND status = 'active' LIMIT 1",
   )
@@ -262,7 +261,7 @@ export function validateDeveloperClientInput(
     "invalid_post_logout_redirect_uri",
     false,
   );
-  const requestedScopes = new Set(input.scopes ?? []);
+  const requestedScopes = new Set(input.scopes ?? [CHAPTERS_SCOPE]);
   requestedScopes.add("openid");
   for (const scope of requestedScopes) {
     if (!DEVELOPER_CLIENT_SCOPES.some((allowed) => allowed === scope)) {

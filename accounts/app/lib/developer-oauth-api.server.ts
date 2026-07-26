@@ -1,3 +1,4 @@
+import { CHAPTERS_SCOPE } from "./auth.server";
 import {
   type DeveloperClient,
   DeveloperClientValidationError,
@@ -193,7 +194,7 @@ function optionalStringArray(value: unknown, field: string): string[] {
 }
 
 function scopes(value: unknown): string[] {
-  if (value === undefined) return ["openid"];
+  if (value === undefined) return ["openid", CHAPTERS_SCOPE];
   if (typeof value !== "string") {
     throw new DeveloperClientValidationError("invalid_scope", "scope must be a string");
   }
