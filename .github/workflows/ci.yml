@@ -163,6 +163,7 @@ jobs:
           APP_URL=http://localhost:5174
           ACCOUNTS_URL=http://localhost:5173
           IDP_URL=http://localhost:5173
+          IDP_CLIENT_ID=tinyurl
           SHORT_URL_BASE=http://localhost:5174
           EOF
 
