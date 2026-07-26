@@ -35,6 +35,12 @@ export default [
   route("/api/page-access/:pageId", "routes/api.page-access.$pageId.tsx"),
   route("/api/share-candidates", "routes/api.share-candidates.ts"),
   route("/api/users/search", "routes/api.users.search.ts"),
+  route("/api/cli/wiki/snapshot", "routes/api.cli.wiki.snapshot.ts"),
+  route("/api/cli/wiki/sync", "routes/api.cli.wiki.sync.ts"),
+  route(
+    "/api/cli/wiki/attachments/:attachmentId",
+    "routes/api.cli.wiki.attachments.$attachmentId.ts",
+  ),
 
   // Public OGP image for public and unlisted wiki pages.
   route("/og/wiki/:slug", "routes/og.wiki.$slug.tsx"),

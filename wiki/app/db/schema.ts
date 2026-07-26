@@ -126,6 +126,7 @@ export const pages = sqliteTable("pages", {
   lastEditedBy: text("last_edited_by").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  syncRevision: integer("sync_revision").notNull().default(1),
 });
 
 // ---------------------------------------------------------------------------

@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS "pages" (
   "created_at"            INTEGER NOT NULL DEFAULT (unixepoch()),
   "updated_at"            INTEGER NOT NULL DEFAULT (unixepoch())
 , visibility TEXT NOT NULL DEFAULT 'restricted', chapter_id TEXT REFERENCES chapters(id) ON DELETE SET NULL, "general_role" TEXT NOT NULL DEFAULT 'viewer'
-  CHECK ("general_role" IN ('viewer', 'commenter', 'editor')));
+  CHECK ("general_role" IN ('viewer', 'commenter', 'editor')), sync_revision INTEGER NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS "page_tags" (
   "page_id"   TEXT NOT NULL REFERENCES "pages"("id") ON DELETE CASCADE,
   "tag_slug"  TEXT NOT NULL REFERENCES "tags"("slug") ON DELETE CASCADE,
@@ -400,3 +400,31 @@ CREATE TABLE IF NOT EXISTS "page_access" (
 CREATE INDEX "idx_page_access_page_id" ON "page_access" ("page_id");
 CREATE INDEX "idx_page_access_user_id" ON "page_access" ("user_id");
 CREATE INDEX "idx_page_access_subject" ON "page_access" ("subject_type", "subject_key");
+CREATE TRIGGER pages_sync_revision_update
+AFTER UPDATE ON pages
+WHEN NEW.sync_revision = OLD.sync_revision
+BEGIN
+  UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.id;
+END;
+CREATE TRIGGER page_tags_sync_revision_insert AFTER INSERT ON page_tags
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_tags_sync_revision_delete AFTER DELETE ON page_tags
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
+CREATE TRIGGER page_sources_sync_revision_insert AFTER INSERT ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_sources_sync_revision_update AFTER UPDATE ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_sources_sync_revision_delete AFTER DELETE ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
+CREATE TRIGGER page_attachments_sync_revision_insert AFTER INSERT ON page_attachments
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_attachments_sync_revision_update AFTER UPDATE ON page_attachments
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_attachments_sync_revision_delete AFTER DELETE ON page_attachments
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
+CREATE TRIGGER page_access_sync_revision_insert AFTER INSERT ON page_access
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_access_sync_revision_update AFTER UPDATE ON page_access
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_access_sync_revision_delete AFTER DELETE ON page_access
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;

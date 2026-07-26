@@ -20,6 +20,7 @@ func NewRoot() *cobra.Command {
 	}
 	root.AddCommand(newLoginCommand(credentials), newLogoutCommand(credentials), newUpdateCommand())
 	root.AddCommand(newAccountsCommand(credentials))
+	root.AddCommand(newWikiCommand(credentials))
 	return root
 }
 
