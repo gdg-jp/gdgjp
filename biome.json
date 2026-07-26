@@ -19,7 +19,10 @@
       "**/coverage",
       "**/.dev.vars*",
       "**/worker-configuration.d.ts",
-      "**/pnpm-lock.yaml"
+      "**/pnpm-lock.yaml",
+      "**/openapi/types.generated.ts",
+      "**/openapi.gen.go",
+      "**/openapigen/**"
     ]
   },
   "formatter": {

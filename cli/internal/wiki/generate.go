@@ -1,0 +1,3 @@
+package wiki
+
+//go:generate sh -c "pnpm --dir ../../.. --filter @gdgjp/wiki openapi:bundle && go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen --config oapi-codegen.yaml ../../../wiki/openapi/dist/openapi.yaml"

@@ -7,6 +7,10 @@ import { getCliIdentity } from "~/lib/cli-identity.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions, isGeneralAccess, isPageRole } from "~/lib/page-access.server";
+import type { components } from "../../openapi/types.generated";
+
+type WikiSyncRequest = components["schemas"]["SyncRequest"];
+type WikiSyncResult = components["schemas"]["SyncResult"];
 
 const Language = z.object({
   title: z.string(),
@@ -86,8 +90,9 @@ export async function action({ request, context }: ActionFunctionArgs) {
       { error: "invalid_request", details: parsed.error.flatten() },
       { status: 400 },
     );
+  const syncRequest = parsed.data as WikiSyncRequest;
   const db = getDb(env);
-  const existingIds = parsed.data.operations.flatMap((op) =>
+  const existingIds = syncRequest.operations.flatMap((op) =>
     op.kind === "archive" ? [op.id] : op.page.id ? [op.page.id] : [],
   );
   const existing = existingIds.length
@@ -112,7 +117,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const conflicts: Array<{ id: string; revision: number }> = [];
 
   // Validate all conditions before building D1's transactional batch.
-  for (const operation of parsed.data.operations) {
+  for (const operation of syncRequest.operations) {
     const id = operation.kind === "archive" ? operation.id : operation.page.id;
     const current = id ? byId.get(id) : undefined;
     if (id && !current) return Response.json({ error: "not_found", id }, { status: 404 });
@@ -154,7 +159,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const statements: D1PreparedStatement[] = [];
   const objectsToDelete: string[] = [];
   const returned: Array<{ id: string; slug: string; attachmentIds: Record<string, string> }> = [];
-  for (const operation of parsed.data.operations) {
+  for (const operation of syncRequest.operations) {
     if (operation.kind === "archive") {
       statements.push(
         env.DB.prepare(
@@ -372,11 +377,12 @@ export async function action({ request, context }: ActionFunctionArgs) {
       ),
     )
     .all();
-  return Response.json({
+  const syncResult: WikiSyncResult = {
     ok: true,
     pages: returned.map((page) => ({
       ...page,
       revision: revisions.find((r) => r.id === page.id)?.revision,
     })),
-  });
+  };
+  return Response.json(syncResult);
 }

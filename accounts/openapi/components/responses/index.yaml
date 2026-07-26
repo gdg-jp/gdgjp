@@ -1,0 +1,12 @@
+Unauthorized:
+  description: Missing, invalid, or expired credentials.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/index.yaml#/ErrorResponse
+BadRequest:
+  description: Invalid request input.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/index.yaml#/ErrorResponse

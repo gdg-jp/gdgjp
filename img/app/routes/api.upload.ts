@@ -1,6 +1,7 @@
 import { MAX_IMAGE_UPLOAD_BYTES } from "@gdgjp/gdg-lib";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
 import { uploadImage } from "~/lib/upload";
+import type { components } from "../../openapi/types.generated";
 import type { Route } from "./+types/api.upload";
 
 export async function action(args: Route.ActionArgs) {
@@ -30,5 +31,6 @@ export async function action(args: Route.ActionArgs) {
     filename: file.name || null,
   });
 
-  return Response.json({ id: result.id });
+  const body: components["schemas"]["ImageId"] = { id: result.id };
+  return Response.json(body);
 }

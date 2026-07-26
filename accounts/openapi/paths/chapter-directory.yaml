@@ -1,0 +1,11 @@
+get:
+  operationId: listChapterDirectory
+  summary: List public chapter metadata
+  parameters:
+    - $ref: ../components/parameters/index.yaml#/ChapterQuery
+  responses:
+    '200':
+      description: Chapter directory
+      content:
+        application/json:
+          schema: { $ref: ../components/schemas/index.yaml#/ChapterDirectory }

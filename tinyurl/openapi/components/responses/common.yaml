@@ -1,0 +1,12 @@
+Unauthorized:
+  description: The gateway signature is missing, invalid, or expired.
+  content:
+    text/plain:
+      schema:
+        type: string
+NotFound:
+  description: The requested short URL or domain does not exist.
+  content:
+    text/plain:
+      schema:
+        type: string

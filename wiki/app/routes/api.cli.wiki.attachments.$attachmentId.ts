@@ -4,6 +4,11 @@ import * as schema from "~/db/schema";
 import { getCliIdentity } from "~/lib/cli-identity.server";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
+import type { components } from "../../openapi/types.generated";
+
+type OkResponse = components["schemas"]["SyncResult"] extends { ok: infer TOk }
+  ? { ok: TOk }
+  : never;
 
 async function permitted(request: Request, env: Env, attachmentId: string, write: boolean) {
   const identity = await getCliIdentity(request, env);
@@ -64,7 +69,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
         .delete(schema.pageAttachments)
         .where(eq(schema.pageAttachments.id, result.attachment.id)),
     ]);
-    return Response.json({ ok: true });
+    const response: OkResponse = { ok: true };
+    return Response.json(response);
   }
   if (request.method !== "PUT") return new Response(null, { status: 405 });
   const bytes = await request.arrayBuffer();
@@ -80,5 +86,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     .update(schema.pageAttachments)
     .set({ fileName: result.attachment.fileName })
     .where(eq(schema.pageAttachments.id, result.attachment.id));
-  return Response.json({ ok: true });
+  const response: OkResponse = { ok: true };
+  return Response.json(response);
 }

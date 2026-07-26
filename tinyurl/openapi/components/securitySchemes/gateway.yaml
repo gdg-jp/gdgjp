@@ -1,0 +1,12 @@
+GatewayTimestamp:
+  type: apiKey
+  in: header
+  name: x-gdg-timestamp
+GatewaySignature:
+  type: apiKey
+  in: header
+  name: x-gdg-signature
+GatewayHost:
+  type: apiKey
+  in: header
+  name: x-gdg-host

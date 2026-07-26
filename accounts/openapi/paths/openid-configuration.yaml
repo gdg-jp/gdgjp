@@ -1,0 +1,4 @@
+get:
+  operationId: openidConfiguration
+  responses:
+    '200': { description: OpenID Provider Metadata (RFC 8414/OpenID Connect Discovery) }

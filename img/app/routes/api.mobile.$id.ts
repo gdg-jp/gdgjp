@@ -3,6 +3,7 @@ import { isValidImageId } from "~/lib/id";
 import { getImage, removeMobileImage, setMobileImage } from "~/lib/images";
 import { canMutateImage } from "~/lib/permissions";
 import { deleteOriginal, putOriginal } from "~/lib/r2";
+import type { components } from "../../openapi/types.generated";
 import type { Route } from "./+types/api.mobile.$id";
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -21,10 +22,10 @@ export async function action(args: Route.ActionArgs) {
   if (!canMutateImage(user, image)) return new Response("Forbidden", { status: 403 });
 
   if (args.request.method === "DELETE") {
-    if (!image.mobileR2Key) return Response.json({ ok: true });
+    if (!image.mobileR2Key) return success();
     await removeMobileImage(env.DB, id);
     args.context.cloudflare.ctx.waitUntil(deleteOriginal(env, image.mobileR2Key));
-    return Response.json({ ok: true });
+    return success();
   }
 
   const form = await args.request.formData();
@@ -47,5 +48,11 @@ export async function action(args: Route.ActionArgs) {
     filename: file.name || null,
   });
 
-  return Response.json({ id });
+  const body: components["schemas"]["ImageId"] = { id };
+  return Response.json(body);
+}
+
+function success() {
+  const body: components["schemas"]["Success"] = { ok: true };
+  return Response.json(body);
 }

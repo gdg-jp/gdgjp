@@ -1,20 +1,18 @@
 package accounts
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
+	"reflect"
 	"strings"
 )
 
 const DefaultBaseURL = "https://accounts.gdgs.jp"
 
-type Client struct {
-	baseURL    string
-	httpClient *http.Client
+type AccountsClient struct {
+	client *ClientWithResponses
 }
 
 type HTTPError struct {
@@ -27,14 +25,18 @@ func (err *HTTPError) Error() string {
 	return fmt.Sprintf("OIDC client request failed: %s: %s", err.Status, err.Message)
 }
 
-func NewClient(baseURL string, httpClient *http.Client) *Client {
+func NewAccountsClient(baseURL string, httpClient *http.Client) *AccountsClient {
 	if baseURL == "" {
 		baseURL = DefaultBaseURL
 	}
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
-	return &Client{baseURL: strings.TrimRight(baseURL, "/"), httpClient: httpClient}
+	generated, err := NewClientWithResponses(strings.TrimRight(baseURL, "/"), WithHTTPClient(httpClient))
+	if err != nil {
+		panic(err)
+	}
+	return &AccountsClient{client: generated}
 }
 
 type CreateClientInput struct {
@@ -53,102 +55,84 @@ type UpdateClientInput struct {
 	Scopes                 []string
 }
 
-func (c *Client) CreateOIDCClient(
+func (c *AccountsClient) CreateOIDCClient(
 	ctx context.Context,
 	accessToken string,
 	input CreateClientInput,
 ) (json.RawMessage, error) {
-	body := map[string]any{
-		"client_name":   input.Name,
-		"redirect_uris": input.RedirectURIs,
-	}
+	name := input.Name
+	redirectURIs := input.RedirectURIs
+	body := OAuthClientInput{ClientName: &name, RedirectUris: &redirectURIs}
 	if input.AppURL != "" {
-		body["client_uri"] = input.AppURL
+		body.ClientUri = &input.AppURL
 	}
 	if len(input.PostLogoutRedirectURIs) > 0 {
-		body["post_logout_redirect_uris"] = input.PostLogoutRedirectURIs
+		body.PostLogoutRedirectUris = &input.PostLogoutRedirectURIs
 	}
 	if len(input.Scopes) > 0 {
-		body["scope"] = strings.Join(input.Scopes, " ")
+		scope := strings.Join(input.Scopes, " ")
+		body.Scope = &scope
 	}
-	return c.post(ctx, accessToken, "/api/auth/oauth2/create-client", body)
+	response, err := c.client.CreateOAuthClientWithResponse(ctx, body, bearer(accessToken))
+	return rawResponse(response, err)
 }
 
-func (c *Client) UpdateOIDCClient(
+func (c *AccountsClient) UpdateOIDCClient(
 	ctx context.Context,
 	accessToken string,
 	clientID string,
 	input UpdateClientInput,
 ) (json.RawMessage, error) {
-	update := map[string]any{}
+	update := OAuthClientInput{}
 	if input.Name != nil {
-		update["client_name"] = *input.Name
+		update.ClientName = input.Name
 	}
 	if input.AppURL != nil {
-		update["client_uri"] = *input.AppURL
+		update.ClientUri = input.AppURL
 	}
 	if input.RedirectURIs != nil {
-		update["redirect_uris"] = input.RedirectURIs
+		update.RedirectUris = &input.RedirectURIs
 	}
 	if input.PostLogoutRedirectURIs != nil {
-		update["post_logout_redirect_uris"] = input.PostLogoutRedirectURIs
+		update.PostLogoutRedirectUris = &input.PostLogoutRedirectURIs
 	}
 	if input.Scopes != nil {
-		update["scope"] = strings.Join(input.Scopes, " ")
+		scope := strings.Join(input.Scopes, " ")
+		update.Scope = &scope
 	}
-	return c.post(ctx, accessToken, "/api/auth/oauth2/update-client", map[string]any{
-		"client_id": clientID,
-		"update":    update,
-	})
+	response, err := c.client.UpdateOAuthClientWithResponse(ctx, OAuthClientUpdate{ClientId: clientID, Update: update}, bearer(accessToken))
+	return rawResponse(response, err)
 }
 
-func (c *Client) DeleteOIDCClient(
+func (c *AccountsClient) DeleteOIDCClient(
 	ctx context.Context,
 	accessToken string,
 	clientID string,
 ) error {
-	_, err := c.post(ctx, accessToken, "/api/auth/oauth2/delete-client", map[string]any{
-		"client_id": clientID,
-	})
+	response, err := c.client.DeleteOAuthClientWithResponse(ctx, DeleteOAuthClientJSONRequestBody{ClientId: clientID}, bearer(accessToken))
+	_, err = rawResponse(response, err)
 	return err
 }
 
-func (c *Client) post(
-	ctx context.Context,
-	accessToken string,
-	path string,
-	body any,
-) (json.RawMessage, error) {
-	encoded, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
+func bearer(token string) RequestEditorFn {
+	return func(_ context.Context, request *http.Request) error {
+		request.Header.Set("Authorization", "Bearer "+token)
+		return nil
 	}
-	request, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		c.baseURL+path,
-		bytes.NewReader(encoded),
-	)
-	if err != nil {
-		return nil, err
-	}
-	request.Header.Set("Authorization", "Bearer "+accessToken)
-	request.Header.Set("Content-Type", "application/json")
-	response, err := c.httpClient.Do(request)
+}
+
+type generatedResponse interface {
+	Status() string
+	StatusCode() int
+}
+
+func rawResponse[T generatedResponse](response T, err error) (json.RawMessage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("contact GDG Japan Accounts: %w", err)
 	}
-	defer response.Body.Close()
-	contents, err := io.ReadAll(io.LimitReader(response.Body, 16*1024))
-	if err != nil {
-		return nil, err
-	}
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return nil, &HTTPError{
-			StatusCode: response.StatusCode,
-			Status:     response.Status,
-			Message:    errorMessage(contents),
-		}
+	contents := reflect.ValueOf(response).Elem().FieldByName("Body").Bytes()
+	if response.StatusCode() < http.StatusOK || response.StatusCode() >= http.StatusMultipleChoices {
+		return nil, &HTTPError{StatusCode: response.StatusCode(), Status: response.Status(), Message: errorMessage(contents)}
 	}
 	return json.RawMessage(contents), nil
 }

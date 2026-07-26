@@ -1,0 +1,13 @@
+get:
+  operationId: authorize
+  summary: OAuth 2.0 authorization endpoint
+  parameters:
+    - { name: client_id, in: query, required: true, schema: { type: string } }
+    - { name: redirect_uri, in: query, required: true, schema: { type: string, format: uri } }
+    - { name: response_type, in: query, required: true, schema: { type: string, enum: [code] } }
+    - { name: scope, in: query, required: true, schema: { type: string } }
+    - { name: state, in: query, schema: { type: string } }
+    - { name: code_challenge, in: query, schema: { type: string } }
+    - { name: code_challenge_method, in: query, schema: { type: string, enum: [S256, plain] } }
+  responses:
+    '302': { description: Redirect to the client callback or sign-in page }

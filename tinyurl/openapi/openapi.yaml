@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: GDG Japan TinyURL API
+  version: 1.0.0
+  description: Public redirect and custom-domain gateway contract.
+  license:
+    name: Proprietary
+    url: https://gdgs.jp
+servers:
+  - url: https://go.gdgs.jp
+paths:
+  /{slug}:
+    $ref: ./paths/short-url.yaml
+  /r/{slug}:
+    $ref: ./paths/short-url-alias.yaml
+  /api/internal/gateway/config:
+    $ref: ./paths/gateway-config.yaml
+  /api/internal/gateway/resolve:
+    $ref: ./paths/gateway-resolve.yaml
+components:
+  schemas:
+    GatewayConfig:
+      $ref: ./components/schemas/gateway.yaml#/GatewayConfig
+    Error:
+      $ref: ./components/schemas/common.yaml#/Error
+  responses:
+    Unauthorized:
+      $ref: ./components/responses/common.yaml#/Unauthorized
+    NotFound:
+      $ref: ./components/responses/common.yaml#/NotFound
+  parameters:
+    Slug:
+      $ref: ./components/parameters/common.yaml#/Slug
+  securitySchemes:
+    GatewayTimestamp:
+      $ref: ./components/securitySchemes/gateway.yaml#/GatewayTimestamp
+    GatewaySignature:
+      $ref: ./components/securitySchemes/gateway.yaml#/GatewaySignature
+    GatewayHost:
+      $ref: ./components/securitySchemes/gateway.yaml#/GatewayHost

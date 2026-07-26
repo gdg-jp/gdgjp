@@ -21,7 +21,7 @@ type oidcClientService interface {
 
 type accountsService struct {
 	credentials store.CredentialStore
-	client      *accountsapi.Client
+	client      *accountsapi.AccountsClient
 }
 
 const chaptersScope = "https://gdgs.jp/scopes/chapters"
@@ -29,7 +29,7 @@ const chaptersScope = "https://gdgs.jp/scopes/chapters"
 func newAccountsCommand(credentials store.CredentialStore) *cobra.Command {
 	return newAccountsCommandWithService(&accountsService{
 		credentials: credentials,
-		client:      accountsapi.NewClient(accountsapi.DefaultBaseURL, nil),
+		client:      accountsapi.NewAccountsClient(accountsapi.DefaultBaseURL, nil),
 	})
 }
 

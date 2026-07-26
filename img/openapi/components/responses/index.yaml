@@ -1,0 +1,6 @@
+Unauthorized:
+  description: Authentication is required.
+Forbidden:
+  description: The authenticated user cannot modify this image.
+NotFound:
+  description: Image not found.

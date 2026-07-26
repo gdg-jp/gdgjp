@@ -1,6 +1,9 @@
+import type { components } from "../../openapi/types.generated";
 import { getDomainByHostname } from "./domains";
 import { gatewaySignaturePayload, verifyGatewayRequest } from "./hmac";
 import { handleApexRedirect } from "./redirect-handler";
+
+type GatewayConfig = components["schemas"]["GatewayConfig"];
 
 const MAX_CLOCK_SKEW_SECONDS = 5 * 60;
 
@@ -47,10 +50,12 @@ export async function handleGatewayInternalRequest(
   if (!domain || domain.status !== "active") return new Response("Unknown domain", { status: 404 });
 
   if (url.pathname === "/api/internal/gateway/config") {
-    return Response.json(
-      { hostname: domain.hostname, mode: domain.mode, upstreamOrigin: domain.upstreamOrigin },
-      { headers: { "Cache-Control": "private, max-age=30" } },
-    );
+    const config: GatewayConfig = {
+      hostname: domain.hostname,
+      mode: domain.mode,
+      upstreamOrigin: domain.upstreamOrigin,
+    };
+    return Response.json(config, { headers: { "Cache-Control": "private, max-age=30" } });
   }
 
   if (url.pathname !== "/api/internal/gateway/resolve") {

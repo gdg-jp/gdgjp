@@ -1,0 +1,35 @@
+Ok:
+  type: object
+  required: [ok]
+  properties:
+    ok:
+      type: boolean
+      enum: [true]
+Error:
+  type: object
+  required: [error]
+  properties:
+    error:
+      type: string
+    id:
+      type: string
+    message:
+      type: string
+RevisionConflict:
+  type: object
+  required: [error, conflicts]
+  properties:
+    error:
+      type: string
+      enum: [revision_conflict]
+    conflicts:
+      type: array
+      items:
+        type: object
+        required: [id, revision]
+        properties:
+          id:
+            type: string
+          revision:
+            type: integer
+            minimum: 1

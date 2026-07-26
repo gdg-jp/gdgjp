@@ -1,0 +1,62 @@
+parameters:
+  - $ref: ../components/parameters/common.yaml#/AttachmentId
+get:
+  operationId: downloadWikiAttachment
+  summary: Download an attachment visible to the CLI token
+  security:
+    - BearerAuth: []
+  responses:
+    '200':
+      description: Attachment bytes.
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '403':
+      $ref: ../components/responses/common.yaml#/Forbidden
+    '404':
+      $ref: ../components/responses/common.yaml#/NotFound
+put:
+  operationId: uploadWikiAttachment
+  summary: Replace bytes for an attachment allocated by sync
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/octet-stream:
+        schema:
+          type: string
+          format: binary
+  responses:
+    '200':
+      $ref: ../components/responses/common.yaml#/Ok
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '403':
+      $ref: ../components/responses/common.yaml#/Forbidden
+    '404':
+      $ref: ../components/responses/common.yaml#/NotFound
+    '413':
+      description: Attachment exceeds 25 MiB.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/common.yaml#/Error
+delete:
+  operationId: deleteWikiAttachment
+  summary: Delete an attachment
+  security:
+    - BearerAuth: []
+  responses:
+    '200':
+      $ref: ../components/responses/common.yaml#/Ok
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '403':
+      $ref: ../components/responses/common.yaml#/Forbidden
+    '404':
+      $ref: ../components/responses/common.yaml#/NotFound

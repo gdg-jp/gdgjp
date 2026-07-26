@@ -1,5 +1,6 @@
 import { type AuthUser, MAX_IMAGE_UPLOAD_BYTES } from "@gdgjp/gdg-lib";
 import { uploadImage } from "~/lib/upload";
+import type { components } from "../../openapi/types.generated";
 import type { Route } from "./+types/api.internal-upload";
 
 function isLocalApp(appUrl: string): boolean {
@@ -37,7 +38,8 @@ export async function action(args: Route.ActionArgs) {
     user,
     chapterId,
   });
-  return Response.json(result);
+  const body: components["schemas"]["UploadResult"] = result;
+  return Response.json(body);
 }
 
 function parseUser(value: FormDataEntryValue | null): AuthUser | null {

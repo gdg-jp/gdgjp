@@ -1,0 +1,4 @@
+get:
+  operationId: oauthAuthorizationServerMetadata
+  responses:
+    '200': { description: OAuth Authorization Server Metadata (RFC 8414) }

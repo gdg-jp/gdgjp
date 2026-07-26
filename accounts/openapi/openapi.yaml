@@ -1,0 +1,43 @@
+openapi: 3.0.3
+info:
+  title: GDG Japan Accounts API
+  version: 1.0.0
+  description: Public OAuth/OIDC and chapter-directory contract. Existing endpoints are preserved.
+servers:
+  - url: https://accounts.gdgs.jp
+paths:
+  /.well-known/openid-configuration:
+    $ref: ./paths/openid-configuration.yaml
+  /.well-known/oauth-authorization-server:
+    $ref: ./paths/oauth-authorization-server.yaml
+  /authorize:
+    $ref: ./paths/authorize.yaml
+  /oauth/token:
+    $ref: ./paths/token.yaml
+  /userinfo:
+    $ref: ./paths/userinfo.yaml
+  /api/chapters/directory:
+    $ref: ./paths/chapter-directory.yaml
+  /api/cli/logout:
+    $ref: ./paths/cli-logout.yaml
+  /api/auth/oauth2/create-client:
+    $ref: ./paths/oauth-clients.yaml#/createClient
+  /api/auth/oauth2/get-client:
+    $ref: ./paths/oauth-clients.yaml#/getClient
+  /api/auth/oauth2/get-clients:
+    $ref: ./paths/oauth-clients.yaml#/getClients
+  /api/auth/oauth2/update-client:
+    $ref: ./paths/oauth-clients.yaml#/updateClient
+  /api/auth/oauth2/client/rotate-secret:
+    $ref: ./paths/oauth-clients.yaml#/rotateClientSecret
+  /api/auth/oauth2/delete-client:
+    $ref: ./paths/oauth-clients.yaml#/deleteClient
+components:
+  schemas:
+    $ref: ./components/schemas/index.yaml
+  responses:
+    $ref: ./components/responses/index.yaml
+  parameters:
+    $ref: ./components/parameters/index.yaml
+  securitySchemes:
+    $ref: ./components/security-schemes.yaml

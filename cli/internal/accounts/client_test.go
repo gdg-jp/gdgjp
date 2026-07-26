@@ -31,7 +31,7 @@ func TestCreateOIDCClientSendsBearerCredentialsAndJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, server.Client())
+	client := NewAccountsClient(server.URL, server.Client())
 	result, err := client.CreateOIDCClient(context.Background(), "access-token", CreateClientInput{
 		Name:         "Example",
 		RedirectURIs: []string{"https://example.com/callback"},
@@ -51,7 +51,7 @@ func TestClientReturnsAPIDetailsOnFailure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := NewClient(server.URL, server.Client()).DeleteOIDCClient(
+	err := NewAccountsClient(server.URL, server.Client()).DeleteOIDCClient(
 		context.Background(),
 		"access-token",
 		"client-1",

@@ -1,5 +1,8 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { listChapters } from "~/lib/db";
+import type { components } from "../../openapi/types.generated";
+
+type ChapterDirectory = components["schemas"]["ChapterDirectory"];
 
 /**
  * A deliberately small, cacheable directory used by relying-party share pickers.
@@ -16,10 +19,8 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
       })
     : all;
 
-  return Response.json(
-    {
-      chapters: chapters.map(({ id, slug, name, kind }) => ({ id: String(id), slug, name, kind })),
-    },
-    { headers: { "Cache-Control": "public, max-age=60, s-maxage=300" } },
-  );
+  const body: ChapterDirectory = {
+    chapters: chapters.map(({ id, slug, name, kind }) => ({ id: String(id), slug, name, kind })),
+  };
+  return Response.json(body, { headers: { "Cache-Control": "public, max-age=60, s-maxage=300" } });
 }

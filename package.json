@@ -9,12 +9,18 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
+    "openapi:bundle": "pnpm --filter @gdgjp/accounts openapi:bundle && pnpm --filter @gdgjp/img openapi:bundle && pnpm --filter @gdgjp/tinyurl openapi:bundle && pnpm --filter @gdgjp/wiki openapi:bundle",
+    "openapi:generate": "pnpm --filter @gdgjp/accounts openapi:generate && pnpm --filter @gdgjp/img openapi:generate && pnpm --filter @gdgjp/tinyurl openapi:generate && pnpm --filter @gdgjp/wiki openapi:generate",
+    "openapi:lint": "pnpm --filter @gdgjp/accounts openapi:lint && pnpm --filter @gdgjp/img openapi:lint && pnpm --filter @gdgjp/tinyurl openapi:lint && pnpm --filter @gdgjp/wiki openapi:lint",
+    "openapi:check": "pnpm openapi:lint && pnpm openapi:generate && (cd cli && go generate ./...) && git diff --exit-code",
     "test": "node --test .github/scripts/*.test.mjs && turbo test",
     "test:e2e": "turbo test:e2e --concurrency=1"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@playwright/test": "^1.49.1",
+    "@redocly/cli": "^2.40.0",
+    "openapi-typescript": "^7.13.0",
     "turbo": "^2.3.3",
     "typescript": "^5.7.2"
   },

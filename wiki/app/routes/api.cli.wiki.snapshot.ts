@@ -5,6 +5,10 @@ import { getCliIdentity } from "~/lib/cli-identity.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
+import type { components } from "../../openapi/types.generated";
+
+type WikiSnapshot = components["schemas"]["Snapshot"];
+type WikiSnapshotPage = components["schemas"]["SnapshotPage"];
 
 /**
  * Snapshot is an external contract: retain this normalization while old rows
@@ -28,7 +32,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     db.select().from(schema.pageAttachments).all(),
   ]);
   const chapterIds = identity.chapters.map((chapter) => String(chapter.chapterId));
-  const visible = [];
+  const visible: WikiSnapshotPage[] = [];
   for (const page of pages) {
     if (page.status === "archived" || page.pageType === "task-list") continue;
     const permissions = await getEffectivePagePermissions(db, page, identity.user, chapterIds);
@@ -79,7 +83,8 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
           mimeType,
           downloadUrl: `/api/cli/wiki/attachments/${id}`,
         })),
-    });
+    } as WikiSnapshotPage);
   }
-  return Response.json({ version: 1, pages: visible });
+  const snapshot: WikiSnapshot = { version: 1, pages: visible };
+  return Response.json(snapshot);
 }

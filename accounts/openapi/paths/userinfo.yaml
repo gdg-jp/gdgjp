@@ -1,0 +1,12 @@
+get:
+  operationId: userinfoGet
+  security: [{ bearerAuth: [] }]
+  responses:
+    '200': { description: OIDC UserInfo claims }
+    '401': { $ref: ../components/responses/index.yaml#/Unauthorized }
+post:
+  operationId: userinfoPost
+  security: [{ bearerAuth: [] }]
+  responses:
+    '200': { description: OIDC UserInfo claims }
+    '401': { $ref: ../components/responses/index.yaml#/Unauthorized }

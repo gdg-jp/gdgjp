@@ -1,0 +1,17 @@
+post:
+  operationId: uploadImage
+  security: [{ cookieAuth: [] }]
+  requestBody:
+    required: true
+    content:
+      multipart/form-data:
+        schema:
+          type: object
+          required: [file]
+          properties:
+            file: { type: string, format: binary, description: Image file, maxLength: 10485760 }
+  responses:
+    '200': { description: Uploaded image, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/ImageId } } } }
+    '400': { description: File is missing }
+    '413': { description: Image exceeds 10 MiB }
+    '415': { description: File is not an image }

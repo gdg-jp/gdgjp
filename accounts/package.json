@@ -13,7 +13,10 @@
     "cf-typegen": "wrangler types",
     "migrate:local": "wrangler d1 migrations apply gdgjp-accounts-db --local && pnpm schema:dump",
     "migrate:remote": "wrangler d1 migrations apply gdgjp-accounts-db --remote && pnpm schema:dump",
-    "schema:dump": "bash ../scripts/dump-schema.sh"
+    "schema:dump": "bash ../scripts/dump-schema.sh",
+    "openapi:lint": "redocly lint --config openapi/redocly.yaml openapi/openapi.yaml",
+    "openapi:bundle": "redocly bundle openapi/openapi.yaml --output openapi/dist/openapi.yaml",
+    "openapi:generate": "pnpm openapi:bundle && openapi-typescript openapi/dist/openapi.yaml -o openapi/types.generated.ts"
   },
   "dependencies": {
     "@better-auth/oauth-provider": "1.6.23",

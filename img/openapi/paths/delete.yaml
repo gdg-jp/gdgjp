@@ -1,0 +1,6 @@
+post:
+  operationId: deleteImage
+  security: [{ cookieAuth: [] }]
+  parameters: [{ $ref: ../components/parameters/index.yaml#/ImageId }]
+  responses:
+    '200': { description: Image deleted, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/Success } } } }

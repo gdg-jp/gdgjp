@@ -1,0 +1,18 @@
+get:
+  operationId: getGatewayConfig
+  summary: Read the active custom-domain gateway configuration
+  security:
+    - GatewayTimestamp: []
+      GatewaySignature: []
+      GatewayHost: []
+  responses:
+    '200':
+      description: Gateway configuration.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/gateway.yaml#/GatewayConfig
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '404':
+      $ref: ../components/responses/common.yaml#/NotFound

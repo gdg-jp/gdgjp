@@ -1,0 +1,7 @@
+AttachmentId:
+  name: attachmentId
+  in: path
+  required: true
+  schema:
+    type: string
+    minLength: 1

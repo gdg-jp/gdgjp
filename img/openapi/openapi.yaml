@@ -1,0 +1,29 @@
+openapi: 3.0.3
+info:
+  title: GDG Japan Image API
+  version: 1.0.0
+  description: Public image delivery and authenticated image upload contract.
+servers:
+  - url: https://img.gdgs.jp
+paths:
+  /{id}:
+    $ref: ./paths/public-image.yaml
+  /api/upload:
+    $ref: ./paths/upload.yaml
+  /api/internal/upload:
+    $ref: ./paths/internal-upload.yaml
+  /api/replace/{id}:
+    $ref: ./paths/replace.yaml
+  /api/mobile/{id}:
+    $ref: ./paths/mobile.yaml
+  /api/delete/{id}:
+    $ref: ./paths/delete.yaml
+components:
+  schemas:
+    $ref: ./components/schemas/index.yaml
+  responses:
+    $ref: ./components/responses/index.yaml
+  parameters:
+    $ref: ./components/parameters/index.yaml
+  securitySchemes:
+    $ref: ./components/security-schemes.yaml

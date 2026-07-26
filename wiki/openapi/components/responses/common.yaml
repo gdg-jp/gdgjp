@@ -1,0 +1,30 @@
+Ok:
+  description: Operation completed successfully.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Ok
+BadRequest:
+  description: The JSON payload or requested state is invalid.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error
+Unauthorized:
+  description: The access token is missing or invalid.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error
+Forbidden:
+  description: The access token cannot perform this operation.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error
+NotFound:
+  description: The requested page or attachment does not exist.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error

@@ -1,0 +1,14 @@
+GatewayConfig:
+  type: object
+  required: [hostname, mode, upstreamOrigin]
+  properties:
+    hostname:
+      type: string
+      format: hostname
+    mode:
+      type: string
+      enum: [short-only, origin-first]
+    upstreamOrigin:
+      type: string
+      format: uri
+      nullable: true

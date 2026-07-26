@@ -1,0 +1,44 @@
+createClient:
+  post:
+    operationId: createOAuthClient
+    security: [{ cookieAuth: [] }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/OAuthClientInput } } }
+    responses:
+      '200': { description: Created client and one-time secret, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/OAuthClientSecret } } } }
+      '400': { $ref: ../components/responses/index.yaml#/BadRequest }
+getClient:
+  get:
+    operationId: getOAuthClient
+    security: [{ cookieAuth: [] }]
+    parameters: [{ $ref: ../components/parameters/index.yaml#/ClientId }]
+    responses:
+      '200': { description: OAuth client, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/OAuthClient } } } }
+getClients:
+  get:
+    operationId: listOAuthClients
+    security: [{ cookieAuth: [] }]
+    responses:
+      '200': { description: OAuth clients, content: { application/json: { schema: { type: array, items: { $ref: ../components/schemas/index.yaml#/OAuthClient } } } } }
+updateClient:
+  post:
+    operationId: updateOAuthClient
+    security: [{ cookieAuth: [] }]
+    requestBody: { required: true, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/OAuthClientUpdate } } } }
+    responses:
+      '200': { description: Updated client, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/OAuthClient } } } }
+rotateClientSecret:
+  post:
+    operationId: rotateOAuthClientSecret
+    security: [{ cookieAuth: [] }]
+    requestBody: { required: true, content: { application/json: { schema: { type: object, required: [client_id], properties: { client_id: { type: string, minLength: 1 } } } } } }
+    responses:
+      '200': { description: Rotated client secret, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/OAuthClientSecret } } } }
+deleteClient:
+  post:
+    operationId: deleteOAuthClient
+    security: [{ cookieAuth: [] }]
+    requestBody: { required: true, content: { application/json: { schema: { type: object, required: [client_id], properties: { client_id: { type: string, minLength: 1 } } } } } }
+    responses:
+      '200': { description: Deleted client, content: { application/json: { schema: { type: object, required: [success], properties: { success: { type: boolean } } } } } }

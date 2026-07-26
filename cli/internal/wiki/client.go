@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	openapigen "github.com/gdg-jp/gdgjp/cli/internal/wiki/openapigen"
 )
 
 const defaultBaseURL = "https://wiki.gdgs.jp"
@@ -17,6 +19,7 @@ const defaultBaseURL = "https://wiki.gdgs.jp"
 type Client struct {
 	BaseURL    string
 	HTTPClient *http.Client
+	generated  *openapigen.ClientWithResponses
 }
 type HTTPError struct {
 	StatusCode int
@@ -31,7 +34,27 @@ func NewClient() *Client {
 	if base == "" {
 		base = defaultBaseURL
 	}
-	return &Client{BaseURL: strings.TrimRight(base, "/"), HTTPClient: http.DefaultClient}
+	client := &Client{BaseURL: strings.TrimRight(base, "/"), HTTPClient: http.DefaultClient}
+	client.generatedClient()
+	return client
+}
+
+func (c *Client) generatedClient() *openapigen.ClientWithResponses {
+	if c.generated == nil {
+		client, err := openapigen.NewClientWithResponses(c.BaseURL, openapigen.WithHTTPClient(c.HTTPClient))
+		if err != nil {
+			panic(err)
+		}
+		c.generated = client
+	}
+	return c.generated
+}
+
+func bearer(token string) openapigen.RequestEditorFn {
+	return func(_ context.Context, request *http.Request) error {
+		request.Header.Set("Authorization", "Bearer "+token)
+		return nil
+	}
 }
 
 type Locale struct {
@@ -112,13 +135,15 @@ func (c *Client) request(ctx context.Context, token, method, path string, body i
 	return nil, &HTTPError{StatusCode: res.StatusCode, Message: strings.TrimSpace(string(raw))}
 }
 func (c *Client) Snapshot(ctx context.Context, token string) (Snapshot, error) {
-	res, err := c.request(ctx, token, http.MethodGet, "/api/cli/wiki/snapshot", nil, "")
+	res, err := c.generatedClient().GetWikiSnapshotWithResponse(ctx, bearer(token))
 	if err != nil {
 		return Snapshot{}, err
 	}
-	defer res.Body.Close()
+	if res.StatusCode() < 200 || res.StatusCode() >= 300 {
+		return Snapshot{}, &HTTPError{StatusCode: res.StatusCode(), Message: strings.TrimSpace(string(res.Body))}
+	}
 	var out Snapshot
-	err = json.NewDecoder(res.Body).Decode(&out)
+	err = json.Unmarshal(res.Body, &out)
 	return out, err
 }
 func (c *Client) Sync(ctx context.Context, token string, input SyncRequest) (SyncResult, error) {
@@ -161,13 +186,15 @@ func (c *Client) Sync(ctx context.Context, token string, input SyncRequest) (Syn
 	if err != nil {
 		return SyncResult{}, err
 	}
-	res, err := c.request(ctx, token, http.MethodPost, "/api/cli/wiki/sync", bytes.NewReader(raw), "application/json")
+	res, err := c.generatedClient().SyncWikiWithBodyWithResponse(ctx, "application/json", bytes.NewReader(raw), bearer(token))
 	if err != nil {
 		return SyncResult{}, err
 	}
-	defer res.Body.Close()
+	if res.StatusCode() < 200 || res.StatusCode() >= 300 {
+		return SyncResult{}, &HTTPError{StatusCode: res.StatusCode(), Message: strings.TrimSpace(string(res.Body))}
+	}
 	var out SyncResult
-	err = json.NewDecoder(res.Body).Decode(&out)
+	err = json.Unmarshal(res.Body, &out)
 	return out, err
 }
 
@@ -192,10 +219,12 @@ func (c *Client) Download(ctx context.Context, token, rawURL string) ([]byte, er
 
 // Upload replaces bytes for an attachment allocated by Sync.
 func (c *Client) Upload(ctx context.Context, token, attachmentID string, data []byte, mime string) error {
-	res, err := c.request(ctx, token, http.MethodPut, "/api/cli/wiki/attachments/"+attachmentID, bytes.NewReader(data), mime)
+	res, err := c.generatedClient().UploadWikiAttachmentWithBodyWithResponse(ctx, attachmentID, mime, bytes.NewReader(data), bearer(token))
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
+	if res.StatusCode() < 200 || res.StatusCode() >= 300 {
+		return &HTTPError{StatusCode: res.StatusCode(), Message: strings.TrimSpace(string(res.Body))}
+	}
 	return nil
 }

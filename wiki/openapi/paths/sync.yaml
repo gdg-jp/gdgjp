@@ -1,0 +1,32 @@
+post:
+  operationId: syncWiki
+  summary: Atomically create, update, or archive Wiki pages
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/wiki.yaml#/SyncRequest
+  responses:
+    '200':
+      description: Applied operations and allocated attachment IDs.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/wiki.yaml#/SyncResult
+    '400':
+      $ref: ../components/responses/common.yaml#/BadRequest
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '403':
+      $ref: ../components/responses/common.yaml#/Forbidden
+    '404':
+      $ref: ../components/responses/common.yaml#/NotFound
+    '409':
+      description: One or more page revisions are stale; no operation was applied.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/common.yaml#/RevisionConflict

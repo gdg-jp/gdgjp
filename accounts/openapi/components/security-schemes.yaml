@@ -1,0 +1,7 @@
+bearerAuth:
+  type: http
+  scheme: bearer
+cookieAuth:
+  type: apiKey
+  in: cookie
+  name: gdgjp-accounts.session_token

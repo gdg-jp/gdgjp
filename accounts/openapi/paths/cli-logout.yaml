@@ -1,0 +1,6 @@
+post:
+  operationId: logoutCli
+  security: [{ bearerAuth: [] }]
+  responses:
+    '204': { description: Token revoked }
+    '401': { $ref: ../components/responses/index.yaml#/Unauthorized }

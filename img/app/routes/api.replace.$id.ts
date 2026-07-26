@@ -3,6 +3,7 @@ import { isValidImageId } from "~/lib/id";
 import { getImage, updateImageBytes } from "~/lib/images";
 import { canMutateImage } from "~/lib/permissions";
 import { putOriginal } from "~/lib/r2";
+import type { components } from "../../openapi/types.generated";
 import type { Route } from "./+types/api.replace.$id";
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -41,5 +42,6 @@ export async function action(args: Route.ActionArgs) {
     filename: file.name || image.filename,
   });
 
-  return Response.json({ id });
+  const body: components["schemas"]["ImageId"] = { id };
+  return Response.json(body);
 }

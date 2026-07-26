@@ -3,6 +3,7 @@ import { isValidImageId } from "~/lib/id";
 import { deleteImage, getImage } from "~/lib/images";
 import { canMutateImage } from "~/lib/permissions";
 import { deleteOriginal } from "~/lib/r2";
+import type { components } from "../../openapi/types.generated";
 import type { Route } from "./+types/api.delete.$id";
 
 export async function action(args: Route.ActionArgs) {
@@ -24,5 +25,6 @@ export async function action(args: Route.ActionArgs) {
     args.context.cloudflare.ctx.waitUntil(deleteOriginal(env, image.mobileR2Key));
   }
 
-  return Response.json({ ok: true });
+  const body: components["schemas"]["Success"] = { ok: true };
+  return Response.json(body);
 }

@@ -1,0 +1,14 @@
+get:
+  operationId: getWikiSnapshot
+  summary: Get all Wiki pages visible to the CLI token
+  security:
+    - BearerAuth: []
+  responses:
+    '200':
+      description: Current Wiki snapshot.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/wiki.yaml#/Snapshot
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized

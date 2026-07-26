@@ -1,0 +1,35 @@
+get:
+  operationId: resolveGatewayShortUrl
+  summary: Resolve a custom-domain short URL through the gateway
+  security:
+    - GatewayTimestamp: []
+      GatewaySignature: []
+      GatewayHost: []
+  parameters:
+    - name: slug
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+    - name: hostname
+      in: query
+      required: true
+      schema:
+        type: string
+        format: hostname
+  responses:
+    '302':
+      description: Redirect to the destination URL.
+      headers:
+        Location:
+          required: true
+          schema:
+            type: string
+            format: uri
+    '204':
+      description: No slug was provided or no matching link exists.
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '404':
+      $ref: ../components/responses/common.yaml#/NotFound

@@ -1,0 +1,19 @@
+post:
+  operationId: token
+  summary: Exchange an authorization code or refresh token
+  requestBody:
+    required: true
+    content:
+      application/x-www-form-urlencoded:
+        schema:
+          type: object
+          required: [grant_type]
+          properties:
+            grant_type: { type: string, enum: [authorization_code, refresh_token] }
+            code: { type: string }
+            redirect_uri: { type: string, format: uri }
+            code_verifier: { type: string }
+            refresh_token: { type: string }
+  responses:
+    '200': { description: OAuth token response as defined by RFC 6749 }
+    '400': { $ref: ../components/responses/index.yaml#/BadRequest }

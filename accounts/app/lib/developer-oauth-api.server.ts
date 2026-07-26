@@ -1,3 +1,4 @@
+import type { components } from "../../openapi/types.generated";
 import { CHAPTERS_SCOPE } from "./auth.server";
 import {
   type DeveloperClient,
@@ -18,6 +19,9 @@ const MANAGEMENT_PATHS = new Set([
   "/api/auth/oauth2/client/rotate-secret",
   "/api/auth/oauth2/delete-client",
 ]);
+
+type OAuthClient = components["schemas"]["OAuthClient"];
+type OAuthClientSecret = components["schemas"]["OAuthClientSecret"];
 
 type OAuthClientBody = {
   client_id?: unknown;
@@ -119,7 +123,7 @@ export async function handleDeveloperOAuthApi(
   }
 }
 
-function toOAuthClient(client: DeveloperClient) {
+function toOAuthClient(client: DeveloperClient): OAuthClient {
   return {
     client_id: client.clientId,
     client_name: client.name,
@@ -205,7 +209,7 @@ function json(value: unknown, init?: ResponseInit) {
   return Response.json(value, init);
 }
 
-function secretJson(value: unknown) {
+function secretJson(value: OAuthClientSecret) {
   return json(value, { headers: { "Cache-Control": "no-store", Pragma: "no-cache" } });
 }
 

@@ -1,0 +1,15 @@
+get:
+  operationId: getPublicImage
+  summary: Retrieve an original or transformed public image
+  parameters:
+    - $ref: ../components/parameters/index.yaml#/ImageId
+    - { name: w, in: query, schema: { type: integer, minimum: 1 } }
+    - { name: h, in: query, schema: { type: integer, minimum: 1 } }
+    - { name: q, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+    - { name: fit, in: query, schema: { type: string } }
+    - { name: f, in: query, schema: { type: string, enum: [avif, webp, jpeg, png] } }
+    - { name: variant, in: query, schema: { type: string, enum: [mobile] } }
+  responses:
+    '200': { description: Image bytes }
+    '304': { description: Not modified }
+    '404': { $ref: ../components/responses/index.yaml#/NotFound }

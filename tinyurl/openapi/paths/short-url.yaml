@@ -1,0 +1,23 @@
+get:
+  operationId: resolveShortUrl
+  summary: Resolve a short URL
+  security: []
+  parameters:
+    - $ref: ../components/parameters/common.yaml#/Slug
+  responses:
+    '302':
+      description: Redirect to the destination URL.
+      headers:
+        Location:
+          required: true
+          schema:
+            type: string
+            format: uri
+    '200':
+      description: HTML preview returned to crawler user agents.
+      content:
+        text/html:
+          schema:
+            type: string
+    '404':
+      $ref: ../components/responses/common.yaml#/NotFound
