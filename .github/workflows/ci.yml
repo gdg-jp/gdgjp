@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "22"
 
 jobs:
   lint:
@@ -182,6 +182,8 @@ jobs:
           ACCOUNTS_URL=http://localhost:5173
           IDP_URL=http://localhost:5173
           EOF
+      - name: Migrate Accounts local database
+        run: pnpm --filter @gdgjp/accounts migrate:local
       - name: Install Playwright browsers
         run: pnpm --filter @gdgjp/${{ matrix.app }} exec playwright install --with-deps chromium
       - name: Run E2E testing

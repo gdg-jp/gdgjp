@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = 5175;
 const BASE_URL = `http://localhost:${PORT}`;
 const ACCOUNTS_URL = "http://localhost:5173";
+const HEALTH_URL = `${BASE_URL}/app-icon.png`;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -25,7 +26,9 @@ export default defineConfig({
     },
     {
       command: "pnpm dev",
-      url: BASE_URL,
+      // The app root redirects into the OIDC flow. Probe a static asset so
+      // readiness does not require an initialized Accounts database or client.
+      url: HEALTH_URL,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
