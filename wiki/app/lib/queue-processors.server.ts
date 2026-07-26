@@ -46,6 +46,9 @@ export async function sendOrRunTranslation(
   context: ExecutionContext,
   pageId: string,
 ): Promise<void> {
-  if (env.ENVIRONMENT !== "development") await env.TRANSLATION_QUEUE.send({ pageId });
+  // Wrangler's production vars generate `ENVIRONMENT` as a literal type, but
+  // local development overrides it through `.dev.vars` at runtime.
+  const environment: string = env.ENVIRONMENT;
+  if (environment !== "development") await env.TRANSLATION_QUEUE.send({ pageId });
   else context.waitUntil(processTranslationMessage(env, drizzle(env.DB, { schema }), { pageId }));
 }

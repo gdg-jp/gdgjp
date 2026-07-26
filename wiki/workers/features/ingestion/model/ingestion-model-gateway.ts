@@ -24,6 +24,7 @@ import {
   type ModelCallTraceContext,
   createAiGatewayTelemetryHeaders,
   createModelCallTraceContext,
+  serializeError,
 } from "../observability";
 import type { ExecutionEventSink } from "../orchestration/ports/tool-event-sink";
 import type { WorkspaceManifest } from "../tools/workspace/contracts";
@@ -453,8 +454,7 @@ export function createIngestionModelGateway(
           program: options.program,
           outcome: "error",
           durationMs: Date.now() - explorationStartedAt,
-          error,
-          data: { stage: "exploration" },
+          data: { stage: "exploration", error: serializeError(error) },
         });
       }
       throw error;
