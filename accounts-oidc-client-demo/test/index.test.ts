@@ -113,7 +113,7 @@ describe("OIDC demo Worker", () => {
     );
   });
 
-  it("clears the local session and redirects to the OIDC end-session endpoint", async () => {
+  it("clears only the local session without ending the IdP session", async () => {
     oidc.authorizationCodeGrant.mockResolvedValue({
       access_token: "access-token",
       claims: () => ({ sub: "user-123" }),
@@ -140,15 +140,8 @@ describe("OIDC demo Worker", () => {
     );
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("Location")).toContain("end-session");
+    expect(response.headers.get("Location")).toBe("https://demo.workers.dev/");
     expect(response.headers.get("Set-Cookie")).toContain("Max-Age=0");
-    expect(oidc.buildEndSessionUrl).toHaveBeenCalledWith(
-      issuer,
-      expect.objectContaining({
-        client_id: "demo-client",
-        id_token_hint: "id-token",
-        post_logout_redirect_uri: "https://demo.workers.dev/",
-      }),
-    );
+    expect(oidc.buildEndSessionUrl).not.toHaveBeenCalled();
   });
 });

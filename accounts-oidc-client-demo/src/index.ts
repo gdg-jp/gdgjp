@@ -153,25 +153,7 @@ async function finishLogin(request: Request, env: Env): Promise<Response> {
 
 async function logout(request: Request, env: Env): Promise<Response> {
   const returnTo = `${new URL(request.url).origin}/`;
-  const session = isConfigured(env) ? await readSession(request, env) : null;
-  let location = returnTo;
-  if (session) {
-    try {
-      const issuer = await getIssuer(env);
-      if (session.issuer === issuer.serverMetadata().issuer) {
-        location = oidc
-          .buildEndSessionUrl(issuer, {
-            client_id: env.IDP_CLIENT_ID as string,
-            id_token_hint: session.idToken,
-            post_logout_redirect_uri: returnTo,
-          })
-          .toString();
-      }
-    } catch {
-      // Local logout remains safe if discovery or the IdP logout endpoint is unavailable.
-    }
-  }
-  return redirect(location, { "Set-Cookie": clearCookie(SESSION_COOKIE, request) });
+  return redirect(returnTo, { "Set-Cookie": clearCookie(SESSION_COOKIE, request) });
 }
 
 async function getIssuer(env: Env): Promise<oidc.Configuration> {
