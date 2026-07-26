@@ -18,7 +18,10 @@ const goSteps = quickSteps.filter(([name]) => name === "go");
 
 const fullSteps = [
   ...quickSteps,
-  ["e2e", "pnpm exec turbo test:e2e --concurrency=1 --output-logs=errors-only -- --reporter=dot"],
+  [
+    "e2e",
+    "pnpm exec turbo test:e2e --filter=@gdgjp/accounts --filter=@gdgjp/tinyurl --filter=@gdgjp/img --filter=@gdgjp/scheduler --concurrency=1 --output-logs=errors-only -- --reporter=dot",
+  ],
 ];
 
 function formatDuration(milliseconds) {

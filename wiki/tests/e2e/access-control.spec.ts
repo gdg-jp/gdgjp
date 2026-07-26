@@ -54,11 +54,15 @@ async function setGeneralAccess(page: Page, value: "restricted" | "unlisted" | "
     unlisted: "Anyone with the link",
     public: "Public",
   } as const;
+  const accessSelect = page.locator("#general-access");
+
+  if ((await accessSelect.innerText()).includes(labels[value])) return;
+
   const response = page.waitForResponse(
     (candidate) =>
       candidate.request().method() === "POST" && candidate.url().includes("/api/page-access/"),
   );
-  await page.locator("#general-access").click();
+  await accessSelect.click();
   await page.getByRole("option", { name: labels[value], exact: true }).click();
   expect((await response).ok()).toBeTruthy();
 }
@@ -113,9 +117,16 @@ test("share suggestions and actions use the active color theme", async ({ browse
   const darkForeground = await copyLinkButton.evaluate(
     (element) => getComputedStyle(element).color,
   );
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
   await page.getByRole("button", { name: /switch to light theme/i }).click();
+  await openShareDialog(page);
   await expect
-    .poll(() => copyLinkButton.evaluate((element) => getComputedStyle(element).color))
+    .poll(() =>
+      page
+        .getByRole("button", { name: /copy link/i })
+        .evaluate((element) => getComputedStyle(element).color),
+    )
     .not.toBe(darkForeground);
   await ctx.close();
 });
@@ -125,9 +136,7 @@ test("share dialog motion remains observable throughout its interaction flow", a
 }) => {
   const { ctx, page } = await makePage(browser, "author.json");
   await page.goto(PAGE_URL);
-  const shareButton = page.getByRole("button", { name: /share/i }).first();
-  await expect(shareButton).toBeVisible();
-  await shareButton.click({ force: true });
+  await openShareDialog(page);
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
