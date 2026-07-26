@@ -88,9 +88,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   // for parent-child relationships within the same plan.
   const tempIdMap: Record<string, string> = {};
   for (const op of body.operations) {
-    // Ingestion continues to submit TipTap JSON for the review editor, but the
-    // database contract is Markdown. Invalid JSON is deliberately preserved.
-    const contentMarkdown = canonicalMarkdown(op.tiptapJson);
     if (op.type === "create") {
       if (!op.tempId) {
         return new Response("All create operations must include a tempId", { status: 400 });
@@ -103,6 +100,9 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   const statements = [];
 
   for (const op of body.operations) {
+    // Ingestion submits TipTap JSON for the review editor, but the database
+    // contract is Markdown. Invalid JSON is deliberately preserved.
+    const contentMarkdown = canonicalMarkdown(op.tiptapJson);
     if (op.type === "create") {
       // tempId is validated above for all create ops
       const pageId = tempIdMap[op.tempId as string];

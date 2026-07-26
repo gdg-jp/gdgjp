@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -68,6 +69,17 @@ function findD1Sqlite(): string {
     }
   }
   return path.join(dir, best);
+}
+
+function applyLocalMigrations(): void {
+  execFileSync(
+    "pnpm",
+    ["exec", "wrangler", "d1", "migrations", "apply", "gdgjp-wiki-db", "--local"],
+    {
+      cwd: process.cwd(),
+      stdio: "inherit",
+    },
+  );
 }
 
 /**
@@ -226,6 +238,7 @@ function writeStorageState(
 }
 
 export default async function globalSetup() {
+  applyLocalMigrations();
   const dbPath = findD1Sqlite();
   const { secret, issuer } = readSessionConfig();
   console.log(`\n[E2E setup] Seeding D1 SQLite: ${dbPath}`);

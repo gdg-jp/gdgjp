@@ -113,11 +113,10 @@ test("share suggestions and actions use the active color theme", async ({ browse
   const darkForeground = await copyLinkButton.evaluate(
     (element) => getComputedStyle(element).color,
   );
-  await page.evaluate(() => document.documentElement.classList.remove("dark"));
-  const lightForeground = await copyLinkButton.evaluate(
-    (element) => getComputedStyle(element).color,
-  );
-  expect(darkForeground).not.toBe(lightForeground);
+  await page.getByRole("button", { name: /switch to light theme/i }).click();
+  await expect
+    .poll(() => copyLinkButton.evaluate((element) => getComputedStyle(element).color))
+    .not.toBe(darkForeground);
   await ctx.close();
 });
 

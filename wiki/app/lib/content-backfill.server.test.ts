@@ -1,4 +1,4 @@
-import { DatabaseSync } from "node:sqlite";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import {
   type ContentBackfillDatabase,
@@ -22,13 +22,15 @@ function createDatabase(): { sqlite: DatabaseSync; d1: ContentBackfillDatabase }
           return this;
         },
         async all<T>() {
-          return { results: sqlite.prepare(query).all(...values) as T[] };
+          return { results: sqlite.prepare(query).all(...(values as SQLInputValue[])) as T[] };
         },
         async first<T>() {
-          return (sqlite.prepare(query).get(...values) as T | undefined) ?? null;
+          return (
+            (sqlite.prepare(query).get(...(values as SQLInputValue[])) as T | undefined) ?? null
+          );
         },
         async run() {
-          sqlite.prepare(query).run(...values);
+          sqlite.prepare(query).run(...(values as SQLInputValue[]));
         },
       };
     },

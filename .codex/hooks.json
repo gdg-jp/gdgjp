@@ -1,0 +1,30 @@
+{
+  "description": "Local quality checks for Codex changes in this repository.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "^(apply_patch|Edit|Write)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/post-edit-quality.mjs\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/pre-commit-ci.mjs\"",
+            "timeout": 1800,
+            "statusMessage": "Running the full CI suite before commit"
+          }
+        ]
+      }
+    ]
+  }
+}

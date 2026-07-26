@@ -14,7 +14,10 @@
     "openapi:lint": "pnpm --filter @gdgjp/accounts openapi:lint && pnpm --filter @gdgjp/img openapi:lint && pnpm --filter @gdgjp/tinyurl openapi:lint && pnpm --filter @gdgjp/wiki openapi:lint",
     "openapi:check": "pnpm openapi:lint && pnpm openapi:generate && (cd cli && go generate ./...) && git diff --exit-code",
     "test": "node --test .github/scripts/*.test.mjs && turbo test",
-    "test:e2e": "turbo test:e2e --concurrency=1"
+    "test:e2e": "turbo test:e2e --concurrency=1",
+    "ci:go": "cd cli && test -z \"$(gofmt -l .)\" && go vet ./... && go test ./... && go build ./...",
+    "ci:quick": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm ci:go",
+    "ci:full": "pnpm ci:quick && pnpm test:e2e"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
