@@ -7,7 +7,7 @@ INSERT INTO oauthClient (
   public, type, requirePKCE
 ) VALUES (
   'gdg-cli', 'gdg-cli', NULL, 0, 1, 0,
-  'public', '["openid","offline_access","https://gdgs.jp/scopes/cli"]',
+  'public', '["openid","profile","email","offline_access","https://gdgs.jp/scopes/chapters","https://gdgs.jp/scopes/cli"]',
   strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
   'GDG Japan CLI', '["http://127.0.0.1:8787/callback"]', '[]', 'none',
   '["authorization_code","refresh_token"]', '["code"]', 1, 'native', 1

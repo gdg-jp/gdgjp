@@ -21,11 +21,12 @@ import (
 )
 
 const (
-	issuer       = "https://accounts.gdgs.jp"
-	clientID     = "gdg-cli"
-	redirectURI  = "http://127.0.0.1:8787/callback"
-	callbackPath = "/callback"
-	cliScope     = "https://gdgs.jp/scopes/cli"
+	issuer        = "https://accounts.gdgs.jp"
+	clientID      = "gdg-cli"
+	redirectURI   = "http://127.0.0.1:8787/callback"
+	callbackPath  = "/callback"
+	cliScope      = "https://gdgs.jp/scopes/cli"
+	chaptersScope = "https://gdgs.jp/scopes/chapters"
 )
 
 type tokenResponse struct {
@@ -103,7 +104,7 @@ func authorizationURL(state, verifier string) string {
 		"client_id":             {clientID},
 		"redirect_uri":          {redirectURI},
 		"response_type":         {"code"},
-		"scope":                 {"openid offline_access " + cliScope},
+		"scope":                 {"openid profile email offline_access " + chaptersScope + " " + cliScope},
 		"state":                 {state},
 		"code_challenge":        {base64.RawURLEncoding.EncodeToString(challenge[:])},
 		"code_challenge_method": {"S256"},

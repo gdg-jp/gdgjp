@@ -21,7 +21,8 @@ func TestAuthorizationURLUsesPKCES256(t *testing.T) {
 	if query.Get("state") != "state-value" || query.Get("code_challenge_method") != "S256" {
 		t.Fatalf("missing state or S256 PKCE: %s", query.Encode())
 	}
-	if query.Get("code_challenge") == "" || query.Get("scope") != "openid offline_access "+cliScope {
+	wantScope := "openid profile email offline_access " + chaptersScope + " " + cliScope
+	if query.Get("code_challenge") == "" || query.Get("scope") != wantScope {
 		t.Fatalf("missing PKCE challenge or CLI scope: %s", query.Encode())
 	}
 }

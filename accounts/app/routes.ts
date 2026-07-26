@@ -20,7 +20,6 @@ export default [
   ]),
   route("api/locale", "routes/api.locale.ts"),
   route("api/chapters/directory", "routes/api.chapters.directory.ts"),
-  route("api/cli/identity", "routes/api.cli.identity.ts"),
   route("api/cli/logout", "routes/api.cli.logout.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
   route("api/auth/*", "routes/api.auth.$.ts"),
