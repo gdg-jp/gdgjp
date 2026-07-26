@@ -132,10 +132,30 @@ func (c *Client) Sync(ctx context.Context, token string, input SyncRequest) (Syn
 		if p == nil {
 			return SyncResult{}, fmt.Errorf("upsert operation has no page")
 		}
-		operations = append(operations, map[string]any{"kind": "upsert", "expectedRevision": operation.ExpectedRevision, "page": map[string]any{
-			"id": p.ID, "slug": p.Slug, "parentId": p.ParentID, "sortOrder": p.SortOrder, "ja": p.JA, "en": p.EN,
-			"meta": map[string]any{"status": p.Status, "pageType": p.PageType, "pageMetadata": p.PageMetadata, "visibility": p.Visibility, "generalRole": p.GeneralRole, "chapterId": p.ChapterID, "tags": p.Tags, "access": p.Access, "sources": p.Sources, "attachments": p.Attachments},
-		}})
+		// Empty list fields are omitted from clone-generated YAML. YAML decoding
+		// represents those omissions as nil, while the API deliberately requires
+		// arrays for these fields. Preserve the clone/sync round trip by encoding
+		// an omitted list as an empty JSON array rather than null.
+		tags := p.Tags
+		if tags == nil {
+			tags = []string{}
+		}
+		attachments := p.Attachments
+		if attachments == nil {
+			attachments = []Attachment{}
+		}
+		page := map[string]any{
+			"slug": p.Slug, "parentId": p.ParentID, "sortOrder": p.SortOrder, "ja": p.JA, "en": p.EN,
+			"meta": map[string]any{"status": p.Status, "pageType": p.PageType, "pageMetadata": p.PageMetadata, "visibility": p.Visibility, "generalRole": p.GeneralRole, "chapterId": p.ChapterID, "tags": tags, "access": emptyArrayIfNil(p.Access), "sources": emptyArrayIfNil(p.Sources), "attachments": attachments},
+		}
+		if p.ID != "" {
+			page["id"] = p.ID
+		}
+		upsert := map[string]any{"kind": "upsert", "page": page}
+		if operation.ExpectedRevision > 0 {
+			upsert["expectedRevision"] = operation.ExpectedRevision
+		}
+		operations = append(operations, upsert)
 	}
 	raw, err := json.Marshal(map[string]any{"operations": operations})
 	if err != nil {
@@ -149,6 +169,13 @@ func (c *Client) Sync(ctx context.Context, token string, input SyncRequest) (Syn
 	var out SyncResult
 	err = json.NewDecoder(res.Body).Decode(&out)
 	return out, err
+}
+
+func emptyArrayIfNil(value any) any {
+	if value == nil {
+		return []any{}
+	}
+	return value
 }
 func (c *Client) Download(ctx context.Context, token, rawURL string) ([]byte, error) {
 	path := rawURL
