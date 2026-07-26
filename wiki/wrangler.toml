@@ -5,6 +5,11 @@ compatibility_flags = ["nodejs_compat"]
 # Preserve deployment-specific dashboard vars such as AI_GATEWAY_BASE_URL.
 keep_vars = true
 
+# React Router emits this virtual module as `build/server/index.js`. Map it for
+# Wrangler's deployment bundle, which processes the Worker entrypoint directly.
+[alias]
+"virtual:react-router/server-build" = "./build/server/index.js"
+
 [observability]
 enabled = true
 
