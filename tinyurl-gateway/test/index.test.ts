@@ -51,6 +51,36 @@ describe("gateway", () => {
     expect(await response.text()).toBe("origin");
   });
 
+  it("proxies robots.txt from an origin-first upstream", async () => {
+    let resolverRequests = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const dns = dnsResponse(input);
+        if (dns) return dns;
+        const url = new URL(String(input));
+        if (url.pathname.endsWith("/config")) {
+          return config("origin-first", "https://origin.example");
+        }
+        if (url.pathname.endsWith("/resolve")) {
+          resolverRequests += 1;
+          return new Response(null, { status: 204 });
+        }
+        expect(url).toEqual(new URL("https://origin.example/robots.txt"));
+        return new Response("User-agent: *\nDisallow:\n", {
+          headers: { "content-type": "text/plain; charset=utf-8" },
+        });
+      }),
+    );
+
+    const response = await handleGatewayRequest(new Request("https://custom.example/robots.txt"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(await response.text()).toBe("User-agent: *\nDisallow:\n");
+    expect(resolverRequests).toBe(0);
+  });
+
   it("prevents clients from decoding an already-decoded origin response", async () => {
     let upstreamAcceptEncoding: string | null = null;
     vi.stubGlobal(
