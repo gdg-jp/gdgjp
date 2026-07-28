@@ -10,6 +10,7 @@ export type ManagedUser = {
   membershipCount: number;
   activeMembershipCount: number;
   pendingMembershipCount: number;
+  activeChapterIds: number[];
   sessionCount: number;
 };
 
@@ -36,6 +37,12 @@ export type UserSessionRevocationResult =
   | { status: "not_found" }
   | { status: "self_revoke" };
 
+export type UserChaptersUpdateResult =
+  | { status: "updated" }
+  | { status: "not_found" }
+  | { status: "chapter_not_found" }
+  | { status: "last_active_organizer" };
+
 type ManagedUserRow = {
   id: string;
   name: string;
@@ -48,6 +55,7 @@ type ManagedUserRow = {
   membership_count: number;
   active_membership_count: number;
   pending_membership_count: number;
+  active_chapter_ids: string | null;
   session_count: number;
 };
 
@@ -81,6 +89,7 @@ export async function listManagedUsers(
            COUNT(DISTINCT m.chapter_id) AS membership_count,
            COUNT(DISTINCT CASE WHEN m.status = 'active' THEN m.chapter_id END) AS active_membership_count,
            COUNT(DISTINCT CASE WHEN m.status = 'pending' THEN m.chapter_id END) AS pending_membership_count,
+           GROUP_CONCAT(DISTINCT CASE WHEN m.status = 'active' THEN m.chapter_id END) AS active_chapter_ids,
            COUNT(DISTINCT s.id) AS session_count
          FROM "user" u
          LEFT JOIN memberships m ON m.user_id = u.id
@@ -187,6 +196,64 @@ export async function revokeUserSessions(
   return { status: "revoked" };
 }
 
+/**
+ * Synchronizes a user's active memberships. Selected chapters are activated
+ * before unselected memberships are removed so the membership-delete trigger
+ * never disables the user's developer clients during an update.
+ */
+export async function setUserChapters(
+  db: D1Database,
+  input: { targetId: string; chapterIds: number[] },
+): Promise<UserChaptersUpdateResult> {
+  const chapterIds = [...new Set(input.chapterIds)];
+  const user = await db
+    .prepare('SELECT 1 AS ok FROM "user" WHERE id = ?')
+    .bind(input.targetId)
+    .first<{ ok: number }>();
+  if (!user) return { status: "not_found" };
+
+  const placeholders = chapterIds.map(() => "?").join(", ");
+  const chapters = await db
+    .prepare(`SELECT id FROM chapters WHERE id IN (${placeholders})`)
+    .bind(...chapterIds)
+    .all<{ id: number }>();
+  if (chapters.results.length !== chapterIds.length) return { status: "chapter_not_found" };
+
+  const lastOrganizer = await db
+    .prepare(
+      `SELECT 1 AS ok
+       FROM memberships AS m
+       WHERE m.user_id = ? AND m.chapter_id NOT IN (${placeholders})
+         AND m.status = 'active' AND m.role = 'organizer'
+         AND NOT EXISTS (
+           SELECT 1 FROM memberships AS other
+           WHERE other.chapter_id = m.chapter_id AND other.status = 'active'
+             AND other.role = 'organizer' AND other.user_id <> m.user_id
+         )`,
+    )
+    .bind(input.targetId, ...chapterIds)
+    .first<{ ok: number }>();
+  if (lastOrganizer) return { status: "last_active_organizer" };
+
+  await db.batch([
+    ...chapterIds.map((chapterId) =>
+      db
+        .prepare(
+          `INSERT INTO memberships (user_id, chapter_id, role, status, approved_at)
+         VALUES (?, ?, 'member', 'active', unixepoch())
+         ON CONFLICT(user_id, chapter_id) DO UPDATE SET
+           status = 'active',
+           approved_at = COALESCE(memberships.approved_at, unixepoch())`,
+        )
+        .bind(input.targetId, chapterId),
+    ),
+    db
+      .prepare(`DELETE FROM memberships WHERE user_id = ? AND chapter_id NOT IN (${placeholders})`)
+      .bind(input.targetId, ...chapterIds),
+  ]);
+  return { status: "updated" };
+}
+
 function managedUserSearch(query: string): { where: string; params: string[] } {
   if (!query) return { where: "", params: [] };
   const escaped = query.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_");
@@ -215,6 +282,15 @@ function toManagedUser(row: ManagedUserRow): ManagedUser {
     membershipCount: row.membership_count,
     activeMembershipCount: row.active_membership_count,
     pendingMembershipCount: row.pending_membership_count,
+    activeChapterIds: parseChapterIds(row.active_chapter_ids),
     sessionCount: row.session_count,
   };
+}
+
+function parseChapterIds(value: string | null): number[] {
+  if (!value) return [];
+  return value.split(",").flatMap((id) => {
+    const parsed = Number(id);
+    return Number.isInteger(parsed) && parsed > 0 ? [parsed] : [];
+  });
 }

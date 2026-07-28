@@ -1,6 +1,11 @@
 import type { D1Database, D1PreparedStatement } from "@cloudflare/workers-types";
 import { describe, expect, it } from "vitest";
-import { listManagedUsers, revokeUserSessions, setUserAdmin } from "./user-admin.server";
+import {
+  listManagedUsers,
+  revokeUserSessions,
+  setUserAdmin,
+  setUserChapters,
+} from "./user-admin.server";
 
 type Call = { sql: string; args: unknown[]; operation: "first" | "all" };
 
@@ -9,6 +14,9 @@ function testDb(
     rows?: object[];
     total?: number;
     target?: object | null;
+    chapter?: object | null;
+    chapters?: object[];
+    lastOrganizer?: object | null;
     updateChanges?: number;
   } = {},
 ) {
@@ -28,11 +36,16 @@ function testDb(
           calls.push({ sql, args, operation: "first" });
           if (sql.includes("COUNT(*)")) return { total: options.total ?? 0 };
           if (sql.includes('SELECT is_admin FROM "user"')) return options.target ?? null;
+          if (sql.includes("FROM chapters WHERE id")) return options.chapter ?? null;
+          if (sql.includes("FROM memberships AS m")) return options.lastOrganizer ?? null;
           if (sql.includes("SELECT 1 AS ok")) return options.target ?? null;
           return null;
         },
         async all() {
           calls.push({ sql, args, operation: "all" });
+          if (sql.includes("FROM chapters WHERE id IN")) {
+            return { results: options.chapters ?? [] };
+          }
           return { results: options.rows ?? [] };
         },
       };
@@ -148,6 +161,38 @@ describe("setUserAdmin", () => {
     await expect(
       setUserAdmin(db, { actorId: "admin-1", targetId: "missing", isAdmin: true }),
     ).resolves.toEqual({ status: "not_found" });
+  });
+});
+
+describe("setUserChapters", () => {
+  it("activates every selected chapter before replacing unselected memberships", async () => {
+    const { db, preparedSql, batches } = testDb({
+      target: { ok: 1 },
+      chapters: [{ id: 2 }, { id: 3 }],
+    });
+
+    await expect(setUserChapters(db, { targetId: "user-1", chapterIds: [2, 3] })).resolves.toEqual({
+      status: "updated",
+    });
+
+    expect(batches).toHaveLength(1);
+    expect(preparedSql.some((sql) => sql.includes("ON CONFLICT(user_id, chapter_id)"))).toBe(true);
+    expect(
+      preparedSql.some((sql) => sql.includes("DELETE FROM memberships WHERE user_id = ?")),
+    ).toBe(true);
+  });
+
+  it("does not remove the final active organizer from an unselected chapter", async () => {
+    const { db, batches } = testDb({
+      target: { ok: 1 },
+      chapters: [{ id: 2 }],
+      lastOrganizer: { ok: 1 },
+    });
+
+    await expect(setUserChapters(db, { targetId: "user-1", chapterIds: [2] })).resolves.toEqual({
+      status: "last_active_organizer",
+    });
+    expect(batches).toEqual([]);
   });
 });
 

@@ -312,6 +312,13 @@
     "promote": "管理者にする",
     "demote": "管理者から外す",
     "revoke": "全セッションを失効",
+    "changeChapter": "チャプターを変更",
+    "chapterLabel": "所属チャプター",
+    "chapterHelp": "検索してチャプターを追加できます。複数選択に対応しています。",
+    "chapterSearchPlaceholder": "チャプター名またはスラッグで検索",
+    "chapterSelectedEmpty": "チャプターが選択されていません。",
+    "chapterNoMatches": "一致するチャプターがありません。",
+    "removeChapter": "{{name}} を選択から外す",
     "previous": "前へ",
     "next": "次へ",
     "page": "{{page}} / {{pages}} ページ",
@@ -322,17 +329,21 @@
       "demoteTitle": "{{name}} を管理者から外しますか？",
       "demoteDescription": "通常ユーザーに戻り、管理機能へアクセスできなくなります。",
       "revokeTitle": "{{name}} の全セッションを失効しますか？",
-      "revokeDescription": "Accounts と連携アプリからサインアウトされます。再利用するにはサインインが必要です。"
+      "revokeDescription": "Accounts と連携アプリからサインアウトされます。再利用するにはサインインが必要です。",
+      "changeChapterTitle": "{{name}} の所属チャプターを変更しますか？",
+      "changeChapterDescription": "所属させるチャプターを選択してください。選択を外したチャプターの所属は解除されます。"
     },
     "toast": {
       "promoted": "管理者権限を付与しました",
       "demoted": "管理者権限を解除しました",
-      "revoked": "すべてのセッションを失効しました"
+      "revoked": "すべてのセッションを失効しました",
+      "chapter": "所属チャプターを変更しました"
     },
     "errors": {
       "lastAdmin": "最後の管理者は権限を解除できません。",
       "selfRevoke": "この画面から自分自身のセッションは失効できません。アカウントメニューからサインアウトしてください。",
       "selfAdmin": "自分自身の管理者権限は変更できません。別の管理者に依頼してください。",
+      "lastActiveOrganizer": "最後のアクティブなオーガナイザーの所属チャプターは変更できません。",
       "notFound": "ユーザーが見つかりません。",
       "unknown": "操作を完了できませんでした。"
     }

@@ -312,6 +312,13 @@
     "promote": "Make admin",
     "demote": "Remove admin",
     "revoke": "Revoke all sessions",
+    "changeChapter": "Change chapter",
+    "chapterLabel": "Chapter",
+    "chapterHelp": "Search to add chapters. Multiple selections are supported.",
+    "chapterSearchPlaceholder": "Search by chapter name or slug",
+    "chapterSelectedEmpty": "No chapters selected.",
+    "chapterNoMatches": "No matching chapters.",
+    "removeChapter": "Remove {{name}} from selection",
     "previous": "Previous",
     "next": "Next",
     "page": "Page {{page}} of {{pages}}",
@@ -323,17 +330,21 @@
       "demoteDescription": "They will return to a regular user and lose access to administration tools.",
       "revokeTitle": "Revoke every session for {{name}}?",
       "revokeDescription": "They will be signed out of Accounts and connected apps, and must sign in again.",
-      "revokeConfirm": "Revoke sessions"
+      "revokeConfirm": "Revoke sessions",
+      "changeChapterTitle": "Change {{name}}'s chapter?",
+      "changeChapterDescription": "Select every chapter they should belong to. Memberships for unselected chapters will be removed."
     },
     "toast": {
       "promoted": "Admin access granted",
       "demoted": "Admin access removed",
-      "revoked": "All sessions revoked"
+      "revoked": "All sessions revoked",
+      "chapter": "Chapter changed"
     },
     "errors": {
       "lastAdmin": "The final admin cannot be demoted.",
       "selfRevoke": "You cannot revoke your own session here. Sign out from the account menu instead.",
       "selfAdmin": "You cannot change your own admin access. Ask another administrator.",
+      "lastActiveOrganizer": "The final active organizer cannot have their chapter changed.",
       "notFound": "User not found.",
       "unknown": "The operation could not be completed."
     }
