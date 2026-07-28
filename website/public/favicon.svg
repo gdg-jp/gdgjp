@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="GDG Japan">
-  <rect width="64" height="64" rx="14" fill="#fff"/>
-  <path fill="#4285F4" d="M32 8a24 24 0 1 0 0 48h13V32H32v12h1.1A12 12 0 1 1 32 20h13V8z"/>
-  <path fill="#34A853" d="M32 8h13v12H32z"/>
-  <path fill="#FBBC04" d="M45 20v12H32V20z"/>
-  <path fill="#EA4335" d="M32 32h13v12H32z"/>
-</svg>
