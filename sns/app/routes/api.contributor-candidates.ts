@@ -26,7 +26,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   ]);
   const url = new URL("/api/users/search", context.cloudflare.env.ACCOUNTS_URL);
   url.searchParams.set("q", query);
-  const response = await context.cloudflare.env.ACCOUNTS.fetch(url.toString(), {
+  const response = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!response.ok) {
