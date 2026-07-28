@@ -6,6 +6,7 @@ declare global {
     X_CLIENT_SECRET: string;
     TOKEN_ENCRYPTION_KEY: string;
     GOOGLE_PHOTOS_IMPORT_TOKEN: string;
+    GITHUB_ACTIONS_DISPATCH_TOKEN: string;
   }
 }
 export {};

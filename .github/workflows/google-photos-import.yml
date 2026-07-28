@@ -1,10 +1,6 @@
 name: Import Google Photos albums
 
 on:
-  schedule:
-    # GitHub may delay or drop scheduled runs around the start of an hour.
-    # Keep the five-minute polling interval, offset from that busy window.
-    - cron: "3-58/5 * * * *"
   workflow_dispatch:
 
 concurrency:
