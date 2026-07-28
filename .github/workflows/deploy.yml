@@ -95,22 +95,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Apply accounts D1 migrations
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: accounts
-          packageManager: pnpm
-          command: d1 migrations apply gdgjp-accounts-db --remote
-      - name: Apply SNS D1 migrations
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: sns
-          packageManager: pnpm
-          command: d1 migrations apply gdgjp-sns-db --remote
       - parallel:
           - name: Build accounts
             run: pnpm --filter @gdgjp/accounts build
@@ -191,3 +175,19 @@ jobs:
               VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
               VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
               VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      - parallel:
+          - name: Apply accounts remote migrations
+            run: pnpm --filter @gdgjp/accounts migrate:remote
+          - name: Apply tinyurl remote migrations
+            run: pnpm --filter @gdgjp/tinyurl migrate:remote
+          - name: Apply wiki remote migrations
+            run: pnpm --filter @gdgjp/wiki migrate:remote
+          - name: Apply img remote migrations
+            run: pnpm --filter @gdgjp/img migrate:remote
+          - name: Apply scheduler remote migrations
+            run: pnpm --filter @gdgjp/scheduler migrate:remote
+          - name: Apply SNS remote migrations
+            run: pnpm --filter @gdgjp/sns migrate:remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
