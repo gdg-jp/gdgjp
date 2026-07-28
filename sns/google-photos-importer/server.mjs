@@ -41,6 +41,13 @@ async function bridgeJson(path, body) {
 async function captureStructureDiagnostics(page) {
   const diagnostics = await page.evaluate(() => {
     const images = [...document.images];
+    const resourceHosts = Object.entries(
+      performance.getEntriesByType("resource").reduce((counts, entry) => {
+        const host = new URL(entry.name).hostname;
+        counts[host] = (counts[host] ?? 0) + 1;
+        return counts;
+      }, {}),
+    ).map(([host, count]) => ({ host, count }));
     const attributeNames = [
       ...new Set(
         images.flatMap((image) => {
@@ -52,8 +59,10 @@ async function captureStructureDiagnostics(page) {
     return {
       title: document.title,
       url: location.href,
+      bodyTextPreview: document.body?.innerText.replace(/\s+/g, " ").trim().slice(0, 1000) ?? "",
       imageCount: images.length,
       listItemCount: document.querySelectorAll("[role=listitem]").length,
+      resourceHosts,
       candidateIdAttributeCounts: Object.fromEntries(
         ["data-id", "data-photo-id", "data-media-key", "data-media-item-id", "data-item-id"].map(
           (attribute) => [attribute, document.querySelectorAll(`[${attribute}]`).length],
