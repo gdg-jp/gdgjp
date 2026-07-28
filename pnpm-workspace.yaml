@@ -4,6 +4,7 @@ packages:
   - "wiki"
   - "img"
   - "scheduler"
+  - "website"
   - "tinyurl-gateway"
   - "go-extension"
   - "gdg-lib"

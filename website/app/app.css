@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Google Sans", "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+@layer base {
+  body {
+    @apply min-h-dvh bg-slate-50 text-slate-900 antialiased;
+  }
+
+  a {
+    @apply outline-offset-4;
+  }
+}

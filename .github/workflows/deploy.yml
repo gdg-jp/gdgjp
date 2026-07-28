@@ -114,6 +114,8 @@ jobs:
             run: pnpm --filter @gdgjp/img build
           - name: Build scheduler
             run: pnpm --filter @gdgjp/scheduler build
+          - name: Build website
+            run: pnpm --filter @gdgjp/website build
           - name: Build tinyurl gateway
             run: pnpm --filter @gdgjp/tinyurl-gateway build
       - parallel:
@@ -155,6 +157,14 @@ jobs:
               apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
               accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
               workingDirectory: scheduler
+              packageManager: pnpm
+              command: deploy
+          - name: Deploy website to Cloudflare Workers
+            uses: cloudflare/wrangler-action@v3
+            with:
+              apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+              accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+              workingDirectory: website
               packageManager: pnpm
               command: deploy
           - name: Deploy tinyurl gateway to Vercel

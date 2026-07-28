@@ -46,10 +46,6 @@ pattern = "url.gdgs.jp/*"
 zone_name = "gdgs.jp"
 
 [[routes]]
-pattern = "gdgs.jp/*"
-zone_name = "gdgs.jp"
-
-[[routes]]
 pattern = "go.gdgs.jp/*"
 zone_name = "gdgs.jp"
 

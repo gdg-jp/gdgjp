@@ -2,36 +2,9 @@ import { Grid3X3, LogOut, Settings } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import type { ReactNode } from "react";
 import { preload } from "react-dom";
+import { GDG_APP_LINKS, type GdgAppLink } from "./app-links";
 
-export type GdgAppLink = {
-  iconUrl: string;
-  label: string;
-  url: string;
-};
-
-/** The public apps shown in the shared GDG Japan app launcher. */
-export const GDG_APP_LINKS: readonly GdgAppLink[] = [
-  {
-    iconUrl: "https://url.gdgs.jp/app-icon.png",
-    label: "TinyURL",
-    url: "https://url.gdgs.jp",
-  },
-  {
-    iconUrl: "https://wiki.gdgs.jp/app-icon.png",
-    label: "Wiki",
-    url: "https://wiki.gdgs.jp",
-  },
-  {
-    iconUrl: "https://scheduler.gdgs.jp/app-icon.png",
-    label: "Scheduler",
-    url: "https://scheduler.gdgs.jp",
-  },
-  {
-    iconUrl: "https://img.gdgs.jp/app-icon.png",
-    label: "Images",
-    url: "https://img.gdgs.jp",
-  },
-];
+export { GDG_APP_LINKS, type GdgAppLink } from "./app-links";
 
 const menuTriggerClassName =
   "inline-flex size-8 shrink-0 items-center justify-center rounded-md text-sm font-medium outline-none transition-all hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";

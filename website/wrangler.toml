@@ -1,0 +1,34 @@
+name = "gdgjp-website"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+main = "./workers/app.ts"
+
+[alias]
+"virtual:react-router/server-build" = "./build/server/index.js"
+
+[assets]
+binding = "ASSETS"
+directory = "./build/client"
+
+[[services]]
+binding = "TINYURL"
+service = "gdgjp-tinyurl"
+
+[[routes]]
+pattern = "gdgs.jp/*"
+zone_name = "gdgs.jp"
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
