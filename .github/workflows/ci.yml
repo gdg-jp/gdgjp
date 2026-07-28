@@ -64,6 +64,10 @@ jobs:
             run: pnpm --filter @gdgjp/img typecheck
           - name: Typecheck scheduler
             run: pnpm --filter @gdgjp/scheduler typecheck
+          - name: Typecheck SNS
+            run: pnpm --filter @gdgjp/sns typecheck
+          - name: Typecheck website
+            run: pnpm --filter @gdgjp/website typecheck
           - name: Typecheck gdg-lib
             run: pnpm --filter @gdgjp/gdg-lib typecheck
           - name: Typecheck tinyurl gateway
@@ -93,6 +97,10 @@ jobs:
             run: pnpm --filter @gdgjp/img test
           - name: Test scheduler
             run: pnpm --filter @gdgjp/scheduler test
+          - name: Test SNS
+            run: pnpm --filter @gdgjp/sns test
+          - name: Test website
+            run: pnpm --filter @gdgjp/website test
           - name: Test gdg-lib
             run: pnpm --filter @gdgjp/gdg-lib test
           - name: Test tinyurl gateway
@@ -122,6 +130,10 @@ jobs:
             run: pnpm --filter @gdgjp/img build
           - name: Build scheduler
             run: pnpm --filter @gdgjp/scheduler build
+          - name: Build SNS
+            run: pnpm --filter @gdgjp/sns build
+          - name: Build website
+            run: pnpm --filter @gdgjp/website build
           - name: Build tinyurl gateway
             run: pnpm --filter @gdgjp/tinyurl-gateway build
           - name: Build go extension
