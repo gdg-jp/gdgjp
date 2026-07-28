@@ -1,6 +1,6 @@
+import { GdgThemeToggle } from "@gdgjp/gdg-lib/ui";
 import { Link } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
-import { ThemeToggle } from "~/components/theme-toggle";
 import { UserMenu, type UserMenuUser } from "~/components/user-menu";
 
 export function TopBar({ user }: { user: UserMenuUser | null }) {
@@ -12,7 +12,7 @@ export function TopBar({ user }: { user: UserMenuUser | null }) {
           <span className="font-medium tracking-tight">GDG Japan Links</span>
         </Link>
         <div className="flex items-center gap-2">
-          <ThemeToggle />
+          <GdgThemeToggle />
           <UserMenu user={user} />
         </div>
       </div>

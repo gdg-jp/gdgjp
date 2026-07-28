@@ -111,6 +111,11 @@ export function PostCard({
               {post.status}
             </span>
           </div>
+          {post.failureReason ? (
+            <p className="mt-2 text-xs text-red-600" role="alert">
+              投稿に失敗しました: {post.failureReason}
+            </p>
+          ) : null}
         </div>
       </div>
     </article>

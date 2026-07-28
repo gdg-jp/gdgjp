@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, useFetcher } from "react-router";
 import { AppShell } from "~/components/app-shell";
 import { PostCard } from "~/components/post-card";
 import { requireSnsAccess } from "~/lib/access.server";
@@ -21,6 +21,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   };
 }
 export default function Posts({ loaderData }: Route.ComponentProps) {
+  const retryFetcher = useFetcher();
   const accounts = new Map(loaderData.accounts.map((account) => [account.id, account]));
   return (
     <AppShell user={loaderData.user} chapter={loaderData.chapter} chapters={loaderData.chapters}>
@@ -42,7 +43,20 @@ export default function Posts({ loaderData }: Route.ComponentProps) {
               media={loaderData.media[post.id] ?? []}
             />
             {!["published", "posting"].includes(post.status) ? (
-              <div className="border-b px-4 pb-3 text-right">
+              <div className="flex justify-end gap-4 border-b px-4 pb-3 text-right">
+                {post.status === "failed" ? (
+                  <retryFetcher.Form method="post" action="/api/posts">
+                    <input type="hidden" name="intent" value="publish" />
+                    <input type="hidden" name="postId" value={post.id} />
+                    <button
+                      type="submit"
+                      disabled={retryFetcher.state !== "idle"}
+                      className="text-sm text-primary disabled:opacity-50"
+                    >
+                      再試行
+                    </button>
+                  </retryFetcher.Form>
+                ) : null}
                 <Link className="text-sm text-primary" to={`/schedule?edit=${post.id}`}>
                   投稿を編集
                 </Link>

@@ -1,7 +1,7 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { Grid3X3, Moon, Sun, UserRound } from "lucide-react";
+import { GdgAppLauncher, GdgThemeToggle } from "@gdgjp/gdg-lib/ui";
+import { UserRound } from "lucide-react";
 import { Form, Link, NavLink } from "react-router";
-import { useTheme } from "~/lib/theme";
 import { chapterName } from "~/lib/utils";
 
 type Chapter = { chapterId: number; chapterSlug: string; role: string };
@@ -11,7 +11,6 @@ export function AppShell({
   chapter,
   chapters,
 }: { children: React.ReactNode; user: AuthUser; chapter: Chapter; chapters: Chapter[] }) {
-  const { theme, toggle } = useTheme();
   return (
     <div className="mx-auto min-h-dvh max-w-md border-x bg-background pb-20">
       <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-background/90 px-3 backdrop-blur">
@@ -20,21 +19,8 @@ export function AppShell({
           SNS Manager
         </Link>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            aria-label="テーマを切り替え"
-            onClick={toggle}
-            className="rounded-full p-2 hover:bg-muted"
-          >
-            {theme === "dark" ? <Sun className="size-5" /> : <Moon className="size-5" />}
-          </button>
-          <a
-            href="https://gdgs.jp"
-            className="rounded-full p-2 hover:bg-muted"
-            aria-label="アプリ一覧"
-          >
-            <Grid3X3 className="size-5" />
-          </a>
+          <GdgThemeToggle ariaLabel="テーマを切り替え" />
+          <GdgAppLauncher ariaLabel="アプリ一覧" />
           <details className="relative">
             <summary className="flex list-none cursor-pointer items-center gap-1 rounded-full px-2 py-1 hover:bg-muted">
               <span className="max-w-20 truncate text-sm font-semibold">

@@ -1,8 +1,5 @@
-import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { GdgAccountMenu, GdgAppLauncher, GdgThemeToggle } from "@gdgjp/gdg-lib/ui";
 import { Link } from "react-router";
-import { Button } from "~/components/ui/button";
-import { type Theme, useTheme } from "~/lib/theme";
 
 export type TopBarUser = {
   email: string;
@@ -25,7 +22,7 @@ export function TopBar({ user }: { user: TopBarUser | null }) {
           <span className="font-medium tracking-tight">GDG Japan Image</span>
         </Link>
         <div className="flex items-center gap-2">
-          <ThemeToggle />
+          <GdgThemeToggle />
           {user ? (
             <>
               <GdgAppLauncher />
@@ -39,21 +36,5 @@ export function TopBar({ user }: { user: TopBarUser | null }) {
         </div>
       </div>
     </header>
-  );
-}
-
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  const next: Theme = theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
-  const Icon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-label={`Theme: ${theme} (click to switch)`}
-      onClick={() => setTheme(next)}
-    >
-      <Icon className="size-4 transition-transform duration-300 hover:rotate-12" />
-    </Button>
   );
 }

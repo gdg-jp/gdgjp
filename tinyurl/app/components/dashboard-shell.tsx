@@ -1,3 +1,4 @@
+import { GdgThemeToggle } from "@gdgjp/gdg-lib/ui";
 import {
   BarChart3,
   Folder,
@@ -10,7 +11,6 @@ import {
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigation, useRouteLoaderData } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
-import { ThemeToggle } from "~/components/theme-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -113,7 +113,7 @@ function Sidebar({ user }: { user: UserMenuUser | null }) {
       </nav>
       <div className="flex items-center justify-between border-t px-3 py-2">
         <UserMenu user={user} launcherPosition="right" />
-        <ThemeToggle />
+        <GdgThemeToggle />
       </div>
     </aside>
   );
@@ -209,7 +209,7 @@ function MobileBar({ user }: { user: UserMenuUser | null }) {
           <span className="font-medium tracking-tight">GDG Japan Links</span>
         </Link>
         <div className="flex items-center gap-2">
-          <ThemeToggle />
+          <GdgThemeToggle />
           <UserMenu user={user} />
         </div>
       </header>

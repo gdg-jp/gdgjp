@@ -1,6 +1,6 @@
+import { ThemeProvider, themeInitScript } from "@gdgjp/gdg-lib/ui";
 import type { ReactNode } from "react";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
-import { ThemeProvider, themeInitScript } from "~/lib/theme";
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 

@@ -1,6 +1,6 @@
+import { ThemeProvider, legacyThemeMigrationScript, themeInitScript } from "@gdgjp/gdg-lib/ui";
 import type { ReactNode } from "react";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
-import { ThemeProvider, themeInitScript } from "~/lib/theme";
 import stylesheet from "./app.css?url";
 
 export const links = () => [
@@ -16,6 +16,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: migrate the SNS-specific theme preference before bootstrapping */}
+        <script dangerouslySetInnerHTML={{ __html: legacyThemeMigrationScript("sns-theme") }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: fixed local pre-paint theme bootstrap */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
