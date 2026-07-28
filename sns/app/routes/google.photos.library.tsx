@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Form, data, redirect } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { Form, data, redirect, useFetcher } from "react-router";
 import { AppShell } from "~/components/app-shell";
 import { requireSnsAccess } from "~/lib/access.server";
 import { getPost, listGooglePhotosLibraryMedia, listPostMedia } from "~/lib/db.server";
@@ -13,10 +13,18 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const post = postId ? await getPost(context.cloudflare.env.DB, postId) : null;
   if (!post || post.chapterId !== access.chapter.chapterId)
     throw new Response("Not found", { status: 404 });
+  const cursor = new URL(request.url).searchParams.get("cursor");
+  const library = await listGooglePhotosLibraryMedia(
+    context.cloudflare.env.DB,
+    access.chapter.chapterId,
+    {
+      cursor,
+    },
+  );
   return {
     ...access,
     post,
-    media: await listGooglePhotosLibraryMedia(context.cloudflare.env.DB, access.chapter.chapterId),
+    ...library,
     remaining:
       MAX_IMAGES -
       ((await listPostMedia(context.cloudflare.env.DB, [post.id]))[post.id] ?? []).length,
@@ -72,6 +80,38 @@ export async function action({ request, context }: Route.ActionArgs) {
 
 export default function GooglePhotosLibrary({ loaderData, actionData }: Route.ComponentProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [media, setMedia] = useState(loaderData.media);
+  const [nextCursor, setNextCursor] = useState(loaderData.nextCursor);
+  const moreMedia = useFetcher<Pick<typeof loaderData, "media" | "nextCursor">>();
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const loadedMedia = moreMedia.data;
+    if (!loadedMedia) return;
+    setMedia((current) => {
+      const known = new Set(current.map((item) => item.id));
+      return [...current, ...loadedMedia.media.filter((item) => !known.has(item.id))];
+    });
+    setNextCursor(loadedMedia.nextCursor);
+  }, [moreMedia.data]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || !nextCursor) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || moreMedia.state !== "idle") return;
+        const params = new URLSearchParams({
+          postId: loaderData.post.id,
+          cursor: nextCursor,
+        });
+        moreMedia.load(`/google/photos/library?${params}`);
+      },
+      { rootMargin: "400px" },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [loaderData.post.id, moreMedia, nextCursor]);
 
   function toggleSelection(mediaId: string) {
     setSelectedIds((current) => {
@@ -99,9 +139,9 @@ export default function GooglePhotosLibrary({ loaderData, actionData }: Route.Co
         {selectedIds.map((mediaId) => (
           <input key={mediaId} type="hidden" name="mediaId" value={mediaId} />
         ))}
-        {loaderData.media.length ? (
+        {media.length ? (
           <div className="grid grid-cols-3">
-            {loaderData.media.map((item) => {
+            {media.map((item) => {
               const selectionIndex = selectedIds.indexOf(item.id);
               const isSelected = selectionIndex !== -1;
               return (
@@ -133,6 +173,11 @@ export default function GooglePhotosLibrary({ loaderData, actionData }: Route.Co
         ) : (
           <p className="px-4 text-sm text-muted-foreground">まだ取り込まれた写真はありません。</p>
         )}
+        {nextCursor ? (
+          <div ref={loadMoreRef} className="py-4 text-center text-sm text-muted-foreground">
+            {moreMedia.state === "loading" ? "写真を読み込んでいます…" : "さらに写真を読み込みます"}
+          </div>
+        ) : null}
         <button
           disabled={!selectedIds.length}
           className="fixed inset-x-4 bottom-20 z-30 mx-auto max-w-[calc(28rem-2rem)] rounded-full bg-primary px-5 py-3 font-bold text-white shadow-lg disabled:opacity-50"

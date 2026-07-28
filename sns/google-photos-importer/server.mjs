@@ -86,6 +86,50 @@ async function captureStructureDiagnostics(page) {
 
 async function extractVisiblePhotos(page) {
   return page.evaluate(() => {
+    const parseTakenAt = (element) => {
+      const timestamp = element?.getAttribute("data-timestamp");
+      if (timestamp && /^\d+$/.test(timestamp)) {
+        const value = Number(timestamp);
+        const date = new Date(value < 10_000_000_000 ? value * 1_000 : value);
+        if (!Number.isNaN(date.valueOf())) return date.toISOString();
+      }
+      const candidates = [
+        element?.querySelector("time")?.getAttribute("datetime"),
+        element?.getAttribute("data-date"),
+        element?.getAttribute("aria-label"),
+        element?.getAttribute("title"),
+      ];
+      for (const candidate of candidates) {
+        if (!candidate) continue;
+        const match = candidate.match(
+          /(\d{4})[/-](\d{1,2})[/-](\d{1,2})[ T](\d{1,2}):(\d{2}):(\d{2})/,
+        );
+        if (match) {
+          const [, year, month, day, hour, minute, second] = match;
+          const date = new Date(
+            `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${hour.padStart(2, "0")}:${minute}:${second}`,
+          );
+          if (!Number.isNaN(date.valueOf())) return date.toISOString();
+        }
+        const value = Date.parse(candidate);
+        if (!Number.isNaN(value)) return new Date(value).toISOString();
+      }
+      return null;
+    };
+    const linkPhotos = [...document.querySelectorAll('a[href*="/photo/"]')]
+      .map((link) => {
+        const stableId = link.getAttribute("href")?.match(/\/photo\/([^/?]+)/)?.[1];
+        const backgroundImage = [...link.querySelectorAll("*")]
+          .map((element) => getComputedStyle(element).backgroundImage)
+          .find((value) => /^url\(/.test(value));
+        const url = backgroundImage?.match(/^url\(["']?(.+?)["']?\)$/)?.[1];
+        if (!stableId || !url || !/^https:\/\/(lh3|lh5)\.googleusercontent\.com\//.test(url))
+          return null;
+        const parsed = new URL(url);
+        parsed.pathname = parsed.pathname.replace(/=[^/]+$/, "=w1600");
+        return { stableId, url: parsed.toString(), takenAt: parseTakenAt(link), idSource: "link" };
+      })
+      .filter(Boolean);
     const domPhotos = [...document.images]
       .map((image) => {
         const ancestor = image.closest(
@@ -102,8 +146,13 @@ async function extractVisiblePhotos(page) {
         if (!url || !/^https:\/\/(lh3|lh5)\.googleusercontent\.com\//.test(url)) return null;
         const canonicalPath = new URL(url).pathname.replace(/=[^/]+$/, "");
         return stableId || !canonicalPath || canonicalPath === "/"
-          ? { stableId, url, idSource: "dom" }
-          : { stableId: canonicalPath, url, idSource: "googleusercontent_path" };
+          ? { stableId, url, takenAt: parseTakenAt(ancestor), idSource: "dom" }
+          : {
+              stableId: canonicalPath,
+              url,
+              takenAt: parseTakenAt(ancestor),
+              idSource: "googleusercontent_path",
+            };
       })
       .filter((photo) => photo?.stableId);
     const resourcePhotos = performance
@@ -121,7 +170,7 @@ async function extractVisiblePhotos(page) {
         url,
         idSource: "googleusercontent_resource",
       }));
-    return [...domPhotos, ...resourcePhotos];
+    return linkPhotos.length ? linkPhotos : [...domPhotos, ...resourcePhotos];
   });
 }
 
@@ -166,7 +215,10 @@ export async function collectPhotos(page) {
   let settledAtEndRounds = 0;
   for (let index = 0; index < 300 && settledAtEndRounds < 3; index += 1) {
     const visiblePhotos = await extractVisiblePhotos(page);
-    for (const photo of visiblePhotos) unique.set(photo.stableId, photo);
+    for (const photo of visiblePhotos) {
+      const existing = unique.get(photo.stableId);
+      if (!existing || existing.idSource !== "dom") unique.set(photo.stableId, photo);
+    }
 
     const { advanced, atEnd } = await scrollAlbum(page);
     await page.waitForTimeout(500);
@@ -199,6 +251,7 @@ async function uploadPhoto(albumId, photo, context) {
       "x-album-id": albumId,
       "x-stable-photo-id": photo.stableId,
       "x-source-url": photo.url,
+      ...(photo.takenAt ? { "x-photo-taken-at": photo.takenAt } : {}),
     },
     body: await response.body(),
   });
@@ -224,7 +277,10 @@ async function poll() {
       (
         await bridgeJson("/known", {
           albumId,
-          stablePhotoIds: photos.map((photo) => photo.stableId),
+          media: photos.map((photo) => ({
+            stablePhotoId: photo.stableId,
+            takenAt: photo.takenAt,
+          })),
         })
       ).known,
     );

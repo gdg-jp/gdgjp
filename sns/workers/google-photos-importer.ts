@@ -50,6 +50,11 @@ async function storeMedia(request: Request, env: Env): Promise<Response> {
   const stablePhotoId = request.headers.get("x-stable-photo-id");
   const contentType = request.headers.get("content-type")?.split(";", 1)[0] ?? "";
   const sourceUrl = request.headers.get("x-source-url");
+  const takenAtHeader = request.headers.get("x-photo-taken-at");
+  const takenAt =
+    takenAtHeader && !Number.isNaN(Date.parse(takenAtHeader))
+      ? new Date(takenAtHeader).toISOString()
+      : null;
   if (!albumId || !stablePhotoId || !request.body || !contentType.startsWith("image/"))
     return json({ error: "invalid media upload" }, 400);
   const album = await env.DB.prepare(
@@ -72,8 +77,8 @@ async function storeMedia(request: Request, env: Env): Promise<Response> {
   try {
     await env.DB.prepare(
       `INSERT INTO google_photos_media
-       (id, album_id, stable_photo_id, r2_key, content_type, byte_size, source_url, imported_at, last_seen_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, album_id, stable_photo_id, r2_key, content_type, byte_size, source_url, taken_at, imported_at, last_seen_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
       .bind(
         id,
@@ -83,6 +88,7 @@ async function storeMedia(request: Request, env: Env): Promise<Response> {
         contentType,
         bytes.byteLength,
         sourceUrl,
+        takenAt,
         nowIso(),
         nowIso(),
       )
@@ -95,9 +101,31 @@ async function storeMedia(request: Request, env: Env): Promise<Response> {
 }
 
 async function knownMedia(request: Request, env: Env): Promise<Response> {
-  const payload = (await request.json()) as { albumId?: string; stablePhotoIds?: string[] };
-  const ids = [...new Set((payload.stablePhotoIds ?? []).filter(Boolean))];
+  const payload = (await request.json()) as {
+    albumId?: string;
+    stablePhotoIds?: string[];
+    media?: { stablePhotoId?: string; takenAt?: string | null }[];
+  };
+  const media = payload.media ?? [];
+  const ids = [
+    ...new Set([...media.map((item) => item.stablePhotoId), ...(payload.stablePhotoIds ?? [])]),
+  ].filter((id): id is string => typeof id === "string");
   if (!payload.albumId || ids.length === 0) return json({ known: [] });
+  const takenAtById = new Map(
+    media.flatMap((item) => {
+      if (!item.stablePhotoId || !item.takenAt || Number.isNaN(Date.parse(item.takenAt))) return [];
+      return [[item.stablePhotoId, new Date(item.takenAt).toISOString()] as const];
+    }),
+  );
+  if (takenAtById.size) {
+    await env.DB.batch(
+      [...takenAtById].map(([id, takenAt]) =>
+        env.DB.prepare(
+          "UPDATE google_photos_media SET taken_at = ? WHERE album_id = ? AND stable_photo_id = ? AND taken_at IS NULL",
+        ).bind(takenAt, payload.albumId, id),
+      ),
+    );
+  }
   const placeholders = ids.map(() => "?").join(",");
   const result = await env.DB.prepare(
     `SELECT stable_photo_id FROM google_photos_media

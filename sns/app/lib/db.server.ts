@@ -72,6 +72,7 @@ export type GooglePhotosLibraryMedia = {
   stablePhotoId: string;
   contentType: string;
   byteSize: number;
+  takenAt: string | null;
   importedAt: string;
 };
 
@@ -282,30 +283,60 @@ export async function getGooglePhotosAlbum(
 export async function listGooglePhotosLibraryMedia(
   db: D1Database,
   chapterId: number,
-): Promise<GooglePhotosLibraryMedia[]> {
+  options: { cursor?: string | null; limit?: number } = {},
+): Promise<{ media: GooglePhotosLibraryMedia[]; nextCursor: string | null }> {
+  const limit = options.limit ?? 48;
+  const cursor = options.cursor ? parseGooglePhotosLibraryCursor(options.cursor) : null;
+  const cursorClause = cursor
+    ? `AND (COALESCE(m.taken_at, m.imported_at) < ?
+        OR (COALESCE(m.taken_at, m.imported_at) = ? AND m.id < ?))`
+    : "";
   const result = await db
     .prepare(
-      `SELECT m.id, m.stable_photo_id, m.content_type, m.byte_size, m.imported_at
+      `SELECT m.id, m.stable_photo_id, m.content_type, m.byte_size, m.taken_at, m.imported_at
        FROM google_photos_media m
        JOIN google_photos_albums a ON a.id = m.album_id
        WHERE a.chapter_id = ?
-       ORDER BY m.imported_at DESC`,
+       ${cursorClause}
+       ORDER BY COALESCE(m.taken_at, m.imported_at) DESC, m.id DESC
+       LIMIT ?`,
     )
-    .bind(chapterId)
+    .bind(chapterId, ...(cursor ? [cursor.date, cursor.date, cursor.id] : []), limit + 1)
     .all<{
       id: string;
       stable_photo_id: string;
       content_type: string;
       byte_size: number;
+      taken_at: string | null;
       imported_at: string;
     }>();
-  return result.results.map((row) => ({
-    id: row.id,
-    stablePhotoId: row.stable_photo_id,
-    contentType: row.content_type,
-    byteSize: row.byte_size,
-    importedAt: row.imported_at,
-  }));
+  const rows = result.results.slice(0, limit);
+  const last = rows.at(-1);
+  return {
+    media: rows.map((row) => ({
+      id: row.id,
+      stablePhotoId: row.stable_photo_id,
+      contentType: row.content_type,
+      byteSize: row.byte_size,
+      takenAt: row.taken_at,
+      importedAt: row.imported_at,
+    })),
+    nextCursor:
+      result.results.length > limit && last
+        ? JSON.stringify({ date: last.taken_at ?? last.imported_at, id: last.id })
+        : null,
+  };
+}
+
+function parseGooglePhotosLibraryCursor(cursor: string): { date: string; id: string } | null {
+  try {
+    const value = JSON.parse(cursor) as { date?: unknown; id?: unknown };
+    return typeof value.date === "string" && typeof value.id === "string"
+      ? { date: value.date, id: value.id }
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function listGooglePhotosPollRuns(
