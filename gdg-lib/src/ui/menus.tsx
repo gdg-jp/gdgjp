@@ -70,15 +70,19 @@ export type GdgAccountMenuUser = {
 
 export function GdgAccountMenu({
   accountUrl,
+  children,
   onSignOut,
   settings,
   signOutLabel = "Sign out",
+  trigger,
   user,
 }: {
   accountUrl: string;
+  children?: ReactNode;
   onSignOut: () => void;
   settings?: { href: string; label: string };
   signOutLabel?: string;
+  trigger?: ReactNode;
   user: GdgAccountMenuUser;
 }) {
   const initials = initialsFor(user);
@@ -87,14 +91,16 @@ export function GdgAccountMenu({
   return (
     <DropdownMenuPrimitive.Root>
       <DropdownMenuPrimitive.Trigger asChild>
-        <button
-          type="button"
-          aria-label="Account menu"
-          className={menuTriggerClassName}
-          title={title}
-        >
-          <AvatarContent user={user} initials={initials} />
-        </button>
+        {trigger ?? (
+          <button
+            type="button"
+            aria-label="Account menu"
+            className={menuTriggerClassName}
+            title={title}
+          >
+            <AvatarContent user={user} initials={initials} />
+          </button>
+        )}
       </DropdownMenuPrimitive.Trigger>
       <DropdownMenuPrimitive.Portal>
         <DropdownMenuPrimitive.Content
@@ -102,6 +108,12 @@ export function GdgAccountMenu({
           sideOffset={4}
           className={`${menuContentClassName} w-56`}
         >
+          {children ? (
+            <>
+              {children}
+              <MenuSeparator />
+            </>
+          ) : null}
           <DropdownMenuPrimitive.Label className="px-2 py-1.5 text-sm font-medium">
             <div className="flex flex-col">
               <span className="truncate font-medium">{title}</span>

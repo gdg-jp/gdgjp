@@ -1,6 +1,6 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { GdgAppLauncher, GdgThemeToggle } from "@gdgjp/gdg-lib/ui";
-import { UserRound } from "lucide-react";
+import { GdgAccountMenu, GdgAppLauncher, GdgThemeToggle } from "@gdgjp/gdg-lib/ui";
+import { ChevronDown } from "lucide-react";
 import { Form, Link, NavLink } from "react-router";
 import { chapterName } from "~/lib/utils";
 
@@ -21,46 +21,23 @@ export function AppShell({
         <div className="flex items-center gap-1">
           <GdgThemeToggle ariaLabel="テーマを切り替え" />
           <GdgAppLauncher ariaLabel="アプリ一覧" />
-          <details className="relative">
-            <summary className="flex list-none cursor-pointer items-center gap-1 rounded-full px-2 py-1 hover:bg-muted">
-              <span className="max-w-20 truncate text-sm font-semibold">
-                GDG {chapterName(chapter.chapterSlug)}
-              </span>
-              <UserRound className="size-5" />
-            </summary>
-            <div className="absolute right-0 top-10 z-30 w-72 rounded-xl border bg-card p-2 shadow-xl">
-              {chapters.map((item) => (
-                <Form method="post" action="/api/chapter" key={item.chapterId}>
-                  <input type="hidden" name="chapterId" value={item.chapterId} />
-                  <button
-                    type="submit"
-                    className="w-full rounded-lg px-3 py-2 text-left hover:bg-muted"
-                  >
-                    GDG {chapterName(item.chapterSlug)}
-                  </button>
-                </Form>
-              ))}
-              <hr className="my-2" />
-              <div className="flex gap-2 px-3 py-2">
-                <UserRound className="size-8" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{user.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-                </div>
-              </div>
-              <hr className="my-2" />
-              <a
-                className="block rounded-lg px-3 py-2 text-sm hover:bg-muted"
-                href="https://accounts.gdgs.jp/dashboard"
+          <GdgAccountMenu
+            accountUrl="https://accounts.gdgs.jp/dashboard"
+            onSignOut={() => window.location.assign("/auth/signout")}
+            user={user}
+            trigger={
+              <button
+                type="button"
+                aria-label={`チャプターを選択: GDG ${chapterName(chapter.chapterSlug)}`}
+                className="inline-flex h-8 max-w-36 items-center gap-1 rounded-md border border-input bg-background px-2 text-sm font-medium shadow-xs outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
-                Manage your accounts
-              </a>
-              <hr className="my-2" />
-              <a className="block rounded-lg px-3 py-2 text-sm hover:bg-muted" href="/auth/signout">
-                Sign out
-              </a>
-            </div>
-          </details>
+                <span className="truncate">GDG {chapterName(chapter.chapterSlug)}</span>
+                <ChevronDown className="size-4 shrink-0 opacity-50" aria-hidden="true" />
+              </button>
+            }
+          >
+            <ChapterMenu chapter={chapter} chapters={chapters} />
+          </GdgAccountMenu>
         </div>
       </header>
       <main>{children}</main>
@@ -72,6 +49,30 @@ export function AppShell({
     </div>
   );
 }
+
+function ChapterMenu({ chapter, chapters }: { chapter: Chapter; chapters: Chapter[] }) {
+  return (
+    <div className="px-1">
+      <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Chapter</p>
+      {chapters.map((item) => {
+        const isCurrent = item.chapterId === chapter.chapterId;
+        return (
+          <Form method="post" action="/api/chapter" key={item.chapterId}>
+            <input type="hidden" name="chapterId" value={item.chapterId} />
+            <button
+              type="submit"
+              className="flex w-full items-center rounded-xl px-2 py-1.5 text-left text-sm outline-hidden hover:bg-accent focus:bg-accent"
+              aria-current={isCurrent ? "true" : undefined}
+            >
+              GDG {chapterName(item.chapterSlug)}
+            </button>
+          </Form>
+        );
+      })}
+    </div>
+  );
+}
+
 function NavItem({ to, label }: { to: string; label: string }) {
   return (
     <NavLink

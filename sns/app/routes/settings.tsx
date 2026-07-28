@@ -1,8 +1,23 @@
-import { Form, Link } from "react-router";
+import { useEffect, useState } from "react";
+import { Form, Link, useFetcher } from "react-router";
 import { AppShell } from "~/components/app-shell";
 import { requireSnsAccess } from "~/lib/access.server";
 import { listContributors, listXAccounts } from "~/lib/db.server";
 import type { Route } from "./+types/settings";
+
+type ContributorCandidate = { email: string; name: string; image: string | null };
+
+function useDebouncedValue(value: string, delay = 250) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedValue(value), delay);
+    return () => window.clearTimeout(timer);
+  }, [delay, value]);
+
+  return debouncedValue;
+}
+
 export async function loader({ request, context }: Route.LoaderArgs) {
   const access = await requireSnsAccess(context.cloudflare.env, request);
   return {
@@ -16,6 +31,19 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 }
 export default function Settings({ loaderData }: Route.ComponentProps) {
   const organizer = loaderData.chapter.role === "organizer";
+  const [contributorQuery, setContributorQuery] = useState("");
+  const [showContributorCandidates, setShowContributorCandidates] = useState(false);
+  const debouncedContributorQuery = useDebouncedValue(contributorQuery);
+  const contributorCandidates = useFetcher<{ candidates: ContributorCandidate[] }>();
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetcher functions are stable
+  useEffect(() => {
+    if (!organizer || !showContributorCandidates) return;
+    contributorCandidates.load(
+      `/api/contributor-candidates?q=${encodeURIComponent(debouncedContributorQuery)}`,
+    );
+  }, [debouncedContributorQuery, organizer, showContributorCandidates]);
+
   return (
     <AppShell user={loaderData.user} chapter={loaderData.chapter} chapters={loaderData.chapters}>
       <div className="space-y-6 p-4">
@@ -66,13 +94,55 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
               このチャプターの投稿操作を許可するユーザー
             </p>
             <Form method="post" action="/settings/contributors" className="mt-3 flex gap-2">
-              <input
-                required
-                name="email"
-                type="email"
-                placeholder="user@example.com"
-                className="min-w-0 flex-1 rounded-xl border bg-card p-2"
-              />
+              <div className="relative min-w-0 flex-1">
+                <input
+                  required
+                  name="email"
+                  type="email"
+                  value={contributorQuery}
+                  onChange={(event) => {
+                    setContributorQuery(event.target.value);
+                    setShowContributorCandidates(true);
+                  }}
+                  onFocus={() => setShowContributorCandidates(true)}
+                  onBlur={() => window.setTimeout(() => setShowContributorCandidates(false), 150)}
+                  placeholder="名前またはメールアドレスで検索"
+                  autoComplete="off"
+                  className="w-full rounded-xl border bg-card p-2"
+                />
+                {showContributorCandidates ? (
+                  <div
+                    id="contributor-candidates"
+                    className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border bg-popover py-1 shadow-lg"
+                  >
+                    {contributorCandidates.state !== "idle" ? (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">検索中…</p>
+                    ) : contributorCandidates.data?.candidates.length ? (
+                      contributorCandidates.data.candidates.map((candidate) => (
+                        <button
+                          key={candidate.email}
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => {
+                            setContributorQuery(candidate.email);
+                            setShowContributorCandidates(false);
+                          }}
+                          className="block w-full px-3 py-2 text-left hover:bg-muted"
+                        >
+                          <span className="block text-sm font-medium">{candidate.name}</span>
+                          <span className="block text-sm text-muted-foreground">
+                            {candidate.email}
+                          </span>
+                        </button>
+                      ))
+                    ) : contributorQuery ? (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">
+                        該当するユーザーはいません。
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
               <button
                 type="submit"
                 className="rounded-full bg-primary px-3 text-sm font-bold text-white"

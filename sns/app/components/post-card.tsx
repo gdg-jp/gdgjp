@@ -1,4 +1,6 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, ImagePlus, Pencil } from "lucide-react";
+import { useEffect } from "react";
+import { Link, useFetcher, useRevalidator } from "react-router";
 import type { Post, PostMedia, XAccount } from "~/lib/db.server";
 
 function textWithLinks(text: string) {
@@ -21,7 +23,21 @@ export function PostCard({
   post,
   account,
   media,
-}: { post: Post; account: XAccount | undefined; media: PostMedia[] }) {
+  editHref,
+}: {
+  post: Post;
+  account: XAccount | undefined;
+  media: PostMedia[];
+  editHref?: string;
+}) {
+  const mediaFetcher = useFetcher<{ error?: string; ok?: boolean }>();
+  const revalidator = useRevalidator();
+  const canAddMedia = !["published", "posting"].includes(post.status) && media.length < 4;
+
+  useEffect(() => {
+    if (mediaFetcher.data?.ok) revalidator.revalidate();
+  }, [mediaFetcher.data?.ok, revalidator]);
+
   return (
     <article className="border-b px-4 py-3">
       <div className="flex gap-3">
@@ -33,25 +49,33 @@ export function PostCard({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-1">
+          <div className="flex items-center gap-1">
             <strong className="truncate">{account?.displayName ?? "X account"}</strong>
             <span className="truncate text-sm text-muted-foreground">
               @{account?.username ?? "unknown"}
             </span>
+            {editHref ? (
+              <Link
+                className="grid size-7 shrink-0 place-items-center rounded-full text-primary hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                to={editHref}
+                aria-label="投稿を編集"
+                title="投稿を編集"
+              >
+                <Pencil className="size-4" aria-hidden="true" />
+              </Link>
+            ) : null}
           </div>
           <p className="mt-1 whitespace-pre-wrap text-[15px] leading-5 post-text">
             {textWithLinks(post.text)}
           </p>
           {media.length ? (
-            <div
-              className={`mt-3 grid overflow-hidden rounded-2xl border ${media.length > 1 ? "grid-cols-2 gap-0.5" : "grid-cols-1"}`}
-            >
+            <div className="mt-3 flex gap-1 overflow-x-auto">
               {media.map((image) => (
                 <img
                   key={image.id}
                   src={`/api/media/${image.id}`}
                   alt={image.altText}
-                  className="aspect-square w-full object-cover"
+                  className="size-24 shrink-0 rounded-xl border object-cover"
                 />
               ))}
             </div>
@@ -87,6 +111,35 @@ export function PostCard({
                 ) : null}
               </div>
             </a>
+          ) : null}
+          {canAddMedia ? (
+            <mediaFetcher.Form
+              method="post"
+              action="/api/posts"
+              encType="multipart/form-data"
+              className="mt-3"
+            >
+              <input type="hidden" name="intent" value="add_media" />
+              <input type="hidden" name="postId" value={post.id} />
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full px-3 py-2 text-sm text-primary hover:bg-muted">
+                <ImagePlus className="size-4" aria-hidden="true" />
+                {mediaFetcher.state === "submitting" ? "画像を追加中…" : "画像を追加"}
+                <input
+                  name="images"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  disabled={mediaFetcher.state !== "idle"}
+                  onChange={(event) => event.currentTarget.form?.requestSubmit()}
+                />
+              </label>
+              {mediaFetcher.data?.error ? (
+                <p className="mt-1 text-xs text-red-600" role="alert">
+                  {mediaFetcher.data.error}
+                </p>
+              ) : null}
+            </mediaFetcher.Form>
           ) : null}
           <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
             <span>

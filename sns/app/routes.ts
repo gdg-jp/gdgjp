@@ -8,6 +8,7 @@ export default [
   route("settings/contributors", "routes/settings.contributors.tsx"),
   route("settings/x", "routes/settings.x.tsx"),
   route("api/posts", "routes/api.posts.ts"),
+  route("api/contributor-candidates", "routes/api.contributor-candidates.ts"),
   route("api/media/:id", "routes/api.media.$id.ts"),
   route("api/chapter", "routes/api.chapter.ts"),
   route("x/connect", "routes/x.connect.ts"),

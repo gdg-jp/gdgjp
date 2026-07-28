@@ -41,25 +41,25 @@ export default function Posts({ loaderData }: Route.ComponentProps) {
               post={post}
               account={accounts.get(post.xAccountId)}
               media={loaderData.media[post.id] ?? []}
+              editHref={
+                !["published", "posting"].includes(post.status)
+                  ? `/schedule?edit=${post.id}`
+                  : undefined
+              }
             />
-            {!["published", "posting"].includes(post.status) ? (
-              <div className="flex justify-end gap-4 border-b px-4 pb-3 text-right">
-                {post.status === "failed" ? (
-                  <retryFetcher.Form method="post" action="/api/posts">
-                    <input type="hidden" name="intent" value="publish" />
-                    <input type="hidden" name="postId" value={post.id} />
-                    <button
-                      type="submit"
-                      disabled={retryFetcher.state !== "idle"}
-                      className="text-sm text-primary disabled:opacity-50"
-                    >
-                      再試行
-                    </button>
-                  </retryFetcher.Form>
-                ) : null}
-                <Link className="text-sm text-primary" to={`/schedule?edit=${post.id}`}>
-                  投稿を編集
-                </Link>
+            {post.status === "failed" ? (
+              <div className="flex justify-end px-4 pb-3 text-right">
+                <retryFetcher.Form method="post" action="/api/posts">
+                  <input type="hidden" name="intent" value="publish" />
+                  <input type="hidden" name="postId" value={post.id} />
+                  <button
+                    type="submit"
+                    disabled={retryFetcher.state !== "idle"}
+                    className="text-sm text-primary disabled:opacity-50"
+                  >
+                    再試行
+                  </button>
+                </retryFetcher.Form>
               </div>
             ) : null}
           </div>
