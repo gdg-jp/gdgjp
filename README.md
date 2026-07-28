@@ -2,8 +2,8 @@
 
 Monorepo for the GDG Japan web properties. It uses a flat layout, pnpm workspaces, Turborepo, and
 Biome. Its core web apps are React Router v7 SSR applications deployed to Cloudflare Workers, with
-persistent state on Cloudflare D1; the repository also includes a Vercel gateway, a Chrome extension,
-an OIDC client demo, and shared libraries.
+persistent state on Cloudflare D1; the repository also includes a public website, a Vercel gateway,
+a Chrome extension, an OIDC client demo, and shared libraries.
 
 ## GDG CLI
 
@@ -30,8 +30,10 @@ Then sign in with `gdg login`. Run `gdg update` to install the latest stable rel
 | `go-extension/` | `@gdgjp/go-extension` | Chrome extension | Manifest V3 extension for GDG Japan Go Links. Redirects `go/<slug>` URLs, supports the `go` omnibox keyword, and recognizes exact searches. |
 | `img/` | `@gdgjp/img` | img.gdgs.jp | Image hosting. D1 + R2 + Cloudflare Images; OAuth client of `accounts`. |
 | `scheduler/` | `@gdgjp/scheduler` | scheduler.gdgs.jp | Meeting scheduler. Anonymous-friendly: anyone can create an event with a weekly schedule and meeting length, and pick available slots; authenticated owners get a cross-device "My events" list plus edit/delete. D1-backed; OAuth client of `accounts`. |
+| `sns/` | `@gdgjp/sns` | sns.gdgs.jp | Social-post management and publishing tool. D1 + R2-backed, with scheduled publishing and X and Google Photos integrations; OAuth client of `accounts`. |
 | `tinyurl/` | `@gdgjp/tinyurl` | url.gdgs.jp | URL shortener. D1-backed; OAuth client of `accounts`. |
 | `tinyurl-gateway/` | `@gdgjp/tinyurl-gateway` | Custom short-link domains | Vercel Edge gateway for TinyURL custom domains. It serves an optional upstream first, then resolves a short link when the upstream returns 404. |
+| `website/` | `@gdgjp/website` | gdgs.jp | Public GDG Japan website. Cloudflare Worker using the TinyURL service binding. |
 | `wiki/` | `@gdgjp/wiki` | wiki.gdgs.jp | Community wiki. D1 + R2 + Queues + Browser Rendering + Workers AI + Vectorize + Durable Object (Yjs collab); OAuth client of `accounts`. |
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for local development and contribution guidance.

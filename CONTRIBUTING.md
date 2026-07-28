@@ -1,7 +1,8 @@
 # Contributing to gdgjp
 
 Thank you for contributing. This repository uses pnpm workspaces and Turborepo.
-Apps are React Router v7 SSR applications deployed to Cloudflare Workers.
+Apps, including the public `website/` and social-post management `sns/` services, are React Router
+v7 SSR applications deployed to Cloudflare Workers.
 
 ## Prerequisites
 
@@ -31,11 +32,15 @@ IDP_URL=http://localhost:5173
 
 `accounts/.dev.vars` also needs `IDP_SESSION_SECRET`, `GOOGLE_CLIENT_SECRET`, and an
 `<APP>_CLIENT_SECRET` for every OAuth client: `TINYURL_CLIENT_SECRET`,
-`WIKI_CLIENT_SECRET`, `IMG_CLIENT_SECRET`, and `SCHEDULER_CLIENT_SECRET`. After changing a
-client secret, ID, or redirect URI, open `/admin/seed-clients` to reseed `OAUTH_KV`.
+`WIKI_CLIENT_SECRET`, `IMG_CLIENT_SECRET`, `SCHEDULER_CLIENT_SECRET`, and `SNS_CLIENT_SECRET`.
+After changing a client secret, ID, or redirect URI, open `/admin/seed-clients` to reseed
+`OAUTH_KV`.
 
 Development ports are `5173` (accounts), `5174` (tinyurl), `5175` (img), `5176`
-(scheduler), and `5177` (wiki).
+(scheduler), `5177` (wiki), `5178` (sns), and `5180` (website).
+
+`sns/.dev.vars.example` lists its additional X and Google Photos credentials. The public
+`website/` does not require a `.dev.vars` file for local development.
 
 ## Common commands
 
@@ -60,8 +65,8 @@ pnpm --filter @gdgjp/scheduler migrate:local    # apply D1 migrations locally
 pnpm --filter @gdgjp/scheduler migrate:remote   # apply D1 migrations to production
 ```
 
-Every app except `gdg-lib` has D1 migrations and provides `migrate:local` and
-`migrate:remote` scripts.
+D1-backed apps provide `migrate:local` and `migrate:remote` scripts. `website/`, `gdg-lib/`,
+`tinyurl-gateway/`, `go-extension/`, and `accounts-oidc-client-demo/` do not have D1 migrations.
 
 ## Before opening a pull request
 
