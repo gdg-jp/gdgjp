@@ -183,7 +183,7 @@ async function completeAlbum(request: Request, env: Env): Promise<Response> {
 }
 
 export async function handleGooglePhotosImport(request: Request, env: Env): Promise<Response> {
-  const pathname = new URL(request.url).pathname;
+  const pathname = new URL(request.url).pathname.replace(/^\/api\/google-photos-import/, "");
   if (request.method === "POST" && pathname === "/claim") return claimAlbum(env);
   if (request.method === "POST" && pathname === "/known") return knownMedia(request, env);
   if (request.method === "POST" && pathname === "/media") return storeMedia(request, env);
