@@ -40,7 +40,10 @@ const globalNodeInputs = new Set([
 ]);
 
 function changedFiles() {
-  const result = spawn("git", ["status", "--porcelain=v1", "-z"], {
+  // A pre-commit hook must inspect the index, not the whole working tree. A
+  // developer may have unrelated edits in progress while committing only a
+  // subset of files; `git status` would make those edits run extra CI steps.
+  const result = spawn("git", ["diff", "--cached", "--name-only", "-z", "--no-renames"], {
     cwd: process.cwd(),
     stdio: ["ignore", "pipe", "ignore"],
   });
@@ -63,13 +66,7 @@ function changedFiles() {
           continue;
         }
 
-        files.push(entry.slice(3));
-        if (entry[0] === "R" || entry[0] === "C" || entry[1] === "R" || entry[1] === "C") {
-          index += 1;
-          if (entries[index]) {
-            files.push(entries[index]);
-          }
-        }
+        files.push(entry);
       }
       resolve(files);
     });
