@@ -1,6 +1,7 @@
 import { ThemeProvider, legacyThemeMigrationScript, themeInitScript } from "@gdgjp/gdg-lib/ui";
 import type { ReactNode } from "react";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 
 export const links = () => [
@@ -8,6 +9,9 @@ export const links = () => [
   { rel: "apple-touch-icon", href: "/app-icon.png" },
   { rel: "stylesheet", href: stylesheet },
 ];
+
+export const meta: Route.MetaFunction = () => [{ title: "SNS Manager" }];
+
 export function Layout({ children }: { children: ReactNode }) {
   return (
     <html lang="ja" suppressHydrationWarning>

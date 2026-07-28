@@ -201,7 +201,9 @@ function postFromRow(row: PostRow): Post {
 
 export async function listPosts(db: D1Database, chapterId: number): Promise<Post[]> {
   const result = await db
-    .prepare("SELECT * FROM posts WHERE chapter_id = ? ORDER BY scheduled_at ASC, created_at ASC")
+    .prepare(
+      "SELECT * FROM posts WHERE chapter_id = ? AND status != 'published' ORDER BY scheduled_at ASC, created_at ASC",
+    )
     .bind(chapterId)
     .all<PostRow>();
   return result.results.map(postFromRow);
