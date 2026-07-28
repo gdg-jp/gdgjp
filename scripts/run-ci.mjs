@@ -28,7 +28,6 @@ const codeFilePattern = /\.(?:[cm]?[jt]sx?|sql)$/;
 const biomeFilePattern = /\.(?:[cm]?[jt]sx?|jsonc?|css|graphql|ya?ml)$/;
 const nodeConfigurationFilePattern =
   /(?:^|\/)(?:package\.json|tsconfig(?:\.[^/]+)?\.json|vite\.config\.[cm]?[jt]s|wrangler\.(?:toml|jsonc?)|react-router\.config\.[cm]?[jt]s)$/;
-const e2ePackages = new Set(["accounts", "tinyurl", "img", "scheduler"]);
 const globalNodeInputs = new Set([
   "package.json",
   "pnpm-lock.yaml",
@@ -37,6 +36,19 @@ const globalNodeInputs = new Set([
   "tsconfig.json",
   "biome.json",
   "biome.jsonc",
+]);
+const workspaces = new Map([
+  ["accounts", "@gdgjp/accounts"],
+  ["accounts-oidc-client-demo", "@gdgjp/accounts-oidc-client-demo"],
+  ["gdg-lib", "@gdgjp/gdg-lib"],
+  ["go-extension", "@gdgjp/go-extension"],
+  ["img", "@gdgjp/img"],
+  ["scheduler", "@gdgjp/scheduler"],
+  ["sns", "@gdgjp/sns"],
+  ["tinyurl", "@gdgjp/tinyurl"],
+  ["tinyurl-gateway", "@gdgjp/tinyurl-gateway"],
+  ["website", "@gdgjp/website"],
+  ["wiki", "@gdgjp/wiki"],
 ]);
 
 function changedFiles() {
@@ -73,40 +85,111 @@ function changedFiles() {
   });
 }
 
-function relevantSteps(steps, files) {
+function isNodeFile(file) {
+  return (
+    !file.startsWith("cli/") &&
+    (codeFilePattern.test(file) || nodeConfigurationFilePattern.test(file))
+  );
+}
+
+function shellQuote(value) {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function workspaceFiles(files, predicate) {
+  const filesByWorkspace = new Map();
+
+  for (const file of files) {
+    const [directory, ...relativePath] = file.split("/");
+    const workspace = workspaces.get(directory);
+    if (!workspace || !predicate(file)) {
+      continue;
+    }
+
+    const existing = filesByWorkspace.get(workspace) ?? [];
+    existing.push(relativePath.join("/"));
+    filesByWorkspace.set(workspace, existing);
+  }
+
+  return filesByWorkspace;
+}
+
+function changedSteps(mode, files) {
   const hasGlobalNodeInput = files.some((file) => globalNodeInputs.has(file));
-  const hasNodeCode =
-    hasGlobalNodeInput ||
+  const nodeFiles = files.filter(isNodeFile);
+  const changedWorkspaces = new Set(
+    nodeFiles
+      .map((file) => workspaces.get(file.split("/")[0]))
+      .filter((workspace) => workspace !== undefined),
+  );
+  const steps = [];
+
+  if (files.some((file) => biomeFilePattern.test(file))) {
+    // Biome owns staged-file selection, including deleted and ignored files.
+    steps.push([
+      "lint",
+      "pnpm exec biome check --staged --files-ignore-unknown=true --no-errors-on-unmatched --reporter=github",
+    ]);
+  }
+
+  if (nodeFiles.length > 0 || hasGlobalNodeInput) {
+    const filters = hasGlobalNodeInput
+      ? ""
+      : [...changedWorkspaces].map((workspace) => ` --filter=${workspace}`).join("");
+    steps.push(["typecheck", `pnpm exec turbo typecheck${filters} --output-logs=errors-only`]);
+  }
+
+  const scriptTests = files.filter((file) => /^\.github\/scripts\/.*\.test\.mjs$/.test(file));
+  if (scriptTests.length > 0) {
+    steps.push([
+      "test:scripts",
+      `node --test --test-reporter=dot ${scriptTests.map(shellQuote).join(" ")}`,
+    ]);
+  }
+
+  const unitTestsByWorkspace = workspaceFiles(
+    files,
+    (file) => isNodeFile(file) && !file.includes("/e2e/"),
+  );
+  for (const [workspace, workspaceNodeFiles] of unitTestsByWorkspace) {
+    // `related` receives staged source paths and uses Vitest's import graph to
+    // select the tests that cover them. It deliberately does not inspect the
+    // working tree, so unrelated unstaged edits cannot expand this check.
+    steps.push([
+      `test:${workspace}`,
+      `pnpm --filter ${workspace} exec vitest related --run --reporter=minimal ${workspaceNodeFiles.map(shellQuote).join(" ")}`,
+    ]);
+  }
+
+  if (nodeFiles.length > 0 || hasGlobalNodeInput) {
+    const filters = hasGlobalNodeInput
+      ? ""
+      : [...changedWorkspaces].map((workspace) => ` --filter=${workspace}`).join("");
+    steps.push(["build", `pnpm exec turbo build${filters} --output-logs=errors-only`]);
+  }
+
+  if (mode === "full") {
+    const e2eTestsByWorkspace = workspaceFiles(files, (file) =>
+      /(?:^|\/)(?:e2e|tests\/e2e)\/.*\.(?:spec|test)\.[cm]?[jt]sx?$/.test(file),
+    );
+    for (const [workspace, e2eFiles] of e2eTestsByWorkspace) {
+      steps.push([
+        `e2e:${workspace}`,
+        `pnpm --filter ${workspace} exec playwright test --reporter=dot ${e2eFiles.map(shellQuote).join(" ")}`,
+      ]);
+    }
+  }
+
+  if (
     files.some(
       (file) =>
-        !file.startsWith("cli/") &&
-        (codeFilePattern.test(file) || nodeConfigurationFilePattern.test(file)),
-    );
-  const hasE2eCode =
-    hasGlobalNodeInput ||
-    files.some((file) => {
-      const [workspace] = file.split("/");
-      return (
-        e2ePackages.has(workspace) &&
-        (codeFilePattern.test(file) || nodeConfigurationFilePattern.test(file))
-      );
-    });
+        file.startsWith("cli/") && (file.endsWith(".go") || /\/go\.(?:mod|sum)$/.test(file)),
+    )
+  ) {
+    steps.push(...goSteps);
+  }
 
-  return steps.filter(([name]) => {
-    if (name === "lint") {
-      return files.some((file) => biomeFilePattern.test(file));
-    }
-    if (name === "go") {
-      return files.some(
-        (file) =>
-          file.startsWith("cli/") && (file.endsWith(".go") || /\/go\.(?:mod|sum)$/.test(file)),
-      );
-    }
-    if (name === "e2e") {
-      return hasE2eCode;
-    }
-    return hasNodeCode;
-  });
+  return steps;
 }
 
 function formatDuration(milliseconds) {
@@ -153,7 +236,7 @@ if (!allSteps || (options.length > 0 && !changedOnly)) {
   process.exitCode = 2;
 } else {
   const files = changedOnly ? await changedFiles() : undefined;
-  const steps = changedOnly && files ? relevantSteps(allSteps, files) : allSteps;
+  const steps = changedOnly && files ? changedSteps(mode, files) : allSteps;
   if (changedOnly && !files) {
     console.warn("ci:warn could not inspect changed files; running all checks");
   }
