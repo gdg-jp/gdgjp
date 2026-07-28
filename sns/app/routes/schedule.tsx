@@ -1,5 +1,9 @@
 import { Check, ChevronDown, ImagePlus, Tag, X } from "lucide-react";
-import { Dialog as DialogPrimitive, DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
+import {
+  AlertDialog as AlertDialogPrimitive,
+  Dialog as DialogPrimitive,
+  DropdownMenu as DropdownMenuPrimitive,
+} from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import { Form, Link, data, redirect } from "react-router";
 import { AppShell } from "~/components/app-shell";
@@ -41,7 +45,9 @@ export async function action({ request, context }: Route.ActionArgs) {
     )
       .bind(post.id)
       .run();
-    if (deletion.meta.changes !== 1)
+    // D1's `changes` uses SQLite's total-change count, so cascaded media and tag deletions can
+    // make it greater than one even when the post itself was deleted successfully.
+    if (deletion.meta.changes < 1)
       return data({ error: "投稿中または投稿済みの予約は削除できません。" }, { status: 409 });
     await Promise.all(media.map((item) => env.MEDIA.delete(item.r2Key)));
     throw redirect("/posts");
@@ -424,18 +430,50 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
               <Link to="/posts" className="block text-center text-sm text-muted-foreground">
                 キャンセル
               </Link>
-              <button
-                type="submit"
-                name="intent"
-                value="delete"
-                className="w-full rounded-full border border-destructive px-5 py-3 font-bold text-destructive transition-colors hover:bg-destructive/10 focus-visible:ring-[3px] focus-visible:ring-destructive/50"
-                onClick={(event) => {
-                  if (!window.confirm("この予約投稿を削除します。よろしいですか？"))
-                    event.preventDefault();
-                }}
-              >
-                削除
-              </button>
+              <AlertDialogPrimitive.Root>
+                <AlertDialogPrimitive.Trigger asChild>
+                  <button
+                    type="button"
+                    className="w-full rounded-full border border-destructive px-5 py-3 font-bold text-destructive transition-colors hover:bg-destructive/10 focus-visible:ring-[3px] focus-visible:ring-destructive/50"
+                  >
+                    削除
+                  </button>
+                </AlertDialogPrimitive.Trigger>
+                <AlertDialogPrimitive.Portal>
+                  <AlertDialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 animation-duration-200 ease-out motion-reduce:animation-duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+                  <AlertDialogPrimitive.Content className="fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border bg-card p-6 shadow-lg outline-none animation-duration-200 ease-out motion-reduce:animation-duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
+                    <div className="grid gap-1.5 text-center sm:text-left">
+                      <AlertDialogPrimitive.Title className="text-lg font-semibold">
+                        予約投稿を削除しますか？
+                      </AlertDialogPrimitive.Title>
+                      <AlertDialogPrimitive.Description className="text-sm text-muted-foreground">
+                        この操作は取り消せません。投稿と添付画像が削除されます。
+                      </AlertDialogPrimitive.Description>
+                    </div>
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                      <AlertDialogPrimitive.Cancel asChild>
+                        <button
+                          type="button"
+                          className="rounded-full border px-5 py-2 font-bold transition-colors hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-primary/50"
+                        >
+                          キャンセル
+                        </button>
+                      </AlertDialogPrimitive.Cancel>
+                      <AlertDialogPrimitive.Action asChild>
+                        <button
+                          type="submit"
+                          form="schedule-form"
+                          name="intent"
+                          value="delete"
+                          className="rounded-full bg-destructive px-5 py-2 font-bold text-destructive-foreground transition-colors hover:bg-destructive/90 focus-visible:ring-[3px] focus-visible:ring-destructive/50"
+                        >
+                          削除する
+                        </button>
+                      </AlertDialogPrimitive.Action>
+                    </div>
+                  </AlertDialogPrimitive.Content>
+                </AlertDialogPrimitive.Portal>
+              </AlertDialogPrimitive.Root>
             </div>
           ) : null}
         </div>
