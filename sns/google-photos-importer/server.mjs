@@ -8,7 +8,7 @@ const dryRunUrl = process.env.GOOGLE_PHOTOS_DRY_RUN_URL;
 const retries = 3;
 const debugDir = process.env.GOOGLE_PHOTOS_DEBUG_DIR;
 
-if (!dryRunUrl && (!bridge || !token))
+if (import.meta.main && !dryRunUrl && (!bridge || !token))
   throw new Error("GOOGLE_PHOTOS_IMPORT_URL and GOOGLE_PHOTOS_IMPORT_TOKEN are required");
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -84,17 +84,8 @@ async function captureStructureDiagnostics(page) {
   ]);
 }
 
-async function collectPhotos(page) {
-  let stableRounds = 0;
-  let previousCount = 0;
-  for (let index = 0; index < 40 && stableRounds < 3; index += 1) {
-    await page.mouse.wheel(0, 2400);
-    await page.waitForTimeout(500);
-    const count = await page.locator("img").count();
-    stableRounds = count === previousCount ? stableRounds + 1 : 0;
-    previousCount = count;
-  }
-  const photos = await page.evaluate(() => {
+async function extractVisiblePhotos(page) {
+  return page.evaluate(() => {
     const domPhotos = [...document.images]
       .map((image) => {
         const ancestor = image.closest(
@@ -132,7 +123,55 @@ async function collectPhotos(page) {
       }));
     return [...domPhotos, ...resourcePhotos];
   });
-  const unique = new Map(photos.map((photo) => [photo.stableId, photo]));
+}
+
+async function scrollAlbum(page) {
+  return page.evaluate(() => {
+    const canScroll = (element) => {
+      const style = getComputedStyle(element);
+      return (
+        element.scrollHeight > element.clientHeight + 1 &&
+        /auto|scroll/.test(style.overflowY) &&
+        element.clientHeight > 0
+      );
+    };
+    const ancestors = [];
+    for (
+      let element = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
+      element;
+      element = element.parentElement
+    )
+      ancestors.push(element);
+    const container =
+      ancestors.find(canScroll) ??
+      [...document.querySelectorAll("*")]
+        .filter(canScroll)
+        .sort((left, right) => right.clientHeight - left.clientHeight)[0] ??
+      document.scrollingElement;
+    if (!container) return { advanced: false, atEnd: true };
+    const before = container.scrollTop;
+    container.scrollBy({ top: Math.max(600, Math.floor(container.clientHeight * 0.85)) });
+    return {
+      advanced: container.scrollTop > before,
+      atEnd: container.scrollTop + container.clientHeight >= container.scrollHeight - 1,
+    };
+  });
+}
+
+export async function collectPhotos(page) {
+  // Google Photos virtualizes the album grid: only roughly one viewport of images
+  // remains in the DOM. Accumulate every viewport instead of inspecting only the
+  // final DOM state after scrolling.
+  const unique = new Map();
+  let settledAtEndRounds = 0;
+  for (let index = 0; index < 300 && settledAtEndRounds < 3; index += 1) {
+    const visiblePhotos = await extractVisiblePhotos(page);
+    for (const photo of visiblePhotos) unique.set(photo.stableId, photo);
+
+    const { advanced, atEnd } = await scrollAlbum(page);
+    await page.waitForTimeout(500);
+    settledAtEndRounds = atEnd && !advanced ? settledAtEndRounds + 1 : 0;
+  }
   const fallbackIdCount = [...unique.values()].filter((photo) => photo.idSource !== "dom").length;
   console.log(
     JSON.stringify({
@@ -248,4 +287,4 @@ async function dryRun() {
   }
 }
 
-console.log(JSON.stringify(dryRunUrl ? await dryRun() : await poll()));
+if (import.meta.main) console.log(JSON.stringify(dryRunUrl ? await dryRun() : await poll()));
