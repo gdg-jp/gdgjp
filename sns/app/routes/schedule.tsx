@@ -179,6 +179,8 @@ export async function action({ request, context }: Route.ActionArgs) {
       .bind(id, resolved.id, resolved.username)
       .run();
   }
+  if (intent === "save_and_add_google_photos")
+    throw redirect(`/google/photos/library?postId=${id}`);
   await claimAndPublish(env, id);
   throw redirect("/posts");
 }
@@ -354,26 +356,17 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
                   }}
                 />
               </label>
-              {post ? (
-                <a
-                  href={`/google/photos/library?postId=${post.id}`}
-                  className="inline-flex size-10 items-center justify-center rounded-full transition-colors hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-primary/50"
-                  aria-label="Google Photos から写真を選ぶ"
-                  title="Google Photos から選ぶ"
-                >
-                  <img src={googlePhotosLogo} alt="" className="size-6" />
-                </a>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  className="inline-flex size-10 cursor-not-allowed items-center justify-center rounded-full opacity-50"
-                  aria-label="Google Photos から写真を選ぶ"
-                  title="Google Photos から追加するには、先に投稿を保存してください"
-                >
-                  <img src={googlePhotosLogo} alt="" className="size-6" />
-                </button>
-              )}
+              <button
+                type="submit"
+                name="intent"
+                value="save_and_add_google_photos"
+                disabled={!loaderData.accounts.length}
+                className="inline-flex size-10 items-center justify-center rounded-full transition-colors hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Google Photos から写真を選ぶ"
+                title="Google Photos から選ぶ"
+              >
+                <img src={googlePhotosLogo} alt="" className="size-6" />
+              </button>
             </div>
             <DropdownMenuPrimitive.Root>
               <DropdownMenuPrimitive.Trigger asChild>
