@@ -29,7 +29,9 @@ async function bridgeJson(path, body) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!response.ok)
-    throw new Error(`bridge ${path} failed: ${response.status} ${await response.text()}`);
+    throw new Error(
+      `bridge ${path} (${response.url}) failed: ${response.status} ${await response.text()}`,
+    );
   return response.json();
 }
 

@@ -182,11 +182,15 @@ async function completeAlbum(request: Request, env: Env): Promise<Response> {
   return json({ ok: true });
 }
 
+export function googlePhotosImportOperation(url: string): string {
+  return new URL(url).pathname.split("/").filter(Boolean).at(-1) ?? "";
+}
+
 export async function handleGooglePhotosImport(request: Request, env: Env): Promise<Response> {
-  const pathname = new URL(request.url).pathname.replace(/^\/api\/google-photos-import/, "");
-  if (request.method === "POST" && pathname === "/claim") return claimAlbum(env);
-  if (request.method === "POST" && pathname === "/known") return knownMedia(request, env);
-  if (request.method === "POST" && pathname === "/media") return storeMedia(request, env);
-  if (request.method === "POST" && pathname === "/complete") return completeAlbum(request, env);
+  const operation = googlePhotosImportOperation(request.url);
+  if (request.method === "POST" && operation === "claim") return claimAlbum(env);
+  if (request.method === "POST" && operation === "known") return knownMedia(request, env);
+  if (request.method === "POST" && operation === "media") return storeMedia(request, env);
+  if (request.method === "POST" && operation === "complete") return completeAlbum(request, env);
   return json({ error: "not found" }, 404);
 }
