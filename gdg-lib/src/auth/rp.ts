@@ -47,6 +47,11 @@ export interface RpAuthInstance {
    * Callers should catch and redirect to /signin to force re-auth.
    */
   getFreshClaims(request: Request): Promise<UserClaims>;
+  /**
+   * Returns a current OAuth access token for server-to-server calls to the IdP.
+   * The token remains server-side and is refreshed when necessary.
+   */
+  getAccessToken(request: Request): Promise<string>;
 }
 
 // ─── Factory ───────────────────────────────────────────────────────────────────
@@ -65,6 +70,7 @@ export function initializeRpAuth(config: RpAuthConfig): RpAuthInstance {
       return handleEndSession(config, request, returnTo);
     },
     getFreshClaims: (request) => fetchUserClaims(config, request),
+    getAccessToken: (request) => fetchAccessToken(config, request),
   };
 }
 
@@ -432,6 +438,42 @@ async function fetchUserClaims(config: RpAuthConfig, request: Request): Promise<
 
   inflightClaims.set(session.sessionId, promise);
   return promise;
+}
+
+async function fetchAccessToken(config: RpAuthConfig, request: Request): Promise<string> {
+  const value = parseCookies(request.headers.get("cookie"))[sessionCookieName(config)];
+  if (!value) throw new ClaimsUnavailableError("no_linked_account");
+  const session = await verifyPayload<SessionPayload>(value, config.secret);
+  if (!isCurrentSession(session, config)) throw new ClaimsUnavailableError("no_linked_account");
+
+  let issuerConfig: oidc.Configuration;
+  try {
+    issuerConfig = await getIssuerConfig(config);
+  } catch (err) {
+    throw new ClaimsUnavailableError("userinfo_failed", err);
+  }
+  if (issuerConfig.serverMetadata().issuer !== session.issuer) {
+    throw new ClaimsUnavailableError("userinfo_failed");
+  }
+
+  let stored = await readTokenSession(config.db, session.sessionId);
+  if (
+    !stored ||
+    stored.userId !== session.userId ||
+    stored.issuer !== session.issuer ||
+    stored.subject !== session.subject ||
+    stored.expiresAt <= Date.now()
+  ) {
+    throw new ClaimsUnavailableError("no_linked_account");
+  }
+  if (stored.accessTokenExpiresAt - REFRESH_LEEWAY_MS < Date.now()) {
+    try {
+      stored = await refreshStoredTokens(config.db, issuerConfig, stored);
+    } catch (err) {
+      throw new ClaimsUnavailableError("refresh_failed", err);
+    }
+  }
+  return stored.accessToken;
 }
 
 function isCurrentSession(
