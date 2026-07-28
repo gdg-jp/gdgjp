@@ -11,7 +11,14 @@ export function AppShell({
   user,
   chapter,
   chapters,
-}: { children: React.ReactNode; user: AuthUser; chapter: Chapter; chapters: Chapter[] }) {
+  showFab = true,
+}: {
+  children: React.ReactNode;
+  user: AuthUser;
+  chapter: Chapter;
+  chapters: Chapter[];
+  showFab?: boolean;
+}) {
   const { pathname } = useLocation();
   return (
     <div className="mx-auto min-h-dvh max-w-md border-x bg-background pb-20">
@@ -43,7 +50,7 @@ export function AppShell({
         </div>
       </header>
       <main>{children}</main>
-      {pathname !== "/schedule" ? (
+      {showFab && pathname !== "/schedule" ? (
         <Link
           to="/schedule"
           aria-label="投稿を予約する"

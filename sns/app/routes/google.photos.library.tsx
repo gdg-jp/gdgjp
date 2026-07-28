@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Form, data, redirect } from "react-router";
 import { AppShell } from "~/components/app-shell";
 import { requireSnsAccess } from "~/lib/access.server";
@@ -70,34 +71,71 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function GooglePhotosLibrary({ loaderData, actionData }: Route.ComponentProps) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  function toggleSelection(mediaId: string) {
+    setSelectedIds((current) => {
+      if (current.includes(mediaId)) return current.filter((id) => id !== mediaId);
+      return current.length < loaderData.remaining ? [...current, mediaId] : current;
+    });
+  }
+
   return (
-    <AppShell user={loaderData.user} chapter={loaderData.chapter} chapters={loaderData.chapters}>
-      <Form method="post" className="space-y-4 p-4">
+    <AppShell
+      user={loaderData.user}
+      chapter={loaderData.chapter}
+      chapters={loaderData.chapters}
+      showFab={false}
+    >
+      <Form method="post" className="space-y-4 pb-24">
         <input type="hidden" name="postId" value={loaderData.post.id} />
-        <h1 className="text-xl font-bold">Google Photos の写真</h1>
-        <p className="text-sm text-muted-foreground">
-          最大 {loaderData.remaining} 枚選択できます。
-        </p>
-        {actionData?.error ? <p className="text-sm text-red-500">{actionData.error}</p> : null}
+        <div className="space-y-1 px-4 pt-4">
+          <h1 className="text-xl font-bold">Google Photos の写真</h1>
+          <p className="text-sm text-muted-foreground">
+            最大 {loaderData.remaining} 枚選択できます。
+          </p>
+          {actionData?.error ? <p className="text-sm text-red-500">{actionData.error}</p> : null}
+        </div>
+        {selectedIds.map((mediaId) => (
+          <input key={mediaId} type="hidden" name="mediaId" value={mediaId} />
+        ))}
         {loaderData.media.length ? (
-          <div className="grid grid-cols-3 gap-2">
-            {loaderData.media.map((item) => (
-              <label key={item.id} className="relative cursor-pointer rounded-xl border p-2">
-                <img
-                  src={`/api/google-photos-media/${item.id}`}
-                  alt=""
-                  className="aspect-square w-full rounded-lg object-cover"
-                />
-                <input name="mediaId" value={item.id} type="checkbox" className="mt-2" />
-              </label>
-            ))}
+          <div className="grid grid-cols-3">
+            {loaderData.media.map((item) => {
+              const selectionIndex = selectedIds.indexOf(item.id);
+              const isSelected = selectionIndex !== -1;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => toggleSelection(item.id)}
+                  aria-pressed={isSelected}
+                  aria-label={isSelected ? `写真 ${selectionIndex + 1} を選択解除` : "写真を選択"}
+                  className="relative aspect-square overflow-hidden focus-visible:z-10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring"
+                >
+                  <img
+                    src={`/api/google-photos-media/${item.id}`}
+                    alt=""
+                    className={`size-full object-cover transition-transform duration-200 ${isSelected ? "scale-90" : "scale-100"}`}
+                  />
+                  {isSelected ? (
+                    <>
+                      <span className="absolute inset-0 bg-black/45" aria-hidden="true" />
+                      <span className="absolute top-2 left-2 flex size-7 items-center justify-center rounded-full bg-primary text-sm font-bold text-white shadow">
+                        {selectionIndex + 1}
+                      </span>
+                    </>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">まだ取り込まれた写真はありません。</p>
+          <p className="px-4 text-sm text-muted-foreground">まだ取り込まれた写真はありません。</p>
         )}
         <button
-          disabled={!loaderData.remaining || !loaderData.media.length}
-          className="w-full rounded-full bg-primary px-5 py-3 font-bold text-white disabled:opacity-50"
+          disabled={!selectedIds.length}
+          className="fixed inset-x-4 bottom-20 z-30 mx-auto max-w-[calc(28rem-2rem)] rounded-full bg-primary px-5 py-3 font-bold text-white shadow-lg disabled:opacity-50"
           type="submit"
         >
           選択した写真を追加
