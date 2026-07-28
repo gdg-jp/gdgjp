@@ -22,7 +22,11 @@ export async function codeChallenge(verifier: string): Promise<string> {
   );
 }
 
-export function xAuthorizationUrl(env: Env, state: string, verifier: string): Promise<string> {
+export function xAuthorizationUrl(
+  env: Pick<Env, "APP_URL" | "X_AUTHORIZATION_URL" | "X_CLIENT_ID">,
+  state: string,
+  verifier: string,
+): Promise<string> {
   return codeChallenge(verifier).then((challenge) => {
     const url = new URL(env.X_AUTHORIZATION_URL);
     url.search = new URLSearchParams({

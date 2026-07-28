@@ -8,7 +8,7 @@ describe("X authorization", () => {
         APP_URL: "http://localhost:5178",
         X_AUTHORIZATION_URL: "https://x.com/i/oauth2/authorize",
         X_CLIENT_ID: "client-id",
-      } as Env,
+      },
       "state",
       "a-valid-pkce-verifier-which-is-long-enough-for-x-oauth",
     );
