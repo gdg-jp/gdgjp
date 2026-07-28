@@ -2,6 +2,7 @@ import { ExternalLink, ImagePlus, Pencil } from "lucide-react";
 import { useEffect } from "react";
 import { Link, useFetcher, useNavigate, useRevalidator } from "react-router";
 import type { Post, PostMedia, XAccount } from "~/lib/db.server";
+import googlePhotosLogo from "../../photos.png";
 
 function textWithLinks(text: string) {
   const tokens = text.split(/(https?:\/\/[^\s]+|@[A-Za-z0-9_]+|#[\p{L}\p{N}_]+)/gu);
@@ -139,27 +140,34 @@ export function PostCard({
             </a>
           ) : null}
           {canAddMedia ? (
-            <mediaFetcher.Form
-              method="post"
-              action="/api/posts"
-              encType="multipart/form-data"
-              className="mt-3"
-            >
-              <input type="hidden" name="intent" value="add_media" />
-              <input type="hidden" name="postId" value={post.id} />
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full px-3 py-2 text-sm text-primary hover:bg-muted">
-                <ImagePlus className="size-4" aria-hidden="true" />
-                {mediaFetcher.state === "submitting" ? "画像を追加中…" : "画像を追加"}
-                <input
-                  name="images"
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  disabled={mediaFetcher.state !== "idle"}
-                  onChange={(event) => event.currentTarget.form?.requestSubmit()}
-                />
-              </label>
+            <div className="mt-3">
+              <div className="flex items-center gap-1">
+                <mediaFetcher.Form method="post" action="/api/posts" encType="multipart/form-data">
+                  <input type="hidden" name="intent" value="add_media" />
+                  <input type="hidden" name="postId" value={post.id} />
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full px-3 py-2 text-sm text-primary hover:bg-muted">
+                    <ImagePlus className="size-4" aria-hidden="true" />
+                    {mediaFetcher.state === "submitting" ? "画像を追加中…" : "画像を追加"}
+                    <input
+                      name="images"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      disabled={mediaFetcher.state !== "idle"}
+                      onChange={(event) => event.currentTarget.form?.requestSubmit()}
+                    />
+                  </label>
+                </mediaFetcher.Form>
+                <Link
+                  to={`/google/photos/library?postId=${post.id}`}
+                  className="inline-flex size-10 items-center justify-center rounded-full transition-colors hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-primary/50"
+                  aria-label="Google Photos から写真を選ぶ"
+                  title="Google Photos から選ぶ"
+                >
+                  <img src={googlePhotosLogo} alt="" className="size-6" />
+                </Link>
+              </div>
               {mediaFetcher.data?.error ? (
                 <p
                   className="mt-1 animate-in fade-in-0 zoom-in-95 text-xs text-red-600 animation-duration-150 ease-out motion-reduce:animation-duration-100"
@@ -168,7 +176,7 @@ export function PostCard({
                   {mediaFetcher.data.error}
                 </p>
               ) : null}
-            </mediaFetcher.Form>
+            </div>
           ) : null}
           <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
             <span>

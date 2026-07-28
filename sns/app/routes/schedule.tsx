@@ -363,7 +363,17 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
                 >
                   <img src={googlePhotosLogo} alt="" className="size-6" />
                 </a>
-              ) : null}
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex size-10 cursor-not-allowed items-center justify-center rounded-full opacity-50"
+                  aria-label="Google Photos から写真を選ぶ"
+                  title="Google Photos から追加するには、先に投稿を保存してください"
+                >
+                  <img src={googlePhotosLogo} alt="" className="size-6" />
+                </button>
+              )}
             </div>
             <DropdownMenuPrimitive.Root>
               <DropdownMenuPrimitive.Trigger asChild>
