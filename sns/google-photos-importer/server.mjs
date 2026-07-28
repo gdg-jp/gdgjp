@@ -4,10 +4,11 @@ import { chromium } from "@playwright/test";
 
 const bridge = process.env.GOOGLE_PHOTOS_IMPORT_URL;
 const token = process.env.GOOGLE_PHOTOS_IMPORT_TOKEN;
+const dryRunUrl = process.env.GOOGLE_PHOTOS_DRY_RUN_URL;
 const retries = 3;
 const debugDir = process.env.GOOGLE_PHOTOS_DEBUG_DIR;
 
-if (!bridge || !token)
+if (!dryRunUrl && (!bridge || !token))
   throw new Error("GOOGLE_PHOTOS_IMPORT_URL and GOOGLE_PHOTOS_IMPORT_TOKEN are required");
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -93,8 +94,8 @@ async function collectPhotos(page) {
     stableRounds = count === previousCount ? stableRounds + 1 : 0;
     previousCount = count;
   }
-  const photos = await page.locator("img").evaluateAll((images) =>
-    images
+  const photos = await page.evaluate(() => {
+    const domPhotos = [...document.images]
       .map((image) => {
         const ancestor = image.closest(
           "[data-photo-id], [data-media-key], [data-media-item-id], [data-item-id], [data-id], [role=listitem]",
@@ -108,17 +109,31 @@ async function collectPhotos(page) {
           image.getAttribute("data-photo-id");
         const url = image.currentSrc || image.getAttribute("src");
         if (!url || !/^https:\/\/(lh3|lh5)\.googleusercontent\.com\//.test(url)) return null;
-        const canonicalPath = new URL(url).pathname;
+        const canonicalPath = new URL(url).pathname.replace(/=[^/]+$/, "");
         return stableId || !canonicalPath || canonicalPath === "/"
           ? { stableId, url, idSource: "dom" }
           : { stableId: canonicalPath, url, idSource: "googleusercontent_path" };
       })
-      .filter((photo) => photo?.stableId),
-  );
+      .filter((photo) => photo?.stableId);
+    const resourcePhotos = performance
+      .getEntriesByType("resource")
+      .map((entry) => entry.name)
+      .filter((url) => {
+        const parsed = new URL(url);
+        return (
+          parsed.hostname === "lh3.googleusercontent.com" &&
+          /(?:=|[?&])w(?:[2-9]\d{2}|[1-9]\d{3,})/.test(url)
+        );
+      })
+      .map((url) => ({
+        stableId: new URL(url).pathname.replace(/=[^/]+$/, ""),
+        url,
+        idSource: "googleusercontent_resource",
+      }));
+    return [...domPhotos, ...resourcePhotos];
+  });
   const unique = new Map(photos.map((photo) => [photo.stableId, photo]));
-  const fallbackIdCount = [...unique.values()].filter(
-    (photo) => photo.idSource === "googleusercontent_path",
-  ).length;
+  const fallbackIdCount = [...unique.values()].filter((photo) => photo.idSource !== "dom").length;
   console.log(
     JSON.stringify({
       message: "google_photos_extraction",
@@ -204,4 +219,33 @@ async function poll() {
   }
 }
 
-console.log(JSON.stringify(await poll()));
+async function dryRun() {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await retry(() => page.goto(dryRunUrl, { waitUntil: "domcontentloaded", timeout: 30_000 }));
+    await page.waitForTimeout(1_000);
+    const photos = await collectPhotos(page);
+    const sampleResponse = await context.request.get(photos[0].url, { failOnStatusCode: true });
+    const sampleBytes = await sampleResponse.body();
+    const idSourceCounts = {};
+    for (const photo of photos)
+      idSourceCounts[photo.idSource] = (idSourceCounts[photo.idSource] ?? 0) + 1;
+    return {
+      ok: true,
+      dryRun: true,
+      extractedCount: photos.length,
+      idSourceCounts,
+      sampleDownload: {
+        status: sampleResponse.status(),
+        contentType: sampleResponse.headers()["content-type"] ?? null,
+        byteSize: sampleBytes.byteLength,
+      },
+    };
+  } finally {
+    await browser.close();
+  }
+}
+
+console.log(JSON.stringify(dryRunUrl ? await dryRun() : await poll()));
