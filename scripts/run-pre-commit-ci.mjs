@@ -4,7 +4,7 @@ const repositoryRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
   encoding: "utf8",
 }).trim();
 
-const result = spawnSync("pnpm", ["ci:full"], {
+const result = spawnSync("pnpm", ["ci:full", "--changed"], {
   cwd: repositoryRoot,
   stdio: "inherit",
 });

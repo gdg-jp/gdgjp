@@ -20,18 +20,20 @@ function readHookInput() {
     }
 
     try {
-      execFileSync("pnpm", ["ci:full"], {
+      execFileSync("pnpm", ["ci:full", "--changed"], {
         cwd: process.cwd(),
         encoding: "utf8",
         stdio: "pipe",
       });
-      process.stdout.write(JSON.stringify({ systemMessage: "ci:full passed before git commit." }));
+      process.stdout.write(
+        JSON.stringify({ systemMessage: "Relevant ci:full checks passed before git commit." }),
+      );
     } catch (error) {
       const output = [error.stdout, error.stderr]
         .filter((value) => typeof value === "string" && value.trim())
         .join("\n")
         .slice(-6000);
-      const message = `ci:full failed before git commit.\n${output || "See the command output."}`;
+      const message = `Relevant ci:full checks failed before git commit.\n${output || "See the command output."}`;
       process.stdout.write(
         JSON.stringify({
           systemMessage: message,
