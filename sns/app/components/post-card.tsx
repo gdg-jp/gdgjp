@@ -1,6 +1,6 @@
 import { ExternalLink, ImagePlus, Pencil } from "lucide-react";
 import { useEffect } from "react";
-import { Link, useFetcher, useRevalidator } from "react-router";
+import { Link, useFetcher, useNavigate, useRevalidator } from "react-router";
 import type { Post, PostMedia, XAccount } from "~/lib/db.server";
 
 function textWithLinks(text: string) {
@@ -31,15 +31,41 @@ export function PostCard({
   editHref?: string;
 }) {
   const mediaFetcher = useFetcher<{ error?: string; ok?: boolean }>();
+  const navigate = useNavigate();
   const revalidator = useRevalidator();
   const canAddMedia = !["published", "posting"].includes(post.status) && media.length < 4;
+  const isInteractiveTarget = (target: EventTarget | null) =>
+    target instanceof Element &&
+    Boolean(target.closest("a[href], button, input, label, select, textarea"));
+
+  const openEditor = () => {
+    if (editHref) navigate(editHref);
+  };
 
   useEffect(() => {
     if (mediaFetcher.data?.ok) revalidator.revalidate();
   }, [mediaFetcher.data?.ok, revalidator]);
 
   return (
-    <article className="border-b px-4 py-3">
+    <article
+      className={`border-b px-4 py-3 ${
+        editHref
+          ? "cursor-pointer transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
+          : ""
+      }`}
+      onClick={(event) => {
+        if (!isInteractiveTarget(event.target)) openEditor();
+      }}
+      onKeyDown={(event) => {
+        if (isInteractiveTarget(event.target)) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openEditor();
+        }
+      }}
+      role={editHref ? "link" : undefined}
+      tabIndex={editHref ? 0 : undefined}
+    >
       <div className="flex gap-3">
         <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-muted font-semibold">
           {account?.profileImageUrl ? (

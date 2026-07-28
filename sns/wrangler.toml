@@ -14,7 +14,6 @@ IDP_CLIENT_ID = "sns"
 X_API_BASE_URL = "https://api.x.com"
 X_AUTHORIZATION_URL = "https://x.com/i/oauth2/authorize"
 X_TOKEN_URL = "https://api.x.com/2/oauth2/token"
-GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 [assets]
 binding = "ASSETS"
@@ -56,4 +55,4 @@ persist = true
 
 # Set with `wrangler secret put`:
 # RP_SESSION_SECRET, IDP_CLIENT_SECRET, X_CLIENT_ID, X_CLIENT_SECRET,
-# TOKEN_ENCRYPTION_KEY, GOOGLE_PHOTOS_CLIENT_ID, GOOGLE_PHOTOS_CLIENT_SECRET
+# GOOGLE_PHOTOS_IMPORT_TOKEN

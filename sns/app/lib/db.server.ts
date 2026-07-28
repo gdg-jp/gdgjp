@@ -55,6 +55,34 @@ export type PostMedia = {
   createdAt: string;
 };
 
+export type GooglePhotosAlbum = {
+  id: string;
+  chapterId: number;
+  albumUrl: string;
+  enabled: boolean;
+  pollIntervalMinutes: number;
+  unchangedPollCount: number;
+  nextPollAt: string;
+  lastSuccessAt: string | null;
+  lastError: string | null;
+};
+
+export type GooglePhotosLibraryMedia = {
+  id: string;
+  stablePhotoId: string;
+  contentType: string;
+  byteSize: number;
+  importedAt: string;
+};
+
+export type GooglePhotosPollRun = {
+  id: string;
+  startedAt: string;
+  outcome: string;
+  importedCount: number;
+  detail: string | null;
+};
+
 type ContributorRow = { chapter_id: number };
 
 export async function contributorChapterIds(db: D1Database, email: string): Promise<number[]> {
@@ -212,6 +240,100 @@ export async function listPosts(db: D1Database, chapterId: number): Promise<Post
 export async function getPost(db: D1Database, id: string): Promise<Post | null> {
   const row = await db.prepare("SELECT * FROM posts WHERE id = ?").bind(id).first<PostRow>();
   return row ? postFromRow(row) : null;
+}
+
+type GooglePhotosAlbumRow = {
+  id: string;
+  chapter_id: number;
+  album_url: string;
+  enabled: number;
+  poll_interval_minutes: number;
+  unchanged_poll_count: number;
+  next_poll_at: string;
+  last_success_at: string | null;
+  last_error: string | null;
+};
+
+function googlePhotosAlbumFromRow(row: GooglePhotosAlbumRow): GooglePhotosAlbum {
+  return {
+    id: row.id,
+    chapterId: row.chapter_id,
+    albumUrl: row.album_url,
+    enabled: row.enabled === 1,
+    pollIntervalMinutes: row.poll_interval_minutes,
+    unchangedPollCount: row.unchanged_poll_count,
+    nextPollAt: row.next_poll_at,
+    lastSuccessAt: row.last_success_at,
+    lastError: row.last_error,
+  };
+}
+
+export async function getGooglePhotosAlbum(
+  db: D1Database,
+  chapterId: number,
+): Promise<GooglePhotosAlbum | null> {
+  const row = await db
+    .prepare("SELECT * FROM google_photos_albums WHERE chapter_id = ?")
+    .bind(chapterId)
+    .first<GooglePhotosAlbumRow>();
+  return row ? googlePhotosAlbumFromRow(row) : null;
+}
+
+export async function listGooglePhotosLibraryMedia(
+  db: D1Database,
+  chapterId: number,
+): Promise<GooglePhotosLibraryMedia[]> {
+  const result = await db
+    .prepare(
+      `SELECT m.id, m.stable_photo_id, m.content_type, m.byte_size, m.imported_at
+       FROM google_photos_media m
+       JOIN google_photos_albums a ON a.id = m.album_id
+       WHERE a.chapter_id = ?
+       ORDER BY m.imported_at DESC`,
+    )
+    .bind(chapterId)
+    .all<{
+      id: string;
+      stable_photo_id: string;
+      content_type: string;
+      byte_size: number;
+      imported_at: string;
+    }>();
+  return result.results.map((row) => ({
+    id: row.id,
+    stablePhotoId: row.stable_photo_id,
+    contentType: row.content_type,
+    byteSize: row.byte_size,
+    importedAt: row.imported_at,
+  }));
+}
+
+export async function listGooglePhotosPollRuns(
+  db: D1Database,
+  chapterId: number,
+): Promise<GooglePhotosPollRun[]> {
+  const result = await db
+    .prepare(
+      `SELECT r.id, r.started_at, r.outcome, r.imported_count, r.detail
+       FROM google_photos_poll_runs r
+       JOIN google_photos_albums a ON a.id = r.album_id
+       WHERE a.chapter_id = ? ORDER BY r.started_at DESC LIMIT 5`,
+    )
+    .bind(chapterId)
+    .all<{
+      id: string;
+      started_at: string;
+      outcome: string;
+      imported_count: number;
+      detail: string | null;
+    }>();
+  return result.results.map((row) => ({
+    id: row.id,
+    startedAt: row.started_at,
+    outcome: row.outcome,
+    importedCount: row.imported_count,
+    detail: row.detail,
+  }));
 }
 
 type PostMediaRow = {

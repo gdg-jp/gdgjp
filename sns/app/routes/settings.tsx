@@ -3,7 +3,12 @@ import { useEffect, useState } from "react";
 import { Form, Link, useFetcher } from "react-router";
 import { AppShell } from "~/components/app-shell";
 import { requireSnsAccess } from "~/lib/access.server";
-import { listContributors, listXAccounts } from "~/lib/db.server";
+import {
+  getGooglePhotosAlbum,
+  listContributors,
+  listGooglePhotosPollRuns,
+  listXAccounts,
+} from "~/lib/db.server";
 import type { Route } from "./+types/settings";
 
 type ContributorCandidate = { email: string; name: string; image: string | null };
@@ -24,6 +29,14 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   return {
     ...access,
     accounts: await listXAccounts(context.cloudflare.env.DB, access.chapter.chapterId),
+    googlePhotosAlbum: await getGooglePhotosAlbum(
+      context.cloudflare.env.DB,
+      access.chapter.chapterId,
+    ),
+    googlePhotosPollRuns: await listGooglePhotosPollRuns(
+      context.cloudflare.env.DB,
+      access.chapter.chapterId,
+    ),
     contributors:
       access.chapter.role === "organizer"
         ? await listContributors(context.cloudflare.env.DB, access.chapter.chapterId)
@@ -78,6 +91,59 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
             )}
           </div>
         </section>
+        {organizer ? (
+          <section className="rounded-2xl border p-4">
+            <h2 className="font-bold">Google Photos album</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              公開共有アルバムを監視して、投稿用の写真ライブラリに取り込みます。
+            </p>
+            <Form method="post" action="/settings/google-photos" className="mt-3 space-y-2">
+              <input
+                required
+                name="albumUrl"
+                type="url"
+                defaultValue={loaderData.googlePhotosAlbum?.albumUrl}
+                placeholder="https://photos.google.com/share/..."
+                className="w-full rounded-xl border bg-card p-2"
+              />
+              <button
+                className="rounded-full bg-primary px-3 py-2 text-sm font-bold text-white"
+                type="submit"
+              >
+                アルバムを保存
+              </button>
+            </Form>
+            {loaderData.googlePhotosAlbum ? (
+              <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+                <p>
+                  {loaderData.googlePhotosAlbum.enabled ? "監視中" : "停止中"}・次回:{" "}
+                  {new Date(loaderData.googlePhotosAlbum.nextPollAt).toLocaleString("ja-JP")}
+                </p>
+                {loaderData.googlePhotosAlbum.lastError ? (
+                  <p className="text-red-500">{loaderData.googlePhotosAlbum.lastError}</p>
+                ) : null}
+                {loaderData.googlePhotosAlbum.enabled ? (
+                  <Form method="post" action="/settings/google-photos">
+                    <button type="submit" name="intent" value="disable" className="text-red-500">
+                      監視を停止
+                    </button>
+                  </Form>
+                ) : null}
+                {loaderData.googlePhotosPollRuns.length ? (
+                  <ul className="mt-2 space-y-1">
+                    {loaderData.googlePhotosPollRuns.map((run) => (
+                      <li key={run.id}>
+                        {new Date(run.startedAt).toLocaleString("ja-JP")}: {run.outcome}
+                        {run.importedCount ? ` (${run.importedCount} 件追加)` : ""}
+                        {run.detail ? ` — ${run.detail}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
         {organizer ? (
           <section className="rounded-2xl border p-4">
             <h2 className="font-bold">Contributors</h2>

@@ -356,7 +356,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
               </label>
               {post ? (
                 <a
-                  href={`/google/photos/connect?postId=${post.id}`}
+                  href={`/google/photos/library?postId=${post.id}`}
                   className="inline-flex size-10 items-center justify-center rounded-full transition-colors hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-primary/50"
                   aria-label="Google Photos から写真を選ぶ"
                   title="Google Photos から選ぶ"
