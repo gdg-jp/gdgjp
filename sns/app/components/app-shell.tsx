@@ -1,6 +1,7 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { GdgAccountMenu, GdgAppLauncher, GdgThemeToggle } from "@gdgjp/gdg-lib/ui";
 import { ChevronDown } from "lucide-react";
+import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import { Form, Link, NavLink } from "react-router";
 import { chapterName } from "~/lib/utils";
 
@@ -59,13 +60,15 @@ function ChapterMenu({ chapter, chapters }: { chapter: Chapter; chapters: Chapte
         return (
           <Form method="post" action="/api/chapter" key={item.chapterId}>
             <input type="hidden" name="chapterId" value={item.chapterId} />
-            <button
-              type="submit"
-              className="flex w-full items-center rounded-xl px-2 py-1.5 text-left text-sm outline-hidden hover:bg-accent focus:bg-accent"
-              aria-current={isCurrent ? "true" : undefined}
-            >
-              GDG {chapterName(item.chapterSlug)}
-            </button>
+            <DropdownMenuPrimitive.Item asChild>
+              <button
+                type="submit"
+                className="flex w-full items-center rounded-xl px-2 py-1.5 text-left text-sm outline-hidden hover:bg-accent focus:bg-accent"
+                aria-current={isCurrent ? "true" : undefined}
+              >
+                GDG {chapterName(item.chapterSlug)}
+              </button>
+            </DropdownMenuPrimitive.Item>
           </Form>
         );
       })}

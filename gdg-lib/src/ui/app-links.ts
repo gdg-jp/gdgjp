@@ -26,4 +26,9 @@ export const GDG_APP_LINKS: readonly GdgAppLink[] = [
     label: "Images",
     url: "https://img.gdgs.jp",
   },
+  {
+    iconUrl: "https://sns.gdgs.jp/app-icon.png",
+    label: "SNS Manager",
+    url: "https://sns.gdgs.jp",
+  },
 ];
