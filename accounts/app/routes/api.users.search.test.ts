@@ -23,6 +23,9 @@ describe("Accounts user search API", () => {
     await expect(response.json()).resolves.toEqual({
       users: [{ id: "user-1", name: "Example User", email: "user@example.com", image: null }],
     });
+    expect(prepare.mock.results[0]?.value.bind.mock.calls[0]?.[0]).toBe(
+      "Pxa-1wifRlPl7yG_0oJNfzqq7MelmOfonFgOFgapzFI",
+    );
     expect(prepare.mock.calls[1]?.[0]).toContain('FROM "user"');
   });
 

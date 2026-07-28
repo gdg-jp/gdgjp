@@ -1,8 +1,8 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { GdgAccountMenu, GdgAppLauncher, GdgThemeToggle } from "@gdgjp/gdg-lib/ui";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, SquarePen } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
-import { Form, Link, NavLink } from "react-router";
+import { Form, Link, NavLink, useLocation } from "react-router";
 import { chapterName } from "~/lib/utils";
 
 type Chapter = { chapterId: number; chapterSlug: string; role: string };
@@ -12,6 +12,7 @@ export function AppShell({
   chapter,
   chapters,
 }: { children: React.ReactNode; user: AuthUser; chapter: Chapter; chapters: Chapter[] }) {
+  const { pathname } = useLocation();
   return (
     <div className="mx-auto min-h-dvh max-w-md border-x bg-background pb-20">
       <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-background/90 px-3 backdrop-blur">
@@ -42,6 +43,15 @@ export function AppShell({
         </div>
       </header>
       <main>{children}</main>
+      {pathname !== "/schedule" ? (
+        <Link
+          to="/schedule"
+          aria-label="投稿を予約する"
+          className="fixed right-[max(1rem,calc((100vw-28rem)/2+1rem))] bottom-20 z-30 inline-flex size-14 items-center justify-center rounded-full bg-primary text-white shadow-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/40 active:scale-95"
+        >
+          <SquarePen className="size-7" aria-hidden="true" />
+        </Link>
+      ) : null}
       <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto flex h-16 max-w-md border-t bg-background">
         <NavItem to="/posts" label="Posts" />
         <NavItem to="/schedule" label="Schedule" />
