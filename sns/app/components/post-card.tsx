@@ -135,7 +135,10 @@ export function PostCard({
                 />
               </label>
               {mediaFetcher.data?.error ? (
-                <p className="mt-1 text-xs text-red-600" role="alert">
+                <p
+                  className="mt-1 animate-in fade-in-0 zoom-in-95 text-xs text-red-600 animation-duration-150 ease-out motion-reduce:animation-duration-100"
+                  role="alert"
+                >
                   {mediaFetcher.data.error}
                 </p>
               ) : null}

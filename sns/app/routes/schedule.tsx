@@ -415,7 +415,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
           <button
             type="submit"
             disabled={!loaderData.accounts.length}
-            className="w-full rounded-full bg-primary px-5 py-3 font-bold text-white disabled:opacity-50"
+            className="w-full rounded-full bg-primary px-5 py-3 font-bold text-white transition-transform duration-150 ease-out active:scale-[0.98] motion-reduce:duration-100 motion-reduce:active:scale-[0.99] disabled:opacity-50"
           >
             {post ? "変更を保存" : "予約する"}
           </button>
