@@ -1,8 +1,11 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { chromium } from "@playwright/test";
 
 const bridge = process.env.GOOGLE_PHOTOS_IMPORT_URL;
 const token = process.env.GOOGLE_PHOTOS_IMPORT_TOKEN;
 const retries = 3;
+const debugDir = process.env.GOOGLE_PHOTOS_DEBUG_DIR;
 
 if (!bridge || !token)
   throw new Error("GOOGLE_PHOTOS_IMPORT_URL and GOOGLE_PHOTOS_IMPORT_TOKEN are required");
@@ -35,6 +38,42 @@ async function bridgeJson(path, body) {
   return response.json();
 }
 
+async function captureStructureDiagnostics(page) {
+  const diagnostics = await page.evaluate(() => {
+    const images = [...document.images];
+    const attributeNames = [
+      ...new Set(
+        images.flatMap((image) => {
+          const parent = image.closest("[role=listitem], [data-id], [data-photo-id]");
+          return [...image.getAttributeNames(), ...(parent?.getAttributeNames() ?? [])];
+        }),
+      ),
+    ].sort();
+    return {
+      title: document.title,
+      url: location.href,
+      imageCount: images.length,
+      listItemCount: document.querySelectorAll("[role=listitem]").length,
+      candidateIdAttributeCounts: Object.fromEntries(
+        ["data-id", "data-photo-id", "data-media-key", "data-media-item-id", "data-item-id"].map(
+          (attribute) => [attribute, document.querySelectorAll(`[${attribute}]`).length],
+        ),
+      ),
+      imageAndAncestorAttributeNames: attributeNames,
+    };
+  });
+  console.error(
+    JSON.stringify({ message: "google_photos_page_structure_changed", ...diagnostics }),
+  );
+  if (!debugDir) return;
+  await mkdir(debugDir, { recursive: true });
+  await Promise.all([
+    page.screenshot({ path: join(debugDir, "page-structure.png"), fullPage: true }),
+    page.content().then((html) => writeFile(join(debugDir, "page-structure.html"), html)),
+    writeFile(join(debugDir, "page-structure.json"), JSON.stringify(diagnostics, null, 2)),
+  ]);
+}
+
 async function collectPhotos(page) {
   let stableRounds = 0;
   let previousCount = 0;
@@ -49,23 +88,39 @@ async function collectPhotos(page) {
     images
       .map((image) => {
         const ancestor = image.closest(
-          "[data-photo-id], [data-media-key], [data-item-id], [role=listitem]",
+          "[data-photo-id], [data-media-key], [data-media-item-id], [data-item-id], [data-id], [role=listitem]",
         );
         const stableId =
           ancestor?.getAttribute("data-photo-id") ??
           ancestor?.getAttribute("data-media-key") ??
+          ancestor?.getAttribute("data-media-item-id") ??
           ancestor?.getAttribute("data-item-id") ??
+          ancestor?.getAttribute("data-id") ??
           image.getAttribute("data-photo-id");
         const url = image.currentSrc || image.getAttribute("src");
-        return stableId && url && /^https:\/\/(lh3|lh5)\.googleusercontent\.com\//.test(url)
-          ? { stableId, url }
-          : null;
+        if (!url || !/^https:\/\/(lh3|lh5)\.googleusercontent\.com\//.test(url)) return null;
+        const canonicalPath = new URL(url).pathname;
+        return stableId || !canonicalPath || canonicalPath === "/"
+          ? { stableId, url, idSource: "dom" }
+          : { stableId: canonicalPath, url, idSource: "googleusercontent_path" };
       })
-      .filter(Boolean),
+      .filter((photo) => photo?.stableId),
   );
   const unique = new Map(photos.map((photo) => [photo.stableId, photo]));
-  if (!unique.size)
+  const fallbackIdCount = [...unique.values()].filter(
+    (photo) => photo.idSource === "googleusercontent_path",
+  ).length;
+  console.log(
+    JSON.stringify({
+      message: "google_photos_extraction",
+      extractedCount: unique.size,
+      fallbackIdCount,
+    }),
+  );
+  if (!unique.size) {
+    await captureStructureDiagnostics(page);
     throw new Error("page_structure_changed: no stable Google Photos identifiers found");
+  }
   return [...unique.values()];
 }
 
