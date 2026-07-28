@@ -373,7 +373,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
                 <DropdownMenuPrimitive.Content
                   align="end"
                   sideOffset={6}
-                  className="z-50 min-w-56 rounded-xl border bg-card p-1 shadow-lg outline-none"
+                  className="z-50 min-w-56 origin-(--radix-dropdown-menu-content-transform-origin) rounded-xl border bg-card p-1 shadow-lg outline-none animation-duration-150 ease-out motion-reduce:animation-duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
                 >
                   <DropdownMenuPrimitive.RadioGroup
                     value={condition}
@@ -462,12 +462,14 @@ function MediaGrid({
       src: `/api/media/${image.id}`,
       alt: image.altText,
       inputName: `alt-${image.id}`,
+      isNew: false,
       remove: () => onRemoveExisting(image.id),
     })),
     ...newImages.map((image, index) => ({
       src: image.url,
       alt: "",
       inputName: `new-alt-${index}`,
+      isNew: true,
       remove: () => onRemoveNew(image.url),
     })),
   ];
@@ -479,7 +481,7 @@ function MediaGrid({
       {images.map((image, index) => (
         <div
           key={image.src}
-          className={`relative min-w-0 ${images.length === 3 && index === 0 ? "row-span-2" : ""}`}
+          className={`relative min-w-0 ${image.isNew ? "animate-in fade-in-0 zoom-in-95 animation-duration-150 ease-out motion-reduce:animation-duration-100" : ""} ${images.length === 3 && index === 0 ? "row-span-2" : ""}`}
           style={
             images.length === 1 ? { aspectRatio: imageAspectRatios[image.src] ?? 3 / 4 } : undefined
           }
@@ -528,8 +530,8 @@ function AltTextDialog({ inputName, defaultValue }: { inputName: string; default
         </button>
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40" />
-        <DialogPrimitive.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-card p-5 shadow-xl outline-none">
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 animation-duration-200 ease-out motion-reduce:animation-duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-card p-5 shadow-xl outline-none animation-duration-200 ease-out motion-reduce:animation-duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
           <div className="flex items-start justify-between gap-4">
             <div>
               <DialogPrimitive.Title className="font-semibold">画像の説明</DialogPrimitive.Title>
@@ -572,8 +574,8 @@ function TagUsersDialog() {
         </button>
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40" />
-        <DialogPrimitive.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-card p-5 shadow-xl outline-none">
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 animation-duration-200 ease-out motion-reduce:animation-duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-card p-5 shadow-xl outline-none animation-duration-200 ease-out motion-reduce:animation-duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
           <div className="flex items-start justify-between gap-4">
             <div>
               <DialogPrimitive.Title className="font-semibold">
