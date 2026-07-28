@@ -4,6 +4,7 @@ packages:
   - "wiki"
   - "img"
   - "scheduler"
+  - "sns"
   - "website"
   - "tinyurl-gateway"
   - "go-extension"

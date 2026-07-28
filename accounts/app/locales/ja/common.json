@@ -341,7 +341,7 @@
     "title": "信頼済み OAuth クライアント",
     "description": "組み込みアプリを現在の Worker 設定と同期します。",
     "noticeTitle": "管理者向け操作",
-    "noticeDescription": "設定済みの tinyurl、wiki、img、scheduler クライアントを D1 に反映します。繰り返し実行しても安全です。",
+    "noticeDescription": "設定済みの tinyurl、wiki、img、scheduler、sns クライアントを D1 に反映します。繰り返し実行しても安全です。",
     "submit": "クライアントを同期",
     "pending": "同期中…",
     "result": "{{at}} の実行結果",

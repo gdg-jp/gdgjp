@@ -105,6 +105,7 @@ function testEnv(options?: {
     WIKI_CLIENT_ID: "wiki",
     IMG_CLIENT_ID: "img",
     SCHEDULER_CLIENT_ID: "scheduler",
+    SNS_CLIENT_ID: "sns",
   } as Env;
   return { env, calls, batches, preparedSql };
 }
@@ -143,6 +144,9 @@ describe("developer client access", () => {
 
     const { env: trustedEnv } = testEnv();
     await expect(getDeveloperClient(trustedEnv, request, "tinyurl")).rejects.toMatchObject({
+      status: 404,
+    });
+    await expect(getDeveloperClient(trustedEnv, request, "sns")).rejects.toMatchObject({
       status: 404,
     });
   });

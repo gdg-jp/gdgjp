@@ -20,6 +20,8 @@ IMG_CLIENT_ID = "img"
 IMG_REDIRECT_URLS = "https://img.gdgs.jp/api/auth/callback/gdgjp"
 SCHEDULER_CLIENT_ID = "scheduler"
 SCHEDULER_REDIRECT_URLS = "https://scheduler.gdgs.jp/api/auth/callback/gdgjp"
+SNS_CLIENT_ID = "sns"
+SNS_REDIRECT_URLS = "https://sns.gdgs.jp/api/auth/callback/gdgjp"
 
 [assets]
 binding = "ASSETS"

@@ -9,6 +9,7 @@ TINYURL_CLIENT_SECRET=""
 WIKI_CLIENT_SECRET=""
 IMG_CLIENT_SECRET=""
 SCHEDULER_CLIENT_SECRET=""
+SNS_CLIENT_SECRET=""
 
 # Override prod URLs from wrangler.toml so dev runs the IdP at localhost.
 APP_URL=http://localhost:5173
@@ -19,5 +20,6 @@ TINYURL_REDIRECT_URLS=http://localhost:5174/api/auth/callback/gdgjp
 IMG_REDIRECT_URLS=http://localhost:5175/api/auth/callback/gdgjp
 SCHEDULER_REDIRECT_URLS=http://localhost:5176/api/auth/callback/gdgjp
 WIKI_REDIRECT_URLS=http://localhost:5177/api/auth/callback/gdgjp
+SNS_REDIRECT_URLS=http://localhost:5178/api/auth/callback/gdgjp
 
 RESEND_API_KEY=""

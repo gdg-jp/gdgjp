@@ -435,9 +435,13 @@ async function sha256Base64Url(value: string): Promise<string> {
 
 function trustedClientIds(env: Env): Set<string> {
   return new Set<string>(
-    [env.TINYURL_CLIENT_ID, env.WIKI_CLIENT_ID, env.IMG_CLIENT_ID, env.SCHEDULER_CLIENT_ID].filter(
-      Boolean,
-    ),
+    [
+      env.TINYURL_CLIENT_ID,
+      env.WIKI_CLIENT_ID,
+      env.IMG_CLIENT_ID,
+      env.SCHEDULER_CLIENT_ID,
+      env.SNS_CLIENT_ID,
+    ].filter(Boolean),
   );
 }
 

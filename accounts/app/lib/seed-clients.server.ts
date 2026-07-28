@@ -78,6 +78,7 @@ function collectSpecs(env: Env): ClientSpec[] {
       env.SCHEDULER_CLIENT_SECRET,
       env.SCHEDULER_REDIRECT_URLS,
     ],
+    ["SNS Manager", env.SNS_CLIENT_ID, env.SNS_CLIENT_SECRET, env.SNS_REDIRECT_URLS],
   ] as const;
   return apps.flatMap(([clientName, clientId, clientSecret, redirectUrls]) =>
     clientId

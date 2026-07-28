@@ -342,7 +342,7 @@
     "title": "Trusted OAuth clients",
     "description": "Synchronize the built-in applications with the current Worker configuration.",
     "noticeTitle": "Administrative operation",
-    "noticeDescription": "This idempotent operation writes configured tinyurl, wiki, img, and scheduler clients to D1.",
+    "noticeDescription": "This idempotent operation writes configured tinyurl, wiki, img, scheduler, and sns clients to D1.",
     "submit": "Synchronize clients",
     "pending": "Synchronizing…",
     "result": "Result at {{at}}",

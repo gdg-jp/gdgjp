@@ -1,0 +1,59 @@
+name = "gdgjp-sns"
+main = "./workers/app.ts"
+compatibility_date = "2026-07-28"
+compatibility_flags = ["nodejs_compat"]
+
+[alias]
+"virtual:react-router/server-build" = "./build/server/index.js"
+
+[vars]
+APP_URL = "https://sns.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+IDP_URL = "https://accounts.gdgs.jp"
+IDP_CLIENT_ID = "sns"
+X_API_BASE_URL = "https://api.x.com"
+X_AUTHORIZATION_URL = "https://x.com/i/oauth2/authorize"
+X_TOKEN_URL = "https://api.x.com/2/oauth2/token"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+
+[assets]
+binding = "ASSETS"
+directory = "./build/client"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gdgjp-sns-db"
+# Create this database before production deployment and replace the placeholder.
+database_id = "37957ed3-4685-4a91-9b2a-18b51fd19e7a"
+migrations_dir = "./migrations"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "gdgjp-sns-media"
+
+[[services]]
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+
+[[routes]]
+pattern = "sns.gdgs.jp/*"
+zone_name = "gdgs.jp"
+
+[triggers]
+crons = ["* * * * *"]
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 0.1
+persist = true
+
+# Set with `wrangler secret put`:
+# RP_SESSION_SECRET, IDP_CLIENT_SECRET, X_CLIENT_ID, X_CLIENT_SECRET,
+# TOKEN_ENCRYPTION_KEY, GOOGLE_PHOTOS_CLIENT_ID, GOOGLE_PHOTOS_CLIENT_SECRET

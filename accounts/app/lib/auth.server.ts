@@ -46,6 +46,7 @@ function buildAuth(env: Env) {
     env.WIKI_CLIENT_ID,
     env.IMG_CLIENT_ID,
     env.SCHEDULER_CLIENT_ID,
+    env.SNS_CLIENT_ID,
   ].filter(Boolean);
 
   return betterAuth({

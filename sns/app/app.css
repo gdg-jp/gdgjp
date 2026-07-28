@@ -1,0 +1,44 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@source "../../gdg-lib/src/ui";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+}
+:root {
+  --background: #fff;
+  --foreground: #0f1419;
+  --card: #fff;
+  --muted: #f7f9f9;
+  --muted-foreground: #536471;
+  --border: #eff3f4;
+  --primary: #1d9bf0;
+}
+.dark {
+  --background: #000;
+  --foreground: #e7e9ea;
+  --card: #000;
+  --muted: #16181c;
+  --muted-foreground: #8b98a5;
+  --border: #2f3336;
+  --primary: #1d9bf0;
+}
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+.post-text a {
+  color: var(--primary);
+}
