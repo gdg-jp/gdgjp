@@ -1,14 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  dispatchGooglePhotosImport,
-  shouldDispatchGooglePhotosImport,
-} from "./google-photos-dispatcher";
+import { dispatchGooglePhotosImport } from "./google-photos-dispatcher";
 
 describe("dispatchGooglePhotosImport", () => {
   it("dispatches the importer workflow on main", async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
 
-    await dispatchGooglePhotosImport("test-token", fetcher);
+    await dispatchGooglePhotosImport(
+      "test-token",
+      { albumId: "album-1", albumUrl: "https://photos.app.goo.gl/example", runId: "run-1" },
+      fetcher,
+    );
 
     expect(fetcher).toHaveBeenCalledWith(
       "https://api.github.com/repos/gdg-jp/gdgjp/actions/workflows/google-photos-import.yml/dispatches",
@@ -18,7 +19,14 @@ describe("dispatchGooglePhotosImport", () => {
           authorization: "Bearer test-token",
           "user-agent": "gdgjp-album-cron",
         }),
-        body: JSON.stringify({ ref: "main" }),
+        body: JSON.stringify({
+          ref: "main",
+          inputs: {
+            album_id: "album-1",
+            album_url: "https://photos.app.goo.gl/example",
+            run_id: "run-1",
+          },
+        }),
       }),
     );
   });
@@ -28,11 +36,12 @@ describe("dispatchGooglePhotosImport", () => {
       .fn()
       .mockResolvedValue(new Response('{"message":"Resource not accessible"}', { status: 403 }));
 
-    await expect(dispatchGooglePhotosImport("test-token", fetcher)).rejects.toThrow("status 403");
-  });
-
-  it("dispatches once every five minutes", () => {
-    expect(shouldDispatchGooglePhotosImport(Date.UTC(2026, 6, 29, 1, 5))).toBe(true);
-    expect(shouldDispatchGooglePhotosImport(Date.UTC(2026, 6, 29, 1, 6))).toBe(false);
+    await expect(
+      dispatchGooglePhotosImport(
+        "test-token",
+        { albumId: "album-1", albumUrl: "https://photos.app.goo.gl/example", runId: "run-1" },
+        fetcher,
+      ),
+    ).rejects.toThrow("status 403");
   });
 });

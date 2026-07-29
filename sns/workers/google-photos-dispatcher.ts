@@ -3,12 +3,15 @@ const WORKFLOW_DISPATCH_URL =
 
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
-export function shouldDispatchGooglePhotosImport(scheduledTime: number): boolean {
-  return new Date(scheduledTime).getUTCMinutes() % 5 === 0;
-}
+export type GooglePhotosImportDispatch = {
+  albumId: string;
+  albumUrl: string;
+  runId: string;
+};
 
 export async function dispatchGooglePhotosImport(
   token: string,
+  album: GooglePhotosImportDispatch,
   fetcher: Fetcher = fetch,
 ): Promise<void> {
   const response = await fetcher(WORKFLOW_DISPATCH_URL, {
@@ -20,7 +23,14 @@ export async function dispatchGooglePhotosImport(
       "x-github-api-version": "2026-03-10",
       "user-agent": "gdgjp-album-cron",
     },
-    body: JSON.stringify({ ref: "main" }),
+    body: JSON.stringify({
+      ref: "main",
+      inputs: {
+        album_id: album.albumId,
+        album_url: album.albumUrl,
+        run_id: album.runId,
+      },
+    }),
   });
   if (!response.ok) {
     const detail = await response.text();

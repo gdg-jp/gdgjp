@@ -1,11 +1,43 @@
 import { describe, expect, it } from "vitest";
 import {
+  claimDueGooglePhotosAlbum,
   googlePhotosImportOperation,
   googlePhotosKnownMediaChunks,
   handleGooglePhotosImport,
 } from "./google-photos-importer";
 
 describe("googlePhotosImportOperation", () => {
+  it("claims a due album before dispatching an importer workflow", async () => {
+    const calls: { query: string; values: unknown[] }[] = [];
+    const env = {
+      DB: {
+        prepare: (query: string) => ({
+          bind: (...values: unknown[]) => {
+            calls.push({ query, values });
+            return {
+              first: async () => ({
+                id: "album-1",
+                album_url: "https://photos.app.goo.gl/example",
+              }),
+              run: async () => ({ meta: { changes: 1 } }),
+            };
+          },
+        }),
+      },
+    } as unknown as Env;
+
+    await expect(claimDueGooglePhotosAlbum(env, "2026-07-29T00:00:00.000Z")).resolves.toMatchObject(
+      {
+        id: "album-1",
+        url: "https://photos.app.goo.gl/example",
+      },
+    );
+    expect(calls).toHaveLength(3);
+    expect(calls[0].values).toEqual(["2026-07-29T00:00:00.000Z", "2026-07-29T00:00:00.000Z"]);
+    expect(calls[1].query).toContain("active_run_id");
+    expect(calls[2].query).toContain("google_photos_poll_runs");
+  });
+
   it("accepts the public API URL", () => {
     expect(googlePhotosImportOperation("https://sns.gdgs.jp/api/google-photos-import/claim")).toBe(
       "claim",

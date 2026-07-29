@@ -5,11 +5,20 @@ import { chromium } from "@playwright/test";
 const bridge = process.env.GOOGLE_PHOTOS_IMPORT_URL;
 const token = process.env.GOOGLE_PHOTOS_IMPORT_TOKEN;
 const dryRunUrl = process.env.GOOGLE_PHOTOS_DRY_RUN_URL;
+const claimedAlbumId = process.env.GOOGLE_PHOTOS_ALBUM_ID;
+const claimedAlbumUrl = process.env.GOOGLE_PHOTOS_ALBUM_URL;
+const claimedRunId = process.env.GOOGLE_PHOTOS_RUN_ID;
 const retries = 3;
 const debugDir = process.env.GOOGLE_PHOTOS_DEBUG_DIR;
 
-if (import.meta.main && !dryRunUrl && (!bridge || !token))
-  throw new Error("GOOGLE_PHOTOS_IMPORT_URL and GOOGLE_PHOTOS_IMPORT_TOKEN are required");
+if (
+  import.meta.main &&
+  !dryRunUrl &&
+  (!bridge || !token || !claimedAlbumId || !claimedAlbumUrl || !claimedRunId)
+)
+  throw new Error(
+    "GOOGLE_PHOTOS_IMPORT_URL, GOOGLE_PHOTOS_IMPORT_TOKEN, GOOGLE_PHOTOS_ALBUM_ID, GOOGLE_PHOTOS_ALBUM_URL, and GOOGLE_PHOTOS_RUN_ID are required",
+  );
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -84,6 +93,17 @@ async function captureStructureDiagnostics(page) {
   ]);
 }
 
+export function googlePhotosDownloadUrl(url) {
+  const parsed = new URL(url);
+  if (!/^(lh3|lh5)\.googleusercontent\.com$/.test(parsed.hostname))
+    throw new Error("unsupported Google Photos image URL");
+  // Image rendition parameters are part of the path (for example, `=w400-h300`).
+  // Always request a fresh full-size rendition instead of persisting the grid's
+  // progressive thumbnail, whose URL and dimensions can change while it loads.
+  parsed.pathname = `${parsed.pathname.replace(/=[^/]*$/, "")}=w1600`;
+  return parsed.toString();
+}
+
 async function extractVisiblePhotos(page) {
   return page.evaluate(() => {
     const parseTakenAt = (element) => {
@@ -119,15 +139,16 @@ async function extractVisiblePhotos(page) {
     const linkPhotos = [...document.querySelectorAll('a[href*="/photo/"]')]
       .map((link) => {
         const stableId = link.getAttribute("href")?.match(/\/photo\/([^/?]+)/)?.[1];
-        const backgroundImage = [...link.querySelectorAll("*")]
+        const descendants = [link, ...link.querySelectorAll("*")];
+        const backgroundImage = descendants
           .map((element) => getComputedStyle(element).backgroundImage)
           .find((value) => /^url\(/.test(value));
-        const url = backgroundImage?.match(/^url\(["']?(.+?)["']?\)$/)?.[1];
+        const backgroundUrl = backgroundImage?.match(/^url\(["']?(.+?)["']?\)$/)?.[1];
+        const image = link.querySelector("img");
+        const url = image?.currentSrc || image?.getAttribute("src") || backgroundUrl;
         if (!stableId || !url || !/^https:\/\/(lh3|lh5)\.googleusercontent\.com\//.test(url))
           return null;
-        const parsed = new URL(url);
-        parsed.pathname = parsed.pathname.replace(/=[^/]+$/, "=w1600");
-        return { stableId, url: parsed.toString(), takenAt: parseTakenAt(link), idSource: "link" };
+        return { stableId, url, takenAt: parseTakenAt(link), idSource: "link" };
       })
       .filter(Boolean);
     const domPhotos = [...document.images]
@@ -143,34 +164,16 @@ async function extractVisiblePhotos(page) {
           ancestor?.getAttribute("data-id") ??
           image.getAttribute("data-photo-id");
         const url = image.currentSrc || image.getAttribute("src");
-        if (!url || !/^https:\/\/(lh3|lh5)\.googleusercontent\.com\//.test(url)) return null;
-        const canonicalPath = new URL(url).pathname.replace(/=[^/]+$/, "");
-        return stableId || !canonicalPath || canonicalPath === "/"
-          ? { stableId, url, takenAt: parseTakenAt(ancestor), idSource: "dom" }
-          : {
-              stableId: canonicalPath,
-              url,
-              takenAt: parseTakenAt(ancestor),
-              idSource: "googleusercontent_path",
-            };
+        if (!stableId || !url || !/^https:\/\/(lh3|lh5)\.googleusercontent\.com\//.test(url))
+          return null;
+        return { stableId, url, takenAt: parseTakenAt(ancestor), idSource: "dom" };
       })
       .filter((photo) => photo?.stableId);
-    const resourcePhotos = performance
-      .getEntriesByType("resource")
-      .map((entry) => entry.name)
-      .filter((url) => {
-        const parsed = new URL(url);
-        return (
-          parsed.hostname === "lh3.googleusercontent.com" &&
-          /(?:=|[?&])w(?:[2-9]\d{2}|[1-9]\d{3,})/.test(url)
-        );
-      })
-      .map((url) => ({
-        stableId: new URL(url).pathname.replace(/=[^/]+$/, ""),
-        url,
-        idSource: "googleusercontent_resource",
-      }));
-    return linkPhotos.length ? linkPhotos : [...domPhotos, ...resourcePhotos];
+    // A Googleusercontent delivery URL identifies a particular rendition, not a
+    // photo. Its path may change as Google replaces an in-progress thumbnail, so
+    // using it as a stable ID causes duplicate imports. If neither the photo link
+    // nor an explicit DOM media ID is available, fail safely with diagnostics.
+    return linkPhotos.length ? linkPhotos : domPhotos;
   });
 }
 
@@ -207,6 +210,23 @@ async function scrollAlbum(page) {
   });
 }
 
+export async function waitForVisibleGooglePhotos(page) {
+  await page.waitForFunction(
+    () => {
+      const images = [...document.images].filter((image) =>
+        /^https:\/\/(lh3|lh5)\.googleusercontent\.com\//.test(
+          image.currentSrc || image.getAttribute("src") || "",
+        ),
+      );
+      return (
+        images.length === 0 || images.every((image) => image.complete && image.naturalWidth > 0)
+      );
+    },
+    undefined,
+    { timeout: 10_000 },
+  );
+}
+
 export async function collectPhotos(page) {
   // Google Photos virtualizes the album grid: only roughly one viewport of images
   // remains in the DOM. Accumulate every viewport instead of inspecting only the
@@ -214,22 +234,22 @@ export async function collectPhotos(page) {
   const unique = new Map();
   let settledAtEndRounds = 0;
   for (let index = 0; index < 300 && settledAtEndRounds < 3; index += 1) {
+    await waitForVisibleGooglePhotos(page);
     const visiblePhotos = await extractVisiblePhotos(page);
     for (const photo of visiblePhotos) {
-      const existing = unique.get(photo.stableId);
-      if (!existing || existing.idSource !== "dom") unique.set(photo.stableId, photo);
+      unique.set(photo.stableId, photo);
     }
 
     const { advanced, atEnd } = await scrollAlbum(page);
     await page.waitForTimeout(500);
     settledAtEndRounds = atEnd && !advanced ? settledAtEndRounds + 1 : 0;
   }
-  const fallbackIdCount = [...unique.values()].filter((photo) => photo.idSource !== "dom").length;
+  const domIdCount = [...unique.values()].filter((photo) => photo.idSource === "dom").length;
   console.log(
     JSON.stringify({
       message: "google_photos_extraction",
       extractedCount: unique.size,
-      fallbackIdCount,
+      domIdCount,
     }),
   );
   if (!unique.size) {
@@ -240,7 +260,8 @@ export async function collectPhotos(page) {
 }
 
 async function uploadPhoto(albumId, runId, photo, context) {
-  const response = await retry(() => context.request.get(photo.url, { failOnStatusCode: true }));
+  const downloadUrl = googlePhotosDownloadUrl(photo.url);
+  const response = await retry(() => context.request.get(downloadUrl, { failOnStatusCode: true }));
   const contentType = response.headers()["content-type"]?.split(";", 1)[0] ?? "";
   if (!contentType.startsWith("image/")) return "skipped";
   const upload = await fetch(`${bridge}/media`, {
@@ -251,7 +272,7 @@ async function uploadPhoto(albumId, runId, photo, context) {
       "x-album-id": albumId,
       "x-import-run-id": runId,
       "x-stable-photo-id": photo.stableId,
-      "x-source-url": photo.url,
+      "x-source-url": downloadUrl,
       ...(photo.takenAt ? { "x-photo-taken-at": photo.takenAt } : {}),
     },
     body: await response.body(),
@@ -263,9 +284,9 @@ async function uploadPhoto(albumId, runId, photo, context) {
 }
 
 async function poll() {
-  const claim = await bridgeJson("/claim");
-  if (!claim.album) return { ok: true, idle: true };
-  const { id: albumId, url, runId } = claim.album;
+  const albumId = claimedAlbumId;
+  const url = claimedAlbumUrl;
+  const runId = claimedRunId;
   let browser;
   try {
     browser = await chromium.launch({ headless: true });

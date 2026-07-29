@@ -1,10 +1,8 @@
 import { createRequestHandler } from "react-router";
 import { publishDuePosts } from "../app/lib/publish.server";
 import { CloudflareContext } from "./context";
-import {
-  dispatchGooglePhotosImport,
-  shouldDispatchGooglePhotosImport,
-} from "./google-photos-dispatcher";
+import { dispatchGooglePhotosImport } from "./google-photos-dispatcher";
+import { claimDueGooglePhotosAlbum } from "./google-photos-importer";
 
 const PUBLISH_DUE_POSTS_CRON = "* * * * *";
 
@@ -26,7 +24,8 @@ export default {
           );
         }),
       );
-      if (!shouldDispatchGooglePhotosImport(event.scheduledTime)) return;
+      const album = await claimDueGooglePhotosAlbum(env);
+      if (!album) return;
       console.log(
         JSON.stringify({
           message: "sns Google Photos workflow dispatch started",
@@ -34,7 +33,11 @@ export default {
         }),
       );
       ctx.waitUntil(
-        dispatchGooglePhotosImport(env.GITHUB_ACTIONS_DISPATCH_TOKEN).catch((error: unknown) => {
+        dispatchGooglePhotosImport(env.GITHUB_ACTIONS_DISPATCH_TOKEN, {
+          albumId: album.id,
+          albumUrl: album.url,
+          runId: album.runId,
+        }).catch((error: unknown) => {
           console.error(
             JSON.stringify({
               message: "sns Google Photos workflow dispatch failed",

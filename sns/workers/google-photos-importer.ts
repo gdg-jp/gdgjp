@@ -4,7 +4,8 @@ import {
 } from "../app/lib/google-photos-polling";
 import { MAX_IMAGE_BYTES, nowIso } from "../app/lib/utils";
 
-type ClaimedAlbum = { id: string; album_url: string };
+export type ClaimedGooglePhotosAlbum = { id: string; url: string; runId: string };
+type DueGooglePhotosAlbum = { id: string; album_url: string };
 type CompletePayload = {
   albumId: string;
   runId: string;
@@ -16,6 +17,8 @@ type CompletePayload = {
 };
 
 const KNOWN_MEDIA_QUERY_CHUNK_SIZE = 50;
+// The GitHub workflow can run for 15 minutes, and its runner setup happens after this claim.
+const GOOGLE_PHOTOS_IMPORT_LEASE_MS = 20 * 60_000;
 
 export function googlePhotosKnownMediaChunks(ids: string[]): string[][] {
   const chunks: string[][] = [];
@@ -28,30 +31,37 @@ function json(value: unknown, status = 200): Response {
   return Response.json(value, { status });
 }
 
-async function claimAlbum(env: Env): Promise<Response> {
-  const now = nowIso();
+export async function claimDueGooglePhotosAlbum(
+  env: Env,
+  now = nowIso(),
+): Promise<ClaimedGooglePhotosAlbum | null> {
   const album = await env.DB.prepare(
     `SELECT id, album_url FROM google_photos_albums
      WHERE enabled = 1 AND next_poll_at <= ? AND (lease_expires_at IS NULL OR lease_expires_at < ?)
      ORDER BY next_poll_at LIMIT 1`,
   )
     .bind(now, now)
-    .first<ClaimedAlbum>();
-  if (!album) return json({ album: null });
-  const lease = new Date(Date.now() + 10 * 60_000).toISOString();
+    .first<DueGooglePhotosAlbum>();
+  if (!album) return null;
+  const lease = new Date(Date.now() + GOOGLE_PHOTOS_IMPORT_LEASE_MS).toISOString();
   const runId = crypto.randomUUID();
   const claimed = await env.DB.prepare(
     "UPDATE google_photos_albums SET lease_expires_at = ?, active_run_id = ?, updated_at = ? WHERE id = ? AND (lease_expires_at IS NULL OR lease_expires_at < ?)",
   )
     .bind(lease, runId, now, album.id, now)
     .run();
-  if (claimed.meta.changes !== 1) return json({ album: null });
+  if (claimed.meta.changes !== 1) return null;
   await env.DB.prepare(
     "INSERT INTO google_photos_poll_runs (id, album_id, started_at, outcome) VALUES (?, ?, ?, 'running')",
   )
     .bind(runId, album.id, now)
     .run();
-  return json({ album: { id: album.id, url: album.album_url, runId } });
+  return { id: album.id, url: album.album_url, runId };
+}
+
+async function claimAlbum(env: Env): Promise<Response> {
+  const album = await claimDueGooglePhotosAlbum(env);
+  return json({ album });
 }
 
 async function storeMedia(request: Request, env: Env): Promise<Response> {

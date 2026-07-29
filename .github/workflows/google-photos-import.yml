@@ -2,6 +2,19 @@ name: Import Google Photos albums
 
 on:
   workflow_dispatch:
+    inputs:
+      album_id:
+        description: Claimed Google Photos album ID
+        required: true
+        type: string
+      album_url:
+        description: Claimed Google Photos album URL
+        required: true
+        type: string
+      run_id:
+        description: Claimed import run ID
+        required: true
+        type: string
 
 concurrency:
   group: google-photos-import
@@ -21,12 +34,23 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      - name: Restore Playwright Chromium cache
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
       - run: node sns/google-photos-importer/server.mjs
         env:
           GOOGLE_PHOTOS_IMPORT_URL: ${{ vars.SNS_GOOGLE_PHOTOS_IMPORT_URL }}
           GOOGLE_PHOTOS_IMPORT_TOKEN: ${{ secrets.SNS_GOOGLE_PHOTOS_IMPORT_TOKEN }}
           GOOGLE_PHOTOS_DEBUG_DIR: ${{ runner.temp }}/google-photos-debug
+          GOOGLE_PHOTOS_ALBUM_ID: ${{ inputs.album_id }}
+          GOOGLE_PHOTOS_ALBUM_URL: ${{ inputs.album_url }}
+          GOOGLE_PHOTOS_RUN_ID: ${{ inputs.run_id }}
       - name: Upload Google Photos diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
