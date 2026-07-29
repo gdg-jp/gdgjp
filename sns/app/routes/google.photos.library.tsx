@@ -79,7 +79,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   throw redirect(`/schedule?edit=${post.id}`);
 }
 
-function BlurhashPlaceholder({ hash }: { hash: string | null }) {
+function BlurhashPlaceholder({ hash, isSelected }: { hash: string | null; isSelected: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -100,7 +100,7 @@ function BlurhashPlaceholder({ hash }: { hash: string | null }) {
   return hash ? (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 size-full scale-110 object-cover blur-sm"
+      className={`absolute inset-0 size-full object-cover blur-sm transition-transform duration-200 ${isSelected ? "scale-90" : "scale-100"}`}
       height="32"
       width="32"
     />
@@ -128,7 +128,7 @@ function GooglePhotoButton({
       aria-label={isSelected ? `写真 ${selectionIndex + 1} を選択解除` : "写真を選択"}
       className="relative aspect-square overflow-hidden bg-muted focus-visible:z-10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring"
     >
-      <BlurhashPlaceholder hash={blurhash} />
+      <BlurhashPlaceholder hash={blurhash} isSelected={isSelected} />
       <img
         src={`/api/google-photos-media/${id}`}
         alt=""
