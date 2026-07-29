@@ -21,6 +21,10 @@ export async function dispatchGooglePhotosImport(
     },
     body: JSON.stringify({ ref: "main" }),
   });
-  if (!response.ok)
-    throw new Error(`Google Photos workflow dispatch failed with status ${response.status}`);
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(
+      `Google Photos workflow dispatch failed with status ${response.status}: ${detail}`,
+    );
+  }
 }

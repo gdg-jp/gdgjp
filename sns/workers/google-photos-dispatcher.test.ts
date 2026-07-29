@@ -21,7 +21,9 @@ describe("dispatchGooglePhotosImport", () => {
   });
 
   it("surfaces failed dispatches", async () => {
-    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 403 }));
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(new Response('{"message":"Resource not accessible"}', { status: 403 }));
 
     await expect(dispatchGooglePhotosImport("test-token", fetcher)).rejects.toThrow("status 403");
   });
