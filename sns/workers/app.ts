@@ -27,6 +27,12 @@ export default {
         }),
       );
       if (!shouldDispatchGooglePhotosImport(event.scheduledTime)) return;
+      console.log(
+        JSON.stringify({
+          message: "sns Google Photos workflow dispatch started",
+          scheduledTime: new Date(event.scheduledTime).toISOString(),
+        }),
+      );
       ctx.waitUntil(
         dispatchGooglePhotosImport(env.GITHUB_ACTIONS_DISPATCH_TOKEN).catch((error: unknown) => {
           console.error(
