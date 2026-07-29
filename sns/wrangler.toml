@@ -39,7 +39,7 @@ pattern = "sns.gdgs.jp/*"
 zone_name = "gdgs.jp"
 
 [triggers]
-crons = ["* * * * *", "*/5 * * * *"]
+crons = ["* * * * *"]
 
 [observability]
 enabled = true

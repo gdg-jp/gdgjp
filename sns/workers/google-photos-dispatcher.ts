@@ -3,6 +3,10 @@ const WORKFLOW_DISPATCH_URL =
 
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
+export function shouldDispatchGooglePhotosImport(scheduledTime: number): boolean {
+  return new Date(scheduledTime).getUTCMinutes() % 5 === 0;
+}
+
 export async function dispatchGooglePhotosImport(
   token: string,
   fetcher: Fetcher = fetch,

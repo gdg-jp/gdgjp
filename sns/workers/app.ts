@@ -1,9 +1,11 @@
 import { createRequestHandler } from "react-router";
 import { publishDuePosts } from "../app/lib/publish.server";
 import { CloudflareContext } from "./context";
-import { dispatchGooglePhotosImport } from "./google-photos-dispatcher";
+import {
+  dispatchGooglePhotosImport,
+  shouldDispatchGooglePhotosImport,
+} from "./google-photos-dispatcher";
 
-const GOOGLE_PHOTOS_IMPORT_CRON = "*/5 * * * *";
 const PUBLISH_DUE_POSTS_CRON = "* * * * *";
 
 const requestHandler = createRequestHandler(
@@ -24,7 +26,7 @@ export default {
           );
         }),
       );
-    } else if (event.cron === GOOGLE_PHOTOS_IMPORT_CRON) {
+      if (!shouldDispatchGooglePhotosImport(event.scheduledTime)) return;
       ctx.waitUntil(
         dispatchGooglePhotosImport(env.GITHUB_ACTIONS_DISPATCH_TOKEN).catch((error: unknown) => {
           console.error(
