@@ -15,6 +15,15 @@ type CompletePayload = {
   detail?: string;
 };
 
+const KNOWN_MEDIA_QUERY_CHUNK_SIZE = 50;
+
+export function googlePhotosKnownMediaChunks(ids: string[]): string[][] {
+  const chunks: string[][] = [];
+  for (let index = 0; index < ids.length; index += KNOWN_MEDIA_QUERY_CHUNK_SIZE)
+    chunks.push(ids.slice(index, index + KNOWN_MEDIA_QUERY_CHUNK_SIZE));
+  return chunks;
+}
+
 function json(value: unknown, status = 200): Response {
   return Response.json(value, { status });
 }
@@ -126,14 +135,20 @@ async function knownMedia(request: Request, env: Env): Promise<Response> {
       ),
     );
   }
-  const placeholders = ids.map(() => "?").join(",");
-  const result = await env.DB.prepare(
-    `SELECT stable_photo_id FROM google_photos_media
-     WHERE album_id = ? AND stable_photo_id IN (${placeholders})`,
-  )
-    .bind(payload.albumId, ...ids)
-    .all<{ stable_photo_id: string }>();
-  return json({ known: result.results.map((row) => row.stable_photo_id) });
+  // A shared album can contain more IDs than D1 accepts in one bound IN clause.
+  // Query in small chunks so large albums do not fail before importing media.
+  const known = new Set<string>();
+  for (const idChunk of googlePhotosKnownMediaChunks(ids)) {
+    const placeholders = idChunk.map(() => "?").join(",");
+    const result = await env.DB.prepare(
+      `SELECT stable_photo_id FROM google_photos_media
+       WHERE album_id = ? AND stable_photo_id IN (${placeholders})`,
+    )
+      .bind(payload.albumId, ...idChunk)
+      .all<{ stable_photo_id: string }>();
+    for (const row of result.results) known.add(row.stable_photo_id);
+  }
+  return json({ known: [...known] });
 }
 
 async function completeAlbum(request: Request, env: Env): Promise<Response> {
