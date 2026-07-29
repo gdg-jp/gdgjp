@@ -9,6 +9,10 @@ export const CLI_SCOPE = "https://gdgs.jp/scopes/cli";
 export const CHAPTERS_CLAIM = "https://gdgs.jp/claims/chapters";
 export const IS_ADMIN_CLAIM = "https://gdgs.jp/claims/is_admin";
 export const OAUTH_STATE_STORAGE = "cookie" as const;
+// A session lookup is on the critical path for every authenticated SSR route.
+// Do not let one stuck D1 request turn a persistent browser cookie into an
+// indefinitely pending navigation.
+export const SESSION_LOOKUP_TIMEOUT_MS = 5_000;
 
 type AuthInstance = ReturnType<typeof buildAuth>;
 
@@ -22,7 +26,13 @@ export function getAuth(env: Env): AuthInstance {
 }
 
 export async function getSessionUser(env: Env, request: Request): Promise<AuthUser | null> {
-  const session = await getAuth(env).api.getSession({ headers: request.headers });
+  const session = await withTimeout(
+    getAuth(env).api.getSession({ headers: request.headers }),
+    SESSION_LOOKUP_TIMEOUT_MS,
+  ).catch((error: unknown) => {
+    if (error instanceof SessionLookupTimeoutError) return null;
+    throw error;
+  });
   if (!session) return null;
   const user = session.user as typeof session.user & { isAdmin?: boolean | null };
   return {
@@ -32,6 +42,23 @@ export async function getSessionUser(env: Env, request: Request): Promise<AuthUs
     image: user.image ?? null,
     isAdmin: user.isAdmin === true,
   };
+}
+
+export class SessionLookupTimeoutError extends Error {
+  constructor(timeoutMs: number) {
+    super(`Session lookup exceeded ${timeoutMs}ms`);
+    this.name = "SessionLookupTimeoutError";
+  }
+}
+
+export function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new SessionLookupTimeoutError(timeoutMs)), timeoutMs);
+  });
+  return Promise.race([operation, deadline]).finally(() => {
+    if (timeout !== undefined) clearTimeout(timeout);
+  });
 }
 
 export async function requireUser(env: Env, request: Request): Promise<AuthUser> {
