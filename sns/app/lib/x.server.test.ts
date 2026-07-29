@@ -5,7 +5,7 @@ describe("X authorization", () => {
     const { xAuthorizationUrl } = await import("./x.server");
     const url = await xAuthorizationUrl(
       {
-        APP_URL: "http://localhost:5178",
+        APP_URL: "https://sns.gdgs.jp",
         X_AUTHORIZATION_URL: "https://x.com/i/oauth2/authorize",
         X_CLIENT_ID: "client-id",
       },
