@@ -20,6 +20,10 @@ const KNOWN_MEDIA_QUERY_CHUNK_SIZE = 50;
 // The GitHub workflow can run for 15 minutes, and its runner setup happens after this claim.
 const GOOGLE_PHOTOS_IMPORT_LEASE_MS = 20 * 60_000;
 
+function isValidBlurhash(value: string | null): value is string {
+  return value !== null && value.length >= 6 && value.length <= 200 && !/\s/.test(value);
+}
+
 export function googlePhotosKnownMediaChunks(ids: string[]): string[][] {
   const chunks: string[][] = [];
   for (let index = 0; index < ids.length; index += KNOWN_MEDIA_QUERY_CHUNK_SIZE)
@@ -70,6 +74,7 @@ async function storeMedia(request: Request, env: Env): Promise<Response> {
   const runId = request.headers.get("x-import-run-id");
   const contentType = request.headers.get("content-type")?.split(";", 1)[0] ?? "";
   const sourceUrl = request.headers.get("x-source-url");
+  const blurhash = request.headers.get("x-blurhash");
   const takenAtHeader = request.headers.get("x-photo-taken-at");
   const takenAt =
     takenAtHeader && !Number.isNaN(Date.parse(takenAtHeader))
@@ -84,11 +89,18 @@ async function storeMedia(request: Request, env: Env): Promise<Response> {
     .first<{ chapter_id: number }>();
   if (!album) return json({ error: "album lease expired" }, 409);
   const existing = await env.DB.prepare(
-    "SELECT id FROM google_photos_media WHERE album_id = ? AND stable_photo_id = ?",
+    "SELECT id, blurhash FROM google_photos_media WHERE album_id = ? AND stable_photo_id = ?",
   )
     .bind(albumId, stablePhotoId)
-    .first<{ id: string }>();
-  if (existing) return json({ duplicate: true }, 409);
+    .first<{ id: string; blurhash: string | null }>();
+  if (existing) {
+    if (!existing.blurhash && isValidBlurhash(blurhash))
+      await env.DB.prepare("UPDATE google_photos_media SET blurhash = ? WHERE id = ?")
+        .bind(blurhash, existing.id)
+        .run();
+    return json({ duplicate: true }, 409);
+  }
+  if (!isValidBlurhash(blurhash)) return json({ error: "invalid blurhash" }, 400);
   const bytes = await request.arrayBuffer();
   if (bytes.byteLength > MAX_IMAGE_BYTES) return json({ error: "image exceeds 5 MB" }, 413);
   const id = crypto.randomUUID();
@@ -97,8 +109,8 @@ async function storeMedia(request: Request, env: Env): Promise<Response> {
   try {
     await env.DB.prepare(
       `INSERT INTO google_photos_media
-       (id, album_id, stable_photo_id, r2_key, content_type, byte_size, source_url, taken_at, imported_at, last_seen_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, album_id, stable_photo_id, r2_key, content_type, byte_size, source_url, blurhash, taken_at, imported_at, last_seen_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
       .bind(
         id,
@@ -108,6 +120,7 @@ async function storeMedia(request: Request, env: Env): Promise<Response> {
         contentType,
         bytes.byteLength,
         sourceUrl,
+        blurhash,
         takenAt,
         nowIso(),
         nowIso(),
@@ -159,12 +172,12 @@ async function knownMedia(request: Request, env: Env): Promise<Response> {
   for (const idChunk of googlePhotosKnownMediaChunks(ids)) {
     const placeholders = idChunk.map(() => "?").join(",");
     const result = await env.DB.prepare(
-      `SELECT stable_photo_id FROM google_photos_media
+      `SELECT stable_photo_id, blurhash FROM google_photos_media
        WHERE album_id = ? AND stable_photo_id IN (${placeholders})`,
     )
       .bind(payload.albumId, ...idChunk)
-      .all<{ stable_photo_id: string }>();
-    for (const row of result.results) known.add(row.stable_photo_id);
+      .all<{ stable_photo_id: string; blurhash: string | null }>();
+    for (const row of result.results) if (row.blurhash) known.add(row.stable_photo_id);
   }
   return json({ known: [...known] });
 }

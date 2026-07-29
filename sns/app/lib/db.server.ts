@@ -70,6 +70,7 @@ export type GooglePhotosAlbum = {
 export type GooglePhotosLibraryMedia = {
   id: string;
   stablePhotoId: string;
+  blurhash: string | null;
   contentType: string;
   byteSize: number;
   takenAt: string | null;
@@ -293,7 +294,7 @@ export async function listGooglePhotosLibraryMedia(
     : "";
   const result = await db
     .prepare(
-      `SELECT m.id, m.stable_photo_id, m.content_type, m.byte_size, m.taken_at, m.imported_at
+      `SELECT m.id, m.stable_photo_id, m.blurhash, m.content_type, m.byte_size, m.taken_at, m.imported_at
        FROM google_photos_media m
        JOIN google_photos_albums a ON a.id = m.album_id
        WHERE a.chapter_id = ?
@@ -305,6 +306,7 @@ export async function listGooglePhotosLibraryMedia(
     .all<{
       id: string;
       stable_photo_id: string;
+      blurhash: string | null;
       content_type: string;
       byte_size: number;
       taken_at: string | null;
@@ -316,6 +318,7 @@ export async function listGooglePhotosLibraryMedia(
     media: rows.map((row) => ({
       id: row.id,
       stablePhotoId: row.stable_photo_id,
+      blurhash: row.blurhash,
       contentType: row.content_type,
       byteSize: row.byte_size,
       takenAt: row.taken_at,

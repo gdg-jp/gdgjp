@@ -1,6 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium } from "@playwright/test";
+import { encode } from "blurhash";
+import sharp from "sharp";
 
 const bridge = process.env.GOOGLE_PHOTOS_IMPORT_URL;
 const token = process.env.GOOGLE_PHOTOS_IMPORT_TOKEN;
@@ -33,6 +35,16 @@ async function retry(operation) {
     }
   }
   throw lastError;
+}
+
+export async function createBlurhash(bytes) {
+  const { data, info } = await sharp(bytes)
+    .rotate()
+    .resize(32, 32, { fit: "inside", withoutEnlargement: true })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  return encode(new Uint8ClampedArray(data), info.width, info.height, 4, 3);
 }
 
 async function bridgeJson(path, body) {
@@ -264,6 +276,8 @@ async function uploadPhoto(albumId, runId, photo, context) {
   const response = await retry(() => context.request.get(downloadUrl, { failOnStatusCode: true }));
   const contentType = response.headers()["content-type"]?.split(";", 1)[0] ?? "";
   if (!contentType.startsWith("image/")) return "skipped";
+  const bytes = await response.body();
+  const blurhash = await createBlurhash(bytes);
   const upload = await fetch(`${bridge}/media`, {
     method: "POST",
     headers: {
@@ -273,9 +287,10 @@ async function uploadPhoto(albumId, runId, photo, context) {
       "x-import-run-id": runId,
       "x-stable-photo-id": photo.stableId,
       "x-source-url": downloadUrl,
+      "x-blurhash": blurhash,
       ...(photo.takenAt ? { "x-photo-taken-at": photo.takenAt } : {}),
     },
-    body: await response.body(),
+    body: bytes,
   });
   if (upload.status === 409) return "duplicate";
   if (upload.status === 413) return "skipped";

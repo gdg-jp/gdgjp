@@ -1,3 +1,4 @@
+import { decode } from "blurhash";
 import { useEffect, useRef, useState } from "react";
 import { Form, data, redirect, useFetcher } from "react-router";
 import { AppShell } from "~/components/app-shell";
@@ -78,6 +79,76 @@ export async function action({ request, context }: Route.ActionArgs) {
   throw redirect(`/schedule?edit=${post.id}`);
 }
 
+function BlurhashPlaceholder({ hash }: { hash: string | null }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (!hash || !canvasRef.current) return;
+    try {
+      const width = 32;
+      const pixels = decode(hash, width, width);
+      const context = canvasRef.current.getContext("2d");
+      if (!context) return;
+      const image = new ImageData(width, width);
+      image.data.set(pixels);
+      context.putImageData(image, 0, 0);
+    } catch {
+      // An invalid placeholder must not prevent loading the original image.
+    }
+  }, [hash]);
+
+  return hash ? (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 size-full scale-110 object-cover blur-sm"
+      height="32"
+      width="32"
+    />
+  ) : null;
+}
+
+function GooglePhotoButton({
+  id,
+  blurhash,
+  selectionIndex,
+  onToggle,
+}: {
+  id: string;
+  blurhash: string | null;
+  selectionIndex: number;
+  onToggle: () => void;
+}) {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const isSelected = selectionIndex !== -1;
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={isSelected}
+      aria-label={isSelected ? `写真 ${selectionIndex + 1} を選択解除` : "写真を選択"}
+      className="relative aspect-square overflow-hidden bg-muted focus-visible:z-10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring"
+    >
+      <BlurhashPlaceholder hash={blurhash} />
+      <img
+        src={`/api/google-photos-media/${id}`}
+        alt=""
+        loading="lazy"
+        onLoad={() => setImageLoaded(true)}
+        onError={() => setImageLoaded(true)}
+        className={`size-full object-cover transition-[opacity,transform] duration-200 ${imageLoaded ? "opacity-100" : "opacity-0"} ${isSelected ? "scale-90" : "scale-100"}`}
+      />
+      {isSelected ? (
+        <>
+          <span className="absolute inset-0 bg-black/45" aria-hidden="true" />
+          <span className="absolute top-2 left-2 flex size-7 items-center justify-center rounded-full bg-primary text-sm font-bold text-white shadow">
+            {selectionIndex + 1}
+          </span>
+        </>
+      ) : null}
+    </button>
+  );
+}
+
 export default function GooglePhotosLibrary({ loaderData, actionData }: Route.ComponentProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [media, setMedia] = useState(loaderData.media);
@@ -143,30 +214,14 @@ export default function GooglePhotosLibrary({ loaderData, actionData }: Route.Co
           <div className="grid grid-cols-3">
             {media.map((item) => {
               const selectionIndex = selectedIds.indexOf(item.id);
-              const isSelected = selectionIndex !== -1;
               return (
-                <button
+                <GooglePhotoButton
                   key={item.id}
-                  type="button"
-                  onClick={() => toggleSelection(item.id)}
-                  aria-pressed={isSelected}
-                  aria-label={isSelected ? `写真 ${selectionIndex + 1} を選択解除` : "写真を選択"}
-                  className="relative aspect-square overflow-hidden focus-visible:z-10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring"
-                >
-                  <img
-                    src={`/api/google-photos-media/${item.id}`}
-                    alt=""
-                    className={`size-full object-cover transition-transform duration-200 ${isSelected ? "scale-90" : "scale-100"}`}
-                  />
-                  {isSelected ? (
-                    <>
-                      <span className="absolute inset-0 bg-black/45" aria-hidden="true" />
-                      <span className="absolute top-2 left-2 flex size-7 items-center justify-center rounded-full bg-primary text-sm font-bold text-white shadow">
-                        {selectionIndex + 1}
-                      </span>
-                    </>
-                  ) : null}
-                </button>
+                  id={item.id}
+                  blurhash={item.blurhash}
+                  selectionIndex={selectionIndex}
+                  onToggle={() => toggleSelection(item.id)}
+                />
               );
             })}
           </div>

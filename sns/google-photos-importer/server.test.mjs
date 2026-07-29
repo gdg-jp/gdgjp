@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectPhotos, googlePhotosDownloadUrl } from "./server.mjs";
+import { collectPhotos, createBlurhash, googlePhotosDownloadUrl } from "./server.mjs";
 
 describe("googlePhotosDownloadUrl", () => {
   it("replaces a grid thumbnail rendition with a full-size rendition", () => {
@@ -12,6 +12,17 @@ describe("googlePhotosDownloadUrl", () => {
     expect(() => googlePhotosDownloadUrl("https://example.com/photo=w320")).toThrow(
       "unsupported Google Photos image URL",
     );
+  });
+});
+
+describe("createBlurhash", () => {
+  it("encodes downloaded image bytes", async () => {
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLQXQAAAABJRU5ErkJggg==",
+      "base64",
+    );
+
+    await expect(createBlurhash(png)).resolves.toMatch(/^[^\s]{6,}$/);
   });
 });
 

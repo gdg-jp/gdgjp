@@ -70,7 +70,10 @@ describe("googlePhotosImportOperation", () => {
             return {
               first: async () => ({ id: "album-1" }),
               all: async () => ({
-                results: values.slice(1).map((stable_photo_id) => ({ stable_photo_id })),
+                results: values.slice(1).map((stable_photo_id) => ({
+                  stable_photo_id,
+                  blurhash: "LEHV6nWB2yk8pyo0adR*.7kCMdnj",
+                })),
               }),
             };
           },
