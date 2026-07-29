@@ -14,7 +14,10 @@ describe("dispatchGooglePhotosImport", () => {
       "https://api.github.com/repos/gdg-jp/gdgjp/actions/workflows/google-photos-import.yml/dispatches",
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ authorization: "Bearer test-token" }),
+        headers: expect.objectContaining({
+          authorization: "Bearer test-token",
+          "user-agent": "gdgjp-album-cron",
+        }),
         body: JSON.stringify({ ref: "main" }),
       }),
     );

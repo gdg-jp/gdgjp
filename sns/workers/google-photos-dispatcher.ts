@@ -18,6 +18,7 @@ export async function dispatchGooglePhotosImport(
       authorization: `Bearer ${token}`,
       "content-type": "application/json",
       "x-github-api-version": "2026-03-10",
+      "user-agent": "gdgjp-album-cron",
     },
     body: JSON.stringify({ ref: "main" }),
   });
