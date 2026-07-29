@@ -36,6 +36,7 @@ describe("googlePhotosImportOperation", () => {
           bind: (...values: unknown[]) => {
             bindings.push(values);
             return {
+              first: async () => ({ id: "album-1" }),
               all: async () => ({
                 results: values.slice(1).map((stable_photo_id) => ({ stable_photo_id })),
               }),
@@ -49,12 +50,12 @@ describe("googlePhotosImportOperation", () => {
     const response = await handleGooglePhotosImport(
       new Request("https://sns.gdgs.jp/api/google-photos-import/known", {
         method: "POST",
-        body: JSON.stringify({ albumId: "album-1", stablePhotoIds }),
+        body: JSON.stringify({ albumId: "album-1", runId: "run-1", stablePhotoIds }),
       }),
       env,
     );
 
-    expect(bindings.map((values) => values.length)).toEqual([51, 51, 51, 39]);
+    expect(bindings.map((values) => values.length)).toEqual([3, 51, 51, 51, 39]);
     expect(await response.json()).toEqual({ known: stablePhotoIds });
   });
 });

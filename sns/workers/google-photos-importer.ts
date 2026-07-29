@@ -39,13 +39,13 @@ async function claimAlbum(env: Env): Promise<Response> {
     .first<ClaimedAlbum>();
   if (!album) return json({ album: null });
   const lease = new Date(Date.now() + 10 * 60_000).toISOString();
+  const runId = crypto.randomUUID();
   const claimed = await env.DB.prepare(
-    "UPDATE google_photos_albums SET lease_expires_at = ?, updated_at = ? WHERE id = ? AND (lease_expires_at IS NULL OR lease_expires_at < ?)",
+    "UPDATE google_photos_albums SET lease_expires_at = ?, active_run_id = ?, updated_at = ? WHERE id = ? AND (lease_expires_at IS NULL OR lease_expires_at < ?)",
   )
-    .bind(lease, now, album.id, now)
+    .bind(lease, runId, now, album.id, now)
     .run();
   if (claimed.meta.changes !== 1) return json({ album: null });
-  const runId = crypto.randomUUID();
   await env.DB.prepare(
     "INSERT INTO google_photos_poll_runs (id, album_id, started_at, outcome) VALUES (?, ?, ?, 'running')",
   )
@@ -57,6 +57,7 @@ async function claimAlbum(env: Env): Promise<Response> {
 async function storeMedia(request: Request, env: Env): Promise<Response> {
   const albumId = request.headers.get("x-album-id");
   const stablePhotoId = request.headers.get("x-stable-photo-id");
+  const runId = request.headers.get("x-import-run-id");
   const contentType = request.headers.get("content-type")?.split(";", 1)[0] ?? "";
   const sourceUrl = request.headers.get("x-source-url");
   const takenAtHeader = request.headers.get("x-photo-taken-at");
@@ -64,12 +65,12 @@ async function storeMedia(request: Request, env: Env): Promise<Response> {
     takenAtHeader && !Number.isNaN(Date.parse(takenAtHeader))
       ? new Date(takenAtHeader).toISOString()
       : null;
-  if (!albumId || !stablePhotoId || !request.body || !contentType.startsWith("image/"))
+  if (!albumId || !stablePhotoId || !runId || !request.body || !contentType.startsWith("image/"))
     return json({ error: "invalid media upload" }, 400);
   const album = await env.DB.prepare(
-    "SELECT chapter_id FROM google_photos_albums WHERE id = ? AND lease_expires_at > ?",
+    "SELECT chapter_id FROM google_photos_albums WHERE id = ? AND active_run_id = ? AND lease_expires_at > ?",
   )
-    .bind(albumId, nowIso())
+    .bind(albumId, runId, nowIso())
     .first<{ chapter_id: number }>();
   if (!album) return json({ error: "album lease expired" }, 409);
   const existing = await env.DB.prepare(
@@ -112,6 +113,7 @@ async function storeMedia(request: Request, env: Env): Promise<Response> {
 async function knownMedia(request: Request, env: Env): Promise<Response> {
   const payload = (await request.json()) as {
     albumId?: string;
+    runId?: string;
     stablePhotoIds?: string[];
     media?: { stablePhotoId?: string; takenAt?: string | null }[];
   };
@@ -119,7 +121,13 @@ async function knownMedia(request: Request, env: Env): Promise<Response> {
   const ids = [
     ...new Set([...media.map((item) => item.stablePhotoId), ...(payload.stablePhotoIds ?? [])]),
   ].filter((id): id is string => typeof id === "string");
-  if (!payload.albumId || ids.length === 0) return json({ known: [] });
+  if (!payload.albumId || !payload.runId || ids.length === 0) return json({ known: [] });
+  const activeRun = await env.DB.prepare(
+    "SELECT id FROM google_photos_albums WHERE id = ? AND active_run_id = ? AND lease_expires_at > ?",
+  )
+    .bind(payload.albumId, payload.runId, nowIso())
+    .first<{ id: string }>();
+  if (!activeRun) return json({ error: "album lease expired" }, 409);
   const takenAtById = new Map(
     media.flatMap((item) => {
       if (!item.stablePhotoId || !item.takenAt || Number.isNaN(Date.parse(item.takenAt))) return [];
@@ -154,9 +162,9 @@ async function knownMedia(request: Request, env: Env): Promise<Response> {
 async function completeAlbum(request: Request, env: Env): Promise<Response> {
   const payload = (await request.json()) as CompletePayload;
   const album = await env.DB.prepare(
-    "SELECT poll_interval_minutes, unchanged_poll_count FROM google_photos_albums WHERE id = ? AND lease_expires_at > ?",
+    "SELECT poll_interval_minutes, unchanged_poll_count FROM google_photos_albums WHERE id = ? AND active_run_id = ? AND lease_expires_at > ?",
   )
-    .bind(payload.albumId, nowIso())
+    .bind(payload.albumId, payload.runId, nowIso())
     .first<{ poll_interval_minutes: number; unchanged_poll_count: number }>();
   if (!album) return json({ error: "album lease expired" }, 409);
   const now = nowIso();
@@ -170,22 +178,28 @@ async function completeAlbum(request: Request, env: Env): Promise<Response> {
       },
       importedCount > 0,
     );
-    const statements: D1PreparedStatement[] = [
+    const resetSnapshots = [
       env.DB.prepare("DELETE FROM google_photos_snapshot_items WHERE album_id = ?").bind(
         payload.albumId,
       ),
-      env.DB.prepare(
-        `UPDATE google_photos_albums SET poll_interval_minutes = ?, unchanged_poll_count = ?, next_poll_at = ?,
-         last_success_at = ?, last_error = NULL, lease_expires_at = NULL, updated_at = ? WHERE id = ?`,
-      ).bind(
+    ];
+    const completed = await env.DB.prepare(
+      `UPDATE google_photos_albums SET poll_interval_minutes = ?, unchanged_poll_count = ?, next_poll_at = ?,
+       last_success_at = ?, last_error = NULL, lease_expires_at = NULL, active_run_id = NULL, updated_at = ?
+       WHERE id = ? AND active_run_id = ?`,
+    )
+      .bind(
         next.intervalMinutes,
         next.unchangedPollCount,
         nextGooglePhotosPollAt(next.intervalMinutes),
         now,
         now,
         payload.albumId,
-      ),
-    ];
+        payload.runId,
+      )
+      .run();
+    if (completed.meta.changes !== 1) return json({ error: "album lease expired" }, 409);
+    const statements: D1PreparedStatement[] = resetSnapshots;
     for (const stablePhotoId of payload.discoveredPhotoIds ?? []) {
       statements.push(
         env.DB.prepare(
@@ -196,13 +210,14 @@ async function completeAlbum(request: Request, env: Env): Promise<Response> {
     await env.DB.batch(statements);
   } else {
     await env.DB.prepare(
-      "UPDATE google_photos_albums SET next_poll_at = ?, last_error = ?, lease_expires_at = NULL, updated_at = ? WHERE id = ?",
+      "UPDATE google_photos_albums SET next_poll_at = ?, last_error = ?, lease_expires_at = NULL, active_run_id = NULL, updated_at = ? WHERE id = ? AND active_run_id = ?",
     )
       .bind(
         nextGooglePhotosPollAt(Math.min(album.poll_interval_minutes, 5)),
         payload.detail ?? payload.outcome,
         now,
         payload.albumId,
+        payload.runId,
       )
       .run();
   }

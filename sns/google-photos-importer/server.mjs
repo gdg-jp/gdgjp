@@ -239,7 +239,7 @@ export async function collectPhotos(page) {
   return [...unique.values()];
 }
 
-async function uploadPhoto(albumId, photo, context) {
+async function uploadPhoto(albumId, runId, photo, context) {
   const response = await retry(() => context.request.get(photo.url, { failOnStatusCode: true }));
   const contentType = response.headers()["content-type"]?.split(";", 1)[0] ?? "";
   if (!contentType.startsWith("image/")) return "skipped";
@@ -249,6 +249,7 @@ async function uploadPhoto(albumId, photo, context) {
       "content-type": contentType,
       authorization: `Bearer ${token}`,
       "x-album-id": albumId,
+      "x-import-run-id": runId,
       "x-stable-photo-id": photo.stableId,
       "x-source-url": photo.url,
       ...(photo.takenAt ? { "x-photo-taken-at": photo.takenAt } : {}),
@@ -277,6 +278,7 @@ async function poll() {
       (
         await bridgeJson("/known", {
           albumId,
+          runId,
           media: photos.map((photo) => ({
             stablePhotoId: photo.stableId,
             takenAt: photo.takenAt,
@@ -287,7 +289,7 @@ async function poll() {
     let importedCount = 0;
     let duplicateCount = known.size;
     for (const photo of photos.filter((item) => !known.has(item.stableId))) {
-      const result = await uploadPhoto(albumId, photo, context);
+      const result = await uploadPhoto(albumId, runId, photo, context);
       if (result === "imported") importedCount += 1;
       if (result === "duplicate") duplicateCount += 1;
     }
