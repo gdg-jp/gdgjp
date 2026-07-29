@@ -17,6 +17,7 @@ export const SESSION_LOOKUP_TIMEOUT_MS = 5_000;
 type AuthInstance = ReturnType<typeof buildAuth>;
 
 let cached: { instance: AuthInstance; env: Env } | null = null;
+const sessionUsers = new WeakMap<Request, Promise<AuthUser | null>>();
 
 export function getAuth(env: Env): AuthInstance {
   if (cached?.env === env) return cached.instance;
@@ -25,7 +26,16 @@ export function getAuth(env: Env): AuthInstance {
   return instance;
 }
 
-export async function getSessionUser(env: Env, request: Request): Promise<AuthUser | null> {
+export function getSessionUser(env: Env, request: Request): Promise<AuthUser | null> {
+  const pending = sessionUsers.get(request);
+  if (pending) return pending;
+
+  const lookup = loadSessionUser(env, request);
+  sessionUsers.set(request, lookup);
+  return lookup;
+}
+
+async function loadSessionUser(env: Env, request: Request): Promise<AuthUser | null> {
   const session = await withTimeout(
     getAuth(env).api.getSession({ headers: request.headers }),
     SESSION_LOOKUP_TIMEOUT_MS,

@@ -7,10 +7,6 @@ main = "./workers/app.ts"
 APP_URL = "https://accounts.gdgs.jp"
 GOOGLE_CLIENT_ID = "144403252439-hnm3r310icb0l9o6v5hqrurf6h2faidi.apps.googleusercontent.com"
 EMAIL_FROM = "GDG Japan <noreply@gdgs.jp>"
-# Placeholder so cf-typegen surfaces this on Env. The real value MUST be set
-# per-environment with `wrangler secret put BETTER_AUTH_SECRET` — secrets
-# override [vars] at runtime.
-BETTER_AUTH_SECRET = "set-via-wrangler-secret-put"
 # Trusted OAuth clients. The admin seed route writes them into D1's oauthClient table.
 TINYURL_CLIENT_ID = "tinyurl"
 TINYURL_REDIRECT_URLS = "https://url.gdgs.jp/api/auth/callback/gdgjp"
