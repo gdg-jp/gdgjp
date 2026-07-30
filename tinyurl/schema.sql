@@ -148,7 +148,7 @@ CREATE TABLE campaign_participants (
   participation_type TEXT NOT NULL,
   registered_at     TEXT,
   last_updated_at   TEXT,
-  sort_order        INTEGER NOT NULL,
+  sort_order        INTEGER NOT NULL, participation_status TEXT NOT NULL DEFAULT '', attendance_status TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (campaign_id, participant_id),
   FOREIGN KEY (campaign_id)
     REFERENCES campaign_participant_analytics(campaign_id) ON DELETE CASCADE
