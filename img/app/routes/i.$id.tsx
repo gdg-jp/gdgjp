@@ -153,13 +153,35 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
           className="motion-stagger transition-shadow duration-300 hover:shadow-md"
           style={{ "--motion-index": 0 } as React.CSSProperties}
         >
-          <CardHeader>
-            <CardTitle className="text-base">{image.filename ?? image.id}</CardTitle>
-            <CardDescription>
-              {image.contentType} · {(image.byteSize / 1024).toFixed(1)} KB
-            </CardDescription>
+          <CardHeader className="flex-row items-start justify-between gap-4">
+            <div className="min-w-0">
+              <CardTitle className="truncate text-base">{image.filename ?? image.id}</CardTitle>
+              <CardDescription>
+                {image.contentType} · {(image.byteSize / 1024).toFixed(1)} KB
+              </CardDescription>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={onCopy}
+                className={copied ? "border-gdg-green/60 text-gdg-green" : undefined}
+                aria-live="polite"
+              >
+                <span
+                  key={copied ? "copied" : "copy"}
+                  className="motion-enter-scale inline-flex items-center gap-2"
+                >
+                  {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  {copied ? "Copied!" : "Copy URL"}
+                </span>
+              </Button>
+              <Button variant="destructive" disabled={busy} onClick={onDelete}>
+                <Trash2 className="size-4" />
+                Delete
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-3">
             <div className="overflow-hidden rounded-md border bg-muted/30">
               <img
                 key={refreshKey}
@@ -167,6 +189,20 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
                 alt={image.filename ?? image.id}
                 className="motion-image-reveal mx-auto max-h-[60vh] object-contain"
               />
+            </div>
+            <input
+              ref={replaceRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={onReplace}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button disabled={busy} onClick={() => replaceRef.current?.click()}>
+                <Upload className="size-4" />
+                Replace
+              </Button>
+              {err ? <p className="text-sm text-destructive">{err}</p> : null}
             </div>
           </CardContent>
         </Card>
@@ -228,51 +264,7 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
                 Public URL
               </Label>
               <Input id="public-url" readOnly value={publicUrl} />
-              <Button
-                variant="outline"
-                onClick={onCopy}
-                className={copied ? "border-gdg-green/60 text-gdg-green" : undefined}
-                aria-live="polite"
-              >
-                <span
-                  key={copied ? "copied" : "copy"}
-                  className="motion-enter-scale inline-flex items-center gap-2"
-                >
-                  {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                  {copied ? "Copied!" : "Copy"}
-                </span>
-              </Button>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="motion-stagger transition-shadow duration-300 hover:shadow-md"
-          style={{ "--motion-index": 3 } as React.CSSProperties}
-        >
-          <CardHeader>
-            <CardTitle className="text-base">Manage</CardTitle>
-            <CardDescription>
-              Replace the image bytes (URL stays the same) or delete.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            <input
-              ref={replaceRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={onReplace}
-            />
-            <Button disabled={busy} onClick={() => replaceRef.current?.click()}>
-              <Upload className="size-4" />
-              Replace
-            </Button>
-            <Button variant="destructive" disabled={busy} onClick={onDelete}>
-              <Trash2 className="size-4" />
-              Delete
-            </Button>
-            {err ? <p className="basis-full text-sm text-destructive">{err}</p> : null}
           </CardContent>
         </Card>
       </div>
