@@ -243,7 +243,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<Scope>("all");
   const [sort, setSort] = useState<SortKey>("newest");
-  const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>("all");
+  const [campaignFilter, setCampaignFilter] = useState<CampaignFilter>("unclassified");
   const [folderFilter, setFolderFilter] = useState<FolderFilter>("all");
   const [layout, setLayout] = useState<DisplayLayout>("cards");
   const [showArchived, setShowArchived] = useState(false);
