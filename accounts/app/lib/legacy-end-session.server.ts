@@ -54,18 +54,18 @@ export async function handleLegacyEndSession(
   return new Response(null, { status: 302, headers });
 }
 
-/** Better Auth has already verified the ID token before emitting this error. */
+/**
+ * Better Auth has already verified the ID token before emitting this error.
+ *
+ * Its error serializer has changed shape between releases (and may also be
+ * changed by framework middleware), so do not couple the recovery path to a
+ * particular JSON property.  The exact diagnostic is emitted only after the
+ * provider has validated the signed ID token.
+ */
 export async function isMissingSessionError(response: Response): Promise<boolean> {
   if (response.status !== 500) return false;
   try {
-    const body: unknown = await response.clone().json();
-    return (
-      typeof body === "object" &&
-      body !== null &&
-      "message" in body &&
-      typeof body.message === "string" &&
-      body.message.includes("id token missing session")
-    );
+    return (await response.clone().text()).includes("id token missing session");
   } catch {
     return false;
   }

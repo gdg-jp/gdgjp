@@ -77,4 +77,18 @@ describe("handleLegacyEndSession", () => {
       await isMissingSessionError(Response.json({ message: "invalid issuer" }, { status: 500 })),
     ).toBe(false);
   });
+
+  it("recognizes the same verified diagnostic when middleware changes its JSON shape", async () => {
+    expect(
+      await isMissingSessionError(
+        Response.json(
+          { error: "invalid_request", error_description: "id token missing session" },
+          { status: 500 },
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      await isMissingSessionError(new Response("id token missing session", { status: 500 })),
+    ).toBe(true);
+  });
 });
