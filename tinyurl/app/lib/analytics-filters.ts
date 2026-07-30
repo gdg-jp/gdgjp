@@ -129,9 +129,31 @@ export type ParsedAnalyticsParams = {
   includeAutomated: boolean;
 };
 
-export function parseAnalyticsParams(searchParams: URLSearchParams): ParsedAnalyticsParams {
-  const rawPeriod = searchParams.get("period");
-  let preset: PeriodPreset = "7d";
+export type PeriodParamNames = {
+  period: string;
+  start: string;
+  end: string;
+};
+
+export const ANALYTICS_PERIOD_PARAMS: PeriodParamNames = {
+  period: "period",
+  start: "start",
+  end: "end",
+};
+
+export const ACQUISITION_PERIOD_PARAMS: PeriodParamNames = {
+  period: "acquisitionPeriod",
+  start: "acquisitionStart",
+  end: "acquisitionEnd",
+};
+
+export function parsePeriodParams(
+  searchParams: URLSearchParams,
+  params: PeriodParamNames = ANALYTICS_PERIOD_PARAMS,
+  defaultPreset: PeriodPreset = "7d",
+): Pick<ParsedAnalyticsParams, "preset" | "window"> {
+  const rawPeriod = searchParams.get(params.period);
+  let preset: PeriodPreset = defaultPreset;
   if (rawPeriod !== null) {
     if (rawPeriod === "custom" || PERIOD_PRESETS.includes(rawPeriod as never)) {
       preset = rawPeriod as PeriodPreset;
@@ -140,18 +162,23 @@ export function parseAnalyticsParams(searchParams: URLSearchParams): ParsedAnaly
 
   let window: AnalyticsWindow;
   if (preset === "custom") {
-    const start = searchParams.get("start");
-    const end = searchParams.get("end");
+    const start = searchParams.get(params.start);
+    const end = searchParams.get(params.end);
     if (start && end && isIsoDate(start) && isIsoDate(end) && start <= end) {
       window = { kind: "custom", startIso: start, endIso: end };
     } else {
-      preset = "7d";
-      window = presetToWindow("7d");
+      preset = defaultPreset;
+      window = presetToWindow(defaultPreset);
     }
   } else {
     window = presetToWindow(preset);
   }
 
+  return { preset, window };
+}
+
+export function parseAnalyticsParams(searchParams: URLSearchParams): ParsedAnalyticsParams {
+  const { preset, window } = parsePeriodParams(searchParams);
   const filters: DimensionFilters = {};
   for (const dim of FILTER_DIMENSIONS) {
     const values = searchParams.getAll(dim).filter((v) => isValidDimensionValue(dim, v));
@@ -169,6 +196,34 @@ export function parseAnalyticsParams(searchParams: URLSearchParams): ParsedAnaly
   };
 }
 
+export function serializePeriodParams(
+  current: URLSearchParams,
+  next: {
+    preset?: PeriodPreset;
+    startIso?: string;
+    endIso?: string;
+  },
+  params: PeriodParamNames = ANALYTICS_PERIOD_PARAMS,
+  defaultPreset: PeriodPreset = "7d",
+): URLSearchParams {
+  const out = new URLSearchParams(current);
+
+  if (next.preset !== undefined) {
+    out.delete(params.period);
+    out.delete(params.start);
+    out.delete(params.end);
+    if (next.preset !== defaultPreset) {
+      out.set(params.period, next.preset);
+    }
+    if (next.preset === "custom") {
+      if (next.startIso) out.set(params.start, next.startIso);
+      if (next.endIso) out.set(params.end, next.endIso);
+    }
+  }
+
+  return out;
+}
+
 export function serializeAnalyticsParams(
   current: URLSearchParams,
   next: {
@@ -179,20 +234,7 @@ export function serializeAnalyticsParams(
     includeAutomated?: boolean;
   },
 ): URLSearchParams {
-  const out = new URLSearchParams(current);
-
-  if (next.preset !== undefined) {
-    out.delete("period");
-    out.delete("start");
-    out.delete("end");
-    if (next.preset !== "7d") {
-      out.set("period", next.preset);
-    }
-    if (next.preset === "custom") {
-      if (next.startIso) out.set("start", next.startIso);
-      if (next.endIso) out.set("end", next.endIso);
-    }
-  }
+  const out = serializePeriodParams(current, next);
 
   if (next.filters !== undefined) {
     for (const dim of FILTER_DIMENSIONS) out.delete(dim);

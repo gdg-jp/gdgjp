@@ -27,6 +27,8 @@ function draft() {
         {
           participantId: "6844623",
           participationType: "現地参加",
+          participationStatus: "参加",
+          attendanceStatus: "出席",
           registeredAt: null,
           lastUpdatedAt: 1_772_850_120,
           responses: { [question]: "X, Discord" },
@@ -61,11 +63,12 @@ describe("buildCampaignParticipantAnalyticsInput", () => {
     });
   });
 
-  it("excludes cancelled participants from registrations", () => {
+  it("preserves cancelled participants and their statuses", () => {
     const parsed = JSON.parse(draft());
     parsed.source.participants[0].participationStatus = "参加キャンセル";
-    parsed.answerMappings = [];
-    expect(build(JSON.stringify(parsed)).participants).toEqual([]);
+    expect(build(JSON.stringify(parsed)).participants).toMatchObject([
+      { participationStatus: "参加キャンセル", attendanceStatus: "出席" },
+    ]);
   });
 
   it("rejects a channel outside the current Campaign", () => {

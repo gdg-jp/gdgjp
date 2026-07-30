@@ -7,11 +7,7 @@ import {
   extractChannelMappings,
   extractChannelQuestions,
 } from "~/lib/connpass-channel-extraction";
-import {
-  isCancelledParticipant,
-  parseConnpassParticipantsCsv,
-  uniqueAnswerOptions,
-} from "~/lib/connpass-csv";
+import { parseConnpassParticipantsCsv, uniqueAnswerOptions } from "~/lib/connpass-csv";
 
 /** Browser-only boundary: the raw CSV never runs through the Worker action. */
 export async function analyzeConnpassParticipantsFile(
@@ -20,10 +16,7 @@ export async function analyzeConnpassParticipantsFile(
 ): Promise<ConnpassImportDraft> {
   if (file.size > 10_000_000) throw new Error("CSVが大きすぎます（上限10MB）。");
   const parsed = parseConnpassParticipantsCsv(await file.text());
-  const dataset = {
-    ...parsed,
-    participants: parsed.participants.filter((participant) => !isCancelledParticipant(participant)),
-  };
+  const dataset = parsed;
   const selectedQuestionIds = extractChannelQuestions(dataset.questionHeaders);
   const channelCandidates: ChannelCandidate[] = campaignChannels.map((channel) => ({
     id: String(channel.id),

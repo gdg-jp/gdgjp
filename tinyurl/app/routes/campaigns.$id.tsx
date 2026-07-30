@@ -25,7 +25,7 @@ import {
 import type { FilterSuggestions } from "~/components/analytics/analytics-filter-button";
 import { AnalyticsFiltersBar } from "~/components/analytics/analytics-filters-bar";
 import { AnalyticsGraphInterval } from "~/components/analytics/analytics-graph-interval";
-import { CampaignConversionAttributionPanel } from "~/components/campaigns/conversion-attribution";
+import { CampaignAcquisitionPanel } from "~/components/campaigns/acquisition-analytics";
 import {
   type CampaignChannelOption,
   CampaignParticipantImportWizard,
@@ -59,7 +59,6 @@ import {
   type TopRow,
   clicksByLinkId,
   clicksByLinkIdAndSource,
-  conversionClicksByHour,
   granularityFor,
   granularityForTimeBucket,
   hourlyClicksByLinkIdAndSource,
@@ -70,10 +69,15 @@ import {
   topByBlob,
   totalClicks,
 } from "~/lib/analytics-engine";
-import { parseAnalyticsParams, serializeAnalyticsParams } from "~/lib/analytics-filters";
+import {
+  ACQUISITION_PERIOD_PARAMS,
+  parseAnalyticsParams,
+  parsePeriodParams,
+  serializeAnalyticsParams,
+} from "~/lib/analytics-filters";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
+import { campaignAcquisitionAnalytics } from "~/lib/campaign-acquisition";
 import { type CampaignTrendDimension, campaignSourceBreakdown } from "~/lib/campaign-analytics";
-import { campaignConversionAttribution } from "~/lib/campaign-conversion-attribution";
 import { resolveCampaignScope, shouldReloadCampaign } from "~/lib/campaign-navigation";
 import {
   getCampaignParticipantAnalytics,
@@ -178,6 +182,8 @@ export async function loader(args: Route.LoaderArgs) {
   );
   const url = new URL(args.request.url);
   const parsed = parseAnalyticsParams(url.searchParams);
+  const acquisitionPeriod = parsePeriodParams(url.searchParams, ACQUISITION_PERIOD_PARAMS, "all");
+  const acquisitionBucket = parseTimeBucket(url.searchParams.get("acquisitionBucket"));
   const requestedBucket = parseTimeBucket(url.searchParams.get("bucket"));
   const effectiveBucket = requestedBucket ?? timeBucketFor(parsed.window);
   const { selectedChannelId, selectedLinkId } = resolveCampaignScope(channels, url.searchParams);
@@ -233,11 +239,8 @@ export async function loader(args: Route.LoaderArgs) {
     linkIds.length === 0
       ? Promise.resolve([])
       : hourlyClicksByLinkIdAndSource(env, linkIds, opts).catch(fallback("trends", [])),
-    linkIds.length === 0
-      ? Promise.resolve([])
-      : conversionClicksByHour(env, linkIds, opts).catch(fallback("conversion", [])),
     dimensionRows,
-  ]).then(([total, resolvedClicks, sourceClicks, trend, conversionClicks, dimensions]) => {
+  ]).then(([total, resolvedClicks, sourceClicks, trend, dimensions]) => {
     const sourceBreakdown = campaignSourceBreakdown(channelsInScope, sourceClicks);
     const breakdowns: Record<TopBlob, TopRow[]> = {
       slug: [],
@@ -285,16 +288,17 @@ export async function loader(args: Route.LoaderArgs) {
         : granularityFor(parsed.window),
       bucketLabel: timeBucketLabel(effectiveBucket),
       suggestions,
-      conversion: participantSnapshot
-        ? campaignConversionAttribution({
-            snapshot: participantSnapshot,
-            channels: channelsInScope,
-            clicks: conversionClicks,
-            window: parsed.window,
-          })
-        : null,
     };
   });
+
+  const acquisition = participantSnapshot
+    ? campaignAcquisitionAnalytics({
+        snapshot: participantSnapshot,
+        channels,
+        window: acquisitionPeriod.window,
+        bucket: acquisitionBucket ?? undefined,
+      })
+    : null;
 
   return {
     chapters,
@@ -313,6 +317,14 @@ export async function loader(args: Route.LoaderArgs) {
     customEnd: parsed.window.kind === "custom" ? parsed.window.endIso : undefined,
     filters: parsed.filters,
     bucket: requestedBucket ? timeBucketParam(requestedBucket) : "",
+    acquisitionPreset: acquisitionPeriod.preset,
+    acquisitionStart:
+      acquisitionPeriod.window.kind === "custom" ? acquisitionPeriod.window.startIso : undefined,
+    acquisitionEnd:
+      acquisitionPeriod.window.kind === "custom" ? acquisitionPeriod.window.endIso : undefined,
+    acquisitionBucket: acquisitionBucket ? timeBucketParam(acquisitionBucket) : "",
+    participantSnapshot,
+    acquisition,
     clicks,
     analytics,
   };
@@ -476,6 +488,12 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
     customEnd,
     filters,
     bucket,
+    participantSnapshot,
+    acquisition,
+    acquisitionPreset,
+    acquisitionStart,
+    acquisitionEnd,
+    acquisitionBucket,
     clicks,
     analytics,
   } = loaderData;
@@ -492,16 +510,25 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
   const scopePending =
     navigatingWithinCampaign &&
     (selectedChannelId !== loadedChannelId || selectedLinkId !== loadedLinkId);
-  const activeView = searchParams.get("view") === "analytics" ? "analytics" : "channels";
+  const activeView =
+    searchParams.get("view") === "analytics"
+      ? "analytics"
+      : searchParams.get("view") === "acquisition"
+        ? "acquisition"
+        : "channels";
   const analyticsPending =
     navigatingWithinCampaign &&
     (activeView === "analytics" ||
       new URLSearchParams(navigation.location?.search).get("view") === "analytics");
+  const acquisitionPending =
+    navigatingWithinCampaign &&
+    (activeView === "acquisition" ||
+      new URLSearchParams(navigation.location?.search).get("view") === "acquisition");
   const activeChannels = channels.filter((item) => item.archivedAt === null);
 
-  function setView(view: "channels" | "analytics") {
+  function setView(view: "channels" | "analytics" | "acquisition") {
     const next = new URLSearchParams(searchParams);
-    if (view === "analytics") next.set("view", "analytics");
+    if (view !== "channels") next.set("view", view);
     else next.delete("view");
     setSearchParams(next, { preventScrollReset: true });
   }
@@ -534,21 +561,21 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
             <>
               <AssignLinksDialog channels={activeChannels} links={assignableLinks} />
               <CreateChannelDialog campaignCode={campaign.code} />
-              <ImportConnpassDialog channels={activeChannels} />
             </>
           }
         />
 
         <div
-          className="relative grid w-full grid-cols-2 rounded-lg bg-muted p-1 sm:w-fit"
+          className="relative grid w-full grid-cols-3 rounded-lg bg-muted p-1 sm:w-fit"
           role="tablist"
           aria-label="Campaign view"
         >
           <span
             aria-hidden="true"
             className={cn(
-              "pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-md bg-background shadow-xs transition-transform duration-200 ease-out motion-reduce:transition-none",
+              "pointer-events-none absolute inset-y-1 left-1 w-[calc(33.333%-0.25rem)] rounded-md bg-background shadow-xs transition-transform duration-200 ease-out motion-reduce:transition-none",
               activeView === "analytics" && "translate-x-full",
+              activeView === "acquisition" && "translate-x-[200%]",
             )}
           />
           <Button
@@ -581,7 +608,23 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
               activeView === "analytics" ? "text-foreground" : "text-muted-foreground",
             )}
           >
-            Analytics
+            Clicks
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            role="tab"
+            id="acquisition-tab"
+            aria-selected={activeView === "acquisition"}
+            aria-controls="acquisition-panel"
+            onClick={() => setView("acquisition")}
+            className={cn(
+              "relative z-10 min-w-24 transition-colors duration-200 aria-selected:hover:bg-transparent",
+              activeView === "acquisition" ? "text-foreground" : "text-muted-foreground",
+            )}
+          >
+            Acqquisitions
           </Button>
         </div>
 
@@ -623,7 +666,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
               </Suspense>
             )}
           </section>
-        ) : (
+        ) : activeView === "analytics" ? (
           <Suspense fallback={<CampaignAnalyticsSkeleton />}>
             <Await resolve={analytics}>
               {(resolvedAnalytics) => (
@@ -647,6 +690,22 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
               )}
             </Await>
           </Suspense>
+        ) : (
+          <CampaignAcquisitionPanel
+            snapshot={participantSnapshot}
+            analytics={acquisition}
+            preset={acquisitionPreset}
+            startIso={acquisitionStart}
+            endIso={acquisitionEnd}
+            bucket={acquisitionBucket}
+            pending={acquisitionPending}
+            importControl={
+              <ImportConnpassDialog
+                channels={activeChannels}
+                triggerLabel={participantSnapshot ? "Update connpass CSV" : "Import connpass CSV"}
+              />
+            }
+          />
         )}
       </DashboardPage>
     </DashboardShell>
@@ -868,7 +927,6 @@ function CampaignAnalyticsPanel({
           selected={filters}
           onSelect={applyDimensionFilter}
         />
-        <CampaignConversionAttributionPanel analytics={analytics.conversion} />
       </section>
 
       {analytics.unregisteredSources.length > 0 ? (
@@ -1196,20 +1254,27 @@ function CreateChannelDialog({ campaignCode }: { campaignCode: string }) {
   );
 }
 
-function ImportConnpassDialog({ channels }: { channels: DetailChannel[] }) {
+function ImportConnpassDialog({
+  channels,
+  triggerLabel,
+}: {
+  channels: DetailChannel[];
+  triggerLabel: string;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
-          <Plus className="size-4" /> Import connpass CSV
+          <Plus className="size-4" /> {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader className="border-b">
-          <DialogTitle>Import connpass CSV</DialogTitle>
+          <DialogTitle>{triggerLabel}</DialogTitle>
           <DialogDescription>
-            Extract registration dates and map each questionnaire option to one Campaign channel.
+            Extract participant acquisition data and map each questionnaire option to one Campaign
+            channel.
           </DialogDescription>
         </DialogHeader>
         <CampaignParticipantImportWizard

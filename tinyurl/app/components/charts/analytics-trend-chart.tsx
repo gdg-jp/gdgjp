@@ -18,6 +18,7 @@ export function AnalyticsTrendChart({
   granularity,
   bucketLabel,
   intervalControl,
+  summaryControl,
   trailingControl,
   breakdownOptions,
   breakdown,
@@ -34,13 +35,14 @@ export function AnalyticsTrendChart({
   granularity: Granularity;
   bucketLabel: string;
   intervalControl?: ReactNode;
+  summaryControl?: ReactNode;
   trailingControl?: ReactNode;
-  breakdownOptions: TrendBreakdownOption[];
+  breakdownOptions?: TrendBreakdownOption[];
   breakdown: string;
   metric?: TrendMetric;
   focusKey?: string;
   focusLabel?: string;
-  onBreakdownChange: (value: string) => void;
+  onBreakdownChange?: (value: string) => void;
   onMetricChange?: (value: TrendMetric) => void;
   onClearFocus?: () => void;
   height?: number;
@@ -110,7 +112,7 @@ export function AnalyticsTrendChart({
               ))}
             </ul>
           ) : null}
-          <div className="flex flex-wrap gap-x-5 gap-y-1 px-1 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-muted-foreground">
             <span>
               Displayed{" "}
               <strong className="font-medium text-foreground">
@@ -134,65 +136,75 @@ export function AnalyticsTrendChart({
                 · {formatter(peak.hour)}
               </span>
             ) : null}
+            {summaryControl}
           </div>
         </>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Break down by</span>
-          <div className="flex rounded-md border bg-muted/30 p-0.5" aria-label="Chart breakdown">
-            {breakdownOptions.map((option) => (
-              <Button
-                key={option.value}
-                type="button"
-                size="xs"
-                variant="ghost"
-                aria-pressed={breakdown === option.value}
-                onClick={() => onBreakdownChange(option.value)}
-                className={cn(
-                  "rounded-sm px-2.5 text-muted-foreground",
-                  breakdown === option.value &&
-                    "bg-background text-foreground shadow-xs hover:bg-background",
-                )}
-              >
-                {option.label}
-              </Button>
-            ))}
-          </div>
-          {intervalControl}
-        </div>
-        <div className="flex items-center gap-2">
-          {trailingControl}
-          {onMetricChange && breakdown !== "total" && !focusKey ? (
-            <div className="flex rounded-md border bg-muted/30 p-0.5" aria-label="Chart metric">
-              {(["clicks", "share"] as const).map((value) => (
-                <Button
-                  key={value}
-                  type="button"
-                  size="xs"
-                  variant="ghost"
-                  aria-pressed={metric === value}
-                  onClick={() => onMetricChange(value)}
-                  className={cn(
-                    "rounded-sm px-2.5 capitalize text-muted-foreground",
-                    metric === value &&
-                      "bg-background text-foreground shadow-xs hover:bg-background",
-                  )}
+      {breakdownOptions?.length || intervalControl || trailingControl ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {breakdownOptions && breakdownOptions.length > 0 ? (
+              <>
+                <span className="text-xs font-medium text-muted-foreground">Break down by</span>
+                <div
+                  className="flex rounded-md border bg-muted/30 p-0.5"
+                  aria-label="Chart breakdown"
                 >
-                  {value}
-                </Button>
-              ))}
-            </div>
-          ) : null}
-          {focusKey && onClearFocus ? (
-            <Button type="button" variant="secondary" size="xs" onClick={onClearFocus}>
-              <span className="max-w-44 truncate">Only: {focusLabel}</span>
-              <X className="size-3" />
-            </Button>
-          ) : null}
+                  {breakdownOptions.map((option) => (
+                    <Button
+                      key={option.value}
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      aria-pressed={breakdown === option.value}
+                      onClick={() => onBreakdownChange?.(option.value)}
+                      className={cn(
+                        "rounded-sm px-2.5 text-muted-foreground",
+                        breakdown === option.value &&
+                          "bg-background text-foreground shadow-xs hover:bg-background",
+                      )}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+            {intervalControl}
+          </div>
+          <div className="flex items-center gap-2">
+            {trailingControl}
+            {onMetricChange && breakdown !== "total" && !focusKey ? (
+              <div className="flex rounded-md border bg-muted/30 p-0.5" aria-label="Chart metric">
+                {(["clicks", "share"] as const).map((value) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    aria-pressed={metric === value}
+                    onClick={() => onMetricChange(value)}
+                    className={cn(
+                      "rounded-sm px-2.5 capitalize text-muted-foreground",
+                      metric === value &&
+                        "bg-background text-foreground shadow-xs hover:bg-background",
+                    )}
+                  >
+                    {value}
+                  </Button>
+                ))}
+              </div>
+            ) : null}
+            {focusKey && onClearFocus ? (
+              <Button type="button" variant="secondary" size="xs" onClick={onClearFocus}>
+                <span className="max-w-44 truncate">Only: {focusLabel}</span>
+                <X className="size-3" />
+              </Button>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

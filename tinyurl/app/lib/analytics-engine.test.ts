@@ -3,7 +3,6 @@ import {
   aeQuery,
   clearAeCache,
   clicksByLinkIdAndSourceSql,
-  conversionClicksByHourSql,
   granularityFor,
   hourlyClicks,
   hourlyClicksByBlobSql,
@@ -160,15 +159,6 @@ describe("analytics-engine SQL", () => {
     expect(sql).toContain("toStartOfInterval(timestamp, INTERVAL '2' HOUR) AS hour");
     expect(sql).toContain("blob10 AS name");
     expect(sql).toContain("GROUP BY hour, name");
-  });
-
-  it("keeps conversion attribution clicks at hourly granularity for long windows", () => {
-    const sql = conversionClicksByHourSql([ID_A], {
-      window: { kind: "rolling", hours: 24 * 365 },
-    });
-    expect(sql).toContain("SELECT toStartOfHour(timestamp) AS hour");
-    expect(sql).toContain("INTERVAL '8784' HOUR");
-    expect(sql).not.toContain("toStartOfWeek");
   });
 
   it("rejects malformed link ids", () => {

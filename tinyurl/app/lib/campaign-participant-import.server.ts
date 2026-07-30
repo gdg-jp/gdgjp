@@ -78,18 +78,12 @@ export function buildCampaignParticipantAnalyticsInput(args: {
     throw new Error("A discovery question label does not match the source CSV.");
   }
 
-  const participantRows = parsed.source.participants
-    .map((value) => {
-      if (!isRecord(value) || !isRecord(value.responses)) {
-        throw new Error("A participant row is invalid.");
-      }
-      return value as JsonRecord & { responses: JsonRecord };
-    })
-    .filter(
-      (value) =>
-        typeof value.participationStatus !== "string" ||
-        !/キャンセル|取消|辞退/.test(value.participationStatus),
-    );
+  const participantRows = parsed.source.participants.map((value) => {
+    if (!isRecord(value) || !isRecord(value.responses)) {
+      throw new Error("A participant row is invalid.");
+    }
+    return value as JsonRecord & { responses: JsonRecord };
+  });
   const sourceAnswers = new Map<string, Set<string>>(
     [...selectedIds].map((questionId) => [questionId, new Set<string>()]),
   );
@@ -163,6 +157,10 @@ export function buildCampaignParticipantAnalyticsInput(args: {
     return {
       participantId: requiredString(value.participantId, "Participant ID"),
       participationType: requiredString(value.participationType, "Participation type"),
+      participationStatus:
+        typeof value.participationStatus === "string" ? value.participationStatus.trim() : "",
+      attendanceStatus:
+        typeof value.attendanceStatus === "string" ? value.attendanceStatus.trim() : "",
       registeredAt: nullableUnixSeconds(
         value.registeredAt ?? value.lastUpdatedAt,
         "Registration time",

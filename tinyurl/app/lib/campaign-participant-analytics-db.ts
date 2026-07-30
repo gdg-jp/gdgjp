@@ -13,6 +13,8 @@ export type CampaignParticipantChannelMapping = {
 export type CampaignParticipant = {
   participantId: string;
   participationType: string;
+  participationStatus: string;
+  attendanceStatus: string;
   registeredAt: string | null;
   lastUpdatedAt: string | null;
   channelIds: number[];
@@ -52,6 +54,8 @@ type MappingRow = {
 type ParticipantRow = {
   participant_id: string;
   participation_type: string;
+  participation_status: string;
+  attendance_status: string;
   registered_at: string | null;
   last_updated_at: string | null;
   channel_id: number | null;
@@ -116,6 +120,8 @@ function normalizeInput(
     return {
       participantId,
       participationType: requiredText(participant.participationType, "participation type"),
+      participationStatus: participant.participationStatus.trim(),
+      attendanceStatus: participant.attendanceStatus.trim(),
       registeredAt:
         participant.registeredAt === null
           ? null
@@ -164,6 +170,8 @@ export async function replaceCampaignParticipantAnalytics(
   const participants = input.participants.map((participant, sortOrder) => ({
     participantId: participant.participantId,
     participationType: participant.participationType,
+    participationStatus: participant.participationStatus,
+    attendanceStatus: participant.attendanceStatus,
     registeredAt: participant.registeredAt,
     lastUpdatedAt: participant.lastUpdatedAt,
     sortOrder,
@@ -219,9 +227,11 @@ export async function replaceCampaignParticipantAnalytics(
     db
       .prepare(
         `INSERT INTO campaign_participants
-           (campaign_id, participant_id, participation_type, registered_at, last_updated_at,
+           (campaign_id, participant_id, participation_type, participation_status, attendance_status,
+            registered_at, last_updated_at,
             sort_order)
          SELECT ?1, value ->> '$.participantId', value ->> '$.participationType',
+                value ->> '$.participationStatus', value ->> '$.attendanceStatus',
                 value ->> '$.registeredAt', value ->> '$.lastUpdatedAt', value ->> '$.sortOrder'
          FROM json_each(?2)`,
       )
@@ -274,7 +284,8 @@ export async function getCampaignParticipantAnalytics(
         .all<MappingRow>(),
       db
         .prepare(
-          `SELECT p.participant_id, p.participation_type, p.registered_at, p.last_updated_at,
+          `SELECT p.participant_id, p.participation_type, p.participation_status,
+                  p.attendance_status, p.registered_at, p.last_updated_at,
                   c.campaign_channel_id AS channel_id
            FROM campaign_participants p
            LEFT JOIN campaign_participant_channels c
@@ -308,6 +319,8 @@ export async function getCampaignParticipantAnalytics(
       mappedParticipants.push({
         participantId: row.participant_id,
         participationType: row.participation_type,
+        participationStatus: row.participation_status,
+        attendanceStatus: row.attendance_status,
         registeredAt: row.registered_at,
         lastUpdatedAt: row.last_updated_at,
         channelIds: row.channel_id === null ? [] : [row.channel_id],

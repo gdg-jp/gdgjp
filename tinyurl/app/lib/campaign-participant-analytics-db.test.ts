@@ -42,6 +42,8 @@ describe("replaceCampaignParticipantAnalytics", () => {
         {
           participantId: "1234",
           participationType: "一般参加",
+          participationStatus: "参加",
+          attendanceStatus: "出席",
           registeredAt: null,
           lastUpdatedAt: "2025-04-09T01:30:00.000Z",
           channelIds: [11, 12, 11],
@@ -68,6 +70,8 @@ describe("replaceCampaignParticipantAnalytics", () => {
     const participant = {
       participantId: "1234",
       participationType: "一般参加",
+      participationStatus: "参加",
+      attendanceStatus: "",
       registeredAt: null,
       lastUpdatedAt: null,
       channelIds: [11],
@@ -130,6 +134,8 @@ describe("getCampaignParticipantAnalytics", () => {
                 {
                   participant_id: "1234",
                   participation_type: "一般参加",
+                  participation_status: "参加",
+                  attendance_status: "出席",
                   registered_at: null,
                   last_updated_at: "2025-04-09T01:30:00.000Z",
                   channel_id: 11,
@@ -137,6 +143,8 @@ describe("getCampaignParticipantAnalytics", () => {
                 {
                   participant_id: "1234",
                   participation_type: "一般参加",
+                  participation_status: "参加",
+                  attendance_status: "出席",
                   registered_at: null,
                   last_updated_at: "2025-04-09T01:30:00.000Z",
                   channel_id: 12,
@@ -165,6 +173,8 @@ describe("getCampaignParticipantAnalytics", () => {
         {
           participantId: "1234",
           participationType: "一般参加",
+          participationStatus: "参加",
+          attendanceStatus: "出席",
           registeredAt: null,
           lastUpdatedAt: "2025-04-09T01:30:00.000Z",
           channelIds: [11, 12],

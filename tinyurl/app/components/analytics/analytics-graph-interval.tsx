@@ -13,19 +13,29 @@ import {
 } from "~/components/ui/select";
 import { type TimeBucketUnit, parseTimeBucket, timeBucketParam } from "~/lib/analytics-engine";
 
-export function AnalyticsGraphInterval({ value, pending }: { value: string; pending: boolean }) {
+export function AnalyticsGraphInterval({
+  value,
+  pending,
+  paramName = "bucket",
+  defaultUnit = "hour",
+}: {
+  value: string;
+  pending: boolean;
+  paramName?: string;
+  defaultUnit?: TimeBucketUnit;
+}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const initial = parseTimeBucket(value);
   const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
-  const [unit, setUnit] = useState<TimeBucketUnit>(initial?.unit ?? "hour");
+  const [unit, setUnit] = useState<TimeBucketUnit>(initial?.unit ?? defaultUnit);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const parsed = parseTimeBucket(value);
     setAmount(parsed ? String(parsed.amount) : "");
-    setUnit(parsed?.unit ?? "hour");
+    setUnit(parsed?.unit ?? defaultUnit);
     setError("");
-  }, [value]);
+  }, [value, defaultUnit]);
 
   function applyInterval(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -39,8 +49,8 @@ export function AnalyticsGraphInterval({ value, pending }: { value: string; pend
     }
 
     const next = new URLSearchParams(searchParams);
-    if (amount) next.set("bucket", timeBucketParam({ amount: numericAmount, unit }));
-    else next.delete("bucket");
+    if (amount) next.set(paramName, timeBucketParam({ amount: numericAmount, unit }));
+    else next.delete(paramName);
     setError("");
     setSearchParams(next, { preventScrollReset: true });
   }
@@ -108,7 +118,7 @@ export function AnalyticsGraphInterval({ value, pending }: { value: string; pend
           onClick={() => {
             setAmount("");
             const next = new URLSearchParams(searchParams);
-            next.delete("bucket");
+            next.delete(paramName);
             setSearchParams(next, { preventScrollReset: true });
           }}
         >

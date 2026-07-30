@@ -4,6 +4,7 @@ export type ConnpassParticipant = {
   participantId: string;
   participationType: string;
   participationStatus: string;
+  attendanceStatus: string;
   registeredAt: number | null;
   registeredAtLabel: string;
   lastUpdatedAt: number | null;
@@ -36,6 +37,7 @@ const STANDARD_HEADERS = new Set([
 const PARTICIPANT_ID_HEADERS = ["受付番号", "参加者ID", "参加者 ID"];
 const PARTICIPATION_TYPE_HEADERS = ["参加枠名", "参加枠"];
 const PARTICIPATION_STATUS_HEADERS = ["参加ステータス"];
+const ATTENDANCE_STATUS_HEADERS = ["出欠ステータス"];
 const REGISTERED_AT_HEADERS = ["参加登録日時", "登録日時"];
 const LAST_UPDATED_AT_HEADERS = ["更新日時"];
 
@@ -139,6 +141,7 @@ export function parseConnpassParticipantsCsv(text: string): ParsedConnpassCsv {
   const participantIdHeader = firstPresent(headers, PARTICIPANT_ID_HEADERS);
   const participationTypeHeader = firstPresent(headers, PARTICIPATION_TYPE_HEADERS);
   const participationStatusHeader = firstPresent(headers, PARTICIPATION_STATUS_HEADERS);
+  const attendanceStatusHeader = firstPresent(headers, ATTENDANCE_STATUS_HEADERS);
   const registeredAtHeader = firstPresent(headers, REGISTERED_AT_HEADERS);
   const lastUpdatedAtHeader = firstPresent(headers, LAST_UPDATED_AT_HEADERS);
   if (!participantIdHeader || !participationTypeHeader) {
@@ -179,6 +182,7 @@ export function parseConnpassParticipantsCsv(text: string): ParsedConnpassCsv {
       participantId,
       participationType: row[participationTypeHeader],
       participationStatus: participationStatusHeader ? row[participationStatusHeader] : "",
+      attendanceStatus: attendanceStatusHeader ? row[attendanceStatusHeader] : "",
       registeredAt: explicitRegisteredAt ?? lastUpdatedAt,
       registeredAtLabel: explicitRegisteredAtLabel || lastUpdatedAtLabel,
       lastUpdatedAt,

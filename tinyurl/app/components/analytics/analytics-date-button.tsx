@@ -6,12 +6,14 @@ import { Calendar, type DateRange, fromIsoDate, toIsoDate } from "~/components/u
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "~/components/ui/sheet";
 import {
+  ANALYTICS_PERIOD_PARAMS,
   PERIOD_HOTKEYS,
   PERIOD_LABELS,
   PERIOD_PRESETS,
+  type PeriodParamNames,
   type PeriodPreset,
-  parseAnalyticsParams,
-  serializeAnalyticsParams,
+  parsePeriodParams,
+  serializePeriodParams,
 } from "~/lib/analytics-filters";
 import { useMediaQuery } from "~/lib/use-media-query";
 import { cn } from "~/lib/utils";
@@ -20,6 +22,8 @@ type Props = {
   preset: PeriodPreset;
   startIso?: string;
   endIso?: string;
+  params?: PeriodParamNames;
+  defaultPreset?: PeriodPreset;
 };
 
 function formatCustomLabel(startIso: string, endIso: string): string {
@@ -36,7 +40,13 @@ function formatCustomLabel(startIso: string, endIso: string): string {
   return `${fmt(start, !sameYear)} – ${fmt(end, true)}`;
 }
 
-export function AnalyticsDateButton({ preset, startIso, endIso }: Props) {
+export function AnalyticsDateButton({
+  preset,
+  startIso,
+  endIso,
+  params = ANALYTICS_PERIOD_PARAMS,
+  defaultPreset = "7d",
+}: Props) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const navigation = useNavigation();
@@ -47,8 +57,8 @@ export function AnalyticsDateButton({ preset, startIso, endIso }: Props) {
   // instantly on click, not after the loader finishes.
   const display = useMemo(() => {
     if (navigation.state !== "idle" && navigation.location) {
-      const params = new URLSearchParams(navigation.location.search);
-      const parsed = parseAnalyticsParams(params);
+      const pendingParams = new URLSearchParams(navigation.location.search);
+      const parsed = parsePeriodParams(pendingParams, params, defaultPreset);
       return {
         preset: parsed.preset,
         startIso: parsed.window.kind === "custom" ? parsed.window.startIso : undefined,
@@ -56,7 +66,7 @@ export function AnalyticsDateButton({ preset, startIso, endIso }: Props) {
       };
     }
     return { preset, startIso, endIso };
-  }, [navigation.state, navigation.location, preset, startIso, endIso]);
+  }, [navigation.state, navigation.location, preset, startIso, endIso, params, defaultPreset]);
 
   const initialRange = useMemo<DateRange | null>(() => {
     if (preset === "custom" && startIso && endIso) {
@@ -77,21 +87,26 @@ export function AnalyticsDateButton({ preset, startIso, endIso }: Props) {
       : PERIOD_LABELS[display.preset];
 
   function applyPreset(next: PeriodPreset) {
-    const params = serializeAnalyticsParams(searchParams, { preset: next });
+    const nextParams = serializePeriodParams(searchParams, { preset: next }, params, defaultPreset);
     setOpen(false);
-    navigate(`?${params.toString()}`, { preventScrollReset: true });
+    navigate(`?${nextParams.toString()}`, { preventScrollReset: true });
   }
 
   function handleRangeChange(next: DateRange) {
     setRange(next);
     if (next.start && next.end) {
-      const params = serializeAnalyticsParams(searchParams, {
-        preset: "custom",
-        startIso: toIsoDate(next.start),
-        endIso: toIsoDate(next.end),
-      });
+      const nextParams = serializePeriodParams(
+        searchParams,
+        {
+          preset: "custom",
+          startIso: toIsoDate(next.start),
+          endIso: toIsoDate(next.end),
+        },
+        params,
+        defaultPreset,
+      );
       setOpen(false);
-      navigate(`?${params.toString()}`, { preventScrollReset: true });
+      navigate(`?${nextParams.toString()}`, { preventScrollReset: true });
     }
   }
 

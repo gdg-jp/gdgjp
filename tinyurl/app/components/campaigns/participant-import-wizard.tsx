@@ -132,8 +132,8 @@ export function CampaignParticipantImportWizard({
         {fetcher.data?.ok ? (
           <Alert>
             <CheckCircle2 className="size-4" />
-            <AlertTitle>Registration data replaced</AlertTitle>
-            <AlertDescription>Conversion attribution now uses the latest CSV.</AlertDescription>
+            <AlertTitle>Acquisition data replaced</AlertTitle>
+            <AlertDescription>Acquisition analytics now uses the latest CSV.</AlertDescription>
           </Alert>
         ) : null}
         {error || fetcher.data?.error ? (
@@ -200,7 +200,7 @@ export function CampaignParticipantImportWizard({
 
             <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/50 px-4 py-3 text-sm">
               <FileSpreadsheet className="size-4 text-gdg-green" />
-              <span className="font-medium">{draft.rowCount.toLocaleString()} registrations</span>
+              <span className="font-medium">{draft.rowCount.toLocaleString()} participants</span>
               <Badge variant="outline">Rule-based extraction</Badge>
               <span className="text-muted-foreground">Review every suggestion before saving.</span>
             </div>
@@ -323,7 +323,7 @@ export function CampaignParticipantImportWizard({
               validation &&
               (validation.errors.length > 0 || validation.unassignedMappings.length > 0) ? (
                 <Alert variant="destructive" className="mr-auto basis-full">
-                  <AlertTitle>Conversion data could not be saved</AlertTitle>
+                  <AlertTitle>Acquisition data could not be saved</AlertTitle>
                   <AlertDescription>
                     {validation.errors.map((message) => (
                       <p key={message}>{message}</p>
@@ -344,7 +344,7 @@ export function CampaignParticipantImportWizard({
                 </Alert>
               ) : null}
               <Button type="submit" disabled={fetcher.state !== "idle"}>
-                {fetcher.state === "idle" ? "Save and replace conversion data" : "Saving…"}
+                {fetcher.state === "idle" ? "Save and replace acquisition data" : "Saving…"}
               </Button>
             </div>
           </fetcher.Form>

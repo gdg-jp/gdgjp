@@ -434,32 +434,6 @@ export async function hourlyClicksByLinkIdAndSource(
   }));
 }
 
-export function conversionClicksByHourSql(linkIds: string[], opts: QueryOpts = {}): string {
-  const window = opts.window ?? DEFAULT_WINDOW;
-  const filter = linkIdsFilter(linkIds);
-  return `SELECT toStartOfHour(timestamp) AS hour, index1 AS linkId, blob10 AS source, count() AS clicks
-FROM ${DATASET}
-WHERE ${filter} AND ${windowClause(window, 24)}${blobFiltersClause(opts.filters)}${automatedClicksClause(opts.includeAutomated)}
-GROUP BY hour, linkId, source
-ORDER BY hour`;
-}
-
-/** Hour-level click buckets used to estimate registrations near click activity. */
-export async function conversionClicksByHour(
-  env: AeEnv,
-  linkIds: string[],
-  opts: QueryOpts = {},
-): Promise<CampaignTrendClick[]> {
-  if (linkIds.length === 0) return [];
-  const rows = await aeQuery(env, conversionClicksByHourSql(linkIds, opts));
-  return rows.map((row) => ({
-    hour: String(row.hour ?? ""),
-    linkId: String(row.linkId ?? ""),
-    source: String(row.source ?? ""),
-    clicks: Number(row.clicks ?? 0),
-  }));
-}
-
 export function clicksByLinkIdAndSourceSql(linkIds: string[], opts: QueryOpts = {}): string {
   const window = opts.window ?? DEFAULT_WINDOW;
   const filter = linkIdsFilter(linkIds);
