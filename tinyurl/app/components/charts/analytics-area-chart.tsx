@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -18,13 +18,41 @@ export type AnalyticsAreaSeries = {
   fillOpacity?: number;
 };
 
-export function formatAnalyticsTick(value: string, granularity: Granularity): string {
-  const date = new Date(value);
+function analyticsDate(value: string): Date {
+  // Analytics Engine returns timestamp buckets without an offset. Those buckets are UTC,
+  // so parsing them as a local wall-clock time would leave every label offset from the
+  // viewer's timezone.
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  const utcValue = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized) ? normalized : `${normalized}Z`;
+  return new Date(utcValue);
+}
+
+export function formatAnalyticsTick(
+  value: string,
+  granularity: Granularity,
+  timeZone?: string,
+): string {
+  const date = analyticsDate(value);
   if (Number.isNaN(date.getTime())) return value;
   if (granularity === "hour") {
-    return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit" });
+    return date.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      timeZone,
+    });
   }
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone });
+}
+
+export function useLocalTimeZone(): string | undefined {
+  const [timeZone, setTimeZone] = useState<string>();
+
+  useEffect(() => {
+    setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  }, []);
+
+  return timeZone;
 }
 
 export function AnalyticsAreaChart({
@@ -48,7 +76,8 @@ export function AnalyticsAreaChart({
   stackSeries?: boolean;
   formatValue?: (value: number, series: AnalyticsAreaSeries) => string;
 }) {
-  const formatter = (value: string) => formatAnalyticsTick(value, granularity);
+  const timeZone = useLocalTimeZone();
+  const formatter = (value: string) => formatAnalyticsTick(value, granularity, timeZone);
 
   return (
     <ResponsiveContainer width="100%" height={height}>

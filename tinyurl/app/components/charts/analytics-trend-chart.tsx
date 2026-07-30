@@ -1,6 +1,10 @@
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
-import { AnalyticsAreaChart, formatAnalyticsTick } from "~/components/charts/analytics-area-chart";
+import {
+  AnalyticsAreaChart,
+  formatAnalyticsTick,
+  useLocalTimeZone,
+} from "~/components/charts/analytics-area-chart";
 import { Button } from "~/components/ui/button";
 import type { Granularity } from "~/lib/analytics-engine";
 import { cn } from "~/lib/utils";
@@ -64,7 +68,8 @@ export function AnalyticsTrendChart({
     },
     { hour: "", clicks: 0 },
   );
-  const formatter = (value: string) => formatAnalyticsTick(value, granularity);
+  const timeZone = useLocalTimeZone();
+  const formatter = (value: string) => formatAnalyticsTick(value, granularity, timeZone);
   const chartSeries = series.map((item, index) => ({
     key: item.key,
     label: item.label,
@@ -126,7 +131,7 @@ export function AnalyticsTrendChart({
               </strong>
             </span>
             {peak.hour ? (
-              <span title={new Date(peak.hour).toLocaleString()}>
+              <span title={formatAnalyticsTick(peak.hour, "hour", timeZone)}>
                 Peak{" "}
                 <strong className="font-medium text-foreground">
                   {peak.clicks.toLocaleString()}
