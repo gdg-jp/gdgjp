@@ -7,16 +7,6 @@ export type GdgAppLink = {
 /** The public apps shown in the shared GDG Japan app launcher. */
 export const GDG_APP_LINKS: readonly GdgAppLink[] = [
   {
-    iconUrl: "https://raw.githubusercontent.com/gdg-jp/gdgjp/main/cli/icon.png",
-    label: "CLI",
-    url: "https://github.com/gdg-jp/gdgjp#gdg-cli",
-  },
-  {
-    iconUrl: "https://learn.gdgs.jp/assets/learn-gdgs-icon.png",
-    label: "Learn",
-    url: "https://learn.gdgs.jp",
-  },
-  {
     iconUrl: "https://url.gdgs.jp/app-icon.png",
     label: "TinyURL",
     url: "https://url.gdgs.jp",
@@ -40,5 +30,15 @@ export const GDG_APP_LINKS: readonly GdgAppLink[] = [
     iconUrl: "https://sns.gdgs.jp/app-icon.png",
     label: "SNS Manager",
     url: "https://sns.gdgs.jp",
+  },
+  {
+    iconUrl: "https://raw.githubusercontent.com/gdg-jp/gdgjp/main/cli/icon.png",
+    label: "CLI",
+    url: "https://github.com/gdg-jp/gdgjp#gdg-cli",
+  },
+  {
+    iconUrl: "https://learn.gdgs.jp/assets/learn-gdgs-icon.png",
+    label: "Learn",
+    url: "https://learn.gdgs.jp",
   },
 ];
