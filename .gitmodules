@@ -1,0 +1,3 @@
+[submodule "learn"]
+	path = learn
+	url = https://github.com/gdg-jp/learn.git
