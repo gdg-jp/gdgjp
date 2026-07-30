@@ -862,7 +862,18 @@ function CampaignAnalyticsPanel({
           searchParams={scopeSearchParams}
           pending={scopePending}
         />
-        <AnalyticsClicksChartCard ref={chartRef} total={analytics.total} pending={analyticsPending}>
+        <AnalyticsClicksChartCard
+          ref={chartRef}
+          total={analytics.total}
+          pending={analyticsPending}
+          footer={
+            <AnalyticsAutomatedClicksToggle
+              checked={includeAutomated}
+              disabled={analyticsPending}
+              onCheckedChange={setIncludeAutomated}
+            />
+          }
+        >
           {analyticsPending ? (
             <Skeleton className="h-[260px] w-full" />
           ) : (
@@ -873,13 +884,6 @@ function CampaignAnalyticsPanel({
               granularity={analytics.granularity}
               bucketLabel={analytics.bucketLabel}
               intervalControl={<AnalyticsGraphInterval value={bucket} pending={analyticsPending} />}
-              trailingControl={
-                <AnalyticsAutomatedClicksToggle
-                  checked={includeAutomated}
-                  disabled={analyticsPending}
-                  onCheckedChange={setIncludeAutomated}
-                />
-              }
               breakdown={breakdown}
               metric={trendMetric}
               focusKey={graphFocus?.key}

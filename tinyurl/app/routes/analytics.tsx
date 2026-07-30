@@ -329,7 +329,18 @@ function AnalyticsContent({
 
   return (
     <>
-      <AnalyticsClicksChartCard ref={chartRef} total={data.total} pending={pending}>
+      <AnalyticsClicksChartCard
+        ref={chartRef}
+        total={data.total}
+        pending={pending}
+        footer={
+          <AnalyticsAutomatedClicksToggle
+            checked={includeAutomated}
+            disabled={pending}
+            onCheckedChange={setIncludeAutomated}
+          />
+        }
+      >
         {pending ? (
           <Skeleton className="h-[260px] w-full" />
         ) : (
@@ -339,13 +350,6 @@ function AnalyticsContent({
             granularity={data.granularity}
             bucketLabel={data.bucketLabel}
             intervalControl={<AnalyticsGraphInterval value={bucket} pending={pending} />}
-            trailingControl={
-              <AnalyticsAutomatedClicksToggle
-                checked={includeAutomated}
-                disabled={pending}
-                onCheckedChange={setIncludeAutomated}
-              />
-            }
             breakdownOptions={[
               { value: "total", label: "Total" },
               { value: "source", label: "Sources" },

@@ -19,7 +19,6 @@ export function AnalyticsTrendChart({
   bucketLabel,
   intervalControl,
   summaryControl,
-  trailingControl,
   breakdownOptions,
   breakdown,
   metric = "clicks",
@@ -36,7 +35,6 @@ export function AnalyticsTrendChart({
   bucketLabel: string;
   intervalControl?: ReactNode;
   summaryControl?: ReactNode;
-  trailingControl?: ReactNode;
   breakdownOptions?: TrendBreakdownOption[];
   breakdown: string;
   metric?: TrendMetric;
@@ -141,7 +139,7 @@ export function AnalyticsTrendChart({
         </>
       )}
 
-      {breakdownOptions?.length || intervalControl || trailingControl ? (
+      {breakdownOptions?.length || intervalControl ? (
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
           <div className="flex flex-wrap items-center gap-2">
             {breakdownOptions && breakdownOptions.length > 0 ? (
@@ -174,7 +172,6 @@ export function AnalyticsTrendChart({
             {intervalControl}
           </div>
           <div className="flex items-center gap-2">
-            {trailingControl}
             {onMetricChange && breakdown !== "total" && !focusKey ? (
               <div className="flex rounded-md border bg-muted/30 p-0.5" aria-label="Chart metric">
                 {(["clicks", "share"] as const).map((value) => (
