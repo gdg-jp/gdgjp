@@ -7,6 +7,11 @@ export type GdgAppLink = {
 /** The public apps shown in the shared GDG Japan app launcher. */
 export const GDG_APP_LINKS: readonly GdgAppLink[] = [
   {
+    iconUrl: "https://learn.gdgs.jp/assets/learn-gdgs-icon.png",
+    label: "Learn",
+    url: "https://learn.gdgs.jp",
+  },
+  {
     iconUrl: "https://url.gdgs.jp/app-icon.png",
     label: "TinyURL",
     url: "https://url.gdgs.jp",
