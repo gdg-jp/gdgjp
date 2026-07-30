@@ -47,6 +47,7 @@ Git to merge locally.
 | `gdg-lib/` | `@gdgjp/gdg-lib` | — | Shared RP factory (`initializeRpAuth`) + signed-cookie HMAC helpers, consumed via `workspace:*`. Source-only (no build step). |
 | `go-extension/` | `@gdgjp/go-extension` | Chrome extension | Manifest V3 extension for GDG Japan Go Links. Redirects `go/<slug>` URLs, supports the `go` omnibox keyword, and recognizes exact searches. |
 | `img/` | `@gdgjp/img` | img.gdgs.jp | Image hosting. D1 + R2 + Cloudflare Images; OAuth client of `accounts`. |
+| `learn/` | Git submodule ([`gdg-jp/learn`](https://github.com/gdg-jp/learn)) | learn.gdgs.jp | Codelab and learning-resource delivery app. |
 | `scheduler/` | `@gdgjp/scheduler` | scheduler.gdgs.jp | Meeting scheduler. Anonymous-friendly: anyone can create an event with a weekly schedule and meeting length, and pick available slots; authenticated owners get a cross-device "My events" list plus edit/delete. D1-backed; OAuth client of `accounts`. |
 | `sns/` | `@gdgjp/sns` | sns.gdgs.jp | Social-post management and publishing tool. D1 + R2-backed, with scheduled publishing and X and Google Photos integrations; OAuth client of `accounts`. |
 | `tinyurl/` | `@gdgjp/tinyurl` | url.gdgs.jp | URL shortener. D1-backed; OAuth client of `accounts`. |
