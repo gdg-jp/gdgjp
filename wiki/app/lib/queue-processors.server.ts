@@ -15,6 +15,17 @@ export function isTranslationQueueBody(body: unknown): body is { pageId: string 
   );
 }
 
+export function isGoogleDocumentImportQueueBody(
+  body: unknown,
+): body is { type: "google_document_import"; jobId: string } {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    (body as { type?: unknown }).type === "google_document_import" &&
+    typeof (body as { jobId?: unknown }).jobId === "string"
+  );
+}
+
 export async function processTranslationMessage(
   env: Env,
   db: Db,

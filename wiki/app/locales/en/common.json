@@ -461,10 +461,33 @@
     "newPage_ai": "Create with AI",
     "newPage_analyze": "Analyze with AI (Beta)",
     "newPage_manual": "Write manually",
+    "newPage_google_document": "Import Google Document",
     "collapse": "Collapse",
     "expand": "Expand",
     "dragHandle": "Drag to reorder",
     "newTaskList": "New Task List"
+  },
+  "googleDocumentImport": {
+    "title": "Import Google Document",
+    "description": "Choose a document from Google Drive and import its tab structure as Wiki pages.",
+    "connect_hint": "Connect your Google account to choose a document from Google Drive.",
+    "connect": "Connect Google Drive",
+    "choose": "Choose a document from Google Drive",
+    "selected_hint": "Review the changes that will be made from this document.",
+    "review": "Review changes",
+    "import": "Import",
+    "preview_summary": "{{create}} to create, {{update}} to update, {{archive}} to archive",
+    "actions": {
+      "create": "Create",
+      "update": "Update",
+      "archive": "Archive"
+    },
+    "errors": {
+      "connection": "Google Drive could not be prepared. Please try again.",
+      "picker": "Google Drive could not be opened. Please try again.",
+      "preview": "The import changes could not be reviewed.",
+      "import": "The Google Document could not be imported."
+    }
   },
   "tasks": {
     "new_title": "New Task List",

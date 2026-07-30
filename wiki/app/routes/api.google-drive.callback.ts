@@ -14,13 +14,8 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
 
-  if (error) {
-    throw redirect("/ingest?error=drive_auth_denied");
-  }
-
-  if (!code || !state) {
-    throw redirect("/ingest?error=drive_auth_invalid");
-  }
+  if (error) throw redirect("/ingest?error=drive_auth_denied");
+  if (!code || !state) throw redirect("/ingest?error=drive_auth_invalid");
 
   // Verify state from cookie
   const cookieHeader = request.headers.get("Cookie") ?? "";
@@ -39,6 +34,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const returnTo = colonIdx >= 0 ? state.slice(colonIdx + 1) : "/ingest";
   // Ensure returnTo is a relative path to prevent open redirect
   const safePath = returnTo.startsWith("/") ? returnTo : "/ingest";
+  const withError = (key: string) => `${safePath}${safePath.includes("?") ? "&" : "?"}error=${key}`;
 
   const redirectUri = `${url.origin}/api/google-drive/callback`;
 
@@ -75,7 +71,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("Google Drive OAuth callback error:", msg);
-    throw redirect(`${safePath}?error=drive_auth_failed`);
+    throw redirect(withError("drive_auth_failed"));
   }
 
   // Clear state cookie and redirect back

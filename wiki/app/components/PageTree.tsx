@@ -60,6 +60,7 @@ interface PageTreeProps {
   isCollapsed?: boolean;
   canReorder?: boolean;
   canCreate?: boolean;
+  onGoogleDocumentImport?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -498,6 +499,7 @@ export default function PageTree({
   isCollapsed = false,
   canReorder = false,
   canCreate = true,
+  onGoogleDocumentImport,
 }: PageTreeProps) {
   const { t } = useTranslation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -557,6 +559,19 @@ export default function PageTree({
                 <span>✦</span>
                 <span>{t("pageTree.newPage_ai")}</span>
               </Link>
+              {onGoogleDocumentImport && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    onGoogleDocumentImport();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <FileText size={14} />
+                  <span>{t("pageTree.newPage_google_document")}</span>
+                </button>
+              )}
               <Link
                 to="/analyze"
                 onClick={() => setDropdownOpen(false)}

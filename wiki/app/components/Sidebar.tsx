@@ -42,6 +42,7 @@ interface SidebarProps {
   starredButtonRef?: React.RefObject<HTMLButtonElement | null>;
   onArchivedClick?: () => void;
   archivedButtonRef?: React.RefObject<HTMLButtonElement | null>;
+  onGoogleDocumentImport?: () => void;
 }
 
 export default function Sidebar({
@@ -58,6 +59,7 @@ export default function Sidebar({
   starredButtonRef,
   onArchivedClick,
   archivedButtonRef,
+  onGoogleDocumentImport,
 }: SidebarProps) {
   const { t } = useTranslation();
   const location = useLocation();
@@ -186,6 +188,7 @@ export default function Sidebar({
               isCollapsed={isCollapsed}
               canReorder={isAuthenticated && !isMobile && !isCollapsed}
               canCreate={isAuthenticated}
+              onGoogleDocumentImport={onGoogleDocumentImport}
             />
           </div>
         </div>

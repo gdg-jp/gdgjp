@@ -1,5 +1,14 @@
 import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
-import { ChartPie, Globe, ListTodo, Moon, PanelLeft, PanelLeftClose, Sun } from "lucide-react";
+import {
+  ChartPie,
+  FileText,
+  Globe,
+  ListTodo,
+  Moon,
+  PanelLeft,
+  PanelLeftClose,
+  Sun,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form, Link, useFetcher, useLocation, useSearchParams } from "react-router";
@@ -19,6 +28,7 @@ interface NavbarProps {
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   unreadNotificationCount?: number;
+  onGoogleDocumentImport?: () => void;
 }
 
 function UiLangSwitcher() {
@@ -116,7 +126,7 @@ function ThemeSwitcher() {
   );
 }
 
-function NewPageDropdown() {
+function NewPageDropdown({ onGoogleDocumentImport }: { onGoogleDocumentImport: () => void }) {
   const { t } = useTranslation();
 
   return (
@@ -132,6 +142,10 @@ function NewPageDropdown() {
             <span>✦</span>
             <span>{t("pageTree.newPage_ai")}</span>
           </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onGoogleDocumentImport}>
+          <FileText size={14} />
+          <span>{t("pageTree.newPage_google_document")}</span>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link to="/analyze">
@@ -161,6 +175,7 @@ export default function Navbar({
   sidebarOpen,
   onToggleSidebar,
   unreadNotificationCount,
+  onGoogleDocumentImport,
 }: NavbarProps) {
   const { t } = useTranslation();
   const location = useLocation();
@@ -215,7 +230,9 @@ export default function Navbar({
 
       {/* Right actions */}
       <div className="flex flex-shrink-0 items-center gap-3">
-        {user && <NewPageDropdown />}
+        {user && onGoogleDocumentImport && (
+          <NewPageDropdown onGoogleDocumentImport={onGoogleDocumentImport} />
+        )}
 
         {user && <NotificationBell initialCount={unreadNotificationCount ?? 0} />}
 

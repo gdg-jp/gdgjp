@@ -24,7 +24,7 @@ export function getGoogleDriveAuthUrl(
     redirect_uri: redirectUri,
     response_type: "code",
     scope:
-      "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/forms.responses.readonly",
+      "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/forms.responses.readonly",
     access_type: "offline",
     prompt: "consent",
     state,
@@ -225,14 +225,26 @@ export async function exportFileAsText(
  */
 export interface GoogleDocsTextRun {
   content?: string;
+  textStyle?: {
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    strikethrough?: boolean;
+    link?: { url?: string };
+  };
 }
 
 export interface GoogleDocsParagraphElement {
   textRun?: GoogleDocsTextRun;
+  inlineObjectElement?: { inlineObjectId?: string };
 }
 
 export interface GoogleDocsStructuralElement {
-  paragraph?: { elements?: GoogleDocsParagraphElement[] };
+  paragraph?: {
+    elements?: GoogleDocsParagraphElement[];
+    paragraphStyle?: { namedStyleType?: string };
+    bullet?: { listId?: string; nestingLevel?: number };
+  };
   table?: {
     tableRows?: Array<{
       tableCells?: Array<{ content?: GoogleDocsStructuralElement[] }>;
@@ -243,6 +255,19 @@ export interface GoogleDocsStructuralElement {
 
 export interface GoogleDocsDocumentTab {
   body?: { content?: GoogleDocsStructuralElement[] };
+  lists?: Record<string, { listProperties?: { nestingLevels?: Array<{ glyphType?: string }> } }>;
+  inlineObjects?: Record<
+    string,
+    {
+      inlineObjectProperties?: {
+        embeddedObject?: {
+          title?: string;
+          description?: string;
+          imageProperties?: { contentUri?: string; contentType?: string };
+        };
+      };
+    }
+  >;
 }
 
 export interface GoogleDocsTab {
@@ -263,6 +288,19 @@ export interface GoogleDocsDocument {
   body?: { content?: GoogleDocsStructuralElement[] };
   /** Present with `includeTabsContent=true`. */
   tabs?: GoogleDocsTab[];
+  lists?: Record<string, { listProperties?: { nestingLevels?: Array<{ glyphType?: string }> } }>;
+  inlineObjects?: Record<
+    string,
+    {
+      inlineObjectProperties?: {
+        embeddedObject?: {
+          title?: string;
+          description?: string;
+          imageProperties?: { contentUri?: string; contentType?: string };
+        };
+      };
+    }
+  >;
 }
 
 /**

@@ -461,10 +461,33 @@
     "newPage_ai": "AIで作成",
     "newPage_analyze": "AIで分析 (Beta)",
     "newPage_manual": "手動で作成",
+    "newPage_google_document": "Google Documentをインポート",
     "collapse": "折りたたむ",
     "expand": "展開する",
     "dragHandle": "ドラッグして並び替え",
     "newTaskList": "タスクリストを作成"
+  },
+  "googleDocumentImport": {
+    "title": "Google Documentをインポート",
+    "description": "Google Driveから文書を選択して、タブ構成をそのままWikiページとして取り込みます。",
+    "connect_hint": "Google Driveの文書を選ぶには、Googleアカウントを接続してください。",
+    "connect": "Google Driveを接続",
+    "choose": "Google Driveから文書を選択",
+    "selected_hint": "選択した文書の変更内容を確認してください。",
+    "review": "変更を確認",
+    "import": "インポート",
+    "preview_summary": "作成 {{create}}件・更新 {{update}}件・アーカイブ {{archive}}件",
+    "actions": {
+      "create": "作成",
+      "update": "更新",
+      "archive": "アーカイブ"
+    },
+    "errors": {
+      "connection": "Google Driveへの接続を準備できませんでした。もう一度お試しください。",
+      "picker": "Google Driveを開けませんでした。もう一度お試しください。",
+      "preview": "インポート内容を確認できませんでした。",
+      "import": "Google Documentをインポートできませんでした。"
+    }
   },
   "tasks": {
     "new_title": "タスクリストを作成",

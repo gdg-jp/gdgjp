@@ -25,4 +25,12 @@ GEMINI_API_KEY=
 AI_GATEWAY_BASE_URL=
 AI_GATEWAY_TOKEN=
 
+# Google Drive / Docs direct import. The Picker key must be restricted to the
+# local/prod web origins and Google Picker API. The project number must match
+# the project that owns GOOGLE_DOCS_CLIENT_ID (or leave blank to derive it).
+GOOGLE_DOCS_CLIENT_ID=
+GOOGLE_DOCS_CLIENT_SECRET=
+GOOGLE_PICKER_API_KEY=
+GOOGLE_CLOUD_PROJECT_NUMBER=
+
 ENVIRONMENT=development

@@ -2,7 +2,7 @@
 import { eq } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/d1";
 import * as schema from "../../../app/db/schema";
-import { refreshAccessToken } from "../../../app/lib/google-drive.server";
+import { getGoogleDriveAccessToken } from "../../../app/lib/google-drive-token.server";
 import { extractUrls } from "../../../app/lib/url-extract";
 import type { AiDraftJson, IngestionInputs, SourceUrl } from "../../../shared/ingestion/domain";
 import type { ExecutionEventSink } from "./orchestration/ports/tool-event-sink";
@@ -36,32 +36,6 @@ export interface PreparedSources {
   isPostClarification: boolean;
 }
 
-async function getDriveAccessToken(env: Env, db: Db, userId: string): Promise<string> {
-  const token = await db
-    .select()
-    .from(schema.googleDriveTokens)
-    .where(eq(schema.googleDriveTokens.userId, userId))
-    .get();
-  if (!token) {
-    throw new Error("Googleの認証が見つかりません。設定画面からGoogleを接続してください。");
-  }
-  if (token.expiresAt >= new Date() || !token.refreshToken) return token.accessToken;
-  const refreshed = await refreshAccessToken(
-    token.refreshToken,
-    env.GOOGLE_DOCS_CLIENT_ID,
-    env.GOOGLE_DOCS_CLIENT_SECRET,
-  );
-  await db
-    .update(schema.googleDriveTokens)
-    .set({
-      accessToken: refreshed.accessToken,
-      expiresAt: refreshed.expiresAt,
-      updatedAt: new Date(),
-    })
-    .where(eq(schema.googleDriveTokens.userId, userId));
-  return refreshed.accessToken;
-}
-
 export async function prepareSources(
   env: Env,
   db: Db,
@@ -72,7 +46,7 @@ export async function prepareSources(
   events: ExecutionEventSink = noopExecutionEventSink,
 ): Promise<{ status: "continue"; data: PreparedSources } | { status: "awaiting_url_selection" }> {
   await updateIngestionPhase(db, sessionId, resume?.selectedUrls ? "fetching_urls" : "parsing");
-  const tokens = { getAccessToken: () => getDriveAccessToken(env, db, userId) };
+  const tokens = { getAccessToken: () => getGoogleDriveAccessToken(env, db, userId) };
   const drive = createGoogleDriveTool(tokens);
   const forms = createGoogleFormsTool(tokens);
   const artifactStore = new R2WorkspaceSourceStore(

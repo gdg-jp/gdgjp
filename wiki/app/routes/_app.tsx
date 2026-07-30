@@ -1,10 +1,18 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Outlet, useLoaderData, useLocation, useParams } from "react-router";
+import {
+  Outlet,
+  useLoaderData,
+  useLocation,
+  useNavigate,
+  useParams,
+  useRevalidator,
+} from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
 import ArchivedContent from "~/components/ArchivedContent";
 import Footer from "~/components/Footer";
+import GoogleDocumentImportDialog from "~/components/GoogleDocumentImportDialog";
 import Navbar from "~/components/Navbar";
 import RecentContent from "~/components/RecentContent";
 import Sidebar from "~/components/Sidebar";
@@ -66,11 +74,77 @@ export default function AppLayout() {
   const { slug } = useParams();
   const { i18n } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
+  const revalidator = useRevalidator();
 
   const isMobile = useMediaQuery("(max-width: 767px)");
 
   const [desktopOpen, setDesktopOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [googleDocumentImportOpen, setGoogleDocumentImportOpen] = useState(false);
+  const importProgressRef = useRef("");
+
+  useEffect(() => {
+    const storageKey = "gdg-google-document-import-jobs";
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const poll = async () => {
+      const raw = localStorage.getItem(storageKey);
+      let parsed: unknown = [];
+      try {
+        parsed = JSON.parse(raw ?? "[]") as unknown;
+      } catch {
+        localStorage.removeItem(storageKey);
+      }
+      const jobs = Array.isArray(parsed)
+        ? parsed.filter((value): value is string => typeof value === "string")
+        : [];
+      if (!jobs.length) return;
+      const results = await Promise.all(
+        jobs.map(async (jobId) => {
+          const response = await fetch(
+            `/api/google-documents/import/${encodeURIComponent(jobId)}/status`,
+            {
+              credentials: "same-origin",
+            },
+          );
+          return response.ok
+            ? ((await response.json()) as {
+                id: string;
+                status: string;
+                completedNodes: number;
+                completedImages: number;
+              })
+            : null;
+        }),
+      );
+      const active = results.filter(
+        (
+          value,
+        ): value is {
+          id: string;
+          status: string;
+          completedNodes: number;
+          completedImages: number;
+        } => value !== null && !["completed", "failed"].includes(value.status),
+      );
+      localStorage.setItem(storageKey, JSON.stringify(active.map((value) => value.id)));
+      const progress = JSON.stringify(results);
+      if (progress !== importProgressRef.current) {
+        importProgressRef.current = progress;
+        revalidator.revalidate();
+      }
+    };
+    const start = () => {
+      void poll();
+      if (!timer) timer = setInterval(() => void poll(), 1500);
+    };
+    start();
+    window.addEventListener("google-document-import-enqueued", start);
+    return () => {
+      if (timer) clearInterval(timer);
+      window.removeEventListener("google-document-import-enqueued", start);
+    };
+  }, [revalidator]);
 
   // Popover/dialog state — only one can be open at a time
   const [activePanel, setActivePanel] = useState<"recent" | "starred" | "archived" | null>(null);
@@ -89,6 +163,15 @@ export default function AppLayout() {
       // ignore – localStorage unavailable
     }
   }, []);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (!searchParams.has("google_document_import")) return;
+    setGoogleDocumentImportOpen(true);
+    searchParams.delete("google_document_import");
+    const query = searchParams.toString();
+    navigate(`${location.pathname}${query ? `?${query}` : ""}`, { replace: true });
+  }, [location.pathname, location.search, navigate]);
 
   // Close mobile drawer and all panels on route change
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional trigger on pathname change
@@ -128,6 +211,7 @@ export default function AppLayout() {
         sidebarOpen={sidebarOpen}
         onToggleSidebar={toggleSidebar}
         unreadNotificationCount={unreadNotificationCount}
+        onGoogleDocumentImport={() => setGoogleDocumentImportOpen(true)}
       />
 
       <div className="flex flex-1 pt-14">
@@ -145,6 +229,7 @@ export default function AppLayout() {
           starredButtonRef={starredButtonRef}
           onArchivedClick={() => setActivePanel((p) => (p === "archived" ? null : "archived"))}
           archivedButtonRef={archivedButtonRef}
+          onGoogleDocumentImport={() => setGoogleDocumentImportOpen(true)}
         />
 
         {/* Main content */}
@@ -155,6 +240,12 @@ export default function AppLayout() {
           <Footer />
         </div>
       </div>
+      {user && (
+        <GoogleDocumentImportDialog
+          open={googleDocumentImportOpen}
+          onOpenChange={setGoogleDocumentImportOpen}
+        />
+      )}
       {/* Signed-in only panels */}
       {user &&
         (isMobile ? (

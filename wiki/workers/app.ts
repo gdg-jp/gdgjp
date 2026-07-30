@@ -3,11 +3,13 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { createRequestHandler } from "react-router";
 import * as schema from "../app/db/schema";
+import { processGoogleDocumentImport } from "../app/features/google-documents/import.server";
 import { createAuth } from "../app/lib/auth.server";
 import { backfillMarkdownContent } from "../app/lib/content-backfill.server";
 import { sendDueTaskReminders } from "../app/lib/discord-reminders.server";
 import { getEffectivePagePermissions } from "../app/lib/page-access.server";
 import {
+  isGoogleDocumentImportQueueBody,
   isTranslationQueueBody,
   processTranslationMessage,
 } from "../app/lib/queue-processors.server";
@@ -117,6 +119,12 @@ export default {
       try {
         if (isTranslationQueueBody(body)) {
           await processTranslationMessage(env, db, body);
+          message.ack();
+          continue;
+        }
+
+        if (isGoogleDocumentImportQueueBody(body)) {
+          await processGoogleDocumentImport(env, body.jobId);
           message.ack();
           continue;
         }

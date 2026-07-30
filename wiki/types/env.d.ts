@@ -13,6 +13,10 @@ declare global {
     GEMINI_API_KEY: string;
     GOOGLE_DOCS_CLIENT_ID: string;
     GOOGLE_DOCS_CLIENT_SECRET: string;
+    /** Browser-restricted key used only by Google Picker. */
+    GOOGLE_PICKER_API_KEY: string;
+    /** Google Cloud project number used as Picker's Drive App ID. */
+    GOOGLE_CLOUD_PROJECT_NUMBER: string;
     RESEND_API_KEY: string;
     WIKI_DISCORD_SECRET: string;
     FCM_SERVICE_ACCOUNT_JSON: string;
