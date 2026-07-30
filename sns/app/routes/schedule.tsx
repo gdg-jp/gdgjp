@@ -15,6 +15,23 @@ import { MAX_IMAGES, MAX_IMAGE_BYTES, nowIso } from "~/lib/utils";
 import googlePhotosLogo from "../../photos.png";
 import type { Route } from "./+types/schedule";
 
+type PostingOption = "immediate" | "scheduled" | "photo_required";
+
+const POSTING_OPTION_COOKIE = "sns-posting-option";
+
+function postingOptionFromCookie(request: Request): PostingOption {
+  const value = request.headers
+    .get("Cookie")
+    ?.match(new RegExp(`(?:^|; )${POSTING_OPTION_COOKIE}=([^;]+)`))?.[1];
+  return value === "immediate" || value === "scheduled" || value === "photo_required"
+    ? value
+    : "photo_required";
+}
+
+function postingOptionCookie(option: PostingOption): string {
+  return `${POSTING_OPTION_COOKIE}=${option}; Path=/; SameSite=Lax; Max-Age=31536000; Secure`;
+}
+
 export async function loader({ request, context }: Route.LoaderArgs) {
   const access = await requireSnsAccess(context.cloudflare.env, request);
   const editId = new URL(request.url).searchParams.get("edit");
@@ -26,6 +43,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     accounts: await listXAccounts(context.cloudflare.env.DB, access.chapter.chapterId),
     post,
     media: post ? ((await listPostMedia(context.cloudflare.env.DB, [post.id]))[post.id] ?? []) : [],
+    defaultPostingOption: postingOptionFromCookie(request),
   };
 }
 
@@ -54,9 +72,16 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
   const text = String(form.get("text") ?? "").trim();
   const xAccountId = String(form.get("xAccountId") ?? "");
-  const condition = form.get("condition") === "scheduled" ? "scheduled" : "photo_required";
+  const postingOption: PostingOption =
+    form.get("postingOption") === "immediate"
+      ? "immediate"
+      : form.get("postingOption") === "scheduled"
+        ? "scheduled"
+        : "photo_required";
+  const condition = postingOption === "photo_required" ? "photo_required" : "scheduled";
   const scheduledInput = String(form.get("scheduledAt") ?? "");
-  const scheduledAt = new Date(`${scheduledInput}:00+09:00`);
+  const scheduledAt =
+    postingOption === "immediate" ? new Date() : new Date(`${scheduledInput}:00+09:00`);
   if (!text || text.length > 280 || !xAccountId || Number.isNaN(scheduledAt.getTime()))
     return data({ error: "本文、投稿先、予約日時を確認してください。" }, { status: 400 });
   const account = (await listXAccounts(env.DB, access.chapter.chapterId)).find(
@@ -180,9 +205,11 @@ export async function action({ request, context }: Route.ActionArgs) {
       .run();
   }
   if (intent === "save_and_add_google_photos")
-    throw redirect(`/google/photos/library?postId=${id}`);
+    throw redirect(`/google/photos/library?postId=${id}`, {
+      headers: { "Set-Cookie": postingOptionCookie(postingOption) },
+    });
   await claimAndPublish(env, id);
-  throw redirect("/posts");
+  throw redirect("/posts", { headers: { "Set-Cookie": postingOptionCookie(postingOption) } });
 }
 
 export default function Schedule({ loaderData, actionData }: Route.ComponentProps) {
@@ -190,8 +217,8 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
   const [xAccountId, setXAccountId] = useState(
     post?.xAccountId ?? loaderData.accounts[0]?.id ?? "",
   );
-  const [condition, setCondition] = useState<"scheduled" | "photo_required">(
-    post?.condition ?? "photo_required",
+  const [postingOption, setPostingOption] = useState<PostingOption>(
+    post?.condition ?? loaderData.defaultPostingOption,
   );
   const [newImages, setNewImages] = useState<{ file: File; url: string }[]>([]);
   const [deletedMediaIds, setDeletedMediaIds] = useState<string[]>([]);
@@ -232,7 +259,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
     <AppShell user={loaderData.user} chapter={loaderData.chapter} chapters={loaderData.chapters}>
       <Form id="schedule-form" method="post" encType="multipart/form-data" className="p-4">
         {post ? <input type="hidden" name="postId" value={post.id} /> : null}
-        <input type="hidden" name="condition" value={condition} />
+        <input type="hidden" name="postingOption" value={postingOption} />
         {actionData?.error ? (
           <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionData.error}</p>
         ) : null}
@@ -374,7 +401,11 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
                   type="button"
                   className="inline-flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-primary/50"
                 >
-                  {condition === "scheduled" ? "指定時刻に投稿" : "写真が添付されたら投稿"}
+                  {postingOption === "immediate"
+                    ? "今すぐ投稿"
+                    : postingOption === "scheduled"
+                      ? "指定時刻に投稿"
+                      : "画像が添付されるまで待ってから投稿"}
                   <ChevronDown className="size-4" aria-hidden="true" />
                 </button>
               </DropdownMenuPrimitive.Trigger>
@@ -385,9 +416,22 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
                   className="z-50 min-w-56 origin-(--radix-dropdown-menu-content-transform-origin) rounded-xl border bg-card p-1 shadow-lg outline-none animation-duration-150 ease-out motion-reduce:animation-duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
                 >
                   <DropdownMenuPrimitive.RadioGroup
-                    value={condition}
-                    onValueChange={(value) => setCondition(value as "scheduled" | "photo_required")}
+                    value={postingOption}
+                    onValueChange={(value) => {
+                      const option = value as PostingOption;
+                      setPostingOption(option);
+                      document.cookie = postingOptionCookie(option);
+                    }}
                   >
+                    <DropdownMenuPrimitive.RadioItem
+                      value="immediate"
+                      className="flex cursor-default items-center justify-between rounded-lg px-3 py-2 text-sm outline-none select-none focus:bg-muted"
+                    >
+                      今すぐ投稿
+                      <DropdownMenuPrimitive.ItemIndicator>
+                        <Check className="size-4 text-primary" />
+                      </DropdownMenuPrimitive.ItemIndicator>
+                    </DropdownMenuPrimitive.RadioItem>
                     <DropdownMenuPrimitive.RadioItem
                       value="scheduled"
                       className="flex cursor-default items-center justify-between rounded-lg px-3 py-2 text-sm outline-none select-none focus:bg-muted"
@@ -401,7 +445,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
                       value="photo_required"
                       className="flex cursor-default items-center justify-between rounded-lg px-3 py-2 text-sm outline-none select-none focus:bg-muted"
                     >
-                      写真が添付されたら投稿
+                      画像が添付されるまで待ってから投稿
                       <DropdownMenuPrimitive.ItemIndicator>
                         <Check className="size-4 text-primary" />
                       </DropdownMenuPrimitive.ItemIndicator>
@@ -411,22 +455,24 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
               </DropdownMenuPrimitive.Portal>
             </DropdownMenuPrimitive.Root>
           </div>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">予約日時（JST）</span>
-            <input
-              name="scheduledAt"
-              type="datetime-local"
-              defaultValue={localDateTime}
-              required
-              className="w-full rounded-xl border bg-card p-3"
-            />
-          </label>
+          {postingOption !== "immediate" ? (
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium">予約日時（JST）</span>
+              <input
+                name="scheduledAt"
+                type="datetime-local"
+                defaultValue={localDateTime}
+                required
+                className="w-full rounded-xl border bg-card p-3"
+              />
+            </label>
+          ) : null}
           <button
             type="submit"
             disabled={!loaderData.accounts.length}
             className="w-full rounded-full bg-primary px-5 py-3 font-bold text-white transition-transform duration-150 ease-out active:scale-[0.98] motion-reduce:duration-100 motion-reduce:active:scale-[0.99] disabled:opacity-50"
           >
-            {post ? "変更を保存" : "予約する"}
+            {post ? "変更を保存" : postingOption === "immediate" ? "今すぐ投稿" : "予約する"}
           </button>
           {post ? (
             <div className="space-y-3">

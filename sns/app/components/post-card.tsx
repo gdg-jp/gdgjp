@@ -187,7 +187,9 @@ export function PostCard({
               }).format(new Date(post.scheduledAt))}
             </span>
             <span>
-              {post.condition === "scheduled" ? "指定時刻に投稿" : "写真が添付されたら投稿"}
+              {post.condition === "scheduled"
+                ? "指定時刻に投稿"
+                : "画像が添付されるまで待ってから投稿"}
             </span>
             <span
               className={

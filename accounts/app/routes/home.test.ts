@@ -1,16 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { loader } from "./home";
+import { homeRedirect } from "./home";
 
 describe("home route", () => {
-  it("redirects to /dashboard", () => {
-    try {
-      loader();
-      throw new Error("loader did not throw");
-    } catch (thrown) {
-      expect(thrown).toBeInstanceOf(Response);
-      const res = thrown as Response;
-      expect(res.status).toBe(302);
-      expect(res.headers.get("Location")).toBe("/dashboard");
-    }
+  it("sends an unauthenticated visitor directly to sign in", () => {
+    expect(homeRedirect(false)).toBe("/signin");
+  });
+
+  it("sends an authenticated visitor to the dashboard", () => {
+    expect(homeRedirect(true)).toBe("/dashboard");
   });
 });

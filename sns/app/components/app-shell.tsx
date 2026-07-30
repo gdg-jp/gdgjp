@@ -21,7 +21,7 @@ export function AppShell({
 }) {
   const { pathname } = useLocation();
   return (
-    <div className="mx-auto min-h-dvh max-w-md border-x bg-background pb-20">
+    <div className="mx-auto min-h-dvh max-w-md bg-background pb-20 md:border-x">
       <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-background/90 px-3 backdrop-blur">
         <Link to="/posts" className="flex items-center gap-2 font-bold">
           <img src="/app-icon.png" alt="" width={28} height={28} className="size-7 rounded-full" />
