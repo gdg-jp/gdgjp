@@ -7,6 +7,7 @@ import {
   type GoogleDocsInlineImage,
   type GoogleDocsMarkdownNode,
   convertGoogleDocsDocument,
+  resolveGoogleDocsInternalLinks,
 } from "~/lib/google-docs-markdown.server";
 import { getGoogleDriveAccessToken } from "~/lib/google-drive-token.server";
 import { getGoogleDocumentWithTabs } from "~/lib/google-drive.server";
@@ -299,9 +300,24 @@ export async function importGoogleDocument(
       slugBySource.set(node.sourceNodeId, await uniqueSlug(env, node.node.title, reserved));
     }
   }
+  // Legacy single-tab heading/bookmark links omit tabId. They target the root page.
+  slugBySource.set("", slugBySource.get(ROOT_NODE_ID) as string);
 
   const rendered = new Map<string, Awaited<ReturnType<typeof persistImages>>>();
   for (const node of source.nodes) {
+    const resolved = resolveGoogleDocsInternalLinks(node.node.markdown, slugBySource, documentId);
+    const warningCount =
+      node.node.warnings.length + resolved.unresolvedBookmarks + resolved.unresolvedTargets;
+    if (warningCount) {
+      logImport("source_conversion_warning", {
+        documentId,
+        sourceNodeId: node.sourceNodeId,
+        warningCount,
+        warnings: [...new Set(node.node.warnings)],
+        unresolvedBookmarks: resolved.unresolvedBookmarks,
+        unresolvedTargets: resolved.unresolvedTargets,
+      });
+    }
     try {
       rendered.set(
         node.sourceNodeId,
@@ -309,7 +325,7 @@ export async function importGoogleDocument(
           env,
           source.token,
           pageIdBySource.get(node.sourceNodeId) as string,
-          node.node.markdown,
+          resolved.markdown,
           node.node.images,
         ),
       );
@@ -551,17 +567,16 @@ export async function processGoogleDocumentImport(env: Env, jobId: string): Prom
 
     const existingBySource = new Map(existing.nodes.map((node) => [node.sourceNodeId, node]));
     const pageIdBySource = new Map<string, string>();
+    const slugBySource = new Map<string, string>();
     const reserved = new Set<string>();
     let completedImages = 0;
     let warnings = 0;
 
+    // Allocate all target pages before rendering any node so cross-tab links do
+    // not depend on queue traversal order.
     for (const node of source.nodes) {
       const current = existingBySource.get(node.sourceNodeId);
       const pageId = current?.pageId ?? nanoid();
-      const parentId = node.parentSourceNodeId ? pageIdBySource.get(node.parentSourceNodeId) : null;
-      if (node.parentSourceNodeId && !parentId)
-        throw new Error("Google Document tab parent is missing");
-      let slug: string;
       if (current) {
         const page = await db
           .select({ slug: schema.pages.slug })
@@ -569,11 +584,22 @@ export async function processGoogleDocumentImport(env: Env, jobId: string): Prom
           .where(eq(schema.pages.id, pageId))
           .get();
         if (!page) throw new Error("A previously imported Wiki page no longer exists");
-        slug = page.slug;
+        slugBySource.set(node.sourceNodeId, page.slug);
       } else {
-        slug = await uniqueSlug(env, node.node.title, reserved);
+        slugBySource.set(node.sourceNodeId, await uniqueSlug(env, node.node.title, reserved));
       }
       pageIdBySource.set(node.sourceNodeId, pageId);
+    }
+    // Legacy single-tab heading/bookmark links omit tabId. They target the root page.
+    slugBySource.set("", slugBySource.get(ROOT_NODE_ID) as string);
+
+    for (const node of source.nodes) {
+      const current = existingBySource.get(node.sourceNodeId);
+      const pageId = pageIdBySource.get(node.sourceNodeId) as string;
+      const parentId = node.parentSourceNodeId ? pageIdBySource.get(node.parentSourceNodeId) : null;
+      if (node.parentSourceNodeId && !parentId)
+        throw new Error("Google Document tab parent is missing");
+      const slug = slugBySource.get(node.sourceNodeId) as string;
 
       // Persist a skeleton first. This is intentionally a small transaction so
       // the sidebar can reveal root/tabs while later nodes and images arrive.
@@ -621,11 +647,29 @@ export async function processGoogleDocumentImport(env: Env, jobId: string): Prom
       );
       await env.DB.batch(statements);
 
+      const linkResult = resolveGoogleDocsInternalLinks(
+        node.node.markdown,
+        slugBySource,
+        job.documentId,
+      );
+      if (
+        node.node.warnings.length ||
+        linkResult.unresolvedBookmarks ||
+        linkResult.unresolvedTargets
+      ) {
+        logImport("source_conversion_warning", {
+          documentId: job.documentId,
+          sourceNodeId: node.sourceNodeId,
+          warnings: [...new Set(node.node.warnings)],
+          unresolvedBookmarks: linkResult.unresolvedBookmarks,
+          unresolvedTargets: linkResult.unresolvedTargets,
+        });
+      }
       const rendered = await persistImages(
         env,
         source.token,
         pageId,
-        node.node.markdown,
+        linkResult.markdown,
         node.node.images,
         {
           documentId: job.documentId,
@@ -633,7 +677,11 @@ export async function processGoogleDocumentImport(env: Env, jobId: string): Prom
         },
       );
       const skipped = node.node.images.length - rendered.attachments.length;
-      warnings += skipped;
+      warnings +=
+        skipped +
+        node.node.warnings.length +
+        linkResult.unresolvedBookmarks +
+        linkResult.unresolvedTargets;
       completedImages += rendered.attachments.length;
       const contentStatements: D1PreparedStatement[] = [
         env.DB.prepare("UPDATE pages SET content_ja=?,updated_at=unixepoch() WHERE id=?").bind(

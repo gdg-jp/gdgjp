@@ -223,27 +223,109 @@ export async function exportFileAsText(
  * lazy, read-only workspace tree. In particular, callers must not concatenate
  * all tab contents into one prompt string.
  */
+export interface GoogleDocsDimension {
+  magnitude?: number;
+  unit?: "PT" | string;
+}
+
+export interface GoogleDocsColor {
+  color?: { rgbColor?: { red?: number; green?: number; blue?: number } };
+}
+
+export interface GoogleDocsLink {
+  url?: string;
+  tabId?: string;
+  bookmark?: { id?: string; tabId?: string };
+  heading?: { id?: string; tabId?: string };
+  /** Legacy single-tab link fields. */
+  bookmarkId?: string;
+  headingId?: string;
+}
+
+export interface GoogleDocsTextStyle {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+  smallCaps?: boolean;
+  foregroundColor?: GoogleDocsColor;
+  backgroundColor?: GoogleDocsColor;
+  fontSize?: GoogleDocsDimension;
+  weightedFontFamily?: { fontFamily?: string; weight?: number };
+  baselineOffset?: "SUPERSCRIPT" | "SUBSCRIPT" | "NONE" | string;
+  link?: GoogleDocsLink;
+}
+
 export interface GoogleDocsTextRun {
   content?: string;
-  textStyle?: {
-    bold?: boolean;
-    italic?: boolean;
-    underline?: boolean;
-    strikethrough?: boolean;
-    link?: { url?: string };
-  };
+  textStyle?: GoogleDocsTextStyle;
 }
 
 export interface GoogleDocsParagraphElement {
   textRun?: GoogleDocsTextRun;
+  autoText?: { type?: "PAGE_NUMBER" | "PAGE_COUNT" | string; textStyle?: GoogleDocsTextStyle };
+  pageBreak?: { textStyle?: GoogleDocsTextStyle };
+  columnBreak?: { textStyle?: GoogleDocsTextStyle };
+  footnoteReference?: {
+    footnoteId?: string;
+    footnoteNumber?: string;
+    textStyle?: GoogleDocsTextStyle;
+  };
+  horizontalRule?: { textStyle?: GoogleDocsTextStyle };
+  equation?: Record<string, never>;
   inlineObjectElement?: { inlineObjectId?: string };
+  /** A Google Docs people smart chip. */
+  person?: {
+    textStyle?: GoogleDocsTextRun["textStyle"];
+    personProperties?: { name?: string; email?: string };
+  };
+  /** A Google Docs resource smart chip, such as a Calendar event or Drive file. */
+  richLink?: {
+    textStyle?: GoogleDocsTextRun["textStyle"];
+    richLinkProperties?: { title?: string; uri?: string };
+  };
+  /** A Google Docs date smart chip. `displayText` preserves the document locale and format. */
+  dateElement?: {
+    textStyle?: GoogleDocsTextRun["textStyle"];
+    dateElementProperties?: { displayText?: string };
+  };
 }
 
 export interface GoogleDocsStructuralElement {
+  startIndex?: number;
+  endIndex?: number;
   paragraph?: {
     elements?: GoogleDocsParagraphElement[];
-    paragraphStyle?: { namedStyleType?: string };
-    bullet?: { listId?: string; nestingLevel?: number };
+    positionedObjectIds?: string[];
+    paragraphStyle?: {
+      namedStyleType?: string;
+      headingId?: string;
+      alignment?: "START" | "CENTER" | "END" | "JUSTIFIED" | string;
+      direction?: "LEFT_TO_RIGHT" | "RIGHT_TO_LEFT" | string;
+      lineSpacing?: number;
+      spaceAbove?: GoogleDocsDimension;
+      spaceBelow?: GoogleDocsDimension;
+      indentFirstLine?: GoogleDocsDimension;
+      indentStart?: GoogleDocsDimension;
+      indentEnd?: GoogleDocsDimension;
+      shading?: { backgroundColor?: GoogleDocsColor };
+      pageBreakBefore?: boolean;
+    };
+    bullet?: { listId?: string; nestingLevel?: number; textStyle?: GoogleDocsTextStyle };
+  };
+  sectionBreak?: {
+    sectionStyle?: {
+      sectionType?: string;
+      columnProperties?: Array<{ width?: GoogleDocsDimension; paddingEnd?: GoogleDocsDimension }>;
+      contentDirection?: string;
+      defaultHeaderId?: string;
+      defaultFooterId?: string;
+      firstPageHeaderId?: string;
+      firstPageFooterId?: string;
+      evenPageHeaderId?: string;
+      evenPageFooterId?: string;
+      pageNumberStart?: number;
+    };
   };
   table?: {
     tableRows?: Array<{
@@ -255,7 +337,17 @@ export interface GoogleDocsStructuralElement {
 
 export interface GoogleDocsDocumentTab {
   body?: { content?: GoogleDocsStructuralElement[] };
-  lists?: Record<string, { listProperties?: { nestingLevels?: Array<{ glyphType?: string }> } }>;
+  headers?: Record<string, { headerId?: string; content?: GoogleDocsStructuralElement[] }>;
+  footers?: Record<string, { footerId?: string; content?: GoogleDocsStructuralElement[] }>;
+  footnotes?: Record<string, { footnoteId?: string; content?: GoogleDocsStructuralElement[] }>;
+  lists?: Record<
+    string,
+    {
+      listProperties?: {
+        nestingLevels?: Array<{ glyphType?: string; glyphFormat?: string; startNumber?: number }>;
+      };
+    }
+  >;
   inlineObjects?: Record<
     string,
     {
@@ -263,7 +355,30 @@ export interface GoogleDocsDocumentTab {
         embeddedObject?: {
           title?: string;
           description?: string;
-          imageProperties?: { contentUri?: string; contentType?: string };
+          imageProperties?: { contentUri?: string; contentType?: string; sourceUri?: string };
+          linkedContentReference?: {
+            sheetsChartReference?: { spreadsheetId?: string; chartId?: number };
+          };
+        };
+      };
+    }
+  >;
+  positionedObjects?: Record<
+    string,
+    {
+      positionedObjectProperties?: {
+        positioning?: {
+          layout?: string;
+          leftOffset?: GoogleDocsDimension;
+          topOffset?: GoogleDocsDimension;
+        };
+        embeddedObject?: {
+          title?: string;
+          description?: string;
+          imageProperties?: { contentUri?: string; contentType?: string; sourceUri?: string };
+          linkedContentReference?: {
+            sheetsChartReference?: { spreadsheetId?: string; chartId?: number };
+          };
         };
       };
     }
@@ -286,21 +401,14 @@ export interface GoogleDocsDocument {
   title?: string;
   /** Present for legacy single-tab documents. */
   body?: { content?: GoogleDocsStructuralElement[] };
+  headers?: GoogleDocsDocumentTab["headers"];
+  footers?: GoogleDocsDocumentTab["footers"];
+  footnotes?: GoogleDocsDocumentTab["footnotes"];
   /** Present with `includeTabsContent=true`. */
   tabs?: GoogleDocsTab[];
-  lists?: Record<string, { listProperties?: { nestingLevels?: Array<{ glyphType?: string }> } }>;
-  inlineObjects?: Record<
-    string,
-    {
-      inlineObjectProperties?: {
-        embeddedObject?: {
-          title?: string;
-          description?: string;
-          imageProperties?: { contentUri?: string; contentType?: string };
-        };
-      };
-    }
-  >;
+  lists?: GoogleDocsDocumentTab["lists"];
+  inlineObjects?: GoogleDocsDocumentTab["inlineObjects"];
+  positionedObjects?: GoogleDocsDocumentTab["positionedObjects"];
 }
 
 /**
