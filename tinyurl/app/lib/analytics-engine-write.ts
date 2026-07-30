@@ -15,6 +15,7 @@ export function writeClickEvent(
   request: Request,
   link: Link,
   hostname = new URL(request.url).hostname,
+  isAutomated = false,
 ): void {
   if (!env.CLICKS_AE) return;
   const cf = (request as Request & { cf?: Record<string, string> }).cf ?? {};
@@ -40,6 +41,7 @@ export function writeClickEvent(
       device,
       source,
       hostname.toLowerCase(),
+      isAutomated ? "1" : "",
     ],
     indexes: [link.id],
   });

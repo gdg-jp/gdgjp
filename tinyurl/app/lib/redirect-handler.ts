@@ -65,6 +65,7 @@ export async function handleApexRedirect(
   if (!link) return null;
   const userAgent = request.headers.get("user-agent");
   if (userAgent && isbot(userAgent)) {
+    ctx.waitUntil(Promise.resolve(writeClickEvent(env, request, link, hostname, true)));
     return renderBotPreview(link, new URL(request.url).toString());
   }
   ctx.waitUntil(Promise.resolve(writeClickEvent(env, request, link, hostname)));

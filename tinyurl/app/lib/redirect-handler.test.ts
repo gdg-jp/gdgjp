@@ -90,6 +90,12 @@ describe("handleApexRedirect", () => {
     expect(html).toContain('property="og:description" content="Fresh preview &amp; details"');
     expect(html).toContain('property="og:image" content="https://cdn.example.com/new-og.png"');
     expect(html).toContain('name="twitter:card" content="summary_large_image"');
-    expect(writeClickEventMock).not.toHaveBeenCalled();
+    expect(writeClickEventMock).toHaveBeenCalledWith(
+      env,
+      expect.any(Request),
+      link,
+      "go.example",
+      true,
+    );
   });
 });

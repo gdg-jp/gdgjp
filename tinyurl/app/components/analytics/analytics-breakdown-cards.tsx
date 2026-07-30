@@ -24,8 +24,8 @@ type Dimension = Extract<
 
 export const AnalyticsClicksChartCard = forwardRef<
   HTMLDivElement,
-  { total: number; pending?: boolean; children: ReactNode }
->(function AnalyticsClicksChartCard({ total, pending = false, children }, ref) {
+  { total: number; pending?: boolean; children: ReactNode; footer?: ReactNode }
+>(function AnalyticsClicksChartCard({ total, pending = false, children, footer }, ref) {
   return (
     <Card ref={ref} className="min-w-0">
       <CardHeader className="border-b">
@@ -39,6 +39,7 @@ export const AnalyticsClicksChartCard = forwardRef<
         </CardTitle>
       </CardHeader>
       <CardContent className="min-w-0 px-3 sm:px-6">{children}</CardContent>
+      {footer ? <CardContent className="flex justify-end pt-0">{footer}</CardContent> : null}
     </Card>
   );
 });

@@ -1,6 +1,7 @@
 import { ExternalLink, X } from "lucide-react";
 import { Suspense, useRef, useState } from "react";
 import { Await, Link, useLocation, useNavigation, useSearchParams } from "react-router";
+import { AnalyticsAutomatedClicksToggle } from "~/components/analytics/analytics-automated-clicks-toggle";
 import {
   AnalyticsBarListCard,
   AnalyticsBarListSkeleton,
@@ -117,7 +118,7 @@ export async function loader(args: Route.LoaderArgs) {
     ids = [...idSet];
   }
 
-  const { preset, window, filters } = parseAnalyticsParams(url.searchParams);
+  const { preset, window, filters, includeAutomated } = parseAnalyticsParams(url.searchParams);
   const requestedBucket = parseTimeBucket(url.searchParams.get("bucket"));
   const effectiveBucket = requestedBucket ?? timeBucketFor(window);
   const customStart = window.kind === "custom" ? window.startIso : undefined;
@@ -136,6 +137,7 @@ export async function loader(args: Route.LoaderArgs) {
       customStart,
       customEnd,
       filters,
+      includeAutomated,
       bucket: requestedBucket ? timeBucketParam(requestedBucket) : "",
     };
   }
@@ -147,7 +149,12 @@ export async function loader(args: Route.LoaderArgs) {
     };
   }
 
-  const opts: QueryOpts = { window, filters, bucket: requestedBucket ?? undefined };
+  const opts: QueryOpts = {
+    window,
+    filters,
+    bucket: requestedBucket ?? undefined,
+    includeAutomated,
+  };
 
   const analytics: Promise<AnalyticsData> = Promise.all([
     hourlyClicks(env, ids, opts).catch(aeFallback("hourly", [])),
@@ -223,6 +230,7 @@ export async function loader(args: Route.LoaderArgs) {
     customStart,
     customEnd,
     filters,
+    includeAutomated,
     bucket: requestedBucket ? timeBucketParam(requestedBucket) : "",
   };
 }
@@ -269,11 +277,13 @@ function trendFromRows(rows: BlobTrendPoint[], focusName?: string) {
 function AnalyticsContent({
   data,
   filters,
+  includeAutomated,
   bucket,
   pending,
 }: {
   data: AnalyticsData;
   filters: DimensionFilters;
+  includeAutomated: boolean;
   bucket: string;
   pending: boolean;
 }) {
@@ -311,9 +321,26 @@ function AnalyticsContent({
     setFocus(null);
   }
 
+  function setIncludeAutomated(checked: boolean) {
+    setSearchParams(serializeAnalyticsParams(searchParams, { includeAutomated: checked }), {
+      preventScrollReset: true,
+    });
+  }
+
   return (
     <>
-      <AnalyticsClicksChartCard ref={chartRef} total={data.total} pending={pending}>
+      <AnalyticsClicksChartCard
+        ref={chartRef}
+        total={data.total}
+        pending={pending}
+        footer={
+          <AnalyticsAutomatedClicksToggle
+            checked={includeAutomated}
+            disabled={pending}
+            onCheckedChange={setIncludeAutomated}
+          />
+        }
+      >
         {pending ? (
           <Skeleton className="h-[260px] w-full" />
         ) : (
@@ -492,6 +519,7 @@ export default function Analytics({ loaderData }: Route.ComponentProps) {
                   <AnalyticsContent
                     data={data}
                     filters={displayParams.filters}
+                    includeAutomated={displayParams.includeAutomated}
                     bucket={bucket}
                     pending={analyticsPending}
                   />

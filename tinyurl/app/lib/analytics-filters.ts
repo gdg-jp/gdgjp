@@ -126,6 +126,7 @@ export type ParsedAnalyticsParams = {
   preset: PeriodPreset;
   window: AnalyticsWindow;
   filters: DimensionFilters;
+  includeAutomated: boolean;
 };
 
 export function parseAnalyticsParams(searchParams: URLSearchParams): ParsedAnalyticsParams {
@@ -160,12 +161,23 @@ export function parseAnalyticsParams(searchParams: URLSearchParams): ParsedAnaly
     }
   }
 
-  return { preset, window, filters };
+  return {
+    preset,
+    window,
+    filters,
+    includeAutomated: searchParams.get("includeAutomated") === "1",
+  };
 }
 
 export function serializeAnalyticsParams(
   current: URLSearchParams,
-  next: { preset?: PeriodPreset; startIso?: string; endIso?: string; filters?: DimensionFilters },
+  next: {
+    preset?: PeriodPreset;
+    startIso?: string;
+    endIso?: string;
+    filters?: DimensionFilters;
+    includeAutomated?: boolean;
+  },
 ): URLSearchParams {
   const out = new URLSearchParams(current);
 
@@ -191,6 +203,11 @@ export function serializeAnalyticsParams(
         if (isValidDimensionValue(dim, v)) out.append(dim, v);
       }
     }
+  }
+
+  if (next.includeAutomated !== undefined) {
+    if (next.includeAutomated) out.set("includeAutomated", "1");
+    else out.delete("includeAutomated");
   }
 
   return out;
