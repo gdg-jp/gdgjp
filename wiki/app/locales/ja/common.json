@@ -469,12 +469,10 @@
   },
   "googleDocumentImport": {
     "title": "Google Documentをインポート",
-    "description": "Google Driveから文書を選択して、タブ構成をそのままWikiページとして取り込みます。",
     "connect_hint": "Google Driveの文書を選ぶには、Googleアカウントを接続してください。",
     "connect": "Google Driveを接続",
     "choose": "Google Driveから文書を選択",
-    "selected_hint": "選択した文書の変更内容を確認してください。",
-    "review": "変更を確認",
+    "selected_hint": "変更内容を確認しています。",
     "import": "インポート",
     "preview_summary": "作成 {{create}}件・更新 {{update}}件・アーカイブ {{archive}}件",
     "actions": {

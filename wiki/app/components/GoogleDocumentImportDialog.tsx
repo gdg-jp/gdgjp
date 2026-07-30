@@ -5,7 +5,6 @@ import { Button } from "~/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -22,7 +21,7 @@ interface ImportPreview {
   createCount: number;
   updateCount: number;
   archiveCount: number;
-  pages?: Array<{ title: string; action: "create" | "update" | "archive" }>;
+  pages?: Array<{ title: string; action: "create" | "update" | "archive"; depth: number }>;
 }
 
 interface GooglePickerResponse {
@@ -183,8 +182,8 @@ export default function GoogleDocumentImportDialog({
             setDocumentId(document.id);
             setSelectedName(document.name);
             setPreview(null);
-            setLoading(false);
             onOpenChange(true);
+            void loadPreview(document.id);
           } else if (data.action === picker.Action.CANCEL) {
             setLoading(false);
             onOpenChange(true);
@@ -199,8 +198,8 @@ export default function GoogleDocumentImportDialog({
     }
   }
 
-  async function loadPreview() {
-    if (!documentId) return;
+  async function loadPreview(selectedDocumentId = documentId) {
+    if (!selectedDocumentId) return;
     setError(null);
     setLoading(true);
     try {
@@ -208,7 +207,7 @@ export default function GoogleDocumentImportDialog({
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documentId }),
+        body: JSON.stringify({ documentId: selectedDocumentId }),
       });
       if (!response.ok) throw new Error("Preview failed");
       setPreview((await response.json()) as ImportPreview);
@@ -277,10 +276,9 @@ export default function GoogleDocumentImportDialog({
         onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-sm sm:max-w-sm">
         <DialogHeader className="border-b border-border px-6 py-5">
           <DialogTitle>{t("googleDocumentImport.title")}</DialogTitle>
-          <DialogDescription>{t("googleDocumentImport.description")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 px-6">
           {needsConnection ? (
@@ -311,7 +309,11 @@ export default function GoogleDocumentImportDialog({
               {preview?.pages && preview.pages.length > 0 && (
                 <ul className="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-border p-3 text-sm">
                   {preview.pages.map((page) => (
-                    <li key={`${page.action}-${page.title}`} className="flex justify-between gap-3">
+                    <li
+                      key={`${page.action}-${page.title}`}
+                      className="flex justify-between gap-3"
+                      style={{ paddingInlineStart: `${page.depth * 16}px` }}
+                    >
                       <span className="truncate">{page.title}</span>
                       <span className="shrink-0 text-muted-foreground">
                         {t(`googleDocumentImport.actions.${page.action}`)}
@@ -332,12 +334,6 @@ export default function GoogleDocumentImportDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             {t("cancel")}
           </Button>
-          {!needsConnection && documentId && !preview && (
-            <Button onClick={loadPreview} disabled={loading}>
-              {loading && <LoaderCircle className="animate-spin" />}
-              {t("googleDocumentImport.review")}
-            </Button>
-          )}
           {!needsConnection && preview && (
             <Button onClick={commitImport} disabled={submitting}>
               {submitting && <LoaderCircle className="animate-spin" />}

@@ -23,7 +23,11 @@ type FlatNode = {
   node: GoogleDocsMarkdownNode;
 };
 
-type PreviewPage = { title: string; action: "create" | "update" | "archive" };
+type PreviewPage = {
+  title: string;
+  action: "create" | "update" | "archive";
+  depth: number;
+};
 
 type ImportDiagnostics = {
   documentId: string;
@@ -145,13 +149,21 @@ export async function previewGoogleDocumentImport(
   ]);
   const existingBySource = new Map(existing.nodes.map((node) => [node.sourceNodeId, node]));
   const sourceNodeIds = new Set(nodes.map((node) => node.sourceNodeId));
-  const pages: PreviewPage[] = nodes.map((node) => ({
-    title: node.node.title,
-    action: existingBySource.has(node.sourceNodeId) ? "update" : "create",
-  }));
+  const depthBySourceNodeId = new Map<string, number>();
+  const pages: PreviewPage[] = nodes.map((node) => {
+    const depth = node.parentSourceNodeId
+      ? (depthBySourceNodeId.get(node.parentSourceNodeId) ?? -1) + 1
+      : 0;
+    depthBySourceNodeId.set(node.sourceNodeId, depth);
+    return {
+      title: node.node.title,
+      action: existingBySource.has(node.sourceNodeId) ? "update" : "create",
+      depth,
+    };
+  });
   for (const node of existing.nodes) {
     if (!sourceNodeIds.has(node.sourceNodeId) && node.status !== "archived") {
-      pages.push({ title: node.sourceNodeId, action: "archive" });
+      pages.push({ title: node.sourceNodeId, action: "archive", depth: 0 });
     }
   }
   return {
