@@ -22,7 +22,8 @@
       "**/pnpm-lock.yaml",
       "**/openapi/types.generated.ts",
       "**/openapi.gen.go",
-      "**/openapigen/**"
+      "**/openapigen/**",
+      "learn/**"
     ]
   },
   "formatter": {
