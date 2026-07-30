@@ -32,21 +32,3 @@ func TestPageFromLocalUsesDirectoryHierarchy(t *testing.T) {
 		t.Fatalf("parent = %#v", page.ParentID)
 	}
 }
-
-func TestConflictFilesFindsFrontMatterMarkers(t *testing.T) {
-	root := t.TempDir()
-	path := filepath.Join(root, "pages", "page", "ja.md")
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte("<<<<<<< LOCAL\n---\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	files, err := ConflictFiles(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(files) != 1 {
-		t.Fatalf("files=%v", files)
-	}
-}

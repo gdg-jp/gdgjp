@@ -4,13 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -35,20 +33,6 @@ type FrontMatter struct {
 	Sources           any          `yaml:"sources,omitempty"`
 	Attachments       []Attachment `yaml:"attachments,omitempty"`
 }
-type StatePage struct {
-	Revision int    `json:"revision"`
-	JA       string `json:"ja"`
-	EN       string `json:"en"`
-	Path     string `json:"path"`
-}
-type State struct {
-	Version int                  `json:"version"`
-	Pages   map[string]StatePage `json:"pages"`
-}
-
-// ErrParentNotCreated lets the command create nested new pages in parent-first
-// batches without ever guessing an ID or flattening the hierarchy.
-var ErrParentNotCreated = errors.New("new parent has not been created")
 
 func splitMarkdown(raw []byte) (FrontMatter, string, error) {
 	s := string(raw)
@@ -73,32 +57,6 @@ func renderMarkdown(fm FrontMatter, content string) ([]byte, error) {
 	}
 	return []byte("---\n" + string(raw) + "---\n" + content), nil
 }
-func statePath(root string) string { return filepath.Join(root, ".gdg", "wiki-state.json") }
-func LoadState(root string) (State, error) {
-	raw, err := os.ReadFile(statePath(root))
-	if errors.Is(err, os.ErrNotExist) {
-		return State{Version: 1, Pages: map[string]StatePage{}}, nil
-	}
-	if err != nil {
-		return State{}, err
-	}
-	var s State
-	err = json.Unmarshal(raw, &s)
-	if s.Pages == nil {
-		s.Pages = map[string]StatePage{}
-	}
-	return s, err
-}
-func SaveState(root string, s State) error {
-	if err := os.MkdirAll(filepath.Dir(statePath(root)), 0755); err != nil {
-		return err
-	}
-	raw, err := json.MarshalIndent(s, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(statePath(root), append(raw, '\n'), 0600)
-}
 func digest(raw []byte) string { h := sha256.Sum256(raw); return hex.EncodeToString(h[:]) }
 func pageDir(root string, p Page, byID map[string]Page) (string, error) {
 	parts := []string{}
@@ -120,13 +78,13 @@ func pageDir(root string, p Page, byID map[string]Page) (string, error) {
 	}
 	return filepath.Join(append([]string{root, "pages"}, parts...)...), nil
 }
-func WritePage(root string, p Page, byID map[string]Page, token string, c *Client) (StatePage, error) {
+func WritePage(root string, p Page, byID map[string]Page, token string, c *Client) error {
 	dir, err := pageDir(root, p, byID)
 	if err != nil {
-		return StatePage{}, err
+		return err
 	}
 	if err = os.MkdirAll(filepath.Join(dir, "assets"), 0755); err != nil {
-		return StatePage{}, err
+		return err
 	}
 	var parentSlug *string
 	if p.ParentID != nil {
@@ -140,17 +98,17 @@ func WritePage(root string, p Page, byID map[string]Page, token string, c *Clien
 	common := FrontMatter{GDGWiki: 1, ID: p.ID, Slug: p.Slug, Language: "ja", Title: p.JA.Title, Summary: p.JA.Summary, TranslationStatus: p.JA.TranslationStatus, Status: p.Status, PageType: p.PageType, PageMetadata: p.PageMetadata, ParentSlug: parentSlug, SortOrder: p.SortOrder, Visibility: p.Visibility, GeneralRole: p.GeneralRole, ChapterID: p.ChapterID, Tags: p.Tags, Access: p.Access, Sources: p.Sources, Attachments: attachments}
 	ja, err := renderMarkdown(common, p.JA.Content)
 	if err != nil {
-		return StatePage{}, err
+		return err
 	}
 	en, err := renderMarkdown(FrontMatter{GDGWiki: 1, ID: p.ID, Slug: p.Slug, Language: "en", Title: p.EN.Title, Summary: p.EN.Summary, TranslationStatus: p.EN.TranslationStatus}, p.EN.Content)
 	if err != nil {
-		return StatePage{}, err
+		return err
 	}
 	if err = os.WriteFile(filepath.Join(dir, "ja.md"), ja, 0644); err != nil {
-		return StatePage{}, err
+		return err
 	}
 	if err = os.WriteFile(filepath.Join(dir, "en.md"), en, 0644); err != nil {
-		return StatePage{}, err
+		return err
 	}
 	for _, a := range p.Attachments {
 		if a.DownloadURL == "" {
@@ -158,13 +116,13 @@ func WritePage(root string, p Page, byID map[string]Page, token string, c *Clien
 		}
 		data, err := c.Download(contextBackground(), token, a.DownloadURL)
 		if err != nil {
-			return StatePage{}, err
+			return err
 		}
 		if err = os.WriteFile(filepath.Join(dir, "assets", attachmentLocalName(a)), data, 0644); err != nil {
-			return StatePage{}, err
+			return err
 		}
 	}
-	return StatePage{Revision: p.Revision, JA: string(ja), EN: string(en), Path: dir}, nil
+	return nil
 }
 
 // Keep each attachment distinct even when several attachments share the same
@@ -248,7 +206,7 @@ func PageFromLocal(l LocalPage, all map[string]LocalPage) (Page, error) {
 		for id, c := range all {
 			if c.Rel == parentDir {
 				if strings.HasPrefix(id, "new:") {
-					return Page{}, fmt.Errorf("%w: %s", ErrParentNotCreated, l.Rel)
+					return Page{}, fmt.Errorf("%s: new parent has not been created", l.Rel)
 				}
 				v := id
 				parentID = &v
@@ -285,58 +243,4 @@ func stringPointer(value any) *string {
 		return nil
 	}
 	return &s
-}
-func RenderRemote(p Page, language string) string {
-	var fm FrontMatter
-	var content string
-	if language == "ja" {
-		fm = FrontMatter{GDGWiki: 1, ID: p.ID, Slug: p.Slug, Language: "ja", Title: p.JA.Title, Summary: p.JA.Summary, TranslationStatus: p.JA.TranslationStatus, Status: p.Status}
-		content = p.JA.Content
-	} else {
-		fm = FrontMatter{GDGWiki: 1, ID: p.ID, Slug: p.Slug, Language: "en", Title: p.EN.Title, Summary: p.EN.Summary, TranslationStatus: p.EN.TranslationStatus}
-		content = p.EN.Content
-	}
-	raw, _ := renderMarkdown(fm, content)
-	return string(raw)
-}
-func WriteConflict(dir, baseJA, localJA, remoteJA, baseEN, localEN, remoteEN string) error {
-	merge := func(base, local, remote string) string {
-		return "<<<<<<< LOCAL\n" + local + "||||||| BASE\n" + base + "=======\n" + remote + ">>>>>>> WIKI\n"
-	}
-	if err := os.WriteFile(filepath.Join(dir, "ja.md"), []byte(merge(baseJA, localJA, remoteJA)), 0644); err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(dir, "en.md"), []byte(merge(baseEN, localEN, remoteEN)), 0644)
-}
-
-// ConflictFiles returns Markdown files that still contain the Git-style markers
-// written by WriteConflict. It deliberately scans before YAML parsing because a
-// front-matter conflict is not valid YAML until the user resolves it.
-func ConflictFiles(root string) ([]string, error) {
-	var files []string
-	err := filepath.WalkDir(filepath.Join(root, "pages"), func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() || (d.Name() != "ja.md" && d.Name() != "en.md") {
-			return err
-		}
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		if strings.Contains(string(raw), "<<<<<<< LOCAL") || strings.Contains(string(raw), ">>>>>>> WIKI") {
-			files = append(files, path)
-		}
-		return nil
-	})
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
-	}
-	return files, err
-}
-func sortedKeys[M any](m map[string]M) []string {
-	r := make([]string, 0, len(m))
-	for k := range m {
-		r = append(r, k)
-	}
-	sort.Strings(r)
-	return r
 }

@@ -34,6 +34,13 @@ func NewClient() *Client {
 	if base == "" {
 		base = defaultBaseURL
 	}
+	return NewClientAt(base)
+}
+
+// NewClientAt creates a Wiki API client for a Git remote's origin. The
+// gdg-wiki transport address includes an API path, while the generated client
+// owns those paths itself, so callers pass only the origin here.
+func NewClientAt(base string) *Client {
 	client := &Client{BaseURL: strings.TrimRight(base, "/"), HTTPClient: http.DefaultClient}
 	client.generatedClient()
 	return client

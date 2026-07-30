@@ -19,6 +19,24 @@ powershell -ExecutionPolicy ByPass -c "irm https://gdgs.jp/cli/install.ps1 | iex
 
 Then sign in with `gdg login`. Run `gdg update` to install the latest stable release.
 
+### Wiki through Git
+
+Wiki content is authoritative in the web application (D1/R2); Git provides a normal local editing,
+history, and merge workflow. Install the helper once, then use ordinary Git commands:
+
+```sh
+gdg wiki clone ./wiki
+cd ./wiki
+git add .
+git commit -m "docs: update event guide"
+git push
+git pull
+```
+
+The clone's `origin` is `gdg-wiki::https://wiki.gdgs.jp/api/cli/wiki`. `git push` syncs committed
+page and attachment changes to D1/R2; `git pull` fetches Web and Google Docs import changes for
+Git to merge locally.
+
 ## Apps
 
 | Directory | Package | Hostname | Description |
