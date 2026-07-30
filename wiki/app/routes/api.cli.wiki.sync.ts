@@ -163,8 +163,14 @@ export async function action({ request, context }: ActionFunctionArgs) {
     if (operation.kind === "archive") {
       statements.push(
         env.DB.prepare(
-          "UPDATE pages SET status = 'archived', last_edited_by = ?, updated_at = unixepoch() WHERE id = ? AND sync_revision = ?",
-        ).bind(identity.user.id, operation.id, operation.expectedRevision),
+          `WITH RECURSIVE descendants(id) AS (
+             SELECT id FROM pages WHERE id = ? AND sync_revision = ?
+             UNION
+             SELECT pages.id FROM pages JOIN descendants ON pages.parent_id = descendants.id
+           )
+           UPDATE pages SET status = 'archived', last_edited_by = ?, updated_at = unixepoch()
+           WHERE id IN (SELECT id FROM descendants)`,
+        ).bind(operation.id, operation.expectedRevision, identity.user.id),
       );
       returned.push({
         id: operation.id,

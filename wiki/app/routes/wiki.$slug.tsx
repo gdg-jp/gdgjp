@@ -25,13 +25,13 @@ import Tooltip from "~/components/Tooltip";
 import type { TocItem } from "~/components/WikiRightSidebar";
 import WikiRightSidebar from "~/components/WikiRightSidebar";
 import * as schema from "~/db/schema";
-import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useThemeMode } from "~/hooks/useThemeMode";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
+import { archivePageAndDescendants } from "~/lib/page-archive.server";
 import { buildPageMeta } from "~/lib/page-meta";
 import { timeAgo } from "~/lib/time";
 
@@ -316,15 +316,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     if (!page) throw new Response("Not Found", { status: 404 });
     const isAuthor = sessionUser.id === page.authorId;
     if (!isAuthor && !sessionUser.isAdmin) throw new Response("Forbidden", { status: 403 });
-    await db
-      .update(schema.pages)
-      .set({ status: "archived", updatedAt: new Date() })
-      .where(eq(schema.pages.id, page.id));
-    try {
-      await deletePageEmbeddings(env, db, page.id);
-    } catch {
-      // best-effort cleanup
-    }
+    await archivePageAndDescendants(env, db, page.id);
     return redirect("/");
   }
 

@@ -8,8 +8,13 @@ vi.mock("~/lib/db.server", () => ({
   getDb: vi.fn(),
 }));
 
+vi.mock("~/lib/page-archive.server", () => ({
+  archivePageAndDescendants: vi.fn(),
+}));
+
 import { requireAdmin } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
+import { archivePageAndDescendants } from "~/lib/page-archive.server";
 import { action, loader } from "./admin.pages";
 
 const mockContext = { cloudflare: { env: {} as Env } } as Parameters<typeof loader>[0]["context"];
@@ -121,27 +126,14 @@ describe("admin.pages action", () => {
     expect(result).toEqual({});
   });
 
-  it("archivePage intent calls db.update with archived status", async () => {
+  it("archivePage intent archives the page and its descendants", async () => {
     vi.mocked(requireAdmin).mockResolvedValueOnce({ id: "admin1" } as ReturnType<
       typeof requireAdmin
     > extends Promise<infer T>
       ? T
       : never);
 
-    const whereSpy = vi.fn().mockResolvedValue(undefined);
-    const setSpy = vi.fn().mockReturnValue({ where: whereSpy });
-    const updateSpy = vi.fn().mockReturnValue({ set: setSpy });
-    function makeDbWithUpdate(): ReturnType<typeof getDb> {
-      const handler: ProxyHandler<object> = {
-        get(_, key) {
-          if (key === "update") return updateSpy;
-          if (key === "then") return undefined;
-          return () => new Proxy({}, handler);
-        },
-      };
-      return new Proxy({}, handler) as ReturnType<typeof getDb>;
-    }
-    vi.mocked(getDb).mockReturnValueOnce(makeDbWithUpdate());
+    vi.mocked(getDb).mockReturnValueOnce(fluentDb({}));
 
     const form = new FormData();
     form.set("intent", "archivePage");
@@ -156,8 +148,11 @@ describe("admin.pages action", () => {
       unstable_url: new URL(request.url),
     });
 
-    expect(updateSpy).toHaveBeenCalledOnce();
-    expect(setSpy).toHaveBeenCalledWith(expect.objectContaining({ status: "archived" }));
+    expect(archivePageAndDescendants).toHaveBeenCalledWith(
+      mockContext.cloudflare.env,
+      expect.anything(),
+      "page-123",
+    );
     expect(result).toEqual({});
   });
 

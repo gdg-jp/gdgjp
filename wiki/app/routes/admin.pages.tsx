@@ -6,6 +6,7 @@ import * as schema from "~/db/schema";
 import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
 import { requireAdmin } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
+import { archivePageAndDescendants } from "~/lib/page-archive.server";
 
 // ---------------------------------------------------------------------------
 // Loader
@@ -68,15 +69,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     if (!pageId || typeof pageId !== "string")
       return new Response("Missing pageId", { status: 400 });
     const db = getDb(env);
-    await db
-      .update(schema.pages)
-      .set({ status: "archived", updatedAt: new Date() })
-      .where(eq(schema.pages.id, pageId));
-    try {
-      await deletePageEmbeddings(env, db, pageId);
-    } catch {
-      // best-effort cleanup
-    }
+    await archivePageAndDescendants(env, db, pageId);
   }
 
   if (intent === "restorePage") {

@@ -26,6 +26,7 @@ import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
+import { archivePageAndDescendants } from "~/lib/page-archive.server";
 import { buildPageMeta } from "~/lib/page-meta";
 
 // ---------------------------------------------------------------------------
@@ -210,10 +211,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   if (intent === "archivePage") {
     const canArchive = user.isAdmin || user.id === page.authorId;
     if (!canArchive) throw new Response("Forbidden", { status: 403 });
-    await db
-      .update(schema.pages)
-      .set({ status: "archived", updatedAt: new Date() })
-      .where(eq(schema.pages.id, page.id));
+    await archivePageAndDescendants(env, db, page.id);
     return redirect("/");
   }
 
