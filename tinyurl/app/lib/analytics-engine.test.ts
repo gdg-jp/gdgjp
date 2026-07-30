@@ -27,7 +27,7 @@ describe("analytics-engine SQL", () => {
     expect(hourlySql([ID_A])).toMatchInlineSnapshot(`
       "SELECT toStartOfHour(timestamp) AS hour, count() AS clicks
       FROM tinyurl_clicks
-      WHERE index1 IN ('link_01ARZ3NDEKTSV4RRFFQ69G5FAV') AND timestamp > now() - INTERVAL '168' HOUR
+      WHERE index1 IN ('link_01ARZ3NDEKTSV4RRFFQ69G5FAV') AND timestamp > now() - INTERVAL '168' HOUR AND blob12 != '1'
       GROUP BY hour
       ORDER BY hour"
     `);
@@ -89,7 +89,7 @@ describe("analytics-engine SQL", () => {
     expect(topSql("country", [ID_A])).toMatchInlineSnapshot(`
       "SELECT blob2 AS name, count() AS clicks
       FROM tinyurl_clicks
-      WHERE index1 IN ('link_01ARZ3NDEKTSV4RRFFQ69G5FAV') AND timestamp > now() - INTERVAL '168' HOUR
+      WHERE index1 IN ('link_01ARZ3NDEKTSV4RRFFQ69G5FAV') AND timestamp > now() - INTERVAL '168' HOUR AND blob12 != '1'
       GROUP BY name
       ORDER BY clicks DESC
       LIMIT 10"
@@ -110,6 +110,11 @@ describe("analytics-engine SQL", () => {
     });
     expect(sql).toContain("AND blob2 IN ('JP', 'US')");
     expect(sql).toContain("AND blob7 IN ('Chrome')");
+  });
+
+  it("excludes automated requests unless explicitly included", () => {
+    expect(totalSql([ID_A])).toContain("AND blob12 != '1'");
+    expect(totalSql([ID_A], { includeAutomated: true })).not.toContain("blob12 != '1'");
   });
 
   it("totalSql counts rows", () => {

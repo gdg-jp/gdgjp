@@ -33,7 +33,7 @@ describe("writeClickEvent", () => {
     expect(sourceFromRequest(new Request(url))).toBe(expected);
   });
 
-  it("appends source as blob10 without moving existing dimensions", () => {
+  it("appends source and automated markers without moving existing dimensions", () => {
     const writeDataPoint = vi.fn();
     const env = { CLICKS_AE: { writeDataPoint } } as unknown as Env;
     const request = new Request("https://go.example/example?s=Tokyo", {
@@ -43,11 +43,21 @@ describe("writeClickEvent", () => {
     writeClickEvent(env, request, link);
 
     const blobs = writeDataPoint.mock.calls[0][0].blobs;
-    expect(blobs).toHaveLength(11);
+    expect(blobs).toHaveLength(12);
     expect(blobs[0]).toBe("example");
     expect(blobs[5]).toBe("https://ref.example");
     expect(blobs[9]).toBe("tokyo");
     expect(blobs[10]).toBe("go.example");
+    expect(blobs[11]).toBe("");
+  });
+
+  it("marks crawler and OGP preview requests as automated", () => {
+    const writeDataPoint = vi.fn();
+    const env = { CLICKS_AE: { writeDataPoint } } as unknown as Env;
+
+    writeClickEvent(env, new Request("https://go.example/example"), link, undefined, true);
+
+    expect(writeDataPoint.mock.calls[0][0].blobs[11]).toBe("1");
   });
 
   it("stores only the referer origin", () => {

@@ -15,6 +15,7 @@ import {
 import { Suspense, useRef, useState } from "react";
 import { Await, Form, Link, useLocation, useNavigation, useSearchParams } from "react-router";
 import type { ShouldRevalidateFunctionArgs } from "react-router";
+import { AnalyticsAutomatedClicksToggle } from "~/components/analytics/analytics-automated-clicks-toggle";
 import {
   AnalyticsBarListCard,
   AnalyticsBarListSkeleton,
@@ -192,6 +193,7 @@ export async function loader(args: Route.LoaderArgs) {
     window: parsed.window,
     filters: parsed.filters,
     bucket: requestedBucket ?? undefined,
+    includeAutomated: parsed.includeAutomated,
   };
   const fallback =
     <T,>(label: string, value: T) =>
@@ -636,6 +638,7 @@ export default function CampaignDetail({ loaderData, actionData }: Route.Compone
                   customStart={customStart}
                   customEnd={customEnd}
                   filters={filters}
+                  includeAutomated={parseAnalyticsParams(scopeSearchParams).includeAutomated}
                   bucket={bucket}
                   scopeSearchParams={scopeSearchParams}
                   scopePending={scopePending}
@@ -691,6 +694,7 @@ function CampaignAnalyticsPanel({
   customStart,
   customEnd,
   filters,
+  includeAutomated,
   bucket,
   scopeSearchParams,
   scopePending,
@@ -706,6 +710,7 @@ function CampaignAnalyticsPanel({
   customStart: string | undefined;
   customEnd: string | undefined;
   filters: Route.ComponentProps["loaderData"]["filters"];
+  includeAutomated: boolean;
   bucket: string;
   scopeSearchParams: URLSearchParams;
   scopePending: boolean;
@@ -764,6 +769,12 @@ function CampaignAnalyticsPanel({
     setSearchParams(next, { preventScrollReset: true });
   }
 
+  function setIncludeAutomated(checked: boolean) {
+    setSearchParams(serializeAnalyticsParams(scopeSearchParams, { includeAutomated: checked }), {
+      preventScrollReset: true,
+    });
+  }
+
   return (
     <div
       id="analytics-panel"
@@ -803,6 +814,13 @@ function CampaignAnalyticsPanel({
               granularity={analytics.granularity}
               bucketLabel={analytics.bucketLabel}
               intervalControl={<AnalyticsGraphInterval value={bucket} pending={analyticsPending} />}
+              trailingControl={
+                <AnalyticsAutomatedClicksToggle
+                  checked={includeAutomated}
+                  disabled={analyticsPending}
+                  onCheckedChange={setIncludeAutomated}
+                />
+              }
               breakdown={breakdown}
               metric={trendMetric}
               focusKey={graphFocus?.key}

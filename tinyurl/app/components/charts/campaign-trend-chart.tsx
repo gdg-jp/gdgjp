@@ -22,6 +22,7 @@ export function CampaignTrendChart({
   granularity,
   bucketLabel,
   intervalControl,
+  trailingControl,
   breakdown,
   metric,
   focusKey,
@@ -36,6 +37,7 @@ export function CampaignTrendChart({
   granularity: Granularity;
   bucketLabel: string;
   intervalControl?: ReactNode;
+  trailingControl?: ReactNode;
   breakdown: CampaignTrendDimension;
   metric: TrendMetric;
   focusKey?: string;
@@ -53,6 +55,7 @@ export function CampaignTrendChart({
       granularity={granularity}
       bucketLabel={bucketLabel}
       intervalControl={intervalControl}
+      trailingControl={trailingControl}
       breakdownOptions={BREAKDOWN_OPTIONS}
       breakdown={breakdown}
       metric={metric}

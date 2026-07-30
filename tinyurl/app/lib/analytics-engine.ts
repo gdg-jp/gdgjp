@@ -121,6 +121,7 @@ export type QueryOpts = {
   window?: AnalyticsWindow;
   filters?: DimensionFilters;
   bucket?: TimeBucket;
+  includeAutomated?: boolean;
 };
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -195,6 +196,14 @@ function blobFiltersClause(filters: DimensionFilters | undefined): string {
     parts.push(`${blob} IN (${quoted})`);
   }
   return parts.length === 0 ? "" : ` AND ${parts.join(" AND ")}`;
+}
+
+/**
+ * blob12 is set to "1" for crawler and OGP-preview requests. Events written before this
+ * field was introduced have an empty value and remain part of the normal click history.
+ */
+function automatedClicksClause(includeAutomated: boolean | undefined): string {
+  return includeAutomated ? "" : " AND blob12 != '1'";
 }
 
 export type Granularity = "hour" | "day" | "week";
@@ -287,7 +296,7 @@ export function hourlySql(linkIds: string[] | "all", opts: QueryOpts = {}): stri
   const bucket = bucketExpression(window, opts.bucket);
   return `SELECT ${bucket} AS hour, count() AS clicks
 FROM ${DATASET}
-WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}
+WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}${automatedClicksClause(opts.includeAutomated)}
 GROUP BY hour
 ORDER BY hour`;
 }
@@ -317,7 +326,7 @@ export function hourlyClicksByBlobSql(
   const blob = `blob${BLOB_INDEX[field]}`;
   return `SELECT ${bucket} AS hour, ${blob} AS name, count() AS clicks
 FROM ${DATASET}
-WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}
+WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}${automatedClicksClause(opts.includeAutomated)}
 GROUP BY hour, name
 ORDER BY hour`;
 }
@@ -350,7 +359,7 @@ export function topSql(
   const filter = linkIdsFilter(linkIds);
   return `SELECT ${blob} AS name, count() AS clicks
 FROM ${DATASET}
-WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}
+WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}${automatedClicksClause(opts.includeAutomated)}
 GROUP BY name
 ORDER BY clicks DESC
 LIMIT ${lim}`;
@@ -375,7 +384,7 @@ export function clicksByLinkIdSql(linkIds: string[], opts: QueryOpts = {}): stri
   const filter = linkIdsFilter(linkIds);
   return `SELECT index1 AS linkId, count() AS clicks
 FROM ${DATASET}
-WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}
+WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}${automatedClicksClause(opts.includeAutomated)}
 GROUP BY linkId`;
 }
 
@@ -405,7 +414,7 @@ export function hourlyClicksByLinkIdAndSourceSql(linkIds: string[], opts: QueryO
   const bucket = bucketExpression(window, opts.bucket);
   return `SELECT ${bucket} AS hour, index1 AS linkId, blob10 AS source, count() AS clicks
 FROM ${DATASET}
-WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}
+WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}${automatedClicksClause(opts.includeAutomated)}
 GROUP BY hour, linkId, source
 ORDER BY hour`;
 }
@@ -430,7 +439,7 @@ export function conversionClicksByHourSql(linkIds: string[], opts: QueryOpts = {
   const filter = linkIdsFilter(linkIds);
   return `SELECT toStartOfHour(timestamp) AS hour, index1 AS linkId, blob10 AS source, count() AS clicks
 FROM ${DATASET}
-WHERE ${filter} AND ${windowClause(window, 24)}${blobFiltersClause(opts.filters)}
+WHERE ${filter} AND ${windowClause(window, 24)}${blobFiltersClause(opts.filters)}${automatedClicksClause(opts.includeAutomated)}
 GROUP BY hour, linkId, source
 ORDER BY hour`;
 }
@@ -456,7 +465,7 @@ export function clicksByLinkIdAndSourceSql(linkIds: string[], opts: QueryOpts = 
   const filter = linkIdsFilter(linkIds);
   return `SELECT index1 AS linkId, blob10 AS source, count() AS clicks
 FROM ${DATASET}
-WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}
+WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}${automatedClicksClause(opts.includeAutomated)}
 GROUP BY linkId, source`;
 }
 
@@ -479,7 +488,7 @@ export function totalSql(linkIds: string[] | "all", opts: QueryOpts = {}): strin
   const filter = linkIdsFilter(linkIds);
   return `SELECT count() AS clicks
 FROM ${DATASET}
-WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}`;
+WHERE ${filter} AND ${windowClause(window)}${blobFiltersClause(opts.filters)}${automatedClicksClause(opts.includeAutomated)}`;
 }
 
 export async function totalClicks(
