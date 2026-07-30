@@ -76,7 +76,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       throw new Response("Forbidden", { status: 403 });
     await db
       .update(schema.pages)
-      .set({ status: "draft", updatedAt: new Date() })
+      .set({ status: "published", updatedAt: new Date() })
       .where(eq(schema.pages.id, pageId));
     return {};
   }

@@ -86,7 +86,6 @@ type Page struct {
 	Revision     int          `json:"revision,omitempty"`
 	JA           Locale       `json:"ja"`
 	EN           Locale       `json:"en"`
-	Status       string       `json:"status"`
 	PageType     *string      `json:"pageType"`
 	PageMetadata any          `json:"pageMetadata"`
 	SortOrder    int          `json:"sortOrder"`
@@ -178,7 +177,7 @@ func (c *Client) Sync(ctx context.Context, token string, input SyncRequest) (Syn
 		}
 		page := map[string]any{
 			"slug": p.Slug, "parentId": p.ParentID, "sortOrder": p.SortOrder, "ja": p.JA, "en": p.EN,
-			"meta": map[string]any{"status": p.Status, "pageType": p.PageType, "pageMetadata": p.PageMetadata, "visibility": p.Visibility, "generalRole": p.GeneralRole, "chapterId": p.ChapterID, "tags": tags, "access": emptyArrayIfNil(p.Access), "sources": emptyArrayIfNil(p.Sources), "attachments": attachments},
+			"meta": map[string]any{"pageType": p.PageType, "pageMetadata": p.PageMetadata, "visibility": p.Visibility, "generalRole": p.GeneralRole, "chapterId": p.ChapterID, "tags": tags, "access": emptyArrayIfNil(p.Access), "sources": emptyArrayIfNil(p.Sources), "attachments": attachments},
 		}
 		if p.ID != "" {
 			page["id"] = p.ID

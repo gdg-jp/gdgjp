@@ -33,9 +33,8 @@ Attachment:
     downloadUrl: { type: string }
 PageMeta:
   type: object
-  required: [status, pageType, pageMetadata, visibility, generalRole, chapterId, tags, access, sources, attachments]
+  required: [pageType, pageMetadata, visibility, generalRole, chapterId, tags, access, sources, attachments]
   properties:
-    status: { type: string, enum: [draft, published] }
     pageType: { type: string, nullable: true }
     pageMetadata: { type: object, additionalProperties: true, nullable: true }
     visibility: { type: string, enum: [restricted, unlisted, public] }
@@ -73,11 +72,10 @@ SnapshotPage:
   allOf:
     - $ref: '#/Page'
     - type: object
-      required: [id, revision, status, pageType, pageMetadata, visibility, generalRole, chapterId, tags, access, sources, attachments]
+      required: [id, revision, pageType, pageMetadata, visibility, generalRole, chapterId, tags, access, sources, attachments]
       properties:
         id: { type: string }
         revision: { type: integer, minimum: 1 }
-        status: { type: string, enum: [draft, published] }
         pageType: { type: string, nullable: true }
         pageMetadata: { type: object, additionalProperties: true, nullable: true }
         visibility: { type: string, enum: [restricted, unlisted, public] }

@@ -58,12 +58,6 @@ const (
 	PageMetaGeneralRoleViewer    PageMetaGeneralRole = "viewer"
 )
 
-// Defines values for PageMetaStatus.
-const (
-	PageMetaStatusDraft     PageMetaStatus = "draft"
-	PageMetaStatusPublished PageMetaStatus = "published"
-)
-
 // Defines values for PageMetaVisibility.
 const (
 	PageMetaVisibilityPublic     PageMetaVisibility = "public"
@@ -86,12 +80,6 @@ const (
 	Commenter SnapshotPageGeneralRole = "commenter"
 	Editor    SnapshotPageGeneralRole = "editor"
 	Viewer    SnapshotPageGeneralRole = "viewer"
-)
-
-// Defines values for SnapshotPageStatus.
-const (
-	SnapshotPageStatusDraft     SnapshotPageStatus = "draft"
-	SnapshotPageStatusPublished SnapshotPageStatus = "published"
 )
 
 // Defines values for SnapshotPageVisibility.
@@ -192,16 +180,12 @@ type PageMeta struct {
 	PageMetadata *map[string]interface{} `json:"pageMetadata"`
 	PageType     *string                 `json:"pageType"`
 	Sources      []Source                `json:"sources"`
-	Status       PageMetaStatus          `json:"status"`
 	Tags         []string                `json:"tags"`
 	Visibility   PageMetaVisibility      `json:"visibility"`
 }
 
 // PageMetaGeneralRole defines model for PageMeta.GeneralRole.
 type PageMetaGeneralRole string
-
-// PageMetaStatus defines model for PageMeta.Status.
-type PageMetaStatus string
 
 // PageMetaVisibility defines model for PageMeta.Visibility.
 type PageMetaVisibility string
@@ -244,16 +228,12 @@ type SnapshotPage struct {
 	Slug         string                  `json:"slug"`
 	SortOrder    int                     `json:"sortOrder"`
 	Sources      []Source                `json:"sources"`
-	Status       SnapshotPageStatus      `json:"status"`
 	Tags         []string                `json:"tags"`
 	Visibility   SnapshotPageVisibility  `json:"visibility"`
 }
 
 // SnapshotPageGeneralRole defines model for SnapshotPage.GeneralRole.
 type SnapshotPageGeneralRole string
-
-// SnapshotPageStatus defines model for SnapshotPage.Status.
-type SnapshotPageStatus string
 
 // SnapshotPageVisibility defines model for SnapshotPage.Visibility.
 type SnapshotPageVisibility string

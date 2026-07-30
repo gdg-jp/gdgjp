@@ -58,7 +58,6 @@ interface OperationState {
 interface ChangesetReviewProps {
   draft: ResultDraft;
   sessionId: string;
-  isAdmin: boolean | null | undefined;
   imageKeys?: string[];
   pageIndex?: PageIndexEntry[];
   onRegenerate?: (input: {
@@ -74,7 +73,6 @@ interface ChangesetReviewProps {
 export default function ChangesetReview({
   draft,
   sessionId,
-  isAdmin,
   imageKeys,
   pageIndex = [],
   onRegenerate,
@@ -235,11 +233,10 @@ export default function ChangesetReview({
     });
   }
 
-  async function handleSubmit(publishStatus: "draft" | "published") {
+  async function handleSubmit() {
     setSubmitting(true);
     try {
       const body = {
-        publishStatus,
         operations: operations.map((op, idx) => ({
           type: op.type,
           tempId: op.tempId,
@@ -273,8 +270,6 @@ export default function ChangesetReview({
       setSubmitting(false);
     }
   }
-
-  const canPublish = isAdmin;
 
   return (
     <div className="space-y-6">
@@ -539,22 +534,12 @@ export default function ChangesetReview({
       <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
         <button
           type="button"
-          onClick={() => handleSubmit("draft")}
+          onClick={handleSubmit}
           disabled={submitting}
-          className="rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+          className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
         >
-          {submitting ? t("ingest.review.saving") : t("ingest.review.save_draft")}
+          {submitting ? t("ingest.review.publishing") : t("ingest.review.publish")}
         </button>
-        {canPublish && (
-          <button
-            type="button"
-            onClick={() => handleSubmit("published")}
-            disabled={submitting}
-            className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-          >
-            {submitting ? t("ingest.review.publishing") : t("ingest.review.publish")}
-          </button>
-        )}
       </div>
     </div>
   );

@@ -5,8 +5,8 @@ import { ArrowLeft } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Form, Link, redirect, useLoaderData } from "react-router";
-import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import { Form, Link, redirect } from "react-router";
+import type { ActionFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
 import { generateSlug } from "~/features/ingestion/slug";
 import { useThemeMode } from "~/hooks/useThemeMode";
@@ -23,32 +23,16 @@ export const meta: MetaFunction = () => [{ title: "New Page — GDG Japan Wiki" 
 // Loader
 // ---------------------------------------------------------------------------
 
-export async function loader({ request, context }: LoaderFunctionArgs) {
-  const { env } = context.cloudflare;
-  const user = await requireUser(request, env);
-  const canLead = user.isAdmin;
-  return {
-    canPublish: canLead,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Action
-// ---------------------------------------------------------------------------
-
 export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
   const db = getDb(env);
 
   const formData = await request.formData();
-  const intent = formData.get("intent") as "save" | "publish";
   const titleJa = (formData.get("titleJa") as string) ?? "";
   const titleEn = (formData.get("titleEn") as string) ?? "";
   const contentJa = (formData.get("contentJa") as string) ?? "";
   const contentEn = (formData.get("contentEn") as string) ?? "";
-  const canLead = user.isAdmin;
-  const isPublish = intent === "publish" && canLead;
 
   // Generate unique slug
   const baseSlug = generateSlug(titleJa || titleEn, titleEn);
@@ -71,7 +55,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     slug,
     contentJa,
     contentEn,
-    status: isPublish ? "published" : "draft",
+    status: "published",
     visibility: "restricted",
     generalRole: "viewer",
     chapterId: null,
@@ -79,12 +63,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
     lastEditedBy: user.id,
   });
 
-  if (isPublish) {
-    await env.TRANSLATION_QUEUE.send({ pageId });
-    return redirect(`/wiki/${slug}`);
-  }
-
-  return redirect(`/wiki/${slug}/edit`);
+  await env.TRANSLATION_QUEUE.send({ pageId });
+  return redirect(`/wiki/${slug}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -92,7 +72,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
 // ---------------------------------------------------------------------------
 
 export default function NewPage() {
-  const { canPublish } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
   const theme = useThemeMode();
 
@@ -167,23 +146,10 @@ export default function NewPage() {
 
           <button
             type="submit"
-            name="intent"
-            value="save"
-            className="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <span className="hidden sm:inline">{t("editor.save_draft")}</span>
-            <span className="sm:hidden">{t("editor.save")}</span>
+            {t("editor.publish")} ↗
           </button>
-          {canPublish && (
-            <button
-              type="submit"
-              name="intent"
-              value="publish"
-              className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {t("editor.publish")} ↗
-            </button>
-          )}
         </div>
       </div>
 

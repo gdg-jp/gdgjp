@@ -79,7 +79,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     const db = getDb(env);
     await db
       .update(schema.pages)
-      .set({ status: "draft", updatedAt: new Date() })
+      .set({ status: "published", updatedAt: new Date() })
       .where(eq(schema.pages.id, pageId));
   }
 
@@ -97,7 +97,7 @@ function StatusBadge({ status }: { status: string }) {
       ? "bg-green-50 text-green-700"
       : status === "archived"
         ? "bg-gray-100 text-gray-500"
-        : "bg-yellow-50 text-yellow-700";
+        : "bg-gray-100 text-gray-500";
   const label = status === "archived" ? t("admin.pages.status_archived") : status;
   return (
     <span

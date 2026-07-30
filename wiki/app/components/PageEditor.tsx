@@ -18,7 +18,6 @@ interface Page {
   titleJa: string;
   titleEn: string;
   slug: string;
-  status: string;
   contentJa: string;
   contentEn: string;
   visibility: string;
@@ -26,7 +25,6 @@ interface Page {
 
 interface PageEditorProps {
   page: Page;
-  canPublish: boolean;
   currentUser: CollabUser;
 }
 
@@ -52,7 +50,7 @@ function formatRelativeTime(
 // Component
 // ---------------------------------------------------------------------------
 
-export default function PageEditor({ page, canPublish, currentUser }: PageEditorProps) {
+export default function PageEditor({ page, currentUser }: PageEditorProps) {
   const { t } = useTranslation();
   const fetcher = useFetcher<{ ok: boolean; savedAt: string }>();
   const theme = useThemeMode();
@@ -239,13 +237,6 @@ export default function PageEditor({ page, canPublish, currentUser }: PageEditor
             </span>
           )}
 
-          {/* Draft badge */}
-          {page.status === "draft" && (
-            <span className="hidden shrink-0 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800 sm:inline">
-              {t("draft")}
-            </span>
-          )}
-
           {/* Language switcher */}
           <div className="flex shrink-0 overflow-hidden rounded-md border border-gray-200">
             {(["ja", "en"] as const).map((lang) => (
@@ -264,29 +255,14 @@ export default function PageEditor({ page, canPublish, currentUser }: PageEditor
             ))}
           </div>
 
-          {/* Publishing actions. Sharing is managed from the page Share dialog. */}
-          {page.status === "draft" ? (
-            <button
-              type="submit"
-              name="intent"
-              value="save"
-              className="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <span className="hidden sm:inline">{t("editor.save_draft")}</span>
-              <span className="sm:hidden">{t("editor.save")}</span>
-            </button>
-          ) : (
-            canPublish && (
-              <button
-                type="submit"
-                name="intent"
-                value="publish"
-                className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {t("editor.publish")} ↗
-              </button>
-            )
-          )}
+          <button
+            type="submit"
+            name="intent"
+            value="save"
+            className="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {t("editor.save")}
+          </button>
         </div>
       </div>
 

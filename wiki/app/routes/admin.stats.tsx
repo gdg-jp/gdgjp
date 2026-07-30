@@ -22,7 +22,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       .select({
         total: count(),
         published: sql<number>`count(case when ${schema.pages.status} = 'published' then 1 end)`,
-        drafts: sql<number>`count(case when ${schema.pages.status} = 'draft' then 1 end)`,
       })
       .from(schema.pages)
       .get(),
@@ -46,7 +45,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     totalUsers: userCount?.total ?? 0,
     totalPages,
     publishedPages: pageStats?.published ?? 0,
-    draftPages: pageStats?.drafts ?? 0,
     bilingualPct,
   };
 }
@@ -74,8 +72,7 @@ function StatCard({
 }
 
 export default function AdminStats() {
-  const { totalUsers, totalPages, publishedPages, draftPages, bilingualPct } =
-    useLoaderData<typeof loader>();
+  const { totalUsers, totalPages, publishedPages, bilingualPct } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
 
   return (
@@ -87,7 +84,7 @@ export default function AdminStats() {
         <StatCard
           label={t("admin.stats.total_pages")}
           value={totalPages}
-          sub={t("admin.stats.pages_sub", { published: publishedPages, drafts: draftPages })}
+          sub={t("admin.stats.pages_sub", { published: publishedPages })}
         />
         <StatCard label={t("admin.stats.published")} value={publishedPages} />
         <StatCard

@@ -29,7 +29,6 @@ const CommitOperationSchema = z.object({
 });
 
 const CommitBodySchema = z.object({
-  publishStatus: z.enum(["draft", "published"]),
   operations: z.array(CommitOperationSchema).min(1),
   sources: z.array(z.object({ url: z.string(), title: z.string() })).default([]),
 });
@@ -63,10 +62,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     return new Response(parseResult.error.message, { status: 400 });
   }
   const body: CommitBody = parseResult.data;
-
-  // Only admins can publish; everyone else commits as draft.
-  const canPublish = user.isAdmin;
-  const publishStatus = canPublish ? body.publishStatus : "draft";
 
   const pageIds: string[] = [];
   const translationPageIds: string[] = [];
@@ -146,7 +141,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
           op.actionabilityScore,
           user.id,
           user.id,
-          publishStatus,
+          "published",
           null,
         ),
       );
@@ -206,7 +201,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
           contentMarkdown,
           op.title,
           op.summaryJa,
-          publishStatus,
+          "published",
           params.sessionId,
           user.id,
           op.pageId,

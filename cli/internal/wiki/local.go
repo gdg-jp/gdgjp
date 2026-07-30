@@ -20,7 +20,6 @@ type FrontMatter struct {
 	Title             string       `yaml:"title"`
 	Summary           string       `yaml:"summary"`
 	TranslationStatus string       `yaml:"translation_status"`
-	Status            string       `yaml:"status,omitempty"`
 	PageType          any          `yaml:"page_type,omitempty"`
 	PageMetadata      any          `yaml:"page_metadata,omitempty"`
 	ParentSlug        *string      `yaml:"parent_slug,omitempty"`
@@ -95,7 +94,7 @@ func WritePage(root string, p Page, byID map[string]Page, token string, c *Clien
 	for i := range attachments {
 		attachments[i].Path = filepath.ToSlash(filepath.Join("assets", attachmentLocalName(attachments[i])))
 	}
-	common := FrontMatter{GDGWiki: 1, ID: p.ID, Slug: p.Slug, Language: "ja", Title: p.JA.Title, Summary: p.JA.Summary, TranslationStatus: p.JA.TranslationStatus, Status: p.Status, PageType: p.PageType, PageMetadata: p.PageMetadata, ParentSlug: parentSlug, SortOrder: p.SortOrder, Visibility: p.Visibility, GeneralRole: p.GeneralRole, ChapterID: p.ChapterID, Tags: p.Tags, Access: p.Access, Sources: p.Sources, Attachments: attachments}
+	common := FrontMatter{GDGWiki: 1, ID: p.ID, Slug: p.Slug, Language: "ja", Title: p.JA.Title, Summary: p.JA.Summary, TranslationStatus: p.JA.TranslationStatus, PageType: p.PageType, PageMetadata: p.PageMetadata, ParentSlug: parentSlug, SortOrder: p.SortOrder, Visibility: p.Visibility, GeneralRole: p.GeneralRole, ChapterID: p.ChapterID, Tags: p.Tags, Access: p.Access, Sources: p.Sources, Attachments: attachments}
 	ja, err := renderMarkdown(common, p.JA.Content)
 	if err != nil {
 		return err
@@ -194,9 +193,6 @@ func (l LocalPage) Attachments() []Attachment { return l.ja.Attachments }
 func (l LocalPage) Slug() string              { return l.ja.Slug }
 
 func PageFromLocal(l LocalPage, all map[string]LocalPage) (Page, error) {
-	if l.ja.ID == "" && l.ja.Status != "published" {
-		return Page{}, fmt.Errorf("%s: new and managed pages require status: published", l.Rel)
-	}
 	if filepath.Base(l.Dir) != l.ja.Slug {
 		return Page{}, fmt.Errorf("%s: directory name must match slug", l.Rel)
 	}
@@ -232,7 +228,7 @@ func PageFromLocal(l LocalPage, all map[string]LocalPage) (Page, error) {
 		}
 		attachments[i].SHA256 = digest(raw)
 	}
-	return Page{ID: l.ja.ID, Slug: l.ja.Slug, ParentID: parentID, JA: Locale{Title: l.ja.Title, Summary: l.ja.Summary, TranslationStatus: l.ja.TranslationStatus, Content: l.JAContent}, EN: Locale{Title: l.en.Title, Summary: l.en.Summary, TranslationStatus: l.en.TranslationStatus, Content: l.ENContent}, Status: l.ja.Status, PageType: stringPointer(l.ja.PageType), PageMetadata: l.ja.PageMetadata, SortOrder: l.ja.SortOrder, Visibility: l.ja.Visibility, GeneralRole: l.ja.GeneralRole, ChapterID: l.ja.ChapterID, Tags: l.ja.Tags, Access: l.ja.Access, Sources: l.ja.Sources, Attachments: attachments}, nil
+	return Page{ID: l.ja.ID, Slug: l.ja.Slug, ParentID: parentID, JA: Locale{Title: l.ja.Title, Summary: l.ja.Summary, TranslationStatus: l.ja.TranslationStatus, Content: l.JAContent}, EN: Locale{Title: l.en.Title, Summary: l.en.Summary, TranslationStatus: l.en.TranslationStatus, Content: l.ENContent}, PageType: stringPointer(l.ja.PageType), PageMetadata: l.ja.PageMetadata, SortOrder: l.ja.SortOrder, Visibility: l.ja.Visibility, GeneralRole: l.ja.GeneralRole, ChapterID: l.ja.ChapterID, Tags: l.ja.Tags, Access: l.ja.Access, Sources: l.ja.Sources, Attachments: attachments}, nil
 }
 func stringPointer(value any) *string {
 	if value == nil {

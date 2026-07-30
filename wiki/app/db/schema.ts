@@ -110,8 +110,8 @@ export const pages = sqliteTable("pages", {
   parentId: text("parent_id"),
   // self-reference; FK defined in migration SQL to avoid circular reference
   sortOrder: integer("sort_order").notNull().default(0),
-  status: text("status").notNull().default("draft"),
-  // "draft" | "published" | "archived"
+  status: text("status").notNull().default("published"),
+  // "published" | "archived"
   pageType: text("page_type"),
   // "event-report" | "speaker-profile" | "project-log" | "how-to-guide" | "onboarding-guide" | "survey-report" | null
   pageMetadata: text("page_metadata"),

@@ -60,7 +60,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     }
     await db
       .update(schema.pages)
-      .set({ status: "draft", updatedAt: new Date() })
+      .set({ status: "published", updatedAt: new Date() })
       .where(eq(schema.pages.id, pageId));
     return Response.json({ ok: true });
   }

@@ -25,7 +25,7 @@ func TestRemoteHelperListsAndImportsSyntheticSnapshot(t *testing.T) {
 		Snapshot: func(context.Context, string) (Snapshot, error) {
 			return Snapshot{Pages: []Page{{
 				ID: "page-1", Slug: "welcome", Revision: 3,
-				JA: Locale{Title: "ようこそ"}, EN: Locale{Title: "Welcome"}, Status: "published",
+				JA: Locale{Title: "ようこそ"}, EN: Locale{Title: "Welcome"},
 			}}}, nil
 		},
 	}
@@ -61,7 +61,7 @@ func TestRemoteHelperReusesUnchangedTrackingSnapshot(t *testing.T) {
 	t.Setenv("GIT_DIR", gitDir)
 	snapshot := Snapshot{Pages: []Page{{
 		ID: "page-1", Slug: "welcome", Revision: 3,
-		JA: Locale{Title: "ようこそ"}, EN: Locale{Title: "Welcome"}, Status: "published",
+		JA: Locale{Title: "ようこそ"}, EN: Locale{Title: "Welcome"},
 	}}}
 	run := func() string {
 		var output bytes.Buffer
@@ -104,7 +104,7 @@ func TestRemoteHelperPushesCommittedPageChangeAndCachesCanonicalSnapshot(t *test
 	gitDir := filepath.Join(repository, ".git")
 	t.Setenv("GIT_DIR", gitDir)
 	current := Snapshot{Pages: []Page{{
-		ID: "page-1", Slug: "welcome", Revision: 3, Status: "published", Visibility: "restricted", GeneralRole: "viewer",
+		ID: "page-1", Slug: "welcome", Revision: 3, Visibility: "restricted", GeneralRole: "viewer",
 		JA: Locale{Title: "ようこそ", TranslationStatus: "human", Content: "before"},
 		EN: Locale{Title: "Welcome", TranslationStatus: "human", Content: "before"},
 	}}}

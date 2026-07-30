@@ -42,7 +42,6 @@ const PagePayload = z.object({
   ja: Language,
   en: Language,
   meta: z.object({
-    status: z.enum(["draft", "published"]),
     pageType: z.string().nullable(),
     pageMetadata: z.unknown().nullable(),
     visibility: z.enum(["restricted", "unlisted", "public"]),
@@ -209,8 +208,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
     if (meta.pageType === "task-list")
       return Response.json({ error: "task_list_unsupported" }, { status: 400 });
     if (!current) {
-      if (meta.status !== "published")
-        return Response.json({ error: "new_pages_must_be_published" }, { status: 400 });
       statements.push(
         env.DB.prepare(
           "INSERT INTO pages (id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,author_id,last_edited_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch())",
@@ -227,7 +224,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
           page.en.summary,
           page.parentId,
           page.sortOrder,
-          meta.status,
+          "published",
           meta.pageType,
           meta.pageMetadata === null ? null : JSON.stringify(meta.pageMetadata),
           meta.visibility,
@@ -253,7 +250,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       );
       statements.push(
         env.DB.prepare(
-          "UPDATE pages SET title_ja=?,title_en=?,slug=?,content_ja=?,content_en=?,translation_status_ja=?,translation_status_en=?,summary_ja=?,summary_en=?,parent_id=?,sort_order=?,status=?,page_type=?,page_metadata=?,visibility=?,general_role=?,chapter_id=?,last_edited_by=?,updated_at=unixepoch() WHERE id=? AND sync_revision=?",
+          "UPDATE pages SET title_ja=?,title_en=?,slug=?,content_ja=?,content_en=?,translation_status_ja=?,translation_status_en=?,summary_ja=?,summary_en=?,parent_id=?,sort_order=?,page_type=?,page_metadata=?,visibility=?,general_role=?,chapter_id=?,last_edited_by=?,updated_at=unixepoch() WHERE id=? AND sync_revision=?",
         ).bind(
           page.ja.title,
           page.en.title,
@@ -266,7 +263,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
           page.en.summary,
           page.parentId,
           page.sortOrder,
-          meta.status,
           meta.pageType,
           meta.pageMetadata === null ? null : JSON.stringify(meta.pageMetadata),
           meta.visibility,

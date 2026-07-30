@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS "pages" (
   "summary_en"            TEXT NOT NULL DEFAULT '',
   "parent_id"             TEXT REFERENCES "pages"("id") ON DELETE SET NULL,
   "sort_order"            INTEGER NOT NULL DEFAULT 0,
-  "status"                TEXT NOT NULL DEFAULT 'draft',
+  "status"                TEXT NOT NULL DEFAULT 'published',
   "page_type"             TEXT,
   "page_metadata"         TEXT,
   "ingestion_session_id"  TEXT REFERENCES "ingestion_sessions"("id") ON DELETE SET NULL,

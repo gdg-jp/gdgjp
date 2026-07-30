@@ -35,30 +35,6 @@ CREATE TABLE IF NOT EXISTS "ingestion_sessions" (
   "created_at"    INTEGER NOT NULL DEFAULT (unixepoch()),
   "updated_at"    INTEGER NOT NULL DEFAULT (unixepoch())
 , "phase_message" TEXT, notified_at INTEGER, "workflow_id" TEXT, "access_context_json" TEXT, "context_manifest_json" TEXT);
-CREATE TABLE IF NOT EXISTS "pages" (
-  "id"                    TEXT NOT NULL PRIMARY KEY,
-  "title_ja"              TEXT NOT NULL,
-  "title_en"              TEXT NOT NULL DEFAULT '',
-  "slug"                  TEXT NOT NULL UNIQUE,
-  "content_ja"            TEXT NOT NULL,
-  "content_en"            TEXT NOT NULL DEFAULT '',
-  "translation_status_ja" TEXT NOT NULL DEFAULT 'human',
-  "translation_status_en" TEXT NOT NULL DEFAULT 'missing',
-  "summary_ja"            TEXT NOT NULL DEFAULT '',
-  "summary_en"            TEXT NOT NULL DEFAULT '',
-  "parent_id"             TEXT REFERENCES "pages"("id") ON DELETE SET NULL,
-  "sort_order"            INTEGER NOT NULL DEFAULT 0,
-  "status"                TEXT NOT NULL DEFAULT 'draft',
-  "page_type"             TEXT,
-  "page_metadata"         TEXT,
-  "ingestion_session_id"  TEXT REFERENCES "ingestion_sessions"("id") ON DELETE SET NULL,
-  "actionability_score"   INTEGER,
-  "author_id"             TEXT NOT NULL,
-  "last_edited_by"        TEXT NOT NULL,
-  "created_at"            INTEGER NOT NULL DEFAULT (unixepoch()),
-  "updated_at"            INTEGER NOT NULL DEFAULT (unixepoch())
-, visibility TEXT NOT NULL DEFAULT 'restricted', chapter_id TEXT REFERENCES chapters(id) ON DELETE SET NULL, "general_role" TEXT NOT NULL DEFAULT 'viewer'
-  CHECK ("general_role" IN ('viewer', 'commenter', 'editor')), sync_revision INTEGER NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS "page_tags" (
   "page_id"   TEXT NOT NULL REFERENCES "pages"("id") ON DELETE CASCADE,
   "tag_slug"  TEXT NOT NULL REFERENCES "tags"("slug") ON DELETE CASCADE,
@@ -97,21 +73,6 @@ CREATE TABLE IF NOT EXISTS 'pages_fts_idx'(segid, term, pgno, PRIMARY KEY(segid,
 CREATE TABLE IF NOT EXISTS 'pages_fts_content'(id INTEGER PRIMARY KEY, c0, c1, c2, c3, c4, c5);
 CREATE TABLE IF NOT EXISTS 'pages_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB);
 CREATE TABLE IF NOT EXISTS 'pages_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID;
-CREATE TRIGGER pages_fts_insert AFTER INSERT ON pages BEGIN
-  INSERT INTO pages_fts(page_id, title_ja, title_en, summary_ja, summary_en, tags_text)
-  VALUES (new.id, new.title_ja, new.title_en, new.summary_ja, new.summary_en, '');
-END;
-CREATE TRIGGER pages_fts_update AFTER UPDATE ON pages BEGIN
-  UPDATE pages_fts
-  SET title_ja   = new.title_ja,
-      title_en   = new.title_en,
-      summary_ja = new.summary_ja,
-      summary_en = new.summary_en
-  WHERE page_id = new.id;
-END;
-CREATE TRIGGER pages_fts_delete AFTER DELETE ON pages BEGIN
-  DELETE FROM pages_fts WHERE page_id = old.id;
-END;
 CREATE TRIGGER page_tags_fts_insert AFTER INSERT ON page_tags BEGIN
   UPDATE pages_fts
   SET tags_text = (
@@ -132,10 +93,6 @@ CREATE TRIGGER page_tags_fts_delete AFTER DELETE ON page_tags BEGIN
   )
   WHERE page_id = old.page_id;
 END;
-CREATE INDEX idx_pages_status_updated  ON pages (status, updated_at DESC);
-CREATE INDEX idx_pages_parent_order    ON pages (parent_id, sort_order ASC);
-CREATE INDEX idx_pages_author          ON pages (author_id, updated_at DESC);
-CREATE INDEX idx_pages_slug            ON pages (slug);
 CREATE INDEX idx_page_tags_page        ON page_tags (page_id);
 CREATE INDEX idx_page_tags_tag         ON page_tags (tag_slug);
 CREATE INDEX idx_page_versions_page    ON page_versions (page_id, saved_at DESC);
@@ -162,21 +119,6 @@ CREATE TABLE IF NOT EXISTS 'pages_fts_trigram_idx'(segid, term, pgno, PRIMARY KE
 CREATE TABLE IF NOT EXISTS 'pages_fts_trigram_content'(id INTEGER PRIMARY KEY, c0, c1, c2, c3, c4, c5);
 CREATE TABLE IF NOT EXISTS 'pages_fts_trigram_docsize'(id INTEGER PRIMARY KEY, sz BLOB);
 CREATE TABLE IF NOT EXISTS 'pages_fts_trigram_config'(k PRIMARY KEY, v) WITHOUT ROWID;
-CREATE TRIGGER pages_fts_trigram_insert AFTER INSERT ON pages BEGIN
-  INSERT INTO pages_fts_trigram(page_id, title_ja, title_en, summary_ja, summary_en, tags_text)
-  VALUES (new.id, new.title_ja, new.title_en, new.summary_ja, new.summary_en, '');
-END;
-CREATE TRIGGER pages_fts_trigram_update AFTER UPDATE ON pages BEGIN
-  UPDATE pages_fts_trigram
-  SET title_ja   = new.title_ja,
-      title_en   = new.title_en,
-      summary_ja = new.summary_ja,
-      summary_en = new.summary_en
-  WHERE page_id = new.id;
-END;
-CREATE TRIGGER pages_fts_trigram_delete AFTER DELETE ON pages BEGIN
-  DELETE FROM pages_fts_trigram WHERE page_id = old.id;
-END;
 CREATE TRIGGER page_tags_fts_trigram_insert AFTER INSERT ON page_tags BEGIN
   UPDATE pages_fts_trigram
   SET tags_text = (
@@ -195,8 +137,6 @@ CREATE TRIGGER page_tags_fts_trigram_delete AFTER DELETE ON page_tags BEGIN
   )
   WHERE page_id = old.page_id;
 END;
-CREATE INDEX idx_pages_visibility ON pages(visibility);
-CREATE INDEX idx_pages_chapter_id ON pages(chapter_id);
 CREATE TABLE IF NOT EXISTS "notifications" (
   "id"         TEXT NOT NULL PRIMARY KEY,
   "user_id"    TEXT NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
@@ -268,23 +208,6 @@ CREATE TABLE page_embedding_status (
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
-CREATE TRIGGER trg_page_embedding_insert
-AFTER INSERT ON pages
-WHEN NEW.status = 'published'
-BEGIN
-  INSERT OR IGNORE INTO page_embedding_status (page_id, status)
-  VALUES (NEW.id, 'pending');
-END;
-CREATE TRIGGER trg_page_embedding_update
-AFTER UPDATE ON pages
-WHEN NEW.status = 'published'
-BEGIN
-  INSERT INTO page_embedding_status (page_id, status, updated_at)
-  VALUES (NEW.id, 'pending', unixepoch())
-  ON CONFLICT(page_id) DO UPDATE SET
-    status = 'pending',
-    updated_at = unixepoch();
-END;
 CREATE TABLE IF NOT EXISTS "fcm_tokens" (
   "token"        TEXT NOT NULL PRIMARY KEY,
   "user_id"      TEXT NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
@@ -400,34 +323,6 @@ CREATE TABLE IF NOT EXISTS "page_access" (
 CREATE INDEX "idx_page_access_page_id" ON "page_access" ("page_id");
 CREATE INDEX "idx_page_access_user_id" ON "page_access" ("user_id");
 CREATE INDEX "idx_page_access_subject" ON "page_access" ("subject_type", "subject_key");
-CREATE TRIGGER pages_sync_revision_update
-AFTER UPDATE ON pages
-WHEN NEW.sync_revision = OLD.sync_revision
-BEGIN
-  UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.id;
-END;
-CREATE TRIGGER page_tags_sync_revision_insert AFTER INSERT ON page_tags
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_tags_sync_revision_delete AFTER DELETE ON page_tags
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
-CREATE TRIGGER page_sources_sync_revision_insert AFTER INSERT ON page_sources
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_sources_sync_revision_update AFTER UPDATE ON page_sources
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_sources_sync_revision_delete AFTER DELETE ON page_sources
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
-CREATE TRIGGER page_attachments_sync_revision_insert AFTER INSERT ON page_attachments
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_attachments_sync_revision_update AFTER UPDATE ON page_attachments
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_attachments_sync_revision_delete AFTER DELETE ON page_attachments
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
-CREATE TRIGGER page_access_sync_revision_insert AFTER INSERT ON page_access
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_access_sync_revision_update AFTER UPDATE ON page_access
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
-CREATE TRIGGER page_access_sync_revision_delete AFTER DELETE ON page_access
-BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
 CREATE TABLE content_backfills (
   name TEXT NOT NULL PRIMARY KEY,
   completed_at INTEGER NOT NULL DEFAULT (unixepoch())
@@ -475,3 +370,102 @@ CREATE TABLE IF NOT EXISTS "google_document_import_jobs" (
   "created_at"       INTEGER NOT NULL DEFAULT (unixepoch()),
   "updated_at"       INTEGER NOT NULL DEFAULT (unixepoch())
 );
+CREATE TABLE IF NOT EXISTS "pages" (
+  id TEXT NOT NULL PRIMARY KEY,
+  title_ja TEXT NOT NULL,
+  title_en TEXT NOT NULL DEFAULT '',
+  slug TEXT NOT NULL UNIQUE,
+  content_ja TEXT NOT NULL,
+  content_en TEXT NOT NULL DEFAULT '',
+  translation_status_ja TEXT NOT NULL DEFAULT 'human',
+  translation_status_en TEXT NOT NULL DEFAULT 'missing',
+  summary_ja TEXT NOT NULL DEFAULT '',
+  summary_en TEXT NOT NULL DEFAULT '',
+  parent_id TEXT REFERENCES pages(id) ON DELETE SET NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('published', 'archived')),
+  page_type TEXT,
+  page_metadata TEXT,
+  ingestion_session_id TEXT REFERENCES ingestion_sessions(id) ON DELETE SET NULL,
+  actionability_score INTEGER,
+  author_id TEXT NOT NULL,
+  last_edited_by TEXT NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  visibility TEXT NOT NULL DEFAULT 'restricted',
+  chapter_id TEXT REFERENCES chapters(id) ON DELETE SET NULL,
+  general_role TEXT NOT NULL DEFAULT 'viewer'
+    CHECK (general_role IN ('viewer', 'commenter', 'editor')),
+  sync_revision INTEGER NOT NULL DEFAULT 1
+);
+CREATE INDEX idx_pages_status_updated ON pages (status, updated_at DESC);
+CREATE INDEX idx_pages_parent_order ON pages (parent_id, sort_order ASC);
+CREATE INDEX idx_pages_author ON pages (author_id, updated_at DESC);
+CREATE INDEX idx_pages_slug ON pages (slug);
+CREATE INDEX idx_pages_visibility ON pages (visibility);
+CREATE INDEX idx_pages_chapter_id ON pages (chapter_id);
+CREATE TRIGGER pages_fts_insert AFTER INSERT ON pages BEGIN
+  INSERT INTO pages_fts(page_id, title_ja, title_en, summary_ja, summary_en, tags_text)
+  VALUES (new.id, new.title_ja, new.title_en, new.summary_ja, new.summary_en, '');
+END;
+CREATE TRIGGER pages_fts_update AFTER UPDATE ON pages BEGIN
+  UPDATE pages_fts
+  SET title_ja = new.title_ja, title_en = new.title_en, summary_ja = new.summary_ja,
+      summary_en = new.summary_en
+  WHERE page_id = new.id;
+END;
+CREATE TRIGGER pages_fts_delete AFTER DELETE ON pages BEGIN
+  DELETE FROM pages_fts WHERE page_id = old.id;
+END;
+CREATE TRIGGER pages_fts_trigram_insert AFTER INSERT ON pages BEGIN
+  INSERT INTO pages_fts_trigram(page_id, title_ja, title_en, summary_ja, summary_en, tags_text)
+  VALUES (new.id, new.title_ja, new.title_en, new.summary_ja, new.summary_en, '');
+END;
+CREATE TRIGGER pages_fts_trigram_update AFTER UPDATE ON pages BEGIN
+  UPDATE pages_fts_trigram
+  SET title_ja = new.title_ja, title_en = new.title_en, summary_ja = new.summary_ja,
+      summary_en = new.summary_en
+  WHERE page_id = new.id;
+END;
+CREATE TRIGGER pages_fts_trigram_delete AFTER DELETE ON pages BEGIN
+  DELETE FROM pages_fts_trigram WHERE page_id = old.id;
+END;
+CREATE TRIGGER trg_page_embedding_insert
+AFTER INSERT ON pages WHEN NEW.status = 'published'
+BEGIN
+  INSERT OR IGNORE INTO page_embedding_status (page_id, status) VALUES (NEW.id, 'pending');
+END;
+CREATE TRIGGER trg_page_embedding_update
+AFTER UPDATE ON pages WHEN NEW.status = 'published'
+BEGIN
+  INSERT INTO page_embedding_status (page_id, status, updated_at)
+  VALUES (NEW.id, 'pending', unixepoch())
+  ON CONFLICT(page_id) DO UPDATE SET status = 'pending', updated_at = unixepoch();
+END;
+CREATE TRIGGER pages_sync_revision_update
+AFTER UPDATE ON pages WHEN NEW.sync_revision = OLD.sync_revision
+BEGIN
+  UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.id;
+END;
+CREATE TRIGGER page_tags_sync_revision_insert AFTER INSERT ON page_tags
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_tags_sync_revision_delete AFTER DELETE ON page_tags
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
+CREATE TRIGGER page_sources_sync_revision_insert AFTER INSERT ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_sources_sync_revision_update AFTER UPDATE ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_sources_sync_revision_delete AFTER DELETE ON page_sources
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
+CREATE TRIGGER page_attachments_sync_revision_insert AFTER INSERT ON page_attachments
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_attachments_sync_revision_update AFTER UPDATE ON page_attachments
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_attachments_sync_revision_delete AFTER DELETE ON page_attachments
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
+CREATE TRIGGER page_access_sync_revision_insert AFTER INSERT ON page_access
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_access_sync_revision_update AFTER UPDATE ON page_access
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
+CREATE TRIGGER page_access_sync_revision_delete AFTER DELETE ON page_access
+BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;

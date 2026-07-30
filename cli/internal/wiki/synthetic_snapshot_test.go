@@ -9,7 +9,7 @@ import (
 
 func TestMaterializeSnapshotCreatesGitCommit(t *testing.T) {
 	root, commit, err := MaterializeSnapshot(context.Background(), Snapshot{Pages: []Page{{
-		ID: "page-1", Slug: "guide", Status: "published", Visibility: "restricted", GeneralRole: "viewer",
+		ID: "page-1", Slug: "guide", Visibility: "restricted", GeneralRole: "viewer",
 		JA: Locale{Title: "ガイド", TranslationStatus: "human", Content: "本文"},
 		EN: Locale{Title: "Guide", TranslationStatus: "human", Content: "Body"},
 	}}}, "", NewClient(), "")

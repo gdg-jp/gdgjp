@@ -2,7 +2,6 @@
   "app_name": "GDG Japan Wiki",
   "close": "閉じる",
   "cancel": "キャンセル",
-  "draft": "下書き",
   "tableOfContents": "目次",
   "nav": {
     "home": "ホーム",
@@ -229,7 +228,7 @@
       "heading": "統計",
       "total_users": "総ユーザー数",
       "total_pages": "総ページ数",
-      "pages_sub": "{{published}} 件公開 · {{drafts}} 件下書き",
+      "pages_sub": "{{published}} 件公開",
       "published": "公開済み",
       "bilingual_coverage": "バイリンガル対応率",
       "bilingual_coverage_sub": "日英両コンテンツあり"
@@ -237,8 +236,8 @@
   },
   "ingest": {
     "title": "コンテンツを追加する",
-    "description": "テキスト・画像・Googleドキュメント/スライドをもとに、AIがWikiページの下書きを作成します。",
-    "complete_toast": "AIによる取り込みが完了しました！下書きを確認してください。",
+    "description": "テキスト・画像・Googleドキュメント/スライドをもとに、AIがWikiページの提案を作成します。",
+    "complete_toast": "AIによる取り込みが完了しました！提案を確認してください。",
     "processing_message": "AIが分析中...",
     "processing_hint": "少々お待ちください",
     "processing_leave_hint": "このページを離れても大丈夫です — 処理はバックグラウンドで続きます。",
@@ -260,9 +259,9 @@
     "url_source_google_doc": "Googleドキュメントから",
     "error_heading": "処理中にエラーが発生しました",
     "retry": "もう一度試す",
-    "draft_not_found": "下書きが見つかりません。",
-    "review_heading": "下書きを確認する",
-    "review_subtitle": "AIが作成した下書きを確認・編集してから保存または公開してください。",
+    "review_not_found": "レビュー対象の提案が見つかりません。",
+    "review_heading": "提案を確認する",
+    "review_subtitle": "AIが作成した提案を確認・編集してから公開してください。",
     "form": {
       "text_label": "テキスト入力",
       "text_placeholder": "イベントや活動について自由に書いてください（最低50文字）\n例: 先日のTech Talkは参加者45名で盛況でした。スピーカーの田中さんは...",
@@ -317,7 +316,6 @@
       "regenerate": "再生成",
       "regenerate_error_generic": "再生成に失敗しました。もう一度お試しください。",
       "saving": "保存中...",
-      "save_draft": "下書きとして保存",
       "publishing": "公開中...",
       "publish": "公開する",
       "error": "エラー: {{message}}",
@@ -595,7 +593,6 @@
   },
   "editor": {
     "back_to_page": "ページに戻る",
-    "save_draft": "下書き保存",
     "publish": "公開",
     "saving": "保存中...",
     "saved_at": "{{time}} に保存",

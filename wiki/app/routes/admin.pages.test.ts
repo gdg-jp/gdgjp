@@ -156,7 +156,7 @@ describe("admin.pages action", () => {
     expect(result).toEqual({});
   });
 
-  it("restorePage intent calls db.update with draft status", async () => {
+  it("restorePage intent republishes the page", async () => {
     vi.mocked(requireAdmin).mockResolvedValueOnce({ id: "admin1" } as ReturnType<
       typeof requireAdmin
     > extends Promise<infer T>
@@ -192,7 +192,7 @@ describe("admin.pages action", () => {
     });
 
     expect(updateSpy).toHaveBeenCalledOnce();
-    expect(setSpy).toHaveBeenCalledWith(expect.objectContaining({ status: "draft" }));
+    expect(setSpy).toHaveBeenCalledWith(expect.objectContaining({ status: "published" }));
     expect(result).toEqual({});
   });
 

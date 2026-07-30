@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { redirect } from "react-router";
 import type {
   ActionFunctionArgs,
   LoaderFunctionArgs,
@@ -82,7 +81,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       contentJa: canonicalMarkdown(page.contentJa),
       contentEn: canonicalMarkdown(page.contentEn),
     },
-    canPublish: !!user.isAdmin,
     currentUser: { id: user.id, name: user.name, image: user.image ?? null },
   };
 }
@@ -98,7 +96,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   const db = getDb(env);
 
   const formData = await request.formData();
-  const intent = formData.get("intent") as "save" | "publish" | "autosave";
+  const intent = formData.get("intent") as "save" | "autosave";
   const titleJa = (formData.get("titleJa") as string) ?? "";
   const titleEn = (formData.get("titleEn") as string) ?? "";
   const contentJa = canonicalMarkdown((formData.get("contentJa") as string) ?? "");
@@ -127,9 +125,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     throw new Response("Forbidden", { status: 403 });
   }
 
-  const isPublish = intent === "publish" && !!user.isAdmin;
-  const newStatus = isPublish ? "published" : page.status;
-
   const versionId = nanoid();
   const now = Math.floor(Date.now() / 1000);
 
@@ -152,9 +147,9 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     // Update page
     env.DB.prepare(
       `UPDATE pages SET title_ja = ?, title_en = ?, content_ja = ?, content_en = ?,
-        status = ?, last_edited_by = ?, updated_at = unixepoch()
+        last_edited_by = ?, updated_at = unixepoch()
        WHERE id = ?`,
-    ).bind(titleJa, titleEn, contentJa, contentEn, newStatus, user.id, page.id),
+    ).bind(titleJa, titleEn, contentJa, contentEn, user.id, page.id),
 
     // Prune old versions — keep last 10
     env.DB.prepare(
@@ -165,11 +160,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   ];
 
   await env.DB.batch(statements);
-
-  if (isPublish) {
-    await env.TRANSLATION_QUEUE.send({ pageId: page.id });
-    return redirect(`/wiki/${params.slug}`);
-  }
 
   const savedAt = new Date().toISOString();
 
@@ -186,7 +176,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 // ---------------------------------------------------------------------------
 
 export default function EditPage() {
-  const { page, canPublish, currentUser } = useLoaderData<typeof loader>();
+  const { page, currentUser } = useLoaderData<typeof loader>();
 
-  return <PageEditor page={page} canPublish={canPublish} currentUser={currentUser} />;
+  return <PageEditor page={page} currentUser={currentUser} />;
 }

@@ -681,7 +681,7 @@ export default function IngestSessionPage() {
   if (!isResultDraft(draft)) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center">
-        <p className="text-gray-500">{t("ingest.draft_not_found")}</p>
+        <p className="text-gray-500">{t("ingest.review_not_found")}</p>
       </div>
     );
   }
@@ -718,7 +718,6 @@ export default function IngestSessionPage() {
       <ChangesetReview
         draft={currentDraft}
         sessionId={loaderData.sessionId}
-        isAdmin={loaderData.isAdmin}
         imageKeys={imageKeys}
         pageIndex={loaderData.pageIndex}
         onRegenerate={regenerateOperation}

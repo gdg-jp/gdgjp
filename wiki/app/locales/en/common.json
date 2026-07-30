@@ -2,7 +2,6 @@
   "app_name": "GDG Japan Wiki",
   "close": "Close",
   "cancel": "Cancel",
-  "draft": "Draft",
   "tableOfContents": "Table of contents",
   "nav": {
     "home": "Home",
@@ -229,7 +228,7 @@
       "heading": "Stats",
       "total_users": "Total Users",
       "total_pages": "Total Pages",
-      "pages_sub": "{{published}} published · {{drafts}} drafts",
+      "pages_sub": "{{published}} published",
       "published": "Published",
       "bilingual_coverage": "Bilingual Coverage",
       "bilingual_coverage_sub": "Both JA + EN content"
@@ -237,8 +236,8 @@
   },
   "ingest": {
     "title": "Add Content",
-    "description": "AI will create a draft wiki page from your text, images, and Google Drive files.",
-    "complete_toast": "AI ingestion complete! Review your draft below.",
+    "description": "AI will prepare a wiki-page proposal from your text, images, and Google Drive files.",
+    "complete_toast": "AI ingestion complete! Review the proposal below.",
     "processing_message": "AI is analyzing...",
     "processing_hint": "Please wait a moment",
     "processing_leave_hint": "You can safely leave this page — processing will continue in the background.",
@@ -260,9 +259,9 @@
     "url_source_google_doc": "From Google Doc",
     "error_heading": "An error occurred during processing",
     "retry": "Try again",
-    "draft_not_found": "Draft not found.",
-    "review_heading": "Review Draft",
-    "review_subtitle": "Review and edit the AI-generated draft before saving or publishing.",
+    "review_not_found": "Review proposal not found.",
+    "review_heading": "Review Proposal",
+    "review_subtitle": "Review and edit the AI-generated proposal before publishing.",
     "form": {
       "text_label": "Text input",
       "text_placeholder": "Write freely about an event or activity (min. 50 chars)\nE.g. Our Tech Talk last week had 45 attendees. Speaker Tanaka-san shared...",
@@ -317,7 +316,6 @@
       "regenerate": "Regenerate",
       "regenerate_error_generic": "Regeneration failed. Please try again.",
       "saving": "Saving...",
-      "save_draft": "Save as Draft",
       "publishing": "Publishing...",
       "publish": "Publish",
       "error": "Error: {{message}}",
@@ -597,7 +595,6 @@
   },
   "editor": {
     "back_to_page": "Back to page",
-    "save_draft": "Save Draft",
     "publish": "Publish",
     "saving": "Saving...",
     "saved_at": "Saved {{time}}",

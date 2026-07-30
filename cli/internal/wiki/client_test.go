@@ -25,7 +25,6 @@ func TestSyncEncodesOmittedListFieldsAsEmptyArrays(t *testing.T) {
 		Page: &Page{
 			Slug:        "example",
 			ParentID:    nil,
-			Status:      "published",
 			Visibility:  "restricted",
 			GeneralRole: "viewer",
 			JA:          Locale{Title: "例", TranslationStatus: "human"},

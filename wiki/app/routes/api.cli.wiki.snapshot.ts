@@ -55,7 +55,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         translationStatus: page.translationStatusEn,
         content: snapshotContentAsMarkdown(page.contentEn),
       },
-      status: page.status,
       pageType: page.pageType,
       pageMetadata: page.pageMetadata ? JSON.parse(page.pageMetadata) : null,
       visibility: page.visibility,

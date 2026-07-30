@@ -16,9 +16,9 @@ func TestPageFromLocalUsesDirectoryHierarchy(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write(filepath.Join(root, "pages", "parent", "ja.md"), "---\ngdg_wiki: 1\nid: parent\nslug: parent\nlanguage: ja\ntitle: 親\ntranslation_status: human\nstatus: published\nparent_slug: null\nvisibility: restricted\ngeneral_role: viewer\n---\nparent")
+	write(filepath.Join(root, "pages", "parent", "ja.md"), "---\ngdg_wiki: 1\nid: parent\nslug: parent\nlanguage: ja\ntitle: 親\ntranslation_status: human\nparent_slug: null\nvisibility: restricted\ngeneral_role: viewer\n---\nparent")
 	write(filepath.Join(root, "pages", "parent", "en.md"), "---\ngdg_wiki: 1\nid: parent\nslug: parent\nlanguage: en\ntitle: Parent\ntranslation_status: human\n---\nparent")
-	write(filepath.Join(root, "pages", "parent", "child", "ja.md"), "---\ngdg_wiki: 1\nid: child\nslug: child\nlanguage: ja\ntitle: 子\ntranslation_status: human\nstatus: published\nparent_slug: parent\nvisibility: restricted\ngeneral_role: viewer\n---\nchild")
+	write(filepath.Join(root, "pages", "parent", "child", "ja.md"), "---\ngdg_wiki: 1\nid: child\nslug: child\nlanguage: ja\ntitle: 子\ntranslation_status: human\nparent_slug: parent\nvisibility: restricted\ngeneral_role: viewer\n---\nchild")
 	write(filepath.Join(root, "pages", "parent", "child", "en.md"), "---\ngdg_wiki: 1\nid: child\nslug: child\nlanguage: en\ntitle: Child\ntranslation_status: human\n---\nchild")
 	pages, err := LocalPages(root)
 	if err != nil {

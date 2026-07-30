@@ -111,8 +111,6 @@ export interface components {
             downloadUrl?: string;
         };
         PageMeta: {
-            /** @enum {string} */
-            status: "draft" | "published";
             pageType: string | null;
             pageMetadata: {
                 [key: string]: unknown;
@@ -140,8 +138,6 @@ export interface components {
         SnapshotPage: components["schemas"]["Page"] & {
             id: string;
             revision: number;
-            /** @enum {string} */
-            status: "draft" | "published";
             pageType: string | null;
             pageMetadata: {
                 [key: string]: unknown;
