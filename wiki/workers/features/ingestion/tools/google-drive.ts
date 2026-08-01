@@ -1,4 +1,4 @@
-import { isGoogleSheetsUrl } from "../../../../app/lib/google-drive-utils";
+import { getGoogleDriveDocumentKind } from "../../../../app/lib/google-drive-utils";
 import {
   exportFileAsText,
   extractFileId,
@@ -23,28 +23,56 @@ export function createGoogleDriveTool(tokens: GoogleAccessTokenProvider) {
     ): Promise<{ title: string; nodes: GoogleDocsWorkspaceNode[] }> {
       const fileId = extractFileId(url);
       const token = await tokens.getAccessToken();
-      if (!isGoogleSheetsUrl(url)) {
-        const document = await getGoogleDocumentWithTabs(fileId, token);
-        const title = document.title?.trim() || fileId;
+      const documentKind = getGoogleDriveDocumentKind(url);
+      if (!documentKind) throw new Error("Unsupported Google Workspace URL");
+
+      console.log(
+        JSON.stringify({
+          component: "google-drive-ingestion",
+          event: "source_read_started",
+          fileId,
+          documentKind,
+        }),
+      );
+
+      try {
+        if (documentKind === "document") {
+          const document = await getGoogleDocumentWithTabs(fileId, token);
+          const title = document.title?.trim() || fileId;
+          return {
+            title,
+            nodes: flattenGoogleDocsWorkspaceNodes([{ document, id: fileId }]),
+          };
+        }
+
+        const title = await getDriveFileName(fileId, token).catch(() => fileId);
+        const exportMimeType = documentKind === "spreadsheet" ? "text/csv" : "text/plain";
         return {
           title,
-          nodes: flattenGoogleDocsWorkspaceNodes([{ document, id: fileId }]),
+          nodes: [
+            {
+              path: title,
+              parentPath: null,
+              title,
+              kind: "google_document",
+              content: await exportFileAsText(fileId, token, exportMimeType),
+              externalId: fileId,
+            },
+          ],
         };
+      } catch (error) {
+        console.error(
+          JSON.stringify({
+            component: "google-drive-ingestion",
+            event: "source_read_failed",
+            fileId,
+            documentKind,
+            errorName: error instanceof Error ? error.name : typeof error,
+            errorMessage: error instanceof Error ? error.message : String(error),
+          }),
+        );
+        throw error;
       }
-      const title = await getDriveFileName(fileId, token).catch(() => fileId);
-      return {
-        title,
-        nodes: [
-          {
-            path: title,
-            parentPath: null,
-            title,
-            kind: "google_document",
-            content: await exportFileAsText(fileId, token, "text/csv"),
-            externalId: fileId,
-          },
-        ],
-      };
     },
   };
 }
