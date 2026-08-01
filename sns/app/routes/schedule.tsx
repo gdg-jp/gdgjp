@@ -12,6 +12,12 @@ import { getPost, listPostMedia, listXAccounts } from "~/lib/db.server";
 import { fetchLinkPreview } from "~/lib/link-preview.server";
 import { claimAndPublish } from "~/lib/publish.server";
 import { MAX_IMAGES, MAX_IMAGE_BYTES, nowIso } from "~/lib/utils";
+import {
+  X_COUNTER_NUMBER_THRESHOLD,
+  X_POST_CHARACTER_LIMIT,
+  parseXPostText,
+  xCounterDisplayRemaining,
+} from "~/lib/x-text";
 import googlePhotosLogo from "../../photos.png";
 import type { Route } from "./+types/schedule";
 
@@ -70,7 +76,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     await Promise.all(media.map((item) => env.MEDIA.delete(item.r2Key)));
     throw redirect("/posts");
   }
-  const text = String(form.get("text") ?? "").trim();
+  const text = String(form.get("text") ?? "");
   const xAccountId = String(form.get("xAccountId") ?? "");
   const postingOption: PostingOption =
     form.get("postingOption") === "immediate"
@@ -82,7 +88,12 @@ export async function action({ request, context }: Route.ActionArgs) {
   const scheduledInput = String(form.get("scheduledAt") ?? "");
   const scheduledAt =
     postingOption === "immediate" ? new Date() : new Date(`${scheduledInput}:00+09:00`);
-  if (!text || text.length > 280 || !xAccountId || Number.isNaN(scheduledAt.getTime()))
+  if (
+    !text.trim() ||
+    !parseXPostText(text).valid ||
+    !xAccountId ||
+    Number.isNaN(scheduledAt.getTime())
+  )
     return data({ error: "本文、投稿先、予約日時を確認してください。" }, { status: 400 });
   const account = (await listXAccounts(env.DB, access.chapter.chapterId)).find(
     (item) => item.id === xAccountId,
@@ -220,6 +231,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
   const [postingOption, setPostingOption] = useState<PostingOption>(
     post?.condition ?? loaderData.defaultPostingOption,
   );
+  const [text, setText] = useState(post?.text ?? "");
   const [newImages, setNewImages] = useState<{ file: File; url: string }[]>([]);
   const [deletedMediaIds, setDeletedMediaIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -227,6 +239,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
   const selectedAccount = loaderData.accounts.find((account) => account.id === xAccountId);
   const existingMedia = loaderData.media.filter((media) => !deletedMediaIds.includes(media.id));
   const imageCount = existingMedia.length + newImages.length;
+  const textResult = parseXPostText(text);
   const removeNewImage = (url: string) => {
     const image = newImages.find((item) => item.url === url);
     if (image) URL.revokeObjectURL(image.url);
@@ -335,13 +348,13 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
             <textarea
               ref={textAreaRef}
               name="text"
-              defaultValue={post?.text}
-              maxLength={280}
+              value={text}
               required
               rows={2}
               placeholder="いまどうしてる？"
               className="w-full resize-none border-0 bg-transparent text-base outline-none placeholder:text-muted-foreground/80"
-              onInput={(event) => {
+              onChange={(event) => {
+                setText(event.currentTarget.value);
                 event.currentTarget.style.height = "auto";
                 event.currentTarget.style.height = `${event.currentTarget.scrollHeight}px`;
               }}
@@ -395,65 +408,68 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
                 <img src={googlePhotosLogo} alt="" className="size-6" />
               </button>
             </div>
-            <DropdownMenuPrimitive.Root>
-              <DropdownMenuPrimitive.Trigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-primary/50"
-                >
-                  {postingOption === "immediate"
-                    ? "今すぐ投稿"
-                    : postingOption === "scheduled"
-                      ? "指定時刻に投稿"
-                      : "画像が添付されるまで待ってから投稿"}
-                  <ChevronDown className="size-4" aria-hidden="true" />
-                </button>
-              </DropdownMenuPrimitive.Trigger>
-              <DropdownMenuPrimitive.Portal>
-                <DropdownMenuPrimitive.Content
-                  align="end"
-                  sideOffset={6}
-                  className="z-50 min-w-56 origin-(--radix-dropdown-menu-content-transform-origin) rounded-xl border bg-card p-1 shadow-lg outline-none animation-duration-150 ease-out motion-reduce:animation-duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
-                >
-                  <DropdownMenuPrimitive.RadioGroup
-                    value={postingOption}
-                    onValueChange={(value) => {
-                      const option = value as PostingOption;
-                      setPostingOption(option);
-                      document.cookie = postingOptionCookie(option);
-                    }}
+            <div className="flex items-center gap-2">
+              <XCharacterCounter text={text} result={textResult} />
+              <DropdownMenuPrimitive.Root>
+                <DropdownMenuPrimitive.Trigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-primary/50"
                   >
-                    <DropdownMenuPrimitive.RadioItem
-                      value="immediate"
-                      className="flex cursor-default items-center justify-between rounded-lg px-3 py-2 text-sm outline-none select-none focus:bg-muted"
+                    {postingOption === "immediate"
+                      ? "今すぐ投稿"
+                      : postingOption === "scheduled"
+                        ? "指定時刻に投稿"
+                        : "画像が添付されるまで待ってから投稿"}
+                    <ChevronDown className="size-4" aria-hidden="true" />
+                  </button>
+                </DropdownMenuPrimitive.Trigger>
+                <DropdownMenuPrimitive.Portal>
+                  <DropdownMenuPrimitive.Content
+                    align="end"
+                    sideOffset={6}
+                    className="z-50 min-w-56 origin-(--radix-dropdown-menu-content-transform-origin) rounded-xl border bg-card p-1 shadow-lg outline-none animation-duration-150 ease-out motion-reduce:animation-duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+                  >
+                    <DropdownMenuPrimitive.RadioGroup
+                      value={postingOption}
+                      onValueChange={(value) => {
+                        const option = value as PostingOption;
+                        setPostingOption(option);
+                        document.cookie = postingOptionCookie(option);
+                      }}
                     >
-                      今すぐ投稿
-                      <DropdownMenuPrimitive.ItemIndicator>
-                        <Check className="size-4 text-primary" />
-                      </DropdownMenuPrimitive.ItemIndicator>
-                    </DropdownMenuPrimitive.RadioItem>
-                    <DropdownMenuPrimitive.RadioItem
-                      value="scheduled"
-                      className="flex cursor-default items-center justify-between rounded-lg px-3 py-2 text-sm outline-none select-none focus:bg-muted"
-                    >
-                      指定時刻に投稿
-                      <DropdownMenuPrimitive.ItemIndicator>
-                        <Check className="size-4 text-primary" />
-                      </DropdownMenuPrimitive.ItemIndicator>
-                    </DropdownMenuPrimitive.RadioItem>
-                    <DropdownMenuPrimitive.RadioItem
-                      value="photo_required"
-                      className="flex cursor-default items-center justify-between rounded-lg px-3 py-2 text-sm outline-none select-none focus:bg-muted"
-                    >
-                      画像が添付されるまで待ってから投稿
-                      <DropdownMenuPrimitive.ItemIndicator>
-                        <Check className="size-4 text-primary" />
-                      </DropdownMenuPrimitive.ItemIndicator>
-                    </DropdownMenuPrimitive.RadioItem>
-                  </DropdownMenuPrimitive.RadioGroup>
-                </DropdownMenuPrimitive.Content>
-              </DropdownMenuPrimitive.Portal>
-            </DropdownMenuPrimitive.Root>
+                      <DropdownMenuPrimitive.RadioItem
+                        value="immediate"
+                        className="flex cursor-default items-center justify-between rounded-lg px-3 py-2 text-sm outline-none select-none focus:bg-muted"
+                      >
+                        今すぐ投稿
+                        <DropdownMenuPrimitive.ItemIndicator>
+                          <Check className="size-4 text-primary" />
+                        </DropdownMenuPrimitive.ItemIndicator>
+                      </DropdownMenuPrimitive.RadioItem>
+                      <DropdownMenuPrimitive.RadioItem
+                        value="scheduled"
+                        className="flex cursor-default items-center justify-between rounded-lg px-3 py-2 text-sm outline-none select-none focus:bg-muted"
+                      >
+                        指定時刻に投稿
+                        <DropdownMenuPrimitive.ItemIndicator>
+                          <Check className="size-4 text-primary" />
+                        </DropdownMenuPrimitive.ItemIndicator>
+                      </DropdownMenuPrimitive.RadioItem>
+                      <DropdownMenuPrimitive.RadioItem
+                        value="photo_required"
+                        className="flex cursor-default items-center justify-between rounded-lg px-3 py-2 text-sm outline-none select-none focus:bg-muted"
+                      >
+                        画像が添付されるまで待ってから投稿
+                        <DropdownMenuPrimitive.ItemIndicator>
+                          <Check className="size-4 text-primary" />
+                        </DropdownMenuPrimitive.ItemIndicator>
+                      </DropdownMenuPrimitive.RadioItem>
+                    </DropdownMenuPrimitive.RadioGroup>
+                  </DropdownMenuPrimitive.Content>
+                </DropdownMenuPrimitive.Portal>
+              </DropdownMenuPrimitive.Root>
+            </div>
           </div>
           {postingOption !== "immediate" ? (
             <label className="block">
@@ -469,7 +485,7 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
           ) : null}
           <button
             type="submit"
-            disabled={!loaderData.accounts.length}
+            disabled={!loaderData.accounts.length || !text.trim() || !textResult.valid}
             className="w-full rounded-full bg-primary px-5 py-3 font-bold text-white transition-transform duration-150 ease-out active:scale-[0.98] motion-reduce:duration-100 motion-reduce:active:scale-[0.99] disabled:opacity-50"
           >
             {post ? "変更を保存" : postingOption === "immediate" ? "今すぐ投稿" : "予約する"}
@@ -528,6 +544,57 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
         </div>
       </Form>
     </AppShell>
+  );
+}
+
+function XCharacterCounter({
+  text,
+  result,
+}: {
+  text: string;
+  result: ReturnType<typeof parseXPostText>;
+}) {
+  const remaining = X_POST_CHARACTER_LIMIT - result.weightedLength;
+  const displayRemaining = xCounterDisplayRemaining(text, result.weightedLength);
+  const progress = Math.min(result.weightedLength / X_POST_CHARACTER_LIMIT, 1);
+  const circumference = 2 * Math.PI * 15.5;
+  const showNumber =
+    (displayRemaining > 0 && displayRemaining <= X_COUNTER_NUMBER_THRESHOLD) ||
+    displayRemaining < 0;
+  const color = remaining < 0 ? "text-destructive" : "text-primary";
+
+  return (
+    <output
+      className={`relative flex size-9 shrink-0 items-center justify-center ${color}`}
+      aria-label={`Xの残り文字数: ${displayRemaining}`}
+    >
+      <svg viewBox="0 0 36 36" className="size-9 -rotate-90" aria-hidden="true">
+        <circle
+          cx="18"
+          cy="18"
+          r="15.5"
+          fill="none"
+          stroke="currentColor"
+          strokeOpacity="0.2"
+          strokeWidth="3"
+        />
+        <circle
+          cx="18"
+          cy="18"
+          r="15.5"
+          fill="none"
+          stroke="currentColor"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - progress)}
+          strokeLinecap="round"
+          strokeWidth="3"
+          className="transition-[stroke-dashoffset] duration-150 motion-reduce:transition-none"
+        />
+      </svg>
+      {showNumber ? (
+        <span className="absolute text-xs leading-none tabular-nums">{displayRemaining}</span>
+      ) : null}
+    </output>
   );
 }
 
