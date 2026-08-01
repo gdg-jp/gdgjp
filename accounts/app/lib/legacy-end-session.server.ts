@@ -1,3 +1,5 @@
+import { createLocalJWKSet, jwtVerify } from "jose";
+
 interface OAuthClientRow {
   disabled: number;
   enableEndSession: number;
@@ -6,6 +8,10 @@ interface OAuthClientRow {
 
 interface SignOutResponse {
   headers: Headers;
+}
+
+interface JwtApi {
+  getJwks: () => Promise<{ keys: JsonWebKey[] }>;
 }
 
 /**
@@ -27,6 +33,66 @@ export async function handleLegacyEndSession(
   const clientId = typeof claims.aud === "string" ? claims.aud : null;
   const returnTo = url.searchParams.get("post_logout_redirect_uri");
   if (!clientId || !returnTo) return null;
+
+  const client = await db
+    .prepare(
+      `SELECT disabled, enableEndSession, postLogoutRedirectUris
+       FROM oauthClient WHERE clientId = ? LIMIT 1`,
+    )
+    .bind(clientId)
+    .first<OAuthClientRow>();
+  if (
+    !client ||
+    client.disabled !== 0 ||
+    client.enableEndSession !== 1 ||
+    !allowsPostLogoutRedirect(client.postLogoutRedirectUris, returnTo)
+  ) {
+    return null;
+  }
+
+  const response = await signOut(request.headers);
+  const location = new URL(returnTo);
+  const state = url.searchParams.get("state");
+  if (state) location.searchParams.set("state", state);
+
+  const headers = new Headers({ Location: location.toString() });
+  for (const cookie of response.headers.getSetCookie()) headers.append("Set-Cookie", cookie);
+  return new Response(null, { status: 302, headers });
+}
+
+/**
+ * Recovers a provider end-session failure without making a second request to
+ * the public JWKS URL. The oauth-provider package does that request internally
+ * and it intermittently fails from Workers even though the local key store is
+ * available. Verify the signed ID token against that local key store first,
+ * then apply the same client and redirect allow-list checks as the provider.
+ */
+export async function handleVerifiedEndSession(
+  db: D1Database,
+  request: Request,
+  issuer: string,
+  jwtApi: JwtApi,
+  signOut: (headers: Headers) => Promise<SignOutResponse>,
+): Promise<Response | null> {
+  const url = new URL(request.url);
+  const token = url.searchParams.get("id_token_hint");
+  const returnTo = url.searchParams.get("post_logout_redirect_uri");
+  if (!token || !returnTo) return null;
+
+  let claims: Record<string, unknown>;
+  try {
+    const { payload } = await jwtVerify(token, createLocalJWKSet(await jwtApi.getJwks()), {
+      issuer,
+    });
+    claims = payload;
+  } catch (error) {
+    console.warn("end-session fallback rejected an invalid ID token", error);
+    return null;
+  }
+
+  const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+  const clientId = audiences.find((audience): audience is string => typeof audience === "string");
+  if (!clientId) return null;
 
   const client = await db
     .prepare(

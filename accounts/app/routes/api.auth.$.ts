@@ -1,19 +1,24 @@
 import { getAuth } from "~/lib/auth.server";
 import { handleDeveloperOAuthApi } from "~/lib/developer-oauth-api.server";
-import { handleLegacyEndSession, isMissingSessionError } from "~/lib/legacy-end-session.server";
+import { handleVerifiedEndSession } from "~/lib/legacy-end-session.server";
 import type { Route } from "./+types/api.auth.$";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   if (new URL(request.url).pathname === "/api/auth/oauth2/end-session") {
     const auth = getAuth(context.cloudflare.env);
     const providerResponse = await auth.handler(request);
-    if (await isMissingSessionError(providerResponse)) {
-      const legacyResponse = await handleLegacyEndSession(
+    if (providerResponse.status === 500) {
+      const recoveryResponse = await handleVerifiedEndSession(
         context.cloudflare.env.DB,
         request,
+        context.cloudflare.env.APP_URL,
+        auth.api,
         (headers) => auth.api.signOut({ headers, asResponse: true }),
       );
-      if (legacyResponse) return legacyResponse;
+      if (recoveryResponse) {
+        console.warn("Recovered an OIDC end-session provider failure with local JWKS verification");
+        return recoveryResponse;
+      }
     }
     return providerResponse;
   }
