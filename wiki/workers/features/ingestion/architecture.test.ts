@@ -41,7 +41,7 @@ describe("generation architecture", () => {
     expect(toolCatalog).not.toMatch(/\b(?:pwd|cd|find|grep): tool\(/);
     expect(`${generation}\n${workspace}`).not.toMatch(/VECTORIZE|knowledgeRetriever|embedding/i);
     expect(generation).toContain("stepCountIs(GENERATION_EXPLORATION_STEP_LIMIT)");
-    expect(generation).toContain("...exploration.response.messages");
+    expect(generation).toContain("messagesForStructuredGeneration(");
     expect(generation).toContain("generateValidatedObject({");
     expect(modelAdapter).toContain("generateValidatedObject({");
     expect(generation).toContain("maxRetries: 0");

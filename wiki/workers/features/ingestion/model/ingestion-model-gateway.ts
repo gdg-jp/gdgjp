@@ -138,6 +138,21 @@ export function selectPlannedEvidenceReferences(
   return [...unique.values()];
 }
 
+/**
+ * Carries the useful tool transcript from exploration into the structured
+ * call, without attempting to prefill the next model response. Gemini rejects
+ * requests whose last non-empty turn belongs to the model, which is exactly
+ * how a completed exploration step is represented by the AI SDK.
+ */
+export function messagesForStructuredGeneration(
+  initialMessages: readonly ModelMessage[],
+  explorationMessages: readonly ModelMessage[],
+): ModelMessage[] {
+  const messages = [...initialMessages, ...explorationMessages];
+  while (messages.at(-1)?.role === "assistant") messages.pop();
+  return messages;
+}
+
 export async function resolvePlannedWikiReferences(
   candidate: OperationPlanCandidate,
   resolveExistingWikiPage: GenerationModelContext["resolveExistingWikiPage"],
@@ -459,7 +474,10 @@ export function createIngestionModelGateway(
       }
       throw error;
     }
-    const structuredMessages = [...messages, ...exploration.response.messages];
+    const structuredMessages = messagesForStructuredGeneration(
+      messages,
+      exploration.response.messages,
+    );
     const generateStructured = () =>
       generateValidatedObject({
         model,

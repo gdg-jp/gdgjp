@@ -1,8 +1,62 @@
 import { describe, expect, it } from "vitest";
 import {
+  messagesForStructuredGeneration,
   resolvePlannedWikiReferences,
   selectPlannedEvidenceReferences,
 } from "./ingestion-model-gateway";
+
+describe("messagesForStructuredGeneration", () => {
+  it("drops a terminal model turn before starting a new structured request", () => {
+    const messages = messagesForStructuredGeneration(
+      [{ role: "user", content: "Import this Google Slide deck." }],
+      [
+        { role: "assistant", content: "I found the relevant slides." },
+        { role: "tool", content: [] },
+        { role: "assistant", content: "The source is ready for generation." },
+      ],
+    );
+
+    expect(messages).toEqual([
+      { role: "user", content: "Import this Google Slide deck." },
+      { role: "assistant", content: "I found the relevant slides." },
+      { role: "tool", content: [] },
+    ]);
+    expect(messages.at(-1)?.role).not.toBe("assistant");
+  });
+
+  it("keeps completed tool results when exploration reaches its step limit", () => {
+    const messages = messagesForStructuredGeneration(
+      [{ role: "user", content: "Create a page." }],
+      [
+        {
+          role: "assistant",
+          content: [
+            {
+              type: "tool-call",
+              toolCallId: "call_1",
+              toolName: "cat",
+              input: { path: "/google-docs/deck/slide-1" },
+            },
+          ],
+        },
+        {
+          role: "tool",
+          content: [
+            {
+              type: "tool-result",
+              toolCallId: "call_1",
+              toolName: "cat",
+              output: { type: "text", value: "Slide content" },
+            },
+          ],
+        },
+      ],
+    );
+
+    expect(messages).toHaveLength(3);
+    expect(messages.at(-1)?.role).toBe("tool");
+  });
+});
 
 describe("selectPlannedEvidenceReferences", () => {
   it("only resolves paths actually read by the planner and preserves cursors", () => {
