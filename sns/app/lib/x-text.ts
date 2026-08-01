@@ -3,8 +3,25 @@ import twitterText from "twitter-text";
 export const X_POST_CHARACTER_LIMIT = 280;
 export const X_COUNTER_NUMBER_THRESHOLD = 10;
 
+export type XPostLinkRange = {
+  start: number;
+  end: number;
+};
+
 export function parseXPostText(text: string) {
   return twitterText.parseTweet(text);
+}
+
+/**
+ * Returns UTF-16 ranges for entities that X displays as links: URLs, mentions,
+ * hashtags, and cashtags. These indices can be used directly with String#slice.
+ */
+export function getXPostLinkRanges(text: string): XPostLinkRange[] {
+  return twitterText
+    .extractEntitiesWithIndices(text)
+    .map(({ indices: [start, end] }) => ({ start, end }))
+    .filter(({ start, end }) => start >= 0 && end > start && end <= text.length)
+    .sort((a, b) => a.start - b.start);
 }
 
 /**

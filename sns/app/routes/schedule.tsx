@@ -15,6 +15,7 @@ import { MAX_IMAGES, MAX_IMAGE_BYTES, nowIso } from "~/lib/utils";
 import {
   X_COUNTER_NUMBER_THRESHOLD,
   X_POST_CHARACTER_LIMIT,
+  getXPostLinkRanges,
   parseXPostText,
   xCounterDisplayRemaining,
 } from "~/lib/x-text";
@@ -343,22 +344,9 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
               </DropdownMenuPrimitive.Portal>
             </DropdownMenuPrimitive.Root>
           </div>
-          <label className="block">
+          <label htmlFor="post-text" className="block">
             <span className="sr-only">本文</span>
-            <textarea
-              ref={textAreaRef}
-              name="text"
-              value={text}
-              required
-              rows={2}
-              placeholder="いまどうしてる？"
-              className="w-full resize-none border-0 bg-transparent text-base outline-none placeholder:text-muted-foreground/80"
-              onChange={(event) => {
-                setText(event.currentTarget.value);
-                event.currentTarget.style.height = "auto";
-                event.currentTarget.style.height = `${event.currentTarget.scrollHeight}px`;
-              }}
-            />
+            <XPostComposer text={text} textAreaRef={textAreaRef} onTextChange={setText} />
           </label>
           {deletedMediaIds.map((id) => (
             <input key={id} type="hidden" name="deletedMedia" value={id} />
@@ -544,6 +532,56 @@ export default function Schedule({ loaderData, actionData }: Route.ComponentProp
         </div>
       </Form>
     </AppShell>
+  );
+}
+
+function XPostComposer({
+  text,
+  textAreaRef,
+  onTextChange,
+}: {
+  text: string;
+  textAreaRef: React.RefObject<HTMLTextAreaElement | null>;
+  onTextChange: (text: string) => void;
+}) {
+  const ranges = getXPostLinkRanges(text);
+  let cursor = 0;
+
+  return (
+    <div className="relative">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 select-none whitespace-pre-wrap break-words text-base leading-6"
+      >
+        {ranges.map(({ start, end }) => {
+          const plainText = text.slice(cursor, start);
+          cursor = end;
+          return (
+            <span key={`${start}-${end}`}>
+              {plainText}
+              <span className="text-primary">{text.slice(start, end)}</span>
+            </span>
+          );
+        })}
+        {text.slice(cursor)}
+        {text.endsWith("\n") ? "\u200b" : null}
+      </div>
+      <textarea
+        id="post-text"
+        ref={textAreaRef}
+        name="text"
+        value={text}
+        required
+        rows={2}
+        placeholder="いまどうしてる？"
+        className="relative w-full resize-none border-0 bg-transparent text-base leading-6 text-transparent outline-none caret-foreground placeholder:text-muted-foreground/80 selection:bg-primary/30"
+        onChange={(event) => {
+          onTextChange(event.currentTarget.value);
+          event.currentTarget.style.height = "auto";
+          event.currentTarget.style.height = `${event.currentTarget.scrollHeight}px`;
+        }}
+      />
+    </div>
   );
 }
 

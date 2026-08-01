@@ -9,8 +9,13 @@ declare module "twitter-text" {
     displayRangeEnd: number;
   };
 
+  type TextEntity = {
+    indices: [number, number];
+  };
+
   const twitterText: {
     parseTweet(text: string): ParsedTweet;
+    extractEntitiesWithIndices(text: string): TextEntity[];
   };
 
   export default twitterText;

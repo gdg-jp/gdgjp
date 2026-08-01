@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { X_POST_CHARACTER_LIMIT, parseXPostText, xCounterDisplayRemaining } from "./x-text";
+import {
+  X_POST_CHARACTER_LIMIT,
+  getXPostLinkRanges,
+  parseXPostText,
+  xCounterDisplayRemaining,
+} from "./x-text";
 
 describe("X post text", () => {
   it("uses X's weighted limit for Latin and Japanese text", () => {
@@ -34,5 +39,12 @@ describe("X post text", () => {
       weightedLength: 23,
       valid: true,
     });
+  });
+
+  it("finds links, mentions, and hashtags using X's entity parser", () => {
+    const text = "@naokirodion https://gdgs.jp/track-tech #Xtalk26";
+    const entities = getXPostLinkRanges(text).map(({ start, end }) => text.slice(start, end));
+
+    expect(entities).toEqual(["@naokirodion", "https://gdgs.jp/track-tech", "#Xtalk26"]);
   });
 });
