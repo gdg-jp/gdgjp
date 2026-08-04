@@ -101,7 +101,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     throw new Response("Not Found", { status: 404 });
   }
 
-  const [pageTags, authorRow, editorRow, fav, sources, attachments] = await Promise.all([
+  const [pageTags, editorRow, fav, sources, attachments] = await Promise.all([
     db
       .select({
         tagSlug: schema.pageTags.tagSlug,
@@ -113,11 +113,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       .innerJoin(schema.tags, eq(schema.pageTags.tagSlug, schema.tags.slug))
       .where(eq(schema.pageTags.pageId, page.id))
       .all(),
-    db
-      .select({ id: schema.user.id, name: schema.user.name, image: schema.user.image })
-      .from(schema.user)
-      .where(eq(schema.user.id, page.authorId))
-      .get(),
     db
       .select({ id: schema.user.id, name: schema.user.name })
       .from(schema.user)
@@ -243,7 +238,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       contentEn: canonicalMarkdown(page.contentEn),
     },
     tags: pageTags,
-    author: authorRow ?? null,
     editor: editorRow ?? null,
     lang,
     isAdmin: sessionUser?.isAdmin ?? false,
@@ -343,7 +337,6 @@ export default function WikiPage() {
   const {
     page,
     tags,
-    author,
     editor,
     lang,
     isAdmin,
@@ -661,7 +654,6 @@ export default function WikiPage() {
 
           {/* Mobile "Contents" button */}
           {(tocItems.length > 0 ||
-            author ||
             (sources && sources.length > 0) ||
             (attachments && attachments.length > 0)) && (
             <button
@@ -713,7 +705,6 @@ export default function WikiPage() {
         {isDesktop && (
           <WikiRightSidebar
             tocItems={tocItems}
-            author={author}
             editor={editor}
             updatedAt={page.updatedAt}
             lang={lang}
@@ -834,29 +825,6 @@ export default function WikiPage() {
                         onClick={closeMobileContents}
                       />
                     ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Author */}
-              {author && (
-                <div>
-                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    {t("wiki.author")}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    {author.image ? (
-                      <img
-                        src={author.image}
-                        alt={author.name}
-                        className="h-6 w-6 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
-                        {author.name.charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                    <span className="text-sm text-gray-700">{author.name}</span>
                   </div>
                 </div>
               )}

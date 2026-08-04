@@ -9,12 +9,6 @@ export interface TocItem {
   level: number;
 }
 
-interface Author {
-  id: string;
-  name: string;
-  image: string | null;
-}
-
 interface Editor {
   id: string;
   name: string;
@@ -22,7 +16,6 @@ interface Editor {
 
 interface WikiRightSidebarProps {
   tocItems: TocItem[];
-  author: Author | null;
   editor: Editor | null;
   updatedAt: Date | string | number | null;
   lang: "ja" | "en";
@@ -34,7 +27,6 @@ interface WikiRightSidebarProps {
 
 export default function WikiRightSidebar({
   tocItems,
-  author,
   editor,
   updatedAt,
   lang,
@@ -98,29 +90,6 @@ export default function WikiRightSidebar({
 
       {/* Metadata */}
       <div className="space-y-4">
-        {/* Author */}
-        {author && (
-          <div>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              {t("wiki.author")}
-            </p>
-            <div className="flex items-center gap-2">
-              {author.image ? (
-                <img
-                  src={author.image}
-                  alt={author.name}
-                  className="h-6 w-6 rounded-full object-cover"
-                />
-              ) : (
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
-                  {author.name.charAt(0).toUpperCase()}
-                </span>
-              )}
-              <span className="text-sm text-gray-700">{author.name}</span>
-            </div>
-          </div>
-        )}
-
         {/* Last edited */}
         {updatedAt && (
           <div>
