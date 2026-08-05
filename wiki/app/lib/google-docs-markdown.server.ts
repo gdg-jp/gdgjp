@@ -340,6 +340,7 @@ function convertTable(
 
 function convertSection(section: NonNullable<GoogleDocsStructuralElement["sectionBreak"]>): string {
   const style = section.sectionStyle;
+  if (style?.sectionType === "CONTINUOUS") return "";
   const details = [
     style?.sectionType,
     style?.pageNumberStart ? `page ${style.pageNumberStart}` : undefined,

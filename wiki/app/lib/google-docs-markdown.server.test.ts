@@ -216,6 +216,7 @@ describe("convertGoogleDocsDocument", () => {
       documentId: "doc-1",
       body: {
         content: [
+          { sectionBreak: { sectionStyle: { sectionType: "CONTINUOUS" } } },
           { sectionBreak: { sectionStyle: { sectionType: "NEXT_PAGE", pageNumberStart: 4 } } },
           {
             paragraph: {
@@ -276,6 +277,7 @@ describe("convertGoogleDocsDocument", () => {
     });
 
     expect(node.markdown).toContain("Google Docs section: NEXT\\_PAGE, page 4");
+    expect(node.markdown).not.toContain("Google Docs section: CONTINUOUS");
     expect(node.markdown).toContain('<a id="heading-1"></a>##');
     expect(node.markdown).toContain("font-variant:small-caps");
     expect(node.markdown).toContain("rgb(255, 0, 128)");
