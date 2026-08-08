@@ -1,4 +1,4 @@
-import { Archive, ChevronRight, Clock, Home, Settings, Star } from "lucide-react";
+import { Archive, ChevronRight, Clock, FileInput, Home, Settings, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import BaseSidebar from "~/components/BaseSidebar";
@@ -42,7 +42,6 @@ interface SidebarProps {
   starredButtonRef?: React.RefObject<HTMLButtonElement | null>;
   onArchivedClick?: () => void;
   archivedButtonRef?: React.RefObject<HTMLButtonElement | null>;
-  onGoogleDocumentImport?: () => void;
 }
 
 export default function Sidebar({
@@ -59,7 +58,6 @@ export default function Sidebar({
   starredButtonRef,
   onArchivedClick,
   archivedButtonRef,
-  onGoogleDocumentImport,
 }: SidebarProps) {
   const { t } = useTranslation();
   const location = useLocation();
@@ -188,9 +186,26 @@ export default function Sidebar({
               isCollapsed={isCollapsed}
               canReorder={isAuthenticated && !isMobile && !isCollapsed}
               canCreate={isAuthenticated}
-              onGoogleDocumentImport={onGoogleDocumentImport}
             />
           </div>
+
+          {/* Footer — raw sources live outside the page tree, so they get their own entry.
+              Settings stays in the Navbar user menu; duplicating it here would give the
+              same destination two competing entry points. */}
+          {isAuthenticated && (
+            <nav
+              aria-label={t("sources.nav_label")}
+              className="mt-auto space-y-0.5 border-t border-gray-100 px-2 py-2"
+            >
+              <NavItem
+                to="/sources"
+                icon={<FileInput size={16} />}
+                label={t("nav.sources")}
+                isCollapsed={isCollapsed}
+                isActive={location.pathname.startsWith("/sources")}
+              />
+            </nav>
+          )}
         </div>
       )}
     </BaseSidebar>

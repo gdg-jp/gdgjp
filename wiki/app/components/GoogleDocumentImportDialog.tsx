@@ -9,12 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "~/components/ui/dialog";
-
-interface PickerConfig {
-  accessToken: string;
-  apiKey: string;
-  appId: string;
-}
+import { loadGooglePicker } from "~/lib/google-picker.client";
+import type { GooglePickerConfig } from "~/lib/google-picker.client";
 
 interface ImportPreview {
   documentTitle: string;
@@ -22,75 +18,6 @@ interface ImportPreview {
   updateCount: number;
   archiveCount: number;
   pages?: Array<{ title: string; action: "create" | "update" | "archive"; depth: number }>;
-}
-
-interface GooglePickerResponse {
-  action: string;
-  docs?: Array<{ id: string; name: string; mimeType: string }>;
-}
-
-interface GooglePickerDocsView {
-  setMimeTypes: (mimeTypes: string) => GooglePickerDocsView;
-  setSelectFolderEnabled: (enabled: boolean) => GooglePickerDocsView;
-}
-
-interface GooglePickerBuilder {
-  setDeveloperKey: (key: string) => GooglePickerBuilder;
-  setAppId: (appId: string) => GooglePickerBuilder;
-  setOAuthToken: (token: string) => GooglePickerBuilder;
-  addView: (view: GooglePickerDocsView) => GooglePickerBuilder;
-  setCallback: (callback: (data: GooglePickerResponse) => void) => GooglePickerBuilder;
-  build: () => { setVisible: (visible: boolean) => void };
-}
-
-declare global {
-  interface Window {
-    gapi?: { load: (name: string, callback: () => void) => void };
-    google?: {
-      picker: {
-        Action: { PICKED: string; CANCEL: string };
-        DocsView: new (viewId?: string) => GooglePickerDocsView;
-        DocsViewMode: { LIST: string };
-        ViewId: { DOCS: string };
-        PickerBuilder: new () => GooglePickerBuilder;
-      };
-    };
-  }
-}
-
-let pickerLoadPromise: Promise<void> | null = null;
-
-function loadPicker(): Promise<void> {
-  if (window.google?.picker) return Promise.resolve();
-  if (pickerLoadPromise) return pickerLoadPromise;
-
-  pickerLoadPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>('script[data-google-picker="true"]');
-    const onLoaded = () => {
-      if (!window.gapi) {
-        reject(new Error("Google API client did not load"));
-        return;
-      }
-      window.gapi.load("picker", resolve);
-    };
-
-    if (existing) {
-      existing.addEventListener("load", onLoaded, { once: true });
-      existing.addEventListener("error", () => reject(new Error("Picker script failed to load")), {
-        once: true,
-      });
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.dataset.googlePicker = "true";
-    script.src = "https://apis.google.com/js/api.js";
-    script.async = true;
-    script.onload = onLoaded;
-    script.onerror = () => reject(new Error("Picker script failed to load"));
-    document.head.appendChild(script);
-  });
-  return pickerLoadPromise;
 }
 
 export default function GoogleDocumentImportDialog({
@@ -101,7 +28,7 @@ export default function GoogleDocumentImportDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const [config, setConfig] = useState<PickerConfig | null>(null);
+  const [config, setConfig] = useState<GooglePickerConfig | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
   const [selectedName, setSelectedName] = useState<string | null>(null);
@@ -131,7 +58,7 @@ export default function GoogleDocumentImportDialog({
     fetch("/api/google-documents/picker-token", { credentials: "same-origin" })
       .then(async (response) => {
         const data = (await response.json().catch(() => null)) as
-          | PickerConfig
+          | GooglePickerConfig
           | { connected?: boolean }
           | null;
         if (!response.ok || !data || !("accessToken" in data)) {
@@ -160,7 +87,7 @@ export default function GoogleDocumentImportDialog({
     setError(null);
     setLoading(true);
     try {
-      await loadPicker();
+      await loadGooglePicker();
       const picker = window.google?.picker;
       if (!picker) throw new Error("Google Picker unavailable");
 

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, primaryKey, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
 // ---------------------------------------------------------------------------
 // user — populated by the openid-client RP factory from IdP /userinfo at
@@ -467,4 +467,59 @@ export const discordGuildSettings = sqliteTable("discord_guild_settings", {
   enabled: integer("enabled").notNull().default(1),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+});
+
+// ---------------------------------------------------------------------------
+// sources / source_documents / source_assets — raw layer (LLM Wiki pattern)
+// ---------------------------------------------------------------------------
+export const sources = sqliteTable("sources", {
+  id: text("id").primaryKey(),
+  // "google-doc" | "google-chat-space" | "website" | "upload" | "text"
+  kind: text("kind").notNull(),
+  externalId: text("external_id"),
+  url: text("url").notNull(),
+  title: text("title").notNull(),
+  chapterId: text("chapter_id").references(() => chapters.id, { onDelete: "set null" }),
+  addedBy: text("added_by")
+    .notNull()
+    .references(() => user.id),
+  // "pending" | "fetching" | "ready" | "error" | "archived"
+  status: text("status").notNull().default("pending"),
+  // "manual" | "daily" | "weekly"
+  refreshPolicy: text("refresh_policy").notNull().default("manual"),
+  lastFetchedAt: integer("last_fetched_at", { mode: "timestamp" }),
+  errorMessage: text("error_message"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+});
+
+export const sourceDocuments = sqliteTable(
+  "source_documents",
+  {
+    id: text("id").primaryKey(),
+    sourceId: text("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "cascade" }),
+    path: text("path").notNull(),
+    title: text("title").notNull(),
+    r2Key: text("r2_key").notNull(),
+    contentHash: text("content_hash").notNull(),
+    capturedAt: integer("captured_at", { mode: "timestamp" }).notNull(),
+    cursor: text("cursor"),
+    // "ready" | "error" | "archived"
+    status: text("status").notNull().default("ready"),
+  },
+  (t) => [unique("source_documents_source_id_path_unique").on(t.sourceId, t.path)],
+);
+
+export const sourceAssets = sqliteTable("source_assets", {
+  id: text("id").primaryKey(),
+  sourceDocumentId: text("source_document_id")
+    .notNull()
+    .references(() => sourceDocuments.id, { onDelete: "cascade" }),
+  path: text("path").notNull(),
+  r2Key: text("r2_key").notNull(),
+  mimeType: text("mime_type").notNull(),
+  byteSize: integer("byte_size").notNull(),
+  contentHash: text("content_hash").notNull(),
 });

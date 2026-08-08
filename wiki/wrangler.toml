@@ -85,6 +85,16 @@ queue = "gdgjp-wiki-google-document-imports"
 max_batch_size = 1
 max_batch_timeout = 30
 
+# Raw source fetch jobs (LLM Wiki raw layer).
+[[queues.producers]]
+binding = "SOURCE_FETCH_QUEUE"
+queue = "gdgjp-wiki-source-fetch"
+
+[[queues.consumers]]
+queue = "gdgjp-wiki-source-fetch"
+max_batch_size = 1
+max_batch_timeout = 30
+
 # ---------------------------------------------------------------------------
 # Cloudflare Browser Rendering — headless Chromium for PDF generation
 # ---------------------------------------------------------------------------
@@ -142,8 +152,10 @@ class_name = "WikiGenerationPhaseWorkflow"
 # ---------------------------------------------------------------------------
 # Cron Triggers
 # ---------------------------------------------------------------------------
+# 0 15 * * * — task due-date Discord reminders (00:00 JST)
+# 0 16 * * * — automatic source refresh for daily/weekly policies
 [triggers]
-crons = ["0 15 * * *"]
+crons = ["0 15 * * *", "0 16 * * *"]
 
 # ---------------------------------------------------------------------------
 # Secrets (set via `wrangler secret put`)

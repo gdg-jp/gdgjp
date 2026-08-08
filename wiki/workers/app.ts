@@ -10,11 +10,18 @@ import { sendDueTaskReminders } from "../app/lib/discord-reminders.server";
 import { getEffectivePagePermissions } from "../app/lib/page-access.server";
 import {
   isGoogleDocumentImportQueueBody,
+  isSourceFetchQueueBody,
   isTranslationQueueBody,
   processTranslationMessage,
 } from "../app/lib/queue-processors.server";
 import { WikiGenerationAgent } from "./agents/wiki-generation-agent";
 import { CollabDurableObject } from "./collab-durable-object";
+import {
+  SOURCE_REFRESH_CRON,
+  TASK_REMINDER_CRON,
+  enqueueDueSourceRefreshes,
+  fetchSource,
+} from "./features/sources/fetch-source";
 import { WikiGenerationPhaseWorkflow } from "./workflows/wiki-generation-phase-workflow";
 
 // The server build is a virtual module provided by @react-router/dev/vite at build time.
@@ -91,24 +98,37 @@ export default {
     });
   },
 
-  // Cron trigger: fires at 15:00 UTC (= 00:00 JST, i.e. the start of the next calendar day in JST).
-  // sendDueTaskReminders queries tasks whose dueDate matches that JST date, so reminders go out
-  // at the very beginning of the day the task is due.
+  // Cron triggers — discriminate by event.cron (must stay in sync with wrangler.toml).
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     console.log("[scheduled] cron fired:", event.cron, "at", new Date().toISOString());
-    ctx.waitUntil(
-      sendDueTaskReminders(env).catch((err) => {
-        console.error("[scheduled] sendDueTaskReminders failed:", err);
-      }),
-    );
-    ctx.waitUntil(
-      backfillMarkdownContent(env.DB).catch((err) => {
-        console.error("[scheduled] markdown content backfill failed:", err);
-      }),
-    );
+
+    if (event.cron === TASK_REMINDER_CRON) {
+      ctx.waitUntil(
+        sendDueTaskReminders(env).catch((err) => {
+          console.error("[scheduled] sendDueTaskReminders failed:", err);
+        }),
+      );
+      ctx.waitUntil(
+        backfillMarkdownContent(env.DB).catch((err) => {
+          console.error("[scheduled] markdown content backfill failed:", err);
+        }),
+      );
+      return;
+    }
+
+    if (event.cron === SOURCE_REFRESH_CRON) {
+      ctx.waitUntil(
+        enqueueDueSourceRefreshes(env).catch((err) => {
+          console.error("[scheduled] source refresh enqueue failed:", err);
+        }),
+      );
+      return;
+    }
+
+    console.warn("[scheduled] unrecognized cron expression:", event.cron);
   },
 
-  // Queue consumer for background translation and ingestion jobs.
+  // Queue consumer for background translation, Google Docs import, and source fetch.
   async queue(batch: MessageBatch<unknown>, env: Env, _ctx: ExecutionContext): Promise<void> {
     console.log("[queue] handler invoked, queue:", batch.queue, "messages:", batch.messages.length);
     const db = drizzle(env.DB, { schema });
@@ -126,6 +146,15 @@ export default {
         if (isGoogleDocumentImportQueueBody(body)) {
           await processGoogleDocumentImport(env, body.jobId);
           message.ack();
+          continue;
+        }
+
+        if (isSourceFetchQueueBody(body)) {
+          // A source that can never succeed (no Drive token, deleted document) is acked
+          // so it does not occupy the retry budget; only transient failures come back.
+          const outcome = await fetchSource(env, body.sourceId);
+          if (outcome.retryable) message.retry();
+          else message.ack();
           continue;
         }
 

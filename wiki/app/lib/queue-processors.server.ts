@@ -26,6 +26,17 @@ export function isGoogleDocumentImportQueueBody(
   );
 }
 
+export function isSourceFetchQueueBody(
+  body: unknown,
+): body is { type: "source_fetch"; sourceId: string } {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    (body as { type?: unknown }).type === "source_fetch" &&
+    typeof (body as { sourceId?: unknown }).sourceId === "string"
+  );
+}
+
 export async function processTranslationMessage(
   env: Env,
   db: Db,

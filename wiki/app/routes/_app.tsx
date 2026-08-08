@@ -211,7 +211,6 @@ export default function AppLayout() {
         sidebarOpen={sidebarOpen}
         onToggleSidebar={toggleSidebar}
         unreadNotificationCount={unreadNotificationCount}
-        onGoogleDocumentImport={() => setGoogleDocumentImportOpen(true)}
       />
 
       <div className="flex flex-1 pt-14">
@@ -229,7 +228,6 @@ export default function AppLayout() {
           starredButtonRef={starredButtonRef}
           onArchivedClick={() => setActivePanel((p) => (p === "archived" ? null : "archived"))}
           archivedButtonRef={archivedButtonRef}
-          onGoogleDocumentImport={() => setGoogleDocumentImportOpen(true)}
         />
 
         {/* Main content */}
