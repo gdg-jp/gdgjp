@@ -9,6 +9,7 @@ import { backfillMarkdownContent } from "../app/lib/content-backfill.server";
 import { sendDueTaskReminders } from "../app/lib/discord-reminders.server";
 import { getEffectivePagePermissions } from "../app/lib/page-access.server";
 import {
+  isGoogleChatImportQueueBody,
   isGoogleDocumentImportQueueBody,
   isSourceFetchQueueBody,
   isTranslationQueueBody,
@@ -22,6 +23,7 @@ import {
   enqueueDueSourceRefreshes,
   fetchSource,
 } from "./features/sources/fetch-source";
+import { processGoogleChatImport } from "./features/sources/google-chat-import";
 import { WikiGenerationPhaseWorkflow } from "./workflows/wiki-generation-phase-workflow";
 
 // The server build is a virtual module provided by @react-router/dev/vite at build time.
@@ -145,6 +147,12 @@ export default {
 
         if (isGoogleDocumentImportQueueBody(body)) {
           await processGoogleDocumentImport(env, body.jobId);
+          message.ack();
+          continue;
+        }
+
+        if (isGoogleChatImportQueueBody(body)) {
+          await processGoogleChatImport(env, body);
           message.ack();
           continue;
         }
