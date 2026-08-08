@@ -58,6 +58,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     status: "published",
     visibility: "restricted",
     generalRole: "viewer",
+    origin: "human",
     chapterId: null,
     authorId: user.id,
     lastEditedBy: user.id,

@@ -21,6 +21,7 @@ interface Page {
   contentJa: string;
   contentEn: string;
   visibility: string;
+  origin: string;
 }
 
 interface PageEditorProps {
@@ -176,6 +177,12 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
       {/* Hidden content fields — always kept in sync */}
       <input type="hidden" name="contentJa" value={contentJa} />
       <input type="hidden" name="contentEn" value={contentEn} />
+
+      {page.origin === "agent" && (
+        <div className="border-b border-feedback-warning-border bg-feedback-warning-surface px-3 py-2 text-sm text-feedback-warning-foreground">
+          {t("wiki.ingest_managed_warning")}
+        </div>
+      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* Mini-header                                                          */}

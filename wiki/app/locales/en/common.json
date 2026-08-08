@@ -31,6 +31,7 @@
     "translation_pending": "Translation pending",
     "last_edited_by": "Last edited by",
     "edit_page": "Edit page",
+    "ingest_managed_warning": "This page is managed by Ingest. Edits may be overwritten by the next ingest.",
     "on_this_page": "On this page",
     "read_in": "Read in",
     "translation_fallback_en": "Translation pending — showing Japanese content instead.",

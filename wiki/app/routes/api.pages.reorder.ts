@@ -17,11 +17,22 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const { pageId, newParentId, insertAfterId } = parsed.data;
 
   // Verify pageId exists and get its current parent + authorId for authz
-  type PageRow = { id: string; parent_id: string | null; author_id: string };
-  const page = (await env.DB.prepare("SELECT id, parent_id, author_id FROM pages WHERE id = ?")
+  type PageRow = {
+    id: string;
+    parent_id: string | null;
+    author_id: string;
+    origin: string;
+    page_type: string | null;
+  };
+  const page = (await env.DB.prepare(
+    "SELECT id, parent_id, author_id, origin, page_type FROM pages WHERE id = ?",
+  )
     .bind(pageId)
     .first()) as PageRow | null;
   if (!page) return new Response("Page not found", { status: 404 });
+  if (page.page_type === "wiki-index" || page.page_type === "wiki-log") {
+    return new Response("This page is maintained by the ingest toolchain", { status: 403 });
+  }
 
   // Only the page author or an admin may move a page.
   if (!user.isAdmin && page.author_id !== user.id) {
@@ -32,11 +43,14 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   // Verify newParentId exists and isn't a descendant of pageId (circular check)
   if (newParentId) {
-    type ParentRow = { id: string; author_id: string };
-    const parent = (await env.DB.prepare("SELECT id, author_id FROM pages WHERE id = ?")
+    type ParentRow = { id: string; author_id: string; origin: string };
+    const parent = (await env.DB.prepare("SELECT id, author_id, origin FROM pages WHERE id = ?")
       .bind(newParentId)
       .first()) as ParentRow | null;
     if (!parent) return new Response("Parent page not found", { status: 404 });
+    if (page.origin === "agent" && parent.origin === "human") {
+      return Response.json({ error: "human_parent" }, { status: 400 });
+    }
     // The caller also needs author/admin rights on the destination parent so
     // they can't slot pages into someone else's subtree.
     if (!user.isAdmin && parent.author_id !== user.id) {

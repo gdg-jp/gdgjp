@@ -45,7 +45,7 @@ func TestRemoteHelperListsAndImportsSyntheticSnapshot(t *testing.T) {
 	}
 	commit := strings.Fields(refLine)[0]
 	git(t, repository, "cat-file", "-e", commit+"^{commit}")
-	content := git(t, repository, "show", commit+":pages/welcome/ja.md")
+	content := git(t, repository, "show", commit+":pages/welcome/page.md")
 	if !strings.Contains(content, "ようこそ") {
 		t.Fatalf("synthetic commit did not contain snapshot page: %s", content)
 	}
@@ -117,7 +117,7 @@ func TestRemoteHelperPushesCommittedPageChangeAndCachesCanonicalSnapshot(t *test
 	base := strings.Fields(listed.String())[0]
 	git(t, repository, "update-ref", "refs/remotes/origin/main", base)
 	git(t, repository, "checkout", "-q", "-b", "main", base)
-	path := filepath.Join(repository, "pages", "welcome", "ja.md")
+	path := filepath.Join(repository, "pages", "welcome", "page.md")
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

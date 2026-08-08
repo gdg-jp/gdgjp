@@ -15,6 +15,14 @@ paths:
     $ref: ./paths/sync.yaml
   /api/cli/wiki/attachments/{attachmentId}:
     $ref: ./paths/attachments.yaml
+  /api/cli/wiki/sources:
+    $ref: ./paths/sources.yaml
+  /api/cli/wiki/sources/{documentId}/content:
+    $ref: ./paths/sources.$documentId.content.yaml
+  /api/cli/wiki/sources/ingested:
+    $ref: ./paths/sources.ingested.yaml
+  /api/cli/wiki/agents-md:
+    $ref: ./paths/agents-md.yaml
 components:
   schemas:
     Snapshot:
@@ -23,6 +31,12 @@ components:
       $ref: ./components/schemas/wiki.yaml#/SyncRequest
     SyncResult:
       $ref: ./components/schemas/wiki.yaml#/SyncResult
+    SourcesManifest:
+      $ref: ./components/schemas/wiki.yaml#/SourcesManifest
+    IngestedRequest:
+      $ref: ./components/schemas/wiki.yaml#/IngestedRequest
+    IngestedResult:
+      $ref: ./components/schemas/wiki.yaml#/IngestedResult
     Error:
       $ref: ./components/schemas/common.yaml#/Error
   responses:
@@ -30,6 +44,10 @@ components:
       $ref: ./components/responses/common.yaml#/Unauthorized
     NotFound:
       $ref: ./components/responses/common.yaml#/NotFound
+    BadRequest:
+      $ref: ./components/responses/common.yaml#/BadRequest
+    Forbidden:
+      $ref: ./components/responses/common.yaml#/Forbidden
   parameters:
     AttachmentId:
       $ref: ./components/parameters/common.yaml#/AttachmentId

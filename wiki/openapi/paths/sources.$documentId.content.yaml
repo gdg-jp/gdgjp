@@ -1,0 +1,36 @@
+get:
+  operationId: getWikiSourceContent
+  summary: Download raw content for a manifest document id
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: documentId
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: lang
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [ja, en]
+        default: ja
+      description: Locale used when materializing wiki-human pages.
+  responses:
+    '200':
+      description: Raw file bytes.
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+        text/markdown:
+          schema:
+            type: string
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '403':
+      $ref: ../components/responses/common.yaml#/Forbidden
+    '404':
+      $ref: ../components/responses/common.yaml#/NotFound

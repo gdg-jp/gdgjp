@@ -242,11 +242,15 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     lang,
     isAdmin: sessionUser?.isAdmin ?? false,
     isAuthor: sessionUser?.id === page.authorId,
-    canArchive: !!sessionUser && (sessionUser.id === page.authorId || sessionUser.isAdmin),
+    canArchive:
+      page.pageType !== "wiki-index" &&
+      page.pageType !== "wiki-log" &&
+      !!sessionUser &&
+      (sessionUser.id === page.authorId || sessionUser.isAdmin),
     currentUserId: sessionUser?.id ?? null,
     isAuthenticated: !!sessionUser,
     canComment: permissions.canComment,
-    canEdit: permissions.canEdit,
+    canEdit: page.pageType !== "wiki-index" && page.pageType !== "wiki-log" && permissions.canEdit,
     visibility: page.visibility,
     canChangeVisibility: permissions.canManageSharing,
     canManageAccess: permissions.canManageSharing,
@@ -303,11 +307,18 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   if (intent === "archivePage") {
     const page = await db
-      .select({ id: schema.pages.id, authorId: schema.pages.authorId })
+      .select({
+        id: schema.pages.id,
+        authorId: schema.pages.authorId,
+        pageType: schema.pages.pageType,
+      })
       .from(schema.pages)
       .where(eq(schema.pages.slug, params.slug ?? ""))
       .get();
     if (!page) throw new Response("Not Found", { status: 404 });
+    if (page.pageType === "wiki-index" || page.pageType === "wiki-log") {
+      throw new Response("This page is maintained by the ingest toolchain", { status: 403 });
+    }
     const isAuthor = sessionUser.id === page.authorId;
     if (!isAuthor && !sessionUser.isAdmin) throw new Response("Forbidden", { status: 403 });
     await archivePageAndDescendants(env, db, page.id);

@@ -11,7 +11,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get all Wiki pages visible to the CLI token */
+        /** Get Wiki pages visible to the CLI token (agent origin only) */
         get: operations["getWikiSnapshot"];
         put?: never;
         post?: never;
@@ -59,6 +59,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cli/wiki/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get raw-source manifest visible to the CLI token */
+        get: operations["getWikiSources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/wiki/sources/{documentId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download raw content for a manifest document id */
+        get: operations["getWikiSourceContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/wiki/sources/ingested": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record that source documents have been ingested */
+        post: operations["markWikiSourcesIngested"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/wiki/agents-md": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch the centrally managed AGENTS.md for wiki clones */
+        get: operations["getWikiAgentsMd"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -75,6 +143,21 @@ export interface components {
             /** @enum {boolean} */
             ok: true;
             pages: components["schemas"]["SyncResultPage"][];
+        };
+        SourcesManifest: {
+            /** @enum {integer} */
+            version: 1;
+            documents: components["schemas"]["SourcesManifestEntry"][];
+        };
+        IngestedRequest: {
+            documents: {
+                documentId: string;
+                contentHash: string;
+            }[];
+        };
+        IngestedResult: {
+            /** @enum {boolean} */
+            ok: true;
         };
         Error: {
             error: string;
@@ -99,9 +182,9 @@ export interface components {
         };
         Source: {
             id?: string;
-            /** Format: uri */
-            url: string;
+            url?: string;
             title: string;
+            sourceId?: string | null;
         };
         Attachment: {
             id?: string;
@@ -131,8 +214,8 @@ export interface components {
             parentId: string | null;
             sortOrder: number;
             revision?: number;
-            ja: components["schemas"]["Language"];
-            en: components["schemas"]["Language"];
+            ja?: components["schemas"]["Language"];
+            en?: components["schemas"]["Language"];
             meta: components["schemas"]["PageMeta"];
         };
         SnapshotPage: components["schemas"]["Page"] & {
@@ -189,6 +272,17 @@ export interface components {
         Ok: {
             /** @enum {boolean} */
             ok: true;
+        };
+        SourcesManifestEntry: {
+            documentId: string;
+            sourceId?: string | null;
+            /** @enum {string} */
+            kind: "source-document" | "source-asset" | "wiki-human";
+            title: string;
+            path: string;
+            contentHash: string;
+            capturedAt?: number | null;
+            ingestedHash?: string | null;
         };
     };
     responses: {
@@ -249,7 +343,10 @@ export type $defs = Record<string, never>;
 export interface operations {
     getWikiSnapshot: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return only the selected locale. Other locale fields are omitted. */
+                lang?: "ja" | "en";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -265,6 +362,7 @@ export interface operations {
                     "application/json": components["schemas"]["Snapshot"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };
@@ -375,6 +473,105 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getWikiSources: {
+        parameters: {
+            query?: {
+                /** @description Locale used when materializing wiki-human manifest entries. */
+                lang?: "ja" | "en";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Source manifest. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getWikiSourceContent: {
+        parameters: {
+            query?: {
+                /** @description Locale used when materializing wiki-human pages. */
+                lang?: "ja" | "en";
+            };
+            header?: never;
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Raw file bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                    "text/markdown": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    markWikiSourcesIngested: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IngestedRequest"];
+            };
+        };
+        responses: {
+            /** @description Ingestion hashes recorded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestedResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getWikiAgentsMd: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description AGENTS.md markdown body. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/markdown": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
 }

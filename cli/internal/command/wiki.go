@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/gdg-jp/gdgjp/cli/internal/oauth"
 	"github.com/gdg-jp/gdgjp/cli/internal/store"
 	"github.com/gdg-jp/gdgjp/cli/internal/wiki"
 	"github.com/spf13/cobra"
@@ -25,13 +26,19 @@ type wikiService struct {
 	runGit        gitRunner
 	executable    func() (string, error)
 	installHelper func(string) (string, error)
+	credentials   store.CredentialStore
+	newClient     func() *wiki.Client
+	runAgent      func(context.Context, string, string) error
 }
 
-func newWikiCommand(_ store.CredentialStore) *cobra.Command {
+func newWikiCommand(credentials store.CredentialStore) *cobra.Command {
 	return newWikiCommandWithService(&wikiService{
 		runGit:        runGit,
 		executable:    os.Executable,
 		installHelper: wiki.InstallGitRemoteHelper,
+		credentials:   credentials,
+		newClient:     wiki.NewClient,
+		runAgent:      runCodingAgent,
 	})
 }
 
@@ -42,15 +49,18 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 	}
 
 	var cloneRemote string
+	var cloneLang string
 	clone := &cobra.Command{
 		Use:   "clone DIRECTORY",
 		Args:  cobra.ExactArgs(1),
 		Short: "Clone visible Wiki pages into a Git working tree",
+		Long:  "Creates a single-language clone (default ja). Existing bilingual clones (ja.md/en.md) are incompatible — re-clone.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return service.clone(cmd, args[0], cloneRemote)
+			return service.clone(cmd, args[0], cloneRemote, cloneLang)
 		},
 	}
 	clone.Flags().StringVar(&cloneRemote, "remote", defaultWikiRemote, "gdg-wiki Git remote URL")
+	clone.Flags().StringVar(&cloneLang, "lang", "ja", "Clone language (ja or en)")
 	command.AddCommand(clone)
 
 	var initRemote string
@@ -64,6 +74,40 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 	}
 	init.Flags().StringVar(&initRemote, "remote", defaultWikiRemote, "gdg-wiki Git remote URL")
 	command.AddCommand(init)
+
+	raw := &cobra.Command{Use: "raw", Short: "Work with raw primary sources"}
+	raw.AddCommand(&cobra.Command{
+		Use:   "pull",
+		Short: "Download raw/** and AGENTS.md for the current clone",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return service.rawPull(cmd)
+		},
+	})
+	command.AddCommand(raw)
+
+	var ingestCommit bool
+	var ingestAgent string
+	ingest := &cobra.Command{
+		Use:   "ingest",
+		Short: "Refresh pages/raw and write INGEST_QUEUE.md",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return service.ingest(cmd, ingestCommit, ingestAgent)
+		},
+	}
+	ingest.Flags().BoolVar(&ingestCommit, "commit", false, "Mark the first queue item as ingested on the server")
+	ingest.Flags().StringVar(&ingestAgent, "agent", "", "Shell out to claude or codex with the ingest prompt")
+	command.AddCommand(ingest)
+
+	command.AddCommand(&cobra.Command{
+		Use:   "lint",
+		Short: "Print a lint prompt for the coding agent",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return service.lint(cmd)
+		},
+	})
 
 	return command
 }
@@ -80,18 +124,78 @@ func runGit(ctx context.Context, directory string, args ...string) (string, erro
 	return string(output), nil
 }
 
-func (s *wikiService) clone(cmd *cobra.Command, directory, remote string) error {
+func runCodingAgent(ctx context.Context, agent, prompt string) error {
+	var name string
+	switch agent {
+	case "claude":
+		name = "claude"
+	case "codex":
+		name = "codex"
+	default:
+		return fmt.Errorf("unsupported agent %q (use claude or codex)", agent)
+	}
+	command := exec.CommandContext(ctx, name, prompt)
+	command.Stdin = os.Stdin
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	return command.Run()
+}
+
+func (s *wikiService) clone(cmd *cobra.Command, directory, remote, lang string) error {
 	if remote == "" {
 		return errors.New("Wiki remote URL cannot be empty")
+	}
+	if lang != "ja" && lang != "en" {
+		return fmt.Errorf("unsupported language %q (use ja or en)", lang)
 	}
 	if _, err := s.ensureGitHelper(); err != nil {
 		return err
 	}
-	output, err := s.runGit(cmd.Context(), "", "clone", "--origin", "origin", remote, directory)
+	root, err := filepath.Abs(directory)
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprint(cmd.OutOrStdout(), output)
+	if _, err = os.Stat(root); err == nil {
+		entries, readErr := os.ReadDir(root)
+		if readErr != nil {
+			return readErr
+		}
+		if len(entries) > 0 {
+			return fmt.Errorf("directory %s is not empty", root)
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if err = os.MkdirAll(root, 0o755); err != nil {
+		return err
+	}
+	if err = wiki.WriteConfig(root, wiki.CloneConfig{Lang: lang}); err != nil {
+		return err
+	}
+	if err = wiki.WriteCloneGitignore(root); err != nil {
+		return err
+	}
+	if _, err = s.runGit(cmd.Context(), root, "init", "-b", "main"); err != nil {
+		return err
+	}
+	if err = wiki.WriteCloneExcludes(root); err != nil {
+		return err
+	}
+	if _, err = s.runGit(cmd.Context(), root, "remote", "add", "origin", remote); err != nil {
+		return err
+	}
+	if _, err = s.runGit(cmd.Context(), root, "pull", "origin", "main"); err != nil {
+		return err
+	}
+	if _, err = s.runGit(cmd.Context(), root, "config", "branch.main.remote", "origin"); err != nil {
+		return err
+	}
+	if _, err = s.runGit(cmd.Context(), root, "config", "branch.main.merge", "refs/heads/main"); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(cmd.OutOrStdout(),
+		"Cloned Wiki into %s (lang=%s).\nNote: older bilingual clones (ja.md/en.md) are incompatible — re-clone required.\n",
+		root, lang)
 	return err
 }
 
@@ -127,6 +231,19 @@ func (s *wikiService) init(cmd *cobra.Command, directory, remote string) error {
 			return err
 		}
 	}
+	if err = wiki.WriteCloneExcludes(root); err != nil {
+		return err
+	}
+	if _, err = os.Stat(wiki.ConfigPath(root)); os.IsNotExist(err) {
+		if err = wiki.WriteConfig(root, wiki.CloneConfig{Lang: "ja"}); err != nil {
+			return err
+		}
+	}
+	if _, err = os.Stat(filepath.Join(root, ".gitignore")); os.IsNotExist(err) {
+		if err = wiki.WriteCloneGitignore(root); err != nil {
+			return err
+		}
+	}
 	if _, err = s.runGit(cmd.Context(), root, "remote", "get-url", "origin"); err != nil {
 		if _, err = s.runGit(cmd.Context(), root, "remote", "add", "origin", remote); err != nil {
 			return err
@@ -141,5 +258,141 @@ func (s *wikiService) init(cmd *cobra.Command, directory, remote string) error {
 		return err
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Configured Wiki Git remote in %s. Run `cd %s && git pull` to fetch pages.\n", root, root)
+	return err
+}
+
+func (s *wikiService) findRoot() (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return findWikiRoot(wd)
+}
+
+func findWikiRoot(start string) (string, error) {
+	dir, err := filepath.Abs(start)
+	if err != nil {
+		return "", err
+	}
+	for {
+		if info, statErr := os.Stat(wiki.ConfigPath(dir)); statErr == nil && info.Mode().IsRegular() {
+			if _, configErr := wiki.ReadConfig(dir); configErr != nil {
+				return "", configErr
+			}
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", errors.New("not inside a Wiki clone (missing .gdgwiki/config.json)")
+		}
+		dir = parent
+	}
+}
+
+func (s *wikiService) withToken(ctx context.Context, fn func(string) error) error {
+	if s.credentials == nil {
+		return errors.New("credentials store is not configured")
+	}
+	credential, err := s.credentials.Load()
+	if err != nil {
+		return fmt.Errorf("load credentials (run gdg login): %w", err)
+	}
+	err = fn(credential.AccessToken)
+	if !isWikiUnauthorized(err) {
+		return err
+	}
+	fresh, refreshErr := oauth.Refresh(ctx, credential.RefreshToken)
+	if refreshErr != nil {
+		return fmt.Errorf("refresh GDG Japan login: %w", refreshErr)
+	}
+	if saveErr := s.credentials.Save(fresh); saveErr != nil {
+		return saveErr
+	}
+	return fn(fresh.AccessToken)
+}
+
+func isWikiUnauthorized(err error) bool {
+	var httpErr *wiki.HTTPError
+	return errors.As(err, &httpErr) && httpErr.StatusCode == 401
+}
+
+func (s *wikiService) rawPull(cmd *cobra.Command) error {
+	root, err := s.findRoot()
+	if err != nil {
+		return err
+	}
+	client := s.newClient()
+	return s.withToken(cmd.Context(), func(token string) error {
+		if _, err := wiki.PullRaw(cmd.Context(), root, client, token); err != nil {
+			return err
+		}
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), "Updated raw/** and AGENTS.md in %s\n", root)
+		return err
+	})
+}
+
+func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent string) error {
+	root, err := s.findRoot()
+	if err != nil {
+		return err
+	}
+	if _, err = s.runGit(cmd.Context(), root, "pull", "--ff-only"); err != nil {
+		return fmt.Errorf("git pull: %w", err)
+	}
+	client := s.newClient()
+	var pending []wiki.SourcesManifestEntry
+	err = s.withToken(cmd.Context(), func(token string) error {
+		manifest, pullErr := wiki.PullRaw(cmd.Context(), root, client, token)
+		if pullErr != nil {
+			return pullErr
+		}
+		state, stateErr := wiki.ReadState(root)
+		if stateErr != nil {
+			return stateErr
+		}
+		_, pending, err = wiki.BuildIngestQueue(root, manifest, state)
+		if err != nil {
+			return err
+		}
+		if commit {
+			if len(pending) == 0 {
+				return errors.New("no pending documents to mark as ingested")
+			}
+			first := pending[:1]
+			if markErr := client.MarkIngested(cmd.Context(), token, first); markErr != nil {
+				return markErr
+			}
+			state.Ingested[first[0].DocumentID] = first[0].ContentHash
+			if writeErr := wiki.WriteState(root, state); writeErr != nil {
+				return writeErr
+			}
+			_, pending, err = wiki.BuildIngestQueue(root, manifest, state)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Marked %s as ingested.\n", first[0].DocumentID)
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	prompt := wiki.IngestPrompt(root, len(pending))
+	if _, err = fmt.Fprintln(cmd.OutOrStdout(), prompt); err != nil {
+		return err
+	}
+	if agent != "" {
+		return s.runAgent(cmd.Context(), agent, prompt)
+	}
+	return nil
+}
+
+func (s *wikiService) lint(cmd *cobra.Command) error {
+	root, err := s.findRoot()
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(cmd.OutOrStdout(), wiki.LintPrompt(root))
 	return err
 }

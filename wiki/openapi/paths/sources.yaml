@@ -1,6 +1,6 @@
 get:
-  operationId: getWikiSnapshot
-  summary: Get Wiki pages visible to the CLI token (agent origin only)
+  operationId: getWikiSources
+  summary: Get raw-source manifest visible to the CLI token
   security:
     - BearerAuth: []
   parameters:
@@ -11,14 +11,10 @@ get:
         type: string
         enum: [ja, en]
         default: ja
-      description: Return only the selected locale. Other locale fields are omitted.
+      description: Locale used when materializing wiki-human manifest entries.
   responses:
     '200':
-      description: Current Wiki snapshot.
-      content:
-        application/json:
-          schema:
-            $ref: ../components/schemas/wiki.yaml#/Snapshot
+      description: Source manifest.
     '401':
       $ref: ../components/responses/common.yaml#/Unauthorized
     '400':

@@ -39,6 +39,11 @@ const (
 	Archive ArchiveOperationKind = "archive"
 )
 
+// Defines values for IngestedResultOk.
+const (
+	IngestedResultOkTrue IngestedResultOk = true
+)
+
 // Defines values for LanguageTranslationStatus.
 const (
 	Ai      LanguageTranslationStatus = "ai"
@@ -91,12 +96,30 @@ const (
 
 // Defines values for SyncResultOk.
 const (
-	SyncResultOkTrue SyncResultOk = true
+	True SyncResultOk = true
 )
 
 // Defines values for UpsertOperationKind.
 const (
 	Upsert UpsertOperationKind = "upsert"
+)
+
+// Defines values for GetWikiSnapshotParamsLang.
+const (
+	GetWikiSnapshotParamsLangEn GetWikiSnapshotParamsLang = "en"
+	GetWikiSnapshotParamsLangJa GetWikiSnapshotParamsLang = "ja"
+)
+
+// Defines values for GetWikiSourcesParamsLang.
+const (
+	GetWikiSourcesParamsLangEn GetWikiSourcesParamsLang = "en"
+	GetWikiSourcesParamsLangJa GetWikiSourcesParamsLang = "ja"
+)
+
+// Defines values for GetWikiSourceContentParamsLang.
+const (
+	En GetWikiSourceContentParamsLang = "en"
+	Ja GetWikiSourceContentParamsLang = "ja"
 )
 
 // AccessEntry defines model for AccessEntry.
@@ -140,6 +163,22 @@ type Error struct {
 	Message *string `json:"message,omitempty"`
 }
 
+// IngestedRequest defines model for IngestedRequest.
+type IngestedRequest struct {
+	Documents []struct {
+		ContentHash string `json:"contentHash"`
+		DocumentId  string `json:"documentId"`
+	} `json:"documents"`
+}
+
+// IngestedResult defines model for IngestedResult.
+type IngestedResult struct {
+	Ok IngestedResultOk `json:"ok"`
+}
+
+// IngestedResultOk defines model for IngestedResult.Ok.
+type IngestedResultOk bool
+
 // Language defines model for Language.
 type Language struct {
 	Content           string                    `json:"content"`
@@ -161,14 +200,14 @@ type OkOk bool
 
 // Page defines model for Page.
 type Page struct {
-	En        Language `json:"en"`
-	Id        *string  `json:"id,omitempty"`
-	Ja        Language `json:"ja"`
-	Meta      PageMeta `json:"meta"`
-	ParentId  *string  `json:"parentId"`
-	Revision  *int     `json:"revision,omitempty"`
-	Slug      string   `json:"slug"`
-	SortOrder int      `json:"sortOrder"`
+	En        *Language `json:"en,omitempty"`
+	Id        *string   `json:"id,omitempty"`
+	Ja        *Language `json:"ja,omitempty"`
+	Meta      PageMeta  `json:"meta"`
+	ParentId  *string   `json:"parentId"`
+	Revision  *int      `json:"revision,omitempty"`
+	Slug      string    `json:"slug"`
+	SortOrder int       `json:"sortOrder"`
 }
 
 // PageMeta defines model for PageMeta.
@@ -216,10 +255,10 @@ type SnapshotPage struct {
 	Access       []AccessEntry           `json:"access"`
 	Attachments  []Attachment            `json:"attachments"`
 	ChapterId    *string                 `json:"chapterId"`
-	En           Language                `json:"en"`
+	En           *Language               `json:"en,omitempty"`
 	GeneralRole  SnapshotPageGeneralRole `json:"generalRole"`
 	Id           string                  `json:"id"`
-	Ja           Language                `json:"ja"`
+	Ja           *Language               `json:"ja,omitempty"`
 	Meta         PageMeta                `json:"meta"`
 	PageMetadata *map[string]interface{} `json:"pageMetadata"`
 	PageType     *string                 `json:"pageType"`
@@ -240,9 +279,10 @@ type SnapshotPageVisibility string
 
 // Source defines model for Source.
 type Source struct {
-	Id    *string `json:"id,omitempty"`
-	Title string  `json:"title"`
-	Url   string  `json:"url"`
+	Id       *string `json:"id,omitempty"`
+	SourceId *string `json:"sourceId"`
+	Title    string  `json:"title"`
+	Url      *string `json:"url,omitempty"`
 }
 
 // SyncRequest defines model for SyncRequest.
@@ -296,6 +336,36 @@ type NotFound = Error
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
+
+// GetWikiSnapshotParams defines parameters for GetWikiSnapshot.
+type GetWikiSnapshotParams struct {
+	// Lang Return only the selected locale. Other locale fields are omitted.
+	Lang *GetWikiSnapshotParamsLang `form:"lang,omitempty" json:"lang,omitempty"`
+}
+
+// GetWikiSnapshotParamsLang defines parameters for GetWikiSnapshot.
+type GetWikiSnapshotParamsLang string
+
+// GetWikiSourcesParams defines parameters for GetWikiSources.
+type GetWikiSourcesParams struct {
+	// Lang Locale used when materializing wiki-human manifest entries.
+	Lang *GetWikiSourcesParamsLang `form:"lang,omitempty" json:"lang,omitempty"`
+}
+
+// GetWikiSourcesParamsLang defines parameters for GetWikiSources.
+type GetWikiSourcesParamsLang string
+
+// GetWikiSourceContentParams defines parameters for GetWikiSourceContent.
+type GetWikiSourceContentParams struct {
+	// Lang Locale used when materializing wiki-human pages.
+	Lang *GetWikiSourceContentParamsLang `form:"lang,omitempty" json:"lang,omitempty"`
+}
+
+// GetWikiSourceContentParamsLang defines parameters for GetWikiSourceContent.
+type GetWikiSourceContentParamsLang string
+
+// MarkWikiSourcesIngestedJSONRequestBody defines body for MarkWikiSourcesIngested for application/json ContentType.
+type MarkWikiSourcesIngestedJSONRequestBody = IngestedRequest
 
 // SyncWikiJSONRequestBody defines body for SyncWiki for application/json ContentType.
 type SyncWikiJSONRequestBody = SyncRequest
@@ -462,6 +532,9 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// GetWikiAgentsMd request
+	GetWikiAgentsMd(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteWikiAttachment request
 	DeleteWikiAttachment(ctx context.Context, attachmentId AttachmentId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -472,12 +545,35 @@ type ClientInterface interface {
 	UploadWikiAttachmentWithBody(ctx context.Context, attachmentId AttachmentId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetWikiSnapshot request
-	GetWikiSnapshot(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetWikiSnapshot(ctx context.Context, params *GetWikiSnapshotParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetWikiSources request
+	GetWikiSources(ctx context.Context, params *GetWikiSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MarkWikiSourcesIngestedWithBody request with any body
+	MarkWikiSourcesIngestedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	MarkWikiSourcesIngested(ctx context.Context, body MarkWikiSourcesIngestedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetWikiSourceContent request
+	GetWikiSourceContent(ctx context.Context, documentId string, params *GetWikiSourceContentParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SyncWikiWithBody request with any body
 	SyncWikiWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SyncWiki(ctx context.Context, body SyncWikiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) GetWikiAgentsMd(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWikiAgentsMdRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) DeleteWikiAttachment(ctx context.Context, attachmentId AttachmentId, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -516,8 +612,56 @@ func (c *Client) UploadWikiAttachmentWithBody(ctx context.Context, attachmentId 
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetWikiSnapshot(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetWikiSnapshotRequest(c.Server)
+func (c *Client) GetWikiSnapshot(ctx context.Context, params *GetWikiSnapshotParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWikiSnapshotRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetWikiSources(ctx context.Context, params *GetWikiSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWikiSourcesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) MarkWikiSourcesIngestedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMarkWikiSourcesIngestedRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) MarkWikiSourcesIngested(ctx context.Context, body MarkWikiSourcesIngestedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMarkWikiSourcesIngestedRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetWikiSourceContent(ctx context.Context, documentId string, params *GetWikiSourceContentParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWikiSourceContentRequest(c.Server, documentId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -550,6 +694,33 @@ func (c *Client) SyncWiki(ctx context.Context, body SyncWikiJSONRequestBody, req
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewGetWikiAgentsMdRequest generates requests for GetWikiAgentsMd
+func NewGetWikiAgentsMdRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/cli/wiki/agents-md")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewDeleteWikiAttachmentRequest generates requests for DeleteWikiAttachment
@@ -657,7 +828,7 @@ func NewUploadWikiAttachmentRequestWithBody(server string, attachmentId Attachme
 }
 
 // NewGetWikiSnapshotRequest generates requests for GetWikiSnapshot
-func NewGetWikiSnapshotRequest(server string) (*http.Request, error) {
+func NewGetWikiSnapshotRequest(server string, params *GetWikiSnapshotParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -673,6 +844,173 @@ func NewGetWikiSnapshotRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Lang != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "lang", runtime.ParamLocationQuery, *params.Lang); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetWikiSourcesRequest generates requests for GetWikiSources
+func NewGetWikiSourcesRequest(server string, params *GetWikiSourcesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/cli/wiki/sources")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Lang != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "lang", runtime.ParamLocationQuery, *params.Lang); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewMarkWikiSourcesIngestedRequest calls the generic MarkWikiSourcesIngested builder with application/json body
+func NewMarkWikiSourcesIngestedRequest(server string, body MarkWikiSourcesIngestedJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewMarkWikiSourcesIngestedRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewMarkWikiSourcesIngestedRequestWithBody generates requests for MarkWikiSourcesIngested with any type of body
+func NewMarkWikiSourcesIngestedRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/cli/wiki/sources/ingested")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetWikiSourceContentRequest generates requests for GetWikiSourceContent
+func NewGetWikiSourceContentRequest(server string, documentId string, params *GetWikiSourceContentParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "documentId", runtime.ParamLocationPath, documentId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/cli/wiki/sources/%s/content", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Lang != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "lang", runtime.ParamLocationQuery, *params.Lang); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -766,6 +1104,9 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// GetWikiAgentsMdWithResponse request
+	GetWikiAgentsMdWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWikiAgentsMdResponse, error)
+
 	// DeleteWikiAttachmentWithResponse request
 	DeleteWikiAttachmentWithResponse(ctx context.Context, attachmentId AttachmentId, reqEditors ...RequestEditorFn) (*DeleteWikiAttachmentResponse, error)
 
@@ -776,12 +1117,45 @@ type ClientWithResponsesInterface interface {
 	UploadWikiAttachmentWithBodyWithResponse(ctx context.Context, attachmentId AttachmentId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWikiAttachmentResponse, error)
 
 	// GetWikiSnapshotWithResponse request
-	GetWikiSnapshotWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWikiSnapshotResponse, error)
+	GetWikiSnapshotWithResponse(ctx context.Context, params *GetWikiSnapshotParams, reqEditors ...RequestEditorFn) (*GetWikiSnapshotResponse, error)
+
+	// GetWikiSourcesWithResponse request
+	GetWikiSourcesWithResponse(ctx context.Context, params *GetWikiSourcesParams, reqEditors ...RequestEditorFn) (*GetWikiSourcesResponse, error)
+
+	// MarkWikiSourcesIngestedWithBodyWithResponse request with any body
+	MarkWikiSourcesIngestedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MarkWikiSourcesIngestedResponse, error)
+
+	MarkWikiSourcesIngestedWithResponse(ctx context.Context, body MarkWikiSourcesIngestedJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkWikiSourcesIngestedResponse, error)
+
+	// GetWikiSourceContentWithResponse request
+	GetWikiSourceContentWithResponse(ctx context.Context, documentId string, params *GetWikiSourceContentParams, reqEditors ...RequestEditorFn) (*GetWikiSourceContentResponse, error)
 
 	// SyncWikiWithBodyWithResponse request with any body
 	SyncWikiWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SyncWikiResponse, error)
 
 	SyncWikiWithResponse(ctx context.Context, body SyncWikiJSONRequestBody, reqEditors ...RequestEditorFn) (*SyncWikiResponse, error)
+}
+
+type GetWikiAgentsMdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+}
+
+// Status returns HTTPResponse.Status
+func (r GetWikiAgentsMdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetWikiAgentsMdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type DeleteWikiAttachmentResponse struct {
@@ -863,6 +1237,7 @@ type GetWikiSnapshotResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Snapshot
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 }
 
@@ -876,6 +1251,77 @@ func (r GetWikiSnapshotResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetWikiSnapshotResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetWikiSourcesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+}
+
+// Status returns HTTPResponse.Status
+func (r GetWikiSourcesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetWikiSourcesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type MarkWikiSourcesIngestedResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *IngestedResult
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+}
+
+// Status returns HTTPResponse.Status
+func (r MarkWikiSourcesIngestedResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r MarkWikiSourcesIngestedResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetWikiSourceContentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r GetWikiSourceContentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetWikiSourceContentResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -909,6 +1355,15 @@ func (r SyncWikiResponse) StatusCode() int {
 	return 0
 }
 
+// GetWikiAgentsMdWithResponse request returning *GetWikiAgentsMdResponse
+func (c *ClientWithResponses) GetWikiAgentsMdWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWikiAgentsMdResponse, error) {
+	rsp, err := c.GetWikiAgentsMd(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetWikiAgentsMdResponse(rsp)
+}
+
 // DeleteWikiAttachmentWithResponse request returning *DeleteWikiAttachmentResponse
 func (c *ClientWithResponses) DeleteWikiAttachmentWithResponse(ctx context.Context, attachmentId AttachmentId, reqEditors ...RequestEditorFn) (*DeleteWikiAttachmentResponse, error) {
 	rsp, err := c.DeleteWikiAttachment(ctx, attachmentId, reqEditors...)
@@ -937,12 +1392,47 @@ func (c *ClientWithResponses) UploadWikiAttachmentWithBodyWithResponse(ctx conte
 }
 
 // GetWikiSnapshotWithResponse request returning *GetWikiSnapshotResponse
-func (c *ClientWithResponses) GetWikiSnapshotWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWikiSnapshotResponse, error) {
-	rsp, err := c.GetWikiSnapshot(ctx, reqEditors...)
+func (c *ClientWithResponses) GetWikiSnapshotWithResponse(ctx context.Context, params *GetWikiSnapshotParams, reqEditors ...RequestEditorFn) (*GetWikiSnapshotResponse, error) {
+	rsp, err := c.GetWikiSnapshot(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseGetWikiSnapshotResponse(rsp)
+}
+
+// GetWikiSourcesWithResponse request returning *GetWikiSourcesResponse
+func (c *ClientWithResponses) GetWikiSourcesWithResponse(ctx context.Context, params *GetWikiSourcesParams, reqEditors ...RequestEditorFn) (*GetWikiSourcesResponse, error) {
+	rsp, err := c.GetWikiSources(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetWikiSourcesResponse(rsp)
+}
+
+// MarkWikiSourcesIngestedWithBodyWithResponse request with arbitrary body returning *MarkWikiSourcesIngestedResponse
+func (c *ClientWithResponses) MarkWikiSourcesIngestedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MarkWikiSourcesIngestedResponse, error) {
+	rsp, err := c.MarkWikiSourcesIngestedWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMarkWikiSourcesIngestedResponse(rsp)
+}
+
+func (c *ClientWithResponses) MarkWikiSourcesIngestedWithResponse(ctx context.Context, body MarkWikiSourcesIngestedJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkWikiSourcesIngestedResponse, error) {
+	rsp, err := c.MarkWikiSourcesIngested(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMarkWikiSourcesIngestedResponse(rsp)
+}
+
+// GetWikiSourceContentWithResponse request returning *GetWikiSourceContentResponse
+func (c *ClientWithResponses) GetWikiSourceContentWithResponse(ctx context.Context, documentId string, params *GetWikiSourceContentParams, reqEditors ...RequestEditorFn) (*GetWikiSourceContentResponse, error) {
+	rsp, err := c.GetWikiSourceContent(ctx, documentId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetWikiSourceContentResponse(rsp)
 }
 
 // SyncWikiWithBodyWithResponse request with arbitrary body returning *SyncWikiResponse
@@ -960,6 +1450,32 @@ func (c *ClientWithResponses) SyncWikiWithResponse(ctx context.Context, body Syn
 		return nil, err
 	}
 	return ParseSyncWikiResponse(rsp)
+}
+
+// ParseGetWikiAgentsMdResponse parses an HTTP response from a GetWikiAgentsMdWithResponse call
+func ParseGetWikiAgentsMdResponse(rsp *http.Response) (*GetWikiAgentsMdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetWikiAgentsMdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseDeleteWikiAttachmentResponse parses an HTTP response from a DeleteWikiAttachmentWithResponse call
@@ -1124,12 +1640,132 @@ func ParseGetWikiSnapshotResponse(rsp *http.Response) (*GetWikiSnapshotResponse,
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetWikiSourcesResponse parses an HTTP response from a GetWikiSourcesWithResponse call
+func ParseGetWikiSourcesResponse(rsp *http.Response) (*GetWikiSourcesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetWikiSourcesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseMarkWikiSourcesIngestedResponse parses an HTTP response from a MarkWikiSourcesIngestedWithResponse call
+func ParseMarkWikiSourcesIngestedResponse(rsp *http.Response) (*MarkWikiSourcesIngestedResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &MarkWikiSourcesIngestedResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest IngestedResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetWikiSourceContentResponse parses an HTTP response from a GetWikiSourceContentWithResponse call
+func ParseGetWikiSourceContentResponse(rsp *http.Response) (*GetWikiSourceContentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetWikiSourceContentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 

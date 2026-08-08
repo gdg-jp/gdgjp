@@ -157,6 +157,18 @@ func parsePushSpec(value string) (pushSpec, error) {
 	return pushSpec{src: parts[0], dst: parts[1]}, nil
 }
 
+func isGitDeleteSrc(src string) bool {
+	if src == "" {
+		return true
+	}
+	for _, r := range src {
+		if r != '0' {
+			return false
+		}
+	}
+	return true
+}
+
 func sanitizeProtocolError(err error) string {
 	return strings.ReplaceAll(strings.ReplaceAll(err.Error(), "\n", " "), "\r", " ")
 }
@@ -167,11 +179,7 @@ type snapshotMetadata struct {
 }
 
 func (h *RemoteHelper) snapshotCommit(ctx context.Context) (string, error) {
-	snapshotFn := h.Snapshot
-	if snapshotFn == nil {
-		snapshotFn = h.Client.Snapshot
-	}
-	snapshot, err := snapshotFn(ctx, h.Token)
+	snapshot, err := h.snapshot(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -195,7 +203,7 @@ func (h *RemoteHelper) importSnapshot(ctx context.Context, snapshot Snapshot, pa
 	if err != nil {
 		return "", err
 	}
-	temporary, base, err := MaterializeSnapshot(ctx, snapshot, h.Token, h.Client, "")
+	temporary, base, err := MaterializeSnapshot(ctx, snapshot, h.Token, h.Client, "", h.cloneLang())
 	if err != nil {
 		return "", err
 	}
@@ -224,7 +232,7 @@ func (h *RemoteHelper) importSnapshot(ctx context.Context, snapshot Snapshot, pa
 // push translates the committed Git tree into the API's page-level optimistic
 // concurrency operations. It never checks out or changes the caller's tree.
 func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
-	if spec.dst != "refs/heads/main" || strings.HasPrefix(spec.src, "0") {
+	if spec.dst != "refs/heads/main" || isGitDeleteSrc(spec.src) {
 		return errors.New("gdg-wiki accepts only updates to refs/heads/main")
 	}
 	base, err := h.gitOutput(ctx, "rev-parse", "--verify", "refs/remotes/"+h.Remote+"/main")
@@ -254,7 +262,7 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 		return err
 	}
 	defer os.RemoveAll(root)
-	local, err := LocalPages(root)
+	local, err := LocalPagesForLanguage(root, h.cloneLang())
 	if err != nil {
 		return err
 	}
@@ -298,8 +306,8 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 				return errors.New("Wiki sync returned no page result")
 			}
 			returned := result.Pages[0]
-			for i := range entry.ja.Attachments {
-				attachment := &entry.ja.Attachments[i]
+			for i := range entry.fm.Attachments {
+				attachment := &entry.fm.Attachments[i]
 				newID := returned.AttachmentIDs[attachment.FileName]
 				if newID == "" {
 					return fmt.Errorf("Wiki sync returned no attachment ID for %s", attachment.FileName)
@@ -316,7 +324,7 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 					}
 				}
 			}
-			entry.ja.ID, entry.en.ID = returned.ID, returned.ID
+			entry.fm.ID = returned.ID
 			local[returned.ID] = entry
 			if key != returned.ID {
 				delete(local, key)
@@ -368,11 +376,23 @@ func attachmentChanged(paths []string, rel, path string) bool {
 	}
 	return false
 }
+func (h *RemoteHelper) cloneLang() string {
+	root, err := WorkTreeRoot(h.GitDir)
+	if err != nil {
+		return "ja"
+	}
+	cfg, err := ReadConfig(root)
+	if err != nil {
+		return "ja"
+	}
+	return cfg.Lang
+}
+
 func (h *RemoteHelper) snapshot(ctx context.Context) (Snapshot, error) {
 	if h.Snapshot != nil {
 		return h.Snapshot(ctx, h.Token)
 	}
-	return h.Client.Snapshot(ctx, h.Token)
+	return h.Client.Snapshot(ctx, h.Token, h.cloneLang())
 }
 func (h *RemoteHelper) sync(ctx context.Context, request SyncRequest) (SyncResult, error) {
 	if h.Sync != nil {

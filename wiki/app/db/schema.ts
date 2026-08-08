@@ -113,7 +113,7 @@ export const pages = sqliteTable("pages", {
   status: text("status").notNull().default("published"),
   // "published" | "archived"
   pageType: text("page_type"),
-  // "event-report" | "speaker-profile" | "project-log" | "how-to-guide" | "onboarding-guide" | "survey-report" | null
+  // existing ingestion types plus event/venue/vendor/person/organization/playbook/wiki-index/wiki-log | null
   pageMetadata: text("page_metadata"),
   ingestionSessionId: text("ingestion_session_id").references(() => ingestionSessions.id),
   actionabilityScore: integer("actionability_score"),
@@ -124,6 +124,8 @@ export const pages = sqliteTable("pages", {
   chapterId: text("chapter_id").references(() => chapters.id, { onDelete: "set null" }),
   authorId: text("author_id").notNull(),
   lastEditedBy: text("last_edited_by").notNull(),
+  // "human" | "agent" — human pages appear under raw/ in clones; agent pages under pages/
+  origin: text("origin").notNull().default("human"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   syncRevision: integer("sync_revision").notNull().default(1),
@@ -281,6 +283,7 @@ export const pageSources = sqliteTable("page_sources", {
     .references(() => pages.id, { onDelete: "cascade" }),
   url: text("url").notNull(),
   title: text("title").notNull(),
+  sourceId: text("source_id").references(() => sources.id, { onDelete: "set null" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 });
 
@@ -528,4 +531,16 @@ export const sourceAssets = sqliteTable("source_assets", {
   mimeType: text("mime_type").notNull(),
   byteSize: integer("byte_size").notNull(),
   contentHash: text("content_hash").notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// source_document_ingestions — server record of ingested content hashes
+// ---------------------------------------------------------------------------
+export const sourceDocumentIngestions = sqliteTable("source_document_ingestions", {
+  documentId: text("document_id").primaryKey(),
+  contentHash: text("content_hash").notNull(),
+  ingestedAt: integer("ingested_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  ingestedBy: text("ingested_by")
+    .notNull()
+    .references(() => user.id),
 });

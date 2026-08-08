@@ -62,6 +62,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       generalRole: schema.pages.generalRole,
       chapterId: schema.pages.chapterId,
       authorId: schema.pages.authorId,
+      origin: schema.pages.origin,
+      pageType: schema.pages.pageType,
     })
     .from(schema.pages)
     .where(eq(schema.pages.slug, params.slug ?? ""))
@@ -69,6 +71,14 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 
   if (!page) throw new Response("Not Found", { status: 404 });
   if (page.status === "archived") throw new Response("Not Found", { status: 404 });
+  if (
+    page.pageType === "wiki-index" ||
+    page.pageType === "wiki-log" ||
+    page.slug === "index" ||
+    page.slug === "log"
+  ) {
+    throw new Response("This page is maintained by the ingest toolchain", { status: 403 });
+  }
 
   const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
   if (!permissions.canEdit) {
@@ -113,12 +123,23 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       titleEn: schema.pages.titleEn,
       visibility: schema.pages.visibility,
       generalRole: schema.pages.generalRole,
+      origin: schema.pages.origin,
+      pageType: schema.pages.pageType,
     })
     .from(schema.pages)
     .where(eq(schema.pages.slug, params.slug ?? ""))
     .get();
 
   if (!page) throw new Response("Not Found", { status: 404 });
+  const slug = params.slug ?? "";
+  if (
+    page.pageType === "wiki-index" ||
+    page.pageType === "wiki-log" ||
+    slug === "index" ||
+    slug === "log"
+  ) {
+    throw new Response("This page is maintained by the ingest toolchain", { status: 403 });
+  }
 
   const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
   if (!permissions.canEdit) {

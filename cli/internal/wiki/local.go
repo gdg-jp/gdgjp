@@ -6,10 +6,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 type FrontMatter struct {
@@ -49,6 +50,7 @@ func splitMarkdown(raw []byte) (FrontMatter, string, error) {
 	}
 	return fm, rest[n+5:], nil
 }
+
 func renderMarkdown(fm FrontMatter, content string) ([]byte, error) {
 	raw, err := yaml.Marshal(fm)
 	if err != nil {
@@ -56,7 +58,12 @@ func renderMarkdown(fm FrontMatter, content string) ([]byte, error) {
 	}
 	return []byte("---\n" + string(raw) + "---\n" + content), nil
 }
-func digest(raw []byte) string { h := sha256.Sum256(raw); return hex.EncodeToString(h[:]) }
+
+func digest(raw []byte) string {
+	h := sha256.Sum256(raw)
+	return hex.EncodeToString(h[:])
+}
+
 func pageDir(root string, p Page, byID map[string]Page) (string, error) {
 	parts := []string{}
 	seen := map[string]bool{}
@@ -77,7 +84,12 @@ func pageDir(root string, p Page, byID map[string]Page) (string, error) {
 	}
 	return filepath.Join(append([]string{root, "pages"}, parts...)...), nil
 }
-func WritePage(root string, p Page, byID map[string]Page, token string, c *Client) error {
+
+// WritePage writes a single-language page.md for the configured clone language.
+func WritePage(root string, p Page, byID map[string]Page, token string, c *Client, lang string) error {
+	if lang == "" {
+		lang = "ja"
+	}
 	dir, err := pageDir(root, p, byID)
 	if err != nil {
 		return err
@@ -94,21 +106,31 @@ func WritePage(root string, p Page, byID map[string]Page, token string, c *Clien
 	for i := range attachments {
 		attachments[i].Path = filepath.ToSlash(filepath.Join("assets", attachmentLocalName(attachments[i])))
 	}
-	common := FrontMatter{GDGWiki: 1, ID: p.ID, Slug: p.Slug, Language: "ja", Title: p.JA.Title, Summary: p.JA.Summary, TranslationStatus: p.JA.TranslationStatus, PageType: p.PageType, PageMetadata: p.PageMetadata, ParentSlug: parentSlug, SortOrder: p.SortOrder, Visibility: p.Visibility, GeneralRole: p.GeneralRole, ChapterID: p.ChapterID, Tags: p.Tags, Access: p.Access, Sources: p.Sources, Attachments: attachments}
-	ja, err := renderMarkdown(common, p.JA.Content)
+	locale := p.JA
+	if lang == "en" {
+		locale = p.EN
+	}
+	if locale.Title == "" && locale.Content == "" && lang == "ja" && p.EN.Title != "" {
+		locale = p.EN
+		lang = "en"
+	}
+	fm := FrontMatter{
+		GDGWiki: 1, ID: p.ID, Slug: p.Slug, Language: lang,
+		Title: locale.Title, Summary: locale.Summary, TranslationStatus: locale.TranslationStatus,
+		PageType: p.PageType, PageMetadata: p.PageMetadata, ParentSlug: parentSlug, SortOrder: p.SortOrder,
+		Visibility: p.Visibility, GeneralRole: p.GeneralRole, ChapterID: p.ChapterID,
+		Tags: p.Tags, Access: p.Access, Sources: p.Sources, Attachments: attachments,
+	}
+	pageMD, err := renderMarkdown(fm, locale.Content)
 	if err != nil {
 		return err
 	}
-	en, err := renderMarkdown(FrontMatter{GDGWiki: 1, ID: p.ID, Slug: p.Slug, Language: "en", Title: p.EN.Title, Summary: p.EN.Summary, TranslationStatus: p.EN.TranslationStatus}, p.EN.Content)
-	if err != nil {
+	if err = os.WriteFile(filepath.Join(dir, "page.md"), pageMD, 0644); err != nil {
 		return err
 	}
-	if err = os.WriteFile(filepath.Join(dir, "ja.md"), ja, 0644); err != nil {
-		return err
-	}
-	if err = os.WriteFile(filepath.Join(dir, "en.md"), en, 0644); err != nil {
-		return err
-	}
+	// Remove legacy bilingual files from older clones if present.
+	_ = os.Remove(filepath.Join(dir, "ja.md"))
+	_ = os.Remove(filepath.Join(dir, "en.md"))
 	for _, a := range p.Attachments {
 		if a.DownloadURL == "" {
 			continue
@@ -138,44 +160,52 @@ func attachmentLocalName(attachment Attachment) string {
 var contextBackground = func() context.Context { return context.Background() }
 
 func LocalPages(root string) (map[string]LocalPage, error) {
+	lang := "ja"
+	if config, err := ReadConfig(root); err == nil {
+		lang = config.Lang
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	return LocalPagesForLanguage(root, lang)
+}
+
+// LocalPagesForLanguage enforces the one locale configured for a clone. It is
+// also used by the remote helper after extracting a Git tree, where .gdgwiki
+// is intentionally absent because it is ignored.
+func LocalPagesForLanguage(root, language string) (map[string]LocalPage, error) {
+	if language != "ja" && language != "en" {
+		return nil, fmt.Errorf("unsupported Wiki language %q", language)
+	}
 	result := map[string]LocalPage{}
 	base := filepath.Join(root, "pages")
 	err := filepath.WalkDir(base, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() || d.Name() != "ja.md" {
+		if d.IsDir() || d.Name() != "page.md" {
 			return nil
 		}
 		dir := filepath.Dir(path)
-		jaRaw, e := os.ReadFile(path)
+		raw, e := os.ReadFile(path)
 		if e != nil {
 			return e
 		}
-		enRaw, e := os.ReadFile(filepath.Join(dir, "en.md"))
-		if e != nil {
-			return fmt.Errorf("%s: missing en.md", dir)
-		}
-		ja, jac, e := splitMarkdown(jaRaw)
+		fm, body, e := splitMarkdown(raw)
 		if e != nil {
 			return fmt.Errorf("%s: %w", path, e)
 		}
-		en, enc, e := splitMarkdown(enRaw)
-		if e != nil {
-			return e
-		}
-		if ja.Language != "ja" || en.Language != "en" || ja.GDGWiki != 1 || en.GDGWiki != 1 || ja.Slug == "" || ja.Slug != en.Slug || ja.ID != en.ID {
-			return fmt.Errorf("%s: invalid paired page metadata", dir)
+		if fm.GDGWiki != 1 || fm.Slug == "" || fm.Language != language {
+			return fmt.Errorf("%s: invalid page metadata", dir)
 		}
 		rel, _ := filepath.Rel(base, dir)
-		key := ja.ID
+		key := fm.ID
 		if key == "" {
 			key = "new:" + rel
 		}
 		if _, exists := result[key]; exists {
-			return fmt.Errorf("duplicate page id %q", ja.ID)
+			return fmt.Errorf("duplicate page id %q", fm.ID)
 		}
-		result[key] = LocalPage{Dir: dir, Rel: rel, ja: ja, en: en, JAContent: jac, ENContent: enc}
+		result[key] = LocalPage{Dir: dir, Rel: rel, fm: fm, Content: body}
 		return nil
 	})
 	if errors.Is(err, os.ErrNotExist) {
@@ -185,15 +215,16 @@ func LocalPages(root string) (map[string]LocalPage, error) {
 }
 
 type LocalPage struct {
-	Dir, Rel, JAContent, ENContent string
-	ja, en                         FrontMatter
+	Dir, Rel, Content string
+	fm                FrontMatter
 }
 
-func (l LocalPage) Attachments() []Attachment { return l.ja.Attachments }
-func (l LocalPage) Slug() string              { return l.ja.Slug }
+func (l LocalPage) Attachments() []Attachment { return l.fm.Attachments }
+func (l LocalPage) Slug() string              { return l.fm.Slug }
+func (l LocalPage) Language() string          { return l.fm.Language }
 
 func PageFromLocal(l LocalPage, all map[string]LocalPage) (Page, error) {
-	if filepath.Base(l.Dir) != l.ja.Slug {
+	if filepath.Base(l.Dir) != l.fm.Slug {
 		return Page{}, fmt.Errorf("%s: directory name must match slug", l.Rel)
 	}
 	var parentID *string
@@ -213,10 +244,10 @@ func PageFromLocal(l LocalPage, all map[string]LocalPage) (Page, error) {
 			return Page{}, fmt.Errorf("%s: parent directory is not a wiki page", l.Rel)
 		}
 	}
-	if (l.ja.ParentSlug == nil) != (parentID == nil) || (l.ja.ParentSlug != nil && filepath.Base(parentDir) != *l.ja.ParentSlug) {
+	if (l.fm.ParentSlug == nil) != (parentID == nil) || (l.fm.ParentSlug != nil && filepath.Base(parentDir) != *l.fm.ParentSlug) {
 		return Page{}, fmt.Errorf("%s: parent_slug does not match directory hierarchy", l.Rel)
 	}
-	attachments := append([]Attachment(nil), l.ja.Attachments...)
+	attachments := append([]Attachment(nil), l.fm.Attachments...)
 	for i := range attachments {
 		clean := filepath.Clean(attachments[i].Path)
 		if attachments[i].Path == "" || filepath.IsAbs(clean) || clean == "assets" || !strings.HasPrefix(filepath.ToSlash(clean), "assets/") || strings.Contains(filepath.ToSlash(clean), "../") {
@@ -228,8 +259,27 @@ func PageFromLocal(l LocalPage, all map[string]LocalPage) (Page, error) {
 		}
 		attachments[i].SHA256 = digest(raw)
 	}
-	return Page{ID: l.ja.ID, Slug: l.ja.Slug, ParentID: parentID, JA: Locale{Title: l.ja.Title, Summary: l.ja.Summary, TranslationStatus: l.ja.TranslationStatus, Content: l.JAContent}, EN: Locale{Title: l.en.Title, Summary: l.en.Summary, TranslationStatus: l.en.TranslationStatus, Content: l.ENContent}, PageType: stringPointer(l.ja.PageType), PageMetadata: l.ja.PageMetadata, SortOrder: l.ja.SortOrder, Visibility: l.ja.Visibility, GeneralRole: l.ja.GeneralRole, ChapterID: l.ja.ChapterID, Tags: l.ja.Tags, Access: l.ja.Access, Sources: l.ja.Sources, Attachments: attachments}, nil
+	locale := Locale{
+		Title:             l.fm.Title,
+		Summary:           l.fm.Summary,
+		TranslationStatus: l.fm.TranslationStatus,
+		Content:           l.Content,
+	}
+	page := Page{
+		ID: l.fm.ID, Slug: l.fm.Slug, ParentID: parentID,
+		PageType: stringPointer(l.fm.PageType), PageMetadata: l.fm.PageMetadata,
+		SortOrder: l.fm.SortOrder, Visibility: l.fm.Visibility, GeneralRole: l.fm.GeneralRole,
+		ChapterID: l.fm.ChapterID, Tags: l.fm.Tags, Access: l.fm.Access, Sources: l.fm.Sources,
+		Attachments: attachments,
+	}
+	if l.fm.Language == "en" {
+		page.EN = locale
+	} else {
+		page.JA = locale
+	}
+	return page, nil
 }
+
 func stringPointer(value any) *string {
 	if value == nil {
 		return nil

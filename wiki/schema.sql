@@ -167,7 +167,7 @@ CREATE TABLE page_sources (
   url TEXT NOT NULL DEFAULT '',
   title TEXT NOT NULL DEFAULT '',
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
-);
+, "source_id" TEXT REFERENCES "sources"("id") ON DELETE SET NULL);
 CREATE TABLE IF NOT EXISTS "page_views" (
   "user_id"   TEXT    NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
   "page_id"   TEXT    NOT NULL REFERENCES "pages"("id") ON DELETE CASCADE,
@@ -397,7 +397,8 @@ CREATE TABLE IF NOT EXISTS "pages" (
   general_role TEXT NOT NULL DEFAULT 'viewer'
     CHECK (general_role IN ('viewer', 'commenter', 'editor')),
   sync_revision INTEGER NOT NULL DEFAULT 1
-);
+, "origin" TEXT NOT NULL DEFAULT 'human'
+  CHECK ("origin" IN ('human', 'agent')));
 CREATE INDEX idx_pages_status_updated ON pages (status, updated_at DESC);
 CREATE INDEX idx_pages_parent_order ON pages (parent_id, sort_order ASC);
 CREATE INDEX idx_pages_author ON pages (author_id, updated_at DESC);
@@ -528,3 +529,13 @@ CREATE TABLE IF NOT EXISTS "source_assets" (
 );
 CREATE INDEX "idx_source_assets_source_document_id"
   ON "source_assets" ("source_document_id");
+CREATE INDEX "idx_pages_origin" ON "pages" ("origin");
+CREATE INDEX "idx_page_sources_source_id" ON "page_sources" ("source_id");
+CREATE TABLE IF NOT EXISTS "source_document_ingestions" (
+  "document_id"  TEXT NOT NULL PRIMARY KEY,
+  "content_hash" TEXT NOT NULL,
+  "ingested_at"  INTEGER NOT NULL DEFAULT (unixepoch()),
+  "ingested_by"  TEXT NOT NULL REFERENCES "user"("id")
+);
+CREATE INDEX "idx_source_document_ingestions_hash"
+  ON "source_document_ingestions" ("content_hash");

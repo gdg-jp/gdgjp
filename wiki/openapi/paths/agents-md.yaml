@@ -1,0 +1,14 @@
+get:
+  operationId: getWikiAgentsMd
+  summary: Fetch the centrally managed AGENTS.md for wiki clones
+  security:
+    - BearerAuth: []
+  responses:
+    '200':
+      description: AGENTS.md markdown body.
+      content:
+        text/markdown:
+          schema:
+            type: string
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized

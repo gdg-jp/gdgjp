@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -120,6 +121,21 @@ type SyncResult struct {
 	Pages []SyncResultPage `json:"pages"`
 }
 
+type SourcesManifestEntry struct {
+	DocumentID   string  `json:"documentId"`
+	SourceID     *string `json:"sourceId"`
+	Kind         string  `json:"kind"`
+	Title        string  `json:"title"`
+	Path         string  `json:"path"`
+	ContentHash  string  `json:"contentHash"`
+	CapturedAt   *int64  `json:"capturedAt"`
+	IngestedHash *string `json:"ingestedHash"`
+}
+type SourcesManifest struct {
+	Version   int                    `json:"version"`
+	Documents []SourcesManifestEntry `json:"documents"`
+}
+
 func (c *Client) request(ctx context.Context, token, method, path string, body io.Reader, contentType string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, body)
 	if err != nil {
@@ -140,18 +156,30 @@ func (c *Client) request(ctx context.Context, token, method, path string, body i
 	raw, _ := io.ReadAll(io.LimitReader(res.Body, 64<<10))
 	return nil, &HTTPError{StatusCode: res.StatusCode, Message: strings.TrimSpace(string(raw))}
 }
-func (c *Client) Snapshot(ctx context.Context, token string) (Snapshot, error) {
-	res, err := c.generatedClient().GetWikiSnapshotWithResponse(ctx, bearer(token))
+
+func (c *Client) Snapshot(ctx context.Context, token, lang string) (Snapshot, error) {
+	if lang == "" {
+		lang = "ja"
+	}
+	return c.snapshotRaw(ctx, token, lang)
+}
+
+func (c *Client) snapshotRaw(ctx context.Context, token, lang string) (Snapshot, error) {
+	path := "/api/cli/wiki/snapshot?lang=" + url.QueryEscape(lang)
+	res, err := c.request(ctx, token, http.MethodGet, path, nil, "")
 	if err != nil {
 		return Snapshot{}, err
 	}
-	if res.StatusCode() < 200 || res.StatusCode() >= 300 {
-		return Snapshot{}, &HTTPError{StatusCode: res.StatusCode(), Message: strings.TrimSpace(string(res.Body))}
-	}
+	defer res.Body.Close()
 	var out Snapshot
-	err = json.Unmarshal(res.Body, &out)
+	err = json.NewDecoder(res.Body).Decode(&out)
 	return out, err
 }
+
+func localePresent(locale Locale) bool {
+	return locale.Title != "" || locale.Summary != "" || locale.Content != "" || locale.TranslationStatus != ""
+}
+
 func (c *Client) Sync(ctx context.Context, token string, input SyncRequest) (SyncResult, error) {
 	operations := make([]any, 0, len(input.Operations))
 	for _, operation := range input.Operations {
@@ -163,10 +191,6 @@ func (c *Client) Sync(ctx context.Context, token string, input SyncRequest) (Syn
 		if p == nil {
 			return SyncResult{}, fmt.Errorf("upsert operation has no page")
 		}
-		// Empty list fields are omitted from clone-generated YAML. YAML decoding
-		// represents those omissions as nil, while the API deliberately requires
-		// arrays for these fields. Preserve the clone/sync round trip by encoding
-		// an omitted list as an empty JSON array rather than null.
 		tags := p.Tags
 		if tags == nil {
 			tags = []string{}
@@ -176,11 +200,24 @@ func (c *Client) Sync(ctx context.Context, token string, input SyncRequest) (Syn
 			attachments = []Attachment{}
 		}
 		page := map[string]any{
-			"slug": p.Slug, "parentId": p.ParentID, "sortOrder": p.SortOrder, "ja": p.JA, "en": p.EN,
-			"meta": map[string]any{"pageType": p.PageType, "pageMetadata": p.PageMetadata, "visibility": p.Visibility, "generalRole": p.GeneralRole, "chapterId": p.ChapterID, "tags": tags, "access": emptyArrayIfNil(p.Access), "sources": emptyArrayIfNil(p.Sources), "attachments": attachments},
+			"slug": p.Slug, "parentId": p.ParentID, "sortOrder": p.SortOrder,
+			"meta": map[string]any{
+				"pageType": p.PageType, "pageMetadata": p.PageMetadata,
+				"visibility": p.Visibility, "generalRole": p.GeneralRole, "chapterId": p.ChapterID,
+				"tags": tags, "access": emptyArrayIfNil(p.Access), "sources": emptyArrayIfNil(p.Sources),
+				"attachments": attachments,
+			},
 		}
 		if p.ID != "" {
 			page["id"] = p.ID
+		}
+		// Partial-locale sync: only send locales that are present so a
+		// Japanese-only clone cannot wipe English content.
+		if localePresent(p.JA) {
+			page["ja"] = p.JA
+		}
+		if localePresent(p.EN) {
+			page["en"] = p.EN
 		}
 		upsert := map[string]any{"kind": "upsert", "page": page}
 		if operation.ExpectedRevision > 0 {
@@ -210,6 +247,7 @@ func emptyArrayIfNil(value any) any {
 	}
 	return value
 }
+
 func (c *Client) Download(ctx context.Context, token, rawURL string) ([]byte, error) {
 	path := rawURL
 	if strings.HasPrefix(rawURL, c.BaseURL) {
@@ -233,4 +271,61 @@ func (c *Client) Upload(ctx context.Context, token, attachmentID string, data []
 		return &HTTPError{StatusCode: res.StatusCode(), Message: strings.TrimSpace(string(res.Body))}
 	}
 	return nil
+}
+
+func (c *Client) SourcesManifest(ctx context.Context, token, lang string) (SourcesManifest, error) {
+	if lang == "" {
+		lang = "ja"
+	}
+	path := "/api/cli/wiki/sources?lang=" + url.QueryEscape(lang)
+	res, err := c.request(ctx, token, http.MethodGet, path, nil, "")
+	if err != nil {
+		return SourcesManifest{}, err
+	}
+	defer res.Body.Close()
+	var out SourcesManifest
+	err = json.NewDecoder(res.Body).Decode(&out)
+	return out, err
+}
+
+func (c *Client) SourceContent(ctx context.Context, token, documentID, lang string) ([]byte, error) {
+	if lang == "" {
+		lang = "ja"
+	}
+	path := "/api/cli/wiki/sources/" + url.PathEscape(documentID) + "/content?lang=" + url.QueryEscape(lang)
+	res, err := c.request(ctx, token, http.MethodGet, path, nil, "")
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	return io.ReadAll(res.Body)
+}
+
+func (c *Client) MarkIngested(ctx context.Context, token string, documents []SourcesManifestEntry) error {
+	payload := make([]map[string]string, 0, len(documents))
+	for _, doc := range documents {
+		payload = append(payload, map[string]string{
+			"documentId":  doc.DocumentID,
+			"contentHash": doc.ContentHash,
+		})
+	}
+	raw, err := json.Marshal(map[string]any{"documents": payload})
+	if err != nil {
+		return err
+	}
+	res, err := c.request(ctx, token, http.MethodPost, "/api/cli/wiki/sources/ingested", bytes.NewReader(raw), "application/json")
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	return nil
+}
+
+func (c *Client) AgentsMD(ctx context.Context, token string) ([]byte, error) {
+	res, err := c.request(ctx, token, http.MethodGet, "/api/cli/wiki/agents-md", nil, "")
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	return io.ReadAll(res.Body)
 }

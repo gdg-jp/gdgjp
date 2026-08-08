@@ -18,12 +18,16 @@ export function snapshotContentAsMarkdown(content: string): string {
   return canonicalMarkdown(content);
 }
 
-/** GET /api/cli/wiki/snapshot -- all non-archived, non-task pages the token can view. */
+/** GET /api/cli/wiki/snapshot -- agent pages visible to the CLI token. */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const identity = await getCliIdentity(request, env);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
   const db = getDb(env);
+  const langParam = new URL(request.url).searchParams.get("lang");
+  if (langParam !== null && langParam !== "ja" && langParam !== "en")
+    return Response.json({ error: "invalid_lang" }, { status: 400 });
+  const locale = langParam === "en" ? "en" : "ja";
   const [pages, tags, access, sources, attachments] = await Promise.all([
     db.select().from(schema.pages).all(),
     db.select().from(schema.pageTags).all(),
@@ -34,7 +38,8 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const chapterIds = identity.chapters.map((chapter) => String(chapter.chapterId));
   const visible: WikiSnapshotPage[] = [];
   for (const page of pages) {
-    if (page.status === "archived" || page.pageType === "task-list") continue;
+    if (page.status === "archived" || page.pageType === "task-list" || page.origin !== "agent")
+      continue;
     const permissions = await getEffectivePagePermissions(db, page, identity.user, chapterIds);
     if (!permissions.canView) continue;
     visible.push({
@@ -43,18 +48,22 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       parentId: page.parentId,
       sortOrder: page.sortOrder,
       revision: page.syncRevision,
-      ja: {
-        title: page.titleJa,
-        summary: page.summaryJa,
-        translationStatus: page.translationStatusJa,
-        content: snapshotContentAsMarkdown(page.contentJa),
-      },
-      en: {
-        title: page.titleEn,
-        summary: page.summaryEn,
-        translationStatus: page.translationStatusEn,
-        content: snapshotContentAsMarkdown(page.contentEn),
-      },
+      ...(locale === "ja" && {
+        ja: {
+          title: page.titleJa,
+          summary: page.summaryJa,
+          translationStatus: page.translationStatusJa,
+          content: snapshotContentAsMarkdown(page.contentJa),
+        },
+      }),
+      ...(locale === "en" && {
+        en: {
+          title: page.titleEn,
+          summary: page.summaryEn,
+          translationStatus: page.translationStatusEn,
+          content: snapshotContentAsMarkdown(page.contentEn),
+        },
+      }),
       pageType: page.pageType,
       pageMetadata: page.pageMetadata ? JSON.parse(page.pageMetadata) : null,
       visibility: page.visibility,
@@ -72,7 +81,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         })),
       sources: sources
         .filter((row) => row.pageId === page.id)
-        .map(({ id, url, title }) => ({ id, url, title })),
+        .map(({ id, url, title, sourceId }) => ({ id, url, title, sourceId })),
       attachments: attachments
         .filter((row) => row.pageId === page.id)
         .map(({ id, r2Key, fileName, mimeType }) => ({

@@ -12,7 +12,10 @@ import (
 // MaterializeSnapshot writes a server-authoritative snapshot into a temporary
 // ordinary Git repository. The resulting commit is intentionally local-only:
 // it is a merge base for Git UX, never a second source of truth.
-func MaterializeSnapshot(ctx context.Context, snapshot Snapshot, token string, client *Client, parent string) (root, commit string, err error) {
+func MaterializeSnapshot(ctx context.Context, snapshot Snapshot, token string, client *Client, parent, lang string) (root, commit string, err error) {
+	if lang == "" {
+		lang = "ja"
+	}
 	root, err = os.MkdirTemp("", "gdg-wiki-snapshot-")
 	if err != nil {
 		return "", "", err
@@ -31,7 +34,7 @@ func MaterializeSnapshot(ctx context.Context, snapshot Snapshot, token string, c
 		if page.PageType != nil && *page.PageType == "task-list" {
 			continue
 		}
-		if err = WritePage(root, page, byID, token, client); err != nil {
+		if err = WritePage(root, page, byID, token, client, lang); err != nil {
 			return "", "", err
 		}
 	}

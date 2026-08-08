@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
@@ -7,7 +7,16 @@ import { getCliIdentity } from "~/lib/cli-identity.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions, isGeneralAccess, isPageRole } from "~/lib/page-access.server";
+import { sendOrRunTranslation } from "~/lib/queue-processors.server";
 import type { components } from "../../openapi/types.generated";
+import {
+  buildNewPageLocaleValues,
+  buildPartialLocaleUpdate,
+  humanOriginSyncError,
+  humanParentSyncError,
+  jaContentChanged,
+  sourceHasReference,
+} from "./api.cli.wiki.sync.helpers";
 
 type WikiSyncRequest = components["schemas"]["SyncRequest"];
 type WikiSyncResult = components["schemas"]["SyncResult"];
@@ -24,35 +33,44 @@ const Access = z.object({
   subjectLabel: z.string(),
   role: z.enum(["viewer", "commenter", "editor"]),
 });
-const Source = z.object({ url: z.string().url(), title: z.string() });
+const Source = z
+  .object({
+    id: z.string().optional(),
+    url: z.string().optional(),
+    title: z.string(),
+    sourceId: z.string().nullable().optional(),
+  })
+  .refine(sourceHasReference, { message: "source requires title and url or sourceId" });
 const Attachment = z.object({
   id: z.string().optional(),
   fileName: z.string().min(1),
   mimeType: z.string().min(1),
 });
-const PagePayload = z.object({
-  id: z.string().optional(),
-  slug: z
-    .string()
-    .min(1)
-    .max(160)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
-  parentId: z.string().nullable(),
-  sortOrder: z.number().int().min(0),
-  ja: Language,
-  en: Language,
-  meta: z.object({
-    pageType: z.string().nullable(),
-    pageMetadata: z.unknown().nullable(),
-    visibility: z.enum(["restricted", "unlisted", "public"]),
-    generalRole: z.enum(["viewer", "commenter", "editor"]),
-    chapterId: z.string().nullable(),
-    tags: z.array(z.string().min(1)),
-    access: z.array(Access),
-    sources: z.array(Source),
-    attachments: z.array(Attachment),
-  }),
-});
+const PagePayload = z
+  .object({
+    id: z.string().optional(),
+    slug: z
+      .string()
+      .min(1)
+      .max(160)
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    parentId: z.string().nullable(),
+    sortOrder: z.number().int().min(0),
+    ja: Language.optional(),
+    en: Language.optional(),
+    meta: z.object({
+      pageType: z.string().nullable(),
+      pageMetadata: z.unknown().nullable(),
+      visibility: z.enum(["restricted", "unlisted", "public"]),
+      generalRole: z.enum(["viewer", "commenter", "editor"]),
+      chapterId: z.string().nullable(),
+      tags: z.array(z.string().min(1)),
+      access: z.array(Access),
+      sources: z.array(Source),
+      attachments: z.array(Attachment),
+    }),
+  })
+  .refine((page) => page.ja || page.en, { message: "one locale is required" });
 const Body = z.object({
   operations: z
     .array(
@@ -114,13 +132,15 @@ export async function action({ request, context }: ActionFunctionArgs) {
     : [];
   const chapterIds = identity.chapters.map((chapter) => String(chapter.chapterId));
   const conflicts: Array<{ id: string; revision: number }> = [];
+  const translatePageIds = new Set<string>();
 
-  // Validate all conditions before building D1's transactional batch.
   for (const operation of syncRequest.operations) {
     const id = operation.kind === "archive" ? operation.id : operation.page.id;
     const current = id ? byId.get(id) : undefined;
     if (id && !current) return Response.json({ error: "not_found", id }, { status: 404 });
     if (current) {
+      const originError = humanOriginSyncError(current.origin);
+      if (originError) return Response.json({ error: originError, id }, { status: 403 });
       if (current.pageType === "task-list")
         return Response.json({ error: "task_list_unsupported", id }, { status: 400 });
       const permission = await getEffectivePagePermissions(db, current, identity.user, chapterIds);
@@ -181,8 +201,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
     const { page } = operation;
     const id = page.id ?? nanoid();
     const current = page.id ? byId.get(page.id) : undefined;
-    // Parent must exist (or be created in this request), must not be the page,
-    // and cannot point at a task list. This prevents hierarchy corruption.
     if (page.parentId === id)
       return Response.json({ error: "circular_parent", id }, { status: 400 });
     if (page.parentId) {
@@ -191,6 +209,9 @@ export async function action({ request, context }: ActionFunctionArgs) {
         (await db.select().from(schema.pages).where(eq(schema.pages.id, page.parentId)).get());
       if (!parent || parent.pageType === "task-list")
         return Response.json({ error: "invalid_parent", id: page.parentId }, { status: 400 });
+      const parentError = humanParentSyncError(parent.origin);
+      if (parentError)
+        return Response.json({ error: parentError, id: page.parentId }, { status: 400 });
       const parentPermissions = await getEffectivePagePermissions(
         db,
         parent,
@@ -201,27 +222,31 @@ export async function action({ request, context }: ActionFunctionArgs) {
         return Response.json({ error: "parent_forbidden", id: page.parentId }, { status: 403 });
     }
     const meta = page.meta;
-    const contentJa = canonicalMarkdown(page.ja.content);
-    const contentEn = canonicalMarkdown(page.en.content);
+    const contentJa = page.ja ? canonicalMarkdown(page.ja.content) : undefined;
+    const contentEn = page.en ? canonicalMarkdown(page.en.content) : undefined;
     if (!isGeneralAccess(meta.visibility) || !isPageRole(meta.generalRole))
       return Response.json({ error: "invalid_access" }, { status: 400 });
     if (meta.pageType === "task-list")
       return Response.json({ error: "task_list_unsupported" }, { status: 400 });
     if (!current) {
+      const localeValues = buildNewPageLocaleValues({
+        ...page,
+        meta,
+      });
       statements.push(
         env.DB.prepare(
-          "INSERT INTO pages (id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,author_id,last_edited_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch())",
+          "INSERT INTO pages (id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,origin,author_id,last_edited_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch())",
         ).bind(
           id,
-          page.ja.title,
-          page.en.title,
+          localeValues.titleJa,
+          localeValues.titleEn,
           page.slug,
-          contentJa,
-          contentEn,
-          page.ja.translationStatus,
-          page.en.translationStatus,
-          page.ja.summary,
-          page.en.summary,
+          contentJa ?? "",
+          contentEn ?? "",
+          localeValues.translationStatusJa,
+          localeValues.translationStatusEn,
+          localeValues.summaryJa,
+          localeValues.summaryEn,
           page.parentId,
           page.sortOrder,
           "published",
@@ -230,10 +255,12 @@ export async function action({ request, context }: ActionFunctionArgs) {
           meta.visibility,
           meta.generalRole,
           meta.chapterId,
+          "agent",
           identity.user.id,
           identity.user.id,
         ),
       );
+      if (page.ja) translatePageIds.add(id);
     } else {
       statements.push(
         env.DB.prepare(
@@ -248,33 +275,17 @@ export async function action({ request, context }: ActionFunctionArgs) {
           identity.user.id,
         ),
       );
-      statements.push(
-        env.DB.prepare(
-          "UPDATE pages SET title_ja=?,title_en=?,slug=?,content_ja=?,content_en=?,translation_status_ja=?,translation_status_en=?,summary_ja=?,summary_en=?,parent_id=?,sort_order=?,page_type=?,page_metadata=?,visibility=?,general_role=?,chapter_id=?,last_edited_by=?,updated_at=unixepoch() WHERE id=? AND sync_revision=?",
-        ).bind(
-          page.ja.title,
-          page.en.title,
-          page.slug,
-          contentJa,
-          contentEn,
-          page.ja.translationStatus,
-          page.en.translationStatus,
-          page.ja.summary,
-          page.en.summary,
-          page.parentId,
-          page.sortOrder,
-          meta.pageType,
-          meta.pageMetadata === null ? null : JSON.stringify(meta.pageMetadata),
-          meta.visibility,
-          meta.generalRole,
-          meta.chapterId,
-          identity.user.id,
-          id,
-          operation.expectedRevision,
-        ),
+      const update = buildPartialLocaleUpdate(
+        { ...page, meta },
+        contentJa,
+        contentEn,
+        identity.user.id,
+        id,
+        operation.expectedRevision,
       );
+      statements.push(env.DB.prepare(update.sql).bind(...update.binds));
+      if (jaContentChanged(current, page.ja, contentJa)) translatePageIds.add(id);
     }
-    // Front matter arrays are replacement sets.  Tags must already exist.
     if (meta.tags.length) {
       const known = await db
         .select({ slug: schema.tags.slug })
@@ -310,8 +321,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
     for (const source of meta.sources)
       statements.push(
         env.DB.prepare(
-          "INSERT INTO page_sources (id,page_id,url,title,created_at) VALUES (?,?,?,?,unixepoch())",
-        ).bind(nanoid(), id, source.url, source.title),
+          "INSERT INTO page_sources (id,page_id,url,title,source_id,created_at) VALUES (?,?,?,?,?,unixepoch())",
+        ).bind(source.id ?? nanoid(), id, source.url ?? "", source.title, source.sourceId ?? null),
       );
     const attachmentIds: Record<string, string> = {};
     const requestedIds = new Set(meta.attachments.flatMap((a) => (a.id ? [a.id] : [])));
@@ -365,10 +376,11 @@ export async function action({ request, context }: ActionFunctionArgs) {
       { status: 400 },
     );
   }
-  // D1 is authoritative; R2 objects are removed only after that transaction
-  // commits. A failed R2 deletion leaves an unreachable object, never a stale
-  // attachment visible through the wiki.
   await Promise.all(objectsToDelete.map((key) => env.BUCKET.delete(key)));
+  const { ctx } = context.cloudflare;
+  for (const pageId of translatePageIds) {
+    await sendOrRunTranslation(env, ctx, pageId);
+  }
   const revisions = await db
     .select({ id: schema.pages.id, revision: schema.pages.syncRevision })
     .from(schema.pages)

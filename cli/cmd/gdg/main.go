@@ -49,7 +49,15 @@ func runGitRemoteHelper(ctx context.Context, args []string) error {
 		Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr,
 	}
 	helper.Snapshot = func(requestContext context.Context, token string) (wiki.Snapshot, error) {
-		snapshot, requestErr := client.Snapshot(requestContext, token)
+		lang := "ja"
+		if helper.GitDir != "" {
+			if root, rootErr := wiki.WorkTreeRoot(helper.GitDir); rootErr == nil {
+				if cfg, cfgErr := wiki.ReadConfig(root); cfgErr == nil {
+					lang = cfg.Lang
+				}
+			}
+		}
+		snapshot, requestErr := client.Snapshot(requestContext, token, lang)
 		if !isUnauthorized(requestErr) {
 			return snapshot, requestErr
 		}
@@ -62,7 +70,7 @@ func runGitRemoteHelper(ctx context.Context, args []string) error {
 		}
 		credential = fresh
 		helper.Token = fresh.AccessToken
-		return client.Snapshot(requestContext, fresh.AccessToken)
+		return client.Snapshot(requestContext, fresh.AccessToken, lang)
 	}
 	helper.Sync = func(requestContext context.Context, token string, request wiki.SyncRequest) (wiki.SyncResult, error) {
 		result, requestErr := client.Sync(requestContext, token, request)

@@ -12,7 +12,7 @@ func TestMaterializeSnapshotCreatesGitCommit(t *testing.T) {
 		ID: "page-1", Slug: "guide", Visibility: "restricted", GeneralRole: "viewer",
 		JA: Locale{Title: "ガイド", TranslationStatus: "human", Content: "本文"},
 		EN: Locale{Title: "Guide", TranslationStatus: "human", Content: "Body"},
-	}}}, "", NewClient(), "")
+	}}}, "", NewClient(), "", "ja")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,7 +20,10 @@ func TestMaterializeSnapshotCreatesGitCommit(t *testing.T) {
 	if len(commit) != 40 {
 		t.Fatalf("commit = %q", commit)
 	}
-	if _, err := os.Stat(filepath.Join(root, "pages", "guide", "ja.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(root, "pages", "guide", "page.md")); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "pages", "guide", "ja.md")); !os.IsNotExist(err) {
+		t.Fatalf("legacy ja.md should be absent: %v", err)
 	}
 }
