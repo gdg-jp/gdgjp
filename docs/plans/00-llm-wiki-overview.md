@@ -37,7 +37,8 @@ Implement the `llm-wiki.md` pattern in `wiki/` and `cli/`: maintain a structured
      │
      ▼
    [Cloud]  Query
-     agents.gdgs.jp (Chat SDK / Vercel) calls the Wiki agent API
+     agent.gdgs.jp (Chat SDK / Vercel) explores the Wiki through the agent API
+     (read index → ls a namespace → cat a page; no embeddings)
      and answers operations-team questions from Google Chat / Discord
 ```
 
@@ -48,9 +49,10 @@ Keep “fetching,” which requires OAuth tokens, Browser Rendering, and R2, in 
 
 - Separate raw content from Wiki pages by adding a `sources` table. Move the existing `google-document/` content to raw. Retire the current approach of importing Google Docs directly as Wiki pages because it is a UX failure.
 - Fetching happens in the cloud; integration happens locally.
-- Queries are served by agents.gdgs.jp (Chat SDK, Vercel + Redis), called from Google Chat / Discord.
+- Queries are served by agent.gdgs.jp (Chat SDK, Vercel + Redis), called from Google Chat / Discord.
+- **Query is file exploration, not RAG.** The agent reads `index` first, then lists and reads pages, the way a coding agent navigates a codebase — per `llm-wiki.md`, the index-first path “avoids the need for embedding-based RAG infrastructure,” because Ingest has already done the synthesis. The Wiki agent API is an HTTP surface on the existing bounded, permission-aware `ls`/`cat`/`search` workspace in `wiki/workers/features/ingestion/tools/workspace/`. Vectorize stays with the interactive `/search` UI and is not on the agent path.
 - Only Google Chat history is supported. Discord log ingestion is out of scope (Discord is used only as a Query-side adapter).
-- agents.gdgs.jp links each Chat user with accounts.gdgs.jp and calls the Wiki API using that person’s token. This structurally prevents restricted pages from leaking into Chat.
+- agent.gdgs.jp links each Chat user with accounts.gdgs.jp and calls the Wiki API using that person’s token. This structurally prevents restricted pages from leaking into Chat.
 - That link is only as trustworthy as the webhook it arrives on. Google Chat JWT verification (signature **and** audience) and Discord Ed25519 verification are a hard precondition of Stage 5, not a hardening pass — an unverified webhook makes the Chat user ID forgeable and defeats the permission model above.
 
 ### Wiki editing policy (outline of `AGENTS.md`)
@@ -93,9 +95,15 @@ Extend the `pageType` enum in `wiki/shared/ingestion/domain.ts`.
 | 3 | [03-local-ingest-toolchain.md](03-local-ingest-toolchain.md) | Local Ingest toolchain (single-language clone, `origin`, `gdg wiki raw pull` / `ingest` / `lint`) |
 | 3a | [03a-agents-md.md](03a-agents-md.md) | Full `AGENTS.md` draft (appendix to Stage 3) |
 | 4 | [04-reingest-existing-google-docs.md](04-reingest-existing-google-docs.md) | Move 107 existing `google-document/` pages to raw and resynthesize them |
-| 5 | [05-agents-gdgs-jp.md](05-agents-gdgs-jp.md) | agents.gdgs.jp (Chat SDK / Vercel, Google Chat + Discord) |
+| 5 | [05-agents-gdgs-jp.md](05-agents-gdgs-jp.md) | agent.gdgs.jp (Chat SDK / Vercel, Google Chat + Discord) — **overview only; the work is split into 5a–5e below** |
+| 5a | [05a-accounts-agents-client.md](05a-accounts-agents-client.md) | OAuth client `agents` on accounts.gdgs.jp |
+| 5b | [05b-wiki-agent-api.md](05b-wiki-agent-api.md) | Wiki `/api/agent/*` read API + OpenAPI |
+| 5c | [05c-agents-workspace.md](05c-agents-workspace.md) | `agents/` workspace scaffold + webhook signature verification |
+| 5d | [05d-account-linking.md](05d-account-linking.md) | PKCE linking flow, Redis state, token encryption and rotation |
+| 5e | [05e-agent-tools.md](05e-agent-tools.md) | ToolLoopAgent, Wiki tools, citations, `/unlink`, setup docs |
 
 Dependencies: 1 → 2, 1 → 3 → 4, 3 → 5. Stages 2 and 3 can proceed in parallel.
+Within Stage 5: 5a → 5d, 5b → 5e, 5c → 5d → 5e; 5a, 5b, and 5c can proceed in parallel.
 
 ## Risks and considerations
 
@@ -105,4 +113,4 @@ Dependencies: 1 → 2, 1 → 3 → 4, 3 → 5. Stages 2 and 3 can proceed in par
 - Stage 3 includes a breaking clone-format change (`ja.md`/`en.md` → `page.md`, single language). Existing clones (such as `~/proj/wiki`) must be recloned. At the same time, change the sync API to update locales partially; otherwise, pushing from a Japanese-only clone deletes every English page. Lock this down with regression tests.
 - Stage 1 shipped in `b54b338` but does not yet satisfy its own plan on three points, each marked as a divergence note in [01-sources-raw-layer.md](01-sources-raw-layer.md): the `/sources` form is Google Picker-only, so the `website` fetcher is unreachable from the product; fetch completion has no attempt lease, so overlapping queue deliveries can silently archive documents a newer fetch just discovered; and refresh enqueue failures leave rows stuck as `pending`. Stages 2 and 3 build directly on this fetch lifecycle, so close them before starting either.
 - LLM-generated Wiki pages may include speaker contact details or budgets. Stage 4 must always include human review.
-- Chat SDK has no official state adapter for Cloudflare KV/DO. Vercel + Redis was selected with the understanding that moving agents.gdgs.jp to Cloudflare would require a custom adapter.
+- Chat SDK has no official state adapter for Cloudflare KV/DO. Vercel + Redis was selected with the understanding that moving agent.gdgs.jp to Cloudflare would require a custom adapter.
