@@ -1,13 +1,42 @@
 /**
- * Google Drive OAuth and export utilities.
+ * Google Drive / Chat OAuth and export utilities.
  *
- * Scope: drive.readonly — used to export Google Docs / Slides as PDF.
+ * Scopes cover Drive export, Forms responses, and Chat Space/message reads.
  */
 
 export interface DriveToken {
   accessToken: string;
   refreshToken: string | null;
   expiresAt: Date;
+  /** Space-delimited scopes returned by the token endpoint, when present. */
+  grantedScopes: string | null;
+}
+
+export const GOOGLE_CHAT_SPACES_SCOPE = "https://www.googleapis.com/auth/chat.spaces.readonly";
+export const GOOGLE_CHAT_MESSAGES_SCOPE = "https://www.googleapis.com/auth/chat.messages.readonly";
+/** Required to resolve Chat `users/...` resources to directory display names. */
+export const GOOGLE_DIRECTORY_READONLY_SCOPE = "https://www.googleapis.com/auth/directory.readonly";
+
+export const GOOGLE_OAUTH_SCOPES = [
+  "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/forms.responses.readonly",
+  GOOGLE_CHAT_SPACES_SCOPE,
+  GOOGLE_CHAT_MESSAGES_SCOPE,
+  GOOGLE_DIRECTORY_READONLY_SCOPE,
+].join(" ");
+
+export const REQUIRED_GOOGLE_CHAT_SCOPES = [
+  GOOGLE_CHAT_SPACES_SCOPE,
+  GOOGLE_CHAT_MESSAGES_SCOPE,
+  GOOGLE_DIRECTORY_READONLY_SCOPE,
+] as const;
+
+/** True when every required Chat scope appears in a space-delimited grant string. */
+export function hasRequiredGoogleChatScopes(grantedScopes: string | null | undefined): boolean {
+  if (!grantedScopes) return false;
+  const granted = new Set(grantedScopes.split(/\s+/).filter(Boolean));
+  return REQUIRED_GOOGLE_CHAT_SCOPES.every((scope) => granted.has(scope));
 }
 
 // ---------------------------------------------------------------------------
@@ -23,8 +52,7 @@ export function getGoogleDriveAuthUrl(
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope:
-      "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/forms.responses.readonly",
+    scope: GOOGLE_OAUTH_SCOPES,
     access_type: "offline",
     prompt: "consent",
     state,
@@ -41,6 +69,7 @@ interface TokenResponse {
   refresh_token?: string;
   expires_in: number;
   token_type: string;
+  scope?: string;
 }
 
 const TOKEN_TIMEOUT_MS = 10_000;
@@ -85,6 +114,7 @@ export async function exchangeCodeForToken(
     accessToken: data.access_token,
     refreshToken: data.refresh_token ?? null,
     expiresAt: new Date(Date.now() + data.expires_in * 1000),
+    grantedScopes: data.scope?.trim() || null,
   };
 }
 
@@ -96,7 +126,7 @@ export async function refreshAccessToken(
   refreshToken: string,
   clientId: string,
   clientSecret: string,
-): Promise<{ accessToken: string; expiresAt: Date }> {
+): Promise<{ accessToken: string; expiresAt: Date; grantedScopes: string | null }> {
   const response = await fetchWithTimeout(
     "https://oauth2.googleapis.com/token",
     {
@@ -121,6 +151,7 @@ export async function refreshAccessToken(
   return {
     accessToken: data.access_token,
     expiresAt: new Date(Date.now() + data.expires_in * 1000),
+    grantedScopes: data.scope?.trim() || null,
   };
 }
 

@@ -3,8 +3,13 @@ import * as schema from "../../../app/db/schema";
 import { getDb } from "../../../app/lib/db.server";
 import { getGoogleDriveAccessToken } from "../../../app/lib/google-drive-token.server";
 import { resolveSourceAssets } from "./assets";
+import { GOOGLE_CHAT_REAUTH_MESSAGE, fetchGoogleChatSource } from "./google-chat";
 import { fetchGoogleDocSource } from "./google-doc";
-import { persistSourceDocument } from "./persist";
+import {
+  isSourceFetchAttemptCurrent,
+  persistSourceDocument,
+  sourceFetchAttemptIsCurrent,
+} from "./persist";
 import { fetchWebsiteSource } from "./website";
 
 export const SOURCE_REFRESH_CRON = "0 16 * * *";
@@ -28,6 +33,8 @@ export function isRetryableFetchError(error: unknown): boolean {
 
   if (
     message.includes("Google Drive is not connected") ||
+    message.includes(GOOGLE_CHAT_REAUTH_MESSAGE) ||
+    message.includes("Google Chat scopes are missing") ||
     message.includes("Unsupported Google Workspace URL") ||
     message.startsWith("Unsupported source kind") ||
     message.includes("invalid image type") ||
@@ -67,12 +74,28 @@ export async function fetchSource(env: Env, sourceId: string): Promise<FetchSour
     return { status: "skipped", retryable: false };
   }
 
-  await db
+  const attemptId = crypto.randomUUID();
+  const claimed = await db
     .update(schema.sources)
-    .set({ status: "fetching", errorMessage: null, updatedAt: new Date() })
-    .where(and(eq(schema.sources.id, sourceId), ne(schema.sources.status, "archived")));
+    .set({
+      status: "fetching",
+      fetchAttemptId: attemptId,
+      errorMessage: null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(schema.sources.id, sourceId), ne(schema.sources.status, "archived")))
+    .returning({ id: schema.sources.id })
+    .get();
+  if (!claimed) {
+    console.warn("[sources] fetch skipped; source archived before claim", sourceId);
+    return { status: "skipped", retryable: false };
+  }
 
   try {
+    if (source.kind === "google-chat-space") {
+      return await fetchAndPersistGoogleChat(env, source, attemptId);
+    }
+
     const fetched =
       source.kind === "google-doc"
         ? await fetchGoogleDocSource(source.url, () =>
@@ -99,49 +122,136 @@ export async function fetchSource(env: Env, sourceId: string): Promise<FetchSour
             })
           : { markdown: document.markdown, assets: [] };
 
-      await persistSourceDocument(env, {
+      const persisted = await persistSourceDocument(env, {
         sourceId,
+        fetchAttemptId: attemptId,
         path: document.path,
         title: document.title,
         markdown: resolved.markdown,
         assets: resolved.assets,
       });
+      if (persisted.skipped) return { status: "skipped", retryable: false };
     }
 
-    await archiveMissingDocuments(
-      db,
-      sourceId,
-      fetched.documents.map((document) => document.path),
-    );
+    if (
+      !(await archiveMissingDocuments(
+        db,
+        sourceId,
+        attemptId,
+        fetched.documents.map((document) => document.path),
+      ))
+    ) {
+      return { status: "skipped", retryable: false };
+    }
 
     // Only commit completion if this job still owns the row. A user who archived the
     // source while the fetch was in flight must not have it silently reopened.
-    await db
+    const completed = await db
       .update(schema.sources)
       .set({
         title: fetched.title || source.title,
         status: "ready",
+        fetchAttemptId: null,
         errorMessage: null,
         lastFetchedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(and(eq(schema.sources.id, sourceId), eq(schema.sources.status, "fetching")));
+      .where(
+        and(
+          eq(schema.sources.id, sourceId),
+          eq(schema.sources.fetchAttemptId, attemptId),
+          eq(schema.sources.status, "fetching"),
+        ),
+      )
+      .returning({ id: schema.sources.id })
+      .get();
+    if (!completed) return { status: "skipped", retryable: false };
 
     return { status: "ready", retryable: false };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const retryable = isRetryableFetchError(error);
     console.error("[sources] fetch failed", sourceId, "retryable:", retryable, message);
-    await db
+    const failed = await db
       .update(schema.sources)
       .set({
         status: "error",
+        fetchAttemptId: null,
         errorMessage: message.slice(0, 2000),
         updatedAt: new Date(),
       })
-      .where(and(eq(schema.sources.id, sourceId), eq(schema.sources.status, "fetching")));
+      .where(
+        and(
+          eq(schema.sources.id, sourceId),
+          eq(schema.sources.fetchAttemptId, attemptId),
+          eq(schema.sources.status, "fetching"),
+        ),
+      )
+      .returning({ id: schema.sources.id })
+      .get();
+    if (!failed) return { status: "skipped", retryable: false };
     return { status: "error", retryable };
   }
+}
+
+async function fetchAndPersistGoogleChat(
+  env: Env,
+  source: typeof schema.sources.$inferSelect,
+  attemptId: string,
+): Promise<FetchSourceOutcome> {
+  const db = getDb(env);
+  const spaceName = source.externalId;
+  if (!spaceName) {
+    throw new Error("Google Chat source is missing external_id (spaces/…)");
+  }
+
+  const fetched = await fetchGoogleChatSource(env, {
+    sourceId: source.id,
+    spaceName,
+    addedBy: source.addedBy,
+  });
+
+  for (const document of fetched.documents) {
+    const persisted = await persistSourceDocument(env, {
+      sourceId: source.id,
+      fetchAttemptId: attemptId,
+      path: document.path,
+      title: document.title,
+      markdown: document.markdown,
+      cursor: document.cursor,
+      metadata: document.metadata,
+      assets: document.assets,
+      assetPolicy: document.assetPolicy,
+    });
+    if (persisted.skipped) return { status: "skipped", retryable: false };
+  }
+
+  if (!(await archiveMissingDocuments(db, source.id, attemptId, fetched.retainedPaths))) {
+    return { status: "skipped", retryable: false };
+  }
+
+  const completed = await db
+    .update(schema.sources)
+    .set({
+      title: fetched.title || source.title,
+      status: "ready",
+      fetchAttemptId: null,
+      errorMessage: null,
+      lastFetchedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(schema.sources.id, source.id),
+        eq(schema.sources.fetchAttemptId, attemptId),
+        eq(schema.sources.status, "fetching"),
+      ),
+    )
+    .returning({ id: schema.sources.id })
+    .get();
+  if (!completed) return { status: "skipped", retryable: false };
+
+  return { status: "ready", retryable: false };
 }
 
 /**
@@ -155,8 +265,10 @@ export async function fetchSource(env: Env, sourceId: string): Promise<FetchSour
 async function archiveMissingDocuments(
   db: ReturnType<typeof getDb>,
   sourceId: string,
+  attemptId: string,
   fetchedPaths: readonly string[],
-): Promise<void> {
+): Promise<boolean> {
+  if (!(await isSourceFetchAttemptCurrent(db, sourceId, attemptId))) return false;
   const stale =
     fetchedPaths.length === 0
       ? eq(schema.sourceDocuments.sourceId, sourceId)
@@ -168,7 +280,14 @@ async function archiveMissingDocuments(
   await db
     .update(schema.sourceDocuments)
     .set({ status: "archived" })
-    .where(and(stale, ne(schema.sourceDocuments.status, "archived")));
+    .where(
+      and(
+        stale,
+        ne(schema.sourceDocuments.status, "archived"),
+        sourceFetchAttemptIsCurrent(sourceId, attemptId),
+      ),
+    );
+  return isSourceFetchAttemptCurrent(db, sourceId, attemptId);
 }
 
 /** Enqueue due sources for automatic refresh (daily / weekly policies). */
@@ -199,10 +318,13 @@ export async function enqueueDueSourceRefreshes(env: Env): Promise<number> {
       source.refreshPolicy === "daily" ? nowMs - last >= dayMs : nowMs - last >= 7 * dayMs;
     if (!due) continue;
 
-    await db
+    const claimed = await db
       .update(schema.sources)
-      .set({ status: "pending", updatedAt: new Date() })
-      .where(eq(schema.sources.id, source.id));
+      .set({ status: "pending", fetchAttemptId: null, updatedAt: new Date() })
+      .where(and(eq(schema.sources.id, source.id), ne(schema.sources.status, "archived")))
+      .returning({ id: schema.sources.id })
+      .get();
+    if (!claimed) continue;
     await env.SOURCE_FETCH_QUEUE.send({ type: "source_fetch", sourceId: source.id });
     enqueued += 1;
   }

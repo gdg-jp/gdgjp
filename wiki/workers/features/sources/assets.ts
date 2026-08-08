@@ -105,7 +105,11 @@ function extensionFor(mimeType: string): string {
   if (mimeType === "image/gif") return "gif";
   if (mimeType === "image/webp") return "webp";
   if (mimeType === "image/svg+xml") return "svg";
-  return "jpg";
+  if (mimeType === "application/pdf") return "pdf";
+  if (mimeType === "text/plain") return "txt";
+  if (mimeType === "text/markdown") return "md";
+  if (mimeType.startsWith("image/")) return "jpg";
+  return "bin";
 }
 
 function removeImagePlaceholder(markdown: string, objectId: string): string {

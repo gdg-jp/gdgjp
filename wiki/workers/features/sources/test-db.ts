@@ -14,35 +14,85 @@ import * as schema from "../../../app/db/schema";
  */
 export function createSourcesTestDb() {
   const sqlite = new DatabaseSync(":memory:");
+  let afterExecute:
+    | ((sql: string, params: unknown[], method: "run" | "all" | "values" | "get") => void)
+    | undefined;
   sqlite.exec(`
     CREATE TABLE "user" ("id" TEXT PRIMARY KEY);
     CREATE TABLE "chapters" ("id" TEXT PRIMARY KEY);
+    CREATE TABLE "google_drive_tokens" (
+      "user_id" TEXT NOT NULL PRIMARY KEY,
+      "access_token" TEXT NOT NULL,
+      "refresh_token" TEXT,
+      "expires_at" INTEGER NOT NULL,
+      "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
+    );
     INSERT INTO "user" ("id") VALUES ('user-1');
   `);
   sqlite.exec(
     readFileSync(new URL("../../../migrations/0033_add_sources.sql", import.meta.url), "utf8"),
   );
+  sqlite.exec(
+    readFileSync(
+      new URL("../../../migrations/0034_google_chat_ingestion.sql", import.meta.url),
+      "utf8",
+    ),
+  );
+  sqlite.exec(
+    readFileSync(
+      new URL("../../../migrations/0035_source_fetch_attempt.sql", import.meta.url),
+      "utf8",
+    ),
+  );
+
+  const execute = async (
+    sql: string,
+    params: unknown[],
+    method: "run" | "all" | "values" | "get",
+  ) => {
+    const statement = sqlite.prepare(sql);
+    if (method === "run") {
+      const result = statement.run(...(params as never[]));
+      afterExecute?.(sql, params, method);
+      return { rows: [], meta: { changes: result.changes } };
+    }
+    // The proxy driver wants positional values, not column-keyed objects. For `get`
+    // it wants the single row itself, and `undefined` — not `[]` — when there is none;
+    // an empty array maps to an all-undefined object that reads as a real row.
+    const rows = statement.all(...(params as never[])).map((row) => Object.values(row));
+    afterExecute?.(sql, params, method);
+    if (method === "get") {
+      return { rows: rows[0] as unknown[] } as { rows: unknown[] };
+    }
+    return { rows };
+  };
 
   const db = drizzle(
-    async (sql, params, method) => {
-      const statement = sqlite.prepare(sql);
-      if (method === "run") {
-        statement.run(...(params as never[]));
-        return { rows: [] };
+    execute,
+    async (batch) => {
+      sqlite.exec("BEGIN IMMEDIATE");
+      try {
+        const results = [];
+        for (const query of batch) {
+          results.push(await execute(query.sql, query.params, query.method));
+        }
+        sqlite.exec("COMMIT");
+        return results;
+      } catch (error) {
+        sqlite.exec("ROLLBACK");
+        throw error;
       }
-      // The proxy driver wants positional values, not column-keyed objects. For `get`
-      // it wants the single row itself, and `undefined` — not `[]` — when there is none;
-      // an empty array maps to an all-undefined object that reads as a real row.
-      const rows = statement.all(...(params as never[])).map((row) => Object.values(row));
-      if (method === "get") {
-        return { rows: rows[0] as unknown[] } as { rows: unknown[] };
-      }
-      return { rows };
     },
     { schema },
   );
 
-  return { db, sqlite };
+  return {
+    db,
+    sqlite,
+    setAfterExecute(callback: typeof afterExecute) {
+      afterExecute = callback;
+    },
+  };
 }
 
 export type SourcesTestDb = ReturnType<typeof createSourcesTestDb>;

@@ -1,92 +1,227 @@
+import type { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createSourcesTestDb } from "./test-db";
 
-const getMock = vi.fn();
-const insertMock = vi.fn();
-const updateMock = vi.fn();
-const deleteMock = vi.fn();
+const { db, sqlite } = createSourcesTestDb();
 const putMock = vi.fn();
+let generatedId = 0;
 
-vi.mock("../../../app/lib/db.server", () => ({
-  getDb: () => ({
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          get: getMock,
-        }),
-      }),
-    }),
-    insert: () => ({
-      values: insertMock,
-    }),
-    update: () => ({
-      set: () => ({
-        where: updateMock,
-      }),
-    }),
-    delete: () => ({
-      where: deleteMock,
-    }),
-  }),
+vi.mock("../../../app/lib/db.server", () => ({ getDb: () => db }));
+vi.mock("nanoid", () => ({
+  nanoid: () => {
+    generatedId += 1;
+    return generatedId === 1 ? "doc-fixed-id" : `asset-fixed-id-${generatedId}`;
+  },
 }));
-
-vi.mock("nanoid", () => ({ nanoid: () => "doc-fixed-id" }));
 
 import { contentR2Key, persistSourceDocument, sha256Hex } from "./persist";
 
+const SOURCE_ID = "src-1";
+const ATTEMPT_ID = "attempt-1";
+
+function env(): Env {
+  return { BUCKET: { put: putMock } } as unknown as Env;
+}
+
+function seedSource(store: DatabaseSync) {
+  store.exec("DELETE FROM source_assets; DELETE FROM source_documents; DELETE FROM sources;");
+  store
+    .prepare(
+      `INSERT INTO sources (id, kind, url, title, added_by, status, fetch_attempt_id)
+       VALUES (?, 'google-doc', 'https://docs.google.com/document/d/abc/edit', 'Doc', 'user-1',
+               'fetching', ?)`,
+    )
+    .run(SOURCE_ID, ATTEMPT_ID);
+}
+
+beforeEach(() => {
+  generatedId = 0;
+  putMock.mockReset();
+  putMock.mockResolvedValue(undefined);
+  seedSource(sqlite);
+});
+
 describe("persistSourceDocument", () => {
-  beforeEach(() => {
-    getMock.mockReset();
-    insertMock.mockReset();
-    updateMock.mockReset();
-    deleteMock.mockReset();
-    putMock.mockReset();
-    insertMock.mockResolvedValue(undefined);
-    updateMock.mockResolvedValue(undefined);
-    deleteMock.mockResolvedValue(undefined);
-    putMock.mockResolvedValue(undefined);
-  });
-
-  it("skips R2 write when content_hash is unchanged", async () => {
-    const markdown = "# Hello";
-    const hash = await sha256Hex(new TextEncoder().encode(markdown));
-    getMock.mockResolvedValue({
-      id: "doc-1",
-      path: "index",
-      contentHash: hash,
-      r2Key: `raw/src-1/doc-1/${hash}.md`,
-      status: "ready",
-    });
-
-    const env = { BUCKET: { put: putMock } } as unknown as Env;
-    const result = await persistSourceDocument(env, {
-      sourceId: "src-1",
-      path: "index",
-      title: "Hello",
-      markdown,
-    });
-
-    expect(result.written).toBe(false);
-    expect(result.contentHash).toBe(hash);
-    expect(putMock).not.toHaveBeenCalled();
-    expect(insertMock).not.toHaveBeenCalled();
-    expect(updateMock).not.toHaveBeenCalled();
-  });
-
-  it("writes a new R2 object when content changes", async () => {
-    getMock.mockResolvedValue(undefined);
-    const env = { BUCKET: { put: putMock } } as unknown as Env;
-    const result = await persistSourceDocument(env, {
-      sourceId: "src-1",
+  it("skips the R2 write when content_hash is unchanged", async () => {
+    const input = {
+      sourceId: SOURCE_ID,
+      fetchAttemptId: ATTEMPT_ID,
       path: "index",
       title: "Hello",
       markdown: "# Hello",
+    };
+    await persistSourceDocument(env(), input);
+    putMock.mockClear();
+
+    const result = await persistSourceDocument(env(), input);
+
+    expect(result).toMatchObject({ skipped: false, written: false });
+    expect(putMock).not.toHaveBeenCalled();
+  });
+
+  it("writes content and its replacement assets together", async () => {
+    const result = await persistSourceDocument(env(), {
+      sourceId: SOURCE_ID,
+      fetchAttemptId: ATTEMPT_ID,
+      path: "index",
+      title: "Hello",
+      markdown: "# Hello",
+      assets: [
+        {
+          path: "raw/src-1/assets/hello.png",
+          r2Key: "raw/src-1/assets/hello.png",
+          mimeType: "image/png",
+          byteSize: 12,
+          contentHash: "asset-hash",
+        },
+      ],
     });
 
-    expect(result.written).toBe(true);
-    expect(putMock).toHaveBeenCalledTimes(1);
-    expect(putMock.mock.calls[0][0]).toBe(
-      contentR2Key("src-1", "doc-fixed-id", result.contentHash),
+    const hash = await sha256Hex(new TextEncoder().encode("# Hello"));
+    expect(result).toMatchObject({ skipped: false, written: true, contentHash: hash });
+    expect(putMock).toHaveBeenCalledWith(
+      contentR2Key(SOURCE_ID, "doc-fixed-id", hash),
+      expect.any(Uint8Array),
+      expect.any(Object),
     );
-    expect(insertMock).toHaveBeenCalled();
+    expect(sqlite.prepare("SELECT path FROM source_assets ORDER BY path").all()).toEqual([
+      { path: "raw/src-1/assets/hello.png" },
+    ]);
+  });
+
+  it("merges incremental assets without dropping historical attachments", async () => {
+    await persistSourceDocument(env(), {
+      sourceId: SOURCE_ID,
+      fetchAttemptId: ATTEMPT_ID,
+      path: "2026-08",
+      title: "August",
+      markdown: "# First",
+      assets: [
+        {
+          path: "raw/src-1/assets/first.png",
+          r2Key: "raw/src-1/assets/first.png",
+          mimeType: "image/png",
+          byteSize: 10,
+          contentHash: "first",
+        },
+      ],
+    });
+
+    await persistSourceDocument(env(), {
+      sourceId: SOURCE_ID,
+      fetchAttemptId: ATTEMPT_ID,
+      path: "2026-08",
+      title: "August",
+      markdown: "# First\n\n# Second",
+      assetPolicy: "merge",
+      assets: [
+        {
+          path: "raw/src-1/assets/second.png",
+          r2Key: "raw/src-1/assets/second.png",
+          mimeType: "image/png",
+          byteSize: 20,
+          contentHash: "second",
+        },
+      ],
+    });
+
+    expect(sqlite.prepare("SELECT path FROM source_assets ORDER BY path").all()).toEqual([
+      { path: "raw/src-1/assets/first.png" },
+      { path: "raw/src-1/assets/second.png" },
+    ]);
+  });
+
+  it("replaces stale assets during a full-document refresh", async () => {
+    await persistSourceDocument(env(), {
+      sourceId: SOURCE_ID,
+      fetchAttemptId: ATTEMPT_ID,
+      path: "index",
+      title: "Document",
+      markdown: "# First",
+      assets: [
+        {
+          path: "raw/src-1/assets/stale.png",
+          r2Key: "raw/src-1/assets/stale.png",
+          mimeType: "image/png",
+          byteSize: 10,
+          contentHash: "stale",
+        },
+      ],
+    });
+
+    await persistSourceDocument(env(), {
+      sourceId: SOURCE_ID,
+      fetchAttemptId: ATTEMPT_ID,
+      path: "index",
+      title: "Document",
+      markdown: "# Updated",
+      assetPolicy: "replace",
+      assets: [
+        {
+          path: "raw/src-1/assets/current.png",
+          r2Key: "raw/src-1/assets/current.png",
+          mimeType: "image/png",
+          byteSize: 20,
+          contentHash: "current",
+        },
+      ],
+    });
+
+    expect(sqlite.prepare("SELECT path FROM source_assets ORDER BY path").all()).toEqual([
+      { path: "raw/src-1/assets/current.png" },
+    ]);
+  });
+
+  it("writes no document or asset rows after its lease is superseded", async () => {
+    sqlite.prepare("UPDATE sources SET fetch_attempt_id = 'attempt-2' WHERE id = ?").run(SOURCE_ID);
+
+    const result = await persistSourceDocument(env(), {
+      sourceId: SOURCE_ID,
+      fetchAttemptId: ATTEMPT_ID,
+      path: "index",
+      title: "Hello",
+      markdown: "# Hello",
+      assets: [],
+    });
+
+    expect(result).toEqual({ skipped: true });
+    expect(putMock).not.toHaveBeenCalled();
+    expect(sqlite.prepare("SELECT COUNT(*) AS count FROM source_documents").get()).toEqual({
+      count: 0,
+    });
+  });
+
+  it("does not publish an R2 pointer after losing the lease during the put", async () => {
+    putMock.mockImplementationOnce(async () => {
+      sqlite
+        .prepare("UPDATE sources SET fetch_attempt_id = 'attempt-2' WHERE id = ?")
+        .run(SOURCE_ID);
+    });
+
+    const result = await persistSourceDocument(env(), {
+      sourceId: SOURCE_ID,
+      fetchAttemptId: ATTEMPT_ID,
+      path: "index",
+      title: "Hello",
+      markdown: "# Hello",
+      assets: [
+        {
+          path: "raw/src-1/assets/hello.png",
+          r2Key: "raw/src-1/assets/hello.png",
+          mimeType: "image/png",
+          byteSize: 12,
+          contentHash: "asset-hash",
+        },
+      ],
+    });
+
+    expect(result).toEqual({ skipped: true });
+    expect(putMock).toHaveBeenCalledTimes(1);
+    expect(sqlite.prepare("SELECT COUNT(*) AS count FROM source_documents").get()).toEqual({
+      count: 0,
+    });
+    expect(sqlite.prepare("SELECT COUNT(*) AS count FROM source_assets").get()).toEqual({
+      count: 0,
+    });
   });
 });

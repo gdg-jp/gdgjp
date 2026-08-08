@@ -57,14 +57,17 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         accessToken: token.accessToken,
         refreshToken: token.refreshToken,
         expiresAt: token.expiresAt,
+        grantedScopes: token.grantedScopes,
         updatedAt: now,
       })
       .onConflictDoUpdate({
         target: schema.googleDriveTokens.userId,
         set: {
           accessToken: token.accessToken,
-          refreshToken: token.refreshToken,
+          // Keep the previous refresh token when Google omits a new one.
+          ...(token.refreshToken ? { refreshToken: token.refreshToken } : {}),
           expiresAt: token.expiresAt,
+          grantedScopes: token.grantedScopes,
           updatedAt: now,
         },
       });

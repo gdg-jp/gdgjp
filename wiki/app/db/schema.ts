@@ -169,6 +169,8 @@ export const googleDriveTokens = sqliteTable("google_drive_tokens", {
   accessToken: text("access_token").notNull(),
   refreshToken: text("refresh_token"),
   expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  /** Space-delimited OAuth scopes from the token-exchange response. */
+  grantedScopes: text("granted_scopes"),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 });
 
@@ -487,6 +489,8 @@ export const sources = sqliteTable("sources", {
   status: text("status").notNull().default("pending"),
   // "manual" | "daily" | "weekly"
   refreshPolicy: text("refresh_policy").notNull().default("manual"),
+  /** Ownership token for the pending refresh request or active fetch attempt. */
+  fetchAttemptId: text("fetch_attempt_id"),
   lastFetchedAt: integer("last_fetched_at", { mode: "timestamp" }),
   errorMessage: text("error_message"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
@@ -506,6 +510,8 @@ export const sourceDocuments = sqliteTable(
     contentHash: text("content_hash").notNull(),
     capturedAt: integer("captured_at", { mode: "timestamp" }).notNull(),
     cursor: text("cursor"),
+    /** JSON blob (e.g. extracted URLs). Nullable; Stage 3 reads this. */
+    metadata: text("metadata"),
     // "ready" | "error" | "archived"
     status: text("status").notNull().default("ready"),
   },

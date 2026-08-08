@@ -22,6 +22,7 @@ export default [
   route("/api/ingest/:sessionId/regenerate", "routes/api.ingest.$sessionId.regenerate.ts"),
   route("/api/google-drive/auth", "routes/api.google-drive.auth.ts"),
   route("/api/google-drive/callback", "routes/api.google-drive.callback.ts"),
+  route("/api/google-chat/spaces", "routes/api.google-chat.spaces.ts"),
   route("/api/google-documents/picker-token", "routes/api.google-documents.picker-token.ts"),
   route("/api/google-documents/import/preview", "routes/api.google-documents.import.preview.ts"),
   route("/api/google-documents/import", "routes/api.google-documents.import.ts"),

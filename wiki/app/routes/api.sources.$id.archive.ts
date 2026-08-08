@@ -30,7 +30,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   await db
     .update(schema.sources)
-    .set({ status: "archived", updatedAt: new Date() })
+    .set({ status: "archived", fetchAttemptId: null, updatedAt: new Date() })
     .where(eq(schema.sources.id, sourceId));
 
   return Response.json({ id: sourceId, status: "archived" });

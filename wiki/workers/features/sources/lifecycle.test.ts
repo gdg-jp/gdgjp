@@ -2,7 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSourcesTestDb } from "./test-db";
 
-const { db, sqlite } = createSourcesTestDb();
+const { db, sqlite, setAfterExecute } = createSourcesTestDb();
 
 const fetchGoogleDocSource = vi.fn();
 
@@ -14,7 +14,7 @@ vi.mock("../../../app/lib/google-drive-token.server", () => ({
   getGoogleDriveAccessToken: async () => "token-1",
 }));
 
-import { fetchSource } from "./fetch-source";
+import { enqueueDueSourceRefreshes, fetchSource } from "./fetch-source";
 
 const SOURCE_ID = "src-1";
 
@@ -35,6 +35,14 @@ function seedSource(store: DatabaseSync) {
 function statusOf(store: DatabaseSync, id: string): string {
   return (store.prepare("SELECT status FROM sources WHERE id = ?").get(id) as { status: string })
     .status;
+}
+
+function fetchAttemptOf(store: DatabaseSync, id: string): string | null {
+  return (
+    store.prepare("SELECT fetch_attempt_id FROM sources WHERE id = ?").get(id) as {
+      fetch_attempt_id: string | null;
+    }
+  ).fetch_attempt_id;
 }
 
 function documentStatuses(store: DatabaseSync): Record<string, string> {
@@ -59,6 +67,7 @@ function fetchResult(paths: readonly string[], markdownById: (path: string) => s
 
 beforeEach(() => {
   fetchGoogleDocSource.mockReset();
+  setAfterExecute(undefined);
   seedSource(sqlite);
 });
 
@@ -109,7 +118,7 @@ describe("fetchSource lifecycle", () => {
 
     const outcome = await fetchSource(env(), SOURCE_ID);
 
-    expect(outcome).toMatchObject({ status: "error", retryable: true });
+    expect(outcome).toMatchObject({ status: "skipped", retryable: false });
     expect(statusOf(sqlite, SOURCE_ID)).toBe("archived");
   });
 
@@ -120,5 +129,61 @@ describe("fetchSource lifecycle", () => {
 
     expect(outcome).toMatchObject({ status: "ready" });
     expect(statusOf(sqlite, SOURCE_ID)).toBe("ready");
+    expect(fetchAttemptOf(sqlite, SOURCE_ID)).toBeNull();
+  });
+
+  it("lets only the newest overlapping attempt persist and reconcile documents", async () => {
+    let releaseFirstFetch: ((result: ReturnType<typeof fetchResult>) => void) | undefined;
+    fetchGoogleDocSource
+      .mockImplementationOnce(
+        () =>
+          new Promise<ReturnType<typeof fetchResult>>((resolve) => {
+            releaseFirstFetch = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(fetchResult(["new"], () => "# newer"));
+
+    const first = fetchSource(env(), SOURCE_ID);
+    await vi.waitFor(() => expect(fetchGoogleDocSource).toHaveBeenCalledTimes(1));
+
+    const second = await fetchSource(env(), SOURCE_ID);
+    expect(second).toMatchObject({ status: "ready" });
+    expect(documentStatuses(sqlite)).toEqual({ new: "ready" });
+
+    releaseFirstFetch?.(fetchResult(["old"], () => "# older"));
+    const firstOutcome = await first;
+
+    expect(firstOutcome).toMatchObject({ status: "skipped", retryable: false });
+    expect(documentStatuses(sqlite)).toEqual({ new: "ready" });
+    expect(fetchAttemptOf(sqlite, SOURCE_ID)).toBeNull();
+  });
+});
+
+describe("scheduled source refresh", () => {
+  it("does not reopen a source archived after cron candidate selection", async () => {
+    sqlite
+      .prepare(
+        `UPDATE sources
+         SET status = 'ready', refresh_policy = 'daily', last_fetched_at = 0
+         WHERE id = ?`,
+      )
+      .run(SOURCE_ID);
+    const send = vi.fn().mockResolvedValue(undefined);
+    let archived = false;
+    setAfterExecute((sql, _params, method) => {
+      if (!archived && method === "all" && sql.includes('from "sources"')) {
+        archived = true;
+        sqlite.prepare("UPDATE sources SET status = 'archived' WHERE id = ?").run(SOURCE_ID);
+      }
+    });
+
+    const enqueued = await enqueueDueSourceRefreshes({
+      SOURCE_FETCH_QUEUE: { send },
+    } as unknown as Env);
+
+    expect(archived).toBe(true);
+    expect(enqueued).toBe(0);
+    expect(send).not.toHaveBeenCalled();
+    expect(statusOf(sqlite, SOURCE_ID)).toBe("archived");
   });
 });

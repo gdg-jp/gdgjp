@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS "google_drive_tokens" (
   "refresh_token" TEXT,
   "expires_at"    INTEGER NOT NULL,
   "updated_at"    INTEGER NOT NULL DEFAULT (unixepoch())
-);
+, "granted_scopes" TEXT);
 CREATE VIRTUAL TABLE pages_fts_trigram USING fts5(
   page_id  UNINDEXED,
   title_ja,
@@ -498,7 +498,7 @@ CREATE TABLE IF NOT EXISTS "sources" (
   "error_message"    TEXT,
   "created_at"       INTEGER NOT NULL DEFAULT (unixepoch()),
   "updated_at"       INTEGER NOT NULL DEFAULT (unixepoch())
-);
+, "fetch_attempt_id" TEXT);
 CREATE INDEX "idx_sources_status" ON "sources" ("status");
 CREATE INDEX "idx_sources_chapter_id" ON "sources" ("chapter_id");
 CREATE INDEX "idx_sources_added_by" ON "sources" ("added_by");
@@ -513,7 +513,7 @@ CREATE TABLE IF NOT EXISTS "source_documents" (
   "captured_at" INTEGER NOT NULL,
   "cursor"      TEXT,
   "status"      TEXT NOT NULL DEFAULT 'ready'
-                CHECK ("status" IN ('ready', 'error', 'archived')),
+                CHECK ("status" IN ('ready', 'error', 'archived')), "metadata" TEXT,
   UNIQUE ("source_id", "path")
 );
 CREATE INDEX "idx_source_documents_source_id" ON "source_documents" ("source_id");

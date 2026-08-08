@@ -1,5 +1,5 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import * as schema from "~/db/schema";
 import { getDb } from "~/lib/db.server";
@@ -12,12 +12,26 @@ export { ALL_CHAPTERS };
 export type { SourceKind, SourceRefreshPolicy };
 
 export type ClassifiedSource =
-  | { ok: true; kind: "google-doc" | "website"; url: string; externalId: string | null }
+  | {
+      ok: true;
+      kind: "google-doc" | "website" | "google-chat-space";
+      url: string;
+      externalId: string | null;
+      title?: string;
+    }
   | { ok: false; error: string };
 
 function extractDriveFileId(url: string): string | null {
   const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
   return match?.[1] ?? null;
+}
+
+const SPACE_NAME_RE = /^spaces\/[A-Za-z0-9_-]+$/;
+
+/** Build the canonical Chat Space URL stored on the sources row. */
+export function googleChatSpaceUrl(spaceName: string): string {
+  const id = spaceName.replace(/^spaces\//, "");
+  return `https://mail.google.com/chat/u/0/#chat/space/${id}`;
 }
 
 /** Normalize and classify a user-supplied URL for Stage 1 source registration. */
@@ -51,6 +65,23 @@ export function classifySourceUrl(raw: string): ClassifiedSource {
   }
 
   return { ok: true, kind: "website", url: href, externalId: null };
+}
+
+/**
+ * Classify a Space chosen from the Chat picker. `externalId` must be `spaces/…`.
+ */
+export function classifyGoogleChatSpace(externalId: unknown, title: unknown): ClassifiedSource {
+  if (typeof externalId !== "string" || !SPACE_NAME_RE.test(externalId)) {
+    return { ok: false, error: "invalid_space" };
+  }
+  const displayTitle = typeof title === "string" && title.trim() ? title.trim() : externalId;
+  return {
+    ok: true,
+    kind: "google-chat-space",
+    url: googleChatSpaceUrl(externalId),
+    externalId,
+    title: displayTitle,
+  };
 }
 
 export function canAccessSource(
@@ -89,7 +120,11 @@ export function parseChapterSelection(
 }
 
 export interface CreateSourceInput {
-  url: unknown;
+  url?: unknown;
+  /** When set with kind google-chat-space, registers a Chat Space instead of a URL. */
+  kind?: unknown;
+  externalId?: unknown;
+  title?: unknown;
   chapter: unknown;
   refreshPolicy?: unknown;
   user: AuthUser;
@@ -111,6 +146,63 @@ export type CreateSourceResult =
     }
   | { ok: false; error: string; status: number };
 
+export type EnqueueSourceRefreshResult =
+  | { ok: true }
+  | { ok: false; error: "archived"; status: 409 }
+  | { ok: false; error: "enqueue_failed"; status: 503 };
+
+/** Revoke any in-flight lease, move the source to pending, and enqueue its replacement fetch. */
+export async function enqueueSourceRefresh(
+  env: Env,
+  sourceId: string,
+): Promise<EnqueueSourceRefreshResult> {
+  const db = getDb(env);
+  const refreshRequestId = crypto.randomUUID();
+  const claimed = await db
+    .update(schema.sources)
+    .set({
+      status: "pending",
+      errorMessage: null,
+      fetchAttemptId: refreshRequestId,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(schema.sources.id, sourceId), ne(schema.sources.status, "archived")))
+    .returning({ id: schema.sources.id })
+    .get();
+  if (!claimed) return { ok: false, error: "archived", status: 409 };
+
+  try {
+    await env.SOURCE_FETCH_QUEUE.send({ type: "source_fetch", sourceId });
+    return { ok: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(
+      JSON.stringify({
+        component: "sources",
+        event: "refresh_enqueue_failed",
+        sourceId,
+        error: message,
+      }),
+    );
+    await db
+      .update(schema.sources)
+      .set({
+        status: "error",
+        errorMessage: `enqueue_failed: ${message}`.slice(0, 2000),
+        fetchAttemptId: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(schema.sources.id, sourceId),
+          eq(schema.sources.status, "pending"),
+          eq(schema.sources.fetchAttemptId, refreshRequestId),
+        ),
+      );
+    return { ok: false, error: "enqueue_failed", status: 503 };
+  }
+}
+
 /**
  * Register a source and queue its first fetch. Both the `/sources` form and the JSON
  * API go through here — a second copy of this would be a second place for the chapter
@@ -120,11 +212,13 @@ export async function createSource(
   env: Env,
   input: CreateSourceInput,
 ): Promise<CreateSourceResult> {
-  if (typeof input.url !== "string") {
-    return { ok: false, error: "url_required", status: 400 };
-  }
+  const classified =
+    input.kind === "google-chat-space"
+      ? classifyGoogleChatSpace(input.externalId, input.title)
+      : typeof input.url === "string"
+        ? classifySourceUrl(input.url)
+        : { ok: false as const, error: "url_required" };
 
-  const classified = classifySourceUrl(input.url);
   if (!classified.ok) {
     return { ok: false, error: classified.error, status: 400 };
   }
@@ -190,7 +284,11 @@ export async function createSource(
 
 /** Placeholder until the fetcher reports the real document title. */
 function provisionalTitle(classified: Extract<ClassifiedSource, { ok: true }>): string {
+  if (classified.title) return classified.title;
   if (classified.kind === "google-doc") return `Google Doc ${classified.externalId}`;
+  if (classified.kind === "google-chat-space") {
+    return `Google Chat ${classified.externalId}`;
+  }
   try {
     return new URL(classified.url).hostname;
   } catch {

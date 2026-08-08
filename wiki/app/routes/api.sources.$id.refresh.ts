@@ -3,7 +3,7 @@ import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
-import { canAccessSource } from "~/lib/sources.server";
+import { canAccessSource, enqueueSourceRefresh } from "~/lib/sources.server";
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
   if (request.method !== "POST") {
@@ -31,12 +31,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     return Response.json({ error: "archived" }, { status: 409 });
   }
 
-  await db
-    .update(schema.sources)
-    .set({ status: "pending", errorMessage: null, updatedAt: new Date() })
-    .where(eq(schema.sources.id, sourceId));
-
-  await env.SOURCE_FETCH_QUEUE.send({ type: "source_fetch", sourceId });
+  const result = await enqueueSourceRefresh(env, sourceId);
+  if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
 
   return Response.json({ id: sourceId, status: "pending" }, { status: 202 });
 }
