@@ -396,7 +396,6 @@ async function listChatMessages(
   do {
     const params = new URLSearchParams({
       pageSize: String(PAGE_SIZE),
-      orderBy: "ASC",
     });
     if (filter) params.set("filter", filter);
     if (pageToken) params.set("pageToken", pageToken);
