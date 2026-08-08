@@ -178,6 +178,47 @@ function warnGoogleChat(event: string, details: Record<string, string | number>)
   );
 }
 
+/**
+ * Capture Google API error metadata without logging a successful response, which can
+ * contain Chat content. `details` identifies invalid request fields for 400 errors.
+ */
+async function logGoogleChatMessagesListError(
+  response: Response,
+  input: { spaceName: string; filter: string | null; hasPageToken: boolean },
+): Promise<void> {
+  let googleError: Record<string, unknown> | null = null;
+  try {
+    const body = (await response.json()) as { error?: unknown };
+    if (body.error && typeof body.error === "object" && !Array.isArray(body.error)) {
+      const error = body.error as Record<string, unknown>;
+      googleError = {
+        code: error.code,
+        status: error.status,
+        message: error.message,
+        details: error.details,
+      };
+    }
+  } catch {
+    // Some Google proxy errors do not have a JSON body; status metadata remains useful.
+  }
+
+  console.error(
+    JSON.stringify({
+      component: "sources",
+      integration: "google-chat",
+      event: "messages_list_failed",
+      httpStatus: response.status,
+      httpStatusText: response.statusText || undefined,
+      spaceName: input.spaceName,
+      pageSize: PAGE_SIZE,
+      orderBy: "ASC",
+      filter: input.filter ?? undefined,
+      hasPageToken: input.hasPageToken,
+      googleError,
+    }),
+  );
+}
+
 function oneLineQuote(text: string): string {
   const line = text.replace(/\s+/g, " ").trim();
   if (!line) return `> _(${THREAD_PARENT_UNAVAILABLE})_`;
@@ -366,8 +407,11 @@ async function listChatMessages(
       CHAT_TIMEOUT_MS,
     );
     if (!response.ok) {
-      // Keep API response bodies out of the error path: worker failure logs must
-      // never risk recording Chat content or other sensitive API payloads.
+      await logGoogleChatMessagesListError(response, {
+        spaceName,
+        filter,
+        hasPageToken: Boolean(pageToken),
+      });
       throw new Error(`Google Chat messages.list failed (${response.status})`);
     }
     const body = (await response.json()) as {
