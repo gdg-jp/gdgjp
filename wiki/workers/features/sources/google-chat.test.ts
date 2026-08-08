@@ -262,7 +262,7 @@ describe("Google Chat identity and thread context fetches", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const requestUrl = new URL(String(fetchSpy.mock.calls[0]?.[0]));
     expect(requestUrl.searchParams.get("filter")).toBe("thread.name = spaces/AAA/threads/t1");
-    expect(requestUrl.searchParams.get("orderBy")).toBe("ASC");
+    expect(requestUrl.searchParams.has("orderBy")).toBe(false);
     fetchSpy.mockRestore();
   });
 
