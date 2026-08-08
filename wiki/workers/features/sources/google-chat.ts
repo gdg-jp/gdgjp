@@ -12,7 +12,7 @@ const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const PAGE_SIZE = 1000;
 
 export const GOOGLE_CHAT_REAUTH_MESSAGE =
-  "Google Chat or directory scopes are missing. Disconnect and reconnect Google from /sources to grant Chat and directory access.";
+  "Google Chat, Drive, or directory scopes are missing. Disconnect and reconnect Google from /sources to grant the required access.";
 
 export interface ChatMessageAttachment {
   name?: string;
@@ -545,8 +545,16 @@ async function downloadChatAttachment(
   }
 
   if (!response) return null;
-  if (response.status === 404) {
-    console.warn("[sources] chat attachment unavailable", objectId);
+  if (response.status === 403 || response.status === 404) {
+    // A source can contain an attachment whose Chat upload or Drive ACL was later
+    // revoked. Keep importing the messages and other attachments; retrying cannot
+    // restore access. Never log a filename or response body, which can be sensitive.
+    warnGoogleChat("attachment_unavailable", {
+      sourceId,
+      attachmentId: objectId,
+      attachmentKind: driveFileId ? "drive" : "chat-media",
+      status: response.status,
+    });
     return null;
   }
   if (!response.ok) {

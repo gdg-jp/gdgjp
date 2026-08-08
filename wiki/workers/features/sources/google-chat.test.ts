@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   GOOGLE_DIRECTORY_READONLY_SCOPE,
+  GOOGLE_DRIVE_READONLY_SCOPE,
   getGoogleDriveAuthUrl,
   hasRequiredGoogleChatScopes,
 } from "../../../app/lib/google-drive.server";
@@ -321,14 +322,14 @@ describe("Google Chat scopes", () => {
     expect(hasRequiredGoogleChatScopes(null)).toBe(false);
   });
 
-  it("accepts tokens that include the Chat and directory scopes", () => {
+  it("accepts tokens that include Drive, Chat, and directory scopes", () => {
     expect(
       hasRequiredGoogleChatScopes(
         [
-          "https://www.googleapis.com/auth/drive.readonly",
           "https://www.googleapis.com/auth/chat.spaces.readonly",
           "https://www.googleapis.com/auth/chat.messages.readonly",
           "https://www.googleapis.com/auth/directory.readonly",
+          GOOGLE_DRIVE_READONLY_SCOPE,
         ].join(" "),
       ),
     ).toBe(true);

@@ -399,7 +399,7 @@
     "chat_space_placeholder": "Choose a space",
     "add_chat_space": "Add space",
     "chat_hint": "Pick only the spaces that hold operational discussion. Spaces are never ingested automatically.",
-    "chat_reauth_hint": "Google Chat permission is missing. Disconnect and reconnect Google, then approve the Chat scopes.",
+    "chat_reauth_hint": "Google Chat permission is missing. Disconnect and reconnect Google, then approve the required Chat, Drive, and directory scopes.",
     "connect_hint": "Connect your Google account to choose a file from Google Drive.",
     "connect_google_drive": "Connect Google",
     "add": "Add",
