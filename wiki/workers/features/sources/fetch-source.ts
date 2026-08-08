@@ -1,9 +1,11 @@
-import { and, eq, ne, notInArray, or } from "drizzle-orm";
+import { and, eq, ne, or } from "drizzle-orm";
 import * as schema from "../../../app/db/schema";
 import { getDb } from "../../../app/lib/db.server";
 import { getGoogleDriveAccessToken } from "../../../app/lib/google-drive-token.server";
 import { resolveSourceAssets } from "./assets";
-import { GOOGLE_CHAT_REAUTH_MESSAGE, fetchGoogleChatSource } from "./google-chat";
+import { GOOGLE_CHAT_REAUTH_MESSAGE } from "./google-chat";
+import { startGoogleChatImport } from "./google-chat-import";
+import { archiveMissingDocuments } from "./google-chat-import-private";
 import { fetchGoogleDocSource } from "./google-doc";
 import {
   isSourceFetchAttemptCurrent,
@@ -73,6 +75,14 @@ export async function fetchSource(env: Env, sourceId: string): Promise<FetchSour
     console.warn("[sources] fetch skipped; source archived", sourceId);
     return { status: "skipped", retryable: false };
   }
+  // The start message can be delivered more than once. A Chat import owns its
+  // lease for many bounded Queue deliveries, so a duplicate must not replace
+  // that run with a new attempt. A user refresh first moves the source back to
+  // pending, and therefore still starts a replacement run normally.
+  if (source.kind === "google-chat-space" && source.status === "fetching") {
+    console.warn("[sources] fetch skipped; Google Chat import already running", sourceId);
+    return { status: "skipped", retryable: false };
+  }
 
   const attemptId = crypto.randomUUID();
   const claimed = await db
@@ -93,7 +103,8 @@ export async function fetchSource(env: Env, sourceId: string): Promise<FetchSour
 
   try {
     if (source.kind === "google-chat-space") {
-      return await fetchAndPersistGoogleChat(env, source, attemptId);
+      await startGoogleChatImport(env, source, attemptId);
+      return { status: "skipped", retryable: false };
     }
 
     const fetched =
@@ -192,102 +203,6 @@ export async function fetchSource(env: Env, sourceId: string): Promise<FetchSour
     if (!failed) return { status: "skipped", retryable: false };
     return { status: "error", retryable };
   }
-}
-
-async function fetchAndPersistGoogleChat(
-  env: Env,
-  source: typeof schema.sources.$inferSelect,
-  attemptId: string,
-): Promise<FetchSourceOutcome> {
-  const db = getDb(env);
-  const spaceName = source.externalId;
-  if (!spaceName) {
-    throw new Error("Google Chat source is missing external_id (spaces/…)");
-  }
-
-  const fetched = await fetchGoogleChatSource(env, {
-    sourceId: source.id,
-    spaceName,
-    addedBy: source.addedBy,
-  });
-
-  for (const document of fetched.documents) {
-    const persisted = await persistSourceDocument(env, {
-      sourceId: source.id,
-      fetchAttemptId: attemptId,
-      path: document.path,
-      title: document.title,
-      markdown: document.markdown,
-      cursor: document.cursor,
-      metadata: document.metadata,
-      assets: document.assets,
-      assetPolicy: document.assetPolicy,
-    });
-    if (persisted.skipped) return { status: "skipped", retryable: false };
-  }
-
-  if (!(await archiveMissingDocuments(db, source.id, attemptId, fetched.retainedPaths))) {
-    return { status: "skipped", retryable: false };
-  }
-
-  const completed = await db
-    .update(schema.sources)
-    .set({
-      title: fetched.title || source.title,
-      status: "ready",
-      fetchAttemptId: null,
-      errorMessage: null,
-      lastFetchedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(schema.sources.id, source.id),
-        eq(schema.sources.fetchAttemptId, attemptId),
-        eq(schema.sources.status, "fetching"),
-      ),
-    )
-    .returning({ id: schema.sources.id })
-    .get();
-  if (!completed) return { status: "skipped", retryable: false };
-
-  return { status: "ready", retryable: false };
-}
-
-/**
- * Retire source_documents whose path the source no longer produces — a deleted or
- * emptied Google Docs tab, a page dropped from a crawl. Without this they stay `ready`
- * and later consumers keep reading material the source has already discarded.
- *
- * The rows and their R2 objects are kept: raw is append-only, and `persistSourceDocument`
- * restores a path to `ready` if it ever comes back.
- */
-async function archiveMissingDocuments(
-  db: ReturnType<typeof getDb>,
-  sourceId: string,
-  attemptId: string,
-  fetchedPaths: readonly string[],
-): Promise<boolean> {
-  if (!(await isSourceFetchAttemptCurrent(db, sourceId, attemptId))) return false;
-  const stale =
-    fetchedPaths.length === 0
-      ? eq(schema.sourceDocuments.sourceId, sourceId)
-      : and(
-          eq(schema.sourceDocuments.sourceId, sourceId),
-          notInArray(schema.sourceDocuments.path, [...fetchedPaths]),
-        );
-
-  await db
-    .update(schema.sourceDocuments)
-    .set({ status: "archived" })
-    .where(
-      and(
-        stale,
-        ne(schema.sourceDocuments.status, "archived"),
-        sourceFetchAttemptIsCurrent(sourceId, attemptId),
-      ),
-    );
-  return isSourceFetchAttemptCurrent(db, sourceId, attemptId);
 }
 
 /** Enqueue due sources for automatic refresh (daily / weekly policies). */
