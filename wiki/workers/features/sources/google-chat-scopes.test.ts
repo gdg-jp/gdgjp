@@ -54,6 +54,7 @@ describe("fetchGoogleChatSource scope gate", () => {
         "https://www.googleapis.com/auth/chat.spaces.readonly",
         "https://www.googleapis.com/auth/chat.messages.readonly",
         "https://www.googleapis.com/auth/directory.readonly",
+        "https://www.googleapis.com/auth/drive.readonly",
       ].join(" "),
     });
     selectAll.mockResolvedValue([]);
@@ -101,6 +102,65 @@ describe("fetchGoogleChatSource scope gate", () => {
       }),
     );
     errorSpy.mockRestore();
+    fetchSpy.mockRestore();
+  });
+
+  it("keeps importing when an attachment is no longer accessible", async () => {
+    getTokenRow.mockResolvedValue({
+      accessToken: "token",
+      grantedScopes: [
+        "https://www.googleapis.com/auth/drive.readonly",
+        "https://www.googleapis.com/auth/chat.spaces.readonly",
+        "https://www.googleapis.com/auth/chat.messages.readonly",
+        "https://www.googleapis.com/auth/directory.readonly",
+      ].join(" "),
+    });
+    selectAll.mockResolvedValue([]);
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            messages: [
+              {
+                createTime: "2026-08-01T00:00:00Z",
+                attachment: [
+                  {
+                    name: "spaces/AAA/messages/1/attachments/1",
+                    contentName: "inaccessible.pdf",
+                    contentType: "application/pdf",
+                    driveDataRef: { driveFileId: "file-1" },
+                  },
+                ],
+              },
+            ],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 403 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ displayName: "Space" })));
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    const result = await fetchGoogleChatSource({ BUCKET: {} } as Env, {
+      sourceId: "src-1",
+      spaceName: "spaces/AAA",
+      addedBy: "user-1",
+    });
+
+    expect(result.documents[0]?.markdown).toContain("inaccessible.pdf");
+    expect(result.documents[0]?.markdown).not.toContain("attachment:");
+    expect(warnSpy).toHaveBeenCalledWith(
+      JSON.stringify({
+        component: "sources",
+        integration: "google-chat",
+        event: "attachment_unavailable",
+        sourceId: "src-1",
+        attachmentId: "1",
+        attachmentKind: "drive",
+        status: 403,
+      }),
+    );
+    warnSpy.mockRestore();
     fetchSpy.mockRestore();
   });
 });

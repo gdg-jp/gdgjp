@@ -399,7 +399,7 @@
     "chat_space_placeholder": "スペースを選択",
     "add_chat_space": "スペースを追加",
     "chat_hint": "運用議論が残っているスペースだけを選んでください。全スペースは自動取得しません。",
-    "chat_reauth_hint": "Google Chat の権限が不足しています。一度切断してから再接続し、Chat のスコープを許可してください。",
+    "chat_reauth_hint": "Google Chat の権限が不足しています。一度切断してから再接続し、必要な Chat・Drive・ディレクトリのスコープを許可してください。",
     "connect_hint": "Google Drive からファイルを選ぶには、Google アカウントを接続してください。",
     "connect_google_drive": "Google を接続",
     "add": "追加",
