@@ -204,7 +204,7 @@ function SortableTreeItem({
     >
       {showDropIndicator && (
         <div
-          className="pointer-events-none absolute top-0 right-0 z-10 h-0.5 bg-blue-500"
+          className="pointer-events-none absolute top-0 right-0 z-10 h-0.5 bg-action-primary"
           style={{ left: `${(indicatorDepth ?? 0) * INDENT_WIDTH + 8}px` }}
         />
       )}
@@ -214,15 +214,17 @@ function SortableTreeItem({
           opacity: isDragging ? 0.3 : 1,
         }}
         className={`group flex min-h-8 items-center gap-1 rounded px-1 py-1.5 text-sm ${
-          isCurrent ? "bg-blue-500/10 font-medium text-blue-500" : "text-gray-700 hover:bg-gray-100"
-        }${isOverlay ? " border border-gray-200 bg-white shadow-md" : ""}`}
+          isCurrent
+            ? "bg-surface-selected font-medium text-action-primary"
+            : "text-content-secondary hover:bg-surface-sunken"
+        }${isOverlay ? " border border-default bg-surface-raised shadow-md" : ""}`}
       >
         <button
           type="button"
           ref={setActivatorNodeRef}
           {...attributes}
           {...listeners}
-          className="flex h-4 w-4 flex-shrink-0 cursor-grab items-center justify-center text-gray-300 opacity-0 group-hover:opacity-100 active:cursor-grabbing"
+          className="flex h-4 w-4 flex-shrink-0 cursor-grab items-center justify-center text-content-disabled opacity-0 group-hover:opacity-100 active:cursor-grabbing"
           aria-label={t("pageTree.dragHandle")}
         >
           <GripVertical size={12} />
@@ -232,7 +234,7 @@ function SortableTreeItem({
           <button
             type="button"
             onClick={onToggle}
-            className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-gray-400 hover:text-gray-600"
+            className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-content-tertiary hover:text-content-secondary"
             aria-label={isFolderCollapsed ? t("pageTree.expand") : t("pageTree.collapse")}
           >
             {isFolderCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
@@ -241,7 +243,7 @@ function SortableTreeItem({
           <span className="h-4 w-4 flex-shrink-0" />
         )}
 
-        <span className="flex-shrink-0 text-gray-400">
+        <span className="flex-shrink-0 text-content-tertiary">
           {node.pageType === "task-list" ? (
             <ListTodo size={14} />
           ) : hasChildren ? (
@@ -388,7 +390,7 @@ function DraggablePageTree({ pages, currentSlug }: { pages: PageNode[]; currentS
             />
           ))}
           {sortableItems.length === 0 && (
-            <li className="px-2 py-1 text-xs text-gray-400">{t("pageTree.noPages")}</li>
+            <li className="px-2 py-1 text-xs text-content-tertiary">{t("pageTree.noPages")}</li>
           )}
         </ul>
       </SortableContext>
@@ -431,7 +433,9 @@ function TreeNode({ node, currentSlug, depth, isCollapsed }: TreeNodeProps) {
       <div
         title={isCollapsed ? title : undefined}
         className={`flex min-h-8 items-center gap-1 rounded px-2 py-1.5 text-sm ${
-          isCurrent ? "bg-blue-500/10 font-medium text-blue-500" : "text-gray-700 hover:bg-gray-100"
+          isCurrent
+            ? "bg-surface-selected font-medium text-action-primary"
+            : "text-content-secondary hover:bg-surface-sunken"
         }`}
       >
         {!isCollapsed &&
@@ -439,7 +443,7 @@ function TreeNode({ node, currentSlug, depth, isCollapsed }: TreeNodeProps) {
             <button
               type="button"
               onClick={() => setExpanded(!expanded)}
-              className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-gray-400 hover:text-gray-600"
+              className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-content-tertiary hover:text-content-secondary"
               aria-label={expanded ? t("pageTree.collapse") : t("pageTree.expand")}
             >
               {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -448,7 +452,7 @@ function TreeNode({ node, currentSlug, depth, isCollapsed }: TreeNodeProps) {
             <span className="h-4 w-4 flex-shrink-0" />
           ))}
 
-        <span className="flex-shrink-0 text-gray-400">
+        <span className="flex-shrink-0 text-content-tertiary">
           {node.pageType === "task-list" ? (
             <ListTodo size={14} />
           ) : hasChildren ? (
@@ -530,29 +534,29 @@ export default function PageTree({
             />
           ))}
           {pages.length === 0 && !isCollapsed && (
-            <li className="px-2 py-1 text-xs text-gray-400">{t("pageTree.noPages")}</li>
+            <li className="px-2 py-1 text-xs text-content-tertiary">{t("pageTree.noPages")}</li>
           )}
         </ul>
       )}
 
       {canCreate && (
-        <div className="relative border-t border-gray-100 px-2 pt-2 pb-1" ref={dropdownRef}>
+        <div className="relative border-t border-subtle px-2 pt-2 pb-1" ref={dropdownRef}>
           <button
             type="button"
             title={isCollapsed ? t("pageTree.newPage") : undefined}
             onClick={() => setDropdownOpen((v) => !v)}
-            className="flex min-h-8 w-full items-center gap-1.5 rounded px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-100 hover:text-blue-500"
+            className="flex min-h-8 w-full items-center gap-1.5 rounded px-2 py-1.5 text-sm text-content-secondary hover:bg-surface-sunken hover:text-action-primary"
           >
             <Plus size={14} className="flex-shrink-0" />
             {!isCollapsed && <span>{t("pageTree.newPage")}</span>}
           </button>
 
           {dropdownOpen && (
-            <div className="absolute bottom-full left-2 right-2 mb-1 overflow-hidden rounded-md border border-gray-200 bg-white shadow-md">
+            <div className="absolute bottom-full left-2 right-2 mb-1 overflow-hidden rounded-md border border-default bg-surface-raised shadow-md">
               <Link
                 to="/ingest"
                 onClick={() => setDropdownOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-canvas"
               >
                 <span>✦</span>
                 <span>{t("pageTree.newPage_ai")}</span>
@@ -560,7 +564,7 @@ export default function PageTree({
               <Link
                 to="/analyze"
                 onClick={() => setDropdownOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-canvas"
               >
                 <ChartPie size={14} />
                 <span>{t("pageTree.newPage_analyze")}</span>
@@ -568,7 +572,7 @@ export default function PageTree({
               <Link
                 to="/wiki/new"
                 onClick={() => setDropdownOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-canvas"
               >
                 <span>✎</span>
                 <span>{t("pageTree.newPage_manual")}</span>
@@ -576,7 +580,7 @@ export default function PageTree({
               <Link
                 to="/tasks/new"
                 onClick={() => setDropdownOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-canvas"
               >
                 <ListTodo size={14} />
                 <span>{t("pageTree.newTaskList")}</span>

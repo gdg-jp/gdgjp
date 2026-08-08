@@ -174,7 +174,7 @@ export default function Navbar({
   }, [currentQuery]);
 
   return (
-    <header className="fixed top-0 right-0 left-0 z-50 flex h-14 items-center gap-2 border-b border-gray-200 bg-white px-3 sm:gap-4 sm:px-4">
+    <header className="fixed top-0 right-0 left-0 z-50 flex h-14 items-center gap-2 border-b border-default bg-surface-raised px-3 sm:gap-4 sm:px-4">
       {/* Sidebar toggle */}
       {onToggleSidebar && (
         <Button
@@ -209,7 +209,7 @@ export default function Navbar({
           value={queryInput}
           onChange={(e) => setQueryInput(e.target.value)}
           placeholder={`${t("nav.search")}…`}
-          className="w-full max-w-[400px] rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:bg-white dark:focus:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full max-w-[400px] rounded-md border border-default bg-surface-canvas px-3 py-1.5 text-sm text-content-primary placeholder:text-content-tertiary focus:border-focus focus:bg-surface-raised dark:focus:bg-surface-sunken focus:outline-none focus:ring-1 focus:ring-border-focus"
         />
       </Form>
 
@@ -231,7 +231,7 @@ export default function Navbar({
         ) : (
           <Link
             to={`/signin?return_to=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
-            className="text-sm font-medium text-blue-500 hover:underline"
+            className="text-sm font-medium text-action-primary hover:underline"
           >
             {t("auth.sign_in")}
           </Link>

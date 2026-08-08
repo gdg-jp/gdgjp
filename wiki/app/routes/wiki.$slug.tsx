@@ -480,13 +480,13 @@ export default function WikiPage() {
   const enUrl = `${location.pathname}?lang=en`;
 
   const btnBase =
-    "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700";
+    "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-content-tertiary transition-colors hover:bg-surface-hover hover:text-content-primary";
 
   return (
     <div>
       {/* Mini-header */}
-      <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-2 md:px-10">
-        <div className="flex shrink-0 gap-1 rounded-md border border-gray-200 bg-white p-0.5">
+      <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-2 md:px-10">
+        <div className="flex shrink-0 gap-1 rounded-md border border-border-default bg-surface-raised p-0.5">
           {(["ja", "en"] as const).map((l) => {
             const status = l === "ja" ? page.translationStatusJa : page.translationStatusEn;
             const isPending = status === "missing";
@@ -494,10 +494,10 @@ export default function WikiPage() {
             const className = [
               "min-w-10 rounded px-2 py-1 text-center text-sm font-medium transition-colors",
               isActive
-                ? "bg-blue-500 text-white"
+                ? "bg-action-primary text-action-primary-foreground"
                 : isPending
-                  ? "text-gray-300"
-                  : "text-gray-600 hover:bg-gray-100",
+                  ? "text-content-disabled"
+                  : "text-content-secondary hover:bg-surface-hover",
             ].join(" ");
 
             if (isPending) {
@@ -538,11 +538,20 @@ export default function WikiPage() {
                 type="button"
                 onClick={handleToggleStar}
                 className={btnBase}
-                style={optimisticStarred ? { color: "#E06C00" } : undefined}
+                style={
+                  optimisticStarred ? { color: "var(--color-feedback-warning-solid)" } : undefined
+                }
               >
                 <Star
                   size={14}
-                  style={optimisticStarred ? { fill: "#E06C00", color: "#E06C00" } : undefined}
+                  style={
+                    optimisticStarred
+                      ? {
+                          fill: "var(--color-feedback-warning-solid)",
+                          color: "var(--color-feedback-warning-solid)",
+                        }
+                      : undefined
+                  }
                 />
                 {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
               </button>
@@ -557,7 +566,7 @@ export default function WikiPage() {
               type="button"
               onClick={canArchive ? () => setArchiveDialogOpen(true) : undefined}
               disabled={!canArchive}
-              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-amber-50 hover:text-amber-700 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-content-tertiary transition-colors hover:bg-feedback-warning-surface hover:text-feedback-warning-foreground disabled:opacity-50"
             >
               <Archive size={14} />
               {t("wiki.archive")}
@@ -576,11 +585,11 @@ export default function WikiPage() {
             <MoreHorizontal size={16} />
           </button>
           {moreOpen && (
-            <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+            <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-border-default bg-surface-raised py-1 shadow-lg">
               {canEdit && (
                 <Link
                   to={`/wiki/${page.slug}/edit`}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
                   onClick={() => setMoreOpen(false)}
                 >
                   <Pencil size={14} />
@@ -589,7 +598,7 @@ export default function WikiPage() {
               )}
               <Link
                 to={`/wiki/${page.slug}/history`}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
                 onClick={() => setMoreOpen(false)}
               >
                 <History size={14} />
@@ -602,12 +611,21 @@ export default function WikiPage() {
                     handleToggleStar();
                     setMoreOpen(false);
                   }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
-                  style={optimisticStarred ? { color: "#E06C00" } : undefined}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
+                  style={
+                    optimisticStarred ? { color: "var(--color-feedback-warning-solid)" } : undefined
+                  }
                 >
                   <Star
                     size={14}
-                    style={optimisticStarred ? { fill: "#E06C00", color: "#E06C00" } : undefined}
+                    style={
+                      optimisticStarred
+                        ? {
+                            fill: "var(--color-feedback-warning-solid)",
+                            color: "var(--color-feedback-warning-solid)",
+                          }
+                        : undefined
+                    }
                   />
                   {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
                 </button>
@@ -619,7 +637,7 @@ export default function WikiPage() {
                     handleShare();
                     setMoreOpen(false);
                   }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
                 >
                   <Share2 size={14} />
                   {t("wiki.share")}
@@ -637,7 +655,7 @@ export default function WikiPage() {
                       : undefined
                   }
                   disabled={!canArchive}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-50"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-feedback-warning-surface hover:text-feedback-warning-foreground disabled:opacity-50"
                 >
                   <Archive size={14} />
                   {t("wiki.archive")}
@@ -650,7 +668,7 @@ export default function WikiPage() {
 
       <div className="flex gap-0">
         <article className="max-w-3xl min-w-0 flex-1 px-4 py-6 md:px-10 md:py-8">
-          <h1 className="mb-4 text-3xl font-bold text-gray-900">{title}</h1>
+          <h1 className="mb-4 text-3xl font-bold text-content-primary">{title}</h1>
 
           {/* Mobile "Contents" button */}
           {(tocItems.length > 0 ||
@@ -660,7 +678,7 @@ export default function WikiPage() {
               ref={mobileContentsTriggerRef}
               type="button"
               onClick={openMobileContents}
-              className="mb-4 flex items-center gap-1.5 rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-600 md:hidden"
+              className="mb-4 flex items-center gap-1.5 rounded-md border border-border-default px-3 py-1.5 text-sm text-content-secondary md:hidden"
             >
               <List size={14} />
               {t("wiki.contents")}
@@ -682,7 +700,7 @@ export default function WikiPage() {
           )}
 
           {hasFallback && (
-            <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <div className="mb-6 rounded-lg border border-feedback-warning-border bg-feedback-warning-surface p-4 text-sm text-feedback-warning-foreground">
               {lang === "en"
                 ? t("wiki.translation_fallback_en")
                 : t("wiki.translation_fallback_ja")}
@@ -697,7 +715,7 @@ export default function WikiPage() {
               onGetCatalog={handleGetCatalog}
             />
           ) : (
-            <p className="text-gray-400">No content available.</p>
+            <p className="text-content-disabled">No content available.</p>
           )}
         </article>
 
@@ -717,7 +735,7 @@ export default function WikiPage() {
       </div>
 
       {/* Comments section — full article width below content */}
-      <div className="max-w-3xl min-w-0 flex-1 border-t border-gray-100 px-4 py-8 md:px-10">
+      <div className="max-w-3xl min-w-0 flex-1 border-t border-border-subtle px-4 py-8 md:px-10">
         <CommentSection
           comments={comments}
           pageId={page.id}
@@ -758,21 +776,21 @@ export default function WikiPage() {
         <>
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop closes via pointer; Escape handled by window keydown */}
           <div
-            className="fixed inset-0 top-14 z-40 bg-black/40 md:hidden"
+            className="fixed inset-0 top-14 z-40 bg-content-primary/40 md:hidden"
             onClick={closeMobileContents}
             aria-hidden="true"
           />
           <div
             ref={mobileContentsSheetRef}
             tabIndex={-1}
-            className="fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-xl bg-white shadow-xl md:hidden"
+            className="fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-xl bg-surface-raised shadow-xl md:hidden"
           >
-            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-              <p className="font-semibold text-gray-900">{t("wiki.contents")}</p>
+            <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
+              <p className="font-semibold text-content-primary">{t("wiki.contents")}</p>
               <button
                 type="button"
                 onClick={closeMobileContents}
-                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="rounded-md p-1 text-content-disabled hover:bg-surface-hover hover:text-content-secondary"
                 aria-label={t("common:close")}
               >
                 <X size={18} />
@@ -783,7 +801,7 @@ export default function WikiPage() {
               {/* TOC */}
               {tocItems.length > 0 && (
                 <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-disabled">
                     {t("wiki.on_this_page")}
                   </p>
                   <nav aria-label={t("tableOfContents")}>
@@ -796,7 +814,7 @@ export default function WikiPage() {
                           <a
                             href={`#${item.id}`}
                             onClick={closeMobileContents}
-                            className="block truncate py-1 text-sm text-gray-600 hover:text-gray-900"
+                            className="block truncate py-1 text-sm text-content-secondary hover:text-content-primary"
                           >
                             {item.text}
                           </a>
@@ -810,7 +828,7 @@ export default function WikiPage() {
               {/* Tags */}
               {tags.length > 0 && (
                 <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-disabled">
                     {t("wiki.tags")}
                   </p>
                   <div className="flex flex-wrap gap-1">
@@ -832,10 +850,10 @@ export default function WikiPage() {
               {/* Last edited */}
               {page.updatedAt && (
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-content-disabled">
                     {t("wiki.last_edited_by")}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-content-tertiary">
                     {editor ? `${editor.name}, ` : ""}
                     {timeAgo(new Date(page.updatedAt as unknown as string), t)}
                   </p>
@@ -844,7 +862,7 @@ export default function WikiPage() {
 
               {/* Translation status */}
               {(lang === "en" ? page.translationStatusEn : page.translationStatusJa) === "ai" && (
-                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                <span className="inline-flex items-center rounded-full bg-feedback-warning-surface px-2 py-0.5 text-xs font-medium text-feedback-warning-foreground">
                   {t("wiki.auto_translated")}
                 </span>
               )}
@@ -852,7 +870,7 @@ export default function WikiPage() {
               {/* Sources (URLs, PDFs, and image attachments) */}
               {((sources && sources.length > 0) || (attachments && attachments.length > 0)) && (
                 <div>
-                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-content-disabled">
                     {t("wiki.sources")}
                   </p>
                   {sources && sources.length > 0 && (
@@ -867,7 +885,7 @@ export default function WikiPage() {
                               href={url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline"
+                              className="flex items-center gap-1.5 text-xs text-action-primary hover:underline"
                             >
                               {isDoc && (
                                 <svg
@@ -880,9 +898,9 @@ export default function WikiPage() {
                                 >
                                   <path
                                     d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"
-                                    fill="#4285F4"
+                                    fill="var(--color-brand-google-blue)"
                                   />
-                                  <path d="M14 2v6h6" fill="#A8C7FA" />
+                                  <path d="M14 2v6h6" fill="var(--color-brand-google-blue-soft)" />
                                   <path
                                     d="M8 13h8M8 17h5"
                                     stroke="white"
@@ -900,9 +918,17 @@ export default function WikiPage() {
                                   className="flex-shrink-0"
                                   aria-hidden="true"
                                 >
-                                  <rect width="24" height="24" rx="2" fill="#FBBC04" />
+                                  <rect
+                                    width="24"
+                                    height="24"
+                                    rx="2"
+                                    fill="var(--color-brand-google-yellow)"
+                                  />
                                   <rect x="4" y="6" width="16" height="12" rx="1" fill="white" />
-                                  <polygon points="10,9 10,15 16,12" fill="#FBBC04" />
+                                  <polygon
+                                    points="10,9 10,15 16,12"
+                                    fill="var(--color-brand-google-yellow)"
+                                  />
                                 </svg>
                               )}
                               {isPdf && <FileText className="h-3 w-3 flex-shrink-0" />}
@@ -929,7 +955,7 @@ export default function WikiPage() {
                           <img
                             src={`/api/images/${r2Key}`}
                             alt={fileName}
-                            className="h-12 w-12 rounded border border-gray-200 object-cover"
+                            className="h-12 w-12 rounded border border-border-default object-cover"
                           />
                         </a>
                       ))}

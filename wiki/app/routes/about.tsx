@@ -39,7 +39,7 @@ export default function AboutPage() {
   const ctaSlot = (
     <Link
       to="/"
-      className="inline-flex items-center gap-2 rounded-xl border-2 border-black bg-gray-900 px-6 py-3 text-base font-semibold text-white shadow-[4px_4px_0px_0px_#000] transition-[transform,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-x-[2px] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#000]"
+      className="inline-flex items-center gap-2 rounded-xl border-2 border-border-strong bg-action-primary px-6 py-3 text-base font-semibold text-action-primary-foreground shadow-[4px_4px_0px_0px_var(--color-border-strong)] transition-[transform,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-x-[2px] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_var(--color-border-strong)]"
     >
       {t("lp.go_home")}
     </Link>

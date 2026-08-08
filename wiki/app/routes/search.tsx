@@ -250,15 +250,17 @@ export default function SearchPage() {
 
   return (
     <div className="max-w-3xl px-4 py-6 md:px-8 md:py-8">
-      <h1 className="mb-4 text-lg font-semibold text-gray-900">{t("search.title")}</h1>
+      <h1 className="mb-4 text-lg font-semibold text-content-primary">{t("search.title")}</h1>
 
       {/* Mode toggle tabs */}
-      <div className="mb-4 flex gap-1 rounded-lg bg-gray-200 p-1">
+      <div className="mb-4 flex gap-1 rounded-lg bg-surface-sunken p-1">
         <button
           type="button"
           onClick={() => handleModeSwitch("keyword")}
           className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            mode !== "ai" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            mode !== "ai"
+              ? "bg-surface-raised text-content-primary shadow-sm"
+              : "text-content-tertiary hover:text-content-primary"
           }`}
         >
           {t("search.mode_keyword")}
@@ -267,7 +269,9 @@ export default function SearchPage() {
           type="button"
           onClick={() => handleModeSwitch("ai")}
           className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            mode === "ai" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            mode === "ai"
+              ? "bg-surface-raised text-content-primary shadow-sm"
+              : "text-content-tertiary hover:text-content-primary"
           }`}
         >
           {t("search.mode_ai")}
@@ -279,7 +283,7 @@ export default function SearchPage() {
         <div className="mb-6 flex items-center gap-2">
           <label
             htmlFor="tag-filter"
-            className="text-sm font-medium text-gray-600 whitespace-nowrap"
+            className="text-sm font-medium text-content-secondary whitespace-nowrap"
           >
             {t("search.filter_by_tag")}
           </label>
@@ -287,7 +291,7 @@ export default function SearchPage() {
             id="tag-filter"
             value={tag}
             onChange={handleTagSelect}
-            className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            className="rounded-md border border-border-default bg-surface-raised px-2.5 py-1.5 text-sm text-content-secondary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
           >
             <option value="">{t("search.all_tags")}</option>
             {allTags.map((tg) => (
@@ -300,7 +304,7 @@ export default function SearchPage() {
           {tag && (
             <Link
               to={q ? `/search?q=${encodeURIComponent(q)}` : "/search"}
-              className="text-xs text-gray-400 hover:text-gray-600"
+              className="text-xs text-content-disabled hover:text-content-secondary"
               aria-label={t("search.clear_tag")}
             >
               ✕
@@ -321,16 +325,16 @@ export default function SearchPage() {
         />
       ) : /* Keyword search results */
       !q && !tag ? (
-        <p className="text-sm text-gray-500">{t("search.empty_query")}</p>
+        <p className="text-sm text-content-tertiary">{t("search.empty_query")}</p>
       ) : results.length === 0 ? (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-content-tertiary">
           {tag && !q
             ? t("search.no_results_tag", { tag: activeTagName })
             : t("search.no_results", { query: q })}
         </p>
       ) : (
         <>
-          <p className="mb-6 text-sm text-gray-500">
+          <p className="mb-6 text-sm text-content-tertiary">
             {t("search.results_count", { count: results.length })}
           </p>
 
@@ -345,12 +349,14 @@ export default function SearchPage() {
                 <li key={page.id}>
                   <Link
                     to={`/wiki/${page.slug}`}
-                    className="block rounded-lg border border-gray-200 bg-white p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-blue-500/40 hover:shadow-sm"
+                    className="block rounded-lg border border-border-default bg-surface-raised p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-border-focus/40 hover:shadow-sm"
                   >
-                    <span className="font-medium text-gray-900 hover:text-blue-600">{title}</span>
+                    <span className="font-medium text-content-primary hover:text-action-primary">
+                      {title}
+                    </span>
 
                     {summary && (
-                      <p className="mt-1 line-clamp-2 text-sm text-gray-500">{summary}</p>
+                      <p className="mt-1 line-clamp-2 text-sm text-content-tertiary">{summary}</p>
                     )}
 
                     <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -367,7 +373,7 @@ export default function SearchPage() {
                       ))}
 
                       {page.updatedAt && (
-                        <time className="ml-auto text-xs text-gray-400">
+                        <time className="ml-auto text-xs text-content-disabled">
                           {timeAgo(new Date(page.updatedAt), t)}
                         </time>
                       )}
@@ -403,40 +409,40 @@ function AiSearchResults({
   navigate: (to: string) => void;
 }) {
   if (!q) {
-    return <p className="text-sm text-gray-500">{t("search.empty_query")}</p>;
+    return <p className="text-sm text-content-tertiary">{t("search.empty_query")}</p>;
   }
 
   if (isNavigating) {
     return (
-      <div className="flex items-center gap-2 py-8 text-sm text-gray-500">
-        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent motion-reduce:animate-none" />
+      <div className="flex items-center gap-2 py-8 text-sm text-content-tertiary">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-border-focus border-t-transparent motion-reduce:animate-none" />
         {t("search.ai_searching")}
       </div>
     );
   }
 
   if (!ragResult) {
-    return <p className="text-sm text-gray-500">{t("search.ai_error")}</p>;
+    return <p className="text-sm text-content-tertiary">{t("search.ai_error")}</p>;
   }
 
   if (!ragResult.ragAvailable) {
-    return <p className="text-sm text-gray-500">{t("search.ai_unavailable")}</p>;
+    return <p className="text-sm text-content-tertiary">{t("search.ai_unavailable")}</p>;
   }
 
   if (!ragResult.answer && ragResult.sources.length === 0) {
-    return <p className="text-sm text-gray-500">{t("search.ai_no_results")}</p>;
+    return <p className="text-sm text-content-tertiary">{t("search.ai_no_results")}</p>;
   }
 
   return (
     <div className="flex flex-col gap-4">
       {/* AI Answer card */}
       {ragResult.answer && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 dark:border-blue-800 dark:bg-blue-950/30">
-          <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-blue-700 dark:text-blue-300">
+        <div className="rounded-lg border border-feedback-info-border bg-feedback-info-surface/50 p-4  ">
+          <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-action-primary-hover ">
             <span className="text-base">&#10022;</span>
             {t("search.ai_answer")}
           </div>
-          <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-800">
+          <div className="prose prose-sm max-w-none whitespace-pre-wrap text-content-primary">
             {ragResult.answer}
           </div>
         </div>
@@ -445,7 +451,9 @@ function AiSearchResults({
       {/* Source pages */}
       {ragResult.sources.length > 0 && (
         <div>
-          <h2 className="mb-3 text-sm font-medium text-gray-600">{t("search.ai_sources")}</h2>
+          <h2 className="mb-3 text-sm font-medium text-content-secondary">
+            {t("search.ai_sources")}
+          </h2>
           <ul className="flex flex-col gap-3">
             {ragResult.sources.map((source) => {
               const title = isJa
@@ -459,15 +467,17 @@ function AiSearchResults({
                 <li key={source.pageId}>
                   <Link
                     to={`/wiki/${source.slug}`}
-                    className="block rounded-lg border border-gray-200 bg-white p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-blue-500/40 hover:shadow-sm"
+                    className="block rounded-lg border border-border-default bg-surface-raised p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-border-focus/40 hover:shadow-sm"
                   >
-                    <span className="font-medium text-gray-900 hover:text-blue-600">{title}</span>
+                    <span className="font-medium text-content-primary hover:text-action-primary">
+                      {title}
+                    </span>
 
                     {summary && (
-                      <p className="mt-1 line-clamp-2 text-sm text-gray-500">{summary}</p>
+                      <p className="mt-1 line-clamp-2 text-sm text-content-tertiary">{summary}</p>
                     )}
 
-                    <div className="mt-2 text-xs text-gray-400">
+                    <div className="mt-2 text-xs text-content-disabled">
                       {Math.round(source.relevanceScore * 100)}% match
                     </div>
                   </Link>

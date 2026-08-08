@@ -50,7 +50,7 @@ export default function MermaidBlock({ code, id }: MermaidBlockProps) {
 
   if (error || !svg) {
     return (
-      <pre className="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm">
+      <pre className="overflow-x-auto rounded-lg border border-default bg-surface-canvas p-4 text-sm">
         <code>{code}</code>
       </pre>
     );

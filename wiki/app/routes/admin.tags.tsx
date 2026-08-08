@@ -101,28 +101,32 @@ export default function AdminTags() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">{t("admin.tags.heading")}</h1>
+      <h1 className="mb-6 text-2xl font-bold text-content-primary">{t("admin.tags.heading")}</h1>
 
       {flashOk && (
-        <div className="mb-4 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800">
+        <div className="mb-4 rounded-md bg-feedback-success-surface px-4 py-3 text-sm text-feedback-success-foreground">
           {flashOk}
         </div>
       )}
       {flashError && (
-        <div className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">{flashError}</div>
+        <div className="mb-4 rounded-md bg-feedback-danger-surface px-4 py-3 text-sm text-feedback-danger-foreground">
+          {flashError}
+        </div>
       )}
 
       {/* Create form */}
       <div className="mb-8">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">{t("admin.tags.new_tag")}</h2>
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h2 className="mb-4 text-lg font-semibold text-content-primary">
+          {t("admin.tags.new_tag")}
+        </h2>
+        <div className="rounded-lg border border-border-default bg-surface-raised p-6">
           <Form method="post">
             <input type="hidden" name="intent" value="createTag" />
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label
                   htmlFor="create-slug"
-                  className="mb-1 block text-sm font-medium text-gray-700"
+                  className="mb-1 block text-sm font-medium text-content-secondary"
                 >
                   {t("admin.tags.form.slug")}
                 </label>
@@ -133,13 +137,13 @@ export default function AdminTags() {
                   required
                   pattern="[a-z0-9]+(-[a-z0-9]+)*"
                   placeholder="my-tag"
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-md border border-border-strong px-3 py-2 text-sm focus:border-border-focus focus:outline-none"
                 />
               </div>
               <div>
                 <label
                   htmlFor="create-color"
-                  className="mb-1 block text-sm font-medium text-gray-700"
+                  className="mb-1 block text-sm font-medium text-content-secondary"
                 >
                   {t("admin.tags.form.color")}
                 </label>
@@ -147,14 +151,14 @@ export default function AdminTags() {
                   id="create-color"
                   type="color"
                   name="color"
-                  defaultValue="#3b82f6"
-                  className="h-10 w-full cursor-pointer rounded-md border border-gray-300"
+                  defaultValue="#3b82f6" // design-token-policy: allow-dynamic-color
+                  className="h-10 w-full cursor-pointer rounded-md border border-border-strong"
                 />
               </div>
               <div>
                 <label
                   htmlFor="create-label-ja"
-                  className="mb-1 block text-sm font-medium text-gray-700"
+                  className="mb-1 block text-sm font-medium text-content-secondary"
                 >
                   {t("admin.tags.form.label_ja")}
                 </label>
@@ -163,13 +167,13 @@ export default function AdminTags() {
                   type="text"
                   name="labelJa"
                   required
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-md border border-border-strong px-3 py-2 text-sm focus:border-border-focus focus:outline-none"
                 />
               </div>
               <div>
                 <label
                   htmlFor="create-label-en"
-                  className="mb-1 block text-sm font-medium text-gray-700"
+                  className="mb-1 block text-sm font-medium text-content-secondary"
                 >
                   {t("admin.tags.form.label_en")}
                 </label>
@@ -178,13 +182,13 @@ export default function AdminTags() {
                   type="text"
                   name="labelEn"
                   required
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-md border border-border-strong px-3 py-2 text-sm focus:border-border-focus focus:outline-none"
                 />
               </div>
               <div className="col-span-2 flex justify-end">
                 <button
                   type="submit"
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover"
                 >
                   {t("admin.tags.form.submit")}
                 </button>
@@ -194,34 +198,34 @@ export default function AdminTags() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-border-default bg-surface-raised">
         <table className="w-full text-sm">
-          <thead className="border-b border-gray-200 bg-gray-50">
+          <thead className="border-b border-border-default bg-surface-sunken">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">
+              <th className="px-4 py-3 text-left font-medium text-content-tertiary">
                 {t("admin.tags.col_color")}
               </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">
+              <th className="px-4 py-3 text-left font-medium text-content-tertiary">
                 {t("admin.tags.col_slug")}
               </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">
+              <th className="px-4 py-3 text-left font-medium text-content-tertiary">
                 {t("admin.tags.col_label_ja")}
               </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">
+              <th className="px-4 py-3 text-left font-medium text-content-tertiary">
                 {t("admin.tags.col_label_en")}
               </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">
+              <th className="px-4 py-3 text-left font-medium text-content-tertiary">
                 {t("admin.tags.col_pages")}
               </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">
+              <th className="px-4 py-3 text-left font-medium text-content-tertiary">
                 {t("admin.tags.col_actions")}
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-border-subtle">
             {tags.map((tag) =>
               editingSlug === tag.slug ? (
-                <tr key={tag.slug} className="bg-blue-50 dark:bg-blue-950/40">
+                <tr key={tag.slug} className="bg-feedback-info-surface ">
                   {/* Color cell — color picker input associated with edit-form */}
                   <td className="px-4 py-3">
                     <input
@@ -229,11 +233,11 @@ export default function AdminTags() {
                       name="color"
                       form={`edit-form-${tag.slug}`}
                       defaultValue={tag.color}
-                      className="h-8 w-10 cursor-pointer rounded border border-gray-300"
+                      className="h-8 w-10 cursor-pointer rounded border border-border-strong"
                     />
                   </td>
                   {/* Slug cell — read-only text + hidden input */}
-                  <td className="px-4 py-3 font-mono text-gray-700">
+                  <td className="px-4 py-3 font-mono text-content-secondary">
                     {tag.slug}
                     <input
                       type="hidden"
@@ -250,7 +254,7 @@ export default function AdminTags() {
                       form={`edit-form-${tag.slug}`}
                       defaultValue={tag.labelJa}
                       required
-                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded border border-border-strong px-2 py-1 text-sm focus:border-border-focus focus:outline-none"
                     />
                   </td>
                   {/* Label EN */}
@@ -261,11 +265,11 @@ export default function AdminTags() {
                       form={`edit-form-${tag.slug}`}
                       defaultValue={tag.labelEn}
                       required
-                      className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded border border-border-strong px-2 py-1 text-sm focus:border-border-focus focus:outline-none"
                     />
                   </td>
                   {/* Page count — read-only */}
-                  <td className="px-4 py-3 text-gray-500">{tag.pageCount}</td>
+                  <td className="px-4 py-3 text-content-tertiary">{tag.pageCount}</td>
                   {/* Actions cell — contains the actual form */}
                   <td className="px-4 py-3">
                     <Form
@@ -277,14 +281,14 @@ export default function AdminTags() {
                       <input type="hidden" name="intent" value="updateTag" />
                       <button
                         type="submit"
-                        className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700"
+                        className="rounded bg-action-primary px-3 py-1 text-xs font-medium text-action-primary-foreground hover:bg-action-primary-hover"
                       >
                         {t("admin.tags.form.update")}
                       </button>
                       <button
                         type="button"
                         onClick={() => setEditingSlug(null)}
-                        className="rounded border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                        className="rounded border border-border-strong px-3 py-1 text-xs font-medium text-content-secondary hover:bg-surface-hover"
                       >
                         {t("cancel")}
                       </button>
@@ -292,7 +296,7 @@ export default function AdminTags() {
                   </td>
                 </tr>
               ) : (
-                <tr key={tag.slug} className="hover:bg-gray-50">
+                <tr key={tag.slug} className="hover:bg-surface-hover">
                   <td className="px-4 py-3">
                     <div
                       className="h-5 w-5 rounded"
@@ -300,16 +304,16 @@ export default function AdminTags() {
                       title={tag.color}
                     />
                   </td>
-                  <td className="px-4 py-3 font-mono text-gray-700">{tag.slug}</td>
-                  <td className="px-4 py-3 text-gray-900">{tag.labelJa}</td>
-                  <td className="px-4 py-3 text-gray-600">{tag.labelEn}</td>
-                  <td className="px-4 py-3 text-gray-500">{tag.pageCount}</td>
+                  <td className="px-4 py-3 font-mono text-content-secondary">{tag.slug}</td>
+                  <td className="px-4 py-3 text-content-primary">{tag.labelJa}</td>
+                  <td className="px-4 py-3 text-content-secondary">{tag.labelEn}</td>
+                  <td className="px-4 py-3 text-content-tertiary">{tag.pageCount}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => setEditingSlug(tag.slug)}
-                        className="rounded border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                        className="rounded border border-border-strong px-3 py-1 text-xs font-medium text-content-secondary hover:bg-surface-hover"
                       >
                         {t("admin.tags.edit")}
                       </button>
@@ -325,7 +329,7 @@ export default function AdminTags() {
                         <input type="hidden" name="slug" value={tag.slug} />
                         <button
                           type="submit"
-                          className="rounded border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                          className="rounded border border-feedback-danger-border px-3 py-1 text-xs font-medium text-feedback-danger-foreground hover:bg-feedback-danger-surface"
                         >
                           {t("admin.tags.delete")}
                         </button>
@@ -339,7 +343,9 @@ export default function AdminTags() {
         </table>
 
         {tags.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-gray-400">{t("admin.tags.empty")}</p>
+          <p className="px-4 py-8 text-center text-sm text-content-disabled">
+            {t("admin.tags.empty")}
+          </p>
         )}
       </div>
     </div>

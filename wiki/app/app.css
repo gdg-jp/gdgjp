@@ -17,7 +17,7 @@
   padding: 1px 4px;
   border-radius: 3px 3px 3px 0;
   font-size: 11px;
-  color: white;
+  color: var(--content-inverse);
   white-space: nowrap;
   z-index: 10;
 }
@@ -46,104 +46,102 @@
 
 @theme {
   --font-sans: "Google Sans", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
-
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  /* Compatibility aliases for the shared shadcn primitives. */
+  --color-background: var(--surface-canvas);
+  --color-foreground: var(--content-primary);
+  --color-card: var(--surface-raised);
+  --color-card-foreground: var(--content-primary);
+  --color-popover: var(--surface-raised);
+  --color-popover-foreground: var(--content-primary);
+  --color-primary: var(--action-primary);
+  --color-primary-foreground: var(--action-primary-foreground);
+  --color-secondary: var(--action-secondary);
+  --color-secondary-foreground: var(--action-secondary-foreground);
+  --color-muted: var(--surface-sunken);
+  --color-muted-foreground: var(--content-tertiary);
+  --color-accent: var(--surface-hover);
+  --color-accent-foreground: var(--content-primary);
+  --color-destructive: var(--action-destructive);
+  --color-destructive-foreground: var(--action-destructive-foreground);
+  --color-border: var(--border-default);
+  --color-input: var(--border-strong);
+  --color-ring: var(--border-focus);
   --color-overlay: var(--overlay);
-
-  /* ── Blue scale (anchored: blue-500=#4285f4, blue-100=pastel-blue, blue-300=halftone-blue) ── */
-  --color-blue-50: #e8f0fe;
-  --color-blue-100: #c3ecf6;
-  --color-blue-200: #a8d8f0;
-  --color-blue-300: #57caff;
-  --color-blue-400: #4f9ef8;
-  --color-blue-500: #4285f4;
-  --color-blue-600: #1a73e8;
-  --color-blue-700: #1765cc;
-  --color-blue-800: #174ea6;
-  --color-blue-900: #0d3880;
-  --color-blue-950: #082566;
-
-  /* ── Green scale (anchored: green-500=#34a853, green-100=pastel-green, green-300=halftone-green) ── */
-  --color-green-50: #ccf6c5;
-  --color-green-100: #ccf6c5;
-  --color-green-200: #a8eaa0;
-  --color-green-300: #5cdb6d;
-  --color-green-400: #45c05a;
-  --color-green-500: #34a853;
-  --color-green-600: #1e8e3e;
-  --color-green-700: #188038;
-  --color-green-800: #0d652a;
-  --color-green-900: #09501f;
-  --color-green-950: #063a16;
-
-  /* ── Yellow scale (anchored: yellow-600=#f9ab00, yellow-100=pastel-yellow, yellow-300=halftone-yellow) ── */
-  --color-yellow-50: #ffe7a5;
-  --color-yellow-100: #ffe7a5;
-  --color-yellow-200: #ffd880;
-  --color-yellow-300: #ffd427;
-  --color-yellow-400: #ffbc00;
-  --color-yellow-500: #f9b300;
-  --color-yellow-600: #f9ab00;
-  --color-yellow-700: #e37400;
-  --color-yellow-800: #c56200;
-  --color-yellow-900: #9a4d00;
-  --color-yellow-950: #6e3700;
-
-  /* ── Red scale (anchored: red-500=#ea4335, red-100=pastel-red) ── */
-  --color-red-50: #f8d8d8;
-  --color-red-100: #f8d8d8;
-  --color-red-200: #f0b8b8;
-  --color-red-300: #f07070;
-  --color-red-400: #f05c50;
-  --color-red-500: #ea4335;
-  --color-red-600: #d33828;
-  --color-red-700: #b52c1e;
-  --color-red-800: #8c1f14;
-  --color-red-900: #63150d;
-  --color-red-950: #3d0d08;
-
-  /* ── Gray scale (anchored: gray-100=off-white=#f0f0f0, gray-900=black-02=#1e1e1e) ── */
-  --color-gray-50: #f9f9f9;
-  --color-gray-100: #f0f0f0;
-  --color-gray-200: #e4e4e4;
-  --color-gray-300: #cccccc;
-  --color-gray-400: #aaaaaa;
-  --color-gray-500: #888888;
-  --color-gray-600: #636363;
-  --color-gray-700: #444444;
-  --color-gray-800: #2a2a2a;
-  --color-gray-900: #1e1e1e;
-  --color-gray-950: #141414;
-
-  /* ── Named palette tokens (for direct use when needed) ── */
-  --color-halftone-blue: #57caff;
-  --color-halftone-green: #5cdb6d;
-  --color-halftone-yellow: #ffd427;
-  --color-halftone-red: #ff7daf;
-  --color-pastel-blue: #c3ecf6;
-  --color-pastel-green: #ccf6c5;
-  --color-pastel-yellow: #ffe7a5;
-  --color-pastel-red: #f8d8d8;
-  --color-off-white: #f0f0f0;
-  --color-black-02: #1e1e1e;
+  --color-surface-canvas: var(--surface-canvas);
+  --color-surface-default: var(--surface-default);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-selected: var(--surface-selected);
+  --color-content-primary: var(--content-primary);
+  --color-content-secondary: var(--content-secondary);
+  --color-content-tertiary: var(--content-tertiary);
+  --color-content-disabled: var(--content-disabled);
+  --color-content-inverse: var(--content-inverse);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+  --color-border-focus: var(--border-focus);
+  /* Border colors are intentionally also exposed as border-{role}. */
+  --color-subtle: var(--border-subtle);
+  --color-default: var(--border-default);
+  --color-strong: var(--border-strong);
+  --color-focus: var(--border-focus);
+  --color-action-primary: var(--action-primary);
+  --color-action-primary-hover: var(--action-primary-hover);
+  --color-action-primary-foreground: var(--action-primary-foreground);
+  --color-action-secondary: var(--action-secondary);
+  --color-action-secondary-hover: var(--action-secondary-hover);
+  --color-action-secondary-foreground: var(--action-secondary-foreground);
+  --color-action-destructive: var(--action-destructive);
+  --color-action-destructive-hover: var(--action-destructive-hover);
+  --color-action-destructive-foreground: var(--action-destructive-foreground);
+  --color-feedback-info-surface: var(--feedback-info-surface);
+  --color-feedback-info-border: var(--feedback-info-border);
+  --color-feedback-info-foreground: var(--feedback-info-foreground);
+  --color-feedback-info-solid: var(--feedback-info-solid);
+  --color-feedback-info-solid-foreground: var(--feedback-info-solid-foreground);
+  --color-feedback-success-surface: var(--feedback-success-surface);
+  --color-feedback-success-border: var(--feedback-success-border);
+  --color-feedback-success-foreground: var(--feedback-success-foreground);
+  --color-feedback-success-solid: var(--feedback-success-solid);
+  --color-feedback-success-solid-foreground: var(--feedback-success-solid-foreground);
+  --color-feedback-warning-surface: var(--feedback-warning-surface);
+  --color-feedback-warning-border: var(--feedback-warning-border);
+  --color-feedback-warning-foreground: var(--feedback-warning-foreground);
+  --color-feedback-warning-solid: var(--feedback-warning-solid);
+  --color-feedback-warning-solid-foreground: var(--feedback-warning-solid-foreground);
+  --color-feedback-danger-surface: var(--feedback-danger-surface);
+  --color-feedback-danger-border: var(--feedback-danger-border);
+  --color-feedback-danger-foreground: var(--feedback-danger-foreground);
+  --color-feedback-danger-solid: var(--feedback-danger-solid);
+  --color-feedback-danger-solid-foreground: var(--feedback-danger-solid-foreground);
+  --color-task-todo-surface: var(--task-todo-surface);
+  --color-task-todo-foreground: var(--task-todo-foreground);
+  --color-task-in-progress-surface: var(--task-in-progress-surface);
+  --color-task-in-progress-foreground: var(--task-in-progress-foreground);
+  --color-task-done-surface: var(--task-done-surface);
+  --color-task-done-foreground: var(--task-done-foreground);
+  --color-task-cancelled-surface: var(--task-cancelled-surface);
+  --color-task-cancelled-foreground: var(--task-cancelled-foreground);
+  --color-task-duplicated-surface: var(--task-duplicated-surface);
+  --color-task-duplicated-foreground: var(--task-duplicated-foreground);
+  --color-brand-google-blue: var(--brand-google-blue);
+  --color-brand-google-green: var(--brand-google-green);
+  --color-brand-google-yellow: var(--brand-google-yellow);
+  --color-brand-google-red: var(--brand-google-red);
+  --color-brand-google-blue-soft: var(--brand-google-blue-soft);
+  --color-brand-google-green-soft: var(--brand-google-green-soft);
+  --color-brand-google-yellow-soft: var(--brand-google-yellow-soft);
+  --color-brand-google-red-soft: var(--brand-google-red-soft);
+  --color-presence-rose: var(--presence-rose);
+  --color-presence-amber: var(--presence-amber);
+  --color-presence-emerald: var(--presence-emerald);
+  --color-presence-cyan: var(--presence-cyan);
+  --color-presence-violet: var(--presence-violet);
+  --color-presence-pink: var(--presence-pink);
+  --color-presence-teal: var(--presence-teal);
+  --color-presence-indigo: var(--presence-indigo);
 }
 
 :root {
@@ -157,95 +155,140 @@
   --motion-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 
-  --background: #f9f9f9;
-  --foreground: #1e1e1e;
-  --card: #ffffff;
-  --card-foreground: #1e1e1e;
-  --popover: #ffffff;
-  --popover-foreground: #1e1e1e;
-  --primary: #4285f4;
-  --primary-foreground: #ffffff;
-  --secondary: #f0f0f0;
-  --secondary-foreground: #2a2a2a;
-  --muted: #f0f0f0;
-  --muted-foreground: #636363;
-  --accent: #f0f0f0;
-  --accent-foreground: #1e1e1e;
-  --destructive: #d33828;
-  --destructive-foreground: #ffffff;
-  --border: #e4e4e4;
-  --input: #cccccc;
-  --ring: #4285f4;
+  --surface-canvas: #f9f9f9;
+  --surface-default: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f0f0f0;
+  --surface-hover: #f0f0f0;
+  --surface-selected: #e8f0fe;
+  --content-primary: #1e1e1e;
+  --content-secondary: #444444;
+  --content-tertiary: #636363;
+  --content-disabled: #aaaaaa;
+  --content-inverse: #ffffff;
+  --border-subtle: #f0f0f0;
+  --border-default: #e4e4e4;
+  --border-strong: #cccccc;
+  --border-focus: #1a73e8;
+  --action-primary: #1a73e8;
+  --action-primary-hover: #1765cc;
+  --action-primary-foreground: #ffffff;
+  --action-secondary: #f0f0f0;
+  --action-secondary-hover: #e4e4e4;
+  --action-secondary-foreground: #2a2a2a;
+  --action-destructive: #d33828;
+  --action-destructive-hover: #b52c1e;
+  --action-destructive-foreground: #ffffff;
+  --feedback-info-surface: #e8f0fe;
+  --feedback-info-border: #c3ecf6;
+  --feedback-info-foreground: #174ea6;
+  --feedback-info-solid: #1a73e8;
+  --feedback-info-solid-foreground: #ffffff;
+  --feedback-success-surface: #ccf6c5;
+  --feedback-success-border: #a8eaa0;
+  --feedback-success-foreground: #0d652a;
+  --feedback-success-solid: #1e8e3e;
+  --feedback-success-solid-foreground: #ffffff;
+  --feedback-warning-surface: #ffe7a5;
+  --feedback-warning-border: #ffd880;
+  --feedback-warning-foreground: #9a4d00;
+  --feedback-warning-solid: #e37400;
+  --feedback-warning-solid-foreground: #ffffff;
+  --feedback-danger-surface: #f8d8d8;
+  --feedback-danger-border: #f0b8b8;
+  --feedback-danger-foreground: #8c1f14;
+  --feedback-danger-solid: #d33828;
+  --feedback-danger-solid-foreground: #ffffff;
+  --task-todo-surface: var(--feedback-success-surface);
+  --task-todo-foreground: var(--feedback-success-foreground);
+  --task-in-progress-surface: var(--feedback-warning-surface);
+  --task-in-progress-foreground: var(--feedback-warning-foreground);
+  --task-done-surface: var(--feedback-info-surface);
+  --task-done-foreground: var(--feedback-info-foreground);
+  --task-cancelled-surface: var(--surface-sunken);
+  --task-cancelled-foreground: var(--content-secondary);
+  --task-duplicated-surface: var(--feedback-warning-surface);
+  --task-duplicated-foreground: var(--feedback-warning-foreground);
+  --brand-google-blue: #4285f4;
+  --brand-google-green: #34a853;
+  --brand-google-yellow: #f9ab00;
+  --brand-google-red: #ea4335;
+  --brand-google-blue-soft: #e8f0fe;
+  --brand-google-green-soft: #e6f4ea;
+  --brand-google-yellow-soft: #fef7e0;
+  --brand-google-red-soft: #fce8e6;
+  --presence-rose: #fb7185;
+  --presence-amber: #fbbf24;
+  --presence-emerald: #34d399;
+  --presence-cyan: #22d3ee;
+  --presence-violet: #a78bfa;
+  --presence-pink: #f472b6;
+  --presence-teal: #2dd4bf;
+  --presence-indigo: #818cf8;
   --overlay: oklch(0 0 0 / 0.5);
 }
 
 .dark {
   color-scheme: dark;
-  --background: #1e1e1e;
-  --foreground: #f0f0f0;
-  --card: #2a2a2a;
-  --card-foreground: #f0f0f0;
-  --popover: #2a2a2a;
-  --popover-foreground: #ffffff;
-  --primary: #8ab4f8;
-  --primary-foreground: #141414;
-  --secondary: #444444;
-  --secondary-foreground: #f0f0f0;
-  --muted: #444444;
-  --muted-foreground: #cccccc;
-  --accent: #444444;
-  --accent-foreground: #ffffff;
-  --destructive: #f07070;
-  --destructive-foreground: #141414;
-  --border: #444444;
-  --input: #636363;
-  --ring: #57caff;
+  --surface-canvas: #1e1e1e;
+  --surface-default: #2a2a2a;
+  --surface-raised: #2a2a2a;
+  --surface-sunken: #444444;
+  --surface-hover: #444444;
+  --surface-selected: #082566;
+  --content-primary: #f0f0f0;
+  --content-secondary: #e4e4e4;
+  --content-tertiary: #cccccc;
+  --content-disabled: #888888;
+  --content-inverse: #141414;
+  --border-subtle: #2a2a2a;
+  --border-default: #444444;
+  --border-strong: #636363;
+  --border-focus: #57caff;
+  --action-primary: #8ab4f8;
+  --action-primary-hover: #a8d8f0;
+  --action-primary-foreground: #141414;
+  --action-secondary: #444444;
+  --action-secondary-hover: #636363;
+  --action-secondary-foreground: #f0f0f0;
+  --action-destructive: #f07070;
+  --action-destructive-hover: #f0b8b8;
+  --action-destructive-foreground: #141414;
+  --feedback-info-surface: #082566;
+  --feedback-info-border: #0d3880;
+  --feedback-info-foreground: #a8d8f0;
+  --feedback-info-solid: #57caff;
+  --feedback-info-solid-foreground: #141414;
+  --feedback-success-surface: #063a16;
+  --feedback-success-border: #09501f;
+  --feedback-success-foreground: #a8eaa0;
+  --feedback-success-solid: #5cdb6d;
+  --feedback-success-solid-foreground: #141414;
+  --feedback-warning-surface: #6e3700;
+  --feedback-warning-border: #9a4d00;
+  --feedback-warning-foreground: #ffd880;
+  --feedback-warning-solid: #ffd427;
+  --feedback-warning-solid-foreground: #141414;
+  --feedback-danger-surface: #3d0d08;
+  --feedback-danger-border: #63150d;
+  --feedback-danger-foreground: #f0b8b8;
+  --feedback-danger-solid: #f07070;
+  --feedback-danger-solid-foreground: #141414;
+  --task-todo-surface: var(--feedback-success-surface);
+  --task-todo-foreground: var(--feedback-success-foreground);
+  --task-in-progress-surface: var(--feedback-warning-surface);
+  --task-in-progress-foreground: var(--feedback-warning-foreground);
+  --task-done-surface: var(--feedback-info-surface);
+  --task-done-foreground: var(--feedback-info-foreground);
+  --task-cancelled-surface: var(--surface-sunken);
+  --task-cancelled-foreground: var(--content-secondary);
+  --task-duplicated-surface: var(--feedback-warning-surface);
+  --task-duplicated-foreground: var(--feedback-warning-foreground);
+  --brand-google-blue-soft: #082566;
+  --brand-google-green-soft: #063a16;
+  --brand-google-yellow-soft: #6e3700;
+  --brand-google-red-soft: #3d0d08;
   --overlay: oklch(0 0 0 / 0.65);
-
-  /* ── Gray scale: fully inverted (light ↔ dark) ── */
-  --color-gray-50: #1e1e1e;
-  --color-gray-100: #2a2a2a;
-  --color-gray-200: #444444;
-  --color-gray-300: #636363;
-  --color-gray-400: #888888;
-  --color-gray-500: #aaaaaa;
-  --color-gray-600: #cccccc;
-  --color-gray-700: #e4e4e4;
-  --color-gray-800: #f0f0f0;
-  --color-gray-900: #ffffff;
-  --color-gray-950: #ffffff;
-
-  /*
-   * Accent tint inversion — same principle as the gray scale:
-   * "surface tint" values (50/100) become dark; "on-tint text" values (700/800) become light.
-   * This makes bg-blue-50, bg-green-50, etc. automatically work in dark mode without
-   * per-component dark: overrides. Values above (200–600, 900–950) are intentionally
-   * left unchanged so existing dark:bg-blue-950 overrides keep their dark appearance.
-   */
-
-  /* ── Blue ── */
-  --color-blue-50: #082566; /* tinted surface (was blue-950) */
-  --color-blue-100: #0d3880; /* subtle surface / border (was blue-900) */
-  --color-blue-700: #57caff; /* on-surface text — bright (was blue-300) */
-  --color-blue-800: #a8d8f0; /* on-surface text — muted (was blue-200) */
-
-  /* ── Green ── */
-  --color-green-50: #063a16; /* tinted surface (was green-950) */
-  --color-green-100: #09501f; /* subtle surface (was green-900) */
-  --color-green-700: #5cdb6d; /* on-surface text — bright (was green-300) */
-  --color-green-800: #a8eaa0; /* on-surface text — muted (was green-200) */
-
-  /* ── Red ── */
-  --color-red-50: #3d0d08; /* tinted surface (was red-950) */
-  --color-red-100: #63150d; /* subtle surface (was red-900) */
-  --color-red-700: #f07070; /* on-surface text — bright (was red-300) */
-  --color-red-800: #f0b8b8; /* on-surface text — muted (was red-200) */
-
-  /* ── Yellow ── */
-  --color-yellow-50: #6e3700; /* tinted surface (was yellow-950) */
-  --color-yellow-100: #9a4d00; /* subtle surface (was yellow-900) */
-  --color-yellow-700: #ffd427; /* on-surface text — bright (was yellow-300) */
-  --color-yellow-800: #ffd880; /* on-surface text — muted (was yellow-200) */
 }
 
 /* Shared motion layer: short, interruptible transitions for product UI. */
@@ -358,97 +401,111 @@
   }
 }
 
-.dark .bg-white {
-  background-color: var(--color-gray-100);
-}
-
 /* Emoji reaction chip — active (reacted) state */
 .reaction-active {
-  background-color: var(--color-blue-100);
+  background-color: var(--surface-selected);
 }
 .reaction-active .reaction-count {
-  color: var(--color-blue-600);
-}
-.dark .reaction-active {
-  background-color: var(--color-blue-900); /* blue-900 stays dark (#0d3880) */
-}
-.dark .reaction-active .reaction-count {
-  color: var(--color-blue-200); /* blue-200 stays light (#a8d8f0) */
+  color: var(--feedback-info-foreground);
 }
 
 /* Force light mode for landing page sections regardless of user theme */
 .force-light {
   color-scheme: light;
-  --color-gray-50: #f9f9f9;
-  --color-gray-100: #f0f0f0;
-  --color-gray-200: #e4e4e4;
-  --color-gray-300: #cccccc;
-  --color-gray-400: #aaaaaa;
-  --color-gray-500: #888888;
-  --color-gray-600: #636363;
-  --color-gray-700: #444444;
-  --color-gray-800: #2a2a2a;
-  --color-gray-900: #1e1e1e;
-  --color-gray-950: #141414;
-}
-
-.force-light .bg-white,
-.dark .force-light .bg-white {
-  background-color: white;
+  --surface-canvas: #f9f9f9;
+  --surface-default: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f0f0f0;
+  --surface-hover: #f0f0f0;
+  --surface-selected: #e8f0fe;
+  --content-primary: #1e1e1e;
+  --content-secondary: #444444;
+  --content-tertiary: #636363;
+  --content-disabled: #aaaaaa;
+  --content-inverse: #ffffff;
+  --border-subtle: #f0f0f0;
+  --border-default: #e4e4e4;
+  --border-strong: #cccccc;
+  --border-focus: #1a73e8;
+  --action-primary: #1a73e8;
+  --action-primary-hover: #1765cc;
+  --action-primary-foreground: #ffffff;
+  --action-secondary: #f0f0f0;
+  --action-secondary-hover: #e4e4e4;
+  --action-secondary-foreground: #2a2a2a;
+  --action-destructive: #d33828;
+  --action-destructive-hover: #b52c1e;
+  --action-destructive-foreground: #ffffff;
+  --feedback-info-surface: #e8f0fe;
+  --feedback-info-border: #c3ecf6;
+  --feedback-info-foreground: #174ea6;
+  --feedback-success-surface: #ccf6c5;
+  --feedback-success-border: #a8eaa0;
+  --feedback-success-foreground: #0d652a;
+  --feedback-warning-surface: #ffe7a5;
+  --feedback-warning-border: #ffd880;
+  --feedback-warning-foreground: #9a4d00;
+  --feedback-danger-surface: #f8d8d8;
+  --feedback-danger-border: #f0b8b8;
+  --feedback-danger-foreground: #8c1f14;
+  --brand-google-blue-soft: #e8f0fe;
+  --brand-google-green-soft: #e6f4ea;
+  --brand-google-yellow-soft: #fef7e0;
+  --brand-google-red-soft: #fce8e6;
 }
 
 .dark .md-editor-dark {
-  --md-bk-color: #1e1e1e;
-  --md-bk-color-outstand: #2a2a2a;
-  --md-bk-hover-color: #2a2a2a;
-  --md-border-color: #444444;
-  --md-border-hover-color: #636363;
-  --md-border-active-color: #888888;
-  --md-color: #cccccc;
-  --md-hover-color: #f0f0f0;
+  --md-bk-color: var(--surface-canvas);
+  --md-bk-color-outstand: var(--surface-default);
+  --md-bk-hover-color: var(--surface-default);
+  --md-border-color: var(--border-default);
+  --md-border-hover-color: var(--border-strong);
+  --md-border-active-color: var(--content-disabled);
+  --md-color: var(--content-tertiary);
+  --md-hover-color: var(--content-primary);
 }
 
 .dark .md-editor-dark .md-editor-preview {
-  --md-theme-bg-color: #1e1e1e;
-  --md-theme-bg-color-inset: #2a2a2a;
-  --md-theme-border-color: #444444;
-  --md-theme-border-color-inset: #636363;
-  --md-theme-border-color-reverse: #cccccc;
-  --md-theme-color: #cccccc;
-  --md-theme-color-reverse: #1e1e1e;
+  --md-theme-bg-color: var(--surface-canvas);
+  --md-theme-bg-color-inset: var(--surface-default);
+  --md-theme-border-color: var(--border-default);
+  --md-theme-border-color-inset: var(--border-strong);
+  --md-theme-border-color-reverse: var(--content-tertiary);
+  --md-theme-color: var(--content-tertiary);
+  --md-theme-color-reverse: var(--content-inverse);
 }
 
 /* ── Fallback: apply dark vars even when md-editor-dark class is missing ── */
 .dark .md-editor {
-  --md-bk-color: #1e1e1e;
-  --md-bk-color-outstand: #2a2a2a;
-  --md-bk-hover-color: #2a2a2a;
-  --md-border-color: #444444;
-  --md-border-hover-color: #636363;
-  --md-border-active-color: #888888;
-  --md-color: #cccccc;
-  --md-hover-color: #f0f0f0;
+  --md-bk-color: var(--surface-canvas);
+  --md-bk-color-outstand: var(--surface-default);
+  --md-bk-hover-color: var(--surface-default);
+  --md-border-color: var(--border-default);
+  --md-border-hover-color: var(--border-strong);
+  --md-border-active-color: var(--content-disabled);
+  --md-color: var(--content-tertiary);
+  --md-hover-color: var(--content-primary);
 }
 
 .dark .md-editor .md-editor-preview {
-  --md-theme-bg-color: #1e1e1e;
-  --md-theme-bg-color-inset: #2a2a2a;
-  --md-theme-border-color: #444444;
-  --md-theme-border-color-inset: #636363;
-  --md-theme-border-color-reverse: #cccccc;
-  --md-theme-color: #cccccc;
-  --md-theme-color-reverse: #1e1e1e;
+  --md-theme-bg-color: var(--surface-canvas);
+  --md-theme-bg-color-inset: var(--surface-default);
+  --md-theme-border-color: var(--border-default);
+  --md-theme-border-color-inset: var(--border-strong);
+  --md-theme-border-color-reverse: var(--content-tertiary);
+  --md-theme-color: var(--content-tertiary);
+  --md-theme-color-reverse: var(--content-inverse);
 }
 
 /* ── GitHub-style markdown preview (light) ── */
 .md-editor-preview {
-  --md-theme-link-color: #0969da;
-  --md-theme-link-hover-color: #0550ae;
+  --md-theme-link-color: var(--action-primary);
+  --md-theme-link-hover-color: var(--action-primary-hover);
 }
 
 .md-editor-preview h1,
 .md-editor-preview h2 {
-  border-bottom: 1px solid #d1d9e0;
+  border-bottom: 1px solid var(--border-default);
   padding-bottom: 0.3em;
 }
 
@@ -468,14 +525,14 @@
 }
 
 .md-editor-preview :not(pre) > code {
-  background: rgba(175, 184, 193, 0.2);
+  background: var(--surface-sunken);
   padding: 0.2em 0.4em;
   border-radius: 6px;
   font-size: 85%;
 }
 
 .md-editor-preview pre {
-  background: #f6f8fa;
+  background: var(--surface-sunken);
   border-radius: 6px;
   padding: 16px;
   font-size: 85%;
@@ -491,20 +548,20 @@
 }
 
 .md-editor-preview blockquote {
-  border-left: 0.25em solid #d1d9e0;
-  color: #656d76;
+  border-left: 0.25em solid var(--border-default);
+  color: var(--content-secondary);
   padding: 0 1em;
   margin-left: 0;
 }
 
 .md-editor-preview table th,
 .md-editor-preview table td {
-  border: 1px solid #d1d9e0;
+  border: 1px solid var(--border-default);
   padding: 6px 13px;
 }
 
 .md-editor-preview table tr:nth-child(2n) {
-  background: #f6f8fa;
+  background: var(--surface-sunken);
 }
 
 .md-editor-preview img {
@@ -513,7 +570,7 @@
 
 .md-editor-preview hr {
   height: 0.25em;
-  background: #d1d9e0;
+  background: var(--border-default);
   border: 0;
 }
 
@@ -529,36 +586,4 @@
 
 .md-editor-preview ol {
   list-style-type: decimal;
-}
-
-/* ── GitHub-style markdown preview (dark) ── */
-.dark .md-editor-preview h1,
-.dark .md-editor-preview h2 {
-  border-bottom-color: #3d444d;
-}
-
-.dark .md-editor-preview :not(pre) > code {
-  background: rgba(110, 118, 129, 0.4);
-}
-
-.dark .md-editor-preview pre {
-  background: #161b22;
-}
-
-.dark .md-editor-preview blockquote {
-  border-left-color: #3d444d;
-  color: #9198a1;
-}
-
-.dark .md-editor-preview table th,
-.dark .md-editor-preview table td {
-  border-color: #3d444d;
-}
-
-.dark .md-editor-preview table tr:nth-child(2n) {
-  background: #161b22;
-}
-
-.dark .md-editor-preview hr {
-  background: #3d444d;
 }

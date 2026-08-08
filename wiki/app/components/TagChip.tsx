@@ -33,7 +33,7 @@ export default function TagChip({
   return (
     <Link
       to={to}
-      className={`inline-flex items-center gap-1 rounded-full ${padding} text-xs font-medium text-white hover:opacity-80 transition-opacity`}
+      className={`inline-flex items-center gap-1 rounded-full ${padding} text-xs font-medium text-content-inverse hover:opacity-80 transition-opacity`}
       style={{ backgroundColor: color }}
       onClick={onClick}
     >

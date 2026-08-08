@@ -2,14 +2,14 @@ export const STATUSES = ["todo", "in_progress", "done", "cancelled", "duplicated
 export const TYPES = ["task", "discussion"] as const;
 
 export const STATUS_CHIP: Record<string, string> = {
-  todo: "bg-green-100 text-green-700",
-  in_progress: "bg-yellow-100 text-yellow-700",
-  done: "bg-blue-100 text-blue-700",
-  cancelled: "bg-gray-100 text-gray-700",
-  duplicated: "bg-gray-100 text-gray-700",
+  todo: "bg-task-todo-surface text-task-todo-foreground",
+  in_progress: "bg-task-in-progress-surface text-task-in-progress-foreground",
+  done: "bg-task-done-surface text-task-done-foreground",
+  cancelled: "bg-task-cancelled-surface text-task-cancelled-foreground",
+  duplicated: "bg-task-duplicated-surface text-task-duplicated-foreground",
 };
 
 export const TYPE_CHIP: Record<string, string> = {
-  task: "bg-red-100 text-red-700",
-  discussion: "bg-blue-100 text-blue-700",
+  task: "bg-feedback-danger-surface text-feedback-danger-foreground",
+  discussion: "bg-feedback-info-surface text-action-primary",
 };

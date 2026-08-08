@@ -168,10 +168,10 @@ function ProcessingScreen({
   const activity = buildLiveActivity(events);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gray-50">
-      <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600 motion-reduce:animate-none" />
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-surface-sunken">
+      <div className="h-12 w-12 animate-spin rounded-full border-4 border-feedback-info-border border-t-blue-600 motion-reduce:animate-none" />
       <div className="text-center">
-        <p className="text-lg font-medium text-gray-800">{t("ingest.processing_message")}</p>
+        <p className="text-lg font-medium text-content-primary">{t("ingest.processing_message")}</p>
       </div>
       <div className="w-72 space-y-2">
         {PHASE_STEPS.map((step, i) => {
@@ -193,7 +193,7 @@ function ProcessingScreen({
                 {isDone ? (
                   "✓"
                 ) : isActive ? (
-                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-600 motion-reduce:animate-none" />
+                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-action-primary motion-reduce:animate-none" />
                 ) : (
                   "○"
                 )}
@@ -202,10 +202,10 @@ function ProcessingScreen({
                 <span
                   className={
                     isDone
-                      ? "text-sm text-green-600"
+                      ? "text-sm text-feedback-success-foreground"
                       : isActive
-                        ? "text-sm font-medium text-gray-900"
-                        : "text-sm text-gray-400"
+                        ? "text-sm font-medium text-content-primary"
+                        : "text-sm text-content-disabled"
                   }
                 >
                   {label}
@@ -222,7 +222,7 @@ function ProcessingScreen({
           aria-live="polite"
           aria-label="Live generation activity"
         >
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-content-tertiary">
             Live activity
           </p>
           <ul className="space-y-2">
@@ -230,7 +230,7 @@ function ProcessingScreen({
               item.kind === "tool" ? (
                 <ToolActivityCard key={item.key} activity={item} />
               ) : (
-                <li key={item.key} className="text-xs text-gray-500">
+                <li key={item.key} className="text-xs text-content-tertiary">
                   {eventDescription(item.event)}
                 </li>
               ),
@@ -238,8 +238,8 @@ function ProcessingScreen({
           </ul>
         </div>
       )}
-      <p className="text-sm text-gray-500">{t("ingest.processing_hint")}</p>
-      <p className="text-xs text-gray-400">{t("ingest.processing_leave_hint")}</p>
+      <p className="text-sm text-content-tertiary">{t("ingest.processing_hint")}</p>
+      <p className="text-xs text-content-disabled">{t("ingest.processing_leave_hint")}</p>
     </div>
   );
 }
@@ -253,25 +253,25 @@ function ToolActivityCard({ activity }: { activity: ToolActivityItem }) {
         : "Failed";
   const statusClass =
     activity.status === "running"
-      ? "bg-blue-50 text-blue-700"
+      ? "bg-feedback-info-surface text-action-primary-hover"
       : activity.status === "completed"
-        ? "bg-green-50 text-green-700"
-        : "bg-red-50 text-red-700";
+        ? "bg-feedback-success-surface text-feedback-success-foreground"
+        : "bg-feedback-danger-surface text-feedback-danger-foreground";
 
   return (
-    <li className="rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-sm">
+    <li className="rounded-lg border border-border-default bg-surface-raised p-3 text-xs text-content-secondary shadow-sm">
       <div className="flex items-center justify-between gap-3">
-        <code className="font-semibold text-gray-900">{activity.tool}</code>
+        <code className="font-semibold text-content-primary">{activity.tool}</code>
         <span className={`rounded-full px-2 py-0.5 font-medium ${statusClass}`}>{statusLabel}</span>
       </div>
-      {activity.summary && <p className="mt-1 text-gray-500">{activity.summary}</p>}
-      <pre className="mt-2 whitespace-pre-wrap break-all rounded-md bg-gray-50 p-2 font-mono text-[11px] leading-4 text-gray-700">
+      {activity.summary && <p className="mt-1 text-content-tertiary">{activity.summary}</p>}
+      <pre className="mt-2 whitespace-pre-wrap break-all rounded-md bg-surface-sunken p-2 font-mono text-[11px] leading-4 text-content-secondary">
         {formatToolArguments(activity.args)}
       </pre>
       {(activity.durationMs !== undefined ||
         activity.truncated ||
         activity.errorCode !== undefined) && (
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-content-tertiary">
           {activity.durationMs !== undefined && <span>{activity.durationMs} ms</span>}
           {activity.truncated && <span>Output truncated</span>}
           {activity.errorCode !== undefined && <span>{activity.errorCode}</span>}
@@ -357,25 +357,30 @@ function ClarificationScreen({
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
-      <h1 className="mb-2 text-2xl font-bold text-gray-900">{t("ingest.clarification_heading")}</h1>
-      <p className="mb-6 text-sm text-gray-500">{t("ingest.clarification_hint")}</p>
+      <h1 className="mb-2 text-2xl font-bold text-content-primary">
+        {t("ingest.clarification_heading")}
+      </h1>
+      <p className="mb-6 text-sm text-content-tertiary">{t("ingest.clarification_hint")}</p>
 
       {summary && (
-        <div className="mb-8 rounded-lg border border-blue-100 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/50">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-blue-700 dark:text-blue-300">
+        <div className="mb-8 rounded-lg border border-feedback-info-border bg-feedback-info-surface p-4  ">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-action-primary-hover ">
             {t("ingest.clarification_summary_label")}
           </p>
-          <p className="text-sm text-gray-700 dark:text-gray-300">{summary}</p>
+          <p className="text-sm text-content-secondary dark:text-content-disabled">{summary}</p>
         </div>
       )}
 
       <div className="space-y-6">
         {questions.map((q) => (
           <div key={q.id}>
-            <label htmlFor={`q-${q.id}`} className="mb-1 block text-sm font-medium text-gray-800">
+            <label
+              htmlFor={`q-${q.id}`}
+              className="mb-1 block text-sm font-medium text-content-primary"
+            >
               {q.question}
             </label>
-            {q.context && <p className="mb-2 text-xs text-gray-500">{q.context}</p>}
+            {q.context && <p className="mb-2 text-xs text-content-tertiary">{q.context}</p>}
             <div className="mb-2 flex flex-wrap gap-2">
               {(q.suggestions ?? []).map((s) => (
                 <button
@@ -391,8 +396,8 @@ function ClarificationScreen({
                   }
                   className={`rounded-full border px-3 py-1 text-xs ${
                     (selected[q.id] ?? []).includes(s)
-                      ? "border-blue-500 bg-blue-600 text-white"
-                      : "border-gray-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600"
+                      ? "border-border-focus bg-action-primary text-action-primary-foreground"
+                      : "border-border-strong bg-surface-raised text-content-secondary hover:border-border-focus hover:text-action-primary"
                   }`}
                 >
                   {s}
@@ -404,7 +409,7 @@ function ClarificationScreen({
                   setSelected((prev) => ({ ...prev, [q.id]: [] }));
                   setFreeText((prev) => ({ ...prev, [q.id]: t("ingest.nothing_in_particular") }));
                 }}
-                className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-400 hover:border-gray-400 hover:text-gray-600"
+                className="rounded-full border border-border-default bg-surface-sunken px-3 py-1 text-xs text-content-disabled hover:border-border-strong hover:text-content-secondary"
               >
                 {t("ingest.nothing_in_particular")}
               </button>
@@ -414,14 +419,14 @@ function ClarificationScreen({
               rows={3}
               value={freeText[q.id] ?? ""}
               onChange={(e) => setFreeText((prev) => ({ ...prev, [q.id]: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-border-strong p-3 text-sm focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
             />
           </div>
         ))}
       </div>
 
       {submitError && (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+        <p className="mt-4 rounded-lg border border-feedback-danger-border bg-feedback-danger-surface px-4 py-2 text-sm text-feedback-danger-foreground">
           {submitError}
         </p>
       )}
@@ -430,7 +435,7 @@ function ClarificationScreen({
         type="button"
         disabled={submitting}
         onClick={handleSubmit}
-        className="mt-8 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        className="mt-8 rounded-lg bg-action-primary px-6 py-2.5 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-50"
       >
         {submitting ? "..." : t("ingest.clarification_submit")}
       </button>
@@ -486,24 +491,26 @@ function UrlSelectionScreen({
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
-      <h1 className="mb-2 text-2xl font-bold text-gray-900">{t("ingest.url_selection_heading")}</h1>
-      <p className="mb-6 text-sm text-gray-500">{t("ingest.url_selection_hint")}</p>
+      <h1 className="mb-2 text-2xl font-bold text-content-primary">
+        {t("ingest.url_selection_heading")}
+      </h1>
+      <p className="mb-6 text-sm text-content-tertiary">{t("ingest.url_selection_hint")}</p>
 
       <div className="space-y-3">
         {urls.map((u) => (
           <label
             key={u.id}
-            className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white p-4 hover:border-blue-300"
+            className="flex cursor-pointer items-start gap-3 rounded-lg border border-border-default bg-surface-raised p-4 hover:border-border-focus"
           >
             <input
               type="checkbox"
               checked={selected.has(u.url)}
               onChange={() => toggleUrl(u.url)}
-              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600"
+              className="mt-0.5 h-4 w-4 rounded border-border-strong text-action-primary"
             />
             <div className="min-w-0 flex-1">
-              <p className="break-all text-sm font-medium text-blue-600">{u.url}</p>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="break-all text-sm font-medium text-action-primary">{u.url}</p>
+              <p className="mt-1 text-xs text-content-disabled">
                 {t(`ingest.url_source_${u.source}`)} — {u.context}
               </p>
             </div>
@@ -512,7 +519,7 @@ function UrlSelectionScreen({
       </div>
 
       {submitError && (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+        <p className="mt-4 rounded-lg border border-feedback-danger-border bg-feedback-danger-surface px-4 py-2 text-sm text-feedback-danger-foreground">
           {submitError}
         </p>
       )}
@@ -522,7 +529,7 @@ function UrlSelectionScreen({
           type="button"
           disabled={submitting}
           onClick={handleSubmit}
-          className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="rounded-lg bg-action-primary px-6 py-2.5 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-50"
         >
           {submitting ? "..." : t("ingest.url_selection_submit")}
         </button>
@@ -530,7 +537,7 @@ function UrlSelectionScreen({
           type="button"
           disabled={submitting}
           onClick={handleSkip}
-          className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded-lg border border-border-strong bg-surface-raised px-6 py-2.5 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-50"
         >
           {t("ingest.url_selection_skip")}
         </button>
@@ -665,11 +672,11 @@ export default function IngestSessionPage() {
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center">
         <div className="mb-4 text-4xl">⚠️</div>
-        <h1 className="text-lg font-semibold text-gray-900">{t("ingest.error_heading")}</h1>
-        {errorMessage && <p className="mt-2 text-sm text-gray-500">{errorMessage}</p>}
+        <h1 className="text-lg font-semibold text-content-primary">{t("ingest.error_heading")}</h1>
+        {errorMessage && <p className="mt-2 text-sm text-content-tertiary">{errorMessage}</p>}
         <a
           href="/ingest"
-          className="mt-6 inline-block rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+          className="mt-6 inline-block rounded-lg bg-action-primary px-5 py-2.5 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover"
         >
           {t("ingest.retry")}
         </a>
@@ -681,7 +688,7 @@ export default function IngestSessionPage() {
   if (!isResultDraft(draft)) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center">
-        <p className="text-gray-500">{t("ingest.review_not_found")}</p>
+        <p className="text-content-tertiary">{t("ingest.review_not_found")}</p>
       </div>
     );
   }
@@ -704,8 +711,8 @@ export default function IngestSessionPage() {
         <Toast message={t("ingest.complete_toast")} onDismiss={() => setShowToast(false)} />
       )}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">{t("ingest.review_heading")}</h1>
-        <p className="mt-1 text-sm text-gray-500">{t("ingest.review_subtitle")}</p>
+        <h1 className="text-2xl font-bold text-content-primary">{t("ingest.review_heading")}</h1>
+        <p className="mt-1 text-sm text-content-tertiary">{t("ingest.review_subtitle")}</p>
       </div>
 
       {hasSensitive && !sensitiveResolved && (

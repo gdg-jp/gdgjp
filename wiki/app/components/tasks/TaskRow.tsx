@@ -98,19 +98,19 @@ export default function TaskRow({
 
   const teamOptions: DropdownOption[] = [
     { value: "", label: "—" },
-    ...teams.map((tm) => ({ value: tm.id, label: tm.name, dot: tm.color ?? "#6b7280" })),
+    ...teams.map((tm) => ({ value: tm.id, label: tm.name, dot: tm.color ?? "#6b7280" })), // design-token-policy: allow-dynamic-color
   ];
 
   return (
     <tr
-      className="group border-b border-gray-100 hover:bg-gray-50"
+      className="group border-b border-subtle hover:bg-surface-canvas"
       onClick={() => onClick(task.id)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onClick(task.id);
       }}
     >
       {/* # — focusable button so keyboard users can open the task detail */}
-      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-400">
+      <td className="whitespace-nowrap px-3 py-2 text-sm text-content-tertiary">
         <button
           type="button"
           className="cursor-pointer focus:outline-none focus-visible:underline"
@@ -173,7 +173,7 @@ export default function TaskRow({
             labelClass="max-w-[60px]"
           />
         ) : (
-          <span className="text-sm text-gray-400">—</span>
+          <span className="text-sm text-content-tertiary">—</span>
         )}
       </td>
 
@@ -202,12 +202,12 @@ export default function TaskRow({
       </td>
 
       {/* Title — inline-editable cell */}
-      <td className="break-words px-3 py-2 text-sm font-medium text-gray-900">
+      <td className="break-words px-3 py-2 text-sm font-medium text-content-primary">
         {editingTitle ? (
           <input
             ref={titleInputRef}
             type="text"
-            className="w-full rounded border border-blue-400 px-1 py-0.5 text-sm font-medium text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded border border-focus px-1 py-0.5 text-sm font-medium text-content-primary focus:outline-none focus:ring-1 focus:ring-border-focus"
             value={titleDraft}
             onChange={(e) => setTitleDraft(e.target.value)}
             onBlur={() => {
@@ -245,7 +245,7 @@ export default function TaskRow({
         ) : (
           <button
             type="button"
-            className="w-full break-words text-left text-sm font-medium text-gray-900"
+            className="w-full break-words text-left text-sm font-medium text-content-primary"
             title={t("tasks.click_to_edit")}
             onClick={(e) => {
               e.stopPropagation();
@@ -259,12 +259,12 @@ export default function TaskRow({
       </td>
 
       {/* Description — inline-editable cell */}
-      <td className="break-words px-3 py-2 text-sm text-gray-500">
+      <td className="break-words px-3 py-2 text-sm text-content-secondary">
         {editingDesc ? (
           <input
             ref={descInputRef}
             type="text"
-            className="w-full rounded border border-blue-400 px-1 py-0.5 text-sm text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded border border-focus px-1 py-0.5 text-sm text-content-secondary focus:outline-none focus:ring-1 focus:ring-border-focus"
             value={descDraft}
             onChange={(e) => setDescDraft(e.target.value)}
             onBlur={() => {
@@ -286,7 +286,7 @@ export default function TaskRow({
         ) : (
           <button
             type="button"
-            className="w-full break-words text-left text-sm text-gray-500"
+            className="w-full break-words text-left text-sm text-content-secondary"
             title={t("tasks.click_to_edit")}
             onClick={(e) => {
               e.stopPropagation();

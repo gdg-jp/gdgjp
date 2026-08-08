@@ -54,7 +54,9 @@ export default function TaskRemainingView({ tasks, members, onTaskClick }: TaskR
   }, [remaining]);
 
   if (remaining.length === 0) {
-    return <div className="py-8 text-center text-sm text-gray-400">{t("tasks.all_done")}</div>;
+    return (
+      <div className="py-8 text-center text-sm text-content-tertiary">{t("tasks.all_done")}</div>
+    );
   }
 
   const now = new Date();
@@ -67,9 +69,9 @@ export default function TaskRemainingView({ tasks, members, onTaskClick }: TaskR
         const label = groupKey ? (member?.name ?? groupKey) : t("tasks.filter_unassigned");
         return (
           <div key={groupKey ?? "unassigned"}>
-            <h3 className="mb-2 text-sm font-semibold text-gray-700">
+            <h3 className="mb-2 text-sm font-semibold text-content-secondary">
               {label}
-              <span className="ml-2 text-xs font-normal text-gray-400">
+              <span className="ml-2 text-xs font-normal text-content-tertiary">
                 ({assigneeTasks.length})
               </span>
             </h3>
@@ -81,14 +83,16 @@ export default function TaskRemainingView({ tasks, members, onTaskClick }: TaskR
                     key={task.id}
                     type="button"
                     onClick={() => onTaskClick(task.id)}
-                    className="flex w-full items-center gap-3 rounded-md border border-gray-100 px-3 py-2 text-left hover:bg-gray-50"
+                    className="flex w-full items-center gap-3 rounded-md border border-subtle px-3 py-2 text-left hover:bg-surface-canvas"
                   >
-                    <span className="text-sm text-gray-400">#{task.number}</span>
+                    <span className="text-sm text-content-tertiary">#{task.number}</span>
                     <TaskStatusBadge status={task.status} />
-                    <span className="flex-1 truncate text-sm text-gray-900">{task.title}</span>
+                    <span className="flex-1 truncate text-sm text-content-primary">
+                      {task.title}
+                    </span>
                     {task.dueDate && (
                       <span
-                        className={`text-xs ${overdue ? "font-medium text-red-500" : "text-gray-400"}`}
+                        className={`text-xs ${overdue ? "font-medium text-feedback-danger-foreground" : "text-content-tertiary"}`}
                       >
                         {task.dueDate}
                       </span>

@@ -67,7 +67,7 @@ function AuthorAvatar({ name, image }: { name: string; image: string | null }) {
     .slice(0, 2)
     .toUpperCase();
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
+    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-feedback-info-surface text-xs font-semibold text-action-primary">
       {initials}
     </div>
   );
@@ -110,21 +110,21 @@ export default function CommentItem({
       <div className="min-w-0 flex-1">
         {/* Header */}
         <div className="mb-1 flex items-baseline gap-2">
-          <span className="text-sm font-medium text-gray-900">{comment.authorName}</span>
-          <span className="text-xs text-gray-400">
+          <span className="text-sm font-medium text-content-primary">{comment.authorName}</span>
+          <span className="text-xs text-content-tertiary">
             <RelativeTime date={comment.createdAt} />
           </span>
         </div>
 
         {/* Content */}
         {isDeleted ? (
-          <p className="text-sm italic text-gray-400">{t("wiki.comment.deleted")}</p>
+          <p className="text-sm italic text-content-tertiary">{t("wiki.comment.deleted")}</p>
         ) : parsedDoc ? (
-          <div className="text-sm text-gray-800">
+          <div className="text-sm text-content-primary">
             <TipTapRenderer doc={parsedDoc} />
           </div>
         ) : (
-          <p className="text-sm text-gray-800">{comment.contentJson}</p>
+          <p className="text-sm text-content-primary">{comment.contentJson}</p>
         )}
 
         {/* Bottom bar */}
@@ -140,7 +140,7 @@ export default function CommentItem({
               <button
                 type="button"
                 onClick={() => setPendingReplyId(showReplyEditor ? null : comment.id)}
-                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+                className="flex items-center gap-1 text-xs text-content-secondary hover:text-content-secondary"
               >
                 <MessageSquare size={13} />
                 {t("wiki.comment.reply")}
@@ -151,7 +151,7 @@ export default function CommentItem({
               <button
                 type="button"
                 onClick={() => setDeleteDialogOpen(true)}
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500"
+                className="flex items-center gap-1 text-xs text-content-tertiary hover:text-feedback-danger-foreground"
               >
                 <Trash2 size={13} />
                 {t("wiki.comment.delete")}
@@ -173,7 +173,7 @@ export default function CommentItem({
 
         {/* Replies (depth=1, no reply button on children) */}
         {depth === 0 && comment.replies.length > 0 && (
-          <div className="mt-4 space-y-4 border-l-2 border-gray-100 pl-4">
+          <div className="mt-4 space-y-4 border-l-2 border-subtle pl-4">
             {comment.replies.map((reply) => (
               <CommentItem
                 key={reply.id}

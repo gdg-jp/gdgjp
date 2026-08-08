@@ -51,11 +51,11 @@ interface Notification {
 function typeIcon(type: string) {
   switch (type) {
     case "ingestion_done":
-      return <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />;
+      return <CheckCircle2 className="h-4 w-4 shrink-0 text-feedback-success-foreground" />;
     case "ingestion_error":
-      return <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />;
+      return <AlertCircle className="h-4 w-4 shrink-0 text-feedback-danger-foreground" />;
     default:
-      return <Bell className="h-4 w-4 shrink-0 text-gray-400" />;
+      return <Bell className="h-4 w-4 shrink-0 text-content-tertiary" />;
   }
 }
 
@@ -173,7 +173,7 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
         >
           <BellIcon className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500 px-1 text-[10px] font-bold leading-none text-white">
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-action-primary px-1 text-[10px] font-bold leading-none text-content-inverse">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
@@ -188,7 +188,7 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
         <output
           key={chipNotification?.id}
           aria-live="polite"
-          className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-card-foreground shadow-xl shadow-black/15"
+          className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-card-foreground shadow-xl shadow-content-primary/15"
         >
           {chipNotification ? typeIcon(chipNotification.type) : null}
           <p className="min-w-0 flex-1 truncate text-sm font-medium">
@@ -210,7 +210,7 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
       <PopoverContent
         align="end"
         sideOffset={6}
-        className="w-[calc(100vw-1.5rem)] max-w-72 overflow-hidden rounded-xl p-0 shadow-xl shadow-black/10 sm:w-72"
+        className="w-[calc(100vw-1.5rem)] max-w-72 overflow-hidden rounded-xl p-0 shadow-xl shadow-content-primary/10 sm:w-72"
       >
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
           <p className="text-sm font-semibold">{t("notifications.title")}</p>
@@ -222,7 +222,7 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
         </div>
 
         {notifications.length === 0 ? (
-          <div className="px-3 py-6 text-center text-sm text-gray-400">
+          <div className="px-3 py-6 text-center text-sm text-content-tertiary">
             {t("notifications.empty")}
           </div>
         ) : (
@@ -238,7 +238,7 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
                 }}
                 className={[
                   "ui-pressable flex w-full items-center gap-2.5 px-3 py-2.5 text-left hover:bg-accent",
-                  !n.readAt ? "bg-blue-50 dark:bg-blue-900/40" : "",
+                  !n.readAt ? "bg-feedback-info-surface dark:bg-surface-selected/40" : "",
                 ].join(" ")}
               >
                 {typeIcon(n.type)}

@@ -88,11 +88,11 @@ export default function AnalyzePage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">{t("analyze.title")}</h1>
-        <p className="mt-1 text-sm text-gray-500">{t("analyze.description")}</p>
+        <h1 className="text-2xl font-bold text-content-primary">{t("analyze.title")}</h1>
+        <p className="mt-1 text-sm text-content-tertiary">{t("analyze.description")}</p>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-border-default bg-surface-raised p-6 shadow-sm">
         <AnalyzeForm />
       </div>
     </div>
@@ -141,8 +141,8 @@ function AnalyzeForm() {
     <form method="post" onSubmit={handleSubmit} className="space-y-6">
       {/* Errors */}
       {allErrors.length > 0 && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-          <ul className="list-disc pl-4 text-sm text-red-700">
+        <div className="rounded-lg border border-feedback-danger-border bg-feedback-danger-surface p-4">
+          <ul className="list-disc pl-4 text-sm text-feedback-danger-foreground">
             {allErrors.map((e) => (
               <li key={e}>{e}</li>
             ))}
@@ -152,11 +152,13 @@ function AnalyzeForm() {
 
       {/* Connect Google prompt */}
       {!driveConnected && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <p className="text-sm text-amber-800">{t("analyze.form.connect_hint")}</p>
+        <div className="rounded-lg border border-feedback-warning-border bg-feedback-warning-surface p-4">
+          <p className="text-sm text-feedback-warning-foreground">
+            {t("analyze.form.connect_hint")}
+          </p>
           <a
             href="/api/google-drive/auth?returnTo=/analyze"
-            className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100"
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-feedback-warning-border bg-surface-raised px-3 py-2 text-sm font-medium text-feedback-warning-foreground transition-colors hover:bg-feedback-warning-surface"
           >
             {t("analyze.form.connect_google")}
           </a>
@@ -167,9 +169,10 @@ function AnalyzeForm() {
       <div>
         <label
           htmlFor="analyze-form-url"
-          className="mb-1.5 block text-sm font-medium text-gray-700"
+          className="mb-1.5 block text-sm font-medium text-content-secondary"
         >
-          {t("analyze.form.form_url_label")} <span className="text-red-500">*</span>
+          {t("analyze.form.form_url_label")}{" "}
+          <span className="text-feedback-danger-foreground">*</span>
         </label>
         <input
           id="analyze-form-url"
@@ -179,7 +182,7 @@ function AnalyzeForm() {
           onChange={(e) => setGoogleFormUrl(e.target.value)}
           placeholder="https://docs.google.com/forms/d/..."
           disabled={!driveConnected}
-          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+          className="w-full rounded-lg border border-border-default px-3 py-2 text-sm focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus disabled:bg-surface-hover disabled:text-content-disabled"
         />
       </div>
 
@@ -187,9 +190,10 @@ function AnalyzeForm() {
       <div>
         <label
           htmlFor="analyze-event-title"
-          className="mb-1.5 block text-sm font-medium text-gray-700"
+          className="mb-1.5 block text-sm font-medium text-content-secondary"
         >
-          {t("analyze.form.event_title_label")} <span className="text-red-500">*</span>
+          {t("analyze.form.event_title_label")}{" "}
+          <span className="text-feedback-danger-foreground">*</span>
         </label>
         <input
           id="analyze-event-title"
@@ -199,7 +203,7 @@ function AnalyzeForm() {
           onChange={(e) => setEventTitle(e.target.value)}
           placeholder={t("analyze.form.event_title_placeholder")}
           disabled={!driveConnected}
-          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+          className="w-full rounded-lg border border-border-default px-3 py-2 text-sm focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus disabled:bg-surface-hover disabled:text-content-disabled"
         />
       </div>
 
@@ -208,7 +212,7 @@ function AnalyzeForm() {
         <button
           type="submit"
           disabled={!driveConnected}
-          className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-300 disabled:text-gray-500"
+          className="rounded-lg bg-action-primary px-6 py-2.5 text-sm font-medium text-action-primary-foreground transition-colors hover:bg-action-primary-hover focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 disabled:bg-surface-sunken disabled:text-content-tertiary"
         >
           {t("analyze.form.submit")}
         </button>

@@ -27,7 +27,9 @@ function Initials({ name, blue }: { name: string; blue?: boolean }) {
   return (
     <div
       className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${
-        blue ? "bg-blue-100 text-blue-700" : "bg-gray-200 text-gray-600"
+        blue
+          ? "bg-feedback-info-surface text-action-primary"
+          : "bg-surface-hover text-content-secondary"
       }`}
     >
       {initial}
@@ -128,17 +130,17 @@ export default function AssigneeCell({
           <div
             ref={menuRef}
             style={{ position: "absolute", top: pos.top, left: pos.left, minWidth: pos.width }}
-            className="z-[9999] overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg"
+            className="z-[9999] overflow-hidden rounded-md border border-default bg-surface-raised shadow-lg"
           >
             {/* Search input */}
-            <div className="border-b border-gray-100 px-2 py-1.5">
+            <div className="border-b border-subtle px-2 py-1.5">
               <input
                 ref={searchInputRef}
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t("tasks.filter_assignee")}
-                className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+                className="w-full rounded border border-default px-2 py-1 text-xs focus:border-focus focus:outline-none"
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -159,7 +161,7 @@ export default function AssigneeCell({
                   e.stopPropagation();
                   select({ assigneeId: null, assigneeName: null });
                 }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-content-secondary hover:bg-surface-canvas"
               >
                 <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center" />
                 <span>—</span>
@@ -177,8 +179,8 @@ export default function AssigneeCell({
                       select({ assigneeId: m.id, assigneeName: null });
                     }}
                     className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${
-                      isSelected ? "font-medium text-gray-900" : "text-gray-700"
-                    } hover:bg-gray-50`}
+                      isSelected ? "font-medium text-content-primary" : "text-content-secondary"
+                    } hover:bg-surface-canvas`}
                   >
                     <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center" />
                     {m.image ? (
@@ -204,7 +206,7 @@ export default function AssigneeCell({
                     e.stopPropagation();
                     select({ assigneeId: null, assigneeName: trimmedSearch });
                   }}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm italic text-gray-500 hover:bg-gray-50"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm italic text-content-secondary hover:bg-surface-canvas"
                 >
                   <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center" />
                   {t("tasks.use_as_assignee", { name: trimmedSearch })}
@@ -242,7 +244,7 @@ export default function AssigneeCell({
       </>
     );
   } else {
-    triggerContent = <span className="max-w-[60px] truncate text-gray-400">—</span>;
+    triggerContent = <span className="max-w-[60px] truncate text-content-tertiary">—</span>;
   }
 
   return (
@@ -250,7 +252,7 @@ export default function AssigneeCell({
       <button
         ref={triggerRef}
         type="button"
-        className="flex items-center gap-1 rounded px-1.5 py-0.5 text-left text-sm hover:bg-gray-100"
+        className="flex items-center gap-1 rounded px-1.5 py-0.5 text-left text-sm hover:bg-surface-sunken"
         onClick={openMenu}
         onKeyDown={(e) => e.stopPropagation()}
       >

@@ -120,7 +120,7 @@ function PageGrid({ pages, emptyKey }: { pages: PageCard[]; emptyKey: string }) 
   const isJa = i18n.language !== "en";
 
   if (pages.length === 0) {
-    return <p className="text-sm text-gray-400">{t(emptyKey)}</p>;
+    return <p className="text-sm text-content-disabled">{t(emptyKey)}</p>;
   }
 
   return (
@@ -130,14 +130,14 @@ function PageGrid({ pages, emptyKey }: { pages: PageCard[]; emptyKey: string }) 
           <Link
             key={page.id}
             to={`/wiki/${page.slug}`}
-            className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-blue-500/40 hover:shadow-sm"
+            className="flex flex-col gap-2 rounded-lg border border-border-default bg-surface-raised p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-border-focus/40 hover:shadow-sm"
           >
-            <h3 className="line-clamp-2 font-medium text-gray-900">
+            <h3 className="line-clamp-2 font-medium text-content-primary">
               {isJa ? page.titleJa || page.titleEn : page.titleEn || page.titleJa}
             </h3>
 
             {(page.summaryEn || page.summaryJa) && (
-              <p className="line-clamp-2 text-sm text-gray-500">
+              <p className="line-clamp-2 text-sm text-content-tertiary">
                 {isJa ? page.summaryJa || page.summaryEn : page.summaryEn || page.summaryJa}
               </p>
             )}
@@ -146,7 +146,7 @@ function PageGrid({ pages, emptyKey }: { pages: PageCard[]; emptyKey: string }) 
               {page.tags.map((tag) => (
                 <span
                   key={tag.tagSlug}
-                  className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                  className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-content-inverse"
                   style={{ backgroundColor: tag.color }}
                 >
                   {isJa ? tag.labelJa : tag.labelEn}
@@ -154,7 +154,9 @@ function PageGrid({ pages, emptyKey }: { pages: PageCard[]; emptyKey: string }) 
               ))}
             </div>
 
-            {page.timeLabel && <time className="text-xs text-gray-400">{page.timeLabel}</time>}
+            {page.timeLabel && (
+              <time className="text-xs text-content-disabled">{page.timeLabel}</time>
+            )}
           </Link>
         ))}
       </div>
@@ -178,15 +180,19 @@ export default function RecentPage() {
 
   return (
     <div className="px-4 py-6 md:px-8 md:py-8">
-      <h1 className="mb-8 text-2xl font-bold text-gray-900">{t("recent.title")}</h1>
+      <h1 className="mb-8 text-2xl font-bold text-content-primary">{t("recent.title")}</h1>
 
       <section className="mb-10">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">{t("recent.recently_viewed")}</h2>
+        <h2 className="mb-4 text-lg font-semibold text-content-primary">
+          {t("recent.recently_viewed")}
+        </h2>
         <PageGrid pages={viewedCards} emptyKey="recent.no_viewed" />
       </section>
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">{t("recent.recently_updated")}</h2>
+        <h2 className="mb-4 text-lg font-semibold text-content-primary">
+          {t("recent.recently_updated")}
+        </h2>
         <PageGrid pages={updatedCards} emptyKey="recent.no_updated" />
       </section>
     </div>

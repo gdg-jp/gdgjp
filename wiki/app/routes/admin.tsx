@@ -92,7 +92,7 @@ export default function AdminLayout() {
             <div className="flex h-full flex-col">
               <nav aria-label="Admin navigation" className="space-y-0.5 px-2 pb-1 pt-3">
                 {!isCollapsed && (
-                  <p className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  <p className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-content-disabled">
                     {t("admin.label")}
                   </p>
                 )}

@@ -32,13 +32,13 @@ interface SensitiveReviewModalProps {
 // ---------------------------------------------------------------------------
 
 const TYPE_COLORS: Record<string, string> = {
-  email: "bg-blue-100 text-blue-700",
-  phone: "bg-green-100 text-green-700",
-  "sns-handle": "bg-blue-100 text-blue-500",
-  financial: "bg-yellow-100 text-yellow-700",
-  "personal-opinion": "bg-yellow-100 text-yellow-600",
-  credential: "bg-red-100 text-red-700",
-  other: "bg-gray-100 text-gray-700",
+  email: "bg-feedback-info-surface text-action-primary",
+  phone: "bg-feedback-success-surface text-feedback-success-foreground",
+  "sns-handle": "bg-feedback-info-surface text-action-primary",
+  financial: "bg-feedback-warning-surface text-feedback-warning-foreground",
+  "personal-opinion": "bg-feedback-warning-surface text-feedback-warning-foreground",
+  credential: "bg-feedback-danger-surface text-feedback-danger-foreground",
+  other: "bg-surface-sunken text-content-secondary",
 };
 
 // ---------------------------------------------------------------------------
@@ -73,12 +73,12 @@ export default function SensitiveReviewModal({ items, onProceed }: SensitiveRevi
 
   return (
     <AlertDialog open>
-      <AlertDialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl gap-0 overflow-hidden rounded-2xl bg-card p-0 text-card-foreground shadow-2xl shadow-black/20">
+      <AlertDialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl gap-0 overflow-hidden rounded-2xl bg-card p-0 text-card-foreground shadow-2xl shadow-content-primary/20">
         {/* Header */}
         <AlertDialogHeader className="flex grid-cols-none grid-rows-none flex-row items-start gap-3 border-b border-border px-6 py-5 text-left">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-yellow-100">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-feedback-warning-surface">
             <svg
-              className="h-5 w-5 text-yellow-600"
+              className="h-5 w-5 text-feedback-warning-foreground"
               viewBox="0 0 20 20"
               fill="currentColor"
               aria-label={t("ingest.sensitive.title")}
@@ -106,20 +106,20 @@ export default function SensitiveReviewModal({ items, onProceed }: SensitiveRevi
         <div className="max-h-96 overflow-y-auto px-6 py-4">
           <div className="space-y-5">
             {items.map((item, idx) => (
-              <div key={item.id} className="rounded-lg border border-gray-100 p-4">
+              <div key={item.id} className="rounded-lg border border-subtle p-4">
                 <div className="mb-2 flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-400">{idx + 1}.</span>
+                  <span className="text-sm font-medium text-content-tertiary">{idx + 1}.</span>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[item.type] ?? "bg-gray-100 text-gray-700"}`}
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[item.type] ?? "bg-surface-sunken text-content-secondary"}`}
                   >
                     {t(`ingest.sensitive.type.${item.type}`, { defaultValue: item.type })}
                   </span>
                 </div>
 
-                <div className="mb-1 font-mono text-sm text-gray-800 bg-gray-50 rounded px-2 py-1">
+                <div className="mb-1 font-mono text-sm text-content-primary bg-surface-canvas rounded px-2 py-1">
                   {item.excerpt}
                 </div>
-                <div className="mb-3 text-xs text-gray-400">
+                <div className="mb-3 text-xs text-content-tertiary">
                   {t("ingest.sensitive.location", { location: item.location })}
                 </div>
 
@@ -132,9 +132,9 @@ export default function SensitiveReviewModal({ items, onProceed }: SensitiveRevi
                         value={res}
                         checked={resolutions[item.id] === res}
                         onChange={() => setResolution(item.id, res)}
-                        className="h-3.5 w-3.5 text-blue-500"
+                        className="h-3.5 w-3.5 text-action-primary"
                       />
-                      <span className="text-sm text-gray-700">
+                      <span className="text-sm text-content-secondary">
                         {res === "keep" && t("ingest.sensitive.resolution_keep")}
                         {res === "delete" && t("ingest.sensitive.resolution_delete")}
                         {res === "replace" && t("ingest.sensitive.resolution_replace")}

@@ -84,10 +84,10 @@ export default function TipTapEditor({
 
   return (
     <div
-      className={`rounded-lg border border-gray-200 bg-white ${readOnly ? "" : "focus-within:ring-2 focus-within:ring-blue-500"}`}
+      className={`rounded-lg border border-default bg-surface-raised ${readOnly ? "" : "focus-within:ring-2 focus-within:ring-border-focus"}`}
     >
       {!readOnly && (
-        <div className="flex flex-wrap gap-1 border-b border-gray-100 px-2 py-1">
+        <div className="flex flex-wrap gap-1 border-b border-subtle px-2 py-1">
           <ToolbarButton
             onClick={() => editor?.chain().focus().toggleBold().run()}
             active={editor?.isActive("bold")}
@@ -109,7 +109,7 @@ export default function TipTapEditor({
           >
             <code>{"<>"}</code>
           </ToolbarButton>
-          <span className="mx-1 text-gray-300">|</span>
+          <span className="mx-1 text-content-disabled">|</span>
           {[1, 2, 3].map((level) => (
             <ToolbarButton
               key={level}
@@ -126,7 +126,7 @@ export default function TipTapEditor({
               H{level}
             </ToolbarButton>
           ))}
-          <span className="mx-1 text-gray-300">|</span>
+          <span className="mx-1 text-content-disabled">|</span>
           <ToolbarButton
             onClick={() => editor?.chain().focus().toggleBulletList().run()}
             active={editor?.isActive("bulletList")}
@@ -181,7 +181,9 @@ function ToolbarButton({
       aria-label={title}
       aria-pressed={active}
       className={`rounded px-1.5 py-0.5 text-sm transition-colors ${
-        active ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"
+        active
+          ? "bg-feedback-info-surface text-action-primary"
+          : "text-content-secondary hover:bg-surface-sunken"
       }`}
     >
       {children}

@@ -96,7 +96,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
       id: teamId,
       taskListId,
       name,
-      color: color ?? "#6b7280",
+      color: color ?? "#6b7280", // design-token-policy: allow-dynamic-color
       sortOrder: (maxSort?.max ?? -1) + 1,
     });
 

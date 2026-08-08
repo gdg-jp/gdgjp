@@ -80,7 +80,7 @@ export default function CommentEditor({
         <button
           type="button"
           onClick={handleCancel}
-          className="rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100"
+          className="rounded-md px-3 py-1.5 text-sm font-medium text-content-secondary hover:bg-surface-sunken"
         >
           {t("wiki.comment.cancel")}
         </button>
@@ -88,7 +88,7 @@ export default function CommentEditor({
           type="button"
           onClick={handleSubmit}
           disabled={!isDirty || isSubmitting}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md bg-action-primary px-3 py-1.5 text-sm font-medium text-content-inverse hover:bg-action-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           {t("wiki.comment.submit")}
         </button>

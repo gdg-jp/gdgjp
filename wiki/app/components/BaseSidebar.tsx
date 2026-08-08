@@ -115,7 +115,7 @@ export default function BaseSidebar({
           transform: isOpen ? "translateX(0)" : "translateX(-100%)",
           transition: sidebarTransition,
         }}
-        className="desktop-sidebar fixed bottom-0 left-0 top-14 overflow-hidden border-r border-gray-200 bg-white"
+        className="desktop-sidebar fixed bottom-0 left-0 top-14 overflow-hidden border-r border-default bg-surface-raised"
       >
         {children({ isCollapsed })}
 
@@ -123,7 +123,7 @@ export default function BaseSidebar({
         {isOpen && (
           <div
             onMouseDown={onDragHandleMouseDown}
-            className="absolute bottom-0 right-0 top-0 w-1 cursor-col-resize hover:bg-blue-200/50 active:bg-blue-300/50"
+            className="absolute bottom-0 right-0 top-0 w-1 cursor-col-resize hover:bg-surface-selected/50 active:bg-surface-selected/50"
             aria-hidden="true"
           />
         )}

@@ -92,7 +92,7 @@ export default function TaskCreateDialog({
   }
 
   const inputClass =
-    "w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
+    "w-full rounded-md border border-strong px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus";
 
   const statusOptions: DropdownOption[] = [
     "todo",
@@ -114,7 +114,7 @@ export default function TaskCreateDialog({
 
   const teamOptions: DropdownOption[] = [
     { value: "", label: "—" },
-    ...teams.map((tm) => ({ value: tm.id, label: tm.name, dot: tm.color ?? "#6b7280" })),
+    ...teams.map((tm) => ({ value: tm.id, label: tm.name, dot: tm.color ?? "#6b7280" })), // design-token-policy: allow-dynamic-color
   ];
 
   return (
@@ -122,7 +122,7 @@ export default function TaskCreateDialog({
       <DialogContent
         showCloseButton={false}
         aria-describedby={undefined}
-        className="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-card p-6 text-card-foreground shadow-2xl shadow-black/20"
+        className="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-card p-6 text-card-foreground shadow-2xl shadow-content-primary/20"
       >
         <div className="mb-4 flex items-center justify-between">
           <DialogTitle className="text-lg font-semibold">
@@ -141,7 +141,10 @@ export default function TaskCreateDialog({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="task-title" className="mb-1 block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="task-title"
+              className="mb-1 block text-sm font-medium text-content-secondary"
+            >
               {t("tasks.col_title")} *
             </label>
             <input
@@ -154,7 +157,10 @@ export default function TaskCreateDialog({
           </div>
 
           <div>
-            <label htmlFor="task-desc" className="mb-1 block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="task-desc"
+              className="mb-1 block text-sm font-medium text-content-secondary"
+            >
               {t("tasks.description")}
             </label>
             <textarea
@@ -168,7 +174,7 @@ export default function TaskCreateDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <span className="mb-1 block text-sm font-medium text-gray-700">
+              <span className="mb-1 block text-sm font-medium text-content-secondary">
                 {t("tasks.col_status")}
               </span>
               <DropdownMenu
@@ -180,7 +186,7 @@ export default function TaskCreateDialog({
             </div>
 
             <div>
-              <span className="mb-1 block text-sm font-medium text-gray-700">
+              <span className="mb-1 block text-sm font-medium text-content-secondary">
                 {t("tasks.col_type")}
               </span>
               <DropdownMenu value={type} options={typeOptions} onChange={setType} variant="field" />
@@ -189,7 +195,7 @@ export default function TaskCreateDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <span className="mb-1 block text-sm font-medium text-gray-700">
+              <span className="mb-1 block text-sm font-medium text-content-secondary">
                 {t("tasks.col_assignee")}
               </span>
               <DropdownMenu
@@ -205,7 +211,7 @@ export default function TaskCreateDialog({
 
             {teams.length > 0 && (
               <div>
-                <span className="mb-1 block text-sm font-medium text-gray-700">
+                <span className="mb-1 block text-sm font-medium text-content-secondary">
                   {t("tasks.col_team")}
                 </span>
                 <DropdownMenu
@@ -219,7 +225,10 @@ export default function TaskCreateDialog({
           </div>
 
           <div>
-            <label htmlFor="task-due" className="mb-1 block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="task-due"
+              className="mb-1 block text-sm font-medium text-content-secondary"
+            >
               {t("tasks.col_due_date")}
             </label>
             <input

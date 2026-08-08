@@ -116,23 +116,25 @@ function PreviewTreeNode({ node, depth }: { node: PreviewNode; depth: number }) 
   return (
     <div>
       <div className="flex items-center gap-1.5 py-0.5" style={{ paddingLeft: `${indent}px` }}>
-        <span className="text-gray-400 text-xs">{"└"}</span>
+        <span className="text-content-tertiary text-xs">{"└"}</span>
         {node.isNew ? (
           <>
-            <span className="text-xs font-semibold text-green-700">+ {node.title}</span>
-            <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">
+            <span className="text-xs font-semibold text-feedback-success-foreground">
+              + {node.title}
+            </span>
+            <span className="rounded-full bg-feedback-success-surface px-1.5 py-0.5 text-xs font-medium text-feedback-success-foreground">
               {t("ingest.review.op_create")}
             </span>
           </>
         ) : node.isUpdate ? (
           <>
-            <span className="text-xs italic text-blue-700">~ {node.title}</span>
-            <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700">
+            <span className="text-xs italic text-action-primary">~ {node.title}</span>
+            <span className="rounded-full bg-feedback-info-surface px-1.5 py-0.5 text-xs font-medium text-action-primary">
               {t("ingest.review.op_update")}
             </span>
           </>
         ) : (
-          <span className="text-xs text-gray-500">{node.title}</span>
+          <span className="text-xs text-content-secondary">{node.title}</span>
         )}
       </div>
       {node.children.map((child) => (

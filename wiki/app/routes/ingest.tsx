@@ -145,11 +145,11 @@ export default function IngestPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">{t("ingest.title")}</h1>
-        <p className="mt-1 text-sm text-gray-500">{t("ingest.description")}</p>
+        <h1 className="text-2xl font-bold text-content-primary">{t("ingest.title")}</h1>
+        <p className="mt-1 text-sm text-content-tertiary">{t("ingest.description")}</p>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-border-default bg-surface-raised p-6 shadow-sm">
         <IngestForm />
       </div>
     </div>

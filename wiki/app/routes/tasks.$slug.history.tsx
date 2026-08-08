@@ -67,11 +67,11 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  todo: "bg-gray-100 text-gray-600",
-  in_progress: "bg-blue-100 text-blue-700",
-  done: "bg-green-100 text-green-700",
-  cancelled: "bg-red-100 text-red-600",
-  duplicated: "bg-yellow-100 text-yellow-700",
+  todo: "bg-surface-hover text-content-secondary",
+  in_progress: "bg-feedback-info-surface text-action-primary-hover",
+  done: "bg-task-done-surface text-feedback-success-foreground",
+  cancelled: "bg-task-cancelled-surface text-feedback-danger-foreground",
+  duplicated: "bg-task-duplicated-surface text-task-duplicated-foreground",
 };
 
 export default function TaskHistoryPage() {
@@ -90,33 +90,35 @@ export default function TaskHistoryPage() {
     <div className="mx-auto max-w-3xl px-4 py-8">
       <Link
         to={`/tasks/${page.slug}`}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-content-tertiary hover:text-content-primary"
       >
         <ArrowLeft size={14} />
         {title}
       </Link>
 
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">{t("tasks.history")}</h1>
+      <h1 className="mb-6 text-2xl font-bold text-content-primary">{t("tasks.history")}</h1>
 
       {tasks.length === 0 ? (
-        <p className="text-sm text-gray-400">{t("tasks.history_empty")}</p>
+        <p className="text-sm text-content-disabled">{t("tasks.history_empty")}</p>
       ) : (
         <ul className="space-y-3">
           {tasks.map((task) => (
             <li
               key={task.id}
-              className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-4 py-3 shadow-sm"
+              className="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-raised px-4 py-3 shadow-sm"
             >
-              <span className="shrink-0 text-sm font-mono text-gray-400">#{task.number}</span>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800">
+              <span className="shrink-0 text-sm font-mono text-content-disabled">
+                #{task.number}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-content-primary">
                 {task.title}
               </span>
               <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[task.status] ?? "bg-gray-100 text-gray-600"}`}
+                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[task.status] ?? "bg-surface-hover text-content-secondary"}`}
               >
                 {statusLabel(task.status)}
               </span>
-              <span className="shrink-0 text-xs text-gray-400">
+              <span className="shrink-0 text-xs text-content-disabled">
                 {task.creatorName ? `${task.creatorName} · ` : ""}
                 {task.createdAt ? timeAgo(new Date(task.createdAt as unknown as string), t) : ""}
               </span>

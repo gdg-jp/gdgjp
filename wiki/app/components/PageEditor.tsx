@@ -180,12 +180,12 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
       {/* ------------------------------------------------------------------ */}
       {/* Mini-header                                                          */}
       {/* ------------------------------------------------------------------ */}
-      <div className="sticky top-14 z-10 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-gray-200 bg-white px-3 py-2 shadow-sm">
+      <div className="sticky top-14 z-10 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-default bg-surface-raised px-3 py-2 shadow-sm">
         {/* Back + title */}
         <div className="flex min-w-0 flex-1 items-center gap-1">
           <Link
             to={`/wiki/${page.slug}`}
-            className="shrink-0 rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            className="shrink-0 rounded-md p-1.5 text-content-secondary hover:bg-surface-sunken hover:text-content-secondary"
             aria-label={t("editor.back_to_page")}
           >
             <ArrowLeft size={18} />
@@ -199,7 +199,7 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
             placeholder={t("editor.title_ja")}
             required={isJaActive}
             aria-hidden={!isJaActive}
-            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${!isJaActive ? "hidden" : ""}`}
+            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-content-primary placeholder:text-content-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus ${!isJaActive ? "hidden" : ""}`}
           />
           <input
             name="titleEn"
@@ -207,7 +207,7 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
             onChange={(e) => setTitleEn(e.target.value)}
             placeholder={t("editor.title_en")}
             aria-hidden={!isEnActive}
-            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${!isEnActive ? "hidden" : ""}`}
+            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-content-primary placeholder:text-content-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus ${!isEnActive ? "hidden" : ""}`}
           />
         </div>
 
@@ -221,9 +221,9 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
             <span
               role="status"
               aria-label={connected ? t("editor.connected") : t("editor.disconnected")}
-              className={`inline-block h-2 w-2 shrink-0 rounded-full ${connected ? "bg-green-500" : "bg-gray-300"}`}
+              className={`inline-block h-2 w-2 shrink-0 rounded-full ${connected ? "bg-feedback-success-solid" : "bg-border-strong"}`}
             />
-            <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-content-primary px-2 py-1 text-xs text-content-inverse opacity-0 transition-opacity duration-150 group-hover:opacity-100">
               {connected ? t("editor.connected") : t("editor.disconnected")}
             </span>
           </span>
@@ -231,14 +231,14 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
           {/* Autosave status */}
           {statusText && (
             <span
-              className={`hidden shrink-0 text-xs sm:inline ${fetcher.data && !fetcher.data.ok ? "text-red-500" : "text-gray-400"}`}
+              className={`hidden shrink-0 text-xs sm:inline ${fetcher.data && !fetcher.data.ok ? "text-feedback-danger-foreground" : "text-content-tertiary"}`}
             >
               {statusText}
             </span>
           )}
 
           {/* Language switcher */}
-          <div className="flex shrink-0 overflow-hidden rounded-md border border-gray-200">
+          <div className="flex shrink-0 overflow-hidden rounded-md border border-default">
             {(["ja", "en"] as const).map((lang) => (
               <button
                 key={lang}
@@ -246,8 +246,8 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
                 onClick={() => setActiveLang(lang)}
                 className={`px-3 py-1 text-sm font-medium transition-colors ${
                   activeLang === lang
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                    ? "bg-action-primary text-content-inverse hover:bg-action-primary-hover"
+                    : "bg-surface-raised text-content-secondary hover:bg-surface-canvas hover:text-content-secondary"
                 }`}
               >
                 {lang === "ja" ? t("language.ja") : t("language.en")}
@@ -259,7 +259,7 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
             type="submit"
             name="intent"
             value="save"
-            className="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="shrink-0 rounded-lg border border-strong px-3 py-1.5 text-sm font-medium text-content-secondary hover:bg-surface-canvas focus:outline-none focus:ring-2 focus:ring-border-focus"
           >
             {t("editor.save")}
           </button>

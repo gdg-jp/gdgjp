@@ -50,28 +50,28 @@ export default function ColumnFilterPopover({
           <div
             ref={menuRef}
             style={{ position: "absolute", top: pos.top, left: pos.left, minWidth: pos.width }}
-            className="z-[9999] overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg"
+            className="z-[9999] overflow-hidden rounded-md border border-default bg-surface-raised shadow-lg"
           >
             {searchable && (
-              <div className="border-b border-gray-100 px-2 py-1.5">
+              <div className="border-b border-subtle px-2 py-1.5">
                 <input
                   ref={searchInputRef}
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={searchPlaceholder}
-                  className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+                  className="w-full rounded border border-default px-2 py-1 text-xs focus:border-focus focus:outline-none"
                   onClick={(e) => e.stopPropagation()}
                 />
               </div>
             )}
-            <div className="flex items-center justify-between border-b border-gray-100 px-3 py-1.5">
-              <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-500">
+            <div className="flex items-center justify-between border-b border-subtle px-3 py-1.5">
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-content-secondary">
                 <input
                   type="checkbox"
                   checked={allSelected}
                   onChange={() => onChange([])}
-                  className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="h-3.5 w-3.5 rounded border-strong text-action-primary focus:ring-border-focus"
                 />
                 All
               </label>
@@ -79,7 +79,7 @@ export default function ColumnFilterPopover({
                 <button
                   type="button"
                   onClick={() => onChange([])}
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-xs text-action-primary hover:underline"
                 >
                   Clear
                 </button>
@@ -91,13 +91,13 @@ export default function ColumnFilterPopover({
                 return (
                   <label
                     key={opt.value}
-                    className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                    className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-content-secondary hover:bg-surface-canvas"
                   >
                     <input
                       type="checkbox"
                       checked={isChecked}
                       onChange={() => toggleOption(opt.value)}
-                      className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="h-3.5 w-3.5 rounded border-strong text-action-primary focus:ring-border-focus"
                     />
                     {opt.dot && (
                       <span
@@ -121,14 +121,14 @@ export default function ColumnFilterPopover({
         ref={triggerRef}
         type="button"
         onClick={openMenu}
-        className={`relative inline-flex items-center rounded p-0.5 hover:bg-gray-200 ${
-          isActive ? "text-blue-600" : "text-gray-400 hover:text-gray-600"
+        className={`relative inline-flex items-center rounded p-0.5 hover:bg-surface-hover ${
+          isActive ? "text-action-primary" : "text-content-tertiary hover:text-content-secondary"
         }`}
         aria-label={`Filter by ${label}`}
       >
         <ListFilter size={12} />
         {isActive && (
-          <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white">
+          <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-action-primary text-[9px] font-bold text-content-inverse">
             {selected.length}
           </span>
         )}

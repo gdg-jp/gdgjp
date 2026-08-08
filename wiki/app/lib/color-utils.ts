@@ -1,27 +1,21 @@
 // Consistent color hashing for collaborative editing features.
-// Used by PresenceAvatars (Tailwind classes) and remote cursors (hex colors).
+// The values intentionally refer to semantic presence tokens from app.css so
+// avatars and CodeMirror cursors follow the active color scheme.
 
-const TW_COLORS = [
-  "bg-rose-400",
-  "bg-amber-400",
-  "bg-emerald-400",
-  "bg-cyan-400",
-  "bg-violet-400",
-  "bg-pink-400",
-  "bg-teal-400",
-  "bg-indigo-400",
-];
+const PRESENCE_TOKENS = ["rose", "amber", "emerald", "cyan", "violet", "pink", "teal", "indigo"];
 
-const HEX_COLORS = [
-  "#fb7185", // rose-400
-  "#fbbf24", // amber-400
-  "#34d399", // emerald-400
-  "#22d3ee", // cyan-400
-  "#a78bfa", // violet-400
-  "#f472b6", // pink-400
-  "#2dd4bf", // teal-400
-  "#818cf8", // indigo-400
+// Keep the class names literal so Tailwind includes each generated utility.
+const AVATAR_CLASSES = [
+  "bg-presence-rose",
+  "bg-presence-amber",
+  "bg-presence-emerald",
+  "bg-presence-cyan",
+  "bg-presence-violet",
+  "bg-presence-pink",
+  "bg-presence-teal",
+  "bg-presence-indigo",
 ];
+const CURSOR_COLORS = PRESENCE_TOKENS.map((token) => `var(--color-presence-${token})`);
 
 function hash(str: string): number {
   let h = 0;
@@ -31,12 +25,12 @@ function hash(str: string): number {
   return Math.abs(h);
 }
 
-/** Tailwind background class (for avatar badges). */
+/** Semantic Tailwind background class for avatar badges. */
 export function hashColorTw(str: string): string {
-  return TW_COLORS[hash(str) % TW_COLORS.length];
+  return AVATAR_CLASSES[hash(str) % AVATAR_CLASSES.length];
 }
 
-/** Hex color string (for CM6 cursor decorations). */
+/** Theme-aware CSS color for CM6 cursor decorations. */
 export function hashColorHex(str: string): string {
-  return HEX_COLORS[hash(str) % HEX_COLORS.length];
+  return CURSOR_COLORS[hash(str) % CURSOR_COLORS.length];
 }

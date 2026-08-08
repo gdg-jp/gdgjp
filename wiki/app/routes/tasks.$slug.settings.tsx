@@ -95,13 +95,13 @@ export default function TaskListSettings() {
   const revalidator = useRevalidator();
 
   const inputClass =
-    "w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
+    "w-full rounded-md border border-border-strong px-3 py-2 text-sm focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus";
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <Link
         to={`/tasks/${page.slug}`}
-        className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+        className="mb-6 inline-flex items-center gap-1 text-sm text-content-tertiary hover:text-content-primary"
       >
         <ArrowLeft size={14} />
         {t("tasks.back_to_list")}
@@ -114,7 +114,7 @@ export default function TaskListSettings() {
         <div>
           <label
             htmlFor="settings-titleJa"
-            className="mb-1 block text-sm font-medium text-gray-700"
+            className="mb-1 block text-sm font-medium text-content-secondary"
           >
             {t("tasks.title_ja")}
           </label>
@@ -130,7 +130,7 @@ export default function TaskListSettings() {
         <div>
           <label
             htmlFor="settings-titleEn"
-            className="mb-1 block text-sm font-medium text-gray-700"
+            className="mb-1 block text-sm font-medium text-content-secondary"
           >
             {t("tasks.title_en")}
           </label>
@@ -145,7 +145,7 @@ export default function TaskListSettings() {
 
         <button
           type="submit"
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover"
         >
           {t("tasks.save")}
         </button>

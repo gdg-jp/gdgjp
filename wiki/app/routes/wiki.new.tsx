@@ -93,12 +93,12 @@ export default function NewPage() {
       {/* ------------------------------------------------------------------ */}
       {/* Mini-header                                                          */}
       {/* ------------------------------------------------------------------ */}
-      <div className="sticky top-14 z-10 grid grid-cols-2 items-center gap-x-2 gap-y-1 border-b border-gray-200 bg-white px-3 py-2 shadow-sm sm:flex sm:flex-wrap sm:gap-2">
+      <div className="sticky top-14 z-10 grid grid-cols-2 items-center gap-x-2 gap-y-1 border-b border-border-default bg-surface-raised px-3 py-2 shadow-sm sm:flex sm:flex-wrap sm:gap-2">
         {/* Row 1 col 1 (mobile) / inline (desktop): back + title */}
         <div className="flex min-w-0 items-center gap-1 sm:flex-1">
           <Link
             to="/"
-            className="shrink-0 rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            className="shrink-0 rounded-md p-1.5 text-content-tertiary hover:bg-surface-hover hover:text-content-primary"
             aria-label={t("editor.back_to_page")}
           >
             <ArrowLeft size={18} />
@@ -112,7 +112,7 @@ export default function NewPage() {
             placeholder={t("editor.title_ja")}
             required={isJaActive}
             aria-hidden={!isJaActive}
-            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${!isJaActive ? "hidden" : ""}`}
+            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-content-primary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-border-focus ${!isJaActive ? "hidden" : ""}`}
           />
           <input
             name="titleEn"
@@ -120,14 +120,14 @@ export default function NewPage() {
             onChange={(e) => setTitleEn(e.target.value)}
             placeholder={t("editor.title_en")}
             aria-hidden={!isEnActive}
-            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${!isEnActive ? "hidden" : ""}`}
+            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-content-primary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-border-focus ${!isEnActive ? "hidden" : ""}`}
           />
         </div>
 
         {/* Row 1 col 2 (mobile) / inline (desktop): lang switcher + actions */}
         <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-auto">
           {/* Language switcher */}
-          <div className="flex shrink-0 overflow-hidden rounded-md border border-gray-200">
+          <div className="flex shrink-0 overflow-hidden rounded-md border border-border-default">
             {(["ja", "en"] as const).map((lang) => (
               <button
                 key={lang}
@@ -135,8 +135,8 @@ export default function NewPage() {
                 onClick={() => setActiveLang(lang)}
                 className={`px-3 py-1 text-sm font-medium transition-colors ${
                   activeLang === lang
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                    ? "bg-action-primary text-action-primary-foreground hover:bg-action-primary-hover"
+                    : "bg-surface-raised text-content-tertiary hover:bg-surface-hover hover:text-content-primary"
                 }`}
               >
                 {lang === "ja" ? t("language.ja") : t("language.en")}
@@ -146,7 +146,7 @@ export default function NewPage() {
 
           <button
             type="submit"
-            className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="shrink-0 rounded-lg bg-action-primary px-3 py-1.5 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover focus:outline-none focus:ring-2 focus:ring-border-focus"
           >
             {t("editor.publish")} ↗
           </button>

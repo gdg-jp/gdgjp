@@ -134,17 +134,17 @@ export default function TaskTableView({
 
   const teamOptions = [
     { value: "unteamed", label: t("tasks.filter_unassigned") },
-    ...teams.map((team) => ({ value: team.id, label: team.name, dot: team.color ?? "#6b7280" })),
+    ...teams.map((team) => ({ value: team.id, label: team.name, dot: team.color ?? "#6b7280" })), // design-token-policy: allow-dynamic-color
   ];
 
   const teamSettingsContent = (
     <div className="p-4">
       <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm font-semibold text-gray-700">{t("tasks.teams")}</span>
+        <span className="text-sm font-semibold text-content-secondary">{t("tasks.teams")}</span>
         <button
           type="button"
           onClick={() => setShowTeamSettings(false)}
-          className="text-gray-400 hover:text-gray-600"
+          className="text-content-tertiary hover:text-content-secondary"
         >
           <X size={16} />
         </button>
@@ -157,14 +157,14 @@ export default function TaskTableView({
 
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto border-y border-gray-200">
-        <table className="min-w-[900px] w-full table-fixed divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="overflow-x-auto border-y border-default">
+        <table className="min-w-[900px] w-full table-fixed divide-y divide-border-default">
+          <thead className="bg-surface-canvas">
             <tr>
-              <th className="w-[3%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[3%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
                 #
               </th>
-              <th className="w-[7%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[7%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
                 <span className="flex items-center justify-between">
                   {t("tasks.col_status")}
                   <ColumnFilterPopover
@@ -175,10 +175,10 @@ export default function TaskTableView({
                   />
                 </span>
               </th>
-              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
                 {t("tasks.col_due_date")}
               </th>
-              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
                 <span className="flex items-center justify-between">
                   {t("tasks.col_assignee")}
                   <ColumnFilterPopover
@@ -191,7 +191,7 @@ export default function TaskTableView({
                   />
                 </span>
               </th>
-              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
                 <span className="flex items-center justify-between">
                   {t("tasks.col_team")}
                   <span className="flex items-center gap-1">
@@ -206,7 +206,7 @@ export default function TaskTableView({
                         ref={teamSettingsBtnRef}
                         type="button"
                         onClick={() => setShowTeamSettings(true)}
-                        className="text-gray-400 hover:text-gray-600"
+                        className="text-content-tertiary hover:text-content-secondary"
                       >
                         <Settings size={12} />
                       </button>
@@ -214,10 +214,10 @@ export default function TaskTableView({
                   </span>
                 </span>
               </th>
-              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
                 {t("tasks.col_deps")}
               </th>
-              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
                 <span className="flex items-center justify-between">
                   {t("tasks.col_type")}
                   <ColumnFilterPopover
@@ -228,15 +228,15 @@ export default function TaskTableView({
                   />
                 </span>
               </th>
-              <th className="w-[18%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[18%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
                 {t("tasks.col_title")}
               </th>
-              <th className="w-[25%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="w-[25%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
                 {t("tasks.description")}
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody className="divide-y divide-border-subtle bg-surface-raised">
             {filtered.map((task) => (
               <TaskRow
                 key={task.id}
@@ -264,10 +264,10 @@ export default function TaskTableView({
       </div>
 
       {canManage && (
-        <div className="mt-2 pb-4 flex flex-col items-center gap-1 text-center text-sm text-gray-400">
+        <div className="mt-2 pb-4 flex flex-col items-center gap-1 text-center text-sm text-content-tertiary">
           <ArrowUpRight size={32} className="translate-x-12" />
           <p>{t("tasks.add_task_hint")}</p>
-          <p className="text-xs text-gray-300">{t(tipKey)}</p>
+          <p className="text-xs text-content-disabled">{t(tipKey)}</p>
         </div>
       )}
 

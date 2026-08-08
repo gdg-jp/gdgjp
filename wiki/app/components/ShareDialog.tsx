@@ -256,7 +256,7 @@ function Avatar({ subject, size = "h-10 w-10" }: { subject: ShareSubject; size?:
       <img
         src={subject.image}
         alt=""
-        className={`${size} shrink-0 rounded-full object-cover ring-1 ring-black/10 dark:ring-white/10`}
+        className={`${size} shrink-0 rounded-full object-cover ring-1 ring-border-default/10 dark:ring-border-default/10`}
       />
     );
   }
@@ -264,7 +264,7 @@ function Avatar({ subject, size = "h-10 w-10" }: { subject: ShareSubject; size?:
   return (
     <span
       aria-hidden="true"
-      className={`flex ${size} shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700`}
+      className={`flex ${size} shrink-0 items-center justify-center rounded-full bg-feedback-info-surface text-action-primary`}
     >
       {subject.type === "chapter" ? <ChapterIcon size={18} /> : initial(subject.label)}
     </span>
@@ -630,7 +630,7 @@ export default function ShareDialog({
         onPointerDownOutside={(event) => {
           if (isMutating) event.preventDefault();
         }}
-        className="share-dialog-content flex max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-[37.5rem] flex-col gap-0 overflow-hidden rounded-2xl border-border bg-card p-0 text-card-foreground shadow-2xl shadow-black/20 sm:max-h-[calc(100dvh-3rem)] sm:max-w-[37.5rem]"
+        className="share-dialog-content flex max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-[37.5rem] flex-col gap-0 overflow-hidden rounded-2xl border-border bg-card p-0 text-card-foreground shadow-2xl shadow-content-primary/20 sm:max-h-[calc(100dvh-3rem)] sm:max-w-[37.5rem]"
       >
         <header className="flex items-center gap-2 px-5 pb-3 pt-5 sm:px-6">
           {screen === "grant" && (
@@ -717,7 +717,7 @@ export default function ShareDialog({
                   role={listboxRole}
                   tabIndex={-1}
                   aria-label={t("wiki.share_search_placeholder")}
-                  className="max-h-64 overflow-y-auto rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-xl shadow-black/10"
+                  className="max-h-64 overflow-y-auto rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-xl shadow-content-primary/10"
                 >
                   {candidatesFetcher.state !== "idle" && candidateRows.length === 0 ? (
                     <p className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">

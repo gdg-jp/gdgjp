@@ -120,25 +120,27 @@ export default function DepsDropdown({
           <div
             ref={menuRef}
             style={{ position: "absolute", top: pos.top, left: pos.left, minWidth: 220 }}
-            className="z-[9999] overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg"
+            className="z-[9999] overflow-hidden rounded-md border border-default bg-surface-raised shadow-lg"
           >
-            <div className="border-b border-gray-100 px-3 py-2 text-xs font-semibold text-gray-500">
+            <div className="border-b border-subtle px-3 py-2 text-xs font-semibold text-content-secondary">
               {t("tasks.dependencies")}
             </div>
-            <div className="border-b border-gray-100 px-2 py-1.5">
+            <div className="border-b border-subtle px-2 py-1.5">
               <input
                 ref={searchInputRef}
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t("tasks.filterPlaceholder")}
-                className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+                className="w-full rounded border border-default px-2 py-1 text-xs focus:border-focus focus:outline-none"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
             <div className="max-h-48 overflow-y-auto py-1">
               {sorted.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-gray-400">{t("tasks.noTasksFound")}</div>
+                <div className="px-3 py-2 text-xs text-content-tertiary">
+                  {t("tasks.noTasksFound")}
+                </div>
               ) : (
                 sorted.map((opt) => {
                   const isChecked = value.includes(opt.id);
@@ -150,17 +152,17 @@ export default function DepsDropdown({
                         e.stopPropagation();
                         toggleOption(opt.id);
                       }}
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-gray-50"
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-canvas"
                     >
                       <span className="flex w-4 flex-shrink-0 items-center justify-center">
-                        {isChecked && <Check size={14} className="text-blue-600" />}
+                        {isChecked && <Check size={14} className="text-action-primary" />}
                       </span>
                       <span
-                        className={`flex-shrink-0 text-xs font-mono ${isChecked ? "text-blue-600" : "text-gray-400"}`}
+                        className={`flex-shrink-0 text-xs font-mono ${isChecked ? "text-action-primary" : "text-content-tertiary"}`}
                       >
                         #{opt.number}
                       </span>
-                      <span className="truncate text-gray-700">{opt.title}</span>
+                      <span className="truncate text-content-secondary">{opt.title}</span>
                     </button>
                   );
                 })
@@ -176,7 +178,7 @@ export default function DepsDropdown({
       <button
         ref={triggerRef}
         type="button"
-        className="flex items-start gap-1 rounded px-1.5 py-0.5 text-left text-sm text-gray-400 hover:bg-gray-100"
+        className="flex items-start gap-1 rounded px-1.5 py-0.5 text-left text-sm text-content-tertiary hover:bg-surface-sunken"
         onClick={openMenu}
         onKeyDown={(e) => e.stopPropagation()}
       >
@@ -187,7 +189,7 @@ export default function DepsDropdown({
               .filter((o): o is { id: string; number: number; title: string } => o !== undefined)
               .map((o) => <span key={o.id}>#{o.number}</span>)
           ) : (
-            <span className="text-gray-400">—</span>
+            <span className="text-content-tertiary">—</span>
           )}
         </span>
         <ChevronDown size={12} className="mt-0.5 flex-shrink-0 opacity-60" />

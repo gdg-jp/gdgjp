@@ -29,9 +29,9 @@ export default function Toast({ message, onDismiss }: ToastProps) {
     >
       <output
         aria-live="polite"
-        className="flex items-center gap-3 rounded-xl border border-green-500/25 bg-card px-4 py-3 text-card-foreground shadow-xl shadow-black/15"
+        className="flex items-center gap-3 rounded-xl border border-feedback-success-border/25 bg-card px-4 py-3 text-card-foreground shadow-xl shadow-content-primary/15"
       >
-        <CheckCircle2 className="size-5 shrink-0 text-green-600" />
+        <CheckCircle2 className="size-5 shrink-0 text-feedback-success-foreground" />
         <span className="text-sm font-medium">{message}</span>
         <Button
           variant="ghost"

@@ -274,16 +274,20 @@ export default function ChangesetReview({
   return (
     <div className="space-y-6">
       {/* Plan rationale */}
-      <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
-        <h3 className="text-sm font-medium text-blue-800">{t("ingest.review.ai_rationale")}</h3>
-        <p className="mt-1 text-sm text-blue-700">{draft.planRationale}</p>
+      <div className="rounded-lg border border-feedback-info-border bg-feedback-info-surface p-4">
+        <h3 className="text-sm font-medium text-feedback-info-foreground">
+          {t("ingest.review.ai_rationale")}
+        </h3>
+        <p className="mt-1 text-sm text-action-primary">{draft.planRationale}</p>
       </div>
 
       {/* Warnings */}
       {draft.warnings && draft.warnings.length > 0 && (
-        <div className="rounded-lg border border-yellow-100 bg-yellow-50 p-4">
-          <h3 className="text-sm font-medium text-yellow-800">{t("ingest.review.warnings")}</h3>
-          <ul className="mt-1 list-disc pl-4 text-sm text-yellow-700">
+        <div className="rounded-lg border border-feedback-warning-border bg-feedback-warning-surface p-4">
+          <h3 className="text-sm font-medium text-feedback-warning-foreground">
+            {t("ingest.review.warnings")}
+          </h3>
+          <ul className="mt-1 list-disc pl-4 text-sm text-feedback-warning-foreground">
             {draft.warnings.map((w) => (
               <li key={w}>{w}</li>
             ))}
@@ -293,14 +297,14 @@ export default function ChangesetReview({
 
       {/* Sibling warning */}
       {showSiblingWarning && (
-        <div className="flex items-start justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <p className="text-sm text-amber-800">
+        <div className="flex items-start justify-between gap-4 rounded-lg border border-feedback-warning-border bg-feedback-warning-surface p-4">
+          <p className="text-sm text-feedback-warning-foreground">
             {t("ingest.review.sibling_warning", { count: rootLevelCreateCount })}
           </p>
           <button
             type="button"
             onClick={handleAddParentPage}
-            className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-50"
+            className="shrink-0 rounded-lg border border-feedback-warning-border bg-surface-raised px-3 py-1.5 text-xs font-medium text-feedback-warning-foreground hover:bg-feedback-warning-surface"
           >
             {t("ingest.review.add_parent_page")}
           </button>
@@ -328,17 +332,22 @@ export default function ChangesetReview({
           .filter(({ op: o, idx: i }) => i !== idx && o.type === "create" && o.tempId);
 
         return (
-          <div key={opKey} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div
+            key={opKey}
+            className="rounded-xl border border-default bg-surface-raised p-6 shadow-sm"
+          >
             {/* Op header */}
             <div className="mb-4 flex items-center gap-3">
               <span
                 className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  op.type === "create" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+                  op.type === "create"
+                    ? "bg-feedback-success-surface text-feedback-success-foreground"
+                    : "bg-feedback-info-surface text-action-primary"
                 }`}
               >
                 {op.type === "create" ? t("ingest.review.op_create") : t("ingest.review.op_update")}
               </span>
-              <span className="text-sm text-gray-500">{op.rationale}</span>
+              <span className="text-sm text-content-secondary">{op.rationale}</span>
             </div>
 
             {/* Actionability score banner */}
@@ -346,8 +355,8 @@ export default function ChangesetReview({
               <div
                 className={`mb-4 rounded-lg p-3 text-sm ${
                   score === 1
-                    ? "border border-red-200 bg-red-50 text-red-700"
-                    : "border border-yellow-200 bg-yellow-50 text-yellow-700"
+                    ? "border border-feedback-danger-border bg-feedback-danger-surface text-feedback-danger-foreground"
+                    : "border border-feedback-warning-border bg-feedback-warning-surface text-feedback-warning-foreground"
                 }`}
               >
                 <strong>
@@ -363,7 +372,7 @@ export default function ChangesetReview({
               <div className="mb-4">
                 <label
                   htmlFor={`parent-${idx}`}
-                  className="mb-1 block text-xs font-medium text-gray-600"
+                  className="mb-1 block text-xs font-medium text-content-secondary"
                 >
                   {t("ingest.review.field_parent_page")}
                 </label>
@@ -371,7 +380,7 @@ export default function ChangesetReview({
                   id={`parent-${idx}`}
                   value={state?.parentId ?? ""}
                   onChange={(e) => updateOp(idx, { parentId: e.target.value || null })}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
                 >
                   <option value="">{t("ingest.review.parent_none")}</option>
                   {existingPageFlatList.length > 0 && (
@@ -401,7 +410,7 @@ export default function ChangesetReview({
             <div className="mb-4">
               <label
                 htmlFor={`title-${idx}`}
-                className="mb-1 block text-xs font-medium text-gray-600"
+                className="mb-1 block text-xs font-medium text-content-secondary"
               >
                 {t("ingest.review.field_title")}
               </label>
@@ -410,7 +419,7 @@ export default function ChangesetReview({
                 type="text"
                 value={state.title}
                 onChange={(e) => updateOp(idx, { title: e.target.value })}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
               />
             </div>
 
@@ -418,7 +427,7 @@ export default function ChangesetReview({
             <div className="mb-4">
               <label
                 htmlFor={`summary-${idx}`}
-                className="mb-1 block text-xs font-medium text-gray-600"
+                className="mb-1 block text-xs font-medium text-content-secondary"
               >
                 {t("ingest.review.field_summary")}
               </label>
@@ -427,7 +436,7 @@ export default function ChangesetReview({
                 value={state.summaryJa}
                 onChange={(e) => updateOp(idx, { summaryJa: e.target.value })}
                 rows={2}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
               />
             </div>
 
@@ -435,7 +444,7 @@ export default function ChangesetReview({
             <div className="mb-4">
               <label
                 htmlFor={`pagetype-${idx}`}
-                className="mb-1 block text-xs font-medium text-gray-600"
+                className="mb-1 block text-xs font-medium text-content-secondary"
               >
                 {t("ingest.review.field_page_type")}
               </label>
@@ -443,7 +452,7 @@ export default function ChangesetReview({
                 id={`pagetype-${idx}`}
                 value={state.pageType}
                 onChange={(e) => updateOp(idx, { pageType: e.target.value })}
-                className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
               >
                 {PAGE_TYPE_VALUES.map((value) => (
                   <option key={value} value={value}>
@@ -455,7 +464,7 @@ export default function ChangesetReview({
 
             {/* Tags */}
             <div className="mb-4">
-              <p className="mb-1 text-xs font-medium text-gray-600">
+              <p className="mb-1 text-xs font-medium text-content-secondary">
                 {t("ingest.review.field_tags")}
               </p>
               <div className="flex flex-wrap gap-2">
@@ -466,8 +475,8 @@ export default function ChangesetReview({
                     onClick={() => toggleTag(idx, slug)}
                     className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                       state.tags.includes(slug)
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        ? "bg-action-primary text-content-inverse"
+                        : "bg-surface-sunken text-content-secondary hover:bg-surface-hover"
                     }`}
                   >
                     {t(`ingest.review.tag.${slug}`)}
@@ -478,7 +487,7 @@ export default function ChangesetReview({
 
             {/* Editor */}
             <div className="mb-4">
-              <p className="mb-1 text-xs font-medium text-gray-600">
+              <p className="mb-1 text-xs font-medium text-content-secondary">
                 {t("ingest.review.field_body")}
               </p>
               <TipTapEditor
@@ -488,10 +497,10 @@ export default function ChangesetReview({
             </div>
 
             {/* Regenerate */}
-            <div className="mt-4 border-t border-gray-100 pt-4">
+            <div className="mt-4 border-t border-subtle pt-4">
               <label
                 htmlFor={`feedback-${idx}`}
-                className="mb-1 block text-xs font-medium text-gray-500"
+                className="mb-1 block text-xs font-medium text-content-secondary"
               >
                 {t("ingest.review.field_feedback")}
               </label>
@@ -506,13 +515,13 @@ export default function ChangesetReview({
                     setFeedback(next);
                   }}
                   placeholder={t("ingest.review.feedback_placeholder")}
-                  className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="flex-1 rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
                 />
                 <button
                   type="button"
                   onClick={() => handleRegenerate(idx)}
                   disabled={regenerating[idx] || !feedback[idx].trim()}
-                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                  className="rounded-lg border border-default px-4 py-2 text-sm text-content-secondary transition-colors hover:bg-surface-canvas disabled:opacity-50"
                 >
                   {regenerating[idx]
                     ? t("ingest.review.regenerating")
@@ -520,7 +529,9 @@ export default function ChangesetReview({
                 </button>
               </div>
               {regenerateErrors[idx] && (
-                <p className="mt-2 text-xs text-red-600">{regenerateErrors[idx]}</p>
+                <p className="mt-2 text-xs text-feedback-danger-foreground">
+                  {regenerateErrors[idx]}
+                </p>
               )}
             </div>
           </div>
@@ -531,12 +542,12 @@ export default function ChangesetReview({
       <PageStructurePreview pageIndex={pageIndex} operations={operations} opStates={opStates} />
 
       {/* Submit buttons */}
-      <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
+      <div className="flex justify-end gap-3 border-t border-subtle pt-4">
         <button
           type="button"
           onClick={handleSubmit}
           disabled={submitting}
-          className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+          className="rounded-lg bg-action-primary px-5 py-2.5 text-sm font-medium text-content-inverse transition-colors hover:bg-action-primary-hover disabled:opacity-50"
         >
           {submitting ? t("ingest.review.publishing") : t("ingest.review.publish")}
         </button>

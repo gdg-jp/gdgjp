@@ -61,7 +61,9 @@ export default function EmojiReactionBar({
           disabled={readOnly}
           className={[
             "flex items-center gap-1 rounded-full px-2 py-0.5 text-sm transition-colors",
-            r.reactedByMe ? "reaction-active hover:brightness-95" : "bg-gray-100 hover:bg-gray-200",
+            r.reactedByMe
+              ? "reaction-active hover:brightness-95"
+              : "bg-surface-sunken hover:bg-surface-hover",
             readOnly ? "cursor-default" : "",
           ].join(" ")}
         >
@@ -69,7 +71,7 @@ export default function EmojiReactionBar({
           <span
             className={[
               "text-xs font-medium",
-              r.reactedByMe ? "reaction-count" : "text-gray-600",
+              r.reactedByMe ? "reaction-count" : "text-content-secondary",
             ].join(" ")}
           >
             {r.count}
@@ -82,7 +84,7 @@ export default function EmojiReactionBar({
           ref={triggerRef}
           type="button"
           onClick={() => setPickerOpen((v) => !v)}
-          className="rounded-full border border-gray-200 bg-white p-1 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+          className="rounded-full border border-default bg-surface-raised p-1 text-content-secondary hover:bg-surface-canvas hover:text-content-secondary"
           aria-label="Add reaction"
         >
           <Smile size={15} />

@@ -131,17 +131,17 @@ export default function Index() {
           <div className="mb-8 max-w-2xl">
             <h1
               id="public-pages-heading"
-              className="text-2xl font-bold tracking-tight text-gray-900 md:text-3xl"
+              className="text-2xl font-bold tracking-tight text-content-primary md:text-3xl"
             >
               {t("public_pages.title")}
             </h1>
-            <p className="mt-2 text-sm leading-6 text-gray-600 md:text-base">
+            <p className="mt-2 text-sm leading-6 text-content-secondary md:text-base">
               {t("public_pages.description")}
             </p>
           </div>
 
           {data.publicPages.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-gray-300 px-5 py-8 text-sm text-gray-500">
+            <p className="rounded-lg border border-dashed border-border-strong px-5 py-8 text-sm text-content-tertiary">
               {t("public_pages.empty")}
             </p>
           ) : (
@@ -155,18 +155,18 @@ export default function Index() {
                   <li key={page.id}>
                     <Link
                       to={`/wiki/${page.slug}`}
-                      className="group flex h-full flex-col rounded-xl border border-gray-200 bg-white p-5 transition-colors hover:border-blue-300 hover:bg-blue-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                      className="group flex h-full flex-col rounded-xl border border-border-default bg-surface-raised p-5 transition-colors hover:border-border-focus hover:bg-surface-selected/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
                     >
-                      <h2 className="line-clamp-2 font-semibold text-gray-900 group-hover:text-blue-700">
+                      <h2 className="line-clamp-2 font-semibold text-content-primary group-hover:text-action-primary-hover">
                         {title}
                       </h2>
                       {summary && (
-                        <p className="mt-2 line-clamp-3 text-sm leading-6 text-gray-600">
+                        <p className="mt-2 line-clamp-3 text-sm leading-6 text-content-secondary">
                           {summary}
                         </p>
                       )}
                       {page.updatedAt && (
-                        <time className="mt-4 text-xs text-gray-400">
+                        <time className="mt-4 text-xs text-content-disabled">
                           {timeAgo(new Date(page.updatedAt), t)}
                         </time>
                       )}
@@ -189,14 +189,14 @@ export default function Index() {
     <div className="max-w-5xl px-4 py-6 md:px-8 md:py-8">
       {/* Section 1: Create with AI CTA */}
       <section className="mb-10">
-        <div className="relative overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-blue-100 px-6 py-8 md:px-10 md:py-10">
+        <div className="relative overflow-hidden rounded-2xl border border-feedback-info-border bg-gradient-to-br from-surface-selected to-surface-hover px-6 py-8 md:px-10 md:py-10">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-blue-200/40 blur-2xl"
+            className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-feedback-info-surface/40 blur-2xl"
           />
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -bottom-8 left-1/3 h-32 w-32 rounded-full bg-blue-200/40 blur-2xl"
+            className="pointer-events-none absolute -bottom-8 left-1/3 h-32 w-32 rounded-full bg-feedback-info-surface/40 blur-2xl"
           />
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-2">
@@ -206,7 +206,7 @@ export default function Index() {
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
                   fill="currentColor"
-                  className="h-6 w-6 text-blue-500"
+                  className="h-6 w-6 text-action-primary"
                 >
                   <path
                     fillRule="evenodd"
@@ -214,17 +214,17 @@ export default function Index() {
                     clipRule="evenodd"
                   />
                 </svg>
-                <h2 className="text-xl font-bold text-gray-900 md:text-2xl">
+                <h2 className="text-xl font-bold text-content-primary md:text-2xl">
                   {t("home.cta_heading")}
                 </h2>
               </div>
-              <p className="max-w-lg text-sm leading-relaxed text-gray-600 md:text-base">
+              <p className="max-w-lg text-sm leading-relaxed text-content-secondary md:text-base">
                 {t("home.cta_subheading")}
               </p>
             </div>
             <Link
               to="/ingest"
-              className="inline-flex shrink-0 items-center gap-2 rounded-xl border-2 border-black bg-blue-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[3px_3px_0px_0px_#000] transition-[transform,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-x-[1px] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-y-[1px] hover:shadow-[1px_1px_0px_0px_#000]"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl border-2 border-border-strong bg-action-primary px-5 py-2.5 text-sm font-semibold text-action-primary-foreground shadow-[3px_3px_0px_0px_var(--color-border-strong)] transition-[transform,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-x-[1px] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-y-[1px] hover:shadow-[1px_1px_0px_0px_var(--color-border-strong)]"
             >
               <svg
                 aria-hidden="true"
@@ -247,10 +247,12 @@ export default function Index() {
 
       {/* Section 2: Browse by Tag */}
       <section className="mb-10">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">{t("home.browse_by_tag")}</h2>
+        <h2 className="mb-4 text-lg font-semibold text-content-primary">
+          {t("home.browse_by_tag")}
+        </h2>
 
         {allTags.length === 0 ? (
-          <p className="text-sm text-gray-400">{t("home.no_tags_yet")}</p>
+          <p className="text-sm text-content-disabled">{t("home.no_tags_yet")}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {allTags.map((tag) => (
@@ -270,28 +272,30 @@ export default function Index() {
 
       {/* Section 3: Discover what's happening */}
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">{t("home.activity_heading")}</h2>
+        <h2 className="mb-4 text-lg font-semibold text-content-primary">
+          {t("home.activity_heading")}
+        </h2>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {/* Recent pages column */}
           <div>
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-content-disabled">
               {t("home.activity_pages_heading")}
             </h3>
             {recentPages.length === 0 ? (
-              <p className="text-sm text-gray-400">{t("home.no_activity_pages")}</p>
+              <p className="text-sm text-content-disabled">{t("home.no_activity_pages")}</p>
             ) : (
-              <ul className="flex flex-col divide-y divide-gray-100">
+              <ul className="flex flex-col divide-y divide-border-subtle">
                 {recentPages.map((page) => (
                   <li key={page.id}>
                     <Link
                       to={`/wiki/${page.slug}`}
-                      className="flex items-center justify-between gap-3 py-2.5 text-sm transition-colors hover:text-blue-600"
+                      className="flex items-center justify-between gap-3 py-2.5 text-sm transition-colors hover:text-action-primary"
                     >
-                      <span className="line-clamp-1 font-medium text-gray-800">
+                      <span className="line-clamp-1 font-medium text-content-primary">
                         {isJa ? page.titleJa || page.titleEn : page.titleEn || page.titleJa}
                       </span>
                       {page.updatedAt && (
-                        <time className="shrink-0 text-xs text-gray-400">
+                        <time className="shrink-0 text-xs text-content-disabled">
                           {timeAgo(new Date(page.updatedAt), t)}
                         </time>
                       )}
@@ -304,18 +308,18 @@ export default function Index() {
 
           {/* Recent comments column */}
           <div>
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-content-disabled">
               {t("home.activity_comments_heading")}
             </h3>
             {recentComments.length === 0 ? (
-              <p className="text-sm text-gray-400">{t("home.no_activity_comments")}</p>
+              <p className="text-sm text-content-disabled">{t("home.no_activity_comments")}</p>
             ) : (
-              <ul className="flex flex-col divide-y divide-gray-100">
+              <ul className="flex flex-col divide-y divide-border-subtle">
                 {recentComments.map((c) => (
                   <li key={c.commentId}>
                     <Link
                       to={`/wiki/${c.pageSlug}`}
-                      className="flex items-start gap-2.5 py-2.5 transition-colors hover:text-blue-600"
+                      className="flex items-start gap-2.5 py-2.5 transition-colors hover:text-action-primary"
                     >
                       {c.authorImage ? (
                         <img
@@ -325,20 +329,20 @@ export default function Index() {
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-semibold text-blue-700">
+                        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-feedback-info-surface text-[10px] font-semibold text-action-primary-hover">
                           {c.authorName.slice(0, 1).toUpperCase()}
                         </div>
                       )}
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-sm text-gray-700">
-                          <span className="font-medium text-gray-900">{c.authorName}</span>{" "}
+                        <span className="text-sm text-content-secondary">
+                          <span className="font-medium text-content-primary">{c.authorName}</span>{" "}
                           {t("home.activity_commented_on")}{" "}
-                          <span className="font-medium text-gray-900">
+                          <span className="font-medium text-content-primary">
                             {isJa ? c.pageTitleJa || c.pageTitleEn : c.pageTitleEn || c.pageTitleJa}
                           </span>
                         </span>
                         {c.commentedAt && (
-                          <time className="text-xs text-gray-400">
+                          <time className="text-xs text-content-disabled">
                             {timeAgo(new Date(c.commentedAt), t)}
                           </time>
                         )}

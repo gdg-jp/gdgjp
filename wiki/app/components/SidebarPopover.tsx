@@ -89,7 +89,7 @@ export default function SidebarPopover({
         reducedOpacity={0.85}
         className="w-80"
       >
-        <div ref={panelRef} className="rounded-xl bg-white shadow-xl">
+        <div ref={panelRef} className="rounded-xl bg-surface-raised shadow-xl">
           {children}
         </div>
       </MotionPresence>

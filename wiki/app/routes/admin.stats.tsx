@@ -63,10 +63,10 @@ function StatCard({
   sub?: string;
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-6">
-      <p className="text-sm font-medium text-gray-500">{label}</p>
-      <p className="mt-2 text-4xl font-bold text-gray-900">{value}</p>
-      {sub && <p className="mt-1 text-xs text-gray-400">{sub}</p>}
+    <div className="rounded-lg border border-border-default bg-surface-raised p-6">
+      <p className="text-sm font-medium text-content-tertiary">{label}</p>
+      <p className="mt-2 text-4xl font-bold text-content-primary">{value}</p>
+      {sub && <p className="mt-1 text-xs text-content-disabled">{sub}</p>}
     </div>
   );
 }
@@ -77,7 +77,7 @@ export default function AdminStats() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">{t("admin.stats.heading")}</h1>
+      <h1 className="mb-6 text-2xl font-bold text-content-primary">{t("admin.stats.heading")}</h1>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={t("admin.stats.total_users")} value={totalUsers} />

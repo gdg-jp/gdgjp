@@ -152,16 +152,16 @@ export async function action({ request, context }: ActionFunctionArgs) {
 function statusBadgeClass(status: string): string {
   switch (status) {
     case "ready":
-      return "bg-emerald-50 text-emerald-700";
+      return "bg-feedback-success-surface text-feedback-success-foreground";
     case "pending":
     case "fetching":
-      return "bg-amber-50 text-amber-700";
+      return "bg-feedback-warning-surface text-feedback-warning-foreground";
     case "error":
-      return "bg-red-50 text-red-700";
+      return "bg-feedback-danger-surface text-feedback-danger-foreground";
     case "archived":
-      return "bg-gray-100 text-gray-600";
+      return "bg-surface-hover text-content-secondary";
     default:
-      return "bg-gray-100 text-gray-700";
+      return "bg-surface-hover text-content-secondary";
   }
 }
 
@@ -304,24 +304,27 @@ export default function SourcesPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <header className="mb-8">
-        <h1 className="text-2xl font-semibold text-gray-900">{t("sources.title")}</h1>
-        <p className="mt-1 text-sm text-gray-600">{t("sources.subtitle")}</p>
+        <h1 className="text-2xl font-semibold text-content-primary">{t("sources.title")}</h1>
+        <p className="mt-1 text-sm text-content-secondary">{t("sources.subtitle")}</p>
       </header>
 
-      <Form method="post" className="mb-6 rounded-lg border border-gray-200 bg-white p-4">
+      <Form
+        method="post"
+        className="mb-6 rounded-lg border border-border-default bg-surface-raised p-4"
+      >
         <input type="hidden" name="intent" value="create" />
         <input
           type="hidden"
           name="url"
           value={selectedDocument ? (sourceUrlFromGoogleDocument(selectedDocument) ?? "") : ""}
         />
-        <p className="text-sm font-medium text-gray-700">{t("sources.document_label")}</p>
+        <p className="text-sm font-medium text-content-secondary">{t("sources.document_label")}</p>
         <div className="mt-2 flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
             onClick={chooseGoogleDriveSource}
             disabled={pickerLoading}
-            className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+            className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
           >
             {pickerLoading ? (
               <LoaderCircle className="size-4 animate-spin" />
@@ -334,39 +337,44 @@ export default function SourcesPage() {
           <button
             type="submit"
             disabled={submitting || !selectedDocument}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60"
           >
             {t("sources.add")}
           </button>
         </div>
-        <p className="mt-2 text-xs text-gray-500">{t("sources.document_hint")}</p>
-        <p className="mt-1 text-xs text-gray-500">{t("sources.chapter_hint")}</p>
+        <p className="mt-2 text-xs text-content-tertiary">{t("sources.document_hint")}</p>
+        <p className="mt-1 text-xs text-content-tertiary">{t("sources.chapter_hint")}</p>
         {needsDriveConnection ? (
-          <div className="mt-3 flex items-center gap-3 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm">
+          <div className="mt-3 flex items-center gap-3 rounded-md border border-border-default bg-surface-sunken p-3 text-sm">
             <span>{t("sources.connect_hint")}</span>
             <button
               type="button"
               onClick={connectGoogleDrive}
-              className="font-medium text-blue-600 hover:text-blue-700"
+              className="font-medium text-action-primary hover:text-action-primary-hover"
             >
               {t("sources.connect_google_drive")}
             </button>
           </div>
         ) : null}
-        {pickerError ? <p className="mt-2 text-sm text-red-600">{pickerError}</p> : null}
+        {pickerError ? (
+          <p className="mt-2 text-sm text-feedback-danger-foreground">{pickerError}</p>
+        ) : null}
       </Form>
 
-      <Form method="post" className="mb-8 rounded-lg border border-gray-200 bg-white p-4">
+      <Form
+        method="post"
+        className="mb-8 rounded-lg border border-border-default bg-surface-raised p-4"
+      >
         <input type="hidden" name="intent" value="create-chat-space" />
         <input type="hidden" name="externalId" value={selectedSpace?.name ?? ""} />
         <input type="hidden" name="title" value={selectedSpace?.displayName ?? ""} />
-        <p className="text-sm font-medium text-gray-700">{t("sources.chat_label")}</p>
+        <p className="text-sm font-medium text-content-secondary">{t("sources.chat_label")}</p>
         <div className="mt-2 flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
             onClick={loadChatSpaces}
             disabled={chatLoading}
-            className="flex items-center justify-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+            className="flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
           >
             {chatLoading ? (
               <LoaderCircle className="size-4 animate-spin" />
@@ -380,7 +388,7 @@ export default function SourcesPage() {
             onChange={(event) => setSelectedSpaceName(event.target.value)}
             disabled={chatSpaces.length === 0}
             aria-label={t("sources.chat_space_label")}
-            className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
+            className="min-w-0 flex-1 rounded-md border border-border-strong px-3 py-2 text-sm disabled:bg-surface-sunken"
           >
             <option value="" disabled>
               {t("sources.chat_space_placeholder")}
@@ -395,38 +403,40 @@ export default function SourcesPage() {
           <button
             type="submit"
             disabled={submitting || !selectedSpace}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60"
           >
             {t("sources.add_chat_space")}
           </button>
         </div>
-        <p className="mt-2 text-xs text-gray-500">{t("sources.chat_hint")}</p>
+        <p className="mt-2 text-xs text-content-tertiary">{t("sources.chat_hint")}</p>
         {needsChatReauth ? (
-          <div className="mt-3 flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+          <div className="mt-3 flex items-center gap-3 rounded-md border border-feedback-warning-border bg-feedback-warning-surface p-3 text-sm text-feedback-warning-foreground">
             <span>{t("sources.chat_reauth_hint")}</span>
             <button
               type="button"
               onClick={connectGoogleDrive}
-              className="font-medium text-blue-600 hover:text-blue-700"
+              className="font-medium text-action-primary hover:text-action-primary-hover"
             >
               {t("sources.connect_google_drive")}
             </button>
           </div>
         ) : null}
-        {chatError ? <p className="mt-2 text-sm text-red-600">{chatError}</p> : null}
+        {chatError ? (
+          <p className="mt-2 text-sm text-feedback-danger-foreground">{chatError}</p>
+        ) : null}
       </Form>
 
       {actionData && !actionData.ok ? (
-        <p className="mb-6 text-sm text-red-600">
+        <p className="mb-6 text-sm text-feedback-danger-foreground">
           {t(`sources.error_${actionData.error}`, { defaultValue: t("sources.error_generic") })}
         </p>
       ) : null}
 
       {sources.length === 0 ? (
-        <p className="text-sm text-gray-500">{t("sources.empty")}</p>
+        <p className="text-sm text-content-tertiary">{t("sources.empty")}</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-          <table className="w-full table-fixed divide-y divide-gray-200 text-sm">
+        <div className="overflow-hidden rounded-lg border border-border-default bg-surface-raised">
+          <table className="w-full table-fixed divide-y divide-border-default text-sm">
             <colgroup>
               <col className="w-10" />
               <col />
@@ -436,7 +446,7 @@ export default function SourcesPage() {
               <col className="w-36" />
               <col className="w-40" />
             </colgroup>
-            <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+            <thead className="bg-surface-sunken text-left text-xs uppercase tracking-wide text-content-tertiary">
               <tr>
                 <th className="px-3 py-2" />
                 <th className="px-3 py-2">{t("sources.col_title")}</th>
@@ -447,7 +457,7 @@ export default function SourcesPage() {
                 <th className="px-3 py-2">{t("sources.col_actions")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-subtle">
               {sources.map((source) => {
                 const open = expanded[source.id] ?? false;
                 return (
@@ -482,7 +492,7 @@ function ChapterSelect({
       required
       defaultValue={chapters.length === 1 ? chapters[0].id : ""}
       aria-label={t("sources.chapter_label")}
-      className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+      className="rounded-md border border-border-strong px-3 py-2 text-sm"
     >
       <option value="" disabled>
         {t("sources.chapter_placeholder")}
@@ -536,7 +546,7 @@ function SourceRows({
           <button
             type="button"
             onClick={onToggle}
-            className="rounded p-1 text-gray-500 hover:bg-gray-100"
+            className="rounded p-1 text-content-tertiary hover:bg-surface-hover"
             aria-expanded={open}
             aria-label={t("sources.toggle_documents")}
           >
@@ -544,23 +554,25 @@ function SourceRows({
           </button>
         </td>
         <td className="min-w-0 px-3 py-3">
-          <div className="truncate font-medium text-gray-900" title={source.title}>
+          <div className="truncate font-medium text-content-primary" title={source.title}>
             {source.title}
           </div>
           <a
             href={source.url}
             target="_blank"
             rel="noreferrer"
-            className="mt-0.5 block truncate text-xs text-blue-600 hover:underline"
+            className="mt-0.5 block truncate text-xs text-action-primary hover:underline"
             title={source.url}
           >
             {source.url}
           </a>
           {source.errorMessage ? (
-            <p className="mt-1 text-xs text-red-600">{source.errorMessage}</p>
+            <p className="mt-1 text-xs text-feedback-danger-foreground">{source.errorMessage}</p>
           ) : null}
         </td>
-        <td className="px-3 py-3 text-gray-600">{t(`sources.kind.${source.kind}`, source.kind)}</td>
+        <td className="px-3 py-3 text-content-secondary">
+          {t(`sources.kind.${source.kind}`, source.kind)}
+        </td>
         <td className="px-3 py-3">
           <span
             className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(source.status)}`}
@@ -568,8 +580,8 @@ function SourceRows({
             {t(`sources.status.${source.status}`, source.status)}
           </span>
         </td>
-        <td className="px-3 py-3 text-gray-600">{source.documents.length}</td>
-        <td className="px-3 py-3 text-gray-600">{fetchedLabel}</td>
+        <td className="px-3 py-3 text-content-secondary">{source.documents.length}</td>
+        <td className="px-3 py-3 text-content-secondary">{fetchedLabel}</td>
         <td className="px-3 py-3">
           <div className="flex flex-wrap gap-2">
             <refreshFetcher.Form method="post">
@@ -578,7 +590,7 @@ function SourceRows({
               <button
                 type="submit"
                 disabled={busy || source.status === "archived"}
-                className="inline-flex items-center gap-1 rounded border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded border border-border-strong px-2 py-1 text-xs hover:bg-surface-hover disabled:opacity-50"
               >
                 <RefreshCw size={12} />
                 {t("sources.refresh")}
@@ -590,7 +602,7 @@ function SourceRows({
               <button
                 type="submit"
                 disabled={busy || source.status === "archived"}
-                className="rounded border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50 disabled:opacity-50"
+                className="rounded border border-border-strong px-2 py-1 text-xs hover:bg-surface-hover disabled:opacity-50"
               >
                 {t("sources.archive")}
               </button>
@@ -600,16 +612,21 @@ function SourceRows({
       </tr>
       {open ? (
         <tr>
-          <td colSpan={7} className="bg-gray-50 px-6 py-3">
+          <td colSpan={7} className="bg-surface-sunken px-6 py-3">
             {source.documents.length === 0 ? (
-              <p className="text-xs text-gray-500">{t("sources.no_documents")}</p>
+              <p className="text-xs text-content-tertiary">{t("sources.no_documents")}</p>
             ) : (
               <ul className="space-y-1">
                 {source.documents.map((doc) => (
-                  <li key={doc.id} className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-700">
+                  <li
+                    key={doc.id}
+                    className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-content-secondary"
+                  >
                     <span className="font-medium">{doc.title}</span>
-                    <span className="text-gray-500">{doc.path}</span>
-                    <span className="font-mono text-gray-400">{doc.contentHash.slice(0, 12)}…</span>
+                    <span className="text-content-tertiary">{doc.path}</span>
+                    <span className="font-mono text-content-disabled">
+                      {doc.contentHash.slice(0, 12)}…
+                    </span>
                   </li>
                 ))}
               </ul>

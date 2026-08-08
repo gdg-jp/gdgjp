@@ -94,21 +94,21 @@ export function ErrorBoundary() {
         <Meta />
         <Links />
       </head>
-      <body className="bg-background text-foreground antialiased">
+      <body className="bg-surface-canvas text-content-primary antialiased">
         <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4">
-          <Icon className="w-16 h-16 text-blue-500" strokeWidth={1.5} />
+          <Icon className="w-16 h-16 text-feedback-info-solid" strokeWidth={1.5} />
           <div className="text-center space-y-2">
-            <p className="text-8xl font-bold text-gray-200">{status}</p>
+            <p className="text-8xl font-bold text-content-disabled">{status}</p>
             <h1 className="text-2xl font-semibold">
               {is404 ? t("error.404_title") : t("error.500_title")}
             </h1>
-            <p className="text-gray-500 max-w-sm">
+            <p className="text-content-tertiary max-w-sm">
               {is404 ? t("error.404_desc") : t("error.500_desc")}
             </p>
           </div>
           <a
             href="/"
-            className="mt-2 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+            className="mt-2 inline-flex items-center gap-2 rounded-lg bg-action-primary px-5 py-2.5 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover transition-colors"
           >
             {t("error.back_home")}
           </a>
@@ -133,7 +133,7 @@ export default function App() {
         <Meta />
         <Links />
       </head>
-      <body className="bg-background text-foreground antialiased">
+      <body className="bg-surface-canvas text-content-primary antialiased">
         <FirebaseConfigContext value={firebaseConfig}>
           <Outlet />
         </FirebaseConfigContext>

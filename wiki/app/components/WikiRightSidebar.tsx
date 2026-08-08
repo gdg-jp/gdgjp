@@ -63,7 +63,7 @@ export default function WikiRightSidebar({
       {/* Table of Contents */}
       {tocItems.length > 0 && (
         <div className="mb-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-tertiary">
             {t("wiki.on_this_page")}
           </p>
           <nav aria-label="Table of contents">
@@ -75,8 +75,8 @@ export default function WikiRightSidebar({
                     className={[
                       "block truncate text-sm transition-colors",
                       activeId === item.id
-                        ? "font-medium text-blue-600"
-                        : "text-gray-500 hover:text-gray-900",
+                        ? "font-medium text-action-primary"
+                        : "text-content-secondary hover:text-content-primary",
                     ].join(" ")}
                   >
                     {item.text}
@@ -93,10 +93,10 @@ export default function WikiRightSidebar({
         {/* Last edited */}
         {updatedAt && (
           <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-content-tertiary">
               {t("wiki.last_edited_by")}
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-content-secondary">
               {editor ? `${editor.name}, ` : ""}
               {timeAgo(new Date(updatedAt as string), t)}
             </p>
@@ -105,7 +105,7 @@ export default function WikiRightSidebar({
 
         {/* Translation status */}
         {translationStatus === "ai" && (
-          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+          <span className="inline-flex items-center rounded-full bg-feedback-warning-surface px-2 py-0.5 text-xs font-medium text-feedback-warning-foreground">
             {t("wiki.auto_translated")}
           </span>
         )}
@@ -113,7 +113,7 @@ export default function WikiRightSidebar({
         {/* Sources (URLs, PDFs, and image attachments) */}
         {((sources && sources.length > 0) || (attachments && attachments.length > 0)) && (
           <div>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-content-tertiary">
               {t("wiki.sources")}
             </p>
             {sources && sources.length > 0 && (
@@ -128,7 +128,7 @@ export default function WikiRightSidebar({
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline"
+                        className="flex items-center gap-1.5 text-xs text-action-primary hover:underline"
                       >
                         {isDoc && (
                           <svg
@@ -141,9 +141,9 @@ export default function WikiRightSidebar({
                           >
                             <path
                               d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"
-                              fill="#4285F4"
+                              fill="var(--color-brand-google-blue)"
                             />
-                            <path d="M14 2v6h6" fill="#A8C7FA" />
+                            <path d="M14 2v6h6" fill="var(--color-brand-google-blue-soft)" />
                             <path
                               d="M8 13h8M8 17h5"
                               stroke="white"
@@ -161,9 +161,17 @@ export default function WikiRightSidebar({
                             className="flex-shrink-0"
                             aria-hidden="true"
                           >
-                            <rect width="24" height="24" rx="2" fill="#FBBC04" />
+                            <rect
+                              width="24"
+                              height="24"
+                              rx="2"
+                              fill="var(--color-brand-google-yellow)"
+                            />
                             <rect x="4" y="6" width="16" height="12" rx="1" fill="white" />
-                            <polygon points="10,9 10,15 16,12" fill="#FBBC04" />
+                            <polygon
+                              points="10,9 10,15 16,12"
+                              fill="var(--color-brand-google-yellow)"
+                            />
                           </svg>
                         )}
                         {isPdf && <FileText className="h-3 w-3 flex-shrink-0" />}
@@ -190,7 +198,7 @@ export default function WikiRightSidebar({
                     <img
                       src={`/api/images/${r2Key}`}
                       alt={fileName}
-                      className="h-12 w-12 rounded border border-gray-200 object-cover"
+                      className="h-12 w-12 rounded border border-default object-cover"
                     />
                   </a>
                 ))}

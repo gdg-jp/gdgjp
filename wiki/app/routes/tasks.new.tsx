@@ -95,7 +95,7 @@ export default function NewTaskList() {
     <div className="mx-auto max-w-2xl px-4 py-8">
       <Link
         to="/"
-        className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+        className="mb-6 inline-flex items-center gap-1 text-sm text-content-tertiary hover:text-content-primary"
       >
         <ArrowLeft size={14} />
         {t("editor.back_to_page")}
@@ -105,14 +105,14 @@ export default function NewTaskList() {
 
       <Form method="post" className="space-y-6">
         {/* Language tabs */}
-        <div className="flex gap-2 border-b border-gray-200">
+        <div className="flex gap-2 border-b border-border-default">
           <button
             type="button"
             onClick={() => setActiveLang("ja")}
             className={`border-b-2 px-3 py-2 text-sm font-medium ${
               activeLang === "ja"
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                ? "border-border-focus text-action-primary"
+                : "border-transparent text-content-tertiary hover:text-content-primary"
             }`}
           >
             {t("language.ja")}
@@ -122,8 +122,8 @@ export default function NewTaskList() {
             onClick={() => setActiveLang("en")}
             className={`border-b-2 px-3 py-2 text-sm font-medium ${
               activeLang === "en"
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                ? "border-border-focus text-action-primary"
+                : "border-transparent text-content-tertiary hover:text-content-primary"
             }`}
           >
             {t("language.en")}
@@ -133,40 +133,40 @@ export default function NewTaskList() {
         {/* Title fields */}
         <div>
           <label htmlFor="titleJa" className={activeLang === "ja" ? "" : "hidden"}>
-            <span className="mb-1 block text-sm font-medium text-gray-700">
+            <span className="mb-1 block text-sm font-medium text-content-secondary">
               {t("tasks.title_ja")}
             </span>
             <input
               id="titleJa"
               name="titleJa"
               type="text"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-md border border-border-strong px-3 py-2 text-sm focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
               placeholder={t("tasks.title_ja_placeholder")}
             />
           </label>
           <label htmlFor="titleEn" className={activeLang === "en" ? "" : "hidden"}>
-            <span className="mb-1 block text-sm font-medium text-gray-700">
+            <span className="mb-1 block text-sm font-medium text-content-secondary">
               {t("tasks.title_en")}
             </span>
             <input
               id="titleEn"
               name="titleEn"
               type="text"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-md border border-border-strong px-3 py-2 text-sm focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
               placeholder={t("tasks.title_en_placeholder")}
             />
           </label>
         </div>
 
         {actionData?.error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-feedback-danger-foreground">
             {actionData.error}
           </p>
         )}
 
         <button
           type="submit"
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2"
         >
           {t("tasks.create")}
         </button>

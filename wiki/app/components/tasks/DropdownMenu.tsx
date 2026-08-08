@@ -33,10 +33,10 @@ interface DropdownMenuProps {
 
 const triggerBase = "flex items-center gap-1 text-left text-sm";
 const triggerVariants: Record<string, string> = {
-  inline: `${triggerBase} rounded px-1.5 py-0.5 hover:bg-gray-100`,
+  inline: `${triggerBase} rounded px-1.5 py-0.5 hover:bg-surface-sunken`,
   field:
-    "flex w-full items-center justify-between rounded-md border border-gray-300 px-3 py-2 text-left text-sm hover:border-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500",
-  filter: `${triggerBase} rounded-md border border-gray-300 px-2 py-1 hover:border-gray-400`,
+    "flex w-full items-center justify-between rounded-md border border-strong px-3 py-2 text-left text-sm hover:border-strong focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus",
+  filter: `${triggerBase} rounded-md border border-strong px-2 py-1 hover:border-strong`,
   chip: "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity",
 };
 
@@ -67,22 +67,22 @@ export default function DropdownMenu({
           <div
             ref={menuRef}
             style={{ position: "absolute", top: pos.top, left: pos.left, minWidth: pos.width }}
-            className="z-[9999] overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg"
+            className="z-[9999] overflow-hidden rounded-md border border-default bg-surface-raised shadow-lg"
           >
             {searchable && header && (
-              <div className="border-b border-gray-100 px-3 py-2 text-xs font-semibold text-gray-500">
+              <div className="border-b border-subtle px-3 py-2 text-xs font-semibold text-content-secondary">
                 {header}
               </div>
             )}
             {searchable && (
-              <div className="border-b border-gray-100 px-2 py-1.5">
+              <div className="border-b border-subtle px-2 py-1.5">
                 <input
                   ref={searchInputRef}
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={searchPlaceholder}
-                  className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+                  className="w-full rounded border border-default px-2 py-1 text-xs focus:border-focus focus:outline-none"
                   onClick={(e) => e.stopPropagation()}
                 />
               </div>
@@ -100,11 +100,11 @@ export default function DropdownMenu({
                       close();
                     }}
                     className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${
-                      isSelected ? "font-medium text-gray-900" : "text-gray-700"
-                    } hover:bg-gray-50`}
+                      isSelected ? "font-medium text-content-primary" : "text-content-secondary"
+                    } hover:bg-surface-canvas`}
                   >
                     <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
-                      {isSelected && <Check size={14} className="text-blue-600" />}
+                      {isSelected && <Check size={14} className="text-action-primary" />}
                     </span>
                     {opt.dot && (
                       <span
@@ -125,7 +125,7 @@ export default function DropdownMenu({
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-semibold text-blue-700">
+                        <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-feedback-info-surface text-[10px] font-semibold text-action-primary">
                           {opt.label.slice(0, 1).toUpperCase()}
                         </div>
                       ))}
@@ -164,7 +164,7 @@ export default function DropdownMenu({
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-semibold text-blue-700">
+            <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-feedback-info-surface text-[10px] font-semibold text-action-primary">
               {selected.label.slice(0, 1).toUpperCase()}
             </div>
           ))}

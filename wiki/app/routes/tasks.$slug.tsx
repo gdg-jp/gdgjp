@@ -394,12 +394,12 @@ export default function TaskListView() {
   ];
 
   const btnBase =
-    "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700";
+    "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-content-tertiary transition-colors hover:bg-surface-hover hover:text-content-primary";
 
   return (
     <div>
       {/* Mini-header toolbar — mirrors wiki.$slug.tsx */}
-      <div className="flex items-center justify-end gap-2 border-b border-gray-100 px-4 py-2 md:px-10">
+      <div className="flex items-center justify-end gap-2 border-b border-border-subtle px-4 py-2 md:px-10">
         {/* Desktop action buttons (md+) */}
         <div className="hidden items-center gap-1 md:flex">
           <Link to={`/tasks/${page.slug}/history`} className={btnBase}>
@@ -411,11 +411,20 @@ export default function TaskListView() {
               type="button"
               onClick={handleToggleStar}
               className={btnBase}
-              style={optimisticStarred ? { color: "#E06C00" } : undefined}
+              style={
+                optimisticStarred ? { color: "var(--color-feedback-warning-solid)" } : undefined
+              }
             >
               <Star
                 size={14}
-                style={optimisticStarred ? { fill: "#E06C00", color: "#E06C00" } : undefined}
+                style={
+                  optimisticStarred
+                    ? {
+                        fill: "var(--color-feedback-warning-solid)",
+                        color: "var(--color-feedback-warning-solid)",
+                      }
+                    : undefined
+                }
               />
               {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
             </button>
@@ -431,7 +440,7 @@ export default function TaskListView() {
               type="button"
               onClick={canArchive ? () => setArchiveDialogOpen(true) : undefined}
               disabled={!canArchive}
-              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-amber-50 hover:text-amber-700 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-content-tertiary transition-colors hover:bg-feedback-warning-surface hover:text-feedback-warning-foreground disabled:opacity-50"
             >
               <Archive size={14} />
               {t("wiki.archive")}
@@ -450,10 +459,10 @@ export default function TaskListView() {
             <MoreHorizontal size={16} />
           </button>
           {moreOpen && (
-            <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+            <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-border-default bg-surface-raised py-1 shadow-lg">
               <Link
                 to={`/tasks/${page.slug}/history`}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
                 onClick={() => setMoreOpen(false)}
               >
                 <History size={14} />
@@ -466,12 +475,21 @@ export default function TaskListView() {
                     handleToggleStar();
                     setMoreOpen(false);
                   }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
-                  style={optimisticStarred ? { color: "#E06C00" } : undefined}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
+                  style={
+                    optimisticStarred ? { color: "var(--color-feedback-warning-solid)" } : undefined
+                  }
                 >
                   <Star
                     size={14}
-                    style={optimisticStarred ? { fill: "#E06C00", color: "#E06C00" } : undefined}
+                    style={
+                      optimisticStarred
+                        ? {
+                            fill: "var(--color-feedback-warning-solid)",
+                            color: "var(--color-feedback-warning-solid)",
+                          }
+                        : undefined
+                    }
                   />
                   {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
                 </button>
@@ -483,7 +501,7 @@ export default function TaskListView() {
                     handleShare();
                     setMoreOpen(false);
                   }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
                 >
                   <Share2 size={14} />
                   {t("wiki.share")}
@@ -501,7 +519,7 @@ export default function TaskListView() {
                       : undefined
                   }
                   disabled={!canArchive}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-50"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-feedback-warning-surface hover:text-feedback-warning-foreground disabled:opacity-50"
                 >
                   <Archive size={14} />
                   {t("wiki.archive")}
@@ -524,7 +542,7 @@ export default function TaskListView() {
                 if (displayLang === "ja") setEditTitleJa(e.target.value);
                 else setEditTitleEn(e.target.value);
               }}
-              className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-xl font-bold focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="min-w-0 flex-1 rounded-md border border-border-strong px-3 py-1.5 text-xl font-bold focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
             />
           ) : (
             <h1 className="min-w-0 truncate text-2xl font-bold">{title}</h1>
@@ -533,14 +551,16 @@ export default function TaskListView() {
           {/* Right: JA|EN pill + visibility + Edit/Save/Cancel */}
           <div className="flex shrink-0 items-center gap-2">
             {/* JA|EN — wiki-style pill */}
-            <div className="flex gap-1 rounded-md border border-gray-200 bg-white p-0.5">
+            <div className="flex gap-1 rounded-md border border-border-default bg-surface-raised p-0.5">
               {(["ja", "en"] as const).map((l) => (
                 <button
                   key={l}
                   type="button"
                   onClick={() => setDisplayLang(l)}
                   className={`min-w-10 rounded px-2 py-1 text-center text-sm font-medium transition-colors ${
-                    displayLang === l ? "bg-blue-500 text-white" : "text-gray-600 hover:bg-gray-100"
+                    displayLang === l
+                      ? "bg-action-primary text-action-primary-foreground"
+                      : "text-content-secondary hover:bg-surface-hover"
                   }`}
                 >
                   {l === "ja" ? "JA" : "EN"}
@@ -554,7 +574,7 @@ export default function TaskListView() {
                 <button
                   type="button"
                   onClick={handleSave}
-                  className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                  className="inline-flex items-center gap-1 rounded-md bg-action-primary px-3 py-1.5 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover"
                 >
                   <Check size={14} />
                   {t("tasks.save")}
@@ -562,7 +582,7 @@ export default function TaskListView() {
                 <button
                   type="button"
                   onClick={handleEditCancel}
-                  className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                  className="inline-flex items-center gap-1 rounded-md border border-border-strong px-3 py-1.5 text-sm text-content-secondary hover:bg-surface-hover"
                 >
                   <X size={14} />
                   {t("cancel")}
@@ -573,7 +593,7 @@ export default function TaskListView() {
                 <button
                   type="button"
                   onClick={handleEditStart}
-                  className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                  className="inline-flex items-center gap-1 rounded-md border border-border-strong px-3 py-1.5 text-sm text-content-secondary hover:bg-surface-hover"
                 >
                   <Pencil size={14} />
                   {t("wiki.edit")}
@@ -593,8 +613,8 @@ export default function TaskListView() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium ${
                   activeTab === tab.key
-                    ? "bg-blue-100 text-blue-700"
-                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                    ? "bg-feedback-info-surface text-action-primary-hover"
+                    : "text-content-tertiary hover:bg-surface-hover hover:text-content-primary"
                 }`}
               >
                 {tab.icon}

@@ -67,12 +67,12 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-        <h2 className="text-base font-semibold text-gray-900">{t("archived.title")}</h2>
+      <div className="flex items-center justify-between border-b border-subtle px-5 py-4">
+        <h2 className="text-base font-semibold text-content-primary">{t("archived.title")}</h2>
         <button
           type="button"
           onClick={onClose}
-          className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          className="flex h-7 w-7 items-center justify-center rounded-full text-content-tertiary hover:bg-surface-sunken hover:text-content-secondary"
           aria-label="Close"
         >
           ×
@@ -84,7 +84,7 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
         {isFirstLoad ? (
           <ListSkeleton rows={4} />
         ) : pages.length === 0 ? (
-          <p className="py-4 text-center text-sm text-gray-400">{t("archived.empty")}</p>
+          <p className="py-4 text-center text-sm text-content-tertiary">{t("archived.empty")}</p>
         ) : (
           <ul className="space-y-1">
             {pages.map((page) => {
@@ -97,11 +97,11 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
                   className="flex items-center justify-between gap-2 rounded-lg px-3 py-2"
                 >
                   <div className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-gray-800">
+                    <span className="block truncate text-sm font-medium text-content-primary">
                       {pageTitle}
                     </span>
                     {page.updatedAt && (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-content-tertiary">
                         {timeAgo(new Date(page.updatedAt), t)}
                       </span>
                     )}
@@ -117,7 +117,7 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
                             { method: "post", action: "/api/archived" },
                           )
                         }
-                        className="rounded p-1 text-gray-400 hover:bg-green-50 hover:text-green-600"
+                        className="rounded p-1 text-content-tertiary hover:bg-feedback-success-surface hover:text-feedback-success-foreground"
                         title={t("archived.restore")}
                       >
                         <RotateCcw size={14} />
@@ -128,7 +128,7 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
                         type="button"
                         disabled={actionFetcher.state !== "idle"}
                         onClick={() => setDeleteTarget({ id: page.id, title: pageTitle })}
-                        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                        className="rounded p-1 text-content-tertiary hover:bg-feedback-danger-surface hover:text-feedback-danger-foreground"
                         title={t("archived.delete")}
                       >
                         <Trash2 size={14} />
@@ -143,11 +143,11 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
       </div>
 
       {/* View all footer */}
-      <div className="border-t border-gray-100 px-5 py-3">
+      <div className="border-t border-subtle px-5 py-3">
         <Link
           to="/archived"
           onClick={onClose}
-          className="block text-center text-sm font-medium text-blue-600 hover:text-blue-700"
+          className="block text-center text-sm font-medium text-action-primary hover:text-action-primary"
         >
           {t("archived.view_all")}
         </Link>

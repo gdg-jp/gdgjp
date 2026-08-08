@@ -308,11 +308,14 @@ export default function WikiHistory() {
   return (
     <div className="flex min-h-full flex-col">
       {/* Mini-header */}
-      <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-2 md:px-10">
-        <Link to={`/wiki/${page.slug}`} className="text-sm text-gray-500 hover:text-gray-700">
+      <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-2 md:px-10">
+        <Link
+          to={`/wiki/${page.slug}`}
+          className="text-sm text-content-tertiary hover:text-content-primary"
+        >
           ← {pageTitle}
         </Link>
-        <div className="flex items-center gap-1.5 text-sm font-medium text-gray-600">
+        <div className="flex items-center gap-1.5 text-sm font-medium text-content-secondary">
           <History size={14} />
           {t("wiki.history")}
         </div>
@@ -320,19 +323,21 @@ export default function WikiHistory() {
 
       <div className="flex flex-1 gap-0 px-4 py-4 md:px-10 md:py-6">
         {/* Left: version list */}
-        <aside className="mr-6 w-56 shrink-0 border-r border-gray-100 pr-4">
+        <aside className="mr-6 w-56 shrink-0 border-r border-border-subtle pr-4">
           {versions.length === 0 ? (
-            <p className="text-sm text-gray-400">{t("wiki.history_empty")}</p>
+            <p className="text-sm text-content-disabled">{t("wiki.history_empty")}</p>
           ) : (
             <ul className="space-y-1">
               {/* "Current" entry linking back to live page */}
               <li>
                 <Link
                   to={`/wiki/${page.slug}`}
-                  className="block rounded-md px-3 py-2 text-sm text-gray-500 hover:bg-gray-50"
+                  className="block rounded-md px-3 py-2 text-sm text-content-tertiary hover:bg-surface-hover"
                 >
-                  <div className="font-medium text-gray-700">{t("wiki.history_current")}</div>
-                  <div className="truncate text-xs text-gray-400">{pageTitle}</div>
+                  <div className="font-medium text-content-secondary">
+                    {t("wiki.history_current")}
+                  </div>
+                  <div className="truncate text-xs text-content-disabled">{pageTitle}</div>
                 </Link>
               </li>
 
@@ -347,14 +352,14 @@ export default function WikiHistory() {
                       className={[
                         "block rounded-md px-3 py-2 text-sm transition-colors",
                         isActive
-                          ? "border-l-2 border-blue-500 bg-blue-50 text-blue-700"
-                          : "text-gray-600 hover:bg-gray-50",
+                          ? "border-l-2 border-border-focus bg-feedback-info-surface text-action-primary-hover"
+                          : "text-content-secondary hover:bg-surface-hover",
                       ].join(" ")}
                     >
                       <div className="truncate font-medium">
                         {lang === "en" ? v.titleEn || v.titleJa : v.titleJa || v.titleEn}
                       </div>
-                      <div className="mt-0.5 text-xs text-gray-400">
+                      <div className="mt-0.5 text-xs text-content-disabled">
                         {v.editorName ?? v.editedBy.slice(0, 8)}
                         {" · "}
                         {timeStr}
@@ -371,7 +376,7 @@ export default function WikiHistory() {
         <div className="min-w-0 flex-1">
           {/* Language tabs + Preview/Diff toggle */}
           <div className="mb-4 flex items-center justify-between gap-2">
-            <div className="flex w-fit shrink-0 gap-1 rounded-md border border-gray-200 bg-white p-0.5">
+            <div className="flex w-fit shrink-0 gap-1 rounded-md border border-border-default bg-surface-raised p-0.5">
               {(["ja", "en"] as const).map((l) => {
                 const isActive = lang === l;
                 return (
@@ -380,7 +385,9 @@ export default function WikiHistory() {
                     to={langUrl(l)}
                     className={[
                       "min-w-10 rounded px-2 py-1 text-center text-sm font-medium transition-colors",
-                      isActive ? "bg-blue-500 text-white" : "text-gray-600 hover:bg-gray-100",
+                      isActive
+                        ? "bg-action-primary text-action-primary-foreground"
+                        : "text-content-secondary hover:bg-surface-hover",
                     ].join(" ")}
                   >
                     {l === "ja" ? "JA" : "EN"}
@@ -390,13 +397,15 @@ export default function WikiHistory() {
             </div>
 
             {selectedVersion && (
-              <div className="flex w-fit gap-1 rounded-md border border-gray-200 bg-white p-0.5">
+              <div className="flex w-fit gap-1 rounded-md border border-border-default bg-surface-raised p-0.5">
                 <button
                   type="button"
                   onClick={() => setDiffMode(false)}
                   className={[
                     "rounded px-2 py-1 text-sm font-medium transition-colors",
-                    !diffMode ? "bg-blue-500 text-white" : "text-gray-600 hover:bg-gray-100",
+                    !diffMode
+                      ? "bg-action-primary text-action-primary-foreground"
+                      : "text-content-secondary hover:bg-surface-hover",
                   ].join(" ")}
                 >
                   {t("wiki.history_preview")}
@@ -406,7 +415,9 @@ export default function WikiHistory() {
                   onClick={() => setDiffMode(true)}
                   className={[
                     "rounded px-2 py-1 text-sm font-medium transition-colors",
-                    diffMode ? "bg-blue-500 text-white" : "text-gray-600 hover:bg-gray-100",
+                    diffMode
+                      ? "bg-action-primary text-action-primary-foreground"
+                      : "text-content-secondary hover:bg-surface-hover",
                   ].join(" ")}
                 >
                   {t("wiki.history_diff")}
@@ -417,20 +428,20 @@ export default function WikiHistory() {
 
           {selectedVersion ? (
             <>
-              <h1 className="mb-4 text-2xl font-bold text-gray-900">{displayTitle}</h1>
+              <h1 className="mb-4 text-2xl font-bold text-content-primary">{displayTitle}</h1>
 
               {diffMode && diffResult ? (
-                <pre className="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm leading-relaxed">
+                <pre className="overflow-x-auto rounded-lg border border-border-default bg-surface-sunken p-4 text-sm leading-relaxed">
                   {diffResult.map((part, i) => (
                     <div
                       // biome-ignore lint/suspicious/noArrayIndexKey: stable diff output
                       key={i}
                       className={
                         part.added
-                          ? "bg-green-50 text-green-800"
+                          ? "bg-feedback-success-surface text-feedback-success-foreground"
                           : part.removed
-                            ? "bg-red-50 text-red-700 line-through"
-                            : "text-gray-700"
+                            ? "bg-feedback-danger-surface text-feedback-danger-foreground line-through"
+                            : "text-content-secondary"
                       }
                     >
                       {part.value
@@ -456,7 +467,7 @@ export default function WikiHistory() {
                   autoFoldThreshold={Number.POSITIVE_INFINITY}
                 />
               ) : (
-                <p className="text-gray-400">{t("wiki.history_no_content")}</p>
+                <p className="text-content-disabled">{t("wiki.history_no_content")}</p>
               )}
 
               {canRevert && (
@@ -465,7 +476,7 @@ export default function WikiHistory() {
                     type="button"
                     onClick={() => setRevertOpen(true)}
                     disabled={isReverting}
-                    className="rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-60"
+                    className="rounded-md bg-feedback-warning-solid px-4 py-2 text-sm font-medium text-feedback-warning-solid-foreground hover:bg-feedback-warning-solid disabled:opacity-60"
                   >
                     {isReverting ? t("wiki.history_reverting") : t("wiki.history_revert")}
                   </button>
@@ -489,7 +500,7 @@ export default function WikiHistory() {
               />
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <div className="flex flex-col items-center justify-center py-20 text-content-disabled">
               <History size={32} className="mb-3 opacity-30" />
               <p className="text-sm">{t("wiki.history_empty")}</p>
             </div>

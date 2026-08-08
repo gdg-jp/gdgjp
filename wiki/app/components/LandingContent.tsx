@@ -10,19 +10,19 @@ function GoogleIcon() {
     <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
       <path
         d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"
-        fill="#4285F4"
+        fill="var(--color-brand-google-blue)"
       />
       <path
         d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"
-        fill="#34A853"
+        fill="var(--color-brand-google-green)"
       />
       <path
         d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"
-        fill="#FBBC05"
+        fill="var(--color-brand-google-yellow)"
       />
       <path
         d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
-        fill="#EA4335"
+        fill="var(--color-brand-google-red)"
       />
     </svg>
   );
@@ -186,10 +186,26 @@ function IconCheck() {
 // ---------------------------------------------------------------------------
 
 const GDG = {
-  blue: { bg: "#e8f0fe", text: "#1a73e8", accent: "#4285f4" },
-  green: { bg: "#e6f4ea", text: "#188038", accent: "#34a853" },
-  yellow: { bg: "#fef7e0", text: "#e37400", accent: "#f9ab00" },
-  red: { bg: "#fce8e6", text: "#c5221f", accent: "#ea4335" },
+  blue: {
+    bg: "var(--color-brand-google-blue-soft)",
+    text: "var(--color-brand-google-blue)",
+    accent: "var(--color-brand-google-blue)",
+  },
+  green: {
+    bg: "var(--color-brand-google-green-soft)",
+    text: "var(--color-brand-google-green)",
+    accent: "var(--color-brand-google-green)",
+  },
+  yellow: {
+    bg: "var(--color-brand-google-yellow-soft)",
+    text: "var(--color-brand-google-yellow)",
+    accent: "var(--color-brand-google-yellow)",
+  },
+  red: {
+    bg: "var(--color-brand-google-red-soft)",
+    text: "var(--color-brand-google-red)",
+    accent: "var(--color-brand-google-red)",
+  },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -288,14 +304,15 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
   const { t } = useTranslation();
 
   return (
-    <div className="force-light min-h-screen bg-white font-sans">
+    <div className="force-light min-h-screen bg-surface-raised font-sans">
       {/* ------------------------------------------------------------------ */}
       {/* Hero                                                                */}
       {/* ------------------------------------------------------------------ */}
       <section
         className="relative overflow-hidden"
         style={{
-          background: "linear-gradient(135deg, #e8f0fe 0%, #fef7e0 35%, #fce8e6 65%, #e6f4ea 100%)",
+          background:
+            "linear-gradient(135deg, var(--color-brand-google-blue-soft) 0%, var(--color-brand-google-yellow-soft) 35%, var(--color-brand-google-red-soft) 65%, var(--color-brand-google-green-soft) 100%)",
           minHeight: "88vh",
         }}
       >
@@ -310,7 +327,8 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
             width: "480px",
             height: "480px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, #4285f440 0%, transparent 70%)",
+            background:
+              "radial-gradient(circle, color-mix(in srgb, var(--color-brand-google-blue) 25%, transparent) 0%, transparent 70%)",
             filter: "blur(40px)",
             animation: "lp-float 8s ease-in-out infinite",
           }}
@@ -325,7 +343,8 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
             width: "360px",
             height: "360px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, #ea433540 0%, transparent 70%)",
+            background:
+              "radial-gradient(circle, color-mix(in srgb, var(--color-brand-google-red) 25%, transparent) 0%, transparent 70%)",
             filter: "blur(40px)",
             animation: "lp-float 10s ease-in-out infinite reverse",
           }}
@@ -340,7 +359,8 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
             width: "420px",
             height: "420px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, #34a85330 0%, transparent 70%)",
+            background:
+              "radial-gradient(circle, color-mix(in srgb, var(--color-brand-google-green) 20%, transparent) 0%, transparent 70%)",
             filter: "blur(50px)",
             animation: "lp-float 12s ease-in-out infinite",
           }}
@@ -355,7 +375,8 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
             width: "300px",
             height: "300px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, #f9ab0040 0%, transparent 70%)",
+            background:
+              "radial-gradient(circle, color-mix(in srgb, var(--color-brand-google-yellow) 25%, transparent) 0%, transparent 70%)",
             filter: "blur(40px)",
             animation: "lp-float 9s ease-in-out infinite reverse",
           }}
@@ -371,7 +392,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
             width: 18,
             height: 18,
             borderRadius: "50%",
-            background: "#4285f4",
+            background: "var(--color-brand-google-blue)",
             opacity: 0.7,
             animation: "lp-float 6s ease-in-out infinite",
           }}
@@ -385,7 +406,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
             width: 14,
             height: 14,
             borderRadius: "50%",
-            background: "#ea4335",
+            background: "var(--color-brand-google-red)",
             opacity: 0.7,
             animation: "lp-float 7s ease-in-out infinite reverse",
           }}
@@ -399,7 +420,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
             width: 12,
             height: 12,
             borderRadius: "50%",
-            background: "#34a853",
+            background: "var(--color-brand-google-green)",
             opacity: 0.7,
             animation: "lp-float 8s ease-in-out infinite",
           }}
@@ -413,7 +434,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
             width: 16,
             height: 16,
             borderRadius: "50%",
-            background: "#f9ab00",
+            background: "var(--color-brand-google-yellow)",
             opacity: 0.7,
             animation: "lp-float 5s ease-in-out infinite reverse",
           }}
@@ -429,7 +450,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
             width: 10,
             height: 10,
             borderRadius: 3,
-            background: "#f9ab00",
+            background: "var(--color-brand-google-yellow)",
             opacity: 0.5,
             rotate: "15deg",
             animation: "lp-float 11s ease-in-out infinite",
@@ -444,7 +465,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
             width: 10,
             height: 10,
             borderRadius: 3,
-            background: "#4285f4",
+            background: "var(--color-brand-google-blue)",
             opacity: 0.5,
             rotate: "-20deg",
             animation: "lp-float 9s ease-in-out infinite reverse",
@@ -457,11 +478,13 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
           <div
             className="mb-7 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
             style={{
-              background: "rgba(255,255,255,0.75)",
+              background: "color-mix(in srgb, var(--color-surface-raised) 75%, transparent)",
               backdropFilter: "blur(8px)",
-              border: "1.5px solid rgba(66,133,244,0.25)",
-              color: "#1a73e8",
-              boxShadow: "0 2px 12px rgba(66,133,244,0.10)",
+              border:
+                "1.5px solid color-mix(in srgb, var(--color-brand-google-blue) 25%, transparent)",
+              color: "var(--color-brand-google-blue)",
+              boxShadow:
+                "0 2px 12px color-mix(in srgb, var(--color-brand-google-blue) 10%, transparent)",
             }}
           >
             {/* GDG colored dots */}
@@ -470,7 +493,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background: "#4285f4",
+                background: "var(--color-brand-google-blue)",
                 display: "inline-block",
               }}
             />
@@ -479,7 +502,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background: "#ea4335",
+                background: "var(--color-brand-google-red)",
                 display: "inline-block",
               }}
             />
@@ -488,7 +511,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background: "#f9ab00",
+                background: "var(--color-brand-google-yellow)",
                 display: "inline-block",
               }}
             />
@@ -497,7 +520,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background: "#34a853",
+                background: "var(--color-brand-google-green)",
                 display: "inline-block",
               }}
             />
@@ -505,14 +528,14 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
           </div>
 
           <h1
-            className="mb-6 text-5xl font-bold tracking-tight text-gray-900 sm:text-6xl lg:text-7xl"
+            className="mb-6 text-5xl font-bold tracking-tight text-content-primary sm:text-6xl lg:text-7xl"
             style={{ lineHeight: 1.1 }}
           >
             {t("lp.hero_title")}
           </h1>
 
           <p
-            className="mx-auto mb-10 max-w-xl text-lg text-gray-600 sm:text-xl"
+            className="mx-auto mb-10 max-w-xl text-lg text-content-secondary sm:text-xl"
             style={{ lineHeight: 1.65 }}
           >
             {t("lp.hero_subtitle")}
@@ -539,7 +562,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
         }
         .lp-feature-card:hover {
           transform: translateY(-6px);
-          box-shadow: 0 20px 40px rgba(0,0,0,0.10);
+          box-shadow: 0 20px 40px color-mix(in srgb, var(--color-content-primary) 10%, transparent);
         }
       `}</style>
 
@@ -548,17 +571,19 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
       {/* ------------------------------------------------------------------ */}
       <section className="mx-auto max-w-6xl px-6 py-24">
         <div className="mb-14 text-center">
-          <h2 className="mb-3 text-3xl font-bold text-gray-900 sm:text-4xl">
+          <h2 className="mb-3 text-3xl font-bold text-content-primary sm:text-4xl">
             {t("lp.features_title")}
           </h2>
-          <p className="mx-auto max-w-xl text-base text-gray-500">{t("lp.features_subtitle")}</p>
+          <p className="mx-auto max-w-xl text-base text-content-secondary">
+            {t("lp.features_subtitle")}
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f) => (
             <div
               key={f.key}
-              className="lp-feature-card flex flex-col gap-4 rounded-2xl bg-white p-6"
+              className="lp-feature-card flex flex-col gap-4 rounded-2xl bg-surface-raised p-6"
               style={{
                 border: `1.5px solid ${f.color.accent}22`,
                 boxShadow: `0 4px 24px ${f.color.accent}12`,
@@ -575,8 +600,8 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
                 {f.icon}
               </div>
 
-              <h3 className="font-semibold text-gray-900">{t(f.titleKey)}</h3>
-              <p className="text-sm leading-relaxed text-gray-500">{t(f.descKey)}</p>
+              <h3 className="font-semibold text-content-primary">{t(f.titleKey)}</h3>
+              <p className="text-sm leading-relaxed text-content-secondary">{t(f.descKey)}</p>
             </div>
           ))}
         </div>
@@ -587,14 +612,19 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
       {/* ------------------------------------------------------------------ */}
       <section
         className="px-6 py-24"
-        style={{ background: "linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%)" }}
+        style={{
+          background:
+            "linear-gradient(180deg, var(--color-surface-canvas) 0%, var(--color-surface-raised) 100%)",
+        }}
       >
         <div className="mx-auto max-w-4xl">
           <div className="mb-16 text-center">
-            <h2 className="mb-3 text-3xl font-bold text-gray-900 sm:text-4xl">
+            <h2 className="mb-3 text-3xl font-bold text-content-primary sm:text-4xl">
               {t("lp.how_title")}
             </h2>
-            <p className="mx-auto max-w-lg text-base text-gray-500">{t("lp.how_subtitle")}</p>
+            <p className="mx-auto max-w-lg text-base text-content-secondary">
+              {t("lp.how_subtitle")}
+            </p>
           </div>
 
           <div className="relative flex flex-col gap-10 lg:flex-row lg:gap-0 lg:items-start">
@@ -605,7 +635,8 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
               style={{
                 top: "36px",
                 height: "2px",
-                background: "linear-gradient(90deg, #4285f4, #ea4335, #34a853)",
+                background:
+                  "linear-gradient(90deg, var(--color-brand-google-blue), var(--color-brand-google-red), var(--color-brand-google-green))",
                 opacity: 0.25,
                 zIndex: 0,
               }}
@@ -630,14 +661,14 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
 
                 {/* Step number badge */}
                 <div
-                  className="mb-3 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white"
+                  className="mb-3 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-content-inverse"
                   style={{ background: step.color.accent }}
                 >
                   {step.num}
                 </div>
 
-                <h3 className="mb-2 font-semibold text-gray-900">{t(step.titleKey)}</h3>
-                <p className="text-sm leading-relaxed text-gray-500">{t(step.descKey)}</p>
+                <h3 className="mb-2 font-semibold text-content-primary">{t(step.titleKey)}</h3>
+                <p className="text-sm leading-relaxed text-content-secondary">{t(step.descKey)}</p>
               </div>
             ))}
           </div>
@@ -651,12 +682,18 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
         <div
           className="mx-auto max-w-3xl rounded-3xl px-8 py-16 text-center"
           style={{
-            background: "linear-gradient(135deg, #4285f4 0%, #1a73e8 40%, #34a853 100%)",
-            boxShadow: "0 24px 64px rgba(66,133,244,0.30)",
+            background:
+              "linear-gradient(135deg, var(--color-brand-google-blue) 0%, var(--color-brand-google-blue) 40%, var(--color-brand-google-green) 100%)",
+            boxShadow:
+              "0 24px 64px color-mix(in srgb, var(--color-brand-google-blue) 30%, transparent)",
           }}
         >
-          <h2 className="mb-3 text-3xl font-bold text-white sm:text-4xl">{t("lp.cta_title")}</h2>
-          <p className="mx-auto mb-10 max-w-md text-base text-white/80">{t("lp.cta_subtitle")}</p>
+          <h2 className="mb-3 text-3xl font-bold text-content-inverse sm:text-4xl">
+            {t("lp.cta_title")}
+          </h2>
+          <p className="mx-auto mb-10 max-w-md text-base text-content-inverse/80">
+            {t("lp.cta_subtitle")}
+          </p>
           {ctaSlot}
         </div>
       </section>
@@ -664,14 +701,14 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
       {/* ------------------------------------------------------------------ */}
       {/* Footer                                                              */}
       {/* ------------------------------------------------------------------ */}
-      <footer className="border-t border-gray-100 px-6 py-8 text-center">
+      <footer className="border-t border-subtle px-6 py-8 text-center">
         <div className="mb-4 flex items-center justify-center gap-2">
           <span
             style={{
               width: 10,
               height: 10,
               borderRadius: "50%",
-              background: "#4285f4",
+              background: "var(--color-brand-google-blue)",
               display: "inline-block",
             }}
           />
@@ -680,7 +717,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
               width: 10,
               height: 10,
               borderRadius: "50%",
-              background: "#ea4335",
+              background: "var(--color-brand-google-red)",
               display: "inline-block",
             }}
           />
@@ -689,7 +726,7 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
               width: 10,
               height: 10,
               borderRadius: "50%",
-              background: "#f9ab00",
+              background: "var(--color-brand-google-yellow)",
               display: "inline-block",
             }}
           />
@@ -698,16 +735,16 @@ export default function LandingContent({ ctaSlot }: LandingContentProps) {
               width: 10,
               height: 10,
               borderRadius: "50%",
-              background: "#34a853",
+              background: "var(--color-brand-google-green)",
               display: "inline-block",
             }}
           />
         </div>
-        <div className="flex justify-center gap-6 text-sm text-gray-400">
-          <Link to="/privacy" className="transition-colors hover:text-blue-500">
+        <div className="flex justify-center gap-6 text-sm text-content-tertiary">
+          <Link to="/privacy" className="transition-colors hover:text-action-primary">
             {t("footer.privacy")}
           </Link>
-          <Link to="/terms" className="transition-colors hover:text-blue-500">
+          <Link to="/terms" className="transition-colors hover:text-action-primary">
             {t("footer.terms")}
           </Link>
         </div>

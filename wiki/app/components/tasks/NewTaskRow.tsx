@@ -85,7 +85,7 @@ export default function NewTaskRow({
 
   const teamOptions: DropdownOption[] = [
     { value: "", label: "—" },
-    ...teams.map((tm) => ({ value: tm.id, label: tm.name, dot: tm.color ?? "#6b7280" })),
+    ...teams.map((tm) => ({ value: tm.id, label: tm.name, dot: tm.color ?? "#6b7280" })), // design-token-policy: allow-dynamic-color
   ];
 
   // Accepts explicit field values to work around async state updates after setX calls
@@ -133,9 +133,11 @@ export default function NewTaskRow({
   }
 
   return (
-    <tr className="bg-gray-50/50" onBlur={handleRowBlur}>
+    <tr className="bg-surface-canvas/50" onBlur={handleRowBlur}>
       {/* # */}
-      <td className="whitespace-nowrap px-3 py-2 text-sm italic text-gray-300">#{number}</td>
+      <td className="whitespace-nowrap px-3 py-2 text-sm italic text-content-disabled">
+        #{number}
+      </td>
 
       {/* Status */}
       <td className="overflow-hidden px-3 py-2">
@@ -193,7 +195,7 @@ export default function NewTaskRow({
             }}
           />
         ) : (
-          <span className="text-sm text-gray-400">—</span>
+          <span className="text-sm text-content-tertiary">—</span>
         )}
       </td>
 
@@ -236,7 +238,7 @@ export default function NewTaskRow({
       >
         <textarea
           rows={1}
-          className="w-full resize-none overflow-hidden rounded border-0 bg-transparent text-sm text-gray-500 placeholder:italic placeholder:text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-400"
+          className="w-full resize-none overflow-hidden rounded border-0 bg-transparent text-sm text-content-secondary placeholder:italic placeholder:text-content-disabled focus:outline-none focus:ring-1 focus:ring-border-focus"
           placeholder={t("tasks.add_task_placeholder")}
           value={titleDraft}
           onChange={(e) => setTitleDraft(e.target.value)}
@@ -262,7 +264,7 @@ export default function NewTaskRow({
       >
         <input
           type="text"
-          className="w-full rounded border-0 bg-transparent text-sm text-gray-400 placeholder:italic placeholder:text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-400"
+          className="w-full rounded border-0 bg-transparent text-sm text-content-tertiary placeholder:italic placeholder:text-content-disabled focus:outline-none focus:ring-1 focus:ring-border-focus"
           placeholder={t("tasks.add_desc_placeholder")}
           value={descDraft}
           onChange={(e) => setDescDraft(e.target.value)}

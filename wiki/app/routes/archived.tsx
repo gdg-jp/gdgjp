@@ -131,9 +131,11 @@ function ArchivedRow({
   return (
     <li className="flex items-center justify-between gap-4 px-4 py-3">
       <div className="min-w-0">
-        <span className="block truncate font-medium text-gray-800">{title}</span>
+        <span className="block truncate font-medium text-content-primary">{title}</span>
         {page.updatedAt && (
-          <time className="text-xs text-gray-400">{timeAgo(new Date(page.updatedAt), t)}</time>
+          <time className="text-xs text-content-disabled">
+            {timeAgo(new Date(page.updatedAt), t)}
+          </time>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-1">
@@ -145,7 +147,7 @@ function ArchivedRow({
               name="intent"
               value="restorePage"
               disabled={isActing || !canRestore}
-              className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:bg-green-50 hover:text-green-700 disabled:opacity-50"
+              className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-content-tertiary hover:bg-feedback-success-surface hover:text-feedback-success-foreground disabled:opacity-50"
             >
               <RotateCcw size={13} />
               {t("archived.restore")}
@@ -157,7 +159,7 @@ function ArchivedRow({
             type="button"
             disabled={isActing || !canDelete}
             onClick={canDelete ? () => setDeleteDialogOpen(true) : undefined}
-            className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+            className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-feedback-danger-foreground hover:bg-feedback-danger-surface hover:text-feedback-danger-foreground disabled:opacity-50"
           >
             <Trash2 size={13} />
             {t("archived.delete")}
@@ -187,15 +189,19 @@ export default function ArchivedPage() {
 
   return (
     <div className="px-4 py-6 md:px-8 md:py-8">
-      <h1 className="mb-2 text-2xl font-bold text-gray-900">{t("archived.title")}</h1>
+      <h1 className="mb-2 text-2xl font-bold text-content-primary">{t("archived.title")}</h1>
 
-      {!isLead && <p className="mb-6 text-sm text-gray-500">{t("archived.own_pages_note")}</p>}
-      {isLead && <p className="mb-6 text-sm text-gray-500">{t("archived.all_pages_note")}</p>}
+      {!isLead && (
+        <p className="mb-6 text-sm text-content-tertiary">{t("archived.own_pages_note")}</p>
+      )}
+      {isLead && (
+        <p className="mb-6 text-sm text-content-tertiary">{t("archived.all_pages_note")}</p>
+      )}
 
       {pages.length === 0 ? (
-        <p className="text-sm text-gray-400">{t("archived.empty")}</p>
+        <p className="text-sm text-content-disabled">{t("archived.empty")}</p>
       ) : (
-        <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
+        <ul className="divide-y divide-border-subtle rounded-lg border border-border-default bg-surface-raised">
           {pages.map((page) => (
             <ArchivedRow
               key={page.id}

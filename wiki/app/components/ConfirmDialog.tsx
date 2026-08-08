@@ -46,7 +46,7 @@ export default function ConfirmDialog({
         closeIntent.current = null;
       }}
     >
-      <AlertDialogContent className="max-w-sm rounded-2xl shadow-2xl shadow-black/20">
+      <AlertDialogContent className="max-w-sm rounded-2xl shadow-2xl shadow-content-primary/20">
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{message}</AlertDialogDescription>

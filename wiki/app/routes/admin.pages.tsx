@@ -94,10 +94,10 @@ function StatusBadge({ status }: { status: string }) {
   const { t } = useTranslation();
   const cls =
     status === "published"
-      ? "bg-green-50 text-green-700"
+      ? "bg-feedback-success-surface text-feedback-success-foreground"
       : status === "archived"
-        ? "bg-gray-100 text-gray-500"
-        : "bg-gray-100 text-gray-500";
+        ? "bg-surface-hover text-content-tertiary"
+        : "bg-surface-hover text-content-tertiary";
   const label = status === "archived" ? t("admin.pages.status_archived") : status;
   return (
     <span
@@ -115,7 +115,7 @@ function VisibilityBadge({ visibility }: { visibility: string }) {
   if (visibility === "public") return null;
   const label = visibility === "unlisted" ? "unlisted" : "restricted";
   return (
-    <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">
+    <span className="inline-flex items-center rounded-full bg-feedback-info-surface px-2 py-0.5 text-xs font-medium text-feedback-info-foreground">
       {label}
     </span>
   );
@@ -127,36 +127,36 @@ export default function AdminPages() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">{t("admin.pages.heading")}</h1>
+      <h1 className="mb-6 text-2xl font-bold text-content-primary">{t("admin.pages.heading")}</h1>
 
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-border-default bg-surface-raised">
         <table className="w-full text-sm">
-          <thead className="border-b border-gray-200 bg-gray-50">
+          <thead className="border-b border-border-default bg-surface-sunken">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">
+              <th className="px-4 py-3 text-left font-medium text-content-tertiary">
                 {t("admin.pages.col_title")}
               </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">
+              <th className="px-4 py-3 text-left font-medium text-content-tertiary">
                 {t("admin.pages.col_status")}
               </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">
+              <th className="px-4 py-3 text-left font-medium text-content-tertiary">
                 {t("admin.pages.col_author")}
               </th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">
+              <th className="px-4 py-3 text-left font-medium text-content-tertiary">
                 {t("admin.pages.col_updated")}
               </th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-border-subtle">
             {pages.map((p) => (
-              <tr key={p.id} className="hover:bg-gray-50">
+              <tr key={p.id} className="hover:bg-surface-hover">
                 <td className="px-4 py-3">
                   <Link to={`/wiki/${p.slug}`} className="group">
-                    <p className="font-medium text-gray-900 group-hover:text-blue-600">
+                    <p className="font-medium text-content-primary group-hover:text-action-primary">
                       {p.titleJa}
                     </p>
-                    {p.titleEn && <p className="text-xs text-gray-400">{p.titleEn}</p>}
+                    {p.titleEn && <p className="text-xs text-content-disabled">{p.titleEn}</p>}
                   </Link>
                 </td>
                 <td className="px-4 py-3">
@@ -165,8 +165,8 @@ export default function AdminPages() {
                     <VisibilityBadge visibility={p.visibility} />
                   </div>
                 </td>
-                <td className="px-4 py-3 text-gray-600">{p.authorName ?? "—"}</td>
-                <td className="px-4 py-3 text-gray-500">
+                <td className="px-4 py-3 text-content-secondary">{p.authorName ?? "—"}</td>
+                <td className="px-4 py-3 text-content-tertiary">
                   {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : "—"}
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -175,7 +175,7 @@ export default function AdminPages() {
                       <>
                         <Link
                           to={`/wiki/${p.slug}/edit`}
-                          className="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
+                          className="rounded px-2 py-1 text-xs text-action-primary hover:bg-surface-selected"
                         >
                           {t("admin.pages.edit")}
                         </Link>
@@ -195,7 +195,7 @@ export default function AdminPages() {
                           <input type="hidden" name="pageId" value={p.id} />
                           <button
                             type="submit"
-                            className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                            className="rounded px-2 py-1 text-xs text-content-secondary hover:bg-surface-hover"
                           >
                             {t("admin.pages.archive")}
                           </button>
@@ -208,7 +208,7 @@ export default function AdminPages() {
                           <input type="hidden" name="pageId" value={p.id} />
                           <button
                             type="submit"
-                            className="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
+                            className="rounded px-2 py-1 text-xs text-action-primary hover:bg-surface-selected"
                           >
                             {t("admin.pages.restore")}
                           </button>
@@ -229,7 +229,7 @@ export default function AdminPages() {
                           <input type="hidden" name="pageId" value={p.id} />
                           <button
                             type="submit"
-                            className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                            className="rounded px-2 py-1 text-xs text-feedback-danger-foreground hover:bg-feedback-danger-surface"
                           >
                             {t("admin.pages.delete")}
                           </button>
@@ -244,7 +244,9 @@ export default function AdminPages() {
         </table>
 
         {pages.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-gray-400">{t("admin.pages.empty")}</p>
+          <p className="px-4 py-8 text-center text-sm text-content-disabled">
+            {t("admin.pages.empty")}
+          </p>
         )}
       </div>
     </div>

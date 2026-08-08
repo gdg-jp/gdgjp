@@ -147,7 +147,7 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
             aria-label={t("tasks.calendar_label")}
             tabIndex={-1}
             style={{ position: "absolute", top: pos.top, left: pos.left }}
-            className="z-[9999] w-[252px] rounded-md border border-gray-200 bg-white p-3 shadow-lg"
+            className="z-[9999] w-[252px] rounded-md border border-default bg-surface-raised p-3 shadow-lg"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >
@@ -156,16 +156,16 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
               <button
                 type="button"
                 onClick={prevMonth}
-                className="rounded p-0.5 hover:bg-gray-100"
+                className="rounded p-0.5 hover:bg-surface-sunken"
                 aria-label={t("tasks.calendar_prev_month")}
               >
                 <ChevronLeft size={16} />
               </button>
-              <span className="text-sm font-medium text-gray-700">{monthLabel}</span>
+              <span className="text-sm font-medium text-content-secondary">{monthLabel}</span>
               <button
                 type="button"
                 onClick={nextMonth}
-                className="rounded p-0.5 hover:bg-gray-100"
+                className="rounded p-0.5 hover:bg-surface-sunken"
                 aria-label={t("tasks.calendar_next_month")}
               >
                 <ChevronRight size={16} />
@@ -175,7 +175,7 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
             {/* Day-of-week headers */}
             <div className="mb-1 grid grid-cols-7">
               {dayLabels.map((d) => (
-                <div key={d} className="text-center text-[11px] font-medium text-gray-400">
+                <div key={d} className="text-center text-[11px] font-medium text-content-tertiary">
                   {d}
                 </div>
               ))}
@@ -198,10 +198,10 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
                     }}
                     className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-colors ${
                       isSelected
-                        ? "bg-blue-600 text-white"
+                        ? "bg-action-primary text-content-inverse"
                         : isToday
-                          ? "ring-1 ring-blue-300 hover:bg-blue-50"
-                          : "text-gray-700 hover:bg-blue-50"
+                          ? "ring-1 ring-border-focus hover:bg-feedback-info-surface"
+                          : "text-content-secondary hover:bg-feedback-info-surface"
                     }`}
                   >
                     {Number.parseInt(cell.split("-")[2], 10)}
@@ -211,14 +211,14 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
             </div>
 
             {/* Footer */}
-            <div className="mt-2 border-t border-gray-100 pt-2">
+            <div className="mt-2 border-t border-subtle pt-2">
               <button
                 type="button"
                 onClick={() => {
                   onChange(null);
                   setOpen(false);
                 }}
-                className="w-full rounded px-2 py-1 text-sm text-gray-500 hover:bg-gray-100"
+                className="w-full rounded px-2 py-1 text-sm text-content-secondary hover:bg-surface-sunken"
               >
                 {t("tasks.calendar_clear")}
               </button>
@@ -235,14 +235,14 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="rounded px-1.5 py-0.5 text-sm hover:bg-gray-100"
+        className="rounded px-1.5 py-0.5 text-sm hover:bg-surface-sunken"
         onClick={openPicker}
         onKeyDown={(e) => e.stopPropagation()}
       >
         {value ? (
-          <span className="text-gray-700">{formatDueDate(value)}</span>
+          <span className="text-content-secondary">{formatDueDate(value)}</span>
         ) : (
-          <span className="text-gray-400">—</span>
+          <span className="text-content-tertiary">—</span>
         )}
       </button>
       {menu}

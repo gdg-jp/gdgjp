@@ -62,7 +62,7 @@ export default function CommentSection({
 
   return (
     <div>
-      <h2 className="mb-6 text-lg font-semibold text-gray-900">
+      <h2 className="mb-6 text-lg font-semibold text-content-primary">
         {t("wiki.comment.heading")} · {totalCount}
       </h2>
 
