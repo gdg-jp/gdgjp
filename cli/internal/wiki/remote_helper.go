@@ -208,7 +208,10 @@ func (h *RemoteHelper) importSnapshot(ctx context.Context, snapshot Snapshot, pa
 		return "", err
 	}
 	defer os.RemoveAll(temporary)
-	if _, err = h.gitOutput(ctx, "fetch", "--no-tags", "--quiet", temporary, base); err != nil {
+	// This fetch only imports the synthetic snapshot into the caller's object
+	// database. It must not add a merge candidate to the outer fetch/pull's
+	// FETCH_HEAD, otherwise Git sees both this temporary commit and main.
+	if _, err = h.gitOutput(ctx, "fetch", "--no-write-fetch-head", "--no-tags", "--quiet", temporary, base); err != nil {
 		return "", fmt.Errorf("import Wiki snapshot Git object: %w", err)
 	}
 	commit := base

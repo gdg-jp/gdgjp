@@ -54,6 +54,40 @@ func TestRemoteHelperListsAndImportsSyntheticSnapshot(t *testing.T) {
 	}
 }
 
+func TestRemoteHelperSnapshotImportDoesNotModifyFetchHead(t *testing.T) {
+	repository := t.TempDir()
+	git(t, repository, "init", "-q")
+	gitDir := filepath.Join(repository, ".git")
+	t.Setenv("GIT_DIR", gitDir)
+	const existing = "existing merge candidate\n"
+	if err := os.WriteFile(filepath.Join(gitDir, "FETCH_HEAD"), []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	helper := &RemoteHelper{
+		GitDir: gitDir,
+		Remote: "origin",
+		Stdin:  strings.NewReader("list\nfetch ignored refs/heads/main\n\n"),
+		Stdout: new(bytes.Buffer),
+		Snapshot: func(context.Context, string) (Snapshot, error) {
+			return Snapshot{Pages: []Page{{
+				ID: "page-1", Slug: "welcome", Revision: 1,
+				JA: Locale{Title: "ようこそ"}, EN: Locale{Title: "Welcome"},
+			}}}, nil
+		},
+	}
+	if err := helper.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(gitDir, "FETCH_HEAD"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != existing {
+		t.Fatalf("FETCH_HEAD = %q, want preserved value %q", raw, existing)
+	}
+}
+
 func TestRemoteHelperReusesUnchangedTrackingSnapshot(t *testing.T) {
 	repository := t.TempDir()
 	git(t, repository, "init", "-q")
