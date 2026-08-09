@@ -99,14 +99,10 @@ jobs:
       - run: pnpm openapi:check
 
   typecheck:
-    name: Typecheck (${{ matrix.workspace }})
+    name: Typecheck
     needs: changes
     if: needs.changes.outputs.ci != '[]'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        workspace: ${{ fromJSON(needs.changes.outputs.ci) }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -115,17 +111,46 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter ${{ matrix.workspace }} typecheck
+      - parallel:
+          - name: Typecheck accounts
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/accounts')
+            run: pnpm --filter @gdgjp/accounts typecheck
+          - name: Typecheck tinyurl
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/tinyurl')
+            run: pnpm --filter @gdgjp/tinyurl typecheck
+          - name: Typecheck wiki
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/wiki')
+            run: pnpm --filter @gdgjp/wiki typecheck
+          - name: Typecheck img
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/img')
+            run: pnpm --filter @gdgjp/img typecheck
+          - name: Typecheck scheduler
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/scheduler')
+            run: pnpm --filter @gdgjp/scheduler typecheck
+          - name: Typecheck SNS
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/sns')
+            run: pnpm --filter @gdgjp/sns typecheck
+          - name: Typecheck website
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
+            run: pnpm --filter @gdgjp/website typecheck
+          - name: Typecheck gdg-lib
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/gdg-lib')
+            run: pnpm --filter @gdgjp/gdg-lib typecheck
+          - name: Typecheck tinyurl gateway
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/tinyurl-gateway')
+            run: pnpm --filter @gdgjp/tinyurl-gateway typecheck
+          - name: Typecheck agents
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/agents')
+            run: pnpm --filter @gdgjp/agents typecheck
+          - name: Typecheck go extension
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/go-extension')
+            run: pnpm --filter @gdgjp/go-extension typecheck
 
   test:
-    name: Unit tests (${{ matrix.workspace }})
+    name: Unit tests
     needs: changes
     if: needs.changes.outputs.ci != '[]'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        workspace: ${{ fromJSON(needs.changes.outputs.ci) }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -134,17 +159,46 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter ${{ matrix.workspace }} test
+      - parallel:
+          - name: Test accounts
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/accounts')
+            run: pnpm --filter @gdgjp/accounts test
+          - name: Test tinyurl
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/tinyurl')
+            run: pnpm --filter @gdgjp/tinyurl test
+          - name: Test wiki
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/wiki')
+            run: pnpm --filter @gdgjp/wiki test
+          - name: Test img
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/img')
+            run: pnpm --filter @gdgjp/img test
+          - name: Test scheduler
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/scheduler')
+            run: pnpm --filter @gdgjp/scheduler test
+          - name: Test SNS
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/sns')
+            run: pnpm --filter @gdgjp/sns test
+          - name: Test website
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
+            run: pnpm --filter @gdgjp/website test
+          - name: Test gdg-lib
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/gdg-lib')
+            run: pnpm --filter @gdgjp/gdg-lib test
+          - name: Test tinyurl gateway
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/tinyurl-gateway')
+            run: pnpm --filter @gdgjp/tinyurl-gateway test
+          - name: Test agents
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/agents')
+            run: pnpm --filter @gdgjp/agents test
+          - name: Test go extension
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/go-extension')
+            run: pnpm --filter @gdgjp/go-extension test
 
   build:
-    name: Build (${{ matrix.workspace }})
+    name: Build
     needs: changes
     if: needs.changes.outputs.build != '[]'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        workspace: ${{ fromJSON(needs.changes.outputs.build) }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -153,12 +207,41 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter ${{ matrix.workspace }} build
-      - name: Validate go extension package
-        if: matrix.workspace == '@gdgjp/go-extension'
-        run: unzip -t go-extension/dist/gdg-japan-go-links.zip
+      - parallel:
+          - name: Build accounts
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/accounts')
+            run: pnpm --filter @gdgjp/accounts build
+          - name: Build tinyurl
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/tinyurl')
+            run: pnpm --filter @gdgjp/tinyurl build
+          - name: Build wiki
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/wiki')
+            run: pnpm --filter @gdgjp/wiki build
+          - name: Build img
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/img')
+            run: pnpm --filter @gdgjp/img build
+          - name: Build scheduler
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/scheduler')
+            run: pnpm --filter @gdgjp/scheduler build
+          - name: Build SNS
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/sns')
+            run: pnpm --filter @gdgjp/sns build
+          - name: Build website
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/website')
+            run: pnpm --filter @gdgjp/website build
+          - name: Build tinyurl gateway
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/tinyurl-gateway')
+            run: pnpm --filter @gdgjp/tinyurl-gateway build
+          - name: Build agents
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/agents')
+            run: pnpm --filter @gdgjp/agents build
+          - name: Build go extension
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/go-extension')
+            run: |
+              pnpm --filter @gdgjp/go-extension build
+              unzip -t go-extension/dist/gdg-japan-go-links.zip
       - name: Upload go extension package
-        if: matrix.workspace == '@gdgjp/go-extension'
+        if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/go-extension')
         uses: actions/upload-artifact@v4
         with:
           name: gdg-japan-go-links

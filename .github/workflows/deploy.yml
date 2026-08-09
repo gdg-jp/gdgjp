@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       deploy: ${{ steps.changes.outputs.deploy }}
+      deploy-apps: ${{ steps.changes.outputs.deploy-apps }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -101,17 +102,13 @@ jobs:
         run: gh release create "$TAG_NAME" go-extension/dist/gdg-japan-go-links.zip --title "GDG Japan Go Links ${TAG_NAME#extension/}" --generate-notes
 
   deploy:
-    name: Deploy (${{ matrix.target.app }})
+    name: Deploy
     needs: changes
     if: github.ref == 'refs/heads/main' && needs.changes.outputs.deploy != '[]'
     runs-on: ubuntu-latest
     environment: Production
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        target: ${{ fromJSON(needs.changes.outputs.deploy) }}
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -125,44 +122,70 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-
-      - name: Build ${{ matrix.target.app }}
-        run: pnpm --filter ${{ matrix.target.workspace }} build
-
-      - name: Deploy ${{ matrix.target.app }} to Cloudflare Workers
-        if: matrix.target.provider == 'cloudflare'
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: ${{ matrix.target.app }}
-          packageManager: pnpm
-          command: deploy
-
-      - name: Deploy tinyurl gateway to Vercel
-        if: matrix.target.provider == 'vercel-gateway'
-        run: pnpm --filter @gdgjp/tinyurl-gateway exec vercel deploy --prod --yes --token="$VERCEL_TOKEN"
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Deploy agents to Vercel
-        if: matrix.target.provider == 'vercel-agents'
-        # agents/ depends on @gdgjp/gdg-lib via workspace:* and ships that
-        # package as untranspiled TS. Run every Vercel command from the
-        # monorepo root so the project's `agents` Root Directory is applied
-        # exactly once and the local build can resolve workspace packages.
-        # Deploying the prebuilt output also avoids a remote install.
-        run: |
-          pnpm --filter @gdgjp/agents exec vercel pull --cwd "$GITHUB_WORKSPACE" --yes --environment=production --token="$VERCEL_TOKEN"
-          pnpm --filter @gdgjp/agents exec vercel build --cwd "$GITHUB_WORKSPACE" --prod --token="$VERCEL_TOKEN"
-          pnpm --filter @gdgjp/agents exec vercel deploy --cwd "$GITHUB_WORKSPACE" --prebuilt --prod --yes --token="$VERCEL_TOKEN"
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_AGENTS }}
-
-      - name: Apply ${{ matrix.target.app }} remote migrations
-        if: matrix.target.migrate
-        run: pnpm --filter ${{ matrix.target.workspace }} migrate:remote
+      - parallel:
+          - name: Build, deploy, and migrate accounts
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'accounts')
+            run: |
+              pnpm --filter @gdgjp/accounts build
+              pnpm --filter @gdgjp/accounts deploy
+              pnpm --filter @gdgjp/accounts migrate:remote
+          - name: Build, deploy, and migrate tinyurl
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'tinyurl')
+            run: |
+              pnpm --filter @gdgjp/tinyurl build
+              pnpm --filter @gdgjp/tinyurl deploy
+              pnpm --filter @gdgjp/tinyurl migrate:remote
+          - name: Build, deploy, and migrate wiki
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'wiki')
+            run: |
+              pnpm --filter @gdgjp/wiki build
+              pnpm --filter @gdgjp/wiki deploy
+              pnpm --filter @gdgjp/wiki migrate:remote
+          - name: Build, deploy, and migrate img
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'img')
+            run: |
+              pnpm --filter @gdgjp/img build
+              pnpm --filter @gdgjp/img deploy
+              pnpm --filter @gdgjp/img migrate:remote
+          - name: Build, deploy, and migrate scheduler
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'scheduler')
+            run: |
+              pnpm --filter @gdgjp/scheduler build
+              pnpm --filter @gdgjp/scheduler deploy
+              pnpm --filter @gdgjp/scheduler migrate:remote
+          - name: Build, deploy, and migrate SNS
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'sns')
+            run: |
+              pnpm --filter @gdgjp/sns build
+              pnpm --filter @gdgjp/sns deploy
+              pnpm --filter @gdgjp/sns migrate:remote
+          - name: Build and deploy website
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'website')
+            run: |
+              pnpm --filter @gdgjp/website build
+              pnpm --filter @gdgjp/website deploy
+          - name: Build and deploy tinyurl gateway
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'tinyurl-gateway')
+            run: |
+              pnpm --filter @gdgjp/tinyurl-gateway build
+              pnpm --filter @gdgjp/tinyurl-gateway exec vercel deploy --prod --yes --token="$VERCEL_TOKEN"
+            env:
+              VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+              VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+              VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          - name: Build and deploy agents
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'agents')
+            # agents/ depends on @gdgjp/gdg-lib via workspace:* and ships that
+            # package as untranspiled TS. Run every Vercel command from the
+            # monorepo root so the project's `agents` Root Directory is applied
+            # exactly once and the local build can resolve workspace packages.
+            # Deploying the prebuilt output also avoids a remote install.
+            run: |
+              pnpm --filter @gdgjp/agents build
+              pnpm --filter @gdgjp/agents exec vercel pull --cwd "$GITHUB_WORKSPACE" --yes --environment=production --token="$VERCEL_TOKEN"
+              pnpm --filter @gdgjp/agents exec vercel build --cwd "$GITHUB_WORKSPACE" --prod --token="$VERCEL_TOKEN"
+              pnpm --filter @gdgjp/agents exec vercel deploy --cwd "$GITHUB_WORKSPACE" --prebuilt --prod --yes --token="$VERCEL_TOKEN"
+            env:
+              VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+              VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+              VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_AGENTS }}

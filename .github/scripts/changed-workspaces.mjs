@@ -204,6 +204,7 @@ function workflowOutputs(result, base, head) {
     build: JSON.stringify(result.build),
     e2e: JSON.stringify(result.e2e),
     deploy: JSON.stringify(result.deploy),
+    "deploy-apps": JSON.stringify(result.deploy.map(({ app }) => app)),
     lint: String(result.lint),
     openapi: String(result.openapi),
     "script-tests": String(result.scriptTests),
