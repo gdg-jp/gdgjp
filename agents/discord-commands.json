@@ -12,7 +12,7 @@
     ]
   },
   {
-    "name": "unlink",
-    "description": "Unlink this Discord account from GDG Accounts"
+    "name": "login",
+    "description": "Link your Discord account to GDG Accounts (the first person to do this in a server shares access with the rest of it)"
   }
 ]

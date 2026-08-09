@@ -5,8 +5,8 @@ import { type LanguageModel, type ModelMessage, ToolLoopAgent, stepCountIs } fro
 import type { Message, Thread } from "chat";
 import { toAiMessages } from "chat/ai";
 
-import type { AgentsChat } from "./adapters";
-import { ASK_COMMAND, UNLINK_COMMAND } from "./discord-commands";
+import type { AgentsChat, ChatPlatformAdapter } from "./adapters";
+import { ASK_COMMAND, LOGIN_COMMAND } from "./discord-commands";
 import {
   type ChatPlatform,
   type LinkAccountDeps,
@@ -276,6 +276,22 @@ export function relinkPrompt(authorizationUrl: string): string {
   return `Your Wiki link expired or was revoked. Please link again, then retry:\n${authorizationUrl}`;
 }
 
+export function loginPrompt(authorizationUrl: string, isGuild: boolean): string {
+  if (isGuild) {
+    return `Open this link to connect your Discord account to GDG Accounts. The first person to link in this server shares Wiki access with everyone else in it:\n${authorizationUrl}`;
+  }
+  return `Open this link to connect your Discord account to GDG Accounts:\n${authorizationUrl}`;
+}
+
+/** Extract Discord guild id from a slash-command interaction payload (absent for DMs). */
+export function discordGuildId(raw: unknown): string | undefined {
+  if (raw && typeof raw === "object" && "guild_id" in raw) {
+    const value = (raw as { guild_id?: unknown }).guild_id;
+    return typeof value === "string" && value ? value : undefined;
+  }
+  return undefined;
+}
+
 export function adapterNameToPlatform(adapterName: string): ChatPlatform | null {
   if (adapterName === "gchat") return "google-chat";
   if (adapterName === "discord") return "discord";
@@ -301,8 +317,15 @@ export async function handleUnlink(
 
 let handlersRegistered = new WeakSet<AgentsChat>();
 
-/** Idempotent Chat SDK handler registration for Wiki Q&A and /unlink. */
-export function registerAgentHandlers(bot: AgentsChat, deps: HandleInquiryDeps = {}): void {
+/**
+ * Idempotent Chat SDK handler registration for Wiki Q&A.
+ * Discord answers only through slash commands; Google Chat keeps mention/DM triggers.
+ */
+export function registerAgentHandlers(
+  bot: AgentsChat,
+  adapter: ChatPlatformAdapter,
+  deps: HandleInquiryDeps = {},
+): void {
   if (handlersRegistered.has(bot)) return;
   handlersRegistered.add(bot);
 
@@ -345,9 +368,12 @@ export function registerAgentHandlers(bot: AgentsChat, deps: HandleInquiryDeps =
     await thread.post(outcome.text);
   };
 
-  bot.onNewMention(reply);
-  bot.onSubscribedMessage(reply);
-  bot.onDirectMessage(reply);
+  // Discord: slash commands only — no Gateway Message Content Intent for mentions/DMs.
+  if (adapter === "gchat") {
+    bot.onNewMention(reply);
+    bot.onSubscribedMessage(reply);
+    bot.onDirectMessage(reply);
+  }
 
   bot.onSlashCommand(ASK_COMMAND, async (event) => {
     const platform = adapterNameToPlatform(event.adapter.name);
@@ -359,6 +385,7 @@ export function registerAgentHandlers(bot: AgentsChat, deps: HandleInquiryDeps =
       {
         platform,
         chatUserId: event.user.userId,
+        spaceId: discordGuildId(event.raw),
         prompt: event.text,
       },
       deps,
@@ -366,17 +393,23 @@ export function registerAgentHandlers(bot: AgentsChat, deps: HandleInquiryDeps =
     await event.channel.post(outcome.text);
   });
 
-  bot.onSlashCommand(UNLINK_COMMAND, async (event) => {
+  bot.onSlashCommand(LOGIN_COMMAND, async (event) => {
     const platform = adapterNameToPlatform(event.adapter.name);
     if (!platform) {
       await event.channel.post("Unsupported chat platform.");
       return;
     }
-    const text = await handleUnlink(platform, event.user.userId, {
-      link: deps.link,
-      fetch: deps.fetch,
-    });
-    await event.channel.post(text);
+    const linkDeps = deps.link ?? linkAccountDepsFromEnv(process.env, { fetch: deps.fetch });
+    const guildId = discordGuildId(event.raw);
+    const authorizationUrl = await createLinkAuthorizationUrl(
+      {
+        platform,
+        chatUserId: event.user.userId,
+        spaceId: guildId,
+      },
+      linkDeps,
+    );
+    await event.channel.post(loginPrompt(authorizationUrl, Boolean(guildId)));
   });
 }
 

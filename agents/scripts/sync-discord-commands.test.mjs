@@ -8,7 +8,7 @@ const env = {
 };
 
 describe("syncDiscordCommands", () => {
-  it("bulk synchronizes the /ask and /unlink global commands", async () => {
+  it("bulk synchronizes the /ask and /login global commands", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response("[]", { status: 200 }));
     const logger = { info: vi.fn() };
 
@@ -36,8 +36,9 @@ describe("syncDiscordCommands", () => {
             ],
           },
           {
-            name: "unlink",
-            description: "Unlink this Discord account from GDG Accounts",
+            name: "login",
+            description:
+              "Link your Discord account to GDG Accounts (the first person to do this in a server shares access with the rest of it)",
           },
         ]),
       },

@@ -13,7 +13,7 @@ import {
   handleAuthCallback,
   unlinkAccount,
 } from "./link-account";
-import { linkUserKey } from "./redis";
+import { linkGuildKey, linkUserKey } from "./redis";
 import { decryptToken, encryptToken, parseTokenEncryptionKeys } from "./token-crypto";
 
 function keyB64(seed: number): string {
@@ -46,8 +46,16 @@ function createMemoryRedis(): LinkRedis & {
       store.set(key, value);
       return "OK";
     },
+    async setNX(key, value, _ttl) {
+      if (store.has(key)) return false;
+      store.set(key, value);
+      return true;
+    },
     async get(key) {
       return store.get(key) ?? null;
+    },
+    async del(key) {
+      store.delete(key);
     },
     async getdel(key) {
       getdelCalls.push(key);
@@ -751,5 +759,115 @@ describe("link-account", () => {
     for (const value of sensitive) {
       expect(serialized).not.toContain(value);
     }
+  });
+
+  describe("Discord guild-shared login", () => {
+    async function linkDiscordUser(
+      chatUserId: string,
+      guildId: string,
+      tokens: { access: string; refresh: string },
+    ): Promise<void> {
+      fetchMock = vi.fn(async (input: string) => {
+        if (tokenEndpoint(input)) {
+          return Response.json({
+            access_token: tokens.access,
+            refresh_token: tokens.refresh,
+            expires_in: 3600,
+          });
+        }
+        if (userInfoEndpoint(input)) return Response.json({ sub: `sub-${chatUserId}` });
+        throw new Error(`unexpected fetch: ${input}`);
+      });
+      const url = await createLinkAuthorizationUrl(
+        { platform: "discord", chatUserId, spaceId: guildId },
+        deps({ keyring: keyringV1 }),
+      );
+      const state = new URL(url).searchParams.get("state") as string;
+      const result = await completeAccountLink(
+        { code: `code-${chatUserId}`, state },
+        deps({ keyring: keyringV1 }),
+      );
+      expect(result.ok).toBe(true);
+    }
+
+    it("lets an unlinked guild member use the first linker's access token", async () => {
+      await linkDiscordUser("owner-1", "guild-a", {
+        access: "owner-access",
+        refresh: "owner-refresh",
+      });
+
+      const token = await getLinkedToken("discord", "member-2", deps({ keyring: keyringV1 }), {
+        spaceId: "guild-a",
+      });
+      expect(token).toEqual({ status: "ok", accessToken: "owner-access" });
+    });
+
+    it("still requires a link in a different guild with no owner", async () => {
+      await linkDiscordUser("owner-1", "guild-a", {
+        access: "owner-access",
+        refresh: "owner-refresh",
+      });
+
+      const token = await getLinkedToken("discord", "member-2", deps({ keyring: keyringV1 }), {
+        spaceId: "guild-b",
+      });
+      expect(token.status).toBe("needs_link");
+      if (token.status === "needs_link") {
+        expect(token.authorizationUrl).toContain("accounts.gdgs.jp");
+      }
+    });
+
+    it("does not move the guild pointer when a second member links", async () => {
+      await linkDiscordUser("owner-1", "guild-a", {
+        access: "owner-access",
+        refresh: "owner-refresh",
+      });
+      await linkDiscordUser("member-2", "guild-a", {
+        access: "member-access",
+        refresh: "member-refresh",
+      });
+
+      expect(redis.store.get(linkGuildKey("discord", "guild-a"))).toBe("owner-1");
+
+      // Unlinked third member still resolves to the first linker, not the second.
+      const token = await getLinkedToken("discord", "member-3", deps({ keyring: keyringV1 }), {
+        spaceId: "guild-a",
+      });
+      expect(token).toEqual({ status: "ok", accessToken: "owner-access" });
+
+      // The second linker still uses their own personal record.
+      const personal = await getLinkedToken("discord", "member-2", deps({ keyring: keyringV1 }), {
+        spaceId: "guild-a",
+      });
+      expect(personal).toEqual({ status: "ok", accessToken: "member-access" });
+    });
+
+    it("clears a stale guild pointer when the owner record is gone so the next link can claim it", async () => {
+      await linkDiscordUser("owner-1", "guild-a", {
+        access: "owner-access",
+        refresh: "owner-refresh",
+      });
+      expect(redis.store.get(linkGuildKey("discord", "guild-a"))).toBe("owner-1");
+
+      // Simulate invalid_grant cleanup deleting the owner's link record.
+      redis.store.delete(linkUserKey("discord", "owner-1"));
+
+      const miss = await getLinkedToken("discord", "member-2", deps({ keyring: keyringV1 }), {
+        spaceId: "guild-a",
+      });
+      expect(miss.status).toBe("needs_link");
+      expect(redis.store.has(linkGuildKey("discord", "guild-a"))).toBe(false);
+
+      await linkDiscordUser("member-2", "guild-a", {
+        access: "new-owner-access",
+        refresh: "new-owner-refresh",
+      });
+      expect(redis.store.get(linkGuildKey("discord", "guild-a"))).toBe("member-2");
+
+      const token = await getLinkedToken("discord", "member-3", deps({ keyring: keyringV1 }), {
+        spaceId: "guild-a",
+      });
+      expect(token).toEqual({ status: "ok", accessToken: "new-owner-access" });
+    });
   });
 });

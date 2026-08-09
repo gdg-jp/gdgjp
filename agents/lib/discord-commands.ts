@@ -20,4 +20,4 @@ export type DiscordApplicationCommand = {
 export const DISCORD_COMMANDS = commands as readonly DiscordApplicationCommand[];
 
 export const ASK_COMMAND = "/ask";
-export const UNLINK_COMMAND = "/unlink";
+export const LOGIN_COMMAND = "/login";

@@ -68,10 +68,10 @@ export async function POST(request: Request): Promise<Response> {
 
   if (result.platform === "discord") {
     const bot = getAgentsChat("discord");
-    registerAgentHandlers(bot);
+    registerAgentHandlers(bot, "discord");
     return bot.webhooks.discord(verifiedRequest, webhookOptions);
   }
   const bot = getAgentsChat("gchat");
-  registerAgentHandlers(bot);
+  registerAgentHandlers(bot, "gchat");
   return bot.webhooks.gchat(verifiedRequest, webhookOptions);
 }
