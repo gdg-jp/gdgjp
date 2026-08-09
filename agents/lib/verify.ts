@@ -37,13 +37,25 @@ export type VerifyDeps = {
   certCache?: CertCache;
 };
 
-export type VerifyOk = {
-  ok: true;
-  platform: "google-chat" | "discord";
-  messageId: string;
-  /** Discord interaction type 1 (PING). */
-  discordPing?: boolean;
-};
+export type VerifyOk =
+  | {
+      ok: true;
+      platform: "google-chat";
+      messageId: string;
+    }
+  | {
+      ok: true;
+      platform: "discord";
+      messageId: string;
+      discordPing?: false;
+    }
+  | {
+      ok: true;
+      platform: "discord";
+      /** Discord interaction type 1 (PING) has no application-level side effects. */
+      discordPing: true;
+      messageId?: string;
+    };
 
 export type VerifyFail = {
   ok: false;
@@ -277,6 +289,18 @@ async function verifyDiscordInteraction(
     return fail("invalid_body");
   }
 
+  // Discord's endpoint validation payload is only guaranteed to contain
+  // `type: 1`. A signed PING must be answered before replay storage or adapter
+  // initialization so endpoint registration does not depend on Redis.
+  if (body.type === 1) {
+    return {
+      ok: true,
+      platform: "discord",
+      discordPing: true,
+      ...(typeof body.id === "string" && body.id.length > 0 ? { messageId: body.id } : {}),
+    };
+  }
+
   if (typeof body.id !== "string" || body.id.length === 0) {
     return fail("invalid_body");
   }
@@ -289,7 +313,6 @@ async function verifyDiscordInteraction(
     ok: true,
     platform: "discord",
     messageId: body.id,
-    discordPing: body.type === 1,
   };
 }
 

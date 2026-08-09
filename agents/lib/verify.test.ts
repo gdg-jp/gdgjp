@@ -181,8 +181,8 @@ describe("verifyWebhook", () => {
     );
   });
 
-  it("accepts a Discord PING with a valid signature as type 1", async () => {
-    const body = discordPingBody("interaction-ping");
+  it("accepts Discord's id-less endpoint-validation PING without Redis", async () => {
+    const body = discordPingBody();
     const timestamp = String(now);
     const signature = signDiscordRequest(discordKeys.privateKeyPem, timestamp, body);
     const request = new Request("https://agent.gdgs.jp/api/chat", {
@@ -198,10 +198,11 @@ describe("verifyWebhook", () => {
     expect(result).toEqual({
       ok: true,
       platform: "discord",
-      messageId: "interaction-ping",
       discordPing: true,
     });
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(replay.reads).toBe(0);
+    expect(replay.remembers).toBe(0);
   });
 
   it("rejects an invalid Discord signature with 401 (never 200)", async () => {
