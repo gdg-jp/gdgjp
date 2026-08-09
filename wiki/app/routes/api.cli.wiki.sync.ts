@@ -48,7 +48,7 @@ const Attachment = z.object({
 });
 const PagePayload = z
   .object({
-    id: z.string().optional(),
+    id: z.string().min(1).max(128).optional(),
     slug: z
       .string()
       .min(1)
@@ -108,6 +108,11 @@ export async function action({ request, context }: ActionFunctionArgs) {
       { status: 400 },
     );
   const syncRequest = parsed.data as WikiSyncRequest;
+  const suppliedIds = syncRequest.operations.flatMap((operation) =>
+    operation.kind === "archive" ? [operation.id] : operation.page.id ? [operation.page.id] : [],
+  );
+  if (new Set(suppliedIds).size !== suppliedIds.length)
+    return Response.json({ error: "duplicate_page_id" }, { status: 400 });
   const db = getDb(env);
   const existingIds = syncRequest.operations.flatMap((op) =>
     op.kind === "archive" ? [op.id] : op.page.id ? [op.page.id] : [],
@@ -116,6 +121,13 @@ export async function action({ request, context }: ActionFunctionArgs) {
     ? await db.select().from(schema.pages).where(inArray(schema.pages.id, existingIds)).all()
     : [];
   const byId = new Map(existing.map((page) => [page.id, page]));
+  const requestedById = new Map(
+    syncRequest.operations.flatMap((operation) =>
+      operation.kind === "upsert" && operation.page.id
+        ? [[operation.page.id, operation.page] as const]
+        : [],
+    ),
+  );
   const existingAccess = existingIds.length
     ? await db
         .select()
@@ -137,7 +149,12 @@ export async function action({ request, context }: ActionFunctionArgs) {
   for (const operation of syncRequest.operations) {
     const id = operation.kind === "archive" ? operation.id : operation.page.id;
     const current = id ? byId.get(id) : undefined;
-    if (id && !current) return Response.json({ error: "not_found", id }, { status: 404 });
+    if (
+      id &&
+      !current &&
+      (operation.kind === "archive" || operation.expectedRevision !== undefined)
+    )
+      return Response.json({ error: "not_found", id }, { status: 404 });
     if (current) {
       const originError = humanOriginSyncError(current.origin);
       if (originError) return Response.json({ error: originError, id }, { status: 403 });
@@ -178,6 +195,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const statements: D1PreparedStatement[] = [];
   const objectsToDelete: string[] = [];
   const returned: Array<{ id: string; slug: string; attachmentIds: Record<string, string> }> = [];
+  const createdRequestIds = new Set<string>();
   for (const operation of syncRequest.operations) {
     if (operation.kind === "archive") {
       statements.push(
@@ -204,22 +222,31 @@ export async function action({ request, context }: ActionFunctionArgs) {
     if (page.parentId === id)
       return Response.json({ error: "circular_parent", id }, { status: 400 });
     if (page.parentId) {
-      const parent =
+      const requestedParent = requestedById.get(page.parentId);
+      const storedParent =
         byId.get(page.parentId) ??
         (await db.select().from(schema.pages).where(eq(schema.pages.id, page.parentId)).get());
-      if (!parent || parent.pageType === "task-list")
+      if (!storedParent && !requestedParent)
         return Response.json({ error: "invalid_parent", id: page.parentId }, { status: 400 });
-      const parentError = humanParentSyncError(parent.origin);
-      if (parentError)
-        return Response.json({ error: parentError, id: page.parentId }, { status: 400 });
-      const parentPermissions = await getEffectivePagePermissions(
-        db,
-        parent,
-        identity.user,
-        chapterIds,
-      );
-      if (!parentPermissions.canEdit)
-        return Response.json({ error: "parent_forbidden", id: page.parentId }, { status: 403 });
+      if (!storedParent && requestedParent && !createdRequestIds.has(page.parentId))
+        return Response.json({ error: "invalid_parent_order", id: page.parentId }, { status: 400 });
+      if (storedParent) {
+        if (storedParent.pageType === "task-list")
+          return Response.json({ error: "invalid_parent", id: page.parentId }, { status: 400 });
+        const parentError = humanParentSyncError(storedParent.origin);
+        if (parentError)
+          return Response.json({ error: parentError, id: page.parentId }, { status: 400 });
+        const parentPermissions = await getEffectivePagePermissions(
+          db,
+          storedParent,
+          identity.user,
+          chapterIds,
+        );
+        if (!parentPermissions.canEdit)
+          return Response.json({ error: "parent_forbidden", id: page.parentId }, { status: 403 });
+      } else if (requestedParent?.meta.pageType === "task-list") {
+        return Response.json({ error: "invalid_parent", id: page.parentId }, { status: 400 });
+      }
     }
     const meta = page.meta;
     const contentJa = page.ja ? canonicalMarkdown(page.ja.content) : undefined;
@@ -367,30 +394,27 @@ export async function action({ request, context }: ActionFunctionArgs) {
         );
     }
     returned.push({ id, slug: page.slug, attachmentIds });
+    if (!current) createdRequestIds.add(id);
   }
+  let revisions: Array<{ id: string; revision: number }>;
   try {
-    await env.DB.batch(statements);
+    const placeholders = returned.map(() => "?").join(",");
+    const revisionStatement = env.DB.prepare(
+      `SELECT id, sync_revision AS revision FROM pages WHERE id IN (${placeholders})`,
+    ).bind(...returned.map((page) => page.id));
+    const results = await env.DB.batch([...statements, revisionStatement]);
+    revisions = (results.at(-1)?.results ?? []) as Array<{ id: string; revision: number }>;
   } catch (error) {
     return Response.json(
       { error: "sync_failed", message: error instanceof Error ? error.message : "database error" },
       { status: 400 },
     );
   }
-  await Promise.all(objectsToDelete.map((key) => env.BUCKET.delete(key)));
   const { ctx } = context.cloudflare;
-  for (const pageId of translatePageIds) {
-    await sendOrRunTranslation(env, ctx, pageId);
-  }
-  const revisions = await db
-    .select({ id: schema.pages.id, revision: schema.pages.syncRevision })
-    .from(schema.pages)
-    .where(
-      inArray(
-        schema.pages.id,
-        returned.map((x) => x.id),
-      ),
-    )
-    .all();
+  scheduleSyncPostCommit(ctx, [
+    ...objectsToDelete.map((key) => env.BUCKET.delete(key)),
+    ...[...translatePageIds].map((pageId) => sendOrRunTranslation(env, ctx, pageId)),
+  ]);
   const syncResult: WikiSyncResult = {
     ok: true,
     pages: returned.map((page) => ({
@@ -399,4 +423,22 @@ export async function action({ request, context }: ActionFunctionArgs) {
     })),
   };
   return Response.json(syncResult);
+}
+
+/** Post-commit cleanup must never turn an already-committed sync into a 5xx. */
+export function scheduleSyncPostCommit(context: ExecutionContext, tasks: Promise<unknown>[]): void {
+  if (tasks.length === 0) return;
+  context.waitUntil(
+    Promise.allSettled(tasks).then((results) => {
+      for (const result of results) {
+        if (result.status === "rejected")
+          console.error(
+            JSON.stringify({
+              message: "Wiki sync post-commit task failed",
+              error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+            }),
+          );
+      }
+    }),
+  );
 }

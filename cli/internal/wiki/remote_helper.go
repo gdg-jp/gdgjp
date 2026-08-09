@@ -279,45 +279,73 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 			pending[key] = page
 		}
 	}
-	for len(pending) > 0 {
-		keys := make([]string, 0, len(pending))
-		for key := range pending {
-			keys = append(keys, key)
+	// Allocate IDs before building operations so new parent/child trees can be
+	// submitted in one server transaction. A Git push is one logical update;
+	// splitting it into page-sized requests allows an earlier page to remain
+	// committed when a later request fails.
+	for key, entry := range pending {
+		if !strings.HasPrefix(key, "new:") {
+			continue
 		}
-		sort.Slice(keys, func(i, j int) bool {
-			return strings.Count(pending[keys[i]].Rel, string(filepath.Separator)) < strings.Count(pending[keys[j]].Rel, string(filepath.Separator))
-		})
-		progress := false
-		for _, key := range keys {
-			entry := pending[key]
-			page, pageErr := PageFromLocal(entry, local)
-			if pageErr != nil {
-				if strings.Contains(pageErr.Error(), "new parent has not been created") {
-					continue
-				}
-				return pageErr
-			}
-			operation := SyncOperation{Kind: "upsert", Page: &page}
-			if previous, exists := basePages[page.ID]; exists {
-				operation.ExpectedRevision = previous.Revision
-			}
-			result, syncErr := h.sync(ctx, SyncRequest{Operations: []SyncOperation{operation}})
-			if syncErr != nil {
-				return syncErr
-			}
-			if len(result.Pages) != 1 {
-				return errors.New("Wiki sync returned no page result")
-			}
-			returned := result.Pages[0]
-			for i := range entry.fm.Attachments {
-				attachment := &entry.fm.Attachments[i]
+		id := newPageID(spec.src, entry.Rel)
+		entry.fm.ID = id
+		delete(pending, key)
+		delete(local, key)
+		pending[id] = entry
+		local[id] = entry
+	}
+	keys := make([]string, 0, len(pending))
+	for key := range pending {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		left, right := pending[keys[i]].Rel, pending[keys[j]].Rel
+		leftDepth := strings.Count(left, string(filepath.Separator))
+		rightDepth := strings.Count(right, string(filepath.Separator))
+		if leftDepth != rightDepth {
+			return leftDepth < rightDepth
+		}
+		return filepath.ToSlash(left) < filepath.ToSlash(right)
+	})
+	request := SyncRequest{Operations: make([]SyncOperation, 0, len(keys)+len(basePages))}
+	entries := make([]LocalPage, 0, len(keys))
+	for _, key := range keys {
+		entry := pending[key]
+		page, pageErr := PageFromLocal(entry, local)
+		if pageErr != nil {
+			return pageErr
+		}
+		operation := SyncOperation{Kind: "upsert", Page: &page}
+		if previous, exists := basePages[page.ID]; exists {
+			operation.ExpectedRevision = previous.Revision
+		}
+		request.Operations = append(request.Operations, operation)
+		entries = append(entries, entry)
+	}
+	for id, page := range basePages {
+		if _, exists := local[id]; !exists && page.PageType != nil && *page.PageType == "task-list" {
+			continue
+		}
+		if _, exists := local[id]; !exists {
+			request.Operations = append(request.Operations, SyncOperation{Kind: "archive", ID: id, ExpectedRevision: page.Revision})
+		}
+	}
+	if len(request.Operations) > 0 {
+		result, syncErr := h.sync(ctx, request)
+		if syncErr != nil {
+			return syncErr
+		}
+		if len(result.Pages) != len(request.Operations) {
+			return fmt.Errorf("Wiki sync returned %d page results for %d operations", len(result.Pages), len(request.Operations))
+		}
+		for i, entry := range entries {
+			returned := result.Pages[i]
+			for _, attachment := range entry.fm.Attachments {
 				newID := returned.AttachmentIDs[attachment.FileName]
 				if newID == "" {
 					return fmt.Errorf("Wiki sync returned no attachment ID for %s", attachment.FileName)
 				}
-				needsUpload := attachment.ID == "" || attachmentChanged(paths, entry.Rel, attachment.Path)
-				attachment.ID = newID
-				if needsUpload {
+				if attachment.ID == "" || attachmentChanged(paths, entry.Rel, attachment.Path) {
 					raw, readErr := os.ReadFile(filepath.Join(entry.Dir, attachment.Path))
 					if readErr != nil {
 						return readErr
@@ -326,26 +354,6 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 						return uploadErr
 					}
 				}
-			}
-			entry.fm.ID = returned.ID
-			local[returned.ID] = entry
-			if key != returned.ID {
-				delete(local, key)
-			}
-			delete(pending, key)
-			progress = true
-		}
-		if !progress {
-			return errors.New("new pages have an unresolved parent")
-		}
-	}
-	for id, page := range basePages {
-		if _, exists := local[id]; !exists && page.PageType != nil && *page.PageType == "task-list" {
-			continue
-		}
-		if _, exists := local[id]; !exists {
-			if err := h.syncOnly(ctx, SyncRequest{Operations: []SyncOperation{{Kind: "archive", ID: id, ExpectedRevision: page.Revision}}}); err != nil {
-				return err
 			}
 		}
 	}
@@ -359,6 +367,11 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 	}
 	_, err = h.gitOutput(ctx, "update-ref", "refs/remotes/"+h.Remote+"/main", commit)
 	return err
+}
+
+func newPageID(commit, rel string) string {
+	digest := sha256.Sum256([]byte("gdg-wiki-page-v1\x00" + commit + "\x00" + filepath.ToSlash(rel)))
+	return hex.EncodeToString(digest[:16])
 }
 
 func pageChanged(paths []string, rel string) bool {
@@ -402,10 +415,6 @@ func (h *RemoteHelper) sync(ctx context.Context, request SyncRequest) (SyncResul
 		return h.Sync(ctx, h.Token, request)
 	}
 	return h.Client.Sync(ctx, h.Token, request)
-}
-func (h *RemoteHelper) syncOnly(ctx context.Context, request SyncRequest) error {
-	_, err := h.sync(ctx, request)
-	return err
 }
 func (h *RemoteHelper) upload(ctx context.Context, id string, data []byte, mime string) error {
 	if h.Upload != nil {
