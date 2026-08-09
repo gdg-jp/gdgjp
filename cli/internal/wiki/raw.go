@@ -124,7 +124,7 @@ func syncAgentsMD(root string, agents []byte) error {
 	return WriteState(root, state)
 }
 
-// PullRaw synchronizes raw/** and AGENTS.md from the Wiki API.
+// PullRaw synchronizes raw/** from the Wiki API. AGENTS.md is Git-tracked.
 // Files whose local sha256 matches the manifest are skipped. The returned
 // manifest is the exact snapshot used for local reconciliation.
 func PullRaw(ctx context.Context, root string, client *Client, token string) (SourcesManifest, error) {
@@ -171,13 +171,6 @@ func PullRaw(ctx context.Context, root string, client *Client, token string) (So
 		}
 	}
 	if err = removeStaleRawFiles(root, expected); err != nil {
-		return SourcesManifest{}, err
-	}
-	agents, err := client.AgentsMD(ctx, token)
-	if err != nil {
-		return SourcesManifest{}, err
-	}
-	if err = syncAgentsMD(root, agents); err != nil {
 		return SourcesManifest{}, err
 	}
 	return manifest, nil

@@ -27,3 +27,16 @@ func TestMaterializeSnapshotCreatesGitCommit(t *testing.T) {
 		t.Fatalf("legacy ja.md should be absent: %v", err)
 	}
 }
+
+func TestMaterializeSnapshotTracksAgentsMD(t *testing.T) {
+	root, commit, err := MaterializeSnapshot(context.Background(), Snapshot{
+		AgentsMD: AgentInstructions{Content: "# Instructions\n", ContentHash: "hash"},
+	}, "", NewClient(), "", "ja")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	if got := git(t, root, "show", commit+":AGENTS.md"); got != "# Instructions" {
+		t.Fatalf("AGENTS.md = %q", got)
+	}
+}

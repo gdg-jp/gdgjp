@@ -30,6 +30,11 @@ func MaterializeSnapshot(ctx context.Context, snapshot Snapshot, token string, c
 	for _, page := range snapshot.Pages {
 		byID[page.ID] = page
 	}
+	if snapshot.AgentsMD.Content != "" {
+		if err = os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte(snapshot.AgentsMD.Content), 0o644); err != nil {
+			return "", "", err
+		}
+	}
 	for _, page := range snapshot.Pages {
 		if page.PageType != nil && *page.PageType == "task-list" {
 			continue

@@ -99,7 +99,16 @@ type Page struct {
 	Attachments  []Attachment `json:"attachments"`
 }
 type Snapshot struct {
-	Pages []Page `json:"pages"`
+	Pages    []Page            `json:"pages"`
+	AgentsMD AgentInstructions `json:"agentsMd"`
+}
+type AgentInstructions struct {
+	Content     string `json:"content"`
+	ContentHash string `json:"contentHash"`
+}
+type AgentInstructionsUpdate struct {
+	Content             string `json:"content"`
+	ExpectedContentHash string `json:"expectedContentHash"`
 }
 type SyncOperation struct {
 	Kind             string `json:"kind"`
@@ -108,7 +117,8 @@ type SyncOperation struct {
 	Page             *Page  `json:"page,omitempty"`
 }
 type SyncRequest struct {
-	Operations []SyncOperation `json:"operations"`
+	Operations []SyncOperation          `json:"operations"`
+	AgentsMD   *AgentInstructionsUpdate `json:"agentsMd,omitempty"`
 }
 type SyncResultPage struct {
 	ID            string            `json:"id"`
@@ -173,6 +183,9 @@ func (c *Client) snapshotRaw(ctx context.Context, token, lang string) (Snapshot,
 	defer res.Body.Close()
 	var out Snapshot
 	err = json.NewDecoder(res.Body).Decode(&out)
+	if err == nil && (out.AgentsMD.Content == "" || out.AgentsMD.ContentHash == "") {
+		return Snapshot{}, fmt.Errorf("Wiki snapshot is missing AGENTS.md")
+	}
 	return out, err
 }
 
@@ -225,7 +238,11 @@ func (c *Client) Sync(ctx context.Context, token string, input SyncRequest) (Syn
 		}
 		operations = append(operations, upsert)
 	}
-	raw, err := json.Marshal(map[string]any{"operations": operations})
+	payload := map[string]any{"operations": operations}
+	if input.AgentsMD != nil {
+		payload["agentsMd"] = input.AgentsMD
+	}
+	raw, err := json.Marshal(payload)
 	if err != nil {
 		return SyncResult{}, err
 	}

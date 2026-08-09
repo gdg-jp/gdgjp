@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
+import { getAgentInstructions } from "~/lib/agents-md.server";
 import { getCliIdentity } from "~/lib/cli-identity.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
@@ -28,12 +29,13 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   if (langParam !== null && langParam !== "ja" && langParam !== "en")
     return Response.json({ error: "invalid_lang" }, { status: 400 });
   const locale = langParam === "en" ? "en" : "ja";
-  const [pages, tags, access, sources, attachments] = await Promise.all([
+  const [pages, tags, access, sources, attachments, agents] = await Promise.all([
     db.select().from(schema.pages).all(),
     db.select().from(schema.pageTags).all(),
     db.select().from(schema.pageAccess).all(),
     db.select().from(schema.pageSources).all(),
     db.select().from(schema.pageAttachments).all(),
+    getAgentInstructions(db),
   ]);
   const chapterIds = identity.chapters.map((chapter) => String(chapter.chapterId));
   const visible: WikiSnapshotPage[] = [];
@@ -93,6 +95,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         })),
     } as WikiSnapshotPage);
   }
-  const snapshot: WikiSnapshot = { version: 1, pages: visible };
+  if (!agents) return Response.json({ error: "agents_md_unavailable" }, { status: 503 });
+  const snapshot: WikiSnapshot = { version: 1, pages: visible, agentsMd: agents };
   return Response.json(snapshot);
 }

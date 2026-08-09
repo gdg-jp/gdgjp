@@ -256,8 +256,8 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 		paths = nil
 	}
 	for _, path := range paths {
-		if !strings.HasPrefix(path, "pages/") {
-			return fmt.Errorf("only pages/** may be pushed (changed %s)", path)
+		if path != "AGENTS.md" && !strings.HasPrefix(path, "pages/") {
+			return fmt.Errorf("only pages/** and AGENTS.md may be pushed (changed %s)", path)
 		}
 	}
 	root, err := h.extractCommit(ctx, spec.src)
@@ -265,6 +265,20 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 		return err
 	}
 	defer os.RemoveAll(root)
+	var agentsUpdate *AgentInstructionsUpdate
+	if pathChanged(paths, "AGENTS.md") {
+		content, readErr := os.ReadFile(filepath.Join(root, "AGENTS.md"))
+		if readErr != nil {
+			return errors.New("AGENTS.md cannot be deleted; restore it before pushing")
+		}
+		if metadata.Snapshot.AgentsMD.ContentHash == "" {
+			return errors.New("Wiki merge base lacks AGENTS.md metadata; run git pull before git push")
+		}
+		agentsUpdate = &AgentInstructionsUpdate{
+			Content:             string(content),
+			ExpectedContentHash: metadata.Snapshot.AgentsMD.ContentHash,
+		}
+	}
 	local, err := LocalPagesForLanguage(root, h.cloneLang())
 	if err != nil {
 		return err
@@ -307,7 +321,7 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 		}
 		return filepath.ToSlash(left) < filepath.ToSlash(right)
 	})
-	request := SyncRequest{Operations: make([]SyncOperation, 0, len(keys)+len(basePages))}
+	request := SyncRequest{Operations: make([]SyncOperation, 0, len(keys)+len(basePages)), AgentsMD: agentsUpdate}
 	entries := make([]LocalPage, 0, len(keys))
 	for _, key := range keys {
 		entry := pending[key]
@@ -330,7 +344,7 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 			request.Operations = append(request.Operations, SyncOperation{Kind: "archive", ID: id, ExpectedRevision: page.Revision})
 		}
 	}
-	if len(request.Operations) > 0 {
+	if len(request.Operations) > 0 || request.AgentsMD != nil {
 		result, syncErr := h.sync(ctx, request)
 		if syncErr != nil {
 			return syncErr
@@ -378,6 +392,15 @@ func pageChanged(paths []string, rel string) bool {
 	prefix := "pages/" + filepath.ToSlash(rel) + "/"
 	for _, path := range paths {
 		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func pathChanged(paths []string, want string) bool {
+	for _, path := range paths {
+		if path == want {
 			return true
 		}
 	}

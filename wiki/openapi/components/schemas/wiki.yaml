@@ -92,12 +92,26 @@ SnapshotPage:
         attachments: { type: array, items: { $ref: '#/Attachment' } }
 Snapshot:
   type: object
-  required: [version, pages]
+  required: [version, pages, agentsMd]
   properties:
     version: { type: integer, enum: [1] }
     pages:
       type: array
       items: { $ref: '#/SnapshotPage' }
+    agentsMd:
+      $ref: '#/AgentInstructions'
+AgentInstructions:
+  type: object
+  required: [content, contentHash]
+  properties:
+    content: { type: string }
+    contentHash: { type: string, pattern: '^[a-f0-9]{64}$' }
+AgentInstructionsUpdate:
+  type: object
+  required: [content, expectedContentHash]
+  properties:
+    content: { type: string, minLength: 1, maxLength: 262144 }
+    expectedContentHash: { type: string, pattern: '^[a-f0-9]{64}$' }
 UpsertOperation:
   type: object
   required: [kind, page]
@@ -114,7 +128,6 @@ ArchiveOperation:
     expectedRevision: { type: integer, minimum: 1 }
 SyncRequest:
   type: object
-  required: [operations]
   properties:
     operations:
       type: array
@@ -128,6 +141,8 @@ SyncRequest:
           mapping:
             upsert: '#/UpsertOperation'
             archive: '#/ArchiveOperation'
+    agentsMd:
+      $ref: '#/AgentInstructionsUpdate'
 SyncResultPage:
   type: object
   required: [id, slug, attachmentIds]

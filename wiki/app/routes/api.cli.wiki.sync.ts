@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import * as schema from "~/db/schema";
+import { agentsHash, getAgentInstructions } from "~/lib/agents-md.server";
 import { getCliIdentity } from "~/lib/cli-identity.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
@@ -18,7 +19,6 @@ import {
   sourceHasReference,
 } from "./api.cli.wiki.sync.helpers";
 
-type WikiSyncRequest = components["schemas"]["SyncRequest"];
 type WikiSyncResult = components["schemas"]["SyncResult"];
 
 const Language = z.object({
@@ -71,24 +71,33 @@ const PagePayload = z
     }),
   })
   .refine((page) => page.ja || page.en, { message: "one locale is required" });
-const Body = z.object({
-  operations: z
-    .array(
-      z.discriminatedUnion("kind", [
-        z.object({
-          kind: z.literal("upsert"),
-          expectedRevision: z.number().int().positive().optional(),
-          page: PagePayload,
-        }),
-        z.object({
-          kind: z.literal("archive"),
-          id: z.string(),
-          expectedRevision: z.number().int().positive(),
-        }),
-      ]),
-    )
-    .min(1),
+const AgentInstructionsUpdate = z.object({
+  content: z.string().min(1).max(262144),
+  expectedContentHash: z.string().regex(/^[a-f0-9]{64}$/),
 });
+const Body = z
+  .object({
+    operations: z
+      .array(
+        z.discriminatedUnion("kind", [
+          z.object({
+            kind: z.literal("upsert"),
+            expectedRevision: z.number().int().positive().optional(),
+            page: PagePayload,
+          }),
+          z.object({
+            kind: z.literal("archive"),
+            id: z.string(),
+            expectedRevision: z.number().int().positive(),
+          }),
+        ]),
+      )
+      .default([]),
+    agentsMd: AgentInstructionsUpdate.optional(),
+  })
+  .refine((body) => body.operations.length > 0 || body.agentsMd, {
+    message: "operations or agentsMd is required",
+  });
 
 /** POST /api/cli/wiki/sync
  * Atomically applies page upserts/archives.  Every existing operation must
@@ -107,14 +116,25 @@ export async function action({ request, context }: ActionFunctionArgs) {
       { error: "invalid_request", details: parsed.error.flatten() },
       { status: 400 },
     );
-  const syncRequest = parsed.data as WikiSyncRequest;
-  const suppliedIds = syncRequest.operations.flatMap((operation) =>
+  const operations = parsed.data.operations;
+  const agentsUpdate = parsed.data.agentsMd;
+  const suppliedIds = operations.flatMap((operation) =>
     operation.kind === "archive" ? [operation.id] : operation.page.id ? [operation.page.id] : [],
   );
   if (new Set(suppliedIds).size !== suppliedIds.length)
     return Response.json({ error: "duplicate_page_id" }, { status: 400 });
   const db = getDb(env);
-  const existingIds = syncRequest.operations.flatMap((op) =>
+  if (agentsUpdate && !identity.user.isAdmin)
+    return Response.json({ error: "agents_md_forbidden" }, { status: 403 });
+  const currentAgents = agentsUpdate ? await getAgentInstructions(db) : null;
+  if (agentsUpdate && !currentAgents)
+    return Response.json({ error: "agents_md_unavailable" }, { status: 503 });
+  if (agentsUpdate && currentAgents?.contentHash !== agentsUpdate.expectedContentHash)
+    return Response.json(
+      { error: "agents_md_conflict", contentHash: currentAgents?.contentHash },
+      { status: 409 },
+    );
+  const existingIds = operations.flatMap((op) =>
     op.kind === "archive" ? [op.id] : op.page.id ? [op.page.id] : [],
   );
   const existing = existingIds.length
@@ -122,7 +142,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     : [];
   const byId = new Map(existing.map((page) => [page.id, page]));
   const requestedById = new Map(
-    syncRequest.operations.flatMap((operation) =>
+    operations.flatMap((operation) =>
       operation.kind === "upsert" && operation.page.id
         ? [[operation.page.id, operation.page] as const]
         : [],
@@ -146,7 +166,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const conflicts: Array<{ id: string; revision: number }> = [];
   const translatePageIds = new Set<string>();
 
-  for (const operation of syncRequest.operations) {
+  for (const operation of operations) {
     const id = operation.kind === "archive" ? operation.id : operation.page.id;
     const current = id ? byId.get(id) : undefined;
     if (
@@ -193,10 +213,25 @@ export async function action({ request, context }: ActionFunctionArgs) {
     return Response.json({ error: "revision_conflict", conflicts }, { status: 409 });
 
   const statements: D1PreparedStatement[] = [];
+  if (agentsUpdate) {
+    statements.push(
+      env.DB.prepare(
+        "UPDATE wiki_agent_instructions SET content=?, content_hash=?, updated_by=?, updated_at=unixepoch() WHERE id=1 AND content_hash=?",
+      ).bind(
+        agentsUpdate.content,
+        agentsHash(agentsUpdate.content),
+        identity.user.id,
+        agentsUpdate.expectedContentHash,
+      ),
+      // D1 batches are atomic. A malformed JSON expression aborts the entire
+      // batch if a concurrent writer changed the row after the preflight.
+      env.DB.prepare("SELECT CASE WHEN changes() = 1 THEN 1 ELSE json_extract('') END"),
+    );
+  }
   const objectsToDelete: string[] = [];
   const returned: Array<{ id: string; slug: string; attachmentIds: Record<string, string> }> = [];
   const createdRequestIds = new Set<string>();
-  for (const operation of syncRequest.operations) {
+  for (const operation of operations) {
     if (operation.kind === "archive") {
       statements.push(
         env.DB.prepare(
@@ -398,13 +433,20 @@ export async function action({ request, context }: ActionFunctionArgs) {
   }
   let revisions: Array<{ id: string; revision: number }>;
   try {
-    const placeholders = returned.map(() => "?").join(",");
-    const revisionStatement = env.DB.prepare(
-      `SELECT id, sync_revision AS revision FROM pages WHERE id IN (${placeholders})`,
-    ).bind(...returned.map((page) => page.id));
-    const results = await env.DB.batch([...statements, revisionStatement]);
-    revisions = (results.at(-1)?.results ?? []) as Array<{ id: string; revision: number }>;
+    if (returned.length) {
+      const placeholders = returned.map(() => "?").join(",");
+      const revisionStatement = env.DB.prepare(
+        `SELECT id, sync_revision AS revision FROM pages WHERE id IN (${placeholders})`,
+      ).bind(...returned.map((page) => page.id));
+      const results = await env.DB.batch([...statements, revisionStatement]);
+      revisions = (results.at(-1)?.results ?? []) as Array<{ id: string; revision: number }>;
+    } else {
+      await env.DB.batch(statements);
+      revisions = [];
+    }
   } catch (error) {
+    if (error instanceof Error && error.message.includes("malformed JSON"))
+      return Response.json({ error: "agents_md_conflict" }, { status: 409 });
     return Response.json(
       { error: "sync_failed", message: error instanceof Error ? error.message : "database error" },
       { status: 400 },

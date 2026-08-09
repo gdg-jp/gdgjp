@@ -35,6 +35,8 @@ components:
   schemas:
     Snapshot:
       $ref: ./components/schemas/wiki.yaml#/Snapshot
+    AgentInstructions:
+      $ref: ./components/schemas/wiki.yaml#/AgentInstructions
     SyncRequest:
       $ref: ./components/schemas/wiki.yaml#/SyncRequest
     SyncResult:

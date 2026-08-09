@@ -78,7 +78,7 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 	raw := &cobra.Command{Use: "raw", Short: "Work with raw primary sources"}
 	raw.AddCommand(&cobra.Command{
 		Use:   "pull",
-		Short: "Download raw/** and AGENTS.md for the current clone",
+		Short: "Download raw/** for the current clone (AGENTS.md is synchronized by Git)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return service.rawPull(cmd)
@@ -202,7 +202,7 @@ func (s *wikiService) clone(cmd *cobra.Command, directory, remote, lang string) 
 	}
 	_, err = fmt.Fprintf(
 		cmd.OutOrStdout(),
-		"Cloned Wiki into %s (lang=%s; pages, raw sources, and AGENTS.md synchronized).\n",
+		"Cloned Wiki into %s (lang=%s; pages and AGENTS.md are Git-synchronized; raw sources downloaded).\n",
 		root,
 		lang,
 	)
@@ -334,7 +334,7 @@ func (s *wikiService) rawPull(cmd *cobra.Command) error {
 	if err = s.syncRaw(cmd.Context(), root); err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Updated raw/** and AGENTS.md in %s\n", root)
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Updated raw/** in %s (AGENTS.md is synchronized by Git)\n", root)
 	return err
 }
 

@@ -203,9 +203,15 @@ export interface components {
             /** @enum {integer} */
             version: 1;
             pages: components["schemas"]["SnapshotPage"][];
+            agentsMd: components["schemas"]["AgentInstructions"];
+        };
+        AgentInstructions: {
+            content: string;
+            contentHash: string;
         };
         SyncRequest: {
-            operations: (components["schemas"]["UpsertOperation"] | components["schemas"]["ArchiveOperation"])[];
+            operations?: (components["schemas"]["UpsertOperation"] | components["schemas"]["ArchiveOperation"])[];
+            agentsMd?: components["schemas"]["AgentInstructionsUpdate"];
         };
         SyncResult: {
             /** @enum {boolean} */
@@ -326,6 +332,7 @@ export interface components {
             attachments: components["schemas"]["Attachment"][];
         };
         Page: {
+            /** @description Client-stable ID for updates or for referencing a new page within the same atomic sync. */
             id?: string;
             slug: string;
             parentId: string | null;
@@ -369,6 +376,10 @@ export interface components {
             kind: "archive";
             id: string;
             expectedRevision: number;
+        };
+        AgentInstructionsUpdate: {
+            content: string;
+            expectedContentHash: string;
         };
         SyncResultPage: {
             id: string;

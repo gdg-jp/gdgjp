@@ -156,7 +156,7 @@ func TestPullRawPreservesLocallyEditedAgentsMD(t *testing.T) {
 	}
 }
 
-func TestPullRawUpdatesUnmodifiedAgentsMDAndTracksHash(t *testing.T) {
+func TestPullRawDoesNotModifyGitTrackedAgentsMD(t *testing.T) {
 	root := t.TempDir()
 	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
 		t.Fatal(err)
@@ -187,11 +187,11 @@ func TestPullRawUpdatesUnmodifiedAgentsMDAndTracksHash(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
-	if err != nil || string(got) != string(updated) {
+	if err != nil || string(got) != string(previous) {
 		t.Fatalf("AGENTS.md = %q, err = %v", got, err)
 	}
 	state, err := ReadState(root)
-	if err != nil || state.AgentsHash != digest(updated) {
+	if err != nil || state.AgentsHash != digest(previous) {
 		t.Fatalf("agents hash = %q, err = %v", state.AgentsHash, err)
 	}
 }

@@ -131,6 +131,18 @@ export const pages = sqliteTable("pages", {
   syncRevision: integer("sync_revision").notNull().default(1),
 });
 
+// Globally shared instructions materialized as AGENTS.md in every Wiki clone.
+// This is deliberately a one-row table: instructions are not page content.
+export const wikiAgentInstructions = sqliteTable("wiki_agent_instructions", {
+  id: integer("id").primaryKey(),
+  content: text("content").notNull(),
+  contentHash: text("content_hash").notNull(),
+  updatedBy: text("updated_by")
+    .notNull()
+    .references(() => user.id),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+});
+
 // ---------------------------------------------------------------------------
 // page_tags (junction)
 // ---------------------------------------------------------------------------

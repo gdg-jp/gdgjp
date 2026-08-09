@@ -336,8 +336,8 @@ func TestWikiCloneUsesGDGWikiRemote(t *testing.T) {
 	if raw, err = os.ReadFile(filepath.Join(target, "raw", "source", "document.md")); err != nil || string(raw) != string(rawContent) {
 		t.Fatalf("raw content = %q, err = %v", raw, err)
 	}
-	if raw, err = os.ReadFile(filepath.Join(target, "AGENTS.md")); err != nil || string(raw) != "agent instructions" {
-		t.Fatalf("AGENTS.md = %q, err = %v", raw, err)
+	if _, err = os.Stat(filepath.Join(target, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Fatalf("AGENTS.md should be supplied by the Git snapshot, err = %v", err)
 	}
 	got := make([]string, 0, len(calls))
 	for _, call := range calls {

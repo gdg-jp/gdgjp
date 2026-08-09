@@ -86,7 +86,7 @@ func WorkTreeRoot(gitDir string) (string, error) {
 }
 
 func CloneGitignore() string {
-	return "raw/\nAGENTS.md\nINGEST_QUEUE.md\n.gdgwiki/\n"
+	return "raw/\nINGEST_QUEUE.md\n.gdgwiki/\n"
 }
 
 func WriteCloneGitignore(root string) error {
