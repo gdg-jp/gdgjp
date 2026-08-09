@@ -12,14 +12,17 @@
     "@chat-adapter/gchat": "^4.37.0",
     "@chat-adapter/state-ioredis": "^4.37.0",
     "@gdgjp/gdg-lib": "workspace:*",
+    "ai": "^6.0.231",
     "chat": "^4.37.0",
     "ioredis": "^5.6.1",
     "next": "^15.5.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "zlib-sync": "^0.1.10"
+    "zlib-sync": "^0.1.10",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@ai-sdk/provider": "^3.0.14",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",

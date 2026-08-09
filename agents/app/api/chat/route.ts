@@ -1,4 +1,7 @@
+import { after } from "next/server";
+
 import { getAgentsChat } from "@/lib/adapters";
+import { registerAgentHandlers } from "@/lib/agent";
 import { getReplayStore } from "@/lib/redis";
 import { type ReplayStore, verifyWebhook } from "@/lib/verify";
 
@@ -58,8 +61,16 @@ export async function POST(request: Request): Promise<Response> {
   });
 
   const bot = getAgentsChat();
+  registerAgentHandlers(bot);
+
+  const webhookOptions = {
+    waitUntil: (task: Promise<unknown>) => {
+      after(() => task);
+    },
+  };
+
   if (result.platform === "discord") {
-    return bot.webhooks.discord(verifiedRequest);
+    return bot.webhooks.discord(verifiedRequest, webhookOptions);
   }
-  return bot.webhooks.gchat(verifiedRequest);
+  return bot.webhooks.gchat(verifiedRequest, webhookOptions);
 }

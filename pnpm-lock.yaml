@@ -166,6 +166,9 @@ importers:
       '@gdgjp/gdg-lib':
         specifier: workspace:*
         version: link:../gdg-lib
+      ai:
+        specifier: ^6.0.231
+        version: 6.0.231(zod@4.4.1)
       chat:
         specifier: ^4.37.0
         version: 4.37.0(ai@6.0.231(zod@4.4.1))(zod@4.4.1)
@@ -184,7 +187,13 @@ importers:
       zlib-sync:
         specifier: ^0.1.10
         version: 0.1.10
+      zod:
+        specifier: ^4.3.6
+        version: 4.4.1
     devDependencies:
+      '@ai-sdk/provider':
+        specifier: ^3.0.14
+        version: 3.0.14
       '@types/node':
         specifier: ^22.10.2
         version: 22.19.19
