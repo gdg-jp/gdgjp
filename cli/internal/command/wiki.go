@@ -98,6 +98,7 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 	}
 	ingest.Flags().BoolVar(&ingestCommit, "commit", false, "Mark the first queue item as ingested on the server")
 	ingest.Flags().StringVar(&ingestAgent, "agent", "", "Shell out to claude or codex with the ingest prompt")
+	ingest.MarkFlagsMutuallyExclusive("commit", "agent")
 	command.AddCommand(ingest)
 
 	command.AddCommand(&cobra.Command{
@@ -350,8 +351,30 @@ func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent string) erro
 	if err != nil {
 		return err
 	}
+	if commit {
+		status, statusErr := s.runGit(cmd.Context(), root, "status", "--porcelain", "--untracked-files=all")
+		if statusErr != nil {
+			return fmt.Errorf("check Wiki worktree: %w", statusErr)
+		}
+		if strings.TrimSpace(status) != "" {
+			return errors.New("cannot finalize Wiki ingest with uncommitted or untracked changes; commit and git push first")
+		}
+	}
 	if _, err = s.runGit(cmd.Context(), root, "pull", "--ff-only"); err != nil {
 		return fmt.Errorf("git pull: %w", err)
+	}
+	if commit {
+		head, headErr := s.runGit(cmd.Context(), root, "rev-parse", "HEAD")
+		if headErr != nil {
+			return fmt.Errorf("resolve Wiki HEAD: %w", headErr)
+		}
+		remote, remoteErr := s.runGit(cmd.Context(), root, "rev-parse", "refs/remotes/origin/main")
+		if remoteErr != nil {
+			return fmt.Errorf("resolve Wiki origin/main: %w", remoteErr)
+		}
+		if strings.TrimSpace(head) != strings.TrimSpace(remote) {
+			return errors.New("cannot finalize Wiki ingest before HEAD is synchronized with origin/main; commit and git push first")
+		}
 	}
 	client := s.newClient()
 	var pending []wiki.SourcesManifestEntry
@@ -390,6 +413,10 @@ func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent string) erro
 		return nil
 	})
 	if err != nil {
+		return err
+	}
+	if commit {
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Queue refreshed; %d pending item(s) remain. Start a new ingest task to process the next item.\n", len(pending))
 		return err
 	}
 	prompt := wiki.IngestPrompt(root, len(pending))

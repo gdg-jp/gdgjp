@@ -12,6 +12,15 @@ import (
 	"testing"
 )
 
+func TestIngestPromptRequiresFinalizationAfterPush(t *testing.T) {
+	prompt := IngestPrompt("/tmp/wiki", 1)
+	push := strings.Index(prompt, "commit and git push")
+	finalize := strings.Index(prompt, "gdg wiki ingest --commit")
+	if push < 0 || finalize < 0 || finalize < push {
+		t.Fatalf("prompt does not order push before finalization:\n%s", prompt)
+	}
+}
+
 func TestRawLocalPathStaysUnderRaw(t *testing.T) {
 	root := t.TempDir()
 	path, err := rawLocalPath(root, "raw/source-1/assets/photo.png")

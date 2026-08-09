@@ -152,7 +152,7 @@ Do not call an LLM.
 With `--agent claude|codex`, pass the prompt and shell out to the agent.
 
 **`gdg wiki ingest --commit`**
-Send ingested hashes to `POST /api/cli/wiki/sources/ingested` and update `.gdgwiki/state.json`. The server-side record prevents duplicate work by operators using different machines.
+This is the required finalization step after the agent has committed and pushed `pages/**`. It verifies the clone is clean and synchronized with the canonical snapshot, marks exactly the first queued source through `POST /api/cli/wiki/sources/ingested`, and rebuilds `INGEST_QUEUE.md` / `.gdgwiki/state.json`. The server-side record prevents duplicate work by operators using different machines. It must report `Marked … as ingested` and that the queue advanced; operators must never edit CLI-managed state manually to simulate completion.
 
 **`gdg wiki lint`**
 Print a lint prompt. The checklist is the Lint section of `AGENTS.md`, keeping that logic out of the CLI. It is intended to run weekly from a home-server cron job.
@@ -211,7 +211,7 @@ Protect new CLI APIs with the existing `getCliIdentity` and `getEffectivePagePer
 
 ### Completion criteria
 
-`gdg wiki clone --lang ja` → `gdg wiki raw pull` → `gdg wiki ingest` produces an un-ingested queue. After Claude Code processes it, `pages/**` and `index` / `log` update, `git push` succeeds, and the English version is populated through the translation queue.
+`gdg wiki clone --lang ja` → `gdg wiki raw pull` → `gdg wiki ingest` produces an un-ingested queue. After Claude Code processes it, `pages/**` and `index` / `log` update, the operator commits and pushes those changes, then runs `gdg wiki ingest --commit`. Finalization is complete only after the command confirms `Marked … as ingested` and the queue advances; the English version is populated through the translation queue.
 
 ### Commands
 
@@ -242,7 +242,7 @@ pnpm ci:quick
 3. `cd /tmp/wiki-test && gdg wiki raw pull` — downloads `raw/**` and `AGENTS.md`.
 4. `git status` is clean (`raw/` is ignored).
 5. `gdg wiki ingest` — un-ingested documents appear in `INGEST_QUEUE.md`.
-6. Process the first item with Claude Code → `git push` succeeds.
+6. Process the first item with Claude Code → commit and `git push` succeed.
 7. The Wiki app fills the affected page's English version after a few dozen seconds.
 8. Removing `raw/` from `.gitignore` then running `git add raw/ && git push` is rejected with `only pages/** may be pushed`.
-9. After `gdg wiki ingest --commit`, running `gdg wiki ingest` again reduces the queue.
+9. Run `gdg wiki ingest --commit` only after the push. Confirm it reports `Marked … as ingested` and that the queue advanced; then running `gdg wiki ingest` again reduces the queue.

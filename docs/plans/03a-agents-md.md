@@ -37,6 +37,7 @@ Directory nesting directly represents parent-child page relationships. A directo
 - Do not remove `raw/` from `.gitignore`. The server rejects pushes of anything outside `pages/**`, which would break synchronization.
 - Do not rewrite the front matter `id`. It is an identifier assigned by the server.
 - Do not create files outside `pages/` (do not leave processing traces in `INGEST_QUEUE.md`, either).
+- Do not manually edit `INGEST_QUEUE.md`, `.gdgwiki/**`, or any other CLI-managed state. Only `gdg wiki ingest` and `gdg wiki ingest --commit` may update that state.
 
 ## Page types and placement
 
@@ -100,6 +101,9 @@ You may touch at most 15 pages per source. If it exceeds that limit, split the s
 5. When creating a page, add one line to `index`.
 6. Append one line to `log`.
 7. Commit the changes and run `git push`.
+8. After the push succeeds, run `gdg wiki ingest --commit` to mark the first queued source as ingested.
+
+An ingest is complete only when `gdg wiki ingest --commit` reports `Marked … as ingested` and the queue advances. If finalization fails, fix the reported Git or synchronization problem and rerun the command; never edit `INGEST_QUEUE.md` or `.gdgwiki` to simulate completion.
 
 ### Updating existing pages
 

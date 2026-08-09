@@ -66,6 +66,161 @@ func executeWiki(t *testing.T, service *wikiService, args ...string) (string, er
 	return output.String(), err
 }
 
+func chdirForWikiTest(t *testing.T, root string) {
+	t.Helper()
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(previous); err != nil {
+			t.Errorf("restore working directory: %v", err)
+		}
+	})
+}
+
+func setupWikiIngestRoot(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	if err := wiki.WriteConfig(root, wiki.CloneConfig{Lang: "ja"}); err != nil {
+		t.Fatal(err)
+	}
+	chdirForWikiTest(t, root)
+	return root
+}
+
+func TestWikiIngestRejectsCommitWithAgent(t *testing.T) {
+	service := testWikiService(func(context.Context, string, ...string) (string, error) {
+		t.Fatal("git should not run for mutually exclusive flags")
+		return "", nil
+	})
+	if _, err := executeWiki(t, service, "ingest", "--commit", "--agent", "codex"); err == nil || !strings.Contains(err.Error(), "[commit agent]") {
+		t.Fatalf("error = %v, want mutually exclusive flags", err)
+	}
+}
+
+func TestWikiIngestCommitRejectsDirtyWorktree(t *testing.T) {
+	setupWikiIngestRoot(t)
+	for _, status := range []string{" M pages/index/page.md\n", "?? pages/new/page.md\n"} {
+		t.Run(strings.TrimSpace(status), func(t *testing.T) {
+			service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
+				if strings.Join(args, " ") != "status --porcelain --untracked-files=all" {
+					t.Fatalf("unexpected git call: %s", strings.Join(args, " "))
+				}
+				return status, nil
+			})
+			if _, err := executeWiki(t, service, "ingest", "--commit"); err == nil || !strings.Contains(err.Error(), "uncommitted or untracked") {
+				t.Fatalf("error = %v, want dirty worktree rejection", err)
+			}
+		})
+	}
+}
+
+func TestWikiIngestCommitRejectsUnpushedHead(t *testing.T) {
+	setupWikiIngestRoot(t)
+	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
+		switch strings.Join(args, " ") {
+		case "status --porcelain --untracked-files=all", "pull --ff-only":
+			return "", nil
+		case "rev-parse HEAD":
+			return "local\n", nil
+		case "rev-parse refs/remotes/origin/main":
+			return "remote\n", nil
+		default:
+			t.Fatalf("unexpected git call: %s", strings.Join(args, " "))
+			return "", nil
+		}
+	})
+	if _, err := executeWiki(t, service, "ingest", "--commit"); err == nil || !strings.Contains(err.Error(), "synchronized with origin/main") {
+		t.Fatalf("error = %v, want unpushed HEAD rejection", err)
+	}
+}
+
+func TestWikiIngestCommitMarksOnlyFirstAndStops(t *testing.T) {
+	root := setupWikiIngestRoot(t)
+	firstContent := []byte("first")
+	secondContent := []byte("second")
+	manifest := wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{
+		{DocumentID: "doc-1", Kind: "wiki-human", Title: "First", Path: "raw/wiki-human/first.md", ContentHash: fmt.Sprintf("%x", sha256.Sum256(firstContent))},
+		{DocumentID: "doc-2", Kind: "wiki-human", Title: "Second", Path: "raw/wiki-human/second.md", ContentHash: fmt.Sprintf("%x", sha256.Sum256(secondContent))},
+	}}
+	marked := make([]string, 0, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/cli/wiki/sources":
+			_ = json.NewEncoder(w).Encode(manifest)
+		case "/api/cli/wiki/sources/doc-1/content":
+			_, _ = w.Write(firstContent)
+		case "/api/cli/wiki/sources/doc-2/content":
+			_, _ = w.Write(secondContent)
+		case "/api/cli/wiki/agents-md":
+			_, _ = io.WriteString(w, "agent instructions")
+		case "/api/cli/wiki/sources/ingested":
+			var body struct {
+				Documents []struct {
+					DocumentID string `json:"documentId"`
+				} `json:"documents"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Errorf("decode mark request: %v", err)
+			}
+			for _, doc := range body.Documents {
+				marked = append(marked, doc.DocumentID)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	agentRan := false
+	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
+		switch strings.Join(args, " ") {
+		case "status --porcelain --untracked-files=all", "pull --ff-only":
+			return "", nil
+		case "rev-parse HEAD", "rev-parse refs/remotes/origin/main":
+			return "synced\n", nil
+		default:
+			t.Fatalf("unexpected git call: %s", strings.Join(args, " "))
+			return "", nil
+		}
+	})
+	service.newClient = func() *wiki.Client {
+		client := wiki.NewClientAt(server.URL)
+		client.HTTPClient = server.Client()
+		return client
+	}
+	service.runAgent = func(context.Context, string, string) error {
+		agentRan = true
+		return nil
+	}
+
+	output, err := executeWiki(t, service, "ingest", "--commit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(marked, ",") != "doc-1" {
+		t.Fatalf("marked documents = %v, want only doc-1", marked)
+	}
+	if agentRan || strings.Contains(output, "process ONLY") {
+		t.Fatalf("finalization started the next ingest: agentRan=%v output=%q", agentRan, output)
+	}
+	if !strings.Contains(output, "Marked doc-1 as ingested") || !strings.Contains(output, "1 pending item(s) remain") {
+		t.Fatalf("unexpected output: %q", output)
+	}
+	queue, err := os.ReadFile(filepath.Join(root, "INGEST_QUEUE.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(queue), "doc-1") || !strings.Contains(string(queue), "doc-2") {
+		t.Fatalf("queue was not advanced: %s", queue)
+	}
+}
+
 func clearGitLocalEnvironment(t *testing.T) {
 	t.Helper()
 	for _, name := range []string{
