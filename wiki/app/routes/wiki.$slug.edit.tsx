@@ -60,8 +60,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       contentEn: schema.pages.contentEn,
       visibility: schema.pages.visibility,
       generalRole: schema.pages.generalRole,
-      organizerRole: schema.pages.organizerRole,
-      memberRole: schema.pages.memberRole,
       chapterId: schema.pages.chapterId,
       authorId: schema.pages.authorId,
       origin: schema.pages.origin,
