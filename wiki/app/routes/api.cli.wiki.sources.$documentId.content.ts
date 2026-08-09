@@ -36,7 +36,12 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     if (!page || page.origin !== "human" || page.status !== "published") {
       return Response.json({ error: "not_found" }, { status: 404 });
     }
-    const permissions = await getEffectivePagePermissions(db, page, identity.user, chapterIds);
+    const permissions = await getEffectivePagePermissions(
+      db,
+      page,
+      identity.user,
+      identity.chapters,
+    );
     if (!permissions.canView) return Response.json({ error: "forbidden" }, { status: 403 });
 
     const [tags, access, sources, attachments, parent] = await Promise.all([

@@ -55,20 +55,25 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         authorId: schema.pages.authorId,
         visibility: schema.pages.visibility,
         generalRole: schema.pages.generalRole,
+        organizerRole: schema.pages.organizerRole,
+        memberRole: schema.pages.memberRole,
       })
       .from(schema.pages)
       .where(eq(schema.pages.id, pageId))
       .get();
     if (!page) return new Response("Not Found", { status: 404 });
 
-    let chapterIds: number[] = [];
+    let chapters: Array<{ chapterId: string; role: string }> = [];
     try {
       const claims = await createAuth(env).getFreshClaims(request);
-      chapterIds = claims.chapters.map((chapter) => chapter.chapterId);
+      chapters = claims.chapters.map((chapter) => ({
+        chapterId: String(chapter.chapterId),
+        role: chapter.role,
+      }));
     } catch {
       // Chapter-derived sharing is fail-closed while direct email grants continue working.
     }
-    const permissions = await getEffectivePagePermissions(db, page, user, chapterIds);
+    const permissions = await getEffectivePagePermissions(db, page, user, chapters);
     if (!permissions.canManageSharing) return new Response("Forbidden", { status: 403 });
   }
 

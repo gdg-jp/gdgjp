@@ -62,6 +62,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       status: schema.pages.status,
       visibility: schema.pages.visibility,
       generalRole: schema.pages.generalRole,
+      organizerRole: schema.pages.organizerRole,
+      memberRole: schema.pages.memberRole,
       chapterId: schema.pages.chapterId,
       authorId: schema.pages.authorId,
       contentJa: schema.pages.contentJa,
@@ -75,7 +77,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     throw new Response("Not Found", { status: 404 });
   }
 
-  const permissions = await getEffectivePagePermissions(db, page, sessionUser, identity.chapterIds);
+  const permissions = await getEffectivePagePermissions(db, page, sessionUser, identity.chapters);
   if (!permissions.canView) {
     throw new Response("Not Found", { status: 404 });
   }
@@ -190,7 +192,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   if (!page || page.status !== "published") throw new Response("Not Found", { status: 404 });
 
-  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapters);
   if (!permissions.canEdit) {
     throw new Response("Forbidden", { status: 403 });
   }

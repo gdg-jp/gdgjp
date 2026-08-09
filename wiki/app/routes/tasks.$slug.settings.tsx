@@ -36,7 +36,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
 
   if (!page) throw new Response("Not found", { status: 404 });
 
-  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapters);
   if (!permissions.canEdit) throw new Response("Forbidden", { status: 403 });
 
   const teams = await db
@@ -70,7 +70,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
 
   if (!page) throw new Response("Not found", { status: 404 });
 
-  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapters);
   if (!permissions.canEdit) throw new Response("Forbidden", { status: 403 });
 
   const formData = await request.formData();

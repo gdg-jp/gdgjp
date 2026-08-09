@@ -27,18 +27,26 @@ type PageRecord = {
   authorId: string;
   visibility: string;
   generalRole: string;
+  organizerRole: string | null;
+  memberRole: string | null;
 };
 
 async function getChapterIds(
   request: Request,
   env: Env,
-): Promise<{ ids: number[]; unavailable: boolean }> {
+): Promise<{ chapters: Array<{ chapterId: string; role: string }>; unavailable: boolean }> {
   try {
     const claims = await createAuth(env).getFreshClaims(request);
-    return { ids: claims.chapters.map((chapter) => chapter.chapterId), unavailable: false };
+    return {
+      chapters: claims.chapters.map((chapter) => ({
+        chapterId: String(chapter.chapterId),
+        role: chapter.role,
+      })),
+      unavailable: false,
+    };
   } catch {
     // A stale/failed IdP lookup must never accidentally retain Chapter access.
-    return { ids: [], unavailable: true };
+    return { chapters: [], unavailable: true };
   }
 }
 
@@ -53,6 +61,8 @@ async function loadPage(db: ReturnType<typeof getDb>, pageId: string): Promise<P
         authorId: schema.pages.authorId,
         visibility: schema.pages.visibility,
         generalRole: schema.pages.generalRole,
+        organizerRole: schema.pages.organizerRole,
+        memberRole: schema.pages.memberRole,
       })
       .from(schema.pages)
       .where(eq(schema.pages.id, pageId))
@@ -102,7 +112,7 @@ async function requireSharingPermissions(
   user: Awaited<ReturnType<typeof requireUser>>,
 ) {
   const claims = await getChapterIds(request, env);
-  const permissions = await getEffectivePagePermissions(db, page, user, claims.ids);
+  const permissions = await getEffectivePagePermissions(db, page, user, claims.chapters);
   return { permissions, claimsUnavailable: claims.unavailable };
 }
 
@@ -155,6 +165,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     generalAccess: page.visibility as GeneralAccess,
     visibility: page.visibility as GeneralAccess,
     generalRole: page.generalRole as PageRole,
+    organizerRole: page.organizerRole as PageRole | null,
+    memberRole: page.memberRole as PageRole | null,
     claimsUnavailable,
   });
 }
@@ -341,6 +353,23 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       .set({
         visibility,
         generalRole: nextGeneralRole,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.pages.id, pageId));
+    await invalidateCollaborationBestEffort(env, page.slug);
+    return Response.json({ ok: true });
+  }
+
+  if (intent === "setRoleGeneralAccess") {
+    const subject = body.subject;
+    const role = body.role;
+    if ((subject !== "organizer" && subject !== "member") || !isPageRole(role)) {
+      return Response.json({ error: "invalid_params" }, { status: 400 });
+    }
+    await db
+      .update(schema.pages)
+      .set({
+        ...(subject === "organizer" ? { organizerRole: role } : { memberRole: role }),
         updatedAt: new Date(),
       })
       .where(eq(schema.pages.id, pageId));

@@ -134,7 +134,12 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
   for (const page of pages) {
     if (page.status !== "published") continue;
-    const permissions = await getEffectivePagePermissions(db, page, identity.user, chapterIds);
+    const permissions = await getEffectivePagePermissions(
+      db,
+      page,
+      identity.user,
+      identity.chapters,
+    );
     if (!permissions.canView) continue;
 
     const pageTags = tags.filter((row) => row.pageId === page.id).map((row) => row.tagSlug);

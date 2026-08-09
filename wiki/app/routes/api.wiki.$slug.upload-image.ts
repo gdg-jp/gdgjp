@@ -26,6 +26,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       authorId: schema.pages.authorId,
       visibility: schema.pages.visibility,
       generalRole: schema.pages.generalRole,
+      organizerRole: schema.pages.organizerRole,
+      memberRole: schema.pages.memberRole,
     })
     .from(schema.pages)
     .where(eq(schema.pages.slug, slug))
@@ -39,7 +41,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     return new Response("Not Found", { status: 404 });
   }
 
-  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapters);
   if (!permissions.canEdit) {
     return new Response("Forbidden", { status: 403 });
   }

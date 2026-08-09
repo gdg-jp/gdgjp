@@ -36,7 +36,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const { user } = identity;
   const db = getDb(env);
 
-  const visFilter = buildVisibilityFilter(user, identity.chapterIds);
+  const visFilter = buildVisibilityFilter(user, identity.chapters);
   const treeRows = await db
     .select({
       id: schema.pages.id,

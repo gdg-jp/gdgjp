@@ -42,7 +42,12 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   for (const page of pages) {
     if (page.status === "archived" || page.pageType === "task-list" || page.origin !== "agent")
       continue;
-    const permissions = await getEffectivePagePermissions(db, page, identity.user, chapterIds);
+    const permissions = await getEffectivePagePermissions(
+      db,
+      page,
+      identity.user,
+      identity.chapters,
+    );
     if (!permissions.canView) continue;
     visible.push({
       id: page.id,

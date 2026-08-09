@@ -34,6 +34,10 @@ export async function resolveAgentWorkspace(
     email: identity.user.email,
     isAdmin: identity.user.isAdmin,
     chapterIds: identity.chapters.map((c) => String(c.chapterId)),
+    chapters: identity.chapters.map((chapter) => ({
+      chapterId: String(chapter.chapterId),
+      role: chapter.role,
+    })),
   };
   const store = createD1WikiWorkspaceStore(getDb(env), actor);
   const workspace = createMountedWorkspace({ wiki: new WikiWorkspaceAdapter(store) });

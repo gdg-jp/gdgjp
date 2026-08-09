@@ -24,13 +24,15 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
       authorId: schema.pages.authorId,
       visibility: schema.pages.visibility,
       generalRole: schema.pages.generalRole,
+      organizerRole: schema.pages.organizerRole,
+      memberRole: schema.pages.memberRole,
     })
     .from(schema.pages)
     .where(eq(schema.pages.id, taskListId))
     .get();
 
   if (!page) return Response.json({ error: "Task list not found" }, { status: 404 });
-  if (!(await getEffectivePagePermissions(db, page, user, identity.chapterIds)).canEdit) {
+  if (!(await getEffectivePagePermissions(db, page, user, identity.chapters)).canEdit) {
     return new Response("Forbidden", { status: 403 });
   }
 

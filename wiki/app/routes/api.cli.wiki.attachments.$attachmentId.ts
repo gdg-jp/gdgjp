@@ -38,7 +38,7 @@ async function permitted(request: Request, env: Env, attachmentId: string, write
     db,
     attachment.page,
     identity.user,
-    identity.chapters.map((x) => String(x.chapterId)),
+    identity.chapters,
   );
   if (write ? !permissions.canEdit : !permissions.canView)
     return { error: new Response(null, { status: 403 }) };
