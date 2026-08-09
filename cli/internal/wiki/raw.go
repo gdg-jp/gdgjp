@@ -95,6 +95,35 @@ func removeStaleRawFiles(root string, expected map[string]struct{}) error {
 	return err
 }
 
+func syncAgentsMD(root string, agents []byte) error {
+	state, err := ReadState(root)
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(root, "AGENTS.md")
+	current, readErr := os.ReadFile(path)
+	serverHash := digest(agents)
+	if readErr == nil {
+		currentHash := digest(current)
+		switch {
+		case currentHash == serverHash:
+			state.AgentsHash = serverHash
+			return WriteState(root, state)
+		case state.AgentsHash == "" || currentHash != state.AgentsHash:
+			// The clone predates AGENTS.md hash tracking or has local edits.
+			// Preserve it until it matches the canonical server copy again.
+			return nil
+		}
+	} else if !os.IsNotExist(readErr) {
+		return readErr
+	}
+	if err = os.WriteFile(path, agents, 0o644); err != nil {
+		return err
+	}
+	state.AgentsHash = serverHash
+	return WriteState(root, state)
+}
+
 // PullRaw synchronizes raw/** and AGENTS.md from the Wiki API.
 // Files whose local sha256 matches the manifest are skipped. The returned
 // manifest is the exact snapshot used for local reconciliation.
@@ -148,7 +177,7 @@ func PullRaw(ctx context.Context, root string, client *Client, token string) (So
 	if err != nil {
 		return SourcesManifest{}, err
 	}
-	if err = os.WriteFile(filepath.Join(root, "AGENTS.md"), agents, 0o644); err != nil {
+	if err = syncAgentsMD(root, agents); err != nil {
 		return SourcesManifest{}, err
 	}
 	return manifest, nil

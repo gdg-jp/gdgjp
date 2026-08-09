@@ -124,6 +124,78 @@ func TestPullRawReconcilesManifestUsingCloneLanguage(t *testing.T) {
 	}
 }
 
+func TestPullRawPreservesLocallyEditedAgentsMD(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
+		t.Fatal(err)
+	}
+	local := []byte("locally maintained instructions")
+	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), local, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/cli/wiki/sources":
+			_ = json.NewEncoder(w).Encode(SourcesManifest{Version: 1})
+		case "/api/cli/wiki/agents-md":
+			_, _ = io.WriteString(w, "older server instructions")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client := NewClientAt(server.URL)
+	client.HTTPClient = server.Client()
+
+	if _, err := PullRaw(context.Background(), root, client, "token"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
+	if err != nil || string(got) != string(local) {
+		t.Fatalf("AGENTS.md = %q, err = %v", got, err)
+	}
+}
+
+func TestPullRawUpdatesUnmodifiedAgentsMDAndTracksHash(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
+		t.Fatal(err)
+	}
+	previous := []byte("previous server instructions")
+	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), previous, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteState(root, State{Ingested: map[string]string{}, AgentsHash: digest(previous)}); err != nil {
+		t.Fatal(err)
+	}
+	updated := []byte("updated server instructions")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/cli/wiki/sources":
+			_ = json.NewEncoder(w).Encode(SourcesManifest{Version: 1})
+		case "/api/cli/wiki/agents-md":
+			_, _ = w.Write(updated)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client := NewClientAt(server.URL)
+	client.HTTPClient = server.Client()
+
+	if _, err := PullRaw(context.Background(), root, client, "token"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
+	if err != nil || string(got) != string(updated) {
+		t.Fatalf("AGENTS.md = %q, err = %v", got, err)
+	}
+	state, err := ReadState(root)
+	if err != nil || state.AgentsHash != digest(updated) {
+		t.Fatalf("agents hash = %q, err = %v", state.AgentsHash, err)
+	}
+}
+
 func TestPullRawValidatesAllManifestPathsBeforeMutation(t *testing.T) {
 	root := t.TempDir()
 	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
