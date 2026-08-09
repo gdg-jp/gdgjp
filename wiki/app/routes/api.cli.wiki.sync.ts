@@ -180,7 +180,12 @@ export async function action({ request, context }: ActionFunctionArgs) {
       if (originError) return Response.json({ error: originError, id }, { status: 403 });
       if (current.pageType === "task-list")
         return Response.json({ error: "task_list_unsupported", id }, { status: 400 });
-      const permission = await getEffectivePagePermissions(db, current, identity.user, chapterIds);
+      const permission = await getEffectivePagePermissions(
+        db,
+        current,
+        identity.user,
+        identity.chapters,
+      );
       if (!permission.canEdit) return Response.json({ error: "forbidden", id }, { status: 403 });
       const expected = operation.expectedRevision;
       if (expected !== current.syncRevision)
@@ -275,7 +280,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
           db,
           storedParent,
           identity.user,
-          chapterIds,
+          identity.chapters,
         );
         if (!parentPermissions.canEdit)
           return Response.json({ error: "parent_forbidden", id: page.parentId }, { status: 403 });

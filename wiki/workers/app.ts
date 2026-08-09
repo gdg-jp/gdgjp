@@ -75,20 +75,23 @@ export default {
           authorId: schema.pages.authorId,
           visibility: schema.pages.visibility,
           generalRole: schema.pages.generalRole,
+          organizerRole: schema.pages.organizerRole,
+          memberRole: schema.pages.memberRole,
         })
         .from(schema.pages)
         .where(eq(schema.pages.slug, slug))
         .get();
       if (!page) return new Response("Not Found", { status: 404 });
-      let chapterIds: number[] = [];
+      let chapters: Array<{ chapterId: string; role: string }> = [];
       try {
-        chapterIds = (await auth.getFreshClaims(request)).chapters.map(
-          (chapter) => chapter.chapterId,
-        );
+        chapters = (await auth.getFreshClaims(request)).chapters.map((chapter) => ({
+          chapterId: String(chapter.chapterId),
+          role: chapter.role,
+        }));
       } catch {
         // Chapter-derived access fails closed; email/general grants still work.
       }
-      const permissions = await getEffectivePagePermissions(db, page, user, chapterIds);
+      const permissions = await getEffectivePagePermissions(db, page, user, chapters);
       if (!permissions.canEdit) return new Response("Forbidden", { status: 403 });
       const doId = env.COLLAB_DO.idFromName(slug);
       return env.COLLAB_DO.get(doId).fetch(request);

@@ -23,6 +23,7 @@ export type WorkspaceActor = {
   email?: string | null;
   isAdmin: boolean;
   chapterIds: readonly string[];
+  chapters?: ReadonlyArray<{ chapterId: string; role: string }>;
 };
 
 export type WikiWorkspacePage = {

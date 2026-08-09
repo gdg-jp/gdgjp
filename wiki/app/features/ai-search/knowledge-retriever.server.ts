@@ -69,6 +69,8 @@ type PageMetadata = {
   parentId: string | null;
   visibility: string;
   generalRole: string;
+  organizerRole: string | null;
+  memberRole: string | null;
   authorId: string;
 };
 
@@ -135,7 +137,10 @@ function toUser(access: AccessContext) {
 async function isAuthorized(
   db: Db,
   access: AccessContext,
-  page: Pick<PageMetadata, "id" | "visibility" | "generalRole" | "authorId">,
+  page: Pick<
+    PageMetadata,
+    "id" | "visibility" | "generalRole" | "organizerRole" | "memberRole" | "authorId"
+  >,
 ): Promise<boolean> {
   // Missing live claims must never turn into chapter access. Email/owner/admin
   // grants remain independently verifiable in D1.
@@ -143,7 +148,7 @@ async function isAuthorized(
     db as unknown as Parameters<typeof canUserSeePageAsync>[0],
     toUser(access),
     page,
-    access.claimsAvailable ? access.chapterIds : [],
+    access.claimsAvailable ? (access.chapters ?? access.chapterIds) : [],
   );
 }
 
@@ -259,6 +264,8 @@ async function resolveAncestorTitles(
         slug: schema.pages.slug,
         visibility: schema.pages.visibility,
         generalRole: schema.pages.generalRole,
+        organizerRole: schema.pages.organizerRole,
+        memberRole: schema.pages.memberRole,
         authorId: schema.pages.authorId,
       })
       .from(schema.pages)
@@ -309,6 +316,8 @@ export class HybridKnowledgeRetriever implements KnowledgeRetriever {
         parentId: schema.pages.parentId,
         visibility: schema.pages.visibility,
         generalRole: schema.pages.generalRole,
+        organizerRole: schema.pages.organizerRole,
+        memberRole: schema.pages.memberRole,
         authorId: schema.pages.authorId,
       })
       .from(schema.pages)
@@ -340,6 +349,8 @@ export class HybridKnowledgeRetriever implements KnowledgeRetriever {
         parentId: schema.pages.parentId,
         visibility: schema.pages.visibility,
         generalRole: schema.pages.generalRole,
+        organizerRole: schema.pages.organizerRole,
+        memberRole: schema.pages.memberRole,
         authorId: schema.pages.authorId,
         contentJa: schema.pages.contentJa,
         contentEn: schema.pages.contentEn,

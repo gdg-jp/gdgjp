@@ -69,7 +69,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
 
   if (!page) throw new Response("Not found", { status: 404 });
 
-  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapters);
   if (!permissions.canView) {
     if (!identity.claimsAvailable && page.visibility === "restricted") {
       throw new Response("Access service temporarily unavailable", { status: 503 });
@@ -185,7 +185,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
   const intent = formData.get("intent") as string;
 
   if (intent === "toggleFavorite") {
-    const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+    const permissions = await getEffectivePagePermissions(db, page, user, identity.chapters);
     if (!permissions.canView) throw new Response("Forbidden", { status: 403 });
 
     const existing = await db
@@ -215,7 +215,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     return redirect("/");
   }
 
-  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapters);
   const canManage = permissions.canEdit;
 
   if (!canManage) throw new Response("Forbidden", { status: 403 });

@@ -41,7 +41,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const identity = await getAccessIdentity(request, env);
   const { user } = identity;
   const db = getDb(env);
-  const visFilter = buildVisibilityFilter(user, identity.chapterIds);
+  const visFilter = buildVisibilityFilter(user, identity.chapters);
 
   if (!user) {
     const publicPages = await db

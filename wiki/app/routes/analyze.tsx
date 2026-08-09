@@ -61,6 +61,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
         email: user.email,
         isAdmin: user.isAdmin,
         chapterIds: identity.user?.id === user.id ? identity.chapterIds : [],
+        chapters: identity.user?.id === user.id ? identity.chapters : [],
         claimsAvailable: identity.user?.id === user.id && identity.claimsAvailable,
         source: "web",
       }),

@@ -7,6 +7,7 @@ export type { AuthUser };
 export interface AccessIdentity {
   user: AuthUser | null;
   chapterIds: string[];
+  chapters: Array<{ chapterId: string; role: string }>;
   claimsAvailable: boolean;
 }
 
@@ -25,18 +26,22 @@ export function getSessionUser(request: Request, env: Env): Promise<AuthUser | n
 export async function getAccessIdentity(request: Request, env: Env): Promise<AccessIdentity> {
   const auth = createAuth(env);
   const user = await auth.getSessionUser(request);
-  if (!user) return { user: null, chapterIds: [], claimsAvailable: true };
+  if (!user) return { user: null, chapterIds: [], chapters: [], claimsAvailable: true };
 
   try {
     const claims = await auth.getFreshClaims(request);
     return {
       user,
       chapterIds: claims.chapters.map((chapter) => String(chapter.chapterId)),
+      chapters: claims.chapters.map((chapter) => ({
+        chapterId: String(chapter.chapterId),
+        role: chapter.role,
+      })),
       claimsAvailable: true,
     };
   } catch (error) {
     console.error("[access] unable to refresh chapter claims", error);
-    return { user, chapterIds: [], claimsAvailable: false };
+    return { user, chapterIds: [], chapters: [], claimsAvailable: false };
   }
 }
 

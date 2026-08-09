@@ -20,7 +20,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
-  const visFilter = buildVisibilityFilter(user, identity.chapterIds);
+  const visFilter = buildVisibilityFilter(user, identity.chapters);
 
   const [recentUpdated, recentViewed] = await Promise.all([
     db

@@ -24,12 +24,14 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
       authorId: schema.pages.authorId,
       visibility: schema.pages.visibility,
       generalRole: schema.pages.generalRole,
+      organizerRole: schema.pages.organizerRole,
+      memberRole: schema.pages.memberRole,
     })
     .from(schema.pages)
     .where(eq(schema.pages.id, taskListId))
     .get();
   if (!page) return Response.json({ error: "Task list not found" }, { status: 404 });
-  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapters);
   if (!permissions.canView) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const teams = await db
@@ -68,7 +70,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
 
   if (!listPage) return Response.json({ error: "Task list not found" }, { status: 404 });
 
-  const canManage = (await getEffectivePagePermissions(db, listPage, user, identity.chapterIds))
+  const canManage = (await getEffectivePagePermissions(db, listPage, user, identity.chapters))
     .canEdit;
 
   if (!canManage) return Response.json({ error: "Forbidden" }, { status: 403 });

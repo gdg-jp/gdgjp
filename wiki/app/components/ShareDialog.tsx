@@ -61,6 +61,8 @@ interface AccessData {
   permissions?: { canManageSharing?: boolean };
   generalAccess?: GeneralAccess;
   generalRole?: PageRole;
+  organizerRole?: PageRole | null;
+  memberRole?: PageRole | null;
   visibility?: GeneralAccess;
 }
 
@@ -365,6 +367,8 @@ export default function ShareDialog({
   const [warning, setWarning] = useState<string | null>(null);
   const [localAccess, setLocalAccess] = useState<GeneralAccess>(currentVisibility as GeneralAccess);
   const [localGeneralRole, setLocalGeneralRole] = useState<PageRole>("viewer");
+  const [localOrganizerRole, setLocalOrganizerRole] = useState<PageRole | null>(null);
+  const [localMemberRole, setLocalMemberRole] = useState<PageRole | null>(null);
   const searchInputHeight = useHeightTransition();
 
   const responseCanManage =
@@ -427,6 +431,8 @@ export default function ShareDialog({
       accessFetcher.data.generalAccess ?? accessFetcher.data.visibility ?? "restricted",
     );
     setLocalGeneralRole(accessFetcher.data.generalRole ?? "viewer");
+    setLocalOrganizerRole(accessFetcher.data.organizerRole ?? null);
+    setLocalMemberRole(accessFetcher.data.memberRole ?? null);
   }, [accessFetcher.data]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: fetcher functions are stable
@@ -553,6 +559,12 @@ export default function ShareDialog({
       visibility: generalAccess,
       generalRole,
     });
+  }
+
+  function setRoleGeneralAccess(subject: "organizer" | "member", role: PageRole) {
+    if (subject === "organizer") setLocalOrganizerRole(role);
+    else setLocalMemberRole(role);
+    submitMutation({ intent: "setRoleGeneralAccess", subject, role });
   }
 
   async function copyLink() {
@@ -1011,6 +1023,39 @@ export default function ShareDialog({
                           </Select>
                         </div>
                       )}
+                    </div>
+                    <div className="mt-3 space-y-2 border-t pt-3">
+                      {(
+                        [
+                          ["organizer", localOrganizerRole],
+                          ["member", localMemberRole],
+                        ] as const
+                      ).map(([subject, role]) => (
+                        <div key={subject} className="flex items-center justify-between gap-3">
+                          <span className="text-sm">{t(`wiki.share_general_${subject}`)}</span>
+                          <Select
+                            value={role ?? undefined}
+                            disabled={isMutating}
+                            onValueChange={(value) =>
+                              setRoleGeneralAccess(subject, value as PageRole)
+                            }
+                          >
+                            <SelectTrigger
+                              aria-label={t(`wiki.share_general_${subject}`)}
+                              className="h-9 w-40 rounded-lg border-0 bg-transparent shadow-none hover:bg-accent"
+                            >
+                              <SelectValue placeholder={t("wiki.share_role_none")} />
+                            </SelectTrigger>
+                            <SelectContent position="popper" align="end">
+                              {ROLES.map((item) => (
+                                <SelectItem key={item} value={item}>
+                                  {t(`wiki.share_role_${item}`)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
                     </div>
                   </section>
                 )}

@@ -23,17 +23,14 @@ export async function action({ request, context }: ActionFunctionArgs) {
         authorId: schema.pages.authorId,
         visibility: schema.pages.visibility,
         generalRole: schema.pages.generalRole,
+        organizerRole: schema.pages.organizerRole,
+        memberRole: schema.pages.memberRole,
       })
       .from(schema.pages)
       .where(eq(schema.pages.id, pageId))
       .get();
     if (!page) throw new Response("Not Found", { status: 404 });
-    const permissions = await getEffectivePagePermissions(
-      db,
-      page,
-      sessionUser,
-      identity.chapterIds,
-    );
+    const permissions = await getEffectivePagePermissions(db, page, sessionUser, identity.chapters);
     if (!permissions.canComment) throw new Response("Forbidden", { status: 403 });
   }
 

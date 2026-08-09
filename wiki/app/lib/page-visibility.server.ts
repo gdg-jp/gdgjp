@@ -2,7 +2,7 @@ import { type SQL, and, eq, ne, or, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import type * as schema from "~/db/schema";
 import { pages } from "~/db/schema";
-import { getEffectivePagePermissions } from "./page-access.server";
+import { type ChapterMembership, getEffectivePagePermissions } from "./page-access.server";
 
 type UserLike = {
   id: string;
@@ -14,6 +14,8 @@ export type PageLike = {
   id?: string;
   visibility: string;
   generalRole?: string | null;
+  organizerRole?: string | null;
+  memberRole?: string | null;
   authorId: string;
 };
 
@@ -30,10 +32,10 @@ export async function canUserSeePageAsync(
   db: DrizzleD1Database<typeof schema>,
   user: UserLike | null,
   page: PageLike & { id: string },
-  chapterIds: readonly (string | number)[] = [],
+  chapters: readonly (string | number | ChapterMembership)[] = [],
 ): Promise<boolean> {
   if (canUserSeePage(user, page)) return true;
-  const permissions = await getEffectivePagePermissions(db, page, user, chapterIds);
+  const permissions = await getEffectivePagePermissions(db, page, user, chapters);
   return permissions.canView;
 }
 
@@ -44,13 +46,22 @@ export async function canUserSeePageAsync(
  */
 export function buildVisibilityFilter(
   user: UserLike | null,
-  chapterIds: readonly (string | number)[] = [],
+  chapters: readonly (string | number | ChapterMembership)[] = [],
 ): SQL {
   if (!user) return eq(pages.visibility, "public");
   if (user.isAdmin) return ne(pages.visibility, "unlisted");
 
   const normalizedEmail = user.email?.trim().toLowerCase() ?? "";
-  const chapterKeys = chapterIds.map(String);
+  const chapterKeys = chapters.map((chapter) =>
+    String(typeof chapter === "object" ? chapter.chapterId : chapter),
+  );
+  const hasOrganizerRole = chapters.some(
+    (chapter) => typeof chapter === "object" && chapter.role === "organizer",
+  );
+  const hasMemberRole = chapters.some(
+    (chapter) =>
+      typeof chapter === "object" && (chapter.role === "organizer" || chapter.role === "member"),
+  );
   const chapterSql =
     chapterKeys.length > 0
       ? sql` OR (subject_type = 'chapter' AND subject_key IN (${sql.join(
@@ -67,9 +78,22 @@ export function buildVisibilityFilter(
         AND ((subject_type = 'email' AND subject_key = ${normalizedEmail})${chapterSql})
     )
   )`;
+  const roleGeneralGrant =
+    hasOrganizerRole && hasMemberRole
+      ? or(sql`${pages.organizerRole} IS NOT NULL`, sql`${pages.memberRole} IS NOT NULL`)
+      : hasOrganizerRole
+        ? sql`${pages.organizerRole} IS NOT NULL`
+        : hasMemberRole
+          ? sql`${pages.memberRole} IS NOT NULL`
+          : sql`0`;
 
   return and(
     ne(pages.visibility, "unlisted"),
-    or(eq(pages.authorId, user.id), eq(pages.visibility, "public"), restrictedGrant),
+    or(
+      eq(pages.authorId, user.id),
+      eq(pages.visibility, "public"),
+      restrictedGrant,
+      roleGeneralGrant,
+    ),
   ) as SQL;
 }

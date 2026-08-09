@@ -8,6 +8,7 @@ export type PageRole = "viewer" | "commenter" | "editor";
 export type EffectivePageRole = "owner" | PageRole | null;
 export type ShareSubjectType = "email" | "chapter";
 export type PermissionSource = "owner" | "admin" | "email" | "chapter" | "general" | null;
+export type ChapterMembership = { chapterId: string | number; role: string };
 
 export type ShareSubject = {
   subjectType: ShareSubjectType;
@@ -43,6 +44,8 @@ export type PagePermissionSubject = {
   authorId: string;
   visibility: string;
   generalRole?: string | null;
+  organizerRole?: string | null;
+  memberRole?: string | null;
 };
 
 type UserLike = {
@@ -161,21 +164,24 @@ export async function getExplicitPageRoles(
 
 /**
  * Central page permission evaluator. Callers fetch fresh chapter claims before
- * passing chapterIds; on a claims failure pass no chapter IDs (fail closed).
+ * passing fresh Chapter memberships; on a claims failure pass none (fail closed).
  */
 export async function getEffectivePagePermissions(
   db: DrizzleD1Database<typeof schema>,
   page: PagePermissionSubject,
   user: UserLike | null,
-  chapterIds: readonly (string | number)[] = [],
+  chapters: readonly (string | number | ChapterMembership)[] = [],
 ): Promise<EffectivePagePermissions> {
   // These implicit grants do not depend on stored share rows. Avoiding the
   // query also keeps owner/admin authorization available if D1 is degraded.
   if (!user || user.isAdmin || user.id === page.authorId) {
     return evaluatePagePermissions(page, user);
   }
+  const chapterIds = chapters.map((chapter) =>
+    typeof chapter === "object" ? chapter.chapterId : chapter,
+  );
   const explicit = await getExplicitPageRoles(db, page.id, user, chapterIds);
-  return evaluatePagePermissions(page, user, explicit);
+  return evaluatePagePermissions(page, user, explicit, chapters);
 }
 
 /** Pure form of the evaluator, useful for focused policy tests. */
@@ -186,6 +192,7 @@ export function evaluatePagePermissions(
     role: PageRole;
     source: Exclude<PermissionSource, "owner" | "admin" | "general" | null>;
   }> = [],
+  chapters: readonly (string | number | ChapterMembership)[] = [],
 ): EffectivePagePermissions {
   if (user?.isAdmin) {
     return {
@@ -228,15 +235,32 @@ export function evaluatePagePermissions(
     };
   }
 
+  const hasOrganizerRole = chapters.some(
+    (chapter) => typeof chapter === "object" && chapter.role === "organizer",
+  );
+  const hasMemberRole = chapters.some(
+    (chapter) =>
+      typeof chapter === "object" && (chapter.role === "organizer" || chapter.role === "member"),
+  );
+  const organizerCandidate =
+    hasOrganizerRole && isPageRole(page.organizerRole) ? page.organizerRole : null;
+  const memberCandidate = hasMemberRole && isPageRole(page.memberRole) ? page.memberRole : null;
   const generalCandidate = hasGeneralAccess ? generalRole : null;
   const role = maxRole([
     ...(explicitRole ? [explicitRole] : []),
     ...(generalCandidate ? [generalCandidate] : []),
+    ...(organizerCandidate ? [organizerCandidate] : []),
+    ...(memberCandidate ? [memberCandidate] : []),
   ]);
   const source =
     role &&
     explicitRole &&
-    ROLE_RANK[explicitRole] >= (generalCandidate ? ROLE_RANK[generalCandidate] : 0)
+    ROLE_RANK[explicitRole] >=
+      Math.max(
+        generalCandidate ? ROLE_RANK[generalCandidate] : 0,
+        organizerCandidate ? ROLE_RANK[organizerCandidate] : 0,
+        memberCandidate ? ROLE_RANK[memberCandidate] : 0,
+      )
       ? explicitSource
       : role
         ? "general"

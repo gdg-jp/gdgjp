@@ -25,6 +25,8 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
       id: schema.pages.id,
       visibility: schema.pages.visibility,
       generalRole: schema.pages.generalRole,
+      organizerRole: schema.pages.organizerRole,
+      memberRole: schema.pages.memberRole,
       chapterId: schema.pages.chapterId,
       authorId: schema.pages.authorId,
     })
@@ -33,7 +35,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
     .get();
 
   if (!page) return Response.json({ error: "Task list not found" }, { status: 404 });
-  if (!(await getEffectivePagePermissions(db, page, user, identity.chapterIds)).canView) {
+  if (!(await getEffectivePagePermissions(db, page, user, identity.chapters)).canView) {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -91,7 +93,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     .get();
 
   if (!page) return Response.json({ error: "Task list not found" }, { status: 404 });
-  if (!(await getEffectivePagePermissions(db, page, user, identity.chapterIds)).canEdit) {
+  if (!(await getEffectivePagePermissions(db, page, user, identity.chapters)).canEdit) {
     return new Response("Forbidden", { status: 403 });
   }
 

@@ -45,7 +45,12 @@ export async function action({ request, context }: ActionFunctionArgs) {
       if (!page || page.origin !== "human" || page.status !== "published") {
         return Response.json({ error: "not_found", id: document.documentId }, { status: 404 });
       }
-      const permission = await getEffectivePagePermissions(db, page, identity.user, chapterIds);
+      const permission = await getEffectivePagePermissions(
+        db,
+        page,
+        identity.user,
+        identity.chapters,
+      );
       if (!permission.canView) {
         return Response.json({ error: "forbidden", id: document.documentId }, { status: 403 });
       }

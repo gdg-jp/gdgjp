@@ -240,6 +240,7 @@ export interface AccessContext {
   email: string;
   isAdmin: boolean;
   chapterIds: string[];
+  chapters?: Array<{ chapterId: string; role: string }>;
   capturedAt: string;
   claimsAvailable: boolean;
   source: "web" | "discord" | "system";
@@ -259,6 +260,7 @@ export function createAccessContext(input: {
   email?: string | null;
   isAdmin?: boolean | null;
   chapterIds?: readonly string[];
+  chapters?: ReadonlyArray<{ chapterId: string; role: string }>;
   claimsAvailable: boolean;
   source: AccessContext["source"];
 }): AccessContext {
@@ -267,6 +269,7 @@ export function createAccessContext(input: {
     email: input.email?.trim().toLowerCase() ?? "",
     isAdmin: input.isAdmin === true,
     chapterIds: [...new Set(input.chapterIds ?? [])],
+    chapters: input.chapters?.map((chapter) => ({ ...chapter })),
     capturedAt: new Date().toISOString(),
     claimsAvailable: input.claimsAvailable,
     source: input.source,

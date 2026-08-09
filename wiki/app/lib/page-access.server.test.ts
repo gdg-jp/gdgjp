@@ -49,6 +49,31 @@ describe("evaluatePagePermissions", () => {
     ).toMatchObject({ role: "editor", canComment: true, canEdit: true, canManageSharing: false });
   });
 
+  it("applies the configured Organizer and Member roles from fresh Chapter claims", () => {
+    const rolePage = {
+      ...page,
+      organizerRole: "editor",
+      memberRole: "commenter",
+    };
+    expect(
+      evaluatePagePermissions(rolePage, member, [], [{ chapterId: 1, role: "organizer" }]),
+    ).toMatchObject({ role: "editor", canEdit: true });
+    expect(
+      evaluatePagePermissions(rolePage, member, [], [{ chapterId: 1, role: "member" }]),
+    ).toMatchObject({ role: "commenter", canComment: true, canEdit: false });
+  });
+
+  it("does not grant role-based general access without a matching Chapter role", () => {
+    expect(
+      evaluatePagePermissions(
+        { ...page, organizerRole: "editor", memberRole: "commenter" },
+        member,
+        [],
+        [{ chapterId: 1, role: "viewer" }],
+      ),
+    ).toMatchObject({ role: null, canView: false });
+  });
+
   it("uses the strongest explicit email/chapter role", () => {
     expect(
       evaluatePagePermissions(page, member, [

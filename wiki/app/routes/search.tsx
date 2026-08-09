@@ -33,7 +33,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
-  const visFilter = buildVisibilityFilter(identity.user, identity.chapterIds);
+  const visFilter = buildVisibilityFilter(identity.user, identity.chapters);
 
   const allTags = await db.select().from(schema.tags).orderBy(desc(schema.tags.pageCount)).all();
 
@@ -74,6 +74,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
           email: identity.user?.email,
           isAdmin: identity.user?.isAdmin,
           chapterIds: identity.chapterIds,
+          chapters: identity.chapters,
           claimsAvailable: identity.claimsAvailable,
           source: "web",
         }),

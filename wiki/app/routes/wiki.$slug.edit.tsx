@@ -60,6 +60,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       contentEn: schema.pages.contentEn,
       visibility: schema.pages.visibility,
       generalRole: schema.pages.generalRole,
+      organizerRole: schema.pages.organizerRole,
+      memberRole: schema.pages.memberRole,
       chapterId: schema.pages.chapterId,
       authorId: schema.pages.authorId,
       origin: schema.pages.origin,
@@ -80,7 +82,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     throw new Response("This page is maintained by the ingest toolchain", { status: 403 });
   }
 
-  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapters);
   if (!permissions.canEdit) {
     throw new Response("Forbidden", { status: 403 });
   }
@@ -141,7 +143,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     throw new Response("This page is maintained by the ingest toolchain", { status: 403 });
   }
 
-  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapterIds);
+  const permissions = await getEffectivePagePermissions(db, page, user, identity.chapters);
   if (!permissions.canEdit) {
     throw new Response("Forbidden", { status: 403 });
   }

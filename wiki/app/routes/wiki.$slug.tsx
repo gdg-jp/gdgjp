@@ -80,6 +80,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       pageType: schema.pages.pageType,
       visibility: schema.pages.visibility,
       generalRole: schema.pages.generalRole,
+      organizerRole: schema.pages.organizerRole,
+      memberRole: schema.pages.memberRole,
       chapterId: schema.pages.chapterId,
       authorId: schema.pages.authorId,
       lastEditedBy: schema.pages.lastEditedBy,
@@ -93,7 +95,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     throw new Response("Not Found", { status: 404 });
   }
 
-  const permissions = await getEffectivePagePermissions(db, page, sessionUser, identity.chapterIds);
+  const permissions = await getEffectivePagePermissions(db, page, sessionUser, identity.chapters);
   if (!permissions.canView) {
     if (!identity.claimsAvailable && page.visibility === "restricted") {
       throw new Response("Access service temporarily unavailable", { status: 503 });

@@ -44,7 +44,7 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
 
   if (!page) throw new Response("Not found", { status: 404 });
 
-  if (!(await getEffectivePagePermissions(db, page, user, identity.chapterIds)).canView) {
+  if (!(await getEffectivePagePermissions(db, page, user, identity.chapters)).canView) {
     throw new Response("Forbidden", { status: 403 });
   }
 
