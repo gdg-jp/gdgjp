@@ -43,10 +43,12 @@ Google Chat has no Chat SDK slash-command surface; members type `/unlink` as a m
    workflow runs Vercel from the repo root so workspace packages resolve).
 3. Region: `hnd1` (see `agents/vercel.json`).
 4. Add every environment variable from the table below to Production (and Preview if you use it).
-5. In GitHub Actions repository secrets, set **`VERCEL_PROJECT_ID_AGENTS`** to this project's id.
-   The existing `VERCEL_PROJECT_ID` secret belongs to tinyurl-gateway — reusing it deploys agents into
-   the wrong project. The agents deploy step reads only `VERCEL_PROJECT_ID_AGENTS`
-   (see `.github/workflows/deploy.yml`).
+5. In GitHub Actions repository secrets, set **`VERCEL_PROJECT_ID_AGENTS`** to this project's id, plus
+   **`DISCORD_APPLICATION_ID`** and **`DISCORD_BOT_TOKEN`** for the post-deploy command synchronizer.
+   Keep the latter two in the Vercel project too: Vercel supplies them to the running agent, while GitHub
+   Actions needs its own secret copies to register commands with Discord. The existing `VERCEL_PROJECT_ID`
+   secret belongs to tinyurl-gateway — reusing it deploys agents into the wrong project. The agents deploy
+   step reads only `VERCEL_PROJECT_ID_AGENTS` (see `.github/workflows/deploy.yml`).
 
 ## 4. Environment variables
 
