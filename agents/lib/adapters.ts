@@ -8,7 +8,13 @@ import { Chat } from "chat";
  * OAuth scopes the agents relying party requests at link time (Stage 5d).
  * Imported from `@gdgjp/gdg-lib/auth/claims` so the claim key cannot drift from the IdP.
  */
-export const AGENTS_OAUTH_SCOPES = ["openid", "profile", "email", CHAPTERS_SCOPE] as const;
+export const AGENTS_OAUTH_SCOPES = [
+  "openid",
+  "email",
+  "profile",
+  "offline_access",
+  CHAPTERS_SCOPE,
+] as const;
 
 export type AgentsChat = Chat<{
   gchat: ReturnType<typeof createGoogleChatAdapter>;
