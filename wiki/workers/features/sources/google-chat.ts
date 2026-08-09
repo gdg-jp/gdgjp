@@ -1,14 +1,4 @@
-import { eq } from "drizzle-orm";
-import * as schema from "../../../app/db/schema";
-import { getDb } from "../../../app/lib/db.server";
-import type { GoogleDocsInlineImage } from "../../../app/lib/google-docs-markdown.server";
-import { getGoogleDriveTokenRow } from "../../../app/lib/google-drive-token.server";
-import { hasRequiredGoogleChatScopes } from "../../../app/lib/google-drive.server";
-import { type ResolvedSourceAsset, assetR2Key } from "./assets";
-import { sha256Hex } from "./persist";
-
 const CHAT_TIMEOUT_MS = 30_000;
-const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const PAGE_SIZE = 1000;
 
 export const GOOGLE_CHAT_REAUTH_MESSAGE =
@@ -50,30 +40,6 @@ export interface ChatSpace {
   name: string;
   displayName?: string;
   spaceType?: string;
-}
-
-export interface FetchedChatDocument {
-  path: string;
-  title: string;
-  markdown: string;
-  cursor: string | null;
-  metadata: string | null;
-  images: GoogleDocsInlineImage[];
-  /** Attachments already downloaded into R2 (Chat media / Drive files). */
-  assets: ResolvedSourceAsset[];
-  /**
-   * Incremental monthly fetches contain only newly downloaded assets. The caller
-   * must preserve previously persisted assets instead of replacing them.
-   */
-  assetPolicy: "replace" | "merge";
-}
-
-export interface GoogleChatFetchResult {
-  title: string;
-  documents: FetchedChatDocument[];
-  /** Paths that must stay `ready`, including months not touched this run. */
-  retainedPaths: string[];
-  accessToken: string;
 }
 
 export interface NormalizeChatOptions {
@@ -167,7 +133,7 @@ export function defaultSenderName(sender: ChatMessageSender | undefined): string
 }
 
 /** Log only structured identifiers/statuses; message bodies must never enter worker logs. */
-function warnGoogleChat(event: string, details: Record<string, string | number>): void {
+export function warnGoogleChat(event: string, details: Record<string, string | number>): void {
   console.warn(
     JSON.stringify({
       component: "sources",
@@ -182,7 +148,7 @@ function warnGoogleChat(event: string, details: Record<string, string | number>)
  * Capture Google API error metadata without logging a successful response, which can
  * contain Chat content. `details` identifies invalid request fields for 400 errors.
  */
-async function logGoogleChatMessagesListError(
+export async function logGoogleChatMessagesListError(
   response: Response,
   input: { spaceName: string; filter: string | null; hasPageToken: boolean },
 ): Promise<void> {
@@ -230,7 +196,7 @@ function threadParentText(message: ChatMessage): string | undefined {
   return text.trim() ? text : undefined;
 }
 
-function attachmentObjectId(attachment: ChatMessageAttachment, index: number): string {
+export function attachmentObjectId(attachment: ChatMessageAttachment, index: number): string {
   const fromName = attachment.name?.split("/").pop();
   if (fromName) return fromName;
   const driveId = attachment.driveDataRef?.driveFileId;
@@ -238,6 +204,12 @@ function attachmentObjectId(attachment: ChatMessageAttachment, index: number): s
   const resource = attachment.attachmentDataRef?.resourceName?.replace(/\//g, "_");
   if (resource) return resource;
   return `attachment-${index}`;
+}
+
+export function peopleResourceName(userName: string): string {
+  if (userName.startsWith("people/")) return userName;
+  if (userName.startsWith("users/")) return userName.replace(/^users\//, "people/");
+  return `people/${userName}`;
 }
 
 /**
@@ -385,10 +357,197 @@ export function startOfMonthRfc3339(monthPath: string): string {
   return new Date(`${monthPath}-01T00:00:00+09:00`).toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
+const PEOPLE_BATCH_SIZE = 200;
+
+/**
+ * Resolve human sender display names with People `people:batchGet` (≤200 / request).
+ * Callers should prefer Chat `spaces.members.list` first and only batch-get the remainder.
+ */
+export async function resolvePeopleDisplayNames(
+  accessToken: string,
+  senders: readonly ChatMessageSender[],
+  options: { onFetch?: () => void } = {},
+): Promise<Map<string, string>> {
+  const cache = new Map<string, string>();
+  const unique = new Map<string, ChatMessageSender>();
+  for (const sender of senders) {
+    if (!sender?.name || cache.has(sender.name)) continue;
+    if (sender.type === "BOT") {
+      cache.set(sender.name, "Bot");
+      continue;
+    }
+    unique.set(sender.name, sender);
+  }
+
+  const pending = [...unique.entries()];
+  for (let offset = 0; offset < pending.length; offset += PEOPLE_BATCH_SIZE) {
+    const chunk = pending.slice(offset, offset + PEOPLE_BATCH_SIZE);
+    const params = new URLSearchParams({
+      personFields: "names",
+      sources: "READ_SOURCE_TYPE_PROFILE",
+    });
+    for (const [userName] of chunk) {
+      params.append("resourceNames", peopleResourceName(userName));
+    }
+    options.onFetch?.();
+    try {
+      const response = await fetchWithTimeout(
+        `https://people.googleapis.com/v1/people:batchGet?${params}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+        CHAT_TIMEOUT_MS,
+      );
+      if (!response.ok) {
+        for (const [userName, sender] of chunk) {
+          warnGoogleChat("sender_name_unresolved", { sender: userName, status: response.status });
+          cache.set(userName, defaultSenderName(sender));
+        }
+        continue;
+      }
+      const body = (await response.json()) as {
+        responses?: Array<{
+          httpStatusCode?: number;
+          person?: { resourceName?: string; names?: Array<{ displayName?: string }> };
+          requestedResourceName?: string;
+        }>;
+      };
+      const byRequested = new Map(
+        (body.responses ?? []).map((row) => [row.requestedResourceName ?? "", row]),
+      );
+      for (const [userName, sender] of chunk) {
+        const row = byRequested.get(peopleResourceName(userName));
+        const displayName = row?.person?.names?.[0]?.displayName?.trim();
+        if (displayName) {
+          cache.set(userName, displayName);
+          continue;
+        }
+        warnGoogleChat("sender_name_unresolved", {
+          sender: userName,
+          status: row?.httpStatusCode ?? response.status,
+        });
+        cache.set(userName, defaultSenderName(sender));
+      }
+    } catch {
+      for (const [userName, sender] of chunk) {
+        warnGoogleChat("sender_name_lookup_failed", { sender: userName });
+        cache.set(userName, defaultSenderName(sender));
+      }
+    }
+  }
+
+  return cache;
+}
+
+/**
+ * Prefill display names from `spaces.members.list` (≤1000 / page). Returns names keyed by
+ * `users/...` resource names so they match Chat message sender fields.
+ */
+export async function resolveSpaceMemberDisplayNames(
+  spaceName: string,
+  accessToken: string,
+  options: { onFetch?: () => void } = {},
+): Promise<Map<string, string>> {
+  const cache = new Map<string, string>();
+  let pageToken: string | undefined;
+  do {
+    const params = new URLSearchParams({ pageSize: "1000" });
+    if (pageToken) params.set("pageToken", pageToken);
+    options.onFetch?.();
+    const response = await fetchWithTimeout(
+      `https://chat.googleapis.com/v1/${spaceName}/members?${params}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+      CHAT_TIMEOUT_MS,
+    );
+    if (!response.ok) {
+      warnGoogleChat("members_list_failed", { spaceName, status: response.status });
+      break;
+    }
+    const body = (await response.json()) as {
+      memberships?: Array<{
+        member?: { name?: string; displayName?: string; type?: string };
+      }>;
+      nextPageToken?: string;
+    };
+    for (const membership of body.memberships ?? []) {
+      const member = membership.member;
+      const name = member?.name?.trim();
+      const displayName = member?.displayName?.trim();
+      if (!name || !displayName) continue;
+      if (member?.type === "BOT") {
+        cache.set(name, "Bot");
+        continue;
+      }
+      cache.set(name, displayName);
+    }
+    pageToken = body.nextPageToken;
+  } while (pageToken);
+  return cache;
+}
+
+/**
+ * Fetch the root message text for a single reply thread (incremental context only).
+ */
+export async function fetchThreadParentText(
+  spaceName: string,
+  accessToken: string,
+  threadName: string,
+  options: { onFetch?: () => void } = {},
+): Promise<string | undefined> {
+  const threadMessages = await listChatMessages(
+    spaceName,
+    accessToken,
+    `thread.name = ${threadName}`,
+    options,
+  );
+  const parent = threadMessages.find(
+    (message) => !message.threadReply && message.thread?.name === threadName,
+  );
+  const parentText = parent ? threadParentText(parent) : undefined;
+  if (parentText === undefined) {
+    warnGoogleChat("thread_parent_unavailable", { thread: threadName });
+  }
+  return parentText;
+}
+
+/**
+ * Fetch root messages for reply threads whose parent is outside the cursor window.
+ * These are context-only: callers seed normalization with this map but never add the
+ * fetched parent messages to the source-document content or cursor calculation.
+ */
+export async function fetchMissingReplyThreadParents(
+  spaceName: string,
+  accessToken: string,
+  messages: readonly ChatMessage[],
+  options: { onFetch?: () => void; shouldContinue?: () => boolean } = {},
+): Promise<Map<string, string>> {
+  const parents = new Map<string, string>();
+  const replyThreads = new Set<string>();
+
+  for (const message of messages) {
+    const threadName = message.thread?.name;
+    if (!threadName) continue;
+    if (message.threadReply) {
+      replyThreads.add(threadName);
+    } else if (!parents.has(threadName)) {
+      const parent = threadParentText(message);
+      if (parent !== undefined) parents.set(threadName, parent);
+    }
+  }
+
+  for (const threadName of replyThreads) {
+    if (parents.has(threadName)) continue;
+    if (options.shouldContinue && !options.shouldContinue()) break;
+    const parentText = await fetchThreadParentText(spaceName, accessToken, threadName, options);
+    if (parentText !== undefined) parents.set(threadName, parentText);
+  }
+
+  return parents;
+}
+
 async function listChatMessages(
   spaceName: string,
   accessToken: string,
   filter: string | null,
+  options: { onFetch?: () => void } = {},
 ): Promise<ChatMessage[]> {
   const messages: ChatMessage[] = [];
   let pageToken: string | undefined;
@@ -400,6 +559,7 @@ async function listChatMessages(
     if (filter) params.set("filter", filter);
     if (pageToken) params.set("pageToken", pageToken);
 
+    options.onFetch?.();
     const response = await fetchWithTimeout(
       `https://chat.googleapis.com/v1/${spaceName}/messages?${params}`,
       { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -422,309 +582,4 @@ async function listChatMessages(
   } while (pageToken);
 
   return messages;
-}
-
-export async function resolvePeopleDisplayNames(
-  accessToken: string,
-  senders: readonly ChatMessageSender[],
-): Promise<Map<string, string>> {
-  const cache = new Map<string, string>();
-  const unique = new Map<string, ChatMessageSender>();
-  for (const sender of senders) {
-    if (!sender?.name || cache.has(sender.name)) continue;
-    if (sender.type === "BOT") {
-      cache.set(sender.name, "Bot");
-      continue;
-    }
-    unique.set(sender.name, sender);
-  }
-
-  for (const [userName, sender] of unique) {
-    const peopleName = userName.startsWith("users/")
-      ? userName.replace(/^users\//, "people/")
-      : userName.startsWith("people/")
-        ? userName
-        : `people/${userName}`;
-    try {
-      const response = await fetchWithTimeout(
-        `https://people.googleapis.com/v1/${peopleName}?personFields=names&sources=READ_SOURCE_TYPE_PROFILE`,
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-        CHAT_TIMEOUT_MS,
-      );
-      if (response.ok) {
-        const person = (await response.json()) as {
-          names?: Array<{ displayName?: string }>;
-        };
-        const displayName = person.names?.[0]?.displayName?.trim();
-        if (displayName) {
-          cache.set(userName, displayName);
-          continue;
-        }
-      }
-      warnGoogleChat("sender_name_unresolved", { sender: userName, status: response.status });
-    } catch {
-      // Do not log message bodies, response bodies, or request errors: these can contain PII.
-      warnGoogleChat("sender_name_lookup_failed", { sender: userName });
-    }
-    cache.set(userName, defaultSenderName(sender));
-  }
-
-  return cache;
-}
-
-/**
- * Fetch root messages for reply threads whose parent is outside the cursor window.
- * These are context-only: callers seed normalization with this map but never add the
- * fetched parent messages to the source-document content or cursor calculation.
- */
-export async function fetchMissingReplyThreadParents(
-  spaceName: string,
-  accessToken: string,
-  messages: readonly ChatMessage[],
-): Promise<Map<string, string>> {
-  const parents = new Map<string, string>();
-  const replyThreads = new Set<string>();
-
-  for (const message of messages) {
-    const threadName = message.thread?.name;
-    if (!threadName) continue;
-    if (message.threadReply) {
-      replyThreads.add(threadName);
-    } else if (!parents.has(threadName)) {
-      const parent = threadParentText(message);
-      if (parent !== undefined) parents.set(threadName, parent);
-    }
-  }
-
-  for (const threadName of replyThreads) {
-    if (parents.has(threadName)) continue;
-    const threadMessages = await listChatMessages(
-      spaceName,
-      accessToken,
-      `thread.name = ${threadName}`,
-    );
-    const parent = threadMessages.find(
-      (message) => !message.threadReply && message.thread?.name === threadName,
-    );
-    const parentText = parent ? threadParentText(parent) : undefined;
-    if (parentText !== undefined) {
-      parents.set(threadName, parentText);
-    } else {
-      warnGoogleChat("thread_parent_unavailable", { thread: threadName });
-    }
-  }
-
-  return parents;
-}
-
-async function downloadChatAttachment(
-  env: Env,
-  sourceId: string,
-  accessToken: string,
-  objectId: string,
-  contentType: string,
-  attachment: ChatMessageAttachment,
-): Promise<ResolvedSourceAsset | null> {
-  let response: Response | null = null;
-
-  const driveFileId = attachment.driveDataRef?.driveFileId;
-  const mediaResource = attachment.attachmentDataRef?.resourceName;
-
-  if (driveFileId) {
-    response = await fetchWithTimeout(
-      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveFileId)}?alt=media`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
-      CHAT_TIMEOUT_MS,
-    );
-  } else if (mediaResource) {
-    response = await fetchWithTimeout(
-      `https://chat.googleapis.com/v1/media/${mediaResource}?alt=media`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
-      CHAT_TIMEOUT_MS,
-    );
-  }
-
-  if (!response) return null;
-  if (response.status === 403 || response.status === 404) {
-    // A source can contain an attachment whose Chat upload or Drive ACL was later
-    // revoked. Keep importing the messages and other attachments; retrying cannot
-    // restore access. Never log a filename or response body, which can be sensitive.
-    warnGoogleChat("attachment_unavailable", {
-      sourceId,
-      attachmentId: objectId,
-      attachmentKind: driveFileId ? "drive" : "chat-media",
-      status: response.status,
-    });
-    return null;
-  }
-  if (!response.ok) {
-    throw new Error(`Unable to download a Google Chat attachment (${response.status})`);
-  }
-
-  const mimeType =
-    response.headers.get("Content-Type")?.split(";")[0] ||
-    contentType ||
-    "application/octet-stream";
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.byteLength > MAX_ATTACHMENT_BYTES) {
-    throw new Error("A Google Chat attachment exceeds the 10 MB limit");
-  }
-
-  const contentHash = await sha256Hex(bytes);
-  const r2Key = assetR2Key(sourceId, objectId, contentHash, mimeType);
-  await env.BUCKET.put(r2Key, bytes, {
-    httpMetadata: { contentType: mimeType },
-    customMetadata: { sha256: contentHash, objectId },
-  });
-
-  return {
-    path: r2Key,
-    r2Key,
-    mimeType,
-    byteSize: bytes.byteLength,
-    contentHash,
-  };
-}
-
-async function getSpaceDisplayName(spaceName: string, accessToken: string): Promise<string> {
-  const response = await fetchWithTimeout(
-    `https://chat.googleapis.com/v1/${spaceName}?fields=name,displayName`,
-    { headers: { Authorization: `Bearer ${accessToken}` } },
-    CHAT_TIMEOUT_MS,
-  );
-  if (!response.ok) return spaceName;
-  const space = (await response.json()) as ChatSpace;
-  return space.displayName?.trim() || spaceName;
-}
-
-/**
- * Fetch a Google Chat Space into monthly raw source_documents.
- *
- * Initial fetch pulls the full history. Refetches only the current month with
- * `createTime > cursor`, append to the existing Markdown, and leave prior months alone.
- */
-export async function fetchGoogleChatSource(
-  env: Env,
-  input: {
-    sourceId: string;
-    spaceName: string;
-    addedBy: string;
-    now?: Date;
-  },
-): Promise<GoogleChatFetchResult> {
-  const db = getDb(env);
-  const token = await getGoogleDriveTokenRow(env, db, input.addedBy);
-  if (!hasRequiredGoogleChatScopes(token.grantedScopes)) {
-    throw new Error(GOOGLE_CHAT_REAUTH_MESSAGE);
-  }
-
-  const accessToken = token.accessToken;
-  const spaceName = input.spaceName.startsWith("spaces/")
-    ? input.spaceName
-    : `spaces/${input.spaceName}`;
-
-  const existing = await db
-    .select({
-      path: schema.sourceDocuments.path,
-      cursor: schema.sourceDocuments.cursor,
-      r2Key: schema.sourceDocuments.r2Key,
-      metadata: schema.sourceDocuments.metadata,
-      status: schema.sourceDocuments.status,
-    })
-    .from(schema.sourceDocuments)
-    .where(eq(schema.sourceDocuments.sourceId, input.sourceId))
-    .all();
-
-  const readyExisting = existing.filter((row) => row.status !== "archived");
-  const byPath = new Map(readyExisting.map((row) => [row.path, row]));
-  const thisMonth = currentMonthPath(input.now);
-  const existingCurrent = byPath.get(thisMonth);
-  const incremental = readyExisting.length > 0;
-
-  let filter: string | null = null;
-  if (incremental) {
-    if (existingCurrent?.cursor) {
-      filter = `createTime > "${existingCurrent.cursor}"`;
-    } else {
-      filter = `createTime >= "${startOfMonthRfc3339(thisMonth)}"`;
-    }
-  }
-
-  const messages = await listChatMessages(spaceName, accessToken, filter);
-  const threadParents = await fetchMissingReplyThreadParents(spaceName, accessToken, messages);
-  const nameCache = await resolvePeopleDisplayNames(
-    accessToken,
-    messages.map((message) => message.sender).filter(Boolean) as ChatMessageSender[],
-  );
-
-  const months = normalizeChatMessages(messages, {
-    resolveSenderName: (sender) => {
-      if (sender?.name && nameCache.has(sender.name)) {
-        return nameCache.get(sender.name) ?? defaultSenderName(sender);
-      }
-      return defaultSenderName(sender);
-    },
-    threadParents,
-  });
-
-  // Incremental runs only keep the current month from the API response; older
-  // months in the response (shouldn't happen with the filter) are ignored.
-  const monthsToWrite = incremental ? months.filter((month) => month.path === thisMonth) : months;
-
-  const documents: FetchedChatDocument[] = [];
-
-  for (const month of monthsToWrite) {
-    const prior = byPath.get(month.path);
-    let markdown = month.markdown;
-    let metadata = mergeDocumentUrls(prior?.metadata, month.urls);
-    let cursor = month.cursor;
-
-    if (prior && incremental && month.path === thisMonth) {
-      const previousObject = await env.BUCKET.get(prior.r2Key);
-      const previousMarkdown = previousObject ? await previousObject.text() : "";
-      markdown = appendMonthlyMarkdown(previousMarkdown, month.markdown);
-      metadata = mergeDocumentUrls(prior.metadata, month.urls);
-      if (prior.cursor && (!cursor || prior.cursor > cursor)) cursor = prior.cursor;
-    }
-
-    const assets: ResolvedSourceAsset[] = [];
-    const images: GoogleDocsInlineImage[] = [];
-
-    for (const item of month.attachments) {
-      const asset = await downloadChatAttachment(
-        env,
-        input.sourceId,
-        accessToken,
-        item.objectId,
-        item.contentType,
-        item.attachment,
-      );
-      if (!asset) {
-        markdown = markdown
-          .replaceAll(`![${item.contentName}](attachment:${item.objectId})`, "")
-          .replaceAll(`[${item.contentName}](attachment:${item.objectId})`, item.contentName);
-        continue;
-      }
-      assets.push(asset);
-      markdown = markdown.replaceAll(`attachment:${item.objectId}`, asset.path);
-    }
-
-    documents.push({
-      path: month.path,
-      title: month.title,
-      markdown,
-      cursor,
-      metadata,
-      images,
-      assets,
-      assetPolicy: incremental ? "merge" : "replace",
-    });
-  }
-
-  const title = await getSpaceDisplayName(spaceName, accessToken);
-  const retainedPaths = [
-    ...new Set([...readyExisting.map((row) => row.path), ...documents.map((doc) => doc.path)]),
-  ];
-
-  return { title, documents, retainedPaths, accessToken };
 }

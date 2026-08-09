@@ -37,20 +37,6 @@ export function isSourceFetchQueueBody(
   );
 }
 
-export type GoogleChatImportQueueBody =
-  | { type: "google_chat_import"; runId: string; work: "list" }
-  | { type: "google_chat_import"; runId: string; work: "message"; messageId: string }
-  | { type: "google_chat_import"; runId: string; work: "finalize"; monthIndex: number };
-
-export function isGoogleChatImportQueueBody(body: unknown): body is GoogleChatImportQueueBody {
-  if (typeof body !== "object" || body === null) return false;
-  const value = body as Partial<GoogleChatImportQueueBody>;
-  if (value.type !== "google_chat_import" || typeof value.runId !== "string") return false;
-  if (value.work === "list") return true;
-  if (value.work === "message") return typeof value.messageId === "string";
-  return value.work === "finalize" && typeof value.monthIndex === "number";
-}
-
 export async function processTranslationMessage(
   env: Env,
   db: Db,

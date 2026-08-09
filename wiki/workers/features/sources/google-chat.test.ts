@@ -196,9 +196,19 @@ describe("extractUrlsFromMessage", () => {
 
 describe("Google Chat identity and thread context fetches", () => {
   it("resolves each distinct human sender once per fetch", async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(JSON.stringify({ names: [{ displayName: "Taro Yamada" }] })));
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          responses: [
+            {
+              requestedResourceName: "people/111",
+              httpStatusCode: 200,
+              person: { resourceName: "people/111", names: [{ displayName: "Taro Yamada" }] },
+            },
+          ],
+        }),
+      ),
+    );
 
     const names = await resolvePeopleDisplayNames("token", [
       { name: "users/111", type: "HUMAN" },
@@ -207,6 +217,7 @@ describe("Google Chat identity and thread context fetches", () => {
     ]);
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toContain("people:batchGet");
     expect(names).toEqual(
       new Map([
         ["users/bot", "Bot"],

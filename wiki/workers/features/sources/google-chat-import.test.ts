@@ -1,10 +1,12 @@
+import { DatabaseSync } from "node:sqlite";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../../../app/db/schema";
+import { ensureChatImportDoSchema } from "./google-chat-import-do-store";
 import { createSourcesTestDb } from "./test-db";
 
-const { db, sqlite } = createSourcesTestDb();
-const send = vi.fn();
+const { db, sqlite, setAfterExecute } = createSourcesTestDb();
+const start = vi.fn();
 
 vi.mock("../../../app/lib/db.server", () => ({ getDb: () => db }));
 vi.mock("../../../app/lib/google-drive-token.server", () => ({
@@ -17,9 +19,74 @@ vi.mock("../../../app/lib/google-drive.server", () => ({
   hasRequiredGoogleChatScopes: () => true,
 }));
 
-import { startGoogleChatImport } from "./google-chat-import";
+import {
+  ACCESS_TOKEN_SUBREQUESTS,
+  CURRENT_RUN_SUBREQUESTS,
+  advanceChatImportTick,
+  failChatImportRun,
+  startGoogleChatImport,
+} from "./google-chat-import";
+import { SubrequestBudget } from "./subrequest-budget";
 
 const SOURCE_ID = "chat-source-1";
+
+function memorySql(): SqlStorage {
+  const sqliteDb = new DatabaseSync(":memory:");
+  const api = {
+    exec<T extends Record<string, SqlStorageValue>>(query: string, ...binds: unknown[]) {
+      const trimmed = query.trim().toUpperCase();
+      if (trimmed.startsWith("SELECT") || trimmed.startsWith("WITH")) {
+        const rows = sqliteDb.prepare(query).all(...(binds as never[])) as T[];
+        return {
+          toArray: () => rows,
+          one: () => {
+            if (rows.length !== 1) throw new Error(`Expected 1 row, got ${rows.length}`);
+            return rows[0] as T;
+          },
+          raw: () => rows.map((row) => Object.values(row)),
+          columnNames: rows[0] ? Object.keys(rows[0]) : [],
+          rowsWritten: 0,
+          rowsRead: rows.length,
+          [Symbol.iterator]: function* () {
+            yield* rows;
+          },
+        };
+      }
+      // Multi-statement schema bootstrap from ensureChatImportDoSchema.
+      if (query.includes("CREATE TABLE")) {
+        sqliteDb.exec(query);
+        return {
+          toArray: () => [] as T[],
+          one: () => {
+            throw new Error("no rows");
+          },
+          raw: () => [],
+          columnNames: [],
+          rowsWritten: 0,
+          rowsRead: 0,
+          [Symbol.iterator]: function* () {},
+        };
+      }
+      const result = sqliteDb.prepare(query).run(...(binds as never[]));
+      return {
+        toArray: () => [] as T[],
+        one: () => {
+          throw new Error("no rows");
+        },
+        raw: () => [],
+        columnNames: [],
+        rowsWritten: result.changes,
+        rowsRead: 0,
+        [Symbol.iterator]: function* () {},
+      };
+    },
+    get databaseSize() {
+      return 0;
+    },
+  };
+  ensureChatImportDoSchema(api as unknown as SqlStorage);
+  return api as unknown as SqlStorage;
+}
 
 async function source() {
   const row = await db.select().from(schema.sources).where(eq(schema.sources.id, SOURCE_ID)).get();
@@ -28,8 +95,12 @@ async function source() {
 }
 
 beforeEach(() => {
-  send.mockReset().mockResolvedValue(undefined);
-  sqlite.exec("DELETE FROM google_chat_import_runs; DELETE FROM sources;");
+  start.mockReset().mockResolvedValue(undefined);
+  setAfterExecute(undefined);
+  vi.restoreAllMocks();
+  sqlite.exec(
+    "DELETE FROM google_chat_import_runs; DELETE FROM source_documents; DELETE FROM sources;",
+  );
   sqlite
     .prepare(
       `INSERT INTO sources (id, kind, url, external_id, title, added_by, status)
@@ -39,9 +110,9 @@ beforeEach(() => {
 });
 
 describe("startGoogleChatImport", () => {
-  it("atomically claims the source and persists its run before enqueueing work", async () => {
+  it("atomically claims the source and starts the Durable Object before returning", async () => {
     const started = await startGoogleChatImport(
-      { SOURCE_FETCH_QUEUE: { send } } as unknown as Env,
+      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
       await source(),
       "attempt-1",
     );
@@ -50,24 +121,45 @@ describe("startGoogleChatImport", () => {
       .prepare("SELECT status, fetch_attempt_id FROM sources WHERE id = ?")
       .get(SOURCE_ID) as { status: string; fetch_attempt_id: string };
     const run = sqlite
-      .prepare("SELECT fetch_attempt_id FROM google_chat_import_runs WHERE source_id = ?")
-      .get(SOURCE_ID) as { fetch_attempt_id: string };
+      .prepare(
+        "SELECT fetch_attempt_id, since_cursor, phase FROM google_chat_import_runs WHERE source_id = ?",
+      )
+      .get(SOURCE_ID) as { fetch_attempt_id: string; since_cursor: string | null; phase: string };
 
     expect(started).toBe(true);
     expect(storedSource).toEqual({ status: "fetching", fetch_attempt_id: "attempt-1" });
     expect(run.fetch_attempt_id).toBe("attempt-1");
-    expect(send).toHaveBeenCalledWith({
-      type: "google_chat_import",
-      runId: expect.any(String),
-      work: "list",
-    });
+    expect(run.phase).toBe("listing");
+    expect(run.since_cursor).toBeNull();
+    expect(start).toHaveBeenCalledWith(expect.any(String));
   });
 
-  it("does not reopen or enqueue an archived source", async () => {
+  it("records since_cursor from existing source_documents for incremental refresh", async () => {
+    sqlite
+      .prepare(
+        `INSERT INTO source_documents
+           (id, source_id, path, title, r2_key, content_hash, captured_at, status, cursor)
+         VALUES ('doc-1', ?, '2026-07', '2026-07', 'raw/x', 'hash', unixepoch(), 'ready', '2026-07-20T00:00:00Z')`,
+      )
+      .run(SOURCE_ID);
+
+    await startGoogleChatImport(
+      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-2",
+    );
+
+    const run = sqlite
+      .prepare("SELECT since_cursor FROM google_chat_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { since_cursor: string };
+    expect(run.since_cursor).toBe("2026-07-20T00:00:00Z");
+  });
+
+  it("does not reopen or start an archived source", async () => {
     sqlite.prepare("UPDATE sources SET status = 'archived' WHERE id = ?").run(SOURCE_ID);
 
     const started = await startGoogleChatImport(
-      { SOURCE_FETCH_QUEUE: { send } } as unknown as Env,
+      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
       await source(),
       "attempt-1",
     );
@@ -79,6 +171,217 @@ describe("startGoogleChatImport", () => {
     expect(
       sqlite.prepare("SELECT id FROM google_chat_import_runs WHERE source_id = ?").get(SOURCE_ID),
     ).toBeUndefined();
-    expect(send).not.toHaveBeenCalled();
+    expect(start).not.toHaveBeenCalled();
+  });
+});
+
+describe("advanceChatImportTick", () => {
+  it("stops listing before exceeding the subrequest budget", async () => {
+    await startGoogleChatImport(
+      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM google_chat_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+
+    let listCalls = 0;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      listCalls += 1;
+      return new Response(
+        JSON.stringify({
+          messages: [
+            { name: `spaces/abc/messages/${listCalls}`, createTime: "2026-07-01T00:00:00Z" },
+          ],
+          nextPageToken: "more",
+        }),
+      );
+    });
+    const put = vi.fn().mockResolvedValue(undefined);
+    // currentRun(2) + accessToken(1) + one page(3) = 6; remaining 1 cannot start another page
+    const budget = new SubrequestBudget(7);
+    const result = await advanceChatImportTick({
+      env: { BUCKET: { put } } as unknown as Env,
+      sql: memorySql(),
+      budget,
+      runId: run.id,
+    });
+
+    expect(result.finished).toBe(false);
+    expect(result.phase).toBe("listing");
+    expect(budget.spent).toBeLessThanOrEqual(7);
+    expect(listCalls).toBe(1);
+    fetchSpy.mockRestore();
+  });
+
+  it("charges every D1 / R2 / fetch call into the budget during listing", async () => {
+    await startGoogleChatImport(
+      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM google_chat_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+
+    let d1Ops = 0;
+    setAfterExecute(() => {
+      d1Ops += 1;
+    });
+
+    let fetchOps = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      fetchOps += 1;
+      return new Response(
+        JSON.stringify({
+          messages: [{ name: "spaces/abc/messages/1", createTime: "2026-07-01T00:00:00Z" }],
+          nextPageToken: "more",
+        }),
+      );
+    });
+    let r2Ops = 0;
+    const put = vi.fn().mockImplementation(async () => {
+      r2Ops += 1;
+    });
+
+    const budget = new SubrequestBudget(40);
+    await advanceChatImportTick({
+      env: { BUCKET: { put } } as unknown as Env,
+      sql: memorySql(),
+      budget,
+      runId: run.id,
+    });
+
+    // accessToken is mocked (no D1), so charge it explicitly as production would.
+    expect(budget.spent).toBe(fetchOps + r2Ops + d1Ops + ACCESS_TOKEN_SUBREQUESTS);
+    expect(d1Ops).toBeGreaterThanOrEqual(CURRENT_RUN_SUBREQUESTS);
+    expect(fetchOps).toBeGreaterThan(0);
+    expect(r2Ops).toBe(fetchOps);
+    setAfterExecute(undefined);
+    vi.restoreAllMocks();
+  });
+
+  it("does not write when the fetch lease has been replaced", async () => {
+    await startGoogleChatImport(
+      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM google_chat_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+    sqlite.prepare("UPDATE sources SET fetch_attempt_id = 'other' WHERE id = ?").run(SOURCE_ID);
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const result = await advanceChatImportTick({
+      env: { BUCKET: { put: vi.fn() } } as unknown as Env,
+      sql: memorySql(),
+      budget: new SubrequestBudget(),
+      runId: run.id,
+    });
+
+    expect(result.finished).toBe(true);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("gives unnamed messages unique per-message fallback names", async () => {
+    await startGoogleChatImport(
+      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM google_chat_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          messages: [
+            {
+              createTime: "2026-07-01T00:00:00Z",
+              attachment: [{ driveDataRef: { driveFileId: "a" }, contentName: "a.pdf" }],
+            },
+            {
+              createTime: "2026-07-01T00:01:00Z",
+              attachment: [{ driveDataRef: { driveFileId: "b" }, contentName: "b.pdf" }],
+            },
+          ],
+        }),
+      ),
+    );
+    const put = vi.fn().mockResolvedValue(undefined);
+    const sql = memorySql();
+    // Budget covers currentRun + token + one final page + phase commit, but not senders.
+    await advanceChatImportTick({
+      env: { BUCKET: { put } } as unknown as Env,
+      sql,
+      budget: new SubrequestBudget(7),
+      runId: run.id,
+    });
+
+    const names = sql
+      .exec<{ message_name: string }>(
+        "SELECT DISTINCT message_name FROM attachments ORDER BY message_name",
+      )
+      .toArray()
+      .map((row) => row.message_name);
+    expect(names).toEqual(["unnamed-0-0", "unnamed-0-1"]);
+  });
+});
+
+describe("failChatImportRun", () => {
+  it("retries retryable failures until the consecutive limit, then marks error", async () => {
+    await startGoogleChatImport(
+      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM google_chat_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+
+    for (let i = 1; i <= 4; i += 1) {
+      const outcome = await failChatImportRun(
+        {} as Env,
+        run.id,
+        new Error("Google Chat messages.list failed (503)"),
+      );
+      expect(outcome).toEqual({ retryable: true, consecutiveFailures: i });
+    }
+    const final = await failChatImportRun(
+      {} as Env,
+      run.id,
+      new Error("Google Chat messages.list failed (503)"),
+    );
+    expect(final.retryable).toBe(false);
+    expect(
+      sqlite.prepare("SELECT phase FROM google_chat_import_runs WHERE id = ?").get(run.id),
+    ).toEqual({ phase: "error" });
+    expect(sqlite.prepare("SELECT status FROM sources WHERE id = ?").get(SOURCE_ID)).toEqual({
+      status: "error",
+    });
+  });
+
+  it("stops immediately on non-retryable failures", async () => {
+    await startGoogleChatImport(
+      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM google_chat_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+
+    const outcome = await failChatImportRun(
+      {} as Env,
+      run.id,
+      new Error("Google Chat scopes are missing"),
+    );
+    expect(outcome.retryable).toBe(false);
+    expect(
+      sqlite.prepare("SELECT phase FROM google_chat_import_runs WHERE id = ?").get(run.id),
+    ).toEqual({ phase: "error" });
   });
 });

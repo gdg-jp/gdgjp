@@ -34,12 +34,6 @@ export function createSourcesTestDb() {
   );
   sqlite.exec(
     readFileSync(
-      new URL("../../../migrations/0040_google_chat_import_runs.sql", import.meta.url),
-      "utf8",
-    ),
-  );
-  sqlite.exec(
-    readFileSync(
       new URL("../../../migrations/0034_google_chat_ingestion.sql", import.meta.url),
       "utf8",
     ),
@@ -47,6 +41,18 @@ export function createSourcesTestDb() {
   sqlite.exec(
     readFileSync(
       new URL("../../../migrations/0035_source_fetch_attempt.sql", import.meta.url),
+      "utf8",
+    ),
+  );
+  sqlite.exec(
+    readFileSync(
+      new URL("../../../migrations/0040_google_chat_import_runs.sql", import.meta.url),
+      "utf8",
+    ),
+  );
+  sqlite.exec(
+    readFileSync(
+      new URL("../../../migrations/0042_google_chat_import_do.sql", import.meta.url),
       "utf8",
     ),
   );

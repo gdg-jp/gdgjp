@@ -9,7 +9,6 @@ import { backfillMarkdownContent } from "../app/lib/content-backfill.server";
 import { sendDueTaskReminders } from "../app/lib/discord-reminders.server";
 import { getEffectivePagePermissions } from "../app/lib/page-access.server";
 import {
-  isGoogleChatImportQueueBody,
   isGoogleDocumentImportQueueBody,
   isSourceFetchQueueBody,
   isTranslationQueueBody,
@@ -23,7 +22,7 @@ import {
   enqueueDueSourceRefreshes,
   fetchSource,
 } from "./features/sources/fetch-source";
-import { processGoogleChatImport } from "./features/sources/google-chat-import";
+import { GoogleChatImportDurableObject } from "./google-chat-import-durable-object";
 import { WikiGenerationPhaseWorkflow } from "./workflows/wiki-generation-phase-workflow";
 
 // The server build is a virtual module provided by @react-router/dev/vite at build time.
@@ -151,12 +150,6 @@ export default {
           continue;
         }
 
-        if (isGoogleChatImportQueueBody(body)) {
-          await processGoogleChatImport(env, body);
-          message.ack();
-          continue;
-        }
-
         if (isSourceFetchQueueBody(body)) {
           // A source that can never succeed (no Drive token, deleted document) is acked
           // so it does not occupy the retry budget; only transient failures come back.
@@ -178,4 +171,5 @@ export default {
 
 // Re-export Durable Object class so wrangler registers it
 export { CollabDurableObject };
+export { GoogleChatImportDurableObject };
 export { WikiGenerationAgent, WikiGenerationPhaseWorkflow };

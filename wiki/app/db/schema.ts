@@ -534,7 +534,7 @@ export const sourceAssets = sqliteTable("source_assets", {
 });
 
 // ---------------------------------------------------------------------------
-// google_chat_import_runs / google_chat_import_messages — resumable raw import
+// google_chat_import_runs — Durable Object alarm-driven Chat import progress
 // ---------------------------------------------------------------------------
 export const googleChatImportRuns = sqliteTable("google_chat_import_runs", {
   id: text("id").primaryKey(),
@@ -544,33 +544,18 @@ export const googleChatImportRuns = sqliteTable("google_chat_import_runs", {
     .references(() => sources.id, { onDelete: "cascade" }),
   fetchAttemptId: text("fetch_attempt_id").notNull(),
   nextPageToken: text("next_page_token"),
+  sinceCursor: text("since_cursor"),
   phase: text("phase").notNull().default("listing"),
   pagesFetched: integer("pages_fetched").notNull().default(0),
   messagesFetched: integer("messages_fetched").notNull().default(0),
+  attachmentsDone: integer("attachments_done").notNull().default(0),
+  monthsTotal: integer("months_total").notNull().default(0),
+  monthsDone: integer("months_done").notNull().default(0),
+  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
   errorMessage: text("error_message"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 });
-
-export const googleChatImportMessages = sqliteTable(
-  "google_chat_import_messages",
-  {
-    id: text("id").primaryKey(),
-    runId: text("run_id")
-      .notNull()
-      .references(() => googleChatImportRuns.id, { onDelete: "cascade" }),
-    messageName: text("message_name").notNull(),
-    sequence: integer("sequence").notNull(),
-    monthPath: text("month_path"),
-    messageR2Key: text("message_r2_key").notNull(),
-    messageJson: text("message_json").notNull(),
-    senderName: text("sender_name"),
-    attachmentIndex: integer("attachment_index").notNull().default(0),
-    assetsJson: text("assets_json").notNull().default("[]"),
-    status: text("status").notNull().default("pending"),
-  },
-  (t) => [unique("google_chat_import_messages_run_message_unique").on(t.runId, t.messageName)],
-);
 
 // ---------------------------------------------------------------------------
 // source_document_ingestions — server record of ingested content hashes

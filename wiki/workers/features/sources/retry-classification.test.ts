@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isRetryableFetchError } from "./fetch-source";
+import { retryAlarmDelayMs } from "./google-chat-import";
+import { isRetryableFetchError } from "./retry-classification";
 
 describe("isRetryableFetchError", () => {
   it("does not retry failures a retry can never fix", () => {
@@ -40,5 +41,19 @@ describe("isRetryableFetchError", () => {
   it("retries anything it cannot classify, since a spare retry is cheaper than a lost fetch", () => {
     expect(isRetryableFetchError(new Error("Network connection lost"))).toBe(true);
     expect(isRetryableFetchError("something odd")).toBe(true);
+  });
+});
+
+describe("DO tick failure classification", () => {
+  it("backs off exponentially for retryable Chat import ticks", () => {
+    expect(retryAlarmDelayMs(1)).toBe(500);
+    expect(retryAlarmDelayMs(2)).toBe(1000);
+    expect(retryAlarmDelayMs(3)).toBe(2000);
+    expect(retryAlarmDelayMs(10)).toBe(60_000);
+  });
+
+  it("treats Chat list 503 as retryable and missing scopes as terminal", () => {
+    expect(isRetryableFetchError(new Error("Google Chat messages.list failed (503)"))).toBe(true);
+    expect(isRetryableFetchError(new Error("Google Chat scopes are missing"))).toBe(false);
   });
 });

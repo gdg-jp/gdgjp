@@ -128,7 +128,8 @@ index_name = "gdgjp-wiki-pages"
 [durable_objects]
 bindings = [
   { name = "COLLAB_DO", class_name = "CollabDurableObject" },
-  { name = "WikiGenerationAgent", class_name = "WikiGenerationAgent" }
+  { name = "WikiGenerationAgent", class_name = "WikiGenerationAgent" },
+  { name = "CHAT_IMPORT_DO", class_name = "GoogleChatImportDurableObject" },
 ]
 
 [[migrations]]
@@ -143,6 +144,10 @@ new_sqlite_classes = ["WikiIngestionAgent"]
 tag = "v3"
 new_sqlite_classes = ["WikiGenerationAgent"]
 deleted_classes = ["WikiIngestionAgent"]
+
+[[migrations]]
+tag = "v4"
+new_sqlite_classes = ["GoogleChatImportDurableObject"]
 
 [[workflows]]
 name = "gdgjp-wiki-generation"

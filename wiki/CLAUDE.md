@@ -20,10 +20,10 @@ Re-run `cf-typegen` (or `typecheck`) after `wrangler.toml` binding edits.
 Single `ExportedHandler<Env>` — understand all three before touching:
 
 - `fetch` — authenticates `/agents/wiki-generation-agent/:session` and routes it through the Agents SDK; short-circuits `/ws/collab/:slug` to `COLLAB_DO`; otherwise → RR.
-- `scheduled` — cron `0 15 * * *` (15:00 UTC = 00:00 JST). Calls `sendDueTaskReminders(env)` to DM users whose task due-date is today JST.
-- `queue` — consumes `TRANSLATION_QUEUE`. Wiki generation runs in the durable Agent Workflow instead of a Queue.
+- `scheduled` — two crons: `0 15 * * *` (task Discord reminders, 00:00 JST) and `0 16 * * *` (daily/weekly source refresh enqueue).
+- `queue` — consumes `TRANSLATION_QUEUE`, Google Docs import jobs, and `SOURCE_FETCH_QUEUE`. Google Chat import continuation runs in `CHAT_IMPORT_DO` alarms, not the queue.
 
-`CollabDurableObject` (Yjs/WebSocket; awareness via `y-protocols`) re-exported from same file so wrangler registers it.
+`CollabDurableObject` and `GoogleChatImportDurableObject` are re-exported from the same file so wrangler registers them.
 
 ## Bindings (env shape)
 
@@ -32,10 +32,12 @@ Single `ExportedHandler<Env>` — understand all three before touching:
 | `DB` | D1, primary store. Via Drizzle (`getDb(env)` in `app/lib/db.server.ts`). |
 | `BUCKET` | R2 — page attachments + ingestion uploads. |
 | `TRANSLATION_QUEUE` | Translation producer+consumer; `app/lib/queue-processors.server.ts`. |
+| `SOURCE_FETCH_QUEUE` | Source fetch start messages (`source_fetch`). Chat import work continues via DO alarms. |
 | `BROWSER` | Browser Rendering, headless Chromium for PDF. |
 | `AI` | Workers AI; `bge-m3` for 1024-dim embeddings. |
 | `VECTORIZE` | Index `gdgjp-wiki-pages`, cosine, 1024 dims — semantic page search. |
 | `COLLAB_DO` | `CollabDurableObject`; one instance per page slug (`idFromName(slug)`). |
+| `CHAT_IMPORT_DO` | `GoogleChatImportDurableObject`; one instance per Google Chat source (`getByName(sourceId)`). Alarm self-chain drives listing → senders → attachments → grouping → finalizing. |
 | `WikiGenerationAgent` / `GENERATION_WORKFLOW` | Durable Wiki generation state and workflow. The Agent binding name must match the exported class for automatic `/agents/*` routing. |
 
 `worker-configuration.d.ts` is generated — don't hand-edit. Access via `context.cloudflare.env`.
@@ -89,5 +91,5 @@ UI strings: `app/locales/{ja,en}/*.json` via `remix-i18next` (`i18n.server.ts` /
 
 - `~/*` → `./app/*`.
 - `.server.ts` modules are server-only (enforced by Vite's import boundary) — never import from client code.
-- Cron set up for ONE trigger; adding another → update `[triggers].crons` + the `scheduled` handler discriminator together.
-- Translation Queue messages MUST be discriminable by the guard in `queue-processors.server.ts`. Worker drops unrecognized messages via `ack()`.
+- Cron triggers are listed in `[triggers].crons`; the `scheduled` handler discriminates by cron string (`TASK_REMINDER_CRON` / `SOURCE_REFRESH_CRON`). Adding another → update both together.
+- Queue messages MUST be discriminable by the guards in `queue-processors.server.ts`. Worker drops unrecognized messages via `ack()`.

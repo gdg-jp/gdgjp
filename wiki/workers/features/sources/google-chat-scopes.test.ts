@@ -1,166 +1,121 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { eq } from "drizzle-orm";
+import { describe, expect, it, vi } from "vitest";
+import { beforeEach } from "vitest";
+import * as schema from "../../../app/db/schema";
+import {
+  GOOGLE_CHAT_REAUTH_MESSAGE,
+  resolvePeopleDisplayNames,
+  resolveSpaceMemberDisplayNames,
+} from "./google-chat";
+import { createSourcesTestDb } from "./test-db";
 
 const getTokenRow = vi.fn();
-const selectAll = vi.fn();
+const { db, sqlite } = createSourcesTestDb();
 
 vi.mock("../../../app/lib/google-drive-token.server", () => ({
   getGoogleDriveTokenRow: (...args: unknown[]) => getTokenRow(...args),
 }));
-
-vi.mock("../../../app/lib/db.server", () => ({
-  getDb: () => ({
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          all: selectAll,
-        }),
-      }),
-    }),
-  }),
+vi.mock("../../../app/lib/db.server", () => ({ getDb: () => db }));
+vi.mock("../../../app/lib/google-drive.server", () => ({
+  hasRequiredGoogleChatScopes: (scopes: string | null) =>
+    Boolean(scopes?.includes("chat.messages.readonly") && scopes.includes("directory.readonly")),
 }));
 
-import { GOOGLE_CHAT_REAUTH_MESSAGE, fetchGoogleChatSource } from "./google-chat";
+import { startGoogleChatImport } from "./google-chat-import";
 
-describe("fetchGoogleChatSource scope gate", () => {
+const SOURCE_ID = "scope-source-1";
+
+describe("Google Chat import scope gate", () => {
   beforeEach(() => {
     getTokenRow.mockReset();
-    selectAll.mockReset();
+    sqlite.exec("DELETE FROM google_chat_import_runs; DELETE FROM sources;");
+    sqlite
+      .prepare(
+        `INSERT INTO sources (id, kind, url, external_id, title, added_by, status)
+         VALUES (?, 'google-chat-space', '', 'spaces/AAA', 'Chat', 'user-1', 'pending')`,
+      )
+      .run(SOURCE_ID);
   });
 
-  it("stops with error and does not call Chat when scopes are missing", async () => {
+  it("stops with error and does not start the DO when scopes are missing", async () => {
     getTokenRow.mockResolvedValue({
       accessToken: "token",
       grantedScopes: "https://www.googleapis.com/auth/drive.readonly",
     });
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const start = vi.fn();
+    const source = await db
+      .select()
+      .from(schema.sources)
+      .where(eq(schema.sources.id, SOURCE_ID))
+      .get();
+    if (!source) throw new Error("missing source");
 
     await expect(
-      fetchGoogleChatSource({} as Env, {
-        sourceId: "src-1",
-        spaceName: "spaces/AAA",
-        addedBy: "user-1",
-      }),
+      startGoogleChatImport(
+        { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+        source,
+        "attempt-1",
+      ),
     ).rejects.toThrow(GOOGLE_CHAT_REAUTH_MESSAGE);
 
-    expect(fetchSpy).not.toHaveBeenCalled();
-    expect(selectAll).not.toHaveBeenCalled();
+    expect(start).not.toHaveBeenCalled();
+  });
+});
+
+describe("sender resolution batching", () => {
+  it("resolves N unique senders with O(unique/200) People batchGet calls", async () => {
+    const senders = Array.from({ length: 250 }, (_, i) => ({
+      name: `users/${i}`,
+      type: "HUMAN" as const,
+    }));
+    let calls = 0;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      calls += 1;
+      const url = String(input);
+      if (url.includes("people:batchGet")) {
+        const params = new URL(url).searchParams.getAll("resourceNames");
+        return new Response(
+          JSON.stringify({
+            responses: params.map((resourceName) => ({
+              requestedResourceName: resourceName,
+              httpStatusCode: 200,
+              person: {
+                resourceName,
+                names: [{ displayName: `Name ${resourceName}` }],
+              },
+            })),
+          }),
+        );
+      }
+      return new Response(null, { status: 404 });
+    });
+
+    const names = await resolvePeopleDisplayNames("token", senders);
+    expect(calls).toBe(2);
+    expect(names.size).toBe(250);
     fetchSpy.mockRestore();
   });
 
-  it("logs Google error metadata when messages.list rejects the request", async () => {
-    getTokenRow.mockResolvedValue({
-      accessToken: "token",
-      grantedScopes: [
-        "https://www.googleapis.com/auth/chat.spaces.readonly",
-        "https://www.googleapis.com/auth/chat.messages.readonly",
-        "https://www.googleapis.com/auth/directory.readonly",
-        "https://www.googleapis.com/auth/drive.readonly",
-      ].join(" "),
-    });
-    selectAll.mockResolvedValue([]);
+  it("prefers spaces.members.list display names when available", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
-          error: {
-            code: 400,
-            status: "INVALID_ARGUMENT",
-            message: "Invalid filter expression.",
-            details: [{ "@type": "type.googleapis.com/google.rpc.BadRequest" }],
-          },
+          memberships: [
+            {
+              member: {
+                name: "users/111",
+                displayName: "Taro Yamada",
+                type: "HUMAN",
+              },
+            },
+          ],
         }),
-        { status: 400, statusText: "Bad Request" },
       ),
     );
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    await expect(
-      fetchGoogleChatSource({} as Env, {
-        sourceId: "src-1",
-        spaceName: "spaces/AAA",
-        addedBy: "user-1",
-      }),
-    ).rejects.toThrow("Google Chat messages.list failed (400)");
-
-    expect(errorSpy).toHaveBeenCalledWith(
-      JSON.stringify({
-        component: "sources",
-        integration: "google-chat",
-        event: "messages_list_failed",
-        httpStatus: 400,
-        httpStatusText: "Bad Request",
-        spaceName: "spaces/AAA",
-        pageSize: 1000,
-        orderBy: "ASC",
-        filter: undefined,
-        hasPageToken: false,
-        googleError: {
-          code: 400,
-          status: "INVALID_ARGUMENT",
-          message: "Invalid filter expression.",
-          details: [{ "@type": "type.googleapis.com/google.rpc.BadRequest" }],
-        },
-      }),
-    );
-    errorSpy.mockRestore();
-    fetchSpy.mockRestore();
-  });
-
-  it("keeps importing when an attachment is no longer accessible", async () => {
-    getTokenRow.mockResolvedValue({
-      accessToken: "token",
-      grantedScopes: [
-        "https://www.googleapis.com/auth/drive.readonly",
-        "https://www.googleapis.com/auth/chat.spaces.readonly",
-        "https://www.googleapis.com/auth/chat.messages.readonly",
-        "https://www.googleapis.com/auth/directory.readonly",
-      ].join(" "),
-    });
-    selectAll.mockResolvedValue([]);
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            messages: [
-              {
-                createTime: "2026-08-01T00:00:00Z",
-                attachment: [
-                  {
-                    name: "spaces/AAA/messages/1/attachments/1",
-                    contentName: "inaccessible.pdf",
-                    contentType: "application/pdf",
-                    driveDataRef: { driveFileId: "file-1" },
-                  },
-                ],
-              },
-            ],
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(new Response(null, { status: 403 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ displayName: "Space" })));
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-
-    const result = await fetchGoogleChatSource({ BUCKET: {} } as Env, {
-      sourceId: "src-1",
-      spaceName: "spaces/AAA",
-      addedBy: "user-1",
-    });
-
-    expect(result.documents[0]?.markdown).toContain("inaccessible.pdf");
-    expect(result.documents[0]?.markdown).not.toContain("attachment:");
-    expect(warnSpy).toHaveBeenCalledWith(
-      JSON.stringify({
-        component: "sources",
-        integration: "google-chat",
-        event: "attachment_unavailable",
-        sourceId: "src-1",
-        attachmentId: "1",
-        attachmentKind: "drive",
-        status: 403,
-      }),
-    );
-    warnSpy.mockRestore();
+    const names = await resolveSpaceMemberDisplayNames("spaces/AAA", "token");
+    expect(names.get("users/111")).toBe("Taro Yamada");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
     fetchSpy.mockRestore();
   });
 });

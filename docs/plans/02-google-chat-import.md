@@ -64,32 +64,25 @@ Do not automatically ingest every Space. Operations chooses the target Spaces.
 
 ### 3. Fetching and normalization
 
-Create `wiki/workers/features/sources/google-chat.ts` and connect it to the `fetch-source.ts` dispatcher.
+Create `wiki/workers/features/sources/google-chat.ts` (normalization + Google API helpers) and
+`wiki/workers/features/sources/google-chat-import.ts` (Durable Object phase steps). Wire start
+through `fetch-source.ts` → `SOURCE_FETCH_QUEUE` once, then continue in `CHAT_IMPORT_DO`.
 
-- Paginate `GET https://chat.googleapis.com/v1/spaces/{space}/messages` using `pageToken`.
-- Resolve sender `people/...` values to display names, caching them in memory for a single fetch.
-- Format **one `source_document` per month**. Its `path` is `YYYY-MM`.
-- Prioritize grep-friendly Markdown:
-
-  ```markdown
-  ## [2026-07-14 21:03] Taro Yamada
-
-  It looks like we can reserve venue X in Umeda. Capacity: 120.
-
-  ## [2026-07-14 21:05] Hanako Sato
-
-  We had leftovers last time, so use an 0.8 multiplier for catering.
-  ```
-
-- For thread replies, show the parent message as a one-line `> ` quote, then nest the reply below it.
-- Store attachments in `source_assets` and reference them from the body with relative paths.
-- Extract URLs in message bodies and preserve them as metadata on `source_documents` (Stage 3 will ask, “Add this URL as a source too?”).
+- Paginate `GET https://chat.googleapis.com/v1/spaces/{space}/messages` with `pageSize=1000`.
+  Each page is stored as one R2 object under `raw/<sourceId>/chat-runs/<runId>/pages/`.
+- Resolve senders with `spaces.members.list`, then `people:batchGet` (≤200 / request) for the rest.
+- Download attachments in parallel (≤4) into `source_assets`; skip 403/404 and >10 MB with a warning.
+- Group messages into monthly R2 blobs, then `normalizeChatMessages` + `persistSourceDocument` per month.
+- Continuations use Durable Object `alarm()` self-chains with a soft subrequest budget of 40 per tick.
+  Queue messages are only the initial `source_fetch` start.
 
 ### 4. Incremental fetching
 
 Store the last fetched message’s `createTime` for each month in `source_documents.cursor` (the column is added in Stage 1).
 
-On refetch, retrieve only the current month with `filter=createTime > "<cursor>"`, append to the existing Markdown, and finalize it with a new hash. Previous months’ hashes do not change, so no R2 writes occur.
+On refetch, set `google_chat_import_runs.since_cursor` to the max existing cursor and call
+`messages.list` with `filter=createTime > "<cursor>"`. Append to existing monthly Markdown with
+`assetPolicy: "merge"`. Untouched months keep their hashes; no R2 rewrite.
 
 Reuse the Stage 1 `refresh_policy` cron unchanged.
 
@@ -112,7 +105,10 @@ Reuse the Stage 1 `refresh_policy` cron unchanged.
 - `wiki/app/routes/api.google-chat.spaces.ts` (new)
 - `wiki/app/routes.ts`
 - `wiki/app/routes/sources.tsx` (Space-selection UI)
-- `wiki/workers/features/sources/google-chat.ts` (new), `fetch-source.ts` (add dispatcher branch)
+- `wiki/workers/features/sources/google-chat.ts` (helpers), `google-chat-import.ts` (phases),
+  `wiki/workers/google-chat-import-durable-object.ts`, `fetch-source.ts` (start → DO)
+- `wiki/wrangler.toml` (`CHAT_IMPORT_DO` binding + migration `v4`)
+- `wiki/migrations/0042_google_chat_import_do.sql`
 - `wiki/app/locales/{ja,en}/common.json`
 - `docs/google-chat-setup.md` (new, instructions for the Google Cloud side)
 
