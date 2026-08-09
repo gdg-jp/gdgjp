@@ -4,7 +4,7 @@ import type { Message, Thread } from "chat";
 import { toAiMessages } from "chat/ai";
 
 import type { AgentsChat } from "./adapters";
-import { UNLINK_COMMAND } from "./discord-commands";
+import { ASK_COMMAND, UNLINK_COMMAND } from "./discord-commands";
 import {
   type ChatPlatform,
   type LinkAccountDeps,
@@ -339,6 +339,23 @@ export function registerAgentHandlers(bot: AgentsChat, deps: HandleInquiryDeps =
   bot.onNewMention(reply);
   bot.onSubscribedMessage(reply);
   bot.onDirectMessage(reply);
+
+  bot.onSlashCommand(ASK_COMMAND, async (event) => {
+    const platform = adapterNameToPlatform(event.adapter.name);
+    if (!platform) {
+      await event.channel.post("Unsupported chat platform.");
+      return;
+    }
+    const outcome = await handleInquiry(
+      {
+        platform,
+        chatUserId: event.user.userId,
+        prompt: event.text,
+      },
+      deps,
+    );
+    await event.channel.post(outcome.text);
+  });
 
   bot.onSlashCommand(UNLINK_COMMAND, async (event) => {
     const platform = adapterNameToPlatform(event.adapter.name);

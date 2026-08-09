@@ -26,15 +26,16 @@ still match what is registered in the Chat API console (scheme, host, path — n
 2. Under **General Information**, copy the **Public Key** → Vercel `DISCORD_PUBLIC_KEY`.
 3. Copy **Application ID** → `DISCORD_APPLICATION_ID`.
 4. Create a bot user and copy the bot token → `DISCORD_BOT_TOKEN`.
-5. Under **Bot → Privileged Gateway Intents**, enable **Message Content Intent**. This is required
-   for the bot to receive regular messages and mentions through Discord Gateway.
-6. Set **Interactions Endpoint URL** to `https://agent.gdgs.jp/api/chat`.
+5. Set **Interactions Endpoint URL** to `https://agent.gdgs.jp/api/chat`.
    Discord validates with a signed PING; a bad signature must return 401 (the agents verifier does this).
-7. Invite the bot using an OAuth2 URL that includes both the `bot` and `applications.commands` scopes.
-   The production deployment synchronizes `/unlink` with Discord automatically after the deploy succeeds;
+6. Invite the bot using an OAuth2 URL that includes both the `bot` and `applications.commands` scopes.
+   The production deployment synchronizes `/ask` and `/unlink` with Discord automatically after the deploy succeeds;
    no manual API call is needed. For an already invited bot, reauthorize it with the updated URL if the
    `applications.commands` scope was omitted, then reload the Discord client before checking the command
    picker.
+
+Discord questions use `/ask question:<your question>` rather than @mentions, so no Discord Gateway
+listener or privileged Message Content Intent is required.
 
 Google Chat has no Chat SDK slash-command surface; members type `/unlink` as a message there.
 
@@ -68,7 +69,6 @@ Google Chat has no Chat SDK slash-command surface; members type `/unlink` as a m
 | `DISCORD_PUBLIC_KEY` | Ed25519 public key (hex) |
 | `DISCORD_BOT_TOKEN` | Bot token |
 | `DISCORD_APPLICATION_ID` | Application id |
-| `CRON_SECRET` | Random secret used by Vercel Cron to start the Discord Gateway listener |
 | `TOKEN_ENCRYPTION_KEYS` | AES-256-GCM keyring JSON (see below) |
 | `AI_GATEWAY_API_KEY` | Vercel AI Gateway key (OIDC may replace this on Vercel) |
 | `AGENT_MODEL` | Optional model id (default `google/gemini-2.5-flash`) |
@@ -117,8 +117,4 @@ Never log decrypted tokens or the keyring.
 6. “Please read this Doc too” → multi-chapter user is asked for a chapter; `POST /api/agent/sources`
    uses the chosen chapter only.
 7. `/unlink` (Discord slash or Google Chat message) → next question returns a linking URL again.
-8. Repeat 1–6 on Discord with that platform’s user id.
-
-For Discord, confirm **Message Content Intent** is enabled and that `CRON_SECRET` is set. The
-`/api/discord/gateway` cron runs every nine minutes and keeps a ten-minute Gateway connection open;
-without it Discord slash commands work but ordinary mentions never reach Vercel.
+8. On Discord, run `/ask` with a question, then repeat 2–6 with that platform’s user id.

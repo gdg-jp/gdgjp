@@ -8,7 +8,7 @@ const env = {
 };
 
 describe("syncDiscordCommands", () => {
-  it("bulk synchronizes the /unlink global command", async () => {
+  it("bulk synchronizes the /ask and /unlink global commands", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response("[]", { status: 200 }));
     const logger = { info: vi.fn() };
 
@@ -24,13 +24,25 @@ describe("syncDiscordCommands", () => {
         },
         body: JSON.stringify([
           {
+            name: "ask",
+            description: "Ask the GDG Japan Wiki assistant",
+            options: [
+              {
+                name: "question",
+                description: "Your question for the Wiki assistant",
+                type: 3,
+                required: true,
+              },
+            ],
+          },
+          {
             name: "unlink",
             description: "Unlink this Discord account from GDG Accounts",
           },
         ]),
       },
     );
-    expect(logger.info).toHaveBeenCalledWith("Synchronized 1 Discord global slash command(s).");
+    expect(logger.info).toHaveBeenCalledWith("Synchronized 2 Discord global slash command(s).");
   });
 
   it("fails clearly when Discord credentials are missing", async () => {

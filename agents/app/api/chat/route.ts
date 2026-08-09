@@ -36,28 +36,6 @@ export async function POST(request: Request): Promise<Response> {
   // Read the raw body once — Discord Ed25519 covers these exact bytes.
   const rawBody = await request.text();
 
-  // Regular Discord messages arrive through the Gateway, not the Interactions
-  // HTTP endpoint. The Gateway listener forwards them here with the bot token;
-  // the Discord adapter validates that token before it dispatches the event.
-  // Do not pass these through verifyWebhook: they are intentionally not signed
-  // by Discord's HTTP-interaction Ed25519 key.
-  if (request.headers.has("x-discord-gateway-token")) {
-    const bot = getAgentsChat("discord");
-    registerAgentHandlers(bot);
-    return bot.webhooks.discord(
-      new Request(request.url, {
-        method: "POST",
-        headers: request.headers,
-        body: rawBody,
-      }),
-      {
-        waitUntil: (task: Promise<unknown>) => {
-          after(() => task);
-        },
-      },
-    );
-  }
-
   const result = await verifyWebhook(request, rawBody, {
     env: verifyEnv(),
     replay: lazyReplayStore(),
