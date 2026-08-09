@@ -27,10 +27,19 @@ export async function getAgentInstructions(
     .where(eq(schema.wikiAgentInstructions.id, 1))
     .get();
   if (!row) {
+    // Older production databases contain an administrator but not necessarily
+    // the optional wiki-system row introduced by the namespace seed migration.
+    // Use a real admin so this bootstrap satisfies the foreign-key constraint.
+    const seedUser = await db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.isAdmin, true))
+      .get();
+    if (!seedUser) return null;
     const contentHash = agentsHash(INITIAL_AGENTS_MD);
     await db
       .insert(schema.wikiAgentInstructions)
-      .values({ id: 1, content: INITIAL_AGENTS_MD, contentHash, updatedBy: "wiki-system" })
+      .values({ id: 1, content: INITIAL_AGENTS_MD, contentHash, updatedBy: seedUser.id })
       .onConflictDoNothing();
     row = await db
       .select()
