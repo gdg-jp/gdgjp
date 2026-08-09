@@ -9,6 +9,15 @@ vi.mock("./auth.server", () => ({
   CHAPTERS_SCOPE: "https://gdgs.jp/scopes/chapters",
   CLI_SCOPE: "https://gdgs.jp/scopes/cli",
   requireUser: authMocks.requireUser,
+  trustedOAuthClientIds: (env: Env) =>
+    [
+      env.TINYURL_CLIENT_ID,
+      env.WIKI_CLIENT_ID,
+      env.IMG_CLIENT_ID,
+      env.SCHEDULER_CLIENT_ID,
+      env.SNS_CLIENT_ID,
+      env.AGENTS_CLIENT_ID,
+    ].filter(Boolean),
 }));
 
 import {
@@ -106,6 +115,7 @@ function testEnv(options?: {
     IMG_CLIENT_ID: "img",
     SCHEDULER_CLIENT_ID: "scheduler",
     SNS_CLIENT_ID: "sns",
+    AGENTS_CLIENT_ID: "agents",
   } as Env;
   return { env, calls, batches, preparedSql };
 }

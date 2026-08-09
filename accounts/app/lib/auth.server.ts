@@ -77,14 +77,20 @@ export async function requireUser(env: Env, request: Request): Promise<AuthUser>
   return user;
 }
 
-function buildAuth(env: Env) {
-  const trustedClientIds = [
+/** First-party OAuth client IDs that skip consent via cachedTrustedClients. */
+export function trustedOAuthClientIds(env: Env): string[] {
+  return [
     env.TINYURL_CLIENT_ID,
     env.WIKI_CLIENT_ID,
     env.IMG_CLIENT_ID,
     env.SCHEDULER_CLIENT_ID,
     env.SNS_CLIENT_ID,
+    env.AGENTS_CLIENT_ID,
   ].filter(Boolean);
+}
+
+function buildAuth(env: Env) {
+  const trustedClientIds = trustedOAuthClientIds(env);
 
   return betterAuth({
     baseURL: env.APP_URL,
