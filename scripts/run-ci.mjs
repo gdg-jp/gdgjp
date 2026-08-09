@@ -26,6 +26,7 @@ const fullSteps = [
 
 const codeFilePattern = /\.(?:[cm]?[jt]sx?|sql)$/;
 const biomeFilePattern = /\.(?:[cm]?[jt]sx?|jsonc?|css|graphql|ya?ml)$/;
+const preCommitExcludedPathPattern = /^(?:\.agents|\.claude)\//;
 const nodeConfigurationFilePattern =
   /(?:^|\/)(?:package\.json|tsconfig(?:\.[^/]+)?\.json|vite\.config\.[cm]?[jt]s|wrangler\.(?:toml|jsonc?)|react-router\.config\.[cm]?[jt]s)$/;
 const globalNodeInputs = new Set([
@@ -115,8 +116,11 @@ function workspaceFiles(files, predicate) {
 }
 
 function changedSteps(mode, files) {
-  const hasGlobalNodeInput = files.some((file) => globalNodeInputs.has(file));
-  const nodeFiles = files.filter(isNodeFile);
+  // Agent configuration is intentionally versioned but is not application code.
+  // Exclude it from the changed-file CI path used by the pre-commit hook.
+  const relevantFiles = files.filter((file) => !preCommitExcludedPathPattern.test(file));
+  const hasGlobalNodeInput = relevantFiles.some((file) => globalNodeInputs.has(file));
+  const nodeFiles = relevantFiles.filter(isNodeFile);
   const changedWorkspaces = new Set(
     nodeFiles
       .map((file) => workspaces.get(file.split("/")[0]))
@@ -124,7 +128,7 @@ function changedSteps(mode, files) {
   );
   const steps = [];
 
-  if (files.some((file) => biomeFilePattern.test(file))) {
+  if (relevantFiles.some((file) => biomeFilePattern.test(file))) {
     // Biome owns staged-file selection, including deleted and ignored files.
     steps.push([
       "lint",
@@ -139,7 +143,9 @@ function changedSteps(mode, files) {
     steps.push(["typecheck", `pnpm exec turbo typecheck${filters} --output-logs=errors-only`]);
   }
 
-  const scriptTests = files.filter((file) => /^\.github\/scripts\/.*\.test\.mjs$/.test(file));
+  const scriptTests = relevantFiles.filter((file) =>
+    /^\.github\/scripts\/.*\.test\.mjs$/.test(file),
+  );
   if (scriptTests.length > 0) {
     steps.push([
       "test:scripts",
@@ -148,7 +154,7 @@ function changedSteps(mode, files) {
   }
 
   const unitTestsByWorkspace = workspaceFiles(
-    files,
+    relevantFiles,
     (file) => isNodeFile(file) && !file.includes("/e2e/"),
   );
   for (const [workspace, workspaceNodeFiles] of unitTestsByWorkspace) {
@@ -169,7 +175,7 @@ function changedSteps(mode, files) {
   }
 
   if (mode === "full") {
-    const e2eTestsByWorkspace = workspaceFiles(files, (file) =>
+    const e2eTestsByWorkspace = workspaceFiles(relevantFiles, (file) =>
       /(?:^|\/)(?:e2e|tests\/e2e)\/.*\.(?:spec|test)\.[cm]?[jt]sx?$/.test(file),
     );
     for (const [workspace, e2eFiles] of e2eTestsByWorkspace) {
@@ -181,7 +187,7 @@ function changedSteps(mode, files) {
   }
 
   if (
-    files.some(
+    relevantFiles.some(
       (file) =>
         file.startsWith("cli/") && (file.endsWith(".go") || /\/go\.(?:mod|sum)$/.test(file)),
     )

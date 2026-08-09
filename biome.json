@@ -24,6 +24,8 @@
       "**/openapi/types.generated.ts",
       "**/openapi.gen.go",
       "**/openapigen/**",
+      ".agents/**",
+      ".claude/**",
       "learn/**"
     ]
   },
