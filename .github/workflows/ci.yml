@@ -13,21 +13,77 @@ env:
   NODE_VERSION: "22"
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      ci: ${{ steps.changes.outputs.ci }}
+      build: ${{ steps.changes.outputs.build }}
+      e2e: ${{ steps.changes.outputs.e2e }}
+      lint: ${{ steps.changes.outputs.lint }}
+      openapi: ${{ steps.changes.outputs.openapi }}
+      script-tests: ${{ steps.changes.outputs.script-tests }}
+      full: ${{ steps.changes.outputs.full }}
+      base: ${{ steps.changes.outputs.base }}
+      head: ${{ steps.changes.outputs.head }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect affected workspaces
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node .github/scripts/changed-workspaces.mjs --base "$BASE_SHA" --head "$HEAD_SHA"
+
   lint:
     name: Lint (Biome)
+    needs: changes
+    if: needs.changes.outputs.lint == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
+      - name: Lint affected files
+        env:
+          BASE_SHA: ${{ needs.changes.outputs.base }}
+          HEAD_SHA: ${{ needs.changes.outputs.head }}
+          FULL_CHECK: ${{ needs.changes.outputs.full }}
+        run: |
+          if [[ "$FULL_CHECK" == "true" ]]; then
+            pnpm lint
+            exit
+          fi
+          mapfile -d '' files < <(git diff --diff-filter=ACMRTUXB --name-only -z --no-renames "$BASE_SHA" "$HEAD_SHA")
+          if (( ${#files[@]} == 0 )); then
+            exit
+          fi
+          pnpm exec biome check --files-ignore-unknown=true --no-errors-on-unmatched -- "${files[@]}"
+
+  script-tests:
+    name: Workflow script tests
+    needs: changes
+    if: needs.changes.outputs.script-tests == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node --test .github/scripts/*.test.mjs
 
   openapi:
     name: OpenAPI contracts
+    needs: changes
+    if: needs.changes.outputs.openapi == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,8 +99,14 @@ jobs:
       - run: pnpm openapi:check
 
   typecheck:
-    name: Typecheck
+    name: Typecheck (${{ matrix.workspace }})
+    needs: changes
+    if: needs.changes.outputs.ci != '[]'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: ${{ fromJSON(needs.changes.outputs.ci) }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -53,33 +115,17 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - parallel:
-          - name: Typecheck accounts
-            run: pnpm --filter @gdgjp/accounts typecheck
-          - name: Typecheck tinyurl
-            run: pnpm --filter @gdgjp/tinyurl typecheck
-          - name: Typecheck wiki
-            run: pnpm --filter @gdgjp/wiki typecheck
-          - name: Typecheck img
-            run: pnpm --filter @gdgjp/img typecheck
-          - name: Typecheck scheduler
-            run: pnpm --filter @gdgjp/scheduler typecheck
-          - name: Typecheck SNS
-            run: pnpm --filter @gdgjp/sns typecheck
-          - name: Typecheck website
-            run: pnpm --filter @gdgjp/website typecheck
-          - name: Typecheck gdg-lib
-            run: pnpm --filter @gdgjp/gdg-lib typecheck
-          - name: Typecheck tinyurl gateway
-            run: pnpm --filter @gdgjp/tinyurl-gateway typecheck
-          - name: Typecheck agents
-            run: pnpm --filter @gdgjp/agents typecheck
-          - name: Typecheck go extension
-            run: pnpm --filter @gdgjp/go-extension typecheck
+      - run: pnpm --filter ${{ matrix.workspace }} typecheck
 
   test:
-    name: Unit tests
+    name: Unit tests (${{ matrix.workspace }})
+    needs: changes
+    if: needs.changes.outputs.ci != '[]'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: ${{ fromJSON(needs.changes.outputs.ci) }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -88,33 +134,17 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - parallel:
-          - name: Test accounts
-            run: pnpm --filter @gdgjp/accounts test
-          - name: Test tinyurl
-            run: pnpm --filter @gdgjp/tinyurl test
-          - name: Test wiki
-            run: pnpm --filter @gdgjp/wiki test
-          - name: Test img
-            run: pnpm --filter @gdgjp/img test
-          - name: Test scheduler
-            run: pnpm --filter @gdgjp/scheduler test
-          - name: Test SNS
-            run: pnpm --filter @gdgjp/sns test
-          - name: Test website
-            run: pnpm --filter @gdgjp/website test
-          - name: Test gdg-lib
-            run: pnpm --filter @gdgjp/gdg-lib test
-          - name: Test tinyurl gateway
-            run: pnpm --filter @gdgjp/tinyurl-gateway test
-          - name: Test agents
-            run: pnpm --filter @gdgjp/agents test
-          - name: Test go extension
-            run: pnpm --filter @gdgjp/go-extension test
+      - run: pnpm --filter ${{ matrix.workspace }} test
 
   build:
-    name: Build
+    name: Build (${{ matrix.workspace }})
+    needs: changes
+    if: needs.changes.outputs.build != '[]'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: ${{ fromJSON(needs.changes.outputs.build) }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -123,30 +153,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - parallel:
-          - name: Build accounts
-            run: pnpm --filter @gdgjp/accounts build
-          - name: Build tinyurl
-            run: pnpm --filter @gdgjp/tinyurl build
-          - name: Build wiki
-            run: pnpm --filter @gdgjp/wiki build
-          - name: Build img
-            run: pnpm --filter @gdgjp/img build
-          - name: Build scheduler
-            run: pnpm --filter @gdgjp/scheduler build
-          - name: Build SNS
-            run: pnpm --filter @gdgjp/sns build
-          - name: Build website
-            run: pnpm --filter @gdgjp/website build
-          - name: Build tinyurl gateway
-            run: pnpm --filter @gdgjp/tinyurl-gateway build
-          - name: Build agents
-            run: pnpm --filter @gdgjp/agents build
-          - name: Build go extension
-            run: pnpm --filter @gdgjp/go-extension build
+      - run: pnpm --filter ${{ matrix.workspace }} build
       - name: Validate go extension package
+        if: matrix.workspace == '@gdgjp/go-extension'
         run: unzip -t go-extension/dist/gdg-japan-go-links.zip
       - name: Upload go extension package
+        if: matrix.workspace == '@gdgjp/go-extension'
         uses: actions/upload-artifact@v4
         with:
           name: gdg-japan-go-links
@@ -155,8 +167,11 @@ jobs:
 
   e2e:
     name: E2E (${{ matrix.app }})
+    needs: changes
+    if: needs.changes.outputs.e2e != '[]'
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         # wiki's inherited e2e suite (tests/e2e/access-control.spec.ts) seeds
         # users directly into the local miniflare D1 sqlite file, which
@@ -167,7 +182,7 @@ jobs:
         # rewrite global-setup to migrate-then-seed via better-sqlite3 at a
         # deterministic path. Page-access logic is still covered by the
         # vitest unit suite (Unit tests (wiki)) in the meantime.
-        app: [accounts, tinyurl, img, scheduler]
+        app: ${{ fromJSON(needs.changes.outputs.e2e) }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

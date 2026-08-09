@@ -14,6 +14,28 @@ env:
   NODE_VERSION: "22"
 
 jobs:
+  changes:
+    name: Detect deploy targets
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.changes.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect affected applications
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            node .github/scripts/changed-workspaces.mjs --all
+          else
+            node .github/scripts/changed-workspaces.mjs --base "$BASE_SHA" --head "$HEAD_SHA"
+          fi
+
   release-cli:
     name: Release CLI
     if: startsWith(github.ref, 'refs/tags/cli/v')
@@ -79,12 +101,17 @@ jobs:
         run: gh release create "$TAG_NAME" go-extension/dist/gdg-japan-go-links.zip --title "GDG Japan Go Links ${TAG_NAME#extension/}" --generate-notes
 
   deploy:
-    name: Deploy
-    if: github.ref == 'refs/heads/main'
+    name: Deploy (${{ matrix.target.app }})
+    needs: changes
+    if: github.ref == 'refs/heads/main' && needs.changes.outputs.deploy != '[]'
     runs-on: ubuntu-latest
     environment: Production
     permissions:
       contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.changes.outputs.deploy) }}
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -98,112 +125,44 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - parallel:
-          - name: Build accounts
-            run: pnpm --filter @gdgjp/accounts build
-          - name: Build tinyurl
-            run: pnpm --filter @gdgjp/tinyurl build
-          - name: Build wiki
-            run: pnpm --filter @gdgjp/wiki build
-          - name: Build img
-            run: pnpm --filter @gdgjp/img build
-          - name: Build scheduler
-            run: pnpm --filter @gdgjp/scheduler build
-          - name: Build website
-            run: pnpm --filter @gdgjp/website build
-          - name: Build SNS
-            run: pnpm --filter @gdgjp/sns build
-          - name: Build tinyurl gateway
-            run: pnpm --filter @gdgjp/tinyurl-gateway build
-          - name: Build agents
-            run: pnpm --filter @gdgjp/agents build
-      - parallel:
-          - name: Deploy accounts to Cloudflare Workers
-            uses: cloudflare/wrangler-action@v3
-            with:
-              apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-              accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-              workingDirectory: accounts
-              packageManager: pnpm
-              command: deploy
-          - name: Deploy tinyurl to Cloudflare Workers
-            uses: cloudflare/wrangler-action@v3
-            with:
-              apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-              accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-              workingDirectory: tinyurl
-              packageManager: pnpm
-              command: deploy
-          - name: Deploy wiki to Cloudflare Workers
-            uses: cloudflare/wrangler-action@v3
-            with:
-              apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-              accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-              workingDirectory: wiki
-              packageManager: pnpm
-              command: deploy
-          - name: Deploy img to Cloudflare Workers
-            uses: cloudflare/wrangler-action@v3
-            with:
-              apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-              accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-              workingDirectory: img
-              packageManager: pnpm
-              command: deploy
-          - name: Deploy scheduler to Cloudflare Workers
-            uses: cloudflare/wrangler-action@v3
-            with:
-              apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-              accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-              workingDirectory: scheduler
-              packageManager: pnpm
-              command: deploy
-          - name: Deploy website to Cloudflare Workers
-            uses: cloudflare/wrangler-action@v3
-            with:
-              apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-              accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-              workingDirectory: website
-              packageManager: pnpm
-              command: deploy
-          - name: Deploy SNS to Cloudflare Workers
-            uses: cloudflare/wrangler-action@v3
-            with:
-              apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-              accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-              workingDirectory: sns
-              packageManager: pnpm
-              command: deploy
-          - name: Deploy tinyurl gateway to Vercel
-            run: pnpm --filter @gdgjp/tinyurl-gateway exec vercel deploy --prod --yes --token="$VERCEL_TOKEN"
-            env:
-              VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-              VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-              VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          - name: Deploy agents to Vercel
-            # agents/ depends on @gdgjp/gdg-lib via workspace:* and ships that
-            # package as untranspiled TS. Run every Vercel command from the
-            # monorepo root so the project's `agents` Root Directory is applied
-            # exactly once and the local build can resolve workspace packages.
-            # Deploying the prebuilt output also avoids a remote install.
-            run: |
-              pnpm --filter @gdgjp/agents exec vercel pull --cwd "$GITHUB_WORKSPACE" --yes --environment=production --token="$VERCEL_TOKEN"
-              pnpm --filter @gdgjp/agents exec vercel build --cwd "$GITHUB_WORKSPACE" --prod --token="$VERCEL_TOKEN"
-              pnpm --filter @gdgjp/agents exec vercel deploy --cwd "$GITHUB_WORKSPACE" --prebuilt --prod --yes --token="$VERCEL_TOKEN"
-            env:
-              VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-              VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-              VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_AGENTS }}
-      - parallel:
-          - name: Apply accounts remote migrations
-            run: pnpm --filter @gdgjp/accounts migrate:remote
-          - name: Apply tinyurl remote migrations
-            run: pnpm --filter @gdgjp/tinyurl migrate:remote
-          - name: Apply wiki remote migrations
-            run: pnpm --filter @gdgjp/wiki migrate:remote
-          - name: Apply img remote migrations
-            run: pnpm --filter @gdgjp/img migrate:remote
-          - name: Apply scheduler remote migrations
-            run: pnpm --filter @gdgjp/scheduler migrate:remote
-          - name: Apply SNS remote migrations
-            run: pnpm --filter @gdgjp/sns migrate:remote
+
+      - name: Build ${{ matrix.target.app }}
+        run: pnpm --filter ${{ matrix.target.workspace }} build
+
+      - name: Deploy ${{ matrix.target.app }} to Cloudflare Workers
+        if: matrix.target.provider == 'cloudflare'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: ${{ matrix.target.app }}
+          packageManager: pnpm
+          command: deploy
+
+      - name: Deploy tinyurl gateway to Vercel
+        if: matrix.target.provider == 'vercel-gateway'
+        run: pnpm --filter @gdgjp/tinyurl-gateway exec vercel deploy --prod --yes --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy agents to Vercel
+        if: matrix.target.provider == 'vercel-agents'
+        # agents/ depends on @gdgjp/gdg-lib via workspace:* and ships that
+        # package as untranspiled TS. Run every Vercel command from the
+        # monorepo root so the project's `agents` Root Directory is applied
+        # exactly once and the local build can resolve workspace packages.
+        # Deploying the prebuilt output also avoids a remote install.
+        run: |
+          pnpm --filter @gdgjp/agents exec vercel pull --cwd "$GITHUB_WORKSPACE" --yes --environment=production --token="$VERCEL_TOKEN"
+          pnpm --filter @gdgjp/agents exec vercel build --cwd "$GITHUB_WORKSPACE" --prod --token="$VERCEL_TOKEN"
+          pnpm --filter @gdgjp/agents exec vercel deploy --cwd "$GITHUB_WORKSPACE" --prebuilt --prod --yes --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_AGENTS }}
+
+      - name: Apply ${{ matrix.target.app }} remote migrations
+        if: matrix.target.migrate
+        run: pnpm --filter ${{ matrix.target.workspace }} migrate:remote
