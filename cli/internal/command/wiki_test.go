@@ -37,6 +37,36 @@ func executeWiki(t *testing.T, service *wikiService, args ...string) (string, er
 	return output.String(), err
 }
 
+func clearGitLocalEnvironment(t *testing.T) {
+	t.Helper()
+	for _, name := range []string{
+		"GIT_ALTERNATE_OBJECT_DIRECTORIES",
+		"GIT_COMMON_DIR",
+		"GIT_CONFIG",
+		"GIT_CONFIG_COUNT",
+		"GIT_CONFIG_PARAMETERS",
+		"GIT_DIR",
+		"GIT_GRAFT_FILE",
+		"GIT_IMPLICIT_WORK_TREE",
+		"GIT_INDEX_FILE",
+		"GIT_NO_REPLACE_OBJECTS",
+		"GIT_OBJECT_DIRECTORY",
+		"GIT_PREFIX",
+		"GIT_REPLACE_REF_BASE",
+		"GIT_SHALLOW_FILE",
+		"GIT_WORK_TREE",
+	} {
+		if value, exists := os.LookupEnv(name); exists {
+			t.Setenv(name, value)
+		} else {
+			t.Setenv(name, "")
+		}
+		if err := os.Unsetenv(name); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestWikiCloneUsesGDGWikiRemote(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, "wiki")
@@ -85,12 +115,117 @@ func TestWikiCloneUsesGDGWikiRemote(t *testing.T) {
 	want := []string{
 		"init -b main",
 		"remote add origin " + defaultWikiRemote,
-		"pull origin main",
+		"fetch origin main",
+		"reset --hard refs/remotes/origin/main",
 		"config branch.main.remote origin",
 		"config branch.main.merge refs/heads/main",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("Git calls:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestWikiCloneBootstrapsUnbornBranchWithRemoteHelper(t *testing.T) {
+	clearGitLocalEnvironment(t)
+	ctx := context.Background()
+	seed := t.TempDir()
+	if _, err := runGit(ctx, seed, "init", "-b", "main"); err != nil {
+		t.Fatal(err)
+	}
+	page := filepath.Join(seed, "pages", "welcome", "page.md")
+	if err := os.MkdirAll(filepath.Dir(page), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(page, []byte("# Welcome\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runGit(ctx, seed, "add", "pages"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runGit(ctx, seed, "-c", "user.name=GDG Wiki", "-c", "user.email=wiki@gdgs.jp", "commit", "-m", "Wiki snapshot"); err != nil {
+		t.Fatal(err)
+	}
+	commit, err := runGit(ctx, seed, "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	commit = strings.TrimSpace(commit)
+
+	bin := t.TempDir()
+	helper := filepath.Join(bin, "git-remote-gdg-wiki")
+	const helperScript = `#!/bin/sh
+pending_fetch=0
+while IFS= read -r line; do
+	case "$line" in
+		capabilities)
+			printf 'fetch\n\n'
+			;;
+		list*)
+			git fetch --no-tags --quiet "$TEST_WIKI_SEED" "$TEST_WIKI_COMMIT" || exit 1
+			printf '%s refs/heads/main\n\n' "$TEST_WIKI_COMMIT"
+			;;
+		fetch\ *)
+			pending_fetch=1
+			;;
+		option\ *)
+			printf 'ok\n'
+			;;
+		"")
+			if [ "$pending_fetch" -eq 1 ]; then
+				printf '\n'
+				pending_fetch=0
+			fi
+			;;
+		*)
+			exit 1
+			;;
+	esac
+done
+`
+	if err := os.WriteFile(helper, []byte(helperScript), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("TEST_WIKI_SEED", seed)
+	t.Setenv("TEST_WIKI_COMMIT", commit)
+
+	target := filepath.Join(t.TempDir(), "wiki")
+	service := testWikiService(runGit)
+	if _, err := executeWiki(t, service, "clone", "--lang", "en", "--remote", "gdg-wiki::test", target); err != nil {
+		t.Fatal(err)
+	}
+
+	head, err := runGit(ctx, target, "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tracking, err := runGit(ctx, target, "rev-parse", "refs/remotes/origin/main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(head) != commit || strings.TrimSpace(tracking) != commit {
+		t.Fatalf("HEAD = %q, origin/main = %q, want %q", strings.TrimSpace(head), strings.TrimSpace(tracking), commit)
+	}
+	upstream, err := runGit(ctx, target, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(upstream) != "origin/main" {
+		t.Fatalf("upstream = %q, want origin/main", strings.TrimSpace(upstream))
+	}
+	raw, err := os.ReadFile(filepath.Join(target, "pages", "welcome", "page.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != "# Welcome\n" {
+		t.Fatalf("page content = %q", raw)
+	}
+	cfg, err := wiki.ReadConfig(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Lang != "en" {
+		t.Fatalf("lang = %q, want en", cfg.Lang)
 	}
 }
 
