@@ -579,7 +579,6 @@ export const sourceDocumentIngestions = sqliteTable("source_document_ingestions"
   documentId: text("document_id").primaryKey(),
   contentHash: text("content_hash").notNull(),
   ingestedAt: integer("ingested_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
-  ingestedBy: text("ingested_by")
-    .notNull()
-    .references(() => user.id),
+  // Accounts OIDC subject from the CLI token, not this RP's local user.id.
+  ingestedBy: text("ingested_by").notNull(),
 });
