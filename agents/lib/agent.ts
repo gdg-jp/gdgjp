@@ -4,6 +4,7 @@ import type { Message, Thread } from "chat";
 import { toAiMessages } from "chat/ai";
 
 import type { AgentsChat } from "./adapters";
+import { UNLINK_COMMAND } from "./discord-commands";
 import {
   type ChatPlatform,
   type LinkAccountDeps,
@@ -339,7 +340,7 @@ export function registerAgentHandlers(bot: AgentsChat, deps: HandleInquiryDeps =
   bot.onSubscribedMessage(reply);
   bot.onDirectMessage(reply);
 
-  bot.onSlashCommand("/unlink", async (event) => {
+  bot.onSlashCommand(UNLINK_COMMAND, async (event) => {
     const platform = adapterNameToPlatform(event.adapter.name);
     if (!platform) {
       await event.channel.post("Unsupported chat platform.");

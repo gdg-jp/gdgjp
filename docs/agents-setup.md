@@ -28,15 +28,11 @@ still match what is registered in the Chat API console (scheme, host, path — n
 4. Create a bot user and copy the bot token → `DISCORD_BOT_TOKEN`.
 5. Set **Interactions Endpoint URL** to `https://agent.gdgs.jp/api/chat`.
    Discord validates with a signed PING; a bad signature must return 401 (the agents verifier does this).
-6. Register the `/unlink` slash command with the Discord API (Chat SDK receives commands but does not
-   register them). Example:
-
-```bash
-curl -X POST "https://discord.com/api/v10/applications/${DISCORD_APPLICATION_ID}/commands" \
-  -H "Authorization: Bot ${DISCORD_BOT_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"unlink","description":"Unlink this Discord account from GDG Accounts"}'
-```
+6. Invite the bot using an OAuth2 URL that includes both the `bot` and `applications.commands` scopes.
+   The production deployment synchronizes `/unlink` with Discord automatically after the deploy succeeds;
+   no manual API call is needed. For an already invited bot, reauthorize it with the updated URL if the
+   `applications.commands` scope was omitted, then reload the Discord client before checking the command
+   picker.
 
 Google Chat has no Chat SDK slash-command surface; members type `/unlink` as a message there.
 
