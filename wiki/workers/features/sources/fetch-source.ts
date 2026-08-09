@@ -75,35 +75,61 @@ export async function fetchSource(env: Env, sourceId: string): Promise<FetchSour
     console.warn("[sources] fetch skipped; source archived", sourceId);
     return { status: "skipped", retryable: false };
   }
-  // The start message can be delivered more than once. A Chat import owns its
-  // lease for many bounded Queue deliveries, so a duplicate must not replace
-  // that run with a new attempt. A user refresh first moves the source back to
-  // pending, and therefore still starts a replacement run normally.
+  // The start message can be delivered more than once. Only a persisted run proves
+  // that a Chat import owns this lease: an invocation can be canceled after claiming
+  // the source but before creating the run. Treating status="fetching" alone as proof
+  // would ack the retry and leave the source stuck forever.
   if (source.kind === "google-chat-space" && source.status === "fetching") {
-    console.warn("[sources] fetch skipped; Google Chat import already running", sourceId);
-    return { status: "skipped", retryable: false };
+    const activeRun = source.fetchAttemptId
+      ? await db
+          .select({ id: schema.googleChatImportRuns.id })
+          .from(schema.googleChatImportRuns)
+          .where(
+            and(
+              eq(schema.googleChatImportRuns.sourceId, sourceId),
+              eq(schema.googleChatImportRuns.fetchAttemptId, source.fetchAttemptId),
+            ),
+          )
+          .get()
+      : null;
+    if (activeRun) {
+      console.warn("[sources] fetch skipped; Google Chat import already running", sourceId);
+      return { status: "skipped", retryable: false };
+    }
+    console.warn(
+      JSON.stringify({
+        component: "sources",
+        integration: "google-chat",
+        event: "orphaned_fetch_recovered",
+        sourceId,
+        fetchAttemptId: source.fetchAttemptId,
+      }),
+    );
   }
 
   const attemptId = crypto.randomUUID();
-  const claimed = await db
-    .update(schema.sources)
-    .set({
-      status: "fetching",
-      fetchAttemptId: attemptId,
-      errorMessage: null,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(schema.sources.id, sourceId), ne(schema.sources.status, "archived")))
-    .returning({ id: schema.sources.id })
-    .get();
-  if (!claimed) {
-    console.warn("[sources] fetch skipped; source archived before claim", sourceId);
-    return { status: "skipped", retryable: false };
-  }
-
   try {
     if (source.kind === "google-chat-space") {
-      await startGoogleChatImport(env, source, attemptId);
+      const started = await startGoogleChatImport(env, source, attemptId);
+      if (!started) {
+        console.warn("[sources] fetch skipped; source archived before claim", sourceId);
+      }
+      return { status: "skipped", retryable: false };
+    }
+
+    const claimed = await db
+      .update(schema.sources)
+      .set({
+        status: "fetching",
+        fetchAttemptId: attemptId,
+        errorMessage: null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(schema.sources.id, sourceId), ne(schema.sources.status, "archived")))
+      .returning({ id: schema.sources.id })
+      .get();
+    if (!claimed) {
+      console.warn("[sources] fetch skipped; source archived before claim", sourceId);
       return { status: "skipped", retryable: false };
     }
 
