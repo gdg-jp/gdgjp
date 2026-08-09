@@ -184,7 +184,10 @@ func (s *wikiService) clone(cmd *cobra.Command, directory, remote, lang string) 
 	if _, err = s.runGit(cmd.Context(), root, "remote", "add", "origin", remote); err != nil {
 		return err
 	}
-	if _, err = s.runGit(cmd.Context(), root, "pull", "origin", "main"); err != nil {
+	if _, err = s.runGit(cmd.Context(), root, "fetch", "origin", "main"); err != nil {
+		return err
+	}
+	if _, err = s.runGit(cmd.Context(), root, "reset", "--hard", "refs/remotes/origin/main"); err != nil {
 		return err
 	}
 	if _, err = s.runGit(cmd.Context(), root, "config", "branch.main.remote", "origin"); err != nil {
