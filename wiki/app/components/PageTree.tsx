@@ -25,7 +25,6 @@ import {
   FileText,
   Folder,
   FolderOpen,
-  GripVertical,
   ListTodo,
   Plus,
 } from "lucide-react";
@@ -190,8 +189,7 @@ function SortableTreeItem({
   onToggle?: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition } =
-    useSortable({ id: node.id });
+  const { listeners, setNodeRef, transform, transition } = useSortable({ id: node.id });
   const title = getLocalizedTitle(node, i18n.language);
   const isCurrent = node.slug === currentSlug;
   const hasChildren = node.children.length > 0;
@@ -209,32 +207,22 @@ function SortableTreeItem({
         />
       )}
       <div
+        {...listeners}
         style={{
           paddingLeft: `${depth * INDENT_WIDTH}px`,
           opacity: isDragging ? 0.3 : 1,
         }}
-        className={`group flex min-h-8 items-center gap-1 rounded px-1 py-1.5 text-sm ${
+        className={`flex min-h-8 cursor-grab items-center gap-1 rounded px-1 py-1.5 text-sm active:cursor-grabbing ${
           isCurrent
             ? "bg-surface-selected font-medium text-action-primary"
             : "text-content-secondary hover:bg-surface-sunken"
         }${isOverlay ? " border border-default bg-surface-raised shadow-md" : ""}`}
       >
-        <button
-          type="button"
-          ref={setActivatorNodeRef}
-          {...attributes}
-          {...listeners}
-          className="flex h-4 w-4 flex-shrink-0 cursor-grab items-center justify-center text-content-disabled opacity-0 group-hover:opacity-100 active:cursor-grabbing"
-          aria-label={t("pageTree.dragHandle")}
-        >
-          <GripVertical size={12} />
-        </button>
-
         {hasChildren ? (
           <button
             type="button"
             onClick={onToggle}
-            className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-content-tertiary hover:text-content-secondary"
+            className="flex h-4 w-4 flex-shrink-0 cursor-pointer items-center justify-center text-content-tertiary hover:text-content-secondary"
             aria-label={isFolderCollapsed ? t("pageTree.expand") : t("pageTree.collapse")}
           >
             {isFolderCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
