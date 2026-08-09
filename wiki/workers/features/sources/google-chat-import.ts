@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import * as schema from "../../../app/db/schema";
 import { getDb } from "../../../app/lib/db.server";
@@ -67,18 +67,38 @@ export async function startGoogleChatImport(
   env: Env,
   source: typeof schema.sources.$inferSelect,
   fetchAttemptId: string,
-): Promise<void> {
-  await accessToken(env, source);
+): Promise<boolean> {
   const db = getDb(env);
   const id = nanoid();
-  // Replacing a refresh invalidates all of its queued work. Delete rather than
-  // changing the primary key so child work rows are removed by the FK cascade.
-  await db
-    .delete(schema.googleChatImportRuns)
-    .where(eq(schema.googleChatImportRuns.sourceId, source.id));
-  await db.insert(schema.googleChatImportRuns).values({ id, sourceId: source.id, fetchAttemptId });
+  // Claim the source and create its durable run in one transaction. A Queue retry
+  // must never observe status="fetching" without the matching run. Replacing a
+  // refresh deletes the old run so its child work is removed by the FK cascade.
+  await db.batch([
+    db
+      .update(schema.sources)
+      .set({
+        status: "fetching",
+        fetchAttemptId,
+        errorMessage: null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(schema.sources.id, source.id), ne(schema.sources.status, "archived"))),
+    db
+      .delete(schema.googleChatImportRuns)
+      .where(eq(schema.googleChatImportRuns.sourceId, source.id)),
+    db.insert(schema.googleChatImportRuns).values({ id, sourceId: source.id, fetchAttemptId }),
+  ]);
+  const current = await currentRun(env, id);
+  if (!current) {
+    await db.delete(schema.googleChatImportRuns).where(eq(schema.googleChatImportRuns.id, id));
+    return false;
+  }
+  // Validate access only after the durable lease exists. If this throws, fetchSource
+  // records the source error; a later refresh atomically replaces this run.
+  await accessToken(env, current.source);
   await env.SOURCE_FETCH_QUEUE.send({ type: "google_chat_import", runId: id, work: "list" });
   log("import_started", { sourceId: source.id, runId: id, subrequestsBudget: 10 });
+  return true;
 }
 
 export async function processGoogleChatImport(

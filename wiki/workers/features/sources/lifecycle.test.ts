@@ -5,6 +5,7 @@ import { createSourcesTestDb } from "./test-db";
 const { db, sqlite, setAfterExecute } = createSourcesTestDb();
 
 const fetchGoogleDocSource = vi.fn();
+const startGoogleChatImport = vi.fn();
 
 vi.mock("../../../app/lib/db.server", () => ({ getDb: () => db }));
 vi.mock("./google-doc", () => ({
@@ -12,6 +13,9 @@ vi.mock("./google-doc", () => ({
 }));
 vi.mock("../../../app/lib/google-drive-token.server", () => ({
   getGoogleDriveAccessToken: async () => "token-1",
+}));
+vi.mock("./google-chat-import", () => ({
+  startGoogleChatImport: (...args: unknown[]) => startGoogleChatImport(...args),
 }));
 
 import { enqueueDueSourceRefreshes, fetchSource } from "./fetch-source";
@@ -67,11 +71,63 @@ function fetchResult(paths: readonly string[], markdownById: (path: string) => s
 
 beforeEach(() => {
   fetchGoogleDocSource.mockReset();
+  startGoogleChatImport.mockReset().mockImplementation(async (...args: unknown[]) => {
+    const attemptId = args[2] as string;
+    sqlite
+      .prepare("UPDATE sources SET status = 'fetching', fetch_attempt_id = ? WHERE id = ?")
+      .run(attemptId, SOURCE_ID);
+    return true;
+  });
   setAfterExecute(undefined);
   seedSource(sqlite);
 });
 
 describe("fetchSource lifecycle", () => {
+  it("skips a duplicate Google Chat start only when its persisted run owns the lease", async () => {
+    sqlite
+      .prepare(
+        `UPDATE sources
+         SET kind = 'google-chat-space', external_id = 'spaces/abc',
+             status = 'fetching', fetch_attempt_id = 'attempt-1'
+         WHERE id = ?`,
+      )
+      .run(SOURCE_ID);
+    sqlite
+      .prepare(
+        `INSERT INTO google_chat_import_runs (id, source_id, fetch_attempt_id)
+         VALUES ('run-1', ?, 'attempt-1')`,
+      )
+      .run(SOURCE_ID);
+
+    const outcome = await fetchSource(env(), SOURCE_ID);
+
+    expect(outcome).toEqual({ status: "skipped", retryable: false });
+    expect(startGoogleChatImport).not.toHaveBeenCalled();
+    expect(fetchAttemptOf(sqlite, SOURCE_ID)).toBe("attempt-1");
+  });
+
+  it("recovers a Google Chat fetching lease that has no persisted run", async () => {
+    sqlite
+      .prepare(
+        `UPDATE sources
+         SET kind = 'google-chat-space', external_id = 'spaces/abc',
+             status = 'fetching', fetch_attempt_id = 'orphaned-attempt'
+         WHERE id = ?`,
+      )
+      .run(SOURCE_ID);
+
+    const outcome = await fetchSource(env(), SOURCE_ID);
+
+    expect(outcome).toEqual({ status: "skipped", retryable: false });
+    expect(startGoogleChatImport).toHaveBeenCalledOnce();
+    expect(startGoogleChatImport).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ id: SOURCE_ID }),
+      expect.not.stringMatching(/^orphaned-attempt$/),
+    );
+    expect(fetchAttemptOf(sqlite, SOURCE_ID)).not.toBe("orphaned-attempt");
+  });
+
   it("archives paths the source no longer returns", async () => {
     fetchGoogleDocSource.mockResolvedValue(
       fetchResult(["議事録", "廃止タブ"], (path) => `# ${path}`),
