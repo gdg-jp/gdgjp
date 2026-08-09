@@ -8,7 +8,8 @@ import (
 )
 
 type State struct {
-	Ingested map[string]string `json:"ingested"`
+	Ingested   map[string]string `json:"ingested"`
+	AgentsHash string            `json:"agentsHash,omitempty"`
 }
 
 // CloneState is an alias used by ingest helpers.
