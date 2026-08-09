@@ -57,7 +57,11 @@ Page:
   type: object
   required: [slug, parentId, sortOrder, meta]
   properties:
-    id: { type: string }
+    id:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: Client-stable ID for updates or for referencing a new page within the same atomic sync.
     slug:
       type: string
       minLength: 1
