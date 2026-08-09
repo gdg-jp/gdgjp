@@ -185,8 +185,7 @@ jobs:
               pnpm --filter @gdgjp/agents exec vercel pull --cwd "$GITHUB_WORKSPACE" --yes --environment=production --token="$VERCEL_TOKEN"
               pnpm --filter @gdgjp/agents exec vercel build --cwd "$GITHUB_WORKSPACE" --prod --token="$VERCEL_TOKEN"
               pnpm --filter @gdgjp/agents exec vercel deploy --cwd "$GITHUB_WORKSPACE" --prebuilt --prod --yes --token="$VERCEL_TOKEN"
-              pnpm --filter @gdgjp/agents exec vercel env pull --cwd "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/agents/.env.production.local" --yes --environment=production --token="$VERCEL_TOKEN"
-              node --env-file="$GITHUB_WORKSPACE/agents/.env.production.local" agents/scripts/sync-discord-commands.mjs
+              pnpm --filter @gdgjp/agents exec vercel env run --cwd "$GITHUB_WORKSPACE" --environment=production -- node agents/scripts/sync-discord-commands.mjs
             env:
               VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
               VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
