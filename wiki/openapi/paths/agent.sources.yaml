@@ -1,0 +1,24 @@
+post:
+  operationId: agentCreateSource
+  summary: Register a source for ingestion as the Bearer token's user
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/agent.yaml#/AgentCreateSourceRequest
+  responses:
+    '201':
+      description: Source registered and fetch enqueued.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/agent.yaml#/AgentSource
+    '400':
+      $ref: ../components/responses/common.yaml#/BadRequest
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '403':
+      $ref: ../components/responses/common.yaml#/Forbidden

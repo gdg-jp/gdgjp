@@ -127,6 +127,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/ls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a Wiki workspace directory visible to the Bearer token */
+        get: operations["agentLs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/cat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a Wiki workspace page visible to the Bearer token */
+        get: operations["agentCat"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Wiki pages visible to the Bearer token */
+        get: operations["agentSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register a source for ingestion as the Bearer token's user */
+        post: operations["agentCreateSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -158,6 +226,55 @@ export interface components {
         IngestedResult: {
             /** @enum {boolean} */
             ok: true;
+        };
+        AgentLsEntry: {
+            name: string;
+            /** @description Absolute workspace path. */
+            path: string;
+            readable: boolean;
+            hasChildren: boolean | "unknown";
+            title?: string;
+        };
+        AgentLsResult: {
+            path: string;
+            entries: components["schemas"]["AgentLsEntry"][];
+            nextCursor: string | null;
+            truncated: boolean;
+        };
+        AgentCatResult: {
+            path: string;
+            content: string;
+            nextCursor: string | null;
+            truncated: boolean;
+        };
+        AgentSearchMatch: {
+            path: string;
+            title: string;
+            snippet?: string;
+        };
+        AgentSearchResult: {
+            matches: components["schemas"]["AgentSearchMatch"][];
+            nextCursor: string | null;
+            truncated: boolean;
+        };
+        AgentCreateSourceRequest: {
+            /** Format: uri */
+            url: string;
+            /** @description Chapter id, or the sentinel that assigns no chapter. */
+            chapter: string;
+            /** @enum {string} */
+            refreshPolicy?: "manual" | "daily" | "weekly";
+        };
+        AgentSource: {
+            id: string;
+            kind: string;
+            url: string;
+            title: string;
+            chapterId: string | null;
+            /** @enum {string} */
+            status: "pending";
+            /** @enum {string} */
+            refreshPolicy: "manual" | "daily" | "weekly";
         };
         Error: {
             error: string;
@@ -572,6 +689,122 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    agentLs: {
+        parameters: {
+            query?: {
+                /** @description Absolute workspace path (default `/`). */
+                path?: string;
+                /** @description Max directory entries (clamped to the workspace limit). */
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Directory listing for the caller's authorized view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentLsResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    agentCat: {
+        parameters: {
+            query: {
+                /** @description Absolute workspace path of the page to read. */
+                path: string;
+                /** @description Max characters to return (clamped to the workspace limit). */
+                maxChars?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page content slice for the caller's authorized view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentCatResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    agentSearch: {
+        parameters: {
+            query: {
+                /** @description Title/slug/body search query. */
+                q: string;
+                /** @description Optional absolute path scope. */
+                path?: string;
+                /** @description Max matches (clamped to the workspace limit). */
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Search matches for the caller's authorized view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSearchResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    agentCreateSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentCreateSourceRequest"];
+            };
+        };
+        responses: {
+            /** @description Source registered and fetch enqueued. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSource"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
 }

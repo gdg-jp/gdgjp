@@ -62,7 +62,7 @@ Agents SDK multi-phase flow: user-uploaded docs / URLs / Google Drive → wiki p
   `WikiGenerationPhaseWorkflow` instance.
 - Business logic lives under `workers/features/ingestion/`, split into orchestration, model,
   tools, and persistence. The bounded, permission-aware Wiki workspace exposes
-  `ls/cd/pwd/cat/find/grep`; generation never uses Vectorize.
+  `ls/cat/search`; generation never uses Vectorize.
 - `/ingest/:sessionId` consumes display-safe realtime events through `useAgent()` while D1-backed
   loaders remain authoritative and provide the reconnect fallback.
 - AI search remains independent under `app/features/ai-search/` and continues to use Workers AI + Vectorize.
