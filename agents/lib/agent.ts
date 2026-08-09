@@ -1,3 +1,5 @@
+import { createVertex } from "@ai-sdk/google-vertex";
+import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { CHAPTERS_CLAIM } from "@gdgjp/gdg-lib/auth/claims";
 import { type LanguageModel, type ModelMessage, ToolLoopAgent, stepCountIs } from "ai";
 import type { Message, Thread } from "chat";
@@ -46,6 +48,7 @@ export type AgentEnv = {
   WIKI_API_URL: string;
   WIKI_PUBLIC_URL?: string;
   ACCOUNTS_URL: string;
+  GOOGLE_VERTEX_API_KEY?: string;
   AGENT_MODEL?: string;
 };
 
@@ -76,13 +79,19 @@ function defaultEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
     WIKI_API_URL: env.WIKI_API_URL ?? "https://wiki.gdgs.jp",
     WIKI_PUBLIC_URL: env.WIKI_PUBLIC_URL,
     ACCOUNTS_URL: env.ACCOUNTS_URL ?? "https://accounts.gdgs.jp",
+    GOOGLE_VERTEX_API_KEY: env.GOOGLE_VERTEX_API_KEY,
     AGENT_MODEL: env.AGENT_MODEL,
   };
 }
 
-export function defaultAgentModel(env: AgentEnv = defaultEnv()): LanguageModel {
-  // AI Gateway model id when hosted on Vercel (OIDC or AI_GATEWAY_API_KEY).
-  return (env.AGENT_MODEL?.trim() || "google/gemini-2.5-flash") as LanguageModel;
+export function defaultAgentModel(env: AgentEnv = defaultEnv()): LanguageModelV3 {
+  const apiKey = env.GOOGLE_VERTEX_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("GOOGLE_VERTEX_API_KEY is required to use the Vertex AI Gemini provider");
+  }
+
+  const modelId = env.AGENT_MODEL?.trim() || "gemini-2.5-flash";
+  return createVertex({ apiKey })(modelId);
 }
 
 export function createWikiAgent(options: {

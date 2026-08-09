@@ -4,7 +4,13 @@ import { CHAPTERS_CLAIM } from "@gdgjp/gdg-lib/auth/claims";
 import { MockLanguageModelV3 } from "ai/test";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { answerCitesPaths, handleInquiry, isUnlinkCommandText, runWikiAgent } from "./agent";
+import {
+  answerCitesPaths,
+  defaultAgentModel,
+  handleInquiry,
+  isUnlinkCommandText,
+  runWikiAgent,
+} from "./agent";
 import {
   type LinkAccountDeps,
   type LinkRedis,
@@ -82,6 +88,28 @@ function toolFinish(calls: ReturnType<typeof toolCall>[]): LanguageModelV3Genera
     warnings: [],
   };
 }
+
+describe("defaultAgentModel", () => {
+  it("uses the Vertex AI Gemini provider with its API key", () => {
+    const model = defaultAgentModel({
+      WIKI_API_URL: "https://wiki.gdgs.jp",
+      ACCOUNTS_URL: "https://accounts.gdgs.jp",
+      GOOGLE_VERTEX_API_KEY: "vertex-api-key",
+    });
+
+    expect(model.provider).toBe("google.vertex.chat");
+    expect(model.modelId).toBe("gemini-2.5-flash");
+  });
+
+  it("requires a Vertex AI API key", () => {
+    expect(() =>
+      defaultAgentModel({
+        WIKI_API_URL: "https://wiki.gdgs.jp",
+        ACCOUNTS_URL: "https://accounts.gdgs.jp",
+      }),
+    ).toThrow("GOOGLE_VERTEX_API_KEY");
+  });
+});
 
 describe("handleInquiry", () => {
   const keyring = parseTokenEncryptionKeys(JSON.stringify({ "1": keyB64(1) }));

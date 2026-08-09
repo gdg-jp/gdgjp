@@ -8,6 +8,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ai-sdk/google-vertex": "^4.0.177",
     "@chat-adapter/discord": "^4.37.0",
     "@chat-adapter/gchat": "^4.37.0",
     "@chat-adapter/state-ioredis": "^4.37.0",

@@ -70,8 +70,8 @@ Google Chat has no Chat SDK slash-command surface; members type `/unlink` as a m
 | `DISCORD_BOT_TOKEN` | Bot token |
 | `DISCORD_APPLICATION_ID` | Application id |
 | `TOKEN_ENCRYPTION_KEYS` | AES-256-GCM keyring JSON (see below) |
-| `AI_GATEWAY_API_KEY` | Vercel AI Gateway key (OIDC may replace this on Vercel) |
-| `AGENT_MODEL` | Optional model id (default `google/gemini-2.5-flash`) |
+| `GOOGLE_VERTEX_API_KEY` | Vertex AI Gemini API key (kept server-side; requires Vertex AI API access) |
+| `AGENT_MODEL` | Optional Vertex Gemini model id (default `gemini-2.5-flash`) |
 
 Also required on accounts.gdgs.jp (not Vercel): `AGENTS_CLIENT_SECRET`, then
 `POST /admin/seed-clients` after deploy so redirect URI
