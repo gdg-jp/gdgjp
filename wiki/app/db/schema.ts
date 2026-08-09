@@ -113,7 +113,7 @@ export const pages = sqliteTable("pages", {
   status: text("status").notNull().default("published"),
   // "published" | "archived"
   pageType: text("page_type"),
-  // existing ingestion types plus event/venue/vendor/person/organization/playbook/wiki-index/wiki-log | null
+  // existing ingestion types plus event/venue/vendor/person/organization/playbook/answer/wiki-index/wiki-log | null
   pageMetadata: text("page_metadata"),
   ingestionSessionId: text("ingestion_session_id").references(() => ingestionSessions.id),
   actionabilityScore: integer("actionability_score"),

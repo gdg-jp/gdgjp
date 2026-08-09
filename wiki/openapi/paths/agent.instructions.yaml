@@ -1,0 +1,29 @@
+get:
+  operationId: agentGetInstructions
+  summary: AGENTS.md slice for the query filing pass
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: profile
+      in: query
+      required: true
+      schema:
+        type: string
+        enum: [query]
+  responses:
+    '200':
+      description: Instruction slice for the requested profile.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/agent.yaml#/AgentInstructionsSlice
+    '400':
+      $ref: ../components/responses/common.yaml#/BadRequest
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '503':
+      description: Required AGENTS.md headings are missing or unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/common.yaml#/Error

@@ -18,6 +18,46 @@ if (!seedMatch) throw new Error("AGENTS.md seed is missing its Markdown fence");
 /** Migration/bootstrap value only; database content is authoritative after initialization. */
 export const INITIAL_AGENTS_MD = `${seedMatch[1]}\n`;
 
+/**
+ * Slice AGENTS.md by exact heading text up to the next heading of the same or
+ * higher level. Used by the query filing profile so the answer path never sees
+ * the full document.
+ */
+export function extractInstructionSections(
+  markdown: string,
+  headings: readonly string[],
+): string | null {
+  const lines = markdown.split("\n");
+  const sections: string[] = [];
+
+  for (const heading of headings) {
+    const start = lines.findIndex((line) => line.trim() === heading);
+    if (start < 0) return null;
+    const level = headingLevel(lines[start] ?? "");
+    if (level === 0) return null;
+
+    let end = lines.length;
+    for (let i = start + 1; i < lines.length; i += 1) {
+      const nextLevel = headingLevel(lines[i] ?? "");
+      if (nextLevel > 0 && nextLevel <= level) {
+        end = i;
+        break;
+      }
+    }
+    const slice = lines.slice(start, end).join("\n").trim();
+    if (!slice) return null;
+    sections.push(slice);
+  }
+
+  const content = sections.join("\n\n").trim();
+  return content.length > 0 ? `${content}\n` : null;
+}
+
+function headingLevel(line: string): number {
+  const match = /^(#{1,6})\s+\S/.exec(line.trim());
+  return match ? match[1].length : 0;
+}
+
 export async function getAgentInstructions(
   db: ReturnType<typeof getDb>,
 ): Promise<AgentInstructions | null> {

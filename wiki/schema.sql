@@ -531,6 +531,13 @@ CREATE INDEX "idx_source_assets_source_document_id"
   ON "source_assets" ("source_document_id");
 CREATE INDEX "idx_pages_origin" ON "pages" ("origin");
 CREATE INDEX "idx_page_sources_source_id" ON "page_sources" ("source_id");
+CREATE TABLE IF NOT EXISTS "wiki_agent_instructions" (
+  "id" INTEGER NOT NULL PRIMARY KEY CHECK ("id" = 1),
+  "content" TEXT NOT NULL,
+  "content_hash" TEXT NOT NULL,
+  "updated_by" TEXT NOT NULL REFERENCES "user"("id"),
+  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
+);
 CREATE TABLE IF NOT EXISTS "source_document_ingestions" (
   "document_id"  TEXT NOT NULL PRIMARY KEY,
   "content_hash" TEXT NOT NULL,

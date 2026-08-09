@@ -1,0 +1,26 @@
+post:
+  operationId: agentAppendLog
+  summary: Atomically append a query log entry
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/agent.yaml#/AgentLogRequest
+  responses:
+    '204':
+      description: Log entry appended.
+    '400':
+      $ref: ../components/responses/common.yaml#/BadRequest
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '403':
+      $ref: ../components/responses/common.yaml#/Forbidden
+    '503':
+      description: Log page unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/common.yaml#/Error

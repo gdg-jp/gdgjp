@@ -51,6 +51,7 @@ The top level consists of namespaces by type. Always place a new page beneath on
 | `people/` | `person` | Confirmed speakers and staff only: speaking history, contact channel (method only), and how receptive they were to requests. In-progress or declined outreach is transient process state — record it on the relevant `events/` page instead of creating a person page, unless the same person recurs across multiple events. |
 | `orgs/` | `organization` | Sponsor companies and partner organizations: point of contact and past sponsorship details. An employer or product mention alone (e.g. a speaker's company) does not warrant an org page — create one only when the organization itself has a sponsorship or partnership relationship with GDG Japan. |
 | `playbooks/` | `playbook` | Procedures and copy templates: target task, timeline, and decision criteria. Must stay generalized — never hardcode a specific event's names, dates, or one-off role assignments. Who actually filled a role, and how it went, belongs on that event's `events/` page; a playbook may link to it as a worked example. |
+| `answers/` | `answer` | Agent-written pages filed from Chat queries (Stage 5f). Lowest-trust class: synthesized from a conversation over existing Wiki pages with no new primary source. Editable and archivable by humans; promote durable content into the proper entity/playbook page and archive or delete the answer when a newer source supersedes it. |
 
 `index` and `log` are special root-level pages with types `wiki-index` and `wiki-log`, respectively.
 
@@ -211,6 +212,7 @@ When invoked by `gdg wiki lint`, check the following in order and record results
 6. **Missing `summary`** — Empty summaries or summaries that conflict with the body.
 7. **Missing citations** — Pages stating concrete facts while `sources` is empty.
 8. **Sensitive information** — Content violating the table above.
+9. **Answer-page hygiene** — Promote durable content from `answers/` pages into the proper entity/playbook page and archive the answer; delete answers a newer source has superseded.
 
 For issues you cannot resolve yourself (contradictions requiring judgment or gaps requiring further research), leave a "Needs action" entry in `log`.
 

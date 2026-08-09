@@ -7,6 +7,7 @@ import { toAiMessages } from "chat/ai";
 
 import type { AgentsChat, ChatPlatformAdapter } from "./adapters";
 import { ASK_COMMAND, LOGIN_COMMAND } from "./discord-commands";
+import { runFilingPass } from "./filing";
 import {
   type ChatPlatform,
   type LinkAccountDeps,
@@ -406,6 +407,20 @@ export function registerAgentHandlers(
       deps,
     );
     await thread.post(outcome.text);
+    // Awaited, not detached: the handler promise is what the Chat SDK hands to
+    // waitUntil/after(), so a detached promise can be cancelled when the
+    // invocation ends. The reply is already posted and runFilingPass swallows
+    // its own errors, so awaiting cannot delay or break the answer.
+    await runFilingPass(
+      {
+        platform,
+        chatUserId,
+        spaceId: thread.id,
+        question: message.text,
+        outcome,
+      },
+      deps,
+    );
   };
 
   // Discord: slash commands only — no Gateway Message Content Intent for mentions/DMs.
@@ -423,9 +438,10 @@ export function registerAgentHandlers(
       await respond("Unsupported chat platform.");
       return;
     }
+    let outcome: InquiryOutcome;
     try {
       const abortSignal = AbortSignal.timeout(DISCORD_RESPONSE_TIMEOUT_MS);
-      const outcome = await withResponseDeadline(
+      outcome = await withResponseDeadline(
         handleInquiry(
           {
             platform,
@@ -447,7 +463,19 @@ export function registerAgentHandlers(
       } catch (postError) {
         console.error("[agents] Failed to resolve Discord /ask interaction:", postError);
       }
+      return;
     }
+    // Awaited for the same reason as in `reply` above.
+    await runFilingPass(
+      {
+        platform,
+        chatUserId: event.user.userId,
+        spaceId: discordGuildId(event.raw),
+        question: event.text,
+        outcome,
+      },
+      deps,
+    );
   });
 
   bot.onSlashCommand(LOGIN_COMMAND, async (event) => {
@@ -499,3 +527,5 @@ export function answerCitesPaths(text: string, paths: readonly string[]): boolea
     return text.includes(path) || (leaf.length > 0 && text.includes(leaf));
   });
 }
+
+export { extractCitedPathsFromSteps } from "./filing";

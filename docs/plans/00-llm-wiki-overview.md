@@ -40,6 +40,7 @@ Implement the `llm-wiki.md` pattern in `wiki/` and `cli/`: maintain a structured
      agent.gdgs.jp (Chat SDK / Vercel) explores the Wiki through the agent API
      (read index → ls a namespace → cat a page; no embeddings)
      and answers operations-team questions from Google Chat / Discord
+     then files reusable answers back into the Wiki (answers/ + log) in the background
 ```
 
 Keep only the costly LLM work of “understanding and integration” within a local coding-agent subscription.
@@ -95,15 +96,16 @@ Extend the `pageType` enum in `wiki/shared/ingestion/domain.ts`.
 | 3 | [03-local-ingest-toolchain.md](03-local-ingest-toolchain.md) | Local Ingest toolchain (single-language clone, `origin`, `gdg wiki raw pull` / `ingest` / `lint`) |
 | 3a | [03a-agents-md.md](03a-agents-md.md) | Full `AGENTS.md` draft (appendix to Stage 3) |
 | 4 | [04-reingest-existing-google-docs.md](04-reingest-existing-google-docs.md) | Move 107 existing `google-document/` pages to raw and resynthesize them |
-| 5 | [05-agents-gdgs-jp.md](05-agents-gdgs-jp.md) | agent.gdgs.jp (Chat SDK / Vercel, Google Chat + Discord) — **overview only; the work is split into 5a–5e below** |
+| 5 | [05-agents-gdgs-jp.md](05-agents-gdgs-jp.md) | agent.gdgs.jp (Chat SDK / Vercel, Google Chat + Discord) — **overview only; the work is split into 5a–5f below** |
 | 5a | [05a-accounts-agents-client.md](05a-accounts-agents-client.md) | OAuth client `agents` on accounts.gdgs.jp |
 | 5b | [05b-wiki-agent-api.md](05b-wiki-agent-api.md) | Wiki `/api/agent/*` read API + OpenAPI |
 | 5c | [05c-agents-workspace.md](05c-agents-workspace.md) | `agents/` workspace scaffold + webhook signature verification |
 | 5d | [05d-account-linking.md](05d-account-linking.md) | PKCE linking flow, Redis state, token encryption and rotation |
 | 5e | [05e-agent-tools.md](05e-agent-tools.md) | ToolLoopAgent, Wiki tools, citations, `/unlink`, setup docs |
+| 5f | [05f-query-writeback.md](05f-query-writeback.md) | Query write-back: answer first, then file into `answers/` + `log` |
 
 Dependencies: 1 → 2, 1 → 3 → 4, 3 → 5. Stages 2 and 3 can proceed in parallel.
-Within Stage 5: 5a → 5d, 5b → 5e, 5c → 5d → 5e; 5a, 5b, and 5c can proceed in parallel.
+Within Stage 5: 5a → 5d, 5b → 5e → 5f, 5c → 5d → 5e; 5a, 5b, and 5c can proceed in parallel.
 
 ## Risks and considerations
 

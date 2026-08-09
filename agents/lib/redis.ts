@@ -8,6 +8,7 @@ export const REDIS_KEY_PREFIX = {
   linkState: "link:state:",
   linkUser: "link:user:",
   linkGuild: "link:guild:",
+  filing: "filing:",
 } as const;
 
 export type ChatPlatform = "google-chat" | "discord";
@@ -22,6 +23,10 @@ export function linkUserKey(platform: ChatPlatform, chatUserId: string): string 
 
 export function linkGuildKey(platform: ChatPlatform, guildId: string): string {
   return `${REDIS_KEY_PREFIX.linkGuild}${platform}:${guildId}`;
+}
+
+export function filingKey(platform: ChatPlatform, messageId: string): string {
+  return `${REDIS_KEY_PREFIX.filing}${platform}:${messageId}`;
 }
 
 export type LinkRedis = {
