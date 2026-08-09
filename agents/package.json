@@ -1,0 +1,30 @@
+{
+  "name": "@gdgjp/agents",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@chat-adapter/discord": "^4.37.0",
+    "@chat-adapter/gchat": "^4.37.0",
+    "@chat-adapter/state-ioredis": "^4.37.0",
+    "@gdgjp/gdg-lib": "workspace:*",
+    "chat": "^4.37.0",
+    "ioredis": "^5.6.1",
+    "next": "^15.5.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zlib-sync": "^0.1.10"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.1",
+    "typescript": "^5.7.2",
+    "vercel": "56.1.0",
+    "vitest": "^4.1.10"
+  }
+}

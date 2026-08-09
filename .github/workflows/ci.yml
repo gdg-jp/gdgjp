@@ -72,6 +72,8 @@ jobs:
             run: pnpm --filter @gdgjp/gdg-lib typecheck
           - name: Typecheck tinyurl gateway
             run: pnpm --filter @gdgjp/tinyurl-gateway typecheck
+          - name: Typecheck agents
+            run: pnpm --filter @gdgjp/agents typecheck
           - name: Typecheck go extension
             run: pnpm --filter @gdgjp/go-extension typecheck
 
@@ -105,6 +107,8 @@ jobs:
             run: pnpm --filter @gdgjp/gdg-lib test
           - name: Test tinyurl gateway
             run: pnpm --filter @gdgjp/tinyurl-gateway test
+          - name: Test agents
+            run: pnpm --filter @gdgjp/agents test
           - name: Test go extension
             run: pnpm --filter @gdgjp/go-extension test
 
@@ -136,6 +140,8 @@ jobs:
             run: pnpm --filter @gdgjp/website build
           - name: Build tinyurl gateway
             run: pnpm --filter @gdgjp/tinyurl-gateway build
+          - name: Build agents
+            run: pnpm --filter @gdgjp/agents build
           - name: Build go extension
             run: pnpm --filter @gdgjp/go-extension build
       - name: Validate go extension package

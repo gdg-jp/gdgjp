@@ -176,9 +176,28 @@ func git(t *testing.T, directory string, args ...string) string {
 	t.Helper()
 	command := exec.Command("git", args...)
 	command.Dir = directory
-	// A remote-helper call runs with GIT_DIR set by Git. Tests set it as well,
-	// but commands explicitly run in the test repository must not inherit it.
-	command.Env = withoutEnvironment(os.Environ(), "GIT_DIR")
+	// Hooks and remote-helper calls export repository-local Git variables. Commands
+	// explicitly run in the test repository must not inherit any of them.
+	command.Env = os.Environ()
+	for _, name := range []string{
+		"GIT_ALTERNATE_OBJECT_DIRECTORIES",
+		"GIT_COMMON_DIR",
+		"GIT_CONFIG",
+		"GIT_CONFIG_COUNT",
+		"GIT_CONFIG_PARAMETERS",
+		"GIT_DIR",
+		"GIT_GRAFT_FILE",
+		"GIT_IMPLICIT_WORK_TREE",
+		"GIT_INDEX_FILE",
+		"GIT_NO_REPLACE_OBJECTS",
+		"GIT_OBJECT_DIRECTORY",
+		"GIT_PREFIX",
+		"GIT_REPLACE_REF_BASE",
+		"GIT_SHALLOW_FILE",
+		"GIT_WORK_TREE",
+	} {
+		command.Env = withoutEnvironment(command.Env, name)
+	}
 	raw, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("git %s: %s", strings.Join(args, " "), raw)

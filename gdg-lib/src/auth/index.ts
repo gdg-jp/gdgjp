@@ -29,9 +29,7 @@ export type UserClaims = {
 };
 
 export const SSO_PROVIDER_ID = "gdgjp";
-export const CHAPTERS_SCOPE = "https://gdgs.jp/scopes/chapters";
-export const CHAPTERS_CLAIM = "https://gdgs.jp/claims/chapters";
-export const IS_ADMIN_CLAIM = "https://gdgs.jp/claims/is_admin";
+export { CHAPTERS_CLAIM, CHAPTERS_SCOPE, IS_ADMIN_CLAIM } from "./claims";
 
 export function isSuperAdmin(user: AuthUser): boolean {
   return user.isAdmin;

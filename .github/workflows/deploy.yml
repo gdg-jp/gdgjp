@@ -115,6 +115,8 @@ jobs:
             run: pnpm --filter @gdgjp/sns build
           - name: Build tinyurl gateway
             run: pnpm --filter @gdgjp/tinyurl-gateway build
+          - name: Build agents
+            run: pnpm --filter @gdgjp/agents build
       - parallel:
           - name: Deploy accounts to Cloudflare Workers
             uses: cloudflare/wrangler-action@v3
@@ -178,6 +180,12 @@ jobs:
               VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
               VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
               VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          - name: Deploy agents to Vercel
+            run: pnpm --filter @gdgjp/agents exec vercel deploy --prod --yes --token="$VERCEL_TOKEN"
+            env:
+              VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+              VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+              VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_AGENTS }}
       - parallel:
           - name: Apply accounts remote migrations
             run: pnpm --filter @gdgjp/accounts migrate:remote
