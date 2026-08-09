@@ -3,9 +3,13 @@ import { after } from "next/server";
 import { getAgentsChat } from "@/lib/adapters";
 import { registerAgentHandlers } from "@/lib/agent";
 import { getReplayStore } from "@/lib/redis";
+import { runWithAgentRequestContext } from "@/lib/request-context";
 import { type ReplayStore, verifyWebhook } from "@/lib/verify";
 
 export const runtime = "nodejs";
+
+/** after() work counts against this budget; filing runs in the same continuation. */
+export const maxDuration = 300;
 
 function verifyEnv() {
   return {
@@ -66,12 +70,14 @@ export async function POST(request: Request): Promise<Response> {
     },
   };
 
-  if (result.platform === "discord") {
-    const bot = getAgentsChat("discord");
-    registerAgentHandlers(bot, "discord");
-    return bot.webhooks.discord(verifiedRequest, webhookOptions);
-  }
-  const bot = getAgentsChat("gchat");
-  registerAgentHandlers(bot, "gchat");
-  return bot.webhooks.gchat(verifiedRequest, webhookOptions);
+  return runWithAgentRequestContext({ messageId: result.messageId }, () => {
+    if (result.platform === "discord") {
+      const bot = getAgentsChat("discord");
+      registerAgentHandlers(bot, "discord");
+      return bot.webhooks.discord(verifiedRequest, webhookOptions);
+    }
+    const bot = getAgentsChat("gchat");
+    registerAgentHandlers(bot, "gchat");
+    return bot.webhooks.gchat(verifiedRequest, webhookOptions);
+  });
 }

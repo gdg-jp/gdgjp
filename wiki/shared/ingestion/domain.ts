@@ -42,6 +42,7 @@ export const CreateOperationSchema = z.object({
     "person",
     "organization",
     "playbook",
+    "answer",
     "wiki-index",
     "wiki-log",
   ]),

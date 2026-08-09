@@ -34,6 +34,35 @@ const (
 	Email   AccessEntrySubjectType = "email"
 )
 
+// Defines values for AgentCreateSourceRequestRefreshPolicy.
+const (
+	AgentCreateSourceRequestRefreshPolicyDaily  AgentCreateSourceRequestRefreshPolicy = "daily"
+	AgentCreateSourceRequestRefreshPolicyManual AgentCreateSourceRequestRefreshPolicy = "manual"
+	AgentCreateSourceRequestRefreshPolicyWeekly AgentCreateSourceRequestRefreshPolicy = "weekly"
+)
+
+// Defines values for AgentInstructionsSliceProfile.
+const (
+	AgentInstructionsSliceProfileQuery AgentInstructionsSliceProfile = "query"
+)
+
+// Defines values for AgentLsEntryHasChildren1.
+const (
+	Unknown AgentLsEntryHasChildren1 = "unknown"
+)
+
+// Defines values for AgentSourceRefreshPolicy.
+const (
+	AgentSourceRefreshPolicyDaily  AgentSourceRefreshPolicy = "daily"
+	AgentSourceRefreshPolicyManual AgentSourceRefreshPolicy = "manual"
+	AgentSourceRefreshPolicyWeekly AgentSourceRefreshPolicy = "weekly"
+)
+
+// Defines values for AgentSourceStatus.
+const (
+	Pending AgentSourceStatus = "pending"
+)
+
 // Defines values for ArchiveOperationKind.
 const (
 	Archive ArchiveOperationKind = "archive"
@@ -104,6 +133,11 @@ const (
 	Upsert UpsertOperationKind = "upsert"
 )
 
+// Defines values for AgentGetInstructionsParamsProfile.
+const (
+	AgentGetInstructionsParamsProfileQuery AgentGetInstructionsParamsProfile = "query"
+)
+
 // Defines values for GetWikiSnapshotParamsLang.
 const (
 	GetWikiSnapshotParamsLangEn GetWikiSnapshotParamsLang = "en"
@@ -136,6 +170,133 @@ type AccessEntryRole string
 
 // AccessEntrySubjectType defines model for AccessEntry.SubjectType.
 type AccessEntrySubjectType string
+
+// AgentCatResult defines model for AgentCatResult.
+type AgentCatResult struct {
+	Content    string  `json:"content"`
+	NextCursor *string `json:"nextCursor"`
+	Path       string  `json:"path"`
+	Truncated  bool    `json:"truncated"`
+}
+
+// AgentCreateNoteRequest defines model for AgentCreateNoteRequest.
+type AgentCreateNoteRequest struct {
+	CitedPaths []string `json:"citedPaths"`
+	Content    string   `json:"content"`
+	ReplaceId  *string  `json:"replaceId,omitempty"`
+	Slug       string   `json:"slug"`
+	Summary    string   `json:"summary"`
+	Title      string   `json:"title"`
+}
+
+// AgentCreateSourceRequest defines model for AgentCreateSourceRequest.
+type AgentCreateSourceRequest struct {
+	// Chapter Chapter id, or the sentinel that assigns no chapter.
+	Chapter       string                                 `json:"chapter"`
+	RefreshPolicy *AgentCreateSourceRequestRefreshPolicy `json:"refreshPolicy,omitempty"`
+	Url           string                                 `json:"url"`
+}
+
+// AgentCreateSourceRequestRefreshPolicy defines model for AgentCreateSourceRequest.RefreshPolicy.
+type AgentCreateSourceRequestRefreshPolicy string
+
+// AgentInstructions defines model for AgentInstructions.
+type AgentInstructions struct {
+	Content     string `json:"content"`
+	ContentHash string `json:"contentHash"`
+}
+
+// AgentInstructionsSlice defines model for AgentInstructionsSlice.
+type AgentInstructionsSlice struct {
+	Content     string                        `json:"content"`
+	ContentHash string                        `json:"contentHash"`
+	Profile     AgentInstructionsSliceProfile `json:"profile"`
+}
+
+// AgentInstructionsSliceProfile defines model for AgentInstructionsSlice.Profile.
+type AgentInstructionsSliceProfile string
+
+// AgentInstructionsUpdate defines model for AgentInstructionsUpdate.
+type AgentInstructionsUpdate struct {
+	Content             string `json:"content"`
+	ExpectedContentHash string `json:"expectedContentHash"`
+}
+
+// AgentLogRequest defines model for AgentLogRequest.
+type AgentLogRequest struct {
+	Lines   []string `json:"lines"`
+	Subject string   `json:"subject"`
+}
+
+// AgentLsEntry defines model for AgentLsEntry.
+type AgentLsEntry struct {
+	HasChildren AgentLsEntry_HasChildren `json:"hasChildren"`
+	Name        string                   `json:"name"`
+
+	// Path Absolute workspace path.
+	Path     string  `json:"path"`
+	Readable bool    `json:"readable"`
+	Title    *string `json:"title,omitempty"`
+}
+
+// AgentLsEntryHasChildren0 defines model for .
+type AgentLsEntryHasChildren0 = bool
+
+// AgentLsEntryHasChildren1 defines model for AgentLsEntry.HasChildren.1.
+type AgentLsEntryHasChildren1 string
+
+// AgentLsEntry_HasChildren defines model for AgentLsEntry.HasChildren.
+type AgentLsEntry_HasChildren struct {
+	union json.RawMessage
+}
+
+// AgentLsResult defines model for AgentLsResult.
+type AgentLsResult struct {
+	Entries    []AgentLsEntry `json:"entries"`
+	NextCursor *string        `json:"nextCursor"`
+	Path       string         `json:"path"`
+	Truncated  bool           `json:"truncated"`
+}
+
+// AgentNote defines model for AgentNote.
+type AgentNote struct {
+	Created bool   `json:"created"`
+	Id      string `json:"id"`
+	PageUrl string `json:"pageUrl"`
+	Path    string `json:"path"`
+	Slug    string `json:"slug"`
+}
+
+// AgentSearchMatch defines model for AgentSearchMatch.
+type AgentSearchMatch struct {
+	Path    string  `json:"path"`
+	Snippet *string `json:"snippet,omitempty"`
+	Title   string  `json:"title"`
+}
+
+// AgentSearchResult defines model for AgentSearchResult.
+type AgentSearchResult struct {
+	Matches    []AgentSearchMatch `json:"matches"`
+	NextCursor *string            `json:"nextCursor"`
+	Truncated  bool               `json:"truncated"`
+}
+
+// AgentSource defines model for AgentSource.
+type AgentSource struct {
+	ChapterId     *string                  `json:"chapterId"`
+	Id            string                   `json:"id"`
+	Kind          string                   `json:"kind"`
+	RefreshPolicy AgentSourceRefreshPolicy `json:"refreshPolicy"`
+	Status        AgentSourceStatus        `json:"status"`
+	Title         string                   `json:"title"`
+	Url           string                   `json:"url"`
+}
+
+// AgentSourceRefreshPolicy defines model for AgentSource.RefreshPolicy.
+type AgentSourceRefreshPolicy string
+
+// AgentSourceStatus defines model for AgentSource.Status.
+type AgentSourceStatus string
 
 // ArchiveOperation defines model for ArchiveOperation.
 type ArchiveOperation struct {
@@ -200,7 +361,9 @@ type OkOk bool
 
 // Page defines model for Page.
 type Page struct {
-	En        *Language `json:"en,omitempty"`
+	En *Language `json:"en,omitempty"`
+
+	// Id Client-stable ID for updates or for referencing a new page within the same atomic sync.
 	Id        *string   `json:"id,omitempty"`
 	Ja        *Language `json:"ja,omitempty"`
 	Meta      PageMeta  `json:"meta"`
@@ -243,8 +406,9 @@ type RevisionConflictError string
 
 // Snapshot defines model for Snapshot.
 type Snapshot struct {
-	Pages   []SnapshotPage  `json:"pages"`
-	Version SnapshotVersion `json:"version"`
+	AgentsMd AgentInstructions `json:"agentsMd"`
+	Pages    []SnapshotPage    `json:"pages"`
+	Version  SnapshotVersion   `json:"version"`
 }
 
 // SnapshotVersion defines model for Snapshot.Version.
@@ -287,7 +451,8 @@ type Source struct {
 
 // SyncRequest defines model for SyncRequest.
 type SyncRequest struct {
-	Operations []SyncRequest_Operations_Item `json:"operations"`
+	AgentsMd   *AgentInstructionsUpdate       `json:"agentsMd,omitempty"`
+	Operations *[]SyncRequest_Operations_Item `json:"operations,omitempty"`
 }
 
 // SyncRequest_Operations_Item defines model for SyncRequest.operations.Item.
@@ -337,6 +502,47 @@ type NotFound = Error
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
 
+// AgentCatParams defines parameters for AgentCat.
+type AgentCatParams struct {
+	// Path Absolute workspace path of the page to read.
+	Path string `form:"path" json:"path"`
+
+	// MaxChars Max characters to return (clamped to the workspace limit).
+	MaxChars *int    `form:"maxChars,omitempty" json:"maxChars,omitempty"`
+	Cursor   *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// AgentGetInstructionsParams defines parameters for AgentGetInstructions.
+type AgentGetInstructionsParams struct {
+	Profile AgentGetInstructionsParamsProfile `form:"profile" json:"profile"`
+}
+
+// AgentGetInstructionsParamsProfile defines parameters for AgentGetInstructions.
+type AgentGetInstructionsParamsProfile string
+
+// AgentLsParams defines parameters for AgentLs.
+type AgentLsParams struct {
+	// Path Absolute workspace path (default `/`).
+	Path *string `form:"path,omitempty" json:"path,omitempty"`
+
+	// Limit Max directory entries (clamped to the workspace limit).
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// AgentSearchParams defines parameters for AgentSearch.
+type AgentSearchParams struct {
+	// Q Title/slug/body search query.
+	Q string `form:"q" json:"q"`
+
+	// Path Optional absolute path scope.
+	Path *string `form:"path,omitempty" json:"path,omitempty"`
+
+	// Limit Max matches (clamped to the workspace limit).
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // GetWikiSnapshotParams defines parameters for GetWikiSnapshot.
 type GetWikiSnapshotParams struct {
 	// Lang Return only the selected locale. Other locale fields are omitted.
@@ -364,11 +570,82 @@ type GetWikiSourceContentParams struct {
 // GetWikiSourceContentParamsLang defines parameters for GetWikiSourceContent.
 type GetWikiSourceContentParamsLang string
 
+// AgentAppendLogJSONRequestBody defines body for AgentAppendLog for application/json ContentType.
+type AgentAppendLogJSONRequestBody = AgentLogRequest
+
+// AgentCreateNoteJSONRequestBody defines body for AgentCreateNote for application/json ContentType.
+type AgentCreateNoteJSONRequestBody = AgentCreateNoteRequest
+
+// AgentCreateSourceJSONRequestBody defines body for AgentCreateSource for application/json ContentType.
+type AgentCreateSourceJSONRequestBody = AgentCreateSourceRequest
+
 // MarkWikiSourcesIngestedJSONRequestBody defines body for MarkWikiSourcesIngested for application/json ContentType.
 type MarkWikiSourcesIngestedJSONRequestBody = IngestedRequest
 
 // SyncWikiJSONRequestBody defines body for SyncWiki for application/json ContentType.
 type SyncWikiJSONRequestBody = SyncRequest
+
+// AsAgentLsEntryHasChildren0 returns the union data inside the AgentLsEntry_HasChildren as a AgentLsEntryHasChildren0
+func (t AgentLsEntry_HasChildren) AsAgentLsEntryHasChildren0() (AgentLsEntryHasChildren0, error) {
+	var body AgentLsEntryHasChildren0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromAgentLsEntryHasChildren0 overwrites any union data inside the AgentLsEntry_HasChildren as the provided AgentLsEntryHasChildren0
+func (t *AgentLsEntry_HasChildren) FromAgentLsEntryHasChildren0(v AgentLsEntryHasChildren0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeAgentLsEntryHasChildren0 performs a merge with any union data inside the AgentLsEntry_HasChildren, using the provided AgentLsEntryHasChildren0
+func (t *AgentLsEntry_HasChildren) MergeAgentLsEntryHasChildren0(v AgentLsEntryHasChildren0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsAgentLsEntryHasChildren1 returns the union data inside the AgentLsEntry_HasChildren as a AgentLsEntryHasChildren1
+func (t AgentLsEntry_HasChildren) AsAgentLsEntryHasChildren1() (AgentLsEntryHasChildren1, error) {
+	var body AgentLsEntryHasChildren1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromAgentLsEntryHasChildren1 overwrites any union data inside the AgentLsEntry_HasChildren as the provided AgentLsEntryHasChildren1
+func (t *AgentLsEntry_HasChildren) FromAgentLsEntryHasChildren1(v AgentLsEntryHasChildren1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeAgentLsEntryHasChildren1 performs a merge with any union data inside the AgentLsEntry_HasChildren, using the provided AgentLsEntryHasChildren1
+func (t *AgentLsEntry_HasChildren) MergeAgentLsEntryHasChildren1(v AgentLsEntryHasChildren1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t AgentLsEntry_HasChildren) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *AgentLsEntry_HasChildren) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // AsUpsertOperation returns the union data inside the SyncRequest_Operations_Item as a UpsertOperation
 func (t SyncRequest_Operations_Item) AsUpsertOperation() (UpsertOperation, error) {
@@ -532,6 +809,33 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// AgentCat request
+	AgentCat(ctx context.Context, params *AgentCatParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentGetInstructions request
+	AgentGetInstructions(ctx context.Context, params *AgentGetInstructionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentAppendLogWithBody request with any body
+	AgentAppendLogWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AgentAppendLog(ctx context.Context, body AgentAppendLogJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentLs request
+	AgentLs(ctx context.Context, params *AgentLsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentCreateNoteWithBody request with any body
+	AgentCreateNoteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AgentCreateNote(ctx context.Context, body AgentCreateNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentSearch request
+	AgentSearch(ctx context.Context, params *AgentSearchParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentCreateSourceWithBody request with any body
+	AgentCreateSourceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AgentCreateSource(ctx context.Context, body AgentCreateSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetWikiAgentsMd request
 	GetWikiAgentsMd(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -562,6 +866,126 @@ type ClientInterface interface {
 	SyncWikiWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SyncWiki(ctx context.Context, body SyncWikiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) AgentCat(ctx context.Context, params *AgentCatParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentCatRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AgentGetInstructions(ctx context.Context, params *AgentGetInstructionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentGetInstructionsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AgentAppendLogWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentAppendLogRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AgentAppendLog(ctx context.Context, body AgentAppendLogJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentAppendLogRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AgentLs(ctx context.Context, params *AgentLsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentLsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AgentCreateNoteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentCreateNoteRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AgentCreateNote(ctx context.Context, body AgentCreateNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentCreateNoteRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AgentSearch(ctx context.Context, params *AgentSearchParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentSearchRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AgentCreateSourceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentCreateSourceRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AgentCreateSource(ctx context.Context, body AgentCreateSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentCreateSourceRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) GetWikiAgentsMd(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -694,6 +1118,422 @@ func (c *Client) SyncWiki(ctx context.Context, body SyncWikiJSONRequestBody, req
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewAgentCatRequest generates requests for AgentCat
+func NewAgentCatRequest(server string, params *AgentCatParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agent/cat")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "path", runtime.ParamLocationQuery, params.Path); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.MaxChars != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "maxChars", runtime.ParamLocationQuery, *params.MaxChars); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAgentGetInstructionsRequest generates requests for AgentGetInstructions
+func NewAgentGetInstructionsRequest(server string, params *AgentGetInstructionsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agent/instructions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "profile", runtime.ParamLocationQuery, params.Profile); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAgentAppendLogRequest calls the generic AgentAppendLog builder with application/json body
+func NewAgentAppendLogRequest(server string, body AgentAppendLogJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAgentAppendLogRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAgentAppendLogRequestWithBody generates requests for AgentAppendLog with any type of body
+func NewAgentAppendLogRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agent/log")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAgentLsRequest generates requests for AgentLs
+func NewAgentLsRequest(server string, params *AgentLsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agent/ls")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Path != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "path", runtime.ParamLocationQuery, *params.Path); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAgentCreateNoteRequest calls the generic AgentCreateNote builder with application/json body
+func NewAgentCreateNoteRequest(server string, body AgentCreateNoteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAgentCreateNoteRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAgentCreateNoteRequestWithBody generates requests for AgentCreateNote with any type of body
+func NewAgentCreateNoteRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agent/notes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAgentSearchRequest generates requests for AgentSearch
+func NewAgentSearchRequest(server string, params *AgentSearchParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agent/search")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "q", runtime.ParamLocationQuery, params.Q); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Path != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "path", runtime.ParamLocationQuery, *params.Path); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAgentCreateSourceRequest calls the generic AgentCreateSource builder with application/json body
+func NewAgentCreateSourceRequest(server string, body AgentCreateSourceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAgentCreateSourceRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAgentCreateSourceRequestWithBody generates requests for AgentCreateSource with any type of body
+func NewAgentCreateSourceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agent/sources")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
 }
 
 // NewGetWikiAgentsMdRequest generates requests for GetWikiAgentsMd
@@ -1104,6 +1944,33 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// AgentCatWithResponse request
+	AgentCatWithResponse(ctx context.Context, params *AgentCatParams, reqEditors ...RequestEditorFn) (*AgentCatResponse, error)
+
+	// AgentGetInstructionsWithResponse request
+	AgentGetInstructionsWithResponse(ctx context.Context, params *AgentGetInstructionsParams, reqEditors ...RequestEditorFn) (*AgentGetInstructionsResponse, error)
+
+	// AgentAppendLogWithBodyWithResponse request with any body
+	AgentAppendLogWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentAppendLogResponse, error)
+
+	AgentAppendLogWithResponse(ctx context.Context, body AgentAppendLogJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentAppendLogResponse, error)
+
+	// AgentLsWithResponse request
+	AgentLsWithResponse(ctx context.Context, params *AgentLsParams, reqEditors ...RequestEditorFn) (*AgentLsResponse, error)
+
+	// AgentCreateNoteWithBodyWithResponse request with any body
+	AgentCreateNoteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentCreateNoteResponse, error)
+
+	AgentCreateNoteWithResponse(ctx context.Context, body AgentCreateNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentCreateNoteResponse, error)
+
+	// AgentSearchWithResponse request
+	AgentSearchWithResponse(ctx context.Context, params *AgentSearchParams, reqEditors ...RequestEditorFn) (*AgentSearchResponse, error)
+
+	// AgentCreateSourceWithBodyWithResponse request with any body
+	AgentCreateSourceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentCreateSourceResponse, error)
+
+	AgentCreateSourceWithResponse(ctx context.Context, body AgentCreateSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentCreateSourceResponse, error)
+
 	// GetWikiAgentsMdWithResponse request
 	GetWikiAgentsMdWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWikiAgentsMdResponse, error)
 
@@ -1134,6 +2001,184 @@ type ClientWithResponsesInterface interface {
 	SyncWikiWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SyncWikiResponse, error)
 
 	SyncWikiWithResponse(ctx context.Context, body SyncWikiJSONRequestBody, reqEditors ...RequestEditorFn) (*SyncWikiResponse, error)
+}
+
+type AgentCatResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AgentCatResult
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentCatResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentCatResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AgentGetInstructionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AgentInstructionsSlice
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentGetInstructionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentGetInstructionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AgentAppendLogResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON503      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentAppendLogResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentAppendLogResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AgentLsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AgentLsResult
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentLsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentLsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AgentCreateNoteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AgentNote
+	JSON201      *AgentNote
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentCreateNoteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentCreateNoteResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AgentSearchResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AgentSearchResult
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentSearchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentSearchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AgentCreateSourceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *AgentSource
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentCreateSourceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentCreateSourceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type GetWikiAgentsMdResponse struct {
@@ -1355,6 +2400,93 @@ func (r SyncWikiResponse) StatusCode() int {
 	return 0
 }
 
+// AgentCatWithResponse request returning *AgentCatResponse
+func (c *ClientWithResponses) AgentCatWithResponse(ctx context.Context, params *AgentCatParams, reqEditors ...RequestEditorFn) (*AgentCatResponse, error) {
+	rsp, err := c.AgentCat(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentCatResponse(rsp)
+}
+
+// AgentGetInstructionsWithResponse request returning *AgentGetInstructionsResponse
+func (c *ClientWithResponses) AgentGetInstructionsWithResponse(ctx context.Context, params *AgentGetInstructionsParams, reqEditors ...RequestEditorFn) (*AgentGetInstructionsResponse, error) {
+	rsp, err := c.AgentGetInstructions(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentGetInstructionsResponse(rsp)
+}
+
+// AgentAppendLogWithBodyWithResponse request with arbitrary body returning *AgentAppendLogResponse
+func (c *ClientWithResponses) AgentAppendLogWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentAppendLogResponse, error) {
+	rsp, err := c.AgentAppendLogWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentAppendLogResponse(rsp)
+}
+
+func (c *ClientWithResponses) AgentAppendLogWithResponse(ctx context.Context, body AgentAppendLogJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentAppendLogResponse, error) {
+	rsp, err := c.AgentAppendLog(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentAppendLogResponse(rsp)
+}
+
+// AgentLsWithResponse request returning *AgentLsResponse
+func (c *ClientWithResponses) AgentLsWithResponse(ctx context.Context, params *AgentLsParams, reqEditors ...RequestEditorFn) (*AgentLsResponse, error) {
+	rsp, err := c.AgentLs(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentLsResponse(rsp)
+}
+
+// AgentCreateNoteWithBodyWithResponse request with arbitrary body returning *AgentCreateNoteResponse
+func (c *ClientWithResponses) AgentCreateNoteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentCreateNoteResponse, error) {
+	rsp, err := c.AgentCreateNoteWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentCreateNoteResponse(rsp)
+}
+
+func (c *ClientWithResponses) AgentCreateNoteWithResponse(ctx context.Context, body AgentCreateNoteJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentCreateNoteResponse, error) {
+	rsp, err := c.AgentCreateNote(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentCreateNoteResponse(rsp)
+}
+
+// AgentSearchWithResponse request returning *AgentSearchResponse
+func (c *ClientWithResponses) AgentSearchWithResponse(ctx context.Context, params *AgentSearchParams, reqEditors ...RequestEditorFn) (*AgentSearchResponse, error) {
+	rsp, err := c.AgentSearch(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentSearchResponse(rsp)
+}
+
+// AgentCreateSourceWithBodyWithResponse request with arbitrary body returning *AgentCreateSourceResponse
+func (c *ClientWithResponses) AgentCreateSourceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentCreateSourceResponse, error) {
+	rsp, err := c.AgentCreateSourceWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentCreateSourceResponse(rsp)
+}
+
+func (c *ClientWithResponses) AgentCreateSourceWithResponse(ctx context.Context, body AgentCreateSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentCreateSourceResponse, error) {
+	rsp, err := c.AgentCreateSource(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentCreateSourceResponse(rsp)
+}
+
 // GetWikiAgentsMdWithResponse request returning *GetWikiAgentsMdResponse
 func (c *ClientWithResponses) GetWikiAgentsMdWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWikiAgentsMdResponse, error) {
 	rsp, err := c.GetWikiAgentsMd(ctx, reqEditors...)
@@ -1450,6 +2582,356 @@ func (c *ClientWithResponses) SyncWikiWithResponse(ctx context.Context, body Syn
 		return nil, err
 	}
 	return ParseSyncWikiResponse(rsp)
+}
+
+// ParseAgentCatResponse parses an HTTP response from a AgentCatWithResponse call
+func ParseAgentCatResponse(rsp *http.Response) (*AgentCatResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentCatResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentCatResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentGetInstructionsResponse parses an HTTP response from a AgentGetInstructionsWithResponse call
+func ParseAgentGetInstructionsResponse(rsp *http.Response) (*AgentGetInstructionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentGetInstructionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentInstructionsSlice
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentAppendLogResponse parses an HTTP response from a AgentAppendLogWithResponse call
+func ParseAgentAppendLogResponse(rsp *http.Response) (*AgentAppendLogResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentAppendLogResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentLsResponse parses an HTTP response from a AgentLsWithResponse call
+func ParseAgentLsResponse(rsp *http.Response) (*AgentLsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentLsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentLsResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentCreateNoteResponse parses an HTTP response from a AgentCreateNoteWithResponse call
+func ParseAgentCreateNoteResponse(rsp *http.Response) (*AgentCreateNoteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentCreateNoteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentNote
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest AgentNote
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentSearchResponse parses an HTTP response from a AgentSearchWithResponse call
+func ParseAgentSearchResponse(rsp *http.Response) (*AgentSearchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentSearchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentSearchResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentCreateSourceResponse parses an HTTP response from a AgentCreateSourceWithResponse call
+func ParseAgentCreateSourceResponse(rsp *http.Response) (*AgentCreateSourceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentCreateSourceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest AgentSource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseGetWikiAgentsMdResponse parses an HTTP response from a GetWikiAgentsMdWithResponse call

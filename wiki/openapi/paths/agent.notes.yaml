@@ -1,0 +1,44 @@
+post:
+  operationId: agentCreateNote
+  summary: Create or replace a filed query answer under the answers namespace
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/agent.yaml#/AgentCreateNoteRequest
+  responses:
+    '200':
+      description: Existing answer page replaced.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/agent.yaml#/AgentNote
+    '201':
+      description: Answer page created.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/agent.yaml#/AgentNote
+    '400':
+      $ref: ../components/responses/common.yaml#/BadRequest
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '403':
+      $ref: ../components/responses/common.yaml#/Forbidden
+    '404':
+      $ref: ../components/responses/common.yaml#/NotFound
+    '409':
+      description: >-
+        Refused without writing: `slug_exists`, `citations_span_access`,
+        `citations_span_chapters`, `chapter_ambiguous`, or — when replacing —
+        `replace_scope_mismatch` (the target's chapter differs from the citation
+        floor) or `replace_target_shared` (the target carries explicit ACL rows).
+        Replacement never moves a page's access scope, because the page_versions
+        row it writes preserves the prior content under the new permissions.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/common.yaml#/Error

@@ -51,7 +51,11 @@ Google Chat has no Chat SDK slash-command surface; members type `/unlink` as a m
    workflow runs Vercel from the repo root so workspace packages resolve).
 3. Region: `hnd1` (see `agents/vercel.json`).
 4. Add every environment variable from the table below to Production (and Preview if you use it).
-5. In GitHub Actions repository secrets, set **`VERCEL_PROJECT_ID_AGENTS`** to this project's id, plus
+5. Confirm the Vercel plan allows **`maxDuration = 300`** on `app/api/chat/route.ts` (Hobby is
+   lower; Pro allows 300s). Filing runs in the same `after()` continuation as the reply, so a too-low
+   budget cuts off write-back. If the plan cannot grant 300s, lower the export and note the chosen
+   value in the deploy PR.
+6. In GitHub Actions repository secrets, set **`VERCEL_PROJECT_ID_AGENTS`** to this project's id, plus
    **`DISCORD_APPLICATION_ID`** and **`DISCORD_BOT_TOKEN`** for the post-deploy command synchronizer.
    Keep the latter two in the Vercel project too: Vercel supplies them to the running agent, while GitHub
    Actions needs its own secret copies to register commands with Discord. The existing `VERCEL_PROJECT_ID`

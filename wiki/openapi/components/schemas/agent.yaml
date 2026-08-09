@@ -101,3 +101,69 @@ AgentSource:
     refreshPolicy:
       type: string
       enum: [manual, daily, weekly]
+AgentCreateNoteRequest:
+  type: object
+  additionalProperties: false
+  required: [slug, title, summary, content, citedPaths]
+  properties:
+    slug:
+      type: string
+      maxLength: 160
+      pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+    title:
+      type: string
+      maxLength: 200
+    summary:
+      type: string
+      maxLength: 300
+    content:
+      type: string
+      maxLength: 8000
+    citedPaths:
+      type: array
+      minItems: 2
+      maxItems: 12
+      items:
+        type: string
+    replaceId:
+      type: string
+AgentNote:
+  type: object
+  required: [id, slug, path, pageUrl, created]
+  properties:
+    id:
+      type: string
+    slug:
+      type: string
+    path:
+      type: string
+    pageUrl:
+      type: string
+      format: uri
+    created:
+      type: boolean
+AgentLogRequest:
+  type: object
+  required: [subject, lines]
+  properties:
+    subject:
+      type: string
+      maxLength: 200
+    lines:
+      type: array
+      minItems: 1
+      maxItems: 8
+      items:
+        type: string
+        maxLength: 200
+AgentInstructionsSlice:
+  type: object
+  required: [profile, content, contentHash]
+  properties:
+    profile:
+      type: string
+      enum: [query]
+    content:
+      type: string
+    contentHash:
+      type: string

@@ -31,6 +31,12 @@ paths:
     $ref: ./paths/agent.search.yaml
   /api/agent/sources:
     $ref: ./paths/agent.sources.yaml
+  /api/agent/notes:
+    $ref: ./paths/agent.notes.yaml
+  /api/agent/log:
+    $ref: ./paths/agent.log.yaml
+  /api/agent/instructions:
+    $ref: ./paths/agent.instructions.yaml
 components:
   schemas:
     Snapshot:
@@ -61,6 +67,14 @@ components:
       $ref: ./components/schemas/agent.yaml#/AgentCreateSourceRequest
     AgentSource:
       $ref: ./components/schemas/agent.yaml#/AgentSource
+    AgentCreateNoteRequest:
+      $ref: ./components/schemas/agent.yaml#/AgentCreateNoteRequest
+    AgentNote:
+      $ref: ./components/schemas/agent.yaml#/AgentNote
+    AgentLogRequest:
+      $ref: ./components/schemas/agent.yaml#/AgentLogRequest
+    AgentInstructionsSlice:
+      $ref: ./components/schemas/agent.yaml#/AgentInstructionsSlice
     Error:
       $ref: ./components/schemas/common.yaml#/Error
   responses:
