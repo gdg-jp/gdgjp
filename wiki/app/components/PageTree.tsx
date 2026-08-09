@@ -31,7 +31,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useFetcher } from "react-router";
-import { type FlatNode, type PageNode, flattenTree } from "~/lib/page-tree";
+import { type FlatNode, type PageNode, flattenTree, getAncestorIdsForSlug } from "~/lib/page-tree";
 
 export type { PageNode };
 
@@ -259,25 +259,25 @@ function SortableTreeItem({
 // ---------------------------------------------------------------------------
 // DraggablePageTree — rendered when canReorder=true
 // ---------------------------------------------------------------------------
-function DraggablePageTree({ pages, currentSlug }: { pages: PageNode[]; currentSlug?: string }) {
+function DraggablePageTree({
+  pages,
+  currentSlug,
+  expandedIds,
+  onToggle,
+}: {
+  pages: PageNode[];
+  currentSlug?: string;
+  expandedIds: Set<string>;
+  onToggle: (id: string) => void;
+}) {
   const { t } = useTranslation();
   const fetcher = useFetcher();
   const [flatNodes, setFlatNodes] = useState<FlatNode[]>(() => flattenTree(pages));
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const [overId, setOverId] = useState<UniqueIdentifier | null>(null);
   const [dragOffsetX, setDragOffsetX] = useState(0);
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set());
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
-
-  function toggleCollapsed(id: string) {
-    setCollapsedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
   // Build visible list: first hide descendants of collapsed nodes, then hide descendants of active during drag
   const sortableItems = useMemo(() => {
@@ -288,7 +288,7 @@ function DraggablePageTree({ pages, currentSlug }: { pages: PageNode[]; currentS
       if (skipBelowDepth !== null && node.depth > skipBelowDepth) continue;
       skipBelowDepth = null;
       visible.push(node);
-      if (collapsedIds.has(node.id) && node.children.length > 0) skipBelowDepth = node.depth;
+      if (!expandedIds.has(node.id) && node.children.length > 0) skipBelowDepth = node.depth;
     }
     // Step 2: during drag, also hide descendants of the active item
     if (!activeId) return visible;
@@ -296,7 +296,7 @@ function DraggablePageTree({ pages, currentSlug }: { pages: PageNode[]; currentS
     if (activeIndex === -1) return visible;
     const activeDepth = visible[activeIndex].depth;
     return visible.filter((n, i) => i <= activeIndex || n.depth <= activeDepth);
-  }, [flatNodes, activeId, collapsedIds]);
+  }, [flatNodes, activeId, expandedIds]);
 
   const projected = useMemo(() => {
     if (!activeId || !overId) return null;
@@ -373,8 +373,8 @@ function DraggablePageTree({ pages, currentSlug }: { pages: PageNode[]; currentS
               isDragging={node.id === activeId}
               showDropIndicator={Boolean(projected) && overId === node.id && overId !== activeId}
               indicatorDepth={projected?.depth}
-              isFolderCollapsed={collapsedIds.has(node.id)}
-              onToggle={() => toggleCollapsed(node.id)}
+              isFolderCollapsed={!expandedIds.has(node.id)}
+              onToggle={() => onToggle(node.id)}
             />
           ))}
           {sortableItems.length === 0 && (
@@ -405,14 +405,15 @@ function DraggablePageTree({ pages, currentSlug }: { pages: PageNode[]; currentS
 interface TreeNodeProps {
   node: PageNode;
   currentSlug?: string;
-  depth: number;
+  expandedIds: Set<string>;
   isCollapsed: boolean;
+  onToggle: (id: string) => void;
 }
 
-function TreeNode({ node, currentSlug, depth, isCollapsed }: TreeNodeProps) {
+function TreeNode({ node, currentSlug, expandedIds, isCollapsed, onToggle }: TreeNodeProps) {
   const { t, i18n } = useTranslation();
-  const [expanded, setExpanded] = useState(true);
   const hasChildren = node.children.length > 0;
+  const expanded = expandedIds.has(node.id);
   const isCurrent = node.slug === currentSlug;
   const title = getLocalizedTitle(node, i18n.language);
 
@@ -430,7 +431,7 @@ function TreeNode({ node, currentSlug, depth, isCollapsed }: TreeNodeProps) {
           (hasChildren ? (
             <button
               type="button"
-              onClick={() => setExpanded(!expanded)}
+              onClick={() => onToggle(node.id)}
               className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-content-tertiary hover:text-content-secondary"
               aria-label={expanded ? t("pageTree.collapse") : t("pageTree.expand")}
             >
@@ -464,15 +465,16 @@ function TreeNode({ node, currentSlug, depth, isCollapsed }: TreeNodeProps) {
         )}
       </div>
 
-      {hasChildren && expanded && depth < 2 && !isCollapsed && (
+      {hasChildren && expanded && !isCollapsed && (
         <ul className="ml-4">
           {node.children.map((child) => (
             <TreeNode
               key={child.id}
               node={child}
               currentSlug={currentSlug}
-              depth={depth + 1}
+              expandedIds={expandedIds}
               isCollapsed={isCollapsed}
+              onToggle={onToggle}
             />
           ))}
         </ul>
@@ -494,6 +496,26 @@ export default function PageTree({
   const { t } = useTranslation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const pagesRef = useRef(pages);
+  const [expandedIds, setExpandedIds] = useState(() => getAncestorIdsForSlug(pages, currentSlug));
+
+  useEffect(() => {
+    pagesRef.current = pages;
+  }, [pages]);
+
+  useEffect(() => {
+    setExpandedIds(getAncestorIdsForSlug(pagesRef.current, currentSlug));
+    // The tree can revalidate without a navigation; only the destination should reset manual state.
+  }, [currentSlug]);
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -509,7 +531,12 @@ export default function PageTree({
   return (
     <nav aria-label="Page tree" className="flex h-full flex-col py-2">
       {canReorder ? (
-        <DraggablePageTree pages={pages} currentSlug={currentSlug} />
+        <DraggablePageTree
+          pages={pages}
+          currentSlug={currentSlug}
+          expandedIds={expandedIds}
+          onToggle={toggleExpanded}
+        />
       ) : (
         <ul className="flex-1 space-y-0.5 overflow-y-auto px-2">
           {pages.map((node) => (
@@ -517,8 +544,9 @@ export default function PageTree({
               key={node.id}
               node={node}
               currentSlug={currentSlug}
-              depth={0}
+              expandedIds={expandedIds}
               isCollapsed={isCollapsed}
+              onToggle={toggleExpanded}
             />
           ))}
           {pages.length === 0 && !isCollapsed && (

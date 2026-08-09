@@ -88,3 +88,28 @@ export function flattenTree(
   }
   return result;
 }
+
+/**
+ * Returns the IDs of every ancestor required to reveal a page in the tree.
+ * The matched page itself is deliberately excluded, so visiting a folder does
+ * not automatically reveal its children.
+ */
+export function getAncestorIdsForSlug(nodes: PageNode[], slug?: string): Set<string> {
+  if (!slug) return new Set();
+
+  function visit(node: PageNode, ancestors: string[]): Set<string> | null {
+    if (node.slug === slug) return new Set(ancestors);
+
+    for (const child of node.children) {
+      const result = visit(child, [...ancestors, node.id]);
+      if (result) return result;
+    }
+    return null;
+  }
+
+  for (const node of nodes) {
+    const result = visit(node, []);
+    if (result) return result;
+  }
+  return new Set();
+}

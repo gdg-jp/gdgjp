@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTree } from "./page-tree";
+import { buildTree, getAncestorIdsForSlug } from "./page-tree";
 
 const row = (
   id: string,
@@ -60,5 +60,28 @@ describe("buildTree", () => {
     expect(result).toHaveLength(2);
     expect(result[0].children.map((n) => n.id)).toEqual(["c1"]);
     expect(result[1].children.map((n) => n.id)).toEqual(["c2"]);
+  });
+});
+
+describe("getAncestorIdsForSlug", () => {
+  const tree = buildTree([
+    row("root", null),
+    row("child", "root"),
+    row("grandchild", "child"),
+    row("other-root", null),
+    row("other-child", "other-root"),
+  ]);
+
+  it("starts with every hierarchy collapsed when no page is active", () => {
+    expect(getAncestorIdsForSlug(tree)).toEqual(new Set());
+  });
+
+  it("opens every ancestor needed to reveal a deeply nested page", () => {
+    expect(getAncestorIdsForSlug(tree, "grandchild")).toEqual(new Set(["root", "child"]));
+  });
+
+  it("does not open the current page's descendants or unrelated branches", () => {
+    expect(getAncestorIdsForSlug(tree, "child")).toEqual(new Set(["root"]));
+    expect(getAncestorIdsForSlug(tree, "other-child")).toEqual(new Set(["other-root"]));
   });
 });
