@@ -94,6 +94,6 @@ export function signDiscordRequest(
   return signature.toString("hex");
 }
 
-export function discordPingBody(id: string): string {
-  return JSON.stringify({ id, type: 1 });
+export function discordPingBody(id?: string): string {
+  return JSON.stringify(id === undefined ? { type: 1 } : { id, type: 1 });
 }
