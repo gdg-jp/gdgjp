@@ -127,43 +127,43 @@ jobs:
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'accounts')
             run: |
               pnpm --filter @gdgjp/accounts build
-              pnpm --filter @gdgjp/accounts deploy
+              pnpm --filter @gdgjp/accounts run deploy
               pnpm --filter @gdgjp/accounts migrate:remote
           - name: Build, deploy, and migrate tinyurl
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'tinyurl')
             run: |
               pnpm --filter @gdgjp/tinyurl build
-              pnpm --filter @gdgjp/tinyurl deploy
+              pnpm --filter @gdgjp/tinyurl run deploy
               pnpm --filter @gdgjp/tinyurl migrate:remote
           - name: Build, deploy, and migrate wiki
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'wiki')
             run: |
               pnpm --filter @gdgjp/wiki build
-              pnpm --filter @gdgjp/wiki deploy
+              pnpm --filter @gdgjp/wiki run deploy
               pnpm --filter @gdgjp/wiki migrate:remote
           - name: Build, deploy, and migrate img
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'img')
             run: |
               pnpm --filter @gdgjp/img build
-              pnpm --filter @gdgjp/img deploy
+              pnpm --filter @gdgjp/img run deploy
               pnpm --filter @gdgjp/img migrate:remote
           - name: Build, deploy, and migrate scheduler
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'scheduler')
             run: |
               pnpm --filter @gdgjp/scheduler build
-              pnpm --filter @gdgjp/scheduler deploy
+              pnpm --filter @gdgjp/scheduler run deploy
               pnpm --filter @gdgjp/scheduler migrate:remote
           - name: Build, deploy, and migrate SNS
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'sns')
             run: |
               pnpm --filter @gdgjp/sns build
-              pnpm --filter @gdgjp/sns deploy
+              pnpm --filter @gdgjp/sns run deploy
               pnpm --filter @gdgjp/sns migrate:remote
           - name: Build and deploy website
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'website')
             run: |
               pnpm --filter @gdgjp/website build
-              pnpm --filter @gdgjp/website deploy
+              pnpm --filter @gdgjp/website run deploy
           - name: Build and deploy tinyurl gateway
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'tinyurl-gateway')
             run: |
