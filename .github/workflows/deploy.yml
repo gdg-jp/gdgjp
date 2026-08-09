@@ -182,16 +182,14 @@ jobs:
               VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           - name: Deploy agents to Vercel
             # agents/ depends on @gdgjp/gdg-lib via workspace:* and ships that
-            # package as untranspiled TS. `vercel deploy` alone only uploads
-            # the agents/ subtree, so Vercel's remote build never sees the
-            # workspace root and falls back to a plain `npm install`, which
-            # cannot resolve `workspace:*`. Building locally (where the repo
-            # root and its pnpm install are already present) and deploying the
-            # prebuilt output avoids a remote install entirely.
+            # package as untranspiled TS. Run every Vercel command from the
+            # monorepo root so the project's `agents` Root Directory is applied
+            # exactly once and the local build can resolve workspace packages.
+            # Deploying the prebuilt output also avoids a remote install.
             run: |
-              pnpm --filter @gdgjp/agents exec vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-              pnpm --filter @gdgjp/agents exec vercel build --prod --token="$VERCEL_TOKEN"
-              pnpm --filter @gdgjp/agents exec vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN"
+              pnpm --filter @gdgjp/agents exec vercel pull --cwd "$GITHUB_WORKSPACE" --yes --environment=production --token="$VERCEL_TOKEN"
+              pnpm --filter @gdgjp/agents exec vercel build --cwd "$GITHUB_WORKSPACE" --prod --token="$VERCEL_TOKEN"
+              pnpm --filter @gdgjp/agents exec vercel deploy --cwd "$GITHUB_WORKSPACE" --prebuilt --prod --yes --token="$VERCEL_TOKEN"
             env:
               VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
               VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}

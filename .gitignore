@@ -45,3 +45,4 @@ yarn-debug.log*
 
 # Wrangler-generated types
 worker-configuration.d.ts
+.vercel
