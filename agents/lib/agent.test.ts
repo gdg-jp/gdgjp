@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentsChat } from "./adapters";
 import {
+  DISCORD_UNAVAILABLE_MESSAGE,
+  ResponseDeadlineExceededError,
   answerCitesPaths,
   defaultAgentModel,
   discordGuildId,
@@ -14,6 +16,7 @@ import {
   registerAgentHandlers,
   resetAgentHandlersForTests,
   runWikiAgent,
+  withResponseDeadline,
 } from "./agent";
 import { ASK_COMMAND, LOGIN_COMMAND } from "./discord-commands";
 import {
@@ -121,6 +124,14 @@ describe("defaultAgentModel", () => {
         ACCOUNTS_URL: "https://accounts.gdgs.jp",
       }),
     ).toThrow("GOOGLE_VERTEX_API_KEY");
+  });
+});
+
+describe("withResponseDeadline", () => {
+  it("rejects before a hung background task can consume Vercel's entire runtime", async () => {
+    await expect(withResponseDeadline(new Promise<never>(() => {}), 0)).rejects.toBeInstanceOf(
+      ResponseDeadlineExceededError,
+    );
   });
 });
 
@@ -514,6 +525,29 @@ describe("registerAgentHandlers", () => {
     expect(bot.onDirectMessage).toHaveBeenCalledTimes(1);
     expect(bot.onSlashCommand).toHaveBeenCalledWith(ASK_COMMAND, expect.any(Function));
     expect(bot.onSlashCommand).toHaveBeenCalledWith(LOGIN_COMMAND, expect.any(Function));
+  });
+
+  it("replaces Discord's deferred response with an error when /ask fails", async () => {
+    const bot = fakeBot();
+    registerAgentHandlers(bot as unknown as AgentsChat, "discord", {
+      link: {} as LinkAccountDeps,
+    });
+    const askHandler = bot.onSlashCommand.mock.calls.find(
+      ([command]) => command === ASK_COMMAND,
+    )?.[1];
+    const post = vi.fn().mockResolvedValue(undefined);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await askHandler({
+      adapter: { name: "discord" },
+      channel: { post },
+      raw: {},
+      text: "Where is the next meetup?",
+      user: { userId: "discord-user" },
+    });
+
+    expect(post).toHaveBeenCalledWith(DISCORD_UNAVAILABLE_MESSAGE);
+    errorSpy.mockRestore();
   });
 });
 

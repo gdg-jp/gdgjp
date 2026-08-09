@@ -167,13 +167,15 @@ export function createWikiTools(ctx: WikiToolContext) {
       cursor: z.string().optional().describe("Pagination cursor from a previous wiki_ls"),
       limit: z.number().int().positive().optional(),
     }),
-    execute: async ({ path, cursor, limit }) => {
+    execute: async ({ path, cursor, limit }, { abortSignal }) => {
       const params = new URLSearchParams();
       if (path !== undefined) params.set("path", path);
       if (cursor !== undefined) params.set("cursor", cursor);
       if (limit !== undefined) params.set("limit", String(limit));
       const qs = params.toString();
-      const result = await wikiRequest(ctx, `/api/agent/ls${qs ? `?${qs}` : ""}`);
+      const result = await wikiRequest(ctx, `/api/agent/ls${qs ? `?${qs}` : ""}`, {
+        signal: abortSignal,
+      });
       if (!result.ok) {
         return {
           error: result.error,
@@ -192,7 +194,7 @@ export function createWikiTools(ctx: WikiToolContext) {
       cursor: z.string().optional().describe("Pagination cursor from a previous wiki_cat"),
       maxChars: z.number().int().positive().optional(),
     }),
-    execute: async ({ path, cursor, maxChars }) => {
+    execute: async ({ path, cursor, maxChars }, { abortSignal }) => {
       if (!ctx.session.indexRead && path !== WIKI_INDEX_PATH) {
         return indexGateError();
       }
@@ -208,7 +210,7 @@ export function createWikiTools(ctx: WikiToolContext) {
       if (cursor !== undefined) params.set("cursor", cursor);
       if (maxChars !== undefined) params.set("maxChars", String(maxChars));
 
-      const result = await wikiRequest(ctx, `/api/agent/cat?${params}`);
+      const result = await wikiRequest(ctx, `/api/agent/cat?${params}`, { signal: abortSignal });
       if (!result.ok) {
         if (result.status === 404) {
           ctx.session.notFoundPaths.add(path);
@@ -245,7 +247,7 @@ export function createWikiTools(ctx: WikiToolContext) {
       cursor: z.string().optional(),
       limit: z.number().int().positive().optional(),
     }),
-    execute: async ({ q, path, cursor, limit }) => {
+    execute: async ({ q, path, cursor, limit }, { abortSignal }) => {
       if (!ctx.session.indexRead) {
         return indexGateError();
       }
@@ -255,7 +257,7 @@ export function createWikiTools(ctx: WikiToolContext) {
       if (cursor !== undefined) params.set("cursor", cursor);
       if (limit !== undefined) params.set("limit", String(limit));
 
-      const result = await wikiRequest(ctx, `/api/agent/search?${params}`);
+      const result = await wikiRequest(ctx, `/api/agent/search?${params}`, { signal: abortSignal });
       if (!result.ok) {
         return {
           error: result.error,
@@ -290,7 +292,7 @@ export function createWikiTools(ctx: WikiToolContext) {
         .describe("Chapter id, or __all__ if the user explicitly chose all chapters"),
       refreshPolicy: z.enum(["manual", "daily", "weekly"]).optional(),
     }),
-    execute: async ({ url, chapter, refreshPolicy }) => {
+    execute: async ({ url, chapter, refreshPolicy }, { abortSignal }) => {
       const resolved = resolveChapterForAdd(chapter, ctx.chapters);
       if (!resolved.ok) {
         if (resolved.error === "chapter_required") {
@@ -316,6 +318,7 @@ export function createWikiTools(ctx: WikiToolContext) {
           chapter: resolved.chapter,
           ...(refreshPolicy !== undefined ? { refreshPolicy } : {}),
         }),
+        signal: abortSignal,
       });
 
       if (!result.ok) {

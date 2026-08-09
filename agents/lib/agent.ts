@@ -29,6 +29,42 @@ export const WIKI_INDEX_PATH = "/wiki/index";
 /** Enough steps for index → ls → cat → follow-ups without collapsing into one-shot RAG. */
 export const AGENT_MAX_STEPS = 12;
 
+/**
+ * Leave enough time to replace Discord's deferred "thinking" response before
+ * Vercel's 300 s function limit can terminate the background task.
+ */
+export const DISCORD_RESPONSE_TIMEOUT_MS = 240_000;
+export const DISCORD_POST_TIMEOUT_MS = 10_000;
+export const DISCORD_UNAVAILABLE_MESSAGE =
+  "I couldn't complete that request right now. Please try again in a moment.";
+
+export class ResponseDeadlineExceededError extends Error {
+  constructor() {
+    super("discord_response_deadline_exceeded");
+    this.name = "ResponseDeadlineExceededError";
+  }
+}
+
+/** Bound background work so a deferred Discord interaction is always resolved. */
+export function withResponseDeadline<T>(
+  operation: Promise<T>,
+  timeoutMs = DISCORD_RESPONSE_TIMEOUT_MS,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new ResponseDeadlineExceededError()), timeoutMs);
+    void operation.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 export const SYSTEM_INSTRUCTIONS = `You are the GDG Japan Wiki assistant in Google Chat / Discord.
 
 Query is exploration, not retrieval. Navigate the Wiki the way a coding agent navigates a codebase:
@@ -62,6 +98,7 @@ export type RunWikiAgentInput = {
   fetch?: FetchLike;
   env?: AgentEnv;
   stopWhenSteps?: number;
+  abortSignal?: AbortSignal;
 };
 
 export type WikiAgentGenerateResult = Awaited<
@@ -129,20 +166,20 @@ export async function runWikiAgent(input: RunWikiAgentInput): Promise<RunWikiAge
 
   const result =
     input.messages !== undefined
-      ? await agent.generate({ messages: input.messages })
-      : await agent.generate({ prompt: input.prompt ?? "" });
+      ? await agent.generate({ messages: input.messages, abortSignal: input.abortSignal })
+      : await agent.generate({ prompt: input.prompt ?? "", abortSignal: input.abortSignal });
 
   return { text: result.text, tools, session, steps: result.steps };
 }
 
 export async function fetchChaptersForToken(
   accessToken: string,
-  deps: { accountsUrl: string; fetch?: FetchLike },
+  deps: { accountsUrl: string; fetch?: FetchLike; abortSignal?: AbortSignal },
 ): Promise<WikiChapter[]> {
   const fetchImpl = deps.fetch ?? fetch;
   const response = await fetchImpl(
     `${deps.accountsUrl.replace(/\/$/, "")}/api/auth/oauth2/userinfo`,
-    { headers: { Authorization: `Bearer ${accessToken}` } },
+    { headers: { Authorization: `Bearer ${accessToken}` }, signal: deps.abortSignal },
   );
   if (!response.ok) return [];
   const value = (await response.json()) as Record<string, unknown>;
@@ -192,6 +229,7 @@ export async function handleInquiry(
     spaceId?: string;
     prompt?: string;
     messages?: RunWikiAgentInput["messages"];
+    abortSignal?: AbortSignal;
   },
   deps: HandleInquiryDeps = {},
 ): Promise<InquiryOutcome> {
@@ -221,6 +259,7 @@ export async function handleInquiry(
     (await fetchChaptersForToken(token.accessToken, {
       accountsUrl: env.ACCOUNTS_URL,
       fetch: deps.fetch ?? linkDeps.fetch,
+      abortSignal: input.abortSignal,
     }));
 
   const result = await runWikiAgent({
@@ -231,6 +270,7 @@ export async function handleInquiry(
     model: deps.model,
     fetch: deps.fetch,
     env,
+    abortSignal: input.abortSignal,
   });
 
   if (toolResultsNeedRelink(result.steps)) {
@@ -391,21 +431,40 @@ export function registerAgentHandlers(
   }
 
   bot.onSlashCommand(ASK_COMMAND, async (event) => {
+    const respond = (text: string) =>
+      withResponseDeadline(event.channel.post(text), DISCORD_POST_TIMEOUT_MS);
     const platform = adapterNameToPlatform(event.adapter.name);
     if (!platform) {
-      await event.channel.post("Unsupported chat platform.");
+      await respond("Unsupported chat platform.");
       return;
     }
-    const outcome = await handleInquiry(
-      {
-        platform,
-        chatUserId: event.user.userId,
-        spaceId: discordGuildId(event.raw),
-        prompt: event.text,
-      },
-      deps,
-    );
-    await event.channel.post(outcome.text);
+    let outcome: InquiryOutcome;
+    try {
+      const abortSignal = AbortSignal.timeout(DISCORD_RESPONSE_TIMEOUT_MS);
+      outcome = await withResponseDeadline(
+        handleInquiry(
+          {
+            platform,
+            chatUserId: event.user.userId,
+            spaceId: discordGuildId(event.raw),
+            prompt: event.text,
+            abortSignal,
+          },
+          deps,
+        ),
+      );
+      await respond(outcome.text);
+    } catch (error) {
+      // Discord has already received a deferred interaction response. Never let
+      // an exception (or Vercel's impending timeout) leave it as "thinking".
+      console.error("[agents] Discord /ask failed:", error);
+      try {
+        await respond(DISCORD_UNAVAILABLE_MESSAGE);
+      } catch (postError) {
+        console.error("[agents] Failed to resolve Discord /ask interaction:", postError);
+      }
+      return;
+    }
     // Awaited for the same reason as in `reply` above.
     await runFilingPass(
       {
@@ -420,22 +479,38 @@ export function registerAgentHandlers(
   });
 
   bot.onSlashCommand(LOGIN_COMMAND, async (event) => {
+    const respond = (text: string) =>
+      withResponseDeadline(event.channel.post(text), DISCORD_POST_TIMEOUT_MS);
     const platform = adapterNameToPlatform(event.adapter.name);
     if (!platform) {
-      await event.channel.post("Unsupported chat platform.");
+      await respond("Unsupported chat platform.");
       return;
     }
-    const linkDeps = deps.link ?? linkAccountDepsFromEnv(process.env, { fetch: deps.fetch });
-    const guildId = discordGuildId(event.raw);
-    const authorizationUrl = await createLinkAuthorizationUrl(
-      {
-        platform,
-        chatUserId: event.user.userId,
-        spaceId: guildId,
-      },
-      linkDeps,
-    );
-    await event.channel.post(loginPrompt(authorizationUrl, Boolean(guildId)));
+    try {
+      const text = await withResponseDeadline(
+        (async () => {
+          const linkDeps = deps.link ?? linkAccountDepsFromEnv(process.env, { fetch: deps.fetch });
+          const guildId = discordGuildId(event.raw);
+          const authorizationUrl = await createLinkAuthorizationUrl(
+            {
+              platform,
+              chatUserId: event.user.userId,
+              spaceId: guildId,
+            },
+            linkDeps,
+          );
+          return loginPrompt(authorizationUrl, Boolean(guildId));
+        })(),
+      );
+      await respond(text);
+    } catch (error) {
+      console.error("[agents] Discord /login failed:", error);
+      try {
+        await respond(DISCORD_UNAVAILABLE_MESSAGE);
+      } catch (postError) {
+        console.error("[agents] Failed to resolve Discord /login interaction:", postError);
+      }
+    }
   });
 }
 
