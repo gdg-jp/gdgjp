@@ -119,11 +119,8 @@ export const pages = sqliteTable("pages", {
   actionabilityScore: integer("actionability_score"),
   // "restricted" | "unlisted" | "public"
   visibility: text("visibility").notNull().default("restricted"),
-  // Used only for unlisted/public pages. Restricted pages have no general role.
+  // Used for every non-restricted general-access audience.
   generalRole: text("general_role").notNull().default("viewer"),
-  // Optional roles granted to everyone holding the matching active Chapter role.
-  organizerRole: text("organizer_role"),
-  memberRole: text("member_role"),
   chapterId: text("chapter_id").references(() => chapters.id, { onDelete: "set null" }),
   authorId: text("author_id").notNull(),
   lastEditedBy: text("last_edited_by").notNull(),

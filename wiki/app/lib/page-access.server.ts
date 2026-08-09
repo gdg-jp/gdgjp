@@ -3,7 +3,7 @@ import type { DrizzleD1Database } from "drizzle-orm/d1";
 import { nanoid } from "nanoid";
 import * as schema from "~/db/schema";
 
-export type GeneralAccess = "restricted" | "unlisted" | "public";
+export type GeneralAccess = "restricted" | "unlisted" | "public" | "organizer" | "member";
 export type PageRole = "viewer" | "commenter" | "editor";
 export type EffectivePageRole = "owner" | PageRole | null;
 export type ShareSubjectType = "email" | "chapter";
@@ -44,8 +44,6 @@ export type PagePermissionSubject = {
   authorId: string;
   visibility: string;
   generalRole?: string | null;
-  organizerRole?: string | null;
-  memberRole?: string | null;
 };
 
 type UserLike = {
@@ -66,7 +64,13 @@ export function isPageRole(value: unknown): value is PageRole {
 }
 
 export function isGeneralAccess(value: unknown): value is GeneralAccess {
-  return value === "restricted" || value === "unlisted" || value === "public";
+  return (
+    value === "restricted" ||
+    value === "unlisted" ||
+    value === "public" ||
+    value === "organizer" ||
+    value === "member"
+  );
 }
 
 export function normalizeEmail(email: string): string {
@@ -242,25 +246,20 @@ export function evaluatePagePermissions(
     (chapter) =>
       typeof chapter === "object" && (chapter.role === "organizer" || chapter.role === "member"),
   );
-  const organizerCandidate =
-    hasOrganizerRole && isPageRole(page.organizerRole) ? page.organizerRole : null;
-  const memberCandidate = hasMemberRole && isPageRole(page.memberRole) ? page.memberRole : null;
-  const generalCandidate = hasGeneralAccess ? generalRole : null;
+  const generalCandidate =
+    hasGeneralAccess ||
+    (page.visibility === "organizer" && hasOrganizerRole) ||
+    (page.visibility === "member" && hasMemberRole)
+      ? generalRole
+      : null;
   const role = maxRole([
     ...(explicitRole ? [explicitRole] : []),
     ...(generalCandidate ? [generalCandidate] : []),
-    ...(organizerCandidate ? [organizerCandidate] : []),
-    ...(memberCandidate ? [memberCandidate] : []),
   ]);
   const source =
     role &&
     explicitRole &&
-    ROLE_RANK[explicitRole] >=
-      Math.max(
-        generalCandidate ? ROLE_RANK[generalCandidate] : 0,
-        organizerCandidate ? ROLE_RANK[organizerCandidate] : 0,
-        memberCandidate ? ROLE_RANK[memberCandidate] : 0,
-      )
+    ROLE_RANK[explicitRole] >= (generalCandidate ? ROLE_RANK[generalCandidate] : 0)
       ? explicitSource
       : role
         ? "general"

@@ -26,8 +26,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       authorId: schema.pages.authorId,
       visibility: schema.pages.visibility,
       generalRole: schema.pages.generalRole,
-      organizerRole: schema.pages.organizerRole,
-      memberRole: schema.pages.memberRole,
     })
     .from(schema.pages)
     .where(eq(schema.pages.slug, slug))

@@ -27,8 +27,6 @@ type PageRecord = {
   authorId: string;
   visibility: string;
   generalRole: string;
-  organizerRole: string | null;
-  memberRole: string | null;
 };
 
 async function getChapterIds(
@@ -61,8 +59,6 @@ async function loadPage(db: ReturnType<typeof getDb>, pageId: string): Promise<P
         authorId: schema.pages.authorId,
         visibility: schema.pages.visibility,
         generalRole: schema.pages.generalRole,
-        organizerRole: schema.pages.organizerRole,
-        memberRole: schema.pages.memberRole,
       })
       .from(schema.pages)
       .where(eq(schema.pages.id, pageId))
@@ -165,8 +161,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     generalAccess: page.visibility as GeneralAccess,
     visibility: page.visibility as GeneralAccess,
     generalRole: page.generalRole as PageRole,
-    organizerRole: page.organizerRole as PageRole | null,
-    memberRole: page.memberRole as PageRole | null,
     claimsUnavailable,
   });
 }
@@ -353,23 +347,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       .set({
         visibility,
         generalRole: nextGeneralRole,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.pages.id, pageId));
-    await invalidateCollaborationBestEffort(env, page.slug);
-    return Response.json({ ok: true });
-  }
-
-  if (intent === "setRoleGeneralAccess") {
-    const subject = body.subject;
-    const role = body.role;
-    if ((subject !== "organizer" && subject !== "member") || !isPageRole(role)) {
-      return Response.json({ error: "invalid_params" }, { status: 400 });
-    }
-    await db
-      .update(schema.pages)
-      .set({
-        ...(subject === "organizer" ? { organizerRole: role } : { memberRole: role }),
         updatedAt: new Date(),
       })
       .where(eq(schema.pages.id, pageId));

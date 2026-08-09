@@ -14,8 +14,6 @@ export type PageLike = {
   id?: string;
   visibility: string;
   generalRole?: string | null;
-  organizerRole?: string | null;
-  memberRole?: string | null;
   authorId: string;
 };
 
@@ -80,11 +78,11 @@ export function buildVisibilityFilter(
   )`;
   const roleGeneralGrant =
     hasOrganizerRole && hasMemberRole
-      ? or(sql`${pages.organizerRole} IS NOT NULL`, sql`${pages.memberRole} IS NOT NULL`)
+      ? or(eq(pages.visibility, "organizer"), eq(pages.visibility, "member"))
       : hasOrganizerRole
-        ? sql`${pages.organizerRole} IS NOT NULL`
+        ? eq(pages.visibility, "organizer")
         : hasMemberRole
-          ? sql`${pages.memberRole} IS NOT NULL`
+          ? eq(pages.visibility, "member")
           : sql`0`;
 
   return and(

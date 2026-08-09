@@ -27,8 +27,6 @@ export function createD1WikiWorkspaceStore(db: Db, actor: WorkspaceActor): WikiW
     pageMetadata: schema.pages.pageMetadata,
     visibility: schema.pages.visibility,
     generalRole: schema.pages.generalRole,
-    organizerRole: schema.pages.organizerRole,
-    memberRole: schema.pages.memberRole,
     chapterId: schema.pages.chapterId,
     authorId: schema.pages.authorId,
     updatedAt: schema.pages.updatedAt,
