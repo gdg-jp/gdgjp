@@ -1,0 +1,37 @@
+get:
+  operationId: agentCat
+  summary: Read a Wiki workspace page visible to the Bearer token
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: path
+      in: query
+      required: true
+      schema:
+        type: string
+      description: Absolute workspace path of the page to read.
+    - name: maxChars
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+      description: Max characters to return (clamped to the workspace limit).
+    - name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Page content slice for the caller's authorized view.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/agent.yaml#/AgentCatResult
+    '400':
+      $ref: ../components/responses/common.yaml#/BadRequest
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '404':
+      $ref: ../components/responses/common.yaml#/NotFound

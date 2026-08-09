@@ -59,6 +59,10 @@ export default [
     "/api/cli/wiki/attachments/:attachmentId",
     "routes/api.cli.wiki.attachments.$attachmentId.ts",
   ),
+  route("/api/agent/ls", "routes/api.agent.ls.ts"),
+  route("/api/agent/cat", "routes/api.agent.cat.ts"),
+  route("/api/agent/search", "routes/api.agent.search.ts"),
+  route("/api/agent/sources", "routes/api.agent.sources.ts"),
 
   // Public OGP image for public and unlisted wiki pages.
   route("/og/wiki/:slug", "routes/og.wiki.$slug.tsx"),

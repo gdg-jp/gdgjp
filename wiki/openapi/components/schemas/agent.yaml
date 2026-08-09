@@ -1,0 +1,103 @@
+AgentLsEntry:
+  type: object
+  required: [name, path, readable, hasChildren]
+  properties:
+    name:
+      type: string
+    path:
+      type: string
+      description: Absolute workspace path.
+    readable:
+      type: boolean
+    hasChildren:
+      oneOf:
+        - type: boolean
+        - type: string
+          enum: [unknown]
+    title:
+      type: string
+AgentLsResult:
+  type: object
+  required: [path, entries, nextCursor, truncated]
+  properties:
+    path:
+      type: string
+    entries:
+      type: array
+      items:
+        $ref: '#/AgentLsEntry'
+    nextCursor:
+      type: string
+      nullable: true
+    truncated:
+      type: boolean
+AgentCatResult:
+  type: object
+  required: [path, content, nextCursor, truncated]
+  properties:
+    path:
+      type: string
+    content:
+      type: string
+    nextCursor:
+      type: string
+      nullable: true
+    truncated:
+      type: boolean
+AgentSearchMatch:
+  type: object
+  required: [path, title]
+  properties:
+    path:
+      type: string
+    title:
+      type: string
+    snippet:
+      type: string
+AgentSearchResult:
+  type: object
+  required: [matches, nextCursor, truncated]
+  properties:
+    matches:
+      type: array
+      items:
+        $ref: '#/AgentSearchMatch'
+    nextCursor:
+      type: string
+      nullable: true
+    truncated:
+      type: boolean
+AgentCreateSourceRequest:
+  type: object
+  required: [url, chapter]
+  properties:
+    url:
+      type: string
+      format: uri
+    chapter:
+      type: string
+      description: Chapter id, or the sentinel that assigns no chapter.
+    refreshPolicy:
+      type: string
+      enum: [manual, daily, weekly]
+AgentSource:
+  type: object
+  required: [id, kind, url, title, chapterId, status, refreshPolicy]
+  properties:
+    id:
+      type: string
+    kind:
+      type: string
+    url:
+      type: string
+    title:
+      type: string
+    chapterId:
+      type: string
+      nullable: true
+    status:
+      type: string
+      enum: [pending]
+    refreshPolicy:
+      type: string
+      enum: [manual, daily, weekly]

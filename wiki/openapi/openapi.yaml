@@ -23,6 +23,14 @@ paths:
     $ref: ./paths/sources.ingested.yaml
   /api/cli/wiki/agents-md:
     $ref: ./paths/agents-md.yaml
+  /api/agent/ls:
+    $ref: ./paths/agent.ls.yaml
+  /api/agent/cat:
+    $ref: ./paths/agent.cat.yaml
+  /api/agent/search:
+    $ref: ./paths/agent.search.yaml
+  /api/agent/sources:
+    $ref: ./paths/agent.sources.yaml
 components:
   schemas:
     Snapshot:
@@ -37,6 +45,20 @@ components:
       $ref: ./components/schemas/wiki.yaml#/IngestedRequest
     IngestedResult:
       $ref: ./components/schemas/wiki.yaml#/IngestedResult
+    AgentLsEntry:
+      $ref: ./components/schemas/agent.yaml#/AgentLsEntry
+    AgentLsResult:
+      $ref: ./components/schemas/agent.yaml#/AgentLsResult
+    AgentCatResult:
+      $ref: ./components/schemas/agent.yaml#/AgentCatResult
+    AgentSearchMatch:
+      $ref: ./components/schemas/agent.yaml#/AgentSearchMatch
+    AgentSearchResult:
+      $ref: ./components/schemas/agent.yaml#/AgentSearchResult
+    AgentCreateSourceRequest:
+      $ref: ./components/schemas/agent.yaml#/AgentCreateSourceRequest
+    AgentSource:
+      $ref: ./components/schemas/agent.yaml#/AgentSource
     Error:
       $ref: ./components/schemas/common.yaml#/Error
   responses:

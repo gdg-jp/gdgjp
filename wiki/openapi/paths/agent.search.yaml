@@ -1,0 +1,43 @@
+get:
+  operationId: agentSearch
+  summary: Search Wiki pages visible to the Bearer token
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: q
+      in: query
+      required: true
+      schema:
+        type: string
+      description: Title/slug/body search query.
+    - name: path
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Optional absolute path scope.
+    - name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+      description: Max matches (clamped to the workspace limit).
+    - name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Search matches for the caller's authorized view.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/agent.yaml#/AgentSearchResult
+    '400':
+      $ref: ../components/responses/common.yaml#/BadRequest
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '404':
+      $ref: ../components/responses/common.yaml#/NotFound

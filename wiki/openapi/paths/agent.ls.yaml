@@ -1,0 +1,38 @@
+get:
+  operationId: agentLs
+  summary: List a Wiki workspace directory visible to the Bearer token
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: path
+      in: query
+      required: false
+      schema:
+        type: string
+        default: /
+      description: Absolute workspace path (default `/`).
+    - name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+      description: Max directory entries (clamped to the workspace limit).
+    - name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Directory listing for the caller's authorized view.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/agent.yaml#/AgentLsResult
+    '400':
+      $ref: ../components/responses/common.yaml#/BadRequest
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '404':
+      $ref: ../components/responses/common.yaml#/NotFound

@@ -13,7 +13,55 @@ import type {
   WorkspaceTool,
   WorkspaceTrace,
 } from "./contracts";
-import { mountedPath, normaliseAbsoluteWorkspacePath, splitMountedPath } from "./paths";
+import { WORKSPACE_LIMITS } from "./contracts";
+import {
+  boundedLimit,
+  decodeOffsetCursor,
+  encodeOffsetCursor,
+  mountedPath,
+  normaliseAbsoluteWorkspacePath,
+  splitMountedPath,
+} from "./paths";
+
+type MountedSearchCursor = {
+  version: 1;
+  mounts: Record<string, string | null>;
+};
+
+function decodeMountedSearchCursor(
+  cursor: string | undefined,
+  mounts: readonly string[],
+): ReadonlyMap<string, string | null | undefined> {
+  if (!cursor) return new Map();
+  try {
+    const value = JSON.parse(atob(cursor)) as MountedSearchCursor;
+    const expectedMounts = [...mounts].sort();
+    const cursorMounts = Object.keys(value.mounts).sort();
+    if (
+      value.version === 1 &&
+      expectedMounts.length === cursorMounts.length &&
+      expectedMounts.every((mount, index) => mount === cursorMounts[index]) &&
+      Object.values(value.mounts).every(
+        (adapterCursor) =>
+          adapterCursor === null || (typeof adapterCursor === "string" && adapterCursor.length > 0),
+      )
+    ) {
+      return new Map(Object.entries(value.mounts));
+    }
+  } catch {
+    // Normalize all malformed cursors to the same public error.
+  }
+  throw new Error("Invalid workspace cursor");
+}
+
+function encodeMountedSearchCursor(mounts: ReadonlyMap<string, string | null>): string {
+  return btoa(
+    JSON.stringify({
+      version: 1,
+      mounts: Object.fromEntries(mounts),
+    } satisfies MountedSearchCursor),
+  );
+}
 
 export type MountedWorkspaceAdapter = {
   /** Absolute mount path, e.g. `/wiki` or a future `/google-forms`. */
@@ -50,7 +98,7 @@ export class MountedWorkspace {
   async ls(path = "/", options?: ListOptions): Promise<WorkspaceResult<ListResult>> {
     const absolutePath = normaliseAbsoluteWorkspacePath(path);
     if (absolutePath === "/") {
-      const entries = [...this.#adapters.keys()].sort().map(
+      const allEntries = [...this.#adapters.keys()].sort().map(
         (mount) =>
           ({
             name: mount.slice(1),
@@ -59,10 +107,23 @@ export class MountedWorkspace {
             hasChildren: true,
           }) satisfies WorkspaceEntry,
       );
+      const limit = boundedLimit(
+        options?.limit,
+        WORKSPACE_LIMITS.maxDirectoryEntries,
+        WORKSPACE_LIMITS.defaultDirectoryEntries,
+      );
+      const offset = decodeOffsetCursor(options?.cursor);
+      if (offset > allEntries.length) throw new Error("Workspace cursor is outside resource");
+      const end = Math.min(allEntries.length, offset + limit);
+      const entries = allEntries.slice(offset, end);
+      const nextCursor = end < allEntries.length ? encodeOffsetCursor(end) : null;
       return this.record(
         "ls",
         { path: absolutePath },
-        { data: { path: "/", entries, nextCursor: null }, truncated: false },
+        {
+          data: { path: "/", entries, nextCursor },
+          truncated: nextCursor !== null,
+        },
       );
     }
     const resolved = this.resolve(absolutePath);
@@ -97,14 +158,26 @@ export class MountedWorkspace {
           adapter,
           relativePath: "",
         }));
+    const mountedCursors = requestedPath
+      ? new Map<string, string | null | undefined>()
+      : decodeMountedSearchCursor(
+          options.cursor,
+          targets.map(({ mount }) => mount),
+        );
     const results = await Promise.all(
       targets.map(async ({ mount, adapter, relativePath }) => {
-        if (!adapter.search) return { data: { matches: [], nextCursor: null }, truncated: false };
+        if (!requestedPath && mountedCursors.get(mount) === null) {
+          return { mount, data: { matches: [], nextCursor: null }, truncated: false };
+        }
+        if (!adapter.search) {
+          return { mount, data: { matches: [], nextCursor: null }, truncated: false };
+        }
         const result = await adapter.search(relativePath, query, {
           limit: options.limit,
-          cursor: options.cursor,
+          cursor: requestedPath ? options.cursor : (mountedCursors.get(mount) ?? undefined),
         });
         return {
+          mount,
           ...result,
           data: {
             ...result.data,
@@ -116,10 +189,16 @@ export class MountedWorkspace {
         };
       }),
     );
+    const nextMountedCursors = new Map(
+      results.map((result) => [result.mount, result.data.nextCursor]),
+    );
+    const hasMore = results.some((result) => result.data.nextCursor !== null);
     const data = {
       matches: results.flatMap((result) => result.data.matches),
-      nextCursor: results.some((result) => result.data.nextCursor)
-        ? "more-results-available"
+      nextCursor: hasMore
+        ? requestedPath
+          ? results[0].data.nextCursor
+          : encodeMountedSearchCursor(nextMountedCursors)
         : null,
     };
     return this.record(
