@@ -16,65 +16,94 @@ export const AGENTS_OAUTH_SCOPES = [
   CHAPTERS_SCOPE,
 ] as const;
 
-export type AgentsChat = Chat<{
-  gchat: ReturnType<typeof createGoogleChatAdapter>;
-  discord: ReturnType<typeof createDiscordAdapter>;
-}>;
+/** A per-platform Chat SDK instance. */
+type DiscordChat = Chat<{ discord: ReturnType<typeof createDiscordAdapter> }>;
+type GoogleChat = Chat<{ gchat: ReturnType<typeof createGoogleChatAdapter> }>;
+export type AgentsChat = DiscordChat | GoogleChat;
+export type ChatPlatformAdapter = "discord" | "gchat";
 
 /**
- * Register Google Chat and Discord adapters with signature verification enabled.
+ * Register one chat adapter with signature verification enabled.
  *
  * - Google Chat: `googleChatProjectNumber` from `GOOGLE_CHAT_AUDIENCE` (required aud).
  * - Discord: `publicKey` from `DISCORD_PUBLIC_KEY` (Ed25519).
  * - Never sets `disableSignatureVerification`.
  */
-export function createAgentsChat(env: NodeJS.ProcessEnv = process.env): AgentsChat {
-  const audience = env.GOOGLE_CHAT_AUDIENCE?.trim();
-  if (!audience) {
-    throw new Error("GOOGLE_CHAT_AUDIENCE is required for Google Chat webhook verification");
-  }
-  const discordPublicKey = env.DISCORD_PUBLIC_KEY?.trim();
-  if (!discordPublicKey) {
-    throw new Error("DISCORD_PUBLIC_KEY is required for Discord webhook verification");
-  }
+export function createAgentsChat(platform: "discord", env?: NodeJS.ProcessEnv): DiscordChat;
+export function createAgentsChat(platform: "gchat", env?: NodeJS.ProcessEnv): GoogleChat;
+export function createAgentsChat(
+  platform: ChatPlatformAdapter,
+  env: NodeJS.ProcessEnv = process.env,
+): AgentsChat {
   const redisUrl = env.REDIS_URL?.trim();
   if (!redisUrl) {
     throw new Error("REDIS_URL is required for Chat SDK state and replay protection");
   }
 
-  const gchat = createGoogleChatAdapter({
-    googleChatProjectNumber: audience,
-    // Credentials come from GOOGLE_CHAT_CREDENTIALS / GOOGLE_CHAT_USE_ADC.
-  });
-
-  const discord = createDiscordAdapter({
-    publicKey: discordPublicKey,
-    // botToken / applicationId come from DISCORD_BOT_TOKEN / DISCORD_APPLICATION_ID.
-  });
-
-  return new Chat({
+  const common = {
     userName: "gdg-agent",
-    adapters: {
-      gchat,
-      discord,
-    },
     state: createIoRedisState({ url: redisUrl }),
     // Longer than the ±5 minute verify window so platform retries stay deduped.
     dedupeTtlMs: 10 * 60 * 1000,
-    logger: "warn",
+    logger: "warn" as const,
+  };
+
+  if (platform === "discord") {
+    const publicKey = env.DISCORD_PUBLIC_KEY?.trim();
+    if (!publicKey) {
+      throw new Error("DISCORD_PUBLIC_KEY is required for Discord webhook verification");
+    }
+    const botToken = env.DISCORD_BOT_TOKEN?.trim();
+    if (!botToken) {
+      throw new Error("DISCORD_BOT_TOKEN is required for Discord responses");
+    }
+    const applicationId = env.DISCORD_APPLICATION_ID?.trim();
+    if (!applicationId) {
+      throw new Error("DISCORD_APPLICATION_ID is required for Discord responses");
+    }
+    return new Chat({
+      ...common,
+      adapters: {
+        discord: createDiscordAdapter({
+          publicKey,
+          botToken,
+          applicationId,
+        }),
+      },
+    });
+  }
+
+  const audience = env.GOOGLE_CHAT_AUDIENCE?.trim();
+  if (!audience) {
+    throw new Error("GOOGLE_CHAT_AUDIENCE is required for Google Chat webhook verification");
+  }
+  return new Chat({
+    ...common,
+    adapters: {
+      gchat: createGoogleChatAdapter({
+        googleChatProjectNumber: audience,
+        // Credentials come from GOOGLE_CHAT_CREDENTIALS / GOOGLE_CHAT_USE_ADC.
+      }),
+    },
   });
 }
 
-let singleton: AgentsChat | null = null;
+let discordSingleton: DiscordChat | null = null;
+let googleChatSingleton: GoogleChat | null = null;
 
-export function getAgentsChat(): AgentsChat {
-  if (!singleton) {
-    singleton = createAgentsChat();
+export function getAgentsChat(platform: "discord"): DiscordChat;
+export function getAgentsChat(platform: "gchat"): GoogleChat;
+export function getAgentsChat(platform: ChatPlatformAdapter): AgentsChat {
+  if (platform === "discord") {
+    discordSingleton ??= createAgentsChat("discord");
+    return discordSingleton;
   }
-  return singleton;
+  googleChatSingleton ??= createAgentsChat("gchat");
+  return googleChatSingleton;
 }
 
 /** Test-only: drop the lazy singleton. */
 export function resetAgentsChatForTests(): void {
-  singleton = null;
+  discordSingleton = null;
+  googleChatSingleton = null;
 }

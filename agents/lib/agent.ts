@@ -289,12 +289,12 @@ export async function handleUnlink(
   return "No linked account was found (or unlink could not complete). You can link again when you ask a question.";
 }
 
-let handlersRegistered = false;
+let handlersRegistered = new WeakSet<AgentsChat>();
 
 /** Idempotent Chat SDK handler registration for Wiki Q&A and /unlink. */
 export function registerAgentHandlers(bot: AgentsChat, deps: HandleInquiryDeps = {}): void {
-  if (handlersRegistered) return;
-  handlersRegistered = true;
+  if (handlersRegistered.has(bot)) return;
+  handlersRegistered.add(bot);
 
   const reply = async (thread: Thread, message: Message) => {
     const platform = adapterNameToPlatform(thread.adapter.name);
@@ -355,7 +355,7 @@ export function registerAgentHandlers(bot: AgentsChat, deps: HandleInquiryDeps =
 
 /** Test-only: allow re-registering handlers. */
 export function resetAgentHandlersForTests(): void {
-  handlersRegistered = false;
+  handlersRegistered = new WeakSet<AgentsChat>();
 }
 
 /** True when every cited workspace path appears as a URL or path in the answer. */

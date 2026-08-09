@@ -60,9 +60,6 @@ export async function POST(request: Request): Promise<Response> {
     body: rawBody,
   });
 
-  const bot = getAgentsChat();
-  registerAgentHandlers(bot);
-
   const webhookOptions = {
     waitUntil: (task: Promise<unknown>) => {
       after(() => task);
@@ -70,7 +67,11 @@ export async function POST(request: Request): Promise<Response> {
   };
 
   if (result.platform === "discord") {
+    const bot = getAgentsChat("discord");
+    registerAgentHandlers(bot);
     return bot.webhooks.discord(verifiedRequest, webhookOptions);
   }
+  const bot = getAgentsChat("gchat");
+  registerAgentHandlers(bot);
   return bot.webhooks.gchat(verifiedRequest, webhookOptions);
 }
