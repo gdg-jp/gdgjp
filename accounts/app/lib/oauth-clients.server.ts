@@ -1,4 +1,4 @@
-import { CHAPTERS_SCOPE, CLI_SCOPE, requireUser } from "./auth.server";
+import { CHAPTERS_SCOPE, CLI_SCOPE, requireUser, trustedOAuthClientIds } from "./auth.server";
 
 export const DEVELOPER_CLIENT_SCOPES = [
   "openid",
@@ -434,15 +434,7 @@ async function sha256Base64Url(value: string): Promise<string> {
 }
 
 function trustedClientIds(env: Env): Set<string> {
-  return new Set<string>(
-    [
-      env.TINYURL_CLIENT_ID,
-      env.WIKI_CLIENT_ID,
-      env.IMG_CLIENT_ID,
-      env.SCHEDULER_CLIENT_ID,
-      env.SNS_CLIENT_ID,
-    ].filter(Boolean),
-  );
+  return new Set<string>(trustedOAuthClientIds(env));
 }
 
 function notFound(): Response {

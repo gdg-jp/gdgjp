@@ -1,11 +1,16 @@
 import { CHAPTERS_SCOPE } from "./auth.server";
 
-interface ClientSpec {
+export interface ClientSpec {
   clientId: string;
   clientSecret: string;
   clientName: string;
   redirectUris: string[];
+  requirePKCE: true;
+  public: false;
+  scopes: string[];
 }
+
+const SEEDED_SCOPES = ["openid", "email", "profile", "offline_access", CHAPTERS_SCOPE] as const;
 
 export async function seedClients(env: Env): Promise<{ written: string[]; skipped: string[] }> {
   const written: string[] = [];
@@ -27,7 +32,7 @@ export async function seedClients(env: Env): Promise<{ written: string[]; skippe
          postLogoutRedirectUris, tokenEndpointAuthMethod, grantTypes,
          responseTypes, public, type, requirePKCE
        ) VALUES (?, ?, ?, 0, 1, 1, 'public', ?, ?, ?, ?, ?, ?,
-                 'client_secret_basic', ?, ?, 0, 'web', 1)
+                 'client_secret_basic', ?, ?, ?, 'web', ?)
        ON CONFLICT(clientId) DO UPDATE SET
          clientSecret = excluded.clientSecret,
          disabled = 0,
@@ -41,13 +46,14 @@ export async function seedClients(env: Env): Promise<{ written: string[]; skippe
          tokenEndpointAuthMethod = excluded.tokenEndpointAuthMethod,
          grantTypes = excluded.grantTypes,
          responseTypes = excluded.responseTypes,
-         requirePKCE = 1`,
+         public = excluded.public,
+         requirePKCE = excluded.requirePKCE`,
     )
       .bind(
         crypto.randomUUID(),
         spec.clientId,
         await sha256Base64Url(spec.clientSecret),
-        JSON.stringify(["openid", "email", "profile", "offline_access", CHAPTERS_SCOPE]),
+        JSON.stringify(spec.scopes),
         now,
         now,
         spec.clientName,
@@ -55,6 +61,8 @@ export async function seedClients(env: Env): Promise<{ written: string[]; skippe
         JSON.stringify(postLogoutRedirectUris),
         JSON.stringify(["authorization_code", "refresh_token"]),
         JSON.stringify(["code"]),
+        Number(spec.public),
+        Number(spec.requirePKCE),
       )
       .run();
     written.push(spec.clientId);
@@ -62,7 +70,7 @@ export async function seedClients(env: Env): Promise<{ written: string[]; skippe
   return { written, skipped };
 }
 
-function collectSpecs(env: Env): ClientSpec[] {
+export function collectSpecs(env: Env): ClientSpec[] {
   const apps = [
     [
       "GDG Japan Links",
@@ -79,18 +87,22 @@ function collectSpecs(env: Env): ClientSpec[] {
       env.SCHEDULER_REDIRECT_URLS,
     ],
     ["SNS Manager", env.SNS_CLIENT_ID, env.SNS_CLIENT_SECRET, env.SNS_REDIRECT_URLS],
+    ["GDG Japan Agents", env.AGENTS_CLIENT_ID, env.AGENTS_CLIENT_SECRET, env.AGENTS_REDIRECT_URLS],
   ] as const;
   return apps.flatMap(([clientName, clientId, clientSecret, redirectUrls]) =>
-    clientId
+    clientId && clientSecret
       ? [
           {
             clientId,
-            clientSecret: clientSecret ?? "",
+            clientSecret,
             clientName,
             redirectUris: (redirectUrls ?? "")
               .split(",")
               .map((s) => s.trim())
               .filter(Boolean),
+            requirePKCE: true as const,
+            public: false as const,
+            scopes: [...SEEDED_SCOPES],
           },
         ]
       : [],
