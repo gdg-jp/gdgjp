@@ -2,12 +2,19 @@ package command
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/gdg-jp/gdgjp/cli/internal/store"
 	"github.com/gdg-jp/gdgjp/cli/internal/wiki"
 )
 
@@ -16,13 +23,35 @@ type gitCall struct {
 	args      []string
 }
 
+type memoryCredentialStore struct {
+	credentials store.Credentials
+}
+
+func (s *memoryCredentialStore) Save(credentials store.Credentials) error {
+	s.credentials = credentials
+	return nil
+}
+
+func (s *memoryCredentialStore) Load() (store.Credentials, error) {
+	return s.credentials, nil
+}
+
+func (s *memoryCredentialStore) Delete() error {
+	s.credentials = store.Credentials{}
+	return nil
+}
+
 func testWikiService(run gitRunner) *wikiService {
 	return &wikiService{
 		runGit:        run,
 		executable:    os.Executable,
 		installHelper: func(string) (string, error) { return "git-remote-gdg-wiki", nil },
-		newClient:     wiki.NewClient,
-		runAgent:      func(context.Context, string, string) error { return nil },
+		credentials: &memoryCredentialStore{credentials: store.Credentials{
+			AccessToken:  "access-token",
+			RefreshToken: "refresh-token",
+		}},
+		newClient: wiki.NewClient,
+		runAgent:  func(context.Context, string, string) error { return nil },
 	}
 }
 
@@ -80,6 +109,44 @@ func TestWikiCloneUsesGDGWikiRemote(t *testing.T) {
 		installed = executable
 		return "git-remote-gdg-wiki", nil
 	}
+	rawContent := []byte("raw Japanese content")
+	rawHash := sha256.Sum256(rawContent)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer access-token" {
+			t.Errorf("Authorization = %q", got)
+		}
+		switch r.URL.Path {
+		case "/api/cli/wiki/sources":
+			if got := r.URL.Query().Get("lang"); got != "ja" {
+				t.Errorf("manifest lang = %q, want ja", got)
+			}
+			_ = json.NewEncoder(w).Encode(wiki.SourcesManifest{
+				Version: 1,
+				Documents: []wiki.SourcesManifestEntry{{
+					DocumentID:  "document-1",
+					Kind:        "source-document",
+					Title:       "Source",
+					Path:        "raw/source/document.md",
+					ContentHash: fmt.Sprintf("%x", rawHash),
+				}},
+			})
+		case "/api/cli/wiki/sources/document-1/content":
+			if got := r.URL.Query().Get("lang"); got != "ja" {
+				t.Errorf("content lang = %q, want ja", got)
+			}
+			_, _ = w.Write(rawContent)
+		case "/api/cli/wiki/agents-md":
+			_, _ = io.WriteString(w, "agent instructions")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	service.newClient = func() *wiki.Client {
+		client := wiki.NewClientAt(server.URL)
+		client.HTTPClient = server.Client()
+		return client
+	}
 
 	output, err := executeWiki(t, service, "clone", "--lang", "ja", target)
 	if err != nil {
@@ -88,8 +155,11 @@ func TestWikiCloneUsesGDGWikiRemote(t *testing.T) {
 	if !strings.Contains(output, "lang=ja") {
 		t.Fatalf("output = %q", output)
 	}
-	if !strings.Contains(output, "re-clone") {
-		t.Fatalf("expected re-clone warning, got %q", output)
+	if strings.Contains(output, "re-clone") || strings.Contains(output, "bilingual") {
+		t.Fatalf("unexpected compatibility warning: %q", output)
+	}
+	if !strings.Contains(output, "raw sources") {
+		t.Fatalf("expected raw synchronization confirmation, got %q", output)
 	}
 	if installed == "" {
 		t.Fatal("clone did not ensure the Git helper")
@@ -108,6 +178,12 @@ func TestWikiCloneUsesGDGWikiRemote(t *testing.T) {
 	if !strings.Contains(string(raw), "raw/") {
 		t.Fatalf("gitignore = %q", raw)
 	}
+	if raw, err = os.ReadFile(filepath.Join(target, "raw", "source", "document.md")); err != nil || string(raw) != string(rawContent) {
+		t.Fatalf("raw content = %q, err = %v", raw, err)
+	}
+	if raw, err = os.ReadFile(filepath.Join(target, "AGENTS.md")); err != nil || string(raw) != "agent instructions" {
+		t.Fatalf("AGENTS.md = %q, err = %v", raw, err)
+	}
 	got := make([]string, 0, len(calls))
 	for _, call := range calls {
 		got = append(got, strings.Join(call.args, " "))
@@ -122,6 +198,30 @@ func TestWikiCloneUsesGDGWikiRemote(t *testing.T) {
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("Git calls:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestWikiCloneDoesNotReportSuccessWhenRawSyncFails(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "wiki")
+	service := testWikiService(func(_ context.Context, _ string, _ ...string) (string, error) {
+		return "", nil
+	})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "raw unavailable", http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+	service.newClient = func() *wiki.Client {
+		client := wiki.NewClientAt(server.URL)
+		client.HTTPClient = server.Client()
+		return client
+	}
+
+	output, err := executeWiki(t, service, "clone", target)
+	if err == nil || !strings.Contains(err.Error(), "sync raw Wiki content") {
+		t.Fatalf("clone error = %v", err)
+	}
+	if strings.Contains(output, "Cloned Wiki") {
+		t.Fatalf("unexpected success output: %q", output)
 	}
 }
 
@@ -191,6 +291,25 @@ done
 
 	target := filepath.Join(t.TempDir(), "wiki")
 	service := testWikiService(runGit)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/cli/wiki/sources":
+			if got := r.URL.Query().Get("lang"); got != "en" {
+				t.Errorf("manifest lang = %q, want en", got)
+			}
+			_ = json.NewEncoder(w).Encode(wiki.SourcesManifest{Version: 1})
+		case "/api/cli/wiki/agents-md":
+			_, _ = io.WriteString(w, "agent instructions")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	service.newClient = func() *wiki.Client {
+		client := wiki.NewClientAt(server.URL)
+		client.HTTPClient = server.Client()
+		return client
+	}
 	if _, err := executeWiki(t, service, "clone", "--lang", "en", "--remote", "gdg-wiki::test", target); err != nil {
 		t.Fatal(err)
 	}

@@ -53,8 +53,8 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 	clone := &cobra.Command{
 		Use:   "clone DIRECTORY",
 		Args:  cobra.ExactArgs(1),
-		Short: "Clone visible Wiki pages into a Git working tree",
-		Long:  "Creates a single-language clone (default ja). Existing bilingual clones (ja.md/en.md) are incompatible — re-clone.",
+		Short: "Clone Wiki pages and raw sources into a Git working tree",
+		Long:  "Creates a single-language clone (default ja) with its raw primary sources.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return service.clone(cmd, args[0], cloneRemote, cloneLang)
 		},
@@ -196,9 +196,15 @@ func (s *wikiService) clone(cmd *cobra.Command, directory, remote, lang string) 
 	if _, err = s.runGit(cmd.Context(), root, "config", "branch.main.merge", "refs/heads/main"); err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(cmd.OutOrStdout(),
-		"Cloned Wiki into %s (lang=%s).\nNote: older bilingual clones (ja.md/en.md) are incompatible — re-clone required.\n",
-		root, lang)
+	if err = s.syncRaw(cmd.Context(), root); err != nil {
+		return fmt.Errorf("sync raw Wiki content: %w", err)
+	}
+	_, err = fmt.Fprintf(
+		cmd.OutOrStdout(),
+		"Cloned Wiki into %s (lang=%s; pages, raw sources, and AGENTS.md synchronized).\n",
+		root,
+		lang,
+	)
 	return err
 }
 
@@ -324,12 +330,17 @@ func (s *wikiService) rawPull(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
+	if err = s.syncRaw(cmd.Context(), root); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Updated raw/** and AGENTS.md in %s\n", root)
+	return err
+}
+
+func (s *wikiService) syncRaw(ctx context.Context, root string) error {
 	client := s.newClient()
-	return s.withToken(cmd.Context(), func(token string) error {
-		if _, err := wiki.PullRaw(cmd.Context(), root, client, token); err != nil {
-			return err
-		}
-		_, err := fmt.Fprintf(cmd.OutOrStdout(), "Updated raw/** and AGENTS.md in %s\n", root)
+	return s.withToken(ctx, func(token string) error {
+		_, err := wiki.PullRaw(ctx, root, client, token)
 		return err
 	})
 }
