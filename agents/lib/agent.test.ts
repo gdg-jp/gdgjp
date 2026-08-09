@@ -4,13 +4,18 @@ import { CHAPTERS_CLAIM } from "@gdgjp/gdg-lib/auth/claims";
 import { MockLanguageModelV3 } from "ai/test";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { AgentsChat } from "./adapters";
 import {
   answerCitesPaths,
   defaultAgentModel,
+  discordGuildId,
   handleInquiry,
   isUnlinkCommandText,
+  registerAgentHandlers,
+  resetAgentHandlersForTests,
   runWikiAgent,
 } from "./agent";
+import { ASK_COMMAND, LOGIN_COMMAND } from "./discord-commands";
 import {
   type LinkAccountDeps,
   type LinkRedis,
@@ -34,8 +39,16 @@ function createMemoryRedis(): LinkRedis & { store: Map<string, string> } {
       store.set(key, value);
       return "OK";
     },
+    async setNX(key, value) {
+      if (store.has(key)) return false;
+      store.set(key, value);
+      return true;
+    },
     async get(key) {
       return store.get(key) ?? null;
+    },
+    async del(key) {
+      store.delete(key);
     },
     async getdel(key) {
       const value = store.get(key) ?? null;
@@ -430,6 +443,17 @@ describe("helpers", () => {
     expect(isUnlinkCommandText("please /unlink")).toBe(false);
   });
 
+  it("extracts guild_id from a Discord slash-command payload", () => {
+    expect(discordGuildId({ guild_id: "guild-123", id: "interaction" })).toBe("guild-123");
+  });
+
+  it("returns undefined for a DM-shaped Discord payload without guild_id", () => {
+    expect(discordGuildId({ id: "interaction" })).toBeUndefined();
+    expect(discordGuildId({ guild_id: null })).toBeUndefined();
+    expect(discordGuildId({ guild_id: "" })).toBeUndefined();
+    expect(discordGuildId(null)).toBeUndefined();
+  });
+
   it("answerCitesPaths accepts leaf slug URLs", () => {
     expect(
       answerCitesPaths("See https://wiki.gdgs.jp/wiki/umeda-hall", ["/wiki/venues/umeda-hall"]),
@@ -452,6 +476,44 @@ describe("helpers", () => {
       },
     );
     expect(url).toContain("client_id=agents");
+  });
+});
+
+describe("registerAgentHandlers", () => {
+  beforeEach(() => {
+    resetAgentHandlersForTests();
+  });
+
+  function fakeBot() {
+    return {
+      onNewMention: vi.fn(),
+      onSubscribedMessage: vi.fn(),
+      onDirectMessage: vi.fn(),
+      onSlashCommand: vi.fn(),
+    };
+  }
+
+  it("registers only slash commands for Discord (no mention/DM triggers)", () => {
+    const bot = fakeBot();
+    registerAgentHandlers(bot as unknown as AgentsChat, "discord");
+
+    expect(bot.onNewMention).not.toHaveBeenCalled();
+    expect(bot.onSubscribedMessage).not.toHaveBeenCalled();
+    expect(bot.onDirectMessage).not.toHaveBeenCalled();
+    expect(bot.onSlashCommand).toHaveBeenCalledWith(ASK_COMMAND, expect.any(Function));
+    expect(bot.onSlashCommand).toHaveBeenCalledWith(LOGIN_COMMAND, expect.any(Function));
+    expect(bot.onSlashCommand).toHaveBeenCalledTimes(2);
+  });
+
+  it("registers mention, subscribed, and DM handlers for Google Chat", () => {
+    const bot = fakeBot();
+    registerAgentHandlers(bot as unknown as AgentsChat, "gchat");
+
+    expect(bot.onNewMention).toHaveBeenCalledTimes(1);
+    expect(bot.onSubscribedMessage).toHaveBeenCalledTimes(1);
+    expect(bot.onDirectMessage).toHaveBeenCalledTimes(1);
+    expect(bot.onSlashCommand).toHaveBeenCalledWith(ASK_COMMAND, expect.any(Function));
+    expect(bot.onSlashCommand).toHaveBeenCalledWith(LOGIN_COMMAND, expect.any(Function));
   });
 });
 

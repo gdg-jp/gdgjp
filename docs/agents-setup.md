@@ -29,13 +29,18 @@ still match what is registered in the Chat API console (scheme, host, path — n
 5. Set **Interactions Endpoint URL** to `https://agent.gdgs.jp/api/chat`.
    Discord validates with a signed PING; a bad signature must return 401 (the agents verifier does this).
 6. Invite the bot using an OAuth2 URL that includes both the `bot` and `applications.commands` scopes.
-   The production deployment synchronizes `/ask` and `/unlink` with Discord automatically after the deploy succeeds;
+   The production deployment synchronizes `/ask` and `/login` with Discord automatically after the deploy succeeds;
    no manual API call is needed. For an already invited bot, reauthorize it with the updated URL if the
    `applications.commands` scope was omitted, then reload the Discord client before checking the command
    picker.
 
 Discord questions use `/ask question:<your question>` rather than @mentions, so no Discord Gateway
 listener or privileged Message Content Intent is required.
+
+The first Discord member to run `/login` in a server becomes that server's shared credential: every other
+unlinked member who runs `/ask` in the same server uses that first linker's Wiki access (GDG Accounts
+chapters and roles). Members who link themselves still use their own credentials. A `/login` (or `/ask`
+linking prompt) in a DM links only that user — there is no guild to share with.
 
 Google Chat has no Chat SDK slash-command surface; members type `/unlink` as a message there.
 
@@ -116,5 +121,7 @@ Never log decrypted tokens or the keyring.
 5. Second member with different access gets a different answer where permissions differ.
 6. “Please read this Doc too” → multi-chapter user is asked for a chapter; `POST /api/agent/sources`
    uses the chosen chapter only.
-7. `/unlink` (Discord slash or Google Chat message) → next question returns a linking URL again.
-8. On Discord, run `/ask` with a question, then repeat 2–6 with that platform’s user id.
+7. `/unlink` (Google Chat message only) → next question returns a linking URL again.
+8. On Discord, run `/login` as member A in a server, then `/ask` as unlinked member B in the same
+   server → B gets an answer using A's link, not a linking prompt.
+9. On Discord, run `/ask` with a question, then repeat 2–6 with that platform’s user id.

@@ -5,6 +5,7 @@ import {
   type LinkRedis,
   createLinkRedis,
   getRedis,
+  linkGuildKey,
   linkStateKey,
   linkUserKey,
 } from "./redis";
@@ -375,16 +376,19 @@ async function needsLink(
 
 async function resolveRefreshWinner(
   platform: ChatPlatform,
-  chatUserId: string,
+  recordUserId: string,
   deps: LinkAccountDeps,
   now: number,
   spaceId?: string,
+  /** Who should receive a linking prompt if the record vanishes. Defaults to recordUserId. */
+  promptUserId?: string,
 ): Promise<LinkedTokenResult> {
+  const linkFor = promptUserId ?? recordUserId;
   // A competing refresh normally finishes quickly. Briefly re-read so callers
   // can share its winner without issuing another rotating refresh request.
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    const winner = await readLinkRecord(platform, chatUserId, deps.redis);
-    if (!winner) return needsLink(platform, chatUserId, deps, spaceId);
+    const winner = await readLinkRecord(platform, recordUserId, deps.redis);
+    if (!winner) return needsLink(platform, linkFor, deps, spaceId);
     if (winner.record.accessTokenExpiresAt > now + ACCESS_TOKEN_REFRESH_SKEW_SECONDS) {
       try {
         return {
@@ -447,6 +451,15 @@ export async function completeAccountLink(
   };
   await writeLinkRecord(record, deps);
 
+  // First Discord member to link in a guild becomes that guild's shared credential.
+  if (linkState.platform === "discord" && linkState.spaceId) {
+    await deps.redis.setNX(
+      linkGuildKey("discord", linkState.spaceId),
+      linkState.chatUserId,
+      LINK_RECORD_TTL_SECONDS,
+    );
+  }
+
   return {
     ok: true,
     platform: linkState.platform,
@@ -460,6 +473,9 @@ export async function completeAccountLink(
  * Missing link or `invalid_grant` → `needs_link` with a fresh authorization URL.
  * Operational and malformed-response failures preserve the record and return
  * `temporarily_unavailable` so callers can retry safely.
+ *
+ * On Discord, when the invoker has no personal link but `options.spaceId` (guild id)
+ * is set, falls back to the first member who linked in that guild.
  */
 export async function getLinkedToken(
   platform: ChatPlatform,
@@ -469,7 +485,22 @@ export async function getLinkedToken(
 ): Promise<LinkedTokenResult> {
   requireEnv(deps.env);
 
-  const stored = await readLinkRecord(platform, chatUserId, deps.redis);
+  let stored = await readLinkRecord(platform, chatUserId, deps.redis);
+  let recordUserId = chatUserId;
+
+  if (!stored && platform === "discord" && options?.spaceId) {
+    const ownerId = await deps.redis.get(linkGuildKey(platform, options.spaceId));
+    if (ownerId) {
+      stored = await readLinkRecord(platform, ownerId, deps.redis);
+      if (stored) {
+        recordUserId = ownerId;
+      } else {
+        // Pointer left behind after the owner's record was cleaned up (e.g. invalid_grant).
+        await deps.redis.del(linkGuildKey(platform, options.spaceId));
+      }
+    }
+  }
+
   if (!stored) return needsLink(platform, chatUserId, deps, options?.spaceId);
 
   const now = nowFn(deps);
@@ -486,7 +517,7 @@ export async function getLinkedToken(
 
   const keyring = resolveKeyring(deps);
   if (stored.record.refreshLease && stored.record.refreshLease.expiresAt > now) {
-    return resolveRefreshWinner(platform, chatUserId, deps, now, options?.spaceId);
+    return resolveRefreshWinner(platform, recordUserId, deps, now, options?.spaceId, chatUserId);
   }
 
   let refreshPlain: string;
@@ -505,13 +536,13 @@ export async function getLinkedToken(
   };
   const claimedSerialized = JSON.stringify(claimedRecord);
   const claimed = await deps.redis.compareAndSet(
-    linkUserKey(platform, chatUserId),
+    linkUserKey(platform, recordUserId),
     stored.serialized,
     claimedSerialized,
     LINK_RECORD_TTL_SECONDS,
   );
   if (!claimed) {
-    return resolveRefreshWinner(platform, chatUserId, deps, now, options?.spaceId);
+    return resolveRefreshWinner(platform, recordUserId, deps, now, options?.spaceId, chatUserId);
   }
 
   let tokens: TokenResponse;
@@ -520,7 +551,7 @@ export async function getLinkedToken(
   } catch (err) {
     if (!(err instanceof InvalidGrantError)) {
       await deps.redis.compareAndSet(
-        linkUserKey(platform, chatUserId),
+        linkUserKey(platform, recordUserId),
         claimedSerialized,
         stored.serialized,
         LINK_RECORD_TTL_SECONDS,
@@ -528,18 +559,18 @@ export async function getLinkedToken(
       return { status: "temporarily_unavailable" };
     }
 
-    const current = await readLinkRecord(platform, chatUserId, deps.redis);
+    const current = await readLinkRecord(platform, recordUserId, deps.redis);
     if (!current) return needsLink(platform, chatUserId, deps, options?.spaceId);
     if (current.serialized !== claimedSerialized) {
-      return resolveRefreshWinner(platform, chatUserId, deps, now, options?.spaceId);
+      return resolveRefreshWinner(platform, recordUserId, deps, now, options?.spaceId, chatUserId);
     }
 
     const deleted = await deps.redis.compareAndDelete(
-      linkUserKey(platform, chatUserId),
+      linkUserKey(platform, recordUserId),
       claimedSerialized,
     );
     if (deleted) return needsLink(platform, chatUserId, deps, options?.spaceId);
-    return resolveRefreshWinner(platform, chatUserId, deps, now, options?.spaceId);
+    return resolveRefreshWinner(platform, recordUserId, deps, now, options?.spaceId, chatUserId);
   }
 
   // Lazy re-encrypt both tokens under the current key version on every successful refresh.
@@ -556,13 +587,13 @@ export async function getLinkedToken(
   updated.refreshLease = undefined;
   const updatedSerialized = JSON.stringify(updated);
   const written = await deps.redis.compareAndSet(
-    linkUserKey(platform, chatUserId),
+    linkUserKey(platform, recordUserId),
     claimedSerialized,
     updatedSerialized,
     LINK_RECORD_TTL_SECONDS,
   );
   if (!written) {
-    return resolveRefreshWinner(platform, chatUserId, deps, now, options?.spaceId);
+    return resolveRefreshWinner(platform, recordUserId, deps, now, options?.spaceId, chatUserId);
   }
 
   return { status: "ok", accessToken: tokens.access_token as string };
