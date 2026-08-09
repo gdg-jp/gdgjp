@@ -38,7 +38,7 @@ describe("syncDiscordCommands", () => {
           {
             name: "login",
             description:
-              "Link your Discord account to GDG Accounts (the first person to do this in a server shares access with the rest of it)",
+              "Link this Discord account to GDG Accounts. First linker in a server shares access with it.",
           },
         ]),
       },
