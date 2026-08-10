@@ -101,7 +101,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     throw new Response("Not Found", { status: 404 });
   }
 
-  const [pageTags, editorRow, fav, sources, attachments] = await Promise.all([
+  const [pageTags, authorRow, editorRow, fav, sources, attachments] = await Promise.all([
     db
       .select({
         tagSlug: schema.pageTags.tagSlug,
@@ -113,6 +113,11 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       .innerJoin(schema.tags, eq(schema.pageTags.tagSlug, schema.tags.slug))
       .where(eq(schema.pageTags.pageId, page.id))
       .all(),
+    db
+      .select({ id: schema.user.id, name: schema.user.name, image: schema.user.image })
+      .from(schema.user)
+      .where(eq(schema.user.id, page.authorId))
+      .get(),
     db
       .select({ id: schema.user.id, name: schema.user.name })
       .from(schema.user)
@@ -238,6 +243,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       contentEn: canonicalMarkdown(page.contentEn),
     },
     tags: pageTags,
+    author: authorRow ?? null,
     editor: editorRow ?? null,
     lang,
     isAdmin: sessionUser?.isAdmin ?? false,
@@ -325,6 +331,30 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     return redirect("/");
   }
 
+  if (intent === "changeAuthor") {
+    if (!sessionUser.isAdmin) throw new Response("Forbidden", { status: 403 });
+    const authorId = form.get("authorId");
+    if (typeof authorId !== "string" || !authorId) {
+      return new Response("Missing authorId", { status: 400 });
+    }
+
+    const [page, author] = await Promise.all([
+      db
+        .select({ id: schema.pages.id })
+        .from(schema.pages)
+        .where(eq(schema.pages.slug, params.slug ?? ""))
+        .get(),
+      db.select({ id: schema.user.id }).from(schema.user).where(eq(schema.user.id, authorId)).get(),
+    ]);
+    if (!page || !author) throw new Response("Not Found", { status: 404 });
+
+    await db
+      .update(schema.pages)
+      .set({ authorId: author.id, updatedAt: new Date() })
+      .where(eq(schema.pages.id, page.id));
+    return { ok: true };
+  }
+
   return new Response("Unknown intent", { status: 400 });
 }
 
@@ -348,6 +378,7 @@ export default function WikiPage() {
   const {
     page,
     tags,
+    author,
     editor,
     lang,
     isAdmin,
@@ -734,9 +765,12 @@ export default function WikiPage() {
         {isDesktop && (
           <WikiRightSidebar
             tocItems={tocItems}
+            author={author}
             editor={editor}
             updatedAt={page.updatedAt}
             lang={lang}
+            pageId={page.id}
+            isAdmin={isAdmin}
             translationStatusJa={page.translationStatusJa}
             translationStatusEn={page.translationStatusEn}
             sources={sources}
