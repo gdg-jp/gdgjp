@@ -73,6 +73,57 @@ function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
   return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
+class AttachmentTooLargeError extends Error {
+  constructor(readonly byteSize: number) {
+    super("Google Chat attachment exceeds the 10 MB limit");
+  }
+}
+
+function contentLength(response: Response): number | null {
+  const value = response.headers.get("Content-Length");
+  if (!value) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+/**
+ * R2 accepts a ReadableStream, so attachment downloads never need to be
+ * materialized in the Worker isolate. The transform still enforces the limit
+ * when an upstream response omits or lies about Content-Length.
+ */
+export function bodyWithByteLimit(
+  body: ReadableStream<Uint8Array>,
+  maxBytes: number,
+): { body: ReadableStream<Uint8Array>; byteLength: () => number } {
+  let byteLength = 0;
+  const limited = body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        byteLength += chunk.byteLength;
+        if (byteLength > maxBytes) throw new AttachmentTooLargeError(byteLength);
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+  return { body: limited, byteLength: () => byteLength };
+}
+
+async function attachmentVersionHash(
+  objectId: string,
+  response: Response,
+  mimeType: string,
+): Promise<string> {
+  // A streaming body cannot be fed to WebCrypto's non-streaming digest API.
+  // Use the provider's immutable version marker (or the known length) to keep
+  // raw asset paths stable across unchanged refreshes without buffering bytes.
+  const version =
+    response.headers.get("etag") ??
+    response.headers.get("x-goog-hash") ??
+    response.headers.get("last-modified") ??
+    String(contentLength(response) ?? "unknown");
+  return sha256Hex(new TextEncoder().encode(`${objectId}\u0000${version}\u0000${mimeType}`));
+}
+
 function spaceNameOf(source: typeof schema.sources.$inferSelect): string {
   return source.externalId?.startsWith("spaces/")
     ? source.externalId
@@ -482,12 +533,12 @@ async function downloadAttachment(
   if (!response.ok) {
     throw new Error(`Unable to download a Google Chat attachment (${response.status})`);
   }
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.byteLength > MAX_ATTACHMENT_BYTES) {
+  const declaredByteSize = contentLength(response);
+  if (declaredByteSize !== null && declaredByteSize > MAX_ATTACHMENT_BYTES) {
     warnGoogleChat("attachment_too_large", {
       sourceId,
       attachmentId: objectId,
-      byteSize: bytes.byteLength,
+      byteSize: declaredByteSize,
     });
     return null;
   }
@@ -495,14 +546,28 @@ async function downloadAttachment(
     response.headers.get("Content-Type")?.split(";")[0] ||
     attachment.contentType ||
     "application/octet-stream";
-  const contentHash = await sha256Hex(bytes);
+  if (!response.body) throw new Error("Google Chat attachment response has no body");
+  const streamed = bodyWithByteLimit(response.body, MAX_ATTACHMENT_BYTES);
+  const contentHash = await attachmentVersionHash(objectId, response, mimeType);
   const r2Key = assetR2Key(sourceId, objectId, contentHash, mimeType);
   ctx.budget.spend(1);
-  await ctx.env.BUCKET.put(r2Key, bytes, {
-    httpMetadata: { contentType: mimeType },
-    customMetadata: { sha256: contentHash, objectId },
-  });
-  return { path: r2Key, r2Key, mimeType, byteSize: bytes.byteLength, contentHash };
+  try {
+    await ctx.env.BUCKET.put(r2Key, streamed.body, {
+      httpMetadata: { contentType: mimeType },
+      customMetadata: { sourceVersion: contentHash, objectId },
+    });
+  } catch (error) {
+    if (error instanceof AttachmentTooLargeError) {
+      warnGoogleChat("attachment_too_large", {
+        sourceId,
+        attachmentId: objectId,
+        byteSize: error.byteSize,
+      });
+      return null;
+    }
+    throw error;
+  }
+  return { path: r2Key, r2Key, mimeType, byteSize: streamed.byteLength(), contentHash };
 }
 
 async function stepGrouping(ctx: ChatImportTickContext, current: Current): Promise<StepOutcome> {

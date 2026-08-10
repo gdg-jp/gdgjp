@@ -25,7 +25,7 @@ vi.mock("../../../app/lib/google-drive.server", async (importOriginal) => ({
 }));
 
 import { getGoogleDriveTokenRow } from "../../../app/lib/google-drive-token.server";
-import { CHAT_PAGE_SIZE, SENDERS_FLUSH_BATCH_SIZE } from "./google-chat-import";
+import { CHAT_PAGE_SIZE, SENDERS_FLUSH_BATCH_SIZE, bodyWithByteLimit } from "./google-chat-import";
 import {
   ACCESS_TOKEN_SUBREQUESTS,
   CURRENT_RUN_SUBREQUESTS,
@@ -196,6 +196,25 @@ describe("startSourceImport with a Chat source", () => {
 });
 
 describe("Google Chat import bounds", () => {
+  it("streams attachments with a hard byte limit", async () => {
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2, 3]));
+        controller.enqueue(new Uint8Array([4, 5]));
+        controller.close();
+      },
+    });
+    const limited = bodyWithByteLimit(source, 4);
+    const reader = limited.body.getReader();
+
+    await expect(reader.read()).resolves.toMatchObject({
+      done: false,
+      value: new Uint8Array([1, 2, 3]),
+    });
+    await expect(reader.read()).rejects.toThrow("attachment exceeds the 10 MB limit");
+    expect(limited.byteLength()).toBe(5);
+  });
+
   it("uses a small messages.list page size to bound JSON materialization", () => {
     expect(CHAT_PAGE_SIZE).toBe(100);
   });
