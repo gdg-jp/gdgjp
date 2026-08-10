@@ -579,6 +579,21 @@ describe("advanceSourceImportTick with the Chat driver", () => {
       .map(([, body]) => (typeof body === "string" ? body : new TextDecoder().decode(body)))
       .join("\n");
     expect(markdown).toContain("### [2026-07-14 21:03] Unknown user (users/111503568926175343887)");
+    expect(
+      sqlite
+        .prepare(
+          "SELECT resource_name, message_text FROM google_chat_sender_samples WHERE resource_name = ?",
+        )
+        .get("users/111503568926175343887"),
+    ).toEqual({
+      resource_name: "users/111503568926175343887",
+      message_text: "Hello from a consumer space.",
+    });
+    expect(
+      sqlite.prepare("SELECT COUNT(*) AS count FROM google_chat_document_renders").get(),
+    ).toEqual({
+      count: 1,
+    });
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });

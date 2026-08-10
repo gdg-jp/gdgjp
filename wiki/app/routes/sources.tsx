@@ -20,6 +20,14 @@ import {
 } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/ui/dialog";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
@@ -33,6 +41,10 @@ import {
   enqueueSourceRefresh,
   unarchiveSource,
 } from "~/lib/sources.server";
+import {
+  isChatSenderResourceName,
+  saveChatSenderName,
+} from "../../workers/features/sources/chat-sender-registry";
 
 export const meta: MetaFunction = () => [{ title: "Sources — GDG Japan Wiki" }];
 
@@ -88,8 +100,40 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     ? allChapters
     : allChapters.filter((chapter) => identity.chapterIds.includes(chapter.id));
 
+  const senderSamples = await db
+    .select({
+      resourceName: schema.googleChatSenderSamples.resourceName,
+      messageText: schema.googleChatSenderSamples.messageText,
+      createdAt: schema.googleChatSenderSamples.createdAt,
+      sourceId: schema.googleChatSenderSamples.sourceId,
+      sourceTitle: schema.sources.title,
+    })
+    .from(schema.googleChatSenderSamples)
+    .innerJoin(schema.sources, eq(schema.googleChatSenderSamples.sourceId, schema.sources.id))
+    .orderBy(desc(schema.googleChatSenderSamples.createdAt))
+    .all();
+  const visibleSamples = senderSamples.filter((sample) => {
+    const source = visible.find((item) => item.id === sample.sourceId);
+    return source !== undefined;
+  });
+  const visibleSenderIds = [...new Set(visibleSamples.map((sample) => sample.resourceName))];
+  const profiles = visibleSenderIds.length
+    ? await db
+        .select({
+          resourceName: schema.googleChatSenderProfiles.resourceName,
+          displayName: schema.googleChatSenderProfiles.displayName,
+        })
+        .from(schema.googleChatSenderProfiles)
+        .where(inArray(schema.googleChatSenderProfiles.resourceName, visibleSenderIds))
+        .all()
+    : [];
+
   return {
     assignableChapters,
+    chatSenders: {
+      profiles,
+      samples: visibleSamples,
+    },
     sources: visible.map((source) => ({
       ...source,
       documents: documentsBySource.get(source.id) ?? [],
@@ -127,6 +171,28 @@ export async function action({ request, context }: ActionFunctionArgs) {
       chapterIds: identity.chapterIds,
     });
     return result.ok ? { ok: true as const } : { ok: false as const, error: result.error };
+  }
+
+  if (intent === "save-chat-sender") {
+    const resourceName = String(form.get("senderId") ?? "").trim();
+    const displayName = String(form.get("displayName") ?? "").trim();
+    if (!isChatSenderResourceName(resourceName))
+      return { ok: false as const, error: "invalid_sender" };
+    if (!displayName || displayName.length > 120) {
+      return { ok: false as const, error: "sender_name_required" };
+    }
+    const db = getDb(env);
+    const known = await db
+      .select({ source: schema.sources })
+      .from(schema.googleChatSenderSamples)
+      .innerJoin(schema.sources, eq(schema.googleChatSenderSamples.sourceId, schema.sources.id))
+      .where(eq(schema.googleChatSenderSamples.resourceName, resourceName))
+      .all();
+    if (!known.some(({ source }) => canAccessSource(source, user, identity.chapterIds))) {
+      return { ok: false as const, error: "invalid_sender" };
+    }
+    await saveChatSenderName(env, resourceName, displayName);
+    return { ok: true as const, senderSaved: true };
   }
 
   if (
@@ -210,7 +276,7 @@ function sourceUrlFromGoogleDocument(document: GooglePickerDocument): string | n
 }
 
 export default function SourcesPage() {
-  const { assignableChapters, sources } = useLoaderData<typeof loader>();
+  const { assignableChapters, chatSenders, sources } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const { t, i18n } = useTranslation();
   const navigation = useNavigation();
@@ -227,6 +293,7 @@ export default function SourcesPage() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [needsChatReauth, setNeedsChatReauth] = useState(false);
+  const [senderDialogOpen, setSenderDialogOpen] = useState(false);
   const submitting = navigation.state !== "idle";
 
   const pendingCount = useMemo(
@@ -332,6 +399,25 @@ export default function SourcesPage() {
         <h1 className="text-2xl font-semibold text-content-primary">{t("sources.title")}</h1>
         <p className="mt-1 text-sm text-content-secondary">{t("sources.subtitle")}</p>
       </header>
+
+      <div className="mb-6 flex items-center justify-between gap-3 rounded-lg border border-border-default bg-surface-raised p-4">
+        <div>
+          <p className="text-sm font-medium text-content-primary">{t("sources.sender_manager")}</p>
+          {chatSenders.samples.length === 0 ? (
+            <p className="mt-1 text-xs text-content-tertiary">
+              {t("sources.sender_manager_disabled")}
+            </p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          disabled={chatSenders.samples.length === 0}
+          onClick={() => setSenderDialogOpen(true)}
+          className="rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {t("sources.configure_senders")}
+        </button>
+      </div>
 
       <Form
         method="post"
@@ -499,7 +585,175 @@ export default function SourcesPage() {
           </table>
         </div>
       )}
+      <ChatSenderDialog
+        open={senderDialogOpen}
+        onOpenChange={setSenderDialogOpen}
+        profiles={chatSenders.profiles}
+        samples={chatSenders.samples}
+      />
     </div>
+  );
+}
+
+function ChatSenderDialog({
+  open,
+  onOpenChange,
+  profiles,
+  samples,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  profiles: Array<{ resourceName: string; displayName: string }>;
+  samples: Array<{
+    resourceName: string;
+    messageText: string;
+    sourceId: string;
+    sourceTitle: string;
+  }>;
+}) {
+  const { t } = useTranslation();
+  const fetcher = useFetcher<typeof action>();
+  const profileById = useMemo(
+    () => new Map(profiles.map((profile) => [profile.resourceName, profile])),
+    [profiles],
+  );
+  const senderIds = useMemo(() => {
+    const ids = [...new Set(samples.map((sample) => sample.resourceName))];
+    return ids.sort((left, right) => {
+      const leftLabel = profileById.get(left)?.displayName
+        ? `${profileById.get(left)?.displayName} (${left})`
+        : left;
+      const rightLabel = profileById.get(right)?.displayName
+        ? `${profileById.get(right)?.displayName} (${right})`
+        : right;
+      const leftMapped = profileById.has(left);
+      const rightMapped = profileById.has(right);
+      return leftMapped === rightMapped ? leftLabel.localeCompare(rightLabel) : leftMapped ? 1 : -1;
+    });
+  }, [profileById, samples]);
+  const [senderId, setSenderId] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const selectedSamples = samples.filter((sample) => sample.resourceName === senderId).slice(0, 10);
+  const saving = fetcher.state !== "idle";
+
+  useEffect(() => {
+    if (!open) return;
+    const first = senderIds[0] ?? "";
+    setSenderId(first);
+    setDisplayName(profileById.get(first)?.displayName ?? "");
+    setExpanded({});
+  }, [open, profileById, senderIds]);
+
+  function selectSender(nextId: string) {
+    setSenderId(nextId);
+    setDisplayName(profileById.get(nextId)?.displayName ?? "");
+    setExpanded({});
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto bg-surface-raised sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{t("sources.sender_dialog_title")}</DialogTitle>
+          <DialogDescription>{t("sources.sender_dialog_description")}</DialogDescription>
+        </DialogHeader>
+        <fetcher.Form method="post" className="space-y-4 px-5 pb-5">
+          <input type="hidden" name="intent" value="save-chat-sender" />
+          <input type="hidden" name="senderId" value={senderId} />
+          <label className="block text-sm font-medium text-content-secondary">
+            {t("sources.sender_id_label")}
+            <select
+              value={senderId}
+              onChange={(event) => selectSender(event.target.value)}
+              className="mt-1 block w-full rounded-md border border-border-strong bg-surface-raised px-3 py-2 text-sm"
+            >
+              {senderIds.map((id) => {
+                const profile = profileById.get(id);
+                return (
+                  <option key={id} value={id}>
+                    {profile ? `${profile.displayName} (${id})` : id}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+          <label className="block text-sm font-medium text-content-secondary">
+            {t("sources.sender_name_label")}
+            <input
+              name="displayName"
+              required
+              maxLength={120}
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              className="mt-1 block w-full rounded-md border border-border-strong bg-surface-raised px-3 py-2 text-sm"
+            />
+          </label>
+          <section>
+            <h3 className="text-sm font-medium text-content-secondary">
+              {t("sources.sender_samples")}
+            </h3>
+            <ul className="mt-2 space-y-2">
+              {selectedSamples.map((sample, index) => {
+                const key = `${sample.sourceId}:${index}`;
+                const isExpanded = expanded[key] ?? false;
+                const preview =
+                  sample.messageText.length > 160
+                    ? `${sample.messageText.slice(0, 160)}…`
+                    : sample.messageText;
+                return (
+                  <li key={key} className="rounded-md border border-border-default p-3 text-sm">
+                    <p className="font-medium text-content-primary">{sample.sourceTitle}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-content-secondary">
+                      {isExpanded
+                        ? sample.messageText
+                        : preview || t("sources.sender_empty_message")}
+                    </p>
+                    {sample.messageText.length > 160 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpanded((current) => ({ ...current, [key]: !isExpanded }))
+                        }
+                        className="mt-2 text-xs font-medium text-action-primary hover:underline"
+                      >
+                        {t(isExpanded ? "sources.sender_collapse" : "sources.sender_expand")}
+                      </button>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+          {fetcher.data && !fetcher.data.ok ? (
+            <p className="text-sm text-feedback-danger-foreground">
+              {t(`sources.error_${fetcher.data.error}`, {
+                defaultValue: t("sources.error_generic"),
+              })}
+            </p>
+          ) : null}
+          {fetcher.data?.ok && fetcher.data.senderSaved ? (
+            <p className="text-sm text-feedback-success-foreground">{t("sources.sender_saved")}</p>
+          ) : null}
+          <DialogFooter className="px-0 py-0">
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="rounded-md border border-border-strong px-4 py-2 text-sm hover:bg-surface-hover"
+            >
+              {t("cancel")}
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !senderId || !displayName.trim()}
+              className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60"
+            >
+              {saving ? t("sources.sender_saving") : t("sources.sender_save")}
+            </button>
+          </DialogFooter>
+        </fetcher.Form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

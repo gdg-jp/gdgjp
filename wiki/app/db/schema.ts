@@ -546,6 +546,40 @@ export const sourceAssets = sqliteTable("source_assets", {
   contentHash: text("content_hash").notNull(),
 });
 
+/** Manually configured Google Chat resource-name → display-name mappings. */
+export const googleChatSenderProfiles = sqliteTable("google_chat_sender_profiles", {
+  resourceName: text("resource_name").primaryKey(),
+  displayName: text("display_name").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+});
+
+/** At most ten recent identification examples are retained per sender. */
+export const googleChatSenderSamples = sqliteTable(
+  "google_chat_sender_samples",
+  {
+    id: text("id").primaryKey(),
+    resourceName: text("resource_name").notNull(),
+    sourceId: text("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "cascade" }),
+    messageName: text("message_name").notNull(),
+    messageText: text("message_text").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  },
+  (t) => [unique().on(t.resourceName, t.sourceId, t.messageName)],
+);
+
+/** Private render input used to rewrite sender headings without leaking IDs to raw Markdown. */
+export const googleChatDocumentRenders = sqliteTable("google_chat_document_renders", {
+  sourceDocumentId: text("source_document_id")
+    .primaryKey()
+    .references(() => sourceDocuments.id, { onDelete: "cascade" }),
+  renderData: text("render_data").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+});
+
 // ---------------------------------------------------------------------------
 // source_import_runs — Durable Object alarm-driven source import progress
 // ---------------------------------------------------------------------------

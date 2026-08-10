@@ -71,6 +71,12 @@ export function createSourcesTestDb() {
   sqlite.exec(
     readFileSync(new URL("../../../migrations/0047_source_kinds.sql", import.meta.url), "utf8"),
   );
+  sqlite.exec(
+    readFileSync(
+      new URL("../../../migrations/0049_google_chat_sender_registry.sql", import.meta.url),
+      "utf8",
+    ),
+  );
 
   const execute = async (
     sql: string,

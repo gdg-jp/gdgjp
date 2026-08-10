@@ -2,6 +2,7 @@ import { and, eq, ne } from "drizzle-orm";
 import * as schema from "../../../app/db/schema";
 import { REQUIRED_GOOGLE_CHAT_SCOPES, driveFilesUrl } from "../../../app/lib/google-drive.server";
 import { type ResolvedSourceAsset, assetR2Key } from "./assets";
+import { captureChatSenderData } from "./chat-sender-registry";
 import {
   type ChatMessage,
   type ChatMessageAttachment,
@@ -530,6 +531,14 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
       .toArray()
       .map((row) => [row.resource_name, row.display_name] as const),
   );
+  const configuredSenders = await current.db
+    .select({
+      resourceName: schema.googleChatSenderProfiles.resourceName,
+      displayName: schema.googleChatSenderProfiles.displayName,
+    })
+    .from(schema.googleChatSenderProfiles)
+    .all();
+  for (const sender of configuredSenders) senderNames.set(sender.resourceName, sender.displayName);
   const threadParents = new Map(
     ctx.sql
       .exec<{ thread_name: string; parent_text: string }>(
@@ -608,7 +617,7 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
     }
 
     ctx.budget.spend(persistCost);
-    await persistSourceDocument(ctx.env, {
+    const persisted = await persistSourceDocument(ctx.env, {
       sourceId: current.source.id,
       fetchAttemptId: current.run.fetchAttemptId,
       path,
@@ -620,6 +629,16 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
       assets,
       assetPolicy: incremental ? "merge" : "replace",
     });
+    if (persisted.id) {
+      await captureChatSenderData(ctx.env, {
+        sourceId: current.source.id,
+        sourceDocumentId: persisted.id,
+        messages: body.messages ?? [],
+        threadParents,
+        assets: assetsByObjectId,
+        skippedAttachments: skippedNames,
+      });
+    }
 
     weeksDone += 1;
     metaSet(ctx.sql, "weeks_done", String(weeksDone));
