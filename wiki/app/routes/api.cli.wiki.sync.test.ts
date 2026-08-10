@@ -8,10 +8,15 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("~/lib/cli-identity.server", () => ({
   getCliIdentity: vi.fn().mockResolvedValue({
-    user: { id: "user-1" },
+    user: { id: "oidc-subject-1", email: "admin@example.com", isAdmin: true },
     chapters: [],
   }),
 }));
+
+vi.mock("~/lib/agents-md.server", async (importOriginal) => {
+  const original = await importOriginal<typeof import("~/lib/agents-md.server")>();
+  return { ...original, getAgentInstructions: vi.fn() };
+});
 
 vi.mock("~/lib/db.server", () => ({
   getDb: vi.fn(() => ({
@@ -41,6 +46,7 @@ vi.mock("~/lib/queue-processors.server", () => ({
   sendOrRunTranslation: vi.fn().mockResolvedValue(undefined),
 }));
 
+import { agentsHash, getAgentInstructions } from "~/lib/agents-md.server";
 import { action, scheduleSyncPostCommit } from "./api.cli.wiki.sync";
 
 type Prepared = { sql: string; values: unknown[]; bind: (...values: unknown[]) => Prepared };
@@ -77,7 +83,11 @@ function page(id: string, slug: string, parentId: string | null) {
 
 function actionArgs(
   operations: unknown[],
-  options: { rejectBatch?: boolean; revisions?: Array<{ id: string; revision: number }> } = {},
+  options: {
+    agentsMd?: { content: string; expectedContentHash: string };
+    rejectBatch?: boolean;
+    revisions?: Array<{ id: string; revision: number }>;
+  } = {},
 ) {
   const waits: Promise<unknown>[] = [];
   const batch = vi.fn(async (statements: Prepared[]) => {
@@ -108,7 +118,7 @@ function actionArgs(
   const request = new Request("https://wiki.example/api/cli/wiki/sync", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ operations }),
+    body: JSON.stringify({ operations, agentsMd: options.agentsMd }),
   });
   return {
     args: {
@@ -132,6 +142,10 @@ beforeEach(() => {
   mocks.allResults = [[], [], []];
   mocks.getResults = [];
   mocks.canEdit = true;
+  vi.mocked(getAgentInstructions).mockResolvedValue({
+    content: "existing instructions",
+    contentHash: agentsHash("existing instructions"),
+  });
 });
 
 describe("Wiki CLI sync action", () => {
@@ -215,6 +229,40 @@ describe("Wiki CLI sync action", () => {
     await expect(response.json()).resolves.toMatchObject({ error: "sync_failed" });
     expect(batch).toHaveBeenCalledOnce();
     expect(waits).toHaveLength(0);
+  });
+
+  it("uses the local user ID for an AGENTS.md update rather than the OIDC subject", async () => {
+    const content = "updated instructions";
+    mocks.getResults = [{ id: "local-user-id" }];
+    const { args, batch } = actionArgs([], {
+      agentsMd: { content, expectedContentHash: agentsHash("existing instructions") },
+    });
+
+    const response = await action(args);
+
+    expect(response.status).toBe(200);
+    const statements = batch.mock.calls[0]?.[0] as Prepared[];
+    expect(statements[0]?.values).toEqual([
+      content,
+      agentsHash(content),
+      "local-user-id",
+      agentsHash("existing instructions"),
+    ]);
+  });
+
+  it("rejects an AGENTS.md update when its admin has no matching local user", async () => {
+    const { args, batch } = actionArgs([], {
+      agentsMd: {
+        content: "updated instructions",
+        expectedContentHash: agentsHash("existing instructions"),
+      },
+    });
+
+    const response = await action(args);
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: "agents_md_user_missing" });
+    expect(batch).not.toHaveBeenCalled();
   });
 });
 
