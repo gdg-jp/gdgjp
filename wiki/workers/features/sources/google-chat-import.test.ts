@@ -25,7 +25,7 @@ vi.mock("../../../app/lib/google-drive.server", async (importOriginal) => ({
 }));
 
 import { getGoogleDriveTokenRow } from "../../../app/lib/google-drive-token.server";
-import { SENDERS_FLUSH_BATCH_SIZE } from "./google-chat-import";
+import { CHAT_PAGE_SIZE, SENDERS_FLUSH_BATCH_SIZE } from "./google-chat-import";
 import {
   ACCESS_TOKEN_SUBREQUESTS,
   CURRENT_RUN_SUBREQUESTS,
@@ -192,6 +192,12 @@ describe("startSourceImport with a Chat source", () => {
       sqlite.prepare("SELECT id FROM source_import_runs WHERE source_id = ?").get(SOURCE_ID),
     ).toBeUndefined();
     expect(start).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Google Chat import bounds", () => {
+  it("uses a small messages.list page size to bound JSON materialization", () => {
+    expect(CHAT_PAGE_SIZE).toBe(100);
   });
 });
 
