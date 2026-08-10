@@ -8,16 +8,9 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Form,
-  useActionData,
-  useFetcher,
-  useLoaderData,
-  useNavigation,
-  useRevalidator,
-} from "react-router";
+import { useFetcher, useLoaderData, useRevalidator } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
 import {
@@ -28,6 +21,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "~/components/ui/dialog";
+import { MotionSwap } from "~/components/ui/motion";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
@@ -47,6 +48,69 @@ import {
 } from "../../workers/features/sources/chat-sender-registry";
 
 export const meta: MetaFunction = () => [{ title: "Sources — GDG Japan Wiki" }];
+
+type StagedSource =
+  | {
+      id: string;
+      kind: "google-drive";
+      title: string;
+      url: string;
+    }
+  | {
+      id: string;
+      kind: "google-chat-space";
+      title: string;
+      url: string;
+      externalId: string;
+    };
+
+function parseBatchCandidates(raw: FormDataEntryValue | null): StagedSource[] | null {
+  if (typeof raw !== "string") return null;
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!Array.isArray(value) || value.length === 0 || value.length > 50) return null;
+    const ids = new Set<string>();
+    const candidates: StagedSource[] = [];
+    for (const item of value) {
+      if (!item || typeof item !== "object") return null;
+      const candidate = item as Record<string, unknown>;
+      if (
+        typeof candidate.id !== "string" ||
+        !candidate.id ||
+        ids.has(candidate.id) ||
+        typeof candidate.title !== "string" ||
+        typeof candidate.url !== "string"
+      ) {
+        return null;
+      }
+      ids.add(candidate.id);
+      if (candidate.kind === "google-drive") {
+        candidates.push({
+          id: candidate.id,
+          kind: "google-drive",
+          title: candidate.title,
+          url: candidate.url,
+        });
+      } else if (
+        candidate.kind === "google-chat-space" &&
+        typeof candidate.externalId === "string"
+      ) {
+        candidates.push({
+          id: candidate.id,
+          kind: "google-chat-space",
+          title: candidate.title,
+          url: candidate.url,
+          externalId: candidate.externalId,
+        });
+      } else {
+        return null;
+      }
+    }
+    return candidates;
+  } catch {
+    return null;
+  }
+}
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
@@ -147,6 +211,35 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const identity = await getAccessIdentity(request, env);
   const form = await request.formData();
   const intent = String(form.get("intent") ?? "create");
+
+  if (intent === "create-batch") {
+    const candidates = parseBatchCandidates(form.get("candidates"));
+    if (!candidates) return { ok: false as const, error: "invalid_batch" };
+
+    const addedIds: string[] = [];
+    const failed: Array<{ id: string; error: string }> = [];
+    for (const candidate of candidates) {
+      const result = await createSource(env, {
+        ...(candidate.kind === "google-chat-space"
+          ? { kind: candidate.kind, externalId: candidate.externalId }
+          : { url: candidate.url }),
+        title: candidate.title,
+        chapter: form.get("chapter"),
+        refreshPolicy: form.get("refreshPolicy"),
+        user,
+        chapterIds: identity.chapterIds,
+      });
+
+      // `createSource` persists an error source when queue delivery fails. It must leave
+      // the staging list so retrying cannot create a duplicate source.
+      if (result.ok || result.error === "enqueue_failed") {
+        addedIds.push(candidate.id);
+      } else {
+        failed.push({ id: candidate.id, error: result.error });
+      }
+    }
+    return { ok: true as const, addedIds, failed };
+  }
 
   if (intent === "create") {
     const result = await createSource(env, {
@@ -277,12 +370,12 @@ function sourceUrlFromGoogleDocument(document: GooglePickerDocument): string | n
 
 export default function SourcesPage() {
   const { assignableChapters, chatSenders, sources } = useLoaderData<typeof loader>();
-  const actionData = useActionData<typeof action>();
   const { t, i18n } = useTranslation();
-  const navigation = useNavigation();
   const revalidator = useRevalidator();
+  const batchFetcher = useFetcher<typeof action>();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [selectedDocument, setSelectedDocument] = useState<GooglePickerDocument | null>(null);
+  const [candidates, setCandidates] = useState<StagedSource[]>([]);
+  const [candidateErrors, setCandidateErrors] = useState<Record<string, string>>({});
   const [pickerLoading, setPickerLoading] = useState(false);
   const [pickerError, setPickerError] = useState<string | null>(null);
   const [needsDriveConnection, setNeedsDriveConnection] = useState(false);
@@ -294,7 +387,12 @@ export default function SourcesPage() {
   const [chatError, setChatError] = useState<string | null>(null);
   const [needsChatReauth, setNeedsChatReauth] = useState(false);
   const [senderDialogOpen, setSenderDialogOpen] = useState(false);
-  const submitting = navigation.state !== "idle";
+  const [chatPickerOpen, setChatPickerOpen] = useState(false);
+  const chatSpacesLoadStarted = useRef(false);
+  const [chapter, setChapter] = useState(
+    assignableChapters.length === 1 ? assignableChapters[0].id : "",
+  );
+  const submitting = batchFetcher.state !== "idle";
 
   const pendingCount = useMemo(
     () => sources.filter((s) => s.status === "pending" || s.status === "fetching").length,
@@ -309,6 +407,46 @@ export default function SourcesPage() {
     const timer = setInterval(() => revalidator.revalidate(), 3000);
     return () => clearInterval(timer);
   }, [pendingCount, revalidator]);
+
+  useEffect(() => {
+    if (chatSpacesLoadStarted.current) return;
+    chatSpacesLoadStarted.current = true;
+    void loadChatSpaces();
+  }, []);
+
+  useEffect(() => {
+    if (!batchFetcher.data?.ok || !("addedIds" in batchFetcher.data) || !batchFetcher.data.failed) {
+      return;
+    }
+    const addedIds = new Set(batchFetcher.data.addedIds);
+    setCandidates((current) => current.filter((candidate) => !addedIds.has(candidate.id)));
+    setCandidateErrors(
+      Object.fromEntries(batchFetcher.data.failed.map((failure) => [failure.id, failure.error])),
+    );
+    if (addedIds.size > 0) revalidator.revalidate();
+  }, [batchFetcher.data, revalidator]);
+
+  function addCandidates(next: StagedSource[]) {
+    setCandidates((current) => {
+      const byId = new Map(current.map((candidate) => [candidate.id, candidate]));
+      for (const candidate of next) byId.set(candidate.id, candidate);
+      return [...byId.values()];
+    });
+    setCandidateErrors((current) => {
+      const nextErrors = { ...current };
+      for (const candidate of next) delete nextErrors[candidate.id];
+      return nextErrors;
+    });
+  }
+
+  function removeCandidate(id: string) {
+    setCandidates((current) => current.filter((candidate) => candidate.id !== id));
+    setCandidateErrors((current) => {
+      const nextErrors = { ...current };
+      delete nextErrors[id];
+      return nextErrors;
+    });
+  }
 
   async function chooseGoogleDriveSource() {
     setPickerError(null);
@@ -338,13 +476,26 @@ export default function SourcesPage() {
         .setAppId(config.appId)
         .setOAuthToken(config.accessToken)
         .addView(view)
+        .enableFeature(picker.Feature.MULTISELECT_ENABLED)
         .setCallback((data) => {
           if (data.action === picker.Action.PICKED) {
-            const document = data.docs?.[0];
-            if (!document || !sourceUrlFromGoogleDocument(document)) {
+            const selected = (data.docs ?? []).flatMap((document) => {
+              const url = sourceUrlFromGoogleDocument(document);
+              return url
+                ? [
+                    {
+                      id: `drive:${document.id}`,
+                      kind: "google-drive" as const,
+                      title: document.name,
+                      url,
+                    },
+                  ]
+                : [];
+            });
+            if (selected.length === 0) {
               setPickerError(t("sources.error_unsupported_document"));
             } else {
-              setSelectedDocument(document);
+              addCandidates(selected);
             }
           }
           setPickerLoading(false);
@@ -395,154 +546,202 @@ export default function SourcesPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      <header className="mb-8">
-        <h1 className="text-2xl font-semibold text-content-primary">{t("sources.title")}</h1>
-        <p className="mt-1 text-sm text-content-secondary">{t("sources.subtitle")}</p>
-      </header>
-
-      <div className="mb-6 flex items-center justify-between gap-3 rounded-lg border border-border-default bg-surface-raised p-4">
+      <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-content-primary">{t("sources.sender_manager")}</p>
-          {chatSenders.samples.length === 0 ? (
-            <p className="mt-1 text-xs text-content-tertiary">
-              {t("sources.sender_manager_disabled")}
-            </p>
-          ) : null}
+          <h1 className="text-2xl font-semibold text-content-primary">{t("sources.title")}</h1>
+          <p className="mt-1 text-sm text-content-secondary">{t("sources.subtitle")}</p>
         </div>
         <button
           type="button"
           disabled={chatSenders.samples.length === 0}
           onClick={() => setSenderDialogOpen(true)}
-          className="rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+          className="shrink-0 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
           {t("sources.configure_senders")}
         </button>
-      </div>
+      </header>
 
-      <Form
-        method="post"
-        className="mb-6 rounded-lg border border-border-default bg-surface-raised p-4"
-      >
-        <input type="hidden" name="intent" value="create" />
-        <input
-          type="hidden"
-          name="url"
-          value={selectedDocument ? (sourceUrlFromGoogleDocument(selectedDocument) ?? "") : ""}
-        />
-        <input type="hidden" name="title" value={selectedDocument?.name ?? ""} />
-        <p className="text-sm font-medium text-content-secondary">{t("sources.document_label")}</p>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+      <section className="mb-8 rounded-lg border border-border-default bg-surface-raised p-4">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
             onClick={chooseGoogleDriveSource}
             disabled={pickerLoading}
-            className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
           >
             {pickerLoading ? (
               <LoaderCircle className="size-4 animate-spin" />
             ) : (
               <FileText className="size-4" />
             )}
-            {selectedDocument ? selectedDocument.name : t("sources.choose_google_drive")}
+            {t("sources.choose_google_drive")}
           </button>
-          <ChapterSelect chapters={assignableChapters} language={i18n.language} t={t} />
-          <button
-            type="submit"
-            disabled={submitting || !selectedDocument}
-            className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60"
-          >
-            {t("sources.add")}
-          </button>
-        </div>
-        <p className="mt-2 text-xs text-content-tertiary">{t("sources.document_hint")}</p>
-        <p className="mt-1 text-xs text-content-tertiary">{t("sources.chapter_hint")}</p>
-        {needsDriveConnection ? (
-          <div className="mt-3 flex items-center gap-3 rounded-md border border-border-default bg-surface-sunken p-3 text-sm">
-            <span>{t("sources.connect_hint")}</span>
-            <button
-              type="button"
-              onClick={connectGoogleDrive}
-              className="font-medium text-action-primary hover:text-action-primary-hover"
-            >
-              {t("sources.connect_google_drive")}
-            </button>
-          </div>
-        ) : null}
-        {pickerError ? (
-          <p className="mt-2 text-sm text-feedback-danger-foreground">{pickerError}</p>
-        ) : null}
-      </Form>
-
-      <Form
-        method="post"
-        className="mb-8 rounded-lg border border-border-default bg-surface-raised p-4"
-      >
-        <input type="hidden" name="intent" value="create-chat-space" />
-        <input type="hidden" name="externalId" value={selectedSpace?.name ?? ""} />
-        <input type="hidden" name="title" value={selectedSpace?.displayName ?? ""} />
-        <p className="text-sm font-medium text-content-secondary">{t("sources.chat_label")}</p>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
-            onClick={loadChatSpaces}
+            onClick={() => setChatPickerOpen((open) => !open)}
             disabled={chatLoading}
-            className="flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
           >
             {chatLoading ? (
               <LoaderCircle className="size-4 animate-spin" />
             ) : (
               <MessageSquare className="size-4" />
             )}
-            {t("sources.load_chat_spaces")}
-          </button>
-          <select
-            value={selectedSpaceName}
-            onChange={(event) => setSelectedSpaceName(event.target.value)}
-            disabled={chatSpaces.length === 0}
-            aria-label={t("sources.chat_space_label")}
-            className="min-w-0 flex-1 rounded-md border border-border-strong px-3 py-2 text-sm disabled:bg-surface-sunken"
-          >
-            <option value="" disabled>
-              {t("sources.chat_space_placeholder")}
-            </option>
-            {chatSpaces.map((space) => (
-              <option key={space.name} value={space.name}>
-                {space.displayName}
-              </option>
-            ))}
-          </select>
-          <ChapterSelect chapters={assignableChapters} language={i18n.language} t={t} />
-          <button
-            type="submit"
-            disabled={submitting || !selectedSpace}
-            className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60"
-          >
             {t("sources.add_chat_space")}
           </button>
         </div>
-        <p className="mt-2 text-xs text-content-tertiary">{t("sources.chat_hint")}</p>
-        {needsChatReauth ? (
-          <div className="mt-3 flex items-center gap-3 rounded-md border border-feedback-warning-border bg-feedback-warning-surface p-3 text-sm text-feedback-warning-foreground">
-            <span>{t("sources.chat_reauth_hint")}</span>
-            <button
-              type="button"
-              onClick={connectGoogleDrive}
-              className="font-medium text-action-primary hover:text-action-primary-hover"
-            >
-              {t("sources.connect_google_drive")}
-            </button>
+        <MotionSwap autoHeight stateKey="source-controls" className="motion-reduce:transition-none">
+          <div>
+            {chatPickerOpen ? (
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <Select value={selectedSpaceName} onValueChange={setSelectedSpaceName}>
+                  <SelectTrigger
+                    className="min-w-0 flex-1 bg-surface-raised"
+                    aria-label={t("sources.chat_space_label")}
+                  >
+                    <SelectValue placeholder={t("sources.chat_space_placeholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {chatSpaces.map((space) => (
+                      <SelectItem key={space.name} value={space.name}>
+                        {space.displayName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <button
+                  type="button"
+                  disabled={!selectedSpace}
+                  onClick={() => {
+                    if (!selectedSpace) return;
+                    addCandidates([
+                      {
+                        id: `chat:${selectedSpace.name}`,
+                        kind: "google-chat-space",
+                        title: selectedSpace.displayName,
+                        url: `https://mail.google.com/chat/u/0/#chat/space/${selectedSpace.name.slice("spaces/".length)}`,
+                        externalId: selectedSpace.name,
+                      },
+                    ]);
+                    setSelectedSpaceName("");
+                  }}
+                  className="rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
+                >
+                  {t("sources.stage_chat_space")}
+                </button>
+              </div>
+            ) : null}
+            {candidates.length > 0 ? (
+              <ul className="mt-4 divide-y divide-border-subtle rounded-md border border-border-default">
+                {candidates.map((candidate) => (
+                  <li key={candidate.id} className="flex items-start gap-3 px-3 py-2">
+                    {candidate.kind === "google-drive" ? (
+                      <FileText className="mt-0.5 size-4 shrink-0" />
+                    ) : (
+                      <MessageSquare className="mt-0.5 size-4 shrink-0" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-content-primary">
+                        {candidate.title}
+                      </p>
+                      <a
+                        href={candidate.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block truncate text-xs text-action-primary hover:underline"
+                      >
+                        {candidate.url}
+                      </a>
+                      {candidateErrors[candidate.id] ? (
+                        <p className="mt-1 text-xs text-feedback-danger-foreground">
+                          {t(`sources.error_${candidateErrors[candidate.id]}`, {
+                            defaultValue: t("sources.error_generic"),
+                          })}
+                        </p>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeCandidate(candidate.id)}
+                      className="rounded p-1 text-content-tertiary hover:bg-surface-hover"
+                      aria-label={t("sources.remove_candidate", { title: candidate.title })}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="mt-4 flex flex-col justify-end gap-2 sm:flex-row">
+              <ChapterSelect
+                chapters={assignableChapters}
+                language={i18n.language}
+                t={t}
+                value={chapter}
+                onValueChange={setChapter}
+              />
+              <button
+                type="button"
+                disabled={submitting || candidates.length === 0 || !chapter}
+                onClick={() =>
+                  batchFetcher.submit(
+                    { intent: "create-batch", chapter, candidates: JSON.stringify(candidates) },
+                    { method: "post" },
+                  )
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60"
+              >
+                {submitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
+                {t("sources.add")}
+              </button>
+            </div>
+            {needsDriveConnection ? (
+              <div className="mt-3 flex items-center gap-3 rounded-md border border-border-default bg-surface-sunken p-3 text-sm">
+                <span>{t("sources.connect_hint")}</span>
+                <button
+                  type="button"
+                  onClick={connectGoogleDrive}
+                  className="font-medium text-action-primary hover:text-action-primary-hover"
+                >
+                  {t("sources.connect_google_drive")}
+                </button>
+              </div>
+            ) : null}
+            {pickerError ? (
+              <p className="mt-2 text-sm text-feedback-danger-foreground">{pickerError}</p>
+            ) : null}
+            {needsChatReauth ? (
+              <div className="mt-3 flex items-center gap-3 rounded-md border border-feedback-warning-border bg-feedback-warning-surface p-3 text-sm text-feedback-warning-foreground">
+                <span>{t("sources.chat_reauth_hint")}</span>
+                <button
+                  type="button"
+                  onClick={connectGoogleDrive}
+                  className="font-medium text-action-primary hover:text-action-primary-hover"
+                >
+                  {t("sources.connect_google_drive")}
+                </button>
+              </div>
+            ) : null}
+            {chatError ? (
+              <p className="mt-2 text-sm text-feedback-danger-foreground">{chatError}</p>
+            ) : null}
+            {batchFetcher.data?.ok &&
+            "failed" in batchFetcher.data &&
+            batchFetcher.data.failed?.length ? (
+              <p className="mt-2 text-sm text-feedback-danger-foreground">
+                {t("sources.batch_partial_failure")}
+              </p>
+            ) : null}
+            {batchFetcher.data && !batchFetcher.data.ok ? (
+              <p className="mt-2 text-sm text-feedback-danger-foreground">
+                {t(`sources.error_${batchFetcher.data.error}`, {
+                  defaultValue: t("sources.error_generic"),
+                })}
+              </p>
+            ) : null}
           </div>
-        ) : null}
-        {chatError ? (
-          <p className="mt-2 text-sm text-feedback-danger-foreground">{chatError}</p>
-        ) : null}
-      </Form>
-
-      {actionData && !actionData.ok ? (
-        <p className="mb-6 text-sm text-feedback-danger-foreground">
-          {t(`sources.error_${actionData.error}`, { defaultValue: t("sources.error_generic") })}
-        </p>
-      ) : null}
+        </MotionSwap>
+      </section>
 
       {sources.length === 0 ? (
         <p className="text-sm text-content-tertiary">{t("sources.empty")}</p>
@@ -661,23 +860,24 @@ function ChatSenderDialog({
         <fetcher.Form method="post" className="space-y-4 px-5 pb-5">
           <input type="hidden" name="intent" value="save-chat-sender" />
           <input type="hidden" name="senderId" value={senderId} />
-          <label className="block text-sm font-medium text-content-secondary">
-            {t("sources.sender_id_label")}
-            <select
-              value={senderId}
-              onChange={(event) => selectSender(event.target.value)}
-              className="mt-1 block w-full rounded-md border border-border-strong bg-surface-raised px-3 py-2 text-sm"
-            >
-              {senderIds.map((id) => {
-                const profile = profileById.get(id);
-                return (
-                  <option key={id} value={id}>
-                    {profile ? `${profile.displayName} (${id})` : id}
-                  </option>
-                );
-              })}
-            </select>
-          </label>
+          <div className="block text-sm font-medium text-content-secondary">
+            <p>{t("sources.sender_id_label")}</p>
+            <Select value={senderId} onValueChange={selectSender}>
+              <SelectTrigger className="mt-1 w-full bg-surface-raised">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {senderIds.map((id) => {
+                  const profile = profileById.get(id);
+                  return (
+                    <SelectItem key={id} value={id}>
+                      {profile ? `${profile.displayName} (${id})` : id}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
           <label className="block text-sm font-medium text-content-secondary">
             {t("sources.sender_name_label")}
             <input
@@ -761,29 +961,32 @@ function ChapterSelect({
   chapters,
   language,
   t,
+  value,
+  onValueChange,
 }: {
   chapters: Array<{ id: string; nameJa: string; nameEn: string }>;
   language: string;
   t: (key: string) => string;
+  value: string;
+  onValueChange: (value: string) => void;
 }) {
   return (
-    <select
-      name="chapter"
-      required
-      defaultValue={chapters.length === 1 ? chapters[0].id : ""}
-      aria-label={t("sources.chapter_label")}
-      className="rounded-md border border-border-strong px-3 py-2 text-sm"
-    >
-      <option value="" disabled>
-        {t("sources.chapter_placeholder")}
-      </option>
-      {chapters.map((chapter) => (
-        <option key={chapter.id} value={chapter.id}>
-          {language.startsWith("en") ? chapter.nameEn : chapter.nameJa}
-        </option>
-      ))}
-      <option value={ALL_CHAPTERS}>{t("sources.chapter_all")}</option>
-    </select>
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger
+        className="w-full bg-surface-raised sm:w-56"
+        aria-label={t("sources.chapter_label")}
+      >
+        <SelectValue placeholder={t("sources.chapter_placeholder")} />
+      </SelectTrigger>
+      <SelectContent>
+        {chapters.map((chapter) => (
+          <SelectItem key={chapter.id} value={chapter.id}>
+            {language.startsWith("en") ? chapter.nameEn : chapter.nameJa}
+          </SelectItem>
+        ))}
+        <SelectItem value={ALL_CHAPTERS}>{t("sources.chapter_all")}</SelectItem>
+      </SelectContent>
+    </Select>
   );
 }
 

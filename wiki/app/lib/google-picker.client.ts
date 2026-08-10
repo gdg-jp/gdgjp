@@ -25,6 +25,7 @@ interface GooglePickerBuilder {
   setAppId: (appId: string) => GooglePickerBuilder;
   setOAuthToken: (token: string) => GooglePickerBuilder;
   addView: (view: GooglePickerDocsView) => GooglePickerBuilder;
+  enableFeature: (feature: string) => GooglePickerBuilder;
   setCallback: (callback: (data: GooglePickerResponse) => void) => GooglePickerBuilder;
   build: () => { setVisible: (visible: boolean) => void };
 }
@@ -35,6 +36,7 @@ declare global {
     google?: {
       picker: {
         Action: { PICKED: string; CANCEL: string };
+        Feature: { MULTISELECT_ENABLED: string };
         DocsView: new (viewId?: string) => GooglePickerDocsView;
         ViewId: { DOCS: string };
         PickerBuilder: new () => GooglePickerBuilder;
