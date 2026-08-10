@@ -5,6 +5,7 @@ import * as schema from "../../../app/db/schema";
 import { saveChatSenderName } from "./chat-sender-registry";
 import { GOOGLE_CHAT_REAUTH_MESSAGE } from "./google-chat";
 import { ensureSourceImportDoSchema } from "./import/do-store";
+import { sha256Hex } from "./persist";
 import { createSourcesTestDb } from "./test-db";
 
 const { db, sqlite, setAfterExecute } = createSourcesTestDb();
@@ -598,6 +599,146 @@ describe("advanceSourceImportTick with the Chat driver", () => {
       message_text: "Hello from a consumer space.",
     });
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses attachment bytes, not the provider ETag, for immutable asset hashes", async () => {
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+    const attachmentBytes = new TextEncoder().encode("verify the actual attachment bytes");
+    const expectedHash = await sha256Hex(attachmentBytes);
+    const objects = new Map<string, string | Uint8Array>();
+    const bucket = {
+      put: vi.fn().mockImplementation(async (key: string, body: string | Uint8Array) => {
+        objects.set(key, body);
+      }),
+      get: vi.fn().mockImplementation(async (key: string) => {
+        const body = objects.get(key);
+        if (body == null) return null;
+        if (typeof body === "string") return { json: async () => JSON.parse(body) };
+        return {
+          arrayBuffer: async () =>
+            body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength),
+        };
+      }),
+      delete: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/messages?")) {
+        return new Response(
+          JSON.stringify({
+            messages: [
+              {
+                name: "spaces/abc/messages/1",
+                text: "Attached file.",
+                createTime: "2026-07-14T12:03:00Z",
+                attachment: [{ driveDataRef: { driveFileId: "file-1" }, contentName: "notes.bin" }],
+              },
+            ],
+          }),
+        );
+      }
+      if (url.includes("drive/v3/files/file-1?alt=media")) {
+        return new Response(attachmentBytes, {
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "Content-Length": String(attachmentBytes.byteLength),
+            ETag: "provider-version-that-is-not-a-content-hash",
+          },
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const result = await advanceSourceImportTick({
+      env: { BUCKET: bucket } as unknown as Env,
+      sql: memorySql(),
+      budget: new SubrequestBudget(),
+      runId: run.id,
+    });
+
+    const expectedKey = `raw/${SOURCE_ID}/assets/file-1-${expectedHash}.bin`;
+    expect(result).toMatchObject({ finished: true, phase: "complete" });
+    expect(objects.get(expectedKey)).toEqual(attachmentBytes);
+    expect(
+      sqlite.prepare("SELECT content_hash, r2_key, byte_size FROM source_assets").get(),
+    ).toEqual({
+      content_hash: expectedHash,
+      r2_key: expectedKey,
+      byte_size: attachmentBytes.byteLength,
+    });
+  });
+
+  it("skips an attachment whose declared size exceeds the 10 MB limit", async () => {
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+    const objects = new Map<string, string | Uint8Array>();
+    const put = vi.fn().mockImplementation(async (key: string, body: string | Uint8Array) => {
+      objects.set(key, body);
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/messages?")) {
+        return new Response(
+          JSON.stringify({
+            messages: [
+              {
+                name: "spaces/abc/messages/1",
+                text: "Oversized attachment.",
+                createTime: "2026-07-14T12:03:00Z",
+                attachment: [
+                  { driveDataRef: { driveFileId: "file-too-large" }, contentName: "large.bin" },
+                ],
+              },
+            ],
+          }),
+        );
+      }
+      if (url.includes("drive/v3/files/file-too-large?alt=media")) {
+        return new Response(new Uint8Array([1]), {
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "Content-Length": String(10 * 1024 * 1024 + 1),
+          },
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    await advanceSourceImportTick({
+      env: {
+        BUCKET: {
+          put,
+          get: vi.fn().mockImplementation(async (key: string) => {
+            const body = objects.get(key);
+            return typeof body === "string" ? { json: async () => JSON.parse(body) } : null;
+          }),
+          delete: vi.fn(),
+        },
+      } as unknown as Env,
+      sql: memorySql(),
+      budget: new SubrequestBudget(),
+      runId: run.id,
+    });
+
+    expect(
+      put.mock.calls.some(([key]) => typeof key === "string" && key.includes("/assets/")),
+    ).toBe(false);
+    expect(sqlite.prepare("SELECT COUNT(*) AS count FROM source_assets").get()).toEqual({
+      count: 0,
+    });
   });
 
   it("keeps placeholders in Markdown even when a sender profile exists", async () => {

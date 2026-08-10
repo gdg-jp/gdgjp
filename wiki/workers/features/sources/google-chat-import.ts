@@ -76,20 +76,35 @@ function contentLength(response: Response): number | null {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
-async function attachmentVersionHash(
-  objectId: string,
-  response: Response,
-  mimeType: string,
-): Promise<string> {
-  // A streaming body cannot be fed to WebCrypto's non-streaming digest API.
-  // Use the provider's immutable version marker (or the known length) to keep
-  // raw asset paths stable across unchanged refreshes without buffering bytes.
-  const version =
-    response.headers.get("etag") ??
-    response.headers.get("x-goog-hash") ??
-    response.headers.get("last-modified") ??
-    String(contentLength(response) ?? "unknown");
-  return sha256Hex(new TextEncoder().encode(`${objectId}\u0000${version}\u0000${mimeType}`));
+class AttachmentTooLargeError extends Error {
+  constructor(readonly byteSize: number) {
+    super("Google Chat attachment exceeds the 10 MB limit");
+  }
+}
+
+async function readAttachmentBytes(body: ReadableStream<Uint8Array>): Promise<Uint8Array> {
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let byteLength = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      byteLength += value.byteLength;
+      if (byteLength > MAX_ATTACHMENT_BYTES) throw new AttachmentTooLargeError(byteLength);
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(byteLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
 }
 
 function spaceNameOf(source: typeof schema.sources.$inferSelect): string {
@@ -517,18 +532,30 @@ async function downloadAttachment(
     attachment.contentType ||
     "application/octet-stream";
   if (!response.body) throw new Error("Google Chat attachment response has no body");
-  const contentHash = await attachmentVersionHash(objectId, response, mimeType);
+  let bytes: Uint8Array;
+  try {
+    bytes = await readAttachmentBytes(response.body);
+  } catch (error) {
+    if (error instanceof AttachmentTooLargeError) {
+      warnGoogleChat("attachment_too_large", {
+        sourceId,
+        attachmentId: objectId,
+        byteSize: error.byteSize,
+      });
+      return null;
+    }
+    throw error;
+  }
+  if (bytes.byteLength !== declaredByteSize) {
+    throw new Error("Google Chat attachment Content-Length does not match its body");
+  }
+  const contentHash = await sha256Hex(bytes);
   const r2Key = assetR2Key(sourceId, objectId, contentHash, mimeType);
-  const fixedLength = new FixedLengthStream(declaredByteSize);
-  const upload = response.body.pipeTo(fixedLength.writable);
   ctx.budget.spend(1);
-  await Promise.all([
-    ctx.env.BUCKET.put(r2Key, fixedLength.readable, {
-      httpMetadata: { contentType: mimeType },
-      customMetadata: { sourceVersion: contentHash, objectId },
-    }),
-    upload,
-  ]);
+  await ctx.env.BUCKET.put(r2Key, bytes, {
+    httpMetadata: { contentType: mimeType },
+    customMetadata: { sha256: contentHash, objectId },
+  });
   return { path: r2Key, r2Key, mimeType, byteSize: declaredByteSize, contentHash };
 }
 
