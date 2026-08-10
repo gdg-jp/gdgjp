@@ -134,6 +134,29 @@ export async function action({ request, context }: ActionFunctionArgs) {
       { error: "agents_md_conflict", contentHash: currentAgents?.contentHash },
       { status: 409 },
     );
+  // CLI identity uses the OIDC `sub` as `user.id`, but wiki rows are keyed by
+  // the local user primary key (linked via email / oidc_subject). Resolve that
+  // key before writing `wiki_agent_instructions.updated_by` (FK-enforced).
+  let agentsUpdatedBy: string | null = null;
+  if (agentsUpdate) {
+    const byEmail = identity.user.email
+      ? await db
+          .select({ id: schema.user.id })
+          .from(schema.user)
+          .where(eq(schema.user.email, identity.user.email))
+          .get()
+      : null;
+    const byId = byEmail
+      ? null
+      : await db
+          .select({ id: schema.user.id })
+          .from(schema.user)
+          .where(eq(schema.user.id, identity.user.id))
+          .get();
+    agentsUpdatedBy = byEmail?.id ?? byId?.id ?? null;
+    if (!agentsUpdatedBy)
+      return Response.json({ error: "agents_md_user_missing" }, { status: 403 });
+  }
   const existingIds = operations.flatMap((op) =>
     op.kind === "archive" ? [op.id] : op.page.id ? [op.page.id] : [],
   );
@@ -219,13 +242,15 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   const statements: D1PreparedStatement[] = [];
   if (agentsUpdate) {
+    if (!agentsUpdatedBy)
+      return Response.json({ error: "agents_md_user_missing" }, { status: 403 });
     statements.push(
       env.DB.prepare(
         "UPDATE wiki_agent_instructions SET content=?, content_hash=?, updated_by=?, updated_at=unixepoch() WHERE id=1 AND content_hash=?",
       ).bind(
         agentsUpdate.content,
         agentsHash(agentsUpdate.content),
-        identity.user.id,
+        agentsUpdatedBy,
         agentsUpdate.expectedContentHash,
       ),
       // D1 batches are atomic. A malformed JSON expression aborts the entire
