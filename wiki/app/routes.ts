@@ -58,6 +58,7 @@ export default [
     "/api/cli/wiki/sources/:documentId/content",
     "routes/api.cli.wiki.sources.$documentId.content.ts",
   ),
+  route("/api/cli/wiki/chat-senders", "routes/api.cli.wiki.chat-senders.ts"),
   route("/api/cli/wiki/agents-md", "routes/api.cli.wiki.agents-md.ts"),
   route(
     "/api/cli/wiki/attachments/:attachmentId",

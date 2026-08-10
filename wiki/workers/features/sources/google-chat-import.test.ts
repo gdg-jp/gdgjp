@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../../../app/db/schema";
+import { saveChatSenderName } from "./chat-sender-registry";
 import { GOOGLE_CHAT_REAUTH_MESSAGE } from "./google-chat";
 import { ensureSourceImportDoSchema } from "./import/do-store";
 import { createSourcesTestDb } from "./test-db";
@@ -24,6 +25,7 @@ vi.mock("../../../app/lib/google-drive.server", async (importOriginal) => ({
 }));
 
 import { getGoogleDriveTokenRow } from "../../../app/lib/google-drive-token.server";
+import { SENDERS_FLUSH_BATCH_SIZE } from "./google-chat-import";
 import {
   ACCESS_TOKEN_SUBREQUESTS,
   CURRENT_RUN_SUBREQUESTS,
@@ -40,7 +42,6 @@ const SOURCE_ID = "chat-source-1";
 
 function memorySql(seed?: (database: DatabaseSync) => void): SqlStorage {
   const sqliteDb = new DatabaseSync(":memory:");
-  seed?.(sqliteDb);
   const api = {
     exec<T extends Record<string, SqlStorageValue>>(query: string, ...binds: unknown[]) {
       const trimmed = query.trim().toUpperCase();
@@ -98,6 +99,7 @@ function memorySql(seed?: (database: DatabaseSync) => void): SqlStorage {
     },
   };
   ensureSourceImportDoSchema(api as unknown as SqlStorage);
+  seed?.(sqliteDb);
   return api as unknown as SqlStorage;
 }
 
@@ -117,7 +119,6 @@ beforeEach(() => {
     );
   sqlite.exec("DELETE FROM source_import_runs; DELETE FROM source_documents; DELETE FROM sources;");
   sqlite.exec("DELETE FROM google_chat_sender_profiles; DELETE FROM google_chat_sender_samples;");
-  sqlite.exec("DELETE FROM google_chat_document_renders;");
   sqlite
     .prepare(
       `INSERT INTO sources (id, kind, url, external_id, title, added_by, status)
@@ -591,12 +592,70 @@ describe("advanceSourceImportTick with the Chat driver", () => {
       resource_name: "users/111503568926175343887",
       message_text: "Hello from a consumer space.",
     });
-    expect(
-      sqlite.prepare("SELECT COUNT(*) AS count FROM google_chat_document_renders").get(),
-    ).toEqual({
-      count: 1,
-    });
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps placeholders in Markdown even when a sender profile exists", async () => {
+    sqlite
+      .prepare(
+        `INSERT INTO google_chat_sender_profiles (resource_name, display_name)
+         VALUES ('users/named', 'Alice Example')`,
+      )
+      .run();
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+    const objects = new Map<string, string | Uint8Array>();
+    const bucket = {
+      put: vi.fn().mockImplementation(async (key: string, body: string | Uint8Array) => {
+        objects.set(key, body);
+      }),
+      get: vi.fn().mockImplementation(async (key: string) => {
+        const body = objects.get(key);
+        return typeof body === "string" ? { json: async () => JSON.parse(body) } : null;
+      }),
+      delete: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (!url.includes("/messages?")) {
+        throw new Error(`Unexpected identity lookup: ${url}`);
+      }
+      return new Response(
+        JSON.stringify({
+          messages: [
+            {
+              name: "spaces/abc/messages/1",
+              text: "Named but still a placeholder.",
+              createTime: "2026-07-14T12:03:00Z",
+              sender: { name: "users/named", type: "HUMAN" },
+              thread: { name: "spaces/abc/threads/t1" },
+              threadReply: false,
+            },
+          ],
+        }),
+      );
+    });
+
+    const result = await advanceSourceImportTick({
+      env: { BUCKET: bucket } as unknown as Env,
+      sql: memorySql(),
+      budget: new SubrequestBudget(),
+      runId: run.id,
+    });
+
+    expect(result).toMatchObject({ finished: true, phase: "complete" });
+    const markdown = [...objects.entries()]
+      .filter(([key]) => !key.includes("/chat-runs/"))
+      .map(([, body]) => (typeof body === "string" ? body : new TextDecoder().decode(body)))
+      .join("\n");
+    expect(markdown).toContain("### [2026-07-14 21:03] Unknown user (users/named)");
+    expect(markdown).not.toContain("Alice Example");
   });
 
   it("caps sender samples at 10 for a 300-message week without exceeding the budget", async () => {
@@ -636,6 +695,11 @@ describe("advanceSourceImportTick with the Chat driver", () => {
       return new Response(JSON.stringify({ messages }));
     });
 
+    let sampleD1Statements = 0;
+    setAfterExecute((sqlText) => {
+      if (sqlText.includes("google_chat_sender_samples")) sampleD1Statements += 1;
+    });
+
     const budget = new SubrequestBudget();
     const result = await advanceSourceImportTick({
       env: { BUCKET: bucket } as unknown as Env,
@@ -646,6 +710,8 @@ describe("advanceSourceImportTick with the Chat driver", () => {
 
     expect(result).toMatchObject({ finished: true, phase: "complete" });
     expect(budget.spent).toBeLessThanOrEqual(budget.limit);
+    // 10 upserts + 1 prune for a single sender — must not scale with message count.
+    expect(sampleD1Statements).toBe(11);
     expect(
       sqlite
         .prepare("SELECT COUNT(*) AS count FROM google_chat_sender_samples WHERE resource_name = ?")
@@ -661,6 +727,126 @@ describe("advanceSourceImportTick with the Chat driver", () => {
     expect(retained.map((row) => row.message_name)).toEqual(
       Array.from({ length: 10 }, (_, index) => `spaces/abc/messages/${300 - index}`),
     );
+  });
+
+  it("resumes stepSenders flush across ticks without duplicating samples", async () => {
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+    sqlite.prepare("UPDATE source_import_runs SET phase = 'senders' WHERE id = ?").run(run.id);
+
+    const senderCount = SENDERS_FLUSH_BATCH_SIZE * 2 + 5;
+    const sql = memorySql((database) => {
+      for (let i = 0; i < senderCount; i += 1) {
+        const resourceName = `users/flush-${String(i).padStart(3, "0")}`;
+        database
+          .prepare(
+            `INSERT INTO sender_samples (resource_name, message_name, create_time, message_text)
+             VALUES (?, ?, ?, ?)`,
+          )
+          .run(resourceName, `spaces/abc/messages/${i}`, "2026-07-14T12:00:00Z", `Sample ${i}`);
+        database
+          .prepare("INSERT INTO senders (resource_name, display_name) VALUES (?, NULL)")
+          .run(resourceName);
+      }
+    });
+
+    // CURRENT_RUN(2) + ACCESS(1) + profiles(1) + one flush batch(1) = 5.
+    const first = await advanceSourceImportTick({
+      env: {} as Env,
+      sql,
+      budget: new SubrequestBudget(5),
+      runId: run.id,
+    });
+    expect(first).toMatchObject({ finished: false, phase: "senders" });
+    expect(
+      sqlite.prepare("SELECT COUNT(*) AS count FROM google_chat_sender_samples").get(),
+    ).toEqual({ count: SENDERS_FLUSH_BATCH_SIZE });
+
+    const second = await advanceSourceImportTick({
+      env: { BUCKET: { put: vi.fn(), get: vi.fn(), delete: vi.fn() } } as unknown as Env,
+      sql,
+      budget: new SubrequestBudget(),
+      runId: run.id,
+    });
+    // No week documents → finalizing completes quickly; import finishes.
+    expect(second.phase === "senders" || second.finished).toBe(true);
+
+    const third =
+      second.finished || second.phase !== "senders"
+        ? second
+        : await advanceSourceImportTick({
+            env: { BUCKET: { put: vi.fn(), get: vi.fn(), delete: vi.fn() } } as unknown as Env,
+            sql,
+            budget: new SubrequestBudget(),
+            runId: run.id,
+          });
+
+    expect(
+      sqlite.prepare("SELECT COUNT(*) AS count FROM google_chat_sender_samples").get(),
+    ).toEqual({ count: senderCount });
+    expect(
+      sqlite
+        .prepare(
+          `SELECT COUNT(*) AS count FROM (
+             SELECT resource_name, source_id, message_name
+             FROM google_chat_sender_samples
+             GROUP BY resource_name, source_id, message_name
+             HAVING COUNT(*) > 1
+           )`,
+        )
+        .get(),
+    ).toEqual({ count: 0 });
+    expect(third.finished || third.phase !== "senders").toBe(true);
+  });
+
+  it("does not mutate source_documents when saving a sender name", async () => {
+    const capturedAt = new Date("2026-07-14T12:00:00Z");
+    sqlite
+      .prepare(
+        `INSERT INTO source_documents
+           (id, source_id, path, title, r2_key, content_hash, media_type, status, captured_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'text/markdown', 'ready', ?)`,
+      )
+      .run(
+        "doc-1",
+        SOURCE_ID,
+        "2026/W29.md",
+        "Week",
+        "raw/chat-source-1/doc-1.md",
+        "hash-unchanged",
+        Math.floor(capturedAt.getTime() / 1000),
+      );
+    sqlite
+      .prepare(
+        `INSERT INTO google_chat_sender_samples
+           (id, resource_name, source_id, message_name, message_text, created_at)
+         VALUES ('sample-1', 'users/save-me', ?, 'spaces/abc/messages/1', 'Hi', ?)`,
+      )
+      .run(SOURCE_ID, Math.floor(capturedAt.getTime() / 1000));
+
+    const put = vi.fn();
+    await saveChatSenderName({ BUCKET: { put } } as unknown as Env, "users/save-me", "Saved Name");
+
+    expect(put).not.toHaveBeenCalled();
+    expect(
+      sqlite
+        .prepare("SELECT content_hash, captured_at FROM source_documents WHERE id = ?")
+        .get("doc-1"),
+    ).toEqual({
+      content_hash: "hash-unchanged",
+      captured_at: Math.floor(capturedAt.getTime() / 1000),
+    });
+    expect(
+      sqlite
+        .prepare("SELECT display_name FROM google_chat_sender_profiles WHERE resource_name = ?")
+        .get("users/save-me"),
+    ).toEqual({ display_name: "Saved Name" });
   });
 
   it("does not collect samples for senders that already have a profile", async () => {

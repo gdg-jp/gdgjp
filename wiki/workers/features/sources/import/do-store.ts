@@ -13,6 +13,13 @@ export function ensureSourceImportDoSchema(sql: SqlStorage): void {
       resource_name TEXT PRIMARY KEY,
       display_name TEXT
     );
+    CREATE TABLE IF NOT EXISTS sender_samples (
+      resource_name TEXT NOT NULL,
+      message_name TEXT NOT NULL,
+      create_time TEXT NOT NULL,
+      message_text TEXT NOT NULL,
+      PRIMARY KEY (resource_name, message_name)
+    );
     CREATE TABLE IF NOT EXISTS attachments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       message_name TEXT NOT NULL,
@@ -72,6 +79,10 @@ export function ensureSourceImportDoSchema(sql: SqlStorage): void {
       ON drive_images(unit_id, object_id);
     CREATE UNIQUE INDEX IF NOT EXISTS attachments_message_object_unique
       ON attachments(message_name, object_id);
+    -- Serves the stepSenders flush read; without it the LIMIT would sort every
+    -- retained sample for a chatty sender.
+    CREATE INDEX IF NOT EXISTS sender_samples_recent
+      ON sender_samples(resource_name, create_time DESC, message_name DESC);
     CREATE TABLE IF NOT EXISTS meta (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
