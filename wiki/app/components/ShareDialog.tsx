@@ -15,6 +15,14 @@ import {
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
 import { MotionPresence, MotionSwap } from "~/components/ui/motion";
@@ -62,6 +70,10 @@ interface AccessData {
   generalAccess?: GeneralAccess;
   generalRole?: PageRole;
   visibility?: GeneralAccess;
+  parentId?: string | null;
+  aclSyncedWithParent?: boolean;
+  descendantCount?: number;
+  syncedDescendantCount?: number;
 }
 
 interface CandidateData {
@@ -348,6 +360,14 @@ export default function ShareDialog({
     warning?: string;
     notificationFailures?: number;
   }>();
+  const descendantFetcher = useFetcher<{
+    ok?: boolean;
+    error?: string;
+    updatedCount?: number;
+    unsyncedSkippedCount?: number;
+    permissionSkippedCount?: number;
+    permissionSkipped?: Array<{ id: string; title: string }>;
+  }>();
   const inputRef = useRef<HTMLInputElement>(null);
   const searchAreaRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -367,6 +387,10 @@ export default function ShareDialog({
   const [warning, setWarning] = useState<string | null>(null);
   const [localAccess, setLocalAccess] = useState<GeneralAccess>(currentVisibility as GeneralAccess);
   const [localGeneralRole, setLocalGeneralRole] = useState<PageRole>("viewer");
+  const [hasSuccessfulPermissionChange, setHasSuccessfulPermissionChange] = useState(false);
+  const [showDescendantDialog, setShowDescendantDialog] = useState(false);
+  const [descendantRequestActive, setDescendantRequestActive] = useState(false);
+  const [descendantRequestCompleted, setDescendantRequestCompleted] = useState(false);
   const searchInputHeight = useHeightTransition();
 
   const responseCanManage =
@@ -419,6 +443,8 @@ export default function ShareDialog({
     setSelected([]);
     setError(null);
     setWarning(null);
+    setHasSuccessfulPermissionChange(false);
+    setShowDescendantDialog(false);
     setLocalAccess(currentVisibility as GeneralAccess);
     accessFetcher.load(`/api/page-access/${pageId}`);
   }, [open, pageId]);
@@ -469,6 +495,7 @@ export default function ShareDialog({
       return;
     }
     setError(null);
+    setHasSuccessfulPermissionChange(true);
     setWarning(
       mutationFetcher.data.warning ??
         ("notificationFailures" in mutationFetcher.data && mutationFetcher.data.notificationFailures
@@ -484,9 +511,22 @@ export default function ShareDialog({
     }
   }, [mutationFetcher.state, mutationFetcher.data, pageId, screen, t]);
 
+  useEffect(() => {
+    if (!descendantRequestActive || descendantFetcher.state !== "idle" || !descendantFetcher.data)
+      return;
+    setDescendantRequestActive(false);
+    setDescendantRequestCompleted(true);
+  }, [descendantFetcher.data, descendantFetcher.state, descendantRequestActive]);
+
   function close() {
     if (isMutating) return;
+    const shouldPrompt =
+      hasSuccessfulPermissionChange && (accessFetcher.data?.descendantCount ?? 0) > 0;
     onClose();
+    if (shouldPrompt) {
+      setDescendantRequestCompleted(false);
+      setShowDescendantDialog(true);
+    }
   }
 
   function chooseCandidate(subject: ShareSubject) {
@@ -557,6 +597,20 @@ export default function ShareDialog({
     });
   }
 
+  function syncWithParent() {
+    submitMutation({ intent: "syncWithParent" });
+  }
+
+  function syncDescendants() {
+    setDescendantRequestCompleted(false);
+    setDescendantRequestActive(true);
+    descendantFetcher.submit(JSON.stringify({ intent: "syncDescendants" }), {
+      method: "post",
+      action: `/api/page-access/${pageId}`,
+      encType: "application/json",
+    });
+  }
+
   async function copyLink() {
     try {
       await copyText(window.location.href);
@@ -609,444 +663,533 @@ export default function ShareDialog({
     isListOpen && candidateRows[activeIndex] ? `${listboxId}-${activeIndex}` : undefined;
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) close();
-      }}
-    >
-      <DialogContent
-        showCloseButton={false}
-        overlayClassName="share-dialog-overlay"
-        aria-describedby={undefined}
-        onOpenAutoFocus={() => {
-          restoreFocusRef.current =
-            document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) close();
         }}
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          restoreFocusRef.current?.focus();
-          restoreFocusRef.current = null;
-        }}
-        onEscapeKeyDown={handleEscapeKeyDown}
-        onPointerDownOutside={(event) => {
-          if (isMutating) event.preventDefault();
-        }}
-        className="share-dialog-content flex max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-[37.5rem] flex-col gap-0 overflow-hidden rounded-2xl border-border bg-card p-0 text-card-foreground shadow-2xl shadow-content-primary/20 sm:max-h-[calc(100dvh-3rem)] sm:max-w-[37.5rem]"
       >
-        <header className="flex items-center gap-2 px-5 pb-3 pt-5 sm:px-6">
-          {screen === "grant" && (
+        <DialogContent
+          showCloseButton={false}
+          overlayClassName="share-dialog-overlay"
+          aria-describedby={undefined}
+          onOpenAutoFocus={() => {
+            restoreFocusRef.current =
+              document.activeElement instanceof HTMLElement ? document.activeElement : null;
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            restoreFocusRef.current?.focus();
+            restoreFocusRef.current = null;
+          }}
+          onEscapeKeyDown={handleEscapeKeyDown}
+          onPointerDownOutside={(event) => {
+            if (isMutating) event.preventDefault();
+          }}
+          className="share-dialog-content flex max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-[37.5rem] flex-col gap-0 overflow-hidden rounded-2xl border-border bg-card p-0 text-card-foreground shadow-2xl shadow-content-primary/20 sm:max-h-[calc(100dvh-3rem)] sm:max-w-[37.5rem]"
+        >
+          <header className="flex items-center gap-2 px-5 pb-3 pt-5 sm:px-6">
+            {screen === "grant" && (
+              <Button
+                variant="ghost"
+                size="icon-lg"
+                onClick={() => {
+                  setIsListOpen(false);
+                  setScreen("overview");
+                }}
+                className="-ml-2 rounded-full"
+                aria-label={t("wiki.share_back")}
+              >
+                <ChevronLeft size={22} />
+              </Button>
+            )}
+            <DialogTitle className="min-w-0 flex-1 truncate text-xl font-medium tracking-[-0.01em]">
+              {t("wiki.share_dialog_title", { title: pageTitle })}
+            </DialogTitle>
             <Button
               variant="ghost"
               size="icon-lg"
-              onClick={() => {
-                setIsListOpen(false);
-                setScreen("overview");
-              }}
-              className="-ml-2 rounded-full"
-              aria-label={t("wiki.share_back")}
+              onClick={close}
+              disabled={isMutating}
+              className="rounded-full text-muted-foreground"
+              aria-label={t("close")}
             >
-              <ChevronLeft size={22} />
+              <X size={22} />
             </Button>
-          )}
-          <DialogTitle className="min-w-0 flex-1 truncate text-xl font-medium tracking-[-0.01em]">
-            {t("wiki.share_dialog_title", { title: pageTitle })}
-          </DialogTitle>
-          <Button
-            variant="ghost"
-            size="icon-lg"
-            onClick={close}
-            disabled={isMutating}
-            className="rounded-full text-muted-foreground"
-            aria-label={t("close")}
-          >
-            <X size={22} />
-          </Button>
-        </header>
+          </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 sm:px-6">
-          {canManage ? (
-            <div ref={searchAreaRef} className="relative">
-              <div ref={searchInputHeight.containerRef} className="overflow-hidden">
-                <div
-                  ref={searchInputHeight.contentRef}
-                  className={`flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border bg-background px-2 py-1 shadow-sm transition-[border-color,box-shadow] duration-150 ${isListOpen ? "border-ring ring-2 ring-ring/20" : "border-input"}`}
-                >
-                  <SelectedChips
-                    selected={selected}
-                    onRemove={removeSelection}
-                    removeLabel={(subject) =>
-                      t("wiki.share_remove_subject", { name: subject.label })
-                    }
-                  />
-                  <input
-                    ref={inputRef}
-                    value={query}
-                    onChange={(event) => {
-                      setQuery(event.target.value);
-                      setIsListOpen(true);
-                      setActiveIndex(0);
-                    }}
-                    onFocus={() => setIsListOpen(true)}
-                    onKeyDown={handleInputKeyDown}
-                    role="combobox"
-                    aria-autocomplete="list"
-                    aria-expanded={isListOpen}
-                    aria-controls={listboxId}
-                    aria-activedescendant={activeOptionId}
-                    placeholder={
-                      selected.length
-                        ? t("wiki.share_add_more")
-                        : t("wiki.share_search_placeholder")
-                    }
-                    className="min-w-44 flex-1 border-0 bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
-                  />
-                </div>
-              </div>
-              <MotionPresence
-                present={isListOpen}
-                distance={-8}
-                enterDuration={260}
-                exitDuration={180}
-                reducedDuration={180}
-                reducedOpacity={0}
-                scale={0.92}
-                transformOrigin="top center"
-                className="absolute left-0 right-0 z-10 mt-1"
-              >
-                <div
-                  id={listboxId}
-                  role={listboxRole}
-                  tabIndex={-1}
-                  aria-label={t("wiki.share_search_placeholder")}
-                  className="max-h-64 overflow-y-auto rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-xl shadow-content-primary/10"
-                >
-                  {candidatesFetcher.state !== "idle" && candidateRows.length === 0 ? (
-                    <p className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">
-                      <Loader2 className="animate-spin motion-reduce:animate-none" size={16} />
-                      {t("wiki.share_loading_candidates")}
-                    </p>
-                  ) : candidateRows.length ? (
-                    candidateRows.map((subject, index) => (
-                      <Button
-                        id={`${listboxId}-${index}`}
-                        key={`${subject.type}:${subject.key}`}
-                        variant="ghost"
-                        size="default"
-                        role={optionRole}
-                        aria-selected={activeIndex === index}
-                        onMouseEnter={() => setActiveIndex(index)}
-                        onClick={() => chooseCandidate(subject)}
-                        className={`h-auto w-full justify-start gap-3 rounded-none px-4 py-2.5 text-left ${activeIndex === index ? "bg-accent" : ""}`}
-                      >
-                        <Avatar subject={subject} />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm">{subject.label}</span>
-                          <span className="block truncate text-sm text-muted-foreground">
-                            {subject.secondary}
-                          </span>
-                        </span>
-                        {subject.type === "chapter" && (
-                          <UsersRound
-                            className="text-muted-foreground"
-                            size={18}
-                            aria-label={t("wiki.share_chapter")}
-                          />
-                        )}
-                      </Button>
-                    ))
-                  ) : (
-                    <p className="px-5 py-4 text-sm text-muted-foreground">
-                      {t("wiki.share_no_candidates")}
-                    </p>
-                  )}
-                </div>
-              </MotionPresence>
-            </div>
-          ) : null}
-
-          <MotionSwap autoHeight stateKey={screen} distance={8} className="min-h-0">
-            {screen === "grant" ? (
-              <section className="pt-5" aria-label={t("wiki.share_add_people")}>
-                <div className="grid gap-4 sm:grid-cols-[1fr_144px] sm:items-start">
-                  <label className="flex min-h-10 items-center gap-2 text-sm text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={notify}
-                      onChange={(event) => setNotify(event.target.checked)}
-                      className="h-5 w-5 accent-primary"
-                    />
-                    {t("wiki.share_notify")}
-                  </label>
-                  <label className="sr-only" htmlFor="grant-role">
-                    {t("wiki.share_role")}
-                  </label>
-                  <Select
-                    value={grantRole}
-                    onValueChange={(value) => setGrantRole(value as PageRole)}
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 sm:px-6">
+            {canManage ? (
+              <div ref={searchAreaRef} className="relative">
+                <div ref={searchInputHeight.containerRef} className="overflow-hidden">
+                  <div
+                    ref={searchInputHeight.contentRef}
+                    className={`flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border bg-background px-2 py-1 shadow-sm transition-[border-color,box-shadow] duration-150 ${isListOpen ? "border-ring ring-2 ring-ring/20" : "border-input"}`}
                   >
-                    <SelectTrigger
-                      id="grant-role"
-                      aria-label={t("wiki.share_role")}
-                      className="h-10 w-full rounded-lg bg-background"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent position="popper">
-                      {ROLES.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          {t(`wiki.share_role_${role}`)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div
-                  aria-hidden={!notify}
-                  inert={notify ? undefined : true}
-                  className={`grid transition-[grid-template-rows,opacity,transform,margin] ease-[var(--motion-ease-out)] motion-reduce:translate-y-0 motion-reduce:transition-[opacity] motion-reduce:duration-100 ${
-                    notify
-                      ? "visible mt-5 grid-rows-[1fr] translate-y-0 opacity-100 duration-[240ms]"
-                      : "invisible mt-0 grid-rows-[0fr] -translate-y-2 opacity-0 duration-[160ms]"
-                  }`}
-                >
-                  <div className="min-h-0 overflow-hidden">
-                    <label className="block">
-                      <span className="sr-only">{t("wiki.share_message")}</span>
-                      <textarea
-                        value={message}
-                        onChange={(event) => setMessage(event.target.value)}
-                        placeholder={t("wiki.share_message")}
-                        rows={5}
-                        disabled={!notify}
-                        className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-2 focus:ring-ring/20"
-                      />
-                    </label>
+                    <SelectedChips
+                      selected={selected}
+                      onRemove={removeSelection}
+                      removeLabel={(subject) =>
+                        t("wiki.share_remove_subject", { name: subject.label })
+                      }
+                    />
+                    <input
+                      ref={inputRef}
+                      value={query}
+                      onChange={(event) => {
+                        setQuery(event.target.value);
+                        setIsListOpen(true);
+                        setActiveIndex(0);
+                      }}
+                      onFocus={() => setIsListOpen(true)}
+                      onKeyDown={handleInputKeyDown}
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-expanded={isListOpen}
+                      aria-controls={listboxId}
+                      aria-activedescendant={activeOptionId}
+                      placeholder={
+                        selected.length
+                          ? t("wiki.share_add_more")
+                          : t("wiki.share_search_placeholder")
+                      }
+                      className="min-w-44 flex-1 border-0 bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+                    />
                   </div>
                 </div>
-                <MotionPresence present={Boolean(error)} className="mt-3" distance={-3}>
-                  <p role="alert" className="text-sm text-destructive">
-                    {error}
-                  </p>
-                </MotionPresence>
-                <footer className="mt-6 flex items-center justify-end gap-3">
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setIsListOpen(false);
-                      setScreen("overview");
-                    }}
-                    disabled={isMutating}
-                    className="text-primary"
+                <MotionPresence
+                  present={isListOpen}
+                  distance={-8}
+                  enterDuration={260}
+                  exitDuration={180}
+                  reducedDuration={180}
+                  reducedOpacity={0}
+                  scale={0.92}
+                  transformOrigin="top center"
+                  className="absolute left-0 right-0 z-10 mt-1"
+                >
+                  <div
+                    id={listboxId}
+                    role={listboxRole}
+                    tabIndex={-1}
+                    aria-label={t("wiki.share_search_placeholder")}
+                    className="max-h-64 overflow-y-auto rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-xl shadow-content-primary/10"
                   >
-                    {t("cancel")}
-                  </Button>
-                  <Button
-                    onClick={grantSelected}
-                    disabled={!selected.length || isMutating}
-                    className="rounded-full px-5"
-                  >
-                    {isMutating ? (
-                      <Loader2 size={18} className="animate-spin motion-reduce:animate-none" />
-                    ) : notify ? (
-                      <Send size={18} />
-                    ) : (
-                      <Share2 size={18} />
-                    )}
-                    {notify ? t("wiki.share_send") : t("wiki.share")}
-                  </Button>
-                </footer>
-              </section>
-            ) : (
-              <>
-                <section className="pt-5">
-                  <h3 className="mb-3 text-base">{t("wiki.share_people_with_access")}</h3>
-                  {isLoading ? (
-                    <div className="flex justify-center py-6">
-                      <Loader2 className="animate-spin text-muted-foreground motion-reduce:animate-none" />
-                    </div>
-                  ) : (
-                    <ul className="space-y-3">
-                      {ownerSubject && (
-                        <li className="flex items-center gap-3">
-                          <Avatar subject={ownerSubject} />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-base">{ownerSubject.label}</p>
-                            {ownerSubject.secondary && (
-                              <p className="truncate text-sm text-muted-foreground">
-                                {ownerSubject.secondary}
-                              </p>
-                            )}
-                          </div>
-                          <span className="text-base text-muted-foreground">
-                            {t("wiki.share_role_owner")}
-                          </span>
-                        </li>
-                      )}
-                      {accessList.map((entry) => (
-                        <li key={entry.id} className="flex items-center gap-3">
-                          <Avatar subject={entry} />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-base">{entry.label}</p>
-                            <p className="truncate text-sm text-muted-foreground">
-                              {entry.secondary}
-                            </p>
-                          </div>
-                          {canManage ? (
-                            <>
-                              <label className="sr-only" htmlFor={`role-${entry.id}`}>
-                                {t("wiki.share_role")}
-                              </label>
-                              <Select
-                                value={entry.role}
-                                disabled={isMutating}
-                                onValueChange={(value) => changeAccess(entry, value)}
-                              >
-                                <SelectTrigger
-                                  id={`role-${entry.id}`}
-                                  aria-label={t("wiki.share_role")}
-                                  size="sm"
-                                  className="max-w-36 rounded-lg bg-background"
-                                >
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent position="popper" align="end">
-                                  {ROLES.map((role) => (
-                                    <SelectItem key={role} value={role}>
-                                      {t(`wiki.share_role_${role}`)}
-                                    </SelectItem>
-                                  ))}
-                                  <SelectSeparator />
-                                  {accessFetcher.data?.myRole === "owner" &&
-                                    entry.type === "email" &&
-                                    entry.userId && (
-                                      <SelectItem value="transfer">
-                                        {t("wiki.share_transfer")}
-                                      </SelectItem>
-                                    )}
-                                  <SelectItem value="remove" className="text-destructive">
-                                    {t("wiki.share_remove")}
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">
-                              {t(`wiki.share_role_${entry.role}`)}
+                    {candidatesFetcher.state !== "idle" && candidateRows.length === 0 ? (
+                      <p className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">
+                        <Loader2 className="animate-spin motion-reduce:animate-none" size={16} />
+                        {t("wiki.share_loading_candidates")}
+                      </p>
+                    ) : candidateRows.length ? (
+                      candidateRows.map((subject, index) => (
+                        <Button
+                          id={`${listboxId}-${index}`}
+                          key={`${subject.type}:${subject.key}`}
+                          variant="ghost"
+                          size="default"
+                          role={optionRole}
+                          aria-selected={activeIndex === index}
+                          onMouseEnter={() => setActiveIndex(index)}
+                          onClick={() => chooseCandidate(subject)}
+                          className={`h-auto w-full justify-start gap-3 rounded-none px-4 py-2.5 text-left ${activeIndex === index ? "bg-accent" : ""}`}
+                        >
+                          <Avatar subject={subject} />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm">{subject.label}</span>
+                            <span className="block truncate text-sm text-muted-foreground">
+                              {subject.secondary}
                             </span>
+                          </span>
+                          {subject.type === "chapter" && (
+                            <UsersRound
+                              className="text-muted-foreground"
+                              size={18}
+                              aria-label={t("wiki.share_chapter")}
+                            />
                           )}
-                        </li>
-                      ))}
-                      {!ownerSubject && accessList.length === 0 && (
-                        <li className="text-sm text-muted-foreground">
-                          {t("wiki.share_no_access")}
-                        </li>
-                      )}
-                    </ul>
-                  )}
-                </section>
-
-                {canManage && (
-                  <section className="mt-6">
-                    <h3 className="mb-3 text-base">{t("wiki.share_general_access")}</h3>
-                    <div className="flex flex-wrap items-center gap-3 sm:flex-nowrap">
-                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-sm">
-                        <AccessIcon value={localAccess} />
-                      </span>
-                      <label className="sr-only" htmlFor="general-access">
-                        {t("wiki.share_general_access")}
-                      </label>
-                      <div className="min-w-0 flex-1">
-                        <div className="inline-flex max-w-full items-center">
-                          <Select
-                            value={localAccess}
-                            disabled={isMutating}
-                            onValueChange={(value) => setGeneralAccess(value as GeneralAccess)}
-                          >
-                            <SelectTrigger
-                              id="general-access"
-                              aria-label={t("wiki.share_general_access")}
-                              className="h-9 max-w-full border-0 bg-transparent px-2 shadow-none hover:bg-accent"
-                            >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent position="popper" align="start">
-                              {GENERAL_ACCESS.map(({ value, icon: Icon }) => (
-                                <SelectItem key={value} value={value}>
-                                  <Icon aria-hidden="true" />
-                                  {t(`wiki.share_access_${value}`)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {t(`wiki.share_access_${localAccess}_desc`)}
-                        </p>
-                      </div>
-                      {localAccess !== "restricted" && (
-                        <div className="ml-auto shrink-0">
-                          <label htmlFor="general-role" className="sr-only">
-                            {t("wiki.share_general_role")}
-                          </label>
-                          <Select
-                            value={localGeneralRole}
-                            disabled={isMutating}
-                            onValueChange={(value) =>
-                              setGeneralAccess(localAccess, value as PageRole)
-                            }
-                          >
-                            <SelectTrigger
-                              id="general-role"
-                              aria-label={t("wiki.share_general_role")}
-                              className="h-9 rounded-lg border-0 bg-transparent shadow-none hover:bg-accent"
-                            >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent position="popper" align="end">
-                              {ROLES.map((role) => (
-                                <SelectItem key={role} value={role}>
-                                  {t(`wiki.share_role_${role}`)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-                  </section>
-                )}
-                <MotionPresence present={Boolean(error || warning)} className="mt-4" distance={-3}>
-                  <p role={error ? "alert" : "status"} className="text-sm text-destructive">
-                    {error ?? warning}
-                  </p>
+                        </Button>
+                      ))
+                    ) : (
+                      <p className="px-5 py-4 text-sm text-muted-foreground">
+                        {t("wiki.share_no_candidates")}
+                      </p>
+                    )}
+                  </div>
                 </MotionPresence>
-                <footer className="mt-6 flex items-center justify-between border-t border-border pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={copyLink}
-                    className="rounded-full text-primary"
-                  >
-                    <MotionSwap
-                      as="span"
-                      stateKey={copied ? "copied" : "copy"}
-                      distance={0}
-                      enterDuration={140}
-                      className="inline-flex items-center gap-2"
+              </div>
+            ) : null}
+
+            <MotionSwap autoHeight stateKey={screen} distance={8} className="min-h-0">
+              {screen === "grant" ? (
+                <section className="pt-5" aria-label={t("wiki.share_add_people")}>
+                  <div className="grid gap-4 sm:grid-cols-[1fr_144px] sm:items-start">
+                    <label className="flex min-h-10 items-center gap-2 text-sm text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={notify}
+                        onChange={(event) => setNotify(event.target.checked)}
+                        className="h-5 w-5 accent-primary"
+                      />
+                      {t("wiki.share_notify")}
+                    </label>
+                    <label className="sr-only" htmlFor="grant-role">
+                      {t("wiki.share_role")}
+                    </label>
+                    <Select
+                      value={grantRole}
+                      onValueChange={(value) => setGrantRole(value as PageRole)}
                     >
-                      {copied ? <Check size={20} /> : <Copy size={20} />}
-                      {copied ? t("wiki.share_copied") : t("wiki.share_copy_link")}
-                    </MotionSwap>
-                  </Button>
-                  <Button onClick={close} disabled={isMutating} className="rounded-full px-5">
-                    {t("wiki.share_done")}
-                  </Button>
-                </footer>
-              </>
+                      <SelectTrigger
+                        id="grant-role"
+                        aria-label={t("wiki.share_role")}
+                        className="h-10 w-full rounded-lg bg-background"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent position="popper">
+                        {ROLES.map((role) => (
+                          <SelectItem key={role} value={role}>
+                            {t(`wiki.share_role_${role}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div
+                    aria-hidden={!notify}
+                    inert={notify ? undefined : true}
+                    className={`grid transition-[grid-template-rows,opacity,transform,margin] ease-[var(--motion-ease-out)] motion-reduce:translate-y-0 motion-reduce:transition-[opacity] motion-reduce:duration-100 ${
+                      notify
+                        ? "visible mt-5 grid-rows-[1fr] translate-y-0 opacity-100 duration-[240ms]"
+                        : "invisible mt-0 grid-rows-[0fr] -translate-y-2 opacity-0 duration-[160ms]"
+                    }`}
+                  >
+                    <div className="min-h-0 overflow-hidden">
+                      <label className="block">
+                        <span className="sr-only">{t("wiki.share_message")}</span>
+                        <textarea
+                          value={message}
+                          onChange={(event) => setMessage(event.target.value)}
+                          placeholder={t("wiki.share_message")}
+                          rows={5}
+                          disabled={!notify}
+                          className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-2 focus:ring-ring/20"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  <MotionPresence present={Boolean(error)} className="mt-3" distance={-3}>
+                    <p role="alert" className="text-sm text-destructive">
+                      {error}
+                    </p>
+                  </MotionPresence>
+                  <footer className="mt-6 flex items-center justify-end gap-3">
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setIsListOpen(false);
+                        setScreen("overview");
+                      }}
+                      disabled={isMutating}
+                      className="text-primary"
+                    >
+                      {t("cancel")}
+                    </Button>
+                    <Button
+                      onClick={grantSelected}
+                      disabled={!selected.length || isMutating}
+                      className="rounded-full px-5"
+                    >
+                      {isMutating ? (
+                        <Loader2 size={18} className="animate-spin motion-reduce:animate-none" />
+                      ) : notify ? (
+                        <Send size={18} />
+                      ) : (
+                        <Share2 size={18} />
+                      )}
+                      {notify ? t("wiki.share_send") : t("wiki.share")}
+                    </Button>
+                  </footer>
+                </section>
+              ) : (
+                <>
+                  <section className="pt-5">
+                    <h3 className="mb-3 text-base">{t("wiki.share_people_with_access")}</h3>
+                    {isLoading ? (
+                      <div className="flex justify-center py-6">
+                        <Loader2 className="animate-spin text-muted-foreground motion-reduce:animate-none" />
+                      </div>
+                    ) : (
+                      <ul className="space-y-3">
+                        {ownerSubject && (
+                          <li className="flex items-center gap-3">
+                            <Avatar subject={ownerSubject} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-base">{ownerSubject.label}</p>
+                              {ownerSubject.secondary && (
+                                <p className="truncate text-sm text-muted-foreground">
+                                  {ownerSubject.secondary}
+                                </p>
+                              )}
+                            </div>
+                            <span className="text-base text-muted-foreground">
+                              {t("wiki.share_role_owner")}
+                            </span>
+                          </li>
+                        )}
+                        {accessList.map((entry) => (
+                          <li key={entry.id} className="flex items-center gap-3">
+                            <Avatar subject={entry} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-base">{entry.label}</p>
+                              <p className="truncate text-sm text-muted-foreground">
+                                {entry.secondary}
+                              </p>
+                            </div>
+                            {canManage ? (
+                              <>
+                                <label className="sr-only" htmlFor={`role-${entry.id}`}>
+                                  {t("wiki.share_role")}
+                                </label>
+                                <Select
+                                  value={entry.role}
+                                  disabled={isMutating}
+                                  onValueChange={(value) => changeAccess(entry, value)}
+                                >
+                                  <SelectTrigger
+                                    id={`role-${entry.id}`}
+                                    aria-label={t("wiki.share_role")}
+                                    size="sm"
+                                    className="max-w-36 rounded-lg bg-background"
+                                  >
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent position="popper" align="end">
+                                    {ROLES.map((role) => (
+                                      <SelectItem key={role} value={role}>
+                                        {t(`wiki.share_role_${role}`)}
+                                      </SelectItem>
+                                    ))}
+                                    <SelectSeparator />
+                                    {accessFetcher.data?.myRole === "owner" &&
+                                      entry.type === "email" &&
+                                      entry.userId && (
+                                        <SelectItem value="transfer">
+                                          {t("wiki.share_transfer")}
+                                        </SelectItem>
+                                      )}
+                                    <SelectItem value="remove" className="text-destructive">
+                                      {t("wiki.share_remove")}
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">
+                                {t(`wiki.share_role_${entry.role}`)}
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                        {!ownerSubject && accessList.length === 0 && (
+                          <li className="text-sm text-muted-foreground">
+                            {t("wiki.share_no_access")}
+                          </li>
+                        )}
+                      </ul>
+                    )}
+                  </section>
+
+                  {canManage && (
+                    <section className="mt-6">
+                      <h3 className="mb-3 text-base">{t("wiki.share_general_access")}</h3>
+                      <div className="flex flex-wrap items-center gap-3 sm:flex-nowrap">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-sm">
+                          <AccessIcon value={localAccess} />
+                        </span>
+                        <label className="sr-only" htmlFor="general-access">
+                          {t("wiki.share_general_access")}
+                        </label>
+                        <div className="min-w-0 flex-1">
+                          <div className="inline-flex max-w-full items-center">
+                            <Select
+                              value={localAccess}
+                              disabled={isMutating}
+                              onValueChange={(value) => setGeneralAccess(value as GeneralAccess)}
+                            >
+                              <SelectTrigger
+                                id="general-access"
+                                aria-label={t("wiki.share_general_access")}
+                                className="h-9 max-w-full border-0 bg-transparent px-2 shadow-none hover:bg-accent"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent position="popper" align="start">
+                                {GENERAL_ACCESS.map(({ value, icon: Icon }) => (
+                                  <SelectItem key={value} value={value}>
+                                    <Icon aria-hidden="true" />
+                                    {t(`wiki.share_access_${value}`)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {t(`wiki.share_access_${localAccess}_desc`)}
+                          </p>
+                        </div>
+                        {localAccess !== "restricted" && (
+                          <div className="ml-auto shrink-0">
+                            <label htmlFor="general-role" className="sr-only">
+                              {t("wiki.share_general_role")}
+                            </label>
+                            <Select
+                              value={localGeneralRole}
+                              disabled={isMutating}
+                              onValueChange={(value) =>
+                                setGeneralAccess(localAccess, value as PageRole)
+                              }
+                            >
+                              <SelectTrigger
+                                id="general-role"
+                                aria-label={t("wiki.share_general_role")}
+                                className="h-9 rounded-lg border-0 bg-transparent shadow-none hover:bg-accent"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent position="popper" align="end">
+                                {ROLES.map((role) => (
+                                  <SelectItem key={role} value={role}>
+                                    {t(`wiki.share_role_${role}`)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+                      {accessFetcher.data?.parentId && !accessFetcher.data.aclSyncedWithParent && (
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+                          <span>{t("wiki.share_parent_acl_not_synced")}</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={syncWithParent}
+                            disabled={isMutating}
+                            className="rounded-full"
+                          >
+                            {isMutating && (
+                              <Loader2
+                                className="animate-spin motion-reduce:animate-none"
+                                size={16}
+                              />
+                            )}
+                            {t("wiki.share_sync_now")}
+                          </Button>
+                        </div>
+                      )}
+                    </section>
+                  )}
+                  <MotionPresence
+                    present={Boolean(error || warning)}
+                    className="mt-4"
+                    distance={-3}
+                  >
+                    <p role={error ? "alert" : "status"} className="text-sm text-destructive">
+                      {error ?? warning}
+                    </p>
+                  </MotionPresence>
+                  <footer className="mt-6 flex items-center justify-between border-t border-border pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={copyLink}
+                      className="rounded-full text-primary"
+                    >
+                      <MotionSwap
+                        as="span"
+                        stateKey={copied ? "copied" : "copy"}
+                        distance={0}
+                        enterDuration={140}
+                        className="inline-flex items-center gap-2"
+                      >
+                        {copied ? <Check size={20} /> : <Copy size={20} />}
+                        {copied ? t("wiki.share_copied") : t("wiki.share_copy_link")}
+                      </MotionSwap>
+                    </Button>
+                    <Button onClick={close} disabled={isMutating} className="rounded-full px-5">
+                      {t("wiki.share_done")}
+                    </Button>
+                  </footer>
+                </>
+              )}
+            </MotionSwap>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={showDescendantDialog} onOpenChange={setShowDescendantDialog}>
+        <AlertDialogContent className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-2xl bg-card p-0 text-card-foreground shadow-2xl shadow-content-primary/20 sm:max-w-lg">
+          <AlertDialogHeader className="gap-2 border-b border-border px-5 py-5 text-left sm:place-items-start sm:px-6">
+            <AlertDialogTitle className="text-xl font-semibold tracking-[-0.01em]">
+              {t("wiki.share_sync_descendants_title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base leading-relaxed">
+              {t("wiki.share_sync_descendants_description", {
+                count: accessFetcher.data?.descendantCount ?? 0,
+                syncedCount: accessFetcher.data?.syncedDescendantCount ?? 0,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 px-5 py-5 sm:px-6">
+            {(accessFetcher.data?.syncedDescendantCount ?? 0) === 0 && (
+              <p className="rounded-xl bg-muted px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+                {t("wiki.share_sync_descendants_none")}
+              </p>
             )}
-          </MotionSwap>
-        </div>
-      </DialogContent>
-    </Dialog>
+            {descendantRequestCompleted && descendantFetcher.data?.ok && (
+              <output className="block rounded-xl bg-feedback-success-surface px-4 py-3 text-sm leading-relaxed text-feedback-success-foreground">
+                {t("wiki.share_sync_descendants_result", {
+                  updated: descendantFetcher.data.updatedCount ?? 0,
+                  unsynced: descendantFetcher.data.unsyncedSkippedCount ?? 0,
+                  forbidden: descendantFetcher.data.permissionSkippedCount ?? 0,
+                })}
+              </output>
+            )}
+            {descendantRequestCompleted && descendantFetcher.data?.error && (
+              <p
+                role="alert"
+                className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              >
+                {t("wiki.share_error_generic")}
+              </p>
+            )}
+          </div>
+          <AlertDialogFooter className="border-t border-border bg-muted/30 px-5 py-4 sm:px-6">
+            <Button
+              variant="ghost"
+              onClick={() => setShowDescendantDialog(false)}
+              disabled={descendantFetcher.state !== "idle"}
+            >
+              {descendantRequestCompleted && descendantFetcher.data?.ok
+                ? t("close")
+                : t("wiki.share_not_now")}
+            </Button>
+            {(!descendantRequestCompleted || !descendantFetcher.data?.ok) &&
+              (accessFetcher.data?.syncedDescendantCount ?? 0) > 0 && (
+                <Button
+                  onClick={syncDescendants}
+                  disabled={descendantFetcher.state !== "idle"}
+                  className="rounded-full px-5"
+                >
+                  {descendantFetcher.state !== "idle" && (
+                    <Loader2 className="animate-spin motion-reduce:animate-none" size={16} />
+                  )}
+                  {t("wiki.share_sync_descendants_action")}
+                </Button>
+              )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

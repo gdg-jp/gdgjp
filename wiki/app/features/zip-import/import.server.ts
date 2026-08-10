@@ -497,6 +497,7 @@ export async function importZip(
       visibility: "restricted",
       generalRole: "viewer",
       parentId: page.parentKey === null ? null : (ids.get(page.parentKey) ?? null),
+      aclSyncedWithParent: page.parentKey === null,
       sortOrder: page.sortOrder,
       origin: "human",
       chapterId: null,

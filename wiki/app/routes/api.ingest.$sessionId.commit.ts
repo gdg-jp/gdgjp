@@ -125,9 +125,9 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       statements.push(
         env.DB.prepare(
           `INSERT INTO pages (id, title_ja, slug, content_ja, summary_ja, page_type, page_metadata,
-            parent_id, ingestion_session_id, actionability_score, author_id, last_edited_by,
+            parent_id, acl_synced_with_parent, ingestion_session_id, actionability_score, author_id, last_edited_by,
             status, chapter_id, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())`,
         ).bind(
           pageId,
           op.title,
@@ -137,6 +137,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
           op.pageType,
           metadata,
           parentId,
+          parentId === null ? 1 : 0,
           params.sessionId,
           op.actionabilityScore,
           user.id,

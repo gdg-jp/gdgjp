@@ -398,7 +398,7 @@ CREATE TABLE IF NOT EXISTS "pages" (
     CHECK (general_role IN ('viewer', 'commenter', 'editor')),
   sync_revision INTEGER NOT NULL DEFAULT 1
 , "origin" TEXT NOT NULL DEFAULT 'human'
-  CHECK ("origin" IN ('human', 'agent')));
+  CHECK ("origin" IN ('human', 'agent')), acl_synced_with_parent INTEGER NOT NULL DEFAULT 1);
 CREATE INDEX idx_pages_status_updated ON pages (status, updated_at DESC);
 CREATE INDEX idx_pages_parent_order ON pages (parent_id, sort_order ASC);
 CREATE INDEX idx_pages_author ON pages (author_id, updated_at DESC);
@@ -576,3 +576,10 @@ CREATE TABLE IF NOT EXISTS "google_chat_sender_samples" (
 );
 CREATE INDEX "idx_google_chat_sender_samples_resource_created"
   ON "google_chat_sender_samples" ("resource_name", "created_at" DESC);
+CREATE TABLE IF NOT EXISTS "google_chat_document_renders" (
+  "source_document_id" TEXT NOT NULL PRIMARY KEY REFERENCES "source_documents"("id") ON DELETE CASCADE,
+  "render_data" TEXT NOT NULL,
+  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX idx_pages_parent_acl_sync
+  ON pages (parent_id, acl_synced_with_parent);

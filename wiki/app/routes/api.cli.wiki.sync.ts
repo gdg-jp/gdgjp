@@ -302,7 +302,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       });
       statements.push(
         env.DB.prepare(
-          "INSERT INTO pages (id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,origin,author_id,last_edited_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch())",
+          "INSERT INTO pages (id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,acl_synced_with_parent,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,origin,author_id,last_edited_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch())",
         ).bind(
           id,
           localeValues.titleJa,
@@ -315,6 +315,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
           localeValues.summaryJa,
           localeValues.summaryEn,
           page.parentId,
+          page.parentId === null ? 1 : 0,
           page.sortOrder,
           "published",
           meta.pageType,
@@ -351,6 +352,14 @@ export async function action({ request, context }: ActionFunctionArgs) {
         operation.expectedRevision,
       );
       statements.push(env.DB.prepare(update.sql).bind(...update.binds));
+      // CLI sync replaces both general access and explicit grants, so nested
+      // pages must require an explicit parent sync afterwards.
+      statements.push(
+        env.DB.prepare("UPDATE pages SET acl_synced_with_parent = ? WHERE id = ?").bind(
+          page.parentId === null ? 1 : 0,
+          id,
+        ),
+      );
       if (jaContentChanged(current, page.ja, contentJa)) translatePageIds.add(id);
     }
     if (meta.tags.length) {

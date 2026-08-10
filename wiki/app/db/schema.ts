@@ -109,6 +109,9 @@ export const pages = sqliteTable("pages", {
   summaryEn: text("summary_en").notNull().default(""),
   parentId: text("parent_id"),
   // self-reference; FK defined in migration SQL to avoid circular reference
+  aclSyncedWithParent: integer("acl_synced_with_parent", { mode: "boolean" })
+    .notNull()
+    .default(true),
   sortOrder: integer("sort_order").notNull().default(0),
   status: text("status").notNull().default("published"),
   // "published" | "archived"
