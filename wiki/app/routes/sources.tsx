@@ -21,7 +21,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "~/components/ui/dialog";
-import { MotionSwap } from "~/components/ui/motion";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -382,12 +387,10 @@ export default function SourcesPage() {
   const [chatSpaces, setChatSpaces] = useState<
     Array<{ name: string; displayName: string; spaceType: string | null }>
   >([]);
-  const [selectedSpaceName, setSelectedSpaceName] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [needsChatReauth, setNeedsChatReauth] = useState(false);
   const [senderDialogOpen, setSenderDialogOpen] = useState(false);
-  const [chatPickerOpen, setChatPickerOpen] = useState(false);
   const chatSpacesLoadStarted = useRef(false);
   const [chapter, setChapter] = useState(
     assignableChapters.length === 1 ? assignableChapters[0].id : "",
@@ -398,8 +401,6 @@ export default function SourcesPage() {
     () => sources.filter((s) => s.status === "pending" || s.status === "fetching").length,
     [sources],
   );
-
-  const selectedSpace = chatSpaces.find((space) => space.name === selectedSpaceName) ?? null;
 
   // Soft-poll while fetches are in flight.
   useEffect(() => {
@@ -532,7 +533,6 @@ export default function SourcesPage() {
         throw new Error(body?.error ?? "spaces_list_failed");
       }
       setChatSpaces(body.spaces);
-      if (body.spaces.length === 1) setSelectedSpaceName(body.spaces[0].name);
     } catch {
       setChatError(t("sources.error_chat_spaces"));
     } finally {
@@ -542,6 +542,18 @@ export default function SourcesPage() {
 
   function connectGoogleDrive() {
     window.location.assign("/api/google-drive/auth?returnTo=%2Fsources");
+  }
+
+  function addChatSpace(space: (typeof chatSpaces)[number]) {
+    addCandidates([
+      {
+        id: `chat:${space.name}`,
+        kind: "google-chat-space",
+        title: space.displayName,
+        url: `https://mail.google.com/chat/u/0/#chat/space/${space.name.slice("spaces/".length)}`,
+        externalId: space.name,
+      },
+    ]);
   }
 
   return (
@@ -577,19 +589,35 @@ export default function SourcesPage() {
               )}
               {t("sources.choose_google_drive")}
             </button>
-            <button
-              type="button"
-              onClick={() => setChatPickerOpen((open) => !open)}
-              disabled={chatLoading}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
-            >
-              {chatLoading ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : (
-                <MessageSquare className="size-4" />
-              )}
-              {t("sources.add_chat_space")}
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
+                >
+                  {chatLoading ? (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  ) : (
+                    <MessageSquare className="size-4" />
+                  )}
+                  {t("sources.add_chat_space")}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-56">
+                {chatLoading ? (
+                  <DropdownMenuItem disabled>
+                    <LoaderCircle className="size-4 animate-spin" />
+                    {t("sources.chat_space_placeholder")}
+                  </DropdownMenuItem>
+                ) : (
+                  chatSpaces.map((space) => (
+                    <DropdownMenuItem key={space.name} onSelect={() => addChatSpace(space)}>
+                      {space.displayName}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row">
             <ChapterSelect
@@ -615,134 +643,93 @@ export default function SourcesPage() {
             </button>
           </div>
         </div>
-        <MotionSwap autoHeight stateKey="source-controls" className="motion-reduce:transition-none">
-          <div>
-            {chatPickerOpen ? (
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <Select value={selectedSpaceName} onValueChange={setSelectedSpaceName}>
-                  <SelectTrigger
-                    className="min-w-0 flex-1 bg-surface-raised"
-                    aria-label={t("sources.chat_space_label")}
-                  >
-                    <SelectValue placeholder={t("sources.chat_space_placeholder")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {chatSpaces.map((space) => (
-                      <SelectItem key={space.name} value={space.name}>
-                        {space.displayName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <button
-                  type="button"
-                  disabled={!selectedSpace}
-                  onClick={() => {
-                    if (!selectedSpace) return;
-                    addCandidates([
-                      {
-                        id: `chat:${selectedSpace.name}`,
-                        kind: "google-chat-space",
-                        title: selectedSpace.displayName,
-                        url: `https://mail.google.com/chat/u/0/#chat/space/${selectedSpace.name.slice("spaces/".length)}`,
-                        externalId: selectedSpace.name,
-                      },
-                    ]);
-                    setSelectedSpaceName("");
-                  }}
-                  className="rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
-                >
-                  {t("sources.stage_chat_space")}
-                </button>
-              </div>
-            ) : null}
-            {candidates.length > 0 ? (
-              <ul className="mt-4 divide-y divide-border-subtle rounded-md border border-border-default">
-                {candidates.map((candidate) => (
-                  <li key={candidate.id} className="flex items-start gap-3 px-3 py-2">
-                    {candidate.kind === "google-drive" ? (
-                      <FileText className="mt-0.5 size-4 shrink-0" />
-                    ) : (
-                      <MessageSquare className="mt-0.5 size-4 shrink-0" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-content-primary">
-                        {candidate.title}
-                      </p>
-                      <a
-                        href={candidate.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block truncate text-xs text-action-primary hover:underline"
-                      >
-                        {candidate.url}
-                      </a>
-                      {candidateErrors[candidate.id] ? (
-                        <p className="mt-1 text-xs text-feedback-danger-foreground">
-                          {t(`sources.error_${candidateErrors[candidate.id]}`, {
-                            defaultValue: t("sources.error_generic"),
-                          })}
-                        </p>
-                      ) : null}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeCandidate(candidate.id)}
-                      className="rounded p-1 text-content-tertiary hover:bg-surface-hover"
-                      aria-label={t("sources.remove_candidate", { title: candidate.title })}
+        <div>
+          {candidates.length > 0 ? (
+            <ul className="mt-4 divide-y divide-border-subtle rounded-md border border-border-default">
+              {candidates.map((candidate) => (
+                <li key={candidate.id} className="flex items-start gap-3 px-3 py-2">
+                  {candidate.kind === "google-drive" ? (
+                    <FileText className="mt-0.5 size-4 shrink-0" />
+                  ) : (
+                    <MessageSquare className="mt-0.5 size-4 shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-content-primary">
+                      {candidate.title}
+                    </p>
+                    <a
+                      href={candidate.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block truncate text-xs text-action-primary hover:underline"
                     >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            {needsDriveConnection ? (
-              <div className="mt-3 flex items-center gap-3 rounded-md border border-border-default bg-surface-sunken p-3 text-sm">
-                <span>{t("sources.connect_hint")}</span>
-                <button
-                  type="button"
-                  onClick={connectGoogleDrive}
-                  className="font-medium text-action-primary hover:text-action-primary-hover"
-                >
-                  {t("sources.connect_google_drive")}
-                </button>
-              </div>
-            ) : null}
-            {pickerError ? (
-              <p className="mt-2 text-sm text-feedback-danger-foreground">{pickerError}</p>
-            ) : null}
-            {needsChatReauth ? (
-              <div className="mt-3 flex items-center gap-3 rounded-md border border-feedback-warning-border bg-feedback-warning-surface p-3 text-sm text-feedback-warning-foreground">
-                <span>{t("sources.chat_reauth_hint")}</span>
-                <button
-                  type="button"
-                  onClick={connectGoogleDrive}
-                  className="font-medium text-action-primary hover:text-action-primary-hover"
-                >
-                  {t("sources.connect_google_drive")}
-                </button>
-              </div>
-            ) : null}
-            {chatError ? (
-              <p className="mt-2 text-sm text-feedback-danger-foreground">{chatError}</p>
-            ) : null}
-            {batchFetcher.data?.ok &&
-            "failed" in batchFetcher.data &&
-            batchFetcher.data.failed?.length ? (
-              <p className="mt-2 text-sm text-feedback-danger-foreground">
-                {t("sources.batch_partial_failure")}
-              </p>
-            ) : null}
-            {batchFetcher.data && !batchFetcher.data.ok ? (
-              <p className="mt-2 text-sm text-feedback-danger-foreground">
-                {t(`sources.error_${batchFetcher.data.error}`, {
-                  defaultValue: t("sources.error_generic"),
-                })}
-              </p>
-            ) : null}
-          </div>
-        </MotionSwap>
+                      {candidate.url}
+                    </a>
+                    {candidateErrors[candidate.id] ? (
+                      <p className="mt-1 text-xs text-feedback-danger-foreground">
+                        {t(`sources.error_${candidateErrors[candidate.id]}`, {
+                          defaultValue: t("sources.error_generic"),
+                        })}
+                      </p>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeCandidate(candidate.id)}
+                    className="rounded p-1 text-content-tertiary hover:bg-surface-hover"
+                    aria-label={t("sources.remove_candidate", { title: candidate.title })}
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {needsDriveConnection ? (
+            <div className="mt-3 flex items-center gap-3 rounded-md border border-border-default bg-surface-sunken p-3 text-sm">
+              <span>{t("sources.connect_hint")}</span>
+              <button
+                type="button"
+                onClick={connectGoogleDrive}
+                className="font-medium text-action-primary hover:text-action-primary-hover"
+              >
+                {t("sources.connect_google_drive")}
+              </button>
+            </div>
+          ) : null}
+          {pickerError ? (
+            <p className="mt-2 text-sm text-feedback-danger-foreground">{pickerError}</p>
+          ) : null}
+          {needsChatReauth ? (
+            <div className="mt-3 flex items-center gap-3 rounded-md border border-feedback-warning-border bg-feedback-warning-surface p-3 text-sm text-feedback-warning-foreground">
+              <span>{t("sources.chat_reauth_hint")}</span>
+              <button
+                type="button"
+                onClick={connectGoogleDrive}
+                className="font-medium text-action-primary hover:text-action-primary-hover"
+              >
+                {t("sources.connect_google_drive")}
+              </button>
+            </div>
+          ) : null}
+          {chatError ? (
+            <p className="mt-2 text-sm text-feedback-danger-foreground">{chatError}</p>
+          ) : null}
+          {batchFetcher.data?.ok &&
+          "failed" in batchFetcher.data &&
+          batchFetcher.data.failed?.length ? (
+            <p className="mt-2 text-sm text-feedback-danger-foreground">
+              {t("sources.batch_partial_failure")}
+            </p>
+          ) : null}
+          {batchFetcher.data && !batchFetcher.data.ok ? (
+            <p className="mt-2 text-sm text-feedback-danger-foreground">
+              {t(`sources.error_${batchFetcher.data.error}`, {
+                defaultValue: t("sources.error_generic"),
+              })}
+            </p>
+          ) : null}
+        </div>
       </section>
 
       {sources.length === 0 ? (
