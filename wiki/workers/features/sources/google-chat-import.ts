@@ -15,6 +15,7 @@ import {
   logGoogleChatMessagesListError,
   mergeDocumentUrls,
   normalizeChatMessages,
+  splitMarkdownByUtf8Bytes,
   warnGoogleChat,
   weekBoundsRfc3339,
   weekPathFromCreateTime,
@@ -35,6 +36,9 @@ import { persistSourceDocument, sha256Hex } from "./persist";
 import { ATTACHMENT_PARALLELISM } from "./subrequest-budget";
 
 export const CHAT_PAGE_SIZE = 100;
+export const MAX_CHAT_DOCUMENT_BYTES = 4 * 1024 * 1024;
+const CHAT_RENDER_BATCH_SIZE = 20;
+const CHAT_PART_CONTINUATION = "## (continued)\n\n";
 const CHAT_TIMEOUT_MS = 30_000;
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 /** Unconfigured senders flushed to D1 per subrequest batch. */
@@ -157,6 +161,7 @@ async function stepListing(ctx: ChatImportTickContext, current: Current): Promis
     }
     const page = (await response.json()) as { messages?: ChatMessage[]; nextPageToken?: string };
     const messages = page.messages ?? [];
+    const pageBytes = new TextEncoder().encode(JSON.stringify({ messages })).byteLength;
     const pageIndex = Number(metaGet(ctx.sql, "pages_fetched") ?? "0");
     const r2Key = `raw/${current.source.id}/chat-runs/${ctx.runId}/pages/${pageIndex}.json`;
 
@@ -183,12 +188,18 @@ async function stepListing(ctx: ChatImportTickContext, current: Current): Promis
       "messages_fetched",
       String(Number(metaGet(ctx.sql, "messages_fetched") ?? "0") + messages.length),
     );
+    metaSet(
+      ctx.sql,
+      "max_page_bytes",
+      String(Math.max(Number(metaGet(ctx.sql, "max_page_bytes") ?? "0"), pageBytes)),
+    );
 
     log("page_stored", {
       sourceId: current.source.id,
       runId: ctx.runId,
       pageIndex,
       messages: messages.length,
+      pageBytes,
       subrequests: ctx.budget.spent,
     });
 
@@ -560,46 +571,6 @@ async function downloadAttachment(
 }
 
 async function stepGrouping(ctx: ChatImportTickContext, current: Current): Promise<StepOutcome> {
-  if (metaGet(ctx.sql, "weeks_flushed") !== "1") {
-    const weekPaths = ctx.sql
-      .exec<{ week_path: string }>(
-        "SELECT DISTINCT week_path FROM week_messages ORDER BY week_path",
-      )
-      .toArray();
-    let sortIndex = Number(metaGet(ctx.sql, "weeks_flush_index") ?? "0");
-    while (sortIndex < weekPaths.length) {
-      if (!ctx.budget.canSpend(1)) {
-        metaSet(ctx.sql, "weeks_flush_index", String(sortIndex));
-        return { phaseComplete: false };
-      }
-      const weekPath = weekPaths[sortIndex]?.week_path;
-      if (!weekPath) break;
-      const messages = ctx.sql
-        .exec<{ message_json: string }>(
-          `SELECT message_json FROM week_messages
-           WHERE week_path = ? ORDER BY thread_name, create_time, id`,
-          weekPath,
-        )
-        .toArray()
-        .map((row) => JSON.parse(row.message_json) as ChatMessage);
-      const r2Key = `raw/${current.source.id}/chat-runs/${ctx.runId}/weeks/${weekPath}.json`;
-      ctx.budget.spend(1);
-      await ctx.env.BUCKET.put(r2Key, JSON.stringify({ messages }), {
-        httpMetadata: { contentType: "application/json" },
-      });
-      ctx.sql.exec(
-        `INSERT INTO week_documents (week_path, r2_key, sort_index) VALUES (?, ?, ?)
-         ON CONFLICT(week_path) DO UPDATE SET r2_key = excluded.r2_key, sort_index = excluded.sort_index`,
-        weekPath,
-        r2Key,
-        sortIndex,
-      );
-      sortIndex += 1;
-      metaSet(ctx.sql, "weeks_flush_index", String(sortIndex));
-    }
-    metaSet(ctx.sql, "weeks_flushed", "1");
-  }
-
   if (metaGet(ctx.sql, "parents_done") !== "1") {
     const token = requireAccessToken(ctx);
     const missing = ctx.sql
@@ -693,16 +664,11 @@ async function regenerateTouchedWeeks(
 
 async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Promise<StepOutcome> {
   const weeks = ctx.sql
-    .exec<{ week_path: string; r2_key: string; sort_index: number }>(
-      "SELECT week_path, r2_key, sort_index FROM week_documents ORDER BY sort_index",
-    )
+    .exec<{ week_path: string }>("SELECT DISTINCT week_path FROM week_messages ORDER BY week_path")
     .toArray();
   let weeksDone = Number(metaGet(ctx.sql, "weeks_done") ?? "0");
   const incremental = Boolean(current.run.sinceCursor);
   const persistCost = incremental ? PERSIST_MERGE_SUBREQUESTS : PERSIST_REPLACE_SUBREQUESTS;
-  // R2 get week + persist. Sender samples are flushed in stepSenders; Markdown
-  // always uses placeholders (BOT names from DO senders only).
-  const weekUnitCost = 1 + persistCost;
 
   const senderNames = new Map(
     ctx.sql
@@ -749,62 +715,153 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
   );
 
   while (weeksDone < weeks.length) {
-    if (!ctx.budget.canSpend(weekUnitCost)) return { phaseComplete: false };
     const week = weeks[weeksDone];
     if (!week) break;
+    const weekPath = week.week_path;
+    let rowOffset = Number(metaGet(ctx.sql, `week_row_offset:${weekPath}`) ?? "0");
+    let partIndex = Number(metaGet(ctx.sql, `week_part_index:${weekPath}`) ?? "1");
+    let markdown = "";
+    let cursor: string | null = null;
+    const urls = new Set<string>();
+    const assets = new Map<string, ResolvedSourceAsset>();
 
-    ctx.budget.spend(1);
-    const object = await ctx.env.BUCKET.get(week.r2_key);
-    if (!object) throw new Error(`Missing Chat import week object: ${week.r2_key}`);
-    const body = (await object.json()) as { messages?: ChatMessage[] };
-    const [normalized] = normalizeChatMessages(body.messages ?? [], {
-      resolveSenderName: (sender) =>
-        (sender?.name ? senderNames.get(sender.name) : undefined) ?? defaultSenderName(sender),
-      threadParents,
-    });
-    if (!normalized) {
-      weeksDone += 1;
-      metaSet(ctx.sql, "weeks_done", String(weeksDone));
-      continue;
-    }
+    const persistPart = async (
+      body: string,
+      endOffset: number,
+      checkpoint = true,
+    ): Promise<boolean> => {
+      if (!ctx.budget.canSpend(persistCost)) return false;
+      const path = pathForMediaType(
+        `${weekPath}/part-${String(partIndex).padStart(3, "0")}`,
+        MARKDOWN_MEDIA_TYPE,
+      );
+      const weekEnd = new Date(`${weekPath}T00:00:00Z`);
+      weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+      ctx.budget.spend(persistCost);
+      await persistSourceDocument(ctx.env, {
+        sourceId: current.source.id,
+        fetchAttemptId: current.run.fetchAttemptId,
+        path,
+        title: `${weekPath} – ${weekEnd.toISOString().slice(0, 10)} (Part ${partIndex})`,
+        body: markdownBody(body),
+        mediaType: MARKDOWN_MEDIA_TYPE,
+        cursor,
+        metadata: mergeDocumentUrls(null, [...urls]),
+        assets: [...assets.values()],
+        assetPolicy: incremental ? "merge" : "replace",
+      });
+      ctx.sql.exec(
+        `INSERT INTO chat_documents (week_path, path, sort_index) VALUES (?, ?, ?)
+         ON CONFLICT(path) DO UPDATE SET
+           week_path = excluded.week_path,
+           sort_index = excluded.sort_index`,
+        weekPath,
+        path,
+        weeksDone * 10_000 + partIndex,
+      );
+      if (checkpoint) metaSet(ctx.sql, `week_row_offset:${weekPath}`, String(endOffset));
+      partIndex += 1;
+      metaSet(ctx.sql, `week_part_index:${weekPath}`, String(partIndex));
+      metaSet(
+        ctx.sql,
+        "max_part_bytes",
+        String(
+          Math.max(
+            Number(metaGet(ctx.sql, "max_part_bytes") ?? "0"),
+            new TextEncoder().encode(body).byteLength,
+          ),
+        ),
+      );
+      return true;
+    };
 
-    let markdown = normalized.markdown;
-    const metadata = mergeDocumentUrls(null, normalized.urls);
-    const cursor = normalized.cursor;
-    const path = pathForMediaType(normalized.path, MARKDOWN_MEDIA_TYPE);
-    const assets: ResolvedSourceAsset[] = [];
-
-    for (const item of normalized.attachments) {
-      const asset = assetsByObjectId.get(item.objectId);
-      if (asset) {
-        assets.push(asset);
-        markdown = markdown.replaceAll(`attachment:${item.objectId}`, asset.path);
+    while (true) {
+      const rows = ctx.sql
+        .exec<{ message_json: string }>(
+          `SELECT message_json FROM week_messages WHERE week_path = ?
+           ORDER BY create_time, id LIMIT ? OFFSET ?`,
+          weekPath,
+          CHAT_RENDER_BATCH_SIZE,
+          rowOffset,
+        )
+        .toArray();
+      if (rows.length === 0) {
+        if (markdown && !(await persistPart(markdown, rowOffset))) return { phaseComplete: false };
+        weeksDone += 1;
+        metaSet(ctx.sql, "weeks_done", String(weeksDone));
+        break;
+      }
+      const [normalized] = normalizeChatMessages(
+        rows.map((row) => JSON.parse(row.message_json) as ChatMessage),
+        {
+          resolveSenderName: (sender) =>
+            (sender?.name ? senderNames.get(sender.name) : undefined) ?? defaultSenderName(sender),
+          threadParents,
+        },
+      );
+      const nextOffset = rowOffset + rows.length;
+      if (!normalized) {
+        rowOffset = nextOffset;
         continue;
       }
-      if (skippedObjectIds.has(item.objectId)) {
-        const contentName = skippedNames.get(item.objectId) ?? item.contentName;
-        markdown = markdown
-          .replaceAll(`![${contentName}](attachment:${item.objectId})`, "")
-          .replaceAll(`[${contentName}](attachment:${item.objectId})`, contentName);
+      let block = normalized.markdown;
+      const blockAssets = new Map<string, ResolvedSourceAsset>();
+      for (const item of normalized.attachments) {
+        const asset = assetsByObjectId.get(item.objectId);
+        if (asset) {
+          blockAssets.set(asset.r2Key, asset);
+          block = block.replaceAll(`attachment:${item.objectId}`, asset.path);
+        } else if (skippedObjectIds.has(item.objectId)) {
+          const contentName = skippedNames.get(item.objectId) ?? item.contentName;
+          block = block
+            .replaceAll(`![${contentName}](attachment:${item.objectId})`, "")
+            .replaceAll(`[${contentName}](attachment:${item.objectId})`, contentName);
+        }
       }
+      const candidate = markdown ? `${markdown}\n\n${block}` : block;
+      if (new TextEncoder().encode(candidate).byteLength <= MAX_CHAT_DOCUMENT_BYTES) {
+        markdown = candidate;
+        for (const [key, asset] of blockAssets) assets.set(key, asset);
+        for (const url of normalized.urls) urls.add(url);
+        if (!cursor || (normalized.cursor && normalized.cursor > cursor)) {
+          cursor = normalized.cursor;
+        }
+        rowOffset = nextOffset;
+        continue;
+      }
+      if (markdown) {
+        if (!(await persistPart(markdown, rowOffset))) return { phaseComplete: false };
+        // Start the next part from this batch on the next alarm. This makes a
+        // checkpoint durable without ever serializing a week-sized buffer.
+        return { phaseComplete: false };
+      }
+      for (const [key, asset] of blockAssets) assets.set(key, asset);
+      for (const url of normalized.urls) urls.add(url);
+      if (!cursor || (normalized.cursor && normalized.cursor > cursor)) {
+        cursor = normalized.cursor;
+      }
+      const continuationBytes = new TextEncoder().encode(CHAT_PART_CONTINUATION).byteLength;
+      const pieces = splitMarkdownByUtf8Bytes(
+        block,
+        MAX_CHAT_DOCUMENT_BYTES - continuationBytes,
+      ).map((piece, index) => (index === 0 ? piece : `${CHAT_PART_CONTINUATION}${piece}`));
+      const oversizedPieceKey = `week_oversized_piece:${weekPath}`;
+      let pieceIndex = Number(metaGet(ctx.sql, oversizedPieceKey) ?? "0");
+      while (pieceIndex < pieces.length) {
+        const piece = pieces[pieceIndex];
+        if (!piece) break;
+        const isLastPiece = pieceIndex === pieces.length - 1;
+        markdown = piece;
+        if (!(await persistPart(markdown, isLastPiece ? nextOffset : rowOffset, isLastPiece))) {
+          return { phaseComplete: false };
+        }
+        pieceIndex += 1;
+        metaSet(ctx.sql, oversizedPieceKey, String(pieceIndex));
+      }
+      ctx.sql.exec("DELETE FROM meta WHERE key = ?", oversizedPieceKey);
+      markdown = "";
+      rowOffset = nextOffset;
     }
-
-    ctx.budget.spend(persistCost);
-    await persistSourceDocument(ctx.env, {
-      sourceId: current.source.id,
-      fetchAttemptId: current.run.fetchAttemptId,
-      path,
-      title: normalized.title,
-      body: markdownBody(markdown),
-      mediaType: MARKDOWN_MEDIA_TYPE,
-      cursor,
-      metadata: metadata ?? JSON.stringify({ urls: normalized.urls }),
-      assets,
-      assetPolicy: incremental ? "merge" : "replace",
-    });
-
-    weeksDone += 1;
-    metaSet(ctx.sql, "weeks_done", String(weeksDone));
   }
 
   if (weeksDone < weeks.length) return { phaseComplete: false };
@@ -816,13 +873,13 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
 }
 
 async function completeImport(ctx: ChatImportTickContext, current: Current): Promise<void> {
-  const weeks = ctx.sql
-    .exec<{ week_path: string }>("SELECT week_path FROM week_documents")
+  const documents = ctx.sql
+    .exec<{ week_path: string; path: string }>("SELECT week_path, path FROM chat_documents")
     .toArray()
-    .map((row) => pathForMediaType(row.week_path, MARKDOWN_MEDIA_TYPE));
+    .map((row) => ({ weekPath: row.week_path, path: row.path }));
 
   const incremental = Boolean(current.run.sinceCursor);
-  let retainedPaths = weeks;
+  let retainedPaths = documents.map((row) => row.path);
   if (incremental) {
     ctx.budget.spend(1);
     const existing = await current.db
@@ -835,7 +892,24 @@ async function completeImport(ctx: ChatImportTickContext, current: Current): Pro
         ),
       )
       .all();
-    retainedPaths = [...new Set([...existing.map((row) => row.path), ...weeks])];
+    const touchedWeeks = new Set(
+      ctx.sql
+        .exec<{ week_path: string }>("SELECT week_path FROM touched_weeks")
+        .toArray()
+        .map((row) => row.week_path),
+    );
+    const isTouchedChatPart = (path: string) =>
+      [...touchedWeeks].some(
+        (weekPath) =>
+          path === pathForMediaType(weekPath, MARKDOWN_MEDIA_TYPE) ||
+          path.startsWith(`${weekPath}/`),
+      );
+    retainedPaths = [
+      ...new Set([
+        ...existing.map((row) => row.path).filter((path) => !isTouchedChatPart(path)),
+        ...retainedPaths,
+      ]),
+    ];
   }
 
   ctx.budget.spend(ARCHIVE_MISSING_SUBREQUESTS);
@@ -876,7 +950,10 @@ async function completeImport(ctx: ChatImportTickContext, current: Current): Pro
     runId: ctx.runId,
     pages: Number(metaGet(ctx.sql, "pages_fetched") ?? "0"),
     messages: Number(metaGet(ctx.sql, "messages_fetched") ?? "0"),
-    weeks: weeks.length,
+    weeks: new Set(documents.map((row) => row.weekPath)).size,
+    parts: documents.length,
+    maxPageBytes: Number(metaGet(ctx.sql, "max_page_bytes") ?? "0"),
+    maxPartBytes: Number(metaGet(ctx.sql, "max_part_bytes") ?? "0"),
     subrequests: ctx.budget.spent,
   });
 }
@@ -911,10 +988,6 @@ async function deleteRunTempObjects(ctx: ChatImportTickContext, sourceId: string
   const keys = [
     ...ctx.sql
       .exec<{ r2_key: string }>("SELECT r2_key FROM pages")
-      .toArray()
-      .map((r) => r.r2_key),
-    ...ctx.sql
-      .exec<{ r2_key: string }>("SELECT r2_key FROM week_documents")
       .toArray()
       .map((r) => r.r2_key),
   ];
