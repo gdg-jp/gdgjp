@@ -22,6 +22,21 @@ describe("resolveDriveFileId", () => {
       "legacy-file-id",
     );
   });
+
+  it("removes trailing punctuation from a legacy external ID", () => {
+    expect(
+      resolveDriveFileId(
+        "https://example.com/legacy",
+        "1aBF_s3AhUjNk2lejI1qsP59IW5XnipWpK_TwN9A12uw.",
+      ),
+    ).toBe("1aBF_s3AhUjNk2lejI1qsP59IW5XnipWpK_TwN9A12uw");
+  });
+
+  it("rejects malformed legacy external IDs instead of sending them to Google", () => {
+    expect(() => resolveDriveFileId("https://example.com/legacy", "bad/id")).toThrow(
+      "Could not resolve Google Drive file ID",
+    );
+  });
 });
 
 describe("spreadsheetUnitDescriptors", () => {
