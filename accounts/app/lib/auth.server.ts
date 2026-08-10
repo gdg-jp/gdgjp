@@ -13,6 +13,11 @@ export const OAUTH_STATE_STORAGE = "cookie" as const;
 // Do not let one stuck D1 request turn a persistent browser cookie into an
 // indefinitely pending navigation.
 export const SESSION_LOOKUP_TIMEOUT_MS = 5_000;
+// Bounds auth.handler / auth.api entry points (Google token exchange + D1 writes).
+export const AUTH_HANDLER_TIMEOUT_MS = 10_000;
+// Cloudflare always sets cf-connecting-ip as a single value; prefer it over
+// multi-hop x-forwarded-for so rate-limit keys do not collapse to no-trusted-ip.
+export const AUTH_IP_ADDRESS_HEADERS = ["cf-connecting-ip", "x-forwarded-for"] as const;
 
 type AuthInstance = ReturnType<typeof buildAuth>;
 
@@ -24,6 +29,21 @@ export function getAuth(env: Env): AuthInstance {
   const instance = buildAuth(env);
   cached = { instance, env };
   return instance;
+}
+
+/** Drop a stalled betterAuth() instance so the next request rebuilds `$context`. */
+export function invalidateAuthCache(): void {
+  cached = null;
+}
+
+/**
+ * Kick `$context` init (including the kysely dynamic import) under waitUntil so
+ * client abort cannot leave the module-scoped init promise permanently pending.
+ */
+export function warmAuth(env: Env): Promise<void> {
+  return getAuth(env)
+    .$context.then(() => undefined)
+    .catch(() => {});
 }
 
 export function getSessionUser(env: Env, request: Request): Promise<AuthUser | null> {
@@ -40,7 +60,11 @@ async function loadSessionUser(env: Env, request: Request): Promise<AuthUser | n
     getAuth(env).api.getSession({ headers: request.headers }),
     SESSION_LOOKUP_TIMEOUT_MS,
   ).catch((error: unknown) => {
-    if (error instanceof SessionLookupTimeoutError) return null;
+    if (error instanceof SessionLookupTimeoutError) {
+      invalidateAuthCache();
+      console.warn("Session lookup exceeded timeout; invalidated auth cache");
+      return null;
+    }
     throw error;
   });
   if (!session) return null;
@@ -69,6 +93,38 @@ export function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promis
   return Promise.race([operation, deadline]).finally(() => {
     if (timeout !== undefined) clearTimeout(timeout);
   });
+}
+
+export function authUnavailableResponse(): Response {
+  return new Response("Service Temporarily Unavailable", {
+    status: 503,
+    headers: { "Retry-After": "5" },
+  });
+}
+
+/**
+ * Run an auth promise with a hard deadline. On timeout, invalidate the cached
+ * betterAuth instance so the next request can rebuild a healthy `$context`.
+ */
+export async function withAuthTimeout<T>(operation: Promise<T>, onTimeout: () => T): Promise<T> {
+  try {
+    return await withTimeout(operation, AUTH_HANDLER_TIMEOUT_MS);
+  } catch (error) {
+    if (error instanceof SessionLookupTimeoutError) {
+      invalidateAuthCache();
+      console.warn("Auth operation exceeded timeout; invalidated auth cache");
+      return onTimeout();
+    }
+    throw error;
+  }
+}
+
+export function runAuthHandler(
+  env: Env,
+  request: Request,
+  onTimeout: () => Response = authUnavailableResponse,
+): Promise<Response> {
+  return withAuthTimeout(getAuth(env).handler(request), onTimeout);
 }
 
 export async function requireUser(env: Env, request: Request): Promise<AuthUser> {
@@ -100,6 +156,7 @@ function buildAuth(env: Env) {
     advanced: {
       cookiePrefix: "gdgjp-accounts",
       database: { generateId: "uuid" },
+      ipAddress: { ipAddressHeaders: [...AUTH_IP_ADDRESS_HEADERS] },
     },
     user: {
       fields: {
