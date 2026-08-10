@@ -1,8 +1,13 @@
-import { getAuth } from "~/lib/auth.server";
+import { buildSignInRedirect } from "~/lib/auth-redirect";
+import { runAuthHandler } from "~/lib/auth.server";
 import type { Route } from "./+types/authorize";
 
 export function loader({ request, context }: Route.LoaderArgs) {
-  return getAuth(context.cloudflare.env).handler(rewrite(request, "/api/auth/oauth2/authorize"));
+  return runAuthHandler(
+    context.cloudflare.env,
+    rewrite(request, "/api/auth/oauth2/authorize"),
+    () => buildSignInRedirect(request),
+  );
 }
 
 function rewrite(request: Request, pathname: string): Request {

@@ -1,6 +1,6 @@
-import { redirectDocument } from "react-router";
+import { redirect, redirectDocument } from "react-router";
 import { safeReturnTo } from "~/lib/auth-redirect";
-import { getAuth } from "~/lib/auth.server";
+import { getAuth, withAuthTimeout } from "~/lib/auth.server";
 import type { Route } from "./+types/oauth.google.start";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
@@ -10,11 +10,16 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   // oauth-provider's pre-login middleware consumes this signed continuation
   // value before Better Auth validates the core social-sign-in body.
   const body = { provider: "google" as const, callbackURL, oauth_query: oauthQuery };
-  const response = await getAuth(context.cloudflare.env).api.signInSocial({
-    headers: request.headers,
-    body,
-    asResponse: true,
-  });
+  const response = await withAuthTimeout(
+    getAuth(context.cloudflare.env).api.signInSocial({
+      headers: request.headers,
+      body,
+      asResponse: true,
+    }),
+    // Preserve the caller's original return_to. Using this route's own URL
+    // would nest it inside a second return_to and restart the Google hop.
+    () => redirect(`/signin?return_to=${encodeURIComponent(callbackURL)}`),
+  );
   return redirectSocialResponse(response);
 }
 

@@ -1,4 +1,4 @@
-import { getAuth } from "~/lib/auth.server";
+import { getAuth, runAuthHandler } from "~/lib/auth.server";
 import { handleDeveloperOAuthApi } from "~/lib/developer-oauth-api.server";
 import { handleVerifiedEndSession } from "~/lib/legacy-end-session.server";
 import type { Route } from "./+types/api.auth.$";
@@ -6,7 +6,7 @@ import type { Route } from "./+types/api.auth.$";
 export async function loader({ request, context }: Route.LoaderArgs) {
   if (new URL(request.url).pathname === "/api/auth/oauth2/end-session") {
     const auth = getAuth(context.cloudflare.env);
-    const providerResponse = await auth.handler(request);
+    const providerResponse = await runAuthHandler(context.cloudflare.env, request);
     if (providerResponse.status === 500) {
       const recoveryResponse = await handleVerifiedEndSession(
         context.cloudflare.env.DB,
@@ -24,7 +24,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   }
   const developerResponse = await handleDeveloperOAuthApi(context.cloudflare.env, request);
   if (developerResponse) return developerResponse;
-  return getAuth(context.cloudflare.env).handler(request);
+  return runAuthHandler(context.cloudflare.env, request);
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
@@ -33,5 +33,5 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
   const developerResponse = await handleDeveloperOAuthApi(context.cloudflare.env, request);
   if (developerResponse) return developerResponse;
-  return getAuth(context.cloudflare.env).handler(request);
+  return runAuthHandler(context.cloudflare.env, request);
 }

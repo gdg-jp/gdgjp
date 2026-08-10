@@ -1,8 +1,8 @@
-import { getAuth } from "~/lib/auth.server";
+import { runAuthHandler } from "~/lib/auth.server";
 import type { Route } from "./+types/oauth.compat";
 
 export function action({ request, context }: Route.ActionArgs) {
-  return getAuth(context.cloudflare.env).handler(rewrite(request));
+  return runAuthHandler(context.cloudflare.env, rewrite(request));
 }
 
 function rewrite(request: Request): Request {

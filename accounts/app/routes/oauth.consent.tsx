@@ -8,7 +8,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "~/components/ui/card";
 import { SubmitButton } from "~/components/ui/submit-button";
-import { getAuth } from "~/lib/auth.server";
+import { runAuthHandler } from "~/lib/auth.server";
 import { i18n } from "~/lib/i18n/i18n.server";
 import type { Route } from "./+types/oauth.consent";
 
@@ -49,7 +49,8 @@ export async function action({ request, context }: Route.ActionArgs) {
   const accept = form.get("accept") === "true";
   const url = new URL(request.url);
   url.pathname = "/api/auth/oauth2/consent";
-  const response = await getAuth(context.cloudflare.env).handler(
+  const response = await runAuthHandler(
+    context.cloudflare.env,
     new Request(url, {
       method: "POST",
       headers: { cookie: request.headers.get("cookie") ?? "", "content-type": "application/json" },
