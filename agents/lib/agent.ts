@@ -16,6 +16,8 @@ import {
   linkAccountDepsFromEnv,
   unlinkAccount,
 } from "./link-account";
+import { emitInquiryScores, inquiryJudgeMetadata } from "./scores";
+import { type InquirySpan, agentTelemetry, observeInquiry } from "./telemetry";
 import {
   type FetchLike,
   type WikiChapter,
@@ -137,12 +139,15 @@ export function createWikiAgent(options: {
   model?: LanguageModel;
   stopWhenSteps?: number;
   instructions?: string;
+  /** Extra AI SDK telemetry metadata (chapter slugs, model id, …). */
+  telemetryMetadata?: Record<string, string | number | boolean | string[]>;
 }): ToolLoopAgent<never, WikiTools> {
   return new ToolLoopAgent({
     model: options.model ?? defaultAgentModel(),
     instructions: options.instructions ?? SYSTEM_INSTRUCTIONS,
     tools: options.tools,
     stopWhen: stepCountIs(options.stopWhenSteps ?? AGENT_MAX_STEPS),
+    experimental_telemetry: agentTelemetry("wiki-agent", options.telemetryMetadata),
   });
 }
 
@@ -162,6 +167,10 @@ export async function runWikiAgent(input: RunWikiAgentInput): Promise<RunWikiAge
     tools,
     model: input.model,
     stopWhenSteps: input.stopWhenSteps,
+    telemetryMetadata: {
+      chapterSlugs: input.chapters.map((c) => c.chapterSlug),
+      model: env.AGENT_MODEL?.trim() || "gemini-2.5-flash",
+    },
   });
 
   const result =
@@ -356,6 +365,51 @@ export async function handleUnlink(
   return "No linked account was found (or unlink could not complete). You can link again when you ask a question.";
 }
 
+function updateInquirySpanFromOutcome(
+  span: InquirySpan,
+  outcome: InquiryOutcome,
+  judgeMeta?: Record<string, unknown>,
+): void {
+  const attributes: Parameters<InquirySpan["update"]>[0] = {
+    output: outcome.text,
+    ...(judgeMeta ? { metadata: judgeMeta } : {}),
+  };
+  if (outcome.kind === "temporarily_unavailable") {
+    attributes.level = "WARNING";
+    attributes.statusMessage = "account linking temporarily unavailable";
+  } else if (outcome.kind === "needs_relink") {
+    attributes.level = "WARNING";
+    attributes.statusMessage = "wiki link expired or revoked";
+  }
+  span.update(attributes);
+}
+
+async function completeInquiryTurn(input: {
+  span: InquirySpan;
+  platform: ChatPlatform;
+  chatUserId: string;
+  spaceId?: string;
+  question: string;
+  outcome: InquiryOutcome;
+  postReply: (text: string) => Promise<unknown>;
+  deps: HandleInquiryDeps;
+}): Promise<void> {
+  const judgeMeta = inquiryJudgeMetadata(input.outcome);
+  updateInquirySpanFromOutcome(input.span, input.outcome, judgeMeta);
+  await input.postReply(input.outcome.text);
+  await emitInquiryScores(input.outcome);
+  await runFilingPass(
+    {
+      platform: input.platform,
+      chatUserId: input.chatUserId,
+      spaceId: input.spaceId,
+      question: input.question,
+      outcome: input.outcome,
+    },
+    input.deps,
+  );
+}
+
 let handlersRegistered = new WeakSet<AgentsChat>();
 
 /**
@@ -396,30 +450,38 @@ export function registerAgentHandlers(
       if (history.length >= 40) break;
     }
     const aiMessages = await toAiMessages(history.reverse());
+    const env = deps.env ?? defaultEnv();
 
-    const outcome = await handleInquiry(
+    await observeInquiry(
       {
         platform,
         chatUserId,
         spaceId: thread.id,
-        messages: aiMessages as ModelMessage[],
+        sessionScopeId: thread.id,
+        model: env.AGENT_MODEL?.trim() || "gemini-2.5-flash",
       },
-      deps,
-    );
-    await thread.post(outcome.text);
-    // Awaited, not detached: the handler promise is what the Chat SDK hands to
-    // waitUntil/after(), so a detached promise can be cancelled when the
-    // invocation ends. The reply is already posted and runFilingPass swallows
-    // its own errors, so awaiting cannot delay or break the answer.
-    await runFilingPass(
-      {
-        platform,
-        chatUserId,
-        spaceId: thread.id,
-        question: message.text,
-        outcome,
+      async (span) => {
+        span.update({ input: message.text });
+        const outcome = await handleInquiry(
+          {
+            platform,
+            chatUserId,
+            spaceId: thread.id,
+            messages: aiMessages as ModelMessage[],
+          },
+          deps,
+        );
+        await completeInquiryTurn({
+          span,
+          platform,
+          chatUserId,
+          spaceId: thread.id,
+          question: message.text,
+          outcome,
+          postReply: (text) => thread.post(text),
+          deps,
+        });
       },
-      deps,
     );
   };
 
@@ -438,22 +500,47 @@ export function registerAgentHandlers(
       await respond("Unsupported chat platform.");
       return;
     }
-    let outcome: InquiryOutcome;
+    const chatUserId = event.user.userId;
+    const guildId = discordGuildId(event.raw);
+    const channelId = event.channel.id;
+    const env = deps.env ?? defaultEnv();
+
     try {
-      const abortSignal = AbortSignal.timeout(DISCORD_RESPONSE_TIMEOUT_MS);
-      outcome = await withResponseDeadline(
-        handleInquiry(
-          {
+      await observeInquiry(
+        {
+          platform,
+          chatUserId,
+          spaceId: guildId,
+          sessionScopeId: channelId,
+          model: env.AGENT_MODEL?.trim() || "gemini-2.5-flash",
+        },
+        async (span) => {
+          span.update({ input: event.text });
+          const abortSignal = AbortSignal.timeout(DISCORD_RESPONSE_TIMEOUT_MS);
+          const outcome = await withResponseDeadline(
+            handleInquiry(
+              {
+                platform,
+                chatUserId,
+                spaceId: guildId,
+                prompt: event.text,
+                abortSignal,
+              },
+              deps,
+            ),
+          );
+          await completeInquiryTurn({
+            span,
             platform,
-            chatUserId: event.user.userId,
-            spaceId: discordGuildId(event.raw),
-            prompt: event.text,
-            abortSignal,
-          },
-          deps,
-        ),
+            chatUserId,
+            spaceId: guildId,
+            question: event.text,
+            outcome,
+            postReply: respond,
+            deps,
+          });
+        },
       );
-      await respond(outcome.text);
     } catch (error) {
       // Discord has already received a deferred interaction response. Never let
       // an exception (or Vercel's impending timeout) leave it as "thinking".
@@ -463,19 +550,7 @@ export function registerAgentHandlers(
       } catch (postError) {
         console.error("[agents] Failed to resolve Discord /ask interaction:", postError);
       }
-      return;
     }
-    // Awaited for the same reason as in `reply` above.
-    await runFilingPass(
-      {
-        platform,
-        chatUserId: event.user.userId,
-        spaceId: discordGuildId(event.raw),
-        question: event.text,
-        outcome,
-      },
-      deps,
-    );
   });
 
   bot.onSlashCommand(LOGIN_COMMAND, async (event) => {

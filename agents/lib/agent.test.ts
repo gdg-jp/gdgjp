@@ -25,6 +25,7 @@ import {
   type StoredLinkRecord,
   createLinkAuthorizationUrl,
 } from "./link-account";
+import * as telemetry from "./telemetry";
 import { encryptToken, parseTokenEncryptionKeys } from "./token-crypto";
 import { WIKI_INDEX_PATH } from "./tools/wiki";
 
@@ -525,6 +526,45 @@ describe("registerAgentHandlers", () => {
     expect(bot.onDirectMessage).toHaveBeenCalledTimes(1);
     expect(bot.onSlashCommand).toHaveBeenCalledWith(ASK_COMMAND, expect.any(Function));
     expect(bot.onSlashCommand).toHaveBeenCalledWith(LOGIN_COMMAND, expect.any(Function));
+  });
+
+  it("uses Discord channel id for telemetry session and guild id for handleInquiry spaceId", async () => {
+    const observeSpy = vi
+      .spyOn(telemetry, "observeInquiry")
+      .mockImplementation(async (attrs, fn) => {
+        expect(attrs.sessionScopeId).toBe("channel-99");
+        expect(attrs.spaceId).toBe("guild-123");
+        return fn({ update: vi.fn() });
+      });
+
+    const bot = fakeBot();
+    registerAgentHandlers(bot as unknown as AgentsChat, "discord", {
+      link: {
+        env: {
+          IDP_CLIENT_ID: "agents",
+          IDP_CLIENT_SECRET: "secret",
+          ACCOUNTS_URL: "https://accounts.gdgs.jp",
+          TOKEN_ENCRYPTION_KEYS: JSON.stringify({ "1": keyB64(1) }),
+        },
+        redis: createMemoryRedis(),
+        keyring: parseTokenEncryptionKeys(JSON.stringify({ "1": keyB64(1) })),
+      },
+    });
+    const askHandler = bot.onSlashCommand.mock.calls.find(
+      ([command]) => command === ASK_COMMAND,
+    )?.[1];
+    const post = vi.fn().mockResolvedValue(undefined);
+
+    await askHandler({
+      adapter: { name: "discord" },
+      channel: { post, id: "channel-99" },
+      raw: { guild_id: "guild-123" },
+      text: "Where is the next meetup?",
+      user: { userId: "discord-user" },
+    });
+
+    expect(observeSpy).toHaveBeenCalled();
+    observeSpy.mockRestore();
   });
 
   it("replaces Discord's deferred response with an error when /ask fails", async () => {

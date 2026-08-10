@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { startActiveObservation } from "@langfuse/tracing";
 import { type LanguageModel, generateObject } from "ai";
 import { z } from "zod";
 
@@ -11,6 +12,8 @@ import {
 } from "./link-account";
 import { type LinkRedis, createLinkRedis, filingKey, getRedis } from "./redis";
 import { getVerifiedMessageId } from "./request-context";
+import { emitFilingOutcomeScore } from "./scores";
+import { agentTelemetry, isTelemetryEnabled } from "./telemetry";
 import type { FetchLike } from "./tools/wiki";
 import { fetchFilingInstructions, postLogEntry, postNote } from "./wiki-write";
 
@@ -148,7 +151,21 @@ export async function runFilingPass(
   deps: FilingPassDeps = {},
 ): Promise<void> {
   try {
-    await runFilingPassInner(input, deps);
+    if (isTelemetryEnabled()) {
+      await startActiveObservation("file-answer", async (span) => {
+        try {
+          await runFilingPassInner(input, deps);
+        } catch (error) {
+          span.update({
+            level: "ERROR",
+            statusMessage: error instanceof Error ? error.message : "filing pass failed",
+          });
+          throw error;
+        }
+      });
+    } else {
+      await runFilingPassInner(input, deps);
+    }
   } catch {
     // Bookkeeping only — never surface in Chat.
   }
@@ -211,6 +228,7 @@ async function runFilingPassInner(input: FilingPassInput, deps: FilingPassDeps):
           answer: outcome.text,
           citedPaths,
         }),
+        experimental_telemetry: agentTelemetry("filing-decision"),
       });
 
       const value = decision.object;
@@ -258,5 +276,10 @@ async function runFilingPassInner(input: FilingPassInput, deps: FilingPassDeps):
   await postLogEntry(writeCtx, {
     subject: truncateSubject(input.question) || "query",
     lines,
+  });
+
+  await emitFilingOutcomeScore({
+    filedPath,
+    skipReason,
   });
 }

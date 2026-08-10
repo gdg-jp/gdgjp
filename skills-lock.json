@@ -85,6 +85,12 @@
       "skillPath": "skills/generate-synthetic-data/SKILL.md",
       "computedHash": "253b26dc898c4e47e77e8c2939072212f86290a92f06565f8a70505bb49469ae"
     },
+    "langfuse": {
+      "source": "langfuse/skills",
+      "sourceType": "github",
+      "skillPath": "skills/langfuse/SKILL.md",
+      "computedHash": "4392a446a082b673da56fd11f731d9e921c1205400500eb65e403bdd69f5138a"
+    },
     "validate-evaluator": {
       "source": "hamelsmu/evals-skills",
       "sourceType": "github",

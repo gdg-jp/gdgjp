@@ -4,6 +4,7 @@ import { getAgentsChat } from "@/lib/adapters";
 import { registerAgentHandlers } from "@/lib/agent";
 import { getReplayStore } from "@/lib/redis";
 import { runWithAgentRequestContext } from "@/lib/request-context";
+import { flushTelemetry } from "@/lib/telemetry";
 import { type ReplayStore, verifyWebhook } from "@/lib/verify";
 
 export const runtime = "nodejs";
@@ -64,9 +65,17 @@ export async function POST(request: Request): Promise<Response> {
     body: rawBody,
   });
 
+  // Flush must live in the same after() as waitUntil work — never a separate
+  // after() registration that depends on registration order.
   const webhookOptions = {
     waitUntil: (task: Promise<unknown>) => {
-      after(() => task);
+      after(async () => {
+        try {
+          await task;
+        } finally {
+          await flushTelemetry();
+        }
+      });
     },
   };
 

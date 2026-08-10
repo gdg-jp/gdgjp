@@ -81,6 +81,11 @@ Google Chat has no Chat SDK slash-command surface; members type `/unlink` as a m
 | `TOKEN_ENCRYPTION_KEYS` | AES-256-GCM keyring JSON (see below) |
 | `GOOGLE_VERTEX_API_KEY` | Vertex AI Gemini API key (kept server-side; requires Vertex AI API access) |
 | `AGENT_MODEL` | Optional Vertex Gemini model id (default `gemini-2.5-flash`) |
+| `LANGFUSE_PUBLIC_KEY` | Langfuse public key (omit both Langfuse keys to disable telemetry) |
+| `LANGFUSE_SECRET_KEY` | Langfuse secret key (Secret) |
+| `LANGFUSE_BASE_URL` | Langfuse region base — `https://jp.cloud.langfuse.com` (Tokyo). Silently defaults to the EU region when unset |
+| `LANGFUSE_TRACING_ENVIRONMENT` | `development` or `production` |
+| `TELEMETRY_ID_SALT` | HMAC salt for Chat user/space ids (Secret; unset → ids become `anon`) |
 
 Also required on accounts.gdgs.jp (not Vercel): `AGENTS_CLIENT_SECRET`, then
 `POST /admin/seed-clients` after deploy so redirect URI
@@ -116,7 +121,40 @@ Never log decrypted tokens or the keyring.
    - `https://agent.gdgs.jp/api/chat` rejects unsigned POSTs with 401
    - `https://agent.gdgs.jp/auth/callback` serves the linking result page
 
-## 7. Smoke checklist
+## 7. Langfuse (LLM observability)
+
+Tracing and online evaluation. If `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` are unset, the
+agent runs with telemetry fully disabled (CI and local default).
+
+1. **Pick the region first — sign up at <https://jp.cloud.langfuse.com> (Tokyo, ap-northeast-1).**
+   Langfuse Cloud regions are fully isolated: separate accounts, separate data, separate API keys.
+   A key issued in one region will not authenticate against another, and the SDK falls back to the
+   **EU** region (`https://cloud.langfuse.com`) when `LANGFUSE_BASE_URL` is unset — a wrong or
+   missing value fails against the wrong region rather than erroring usefully. Tokyo also keeps
+   trace data in Japan and sits next to the `hnd1` deployment region in `agents/vercel.json`.
+2. Create a Langfuse project (Hobby is enough). Prefer separate **development** and
+   **production** projects, or one project with `LANGFUSE_TRACING_ENVIRONMENT` set per deploy.
+3. Create an API key pair → Vercel / `.env.local`:
+   - `LANGFUSE_PUBLIC_KEY`
+   - `LANGFUSE_SECRET_KEY` (Secret)
+   - `LANGFUSE_BASE_URL` — `https://jp.cloud.langfuse.com`
+   - `LANGFUSE_TRACING_ENVIRONMENT` — `development` locally, `production` on Vercel Production
+4. Generate a random salt for id pseudonymization → `TELEMETRY_ID_SALT` (Secret on Vercel).
+   Without it, `userId` / `sessionId` become the literal `anon` (fail-closed; never raw Chat ids).
+5. In Langfuse → **LLM Connections**, register Google AI Studio (Gemini API key) or Vertex AI
+   for LLM-as-judge evaluators.
+6. Follow [agents-observability.md](./agents-observability.md) to create the three Live
+   Observations evaluators (`citation_grounding`, `intent_satisfaction`, `language_match`) at
+   20% sampling.
+7. Smoke: run one `/ask`, confirm an `answer-inquiry` trace appears after the HTTP response
+   (flush runs inside `after()`), with nested `wiki-agent` / tool spans and deterministic scores.
+   If the trace never shows up, check `LANGFUSE_BASE_URL` first — a missing value sends the data
+   to the EU region, where the key is invalid.
+
+Wiki page bodies are recorded in traces. Keep Langfuse project members aligned with Wiki
+read access.
+
+## 8. Smoke checklist
 
 1. Unlinked Google Chat mention → linking URL; Wiki logs show no `/api/agent/*` request.
 2. Complete OAuth → ask again → answer with wiki page citations.
@@ -129,3 +167,6 @@ Never log decrypted tokens or the keyring.
 8. On Discord, run `/login` as member A in a server, then `/ask` as unlinked member B in the same
    server → B gets an answer using A's link, not a linking prompt.
 9. On Discord, run `/ask` with a question, then repeat 2–6 with that platform’s user id.
+10. With Langfuse keys set: one `/ask` produces an `answer-inquiry` trace, Phase-2 scores, and no raw
+    Chat user ids or OAuth tokens in the payload (see [agents-observability.md](./agents-observability.md)).
+    `VERCEL_GIT_COMMIT_SHA` is supplied automatically on Vercel for release tagging — no configuration needed.
