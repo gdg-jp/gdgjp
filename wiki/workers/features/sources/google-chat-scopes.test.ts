@@ -17,18 +17,19 @@ vi.mock("../../../app/lib/google-drive-token.server", () => ({
 }));
 vi.mock("../../../app/lib/db.server", () => ({ getDb: () => db }));
 vi.mock("../../../app/lib/google-drive.server", () => ({
+  REQUIRED_GOOGLE_CHAT_SCOPES: ["https://www.googleapis.com/auth/chat.messages.readonly"],
   hasRequiredGoogleChatScopes: (scopes: string | null) =>
     Boolean(scopes?.includes("chat.messages.readonly") && scopes.includes("directory.readonly")),
 }));
 
-import { startGoogleChatImport } from "./google-chat-import";
+import { type SourceImportClaimRequest, claimSourceImport, startSourceImport } from "./import/run";
 
 const SOURCE_ID = "scope-source-1";
 
 describe("Google Chat import scope gate", () => {
   beforeEach(() => {
     getTokenRow.mockReset();
-    sqlite.exec("DELETE FROM google_chat_import_runs; DELETE FROM sources;");
+    sqlite.exec("DELETE FROM source_import_runs; DELETE FROM sources;");
     sqlite
       .prepare(
         `INSERT INTO sources (id, kind, url, external_id, title, added_by, status)
@@ -37,12 +38,14 @@ describe("Google Chat import scope gate", () => {
       .run(SOURCE_ID);
   });
 
-  it("stops with error and does not start the DO when scopes are missing", async () => {
+  it("defers the scope check to the resumable tick after starting the DO", async () => {
     getTokenRow.mockResolvedValue({
       accessToken: "token",
       grantedScopes: "https://www.googleapis.com/auth/drive.readonly",
     });
-    const start = vi.fn();
+    const start = vi.fn((request: SourceImportClaimRequest) =>
+      claimSourceImport({} as Env, request).then(Boolean),
+    );
     const source = await db
       .select()
       .from(schema.sources)
@@ -51,14 +54,14 @@ describe("Google Chat import scope gate", () => {
     if (!source) throw new Error("missing source");
 
     await expect(
-      startGoogleChatImport(
-        { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      startSourceImport(
+        { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
         source,
         "attempt-1",
       ),
-    ).rejects.toThrow(GOOGLE_CHAT_REAUTH_MESSAGE);
+    ).resolves.toBe(true);
 
-    expect(start).not.toHaveBeenCalled();
+    expect(start).toHaveBeenCalledOnce();
   });
 });
 

@@ -138,6 +138,7 @@ type SourcesManifestEntry struct {
 	Title        string  `json:"title"`
 	Path         string  `json:"path"`
 	ContentHash  string  `json:"contentHash"`
+	MediaType    *string `json:"mediaType"`
 	CapturedAt   *int64  `json:"capturedAt"`
 	IngestedHash *string `json:"ingestedHash"`
 }

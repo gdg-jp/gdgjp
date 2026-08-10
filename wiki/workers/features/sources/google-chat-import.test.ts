@@ -2,7 +2,8 @@ import { DatabaseSync } from "node:sqlite";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../../../app/db/schema";
-import { ensureChatImportDoSchema } from "./google-chat-import-do-store";
+import { GOOGLE_CHAT_REAUTH_MESSAGE } from "./google-chat";
+import { ensureSourceImportDoSchema } from "./import/do-store";
 import { createSourcesTestDb } from "./test-db";
 
 const { db, sqlite, setAfterExecute } = createSourcesTestDb();
@@ -16,16 +17,22 @@ vi.mock("../../../app/lib/google-drive-token.server", () => ({
   }),
 }));
 vi.mock("../../../app/lib/google-drive.server", () => ({
+  GOOGLE_DRIVE_REAUTH_MESSAGE: "Reconnect Google Drive",
   hasRequiredGoogleChatScopes: () => true,
+  REQUIRED_GOOGLE_CHAT_SCOPES: ["google-chat"],
 }));
 
+import { getGoogleDriveTokenRow } from "../../../app/lib/google-drive-token.server";
 import {
   ACCESS_TOKEN_SUBREQUESTS,
   CURRENT_RUN_SUBREQUESTS,
-  advanceChatImportTick,
-  failChatImportRun,
-  startGoogleChatImport,
-} from "./google-chat-import";
+  type SourceImportClaimRequest,
+  claimSourceImport,
+  failSourceImportRun,
+  startSourceImport,
+} from "./import/run";
+import { advanceSourceImportTick } from "./import/tick";
+import { SourceAuthorizationError } from "./retry-classification";
 import { SubrequestBudget } from "./subrequest-budget";
 
 const SOURCE_ID = "chat-source-1";
@@ -52,7 +59,7 @@ function memorySql(): SqlStorage {
           },
         };
       }
-      // Multi-statement schema bootstrap from ensureChatImportDoSchema.
+      // Multi-statement schema bootstrap from ensureSourceImportDoSchema.
       if (query.includes("CREATE TABLE")) {
         sqliteDb.exec(query);
         return {
@@ -84,7 +91,7 @@ function memorySql(): SqlStorage {
       return 0;
     },
   };
-  ensureChatImportDoSchema(api as unknown as SqlStorage);
+  ensureSourceImportDoSchema(api as unknown as SqlStorage);
   return api as unknown as SqlStorage;
 }
 
@@ -95,12 +102,14 @@ async function source() {
 }
 
 beforeEach(() => {
-  start.mockReset().mockResolvedValue(undefined);
   setAfterExecute(undefined);
   vi.restoreAllMocks();
-  sqlite.exec(
-    "DELETE FROM google_chat_import_runs; DELETE FROM source_documents; DELETE FROM sources;",
-  );
+  start
+    .mockReset()
+    .mockImplementation((request: SourceImportClaimRequest) =>
+      claimSourceImport({} as Env, request).then(Boolean),
+    );
+  sqlite.exec("DELETE FROM source_import_runs; DELETE FROM source_documents; DELETE FROM sources;");
   sqlite
     .prepare(
       `INSERT INTO sources (id, kind, url, external_id, title, added_by, status)
@@ -109,10 +118,10 @@ beforeEach(() => {
     .run(SOURCE_ID);
 });
 
-describe("startGoogleChatImport", () => {
+describe("startSourceImport with a Chat source", () => {
   it("atomically claims the source and starts the Durable Object before returning", async () => {
-    const started = await startGoogleChatImport(
-      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+    const started = await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
       await source(),
       "attempt-1",
     );
@@ -122,7 +131,7 @@ describe("startGoogleChatImport", () => {
       .get(SOURCE_ID) as { status: string; fetch_attempt_id: string };
     const run = sqlite
       .prepare(
-        "SELECT fetch_attempt_id, since_cursor, phase FROM google_chat_import_runs WHERE source_id = ?",
+        "SELECT fetch_attempt_id, since_cursor, phase FROM source_import_runs WHERE source_id = ?",
       )
       .get(SOURCE_ID) as { fetch_attempt_id: string; since_cursor: string | null; phase: string };
 
@@ -131,7 +140,9 @@ describe("startGoogleChatImport", () => {
     expect(run.fetch_attempt_id).toBe("attempt-1");
     expect(run.phase).toBe("listing");
     expect(run.since_cursor).toBeNull();
-    expect(start).toHaveBeenCalledWith(expect.any(String));
+    expect(start).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceId: SOURCE_ID, fetchAttemptId: "attempt-1" }),
+    );
   });
 
   it("records since_cursor from existing source_documents for incremental refresh", async () => {
@@ -143,14 +154,14 @@ describe("startGoogleChatImport", () => {
       )
       .run(SOURCE_ID);
 
-    await startGoogleChatImport(
-      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
       await source(),
       "attempt-2",
     );
 
     const run = sqlite
-      .prepare("SELECT since_cursor FROM google_chat_import_runs WHERE source_id = ?")
+      .prepare("SELECT since_cursor FROM source_import_runs WHERE source_id = ?")
       .get(SOURCE_ID) as { since_cursor: string };
     expect(run.since_cursor).toBe("2026-07-20T00:00:00Z");
   });
@@ -158,8 +169,8 @@ describe("startGoogleChatImport", () => {
   it("does not reopen or start an archived source", async () => {
     sqlite.prepare("UPDATE sources SET status = 'archived' WHERE id = ?").run(SOURCE_ID);
 
-    const started = await startGoogleChatImport(
-      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+    const started = await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
       await source(),
       "attempt-1",
     );
@@ -169,21 +180,21 @@ describe("startGoogleChatImport", () => {
       status: "archived",
     });
     expect(
-      sqlite.prepare("SELECT id FROM google_chat_import_runs WHERE source_id = ?").get(SOURCE_ID),
+      sqlite.prepare("SELECT id FROM source_import_runs WHERE source_id = ?").get(SOURCE_ID),
     ).toBeUndefined();
-    expect(start).not.toHaveBeenCalled();
+    expect(start).toHaveBeenCalledOnce();
   });
 });
 
-describe("advanceChatImportTick", () => {
+describe("advanceSourceImportTick with the Chat driver", () => {
   it("stops listing before exceeding the subrequest budget", async () => {
-    await startGoogleChatImport(
-      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
       await source(),
       "attempt-1",
     );
     const run = sqlite
-      .prepare("SELECT id FROM google_chat_import_runs WHERE source_id = ?")
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
       .get(SOURCE_ID) as { id: string };
 
     let listCalls = 0;
@@ -198,11 +209,19 @@ describe("advanceChatImportTick", () => {
         }),
       );
     });
-    const put = vi.fn().mockResolvedValue(undefined);
-    // currentRun(2) + accessToken(1) + one page(3) = 6; remaining 1 cannot start another page
+    const objects = new Map<string, string>();
+    const put = vi.fn().mockImplementation(async (key: string, body: string) => {
+      objects.set(key, body);
+    });
+    const get = vi.fn().mockImplementation(async (key: string) => {
+      const body = objects.get(key);
+      return body ? { json: async () => JSON.parse(body) } : null;
+    });
+    // currentRun(2) + accessToken(1) + page fetch/R2 put(2) = 5; the
+    // object-local page cursor leaves room for one more page in this budget.
     const budget = new SubrequestBudget(7);
-    const result = await advanceChatImportTick({
-      env: { BUCKET: { put } } as unknown as Env,
+    const result = await advanceSourceImportTick({
+      env: { BUCKET: { put, get } } as unknown as Env,
       sql: memorySql(),
       budget,
       runId: run.id,
@@ -211,18 +230,18 @@ describe("advanceChatImportTick", () => {
     expect(result.finished).toBe(false);
     expect(result.phase).toBe("listing");
     expect(budget.spent).toBeLessThanOrEqual(7);
-    expect(listCalls).toBe(1);
+    expect(listCalls).toBe(2);
     fetchSpy.mockRestore();
   });
 
   it("charges every D1 / R2 / fetch call into the budget during listing", async () => {
-    await startGoogleChatImport(
-      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
       await source(),
       "attempt-1",
     );
     const run = sqlite
-      .prepare("SELECT id FROM google_chat_import_runs WHERE source_id = ?")
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
       .get(SOURCE_ID) as { id: string };
 
     let d1Ops = 0;
@@ -246,7 +265,7 @@ describe("advanceChatImportTick", () => {
     });
 
     const budget = new SubrequestBudget(40);
-    await advanceChatImportTick({
+    await advanceSourceImportTick({
       env: { BUCKET: { put } } as unknown as Env,
       sql: memorySql(),
       budget,
@@ -263,18 +282,18 @@ describe("advanceChatImportTick", () => {
   });
 
   it("does not write when the fetch lease has been replaced", async () => {
-    await startGoogleChatImport(
-      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
       await source(),
       "attempt-1",
     );
     const run = sqlite
-      .prepare("SELECT id FROM google_chat_import_runs WHERE source_id = ?")
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
       .get(SOURCE_ID) as { id: string };
     sqlite.prepare("UPDATE sources SET fetch_attempt_id = 'other' WHERE id = ?").run(SOURCE_ID);
 
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    const result = await advanceChatImportTick({
+    const result = await advanceSourceImportTick({
       env: { BUCKET: { put: vi.fn() } } as unknown as Env,
       sql: memorySql(),
       budget: new SubrequestBudget(),
@@ -285,14 +304,71 @@ describe("advanceChatImportTick", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("gives unnamed messages unique per-message fallback names", async () => {
-    await startGoogleChatImport(
-      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+  it("commits an object-local pending phase through the generic tick", async () => {
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
       await source(),
       "attempt-1",
     );
     const run = sqlite
-      .prepare("SELECT id FROM google_chat_import_runs WHERE source_id = ?")
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+    const sql = memorySql();
+    sql.exec("INSERT INTO meta (key, value) VALUES ('pending_phase', 'indexing')");
+
+    const result = await advanceSourceImportTick({
+      env: {} as Env,
+      sql,
+      budget: new SubrequestBudget(4),
+      runId: run.id,
+    });
+
+    expect(result.phase).toBe("indexing");
+    expect(sql.exec("SELECT value FROM meta WHERE key = 'pending_phase'").toArray()).toEqual([]);
+    expect(sqlite.prepare("SELECT phase FROM source_import_runs WHERE id = ?").get(run.id)).toEqual(
+      {
+        phase: "indexing",
+      },
+    );
+  });
+
+  it("fails missing Chat grants once with the actionable authorization error", async () => {
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+    vi.mocked(getGoogleDriveTokenRow).mockResolvedValueOnce({
+      accessToken: "token-1",
+      grantedScopes: "",
+    });
+
+    const error = await advanceSourceImportTick({
+      env: {} as Env,
+      sql: memorySql(),
+      budget: new SubrequestBudget(),
+      runId: run.id,
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(SourceAuthorizationError);
+    expect((error as Error).message).toBe(GOOGLE_CHAT_REAUTH_MESSAGE);
+    await expect(failSourceImportRun({} as Env, run.id, error)).resolves.toEqual({
+      retryable: false,
+      consecutiveFailures: 1,
+    });
+  });
+
+  it("gives unnamed messages unique per-message fallback names", async () => {
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
       .get(SOURCE_ID) as { id: string };
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -311,11 +387,18 @@ describe("advanceChatImportTick", () => {
         }),
       ),
     );
-    const put = vi.fn().mockResolvedValue(undefined);
+    const objects = new Map<string, string>();
+    const put = vi.fn().mockImplementation(async (key: string, body: string) => {
+      objects.set(key, body);
+    });
+    const get = vi.fn().mockImplementation(async (key: string) => {
+      const body = objects.get(key);
+      return body ? { json: async () => JSON.parse(body) } : null;
+    });
     const sql = memorySql();
-    // Budget covers currentRun + token + one final page + phase commit, but not senders.
-    await advanceChatImportTick({
-      env: { BUCKET: { put } } as unknown as Env,
+    // Budget reaches indexing but stops before sender resolution.
+    await advanceSourceImportTick({
+      env: { BUCKET: { put, get } } as unknown as Env,
       sql,
       budget: new SubrequestBudget(7),
       runId: run.id,
@@ -329,59 +412,160 @@ describe("advanceChatImportTick", () => {
       .map((row) => row.message_name);
     expect(names).toEqual(["unnamed-0-0", "unnamed-0-1"]);
   });
-});
 
-describe("failChatImportRun", () => {
-  it("retries retryable failures until the consecutive limit, then marks error", async () => {
-    await startGoogleChatImport(
-      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+  it("indexes the complete regenerated week before sender and attachment phases", async () => {
+    sqlite
+      .prepare(
+        `INSERT INTO source_documents
+          (id, source_id, path, title, r2_key, content_hash, captured_at, cursor)
+         VALUES ('existing', ?, '2026-W27.md', 'Week', 'raw/week', 'hash', unixepoch(), ?)`,
+      )
+      .run(SOURCE_ID, "2026-07-03T00:00:00Z");
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
       await source(),
       "attempt-1",
     );
     const run = sqlite
-      .prepare("SELECT id FROM google_chat_import_runs WHERE source_id = ?")
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+    sqlite.prepare("UPDATE source_import_runs SET phase = 'indexing' WHERE id = ?").run(run.id);
+
+    const sql = memorySql();
+    sql.exec("INSERT INTO pages (page_index, r2_key, message_count) VALUES (0, 'delta', 1)");
+    const delta = {
+      messages: [{ name: "messages/new", createTime: "2026-07-04T00:00:00Z" }],
+    };
+    const oldMessage = {
+      name: "messages/old",
+      createTime: "2026-06-29T00:00:00Z",
+      sender: { name: "users/old", type: "HUMAN" as const },
+      attachment: [{ driveDataRef: { driveFileId: "old-file" }, contentName: "old.pdf" }],
+    };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ messages: [oldMessage, delta.messages[0]] })),
+    );
+
+    const result = await advanceSourceImportTick({
+      env: {
+        BUCKET: {
+          get: vi.fn().mockResolvedValue({ json: async () => delta }),
+        },
+      } as unknown as Env,
+      sql,
+      budget: new SubrequestBudget(6),
+      runId: run.id,
+    });
+
+    expect(result.phase).toBe("senders");
+    expect(
+      sql.exec<{ resource_name: string }>("SELECT resource_name FROM senders").toArray(),
+    ).toEqual([{ resource_name: "users/old" }]);
+    expect(
+      sql.exec<{ content_name: string }>("SELECT content_name FROM attachments").toArray(),
+    ).toEqual([{ content_name: "old.pdf" }]);
+    expect(
+      sql.exec<{ count: number }>("SELECT COUNT(*) AS count FROM week_messages").one(),
+    ).toEqual({ count: 2 });
+  });
+
+  it("completes an empty Chat import through the deployed generic phase ladder", async () => {
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+    const objects = new Map<string, string>();
+    const bucket = {
+      put: vi.fn().mockImplementation(async (key: string, body: string) => {
+        objects.set(key, body);
+      }),
+      get: vi.fn().mockImplementation(async (key: string) => {
+        const body = objects.get(key);
+        return body ? { json: async () => JSON.parse(body) } : null;
+      }),
+      delete: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      return new Response(
+        JSON.stringify(url.includes("admin.googleapis.com") ? { users: [] } : {}),
+      );
+    });
+
+    const result = await advanceSourceImportTick({
+      env: { BUCKET: bucket } as unknown as Env,
+      sql: memorySql(),
+      budget: new SubrequestBudget(),
+      runId: run.id,
+    });
+
+    expect(result).toMatchObject({ finished: true, phase: "complete" });
+    expect(sqlite.prepare("SELECT status FROM sources WHERE id = ?").get(SOURCE_ID)).toEqual({
+      status: "ready",
+    });
+    expect(sqlite.prepare("SELECT phase FROM source_import_runs WHERE id = ?").get(run.id)).toEqual(
+      {
+        phase: "complete",
+      },
+    );
+  });
+});
+
+describe("failSourceImportRun with the Chat driver", () => {
+  it("retries retryable failures until the consecutive limit, then marks error", async () => {
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
       .get(SOURCE_ID) as { id: string };
 
     for (let i = 1; i <= 4; i += 1) {
-      const outcome = await failChatImportRun(
+      const outcome = await failSourceImportRun(
         {} as Env,
         run.id,
         new Error("Google Chat messages.list failed (503)"),
       );
       expect(outcome).toEqual({ retryable: true, consecutiveFailures: i });
     }
-    const final = await failChatImportRun(
+    const final = await failSourceImportRun(
       {} as Env,
       run.id,
       new Error("Google Chat messages.list failed (503)"),
     );
     expect(final.retryable).toBe(false);
-    expect(
-      sqlite.prepare("SELECT phase FROM google_chat_import_runs WHERE id = ?").get(run.id),
-    ).toEqual({ phase: "error" });
+    expect(sqlite.prepare("SELECT phase FROM source_import_runs WHERE id = ?").get(run.id)).toEqual(
+      { phase: "error" },
+    );
     expect(sqlite.prepare("SELECT status FROM sources WHERE id = ?").get(SOURCE_ID)).toEqual({
       status: "error",
     });
   });
 
   it("stops immediately on non-retryable failures", async () => {
-    await startGoogleChatImport(
-      { CHAT_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
       await source(),
       "attempt-1",
     );
     const run = sqlite
-      .prepare("SELECT id FROM google_chat_import_runs WHERE source_id = ?")
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
       .get(SOURCE_ID) as { id: string };
 
-    const outcome = await failChatImportRun(
+    const outcome = await failSourceImportRun(
       {} as Env,
       run.id,
       new Error("Google Chat scopes are missing"),
     );
     expect(outcome.retryable).toBe(false);
-    expect(
-      sqlite.prepare("SELECT phase FROM google_chat_import_runs WHERE id = ?").get(run.id),
-    ).toEqual({ phase: "error" });
+    expect(sqlite.prepare("SELECT phase FROM source_import_runs WHERE id = ?").get(run.id)).toEqual(
+      { phase: "error" },
+    );
   });
 });

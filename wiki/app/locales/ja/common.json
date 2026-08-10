@@ -421,6 +421,8 @@
     "no_documents": "ドキュメントはまだありません。",
     "kind": {
       "google-doc": "Google ドキュメント",
+      "google-sheet": "Google スプレッドシート",
+      "google-slides": "Google スライド",
       "google-chat-space": "Google Chat",
       "website": "Web サイト",
       "upload": "アップロード",

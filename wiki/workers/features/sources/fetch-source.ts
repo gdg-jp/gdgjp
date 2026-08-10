@@ -1,14 +1,8 @@
-import { and, eq, ne, or } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import * as schema from "../../../app/db/schema";
 import { getDb } from "../../../app/lib/db.server";
-import { getGoogleDriveAccessToken } from "../../../app/lib/google-drive-token.server";
-import { resolveSourceAssets } from "./assets";
-import { startGoogleChatImport } from "./google-chat-import";
-import { archiveMissingDocuments } from "./google-chat-import-private";
-import { fetchGoogleDocSource } from "./google-doc";
-import { persistSourceDocument } from "./persist";
+import { startSourceImport } from "./import/run";
 import { isRetryableFetchError } from "./retry-classification";
-import { fetchWebsiteSource } from "./website";
 
 export const SOURCE_REFRESH_CRON = "0 16 * * *";
 export const TASK_REMINDER_CRON = "0 15 * * *";
@@ -22,10 +16,9 @@ export interface FetchSourceOutcome {
 export { isRetryableFetchError };
 
 /**
- * Dispatcher: load the source, run the kind-specific fetcher, persist documents to R2.
- *
- * Failures are recorded on the row and reported back rather than thrown, so a source
- * that can never succeed does not cycle through the queue's whole retry budget.
+ * Queue delivery creates a durable source-import lease only. All fetching and
+ * retries happen in the source-scoped Durable Object so large sources never
+ * exhaust one Queue worker invocation's subrequest budget.
  */
 export async function fetchSource(env: Env, sourceId: string): Promise<FetchSourceOutcome> {
   const db = getDb(env);
@@ -34,39 +27,33 @@ export async function fetchSource(env: Env, sourceId: string): Promise<FetchSour
     .from(schema.sources)
     .where(eq(schema.sources.id, sourceId))
     .get();
-  if (!source) {
-    console.warn("[sources] fetch skipped; source not found", sourceId);
+  if (!source || source.status === "archived") {
+    console.warn("[sources] fetch skipped; source missing or archived", sourceId);
     return { status: "skipped", retryable: false };
   }
-  if (source.status === "archived") {
-    console.warn("[sources] fetch skipped; source archived", sourceId);
-    return { status: "skipped", retryable: false };
-  }
-  // The start message can be delivered more than once. Only a persisted run proves
-  // that a Chat import owns this lease: an invocation can be canceled after claiming
-  // the source but before creating the run. Treating status="fetching" alone as proof
-  // would ack the retry and leave the source stuck forever.
-  if (source.kind === "google-chat-space" && source.status === "fetching") {
+
+  // A status alone is not a lease: delivery may have been interrupted between
+  // claiming the source and inserting its run. Recover those orphaned claims.
+  if (source.status === "fetching") {
     const activeRun = source.fetchAttemptId
       ? await db
-          .select({ id: schema.googleChatImportRuns.id })
-          .from(schema.googleChatImportRuns)
+          .select({ id: schema.sourceImportRuns.id })
+          .from(schema.sourceImportRuns)
           .where(
             and(
-              eq(schema.googleChatImportRuns.sourceId, sourceId),
-              eq(schema.googleChatImportRuns.fetchAttemptId, source.fetchAttemptId),
+              eq(schema.sourceImportRuns.sourceId, sourceId),
+              eq(schema.sourceImportRuns.fetchAttemptId, source.fetchAttemptId),
             ),
           )
           .get()
       : null;
     if (activeRun) {
-      console.warn("[sources] fetch skipped; Google Chat import already running", sourceId);
+      console.warn("[sources] fetch skipped; source import already running", sourceId);
       return { status: "skipped", retryable: false };
     }
     console.warn(
       JSON.stringify({
         component: "sources",
-        integration: "google-chat",
         event: "orphaned_fetch_recovered",
         sourceId,
         fetchAttemptId: source.fetchAttemptId,
@@ -74,156 +61,60 @@ export async function fetchSource(env: Env, sourceId: string): Promise<FetchSour
     );
   }
 
-  const attemptId = crypto.randomUUID();
+  if (
+    source.kind !== "google-chat-space" &&
+    source.kind !== "google-doc" &&
+    source.kind !== "google-sheet" &&
+    source.kind !== "google-slides" &&
+    source.kind !== "website"
+  ) {
+    console.warn("[sources] fetch skipped; unsupported source kind", source.kind);
+    return { status: "skipped", retryable: false };
+  }
+
   try {
-    if (source.kind === "google-chat-space") {
-      const started = await startGoogleChatImport(env, source, attemptId);
-      if (!started) {
-        console.warn("[sources] fetch skipped; source archived before claim", sourceId);
-      }
-      return { status: "skipped", retryable: false };
-    }
-
-    const claimed = await db
-      .update(schema.sources)
-      .set({
-        status: "fetching",
-        fetchAttemptId: attemptId,
-        errorMessage: null,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(schema.sources.id, sourceId), ne(schema.sources.status, "archived")))
-      .returning({ id: schema.sources.id })
-      .get();
-    if (!claimed) {
-      console.warn("[sources] fetch skipped; source archived before claim", sourceId);
-      return { status: "skipped", retryable: false };
-    }
-
-    const fetched =
-      source.kind === "google-doc"
-        ? await fetchGoogleDocSource(source.url, () =>
-            getGoogleDriveAccessToken(env, db, source.addedBy),
-          )
-        : source.kind === "website"
-          ? await fetchWebsiteSource(source.url, env.BROWSER)
-          : null;
-
-    if (!fetched) {
-      throw new Error(`Unsupported source kind: ${source.kind}`);
-    }
-
-    for (const document of fetched.documents) {
-      // Images must be stored and the placeholders rewritten before hashing, so the
-      // document's content_hash covers the markdown the agent will actually read.
-      const resolved =
-        document.images.length > 0 && fetched.accessToken
-          ? await resolveSourceAssets(env, {
-              sourceId,
-              markdown: document.markdown,
-              images: document.images,
-              accessToken: fetched.accessToken,
-            })
-          : { markdown: document.markdown, assets: [] };
-
-      const persisted = await persistSourceDocument(env, {
-        sourceId,
-        fetchAttemptId: attemptId,
-        path: document.path,
-        title: document.title,
-        markdown: resolved.markdown,
-        assets: resolved.assets,
-      });
-      if (persisted.skipped) return { status: "skipped", retryable: false };
-    }
-
-    if (
-      !(await archiveMissingDocuments(
-        db,
-        sourceId,
-        attemptId,
-        fetched.documents.map((document) => document.path),
-      ))
-    ) {
-      return { status: "skipped", retryable: false };
-    }
-
-    // Only commit completion if this job still owns the row. A user who archived the
-    // source while the fetch was in flight must not have it silently reopened.
-    const completed = await db
-      .update(schema.sources)
-      .set({
-        title: fetched.title || source.title,
-        status: "ready",
-        fetchAttemptId: null,
-        errorMessage: null,
-        lastFetchedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(schema.sources.id, sourceId),
-          eq(schema.sources.fetchAttemptId, attemptId),
-          eq(schema.sources.status, "fetching"),
-        ),
-      )
-      .returning({ id: schema.sources.id })
-      .get();
-    if (!completed) return { status: "skipped", retryable: false };
-
-    return { status: "ready", retryable: false };
+    const started = await startSourceImport(env, source, crypto.randomUUID());
+    if (!started) console.warn("[sources] fetch skipped; source archived before claim", sourceId);
+    // Queue retry is deliberately not used after the DO begins. Its alarm and
+    // consecutive-failure state are the single retry mechanism for every kind.
+    return { status: "skipped", retryable: false };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const retryable = isRetryableFetchError(error);
-    console.error("[sources] fetch failed", sourceId, "retryable:", retryable, message);
-    const failed = await db
-      .update(schema.sources)
-      .set({
-        status: "error",
-        fetchAttemptId: null,
-        errorMessage: message.slice(0, 2000),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(schema.sources.id, sourceId),
-          eq(schema.sources.fetchAttemptId, attemptId),
-          eq(schema.sources.status, "fetching"),
-        ),
-      )
-      .returning({ id: schema.sources.id })
-      .get();
-    if (!failed) return { status: "skipped", retryable: false };
-    return { status: "error", retryable };
+    console.error("[sources] import start failed", sourceId, message);
+    return { status: "error", retryable: isRetryableFetchError(error) };
   }
 }
 
-/** Enqueue due sources for automatic refresh (daily / weekly policies). */
+/** Enqueue scheduled refreshes and repair stale pending messages of any policy. */
 export async function enqueueDueSourceRefreshes(env: Env): Promise<number> {
   const db = getDb(env);
   const nowMs = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
-
   const candidates = await db
     .select({
       id: schema.sources.id,
+      status: schema.sources.status,
+      fetchAttemptId: schema.sources.fetchAttemptId,
       refreshPolicy: schema.sources.refreshPolicy,
       lastFetchedAt: schema.sources.lastFetchedAt,
+      updatedAt: schema.sources.updatedAt,
     })
     .from(schema.sources)
-    .where(
-      and(
-        ne(schema.sources.status, "archived"),
-        or(eq(schema.sources.refreshPolicy, "daily"), eq(schema.sources.refreshPolicy, "weekly")),
-      ),
-    )
+    .where(ne(schema.sources.status, "archived"))
     .all();
 
   let enqueued = 0;
   for (const source of candidates) {
     const last = source.lastFetchedAt?.getTime() ?? 0;
-    const due =
+    const scheduledDue =
       source.refreshPolicy === "daily" ? nowMs - last >= dayMs : nowMs - last >= 7 * dayMs;
+    const orphanedPending =
+      source.status === "pending" &&
+      source.fetchAttemptId === null &&
+      nowMs - source.updatedAt.getTime() >= 60 * 60 * 1000;
+    const due =
+      orphanedPending ||
+      ((source.refreshPolicy === "daily" || source.refreshPolicy === "weekly") && scheduledDue);
     if (!due) continue;
 
     const claimed = await db

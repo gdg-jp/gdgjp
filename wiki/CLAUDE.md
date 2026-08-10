@@ -21,9 +21,9 @@ Single `ExportedHandler<Env>` — understand all three before touching:
 
 - `fetch` — authenticates `/agents/wiki-generation-agent/:session` and routes it through the Agents SDK; short-circuits `/ws/collab/:slug` to `COLLAB_DO`; otherwise → RR.
 - `scheduled` — two crons: `0 15 * * *` (task Discord reminders, 00:00 JST) and `0 16 * * *` (daily/weekly source refresh enqueue).
-- `queue` — consumes `TRANSLATION_QUEUE`, Google Docs import jobs, and `SOURCE_FETCH_QUEUE`. Google Chat import continuation runs in `CHAT_IMPORT_DO` alarms, not the queue.
+- `queue` — consumes `TRANSLATION_QUEUE`, Google Docs import jobs, and `SOURCE_FETCH_QUEUE`. Source import continuation for Chat, Drive, and websites runs in `SOURCE_IMPORT_DO` alarms, not the queue.
 
-`CollabDurableObject` and `GoogleChatImportDurableObject` are re-exported from the same file so wrangler registers them.
+`CollabDurableObject` and `SourceImportDurableObject` are re-exported from the same file so wrangler registers them.
 
 ## Bindings (env shape)
 
@@ -32,12 +32,12 @@ Single `ExportedHandler<Env>` — understand all three before touching:
 | `DB` | D1, primary store. Via Drizzle (`getDb(env)` in `app/lib/db.server.ts`). |
 | `BUCKET` | R2 — page attachments + ingestion uploads. |
 | `TRANSLATION_QUEUE` | Translation producer+consumer; `app/lib/queue-processors.server.ts`. |
-| `SOURCE_FETCH_QUEUE` | Source fetch start messages (`source_fetch`). Chat import work continues via DO alarms. |
+| `SOURCE_FETCH_QUEUE` | Source fetch start messages (`source_fetch`). Source import work continues via DO alarms. |
 | `BROWSER` | Browser Rendering, headless Chromium for PDF. |
 | `AI` | Workers AI; `bge-m3` for 1024-dim embeddings. |
 | `VECTORIZE` | Index `gdgjp-wiki-pages`, cosine, 1024 dims — semantic page search. |
 | `COLLAB_DO` | `CollabDurableObject`; one instance per page slug (`idFromName(slug)`). |
-| `CHAT_IMPORT_DO` | `GoogleChatImportDurableObject`; one instance per Google Chat source (`getByName(sourceId)`). Alarm self-chain drives listing → senders → attachments → grouping → finalizing. |
+| `SOURCE_IMPORT_DO` | `SourceImportDurableObject`; one instance per source (`getByName(sourceId)`). Alarm self-chain drives each driver's resumable phases. |
 | `WikiGenerationAgent` / `GENERATION_WORKFLOW` | Durable Wiki generation state and workflow. The Agent binding name must match the exported class for automatic `/agents/*` routing. |
 
 `worker-configuration.d.ts` is generated — don't hand-edit. Access via `context.cloudflare.env`.

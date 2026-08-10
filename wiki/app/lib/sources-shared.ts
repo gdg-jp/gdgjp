@@ -1,4 +1,11 @@
-export type SourceKind = "google-doc" | "google-chat-space" | "website" | "upload" | "text";
+export type SourceKind =
+  | "google-doc"
+  | "google-sheet"
+  | "google-slides"
+  | "google-chat-space"
+  | "website"
+  | "upload"
+  | "text";
 
 export type SourceRefreshPolicy = "manual" | "daily" | "weekly";
 

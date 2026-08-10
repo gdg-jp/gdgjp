@@ -1,56 +1,45 @@
-import { and, eq, max, ne } from "drizzle-orm";
-import { nanoid } from "nanoid";
+import { and, eq, ne } from "drizzle-orm";
 import * as schema from "../../../app/db/schema";
-import { getDb } from "../../../app/lib/db.server";
-import { getGoogleDriveTokenRow } from "../../../app/lib/google-drive-token.server";
-import { hasRequiredGoogleChatScopes } from "../../../app/lib/google-drive.server";
+import { REQUIRED_GOOGLE_CHAT_SCOPES } from "../../../app/lib/google-drive.server";
 import { type ResolvedSourceAsset, assetR2Key } from "./assets";
 import {
   type ChatMessage,
   type ChatMessageAttachment,
   GOOGLE_CHAT_REAUTH_MESSAGE,
   THREAD_PARENT_UNAVAILABLE,
-  appendMonthlyMarkdown,
   attachmentObjectId,
   defaultSenderName,
   fetchThreadParentText,
   logGoogleChatMessagesListError,
   mergeDocumentUrls,
-  monthPathFromCreateTime,
   normalizeChatMessages,
+  resolveDirectoryPeopleDisplayNames,
   resolvePeopleDisplayNames,
-  resolveSpaceMemberDisplayNames,
   warnGoogleChat,
+  weekBoundsRfc3339,
+  weekPathFromCreateTime,
 } from "./google-chat";
-import { ensureChatImportDoSchema } from "./google-chat-import-do-store";
-import { archiveMissingDocuments } from "./google-chat-import-private";
-import { persistSourceDocument, sha256Hex } from "./persist";
-import { isRetryableFetchError } from "./retry-classification";
+import { archiveMissingDocuments } from "./import/archive";
 import {
-  ATTACHMENT_PARALLELISM,
-  SUBREQUEST_BUDGET_LIMIT,
-  type SubrequestBudget,
-} from "./subrequest-budget";
+  ARCHIVE_MISSING_SUBREQUESTS,
+  type CurrentSourceImport,
+  PERSIST_MERGE_SUBREQUESTS,
+  PERSIST_REPLACE_SUBREQUESTS,
+  type SourceImportTickContext,
+  metaGet,
+  metaSet,
+} from "./import/run";
+import type { ImportKindDriver } from "./import/tick";
+import { MARKDOWN_MEDIA_TYPE, markdownBody, pathForMediaType } from "./media-type";
+import { persistSourceDocument, sha256Hex } from "./persist";
+import { ATTACHMENT_PARALLELISM } from "./subrequest-budget";
 
 export const CHAT_PAGE_SIZE = 1000;
 const CHAT_TIMEOUT_MS = 30_000;
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
-export const MAX_CONSECUTIVE_FAILURES = 5;
-export const ALARM_CONTINUE_MS = 500;
-
-/** D1 reads inside `currentRun` (run row + source lease row). */
-export const CURRENT_RUN_SUBREQUESTS = 2;
-/** D1 read inside `getGoogleDriveTokenRow` (refresh may add more; soft cap leaves headroom). */
-export const ACCESS_TOKEN_SUBREQUESTS = 1;
-/** Worst-case `persistSourceDocument` with `assetPolicy: "replace"`. */
-export const PERSIST_REPLACE_SUBREQUESTS = 4;
-/** Worst-case `persistSourceDocument` with `assetPolicy: "merge"`. */
-export const PERSIST_MERGE_SUBREQUESTS = 5;
-/** `archiveMissingDocuments`: lease check + update + lease re-check. */
-export const ARCHIVE_MISSING_SUBREQUESTS = 3;
-
 export type ChatImportPhase =
   | "listing"
+  | "indexing"
   | "senders"
   | "attachments"
   | "grouping"
@@ -60,14 +49,8 @@ export type ChatImportPhase =
 
 export type StepOutcome = { phaseComplete: boolean };
 
-export interface ChatImportTickContext {
-  env: Env;
-  sql: SqlStorage;
-  budget: SubrequestBudget;
-  runId: string;
-  /** Resolved once per tick and passed into steps (never re-fetched in a loop). */
-  accessToken?: string;
-}
+type ChatImportTickContext = SourceImportTickContext;
+type Current = CurrentSourceImport;
 
 function log(
   event: string,
@@ -84,220 +67,10 @@ function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
   return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
-export async function currentRun(env: Env, runId: string) {
-  const db = getDb(env);
-  const run = await db
-    .select()
-    .from(schema.googleChatImportRuns)
-    .where(eq(schema.googleChatImportRuns.id, runId))
-    .get();
-  if (!run) return null;
-  const source = await db
-    .select()
-    .from(schema.sources)
-    .where(
-      and(
-        eq(schema.sources.id, run.sourceId),
-        eq(schema.sources.fetchAttemptId, run.fetchAttemptId),
-        eq(schema.sources.status, "fetching"),
-      ),
-    )
-    .get();
-  return source ? { db, run, source } : null;
-}
-
-async function accessToken(env: Env, source: typeof schema.sources.$inferSelect): Promise<string> {
-  const token = await getGoogleDriveTokenRow(env, getDb(env), source.addedBy);
-  if (!hasRequiredGoogleChatScopes(token.grantedScopes))
-    throw new Error(GOOGLE_CHAT_REAUTH_MESSAGE);
-  return token.accessToken;
-}
-
 function spaceNameOf(source: typeof schema.sources.$inferSelect): string {
   return source.externalId?.startsWith("spaces/")
     ? source.externalId
     : `spaces/${source.externalId}`;
-}
-
-async function maxSourceCursor(env: Env, sourceId: string): Promise<string | null> {
-  const db = getDb(env);
-  const row = await db
-    .select({ cursor: max(schema.sourceDocuments.cursor) })
-    .from(schema.sourceDocuments)
-    .where(
-      and(
-        eq(schema.sourceDocuments.sourceId, sourceId),
-        ne(schema.sourceDocuments.status, "archived"),
-      ),
-    )
-    .get();
-  return row?.cursor ?? null;
-}
-
-function metaGet(sql: SqlStorage, key: string): string | null {
-  const row = sql.exec<{ value: string }>("SELECT value FROM meta WHERE key = ?", key).toArray()[0];
-  return row?.value ?? null;
-}
-
-function metaSet(sql: SqlStorage, key: string, value: string): void {
-  sql.exec(
-    "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    key,
-    value,
-  );
-}
-
-/** Starts a run and hands continuation to the per-source Durable Object. */
-export async function startGoogleChatImport(
-  env: Env,
-  source: typeof schema.sources.$inferSelect,
-  fetchAttemptId: string,
-): Promise<boolean> {
-  const db = getDb(env);
-  const id = nanoid();
-  const sinceCursor = await maxSourceCursor(env, source.id);
-  // Claim the source and create its durable run in one transaction. A Queue retry
-  // must never observe status="fetching" without the matching run. Replacing a
-  // refresh deletes the old run so its child work is removed by the FK cascade.
-  await db.batch([
-    db
-      .update(schema.sources)
-      .set({
-        status: "fetching",
-        fetchAttemptId,
-        errorMessage: null,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(schema.sources.id, source.id), ne(schema.sources.status, "archived"))),
-    db
-      .delete(schema.googleChatImportRuns)
-      .where(eq(schema.googleChatImportRuns.sourceId, source.id)),
-    db.insert(schema.googleChatImportRuns).values({
-      id,
-      sourceId: source.id,
-      fetchAttemptId,
-      sinceCursor,
-    }),
-  ]);
-  const current = await currentRun(env, id);
-  if (!current) {
-    await db.delete(schema.googleChatImportRuns).where(eq(schema.googleChatImportRuns.id, id));
-    return false;
-  }
-  // Validate access only after the durable lease exists. If this throws, fetchSource
-  // records the source error; a later refresh atomically replaces this run.
-  await accessToken(env, current.source);
-  await env.CHAT_IMPORT_DO.getByName(source.id).start(id);
-  log("import_started", {
-    sourceId: source.id,
-    runId: id,
-    incremental: Boolean(sinceCursor),
-    subrequestBudget: SUBREQUEST_BUDGET_LIMIT,
-  });
-  return true;
-}
-
-export async function advanceChatImportTick(ctx: ChatImportTickContext): Promise<{
-  finished: boolean;
-  phase: ChatImportPhase;
-  subrequests: number;
-}> {
-  if (!ctx.budget.canSpend(CURRENT_RUN_SUBREQUESTS)) {
-    return { finished: false, phase: "listing", subrequests: ctx.budget.spent };
-  }
-  ctx.budget.spend(CURRENT_RUN_SUBREQUESTS);
-  const current = await currentRun(ctx.env, ctx.runId);
-  if (!current) {
-    return { finished: true, phase: "complete", subrequests: ctx.budget.spent };
-  }
-
-  ensureChatImportDoSchema(ctx.sql);
-
-  const pendingPhase = metaGet(ctx.sql, "pending_phase") as ChatImportPhase | null;
-  if (pendingPhase && pendingPhase !== current.run.phase) {
-    if (!ctx.budget.canSpend(1)) {
-      return {
-        finished: false,
-        phase: current.run.phase as ChatImportPhase,
-        subrequests: ctx.budget.spent,
-      };
-    }
-    await commitPhase(ctx, current, pendingPhase);
-  }
-
-  if (!ctx.budget.canSpend(ACCESS_TOKEN_SUBREQUESTS)) {
-    return {
-      finished: false,
-      phase: current.run.phase as ChatImportPhase,
-      subrequests: ctx.budget.spent,
-    };
-  }
-  ctx.budget.spend(ACCESS_TOKEN_SUBREQUESTS);
-  ctx.accessToken = await accessToken(ctx.env, current.source);
-
-  let phase = current.run.phase as ChatImportPhase;
-
-  while (ctx.budget.remaining() > 0) {
-    if (phase === "complete" || phase === "error") {
-      return { finished: true, phase, subrequests: ctx.budget.spent };
-    }
-
-    const outcome =
-      phase === "listing"
-        ? await stepListing(ctx, current)
-        : phase === "senders"
-          ? await stepSenders(ctx, current)
-          : phase === "attachments"
-            ? await stepAttachments(ctx, current)
-            : phase === "grouping"
-              ? await stepGrouping(ctx, current)
-              : await stepFinalizing(ctx, current);
-
-    if (!outcome.phaseComplete) {
-      return { finished: false, phase, subrequests: ctx.budget.spent };
-    }
-
-    const next: ChatImportPhase =
-      phase === "listing"
-        ? "senders"
-        : phase === "senders"
-          ? "attachments"
-          : phase === "attachments"
-            ? "grouping"
-            : phase === "grouping"
-              ? "finalizing"
-              : "complete";
-
-    if (next === "complete") {
-      await completeImport(ctx, current);
-      return { finished: true, phase: next, subrequests: ctx.budget.spent };
-    }
-
-    if (!ctx.budget.canSpend(1)) {
-      metaSet(ctx.sql, "pending_phase", next);
-      return { finished: false, phase, subrequests: ctx.budget.spent };
-    }
-    await commitPhase(ctx, current, next);
-    phase = next;
-  }
-
-  return { finished: false, phase, subrequests: ctx.budget.spent };
-}
-
-type Current = NonNullable<Awaited<ReturnType<typeof currentRun>>>;
-
-async function commitPhase(
-  ctx: ChatImportTickContext,
-  current: Current,
-  phase: ChatImportPhase,
-): Promise<void> {
-  ctx.budget.spend(1);
-  await current.db
-    .update(schema.googleChatImportRuns)
-    .set({ phase, updatedAt: new Date() })
-    .where(eq(schema.googleChatImportRuns.id, ctx.runId));
-  current.run.phase = phase;
-  ctx.sql.exec("DELETE FROM meta WHERE key = ?", "pending_phase");
 }
 
 function requireAccessToken(ctx: ChatImportTickContext): string {
@@ -308,11 +81,12 @@ async function stepListing(ctx: ChatImportTickContext, current: Current): Promis
   if (metaGet(ctx.sql, "listing_complete") === "1") return { phaseComplete: true };
 
   const token = requireAccessToken(ctx);
-  // fetch + R2 put + D1 run update
-  while (ctx.budget.canSpend(3)) {
+  // fetch + R2 put; page cursors live in object-local SQLite meta.
+  while (ctx.budget.canSpend(2)) {
     const spaceName = spaceNameOf(current.source);
     const params = new URLSearchParams({ pageSize: String(CHAT_PAGE_SIZE) });
-    if (current.run.nextPageToken) params.set("pageToken", current.run.nextPageToken);
+    const pageToken = metaGet(ctx.sql, "next_page_token");
+    if (pageToken) params.set("pageToken", pageToken);
     if (current.run.sinceCursor) params.set("filter", `createTime > "${current.run.sinceCursor}"`);
 
     ctx.budget.spend(1);
@@ -324,13 +98,13 @@ async function stepListing(ctx: ChatImportTickContext, current: Current): Promis
       await logGoogleChatMessagesListError(response, {
         spaceName,
         filter: current.run.sinceCursor ? `createTime > "${current.run.sinceCursor}"` : null,
-        hasPageToken: Boolean(current.run.nextPageToken),
+        hasPageToken: Boolean(pageToken),
       });
       throw new Error(`Google Chat messages.list failed (${response.status})`);
     }
     const page = (await response.json()) as { messages?: ChatMessage[]; nextPageToken?: string };
     const messages = page.messages ?? [];
-    const pageIndex = current.run.pagesFetched;
+    const pageIndex = Number(metaGet(ctx.sql, "pages_fetched") ?? "0");
     const r2Key = `raw/${current.source.id}/chat-runs/${ctx.runId}/pages/${pageIndex}.json`;
 
     ctx.budget.spend(1);
@@ -339,77 +113,23 @@ async function stepListing(ctx: ChatImportTickContext, current: Current): Promis
     });
 
     ctx.sql.exec(
-      "INSERT INTO pages (page_index, r2_key, message_count) VALUES (?, ?, ?)",
+      `INSERT INTO pages (page_index, r2_key, message_count) VALUES (?, ?, ?)
+       ON CONFLICT(page_index) DO UPDATE SET
+         r2_key = excluded.r2_key, message_count = excluded.message_count`,
       pageIndex,
       r2Key,
       messages.length,
     );
 
-    let attachmentIndex = 0;
-    for (const [messageIndex, message] of messages.entries()) {
-      const messageName = message.name || `unnamed-${pageIndex}-${messageIndex}`;
-      if (message.sender?.name) {
-        ctx.sql.exec(
-          "INSERT OR IGNORE INTO senders (resource_name, display_name) VALUES (?, NULL)",
-          message.sender.name,
-        );
-        if (message.sender.type === "BOT") {
-          ctx.sql.exec(
-            "UPDATE senders SET display_name = ? WHERE resource_name = ? AND display_name IS NULL",
-            "Bot",
-            message.sender.name,
-          );
-        }
-      }
-      if (message.thread?.name) {
-        if (message.threadReply) {
-          ctx.sql.exec(
-            "INSERT OR IGNORE INTO reply_threads (thread_name) VALUES (?)",
-            message.thread.name,
-          );
-        } else {
-          const parent = (message.text ?? message.argumentText ?? "").trim();
-          if (parent) {
-            ctx.sql.exec(
-              "INSERT OR IGNORE INTO thread_parents (thread_name, parent_text) VALUES (?, ?)",
-              message.thread.name,
-              parent,
-            );
-          }
-        }
-      }
-      for (const attachment of message.attachment ?? []) {
-        const objectId = attachmentObjectId(attachment, attachmentIndex++);
-        ctx.sql.exec(
-          `INSERT INTO attachments (
-            message_name, object_id, drive_file_id, media_resource_name,
-            content_type, content_name, status
-          ) VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-          messageName,
-          objectId,
-          attachment.driveDataRef?.driveFileId ?? null,
-          attachment.attachmentDataRef?.resourceName ?? null,
-          attachment.contentType ?? null,
-          attachment.contentName ?? objectId,
-        );
-      }
-    }
-
     const nextToken = page.nextPageToken ?? null;
-    ctx.budget.spend(1);
-    await current.db
-      .update(schema.googleChatImportRuns)
-      .set({
-        nextPageToken: nextToken,
-        pagesFetched: current.run.pagesFetched + 1,
-        messagesFetched: current.run.messagesFetched + messages.length,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.googleChatImportRuns.id, ctx.runId));
-
-    current.run.nextPageToken = nextToken;
-    current.run.pagesFetched += 1;
-    current.run.messagesFetched += messages.length;
+    if (nextToken) metaSet(ctx.sql, "next_page_token", nextToken);
+    else ctx.sql.exec("DELETE FROM meta WHERE key = 'next_page_token'");
+    metaSet(ctx.sql, "pages_fetched", String(pageIndex + 1));
+    metaSet(
+      ctx.sql,
+      "messages_fetched",
+      String(Number(metaGet(ctx.sql, "messages_fetched") ?? "0") + messages.length),
+    );
 
     log("page_stored", {
       sourceId: current.source.id,
@@ -427,44 +147,159 @@ async function stepListing(ctx: ChatImportTickContext, current: Current): Promis
   return { phaseComplete: false };
 }
 
+function indexMessage(
+  sql: SqlStorage,
+  message: ChatMessage,
+  fallbackName: string,
+  expectedWeek?: string,
+): void {
+  if (!message.createTime) return;
+  const weekPath = weekPathFromCreateTime(message.createTime);
+  if (!weekPath || (expectedWeek && weekPath !== expectedWeek)) return;
+  const messageName = message.name || fallbackName;
+  const threadName = message.thread?.name || messageName;
+  sql.exec(
+    `INSERT INTO week_messages (week_path, thread_name, create_time, message_json)
+     VALUES (?, ?, ?, ?)`,
+    weekPath,
+    threadName,
+    message.createTime,
+    JSON.stringify(message),
+  );
+  if (message.sender?.name) {
+    sql.exec(
+      "INSERT OR IGNORE INTO senders (resource_name, display_name) VALUES (?, NULL)",
+      message.sender.name,
+    );
+    if (message.sender.type === "BOT") {
+      sql.exec(
+        "UPDATE senders SET display_name = 'Bot' WHERE resource_name = ? AND display_name IS NULL",
+        message.sender.name,
+      );
+    }
+  }
+  if (message.thread?.name) {
+    if (message.threadReply) {
+      sql.exec("INSERT OR IGNORE INTO reply_threads (thread_name) VALUES (?)", message.thread.name);
+    } else {
+      const parent = (message.text ?? message.argumentText ?? "").trim();
+      if (parent) {
+        sql.exec(
+          "INSERT OR IGNORE INTO thread_parents (thread_name, parent_text) VALUES (?, ?)",
+          message.thread.name,
+          parent,
+        );
+      }
+    }
+  }
+  for (const [attachmentIndex, attachment] of (message.attachment ?? []).entries()) {
+    const objectId = attachmentObjectId(attachment, attachmentIndex);
+    sql.exec(
+      `INSERT OR IGNORE INTO attachments (
+        message_name, object_id, drive_file_id, media_resource_name,
+        content_type, content_name, status
+      ) VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+      messageName,
+      objectId,
+      attachment.driveDataRef?.driveFileId ?? null,
+      attachment.attachmentDataRef?.resourceName ?? null,
+      attachment.contentType ?? null,
+      attachment.contentName ?? objectId,
+    );
+  }
+}
+
+async function stepIndexing(ctx: ChatImportTickContext, current: Current): Promise<StepOutcome> {
+  const pages = ctx.sql
+    .exec<{ page_index: number; r2_key: string }>(
+      "SELECT page_index, r2_key FROM pages ORDER BY page_index",
+    )
+    .toArray();
+  let pageCursor = Number(metaGet(ctx.sql, "indexing_page") ?? "0");
+  while (pageCursor < pages.length) {
+    if (!ctx.budget.canSpend(1)) return { phaseComplete: false };
+    const page = pages[pageCursor];
+    if (!page) break;
+    ctx.budget.spend(1);
+    const object = await ctx.env.BUCKET.get(page.r2_key);
+    if (!object) throw new Error(`Missing Chat import page object: ${page.r2_key}`);
+    const body = (await object.json()) as { messages?: ChatMessage[] };
+    for (const [messageIndex, message] of (body.messages ?? []).entries()) {
+      if (current.run.sinceCursor) {
+        if (!message.createTime) continue;
+        const weekPath = weekPathFromCreateTime(message.createTime);
+        if (weekPath) {
+          ctx.sql.exec("INSERT OR IGNORE INTO touched_weeks (week_path) VALUES (?)", weekPath);
+        }
+      } else {
+        indexMessage(ctx.sql, message, `unnamed-${page.page_index}-${messageIndex}`);
+      }
+    }
+    pageCursor += 1;
+    metaSet(ctx.sql, "indexing_page", String(pageCursor));
+  }
+  if (current.run.sinceCursor && !(await regenerateTouchedWeeks(ctx, current))) {
+    return { phaseComplete: false };
+  }
+  return { phaseComplete: true };
+}
+
 async function stepSenders(ctx: ChatImportTickContext, current: Current): Promise<StepOutcome> {
   const unresolved = ctx.sql
     .exec<{ resource_name: string }>("SELECT resource_name FROM senders WHERE display_name IS NULL")
     .toArray();
-  if (unresolved.length === 0 && metaGet(ctx.sql, "members_done") === "1") {
+  if (metaGet(ctx.sql, "senders_total") === null) {
+    metaSet(ctx.sql, "senders_total", String(unresolved.length));
+  }
+  if (unresolved.length === 0) {
+    logSenderResolutionSummary(ctx, current);
     return { phaseComplete: true };
   }
 
   const token = requireAccessToken(ctx);
-  const spaceName = spaceNameOf(current.source);
+  let viaDirectory = Number(metaGet(ctx.sql, "senders_via_directory") ?? "0");
 
-  if (metaGet(ctx.sql, "members_done") !== "1") {
-    if (!ctx.budget.canSpend(1)) return { phaseComplete: false };
-    const members = await resolveSpaceMemberDisplayNames(spaceName, token, {
+  // Chat's user-authenticated memberships omit User.displayName. Resolve the
+  // Workspace directory first, retaining its page cursor in DO SQLite so a large
+  // directory never consumes a tick's entire subrequest allowance.
+  if (metaGet(ctx.sql, "directory_done") !== "1") {
+    const directory = await resolveDirectoryPeopleDisplayNames(token, {
+      pageToken: metaGet(ctx.sql, "directory_page_token"),
+      shouldContinue: () => ctx.budget.canSpend(1),
       onFetch: () => ctx.budget.spend(1),
     });
-    for (const [resourceName, displayName] of members) {
+    for (const [resourceName, displayName] of directory.names) {
+      if (unresolved.some((row) => row.resource_name === resourceName)) viaDirectory += 1;
       ctx.sql.exec(
         "UPDATE senders SET display_name = ? WHERE resource_name = ? AND display_name IS NULL",
         displayName,
         resourceName,
       );
     }
-    metaSet(ctx.sql, "members_done", "1");
+    metaSet(ctx.sql, "senders_via_directory", String(viaDirectory));
+    if (!directory.complete) {
+      if (directory.nextPageToken)
+        metaSet(ctx.sql, "directory_page_token", directory.nextPageToken);
+      return { phaseComplete: false };
+    }
+    metaSet(ctx.sql, "directory_done", "1");
+    ctx.sql.exec("DELETE FROM meta WHERE key = 'directory_page_token'");
   }
 
   const stillUnresolved = ctx.sql
     .exec<{ resource_name: string }>("SELECT resource_name FROM senders WHERE display_name IS NULL")
     .toArray();
-  if (stillUnresolved.length === 0) return { phaseComplete: true };
-
-  if (!ctx.budget.canSpend(1)) return { phaseComplete: false };
+  if (stillUnresolved.length === 0) {
+    logSenderResolutionSummary(ctx, current);
+    return { phaseComplete: true };
+  }
 
   const senders = stillUnresolved.map((row) => ({
     name: row.resource_name,
     type: "HUMAN" as const,
   }));
   const names = await resolvePeopleDisplayNames(token, senders, {
+    shouldContinue: () => ctx.budget.canSpend(1),
     onFetch: () => ctx.budget.spend(1),
   });
   for (const [resourceName, displayName] of names) {
@@ -474,10 +309,43 @@ async function stepSenders(ctx: ChatImportTickContext, current: Current): Promis
       resourceName,
     );
   }
-  ctx.sql.exec(
-    "UPDATE senders SET display_name = 'Unknown user (' || resource_name || ')' WHERE display_name IS NULL",
+  const peopleResolved = [...names.values()].filter(
+    (name) => !name.startsWith("Unknown user"),
+  ).length;
+  const unresolvedNames = [...names.values()].filter((name) =>
+    name.startsWith("Unknown user"),
+  ).length;
+  metaSet(
+    ctx.sql,
+    "senders_via_people",
+    String(Number(metaGet(ctx.sql, "senders_via_people") ?? "0") + peopleResolved),
   );
+  metaSet(
+    ctx.sql,
+    "senders_unresolved",
+    String(Number(metaGet(ctx.sql, "senders_unresolved") ?? "0") + unresolvedNames),
+  );
+  const remaining = ctx.sql
+    .exec<{ resource_name: string }>("SELECT resource_name FROM senders WHERE display_name IS NULL")
+    .toArray();
+  if (remaining.length > 0) {
+    // A budget stop is resumable. Do not burn Unknown user into a document until
+    // batchGet has had a chance to run for every remaining sender.
+    return { phaseComplete: false };
+  }
+  logSenderResolutionSummary(ctx, current);
   return { phaseComplete: true };
+}
+
+function logSenderResolutionSummary(ctx: ChatImportTickContext, current: Current): void {
+  log("senders_resolved", {
+    sourceId: current.source.id,
+    runId: ctx.runId,
+    total: Number(metaGet(ctx.sql, "senders_total") ?? "0"),
+    viaDirectory: Number(metaGet(ctx.sql, "senders_via_directory") ?? "0"),
+    viaPeople: Number(metaGet(ctx.sql, "senders_via_people") ?? "0"),
+    unresolved: Number(metaGet(ctx.sql, "senders_unresolved") ?? "0"),
+  });
 }
 
 async function stepAttachments(ctx: ChatImportTickContext, current: Current): Promise<StepOutcome> {
@@ -500,10 +368,10 @@ async function stepAttachments(ctx: ChatImportTickContext, current: Current): Pr
       .toArray();
     if (pending.length === 0) return { phaseComplete: true };
 
-    // 2 subrequests per attachment + 1 D1 progress update
+    // 2 subrequests per attachment; progress is object-local.
     const batchSize = Math.min(
       pending.length,
-      Math.floor((ctx.budget.remaining() - 1) / 2),
+      Math.floor(ctx.budget.remaining() / 2),
       ATTACHMENT_PARALLELISM,
     );
     if (batchSize <= 0) return { phaseComplete: false };
@@ -543,12 +411,7 @@ async function stepAttachments(ctx: ChatImportTickContext, current: Current): Pr
         "SELECT COUNT(*) AS c FROM attachments WHERE status IN ('done', 'skipped')",
       )
       .one().c;
-    ctx.budget.spend(1);
-    await current.db
-      .update(schema.googleChatImportRuns)
-      .set({ attachmentsDone: done, updatedAt: new Date() })
-      .where(eq(schema.googleChatImportRuns.id, ctx.runId));
-    current.run.attachmentsDone = done;
+    metaSet(ctx.sql, "attachments_done", String(done));
   }
 }
 
@@ -604,82 +467,44 @@ async function downloadAttachment(
 }
 
 async function stepGrouping(ctx: ChatImportTickContext, current: Current): Promise<StepOutcome> {
-  const pages = ctx.sql
-    .exec<{ page_index: number; r2_key: string }>(
-      "SELECT page_index, r2_key FROM pages ORDER BY page_index",
-    )
-    .toArray();
-  let pageCursor = Number(metaGet(ctx.sql, "grouping_page") ?? "0");
-
-  while (pageCursor < pages.length) {
-    if (!ctx.budget.canSpend(1)) {
-      metaSet(ctx.sql, "grouping_page", String(pageCursor));
-      return { phaseComplete: false };
-    }
-    const page = pages[pageCursor];
-    if (!page) break;
-    ctx.budget.spend(1);
-    const object = await ctx.env.BUCKET.get(page.r2_key);
-    if (!object) throw new Error(`Missing Chat import page object: ${page.r2_key}`);
-    const body = (await object.json()) as { messages?: ChatMessage[] };
-    for (const message of body.messages ?? []) {
-      if (!message.createTime) continue;
-      const path = monthPathFromCreateTime(message.createTime);
-      if (!path) continue;
-      ctx.sql.exec(
-        "INSERT INTO month_messages (month_path, message_json) VALUES (?, ?)",
-        path,
-        JSON.stringify(message),
-      );
-    }
-    pageCursor += 1;
-  }
-  metaSet(ctx.sql, "grouping_page", String(pageCursor));
-
-  if (metaGet(ctx.sql, "months_flushed") !== "1") {
-    const monthPaths = ctx.sql
-      .exec<{ month_path: string }>(
-        "SELECT DISTINCT month_path FROM month_messages ORDER BY month_path",
+  if (metaGet(ctx.sql, "weeks_flushed") !== "1") {
+    const weekPaths = ctx.sql
+      .exec<{ week_path: string }>(
+        "SELECT DISTINCT week_path FROM week_messages ORDER BY week_path",
       )
       .toArray();
-    let sortIndex = Number(metaGet(ctx.sql, "months_flush_index") ?? "0");
-    while (sortIndex < monthPaths.length) {
-      // R2 put + D1 monthsTotal update charged once after the loop; per month only R2.
+    let sortIndex = Number(metaGet(ctx.sql, "weeks_flush_index") ?? "0");
+    while (sortIndex < weekPaths.length) {
       if (!ctx.budget.canSpend(1)) {
-        metaSet(ctx.sql, "months_flush_index", String(sortIndex));
+        metaSet(ctx.sql, "weeks_flush_index", String(sortIndex));
         return { phaseComplete: false };
       }
-      const monthPath = monthPaths[sortIndex]?.month_path;
-      if (!monthPath) break;
+      const weekPath = weekPaths[sortIndex]?.week_path;
+      if (!weekPath) break;
       const messages = ctx.sql
         .exec<{ message_json: string }>(
-          "SELECT message_json FROM month_messages WHERE month_path = ? ORDER BY id",
-          monthPath,
+          `SELECT message_json FROM week_messages
+           WHERE week_path = ? ORDER BY thread_name, create_time, id`,
+          weekPath,
         )
         .toArray()
         .map((row) => JSON.parse(row.message_json) as ChatMessage);
-      const r2Key = `raw/${current.source.id}/chat-runs/${ctx.runId}/months/${monthPath}.json`;
+      const r2Key = `raw/${current.source.id}/chat-runs/${ctx.runId}/weeks/${weekPath}.json`;
       ctx.budget.spend(1);
       await ctx.env.BUCKET.put(r2Key, JSON.stringify({ messages }), {
         httpMetadata: { contentType: "application/json" },
       });
       ctx.sql.exec(
-        "INSERT INTO months (month_path, r2_key, sort_index) VALUES (?, ?, ?) ON CONFLICT(month_path) DO UPDATE SET r2_key = excluded.r2_key, sort_index = excluded.sort_index",
-        monthPath,
+        `INSERT INTO week_documents (week_path, r2_key, sort_index) VALUES (?, ?, ?)
+         ON CONFLICT(week_path) DO UPDATE SET r2_key = excluded.r2_key, sort_index = excluded.sort_index`,
+        weekPath,
         r2Key,
         sortIndex,
       );
       sortIndex += 1;
-      metaSet(ctx.sql, "months_flush_index", String(sortIndex));
+      metaSet(ctx.sql, "weeks_flush_index", String(sortIndex));
     }
-    if (!ctx.budget.canSpend(1)) return { phaseComplete: false };
-    ctx.budget.spend(1);
-    await current.db
-      .update(schema.googleChatImportRuns)
-      .set({ monthsTotal: monthPaths.length, updatedAt: new Date() })
-      .where(eq(schema.googleChatImportRuns.id, ctx.runId));
-    current.run.monthsTotal = monthPaths.length;
-    metaSet(ctx.sql, "months_flushed", "1");
+    metaSet(ctx.sql, "weeks_flushed", "1");
   }
 
   if (metaGet(ctx.sql, "parents_done") !== "1") {
@@ -713,17 +538,78 @@ async function stepGrouping(ctx: ChatImportTickContext, current: Current): Promi
   return { phaseComplete: true };
 }
 
+/** Re-fetch and index every delta-touched week before sender/attachment processing. */
+async function regenerateTouchedWeeks(
+  ctx: ChatImportTickContext,
+  current: Current,
+): Promise<boolean> {
+  if (metaGet(ctx.sql, "weeks_regenerated") === "1") return true;
+  const weeks = ctx.sql
+    .exec<{ week_path: string }>("SELECT week_path FROM touched_weeks ORDER BY week_path")
+    .toArray();
+  let index = Number(metaGet(ctx.sql, "weeks_regenerate_index") ?? "0");
+  while (index < weeks.length) {
+    const weekPath = weeks[index]?.week_path;
+    if (!weekPath) break;
+    const startedKey = `week_regenerate_started:${weekPath}`;
+    const tokenKey = `week_regenerate_token:${weekPath}`;
+    const pageKey = `week_regenerate_page:${weekPath}`;
+    if (metaGet(ctx.sql, startedKey) !== "1") {
+      ctx.sql.exec("DELETE FROM week_messages WHERE week_path = ?", weekPath);
+      metaSet(ctx.sql, startedKey, "1");
+    }
+    if (!ctx.budget.canSpend(1)) return false;
+    const bounds = weekBoundsRfc3339(weekPath);
+    if (!bounds) throw new Error(`Invalid Chat week path: ${weekPath}`);
+    const params = new URLSearchParams({
+      pageSize: String(CHAT_PAGE_SIZE),
+      filter: `createTime >= \"${bounds.start}\" AND createTime < \"${bounds.end}\"`,
+    });
+    const pageToken = metaGet(ctx.sql, tokenKey);
+    if (pageToken) params.set("pageToken", pageToken);
+    ctx.budget.spend(1);
+    const response = await fetchWithTimeout(
+      `https://chat.googleapis.com/v1/${spaceNameOf(current.source)}/messages?${params}`,
+      { headers: { Authorization: `Bearer ${requireAccessToken(ctx)}` } },
+    );
+    if (!response.ok) {
+      await logGoogleChatMessagesListError(response, {
+        spaceName: spaceNameOf(current.source),
+        filter: params.get("filter"),
+        hasPageToken: Boolean(pageToken),
+      });
+      throw new Error(`Google Chat weekly messages.list failed (${response.status})`);
+    }
+    const page = (await response.json()) as { messages?: ChatMessage[]; nextPageToken?: string };
+    const pageIndex = Number(metaGet(ctx.sql, pageKey) ?? "0");
+    for (const [messageIndex, message] of (page.messages ?? []).entries()) {
+      indexMessage(ctx.sql, message, `week-${index}-${pageIndex}-${messageIndex}`, weekPath);
+    }
+    if (page.nextPageToken) {
+      metaSet(ctx.sql, tokenKey, page.nextPageToken);
+      metaSet(ctx.sql, pageKey, String(pageIndex + 1));
+      continue;
+    }
+    ctx.sql.exec("DELETE FROM meta WHERE key IN (?, ?, ?)", startedKey, tokenKey, pageKey);
+    index += 1;
+    metaSet(ctx.sql, "weeks_regenerate_index", String(index));
+  }
+  metaSet(ctx.sql, "weeks_regenerated", "1");
+  return true;
+}
+
 async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Promise<StepOutcome> {
-  const months = ctx.sql
-    .exec<{ month_path: string; r2_key: string; sort_index: number }>(
-      "SELECT month_path, r2_key, sort_index FROM months ORDER BY sort_index",
+  const weeks = ctx.sql
+    .exec<{ week_path: string; r2_key: string; sort_index: number }>(
+      "SELECT week_path, r2_key, sort_index FROM week_documents ORDER BY sort_index",
     )
     .toArray();
-  let monthsDone = current.run.monthsDone;
+  let weeksDone = Number(metaGet(ctx.sql, "weeks_done") ?? "0");
   const incremental = Boolean(current.run.sinceCursor);
   const persistCost = incremental ? PERSIST_MERGE_SUBREQUESTS : PERSIST_REPLACE_SUBREQUESTS;
-  // R2 get month + optional existing select + optional prior R2 get + persist + run update
-  const monthUnitCost = 1 + (incremental ? 2 : 0) + persistCost + 1;
+  // R2 get week + persist. Incremental weeks have been regenerated during indexing;
+  // merge applies only to attachments/metadata, never to stale Markdown blocks.
+  const weekUnitCost = 1 + persistCost;
 
   const senderNames = new Map(
     ctx.sql
@@ -775,14 +661,14 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
       .map((row) => [row.object_id, row.content_name ?? row.object_id] as const),
   );
 
-  while (monthsDone < months.length) {
-    if (!ctx.budget.canSpend(monthUnitCost)) return { phaseComplete: false };
-    const month = months[monthsDone];
-    if (!month) break;
+  while (weeksDone < weeks.length) {
+    if (!ctx.budget.canSpend(weekUnitCost)) return { phaseComplete: false };
+    const week = weeks[weeksDone];
+    if (!week) break;
 
     ctx.budget.spend(1);
-    const object = await ctx.env.BUCKET.get(month.r2_key);
-    if (!object) throw new Error(`Missing Chat import month object: ${month.r2_key}`);
+    const object = await ctx.env.BUCKET.get(week.r2_key);
+    if (!object) throw new Error(`Missing Chat import week object: ${week.r2_key}`);
     const body = (await object.json()) as { messages?: ChatMessage[] };
     const [normalized] = normalizeChatMessages(body.messages ?? [], {
       resolveSenderName: (sender) =>
@@ -792,19 +678,15 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
       threadParents,
     });
     if (!normalized) {
-      monthsDone += 1;
-      ctx.budget.spend(1);
-      await current.db
-        .update(schema.googleChatImportRuns)
-        .set({ monthsDone, updatedAt: new Date() })
-        .where(eq(schema.googleChatImportRuns.id, ctx.runId));
-      current.run.monthsDone = monthsDone;
+      weeksDone += 1;
+      metaSet(ctx.sql, "weeks_done", String(weeksDone));
       continue;
     }
 
     let markdown = normalized.markdown;
-    let metadata = mergeDocumentUrls(null, normalized.urls);
-    let cursor = normalized.cursor;
+    const metadata = mergeDocumentUrls(null, normalized.urls);
+    const cursor = normalized.cursor;
+    const path = pathForMediaType(normalized.path, MARKDOWN_MEDIA_TYPE);
     const assets: ResolvedSourceAsset[] = [];
 
     for (const item of normalized.attachments) {
@@ -822,66 +704,40 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
       }
     }
 
-    if (incremental) {
-      ctx.budget.spend(1);
-      const existing = await current.db
-        .select({
-          r2Key: schema.sourceDocuments.r2Key,
-          metadata: schema.sourceDocuments.metadata,
-          cursor: schema.sourceDocuments.cursor,
-          status: schema.sourceDocuments.status,
-        })
-        .from(schema.sourceDocuments)
-        .where(
-          and(
-            eq(schema.sourceDocuments.sourceId, current.source.id),
-            eq(schema.sourceDocuments.path, normalized.path),
-          ),
-        )
-        .get();
-      if (existing && existing.status !== "archived") {
-        ctx.budget.spend(1);
-        const previousObject = await ctx.env.BUCKET.get(existing.r2Key);
-        const previousMarkdown = previousObject ? await previousObject.text() : "";
-        markdown = appendMonthlyMarkdown(previousMarkdown, markdown);
-        metadata = mergeDocumentUrls(existing.metadata, normalized.urls);
-        if (existing.cursor && (!cursor || existing.cursor > cursor)) cursor = existing.cursor;
-      }
-    }
-
     ctx.budget.spend(persistCost);
     await persistSourceDocument(ctx.env, {
       sourceId: current.source.id,
       fetchAttemptId: current.run.fetchAttemptId,
-      path: normalized.path,
+      path,
       title: normalized.title,
-      markdown,
+      body: markdownBody(markdown),
+      mediaType: MARKDOWN_MEDIA_TYPE,
       cursor,
       metadata: metadata ?? JSON.stringify({ urls: normalized.urls }),
       assets,
       assetPolicy: incremental ? "merge" : "replace",
     });
 
-    monthsDone += 1;
-    ctx.budget.spend(1);
-    await current.db
-      .update(schema.googleChatImportRuns)
-      .set({ monthsDone, updatedAt: new Date() })
-      .where(eq(schema.googleChatImportRuns.id, ctx.runId));
-    current.run.monthsDone = monthsDone;
+    weeksDone += 1;
+    metaSet(ctx.sql, "weeks_done", String(weeksDone));
   }
 
-  return { phaseComplete: monthsDone >= months.length };
+  if (weeksDone < weeks.length) return { phaseComplete: false };
+  // The generic tick calls complete immediately after this step. Reserve its
+  // archive/source/run writes (and incremental retained-path read) so a final
+  // document persist cannot push the tick over the subrequest budget.
+  const completeCost = ARCHIVE_MISSING_SUBREQUESTS + 2 + (incremental ? 1 : 0);
+  return { phaseComplete: ctx.budget.canSpend(completeCost) };
 }
 
 async function completeImport(ctx: ChatImportTickContext, current: Current): Promise<void> {
-  const months = ctx.sql
-    .exec<{ month_path: string }>("SELECT month_path FROM months")
+  const weeks = ctx.sql
+    .exec<{ week_path: string }>("SELECT week_path FROM week_documents")
     .toArray()
-    .map((row) => row.month_path);
+    .map((row) => pathForMediaType(row.week_path, MARKDOWN_MEDIA_TYPE));
 
   const incremental = Boolean(current.run.sinceCursor);
-  let retainedPaths = months;
+  let retainedPaths = weeks;
   if (incremental) {
     ctx.budget.spend(1);
     const existing = await current.db
@@ -894,7 +750,7 @@ async function completeImport(ctx: ChatImportTickContext, current: Current): Pro
         ),
       )
       .all();
-    retainedPaths = [...new Set([...existing.map((row) => row.path), ...months])];
+    retainedPaths = [...new Set([...existing.map((row) => row.path), ...weeks])];
   }
 
   ctx.budget.spend(ARCHIVE_MISSING_SUBREQUESTS);
@@ -924,21 +780,47 @@ async function completeImport(ctx: ChatImportTickContext, current: Current): Pro
 
   ctx.budget.spend(1);
   await current.db
-    .update(schema.googleChatImportRuns)
+    .update(schema.sourceImportRuns)
     .set({ phase: "complete", consecutiveFailures: 0, updatedAt: new Date() })
-    .where(eq(schema.googleChatImportRuns.id, ctx.runId));
+    .where(eq(schema.sourceImportRuns.id, ctx.runId));
 
   await deleteRunTempObjects(ctx, current.source.id);
 
   log("import_completed", {
     sourceId: current.source.id,
     runId: ctx.runId,
-    pages: current.run.pagesFetched,
-    messages: current.run.messagesFetched,
-    months: months.length,
+    pages: Number(metaGet(ctx.sql, "pages_fetched") ?? "0"),
+    messages: Number(metaGet(ctx.sql, "messages_fetched") ?? "0"),
+    weeks: weeks.length,
     subrequests: ctx.budget.spent,
   });
 }
+
+/**
+ * Chat's existing phase workers are a driver too. Keeping them as a driver
+ * removes the Queue/DO kind fork while preserving each phase's established
+ * subrequest accounting during the extraction to import/chat/.
+ */
+export const chatImportDriver: ImportKindDriver<Exclude<ChatImportPhase, "complete" | "error">> = {
+  kind: "google-chat-space",
+  phases: ["listing", "indexing", "senders", "attachments", "grouping", "finalizing"],
+  needsAccessToken: true,
+  requiredScopes: REQUIRED_GOOGLE_CHAT_SCOPES,
+  authorizationErrorMessage: GOOGLE_CHAT_REAUTH_MESSAGE,
+  async step(phase, ctx, current) {
+    const chatCtx = ctx as ChatImportTickContext;
+    const chatCurrent = current as Current;
+    if (phase === "listing") return stepListing(chatCtx, chatCurrent);
+    if (phase === "indexing") return stepIndexing(chatCtx, chatCurrent);
+    if (phase === "senders") return stepSenders(chatCtx, chatCurrent);
+    if (phase === "attachments") return stepAttachments(chatCtx, chatCurrent);
+    if (phase === "grouping") return stepGrouping(chatCtx, chatCurrent);
+    return stepFinalizing(chatCtx, chatCurrent);
+  },
+  complete(ctx, current) {
+    return completeImport(ctx as ChatImportTickContext, current as Current);
+  },
+};
 
 async function deleteRunTempObjects(ctx: ChatImportTickContext, sourceId: string): Promise<void> {
   const keys = [
@@ -947,68 +829,22 @@ async function deleteRunTempObjects(ctx: ChatImportTickContext, sourceId: string
       .toArray()
       .map((r) => r.r2_key),
     ...ctx.sql
-      .exec<{ r2_key: string }>("SELECT r2_key FROM months")
+      .exec<{ r2_key: string }>("SELECT r2_key FROM week_documents")
       .toArray()
       .map((r) => r.r2_key),
   ];
   for (const key of keys) {
     if (!ctx.budget.canSpend(1)) break;
     ctx.budget.spend(1);
-    await ctx.env.BUCKET.delete(key);
+    try {
+      await ctx.env.BUCKET.delete(key);
+    } catch (error) {
+      warnGoogleChat("temporary_object_cleanup_failed", {
+        sourceId,
+        key,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      break;
+    }
   }
-  // Best-effort prefix cleanup if listing is available.
-  void sourceId;
-}
-
-export async function failChatImportRun(
-  env: Env,
-  runId: string,
-  error: unknown,
-): Promise<{ retryable: boolean; consecutiveFailures: number }> {
-  const message = error instanceof Error ? error.message : String(error);
-  const retryable = isRetryableFetchError(error);
-  const current = await currentRun(env, runId);
-  if (!current) return { retryable: false, consecutiveFailures: 0 };
-
-  const consecutiveFailures = current.run.consecutiveFailures + 1;
-  if (retryable && consecutiveFailures < MAX_CONSECUTIVE_FAILURES) {
-    await current.db
-      .update(schema.googleChatImportRuns)
-      .set({
-        consecutiveFailures,
-        errorMessage: message.slice(0, 2000),
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.googleChatImportRuns.id, runId));
-    return { retryable: true, consecutiveFailures };
-  }
-
-  await current.db
-    .update(schema.googleChatImportRuns)
-    .set({
-      phase: "error",
-      consecutiveFailures,
-      errorMessage: message.slice(0, 2000),
-      updatedAt: new Date(),
-    })
-    .where(eq(schema.googleChatImportRuns.id, runId));
-  await current.db
-    .update(schema.sources)
-    .set({
-      status: "error",
-      fetchAttemptId: null,
-      errorMessage: message.slice(0, 2000),
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(schema.sources.id, current.source.id),
-        eq(schema.sources.fetchAttemptId, current.run.fetchAttemptId),
-      ),
-    );
-  return { retryable: false, consecutiveFailures };
-}
-
-export function retryAlarmDelayMs(consecutiveFailures: number): number {
-  return Math.min(60_000, ALARM_CONTINUE_MS * 2 ** Math.max(0, consecutiveFailures - 1));
 }

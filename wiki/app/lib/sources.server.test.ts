@@ -11,6 +11,25 @@ describe("classifySourceUrl", () => {
     });
   });
 
+  it("classifies Sheets and Slides independently and preserves a picker title", () => {
+    expect(
+      classifySourceUrl("https://docs.google.com/u/0/spreadsheets/d/sheet123/edit", "Budget 2026"),
+    ).toMatchObject({
+      ok: true,
+      kind: "google-sheet",
+      externalId: "sheet123",
+      title: "Budget 2026",
+    });
+    expect(
+      classifySourceUrl("https://docs.google.com/presentation/d/slides123/edit", "Kickoff slides"),
+    ).toMatchObject({
+      ok: true,
+      kind: "google-slides",
+      externalId: "slides123",
+      title: "Kickoff slides",
+    });
+  });
+
   it("accepts http(s) websites", () => {
     expect(classifySourceUrl("https://example.com/page")).toMatchObject({
       ok: true,

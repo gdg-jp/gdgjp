@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import * as schema from "../../../app/db/schema";
 import { getDb } from "../../../app/lib/db.server";
+import { extensionFor } from "./media-type";
 
 export interface PersistDocumentInput {
   sourceId: string;
@@ -9,7 +10,8 @@ export interface PersistDocumentInput {
   fetchAttemptId: string;
   path: string;
   title: string;
-  markdown: string;
+  body: Uint8Array;
+  mediaType: string;
   cursor?: string | null;
   metadata?: string | null;
   assets?: readonly PersistAssetInput[];
@@ -79,8 +81,9 @@ export function contentR2Key(
   sourceId: string,
   sourceDocumentId: string,
   contentHash: string,
+  mediaType: string,
 ): string {
-  return `raw/${sourceId}/${sourceDocumentId}/${contentHash}.md`;
+  return `raw/${sourceId}/${sourceDocumentId}/${contentHash}${extensionFor(mediaType)}`;
 }
 
 /**
@@ -101,8 +104,7 @@ export async function persistSourceDocument(
     return { skipped: true };
   }
 
-  const bytes = new TextEncoder().encode(input.markdown);
-  const contentHash = await sha256Hex(bytes);
+  const contentHash = await sha256Hex(input.body);
 
   const existing = await db
     .select()
@@ -123,6 +125,7 @@ export async function persistSourceDocument(
       status?: string;
       cursor?: string | null;
       metadata?: string | null;
+      mediaType?: string;
     } = {};
     if (existing.status !== "ready") patch.status = "ready";
     if (input.cursor !== undefined && input.cursor !== existing.cursor) {
@@ -131,6 +134,7 @@ export async function persistSourceDocument(
     if (input.metadata !== undefined && input.metadata !== existing.metadata) {
       patch.metadata = input.metadata;
     }
+    if (input.mediaType !== existing.mediaType) patch.mediaType = input.mediaType;
     if (Object.keys(patch).length > 0) {
       const updated = await db
         .update(schema.sourceDocuments)
@@ -157,9 +161,13 @@ export async function persistSourceDocument(
   }
 
   const id = existing?.id ?? nanoid();
-  const r2Key = contentR2Key(input.sourceId, id, contentHash);
-  await env.BUCKET.put(r2Key, bytes, {
-    httpMetadata: { contentType: "text/markdown; charset=utf-8" },
+  const r2Key = contentR2Key(input.sourceId, id, contentHash, input.mediaType);
+  await env.BUCKET.put(r2Key, input.body, {
+    httpMetadata: {
+      contentType: input.mediaType.startsWith("text/")
+        ? `${input.mediaType}; charset=utf-8`
+        : input.mediaType,
+    },
     customMetadata: { sha256: contentHash, path: input.path },
   });
 
@@ -171,6 +179,7 @@ export async function persistSourceDocument(
           title: input.title,
           r2Key,
           contentHash,
+          mediaType: input.mediaType,
           capturedAt: now,
           status: "ready",
           ...(input.cursor !== undefined ? { cursor: input.cursor } : {}),
@@ -195,6 +204,7 @@ export async function persistSourceDocument(
               title: sql<string>`${input.title}`.as("title"),
               r2Key: sql<string>`${r2Key}`.as("r2_key"),
               contentHash: sql<string>`${contentHash}`.as("content_hash"),
+              mediaType: sql<string>`${input.mediaType}`.as("media_type"),
               capturedAt: sql<number>`${now.getTime()}`.as("captured_at"),
               cursor: sql<string | null>`${input.cursor ?? null}`.as("cursor"),
               metadata: sql<string | null>`${input.metadata ?? null}`.as("metadata"),

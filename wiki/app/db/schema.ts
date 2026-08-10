@@ -491,7 +491,7 @@ export const discordGuildSettings = sqliteTable("discord_guild_settings", {
 // ---------------------------------------------------------------------------
 export const sources = sqliteTable("sources", {
   id: text("id").primaryKey(),
-  // "google-doc" | "google-chat-space" | "website" | "upload" | "text"
+  // "google-doc" | "google-sheet" | "google-slides" | "google-chat-space" | "website" | "upload" | "text"
   kind: text("kind").notNull(),
   externalId: text("external_id"),
   url: text("url").notNull(),
@@ -523,6 +523,7 @@ export const sourceDocuments = sqliteTable(
     title: text("title").notNull(),
     r2Key: text("r2_key").notNull(),
     contentHash: text("content_hash").notNull(),
+    mediaType: text("media_type").notNull().default("text/markdown"),
     capturedAt: integer("captured_at", { mode: "timestamp" }).notNull(),
     cursor: text("cursor"),
     /** JSON blob (e.g. extracted URLs). Nullable; Stage 3 reads this. */
@@ -546,23 +547,24 @@ export const sourceAssets = sqliteTable("source_assets", {
 });
 
 // ---------------------------------------------------------------------------
-// google_chat_import_runs — Durable Object alarm-driven Chat import progress
+// source_import_runs — Durable Object alarm-driven source import progress
 // ---------------------------------------------------------------------------
-export const googleChatImportRuns = sqliteTable("google_chat_import_runs", {
+export const sourceImportRuns = sqliteTable("source_import_runs", {
   id: text("id").primaryKey(),
   sourceId: text("source_id")
     .notNull()
     .unique()
     .references(() => sources.id, { onDelete: "cascade" }),
   fetchAttemptId: text("fetch_attempt_id").notNull(),
-  nextPageToken: text("next_page_token"),
+  // Driver identity, rather than a source kind: Docs/Sheets/Slides share the
+  // Google Drive driver and therefore do not require a migration per MIME type.
+  kind: text("kind").notNull(),
+  // Only the source-document cursor must exist before a Durable Object starts.
   sinceCursor: text("since_cursor"),
-  phase: text("phase").notNull().default("listing"),
-  pagesFetched: integer("pages_fetched").notNull().default(0),
-  messagesFetched: integer("messages_fetched").notNull().default(0),
-  attachmentsDone: integer("attachments_done").notNull().default(0),
-  monthsTotal: integer("months_total").notNull().default(0),
-  monthsDone: integer("months_done").notNull().default(0),
+  // JSON summary is flushed when phases change. Per-step cursors live in the
+  // object-local SQLite meta table and do not consume subrequest budget.
+  phase: text("phase").notNull().default("start"),
+  progress: text("progress").notNull().default("{}"),
   consecutiveFailures: integer("consecutive_failures").notNull().default(0),
   errorMessage: text("error_message"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),

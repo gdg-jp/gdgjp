@@ -486,6 +486,7 @@ export interface components {
             title: string;
             path: string;
             contentHash: string;
+            mediaType?: string;
             capturedAt?: number | null;
             ingestedHash?: string | null;
         };
@@ -724,6 +725,7 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": string;
+                    "application/pdf": string;
                     "text/markdown": string;
                 };
             };

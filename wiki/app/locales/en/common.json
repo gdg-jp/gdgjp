@@ -421,6 +421,8 @@
     "no_documents": "No documents yet.",
     "kind": {
       "google-doc": "Google Doc",
+      "google-sheet": "Google Sheet",
+      "google-slides": "Google Slides",
       "google-chat-space": "Google Chat",
       "website": "Website",
       "upload": "Upload",

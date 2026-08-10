@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { retryAlarmDelayMs } from "./google-chat-import";
-import { isRetryableFetchError } from "./retry-classification";
+import { retryAlarmDelayMs } from "./import/run";
+import { SourceAuthorizationError, isRetryableFetchError } from "./retry-classification";
 
 describe("isRetryableFetchError", () => {
   it("does not retry failures a retry can never fix", () => {
@@ -15,6 +15,7 @@ describe("isRetryableFetchError", () => {
     expect(isRetryableFetchError(new Error("A Google Docs image exceeds the 10 MB limit"))).toBe(
       false,
     );
+    expect(isRetryableFetchError(new SourceAuthorizationError("Reconnect Google"))).toBe(false);
   });
 
   it("does not retry 4xx responses from Google", () => {

@@ -14,7 +14,7 @@ export type { SourceKind, SourceRefreshPolicy };
 export type ClassifiedSource =
   | {
       ok: true;
-      kind: "google-doc" | "website" | "google-chat-space";
+      kind: SourceKind;
       url: string;
       externalId: string | null;
       title?: string;
@@ -35,7 +35,7 @@ export function googleChatSpaceUrl(spaceName: string): string {
 }
 
 /** Normalize and classify a user-supplied URL for Stage 1 source registration. */
-export function classifySourceUrl(raw: string): ClassifiedSource {
+export function classifySourceUrl(raw: string, title?: unknown): ClassifiedSource {
   const trimmed = raw.trim();
   if (!trimmed) return { ok: false, error: "url_required" };
 
@@ -57,11 +57,23 @@ export function classifySourceUrl(raw: string): ClassifiedSource {
   }
 
   if (isGoogleDriveUrl(href)) {
-    const kind = getGoogleDriveDocumentKind(href);
-    if (!kind) return { ok: false, error: "unsupported_url" };
+    const documentKind = getGoogleDriveDocumentKind(href);
+    if (!documentKind) return { ok: false, error: "unsupported_url" };
     const externalId = extractDriveFileId(href);
     if (!externalId) return { ok: false, error: "invalid_url" };
-    return { ok: true, kind: "google-doc", url: href, externalId };
+    const kind: SourceKind =
+      documentKind === "document"
+        ? "google-doc"
+        : documentKind === "spreadsheet"
+          ? "google-sheet"
+          : "google-slides";
+    return {
+      ok: true,
+      kind,
+      url: href,
+      externalId,
+      ...(typeof title === "string" && title.trim() ? { title: title.trim() } : {}),
+    };
   }
 
   return { ok: true, kind: "website", url: href, externalId: null };
@@ -216,7 +228,7 @@ export async function createSource(
     input.kind === "google-chat-space"
       ? classifyGoogleChatSpace(input.externalId, input.title)
       : typeof input.url === "string"
-        ? classifySourceUrl(input.url)
+        ? classifySourceUrl(input.url, input.title)
         : { ok: false as const, error: "url_required" };
 
   if (!classified.ok) {
@@ -285,7 +297,13 @@ export async function createSource(
 /** Placeholder until the fetcher reports the real document title. */
 function provisionalTitle(classified: Extract<ClassifiedSource, { ok: true }>): string {
   if (classified.title) return classified.title;
-  if (classified.kind === "google-doc") return `Google Doc ${classified.externalId}`;
+  if (
+    classified.kind === "google-doc" ||
+    classified.kind === "google-sheet" ||
+    classified.kind === "google-slides"
+  ) {
+    return `Google Doc ${classified.externalId}`;
+  }
   if (classified.kind === "google-chat-space") {
     return `Google Chat ${classified.externalId}`;
   }

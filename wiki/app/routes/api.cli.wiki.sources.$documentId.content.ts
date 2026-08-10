@@ -178,6 +178,10 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const object = await env.BUCKET.get(document.r2Key);
   if (!object) return Response.json({ error: "not_found" }, { status: 404 });
   return new Response(object.body, {
-    headers: { "content-type": "text/markdown; charset=utf-8" },
+    headers: {
+      "content-type": document.mediaType.startsWith("text/")
+        ? `${document.mediaType}; charset=utf-8`
+        : document.mediaType,
+    },
   });
 }

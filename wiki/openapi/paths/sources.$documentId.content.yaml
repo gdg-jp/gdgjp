@@ -25,6 +25,10 @@ get:
           schema:
             type: string
             format: binary
+        application/pdf:
+          schema:
+            type: string
+            format: binary
         text/markdown:
           schema:
             type: string
