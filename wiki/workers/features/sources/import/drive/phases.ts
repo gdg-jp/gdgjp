@@ -74,8 +74,7 @@ export function resolveDriveFileId(url: string, externalId: string | null): stri
   try {
     return extractFileId(url);
   } catch {
-    const normalizedExternalId = externalId?.trim().match(/^([a-zA-Z0-9_-]+)[.,;:!?]*$/)?.[1];
-    if (normalizedExternalId) return normalizedExternalId;
+    if (externalId) return externalId;
     throw new Error(`Could not resolve Google Drive file ID from source URL: ${url}`);
   }
 }
