@@ -24,6 +24,8 @@ type PageRecord = {
   slug: string;
   titleJa: string;
   pageType: string | null;
+  parentId: string | null;
+  aclSyncedWithParent: boolean;
   authorId: string;
   visibility: string;
   generalRole: string;
@@ -56,6 +58,8 @@ async function loadPage(db: ReturnType<typeof getDb>, pageId: string): Promise<P
         slug: schema.pages.slug,
         titleJa: schema.pages.titleJa,
         pageType: schema.pages.pageType,
+        parentId: schema.pages.parentId,
+        aclSyncedWithParent: schema.pages.aclSyncedWithParent,
         authorId: schema.pages.authorId,
         visibility: schema.pages.visibility,
         generalRole: schema.pages.generalRole,
@@ -64,6 +68,69 @@ async function loadPage(db: ReturnType<typeof getDb>, pageId: string): Promise<P
       .where(eq(schema.pages.id, pageId))
       .get()) ?? null
   );
+}
+
+type DescendantCounts = { descendantCount: number; syncedDescendantCount: number };
+
+async function getDescendantCounts(env: Env, pageId: string): Promise<DescendantCounts> {
+  const row = (await env.DB.prepare(
+    `WITH RECURSIVE descendants(id, acl_synced_with_parent) AS (
+       SELECT id, acl_synced_with_parent FROM pages WHERE parent_id = ?
+       UNION ALL
+       SELECT page.id, page.acl_synced_with_parent
+       FROM pages AS page JOIN descendants ON page.parent_id = descendants.id
+     ), synced_descendants(id) AS (
+       SELECT id FROM pages WHERE parent_id = ? AND acl_synced_with_parent = 1
+       UNION ALL
+       SELECT page.id FROM pages AS page
+       JOIN synced_descendants ON page.parent_id = synced_descendants.id
+       WHERE page.acl_synced_with_parent = 1
+     )
+     SELECT
+       (SELECT COUNT(*) FROM descendants) AS descendantCount,
+       (SELECT COUNT(*) FROM synced_descendants) AS syncedDescendantCount`,
+  )
+    .bind(pageId, pageId)
+    .first()) as { descendantCount: number; syncedDescendantCount: number } | null;
+  return {
+    descendantCount: Number(row?.descendantCount ?? 0),
+    syncedDescendantCount: Number(row?.syncedDescendantCount ?? 0),
+  };
+}
+
+async function replaceAclFromParent(
+  env: Env,
+  sourcePageId: string,
+  targetPage: PageRecord,
+  grantedBy: string,
+) {
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM page_access WHERE page_id = ?").bind(targetPage.id),
+    env.DB.prepare(
+      `INSERT INTO page_access (
+         id, page_id, subject_type, subject_key, subject_label, user_id, role, granted_by,
+         created_at, updated_at
+       )
+       SELECT lower(hex(randomblob(16))), ?, subject_type, subject_key, subject_label, user_id,
+              role, ?, unixepoch(), unixepoch()
+       FROM page_access WHERE page_id = ?`,
+    ).bind(targetPage.id, grantedBy, sourcePageId),
+    env.DB.prepare(
+      `UPDATE pages
+       SET visibility = (SELECT visibility FROM pages WHERE id = ?),
+           general_role = (SELECT general_role FROM pages WHERE id = ?),
+           acl_synced_with_parent = 1,
+           updated_at = unixepoch()
+       WHERE id = ?`,
+    ).bind(sourcePageId, sourcePageId, targetPage.id),
+  ]);
+}
+
+async function markAclChanged(db: ReturnType<typeof getDb>, page: PageRecord) {
+  await db
+    .update(schema.pages)
+    .set({ aclSyncedWithParent: page.parentId === null, updatedAt: new Date() })
+    .where(eq(schema.pages.id, page.id));
 }
 
 function asShareSubject(value: unknown): ShareSubject | null {
@@ -109,7 +176,7 @@ async function requireSharingPermissions(
 ) {
   const claims = await getChapterIds(request, env);
   const permissions = await getEffectivePagePermissions(db, page, user, claims.chapters);
-  return { permissions, claimsUnavailable: claims.unavailable };
+  return { permissions, chapters: claims.chapters, claimsUnavailable: claims.unavailable };
 }
 
 // GET — explicit shares, owner and the caller's evaluated permissions.
@@ -131,7 +198,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   );
   if (!permissions.canView) return new Response("Forbidden", { status: 403 });
 
-  const [accessList, author] = await Promise.all([
+  const [accessList, author, descendantCounts] = await Promise.all([
     getPageAccessList(db, pageId),
     db
       .select({
@@ -143,6 +210,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       .from(schema.user)
       .where(eq(schema.user.id, page.authorId))
       .get(),
+    getDescendantCounts(env, pageId),
   ]);
   return Response.json({
     accessList,
@@ -161,6 +229,9 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     generalAccess: page.visibility as GeneralAccess,
     visibility: page.visibility as GeneralAccess,
     generalRole: page.generalRole as PageRole,
+    parentId: page.parentId,
+    aclSyncedWithParent: page.aclSyncedWithParent,
+    ...descendantCounts,
     claimsUnavailable,
   });
 }
@@ -184,7 +255,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     return Response.json({ error: "invalid_json" }, { status: 400 });
   }
   const intent = body.intent;
-  const { permissions } = await requireSharingPermissions(db, page, request, env, user);
+  const { permissions, chapters } = await requireSharingPermissions(db, page, request, env, user);
   if (!permissions.canManageSharing) return new Response("Forbidden", { status: 403 });
 
   if (intent === "batchGrant" || intent === "add") {
@@ -209,6 +280,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
         upsertPageAccess(db, { ...target, pageId, role, grantedBy: user.id }),
       ),
     );
+    await markAclChanged(db, page);
     await invalidateCollaborationBestEffort(env, page.slug);
 
     const notify = body.notify === true;
@@ -251,7 +323,10 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       return Response.json({ error: "invalid_params" }, { status: 400 });
     }
     const ok = await updatePageAccessRole(db, accessId, pageId, role, user.id);
-    if (ok) await invalidateCollaborationBestEffort(env, page.slug);
+    if (ok) {
+      await markAclChanged(db, page);
+      await invalidateCollaborationBestEffort(env, page.slug);
+    }
     return ok ? Response.json({ ok: true }) : new Response("Not Found", { status: 404 });
   }
 
@@ -260,7 +335,10 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     if (typeof accessId !== "string")
       return Response.json({ error: "invalid_params" }, { status: 400 });
     const result = await removePageAccess(db, accessId, pageId);
-    if (result.ok) await invalidateCollaborationBestEffort(env, page.slug);
+    if (result.ok) {
+      await markAclChanged(db, page);
+      await invalidateCollaborationBestEffort(env, page.slug);
+    }
     return result.ok ? Response.json({ ok: true }) : new Response("Not Found", { status: 404 });
   }
 
@@ -324,7 +402,11 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     await db.batch([
       db
         .update(schema.pages)
-        .set({ authorId: newOwner.id, updatedAt: new Date() })
+        .set({
+          authorId: newOwner.id,
+          aclSyncedWithParent: page.parentId === null,
+          updatedAt: new Date(),
+        })
         .where(eq(schema.pages.id, pageId)),
       db.delete(schema.pageAccess).where(eq(schema.pageAccess.id, accessId)),
     ]);
@@ -347,11 +429,63 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       .set({
         visibility,
         generalRole: nextGeneralRole,
+        aclSyncedWithParent: page.parentId === null,
         updatedAt: new Date(),
       })
       .where(eq(schema.pages.id, pageId));
     await invalidateCollaborationBestEffort(env, page.slug);
     return Response.json({ ok: true });
+  }
+
+  if (intent === "syncWithParent") {
+    if (!page.parentId) return Response.json({ error: "no_parent" }, { status: 400 });
+    const parent = await loadPage(db, page.parentId);
+    if (!parent) return Response.json({ error: "parent_not_found" }, { status: 404 });
+    await replaceAclFromParent(env, parent.id, page, user.id);
+    await invalidateCollaborationBestEffort(env, page.slug);
+    return Response.json({ ok: true });
+  }
+
+  if (intent === "syncDescendants") {
+    type ChildRow = PageRecord;
+    const queue: Array<{ id: string }> = [{ id: page.id }];
+    let updatedCount = 0;
+    let unsyncedSkippedCount = 0;
+    const permissionSkipped: Array<{ id: string; title: string }> = [];
+
+    while (queue.length) {
+      const parent = queue.shift() as { id: string };
+      const children = (await env.DB.prepare(
+        `SELECT id, slug, title_ja AS titleJa, page_type AS pageType, parent_id AS parentId,
+                acl_synced_with_parent AS aclSyncedWithParent, author_id AS authorId,
+                visibility, general_role AS generalRole
+         FROM pages WHERE parent_id = ? ORDER BY sort_order, id`,
+      )
+        .bind(parent.id)
+        .all()) as { results: ChildRow[] };
+      for (const child of children.results) {
+        if (!child.aclSyncedWithParent) {
+          unsyncedSkippedCount += 1;
+          continue;
+        }
+        const childPermissions = await getEffectivePagePermissions(db, child, user, chapters);
+        if (!childPermissions.canManageSharing) {
+          permissionSkipped.push({ id: child.id, title: child.titleJa });
+          continue;
+        }
+        await replaceAclFromParent(env, parent.id, child, user.id);
+        await invalidateCollaborationBestEffort(env, child.slug);
+        updatedCount += 1;
+        queue.push({ id: child.id });
+      }
+    }
+    return Response.json({
+      ok: true,
+      updatedCount,
+      unsyncedSkippedCount,
+      permissionSkippedCount: permissionSkipped.length,
+      permissionSkipped,
+    });
   }
 
   return new Response("Unknown intent", { status: 400 });

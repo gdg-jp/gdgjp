@@ -109,15 +109,14 @@ export async function action({ request, context }: ActionFunctionArgs) {
   // Update moved page's parent_id
   if (newParentId) {
     statements.push(
-      env.DB.prepare("UPDATE pages SET parent_id = ?, updated_at = unixepoch() WHERE id = ?").bind(
-        newParentId,
-        pageId,
-      ),
+      env.DB.prepare(
+        "UPDATE pages SET parent_id = ?, acl_synced_with_parent = 0, updated_at = unixepoch() WHERE id = ?",
+      ).bind(newParentId, pageId),
     );
   } else {
     statements.push(
       env.DB.prepare(
-        "UPDATE pages SET parent_id = NULL, updated_at = unixepoch() WHERE id = ?",
+        "UPDATE pages SET parent_id = NULL, acl_synced_with_parent = 1, updated_at = unixepoch() WHERE id = ?",
       ).bind(pageId),
     );
   }

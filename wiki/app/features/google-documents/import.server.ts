@@ -364,19 +364,28 @@ export async function importGoogleDocument(
     if (current) {
       statements.push(
         env.DB.prepare(
-          "UPDATE pages SET title_ja=?, content_ja=?, parent_id=?, sort_order=?, status='published', visibility='restricted', general_role='viewer', last_edited_by=?, updated_at=unixepoch() WHERE id=?",
-        ).bind(node.node.title, content.content, parentId, node.sortOrder, user.id, pageId),
+          "UPDATE pages SET title_ja=?, content_ja=?, parent_id=?, acl_synced_with_parent=CASE WHEN ? IS NULL THEN 1 ELSE 0 END, sort_order=?, status='published', visibility='restricted', general_role='viewer', last_edited_by=?, updated_at=unixepoch() WHERE id=?",
+        ).bind(
+          node.node.title,
+          content.content,
+          parentId,
+          parentId,
+          node.sortOrder,
+          user.id,
+          pageId,
+        ),
       );
     } else {
       statements.push(
         env.DB.prepare(
-          "INSERT INTO pages (id,title_ja,slug,content_ja,parent_id,sort_order,status,visibility,general_role,author_id,last_edited_by,created_at,updated_at) VALUES (?,?,?,?,?,?,'published','restricted','viewer',?,?,unixepoch(),unixepoch())",
+          "INSERT INTO pages (id,title_ja,slug,content_ja,parent_id,acl_synced_with_parent,sort_order,status,visibility,general_role,author_id,last_edited_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,'published','restricted','viewer',?,?,unixepoch(),unixepoch())",
         ).bind(
           pageId,
           node.node.title,
           slugBySource.get(node.sourceNodeId),
           content.content,
           parentId,
+          parentId === null ? 1 : 0,
           node.sortOrder,
           user.id,
           user.id,
@@ -607,19 +616,20 @@ export async function processGoogleDocumentImport(env: Env, jobId: string): Prom
       if (current) {
         statements.push(
           env.DB.prepare(
-            "UPDATE pages SET title_ja=?,parent_id=?,sort_order=?,status='published',updated_at=unixepoch() WHERE id=?",
-          ).bind(node.node.title, parentId ?? null, node.sortOrder, pageId),
+            "UPDATE pages SET title_ja=?,parent_id=?,acl_synced_with_parent=CASE WHEN ? IS NULL THEN 1 ELSE 0 END,sort_order=?,status='published',updated_at=unixepoch() WHERE id=?",
+          ).bind(node.node.title, parentId ?? null, parentId ?? null, node.sortOrder, pageId),
         );
       } else {
         statements.push(
           env.DB.prepare(
-            "INSERT INTO pages (id,title_ja,slug,content_ja,parent_id,sort_order,status,visibility,general_role,author_id,last_edited_by,created_at,updated_at) VALUES (?,?,?,?,?,?,'published','restricted','viewer',?,?,unixepoch(),unixepoch())",
+            "INSERT INTO pages (id,title_ja,slug,content_ja,parent_id,acl_synced_with_parent,sort_order,status,visibility,general_role,author_id,last_edited_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,'published','restricted','viewer',?,?,unixepoch(),unixepoch())",
           ).bind(
             pageId,
             node.node.title,
             slug,
             "",
             parentId ?? null,
+            parentId === null ? 1 : 0,
             node.sortOrder,
             job.requestedBy,
             job.requestedBy,
