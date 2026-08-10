@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  GOOGLE_DIRECTORY_READONLY_SCOPE,
   GOOGLE_DRIVE_READONLY_SCOPE,
   getGoogleDriveAuthUrl,
   hasRequiredGoogleChatScopes,
@@ -14,8 +13,6 @@ import {
   fetchMissingReplyThreadParents,
   mergeDocumentUrls,
   normalizeChatMessages,
-  resolveDirectoryPeopleDisplayNames,
-  resolvePeopleDisplayNames,
   weekBoundsRfc3339,
   weekPathFromCreateTime,
 } from "./google-chat";
@@ -128,32 +125,10 @@ describe("normalizeChatMessages", () => {
     });
   });
 
-  it("uses a clear resource-id fallback rather than a sender displayName", () => {
+  it("uses a clear resource-id fallback for user-authenticated Chat payloads", () => {
     expect(defaultSenderName({ name: "users/123", type: "HUMAN" })).toBe(
       "Unknown user (users/123)",
     );
-  });
-
-  it("prefers a Chat payload displayName over the resource-id fallback", () => {
-    expect(
-      defaultSenderName({ name: "users/123", type: "HUMAN", displayName: "  Taro Yamada  " }),
-    ).toBe("Taro Yamada");
-  });
-
-  it("renders the payload displayName when the resolver has no entry", () => {
-    const [week] = normalizeChatMessages([
-      {
-        name: "spaces/AAA/messages/1",
-        text: "Hello from a consumer space.",
-        createTime: "2026-07-14T12:03:00Z",
-        sender: { name: "users/111", type: "HUMAN", displayName: "Taro Yamada" },
-        thread: { name: "spaces/AAA/threads/t1" },
-        threadReply: false,
-      },
-    ]);
-
-    expect(week?.markdown).toContain("### [2026-07-14 21:03] Taro Yamada");
-    expect(week?.markdown).not.toContain("Unknown user");
   });
 
   it("quotes a fetched parent without treating it as a message to ingest", () => {
@@ -207,155 +182,7 @@ describe("extractUrlsFromMessage", () => {
   });
 });
 
-describe("Google Chat identity and thread context fetches", () => {
-  it("uses the domain directory as the primary sender resolver", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          people: [
-            {
-              resourceName: "people/111",
-              metadata: { sources: [{ id: "111" }] },
-              names: [{ displayName: "Taro Yamada" }],
-            },
-          ],
-        }),
-      ),
-    );
-
-    const result = await resolveDirectoryPeopleDisplayNames("token");
-
-    const request = new URL(String(fetchSpy.mock.calls[0]?.[0]));
-    expect(request.pathname).toBe("/v1/people:listDirectoryPeople");
-    expect(request.searchParams.get("sources")).toBe("DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE");
-    expect(result).toEqual({
-      names: new Map([["users/111", "Taro Yamada"]]),
-      nextPageToken: null,
-      complete: true,
-    });
-    fetchSpy.mockRestore();
-  });
-
-  it("stops People batch lookup before exceeding the tick budget", async () => {
-    const senders = Array.from({ length: 250 }, (_, index) => ({
-      name: `users/${index}`,
-      type: "HUMAN" as const,
-    }));
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}"));
-
-    const result = await resolvePeopleDisplayNames("token", senders, {
-      shouldContinue: () => false,
-    });
-
-    expect(result).toEqual({ names: new Map(), attempted: new Set() });
-    expect(fetchSpy).not.toHaveBeenCalled();
-    fetchSpy.mockRestore();
-  });
-
-  it("falls back to the email local part when People has no display name", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          responses: [
-            {
-              requestedResourceName: "people/111",
-              httpStatusCode: 200,
-              person: { emailAddresses: [{ value: "taro.yamada@example.com" }] },
-            },
-          ],
-        }),
-      ),
-    );
-
-    const { names } = await resolvePeopleDisplayNames("token", [
-      { name: "users/111", type: "HUMAN" },
-    ]);
-
-    expect(names.get("users/111")).toBe("taro.yamada");
-    fetchSpy.mockRestore();
-  });
-
-  it("resolves each distinct human sender once per fetch", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          responses: [
-            {
-              requestedResourceName: "people/111",
-              httpStatusCode: 200,
-              person: { resourceName: "people/111", names: [{ displayName: "Taro Yamada" }] },
-            },
-          ],
-        }),
-      ),
-    );
-
-    const { names, attempted } = await resolvePeopleDisplayNames("token", [
-      { name: "users/111", type: "HUMAN" },
-      { name: "users/111", type: "HUMAN" },
-      { name: "users/bot", type: "BOT" },
-    ]);
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(String(fetchSpy.mock.calls[0]?.[0])).toContain("people:batchGet");
-    expect(names).toEqual(
-      new Map([
-        ["users/bot", "Bot"],
-        ["users/111", "Taro Yamada"],
-      ]),
-    );
-    expect(attempted).toEqual(new Set(["users/111"]));
-    fetchSpy.mockRestore();
-  });
-
-  it("warns structurally and omits unresolved senders from names", async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(null, { status: 404 }));
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-
-    const { names, attempted } = await resolvePeopleDisplayNames("token", [
-      { name: "users/404", type: "HUMAN" },
-    ]);
-
-    expect(names.has("users/404")).toBe(false);
-    expect(attempted).toEqual(new Set(["users/404"]));
-    expect(warnSpy).toHaveBeenCalledWith(
-      JSON.stringify({
-        component: "sources",
-        integration: "google-chat",
-        event: "sender_name_unresolved",
-        sender: "users/404",
-        status: 404,
-      }),
-    );
-    warnSpy.mockRestore();
-    fetchSpy.mockRestore();
-  });
-
-  it("logs directory_unavailable when the Workspace directory is missing", async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(null, { status: 403 }));
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
-
-    const result = await resolveDirectoryPeopleDisplayNames("token");
-
-    expect(result).toEqual({ names: new Map(), nextPageToken: null, complete: true });
-    expect(warnSpy).toHaveBeenCalledWith(
-      JSON.stringify({
-        component: "sources",
-        integration: "google-chat",
-        event: "directory_unavailable",
-        status: 403,
-      }),
-    );
-    warnSpy.mockRestore();
-    errorSpy.mockRestore();
-    fetchSpy.mockRestore();
-  });
-
+describe("Google Chat thread context fetches", () => {
   it("fetches each missing thread parent with a thread.name filter", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
@@ -413,40 +240,31 @@ describe("Google Chat identity and thread context fetches", () => {
 });
 
 describe("Google Chat scopes", () => {
-  it("requests directory access during Google OAuth", () => {
+  it("does not request directory access during Google OAuth", () => {
     const authUrl = new URL(
       getGoogleDriveAuthUrl("client-id", "https://wiki.example/api/google-drive/callback", "state"),
     );
 
-    expect(authUrl.searchParams.get("scope")?.split(" ")).toContain(
-      GOOGLE_DIRECTORY_READONLY_SCOPE,
+    expect(authUrl.searchParams.get("scope")?.split(" ")).not.toContain(
+      "https://www.googleapis.com/auth/directory.readonly",
     );
   });
 
-  it("rejects tokens that lack required Chat or directory scopes", () => {
+  it("rejects tokens that lack required Chat scopes", () => {
     expect(
       hasRequiredGoogleChatScopes(
         "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file",
       ),
     ).toBe(false);
-    expect(
-      hasRequiredGoogleChatScopes(
-        [
-          "https://www.googleapis.com/auth/chat.spaces.readonly",
-          "https://www.googleapis.com/auth/chat.messages.readonly",
-        ].join(" "),
-      ),
-    ).toBe(false);
     expect(hasRequiredGoogleChatScopes(null)).toBe(false);
   });
 
-  it("accepts tokens that include Drive, Chat, and directory scopes", () => {
+  it("accepts tokens that include Drive and Chat scopes", () => {
     expect(
       hasRequiredGoogleChatScopes(
         [
           "https://www.googleapis.com/auth/chat.spaces.readonly",
           "https://www.googleapis.com/auth/chat.messages.readonly",
-          "https://www.googleapis.com/auth/directory.readonly",
           GOOGLE_DRIVE_READONLY_SCOPE,
         ].join(" "),
       ),

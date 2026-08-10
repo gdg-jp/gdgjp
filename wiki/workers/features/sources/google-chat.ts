@@ -2,7 +2,7 @@ const CHAT_TIMEOUT_MS = 30_000;
 const PAGE_SIZE = 1000;
 
 export const GOOGLE_CHAT_REAUTH_MESSAGE =
-  "Google Chat, Drive, or directory scopes are missing. Disconnect and reconnect Google from /sources to grant the required access.";
+  "Google Chat or Drive scopes are missing. Disconnect and reconnect Google from /sources to grant the required access.";
 
 export interface ChatMessageAttachment {
   name?: string;
@@ -15,8 +15,6 @@ export interface ChatMessageAttachment {
 
 export interface ChatMessageSender {
   name?: string;
-  /** Present on many messages.list payloads; used when directory/People lookup fails. */
-  displayName?: string;
   /** Google Chat's user-authenticated message sender shape. */
   type?: "HUMAN" | "BOT";
 }
@@ -179,8 +177,6 @@ export function formatChatTimestamp(createTime: string, timeZone = "Asia/Tokyo")
 export const THREAD_PARENT_UNAVAILABLE = "Parent message unavailable";
 
 export function defaultSenderName(sender: ChatMessageSender | undefined): string {
-  const displayName = sender?.displayName?.trim();
-  if (displayName) return displayName;
   if (sender?.type === "BOT") return "Bot";
   const name = sender?.name?.trim();
   return name ? `Unknown user (${name})` : "Unknown user";
@@ -270,12 +266,6 @@ export function attachmentObjectId(attachment: ChatMessageAttachment, index: num
   const resource = attachment.attachmentDataRef?.resourceName?.replace(/\//g, "_");
   if (resource) return resource;
   return `attachment-${index}`;
-}
-
-export function peopleResourceName(userName: string): string {
-  if (userName.startsWith("people/")) return userName;
-  if (userName.startsWith("users/")) return userName.replace(/^users\//, "people/");
-  return `people/${userName}`;
 }
 
 /**
@@ -431,312 +421,6 @@ export function mergeDocumentUrls(
   for (const url of urls) set.add(url);
   if (set.size === 0) return existingMetadata ?? null;
   return JSON.stringify({ urls: [...set].sort() });
-}
-
-const PEOPLE_BATCH_SIZE = 200;
-
-export interface SenderLookupOptions {
-  onFetch?: () => void;
-  /** Stop before issuing another request when the import tick has no budget left. */
-  shouldContinue?: () => boolean;
-}
-
-interface GooglePeopleErrorInput {
-  operation: "batch_get" | "directory_list";
-  batchSize?: number;
-  hasPageToken?: boolean;
-}
-
-/** Log Google People API diagnostics without recording directory or message content. */
-export async function logGooglePeopleError(
-  response: Response,
-  input: GooglePeopleErrorInput,
-): Promise<void> {
-  let googleError: Record<string, unknown> | null = null;
-  try {
-    const body = (await response.json()) as { error?: unknown };
-    if (body.error && typeof body.error === "object" && !Array.isArray(body.error)) {
-      const error = body.error as Record<string, unknown>;
-      googleError = {
-        code: error.code,
-        status: error.status,
-        message: error.message,
-        details: error.details,
-      };
-    }
-  } catch {
-    // Non-JSON proxy responses still have useful HTTP metadata.
-  }
-  console.error(
-    JSON.stringify({
-      component: "sources",
-      integration: "google-chat",
-      event: "people_lookup_failed",
-      operation: input.operation,
-      httpStatus: response.status,
-      httpStatusText: response.statusText || undefined,
-      batchSize: input.batchSize,
-      hasPageToken: input.hasPageToken,
-      googleError,
-    }),
-  );
-}
-
-function isNetworkFailure(error: unknown): boolean {
-  return (
-    error instanceof TypeError || (error instanceof DOMException && error.name === "AbortError")
-  );
-}
-
-function displayNameFromPerson(person: {
-  names?: Array<{ displayName?: string }>;
-  emailAddresses?: Array<{ value?: string }>;
-}): string | undefined {
-  const displayName = person.names?.[0]?.displayName?.trim();
-  if (displayName) return displayName;
-  const email = person.emailAddresses?.find((item) => item.value?.includes("@"))?.value;
-  const localPart = email?.split("@", 1)[0]?.trim();
-  return localPart || undefined;
-}
-
-function addPersonNames(
-  names: Map<string, string>,
-  person: {
-    resourceName?: string;
-    metadata?: { sources?: Array<{ id?: string }> };
-    names?: Array<{ displayName?: string }>;
-  },
-): void {
-  const displayName = person.names?.[0]?.displayName?.trim();
-  if (!displayName) return;
-  const ids = [
-    person.resourceName?.replace(/^people\//, ""),
-    ...(person.metadata?.sources ?? []).map((source) => source.id),
-  ];
-  for (const id of ids) {
-    if (!id) continue;
-    names.set(`users/${id.replace(/^(?:people|users)\//, "")}`, displayName);
-  }
-}
-
-export interface DirectoryPeopleResult {
-  names: Map<string, string>;
-  nextPageToken: string | null;
-  complete: boolean;
-}
-
-/**
- * Resolve Workspace users from the domain directory. This is deliberately the
- * primary path: Chat's user-authenticated membership response usually omits
- * displayName. `nextPageToken` belongs in DO SQLite so long directories resume.
- */
-export async function resolveDirectoryPeopleDisplayNames(
-  accessToken: string,
-  options: SenderLookupOptions & { pageToken?: string | null } = {},
-): Promise<DirectoryPeopleResult> {
-  const names = new Map<string, string>();
-  let pageToken = options.pageToken ?? undefined;
-  do {
-    if (options.shouldContinue && !options.shouldContinue()) {
-      return { names, nextPageToken: pageToken ?? null, complete: false };
-    }
-    const params = new URLSearchParams({
-      readMask: "names,metadata",
-      sources: "DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE",
-      pageSize: "1000",
-    });
-    if (pageToken) params.set("pageToken", pageToken);
-    options.onFetch?.();
-    let response: Response;
-    try {
-      response = await fetchWithTimeout(
-        `https://people.googleapis.com/v1/people:listDirectoryPeople?${params}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-        CHAT_TIMEOUT_MS,
-      );
-    } catch (error) {
-      if (!isNetworkFailure(error)) throw error;
-      warnGoogleChat("directory_people_lookup_failed", { retryable: 1 });
-      return { names, nextPageToken: pageToken ?? null, complete: false };
-    }
-    if (!response.ok) {
-      await logGooglePeopleError(response, {
-        operation: "directory_list",
-        hasPageToken: Boolean(pageToken),
-      });
-      if (response.status === 403 || response.status === 404) {
-        warnGoogleChat("directory_unavailable", { status: response.status });
-      }
-      return { names, nextPageToken: null, complete: true };
-    }
-    const body = (await response.json()) as {
-      people?: Array<{
-        resourceName?: string;
-        metadata?: { sources?: Array<{ id?: string }> };
-        names?: Array<{ displayName?: string }>;
-      }>;
-      nextPageToken?: string;
-    };
-    for (const person of body.people ?? []) addPersonNames(names, person);
-    pageToken = body.nextPageToken;
-  } while (pageToken);
-  return { names, nextPageToken: null, complete: true };
-}
-
-export interface PeopleDisplayNamesResult {
-  /** Resolved display names only (plus the BOT → "Bot" short-circuit). */
-  names: Map<string, string>;
-  /** Every human sender a People request was issued for, resolved or not. */
-  attempted: Set<string>;
-}
-
-/**
- * Resolve human sender display names with People `people:batchGet` (≤200 / request).
- * Callers should prefer Chat `spaces.members.list` first and only batch-get the remainder.
- * Unresolved senders are omitted from `names` so callers can fall back to the Chat payload.
- */
-export async function resolvePeopleDisplayNames(
-  accessToken: string,
-  senders: readonly ChatMessageSender[],
-  options: SenderLookupOptions = {},
-): Promise<PeopleDisplayNamesResult> {
-  const names = new Map<string, string>();
-  const attempted = new Set<string>();
-  const unique = new Map<string, ChatMessageSender>();
-  for (const sender of senders) {
-    if (!sender?.name || names.has(sender.name)) continue;
-    if (sender.type === "BOT") {
-      names.set(sender.name, "Bot");
-      continue;
-    }
-    unique.set(sender.name, sender);
-  }
-
-  const pending = [...unique.entries()];
-  for (let offset = 0; offset < pending.length; offset += PEOPLE_BATCH_SIZE) {
-    if (options.shouldContinue && !options.shouldContinue()) break;
-    const chunk = pending.slice(offset, offset + PEOPLE_BATCH_SIZE);
-    const params = new URLSearchParams({
-      personFields: "names,emailAddresses",
-      sources: "READ_SOURCE_TYPE_PROFILE",
-    });
-    for (const [userName] of chunk) {
-      params.append("resourceNames", peopleResourceName(userName));
-    }
-    options.onFetch?.();
-    try {
-      const response = await fetchWithTimeout(
-        `https://people.googleapis.com/v1/people:batchGet?${params}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-        CHAT_TIMEOUT_MS,
-      );
-      if (!response.ok) {
-        await logGooglePeopleError(response, { operation: "batch_get", batchSize: chunk.length });
-        for (const [userName] of chunk) {
-          attempted.add(userName);
-          warnGoogleChat("sender_name_unresolved", { sender: userName, status: response.status });
-        }
-        continue;
-      }
-      const body = (await response.json()) as {
-        responses?: Array<{
-          httpStatusCode?: number;
-          person?: {
-            resourceName?: string;
-            names?: Array<{ displayName?: string }>;
-            emailAddresses?: Array<{ value?: string }>;
-          };
-          requestedResourceName?: string;
-        }>;
-      };
-      const byRequested = new Map(
-        (body.responses ?? []).map((row) => [row.requestedResourceName ?? "", row]),
-      );
-      for (const [userName] of chunk) {
-        attempted.add(userName);
-        const row = byRequested.get(peopleResourceName(userName));
-        const displayName = row?.person ? displayNameFromPerson(row.person) : undefined;
-        if (displayName) {
-          names.set(userName, displayName);
-          continue;
-        }
-        warnGoogleChat("sender_name_unresolved", {
-          sender: userName,
-          status: row?.httpStatusCode ?? response.status,
-        });
-      }
-    } catch (error) {
-      if (!isNetworkFailure(error)) throw error;
-      for (const [userName] of chunk) {
-        attempted.add(userName);
-        warnGoogleChat("sender_name_lookup_failed", { sender: userName });
-      }
-    }
-  }
-
-  return { names, attempted };
-}
-
-/**
- * Prefill display names from `spaces.members.list` (≤1000 / page). Returns names keyed by
- * `users/...` resource names so they match Chat message sender fields.
- */
-export async function resolveSpaceMemberDisplayNames(
-  spaceName: string,
-  accessToken: string,
-  options: SenderLookupOptions & { onMember?: (resourceName: string) => void } = {},
-): Promise<Map<string, string>> {
-  const cache = new Map<string, string>();
-  let pageToken: string | undefined;
-  let members = 0;
-  let named = 0;
-  do {
-    if (options.shouldContinue && !options.shouldContinue()) break;
-    const params = new URLSearchParams({ pageSize: "1000" });
-    if (pageToken) params.set("pageToken", pageToken);
-    options.onFetch?.();
-    let response: Response;
-    try {
-      response = await fetchWithTimeout(
-        `https://chat.googleapis.com/v1/${spaceName}/members?${params}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-        CHAT_TIMEOUT_MS,
-      );
-    } catch (error) {
-      if (!isNetworkFailure(error)) throw error;
-      warnGoogleChat("members_list_failed", { spaceName, retryable: 1 });
-      break;
-    }
-    if (!response.ok) {
-      warnGoogleChat("members_list_failed", { spaceName, status: response.status });
-      break;
-    }
-    const body = (await response.json()) as {
-      memberships?: Array<{
-        member?: { name?: string; displayName?: string; type?: string };
-      }>;
-      nextPageToken?: string;
-    };
-    for (const membership of body.memberships ?? []) {
-      const member = membership.member;
-      const name = member?.name?.trim();
-      const displayName = member?.displayName?.trim();
-      if (!name) continue;
-      members += 1;
-      options.onMember?.(name);
-      if (member?.type === "BOT") {
-        cache.set(name, "Bot");
-        named += 1;
-        continue;
-      }
-      if (!displayName) continue;
-      cache.set(name, displayName);
-      named += 1;
-    }
-    pageToken = body.nextPageToken;
-  } while (pageToken);
-  warnGoogleChat("space_members_listed", { spaceName, members, named });
-  return cache;
 }
 
 /**

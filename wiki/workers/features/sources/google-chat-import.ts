@@ -13,8 +13,6 @@ import {
   logGoogleChatMessagesListError,
   mergeDocumentUrls,
   normalizeChatMessages,
-  resolveDirectoryPeopleDisplayNames,
-  resolvePeopleDisplayNames,
   warnGoogleChat,
   weekBoundsRfc3339,
   weekPathFromCreateTime,
@@ -172,10 +170,8 @@ function indexMessage(
       message.sender.name,
     );
     if (message.sender.type === "BOT") {
-      const botName = message.sender.displayName?.trim() || "Bot";
       sql.exec(
-        "UPDATE senders SET display_name = ? WHERE resource_name = ? AND display_name IS NULL",
-        botName,
+        "UPDATE senders SET display_name = 'Bot' WHERE resource_name = ? AND display_name IS NULL",
         message.sender.name,
       );
     }
@@ -247,111 +243,20 @@ async function stepIndexing(ctx: ChatImportTickContext, current: Current): Promi
 }
 
 async function stepSenders(ctx: ChatImportTickContext, current: Current): Promise<StepOutcome> {
-  const unresolved = ctx.sql
-    .exec<{ resource_name: string }>(
-      "SELECT resource_name FROM senders WHERE display_name IS NULL AND lookup_done = 0",
+  const counts = ctx.sql
+    .exec<{ total: number; unresolved: number | null }>(
+      `SELECT COUNT(*) AS total,
+              SUM(CASE WHEN display_name IS NULL THEN 1 ELSE 0 END) AS unresolved
+       FROM senders`,
     )
-    .toArray();
-  if (metaGet(ctx.sql, "senders_total") === null) {
-    metaSet(ctx.sql, "senders_total", String(unresolved.length));
-  }
-  if (unresolved.length === 0) {
-    logSenderResolutionSummary(ctx, current);
-    return { phaseComplete: true };
-  }
-
-  const token = requireAccessToken(ctx);
-  let viaDirectory = Number(metaGet(ctx.sql, "senders_via_directory") ?? "0");
-
-  // Chat's user-authenticated memberships omit User.displayName. Resolve the
-  // Workspace directory first, retaining its page cursor in DO SQLite so a large
-  // directory never consumes a tick's entire subrequest allowance.
-  if (metaGet(ctx.sql, "directory_done") !== "1") {
-    const directory = await resolveDirectoryPeopleDisplayNames(token, {
-      pageToken: metaGet(ctx.sql, "directory_page_token"),
-      shouldContinue: () => ctx.budget.canSpend(1),
-      onFetch: () => ctx.budget.spend(1),
-    });
-    for (const [resourceName, displayName] of directory.names) {
-      if (unresolved.some((row) => row.resource_name === resourceName)) viaDirectory += 1;
-      ctx.sql.exec(
-        "UPDATE senders SET display_name = ? WHERE resource_name = ? AND display_name IS NULL",
-        displayName,
-        resourceName,
-      );
-    }
-    metaSet(ctx.sql, "senders_via_directory", String(viaDirectory));
-    if (!directory.complete) {
-      if (directory.nextPageToken)
-        metaSet(ctx.sql, "directory_page_token", directory.nextPageToken);
-      return { phaseComplete: false };
-    }
-    metaSet(ctx.sql, "directory_done", "1");
-    ctx.sql.exec("DELETE FROM meta WHERE key = 'directory_page_token'");
-  }
-
-  const stillUnresolved = ctx.sql
-    .exec<{ resource_name: string }>(
-      "SELECT resource_name FROM senders WHERE display_name IS NULL AND lookup_done = 0",
-    )
-    .toArray();
-  if (stillUnresolved.length === 0) {
-    logSenderResolutionSummary(ctx, current);
-    return { phaseComplete: true };
-  }
-
-  const senders = stillUnresolved.map((row) => ({
-    name: row.resource_name,
-    type: "HUMAN" as const,
-  }));
-  const { names, attempted } = await resolvePeopleDisplayNames(token, senders, {
-    shouldContinue: () => ctx.budget.canSpend(1),
-    onFetch: () => ctx.budget.spend(1),
-  });
-  for (const [resourceName, displayName] of names) {
-    ctx.sql.exec(
-      "UPDATE senders SET display_name = ? WHERE resource_name = ?",
-      displayName,
-      resourceName,
-    );
-  }
-  for (const resourceName of attempted) {
-    ctx.sql.exec("UPDATE senders SET lookup_done = 1 WHERE resource_name = ?", resourceName);
-  }
-  const unresolvedNames = attempted.size - names.size;
-  metaSet(
-    ctx.sql,
-    "senders_via_people",
-    String(Number(metaGet(ctx.sql, "senders_via_people") ?? "0") + names.size),
-  );
-  metaSet(
-    ctx.sql,
-    "senders_unresolved",
-    String(Number(metaGet(ctx.sql, "senders_unresolved") ?? "0") + unresolvedNames),
-  );
-  const remaining = ctx.sql
-    .exec<{ resource_name: string }>(
-      "SELECT resource_name FROM senders WHERE display_name IS NULL AND lookup_done = 0",
-    )
-    .toArray();
-  if (remaining.length > 0) {
-    // A budget stop is resumable. Do not finalize until batchGet has had a chance
-    // to run for every remaining sender (payload names still apply at finalize).
-    return { phaseComplete: false };
-  }
-  logSenderResolutionSummary(ctx, current);
-  return { phaseComplete: true };
-}
-
-function logSenderResolutionSummary(ctx: ChatImportTickContext, current: Current): void {
+    .one();
   log("senders_resolved", {
     sourceId: current.source.id,
     runId: ctx.runId,
-    total: Number(metaGet(ctx.sql, "senders_total") ?? "0"),
-    viaDirectory: Number(metaGet(ctx.sql, "senders_via_directory") ?? "0"),
-    viaPeople: Number(metaGet(ctx.sql, "senders_via_people") ?? "0"),
-    unresolved: Number(metaGet(ctx.sql, "senders_unresolved") ?? "0"),
+    total: counts.total,
+    unresolved: counts.unresolved ?? 0,
   });
+  return { phaseComplete: true };
 }
 
 async function stepAttachments(ctx: ChatImportTickContext, current: Current): Promise<StepOutcome> {

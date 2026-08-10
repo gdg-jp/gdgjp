@@ -16,8 +16,6 @@ export const GOOGLE_DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/driv
 export const GOOGLE_DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 export const GOOGLE_CHAT_SPACES_SCOPE = "https://www.googleapis.com/auth/chat.spaces.readonly";
 export const GOOGLE_CHAT_MESSAGES_SCOPE = "https://www.googleapis.com/auth/chat.messages.readonly";
-/** Required to resolve Chat `users/...` resources to directory display names. */
-export const GOOGLE_DIRECTORY_READONLY_SCOPE = "https://www.googleapis.com/auth/directory.readonly";
 
 export const GOOGLE_OAUTH_SCOPES = [
   GOOGLE_DRIVE_READONLY_SCOPE,
@@ -25,14 +23,12 @@ export const GOOGLE_OAUTH_SCOPES = [
   "https://www.googleapis.com/auth/forms.responses.readonly",
   GOOGLE_CHAT_SPACES_SCOPE,
   GOOGLE_CHAT_MESSAGES_SCOPE,
-  GOOGLE_DIRECTORY_READONLY_SCOPE,
 ].join(" ");
 
 export const REQUIRED_GOOGLE_CHAT_SCOPES = [
   GOOGLE_DRIVE_READONLY_SCOPE,
   GOOGLE_CHAT_SPACES_SCOPE,
   GOOGLE_CHAT_MESSAGES_SCOPE,
-  GOOGLE_DIRECTORY_READONLY_SCOPE,
 ] as const;
 
 export const GOOGLE_DRIVE_REAUTH_MESSAGE =

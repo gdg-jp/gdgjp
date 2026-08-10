@@ -70,7 +70,8 @@ through `fetch-source.ts` → `SOURCE_FETCH_QUEUE` once, then continue in `CHAT_
 
 - Paginate `GET https://chat.googleapis.com/v1/spaces/{space}/messages` with `pageSize=1000`.
   Each page is stored as one R2 object under `raw/<sourceId>/chat-runs/<runId>/pages/`.
-- Resolve senders with `spaces.members.list`, then `people:batchGet` (≤200 / request) for the rest.
+- Preserve Chat sender resource IDs. User-authenticated Chat responses do not expose reliable
+  display names, so identity resolution requires a separately supported product path.
 - Download attachments in parallel (≤4) into `source_assets`; skip 403/404 and >10 MB with a warning.
 - Group messages into monthly R2 blobs, then `normalizeChatMessages` + `persistSourceDocument` per month.
 - Continuations use Durable Object `alarm()` self-chains with a soft subrequest budget of 40 per tick.

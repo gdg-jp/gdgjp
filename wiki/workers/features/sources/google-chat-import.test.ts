@@ -101,30 +101,6 @@ function memorySql(seed?: (database: DatabaseSync) => void): SqlStorage {
   return api as unknown as SqlStorage;
 }
 
-describe("ensureSourceImportDoSchema", () => {
-  it("upgrades an in-flight senders table once and backfills lookup_done", () => {
-    const sql = memorySql((database) => {
-      database.exec(`
-        CREATE TABLE senders (
-          resource_name TEXT PRIMARY KEY,
-          display_name TEXT
-        );
-        INSERT INTO senders (resource_name, display_name) VALUES ('users/123', NULL);
-      `);
-    });
-
-    expect(
-      sql
-        .exec<{ resource_name: string; display_name: string | null; lookup_done: number }>(
-          "SELECT resource_name, display_name, lookup_done FROM senders",
-        )
-        .toArray(),
-    ).toEqual([{ resource_name: "users/123", display_name: null, lookup_done: 0 }]);
-
-    expect(() => ensureSourceImportDoSchema(sql)).not.toThrow();
-  });
-});
-
 async function source() {
   const row = await db.select().from(schema.sources).where(eq(schema.sources.id, SOURCE_ID)).get();
   if (!row) throw new Error("source fixture missing");
@@ -549,7 +525,7 @@ describe("advanceSourceImportTick with the Chat driver", () => {
     );
   });
 
-  it("uses Chat payload display names when directory and People resolve nothing", async () => {
+  it("does not call identity APIs and preserves sender resource IDs", async () => {
     await startSourceImport(
       { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
       await source(),
@@ -565,51 +541,29 @@ describe("advanceSourceImportTick with the Chat driver", () => {
       }),
       get: vi.fn().mockImplementation(async (key: string) => {
         const body = objects.get(key);
-        if (body == null) return null;
-        if (typeof body === "string") return { json: async () => JSON.parse(body) };
-        return null;
+        return typeof body === "string" ? { json: async () => JSON.parse(body) } : null;
       }),
       delete: vi.fn().mockResolvedValue(undefined),
     };
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
-      if (url.includes("/messages?")) {
-        return new Response(
-          JSON.stringify({
-            messages: [
-              {
-                name: "spaces/abc/messages/1",
-                text: "Hello from a consumer space.",
-                createTime: "2026-07-14T12:03:00Z",
-                sender: {
-                  name: "users/111503568926175343887",
-                  type: "HUMAN",
-                  displayName: "Taro Yamada",
-                },
-                thread: { name: "spaces/abc/threads/t1" },
-                threadReply: false,
-              },
-            ],
-          }),
-        );
+      if (!url.includes("/messages?")) {
+        throw new Error(`Unexpected identity lookup: ${url}`);
       }
-      if (url.includes("people:listDirectoryPeople")) {
-        return new Response(null, { status: 403 });
-      }
-      if (url.includes("people:batchGet")) {
-        return new Response(
-          JSON.stringify({
-            responses: [
-              {
-                requestedResourceName: "people/111503568926175343887",
-                httpStatusCode: 200,
-                person: { resourceName: "people/111503568926175343887" },
-              },
-            ],
-          }),
-        );
-      }
-      return new Response("{}");
+      return new Response(
+        JSON.stringify({
+          messages: [
+            {
+              name: "spaces/abc/messages/1",
+              text: "Hello from a consumer space.",
+              createTime: "2026-07-14T12:03:00Z",
+              sender: { name: "users/111503568926175343887", type: "HUMAN" },
+              thread: { name: "spaces/abc/threads/t1" },
+              threadReply: false,
+            },
+          ],
+        }),
+      );
     });
 
     const result = await advanceSourceImportTick({
@@ -624,84 +578,8 @@ describe("advanceSourceImportTick with the Chat driver", () => {
       .filter(([key]) => !key.includes("/chat-runs/"))
       .map(([, body]) => (typeof body === "string" ? body : new TextDecoder().decode(body)))
       .join("\n");
-    expect(markdown).toContain("### [2026-07-14 21:03] Taro Yamada");
-    expect(markdown).not.toContain("Unknown user");
-  });
-
-  it("prefers a directory-resolved name over the Chat payload displayName", async () => {
-    await startSourceImport(
-      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
-      await source(),
-      "attempt-1",
-    );
-    const run = sqlite
-      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
-      .get(SOURCE_ID) as { id: string };
-    const objects = new Map<string, string | Uint8Array>();
-    const bucket = {
-      put: vi.fn().mockImplementation(async (key: string, body: string | Uint8Array) => {
-        objects.set(key, body);
-      }),
-      get: vi.fn().mockImplementation(async (key: string) => {
-        const body = objects.get(key);
-        if (body == null) return null;
-        if (typeof body === "string") return { json: async () => JSON.parse(body) };
-        return null;
-      }),
-      delete: vi.fn().mockResolvedValue(undefined),
-    };
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
-      const url = String(input);
-      if (url.includes("/messages?")) {
-        return new Response(
-          JSON.stringify({
-            messages: [
-              {
-                name: "spaces/abc/messages/1",
-                text: "Hello from Workspace.",
-                createTime: "2026-07-14T12:03:00Z",
-                sender: {
-                  name: "users/111",
-                  type: "HUMAN",
-                  displayName: "Payload Name",
-                },
-                thread: { name: "spaces/abc/threads/t1" },
-                threadReply: false,
-              },
-            ],
-          }),
-        );
-      }
-      if (url.includes("people:listDirectoryPeople")) {
-        return new Response(
-          JSON.stringify({
-            people: [
-              {
-                resourceName: "people/111",
-                metadata: { sources: [{ id: "111" }] },
-                names: [{ displayName: "Directory Name" }],
-              },
-            ],
-          }),
-        );
-      }
-      return new Response("{}");
-    });
-
-    const result = await advanceSourceImportTick({
-      env: { BUCKET: bucket } as unknown as Env,
-      sql: memorySql(),
-      budget: new SubrequestBudget(),
-      runId: run.id,
-    });
-
-    expect(result).toMatchObject({ finished: true, phase: "complete" });
-    const markdown = [...objects.entries()]
-      .filter(([key]) => !key.includes("/chat-runs/"))
-      .map(([, body]) => (typeof body === "string" ? body : new TextDecoder().decode(body)))
-      .join("\n");
-    expect(markdown).toContain("### [2026-07-14 21:03] Directory Name");
-    expect(markdown).not.toContain("Payload Name");
+    expect(markdown).toContain("### [2026-07-14 21:03] Unknown user (users/111503568926175343887)");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });
 

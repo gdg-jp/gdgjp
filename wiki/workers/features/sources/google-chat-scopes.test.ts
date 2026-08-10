@@ -2,11 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 import { beforeEach } from "vitest";
 import * as schema from "../../../app/db/schema";
-import {
-  GOOGLE_CHAT_REAUTH_MESSAGE,
-  resolvePeopleDisplayNames,
-  resolveSpaceMemberDisplayNames,
-} from "./google-chat";
+import { GOOGLE_CHAT_REAUTH_MESSAGE } from "./google-chat";
 import { createSourcesTestDb } from "./test-db";
 
 const getTokenRow = vi.fn();
@@ -20,7 +16,7 @@ vi.mock("../../../app/lib/google-drive.server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../app/lib/google-drive.server")>()),
   REQUIRED_GOOGLE_CHAT_SCOPES: ["https://www.googleapis.com/auth/chat.messages.readonly"],
   hasRequiredGoogleChatScopes: (scopes: string | null) =>
-    Boolean(scopes?.includes("chat.messages.readonly") && scopes.includes("directory.readonly")),
+    Boolean(scopes?.includes("chat.messages.readonly")),
 }));
 
 import { type SourceImportClaimRequest, claimSourceImport, startSourceImport } from "./import/run";
@@ -63,64 +59,5 @@ describe("Google Chat import scope gate", () => {
     ).resolves.toBe(true);
 
     expect(start).toHaveBeenCalledOnce();
-  });
-});
-
-describe("sender resolution batching", () => {
-  it("resolves N unique senders with O(unique/200) People batchGet calls", async () => {
-    const senders = Array.from({ length: 250 }, (_, i) => ({
-      name: `users/${i}`,
-      type: "HUMAN" as const,
-    }));
-    let calls = 0;
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
-      calls += 1;
-      const url = String(input);
-      if (url.includes("people:batchGet")) {
-        const params = new URL(url).searchParams.getAll("resourceNames");
-        return new Response(
-          JSON.stringify({
-            responses: params.map((resourceName) => ({
-              requestedResourceName: resourceName,
-              httpStatusCode: 200,
-              person: {
-                resourceName,
-                names: [{ displayName: `Name ${resourceName}` }],
-              },
-            })),
-          }),
-        );
-      }
-      return new Response(null, { status: 404 });
-    });
-
-    const { names, attempted } = await resolvePeopleDisplayNames("token", senders);
-    expect(calls).toBe(2);
-    expect(names.size).toBe(250);
-    expect(attempted.size).toBe(250);
-    fetchSpy.mockRestore();
-  });
-
-  it("prefers spaces.members.list display names when available", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          memberships: [
-            {
-              member: {
-                name: "users/111",
-                displayName: "Taro Yamada",
-                type: "HUMAN",
-              },
-            },
-          ],
-        }),
-      ),
-    );
-
-    const names = await resolveSpaceMemberDisplayNames("spaces/AAA", "token");
-    expect(names.get("users/111")).toBe("Taro Yamada");
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    fetchSpy.mockRestore();
   });
 });

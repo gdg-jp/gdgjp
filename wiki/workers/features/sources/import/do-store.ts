@@ -11,8 +11,7 @@ export function ensureSourceImportDoSchema(sql: SqlStorage): void {
     );
     CREATE TABLE IF NOT EXISTS senders (
       resource_name TEXT PRIMARY KEY,
-      display_name TEXT,
-      lookup_done INTEGER NOT NULL DEFAULT 0
+      display_name TEXT
     );
     CREATE TABLE IF NOT EXISTS attachments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,14 +77,4 @@ export function ensureSourceImportDoSchema(sql: SqlStorage): void {
       value TEXT NOT NULL
     );
   `);
-  // This helper runs on every tick of every import kind, so probe before altering rather than
-  // relying on a thrown "duplicate column" error. Only reachable for a run that was already in
-  // flight when this column shipped; start() recreates the schema from scratch.
-  const hasLookupDone = sql
-    .exec<{ name: string }>("PRAGMA table_info(senders)")
-    .toArray()
-    .some((column) => column.name === "lookup_done");
-  if (!hasLookupDone) {
-    sql.exec("ALTER TABLE senders ADD COLUMN lookup_done INTEGER NOT NULL DEFAULT 0");
-  }
 }
