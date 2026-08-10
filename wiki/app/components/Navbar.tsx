@@ -19,6 +19,7 @@ interface NavbarProps {
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   unreadNotificationCount?: number;
+  onImportZip?: () => void;
 }
 
 function UiLangSwitcher() {
@@ -116,7 +117,7 @@ function ThemeSwitcher() {
   );
 }
 
-function NewPageDropdown() {
+function NewPageDropdown({ onImportZip }: { onImportZip?: () => void }) {
   const { t } = useTranslation();
 
   return (
@@ -145,6 +146,10 @@ function NewPageDropdown() {
             <span>{t("pageTree.newPage_manual")}</span>
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onImportZip}>
+          <span>⇪</span>
+          <span>{t("pageTree.importZip")}</span>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link to="/tasks/new">
             <ListTodo size={14} />
@@ -161,6 +166,7 @@ export default function Navbar({
   sidebarOpen,
   onToggleSidebar,
   unreadNotificationCount,
+  onImportZip,
 }: NavbarProps) {
   const { t } = useTranslation();
   const location = useLocation();
@@ -215,7 +221,7 @@ export default function Navbar({
 
       {/* Right actions */}
       <div className="flex flex-shrink-0 items-center gap-3">
-        {user && <NewPageDropdown />}
+        {user && <NewPageDropdown onImportZip={onImportZip} />}
 
         {user && <NotificationBell initialCount={unreadNotificationCount ?? 0} />}
 

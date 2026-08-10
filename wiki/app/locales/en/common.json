@@ -543,6 +543,7 @@
     "newPage_ai": "Create with AI",
     "newPage_analyze": "Analyze with AI (Beta)",
     "newPage_manual": "Write manually",
+    "importZip": "Import ZIP",
     "collapse": "Collapse",
     "expand": "Expand",
     "newTaskList": "New Task List"
@@ -567,6 +568,19 @@
       "picker": "Google Drive could not be opened. Please try again.",
       "preview": "The import changes could not be reviewed.",
       "import": "The Google Document could not be imported."
+    }
+  },
+  "zipImport": {
+    "title": "Import ZIP archive",
+    "description": "Import Markdown, CSV, and images from a ZIP archive into a restricted wiki page tree.",
+    "choose": "Choose ZIP file",
+    "chooseAnother": "Choose another ZIP file",
+    "import": "Import",
+    "summary": "{{pages}} pages, {{folders}} folders, {{markdown}} Markdown files, {{csv}} CSV files, {{images}} images",
+    "skipped": "{{count}} unsupported or invalid files will be skipped.",
+    "errors": {
+      "preview": "The ZIP archive could not be previewed.",
+      "import": "The ZIP archive could not be imported."
     }
   },
   "tasks": {

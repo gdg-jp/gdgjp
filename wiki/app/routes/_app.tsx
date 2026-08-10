@@ -19,6 +19,7 @@ import Sidebar from "~/components/Sidebar";
 import SidebarDialog from "~/components/SidebarDialog";
 import SidebarPopover from "~/components/SidebarPopover";
 import StarredContent from "~/components/StarredContent";
+import ZipImportDialog from "~/components/ZipImportDialog";
 import * as schema from "~/db/schema";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { getAccessIdentity } from "~/lib/auth-utils.server";
@@ -82,6 +83,7 @@ export default function AppLayout() {
   const [desktopOpen, setDesktopOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [googleDocumentImportOpen, setGoogleDocumentImportOpen] = useState(false);
+  const [zipImportOpen, setZipImportOpen] = useState(false);
   const importProgressRef = useRef("");
 
   useEffect(() => {
@@ -211,6 +213,7 @@ export default function AppLayout() {
         sidebarOpen={sidebarOpen}
         onToggleSidebar={toggleSidebar}
         unreadNotificationCount={unreadNotificationCount}
+        onImportZip={() => setZipImportOpen(true)}
       />
 
       <div className="flex flex-1 pt-14">
@@ -228,6 +231,7 @@ export default function AppLayout() {
           starredButtonRef={starredButtonRef}
           onArchivedClick={() => setActivePanel((p) => (p === "archived" ? null : "archived"))}
           archivedButtonRef={archivedButtonRef}
+          onImportZip={() => setZipImportOpen(true)}
         />
 
         {/* Main content */}
@@ -244,6 +248,7 @@ export default function AppLayout() {
           onOpenChange={setGoogleDocumentImportOpen}
         />
       )}
+      {user && <ZipImportDialog open={zipImportOpen} onOpenChange={setZipImportOpen} />}
       {/* Signed-in only panels */}
       {user &&
         (isMobile ? (

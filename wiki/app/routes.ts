@@ -41,6 +41,8 @@ export default [
   route("/api/favorites", "routes/api.favorites.tsx"),
   route("/api/images/*", "routes/api.images.$.ts"),
   route("/api/wiki/:slug/upload-image", "routes/api.wiki.$slug.upload-image.ts"),
+  route("/api/wiki/import-zip/preview", "routes/api.wiki.import-zip.preview.ts"),
+  route("/api/wiki/import-zip", "routes/api.wiki.import-zip.ts"),
   route("/api/admin/backfill-embeddings", "routes/api.admin.backfill-embeddings.ts"),
   route("/api/fcm-tokens", "routes/api.fcm-tokens.ts"),
   route("/api/recent", "routes/api.recent.ts"),

@@ -59,6 +59,7 @@ interface PageTreeProps {
   isCollapsed?: boolean;
   canReorder?: boolean;
   canCreate?: boolean;
+  onImportZip?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -492,6 +493,7 @@ export default function PageTree({
   isCollapsed = false,
   canReorder = false,
   canCreate = true,
+  onImportZip,
 }: PageTreeProps) {
   const { t } = useTranslation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -593,6 +595,17 @@ export default function PageTree({
                 <span>✎</span>
                 <span>{t("pageTree.newPage_manual")}</span>
               </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setDropdownOpen(false);
+                  onImportZip?.();
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-content-secondary hover:bg-surface-canvas"
+              >
+                <span>⇪</span>
+                <span>{t("pageTree.importZip")}</span>
+              </button>
               <Link
                 to="/tasks/new"
                 onClick={() => setDropdownOpen(false)}
