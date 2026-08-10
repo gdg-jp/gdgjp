@@ -38,9 +38,9 @@ export function ensureSourceImportDoSchema(sql: SqlStorage): void {
     CREATE TABLE IF NOT EXISTS reply_threads (
       thread_name TEXT PRIMARY KEY
     );
-    CREATE TABLE IF NOT EXISTS chat_documents (
-      week_path TEXT NOT NULL,
-      path TEXT NOT NULL PRIMARY KEY,
+    CREATE TABLE IF NOT EXISTS week_documents (
+      week_path TEXT PRIMARY KEY,
+      r2_key TEXT NOT NULL,
       sort_index INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS week_messages (

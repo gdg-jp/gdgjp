@@ -13,7 +13,6 @@ import {
   fetchMissingReplyThreadParents,
   mergeDocumentUrls,
   normalizeChatMessages,
-  splitMarkdownByUtf8Bytes,
   weekBoundsRfc3339,
   weekPathFromCreateTime,
 } from "./google-chat";
@@ -172,16 +171,6 @@ describe("mergeDocumentUrls", () => {
     expect(
       mergeDocumentUrls(JSON.stringify({ urls: ["https://b.example"] }), ["https://a.example"]),
     ).toBe(JSON.stringify({ urls: ["https://a.example", "https://b.example"] }));
-  });
-});
-
-describe("splitMarkdownByUtf8Bytes", () => {
-  it("keeps every part within the byte limit without splitting Unicode code points", () => {
-    const markdown = "あいうえお😀".repeat(100);
-    const parts = splitMarkdownByUtf8Bytes(markdown, 31);
-
-    expect(parts.join("")).toBe(markdown);
-    expect(parts.every((part) => new TextEncoder().encode(part).byteLength <= 31)).toBe(true);
   });
 });
 

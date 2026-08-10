@@ -66,32 +66,6 @@ export interface NormalizedWeek {
   }>;
 }
 
-/** Split text without splitting a UTF-8 code point. The pieces concatenate exactly. */
-export function splitMarkdownByUtf8Bytes(markdown: string, maxBytes: number): string[] {
-  if (maxBytes <= 0) throw new Error("maxBytes must be positive");
-  const encoder = new TextEncoder();
-  if (encoder.encode(markdown).byteLength <= maxBytes) return [markdown];
-
-  const chunks: string[] = [];
-  let chunk = "";
-  let chunkBytes = 0;
-  for (const codePoint of markdown) {
-    const bytes = encoder.encode(codePoint).byteLength;
-    if (chunkBytes > 0 && chunkBytes + bytes > maxBytes) {
-      chunks.push(chunk);
-      chunk = "";
-      chunkBytes = 0;
-    }
-    // A JavaScript string code point cannot realistically exceed this limit, but
-    // retaining it prevents an accidental infinite loop if the caller sets one.
-    if (bytes > maxBytes) throw new Error("A single code point exceeds the Markdown byte limit");
-    chunk += codePoint;
-    chunkBytes += bytes;
-  }
-  if (chunk) chunks.push(chunk);
-  return chunks;
-}
-
 function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);

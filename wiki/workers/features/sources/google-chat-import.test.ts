@@ -219,7 +219,6 @@ describe("Google Chat import bounds", () => {
     expect(CHAT_PAGE_SIZE).toBe(100);
   });
 });
-
 describe("advanceSourceImportTick with the Chat driver", () => {
   it("stops listing before exceeding the subrequest budget", async () => {
     await startSourceImport(
