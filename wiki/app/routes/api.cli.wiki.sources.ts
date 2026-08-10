@@ -8,6 +8,10 @@ import {
   sha256Hex,
   wikiHumanDocumentId,
 } from "~/lib/cli-wiki-human.server";
+import {
+  disambiguateRawManifestPaths,
+  rawSourceDirectories,
+} from "~/lib/cli-wiki-source-path.server";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
 import { canAccessSource } from "~/lib/sources.server";
@@ -96,6 +100,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     .where(eq(schema.sources.status, "ready"))
     .all();
   const sourceById = new Map(sources.map((source) => [source.id, source]));
+  const sourceDirectoryByID = rawSourceDirectories(sources);
   const ingestionByDocId = new Map(ingestions.map((row) => [row.documentId, row.contentHash]));
   const slugById = new Map(allPages.map((page) => [page.id, page.slug]));
   const manifestEntries: SourcesManifestEntry[] = [];
@@ -108,7 +113,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       documentId: doc.id,
       sourceId: doc.sourceId,
       title: doc.title,
-      path: `raw/${doc.sourceId}/${doc.path}`,
+      path: `raw/${sourceDirectoryByID.get(source.id)}/${doc.path}`,
       contentHash: doc.contentHash,
       mediaType: doc.mediaType,
       capturedAt: toUnixSeconds(doc.capturedAt),
@@ -127,8 +132,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       documentId: asset.id,
       sourceId: doc.sourceId,
       title: asset.title || fileName,
-      // Asset path is already the clone-relative R2 key (raw/<sourceId>/assets/...).
-      path: asset.path.startsWith("raw/") ? asset.path : `raw/${doc.sourceId}/assets/${asset.path}`,
+      path: `raw/${sourceDirectoryByID.get(source.id)}/assets/${assetRelativePath(asset.path, doc.sourceId)}`,
       contentHash: asset.contentHash,
       mediaType: asset.mediaType,
       capturedAt: toUnixSeconds(asset.capturedAt),
@@ -203,12 +207,18 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     });
   }
 
-  manifestEntries.sort((a, b) => {
+  const paths = disambiguateRawManifestPaths(manifestEntries);
+  paths.sort((a, b) => {
     const aTime = a.capturedAt ?? 0;
     const bTime = b.capturedAt ?? 0;
     return aTime - bTime;
   });
 
-  const manifest: SourcesManifest = { version: 1, documents: manifestEntries };
+  const manifest: SourcesManifest = { version: 1, documents: paths };
   return Response.json(manifest);
+}
+
+function assetRelativePath(path: string, sourceID: string): string {
+  const prefix = `raw/${sourceID}/assets/`;
+  return path.startsWith(prefix) ? path.slice(prefix.length) : path;
 }

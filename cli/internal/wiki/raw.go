@@ -1,8 +1,10 @@
 package wiki
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -94,7 +96,35 @@ func removeStaleRawFiles(root string, expected map[string]struct{}) error {
 	if os.IsNotExist(err) {
 		return nil
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	return removeEmptyRawDirectories(rawRoot)
+}
+
+func removeEmptyRawDirectories(rawRoot string) error {
+	var directories []string
+	err := filepath.WalkDir(rawRoot, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() && path != rawRoot {
+			directories = append(directories, path)
+		}
+		return nil
+	})
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for i := len(directories) - 1; i >= 0; i-- {
+		if err := os.Remove(directories[i]); err != nil && !os.IsNotExist(err) && !errors.Is(err, fs.ErrExist) {
+			return err
+		}
+	}
+	return nil
 }
 
 func syncAgentsMD(root string, agents []byte) error {
@@ -181,6 +211,7 @@ func PullRaw(ctx context.Context, root string, client *Client, token string) (So
 		}
 		if doc.Kind != "source-asset" {
 			data = applyChatSenderNames(data, senders)
+			data = rewriteRawSourcePaths(data, doc)
 		}
 		if writeErr := os.MkdirAll(filepath.Dir(localPath), 0o755); writeErr != nil {
 			return SourcesManifest{}, writeErr
@@ -199,6 +230,26 @@ func PullRaw(ctx context.Context, root string, client *Client, token string) (So
 		return SourcesManifest{}, err
 	}
 	return manifest, nil
+}
+
+func rewriteRawSourcePaths(data []byte, doc SourcesManifestEntry) []byte {
+	if doc.Kind != "source-document" || doc.SourceID == nil || *doc.SourceID == "" {
+		return data
+	}
+	const rawPrefix = "raw/"
+	if !strings.HasPrefix(doc.Path, rawPrefix) {
+		return data
+	}
+	remainder := strings.TrimPrefix(doc.Path, rawPrefix)
+	sourceDirectory, _, found := strings.Cut(remainder, "/")
+	if !found || sourceDirectory == "" {
+		return data
+	}
+	return bytes.ReplaceAll(
+		data,
+		[]byte(rawPrefix+*doc.SourceID+"/"),
+		[]byte(rawPrefix+sourceDirectory+"/"),
+	)
 }
 
 func shouldSkipRawPull(state State, sendersHash string, doc SourcesManifestEntry, localPath string) bool {

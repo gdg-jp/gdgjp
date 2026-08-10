@@ -134,6 +134,74 @@ func TestPullRawReconcilesManifestUsingCloneLanguage(t *testing.T) {
 	}
 }
 
+func TestPullRawMigratesIDDirectoriesToTitlesAndRewritesAssetPaths(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
+		t.Fatal(err)
+	}
+	const sourceID = "_H_TcypgysQJlp-rTB-eC"
+	legacy := filepath.Join(root, "raw", sourceID, "当日オペレーション")
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacy, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	document := []byte("![logo](raw/_H_TcypgysQJlp-rTB-eC/assets/logo.png)\n")
+	asset := []byte("png")
+	manifest := SourcesManifest{Version: 1, Documents: []SourcesManifestEntry{
+		{
+			DocumentID:  "doc-1",
+			SourceID:    stringPointer(sourceID),
+			Kind:        "source-document",
+			Path:        "raw/[Build with AI Kwansai 2026]/当日オペレーション",
+			ContentHash: digest(document),
+		},
+		{
+			DocumentID:  "asset-1",
+			SourceID:    stringPointer(sourceID),
+			Kind:        "source-asset",
+			Path:        "raw/[Build with AI Kwansai 2026]/assets/logo.png",
+			ContentHash: digest(asset),
+		},
+	}}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/cli/wiki/chat-senders":
+			writeEmptyChatSenders(w)
+		case "/api/cli/wiki/sources":
+			_ = json.NewEncoder(w).Encode(manifest)
+		case "/api/cli/wiki/sources/doc-1/content":
+			_, _ = w.Write(document)
+		case "/api/cli/wiki/sources/asset-1/content":
+			_, _ = w.Write(asset)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client := NewClientAt(server.URL)
+	client.HTTPClient = server.Client()
+
+	if _, err := PullRaw(context.Background(), root, client, "token"); err != nil {
+		t.Fatal(err)
+	}
+	titleRoot := filepath.Join(root, "raw", "[Build with AI Kwansai 2026]")
+	got, err := os.ReadFile(filepath.Join(titleRoot, "当日オペレーション"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "![logo](raw/[Build with AI Kwansai 2026]/assets/logo.png)\n"; string(got) != want {
+		t.Fatalf("document = %q, want %q", got, want)
+	}
+	if got, err := os.ReadFile(filepath.Join(titleRoot, "assets", "logo.png")); err != nil || string(got) != string(asset) {
+		t.Fatalf("asset = %q, err = %v", got, err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "raw", sourceID)); !os.IsNotExist(err) {
+		t.Fatalf("legacy ID directory still exists: %v", err)
+	}
+}
+
 func TestPullRawPreservesLocallyEditedAgentsMD(t *testing.T) {
 	root := t.TempDir()
 	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
