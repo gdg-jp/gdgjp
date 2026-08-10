@@ -202,6 +202,53 @@ func TestPullRawMigratesIDDirectoriesToTitlesAndRewritesAssetPaths(t *testing.T)
 	}
 }
 
+func TestPullRawMigratesLegacyWikiHumanDirectoryToPageTree(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
+		t.Fatal(err)
+	}
+	legacyPath := filepath.Join(root, "raw", "wiki-human", "operations.md")
+	if err := os.MkdirAll(filepath.Dir(legacyPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacyPath, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("updated")
+	manifest := SourcesManifest{Version: 1, Documents: []SourcesManifestEntry{{
+		DocumentID:  "wiki-human:operations",
+		Kind:        "wiki-human",
+		Path:        "raw/guides/operations/page.md",
+		ContentHash: digest(content),
+	}}}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/cli/wiki/chat-senders":
+			writeEmptyChatSenders(w)
+		case "/api/cli/wiki/sources":
+			_ = json.NewEncoder(w).Encode(manifest)
+		case "/api/cli/wiki/sources/wiki-human:operations/content":
+			_, _ = w.Write(content)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClientAt(server.URL)
+	client.HTTPClient = server.Client()
+	if _, err := PullRaw(context.Background(), root, client, "token"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(legacyPath); !os.IsNotExist(err) {
+		t.Fatalf("legacy human page still exists: %v", err)
+	}
+	newPath := filepath.Join(root, "raw", "guides", "operations", "page.md")
+	if got, err := os.ReadFile(newPath); err != nil || string(got) != string(content) {
+		t.Fatalf("structured human page = %q, err = %v", got, err)
+	}
+}
+
 func TestPullRawPreservesLocallyEditedAgentsMD(t *testing.T) {
 	root := t.TempDir()
 	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {

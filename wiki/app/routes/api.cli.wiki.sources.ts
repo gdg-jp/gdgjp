@@ -11,6 +11,7 @@ import {
 import {
   disambiguateRawManifestPaths,
   rawSourceDirectories,
+  wikiHumanRawPath,
 } from "~/lib/cli-wiki-source-path.server";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
@@ -91,7 +92,10 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         .from(schema.pageAttachments)
         .orderBy(asc(schema.pageAttachments.pageId), asc(schema.pageAttachments.id))
         .all(),
-      db.select({ id: schema.pages.id, slug: schema.pages.slug }).from(schema.pages).all(),
+      db
+        .select({ id: schema.pages.id, slug: schema.pages.slug, parentId: schema.pages.parentId })
+        .from(schema.pages)
+        .all(),
     ]);
 
   const sources = await db
@@ -103,6 +107,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const sourceDirectoryByID = rawSourceDirectories(sources);
   const ingestionByDocId = new Map(ingestions.map((row) => [row.documentId, row.contentHash]));
   const slugById = new Map(allPages.map((page) => [page.id, page.slug]));
+  const pagePathByID = new Map(allPages.map((page) => [page.id, page]));
   const manifestEntries: SourcesManifestEntry[] = [];
 
   for (const doc of documents) {
@@ -199,7 +204,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       documentId,
       sourceId: null,
       title: rendered.title || page.slug,
-      path: `raw/wiki-human/${page.slug}.md`,
+      path: wikiHumanRawPath(page, pagePathByID),
       contentHash,
       mediaType: "text/markdown",
       capturedAt: toUnixSeconds(page.updatedAt ?? page.createdAt),

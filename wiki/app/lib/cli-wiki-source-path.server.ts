@@ -3,6 +3,12 @@ export type RawManifestPathEntry = {
   path: string;
 };
 
+export type WikiHumanPagePathEntry = {
+  id: string;
+  slug: string;
+  parentId: string | null;
+};
+
 /** Returns a readable, single path segment for a source's raw clone directory. */
 export function rawSourceDirectory(title: string): string {
   const cleaned = title.trim().replaceAll("/", "／").replaceAll("\\", "＼").replace(/\0/g, "");
@@ -31,6 +37,36 @@ export function rawSourceDirectories(
     );
   }
   return directories;
+}
+
+/**
+ * Returns the raw-clone location for a human-authored page, using the same
+ * directory hierarchy and page.md convention as the authored Wiki tree.
+ */
+export function wikiHumanRawPath(
+  page: WikiHumanPagePathEntry,
+  pagesByID: ReadonlyMap<string, WikiHumanPagePathEntry>,
+): string {
+  const segments: string[] = [];
+  const visited = new Set<string>();
+  let current: WikiHumanPagePathEntry | undefined = page;
+
+  while (current) {
+    if (visited.has(current.id)) {
+      throw new Error(`human page hierarchy contains a cycle at ${current.id}`);
+    }
+    visited.add(current.id);
+    segments.unshift(current.slug);
+
+    const parentID = current.parentId;
+    if (parentID === null) break;
+    current = pagesByID.get(parentID);
+    if (!current) {
+      throw new Error(`human page ${page.id} has missing parent ${parentID}`);
+    }
+  }
+
+  return `raw/${segments.join("/")}/page.md`;
 }
 
 /**

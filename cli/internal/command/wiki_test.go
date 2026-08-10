@@ -144,8 +144,8 @@ func TestWikiIngestCommitMarksOnlyFirstAndStops(t *testing.T) {
 	firstContent := []byte("first")
 	secondContent := []byte("second")
 	manifest := wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{
-		{DocumentID: "doc-1", Kind: "wiki-human", Title: "First", Path: "raw/wiki-human/first.md", ContentHash: fmt.Sprintf("%x", sha256.Sum256(firstContent))},
-		{DocumentID: "doc-2", Kind: "wiki-human", Title: "Second", Path: "raw/wiki-human/second.md", ContentHash: fmt.Sprintf("%x", sha256.Sum256(secondContent))},
+		{DocumentID: "doc-1", Kind: "wiki-human", Title: "First", Path: "raw/first/page.md", ContentHash: fmt.Sprintf("%x", sha256.Sum256(firstContent))},
+		{DocumentID: "doc-2", Kind: "wiki-human", Title: "Second", Path: "raw/second/page.md", ContentHash: fmt.Sprintf("%x", sha256.Sum256(secondContent))},
 	}}
 	marked := make([]string, 0, 2)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
