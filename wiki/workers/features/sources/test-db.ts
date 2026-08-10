@@ -77,6 +77,12 @@ export function createSourcesTestDb() {
       "utf8",
     ),
   );
+  sqlite.exec(
+    readFileSync(
+      new URL("../../../migrations/0051_drop_google_chat_document_renders.sql", import.meta.url),
+      "utf8",
+    ),
+  );
 
   const execute = async (
     sql: string,

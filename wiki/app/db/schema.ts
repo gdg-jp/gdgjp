@@ -574,15 +574,6 @@ export const googleChatSenderSamples = sqliteTable(
   (t) => [unique().on(t.resourceName, t.sourceId, t.messageName)],
 );
 
-/** Private render input used to rewrite sender headings without leaking IDs to raw Markdown. */
-export const googleChatDocumentRenders = sqliteTable("google_chat_document_renders", {
-  sourceDocumentId: text("source_document_id")
-    .primaryKey()
-    .references(() => sourceDocuments.id, { onDelete: "cascade" }),
-  renderData: text("render_data").notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
-});
-
 // ---------------------------------------------------------------------------
 // source_import_runs — Durable Object alarm-driven source import progress
 // ---------------------------------------------------------------------------

@@ -8,8 +8,10 @@ import (
 )
 
 type State struct {
-	Ingested   map[string]string `json:"ingested"`
-	AgentsHash string            `json:"agentsHash,omitempty"`
+	Ingested    map[string]string `json:"ingested"`
+	AgentsHash  string            `json:"agentsHash,omitempty"`
+	Rendered    map[string]string `json:"rendered,omitempty"`    // documentID -> post-replace digest
+	SendersHash string            `json:"sendersHash,omitempty"` // digest of sender map
 }
 
 // CloneState is an alias used by ingest helpers.
@@ -24,7 +26,7 @@ func statePath(root string) string { return StatePath(root) }
 func LoadState(root string) (State, error) {
 	raw, err := os.ReadFile(StatePath(root))
 	if os.IsNotExist(err) {
-		return State{Ingested: map[string]string{}}, nil
+		return State{Ingested: map[string]string{}, Rendered: map[string]string{}}, nil
 	}
 	if err != nil {
 		return State{}, err
@@ -36,6 +38,9 @@ func LoadState(root string) (State, error) {
 	if state.Ingested == nil {
 		state.Ingested = map[string]string{}
 	}
+	if state.Rendered == nil {
+		state.Rendered = map[string]string{}
+	}
 	return state, nil
 }
 
@@ -44,6 +49,9 @@ func ReadState(root string) (State, error) { return LoadState(root) }
 func WriteState(root string, state State) error {
 	if state.Ingested == nil {
 		state.Ingested = map[string]string{}
+	}
+	if state.Rendered == nil {
+		state.Rendered = map[string]string{}
 	}
 	if err := os.MkdirAll(ConfigDir(root), 0o755); err != nil {
 		return err

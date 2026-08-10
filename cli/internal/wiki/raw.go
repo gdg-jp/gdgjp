@@ -2,10 +2,12 @@ package wiki
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -125,10 +127,24 @@ func syncAgentsMD(root string, agents []byte) error {
 }
 
 // PullRaw synchronizes raw/** from the Wiki API. AGENTS.md is Git-tracked.
-// Files whose local sha256 matches the manifest are skipped. The returned
+// Chat Markdown sender placeholders are resolved locally after hash verification.
+// Files whose rendered digest still matches are skipped. The returned
 // manifest is the exact snapshot used for local reconciliation.
 func PullRaw(ctx context.Context, root string, client *Client, token string) (SourcesManifest, error) {
 	cfg, err := ReadConfig(root)
+	if err != nil {
+		return SourcesManifest{}, err
+	}
+	state, err := LoadState(root)
+	if err != nil {
+		return SourcesManifest{}, err
+	}
+	chatSenders, err := client.ChatSenders(ctx, token)
+	if err != nil {
+		return SourcesManifest{}, err
+	}
+	senders := chatSenders.Map()
+	sendersHash, err := digestSendersMap(senders)
 	if err != nil {
 		return SourcesManifest{}, err
 	}
@@ -148,7 +164,7 @@ func PullRaw(ctx context.Context, root string, client *Client, token string) (So
 		if pathErr = ensureRawPathHasNoSymlinks(root, localPath); pathErr != nil {
 			return SourcesManifest{}, pathErr
 		}
-		if existing, readErr := os.ReadFile(localPath); readErr == nil && digest(existing) == doc.ContentHash {
+		if shouldSkipRawPull(state, sendersHash, doc, localPath) {
 			continue
 		}
 		data, getErr := client.SourceContent(ctx, token, doc.DocumentID, cfg.Lang)
@@ -163,17 +179,87 @@ func PullRaw(ctx context.Context, root string, client *Client, token string) (So
 				doc.ContentHash,
 			)
 		}
+		if doc.Kind != "source-asset" {
+			data = applyChatSenderNames(data, senders)
+		}
 		if writeErr := os.MkdirAll(filepath.Dir(localPath), 0o755); writeErr != nil {
 			return SourcesManifest{}, writeErr
 		}
 		if writeErr := os.WriteFile(localPath, data, 0o644); writeErr != nil {
 			return SourcesManifest{}, writeErr
 		}
+		state.Rendered[doc.DocumentID] = digest(data)
 	}
 	if err = removeStaleRawFiles(root, expected); err != nil {
 		return SourcesManifest{}, err
 	}
+	pruneRendered(state, manifest)
+	state.SendersHash = sendersHash
+	if err = WriteState(root, state); err != nil {
+		return SourcesManifest{}, err
+	}
 	return manifest, nil
+}
+
+func shouldSkipRawPull(state State, sendersHash string, doc SourcesManifestEntry, localPath string) bool {
+	if state.SendersHash != sendersHash {
+		return false
+	}
+	existing, readErr := os.ReadFile(localPath)
+	if readErr != nil {
+		return false
+	}
+	localDigest := digest(existing)
+	if rendered, ok := state.Rendered[doc.DocumentID]; ok {
+		return localDigest == rendered
+	}
+	// Pre-Rendered clones: fall back to the server content hash.
+	return localDigest == doc.ContentHash
+}
+
+func digestSendersMap(senders map[string]string) (string, error) {
+	if senders == nil {
+		senders = map[string]string{}
+	}
+	raw, err := json.Marshal(senders)
+	if err != nil {
+		return "", err
+	}
+	return digest(raw), nil
+}
+
+func pruneRendered(state State, manifest SourcesManifest) {
+	alive := make(map[string]struct{}, len(manifest.Documents))
+	for _, doc := range manifest.Documents {
+		alive[doc.DocumentID] = struct{}{}
+	}
+	for id := range state.Rendered {
+		if _, ok := alive[id]; !ok {
+			delete(state.Rendered, id)
+		}
+	}
+}
+
+// Matches Chat week-Markdown sender headings written as placeholders by the Worker.
+var chatSenderHeadingRE = regexp.MustCompile(
+	`(?m)^### \[([^\]]+)\] Unknown user \((users/[A-Za-z0-9_-]+)\)$`,
+)
+
+func applyChatSenderNames(data []byte, senders map[string]string) []byte {
+	if len(senders) == 0 {
+		return data
+	}
+	return chatSenderHeadingRE.ReplaceAllFunc(data, func(match []byte) []byte {
+		sub := chatSenderHeadingRE.FindSubmatch(match)
+		if len(sub) < 3 {
+			return match
+		}
+		name, ok := senders[string(sub[2])]
+		if !ok || name == "" {
+			return match
+		}
+		return []byte("### [" + string(sub[1]) + "] " + name)
+	})
 }
 
 // BuildIngestQueue compares manifest hashes with local+server ingested state

@@ -1,8 +1,9 @@
 import { and, eq, ne } from "drizzle-orm";
+import { nanoid } from "nanoid";
 import * as schema from "../../../app/db/schema";
 import { REQUIRED_GOOGLE_CHAT_SCOPES, driveFilesUrl } from "../../../app/lib/google-drive.server";
 import { type ResolvedSourceAsset, assetR2Key } from "./assets";
-import { captureChatSenderData } from "./chat-sender-registry";
+import { MAX_SENDER_SAMPLES, pruneSenderSamplesStatement } from "./chat-sender-registry";
 import {
   type ChatMessage,
   type ChatMessageAttachment,
@@ -36,6 +37,8 @@ import { ATTACHMENT_PARALLELISM } from "./subrequest-budget";
 export const CHAT_PAGE_SIZE = 1000;
 const CHAT_TIMEOUT_MS = 30_000;
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+/** Unconfigured senders flushed to D1 per subrequest batch. */
+export const SENDERS_FLUSH_BATCH_SIZE = 20;
 export type ChatImportPhase =
   | "listing"
   | "indexing"
@@ -176,6 +179,23 @@ function indexMessage(
         message.sender.name,
       );
     }
+    // Kept unpruned on purpose: stepSenders reads with LIMIT MAX_SENDER_SAMPLES, so
+    // trimming here would cost a subquery per message to bound a table that is already
+    // smaller than week_messages and wiped with it at the start of every run.
+    const sampleText = (message.text ?? message.argumentText ?? "").trim();
+    if (sampleText) {
+      sql.exec(
+        `INSERT INTO sender_samples (resource_name, message_name, create_time, message_text)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(resource_name, message_name) DO UPDATE SET
+           create_time = excluded.create_time,
+           message_text = excluded.message_text`,
+        message.sender.name,
+        messageName,
+        message.createTime,
+        sampleText,
+      );
+    }
   }
   if (message.thread?.name) {
     if (message.threadReply) {
@@ -244,6 +264,102 @@ async function stepIndexing(ctx: ChatImportTickContext, current: Current): Promi
 }
 
 async function stepSenders(ctx: ChatImportTickContext, current: Current): Promise<StepOutcome> {
+  if (metaGet(ctx.sql, "senders_flushed") !== "1") {
+    if (!ctx.budget.canSpend(1)) return { phaseComplete: false };
+    ctx.budget.spend(1);
+    const configured = new Set(
+      (
+        await current.db
+          .select({ resourceName: schema.googleChatSenderProfiles.resourceName })
+          .from(schema.googleChatSenderProfiles)
+          .all()
+      ).map((row) => row.resourceName),
+    );
+
+    const senders = ctx.sql
+      .exec<{ resource_name: string }>(
+        "SELECT DISTINCT resource_name FROM sender_samples ORDER BY resource_name",
+      )
+      .toArray();
+    let cursor = Number(metaGet(ctx.sql, "senders_flush_index") ?? "0");
+    const db = current.db;
+    const now = new Date();
+
+    while (cursor < senders.length) {
+      if (!ctx.budget.canSpend(1)) {
+        metaSet(ctx.sql, "senders_flush_index", String(cursor));
+        return { phaseComplete: false };
+      }
+
+      const batch: string[] = [];
+      let next = cursor;
+      while (next < senders.length && batch.length < SENDERS_FLUSH_BATCH_SIZE) {
+        const resourceName = senders[next]?.resource_name;
+        next += 1;
+        if (!resourceName || configured.has(resourceName)) continue;
+        batch.push(resourceName);
+      }
+
+      if (batch.length === 0) {
+        cursor = next;
+        metaSet(ctx.sql, "senders_flush_index", String(cursor));
+        continue;
+      }
+
+      const statements = [];
+      for (const resourceName of batch) {
+        const samples = ctx.sql
+          .exec<{ message_name: string; create_time: string; message_text: string }>(
+            `SELECT message_name, create_time, message_text FROM sender_samples
+             WHERE resource_name = ?
+             ORDER BY create_time DESC, message_name DESC
+             LIMIT ?`,
+            resourceName,
+            MAX_SENDER_SAMPLES,
+          )
+          .toArray();
+        for (const sample of samples) {
+          statements.push(
+            db
+              .insert(schema.googleChatSenderSamples)
+              .values({
+                id: nanoid(),
+                resourceName,
+                sourceId: current.source.id,
+                messageName: sample.message_name,
+                messageText: sample.message_text,
+                createdAt: new Date(sample.create_time),
+                updatedAt: now,
+              })
+              .onConflictDoUpdate({
+                target: [
+                  schema.googleChatSenderSamples.resourceName,
+                  schema.googleChatSenderSamples.sourceId,
+                  schema.googleChatSenderSamples.messageName,
+                ],
+                set: {
+                  messageText: sample.message_text,
+                  createdAt: new Date(sample.create_time),
+                  updatedAt: now,
+                },
+              }),
+          );
+        }
+        if (samples.length > 0) {
+          statements.push(pruneSenderSamplesStatement(db, resourceName));
+        }
+      }
+
+      ctx.budget.spend(1);
+      if (statements.length > 0) {
+        await db.batch(statements as [(typeof statements)[0], ...typeof statements]);
+      }
+      cursor = next;
+      metaSet(ctx.sql, "senders_flush_index", String(cursor));
+    }
+    metaSet(ctx.sql, "senders_flushed", "1");
+  }
+
   const counts = ctx.sql
     .exec<{ total: number; unresolved: number | null }>(
       `SELECT COUNT(*) AS total,
@@ -519,8 +635,8 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
   let weeksDone = Number(metaGet(ctx.sql, "weeks_done") ?? "0");
   const incremental = Boolean(current.run.sinceCursor);
   const persistCost = incremental ? PERSIST_MERGE_SUBREQUESTS : PERSIST_REPLACE_SUBREQUESTS;
-  // R2 get week + persist. Incremental weeks have been regenerated during indexing;
-  // merge applies only to attachments/metadata, never to stale Markdown blocks.
+  // R2 get week + persist. Sender samples are flushed in stepSenders; Markdown
+  // always uses placeholders (BOT names from DO senders only).
   const weekUnitCost = 1 + persistCost;
 
   const senderNames = new Map(
@@ -531,14 +647,6 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
       .toArray()
       .map((row) => [row.resource_name, row.display_name] as const),
   );
-  const configuredSenders = await current.db
-    .select({
-      resourceName: schema.googleChatSenderProfiles.resourceName,
-      displayName: schema.googleChatSenderProfiles.displayName,
-    })
-    .from(schema.googleChatSenderProfiles)
-    .all();
-  for (const sender of configuredSenders) senderNames.set(sender.resourceName, sender.displayName);
   const threadParents = new Map(
     ctx.sql
       .exec<{ thread_name: string; parent_text: string }>(
@@ -617,7 +725,7 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
     }
 
     ctx.budget.spend(persistCost);
-    const persisted = await persistSourceDocument(ctx.env, {
+    await persistSourceDocument(ctx.env, {
       sourceId: current.source.id,
       fetchAttemptId: current.run.fetchAttemptId,
       path,
@@ -629,16 +737,6 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
       assets,
       assetPolicy: incremental ? "merge" : "replace",
     });
-    if (persisted.id) {
-      await captureChatSenderData(ctx.env, {
-        sourceId: current.source.id,
-        sourceDocumentId: persisted.id,
-        messages: body.messages ?? [],
-        threadParents,
-        assets: assetsByObjectId,
-        skippedAttachments: skippedNames,
-      });
-    }
 
     weeksDone += 1;
     metaSet(ctx.sql, "weeks_done", String(weeksDone));
