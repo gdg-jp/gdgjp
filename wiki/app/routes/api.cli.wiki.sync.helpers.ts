@@ -127,11 +127,14 @@ export function buildNewPageLocaleValues(page: PartialLocalePagePayload): {
   };
 }
 
-/** Zod refine helper: source requires title and (url OR sourceId). */
+/** Zod refine helper: source requires title and (url OR sourceId OR existing id).
+ * Existing `id` covers snapshot round-trips where the server emitted a
+ * page_sources row with an empty url and null sourceId. */
 export function sourceHasReference(source: {
   title: string;
   url?: string;
   sourceId?: string | null;
+  id?: string;
 }): boolean {
-  return Boolean(source.title && (source.url || source.sourceId));
+  return Boolean(source.title && (source.url || source.sourceId || source.id));
 }

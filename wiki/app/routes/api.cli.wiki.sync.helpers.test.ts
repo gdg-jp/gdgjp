@@ -175,7 +175,11 @@ describe("sourceHasReference", () => {
     expect(sourceHasReference({ title: "Doc", sourceId: "src-1" })).toBe(true);
   });
 
-  it("rejects missing url and sourceId", () => {
+  it("accepts title with an existing page_sources id (snapshot round-trip)", () => {
+    expect(sourceHasReference({ title: "Doc", id: "row-1" })).toBe(true);
+  });
+
+  it("rejects missing url, sourceId, and id", () => {
     expect(sourceHasReference({ title: "Doc" })).toBe(false);
   });
 });
