@@ -490,14 +490,6 @@ CREATE TABLE IF NOT EXISTS "wiki_agent_instructions" (
   "updated_by" TEXT NOT NULL REFERENCES "user"("id"),
   "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
 );
-CREATE TABLE IF NOT EXISTS "source_document_ingestions" (
-  "document_id"  TEXT NOT NULL PRIMARY KEY,
-  "content_hash" TEXT NOT NULL,
-  "ingested_at"  INTEGER NOT NULL DEFAULT (unixepoch()),
-  "ingested_by"  TEXT NOT NULL
-);
-CREATE INDEX "idx_source_document_ingestions_hash"
-  ON "source_document_ingestions" ("content_hash");
 CREATE TABLE IF NOT EXISTS "source_import_runs" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "source_id" TEXT NOT NULL UNIQUE REFERENCES "sources"("id") ON DELETE CASCADE,

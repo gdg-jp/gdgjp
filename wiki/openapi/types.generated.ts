@@ -93,23 +93,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/cli/wiki/sources/ingested": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Record that source documents have been ingested */
-        post: operations["markWikiSourcesIngested"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/cli/wiki/agents-md": {
         parameters: {
             query?: never;
@@ -273,16 +256,6 @@ export interface components {
             /** @enum {integer} */
             version: 1;
             documents: components["schemas"]["SourcesManifestEntry"][];
-        };
-        IngestedRequest: {
-            documents: {
-                documentId: string;
-                contentHash: string;
-            }[];
-        };
-        IngestedResult: {
-            /** @enum {boolean} */
-            ok: true;
         };
         AgentLsEntry: {
             name: string;
@@ -488,7 +461,6 @@ export interface components {
             contentHash: string;
             mediaType?: string;
             capturedAt?: number | null;
-            ingestedHash?: string | null;
         };
     };
     responses: {
@@ -732,32 +704,6 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-        };
-    };
-    markWikiSourcesIngested: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["IngestedRequest"];
-            };
-        };
-        responses: {
-            /** @description Ingestion hashes recorded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IngestedResult"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
         };
     };
     getWikiAgentsMd: {

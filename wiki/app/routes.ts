@@ -53,7 +53,6 @@ export default [
   route("/api/cli/wiki/snapshot", "routes/api.cli.wiki.snapshot.ts"),
   route("/api/cli/wiki/sync", "routes/api.cli.wiki.sync.ts"),
   route("/api/cli/wiki/sources", "routes/api.cli.wiki.sources.ts"),
-  route("/api/cli/wiki/sources/ingested", "routes/api.cli.wiki.sources.ingested.ts"),
   route(
     "/api/cli/wiki/sources/:documentId/content",
     "routes/api.cli.wiki.sources.$documentId.content.ts",

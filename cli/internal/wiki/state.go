@@ -12,6 +12,9 @@ type State struct {
 	AgentsHash  string            `json:"agentsHash,omitempty"`
 	Rendered    map[string]string `json:"rendered,omitempty"`    // documentID -> post-replace digest
 	SendersHash string            `json:"sendersHash,omitempty"` // digest of sender map
+	// Manifest is the last complete raw pull snapshot. Ingest deliberately uses
+	// this local snapshot so queue generation and completion do not call Wiki.
+	Manifest *SourcesManifest `json:"manifest,omitempty"`
 }
 
 // CloneState is an alias used by ingest helpers.

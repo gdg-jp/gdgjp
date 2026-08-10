@@ -68,11 +68,6 @@ const (
 	Archive ArchiveOperationKind = "archive"
 )
 
-// Defines values for IngestedResultOk.
-const (
-	IngestedResultOkTrue IngestedResultOk = true
-)
-
 // Defines values for LanguageTranslationStatus.
 const (
 	Ai      LanguageTranslationStatus = "ai"
@@ -125,7 +120,7 @@ const (
 
 // Defines values for SyncResultOk.
 const (
-	True SyncResultOk = true
+	SyncResultOkTrue SyncResultOk = true
 )
 
 // Defines values for UpsertOperationKind.
@@ -323,22 +318,6 @@ type Error struct {
 	Id      *string `json:"id,omitempty"`
 	Message *string `json:"message,omitempty"`
 }
-
-// IngestedRequest defines model for IngestedRequest.
-type IngestedRequest struct {
-	Documents []struct {
-		ContentHash string `json:"contentHash"`
-		DocumentId  string `json:"documentId"`
-	} `json:"documents"`
-}
-
-// IngestedResult defines model for IngestedResult.
-type IngestedResult struct {
-	Ok IngestedResultOk `json:"ok"`
-}
-
-// IngestedResultOk defines model for IngestedResult.Ok.
-type IngestedResultOk bool
 
 // Language defines model for Language.
 type Language struct {
@@ -578,9 +557,6 @@ type AgentCreateNoteJSONRequestBody = AgentCreateNoteRequest
 
 // AgentCreateSourceJSONRequestBody defines body for AgentCreateSource for application/json ContentType.
 type AgentCreateSourceJSONRequestBody = AgentCreateSourceRequest
-
-// MarkWikiSourcesIngestedJSONRequestBody defines body for MarkWikiSourcesIngested for application/json ContentType.
-type MarkWikiSourcesIngestedJSONRequestBody = IngestedRequest
 
 // SyncWikiJSONRequestBody defines body for SyncWiki for application/json ContentType.
 type SyncWikiJSONRequestBody = SyncRequest
@@ -854,11 +830,6 @@ type ClientInterface interface {
 	// GetWikiSources request
 	GetWikiSources(ctx context.Context, params *GetWikiSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// MarkWikiSourcesIngestedWithBody request with any body
-	MarkWikiSourcesIngestedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	MarkWikiSourcesIngested(ctx context.Context, body MarkWikiSourcesIngestedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetWikiSourceContent request
 	GetWikiSourceContent(ctx context.Context, documentId string, params *GetWikiSourceContentParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1050,30 +1021,6 @@ func (c *Client) GetWikiSnapshot(ctx context.Context, params *GetWikiSnapshotPar
 
 func (c *Client) GetWikiSources(ctx context.Context, params *GetWikiSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetWikiSourcesRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) MarkWikiSourcesIngestedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewMarkWikiSourcesIngestedRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) MarkWikiSourcesIngested(ctx context.Context, body MarkWikiSourcesIngestedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewMarkWikiSourcesIngestedRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1765,46 +1712,6 @@ func NewGetWikiSourcesRequest(server string, params *GetWikiSourcesParams) (*htt
 	return req, nil
 }
 
-// NewMarkWikiSourcesIngestedRequest calls the generic MarkWikiSourcesIngested builder with application/json body
-func NewMarkWikiSourcesIngestedRequest(server string, body MarkWikiSourcesIngestedJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewMarkWikiSourcesIngestedRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewMarkWikiSourcesIngestedRequestWithBody generates requests for MarkWikiSourcesIngested with any type of body
-func NewMarkWikiSourcesIngestedRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/cli/wiki/sources/ingested")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewGetWikiSourceContentRequest generates requests for GetWikiSourceContent
 func NewGetWikiSourceContentRequest(server string, documentId string, params *GetWikiSourceContentParams) (*http.Request, error) {
 	var err error
@@ -1988,11 +1895,6 @@ type ClientWithResponsesInterface interface {
 
 	// GetWikiSourcesWithResponse request
 	GetWikiSourcesWithResponse(ctx context.Context, params *GetWikiSourcesParams, reqEditors ...RequestEditorFn) (*GetWikiSourcesResponse, error)
-
-	// MarkWikiSourcesIngestedWithBodyWithResponse request with any body
-	MarkWikiSourcesIngestedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MarkWikiSourcesIngestedResponse, error)
-
-	MarkWikiSourcesIngestedWithResponse(ctx context.Context, body MarkWikiSourcesIngestedJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkWikiSourcesIngestedResponse, error)
 
 	// GetWikiSourceContentWithResponse request
 	GetWikiSourceContentWithResponse(ctx context.Context, documentId string, params *GetWikiSourceContentParams, reqEditors ...RequestEditorFn) (*GetWikiSourceContentResponse, error)
@@ -2325,30 +2227,6 @@ func (r GetWikiSourcesResponse) StatusCode() int {
 	return 0
 }
 
-type MarkWikiSourcesIngestedResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *IngestedResult
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-}
-
-// Status returns HTTPResponse.Status
-func (r MarkWikiSourcesIngestedResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r MarkWikiSourcesIngestedResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type GetWikiSourceContentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2539,23 +2417,6 @@ func (c *ClientWithResponses) GetWikiSourcesWithResponse(ctx context.Context, pa
 		return nil, err
 	}
 	return ParseGetWikiSourcesResponse(rsp)
-}
-
-// MarkWikiSourcesIngestedWithBodyWithResponse request with arbitrary body returning *MarkWikiSourcesIngestedResponse
-func (c *ClientWithResponses) MarkWikiSourcesIngestedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MarkWikiSourcesIngestedResponse, error) {
-	rsp, err := c.MarkWikiSourcesIngestedWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseMarkWikiSourcesIngestedResponse(rsp)
-}
-
-func (c *ClientWithResponses) MarkWikiSourcesIngestedWithResponse(ctx context.Context, body MarkWikiSourcesIngestedJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkWikiSourcesIngestedResponse, error) {
-	rsp, err := c.MarkWikiSourcesIngested(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseMarkWikiSourcesIngestedResponse(rsp)
 }
 
 // GetWikiSourceContentWithResponse request returning *GetWikiSourceContentResponse
@@ -3155,46 +3016,6 @@ func ParseGetWikiSourcesResponse(rsp *http.Response) (*GetWikiSourcesResponse, e
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseMarkWikiSourcesIngestedResponse parses an HTTP response from a MarkWikiSourcesIngestedWithResponse call
-func ParseMarkWikiSourcesIngestedResponse(rsp *http.Response) (*MarkWikiSourcesIngestedResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &MarkWikiSourcesIngestedResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest IngestedResult
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest BadRequest
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

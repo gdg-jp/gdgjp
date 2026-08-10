@@ -144,21 +144,20 @@ Add these to `cli/internal/command/wiki.go`.
 Add `--lang` to the existing clone and generate `.gitignore` and `.gdgwiki/config.json`.
 
 **`gdg wiki raw pull`**
-Call `GET /api/cli/wiki/sources` (a manifest with hashes) and `GET /api/cli/wiki/sources/:documentId/content`; synchronize `raw/**` and `AGENTS.md`. The manifest includes `sources` documents and `origin: human` pages. Do not download a file whose local hash matches the manifest.
+Call `GET /api/cli/wiki/sources` (a manifest with hashes) and `GET /api/cli/wiki/sources/:documentId/content`; synchronize `raw/**` and `AGENTS.md`, then persist the complete manifest in `.gdgwiki/state.json`. The manifest includes `sources` documents and `origin: human` pages. Do not download a file whose local hash matches the manifest.
 
 **`gdg wiki ingest`**
 Do not call an LLM.
 
-1. Run `git pull` to update `pages/**`.
-2. Run `gdg wiki raw pull`.
-3. Compare ingested hashes in `.gdgwiki/state.json` with the manifest and enumerate un-ingested documents.
-4. Write `INGEST_QUEUE.md` (source name, `raw/` path, change type new/changed, prior hash). The agent processes **only the first item**, so prioritize oldest first.
-5. Print the coding-agent prompt to standard output.
+1. Require a previously saved local manifest; instruct the operator to run `gdg wiki raw pull` if absent.
+2. Compare the local ingested hashes with that manifest and enumerate un-ingested documents.
+3. Write `INGEST_QUEUE.md` (source name, `raw/` path, change type new/changed, prior hash). The agent processes **only the first item**, so prioritize oldest first.
+4. Print the coding-agent prompt to standard output without making Wiki API or Git requests.
 
 With `--agent claude|codex`, pass the prompt and shell out to the agent.
 
 **`gdg wiki ingest --commit`**
-Send ingested hashes to `POST /api/cli/wiki/sources/ingested` and update `.gdgwiki/state.json`. The server-side record prevents duplicate work by operators using different machines.
+Update `.gdgwiki/state.json` with ingested hashes. The completion record is local to each clone.
 
 **`gdg wiki lint`**
 Print a lint prompt. The checklist is the Lint section of `AGENTS.md`, keeping that logic out of the CLI. It is intended to run weekly from a home-server cron job.

@@ -226,6 +226,7 @@ func PullRaw(ctx context.Context, root string, client *Client, token string) (So
 	}
 	pruneRendered(state, manifest)
 	state.SendersHash = sendersHash
+	state.Manifest = &manifest
 	if err = WriteState(root, state); err != nil {
 		return SourcesManifest{}, err
 	}
@@ -313,7 +314,7 @@ func applyChatSenderNames(data []byte, senders map[string]string) []byte {
 	})
 }
 
-// BuildIngestQueue compares manifest hashes with local+server ingested state
+// BuildIngestQueue compares manifest hashes with local ingested state
 // and writes INGEST_QUEUE.md. Only source-document and wiki-human entries are queued.
 func BuildIngestQueue(root string, manifest SourcesManifest, state CloneState) (queuePath string, pending []SourcesManifestEntry, err error) {
 	for _, doc := range manifest.Documents {
@@ -321,9 +322,6 @@ func BuildIngestQueue(root string, manifest SourcesManifest, state CloneState) (
 			continue
 		}
 		known := state.Ingested[doc.DocumentID]
-		if known == "" && doc.IngestedHash != nil {
-			known = *doc.IngestedHash
-		}
 		if known == doc.ContentHash {
 			continue
 		}
@@ -338,9 +336,6 @@ func BuildIngestQueue(root string, manifest SourcesManifest, state CloneState) (
 		for i, doc := range pending {
 			change := "new"
 			prior := state.Ingested[doc.DocumentID]
-			if prior == "" && doc.IngestedHash != nil {
-				prior = *doc.IngestedHash
-			}
 			if prior != "" {
 				change = "changed"
 			}

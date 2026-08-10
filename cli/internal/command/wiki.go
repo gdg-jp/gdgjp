@@ -90,7 +90,7 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 	var ingestAgent string
 	ingest := &cobra.Command{
 		Use:   "ingest",
-		Short: "Refresh pages/raw and write INGEST_QUEUE.md",
+		Short: "Write INGEST_QUEUE.md from the local raw snapshot",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return service.ingest(cmd, ingestCommit, ingestAgent)
@@ -360,10 +360,10 @@ func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent string) erro
 			return errors.New("cannot finalize Wiki ingest with uncommitted or untracked changes; commit and git push first")
 		}
 	}
-	if _, err = s.runGit(cmd.Context(), root, "pull", "--ff-only"); err != nil {
-		return fmt.Errorf("git pull: %w", err)
-	}
 	if commit {
+		if _, err = s.runGit(cmd.Context(), root, "pull", "--ff-only"); err != nil {
+			return fmt.Errorf("git pull: %w", err)
+		}
 		head, headErr := s.runGit(cmd.Context(), root, "rev-parse", "HEAD")
 		if headErr != nil {
 			return fmt.Errorf("resolve Wiki HEAD: %w", headErr)
@@ -376,42 +376,33 @@ func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent string) erro
 			return errors.New("cannot finalize Wiki ingest before HEAD is synchronized with origin/main; commit and git push first")
 		}
 	}
-	client := s.newClient()
 	var pending []wiki.SourcesManifestEntry
-	err = s.withToken(cmd.Context(), func(token string) error {
-		manifest, pullErr := wiki.PullRaw(cmd.Context(), root, client, token)
-		if pullErr != nil {
-			return pullErr
+	state, err := wiki.ReadState(root)
+	if err != nil {
+		return err
+	}
+	if state.Manifest == nil {
+		return errors.New("no local raw snapshot; run gdg wiki raw pull first")
+	}
+	_, pending, err = wiki.BuildIngestQueue(root, *state.Manifest, state)
+	if err != nil {
+		return err
+	}
+	if commit {
+		if len(pending) == 0 {
+			return errors.New("no pending documents to mark as ingested")
 		}
-		state, stateErr := wiki.ReadState(root)
-		if stateErr != nil {
-			return stateErr
+		first := pending[0]
+		state.Ingested[first.DocumentID] = first.ContentHash
+		if err = wiki.WriteState(root, state); err != nil {
+			return err
 		}
-		_, pending, err = wiki.BuildIngestQueue(root, manifest, state)
+		_, pending, err = wiki.BuildIngestQueue(root, *state.Manifest, state)
 		if err != nil {
 			return err
 		}
-		if commit {
-			if len(pending) == 0 {
-				return errors.New("no pending documents to mark as ingested")
-			}
-			first := pending[:1]
-			if markErr := client.MarkIngested(cmd.Context(), token, first); markErr != nil {
-				return markErr
-			}
-			state.Ingested[first[0].DocumentID] = first[0].ContentHash
-			if writeErr := wiki.WriteState(root, state); writeErr != nil {
-				return writeErr
-			}
-			_, pending, err = wiki.BuildIngestQueue(root, manifest, state)
-			if err != nil {
-				return err
-			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Marked %s as ingested.\n", first[0].DocumentID)
-			return err
-		}
-		return nil
-	})
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Marked %s as ingested.\n", first.DocumentID)
+	}
 	if err != nil {
 		return err
 	}

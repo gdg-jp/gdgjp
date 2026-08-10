@@ -51,3 +51,33 @@ describe("0041_fix_source_ingestion_actor migration", () => {
     ).not.toThrow();
   });
 });
+
+describe("0053_drop_source_document_ingestions migration", () => {
+  it("removes the obsolete server-side ingestion state", () => {
+    const db = new DatabaseSync(":memory:");
+    db.exec(
+      readFileSync(
+        new URL("../../migrations/0039_source_document_ingestions.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+
+    db.exec(
+      readFileSync(
+        new URL("../../migrations/0053_drop_source_document_ingestions.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+
+    expect(
+      db
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .all("source_document_ingestions"),
+    ).toEqual([]);
+    expect(
+      db
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+        .all("idx_source_document_ingestions_hash"),
+    ).toEqual([]);
+  });
+});

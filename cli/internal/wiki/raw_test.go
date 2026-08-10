@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -111,6 +112,13 @@ func TestPullRawReconcilesManifestUsingCloneLanguage(t *testing.T) {
 	if len(gotManifest.Documents) != len(manifest.Documents) {
 		t.Fatalf("returned manifest has %d documents", len(gotManifest.Documents))
 	}
+	state, err := ReadState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Manifest == nil || !reflect.DeepEqual(*state.Manifest, manifest) {
+		t.Fatalf("saved manifest = %#v, want %#v", state.Manifest, manifest)
+	}
 	if contentRequests["new"] != 1 {
 		t.Fatalf("new content requests = %d, want 1", contentRequests["new"])
 	}
@@ -131,6 +139,24 @@ func TestPullRawReconcilesManifestUsingCloneLanguage(t *testing.T) {
 	}
 	if raw, err := os.ReadFile(external); err != nil || string(raw) != "outside" {
 		t.Fatalf("symlink target changed: %q, err = %v", raw, err)
+	}
+}
+
+func TestBuildIngestQueueRequeuesChangedLocalDocument(t *testing.T) {
+	root := t.TempDir()
+	manifest := SourcesManifest{Version: 1, Documents: []SourcesManifestEntry{{
+		DocumentID:  "document-1",
+		Kind:        "source-document",
+		Title:       "Updated source",
+		Path:        "raw/source/document.md",
+		ContentHash: "new-hash",
+	}}}
+	_, pending, err := BuildIngestQueue(root, manifest, State{Ingested: map[string]string{"document-1": "old-hash"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pending) != 1 || pending[0].DocumentID != "document-1" {
+		t.Fatalf("pending = %#v, want updated document", pending)
 	}
 }
 

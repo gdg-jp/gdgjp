@@ -132,15 +132,14 @@ type SyncResult struct {
 }
 
 type SourcesManifestEntry struct {
-	DocumentID   string  `json:"documentId"`
-	SourceID     *string `json:"sourceId"`
-	Kind         string  `json:"kind"`
-	Title        string  `json:"title"`
-	Path         string  `json:"path"`
-	ContentHash  string  `json:"contentHash"`
-	MediaType    *string `json:"mediaType"`
-	CapturedAt   *int64  `json:"capturedAt"`
-	IngestedHash *string `json:"ingestedHash"`
+	DocumentID  string  `json:"documentId"`
+	SourceID    *string `json:"sourceId"`
+	Kind        string  `json:"kind"`
+	Title       string  `json:"title"`
+	Path        string  `json:"path"`
+	ContentHash string  `json:"contentHash"`
+	MediaType   *string `json:"mediaType"`
+	CapturedAt  *int64  `json:"capturedAt"`
 }
 type SourcesManifest struct {
 	Version   int                    `json:"version"`
@@ -346,26 +345,6 @@ func (c *Client) SourceContent(ctx context.Context, token, documentID, lang stri
 	}
 	defer res.Body.Close()
 	return io.ReadAll(res.Body)
-}
-
-func (c *Client) MarkIngested(ctx context.Context, token string, documents []SourcesManifestEntry) error {
-	payload := make([]map[string]string, 0, len(documents))
-	for _, doc := range documents {
-		payload = append(payload, map[string]string{
-			"documentId":  doc.DocumentID,
-			"contentHash": doc.ContentHash,
-		})
-	}
-	raw, err := json.Marshal(map[string]any{"documents": payload})
-	if err != nil {
-		return err
-	}
-	res, err := c.request(ctx, token, http.MethodPost, "/api/cli/wiki/sources/ingested", bytes.NewReader(raw), "application/json")
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	return nil
 }
 
 func (c *Client) AgentsMD(ctx context.Context, token string) ([]byte, error) {

@@ -39,7 +39,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const db = getDb(env);
   const chapterIds = identity.chapters.map((chapter) => String(chapter.chapterId));
 
-  const [documents, assets, ingestions, pages, tags, access, pageSources, attachments, allPages] =
+  const [documents, assets, pages, tags, access, pageSources, attachments, allPages] =
     await Promise.all([
       db
         .select({
@@ -70,7 +70,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
           eq(schema.sourceAssets.sourceDocumentId, schema.sourceDocuments.id),
         )
         .all(),
-      db.select().from(schema.sourceDocumentIngestions).all(),
       db.select().from(schema.pages).where(eq(schema.pages.origin, "human")).all(),
       db
         .select()
@@ -105,7 +104,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     .all();
   const sourceById = new Map(sources.map((source) => [source.id, source]));
   const sourceDirectoryByID = rawSourceDirectories(sources);
-  const ingestionByDocId = new Map(ingestions.map((row) => [row.documentId, row.contentHash]));
   const slugById = new Map(allPages.map((page) => [page.id, page.slug]));
   const pagePathByID = new Map(allPages.map((page) => [page.id, page]));
   const manifestEntries: SourcesManifestEntry[] = [];
@@ -122,7 +120,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       contentHash: doc.contentHash,
       mediaType: doc.mediaType,
       capturedAt: toUnixSeconds(doc.capturedAt),
-      ingestedHash: ingestionByDocId.get(doc.id) ?? null,
     });
   }
 
@@ -141,7 +138,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       contentHash: asset.contentHash,
       mediaType: asset.mediaType,
       capturedAt: toUnixSeconds(asset.capturedAt),
-      ingestedHash: ingestionByDocId.get(asset.id) ?? null,
     });
   }
 
@@ -208,7 +204,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       contentHash,
       mediaType: "text/markdown",
       capturedAt: toUnixSeconds(page.updatedAt ?? page.createdAt),
-      ingestedHash: ingestionByDocId.get(documentId) ?? null,
     });
   }
 

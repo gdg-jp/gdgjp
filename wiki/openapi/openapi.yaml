@@ -19,8 +19,6 @@ paths:
     $ref: ./paths/sources.yaml
   /api/cli/wiki/sources/{documentId}/content:
     $ref: ./paths/sources.$documentId.content.yaml
-  /api/cli/wiki/sources/ingested:
-    $ref: ./paths/sources.ingested.yaml
   /api/cli/wiki/agents-md:
     $ref: ./paths/agents-md.yaml
   /api/agent/ls:
@@ -49,10 +47,6 @@ components:
       $ref: ./components/schemas/wiki.yaml#/SyncResult
     SourcesManifest:
       $ref: ./components/schemas/wiki.yaml#/SourcesManifest
-    IngestedRequest:
-      $ref: ./components/schemas/wiki.yaml#/IngestedRequest
-    IngestedResult:
-      $ref: ./components/schemas/wiki.yaml#/IngestedResult
     AgentLsEntry:
       $ref: ./components/schemas/agent.yaml#/AgentLsEntry
     AgentLsResult:

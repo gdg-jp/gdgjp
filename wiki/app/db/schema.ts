@@ -598,14 +598,3 @@ export const sourceImportRuns = sqliteTable("source_import_runs", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 });
-
-// ---------------------------------------------------------------------------
-// source_document_ingestions — server record of ingested content hashes
-// ---------------------------------------------------------------------------
-export const sourceDocumentIngestions = sqliteTable("source_document_ingestions", {
-  documentId: text("document_id").primaryKey(),
-  contentHash: text("content_hash").notNull(),
-  ingestedAt: integer("ingested_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
-  // Accounts OIDC subject from the CLI token, not this RP's local user.id.
-  ingestedBy: text("ingested_by").notNull(),
-});

@@ -88,6 +88,9 @@ func setupWikiIngestRoot(t *testing.T) string {
 	if err := wiki.WriteConfig(root, wiki.CloneConfig{Lang: "ja"}); err != nil {
 		t.Fatal(err)
 	}
+	if err := wiki.WriteState(root, wiki.State{Manifest: &wiki.SourcesManifest{Version: 1}}); err != nil {
+		t.Fatal(err)
+	}
 	chdirForWikiTest(t, root)
 	return root
 }
@@ -141,43 +144,13 @@ func TestWikiIngestCommitRejectsUnpushedHead(t *testing.T) {
 
 func TestWikiIngestCommitMarksOnlyFirstAndStops(t *testing.T) {
 	root := setupWikiIngestRoot(t)
-	firstContent := []byte("first")
-	secondContent := []byte("second")
 	manifest := wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{
-		{DocumentID: "doc-1", Kind: "wiki-human", Title: "First", Path: "raw/first/page.md", ContentHash: fmt.Sprintf("%x", sha256.Sum256(firstContent))},
-		{DocumentID: "doc-2", Kind: "wiki-human", Title: "Second", Path: "raw/second/page.md", ContentHash: fmt.Sprintf("%x", sha256.Sum256(secondContent))},
+		{DocumentID: "doc-1", Kind: "wiki-human", Title: "First", Path: "raw/first/page.md", ContentHash: "first-hash"},
+		{DocumentID: "doc-2", Kind: "wiki-human", Title: "Second", Path: "raw/second/page.md", ContentHash: "second-hash"},
 	}}
-	marked := make([]string, 0, 2)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/api/cli/wiki/chat-senders":
-			_ = json.NewEncoder(w).Encode(wiki.ChatSenders{Senders: []wiki.ChatSender{}})
-		case "/api/cli/wiki/sources":
-			_ = json.NewEncoder(w).Encode(manifest)
-		case "/api/cli/wiki/sources/doc-1/content":
-			_, _ = w.Write(firstContent)
-		case "/api/cli/wiki/sources/doc-2/content":
-			_, _ = w.Write(secondContent)
-		case "/api/cli/wiki/agents-md":
-			_, _ = io.WriteString(w, "agent instructions")
-		case "/api/cli/wiki/sources/ingested":
-			var body struct {
-				Documents []struct {
-					DocumentID string `json:"documentId"`
-				} `json:"documents"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				t.Errorf("decode mark request: %v", err)
-			}
-			for _, doc := range body.Documents {
-				marked = append(marked, doc.DocumentID)
-			}
-			w.WriteHeader(http.StatusNoContent)
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer server.Close()
+	if err := wiki.WriteState(root, wiki.State{Manifest: &manifest}); err != nil {
+		t.Fatal(err)
+	}
 
 	agentRan := false
 	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
@@ -191,11 +164,7 @@ func TestWikiIngestCommitMarksOnlyFirstAndStops(t *testing.T) {
 			return "", nil
 		}
 	})
-	service.newClient = func() *wiki.Client {
-		client := wiki.NewClientAt(server.URL)
-		client.HTTPClient = server.Client()
-		return client
-	}
+	service.newClient = func() *wiki.Client { t.Fatal("ingest must not create a Wiki client"); return nil }
 	service.runAgent = func(context.Context, string, string) error {
 		agentRan = true
 		return nil
@@ -204,9 +173,6 @@ func TestWikiIngestCommitMarksOnlyFirstAndStops(t *testing.T) {
 	output, err := executeWiki(t, service, "ingest", "--commit")
 	if err != nil {
 		t.Fatal(err)
-	}
-	if strings.Join(marked, ",") != "doc-1" {
-		t.Fatalf("marked documents = %v, want only doc-1", marked)
 	}
 	if agentRan || strings.Contains(output, "process ONLY") {
 		t.Fatalf("finalization started the next ingest: agentRan=%v output=%q", agentRan, output)
@@ -220,6 +186,28 @@ func TestWikiIngestCommitMarksOnlyFirstAndStops(t *testing.T) {
 	}
 	if strings.Contains(string(queue), "doc-1") || !strings.Contains(string(queue), "doc-2") {
 		t.Fatalf("queue was not advanced: %s", queue)
+	}
+	state, err := wiki.ReadState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Ingested["doc-1"] != "first-hash" {
+		t.Fatalf("local ingestion state = %#v", state.Ingested)
+	}
+}
+
+func TestWikiIngestRequiresLocalRawSnapshot(t *testing.T) {
+	root := setupWikiIngestRoot(t)
+	if err := os.Remove(wiki.StatePath(root)); err != nil {
+		t.Fatal(err)
+	}
+	service := testWikiService(func(context.Context, string, ...string) (string, error) {
+		t.Fatal("ingest without --commit must not invoke git")
+		return "", nil
+	})
+	service.newClient = func() *wiki.Client { t.Fatal("ingest must not create a Wiki client"); return nil }
+	if _, err := executeWiki(t, service, "ingest"); err == nil || !strings.Contains(err.Error(), "gdg wiki raw pull") {
+		t.Fatalf("error = %v, want raw pull guidance", err)
 	}
 }
 

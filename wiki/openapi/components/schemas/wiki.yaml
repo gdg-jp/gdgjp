@@ -173,7 +173,6 @@ SourcesManifestEntry:
     contentHash: { type: string }
     mediaType: { type: string }
     capturedAt: { type: integer, nullable: true }
-    ingestedHash: { type: string, nullable: true }
 SourcesManifest:
   type: object
   required: [version, documents]
@@ -182,21 +181,3 @@ SourcesManifest:
     documents:
       type: array
       items: { $ref: '#/SourcesManifestEntry' }
-IngestedRequest:
-  type: object
-  required: [documents]
-  properties:
-    documents:
-      type: array
-      minItems: 1
-      items:
-        type: object
-        required: [documentId, contentHash]
-        properties:
-          documentId: { type: string }
-          contentHash: { type: string }
-IngestedResult:
-  type: object
-  required: [ok]
-  properties:
-    ok: { type: boolean, enum: [true] }
