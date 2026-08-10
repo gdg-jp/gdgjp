@@ -172,8 +172,10 @@ function indexMessage(
       message.sender.name,
     );
     if (message.sender.type === "BOT") {
+      const botName = message.sender.displayName?.trim() || "Bot";
       sql.exec(
-        "UPDATE senders SET display_name = 'Bot' WHERE resource_name = ? AND display_name IS NULL",
+        "UPDATE senders SET display_name = ? WHERE resource_name = ? AND display_name IS NULL",
+        botName,
         message.sender.name,
       );
     }
@@ -246,7 +248,9 @@ async function stepIndexing(ctx: ChatImportTickContext, current: Current): Promi
 
 async function stepSenders(ctx: ChatImportTickContext, current: Current): Promise<StepOutcome> {
   const unresolved = ctx.sql
-    .exec<{ resource_name: string }>("SELECT resource_name FROM senders WHERE display_name IS NULL")
+    .exec<{ resource_name: string }>(
+      "SELECT resource_name FROM senders WHERE display_name IS NULL AND lookup_done = 0",
+    )
     .toArray();
   if (metaGet(ctx.sql, "senders_total") === null) {
     metaSet(ctx.sql, "senders_total", String(unresolved.length));
@@ -287,7 +291,9 @@ async function stepSenders(ctx: ChatImportTickContext, current: Current): Promis
   }
 
   const stillUnresolved = ctx.sql
-    .exec<{ resource_name: string }>("SELECT resource_name FROM senders WHERE display_name IS NULL")
+    .exec<{ resource_name: string }>(
+      "SELECT resource_name FROM senders WHERE display_name IS NULL AND lookup_done = 0",
+    )
     .toArray();
   if (stillUnresolved.length === 0) {
     logSenderResolutionSummary(ctx, current);
@@ -298,7 +304,7 @@ async function stepSenders(ctx: ChatImportTickContext, current: Current): Promis
     name: row.resource_name,
     type: "HUMAN" as const,
   }));
-  const names = await resolvePeopleDisplayNames(token, senders, {
+  const { names, attempted } = await resolvePeopleDisplayNames(token, senders, {
     shouldContinue: () => ctx.budget.canSpend(1),
     onFetch: () => ctx.budget.spend(1),
   });
@@ -309,16 +315,14 @@ async function stepSenders(ctx: ChatImportTickContext, current: Current): Promis
       resourceName,
     );
   }
-  const peopleResolved = [...names.values()].filter(
-    (name) => !name.startsWith("Unknown user"),
-  ).length;
-  const unresolvedNames = [...names.values()].filter((name) =>
-    name.startsWith("Unknown user"),
-  ).length;
+  for (const resourceName of attempted) {
+    ctx.sql.exec("UPDATE senders SET lookup_done = 1 WHERE resource_name = ?", resourceName);
+  }
+  const unresolvedNames = attempted.size - names.size;
   metaSet(
     ctx.sql,
     "senders_via_people",
-    String(Number(metaGet(ctx.sql, "senders_via_people") ?? "0") + peopleResolved),
+    String(Number(metaGet(ctx.sql, "senders_via_people") ?? "0") + names.size),
   );
   metaSet(
     ctx.sql,
@@ -326,11 +330,13 @@ async function stepSenders(ctx: ChatImportTickContext, current: Current): Promis
     String(Number(metaGet(ctx.sql, "senders_unresolved") ?? "0") + unresolvedNames),
   );
   const remaining = ctx.sql
-    .exec<{ resource_name: string }>("SELECT resource_name FROM senders WHERE display_name IS NULL")
+    .exec<{ resource_name: string }>(
+      "SELECT resource_name FROM senders WHERE display_name IS NULL AND lookup_done = 0",
+    )
     .toArray();
   if (remaining.length > 0) {
-    // A budget stop is resumable. Do not burn Unknown user into a document until
-    // batchGet has had a chance to run for every remaining sender.
+    // A budget stop is resumable. Do not finalize until batchGet has had a chance
+    // to run for every remaining sender (payload names still apply at finalize).
     return { phaseComplete: false };
   }
   logSenderResolutionSummary(ctx, current);
@@ -613,17 +619,11 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
 
   const senderNames = new Map(
     ctx.sql
-      .exec<{ resource_name: string; display_name: string | null }>(
-        "SELECT resource_name, display_name FROM senders",
+      .exec<{ resource_name: string; display_name: string }>(
+        "SELECT resource_name, display_name FROM senders WHERE display_name IS NOT NULL",
       )
       .toArray()
-      .map(
-        (row) =>
-          [
-            row.resource_name,
-            row.display_name ?? defaultSenderName({ name: row.resource_name }),
-          ] as const,
-      ),
+      .map((row) => [row.resource_name, row.display_name] as const),
   );
   const threadParents = new Map(
     ctx.sql
@@ -672,9 +672,7 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
     const body = (await object.json()) as { messages?: ChatMessage[] };
     const [normalized] = normalizeChatMessages(body.messages ?? [], {
       resolveSenderName: (sender) =>
-        sender?.name
-          ? senderNames.get(sender.name) || defaultSenderName(sender)
-          : defaultSenderName(sender),
+        (sender?.name ? senderNames.get(sender.name) : undefined) ?? defaultSenderName(sender),
       threadParents,
     });
     if (!normalized) {

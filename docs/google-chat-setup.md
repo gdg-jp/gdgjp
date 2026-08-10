@@ -30,8 +30,10 @@ admin / Vault access is not required.
 
    Drive / Forms scopes already used by wiki stay in place. `directory.readonly` permits
    directory-name lookups; Workspace policies may require an administrator to allow the scope
-   and directory-profile sharing. When a lookup is unavailable, imported Markdown explicitly
-   labels the sender as `Unknown user (users/...)` rather than using an unverified Chat payload.
+   and directory-profile sharing. Sender names resolve in this order: Workspace directory →
+   People `batchGet` → Chat message `sender.displayName` → `Unknown user (users/...)`.
+   Consumer-account spaces have no domain directory, so they rely on the Chat payload for
+   names; `directory.readonly` does not help there.
 
 ## Connectivity check (manual)
 

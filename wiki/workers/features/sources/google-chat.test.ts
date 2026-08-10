@@ -134,6 +134,28 @@ describe("normalizeChatMessages", () => {
     );
   });
 
+  it("prefers a Chat payload displayName over the resource-id fallback", () => {
+    expect(
+      defaultSenderName({ name: "users/123", type: "HUMAN", displayName: "  Taro Yamada  " }),
+    ).toBe("Taro Yamada");
+  });
+
+  it("renders the payload displayName when the resolver has no entry", () => {
+    const [week] = normalizeChatMessages([
+      {
+        name: "spaces/AAA/messages/1",
+        text: "Hello from a consumer space.",
+        createTime: "2026-07-14T12:03:00Z",
+        sender: { name: "users/111", type: "HUMAN", displayName: "Taro Yamada" },
+        thread: { name: "spaces/AAA/threads/t1" },
+        threadReply: false,
+      },
+    ]);
+
+    expect(week?.markdown).toContain("### [2026-07-14 21:03] Taro Yamada");
+    expect(week?.markdown).not.toContain("Unknown user");
+  });
+
   it("quotes a fetched parent without treating it as a message to ingest", () => {
     const [week] = normalizeChatMessages([FIXTURE_REPLY], {
       resolveSenderName: resolveFixtureSender,
@@ -221,11 +243,11 @@ describe("Google Chat identity and thread context fetches", () => {
     }));
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}"));
 
-    const names = await resolvePeopleDisplayNames("token", senders, {
+    const result = await resolvePeopleDisplayNames("token", senders, {
       shouldContinue: () => false,
     });
 
-    expect(names).toEqual(new Map());
+    expect(result).toEqual({ names: new Map(), attempted: new Set() });
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
@@ -245,7 +267,9 @@ describe("Google Chat identity and thread context fetches", () => {
       ),
     );
 
-    const names = await resolvePeopleDisplayNames("token", [{ name: "users/111", type: "HUMAN" }]);
+    const { names } = await resolvePeopleDisplayNames("token", [
+      { name: "users/111", type: "HUMAN" },
+    ]);
 
     expect(names.get("users/111")).toBe("taro.yamada");
     fetchSpy.mockRestore();
@@ -266,7 +290,7 @@ describe("Google Chat identity and thread context fetches", () => {
       ),
     );
 
-    const names = await resolvePeopleDisplayNames("token", [
+    const { names, attempted } = await resolvePeopleDisplayNames("token", [
       { name: "users/111", type: "HUMAN" },
       { name: "users/111", type: "HUMAN" },
       { name: "users/bot", type: "BOT" },
@@ -280,18 +304,22 @@ describe("Google Chat identity and thread context fetches", () => {
         ["users/111", "Taro Yamada"],
       ]),
     );
+    expect(attempted).toEqual(new Set(["users/111"]));
     fetchSpy.mockRestore();
   });
 
-  it("warns structurally and uses the explicit fallback when a name is unavailable", async () => {
+  it("warns structurally and omits unresolved senders from names", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response(null, { status: 404 }));
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
-    const names = await resolvePeopleDisplayNames("token", [{ name: "users/404", type: "HUMAN" }]);
+    const { names, attempted } = await resolvePeopleDisplayNames("token", [
+      { name: "users/404", type: "HUMAN" },
+    ]);
 
-    expect(names.get("users/404")).toBe("Unknown user (users/404)");
+    expect(names.has("users/404")).toBe(false);
+    expect(attempted).toEqual(new Set(["users/404"]));
     expect(warnSpy).toHaveBeenCalledWith(
       JSON.stringify({
         component: "sources",
@@ -302,6 +330,29 @@ describe("Google Chat identity and thread context fetches", () => {
       }),
     );
     warnSpy.mockRestore();
+    fetchSpy.mockRestore();
+  });
+
+  it("logs directory_unavailable when the Workspace directory is missing", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 403 }));
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await resolveDirectoryPeopleDisplayNames("token");
+
+    expect(result).toEqual({ names: new Map(), nextPageToken: null, complete: true });
+    expect(warnSpy).toHaveBeenCalledWith(
+      JSON.stringify({
+        component: "sources",
+        integration: "google-chat",
+        event: "directory_unavailable",
+        status: 403,
+      }),
+    );
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
     fetchSpy.mockRestore();
   });
 

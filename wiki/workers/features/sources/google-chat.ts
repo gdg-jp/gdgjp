@@ -15,6 +15,8 @@ export interface ChatMessageAttachment {
 
 export interface ChatMessageSender {
   name?: string;
+  /** Present on many messages.list payloads; used when directory/People lookup fails. */
+  displayName?: string;
   /** Google Chat's user-authenticated message sender shape. */
   type?: "HUMAN" | "BOT";
 }
@@ -177,6 +179,8 @@ export function formatChatTimestamp(createTime: string, timeZone = "Asia/Tokyo")
 export const THREAD_PARENT_UNAVAILABLE = "Parent message unavailable";
 
 export function defaultSenderName(sender: ChatMessageSender | undefined): string {
+  const displayName = sender?.displayName?.trim();
+  if (displayName) return displayName;
   if (sender?.type === "BOT") return "Bot";
   const name = sender?.name?.trim();
   return name ? `Unknown user (${name})` : "Unknown user";
@@ -560,6 +564,9 @@ export async function resolveDirectoryPeopleDisplayNames(
         operation: "directory_list",
         hasPageToken: Boolean(pageToken),
       });
+      if (response.status === 403 || response.status === 404) {
+        warnGoogleChat("directory_unavailable", { status: response.status });
+      }
       return { names, nextPageToken: null, complete: true };
     }
     const body = (await response.json()) as {
@@ -576,21 +583,30 @@ export async function resolveDirectoryPeopleDisplayNames(
   return { names, nextPageToken: null, complete: true };
 }
 
+export interface PeopleDisplayNamesResult {
+  /** Resolved display names only (plus the BOT → "Bot" short-circuit). */
+  names: Map<string, string>;
+  /** Every human sender a People request was issued for, resolved or not. */
+  attempted: Set<string>;
+}
+
 /**
  * Resolve human sender display names with People `people:batchGet` (≤200 / request).
  * Callers should prefer Chat `spaces.members.list` first and only batch-get the remainder.
+ * Unresolved senders are omitted from `names` so callers can fall back to the Chat payload.
  */
 export async function resolvePeopleDisplayNames(
   accessToken: string,
   senders: readonly ChatMessageSender[],
   options: SenderLookupOptions = {},
-): Promise<Map<string, string>> {
-  const cache = new Map<string, string>();
+): Promise<PeopleDisplayNamesResult> {
+  const names = new Map<string, string>();
+  const attempted = new Set<string>();
   const unique = new Map<string, ChatMessageSender>();
   for (const sender of senders) {
-    if (!sender?.name || cache.has(sender.name)) continue;
+    if (!sender?.name || names.has(sender.name)) continue;
     if (sender.type === "BOT") {
-      cache.set(sender.name, "Bot");
+      names.set(sender.name, "Bot");
       continue;
     }
     unique.set(sender.name, sender);
@@ -616,9 +632,9 @@ export async function resolvePeopleDisplayNames(
       );
       if (!response.ok) {
         await logGooglePeopleError(response, { operation: "batch_get", batchSize: chunk.length });
-        for (const [userName, sender] of chunk) {
+        for (const [userName] of chunk) {
+          attempted.add(userName);
           warnGoogleChat("sender_name_unresolved", { sender: userName, status: response.status });
-          cache.set(userName, defaultSenderName(sender));
         }
         continue;
       }
@@ -636,29 +652,29 @@ export async function resolvePeopleDisplayNames(
       const byRequested = new Map(
         (body.responses ?? []).map((row) => [row.requestedResourceName ?? "", row]),
       );
-      for (const [userName, sender] of chunk) {
+      for (const [userName] of chunk) {
+        attempted.add(userName);
         const row = byRequested.get(peopleResourceName(userName));
         const displayName = row?.person ? displayNameFromPerson(row.person) : undefined;
         if (displayName) {
-          cache.set(userName, displayName);
+          names.set(userName, displayName);
           continue;
         }
         warnGoogleChat("sender_name_unresolved", {
           sender: userName,
           status: row?.httpStatusCode ?? response.status,
         });
-        cache.set(userName, defaultSenderName(sender));
       }
     } catch (error) {
       if (!isNetworkFailure(error)) throw error;
-      for (const [userName, sender] of chunk) {
+      for (const [userName] of chunk) {
+        attempted.add(userName);
         warnGoogleChat("sender_name_lookup_failed", { sender: userName });
-        cache.set(userName, defaultSenderName(sender));
       }
     }
   }
 
-  return cache;
+  return { names, attempted };
 }
 
 /**

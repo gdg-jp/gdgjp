@@ -94,9 +94,10 @@ describe("sender resolution batching", () => {
       return new Response(null, { status: 404 });
     });
 
-    const names = await resolvePeopleDisplayNames("token", senders);
+    const { names, attempted } = await resolvePeopleDisplayNames("token", senders);
     expect(calls).toBe(2);
     expect(names.size).toBe(250);
+    expect(attempted.size).toBe(250);
     fetchSpy.mockRestore();
   });
 
