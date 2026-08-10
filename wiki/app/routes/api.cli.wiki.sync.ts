@@ -61,7 +61,7 @@ const PagePayload = z
     meta: z.object({
       pageType: z.string().nullable(),
       pageMetadata: z.unknown().nullable(),
-      visibility: z.enum(["restricted", "unlisted", "public"]),
+      visibility: z.enum(["restricted", "unlisted", "public", "organizer", "member"]),
       generalRole: z.enum(["viewer", "commenter", "editor"]),
       chapterId: z.string().nullable(),
       tags: z.array(z.string().min(1)),
