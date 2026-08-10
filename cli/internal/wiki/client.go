@@ -291,6 +291,35 @@ func (c *Client) Upload(ctx context.Context, token, attachmentID string, data []
 	return nil
 }
 
+type ChatSender struct {
+	ResourceName string `json:"resourceName"`
+	DisplayName  string `json:"displayName"`
+}
+
+type ChatSenders struct {
+	Senders []ChatSender `json:"senders"`
+}
+
+// Map returns resourceName -> displayName. Nil/empty input yields an empty map.
+func (cs ChatSenders) Map() map[string]string {
+	out := make(map[string]string, len(cs.Senders))
+	for _, sender := range cs.Senders {
+		out[sender.ResourceName] = sender.DisplayName
+	}
+	return out
+}
+
+func (c *Client) ChatSenders(ctx context.Context, token string) (ChatSenders, error) {
+	res, err := c.request(ctx, token, http.MethodGet, "/api/cli/wiki/chat-senders", nil, "")
+	if err != nil {
+		return ChatSenders{}, err
+	}
+	defer res.Body.Close()
+	var out ChatSenders
+	err = json.NewDecoder(res.Body).Decode(&out)
+	return out, err
+}
+
 func (c *Client) SourcesManifest(ctx context.Context, token, lang string) (SourcesManifest, error) {
 	if lang == "" {
 		lang = "ja"

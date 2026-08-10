@@ -150,6 +150,8 @@ func TestWikiIngestCommitMarksOnlyFirstAndStops(t *testing.T) {
 	marked := make([]string, 0, 2)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/api/cli/wiki/chat-senders":
+			_ = json.NewEncoder(w).Encode(wiki.ChatSenders{Senders: []wiki.ChatSender{}})
 		case "/api/cli/wiki/sources":
 			_ = json.NewEncoder(w).Encode(manifest)
 		case "/api/cli/wiki/sources/doc-1/content":
@@ -271,6 +273,8 @@ func TestWikiCloneUsesGDGWikiRemote(t *testing.T) {
 			t.Errorf("Authorization = %q", got)
 		}
 		switch r.URL.Path {
+		case "/api/cli/wiki/chat-senders":
+			_ = json.NewEncoder(w).Encode(wiki.ChatSenders{Senders: []wiki.ChatSender{}})
 		case "/api/cli/wiki/sources":
 			if got := r.URL.Query().Get("lang"); got != "ja" {
 				t.Errorf("manifest lang = %q, want ja", got)
@@ -448,6 +452,8 @@ done
 	service := testWikiService(runGit)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/api/cli/wiki/chat-senders":
+			_ = json.NewEncoder(w).Encode(wiki.ChatSenders{Senders: []wiki.ChatSender{}})
 		case "/api/cli/wiki/sources":
 			if got := r.URL.Query().Get("lang"); got != "en" {
 				t.Errorf("manifest lang = %q, want en", got)
