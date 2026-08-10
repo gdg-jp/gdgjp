@@ -176,6 +176,7 @@ describe("WikiWorkspaceAdapter", () => {
         path: "/wiki/about-gdg",
         readable: true,
         hasChildren: "unknown",
+        summary: "要約",
       }),
     ]);
     const pageWithChildren = await workspace.cat("/wiki/about-gdg");

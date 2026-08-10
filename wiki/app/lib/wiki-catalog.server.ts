@@ -3,7 +3,6 @@ import * as schema from "~/db/schema";
 import type { getDb } from "~/lib/db.server";
 
 const NS_LOG = "ns-log";
-const NS_INDEX = "ns-index";
 
 export type AppendLogEntryInput = {
   subject: string;
@@ -14,7 +13,7 @@ export type AppendLogEntryInput = {
   date?: string;
 };
 
-export type UpsertIndexEntryInput = {
+export type UpsertCatalogEntryInput = {
   section: string;
   slug: string;
   title: string;
@@ -98,13 +97,14 @@ export async function appendLogEntry(
 }
 
 /**
- * Insert or replace a catalog line under `## <section>` in index.
- * Read-modify-write guarded by sync_revision; retries once on mismatch.
+ * Insert or replace a catalog line under `## <section>` on the matching
+ * namespace page (`ns-<slug>`). Read-modify-write guarded by sync_revision;
+ * retries once on mismatch.
  */
-export async function upsertIndexEntry(
+export async function upsertCatalogEntry(
   db: ReturnType<typeof getDb>,
   env: Env,
-  input: UpsertIndexEntryInput,
+  input: UpsertCatalogEntryInput,
 ): Promise<void> {
   const section = hardenCatalogField(input.section, 80);
   const slug = hardenCatalogField(input.slug, 160);
@@ -113,6 +113,7 @@ export async function upsertIndexEntry(
   if (!section || !slug || !title) return;
 
   const sectionSlug = sectionToPathSlug(section);
+  const catalogPageId = `ns-${sectionSlug}`;
   const line = formatIndexLine({ sectionSlug, slug, title, summary });
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -123,7 +124,7 @@ export async function upsertIndexEntry(
         syncRevision: schema.pages.syncRevision,
       })
       .from(schema.pages)
-      .where(eq(schema.pages.id, NS_INDEX))
+      .where(eq(schema.pages.id, catalogPageId))
       .get();
     if (!row) return;
 
@@ -137,7 +138,7 @@ export async function upsertIndexEntry(
               updated_at = unixepoch(), sync_revision = sync_revision + 1
         WHERE id = ? AND sync_revision = ?`,
     )
-      .bind(nextJa, nextEn, NS_INDEX, row.syncRevision)
+      .bind(nextJa, nextEn, catalogPageId, row.syncRevision)
       .run();
 
     if ((result.meta?.changes ?? 0) === 1) return;
@@ -145,7 +146,7 @@ export async function upsertIndexEntry(
   // Give up quietly after one retry — filing must not throw on catalog races.
 }
 
-function sectionToPathSlug(section: string): string {
+export function sectionToPathSlug(section: string): string {
   const known: Record<string, string> = {
     Answers: "answers",
     Events: "events",

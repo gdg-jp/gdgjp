@@ -4,7 +4,7 @@ import {
   formatIndexLine,
   formatLogEntry,
   hardenCatalogField,
-  upsertIndexEntry,
+  upsertCatalogEntry,
   upsertSectionLine,
 } from "./wiki-catalog.server";
 
@@ -110,10 +110,11 @@ describe("appendLogEntry", () => {
   });
 });
 
-describe("upsertIndexEntry", () => {
-  it("retries once on sync_revision mismatch then gives up without throwing", async () => {
+describe("upsertCatalogEntry", () => {
+  it("writes to ns-<section-slug> and retries once on sync_revision mismatch", async () => {
     let reads = 0;
     let updates = 0;
+    const updateBinds: unknown[][] = [];
     const db = {
       select() {
         return {
@@ -124,8 +125,8 @@ describe("upsertIndexEntry", () => {
                   async get() {
                     reads += 1;
                     return {
-                      contentJa: "## Events\n",
-                      contentEn: "## Events\n",
+                      contentJa: "## Answers\n",
+                      contentEn: "## Answers\n",
                       syncRevision: 1,
                     };
                   },
@@ -140,7 +141,8 @@ describe("upsertIndexEntry", () => {
       DB: {
         prepare() {
           return {
-            bind() {
+            bind(...binds: unknown[]) {
+              updateBinds.push(binds);
               return {
                 async run() {
                   updates += 1;
@@ -154,7 +156,7 @@ describe("upsertIndexEntry", () => {
     } as unknown as Env;
 
     await expect(
-      upsertIndexEntry(db, env, {
+      upsertCatalogEntry(db, env, {
         section: "Answers",
         slug: "venue-picks",
         title: "Venue picks",
@@ -163,5 +165,10 @@ describe("upsertIndexEntry", () => {
     ).resolves.toBeUndefined();
     expect(reads).toBe(2);
     expect(updates).toBe(2);
+    expect(updateBinds).toHaveLength(2);
+    for (const binds of updateBinds) {
+      expect(binds[2]).toBe("ns-answers");
+      expect(String(binds[0])).toContain("answers/venue-picks");
+    }
   });
 });

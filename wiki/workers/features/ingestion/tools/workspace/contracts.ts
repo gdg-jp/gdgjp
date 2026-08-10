@@ -26,6 +26,8 @@ export type WorkspaceEntry = {
   /** `unknown` preserves lazy hierarchy resolution without N+1 reads. */
   hasChildren: boolean | "unknown";
   title?: string;
+  /** Page summary, truncated for ls payloads. */
+  summary?: string;
 };
 
 export type ListOptions = { limit?: number; cursor?: string };

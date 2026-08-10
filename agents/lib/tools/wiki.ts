@@ -123,7 +123,7 @@ function indexGateError(): {
 } {
   return {
     error: "index_required",
-    message: `Read ${WIKI_INDEX_PATH} with wiki_cat before wiki_search or other wiki_cat calls.`,
+    message: `${WIKI_INDEX_PATH} is a type router, not a page listing. Read it with wiki_cat, pick a namespace, then wiki_cat or wiki_ls that namespace before other wiki_cat / wiki_search calls.`,
   };
 }
 
@@ -158,10 +158,7 @@ export function createWikiTools(ctx: WikiToolContext) {
   const publicUrl = trimSlash(ctx.wikiPublicUrl ?? ctx.wikiApiUrl);
 
   const wiki_ls = tool({
-    description:
-      "List a Wiki workspace directory. Start with path `/wiki` for type namespaces, " +
-      "or follow paths from the catalog. Prefer wiki_ls over wiki_search when the catalog " +
-      "already names the namespace. Pass nextCursor only when you need the next page.",
+    description: `List a Wiki workspace directory. Entries include title and summary when available. After reading the type router at ${WIKI_INDEX_PATH}, prefer wiki_ls on a named namespace (e.g. \`/wiki/people\`) for a summary-bearing catalog, or wiki_cat that namespace page. Start with path \`/wiki\` for type namespaces. Pass nextCursor only when you need the next page.`,
     inputSchema: z.object({
       path: z.string().optional().describe("Workspace path to list (default `/`)"),
       cursor: z.string().optional().describe("Pagination cursor from a previous wiki_ls"),
@@ -188,7 +185,7 @@ export function createWikiTools(ctx: WikiToolContext) {
   });
 
   const wiki_cat = tool({
-    description: `Read a Wiki page by workspace path. Paths must come verbatim from wiki_ls or wiki_search (or ${WIKI_INDEX_PATH} for the catalog). Always read ${WIKI_INDEX_PATH} first in a conversation. A 404 means not found or not visible — do not retry or probe.`,
+    description: `Read a Wiki page by workspace path. Always wiki_cat ${WIKI_INDEX_PATH} first — it is a type router, not a full listing. Then wiki_cat or wiki_ls the chosen namespace page for its catalog, then individual pages. Paths must come verbatim from wiki_ls / wiki_search results (or the index/namespace paths above). A 404 means not found or not visible — do not retry or probe.`,
     inputSchema: z.object({
       path: z.string().describe("Workspace path to read, e.g. /wiki/index"),
       cursor: z.string().optional().describe("Pagination cursor from a previous wiki_cat"),
@@ -240,7 +237,7 @@ export function createWikiTools(ctx: WikiToolContext) {
   });
 
   const wiki_search = tool({
-    description: `Search Wiki page titles and bodies. Use only after reading the catalog with wiki_cat on ${WIKI_INDEX_PATH}. Prefer wiki_ls when the catalog already points at the right namespace. Optionally scope with path. Pass nextCursor only when needed.`,
+    description: `Search Wiki page titles and bodies. Use only after reading the type router with wiki_cat on ${WIKI_INDEX_PATH}. Prefer wiki_ls or wiki_cat on a namespace when the router already names it. Optionally scope with path (e.g. \`/wiki/venues\`). Pass nextCursor only when needed.`,
     inputSchema: z.object({
       q: z.string().describe("Search query"),
       path: z.string().optional().describe("Optional subtree scope, e.g. /wiki/venues"),

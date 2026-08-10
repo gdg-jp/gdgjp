@@ -89,9 +89,9 @@ sources:
 - `language` is fixed to the language chosen at clone time. Do not change it.
 - Do not write `id` for a new page. The server assigns it and it appears in the next clone.
 - `parent_slug` must match the parent directory name.
-- Always write `summary`: one or two sentences shown in `index` and search results.
+- Always write `summary`: one or two sentences shown in the parent namespace catalog, `wiki_ls`, and search results. Lead with identifying attributes that answer “what questions can this page answer?” — not a restatement of the title. Do not repeat strings shared by every row in the same catalog (put shared context once under the section heading). Aim for 60–120 characters; the hard limit is 300.
 - `visibility` defaults to `restricted`. Do not raise it without evidence that publication is appropriate.
-- Use only tags already present in the clone. The server rejects an unregistered tag with `unknown_tag`; when uncertain, omit `tags` and rely on `page_type` and `index` for classification.
+- Use only tags already present in the clone. The server rejects an unregistered tag with `unknown_tag`; when uncertain, omit `tags` and rely on `page_type` and namespace catalogs for classification.
 
 ## Ingest procedure
 
@@ -99,13 +99,13 @@ For each ingest, process **only the first source in `INGEST_QUEUE.md`**.
 You may touch at most 15 pages per source. If it exceeds that limit, split the source and defer the rest to the next run.
 
 1. Read the `raw/` path in the first entry of `INGEST_QUEUE.md`.
-2. Read `index` and identify relevant existing pages.
+2. Read `index` (type router), then the relevant namespace page catalog, and identify existing pages.
 3. Prioritize updating existing pages. Create a page only when no existing page can contain the information.
 4. After writing a fact, add its supporting source to front matter `sources`. Use `source_id` when the server source ID is known; follow the human-authored source rule below when it is not.
-5. When creating a page, add one line to `index`.
+5. When creating a page, add one line to the parent namespace page catalog (not to root `index`).
 6. Append one line to `log`.
 7. Commit the changes and run `git push`.
-8. Fetch the server-generated snapshot and fast-forward the local branch, then verify that the page, `index`, and `log` all exist in that snapshot.
+8. Fetch the server-generated snapshot and fast-forward the local branch, then verify that the page, its namespace catalog, and `log` all exist in that snapshot.
 9. Run `gdg wiki ingest --commit`, then refresh the queue and confirm that the processed source is no longer first.
 
 ### Push and ingest completion
@@ -177,7 +177,9 @@ When uncertain, do not write it. Referring to `raw/` preserves it.
 
 ## `index` and `log`
 
-**`index`** — Catalog of all pages. Split into sections by type, one line per page.
+**`index`** — Type router only. Lists namespaces and what questions each type answers. It must not list individual pages; page count must not grow the root index.
+
+**Namespace pages** (`events/`, `venues/`, `vendors/`, `people/`, `orgs/`, `playbooks/`, `answers/`) — Catalog of that type. One line per page under the English section heading (`## Events`, `## People`, …). Do not put an `# Events`-style H1 in the body (`pageContent()` already prefixes title + summary).
 
 ```markdown
 ## Venues
@@ -185,7 +187,9 @@ When uncertain, do not write it. Referring to `raw/` preserves it.
 - [Umeda Innovation Hub](venues/umeda-innovation-hub) — Capacity 120. Equipment may be brought in. Used twice in 2026.
 ```
 
-Always add an entry when creating a page. Remove it when deleting one.
+Always add a catalog line when creating a page; remove it when deleting one. Keep the line format exact: `- [Title](<ns>/<slug>) — summary` (server upserts match this regex).
+
+When a namespace catalog exceeds **40 entries or 8 KB**, split into intermediate pages (e.g. `events/events-2026/…`). Intermediate slugs must be globally unique (`events-2026`, not `2026`). The parent namespace catalog then lists only the intermediate pages. Do not split before the threshold.
 
 **`log`** — Append-only chronological record. Do not rewrite existing lines.
 
@@ -208,7 +212,7 @@ When invoked by `gdg wiki lint`, check the following in order and record results
 2. **Staleness** — Whether pages remain unupdated despite new sources.
 3. **Orphans** — Pages not linked from anywhere.
 4. **Missing entities** — Entities (venues, vendors, people) mentioned by multiple pages but lacking a page of their own.
-5. **`index` synchronization** — Pages missing from the catalog or catalog entries with no page.
+5. **Catalog synchronization** — (a) root `index` lists every type namespace; (b) each namespace catalog matches its child pages (no missing or dangling lines).
 6. **Missing `summary`** — Empty summaries or summaries that conflict with the body.
 7. **Missing citations** — Pages stating concrete facts while `sources` is empty.
 8. **Sensitive information** — Content violating the table above.

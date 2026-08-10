@@ -3,7 +3,7 @@ import type { AgentWorkspaceContext } from "~/lib/agent-workspace.server";
 
 const getPageAccessListMock = vi.fn<(...args: unknown[]) => unknown>();
 const getEffectivePagePermissionsMock = vi.fn<(...args: unknown[]) => unknown>();
-const upsertIndexEntryMock = vi.fn<(...args: unknown[]) => unknown>();
+const upsertCatalogEntryMock = vi.fn<(...args: unknown[]) => unknown>();
 const sendOrRunTranslationMock = vi.fn<(...args: unknown[]) => unknown>();
 
 /** Rows keyed by page id, mutated per test to drive resolveReplaceTarget. */
@@ -49,7 +49,7 @@ vi.mock("~/lib/queue-processors.server", () => ({
 }));
 
 vi.mock("~/lib/wiki-catalog.server", () => ({
-  upsertIndexEntry: (...args: unknown[]) => upsertIndexEntryMock(...args),
+  upsertCatalogEntry: (...args: unknown[]) => upsertCatalogEntryMock(...args),
 }));
 
 vi.mock("~/lib/sources.server", () => ({
@@ -126,7 +126,7 @@ beforeEach(() => {
   citedChapterId = "A";
   getPageAccessListMock.mockReset().mockResolvedValue([]);
   getEffectivePagePermissionsMock.mockReset().mockResolvedValue({ canView: true, canEdit: false });
-  upsertIndexEntryMock.mockReset().mockResolvedValue(undefined);
+  upsertCatalogEntryMock.mockReset().mockResolvedValue(undefined);
   sendOrRunTranslationMock.mockReset().mockResolvedValue(undefined);
 });
 
@@ -207,7 +207,7 @@ describe("createOrReplaceAnswerNote — slug collision is decided by the databas
       status: 409,
       path: "/wiki/answers/venue-picks",
     });
-    expect(upsertIndexEntryMock).not.toHaveBeenCalled();
+    expect(upsertCatalogEntryMock).not.toHaveBeenCalled();
     expect(sendOrRunTranslationMock).not.toHaveBeenCalled();
   });
 

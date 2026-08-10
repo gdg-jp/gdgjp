@@ -7,7 +7,7 @@ import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions, getPageAccessList } from "~/lib/page-access.server";
 import { sendOrRunTranslation } from "~/lib/queue-processors.server";
 import { canAssignChapter } from "~/lib/sources.server";
-import { upsertIndexEntry } from "~/lib/wiki-catalog.server";
+import { upsertCatalogEntry } from "~/lib/wiki-catalog.server";
 import { createD1WikiWorkspaceStore } from "../../workers/features/ingestion/persistence/d1/wiki-read-repository";
 import { normaliseAbsoluteWorkspacePath } from "../../workers/features/ingestion/tools/workspace/paths";
 import {
@@ -180,7 +180,7 @@ export async function createOrReplaceAnswerNote(
     ]);
 
     await sendOrRunTranslation(env, ctx, replaceId);
-    await upsertIndexEntry(db, env, {
+    await upsertCatalogEntry(db, env, {
       section: "Answers",
       slug: parsed.body.slug,
       title: parsed.body.title,
@@ -246,7 +246,7 @@ export async function createOrReplaceAnswerNote(
   }
 
   await sendOrRunTranslation(env, ctx, id);
-  await upsertIndexEntry(db, env, {
+  await upsertCatalogEntry(db, env, {
     section: "Answers",
     slug: parsed.body.slug,
     title: parsed.body.title,

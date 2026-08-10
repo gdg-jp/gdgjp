@@ -141,16 +141,17 @@ export class WikiWorkspaceAdapter implements WorkspaceAdapter {
     const visible = await boundedVisiblePages(candidates.slice(0, limit), limit, (candidate) =>
       this.store.canView(candidate),
     );
-    const entries = visible.map(
-      (child) =>
-        ({
-          name: child.slug,
-          path: path ? `${path}/${child.slug}` : child.slug,
-          readable: true,
-          hasChildren: "unknown",
-          title: wikiWorkspacePageTitle(child),
-        }) satisfies WorkspaceEntry,
-    );
+    const entries = visible.map((child) => {
+      const summary = summaryOf(child).slice(0, 200);
+      return {
+        name: child.slug,
+        path: path ? `${path}/${child.slug}` : child.slug,
+        readable: true,
+        hasChildren: "unknown",
+        title: wikiWorkspacePageTitle(child),
+        ...(summary ? { summary } : {}),
+      } satisfies WorkspaceEntry;
+    });
     const hasMore = candidates.length > limit;
     return {
       data: {
