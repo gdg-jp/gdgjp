@@ -2,7 +2,7 @@ import { and, eq, ne } from "drizzle-orm";
 import * as schema from "../../../app/db/schema";
 import { REQUIRED_GOOGLE_CHAT_SCOPES, driveFilesUrl } from "../../../app/lib/google-drive.server";
 import { type ResolvedSourceAsset, assetR2Key } from "./assets";
-import { captureChatSenderData } from "./chat-sender-registry";
+import { CAPTURE_CHAT_SENDER_SUBREQUESTS, captureChatSenderData } from "./chat-sender-registry";
 import {
   type ChatMessage,
   type ChatMessageAttachment,
@@ -519,9 +519,10 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
   let weeksDone = Number(metaGet(ctx.sql, "weeks_done") ?? "0");
   const incremental = Boolean(current.run.sinceCursor);
   const persistCost = incremental ? PERSIST_MERGE_SUBREQUESTS : PERSIST_REPLACE_SUBREQUESTS;
-  // R2 get week + persist. Incremental weeks have been regenerated during indexing;
-  // merge applies only to attachments/metadata, never to stale Markdown blocks.
-  const weekUnitCost = 1 + persistCost;
+  // R2 get week + persist + sender sample capture. Incremental weeks have been
+  // regenerated during indexing; merge applies only to attachments/metadata,
+  // never to stale Markdown blocks.
+  const weekUnitCost = 1 + persistCost + CAPTURE_CHAT_SENDER_SUBREQUESTS;
 
   const senderNames = new Map(
     ctx.sql
@@ -531,14 +532,17 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
       .toArray()
       .map((row) => [row.resource_name, row.display_name] as const),
   );
-  const configuredSenders = await current.db
+  const configuredSenderRows = await current.db
     .select({
       resourceName: schema.googleChatSenderProfiles.resourceName,
       displayName: schema.googleChatSenderProfiles.displayName,
     })
     .from(schema.googleChatSenderProfiles)
     .all();
-  for (const sender of configuredSenders) senderNames.set(sender.resourceName, sender.displayName);
+  const configuredSenders = new Set(configuredSenderRows.map((sender) => sender.resourceName));
+  for (const sender of configuredSenderRows) {
+    senderNames.set(sender.resourceName, sender.displayName);
+  }
   const threadParents = new Map(
     ctx.sql
       .exec<{ thread_name: string; parent_text: string }>(
@@ -637,6 +641,8 @@ async function stepFinalizing(ctx: ChatImportTickContext, current: Current): Pro
         threadParents,
         assets: assetsByObjectId,
         skippedAttachments: skippedNames,
+        configuredSenders,
+        budget: ctx.budget,
       });
     }
 

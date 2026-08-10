@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import * as schema from "../../../app/db/schema";
 import { getDb } from "../../../app/lib/db.server";
@@ -6,9 +6,13 @@ import type { ChatMessage } from "./google-chat";
 import { defaultSenderName, normalizeChatMessages } from "./google-chat";
 import { MARKDOWN_MEDIA_TYPE, markdownBody } from "./media-type";
 import { contentR2Key, sha256Hex } from "./persist";
+import type { SubrequestBudget } from "./subrequest-budget";
 
 const MAX_SENDER_SAMPLES = 10;
 const USER_RESOURCE_NAME = /^users\/[A-Za-z0-9_-]+$/;
+
+/** Render upsert (1) + sample insert/prune batch (1). */
+export const CAPTURE_CHAT_SENDER_SUBREQUESTS = 2;
 
 export interface ChatDocumentRenderData {
   messages?: ChatMessage[];
@@ -27,6 +31,18 @@ function senderMessageText(message: ChatMessage): string {
   return (message.text ?? message.argumentText ?? "").trim();
 }
 
+function pruneSenderSamplesStatement(db: ReturnType<typeof getDb>, resourceName: string) {
+  return db.delete(schema.googleChatSenderSamples).where(
+    sql`resource_name = ${resourceName}
+      AND id NOT IN (
+        SELECT id FROM google_chat_sender_samples
+        WHERE resource_name = ${resourceName}
+        ORDER BY created_at DESC, id DESC
+        LIMIT ${sql.raw(String(MAX_SENDER_SAMPLES))}
+      )`,
+  );
+}
+
 /** Save private render data and a bounded set of examples while importing a Chat week. */
 export async function captureChatSenderData(
   env: Env,
@@ -37,8 +53,12 @@ export async function captureChatSenderData(
     threadParents: ReadonlyMap<string, string>;
     assets: ReadonlyMap<string, { path: string }>;
     skippedAttachments: ReadonlyMap<string, string>;
+    configuredSenders: ReadonlySet<string>;
+    budget: SubrequestBudget;
   },
 ): Promise<void> {
+  input.budget.spend(CAPTURE_CHAT_SENDER_SUBREQUESTS);
+
   const db = getDb(env);
   const now = new Date();
   const renderData: ChatDocumentRenderData = {
@@ -67,47 +87,51 @@ export async function captureChatSenderData(
     entries.push(message);
     latestBySender.set(resourceName, entries);
   }
+
+  const statements = [];
   for (const [resourceName, messages] of latestBySender) {
-    for (const message of messages) {
-      await db
-        .insert(schema.googleChatSenderSamples)
-        .values({
-          id: nanoid(),
-          resourceName,
-          sourceId: input.sourceId,
-          messageName: message.name ?? `${resourceName}:${message.createTime}`,
-          messageText: senderMessageText(message),
-          createdAt: new Date(message.createTime as string),
-          updatedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: [
-            schema.googleChatSenderSamples.resourceName,
-            schema.googleChatSenderSamples.sourceId,
-            schema.googleChatSenderSamples.messageName,
-          ],
-          set: {
+    if (input.configuredSenders.has(resourceName)) continue;
+    const retained = [...messages]
+      .filter((message) => senderMessageText(message).length > 0)
+      .sort(
+        (a, b) =>
+          new Date(b.createTime as string).getTime() - new Date(a.createTime as string).getTime(),
+      )
+      .slice(0, MAX_SENDER_SAMPLES);
+    if (retained.length === 0) continue;
+
+    for (const message of retained) {
+      statements.push(
+        db
+          .insert(schema.googleChatSenderSamples)
+          .values({
+            id: nanoid(),
+            resourceName,
+            sourceId: input.sourceId,
+            messageName: message.name ?? `${resourceName}:${message.createTime}`,
             messageText: senderMessageText(message),
             createdAt: new Date(message.createTime as string),
             updatedAt: now,
-          },
-        });
+          })
+          .onConflictDoUpdate({
+            target: [
+              schema.googleChatSenderSamples.resourceName,
+              schema.googleChatSenderSamples.sourceId,
+              schema.googleChatSenderSamples.messageName,
+            ],
+            set: {
+              messageText: senderMessageText(message),
+              createdAt: new Date(message.createTime as string),
+              updatedAt: now,
+            },
+          }),
+      );
     }
-    const retained = await db
-      .select({ id: schema.googleChatSenderSamples.id })
-      .from(schema.googleChatSenderSamples)
-      .where(eq(schema.googleChatSenderSamples.resourceName, resourceName))
-      .orderBy(
-        desc(schema.googleChatSenderSamples.createdAt),
-        desc(schema.googleChatSenderSamples.id),
-      )
-      .all();
-    const staleIds = retained.slice(MAX_SENDER_SAMPLES).map((row) => row.id);
-    if (staleIds.length) {
-      await db
-        .delete(schema.googleChatSenderSamples)
-        .where(inArray(schema.googleChatSenderSamples.id, staleIds));
-    }
+    statements.push(pruneSenderSamplesStatement(db, resourceName));
+  }
+
+  if (statements.length > 0) {
+    await db.batch(statements as [(typeof statements)[0], ...typeof statements]);
   }
 }
 

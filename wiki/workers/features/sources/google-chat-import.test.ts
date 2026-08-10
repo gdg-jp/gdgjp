@@ -116,6 +116,8 @@ beforeEach(() => {
       claimSourceImport({} as Env, request).then(Boolean),
     );
   sqlite.exec("DELETE FROM source_import_runs; DELETE FROM source_documents; DELETE FROM sources;");
+  sqlite.exec("DELETE FROM google_chat_sender_profiles; DELETE FROM google_chat_sender_samples;");
+  sqlite.exec("DELETE FROM google_chat_document_renders;");
   sqlite
     .prepare(
       `INSERT INTO sources (id, kind, url, external_id, title, added_by, status)
@@ -595,6 +597,150 @@ describe("advanceSourceImportTick with the Chat driver", () => {
       count: 1,
     });
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("caps sender samples at 10 for a 300-message week without exceeding the budget", async () => {
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+    const objects = new Map<string, string | Uint8Array>();
+    const bucket = {
+      put: vi.fn().mockImplementation(async (key: string, body: string | Uint8Array) => {
+        objects.set(key, body);
+      }),
+      get: vi.fn().mockImplementation(async (key: string) => {
+        const body = objects.get(key);
+        return typeof body === "string" ? { json: async () => JSON.parse(body) } : null;
+      }),
+      delete: vi.fn().mockResolvedValue(undefined),
+    };
+    const sender = "users/300msg";
+    const messages = Array.from({ length: 300 }, (_, index) => ({
+      name: `spaces/abc/messages/${index + 1}`,
+      text: `Message ${index + 1}`,
+      createTime: new Date(Date.UTC(2026, 6, 14, 12, 0, index)).toISOString(),
+      sender: { name: sender, type: "HUMAN" as const },
+      thread: { name: "spaces/abc/threads/t1" },
+      threadReply: false,
+    }));
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (!url.includes("/messages?")) {
+        throw new Error(`Unexpected identity lookup: ${url}`);
+      }
+      return new Response(JSON.stringify({ messages }));
+    });
+
+    const budget = new SubrequestBudget();
+    const result = await advanceSourceImportTick({
+      env: { BUCKET: bucket } as unknown as Env,
+      sql: memorySql(),
+      budget,
+      runId: run.id,
+    });
+
+    expect(result).toMatchObject({ finished: true, phase: "complete" });
+    expect(budget.spent).toBeLessThanOrEqual(budget.limit);
+    expect(
+      sqlite
+        .prepare("SELECT COUNT(*) AS count FROM google_chat_sender_samples WHERE resource_name = ?")
+        .get(sender),
+    ).toEqual({ count: 10 });
+    const retained = sqlite
+      .prepare(
+        `SELECT message_name FROM google_chat_sender_samples
+         WHERE resource_name = ?
+         ORDER BY created_at DESC, id DESC`,
+      )
+      .all(sender) as Array<{ message_name: string }>;
+    expect(retained.map((row) => row.message_name)).toEqual(
+      Array.from({ length: 10 }, (_, index) => `spaces/abc/messages/${300 - index}`),
+    );
+  });
+
+  it("does not collect samples for senders that already have a profile", async () => {
+    sqlite
+      .prepare(
+        `INSERT INTO google_chat_sender_profiles (resource_name, display_name)
+         VALUES ('users/configured', 'Configured User')`,
+      )
+      .run();
+    await startSourceImport(
+      { SOURCE_IMPORT_DO: { getByName: () => ({ start }) } } as unknown as Env,
+      await source(),
+      "attempt-1",
+    );
+    const run = sqlite
+      .prepare("SELECT id FROM source_import_runs WHERE source_id = ?")
+      .get(SOURCE_ID) as { id: string };
+    const objects = new Map<string, string | Uint8Array>();
+    const bucket = {
+      put: vi.fn().mockImplementation(async (key: string, body: string | Uint8Array) => {
+        objects.set(key, body);
+      }),
+      get: vi.fn().mockImplementation(async (key: string) => {
+        const body = objects.get(key);
+        return typeof body === "string" ? { json: async () => JSON.parse(body) } : null;
+      }),
+      delete: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (!url.includes("/messages?")) {
+        throw new Error(`Unexpected identity lookup: ${url}`);
+      }
+      return new Response(
+        JSON.stringify({
+          messages: [
+            {
+              name: "spaces/abc/messages/1",
+              text: "From configured sender.",
+              createTime: "2026-07-14T12:03:00Z",
+              sender: { name: "users/configured", type: "HUMAN" },
+              thread: { name: "spaces/abc/threads/t1" },
+              threadReply: false,
+            },
+            {
+              name: "spaces/abc/messages/2",
+              text: "From unknown sender.",
+              createTime: "2026-07-14T12:04:00Z",
+              sender: { name: "users/unknown", type: "HUMAN" },
+              thread: { name: "spaces/abc/threads/t1" },
+              threadReply: false,
+            },
+          ],
+        }),
+      );
+    });
+
+    const result = await advanceSourceImportTick({
+      env: { BUCKET: bucket } as unknown as Env,
+      sql: memorySql(),
+      budget: new SubrequestBudget(),
+      runId: run.id,
+    });
+
+    expect(result).toMatchObject({ finished: true, phase: "complete" });
+    expect(
+      sqlite
+        .prepare("SELECT COUNT(*) AS count FROM google_chat_sender_samples WHERE resource_name = ?")
+        .get("users/configured"),
+    ).toEqual({ count: 0 });
+    expect(
+      sqlite
+        .prepare(
+          "SELECT resource_name, message_text FROM google_chat_sender_samples WHERE resource_name = ?",
+        )
+        .get("users/unknown"),
+    ).toEqual({
+      resource_name: "users/unknown",
+      message_text: "From unknown sender.",
+    });
   });
 });
 

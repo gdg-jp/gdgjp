@@ -185,17 +185,14 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     const source = visible.find((item) => item.id === sample.sourceId);
     return source !== undefined;
   });
-  const visibleSenderIds = [...new Set(visibleSamples.map((sample) => sample.resourceName))];
-  const profiles = visibleSenderIds.length
-    ? await db
-        .select({
-          resourceName: schema.googleChatSenderProfiles.resourceName,
-          displayName: schema.googleChatSenderProfiles.displayName,
-        })
-        .from(schema.googleChatSenderProfiles)
-        .where(inArray(schema.googleChatSenderProfiles.resourceName, visibleSenderIds))
-        .all()
-    : [];
+  // Profiles are one row per sender — select all instead of an unbounded inArray.
+  const profiles = await db
+    .select({
+      resourceName: schema.googleChatSenderProfiles.resourceName,
+      displayName: schema.googleChatSenderProfiles.displayName,
+    })
+    .from(schema.googleChatSenderProfiles)
+    .all();
 
   return {
     assignableChapters,
