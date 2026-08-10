@@ -160,6 +160,50 @@ func TestBuildIngestQueueRequeuesChangedLocalDocument(t *testing.T) {
 	}
 }
 
+func TestBuildIngestQueueEmitsSourceIDWhenPresent(t *testing.T) {
+	root := t.TempDir()
+	sourceID := "parent-source-1"
+	manifest := SourcesManifest{Version: 1, Documents: []SourcesManifestEntry{
+		{
+			DocumentID:  "document-with-source",
+			SourceID:    &sourceID,
+			Kind:        "source-document",
+			Title:       "Chat message",
+			Path:        "raw/source/chat.md",
+			ContentHash: "hash-a",
+		},
+		{
+			DocumentID:  "wiki-human:essay",
+			Kind:        "wiki-human",
+			Title:       "Human essay",
+			Path:        "raw/wiki-human/essay.md",
+			ContentHash: "hash-b",
+		},
+	}}
+	queuePath, pending, err := BuildIngestQueue(root, manifest, State{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pending) != 2 {
+		t.Fatalf("pending = %#v, want 2 documents", pending)
+	}
+	raw, err := os.ReadFile(queuePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(raw)
+	if !strings.Contains(got, "- document_id: `document-with-source`\n- source_id: `parent-source-1`\n") {
+		t.Fatalf("queue missing source_id for document with SourceID:\n%s", got)
+	}
+	humanIdx := strings.Index(got, "## 2. Human essay")
+	if humanIdx < 0 {
+		t.Fatalf("queue missing wiki-human entry:\n%s", got)
+	}
+	if strings.Contains(got[humanIdx:], "- source_id:") {
+		t.Fatalf("queue unexpectedly emitted source_id for wiki-human entry:\n%s", got[humanIdx:])
+	}
+}
+
 func TestPullRawMigratesIDDirectoriesToTitlesAndRewritesAssetPaths(t *testing.T) {
 	root := t.TempDir()
 	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {

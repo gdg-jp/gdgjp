@@ -342,6 +342,9 @@ func BuildIngestQueue(root string, manifest SourcesManifest, state CloneState) (
 			fmt.Fprintf(&b, "## %d. %s\n\n", i+1, doc.Title)
 			fmt.Fprintf(&b, "- path: `%s`\n", doc.Path)
 			fmt.Fprintf(&b, "- document_id: `%s`\n", doc.DocumentID)
+			if doc.SourceID != nil && *doc.SourceID != "" {
+				fmt.Fprintf(&b, "- source_id: `%s`\n", *doc.SourceID)
+			}
 			fmt.Fprintf(&b, "- change: %s\n", change)
 			fmt.Fprintf(&b, "- content_hash: `%s`\n", doc.ContentHash)
 			if prior != "" {
