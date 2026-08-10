@@ -40,14 +40,16 @@ async function loadChapterCandidates(env: Env, query: string): Promise<AccountCh
   });
 }
 
-/** GET /api/share-candidates?pageId=...&q=... */
+/** GET /api/share-candidates?pageId=...&q=...&authorOnly=1 */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   const user = await requireUser(request, env);
   const url = new URL(request.url);
   const pageId = url.searchParams.get("pageId");
+  const authorOnly = url.searchParams.get("authorOnly") === "1";
   const query = url.searchParams.get("q")?.trim().slice(0, 120) ?? "";
   const db = getDb(env);
+  if (authorOnly && !pageId) return new Response("Missing pageId", { status: 400 });
   if (pageId) {
     const page = await db
       .select({
@@ -61,18 +63,22 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       .get();
     if (!page) return new Response("Not Found", { status: 404 });
 
-    let chapters: Array<{ chapterId: string; role: string }> = [];
-    try {
-      const claims = await createAuth(env).getFreshClaims(request);
-      chapters = claims.chapters.map((chapter) => ({
-        chapterId: String(chapter.chapterId),
-        role: chapter.role,
-      }));
-    } catch {
-      // Chapter-derived sharing is fail-closed while direct email grants continue working.
+    if (authorOnly) {
+      if (!user.isAdmin) return new Response("Forbidden", { status: 403 });
+    } else {
+      let chapters: Array<{ chapterId: string; role: string }> = [];
+      try {
+        const claims = await createAuth(env).getFreshClaims(request);
+        chapters = claims.chapters.map((chapter) => ({
+          chapterId: String(chapter.chapterId),
+          role: chapter.role,
+        }));
+      } catch {
+        // Chapter-derived sharing is fail-closed while direct email grants continue working.
+      }
+      const permissions = await getEffectivePagePermissions(db, page, user, chapters);
+      if (!permissions.canManageSharing) return new Response("Forbidden", { status: 403 });
     }
-    const permissions = await getEffectivePagePermissions(db, page, user, chapters);
-    if (!permissions.canManageSharing) return new Response("Forbidden", { status: 403 });
   }
 
   const pattern = `%${query}%`;
@@ -90,19 +96,42 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       )
       .orderBy(asc(schema.user.name), asc(schema.user.email))
       .limit(12),
-    pageId ? getPageAccessList(db, pageId) : Promise.resolve([]),
-    loadChapterCandidates(env, query).catch((error) => {
-      // Keep direct-email sharing usable when the accounts directory is
-      // temporarily unavailable. Chapter suggestions simply fail closed.
-      console.error("Unable to load Chapter sharing candidates", error);
-      return [];
-    }),
+    pageId && !authorOnly ? getPageAccessList(db, pageId) : Promise.resolve([]),
+    authorOnly
+      ? Promise.resolve([])
+      : loadChapterCandidates(env, query).catch((error) => {
+          // Keep direct-email sharing usable when the accounts directory is
+          // temporarily unavailable. Chapter suggestions simply fail closed.
+          console.error("Unable to load Chapter sharing candidates", error);
+          return [];
+        }),
   ]);
   const assigned = new Set(existing.map((entry) => `${entry.subjectType}:${entry.subjectKey}`));
+  const chapterCandidates = authorOnly
+    ? []
+    : chaptersResult
+        .filter((chapter) => !assigned.has(`chapter:${chapter.id}`))
+        .slice(0, 12)
+        .map((chapter) => ({
+          type: "chapter" as const,
+          key: chapter.id,
+          label: chapter.name,
+          secondary: chapter.slug,
+          subjectType: "chapter" as const,
+          subjectKey: chapter.id,
+          subjectLabel: chapter.name,
+          secondaryText: chapter.slug,
+          chapterKind: chapter.kind,
+        }));
   const candidates = [
     ...users
-      .filter((candidate) => !assigned.has(`email:${normalizeEmail(candidate.email)}`))
+      .filter(
+        (candidate) => authorOnly || !assigned.has(`email:${normalizeEmail(candidate.email)}`),
+      )
       .map((candidate) => ({
+        id: candidate.id,
+        name: candidate.name,
+        email: candidate.email,
         type: "email" as const,
         key: normalizeEmail(candidate.email),
         label: candidate.name,
@@ -114,20 +143,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         image: candidate.image,
         secondaryText: candidate.email,
       })),
-    ...chaptersResult
-      .filter((chapter) => !assigned.has(`chapter:${chapter.id}`))
-      .slice(0, 12)
-      .map((chapter) => ({
-        type: "chapter" as const,
-        key: chapter.id,
-        label: chapter.name,
-        secondary: chapter.slug,
-        subjectType: "chapter" as const,
-        subjectKey: chapter.id,
-        subjectLabel: chapter.name,
-        secondaryText: chapter.slug,
-        chapterKind: chapter.kind,
-      })),
+    ...chapterCandidates,
   ].slice(0, 20);
 
   return Response.json({ candidates });
