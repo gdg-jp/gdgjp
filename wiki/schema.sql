@@ -576,10 +576,5 @@ CREATE TABLE IF NOT EXISTS "google_chat_sender_samples" (
 );
 CREATE INDEX "idx_google_chat_sender_samples_resource_created"
   ON "google_chat_sender_samples" ("resource_name", "created_at" DESC);
-CREATE TABLE IF NOT EXISTS "google_chat_document_renders" (
-  "source_document_id" TEXT NOT NULL PRIMARY KEY REFERENCES "source_documents"("id") ON DELETE CASCADE,
-  "render_data" TEXT NOT NULL,
-  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
-);
 CREATE INDEX idx_pages_parent_acl_sync
   ON pages (parent_id, acl_synced_with_parent);
