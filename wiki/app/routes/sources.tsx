@@ -562,33 +562,58 @@ export default function SourcesPage() {
       </header>
 
       <section className="mb-8 rounded-lg border border-border-default bg-surface-raised p-4">
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <button
-            type="button"
-            onClick={chooseGoogleDriveSource}
-            disabled={pickerLoading}
-            className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
-          >
-            {pickerLoading ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : (
-              <FileText className="size-4" />
-            )}
-            {t("sources.choose_google_drive")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setChatPickerOpen((open) => !open)}
-            disabled={chatLoading}
-            className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
-          >
-            {chatLoading ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : (
-              <MessageSquare className="size-4" />
-            )}
-            {t("sources.add_chat_space")}
-          </button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={chooseGoogleDriveSource}
+              disabled={pickerLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
+            >
+              {pickerLoading ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <FileText className="size-4" />
+              )}
+              {t("sources.choose_google_drive")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setChatPickerOpen((open) => !open)}
+              disabled={chatLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
+            >
+              {chatLoading ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <MessageSquare className="size-4" />
+              )}
+              {t("sources.add_chat_space")}
+            </button>
+          </div>
+          <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row">
+            <ChapterSelect
+              chapters={assignableChapters}
+              language={i18n.language}
+              t={t}
+              value={chapter}
+              onValueChange={setChapter}
+            />
+            <button
+              type="button"
+              disabled={submitting || candidates.length === 0 || !chapter}
+              onClick={() =>
+                batchFetcher.submit(
+                  { intent: "create-batch", chapter, candidates: JSON.stringify(candidates) },
+                  { method: "post" },
+                )
+              }
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60"
+            >
+              {submitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
+              {t("sources.add")}
+            </button>
+          </div>
         </div>
         <MotionSwap autoHeight stateKey="source-controls" className="motion-reduce:transition-none">
           <div>
@@ -672,29 +697,6 @@ export default function SourcesPage() {
                 ))}
               </ul>
             ) : null}
-            <div className="mt-4 flex flex-col justify-end gap-2 sm:flex-row">
-              <ChapterSelect
-                chapters={assignableChapters}
-                language={i18n.language}
-                t={t}
-                value={chapter}
-                onValueChange={setChapter}
-              />
-              <button
-                type="button"
-                disabled={submitting || candidates.length === 0 || !chapter}
-                onClick={() =>
-                  batchFetcher.submit(
-                    { intent: "create-batch", chapter, candidates: JSON.stringify(candidates) },
-                    { method: "post" },
-                  )
-                }
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60"
-              >
-                {submitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
-                {t("sources.add")}
-              </button>
-            </div>
             {needsDriveConnection ? (
               <div className="mt-3 flex items-center gap-3 rounded-md border border-border-default bg-surface-sunken p-3 text-sm">
                 <span>{t("sources.connect_hint")}</span>
