@@ -1,6 +1,6 @@
 import { and, eq, ne } from "drizzle-orm";
 import * as schema from "../../../app/db/schema";
-import { REQUIRED_GOOGLE_CHAT_SCOPES } from "../../../app/lib/google-drive.server";
+import { REQUIRED_GOOGLE_CHAT_SCOPES, driveFilesUrl } from "../../../app/lib/google-drive.server";
 import { type ResolvedSourceAsset, assetR2Key } from "./assets";
 import {
   type ChatMessage,
@@ -426,7 +426,7 @@ async function downloadAttachment(
   const media = attachment.attachmentDataRef?.resourceName;
   if (!driveId && !media) return null;
   const url = driveId
-    ? `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveId)}?alt=media`
+    ? driveFilesUrl(driveId, { alt: "media" })
     : `https://chat.googleapis.com/v1/media/${media}?alt=media`;
 
   ctx.budget.spend(1);

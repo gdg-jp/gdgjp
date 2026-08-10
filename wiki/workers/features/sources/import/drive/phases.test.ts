@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { InvalidPdfExportError } from "./pdf";
-import { DRIVE_PHASES, isSkippablePdfExport, spreadsheetUnitDescriptors } from "./phases";
+import {
+  DRIVE_PHASES,
+  driveMetadataUrl,
+  isSkippablePdfExport,
+  spreadsheetUnitDescriptors,
+} from "./phases";
+
+describe("driveMetadataUrl", () => {
+  it("requests name and mimeType with supportsAllDrives=true", () => {
+    const url = new URL(driveMetadataUrl("shared-drive-file"));
+    expect(url.pathname).toBe("/drive/v3/files/shared-drive-file");
+    expect(url.searchParams.get("fields")).toBe("name,mimeType");
+    expect(url.searchParams.get("supportsAllDrives")).toBe("true");
+  });
+});
 
 describe("spreadsheetUnitDescriptors", () => {
   it("creates Markdown and PDF units for grids, but only PDF for object sheets", () => {

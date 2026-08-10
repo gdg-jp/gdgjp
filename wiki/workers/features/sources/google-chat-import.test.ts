@@ -16,7 +16,8 @@ vi.mock("../../../app/lib/google-drive-token.server", () => ({
     grantedScopes: "google-chat",
   }),
 }));
-vi.mock("../../../app/lib/google-drive.server", () => ({
+vi.mock("../../../app/lib/google-drive.server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../app/lib/google-drive.server")>()),
   GOOGLE_DRIVE_REAUTH_MESSAGE: "Reconnect Google Drive",
   hasRequiredGoogleChatScopes: () => true,
   REQUIRED_GOOGLE_CHAT_SCOPES: ["google-chat"],

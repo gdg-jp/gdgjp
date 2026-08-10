@@ -4,6 +4,7 @@ import { convertGoogleDocsDocument } from "../../../../../app/lib/google-docs-ma
 import {
   GOOGLE_DRIVE_REAUTH_MESSAGE,
   type GoogleDocsDocument,
+  driveFilesUrl,
   extractFileId,
   getGoogleDocumentWithTabs,
 } from "../../../../../app/lib/google-drive.server";
@@ -69,6 +70,10 @@ function fileId(current: CurrentSourceImport): string {
   return current.source.externalId || extractFileId(current.source.url);
 }
 
+export function driveMetadataUrl(id: string): string {
+  return driveFilesUrl(id, { fields: "name,mimeType" });
+}
+
 function expectedKind(mimeType: string): string {
   if (mimeType === DOC_MIME) return "google-doc";
   if (mimeType === SHEET_MIME) return "google-sheet";
@@ -83,10 +88,9 @@ async function stepMetadata(
   if (metaGet(ctx.sql, "drive_mime_type")) return { phaseComplete: true };
   if (!ctx.budget.canSpend(2)) return { phaseComplete: false };
   ctx.budget.spend(1);
-  const response = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId(current))}?fields=name,mimeType`,
-    { headers: { Authorization: `Bearer ${requireToken(ctx)}` } },
-  );
+  const response = await fetch(driveMetadataUrl(fileId(current)), {
+    headers: { Authorization: `Bearer ${requireToken(ctx)}` },
+  });
   if (!response.ok) {
     throw new Error(
       `Google Drive file metadata failed (${response.status}): ${await response.text()}`,

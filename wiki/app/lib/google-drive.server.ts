@@ -458,7 +458,7 @@ export async function getGoogleDocumentWithTabs(
 
 export async function getDriveFileName(fileId: string, accessToken: string): Promise<string> {
   const res = await fetchWithTimeout(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=name`,
+    driveFilesUrl(fileId, { fields: "name" }),
     { headers: { Authorization: `Bearer ${accessToken}` } },
     TOKEN_TIMEOUT_MS,
   );
@@ -467,6 +467,25 @@ export async function getDriveFileName(fileId: string, accessToken: string): Pro
   }
   const meta = (await res.json()) as { name?: string };
   return meta.name ?? fileId;
+}
+
+// ---------------------------------------------------------------------------
+// Drive v3 files.get URL builder
+// ---------------------------------------------------------------------------
+
+const DRIVE_FILES_ENDPOINT = "https://www.googleapis.com/drive/v3/files";
+
+/**
+ * Builds a Drive v3 `files.get` URL (metadata or `alt=media`).
+ *
+ * `supportsAllDrives=true` is mandatory and deliberately not caller-overridable: without it Drive
+ * answers 404 "File not found" for every item in a shared drive, which is where this org keeps its
+ * content. `files.export` is NOT gated by this flag — do not route export URLs through here. A future
+ * `files.list` would additionally need `includeItemsFromAllDrives=true`.
+ */
+export function driveFilesUrl(fileId: string, params: Record<string, string> = {}): string {
+  const query = new URLSearchParams({ ...params, supportsAllDrives: "true" });
+  return `${DRIVE_FILES_ENDPOINT}/${encodeURIComponent(fileId)}?${query}`;
 }
 
 // ---------------------------------------------------------------------------
