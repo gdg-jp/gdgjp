@@ -531,6 +531,7 @@
     "newPage_ai": "AIで作成",
     "newPage_analyze": "AIで分析 (Beta)",
     "newPage_manual": "手動で作成",
+    "importZip": "ZIPをインポート",
     "collapse": "折りたたむ",
     "expand": "展開する",
     "newTaskList": "タスクリストを作成"
@@ -553,6 +554,19 @@
       "picker": "Google Driveを開けませんでした。もう一度お試しください。",
       "preview": "インポート内容を確認できませんでした。",
       "import": "Google Documentをインポートできませんでした。"
+    }
+  },
+  "zipImport": {
+    "title": "ZIPアーカイブをインポート",
+    "description": "ZIP内のMarkdown、CSV、画像を限定公開のWikiページツリーとしてインポートします。",
+    "choose": "ZIPファイルを選択",
+    "chooseAnother": "別のZIPファイルを選択",
+    "import": "インポート",
+    "summary": "{{pages}}ページ、{{folders}}フォルダ、Markdown {{markdown}}件、CSV {{csv}}件、画像 {{images}}件",
+    "skipped": "未対応または無効なファイル {{count}}件をスキップします。",
+    "errors": {
+      "preview": "ZIPアーカイブをプレビューできませんでした。",
+      "import": "ZIPアーカイブをインポートできませんでした。"
     }
   },
   "tasks": {
