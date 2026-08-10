@@ -22,7 +22,7 @@ import {
   enqueueDueSourceRefreshes,
   fetchSource,
 } from "./features/sources/fetch-source";
-import { GoogleChatImportDurableObject } from "./google-chat-import-durable-object";
+import { SourceImportDurableObject } from "./source-import-durable-object";
 import { WikiGenerationPhaseWorkflow } from "./workflows/wiki-generation-phase-workflow";
 
 // The server build is a virtual module provided by @react-router/dev/vite at build time.
@@ -172,5 +172,5 @@ export default {
 
 // Re-export Durable Object class so wrangler registers it
 export { CollabDurableObject };
-export { GoogleChatImportDurableObject };
+export { SourceImportDurableObject };
 export { WikiGenerationAgent, WikiGenerationPhaseWorkflow };

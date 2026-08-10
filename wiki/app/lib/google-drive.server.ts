@@ -35,6 +35,9 @@ export const REQUIRED_GOOGLE_CHAT_SCOPES = [
   GOOGLE_DIRECTORY_READONLY_SCOPE,
 ] as const;
 
+export const GOOGLE_DRIVE_REAUTH_MESSAGE =
+  "Google Drive access is missing required scopes. Disconnect and reconnect Google from /sources to grant the required access.";
+
 /** True when every required Chat scope appears in a space-delimited grant string. */
 export function hasRequiredGoogleChatScopes(grantedScopes: string | null | undefined): boolean {
   if (!grantedScopes) return false;
@@ -159,7 +162,7 @@ export async function refreshAccessToken(
 }
 
 // ---------------------------------------------------------------------------
-// Google Drive file export as PDF (or plain text fallback)
+// Google Drive file export as PDF
 // ---------------------------------------------------------------------------
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024; // 20 MB
@@ -180,41 +183,23 @@ export async function exportFileAsPdf(fileId: string, accessToken: string): Prom
     EXPORT_TIMEOUT_MS,
   );
 
-  if (pdfResponse.ok) {
-    const buffer = await pdfResponse.arrayBuffer();
-    if (buffer.byteLength <= MAX_PDF_BYTES) {
-      return { buffer, mimeType: "application/pdf" };
-    }
-    // PDF too large — fall back to text
+  if (!pdfResponse.ok) {
+    const err = await pdfResponse.text();
+    throw new Error(`Google Drive PDF export failed (${pdfResponse.status}): ${err}`);
   }
-
-  // Fallback: plain text export
-  const textUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/export?mimeType=text/plain`;
-  const textResponse = await fetchWithTimeout(
-    textUrl,
-    { headers: { Authorization: `Bearer ${accessToken}` } },
-    EXPORT_TIMEOUT_MS,
-  );
-
-  if (!textResponse.ok) {
-    const err = await textResponse.text();
-    throw new Error(`Google Drive export failed: ${textResponse.status} ${err}`);
+  const contentType = pdfResponse.headers.get("content-type")?.split(";", 1)[0]?.trim();
+  if (contentType !== "application/pdf") {
+    throw new Error(`Google Drive PDF export returned ${contentType || "an unknown content type"}`);
   }
-
-  let text = await textResponse.text();
-  let warning: string | undefined;
-  if (text.length > MAX_TEXT_CHARS) {
-    text = text.slice(0, MAX_TEXT_CHARS);
-    warning = "ドキュメントが大きすぎるため、最初の50,000文字のみ使用されました。";
+  const buffer = await pdfResponse.arrayBuffer();
+  if (buffer.byteLength > MAX_PDF_BYTES) {
+    throw new Error(`Google Drive PDF export exceeds ${MAX_PDF_BYTES} bytes`);
   }
-
-  const buffer = new TextEncoder().encode(text).buffer as ArrayBuffer;
-  return {
-    buffer,
-    mimeType: "text/plain",
-    warning:
-      warning ?? "PDFのエクスポートに失敗したため、プレーンテキストにフォールバックしました。",
-  };
+  const magic = new Uint8Array(buffer, 0, Math.min(5, buffer.byteLength));
+  if (magic.length < 5 || new TextDecoder().decode(magic) !== "%PDF-") {
+    throw new Error("Google Drive PDF export returned invalid PDF bytes");
+  }
+  return { buffer, mimeType: "application/pdf" };
 }
 
 // ---------------------------------------------------------------------------
@@ -477,7 +462,9 @@ export async function getDriveFileName(fileId: string, accessToken: string): Pro
     { headers: { Authorization: `Bearer ${accessToken}` } },
     TOKEN_TIMEOUT_MS,
   );
-  if (!res.ok) return fileId;
+  if (!res.ok) {
+    throw new Error(`Google Drive file metadata failed (${res.status})`);
+  }
   const meta = (await res.json()) as { name?: string };
   return meta.name ?? fileId;
 }

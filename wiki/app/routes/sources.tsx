@@ -49,6 +49,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
             path: schema.sourceDocuments.path,
             title: schema.sourceDocuments.title,
             contentHash: schema.sourceDocuments.contentHash,
+            mediaType: schema.sourceDocuments.mediaType,
             capturedAt: schema.sourceDocuments.capturedAt,
             status: schema.sourceDocuments.status,
           })
@@ -98,6 +99,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   if (intent === "create") {
     const result = await createSource(env, {
       url: form.get("url"),
+      title: form.get("title"),
       chapter: form.get("chapter"),
       refreshPolicy: form.get("refreshPolicy"),
       user,
@@ -318,6 +320,7 @@ export default function SourcesPage() {
           name="url"
           value={selectedDocument ? (sourceUrlFromGoogleDocument(selectedDocument) ?? "") : ""}
         />
+        <input type="hidden" name="title" value={selectedDocument?.name ?? ""} />
         <p className="text-sm font-medium text-content-secondary">{t("sources.document_label")}</p>
         <div className="mt-2 flex flex-col gap-2 sm:flex-row">
           <button
@@ -525,6 +528,7 @@ function SourceRows({
       path: string;
       title: string;
       contentHash: string;
+      mediaType: string;
       capturedAt: Date | string;
       status: string;
     }>;
@@ -624,6 +628,9 @@ function SourceRows({
                   >
                     <span className="font-medium">{doc.title}</span>
                     <span className="text-content-tertiary">{doc.path}</span>
+                    <span className="rounded bg-surface-hover px-1.5 py-0.5 font-mono text-content-tertiary">
+                      {doc.mediaType}
+                    </span>
                     <span className="font-mono text-content-disabled">
                       {doc.contentHash.slice(0, 12)}…
                     </span>

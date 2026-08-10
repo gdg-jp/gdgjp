@@ -56,6 +56,21 @@ export function createSourcesTestDb() {
       "utf8",
     ),
   );
+  sqlite.exec(
+    readFileSync(
+      new URL("../../../migrations/0045_source_import_runs.sql", import.meta.url),
+      "utf8",
+    ),
+  );
+  sqlite.exec(
+    readFileSync(
+      new URL("../../../migrations/0046_source_document_media_type.sql", import.meta.url),
+      "utf8",
+    ),
+  );
+  sqlite.exec(
+    readFileSync(new URL("../../../migrations/0047_source_kinds.sql", import.meta.url), "utf8"),
+  );
 
   const execute = async (
     sql: string,

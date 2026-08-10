@@ -171,6 +171,7 @@ SourcesManifestEntry:
     title: { type: string }
     path: { type: string }
     contentHash: { type: string }
+    mediaType: { type: string }
     capturedAt: { type: integer, nullable: true }
     ingestedHash: { type: string, nullable: true }
 SourcesManifest:

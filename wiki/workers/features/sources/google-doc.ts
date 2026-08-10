@@ -1,15 +1,5 @@
 import type { GoogleDocsInlineImage } from "../../../app/lib/google-docs-markdown.server";
-import {
-  type GoogleDocsMarkdownNode,
-  convertGoogleDocsDocument,
-} from "../../../app/lib/google-docs-markdown.server";
-import { getGoogleDriveDocumentKind } from "../../../app/lib/google-drive-utils";
-import {
-  exportFileAsText,
-  extractFileId,
-  getDriveFileName,
-  getGoogleDocumentWithTabs,
-} from "../../../app/lib/google-drive.server";
+import type { GoogleDocsMarkdownNode } from "../../../app/lib/google-docs-markdown.server";
 import { googleDocsPathSegment } from "../ingestion/tools/google-docs/workspace";
 
 export interface FetchedSourceDocument {
@@ -19,64 +9,12 @@ export interface FetchedSourceDocument {
   images: GoogleDocsInlineImage[];
 }
 
-export interface GoogleDocFetchResult {
-  title: string;
-  documents: FetchedSourceDocument[];
-  /** Reused for inline image downloads, which need the same authorization. */
-  accessToken: string;
-}
-
-/**
- * Fetch a Google Doc/Sheet/Slide into raw source_documents.
- *
- * Docs go through `convertGoogleDocsDocument` — the same converter the Wiki page
- * import uses — so raw keeps headings, tables, footnotes and smart chips. The
- * `/google-docs` workspace adapter is deliberately not used here: it flattens a
- * document to bare text runs, which is fine for bounded agent browsing but loses
- * exactly the structure the raw layer exists to preserve.
- */
-export async function fetchGoogleDocSource(
-  url: string,
-  getAccessToken: () => Promise<string>,
-): Promise<GoogleDocFetchResult> {
-  const documentKind = getGoogleDriveDocumentKind(url);
-  if (!documentKind) throw new Error("Unsupported Google Workspace URL");
-
-  const fileId = extractFileId(url);
-  const accessToken = await getAccessToken();
-
-  if (documentKind !== "document") {
-    const title = await getDriveFileName(fileId, accessToken).catch(() => fileId);
-    const exportMimeType = documentKind === "spreadsheet" ? "text/csv" : "text/plain";
-    return {
-      title,
-      accessToken,
-      documents: [
-        {
-          path: "index",
-          title,
-          markdown: await exportFileAsText(fileId, accessToken, exportMimeType),
-          images: [],
-        },
-      ],
-    };
-  }
-
-  const document = await getGoogleDocumentWithTabs(fileId, accessToken);
-  const root = convertGoogleDocsDocument(document);
-  return {
-    title: document.title?.trim() || fileId,
-    accessToken,
-    documents: collectDocuments(root),
-  };
-}
-
 /**
  * The document body becomes `index`; tabs keep their title hierarchy. The document
  * title is deliberately left out of the path so renaming the Doc does not orphan
  * every source_document under it.
  */
-function collectDocuments(root: GoogleDocsMarkdownNode): FetchedSourceDocument[] {
+export function collectDocuments(root: GoogleDocsMarkdownNode): FetchedSourceDocument[] {
   const documents: FetchedSourceDocument[] = [];
   if (root.markdown.trim()) {
     documents.push({
@@ -112,7 +50,7 @@ function collectTabs(
 }
 
 /** Sibling tabs may share a title; disambiguate so `(source_id, path)` stays unique. */
-function withUniqueNames<T extends { name: string }>(values: readonly T[]): T[] {
+export function withUniqueNames<T extends { name: string }>(values: readonly T[]): T[] {
   const occurrences = new Map<string, number>();
   return values.map((value) => {
     const occurrence = (occurrences.get(value.name) ?? 0) + 1;

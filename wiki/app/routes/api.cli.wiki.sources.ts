@@ -42,6 +42,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
           sourceId: schema.sourceDocuments.sourceId,
           path: schema.sourceDocuments.path,
           title: schema.sourceDocuments.title,
+          mediaType: schema.sourceDocuments.mediaType,
           contentHash: schema.sourceDocuments.contentHash,
           capturedAt: schema.sourceDocuments.capturedAt,
         })
@@ -55,6 +56,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
           path: schema.sourceAssets.path,
           title: schema.sourceDocuments.title,
           contentHash: schema.sourceAssets.contentHash,
+          mediaType: schema.sourceAssets.mimeType,
           capturedAt: schema.sourceDocuments.capturedAt,
         })
         .from(schema.sourceAssets)
@@ -106,8 +108,9 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       documentId: doc.id,
       sourceId: doc.sourceId,
       title: doc.title,
-      path: `raw/${doc.sourceId}/${doc.path}.md`,
+      path: `raw/${doc.sourceId}/${doc.path}`,
       contentHash: doc.contentHash,
+      mediaType: doc.mediaType,
       capturedAt: toUnixSeconds(doc.capturedAt),
       ingestedHash: ingestionByDocId.get(doc.id) ?? null,
     });
@@ -127,6 +130,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       // Asset path is already the clone-relative R2 key (raw/<sourceId>/assets/...).
       path: asset.path.startsWith("raw/") ? asset.path : `raw/${doc.sourceId}/assets/${asset.path}`,
       contentHash: asset.contentHash,
+      mediaType: asset.mediaType,
       capturedAt: toUnixSeconds(asset.capturedAt),
       ingestedHash: ingestionByDocId.get(asset.id) ?? null,
     });
@@ -193,6 +197,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       title: rendered.title || page.slug,
       path: `raw/wiki-human/${page.slug}.md`,
       contentHash,
+      mediaType: "text/markdown",
       capturedAt: toUnixSeconds(page.updatedAt ?? page.createdAt),
       ingestedHash: ingestionByDocId.get(documentId) ?? null,
     });

@@ -1,7 +1,7 @@
 import { and, eq, ne, notInArray } from "drizzle-orm";
-import * as schema from "../../../app/db/schema";
-import type { getDb } from "../../../app/lib/db.server";
-import { isSourceFetchAttemptCurrent, sourceFetchAttemptIsCurrent } from "./persist";
+import * as schema from "../../../../app/db/schema";
+import type { getDb } from "../../../../app/lib/db.server";
+import { isSourceFetchAttemptCurrent, sourceFetchAttemptIsCurrent } from "../persist";
 
 /** Reconcile only while the owning fetch lease is current. */
 export async function archiveMissingDocuments(

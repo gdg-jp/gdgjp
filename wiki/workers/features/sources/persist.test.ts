@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MARKDOWN_MEDIA_TYPE, PDF_MEDIA_TYPE, markdownBody } from "./media-type";
 import { createSourcesTestDb } from "./test-db";
 
 const { db, sqlite } = createSourcesTestDb();
@@ -48,7 +49,8 @@ describe("persistSourceDocument", () => {
       fetchAttemptId: ATTEMPT_ID,
       path: "index",
       title: "Hello",
-      markdown: "# Hello",
+      body: markdownBody("# Hello"),
+      mediaType: MARKDOWN_MEDIA_TYPE,
     };
     await persistSourceDocument(env(), input);
     putMock.mockClear();
@@ -65,7 +67,8 @@ describe("persistSourceDocument", () => {
       fetchAttemptId: ATTEMPT_ID,
       path: "index",
       title: "Hello",
-      markdown: "# Hello",
+      body: markdownBody("# Hello"),
+      mediaType: MARKDOWN_MEDIA_TYPE,
       assets: [
         {
           path: "raw/src-1/assets/hello.png",
@@ -80,7 +83,7 @@ describe("persistSourceDocument", () => {
     const hash = await sha256Hex(new TextEncoder().encode("# Hello"));
     expect(result).toMatchObject({ skipped: false, written: true, contentHash: hash });
     expect(putMock).toHaveBeenCalledWith(
-      contentR2Key(SOURCE_ID, "doc-fixed-id", hash),
+      contentR2Key(SOURCE_ID, "doc-fixed-id", hash, MARKDOWN_MEDIA_TYPE),
       expect.any(Uint8Array),
       expect.any(Object),
     );
@@ -95,7 +98,8 @@ describe("persistSourceDocument", () => {
       fetchAttemptId: ATTEMPT_ID,
       path: "2026-08",
       title: "August",
-      markdown: "# First",
+      body: markdownBody("# First"),
+      mediaType: MARKDOWN_MEDIA_TYPE,
       assets: [
         {
           path: "raw/src-1/assets/first.png",
@@ -112,7 +116,8 @@ describe("persistSourceDocument", () => {
       fetchAttemptId: ATTEMPT_ID,
       path: "2026-08",
       title: "August",
-      markdown: "# First\n\n# Second",
+      body: markdownBody("# First\n\n# Second"),
+      mediaType: MARKDOWN_MEDIA_TYPE,
       assetPolicy: "merge",
       assets: [
         {
@@ -137,7 +142,8 @@ describe("persistSourceDocument", () => {
       fetchAttemptId: ATTEMPT_ID,
       path: "index",
       title: "Document",
-      markdown: "# First",
+      body: markdownBody("# First"),
+      mediaType: MARKDOWN_MEDIA_TYPE,
       assets: [
         {
           path: "raw/src-1/assets/stale.png",
@@ -154,7 +160,8 @@ describe("persistSourceDocument", () => {
       fetchAttemptId: ATTEMPT_ID,
       path: "index",
       title: "Document",
-      markdown: "# Updated",
+      body: markdownBody("# Updated"),
+      mediaType: MARKDOWN_MEDIA_TYPE,
       assetPolicy: "replace",
       assets: [
         {
@@ -180,7 +187,8 @@ describe("persistSourceDocument", () => {
       fetchAttemptId: ATTEMPT_ID,
       path: "index",
       title: "Hello",
-      markdown: "# Hello",
+      body: markdownBody("# Hello"),
+      mediaType: MARKDOWN_MEDIA_TYPE,
       assets: [],
     });
 
@@ -203,7 +211,8 @@ describe("persistSourceDocument", () => {
       fetchAttemptId: ATTEMPT_ID,
       path: "index",
       title: "Hello",
-      markdown: "# Hello",
+      body: markdownBody("# Hello"),
+      mediaType: MARKDOWN_MEDIA_TYPE,
       assets: [
         {
           path: "raw/src-1/assets/hello.png",
@@ -222,6 +231,29 @@ describe("persistSourceDocument", () => {
     });
     expect(sqlite.prepare("SELECT COUNT(*) AS count FROM source_assets").get()).toEqual({
       count: 0,
+    });
+  });
+
+  it("uses a PDF R2 key and binary content type for a PDF document", async () => {
+    const body = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
+    const result = await persistSourceDocument(env(), {
+      sourceId: SOURCE_ID,
+      fetchAttemptId: ATTEMPT_ID,
+      path: "slides.pdf",
+      title: "Slides PDF",
+      body,
+      mediaType: PDF_MEDIA_TYPE,
+    });
+
+    const hash = await sha256Hex(body);
+    expect(result.r2Key).toBe(contentR2Key(SOURCE_ID, "doc-fixed-id", hash, PDF_MEDIA_TYPE));
+    expect(putMock).toHaveBeenCalledWith(
+      expect.stringMatching(/\.pdf$/),
+      body,
+      expect.objectContaining({ httpMetadata: { contentType: PDF_MEDIA_TYPE } }),
+    );
+    expect(sqlite.prepare("SELECT media_type FROM source_documents").get()).toEqual({
+      media_type: PDF_MEDIA_TYPE,
     });
   });
 });

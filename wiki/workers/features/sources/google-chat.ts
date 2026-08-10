@@ -47,15 +47,15 @@ export interface NormalizeChatOptions {
   resolveSenderName?: (sender: ChatMessageSender | undefined) => string;
   /** Known root-message bodies, including parents fetched outside the cursor window. */
   threadParents?: ReadonlyMap<string, string>;
-  /** Time zone for YYYY-MM paths and timestamps. Defaults to Asia/Tokyo. */
+  /** Time zone for Monday-date paths and timestamps. Defaults to Asia/Tokyo. */
   timeZone?: string;
 }
 
-export interface NormalizedMonth {
+export interface NormalizedWeek {
   path: string;
   title: string;
   markdown: string;
-  /** createTime of the latest message in this month (RFC-3339). */
+  /** createTime of the latest message in this week (RFC-3339). */
   cursor: string | null;
   urls: string[];
   attachments: Array<{
@@ -90,21 +90,71 @@ function trimTrailingPunctuation(url: string): string {
   return url.replace(/[),.;!?]+$/u, "");
 }
 
-export function monthPathFromCreateTime(
-  createTime: string,
-  timeZone = "Asia/Tokyo",
-): string | null {
+/** Return the Asia/Tokyo (by default) date of the Monday containing createTime. */
+export function weekPathFromCreateTime(createTime: string, timeZone = "Asia/Tokyo"): string | null {
   const date = new Date(createTime);
   if (Number.isNaN(date.getTime())) return null;
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
     month: "2-digit",
+    day: "2-digit",
   }).formatToParts(date);
   const year = parts.find((part) => part.type === "year")?.value;
   const month = parts.find((part) => part.type === "month")?.value;
-  if (!year || !month) return null;
-  return `${year}-${month}`;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) return null;
+
+  // Interpret the formatted local calendar date at UTC midnight. This is deliberate:
+  // we only need calendar arithmetic, so it avoids applying the Tokyo offset twice.
+  const localDate = new Date(`${year}-${month}-${day}T00:00:00Z`);
+  const daysSinceMonday = (localDate.getUTCDay() + 6) % 7;
+  localDate.setUTCDate(localDate.getUTCDate() - daysSinceMonday);
+  return localDate.toISOString().slice(0, 10);
+}
+
+/** RFC-3339 bounds for a Monday-date document, in the source's local time zone. */
+export function weekBoundsRfc3339(
+  weekPath: string,
+  timeZone = "Asia/Tokyo",
+): { start: string; end: string } | null {
+  // The path is a local calendar date. Constructing it at UTC is only for calendar
+  // arithmetic; the resulting date parts are then formatted in the requested zone.
+  const localMonday = new Date(`${weekPath}T00:00:00Z`);
+  if (Number.isNaN(localMonday.getTime())) return null;
+  const format = (date: Date) => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(date);
+    const value = (type: Intl.DateTimeFormatPartTypes) =>
+      parts.find((part) => part.type === type)?.value;
+    const year = value("year");
+    const month = value("month");
+    const day = value("day");
+    return year && month && day ? `${year}-${month}-${day}` : null;
+  };
+  // For Asia/Tokyo this date is the previous calendar day, so use a noon UTC anchor
+  // before formatting to recover the requested local calendar date.
+  localMonday.setUTCHours(12);
+  const startDate = format(localMonday);
+  localMonday.setUTCDate(localMonday.getUTCDate() + 7);
+  const endDate = format(localMonday);
+  if (!startDate || !endDate) return null;
+  // Google accepts offset-less RFC-3339 UTC values. Tokyo is the only current source
+  // zone, but derive its actual offset rather than hard-coding it in path arithmetic.
+  const offsetParts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "longOffset",
+  }).formatToParts(new Date(`${startDate}T12:00:00Z`));
+  const offset =
+    offsetParts.find((part) => part.type === "timeZoneName")?.value?.replace("GMT", "") || "+00:00";
+  return {
+    start: new Date(`${startDate}T00:00:00${offset}`).toISOString().replace(/\.\d{3}Z$/, "Z"),
+    end: new Date(`${endDate}T00:00:00${offset}`).toISOString().replace(/\.\d{3}Z$/, "Z"),
+  };
 }
 
 export function formatChatTimestamp(createTime: string, timeZone = "Asia/Tokyo"): string {
@@ -191,6 +241,18 @@ function oneLineQuote(text: string): string {
   return `> ${line.length > 200 ? `${line.slice(0, 197)}...` : line}`;
 }
 
+function threadHeading(text: string | undefined): string {
+  const line = text?.replace(/\s+/g, " ").trim() ?? "";
+  if (!line) return "Thread";
+  return line.length > 60 ? `${line.slice(0, 57)}...` : line;
+}
+
+function weekTitle(weekPath: string): string {
+  const start = new Date(`${weekPath}T00:00:00Z`);
+  start.setUTCDate(start.getUTCDate() + 6);
+  return `${weekPath} – ${start.toISOString().slice(0, 10)}`;
+}
+
 function threadParentText(message: ChatMessage): string | undefined {
   const text = message.text ?? message.argumentText ?? "";
   return text.trim() ? text : undefined;
@@ -213,13 +275,13 @@ export function peopleResourceName(userName: string): string {
 }
 
 /**
- * Turn a Chat messages.list payload into monthly Markdown documents.
+ * Turn a Chat messages.list payload into weekly, thread-grouped Markdown documents.
  * Pure: no network. Caller supplies sender resolution when names are prefetched.
  */
 export function normalizeChatMessages(
   messages: readonly ChatMessage[],
   options: NormalizeChatOptions = {},
-): NormalizedMonth[] {
+): NormalizedWeek[] {
   const timeZone = options.timeZone ?? "Asia/Tokyo";
   const resolveSender = options.resolveSenderName ?? defaultSenderName;
 
@@ -229,7 +291,8 @@ export function normalizeChatMessages(
     return at < bt ? -1 : at > bt ? 1 : 0;
   });
 
-  // First non-reply in each thread is the parent we quote under replies.
+  // Roots fetched outside the selected week are context-only. Roots in the current
+  // week are rendered as normal messages and must not be repeated as quotes.
   const threadParents = new Map(options.threadParents);
   for (const message of sorted) {
     const threadName = message.thread?.name;
@@ -240,83 +303,108 @@ export function normalizeChatMessages(
     }
   }
 
-  const months = new Map<
+  const weeks = new Map<
     string,
     {
-      blocks: string[];
       cursor: string | null;
       urls: Set<string>;
-      attachments: NormalizedMonth["attachments"];
+      attachments: NormalizedWeek["attachments"];
+      threads: Map<string, ChatMessage[]>;
     }
   >();
 
-  let attachmentIndex = 0;
-  for (const message of sorted) {
+  for (let messageIndex = 0; messageIndex < sorted.length; messageIndex += 1) {
+    const message = sorted[messageIndex];
     if (!message.createTime) continue;
-    const path = monthPathFromCreateTime(message.createTime, timeZone);
+    const path = weekPathFromCreateTime(message.createTime, timeZone);
     if (!path) continue;
 
-    let bucket = months.get(path);
+    let bucket = weeks.get(path);
     if (!bucket) {
-      bucket = { blocks: [], cursor: null, urls: new Set(), attachments: [] };
-      months.set(path, bucket);
+      bucket = { cursor: null, urls: new Set(), attachments: [], threads: new Map() };
+      weeks.set(path, bucket);
     }
 
-    const sender = resolveSender(message.sender);
-    const timestamp = formatChatTimestamp(message.createTime, timeZone);
-    const body = (message.text ?? message.argumentText ?? "").trimEnd();
-    const lines: string[] = [`## [${timestamp}] ${sender}`, ""];
+    const threadKey = message.thread?.name || message.name || `message-${messageIndex}`;
+    const thread = bucket.threads.get(threadKey) ?? [];
+    thread.push(message);
+    bucket.threads.set(threadKey, thread);
 
-    if (message.threadReply && message.thread?.name) {
-      const parent = threadParents.get(message.thread.name);
-      lines.push(
-        parent === undefined ? `> _(${THREAD_PARENT_UNAVAILABLE})_` : oneLineQuote(parent),
-        "",
-      );
-    }
-
-    if (body) lines.push(body, "");
-
-    for (const attachment of message.attachment ?? []) {
-      const objectId = attachmentObjectId(attachment, attachmentIndex++);
+    for (const [attachmentIndex, attachment] of (message.attachment ?? []).entries()) {
+      const objectId = attachmentObjectId(attachment, messageIndex * 1000 + attachmentIndex);
       const contentName = attachment.contentName || objectId;
       const contentType = attachment.contentType || "application/octet-stream";
       bucket.attachments.push({ objectId, contentName, contentType, attachment });
-      const isImage = contentType.startsWith("image/");
-      if (isImage) {
-        lines.push(`![${contentName}](attachment:${objectId})`, "");
-      } else {
-        lines.push(`[${contentName}](attachment:${objectId})`, "");
-      }
     }
 
     for (const url of extractUrlsFromMessage(message)) bucket.urls.add(url);
-
-    bucket.blocks.push(lines.join("\n").trimEnd());
     if (!bucket.cursor || message.createTime > bucket.cursor) {
       bucket.cursor = message.createTime;
     }
   }
 
-  return [...months.entries()]
+  return [...weeks.entries()]
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([path, bucket]) => ({
       path,
-      title: path,
-      markdown: `${bucket.blocks.join("\n\n")}\n`,
+      title: weekTitle(path),
+      markdown: `${[...bucket.threads.entries()]
+        .sort(([, left], [, right]) => {
+          const leftTime = left[0]?.createTime ?? "";
+          const rightTime = right[0]?.createTime ?? "";
+          return leftTime < rightTime ? -1 : leftTime > rightTime ? 1 : 0;
+        })
+        .map(([threadName, messages]) => {
+          const ordered = [...messages].sort((left, right) => {
+            if (left.threadReply !== right.threadReply) return left.threadReply ? 1 : -1;
+            const leftTime = left.createTime ?? "";
+            const rightTime = right.createTime ?? "";
+            return leftTime < rightTime ? -1 : leftTime > rightTime ? 1 : 0;
+          });
+          const root = ordered.find((message) => !message.threadReply);
+          const first = ordered[0];
+          if (!first?.createTime) return "";
+          const lines = [
+            `## [${formatChatTimestamp(first.createTime, timeZone)}] ${threadHeading(threadParentText(root ?? first))}`,
+            "",
+          ];
+          if (!root && messages.some((message) => message.threadReply) && threadName) {
+            const parent = threadParents.get(threadName);
+            lines.push(
+              parent === undefined ? `> _(${THREAD_PARENT_UNAVAILABLE})_` : oneLineQuote(parent),
+              "",
+            );
+          }
+          for (const message of ordered) {
+            if (!message.createTime) continue;
+            const body = (message.text ?? message.argumentText ?? "").trimEnd();
+            lines.push(
+              `### [${formatChatTimestamp(message.createTime, timeZone)}] ${resolveSender(message.sender)}`,
+              "",
+            );
+            if (body) lines.push(body, "");
+            for (const [attachmentIndex, attachment] of (message.attachment ?? []).entries()) {
+              const objectId = attachmentObjectId(
+                attachment,
+                sorted.indexOf(message) * 1000 + attachmentIndex,
+              );
+              const contentName = attachment.contentName || objectId;
+              lines.push(
+                attachment.contentType?.startsWith("image/")
+                  ? `![${contentName}](attachment:${objectId})`
+                  : `[${contentName}](attachment:${objectId})`,
+                "",
+              );
+            }
+          }
+          return lines.join("\n").trimEnd();
+        })
+        .filter(Boolean)
+        .join("\n\n")}\n`,
       cursor: bucket.cursor,
       urls: [...bucket.urls],
       attachments: bucket.attachments,
     }));
-}
-
-/** Append newly normalized markdown to an existing monthly document body. */
-export function appendMonthlyMarkdown(existing: string, addition: string): string {
-  const left = existing.replace(/\s*$/, "");
-  const right = addition.replace(/^\s*/, "").replace(/\s*$/, "");
-  if (!left) return right ? `${right}\n` : "";
-  if (!right) return `${left}\n`;
-  return `${left}\n\n${right}\n`;
 }
 
 export function mergeDocumentUrls(
@@ -341,23 +429,152 @@ export function mergeDocumentUrls(
   return JSON.stringify({ urls: [...set].sort() });
 }
 
-export function currentMonthPath(now = new Date(), timeZone = "Asia/Tokyo"): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-  }).formatToParts(now);
-  const year = parts.find((part) => part.type === "year")?.value;
-  const month = parts.find((part) => part.type === "month")?.value;
-  return `${year}-${month}`;
-}
-
-export function startOfMonthRfc3339(monthPath: string): string {
-  // Asia/Tokyo midnight on the 1st — matches the default path time zone.
-  return new Date(`${monthPath}-01T00:00:00+09:00`).toISOString().replace(/\.\d{3}Z$/, "Z");
-}
-
 const PEOPLE_BATCH_SIZE = 200;
+
+export interface SenderLookupOptions {
+  onFetch?: () => void;
+  /** Stop before issuing another request when the import tick has no budget left. */
+  shouldContinue?: () => boolean;
+}
+
+interface GooglePeopleErrorInput {
+  operation: "batch_get" | "directory_list";
+  batchSize?: number;
+  hasPageToken?: boolean;
+}
+
+/** Log Google People API diagnostics without recording directory or message content. */
+export async function logGooglePeopleError(
+  response: Response,
+  input: GooglePeopleErrorInput,
+): Promise<void> {
+  let googleError: Record<string, unknown> | null = null;
+  try {
+    const body = (await response.json()) as { error?: unknown };
+    if (body.error && typeof body.error === "object" && !Array.isArray(body.error)) {
+      const error = body.error as Record<string, unknown>;
+      googleError = {
+        code: error.code,
+        status: error.status,
+        message: error.message,
+        details: error.details,
+      };
+    }
+  } catch {
+    // Non-JSON proxy responses still have useful HTTP metadata.
+  }
+  console.error(
+    JSON.stringify({
+      component: "sources",
+      integration: "google-chat",
+      event: "people_lookup_failed",
+      operation: input.operation,
+      httpStatus: response.status,
+      httpStatusText: response.statusText || undefined,
+      batchSize: input.batchSize,
+      hasPageToken: input.hasPageToken,
+      googleError,
+    }),
+  );
+}
+
+function isNetworkFailure(error: unknown): boolean {
+  return (
+    error instanceof TypeError || (error instanceof DOMException && error.name === "AbortError")
+  );
+}
+
+function displayNameFromPerson(person: {
+  names?: Array<{ displayName?: string }>;
+  emailAddresses?: Array<{ value?: string }>;
+}): string | undefined {
+  const displayName = person.names?.[0]?.displayName?.trim();
+  if (displayName) return displayName;
+  const email = person.emailAddresses?.find((item) => item.value?.includes("@"))?.value;
+  const localPart = email?.split("@", 1)[0]?.trim();
+  return localPart || undefined;
+}
+
+function addPersonNames(
+  names: Map<string, string>,
+  person: {
+    resourceName?: string;
+    metadata?: { sources?: Array<{ id?: string }> };
+    names?: Array<{ displayName?: string }>;
+  },
+): void {
+  const displayName = person.names?.[0]?.displayName?.trim();
+  if (!displayName) return;
+  const ids = [
+    person.resourceName?.replace(/^people\//, ""),
+    ...(person.metadata?.sources ?? []).map((source) => source.id),
+  ];
+  for (const id of ids) {
+    if (!id) continue;
+    names.set(`users/${id.replace(/^(?:people|users)\//, "")}`, displayName);
+  }
+}
+
+export interface DirectoryPeopleResult {
+  names: Map<string, string>;
+  nextPageToken: string | null;
+  complete: boolean;
+}
+
+/**
+ * Resolve Workspace users from the domain directory. This is deliberately the
+ * primary path: Chat's user-authenticated membership response usually omits
+ * displayName. `nextPageToken` belongs in DO SQLite so long directories resume.
+ */
+export async function resolveDirectoryPeopleDisplayNames(
+  accessToken: string,
+  options: SenderLookupOptions & { pageToken?: string | null } = {},
+): Promise<DirectoryPeopleResult> {
+  const names = new Map<string, string>();
+  let pageToken = options.pageToken ?? undefined;
+  do {
+    if (options.shouldContinue && !options.shouldContinue()) {
+      return { names, nextPageToken: pageToken ?? null, complete: false };
+    }
+    const params = new URLSearchParams({
+      readMask: "names,metadata",
+      sources: "DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE",
+      pageSize: "1000",
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+    options.onFetch?.();
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(
+        `https://people.googleapis.com/v1/people:listDirectoryPeople?${params}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+        CHAT_TIMEOUT_MS,
+      );
+    } catch (error) {
+      if (!isNetworkFailure(error)) throw error;
+      warnGoogleChat("directory_people_lookup_failed", { retryable: 1 });
+      return { names, nextPageToken: pageToken ?? null, complete: false };
+    }
+    if (!response.ok) {
+      await logGooglePeopleError(response, {
+        operation: "directory_list",
+        hasPageToken: Boolean(pageToken),
+      });
+      return { names, nextPageToken: null, complete: true };
+    }
+    const body = (await response.json()) as {
+      people?: Array<{
+        resourceName?: string;
+        metadata?: { sources?: Array<{ id?: string }> };
+        names?: Array<{ displayName?: string }>;
+      }>;
+      nextPageToken?: string;
+    };
+    for (const person of body.people ?? []) addPersonNames(names, person);
+    pageToken = body.nextPageToken;
+  } while (pageToken);
+  return { names, nextPageToken: null, complete: true };
+}
 
 /**
  * Resolve human sender display names with People `people:batchGet` (≤200 / request).
@@ -366,7 +583,7 @@ const PEOPLE_BATCH_SIZE = 200;
 export async function resolvePeopleDisplayNames(
   accessToken: string,
   senders: readonly ChatMessageSender[],
-  options: { onFetch?: () => void } = {},
+  options: SenderLookupOptions = {},
 ): Promise<Map<string, string>> {
   const cache = new Map<string, string>();
   const unique = new Map<string, ChatMessageSender>();
@@ -381,9 +598,10 @@ export async function resolvePeopleDisplayNames(
 
   const pending = [...unique.entries()];
   for (let offset = 0; offset < pending.length; offset += PEOPLE_BATCH_SIZE) {
+    if (options.shouldContinue && !options.shouldContinue()) break;
     const chunk = pending.slice(offset, offset + PEOPLE_BATCH_SIZE);
     const params = new URLSearchParams({
-      personFields: "names",
+      personFields: "names,emailAddresses",
       sources: "READ_SOURCE_TYPE_PROFILE",
     });
     for (const [userName] of chunk) {
@@ -397,6 +615,7 @@ export async function resolvePeopleDisplayNames(
         CHAT_TIMEOUT_MS,
       );
       if (!response.ok) {
+        await logGooglePeopleError(response, { operation: "batch_get", batchSize: chunk.length });
         for (const [userName, sender] of chunk) {
           warnGoogleChat("sender_name_unresolved", { sender: userName, status: response.status });
           cache.set(userName, defaultSenderName(sender));
@@ -406,7 +625,11 @@ export async function resolvePeopleDisplayNames(
       const body = (await response.json()) as {
         responses?: Array<{
           httpStatusCode?: number;
-          person?: { resourceName?: string; names?: Array<{ displayName?: string }> };
+          person?: {
+            resourceName?: string;
+            names?: Array<{ displayName?: string }>;
+            emailAddresses?: Array<{ value?: string }>;
+          };
           requestedResourceName?: string;
         }>;
       };
@@ -415,7 +638,7 @@ export async function resolvePeopleDisplayNames(
       );
       for (const [userName, sender] of chunk) {
         const row = byRequested.get(peopleResourceName(userName));
-        const displayName = row?.person?.names?.[0]?.displayName?.trim();
+        const displayName = row?.person ? displayNameFromPerson(row.person) : undefined;
         if (displayName) {
           cache.set(userName, displayName);
           continue;
@@ -426,7 +649,8 @@ export async function resolvePeopleDisplayNames(
         });
         cache.set(userName, defaultSenderName(sender));
       }
-    } catch {
+    } catch (error) {
+      if (!isNetworkFailure(error)) throw error;
       for (const [userName, sender] of chunk) {
         warnGoogleChat("sender_name_lookup_failed", { sender: userName });
         cache.set(userName, defaultSenderName(sender));
@@ -444,19 +668,29 @@ export async function resolvePeopleDisplayNames(
 export async function resolveSpaceMemberDisplayNames(
   spaceName: string,
   accessToken: string,
-  options: { onFetch?: () => void } = {},
+  options: SenderLookupOptions & { onMember?: (resourceName: string) => void } = {},
 ): Promise<Map<string, string>> {
   const cache = new Map<string, string>();
   let pageToken: string | undefined;
+  let members = 0;
+  let named = 0;
   do {
+    if (options.shouldContinue && !options.shouldContinue()) break;
     const params = new URLSearchParams({ pageSize: "1000" });
     if (pageToken) params.set("pageToken", pageToken);
     options.onFetch?.();
-    const response = await fetchWithTimeout(
-      `https://chat.googleapis.com/v1/${spaceName}/members?${params}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
-      CHAT_TIMEOUT_MS,
-    );
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(
+        `https://chat.googleapis.com/v1/${spaceName}/members?${params}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+        CHAT_TIMEOUT_MS,
+      );
+    } catch (error) {
+      if (!isNetworkFailure(error)) throw error;
+      warnGoogleChat("members_list_failed", { spaceName, retryable: 1 });
+      break;
+    }
     if (!response.ok) {
       warnGoogleChat("members_list_failed", { spaceName, status: response.status });
       break;
@@ -471,15 +705,21 @@ export async function resolveSpaceMemberDisplayNames(
       const member = membership.member;
       const name = member?.name?.trim();
       const displayName = member?.displayName?.trim();
-      if (!name || !displayName) continue;
+      if (!name) continue;
+      members += 1;
+      options.onMember?.(name);
       if (member?.type === "BOT") {
         cache.set(name, "Bot");
+        named += 1;
         continue;
       }
+      if (!displayName) continue;
       cache.set(name, displayName);
+      named += 1;
     }
     pageToken = body.nextPageToken;
   } while (pageToken);
+  warnGoogleChat("space_members_listed", { spaceName, members, named });
   return cache;
 }
 

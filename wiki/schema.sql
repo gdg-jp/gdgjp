@@ -470,54 +470,6 @@ CREATE TRIGGER page_access_sync_revision_update AFTER UPDATE ON page_access
 BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = NEW.page_id; END;
 CREATE TRIGGER page_access_sync_revision_delete AFTER DELETE ON page_access
 BEGIN UPDATE pages SET sync_revision = sync_revision + 1 WHERE id = OLD.page_id; END;
-CREATE TABLE IF NOT EXISTS "sources" (
-  "id"               TEXT NOT NULL PRIMARY KEY,
-  "kind"             TEXT NOT NULL
-                     CHECK ("kind" IN (
-                       'google-doc',
-                       'google-chat-space',
-                       'website',
-                       'upload',
-                       'text'
-                     )),
-  "external_id"      TEXT,
-  "url"              TEXT NOT NULL,
-  "title"            TEXT NOT NULL,
-  "chapter_id"       TEXT REFERENCES "chapters"("id") ON DELETE SET NULL,
-  "added_by"         TEXT NOT NULL REFERENCES "user"("id"),
-  "status"           TEXT NOT NULL DEFAULT 'pending'
-                     CHECK ("status" IN (
-                       'pending',
-                       'fetching',
-                       'ready',
-                       'error',
-                       'archived'
-                     )),
-  "refresh_policy"   TEXT NOT NULL DEFAULT 'manual'
-                     CHECK ("refresh_policy" IN ('manual', 'daily', 'weekly')),
-  "last_fetched_at"  INTEGER,
-  "error_message"    TEXT,
-  "created_at"       INTEGER NOT NULL DEFAULT (unixepoch()),
-  "updated_at"       INTEGER NOT NULL DEFAULT (unixepoch())
-, "fetch_attempt_id" TEXT);
-CREATE INDEX "idx_sources_status" ON "sources" ("status");
-CREATE INDEX "idx_sources_chapter_id" ON "sources" ("chapter_id");
-CREATE INDEX "idx_sources_added_by" ON "sources" ("added_by");
-CREATE INDEX "idx_sources_refresh_policy" ON "sources" ("refresh_policy", "status");
-CREATE TABLE IF NOT EXISTS "source_documents" (
-  "id"          TEXT NOT NULL PRIMARY KEY,
-  "source_id"   TEXT NOT NULL REFERENCES "sources"("id") ON DELETE CASCADE,
-  "path"        TEXT NOT NULL,
-  "title"       TEXT NOT NULL,
-  "r2_key"      TEXT NOT NULL,
-  "content_hash" TEXT NOT NULL,
-  "captured_at" INTEGER NOT NULL,
-  "cursor"      TEXT,
-  "status"      TEXT NOT NULL DEFAULT 'ready'
-                CHECK ("status" IN ('ready', 'error', 'archived')), "metadata" TEXT,
-  UNIQUE ("source_id", "path")
-);
-CREATE INDEX "idx_source_documents_source_id" ON "source_documents" ("source_id");
 CREATE TABLE IF NOT EXISTS "source_assets" (
   "id"                 TEXT NOT NULL PRIMARY KEY,
   "source_document_id" TEXT NOT NULL REFERENCES "source_documents"("id") ON DELETE CASCADE,
@@ -546,29 +498,63 @@ CREATE TABLE IF NOT EXISTS "source_document_ingestions" (
 );
 CREATE INDEX "idx_source_document_ingestions_hash"
   ON "source_document_ingestions" ("content_hash");
-CREATE TABLE IF NOT EXISTS "google_chat_import_runs" (
+CREATE TABLE IF NOT EXISTS "source_import_runs" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "source_id" TEXT NOT NULL UNIQUE REFERENCES "sources"("id") ON DELETE CASCADE,
+  "kind" TEXT NOT NULL CHECK ("kind" IN ('google-chat-space', 'google-drive', 'website')),
   "fetch_attempt_id" TEXT NOT NULL,
-  "phase" TEXT NOT NULL DEFAULT 'listing'
-    CHECK ("phase" IN (
-      'listing',
-      'senders',
-      'attachments',
-      'grouping',
-      'finalizing',
-      'complete',
-      'error'
-    )),
-  "next_page_token" TEXT,
+  "phase" TEXT NOT NULL DEFAULT 'start',
   "since_cursor" TEXT,
-  "pages_fetched" INTEGER NOT NULL DEFAULT 0,
-  "messages_fetched" INTEGER NOT NULL DEFAULT 0,
-  "attachments_done" INTEGER NOT NULL DEFAULT 0,
-  "months_total" INTEGER NOT NULL DEFAULT 0,
-  "months_done" INTEGER NOT NULL DEFAULT 0,
+  "progress" TEXT NOT NULL DEFAULT '{}',
   "consecutive_failures" INTEGER NOT NULL DEFAULT 0,
   "error_message" TEXT,
   "created_at" INTEGER NOT NULL DEFAULT (unixepoch()),
   "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
 );
+CREATE TABLE IF NOT EXISTS "source_documents" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "source_id" TEXT NOT NULL REFERENCES "sources"("id") ON DELETE CASCADE,
+  "path" TEXT NOT NULL,
+  "title" TEXT NOT NULL,
+  "r2_key" TEXT NOT NULL,
+  "content_hash" TEXT NOT NULL,
+  "media_type" TEXT NOT NULL DEFAULT 'text/markdown',
+  "captured_at" INTEGER NOT NULL,
+  "cursor" TEXT,
+  "metadata" TEXT,
+  "status" TEXT NOT NULL DEFAULT 'ready'
+    CHECK ("status" IN ('ready', 'error', 'archived')),
+  UNIQUE ("source_id", "path")
+);
+CREATE INDEX "idx_source_documents_source_id" ON "source_documents" ("source_id");
+CREATE TABLE IF NOT EXISTS "sources" (
+  "id"               TEXT NOT NULL PRIMARY KEY,
+  "kind"             TEXT NOT NULL
+                     CHECK ("kind" IN (
+                       'google-doc',
+                       'google-sheet',
+                       'google-slides',
+                       'google-chat-space',
+                       'website',
+                       'upload',
+                       'text'
+                     )),
+  "external_id"      TEXT,
+  "url"              TEXT NOT NULL,
+  "title"            TEXT NOT NULL,
+  "chapter_id"       TEXT REFERENCES "chapters"("id") ON DELETE SET NULL,
+  "added_by"         TEXT NOT NULL REFERENCES "user"("id"),
+  "status"           TEXT NOT NULL DEFAULT 'pending'
+                     CHECK ("status" IN ('pending', 'fetching', 'ready', 'error', 'archived')),
+  "refresh_policy"   TEXT NOT NULL DEFAULT 'manual'
+                     CHECK ("refresh_policy" IN ('manual', 'daily', 'weekly')),
+  "last_fetched_at"  INTEGER,
+  "error_message"    TEXT,
+  "created_at"       INTEGER NOT NULL DEFAULT (unixepoch()),
+  "updated_at"       INTEGER NOT NULL DEFAULT (unixepoch()),
+  "fetch_attempt_id" TEXT
+);
+CREATE INDEX "idx_sources_status" ON "sources" ("status");
+CREATE INDEX "idx_sources_chapter_id" ON "sources" ("chapter_id");
+CREATE INDEX "idx_sources_added_by" ON "sources" ("added_by");
+CREATE INDEX "idx_sources_refresh_policy" ON "sources" ("refresh_policy", "status");

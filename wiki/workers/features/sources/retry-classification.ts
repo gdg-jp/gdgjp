@@ -1,5 +1,13 @@
 import { GOOGLE_CHAT_REAUTH_MESSAGE } from "./google-chat";
 
+/** A permanent OAuth grant failure that requires explicit user action. */
+export class SourceAuthorizationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SourceAuthorizationError";
+  }
+}
+
 /**
  * Classify a failure so the queue consumer / DO alarm knows whether to retry.
  *
@@ -8,6 +16,7 @@ import { GOOGLE_CHAT_REAUTH_MESSAGE } from "./google-chat";
  * a spurious retry is cheap, whereas giving up on a real network blip loses the fetch.
  */
 export function isRetryableFetchError(error: unknown): boolean {
+  if (error instanceof SourceAuthorizationError) return false;
   const message = error instanceof Error ? error.message : String(error);
 
   if (

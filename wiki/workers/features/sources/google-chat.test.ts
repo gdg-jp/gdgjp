@@ -5,20 +5,21 @@ import {
   getGoogleDriveAuthUrl,
   hasRequiredGoogleChatScopes,
 } from "../../../app/lib/google-drive.server";
-import { isRetryableFetchError } from "./fetch-source";
 import {
   type ChatMessage,
   GOOGLE_CHAT_REAUTH_MESSAGE,
   THREAD_PARENT_UNAVAILABLE,
-  appendMonthlyMarkdown,
   defaultSenderName,
   extractUrlsFromMessage,
   fetchMissingReplyThreadParents,
   mergeDocumentUrls,
-  monthPathFromCreateTime,
   normalizeChatMessages,
+  resolveDirectoryPeopleDisplayNames,
   resolvePeopleDisplayNames,
+  weekBoundsRfc3339,
+  weekPathFromCreateTime,
 } from "./google-chat";
+import { isRetryableFetchError } from "./retry-classification";
 
 const FIXTURE_MESSAGES: ChatMessage[] = [
   {
@@ -60,64 +61,71 @@ const resolveFixtureSender = (sender: ChatMessage["sender"]) =>
   sender?.name === "users/111" ? "Taro Yamada" : "Hanako Sato";
 
 describe("normalizeChatMessages", () => {
-  it("splits messages across month boundaries into YYYY-MM documents", () => {
-    const months = normalizeChatMessages(FIXTURE_MESSAGES, {
+  it("splits messages into Monday-date weekly documents and groups replies with their root", () => {
+    const weeks = normalizeChatMessages(FIXTURE_MESSAGES, {
       resolveSenderName: resolveFixtureSender,
     });
 
-    expect(months.map((month) => month.path)).toEqual(["2026-07", "2026-08"]);
-    expect(months[0]?.markdown).toMatchInlineSnapshot(`
-      "## [2026-07-14 21:03] Taro Yamada
+    expect(weeks.map((week) => week.path)).toEqual(["2026-07-13", "2026-07-27"]);
+    expect(weeks[0]?.title).toBe("2026-07-13 – 2026-07-19");
+    expect(weeks[0]?.markdown).toMatchInlineSnapshot(`
+      "## [2026-07-14 21:03] It looks like we can reserve venue X in Umeda. Capacity: ...
+
+      ### [2026-07-14 21:03] Taro Yamada
 
       It looks like we can reserve venue X in Umeda. Capacity: 120.
       See https://example.com/venue
 
-      ## [2026-07-14 21:05] Hanako Sato
-
-      > It looks like we can reserve venue X in Umeda. Capacity: 120. See https://example.com/venue
+      ### [2026-07-14 21:05] Hanako Sato
 
       We had leftovers last time, so use an 0.8 multiplier for catering.
       "
     `);
-    expect(months[1]?.markdown).toMatchInlineSnapshot(`
-      "## [2026-08-01 10:00] Taro Yamada
+    expect(weeks[1]?.markdown).toMatchInlineSnapshot(`
+      "## [2026-08-01 10:00] August kickoff is next week.
+
+      ### [2026-08-01 10:00] Taro Yamada
 
       August kickoff is next week.
       "
     `);
   });
 
-  it("nests thread replies under a one-line quote of the parent", () => {
-    const july = normalizeChatMessages(FIXTURE_MESSAGES, {
+  it("does not add a parent quote when the parent is in the same week", () => {
+    const week = normalizeChatMessages(FIXTURE_MESSAGES, {
       resolveSenderName: resolveFixtureSender,
-    }).find((month) => month.path === "2026-07");
-    expect(july?.markdown).toContain(
-      "> It looks like we can reserve venue X in Umeda. Capacity: 120. See https://example.com/venue",
-    );
-    expect(july?.markdown).toContain("0.8 multiplier for catering");
+    }).find((item) => item.path === "2026-07-13");
+    expect(week?.markdown).not.toContain("> It looks like we can reserve venue X");
+    expect(week?.markdown).toContain("0.8 multiplier for catering");
   });
 
   it("keeps only messages after a cursor when the caller filters the fixture", () => {
     const cursor = "2026-07-14T12:03:00Z";
     const filtered = FIXTURE_MESSAGES.filter((message) => (message.createTime ?? "") > cursor);
-    const months = normalizeChatMessages(filtered, { resolveSenderName: resolveFixtureSender });
+    const weeks = normalizeChatMessages(filtered, { resolveSenderName: resolveFixtureSender });
 
-    expect(months.map((month) => month.path)).toEqual(["2026-07", "2026-08"]);
-    expect(months[0]?.markdown).not.toContain("venue X");
-    expect(months[0]?.markdown).toContain("0.8 multiplier");
-    expect(months[0]?.cursor).toBe("2026-07-14T12:05:00Z");
+    expect(weeks.map((week) => week.path)).toEqual(["2026-07-13", "2026-07-27"]);
+    expect(weeks[0]?.markdown).not.toContain("venue X");
+    expect(weeks[0]?.markdown).toContain("0.8 multiplier");
+    expect(weeks[0]?.cursor).toBe("2026-07-14T12:05:00Z");
   });
 
   it("records extracted URLs for Stage 3 metadata", () => {
     const july = normalizeChatMessages(FIXTURE_MESSAGES, {
       resolveSenderName: resolveFixtureSender,
-    }).find((month) => month.path === "2026-07");
+    }).find((week) => week.path === "2026-07-13");
     expect(july?.urls).toEqual(["https://example.com/venue"]);
   });
 
-  it("uses Asia/Tokyo for month paths", () => {
+  it("uses Asia/Tokyo and Monday dates for weekly paths, including a year boundary", () => {
     // 2026-07-31 16:00 UTC is already 2026-08-01 01:00 in Tokyo.
-    expect(monthPathFromCreateTime("2026-07-31T16:00:00Z")).toBe("2026-08");
+    expect(weekPathFromCreateTime("2026-07-31T16:00:00Z")).toBe("2026-07-27");
+    // 2026-01-01 is Thursday, so it belongs to Monday 2025-12-29.
+    expect(weekPathFromCreateTime("2025-12-31T15:00:00Z")).toBe("2025-12-29");
+    expect(weekBoundsRfc3339("2025-12-29")).toEqual({
+      start: "2025-12-28T15:00:00Z",
+      end: "2026-01-04T15:00:00Z",
+    });
   });
 
   it("uses a clear resource-id fallback rather than a sender displayName", () => {
@@ -127,26 +135,26 @@ describe("normalizeChatMessages", () => {
   });
 
   it("quotes a fetched parent without treating it as a message to ingest", () => {
-    const [month] = normalizeChatMessages([FIXTURE_REPLY], {
+    const [week] = normalizeChatMessages([FIXTURE_REPLY], {
       resolveSenderName: resolveFixtureSender,
       threadParents: new Map([["spaces/AAA/threads/t1", "Original parent"]]),
     });
 
-    expect(month?.markdown).toContain("> Original parent");
-    expect(month?.markdown).not.toContain("It looks like we can reserve venue X");
-    expect(month?.cursor).toBe("2026-07-14T12:05:00Z");
+    expect(week?.markdown).toContain("> Original parent");
+    expect(week?.markdown).not.toContain("It looks like we can reserve venue X");
+    expect(week?.cursor).toBe("2026-07-14T12:05:00Z");
   });
 
   it("marks a reply parent unavailable when the parent cannot be fetched", () => {
-    const [month] = normalizeChatMessages([FIXTURE_REPLY], {
+    const [week] = normalizeChatMessages([FIXTURE_REPLY], {
       resolveSenderName: resolveFixtureSender,
     });
 
-    expect(month?.markdown).toContain(`> _(${THREAD_PARENT_UNAVAILABLE})_`);
+    expect(week?.markdown).toContain(`> _(${THREAD_PARENT_UNAVAILABLE})_`);
   });
 
-  it("marks an in-window blank parent unavailable", () => {
-    const [month] = normalizeChatMessages([
+  it("does not duplicate an in-week blank parent as a quote", () => {
+    const [week] = normalizeChatMessages([
       {
         text: "   ",
         createTime: "2026-07-14T12:03:00Z",
@@ -157,24 +165,7 @@ describe("normalizeChatMessages", () => {
       FIXTURE_REPLY,
     ]);
 
-    expect(month?.markdown).toContain(`> _(${THREAD_PARENT_UNAVAILABLE})_`);
-  });
-});
-
-describe("appendMonthlyMarkdown", () => {
-  it("appends new messages under existing monthly markdown", () => {
-    const existing = "## [2026-07-14 21:03] Taro Yamada\n\nOld note.\n";
-    const addition = "## [2026-07-14 21:05] Hanako Sato\n\nNew note.\n";
-    expect(appendMonthlyMarkdown(existing, addition)).toMatchInlineSnapshot(`
-      "## [2026-07-14 21:03] Taro Yamada
-
-      Old note.
-
-      ## [2026-07-14 21:05] Hanako Sato
-
-      New note.
-      "
-    `);
+    expect(week?.markdown).not.toContain(`> _(${THREAD_PARENT_UNAVAILABLE})_`);
   });
 });
 
@@ -195,6 +186,71 @@ describe("extractUrlsFromMessage", () => {
 });
 
 describe("Google Chat identity and thread context fetches", () => {
+  it("uses the domain directory as the primary sender resolver", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          people: [
+            {
+              resourceName: "people/111",
+              metadata: { sources: [{ id: "111" }] },
+              names: [{ displayName: "Taro Yamada" }],
+            },
+          ],
+        }),
+      ),
+    );
+
+    const result = await resolveDirectoryPeopleDisplayNames("token");
+
+    const request = new URL(String(fetchSpy.mock.calls[0]?.[0]));
+    expect(request.pathname).toBe("/v1/people:listDirectoryPeople");
+    expect(request.searchParams.get("sources")).toBe("DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE");
+    expect(result).toEqual({
+      names: new Map([["users/111", "Taro Yamada"]]),
+      nextPageToken: null,
+      complete: true,
+    });
+    fetchSpy.mockRestore();
+  });
+
+  it("stops People batch lookup before exceeding the tick budget", async () => {
+    const senders = Array.from({ length: 250 }, (_, index) => ({
+      name: `users/${index}`,
+      type: "HUMAN" as const,
+    }));
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}"));
+
+    const names = await resolvePeopleDisplayNames("token", senders, {
+      shouldContinue: () => false,
+    });
+
+    expect(names).toEqual(new Map());
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it("falls back to the email local part when People has no display name", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          responses: [
+            {
+              requestedResourceName: "people/111",
+              httpStatusCode: 200,
+              person: { emailAddresses: [{ value: "taro.yamada@example.com" }] },
+            },
+          ],
+        }),
+      ),
+    );
+
+    const names = await resolvePeopleDisplayNames("token", [{ name: "users/111", type: "HUMAN" }]);
+
+    expect(names.get("users/111")).toBe("taro.yamada");
+    fetchSpy.mockRestore();
+  });
+
   it("resolves each distinct human sender once per fetch", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
