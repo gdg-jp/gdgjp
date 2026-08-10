@@ -69,39 +69,11 @@ function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
   return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
-class AttachmentTooLargeError extends Error {
-  constructor(readonly byteSize: number) {
-    super("Google Chat attachment exceeds the 10 MB limit");
-  }
-}
-
 function contentLength(response: Response): number | null {
   const value = response.headers.get("Content-Length");
   if (!value) return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
-}
-
-/**
- * R2 accepts a ReadableStream, so attachment downloads never need to be
- * materialized in the Worker isolate. The transform still enforces the limit
- * when an upstream response omits or lies about Content-Length.
- */
-export function bodyWithByteLimit(
-  body: ReadableStream<Uint8Array>,
-  maxBytes: number,
-): { body: ReadableStream<Uint8Array>; byteLength: () => number } {
-  let byteLength = 0;
-  const limited = body.pipeThrough(
-    new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
-        byteLength += chunk.byteLength;
-        if (byteLength > maxBytes) throw new AttachmentTooLargeError(byteLength);
-        controller.enqueue(chunk);
-      },
-    }),
-  );
-  return { body: limited, byteLength: () => byteLength };
 }
 
 async function attachmentVersionHash(
@@ -509,7 +481,9 @@ async function downloadAttachment(
     : `https://chat.googleapis.com/v1/media/${media}?alt=media`;
 
   ctx.budget.spend(1);
-  const response = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } });
+  const response = await fetchWithTimeout(url, {
+    headers: { Authorization: `Bearer ${token}`, "Accept-Encoding": "identity" },
+  });
   if (response.status === 403 || response.status === 404) {
     warnGoogleChat("attachment_unavailable", {
       sourceId,
@@ -523,7 +497,14 @@ async function downloadAttachment(
     throw new Error(`Unable to download a Google Chat attachment (${response.status})`);
   }
   const declaredByteSize = contentLength(response);
-  if (declaredByteSize !== null && declaredByteSize > MAX_ATTACHMENT_BYTES) {
+  if (declaredByteSize === null) {
+    warnGoogleChat("attachment_size_unknown", {
+      sourceId,
+      attachmentId: objectId,
+    });
+    return null;
+  }
+  if (declaredByteSize > MAX_ATTACHMENT_BYTES) {
     warnGoogleChat("attachment_too_large", {
       sourceId,
       attachmentId: objectId,
@@ -536,27 +517,19 @@ async function downloadAttachment(
     attachment.contentType ||
     "application/octet-stream";
   if (!response.body) throw new Error("Google Chat attachment response has no body");
-  const streamed = bodyWithByteLimit(response.body, MAX_ATTACHMENT_BYTES);
   const contentHash = await attachmentVersionHash(objectId, response, mimeType);
   const r2Key = assetR2Key(sourceId, objectId, contentHash, mimeType);
+  const fixedLength = new FixedLengthStream(declaredByteSize);
+  const upload = response.body.pipeTo(fixedLength.writable);
   ctx.budget.spend(1);
-  try {
-    await ctx.env.BUCKET.put(r2Key, streamed.body, {
+  await Promise.all([
+    ctx.env.BUCKET.put(r2Key, fixedLength.readable, {
       httpMetadata: { contentType: mimeType },
       customMetadata: { sourceVersion: contentHash, objectId },
-    });
-  } catch (error) {
-    if (error instanceof AttachmentTooLargeError) {
-      warnGoogleChat("attachment_too_large", {
-        sourceId,
-        attachmentId: objectId,
-        byteSize: error.byteSize,
-      });
-      return null;
-    }
-    throw error;
-  }
-  return { path: r2Key, r2Key, mimeType, byteSize: streamed.byteLength(), contentHash };
+    }),
+    upload,
+  ]);
+  return { path: r2Key, r2Key, mimeType, byteSize: declaredByteSize, contentHash };
 }
 
 async function stepGrouping(ctx: ChatImportTickContext, current: Current): Promise<StepOutcome> {
