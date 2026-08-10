@@ -163,6 +163,68 @@ export type EnqueueSourceRefreshResult =
   | { ok: false; error: "archived"; status: 409 }
   | { ok: false; error: "enqueue_failed"; status: 503 };
 
+export type UnarchiveSourceResult =
+  | { ok: true }
+  | { ok: false; error: "not_archived"; status: 409 };
+
+export type DeleteArchivedSourceResult =
+  | { ok: true }
+  | { ok: false; error: "not_archived"; status: 409 }
+  | { ok: false; error: "delete_failed"; status: 503 };
+
+/** Restore retained source documents without scheduling a new fetch. */
+export async function unarchiveSource(env: Env, sourceId: string): Promise<UnarchiveSourceResult> {
+  const restored = await getDb(env)
+    .update(schema.sources)
+    .set({ status: "ready", fetchAttemptId: null, updatedAt: new Date() })
+    .where(and(eq(schema.sources.id, sourceId), eq(schema.sources.status, "archived")))
+    .returning({ id: schema.sources.id })
+    .get();
+
+  return restored ? { ok: true } : { ok: false, error: "not_archived", status: 409 };
+}
+
+/**
+ * Permanently remove an archived source and every raw object stored beneath its
+ * dedicated R2 prefix. R2 is cleaned first so a storage failure leaves the source
+ * visible and retryable rather than orphaning raw material.
+ */
+export async function deleteArchivedSource(
+  env: Env,
+  sourceId: string,
+): Promise<DeleteArchivedSourceResult> {
+  const db = getDb(env);
+  const source = await db
+    .select({ id: schema.sources.id, status: schema.sources.status })
+    .from(schema.sources)
+    .where(eq(schema.sources.id, sourceId))
+    .get();
+  if (!source || source.status !== "archived") {
+    return { ok: false, error: "not_archived", status: 409 };
+  }
+
+  try {
+    const prefix = `raw/${sourceId}/`;
+    let cursor: string | undefined;
+    do {
+      const page = await env.BUCKET.list({ prefix, cursor });
+      if (page.objects.length > 0)
+        await env.BUCKET.delete(page.objects.map((object) => object.key));
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+  } catch (error) {
+    console.error("[sources] delete raw storage failed", sourceId, error);
+    return { ok: false, error: "delete_failed", status: 503 };
+  }
+
+  const deleted = await db
+    .delete(schema.sources)
+    .where(and(eq(schema.sources.id, sourceId), eq(schema.sources.status, "archived")))
+    .returning({ id: schema.sources.id })
+    .get();
+  return deleted ? { ok: true } : { ok: false, error: "not_archived", status: 409 };
+}
+
 /** Revoke any in-flight lease, move the source to pending, and enqueue its replacement fetch. */
 export async function enqueueSourceRefresh(
   env: Env,

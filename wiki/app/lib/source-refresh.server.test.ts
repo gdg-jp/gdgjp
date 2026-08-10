@@ -6,7 +6,7 @@ const { db, sqlite } = createSourcesTestDb();
 
 vi.mock("~/lib/db.server", () => ({ getDb: () => db }));
 
-import { enqueueSourceRefresh } from "./sources.server";
+import { deleteArchivedSource, enqueueSourceRefresh, unarchiveSource } from "./sources.server";
 
 const SOURCE_ID = "src-refresh";
 
@@ -32,6 +32,10 @@ function sourceState(store: DatabaseSync) {
 
 function env(send: ReturnType<typeof vi.fn>): Env {
   return { SOURCE_FETCH_QUEUE: { send } } as unknown as Env;
+}
+
+function sourceEnv(bucket: Pick<R2Bucket, "list" | "delete">): Env {
+  return { BUCKET: bucket } as unknown as Env;
 }
 
 beforeEach(() => {
@@ -95,5 +99,62 @@ describe("enqueueSourceRefresh", () => {
       error_message: null,
     });
     consoleError.mockRestore();
+  });
+});
+
+describe("archived source lifecycle", () => {
+  it("restores an archived source to ready without queuing a fetch", async () => {
+    seedSource(sqlite, "archived");
+
+    await expect(unarchiveSource({} as Env, SOURCE_ID)).resolves.toEqual({ ok: true });
+
+    expect(sourceState(sqlite)).toMatchObject({ status: "ready", fetch_attempt_id: null });
+  });
+
+  it("deletes every paginated raw-object page before removing the archived source", async () => {
+    seedSource(sqlite, "archived");
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce({
+        objects: [{ key: `raw/${SOURCE_ID}/one.md` }],
+        delimitedPrefixes: [],
+        truncated: true,
+        cursor: "next-page",
+      })
+      .mockResolvedValueOnce({
+        objects: [{ key: `raw/${SOURCE_ID}/two.md` }],
+        delimitedPrefixes: [],
+        truncated: false,
+      });
+    const remove = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      deleteArchivedSource(sourceEnv({ list, delete: remove }), SOURCE_ID),
+    ).resolves.toEqual({
+      ok: true,
+    });
+
+    expect(list).toHaveBeenNthCalledWith(1, { prefix: `raw/${SOURCE_ID}/`, cursor: undefined });
+    expect(list).toHaveBeenNthCalledWith(2, { prefix: `raw/${SOURCE_ID}/`, cursor: "next-page" });
+    expect(remove).toHaveBeenCalledWith([`raw/${SOURCE_ID}/one.md`]);
+    expect(remove).toHaveBeenCalledWith([`raw/${SOURCE_ID}/two.md`]);
+    expect(sqlite.prepare("SELECT id FROM sources WHERE id = ?").get(SOURCE_ID)).toBeUndefined();
+  });
+
+  it("keeps the archived source when raw-storage deletion fails", async () => {
+    seedSource(sqlite, "archived");
+    const list = vi.fn().mockRejectedValue(new Error("R2 unavailable"));
+    const remove = vi.fn();
+
+    await expect(
+      deleteArchivedSource(sourceEnv({ list, delete: remove }), SOURCE_ID),
+    ).resolves.toEqual({
+      ok: false,
+      error: "delete_failed",
+      status: 503,
+    });
+
+    expect(sourceState(sqlite)).toMatchObject({ status: "archived" });
+    expect(remove).not.toHaveBeenCalled();
   });
 });

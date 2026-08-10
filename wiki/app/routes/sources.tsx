@@ -6,6 +6,7 @@ import {
   LoaderCircle,
   MessageSquare,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,13 +19,20 @@ import {
   useRevalidator,
 } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import ConfirmDialog from "~/components/ConfirmDialog";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { loadGooglePicker } from "~/lib/google-picker.client";
 import type { GooglePickerConfig, GooglePickerDocument } from "~/lib/google-picker.client";
 import { ALL_CHAPTERS } from "~/lib/sources-shared";
-import { canAccessSource, createSource, enqueueSourceRefresh } from "~/lib/sources.server";
+import {
+  canAccessSource,
+  createSource,
+  deleteArchivedSource,
+  enqueueSourceRefresh,
+  unarchiveSource,
+} from "~/lib/sources.server";
 
 export const meta: MetaFunction = () => [{ title: "Sources — GDG Japan Wiki" }];
 
@@ -121,7 +129,12 @@ export async function action({ request, context }: ActionFunctionArgs) {
     return result.ok ? { ok: true as const } : { ok: false as const, error: result.error };
   }
 
-  if (intent === "refresh" || intent === "archive") {
+  if (
+    intent === "refresh" ||
+    intent === "archive" ||
+    intent === "unarchive" ||
+    intent === "delete"
+  ) {
     const sourceId = String(form.get("sourceId") ?? "");
     const db = getDb(env);
     const source = await db
@@ -139,6 +152,16 @@ export async function action({ request, context }: ActionFunctionArgs) {
         .set({ status: "archived", fetchAttemptId: null, updatedAt: new Date() })
         .where(eq(schema.sources.id, sourceId));
       return { ok: true as const };
+    }
+
+    if (intent === "unarchive") {
+      const result = await unarchiveSource(env, sourceId);
+      return result.ok ? { ok: true as const } : { ok: false as const, error: result.error };
+    }
+
+    if (intent === "delete") {
+      const result = await deleteArchivedSource(env, sourceId);
+      return result.ok ? { ok: true as const } : { ok: false as const, error: result.error };
     }
 
     if (source.status === "archived") {
@@ -539,7 +562,14 @@ function SourceRows({
   const { t } = useTranslation();
   const refreshFetcher = useFetcher();
   const archiveFetcher = useFetcher();
-  const busy = refreshFetcher.state !== "idle" || archiveFetcher.state !== "idle";
+  const unarchiveFetcher = useFetcher();
+  const deleteFetcher = useFetcher();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const busy =
+    refreshFetcher.state !== "idle" ||
+    archiveFetcher.state !== "idle" ||
+    unarchiveFetcher.state !== "idle" ||
+    deleteFetcher.state !== "idle";
 
   const fetchedLabel = source.lastFetchedAt ? new Date(source.lastFetchedAt).toLocaleString() : "—";
 
@@ -588,32 +618,87 @@ function SourceRows({
         <td className="px-3 py-3 text-content-secondary">{fetchedLabel}</td>
         <td className="px-3 py-3">
           <div className="flex flex-wrap gap-2">
-            <refreshFetcher.Form method="post">
-              <input type="hidden" name="intent" value="refresh" />
-              <input type="hidden" name="sourceId" value={source.id} />
-              <button
-                type="submit"
-                disabled={busy || source.status === "archived"}
-                className="inline-flex items-center gap-1 rounded border border-border-strong px-2 py-1 text-xs hover:bg-surface-hover disabled:opacity-50"
-              >
-                <RefreshCw size={12} />
-                {t("sources.refresh")}
-              </button>
-            </refreshFetcher.Form>
-            <archiveFetcher.Form method="post">
-              <input type="hidden" name="intent" value="archive" />
-              <input type="hidden" name="sourceId" value={source.id} />
-              <button
-                type="submit"
-                disabled={busy || source.status === "archived"}
-                className="rounded border border-border-strong px-2 py-1 text-xs hover:bg-surface-hover disabled:opacity-50"
-              >
-                {t("sources.archive")}
-              </button>
-            </archiveFetcher.Form>
+            {source.status === "archived" ? (
+              <>
+                <unarchiveFetcher.Form method="post">
+                  <input type="hidden" name="intent" value="unarchive" />
+                  <input type="hidden" name="sourceId" value={source.id} />
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="inline-flex items-center gap-1 rounded border border-border-strong px-2 py-1 text-xs hover:bg-surface-hover disabled:opacity-50"
+                  >
+                    <RefreshCw size={12} />
+                    {t("sources.unarchive")}
+                  </button>
+                </unarchiveFetcher.Form>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setDeleteDialogOpen(true)}
+                  className="inline-flex items-center gap-1 rounded border border-feedback-danger-border px-2 py-1 text-xs text-feedback-danger-foreground hover:bg-feedback-danger-surface disabled:opacity-50"
+                >
+                  <Trash2 size={12} />
+                  {t("sources.delete")}
+                </button>
+              </>
+            ) : (
+              <>
+                <refreshFetcher.Form method="post">
+                  <input type="hidden" name="intent" value="refresh" />
+                  <input type="hidden" name="sourceId" value={source.id} />
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="inline-flex items-center gap-1 rounded border border-border-strong px-2 py-1 text-xs hover:bg-surface-hover disabled:opacity-50"
+                  >
+                    <RefreshCw size={12} />
+                    {t("sources.refresh")}
+                  </button>
+                </refreshFetcher.Form>
+                <archiveFetcher.Form method="post">
+                  <input type="hidden" name="intent" value="archive" />
+                  <input type="hidden" name="sourceId" value={source.id} />
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="rounded border border-border-strong px-2 py-1 text-xs hover:bg-surface-hover disabled:opacity-50"
+                  >
+                    {t("sources.archive")}
+                  </button>
+                </archiveFetcher.Form>
+              </>
+            )}
           </div>
+          {unarchiveFetcher.data && !unarchiveFetcher.data.ok ? (
+            <p className="mt-1 text-xs text-feedback-danger-foreground">
+              {t(`sources.error_${unarchiveFetcher.data.error}`, {
+                defaultValue: t("sources.error_generic"),
+              })}
+            </p>
+          ) : null}
+          {deleteFetcher.data && !deleteFetcher.data.ok ? (
+            <p className="mt-1 text-xs text-feedback-danger-foreground">
+              {t(`sources.error_${deleteFetcher.data.error}`, {
+                defaultValue: t("sources.error_generic"),
+              })}
+            </p>
+          ) : null}
         </td>
       </tr>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title={t("sources.delete")}
+        message={t("sources.delete_confirm", { title: source.title })}
+        confirmLabel={t("sources.delete")}
+        cancelLabel={t("cancel")}
+        destructive
+        onConfirm={() => {
+          deleteFetcher.submit({ intent: "delete", sourceId: source.id }, { method: "post" });
+          setDeleteDialogOpen(false);
+        }}
+        onCancel={() => setDeleteDialogOpen(false)}
+      />
       {open ? (
         <tr>
           <td colSpan={7} className="bg-surface-sunken px-6 py-3">

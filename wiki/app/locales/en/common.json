@@ -417,6 +417,9 @@
     "col_actions": "Actions",
     "refresh": "Refresh",
     "archive": "Archive",
+    "unarchive": "Unarchive",
+    "delete": "Delete",
+    "delete_confirm": "Permanently delete \"{{title}}\"? This cannot be undone.",
     "toggle_documents": "Toggle documents",
     "no_documents": "No documents yet.",
     "kind": {
@@ -448,7 +451,9 @@
     "error_unsupported_url": "That link cannot be registered (use a Google Docs or web page URL)",
     "error_picker": "Google Drive could not be opened. Please try again.",
     "error_unsupported_document": "Choose a Google Docs, Slides, or Sheets file.",
-    "error_chat_spaces": "Could not load Google Chat spaces. Check the connection and try again."
+    "error_chat_spaces": "Could not load Google Chat spaces. Check the connection and try again.",
+    "error_not_archived": "Only archived sources can be changed this way",
+    "error_delete_failed": "Could not delete this source. Please try again."
   },
   "settings": {
     "title": "Settings",

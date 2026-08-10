@@ -417,6 +417,9 @@
     "col_actions": "操作",
     "refresh": "再取得",
     "archive": "アーカイブ",
+    "unarchive": "アーカイブ解除",
+    "delete": "削除",
+    "delete_confirm": "「{{title}}」を完全に削除しますか？この操作は元に戻せません。",
     "toggle_documents": "ドキュメント一覧を開閉",
     "no_documents": "ドキュメントはまだありません。",
     "kind": {
@@ -448,7 +451,9 @@
     "error_unsupported_url": "このリンクは登録できません（Google Docs か Web ページの URL を指定してください）",
     "error_picker": "Google Drive を開けませんでした。もう一度お試しください。",
     "error_unsupported_document": "Google ドキュメント、スライド、またはスプレッドシートを選択してください。",
-    "error_chat_spaces": "Google Chat スペースを読み込めませんでした。接続状態を確認して再度お試しください。"
+    "error_chat_spaces": "Google Chat スペースを読み込めませんでした。接続状態を確認して再度お試しください。",
+    "error_not_archived": "アーカイブ済みのソースのみ操作できます",
+    "error_delete_failed": "ソースの削除に失敗しました。もう一度お試しください。"
   },
   "settings": {
     "title": "設定",
