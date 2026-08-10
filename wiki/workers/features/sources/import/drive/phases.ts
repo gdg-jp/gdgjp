@@ -65,22 +65,8 @@ function requireToken(ctx: SourceImportTickContext): string {
   return ctx.accessToken;
 }
 
-/**
- * The source URL is the canonical Drive identifier. Older source rows can contain a
- * malformed external ID (for example, a sentence-ending `.` pasted with the URL),
- * which otherwise makes every Drive API request fail even when the URL is valid.
- */
-export function resolveDriveFileId(url: string, externalId: string | null): string {
-  try {
-    return extractFileId(url);
-  } catch {
-    if (externalId) return externalId;
-    throw new Error(`Could not resolve Google Drive file ID from source URL: ${url}`);
-  }
-}
-
 function fileId(current: CurrentSourceImport): string {
-  return resolveDriveFileId(current.source.url, current.source.externalId);
+  return current.source.externalId || extractFileId(current.source.url);
 }
 
 function expectedKind(mimeType: string): string {
@@ -110,17 +96,12 @@ async function stepMetadata(
   const mimeType = metadata.mimeType || "";
   const kind = expectedKind(mimeType);
   const title = metadata.name?.trim() || current.source.title;
-  const driveFileId = fileId(current);
 
-  if (
-    title !== current.source.title ||
-    kind !== current.source.kind ||
-    driveFileId !== current.source.externalId
-  ) {
+  if (title !== current.source.title || kind !== current.source.kind) {
     ctx.budget.spend(1);
     await current.db
       .update(schema.sources)
-      .set({ title, kind, externalId: driveFileId, updatedAt: new Date() })
+      .set({ title, kind, updatedAt: new Date() })
       .where(
         and(
           eq(schema.sources.id, current.source.id),
@@ -129,9 +110,8 @@ async function stepMetadata(
       );
     current.source.title = title;
     current.source.kind = kind;
-    current.source.externalId = driveFileId;
   }
-  metaSet(ctx.sql, "drive_file_id", driveFileId);
+  metaSet(ctx.sql, "drive_file_id", fileId(current));
   metaSet(ctx.sql, "drive_mime_type", mimeType);
   metaSet(ctx.sql, "drive_title", title);
   return { phaseComplete: true };

@@ -1,28 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { InvalidPdfExportError } from "./pdf";
-import {
-  DRIVE_PHASES,
-  isSkippablePdfExport,
-  resolveDriveFileId,
-  spreadsheetUnitDescriptors,
-} from "./phases";
-
-describe("resolveDriveFileId", () => {
-  it("uses the canonical ID in the source URL over malformed stored metadata", () => {
-    expect(
-      resolveDriveFileId(
-        "https://docs.google.com/spreadsheets/d/1aBF_s3AhUjNk2lejI1qsP59IW5XnipWpK_TwN9A12uw/edit",
-        "1aBF_s3AhUjNk2lejI1qsP59IW5XnipWpK_TwN9A12uw.",
-      ),
-    ).toBe("1aBF_s3AhUjNk2lejI1qsP59IW5XnipWpK_TwN9A12uw");
-  });
-
-  it("retains compatibility with legacy sources that only have an external ID", () => {
-    expect(resolveDriveFileId("https://example.com/legacy", "legacy-file-id")).toBe(
-      "legacy-file-id",
-    );
-  });
-});
+import { DRIVE_PHASES, isSkippablePdfExport, spreadsheetUnitDescriptors } from "./phases";
 
 describe("spreadsheetUnitDescriptors", () => {
   it("creates Markdown and PDF units for grids, but only PDF for object sheets", () => {
