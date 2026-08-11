@@ -1,18 +1,13 @@
 import { desc, eq, inArray } from "drizzle-orm";
-import {
-  ChevronDown,
-  ChevronRight,
-  FileText,
-  LoaderCircle,
-  MessageSquare,
-  RefreshCw,
-  Trash2,
-} from "lucide-react";
+import { FileText, LoaderCircle, MessageSquare, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useFetcher, useLoaderData, useRevalidator } from "react-router";
+import { useFetcher, useLoaderData, useRevalidator, useSearchParams } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
-import ConfirmDialog from "~/components/ConfirmDialog";
+import SourceList from "~/components/sources/SourceList";
+import SourcesToolbar from "~/components/sources/SourcesToolbar";
+import { filterSources, parseSourceFilters } from "~/components/sources/filter-sources";
+import { ChapterSelect, VisibilitySelect } from "~/components/sources/source-selects";
 import {
   Dialog,
   DialogContent,
@@ -40,11 +35,7 @@ import { loadChapterDirectory } from "~/lib/chapter-directory.server";
 import { getDb } from "~/lib/db.server";
 import { loadGooglePicker } from "~/lib/google-picker.client";
 import type { GooglePickerConfig, GooglePickerDocument } from "~/lib/google-picker.client";
-import {
-  SOURCE_VISIBILITIES,
-  isSourceVisibility,
-  sourceVisibilityNeedsChapter,
-} from "~/lib/sources-shared";
+import { isSourceVisibility, sourceVisibilityNeedsChapter } from "~/lib/sources-shared";
 import {
   canAccessSource,
   createSource,
@@ -392,22 +383,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
   return { ok: false as const, error: "unknown_intent" };
 }
 
-function statusBadgeClass(status: string): string {
-  switch (status) {
-    case "ready":
-      return "bg-feedback-success-surface text-feedback-success-foreground";
-    case "pending":
-    case "fetching":
-      return "bg-feedback-warning-surface text-feedback-warning-foreground";
-    case "error":
-      return "bg-feedback-danger-surface text-feedback-danger-foreground";
-    case "archived":
-      return "bg-surface-hover text-content-secondary";
-    default:
-      return "bg-surface-hover text-content-secondary";
-  }
-}
-
 const SOURCE_MIME_TYPES = [
   "application/vnd.google-apps.document",
   "application/vnd.google-apps.presentation",
@@ -432,6 +407,7 @@ export default function SourcesPage() {
     useLoaderData<typeof loader>();
   const { t, i18n } = useTranslation();
   const revalidator = useRevalidator();
+  const [searchParams] = useSearchParams();
   const batchFetcher = useFetcher<typeof action>();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [candidates, setCandidates] = useState<StagedSource[]>([]);
@@ -455,6 +431,12 @@ export default function SourcesPage() {
   const needsChapter = isSourceVisibility(visibility) && sourceVisibilityNeedsChapter(visibility);
   const canSubmitImport = Boolean(
     visibility && (!needsChapter || chapter) && candidates.length > 0,
+  );
+
+  const filters = useMemo(() => parseSourceFilters(searchParams), [searchParams]);
+  const filteredSources = useMemo(() => filterSources(sources, filters), [sources, filters]);
+  const hasActiveFilters = Boolean(
+    filters.q || filters.kind.length > 0 || filters.status.length > 0,
   );
 
   const pendingCount = useMemo(
@@ -803,49 +785,26 @@ export default function SourcesPage() {
       {sources.length === 0 ? (
         <p className="text-sm text-content-tertiary">{t("sources.empty")}</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border-default bg-surface-raised">
-          <table className="w-full table-fixed divide-y divide-border-default text-sm">
-            <colgroup>
-              <col className="w-10" />
-              <col />
-              <col className="w-28" />
-              <col className="w-32" />
-              <col className="w-24" />
-              <col className="w-24" />
-              <col className="w-36" />
-              <col className="w-40" />
-            </colgroup>
-            <thead className="bg-surface-sunken text-left text-xs uppercase tracking-wide text-content-tertiary">
-              <tr>
-                <th className="px-3 py-2" />
-                <th className="px-3 py-2">{t("sources.col_title")}</th>
-                <th className="px-3 py-2">{t("sources.col_kind")}</th>
-                <th className="px-3 py-2">{t("sources.col_visibility")}</th>
-                <th className="px-3 py-2">{t("sources.col_status")}</th>
-                <th className="px-3 py-2">{t("sources.col_documents")}</th>
-                <th className="px-3 py-2">{t("sources.col_fetched")}</th>
-                <th className="px-3 py-2">{t("sources.col_actions")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-subtle">
-              {sources.map((source) => {
-                const open = expanded[source.id] ?? false;
-                return (
-                  <SourceRows
-                    key={source.id}
-                    source={source}
-                    open={open}
-                    onToggle={() => setExpanded((prev) => ({ ...prev, [source.id]: !open }))}
-                    assignableChapters={assignableChapters}
-                    allChapters={allChapters}
-                    canEditVisibility={source.addedBy === currentUserId || isAdmin}
-                    language={i18n.language}
-                  />
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <SourcesToolbar sources={sources} />
+          <SourceList
+            sources={filteredSources}
+            expanded={expanded}
+            onToggle={(sourceId) =>
+              setExpanded((prev) => ({ ...prev, [sourceId]: !prev[sourceId] }))
+            }
+            assignableChapters={assignableChapters}
+            allChapters={allChapters}
+            currentUserId={currentUserId}
+            isAdmin={isAdmin}
+            language={i18n.language}
+            emptyMessage={
+              hasActiveFilters || filters.view === "archived"
+                ? t("sources.empty_filtered")
+                : t("sources.empty")
+            }
+          />
+        </>
       )}
       <ChatSenderDialog
         open={senderDialogOpen}
@@ -1017,336 +976,5 @@ function ChatSenderDialog({
         </fetcher.Form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function VisibilitySelect({
-  t,
-  value,
-  onValueChange,
-}: {
-  t: (key: string) => string;
-  value: string;
-  onValueChange: (value: string) => void;
-}) {
-  return (
-    <Select value={value || undefined} onValueChange={onValueChange}>
-      <SelectTrigger
-        className="w-full bg-surface-raised sm:w-56"
-        aria-label={t("sources.visibility_label")}
-      >
-        <SelectValue placeholder={t("sources.visibility_placeholder")} />
-      </SelectTrigger>
-      <SelectContent position="popper">
-        {SOURCE_VISIBILITIES.map((option) => (
-          <SelectItem key={option} value={option}>
-            {t(`sources.visibility.${option}`)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function ChapterSelect({
-  chapters,
-  language,
-  t,
-  value,
-  onValueChange,
-}: {
-  chapters: Array<{ id: string; nameJa: string; nameEn: string }>;
-  language: string;
-  t: (key: string) => string;
-  value: string;
-  onValueChange: (value: string) => void;
-}) {
-  if (chapters.length === 0) {
-    return (
-      <Select disabled>
-        <SelectTrigger
-          className="w-full bg-surface-raised sm:w-56"
-          aria-label={t("sources.chapter_label")}
-        >
-          <SelectValue placeholder={t("sources.chapter_empty")} />
-        </SelectTrigger>
-      </Select>
-    );
-  }
-
-  return (
-    <Select value={value || undefined} onValueChange={onValueChange}>
-      <SelectTrigger
-        className="w-full bg-surface-raised sm:w-56"
-        aria-label={t("sources.chapter_label")}
-      >
-        <SelectValue placeholder={t("sources.chapter_placeholder")} />
-      </SelectTrigger>
-      <SelectContent position="popper">
-        {chapters.map((chapter) => (
-          <SelectItem key={chapter.id} value={chapter.id}>
-            {language.startsWith("en") ? chapter.nameEn : chapter.nameJa}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function SourceRows({
-  source,
-  open,
-  onToggle,
-  assignableChapters,
-  allChapters,
-  canEditVisibility,
-  language,
-}: {
-  source: {
-    id: string;
-    title: string;
-    url: string;
-    kind: string;
-    status: string;
-    visibility: string;
-    chapterId: string | null;
-    errorMessage: string | null;
-    lastFetchedAt: Date | string | null;
-    documents: Array<{
-      id: string;
-      path: string;
-      title: string;
-      contentHash: string;
-      mediaType: string;
-      capturedAt: Date | string;
-      status: string;
-    }>;
-  };
-  open: boolean;
-  onToggle: () => void;
-  assignableChapters: Array<{ id: string; nameJa: string; nameEn: string }>;
-  allChapters: Array<{ id: string; nameJa: string; nameEn: string }>;
-  canEditVisibility: boolean;
-  language: string;
-}) {
-  const { t } = useTranslation();
-  const refreshFetcher = useFetcher();
-  const archiveFetcher = useFetcher();
-  const unarchiveFetcher = useFetcher();
-  const deleteFetcher = useFetcher();
-  const visibilityFetcher = useFetcher();
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [editVisibility, setEditVisibility] = useState(source.visibility);
-  const [editChapter, setEditChapter] = useState(source.chapterId ?? "");
-  const editNeedsChapter =
-    isSourceVisibility(editVisibility) && sourceVisibilityNeedsChapter(editVisibility);
-  const busy =
-    refreshFetcher.state !== "idle" ||
-    archiveFetcher.state !== "idle" ||
-    unarchiveFetcher.state !== "idle" ||
-    deleteFetcher.state !== "idle" ||
-    visibilityFetcher.state !== "idle";
-
-  const fetchedLabel = source.lastFetchedAt ? new Date(source.lastFetchedAt).toLocaleString() : "—";
-  const visibilityLabel = isSourceVisibility(source.visibility)
-    ? t(`sources.visibility.${source.visibility}`)
-    : source.visibility;
-  const chapterName = source.chapterId
-    ? allChapters.find((chapter) => chapter.id === source.chapterId)
-    : null;
-  const visibilityDetail =
-    chapterName &&
-    isSourceVisibility(source.visibility) &&
-    sourceVisibilityNeedsChapter(source.visibility)
-      ? ` (${language.startsWith("en") ? chapterName.nameEn : chapterName.nameJa})`
-      : "";
-
-  return (
-    <>
-      <tr className="align-top">
-        <td className="px-3 py-3">
-          <button
-            type="button"
-            onClick={onToggle}
-            className="rounded p-1 text-content-tertiary hover:bg-surface-hover"
-            aria-expanded={open}
-            aria-label={t("sources.toggle_documents")}
-          >
-            {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </button>
-        </td>
-        <td className="min-w-0 px-3 py-3">
-          <div className="truncate font-medium text-content-primary" title={source.title}>
-            {source.title}
-          </div>
-          <a
-            href={source.url}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-0.5 block truncate text-xs text-action-primary hover:underline"
-            title={source.url}
-          >
-            {source.url}
-          </a>
-          {source.errorMessage ? (
-            <p className="mt-1 text-xs text-feedback-danger-foreground">{source.errorMessage}</p>
-          ) : null}
-        </td>
-        <td className="px-3 py-3 text-content-secondary">
-          {t(`sources.kind.${source.kind}`, source.kind)}
-        </td>
-        <td className="px-3 py-3">
-          <span className="inline-flex rounded-full bg-surface-hover px-2 py-0.5 text-xs font-medium text-content-secondary">
-            {visibilityLabel}
-            {visibilityDetail}
-          </span>
-          {canEditVisibility ? (
-            <visibilityFetcher.Form method="post" className="mt-2 space-y-2">
-              <input type="hidden" name="intent" value="update-visibility" />
-              <input type="hidden" name="sourceId" value={source.id} />
-              <VisibilitySelect t={t} value={editVisibility} onValueChange={setEditVisibility} />
-              {editNeedsChapter ? (
-                <ChapterSelect
-                  chapters={assignableChapters}
-                  language={language}
-                  t={t}
-                  value={editChapter}
-                  onValueChange={setEditChapter}
-                />
-              ) : null}
-              <button
-                type="submit"
-                disabled={
-                  busy || !isSourceVisibility(editVisibility) || (editNeedsChapter && !editChapter)
-                }
-                className="rounded border border-border-strong px-2 py-1 text-xs hover:bg-surface-hover disabled:opacity-50"
-              >
-                {t("sources.visibility_save")}
-              </button>
-              <input type="hidden" name="visibility" value={editVisibility} />
-              <input type="hidden" name="chapter" value={editNeedsChapter ? editChapter : ""} />
-            </visibilityFetcher.Form>
-          ) : null}
-        </td>
-        <td className="px-3 py-3">
-          <span
-            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(source.status)}`}
-          >
-            {t(`sources.status.${source.status}`, source.status)}
-          </span>
-        </td>
-        <td className="px-3 py-3 text-content-secondary">{source.documents.length}</td>
-        <td className="px-3 py-3 text-content-secondary">{fetchedLabel}</td>
-        <td className="px-3 py-3">
-          <div className="flex flex-wrap gap-2">
-            {source.status === "archived" ? (
-              <>
-                <unarchiveFetcher.Form method="post">
-                  <input type="hidden" name="intent" value="unarchive" />
-                  <input type="hidden" name="sourceId" value={source.id} />
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="inline-flex items-center gap-1 rounded border border-border-strong px-2 py-1 text-xs hover:bg-surface-hover disabled:opacity-50"
-                  >
-                    <RefreshCw size={12} />
-                    {t("sources.unarchive")}
-                  </button>
-                </unarchiveFetcher.Form>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setDeleteDialogOpen(true)}
-                  className="inline-flex items-center gap-1 rounded border border-feedback-danger-border px-2 py-1 text-xs text-feedback-danger-foreground hover:bg-feedback-danger-surface disabled:opacity-50"
-                >
-                  <Trash2 size={12} />
-                  {t("sources.delete")}
-                </button>
-              </>
-            ) : (
-              <>
-                <refreshFetcher.Form method="post">
-                  <input type="hidden" name="intent" value="refresh" />
-                  <input type="hidden" name="sourceId" value={source.id} />
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="inline-flex items-center gap-1 rounded border border-border-strong px-2 py-1 text-xs hover:bg-surface-hover disabled:opacity-50"
-                  >
-                    <RefreshCw size={12} />
-                    {t("sources.refresh")}
-                  </button>
-                </refreshFetcher.Form>
-                <archiveFetcher.Form method="post">
-                  <input type="hidden" name="intent" value="archive" />
-                  <input type="hidden" name="sourceId" value={source.id} />
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="rounded border border-border-strong px-2 py-1 text-xs hover:bg-surface-hover disabled:opacity-50"
-                  >
-                    {t("sources.archive")}
-                  </button>
-                </archiveFetcher.Form>
-              </>
-            )}
-          </div>
-          {unarchiveFetcher.data && !unarchiveFetcher.data.ok ? (
-            <p className="mt-1 text-xs text-feedback-danger-foreground">
-              {t(`sources.error_${unarchiveFetcher.data.error}`, {
-                defaultValue: t("sources.error_generic"),
-              })}
-            </p>
-          ) : null}
-          {deleteFetcher.data && !deleteFetcher.data.ok ? (
-            <p className="mt-1 text-xs text-feedback-danger-foreground">
-              {t(`sources.error_${deleteFetcher.data.error}`, {
-                defaultValue: t("sources.error_generic"),
-              })}
-            </p>
-          ) : null}
-        </td>
-      </tr>
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        title={t("sources.delete")}
-        message={t("sources.delete_confirm", { title: source.title })}
-        confirmLabel={t("sources.delete")}
-        cancelLabel={t("cancel")}
-        destructive
-        onConfirm={() => {
-          deleteFetcher.submit({ intent: "delete", sourceId: source.id }, { method: "post" });
-          setDeleteDialogOpen(false);
-        }}
-        onCancel={() => setDeleteDialogOpen(false)}
-      />
-      {open ? (
-        <tr>
-          <td colSpan={8} className="bg-surface-sunken px-6 py-3">
-            {source.documents.length === 0 ? (
-              <p className="text-xs text-content-tertiary">{t("sources.no_documents")}</p>
-            ) : (
-              <ul className="space-y-1">
-                {source.documents.map((doc) => (
-                  <li
-                    key={doc.id}
-                    className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-content-secondary"
-                  >
-                    <span className="font-medium">{doc.title}</span>
-                    <span className="text-content-tertiary">{doc.path}</span>
-                    <span className="rounded bg-surface-hover px-1.5 py-0.5 font-mono text-content-tertiary">
-                      {doc.mediaType}
-                    </span>
-                    <span className="font-mono text-content-disabled">
-                      {doc.contentHash.slice(0, 12)}…
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </td>
-        </tr>
-      ) : null}
-    </>
   );
 }
