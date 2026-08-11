@@ -72,7 +72,9 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
 export default function AppLayout() {
   const { user, pageTree, unreadNotificationCount } = useLoaderData<typeof loader>();
-  const { slug } = useParams();
+  const params = useParams();
+  // Prefer :slug (edit/history/tasks); fall back to leaf of wiki splat path (/wiki/*).
+  const currentSlug = params.slug ?? params["*"]?.split("/").filter(Boolean).at(-1);
   const { i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
@@ -219,7 +221,7 @@ export default function AppLayout() {
       <div className="flex flex-1 pt-14">
         <Sidebar
           pages={pageTree}
-          currentSlug={slug}
+          currentSlug={currentSlug}
           isAuthenticated={Boolean(user)}
           isAdmin={user?.isAdmin}
           isOpen={sidebarOpen}
