@@ -1,7 +1,8 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Await,
   Outlet,
   useLoaderData,
   useLocation,
@@ -9,7 +10,7 @@ import {
   useParams,
   useRevalidator,
 } from "react-router";
-import type { LoaderFunctionArgs } from "react-router";
+import type { LoaderFunctionArgs, ShouldRevalidateFunctionArgs } from "react-router";
 import ArchivedContent from "~/components/ArchivedContent";
 import Footer from "~/components/Footer";
 import GoogleDocumentImportDialog from "~/components/GoogleDocumentImportDialog";
@@ -18,6 +19,7 @@ import RecentContent from "~/components/RecentContent";
 import Sidebar from "~/components/Sidebar";
 import SidebarDialog from "~/components/SidebarDialog";
 import SidebarPopover from "~/components/SidebarPopover";
+import { ListSkeleton } from "~/components/Skeleton";
 import StarredContent from "~/components/StarredContent";
 import ZipImportDialog from "~/components/ZipImportDialog";
 import * as schema from "~/db/schema";
@@ -26,6 +28,26 @@ import { getAccessIdentity } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { buildTree } from "~/lib/page-tree";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
+
+// ---------------------------------------------------------------------------
+// Revalidation
+// ---------------------------------------------------------------------------
+
+/**
+ * The published page tree is expensive and stable across in-app GET navigations.
+ * Keep the cached tree so leaf routes aren't blocked by a full D1 tree scan.
+ * Still refresh after mutations and same-URL revalidate() (import polling, etc.).
+ */
+export function shouldRevalidate({
+  currentUrl,
+  nextUrl,
+  formMethod,
+  defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+  if (formMethod && formMethod.toUpperCase() !== "GET") return true;
+  if (currentUrl.href === nextUrl.href) return defaultShouldRevalidate;
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // Loader
@@ -38,7 +60,8 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const db = getDb(env);
 
   const visFilter = buildVisibilityFilter(user, identity.chapters);
-  const treeRows = await db
+  // Stream the sidebar tree so the shell + leaf route can commit without waiting on it.
+  const pageTree = db
     .select({
       id: schema.pages.id,
       slug: schema.pages.slug,
@@ -51,7 +74,8 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     .from(schema.pages)
     .where(and(eq(schema.pages.status, "published"), visFilter))
     .orderBy(schema.pages.sortOrder)
-    .all();
+    .all()
+    .then(buildTree);
 
   const unreadNotificationCount = user
     ? ((
@@ -63,7 +87,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       )?.count ?? 0)
     : 0;
 
-  return { user, pageTree: buildTree(treeRows), unreadNotificationCount };
+  return { user, pageTree, unreadNotificationCount };
 }
 
 // ---------------------------------------------------------------------------
@@ -208,6 +232,22 @@ export default function AppLayout() {
 
   const sidebarOpen = isMobile ? mobileOpen : desktopOpen;
 
+  const sidebarProps = {
+    currentSlug,
+    isAuthenticated: Boolean(user),
+    isAdmin: user?.isAdmin,
+    isOpen: sidebarOpen,
+    isMobile,
+    onClose: () => setMobileOpen(false),
+    onRecentClick: () => setActivePanel((p) => (p === "recent" ? null : "recent")),
+    recentButtonRef,
+    onStarredClick: () => setActivePanel((p) => (p === "starred" ? null : "starred")),
+    starredButtonRef,
+    onArchivedClick: () => setActivePanel((p) => (p === "archived" ? null : "archived")),
+    archivedButtonRef,
+    onImportZip: () => setZipImportOpen(true),
+  } as const;
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar
@@ -219,22 +259,13 @@ export default function AppLayout() {
       />
 
       <div className="flex flex-1 pt-14">
-        <Sidebar
-          pages={pageTree}
-          currentSlug={currentSlug}
-          isAuthenticated={Boolean(user)}
-          isAdmin={user?.isAdmin}
-          isOpen={sidebarOpen}
-          isMobile={isMobile}
-          onClose={() => setMobileOpen(false)}
-          onRecentClick={() => setActivePanel((p) => (p === "recent" ? null : "recent"))}
-          recentButtonRef={recentButtonRef}
-          onStarredClick={() => setActivePanel((p) => (p === "starred" ? null : "starred"))}
-          starredButtonRef={starredButtonRef}
-          onArchivedClick={() => setActivePanel((p) => (p === "archived" ? null : "archived"))}
-          archivedButtonRef={archivedButtonRef}
-          onImportZip={() => setZipImportOpen(true)}
-        />
+        <Suspense
+          fallback={
+            <Sidebar pages={[]} {...sidebarProps} treeFallback={<ListSkeleton rows={10} />} />
+          }
+        >
+          <Await resolve={pageTree}>{(pages) => <Sidebar pages={pages} {...sidebarProps} />}</Await>
+        </Suspense>
 
         {/* Main content */}
         <div className="flex min-w-0 flex-1 flex-col">

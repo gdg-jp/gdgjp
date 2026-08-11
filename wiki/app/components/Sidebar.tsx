@@ -45,6 +45,8 @@ interface SidebarProps {
   onArchivedClick?: () => void;
   archivedButtonRef?: React.RefObject<HTMLButtonElement | null>;
   onImportZip?: () => void;
+  /** When set, replaces the page tree (used as Suspense fallback). */
+  treeFallback?: React.ReactNode;
 }
 
 export default function Sidebar({
@@ -62,6 +64,7 @@ export default function Sidebar({
   onArchivedClick,
   archivedButtonRef,
   onImportZip,
+  treeFallback,
 }: SidebarProps) {
   const { t } = useTranslation();
   const location = useLocation();
@@ -184,14 +187,16 @@ export default function Sidebar({
 
           {/* Page tree */}
           <div className="min-h-0 flex-1">
-            <PageTree
-              pages={pages}
-              currentSlug={currentSlug}
-              isCollapsed={isCollapsed}
-              canReorder={isAuthenticated && !isMobile && !isCollapsed}
-              canCreate={isAuthenticated}
-              onImportZip={onImportZip}
-            />
+            {treeFallback ?? (
+              <PageTree
+                pages={pages}
+                currentSlug={currentSlug}
+                isCollapsed={isCollapsed}
+                canReorder={isAuthenticated && !isMobile && !isCollapsed}
+                canCreate={isAuthenticated}
+                onImportZip={onImportZip}
+              />
+            )}
           </div>
 
           {/* Footer — raw sources live outside the page tree, so they get their own entry.

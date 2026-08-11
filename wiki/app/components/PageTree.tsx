@@ -57,6 +57,15 @@ function getLocalizedTitle(
   return (lang === "en" ? node.titleEn || node.titleJa : node.titleJa || node.titleEn) ?? undefined;
 }
 
+function findNodeIdBySlug(nodes: PageNode[], slug: string): string | null {
+  for (const node of nodes) {
+    if (node.slug === slug) return node.id;
+    const found = findNodeIdBySlug(node.children, slug);
+    if (found) return found;
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -222,26 +231,36 @@ function SortableTreeItem({
           paddingLeft: `${depth * INDENT_WIDTH}px`,
           opacity: isDragging ? 0.3 : 1,
         }}
-        className={`flex min-h-8 cursor-grab items-center gap-1 rounded px-1 py-1.5 text-sm active:cursor-grabbing ${
+        className={`relative flex min-h-8 items-center gap-1 rounded px-1 py-1.5 text-sm ${
+          hasChildren ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
+        } ${
           isCurrent
             ? "bg-surface-selected font-medium text-action-primary"
             : "text-content-secondary hover:bg-surface-sunken"
         }${isOverlay ? " border border-default bg-surface-raised shadow-md" : ""}`}
       >
-        {hasChildren ? (
+        {hasChildren && (
           <button
             type="button"
             onClick={onToggle}
-            className="flex h-4 w-4 flex-shrink-0 cursor-pointer items-center justify-center text-content-tertiary hover:text-content-secondary"
+            className="absolute inset-0 z-0 rounded"
+            aria-expanded={!isFolderCollapsed}
             aria-label={isFolderCollapsed ? t("pageTree.expand") : t("pageTree.collapse")}
+          />
+        )}
+
+        {hasChildren ? (
+          <span
+            className="relative z-10 flex h-4 w-4 flex-shrink-0 items-center justify-center text-content-tertiary pointer-events-none"
+            aria-hidden
           >
             {isFolderCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-          </button>
+          </span>
         ) : (
           <span className="h-4 w-4 flex-shrink-0" />
         )}
 
-        <span className="flex-shrink-0 text-content-tertiary">
+        <span className="relative z-10 flex-shrink-0 text-content-tertiary pointer-events-none">
           {node.pageType === "task-list" ? (
             <ListTodo size={14} />
           ) : hasChildren ? (
@@ -261,7 +280,10 @@ function SortableTreeItem({
               ? `/tasks/${node.slug}`
               : wikiPagePath(pathById.get(node.id) ?? [node.slug])
           }
-          className="flex-1 truncate"
+          className="relative z-10 min-w-0 flex-1 truncate"
+          onClick={() => {
+            if (hasChildren) onToggle?.();
+          }}
         >
           {title}
         </Link>
@@ -447,27 +469,37 @@ function TreeNode({
     <li>
       <div
         title={isCollapsed ? title : undefined}
-        className={`flex min-h-8 items-center gap-1 rounded px-2 py-1.5 text-sm ${
+        className={`relative flex min-h-8 items-center gap-1 rounded px-2 py-1.5 text-sm ${
+          hasChildren ? "cursor-pointer" : ""
+        } ${
           isCurrent
             ? "bg-surface-selected font-medium text-action-primary"
             : "text-content-secondary hover:bg-surface-sunken"
         }`}
       >
+        {hasChildren && !isCollapsed && (
+          <button
+            type="button"
+            onClick={() => onToggle(node.id)}
+            className="absolute inset-0 z-0 rounded"
+            aria-expanded={expanded}
+            aria-label={expanded ? t("pageTree.collapse") : t("pageTree.expand")}
+          />
+        )}
+
         {!isCollapsed &&
           (hasChildren ? (
-            <button
-              type="button"
-              onClick={() => onToggle(node.id)}
-              className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-content-tertiary hover:text-content-secondary"
-              aria-label={expanded ? t("pageTree.collapse") : t("pageTree.expand")}
+            <span
+              className="relative z-10 flex h-4 w-4 flex-shrink-0 items-center justify-center text-content-tertiary pointer-events-none"
+              aria-hidden
             >
               {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            </button>
+            </span>
           ) : (
             <span className="h-4 w-4 flex-shrink-0" />
           ))}
 
-        <span className="flex-shrink-0 text-content-tertiary">
+        <span className="relative z-10 flex-shrink-0 text-content-tertiary pointer-events-none">
           {node.pageType === "task-list" ? (
             <ListTodo size={14} />
           ) : hasChildren ? (
@@ -488,7 +520,10 @@ function TreeNode({
                 ? `/tasks/${node.slug}`
                 : wikiPagePath(pathById.get(node.id) ?? [node.slug])
             }
-            className="flex-1 truncate"
+            className="relative z-10 min-w-0 flex-1 truncate"
+            onClick={() => {
+              if (hasChildren) onToggle(node.id);
+            }}
           >
             {title}
           </Link>
@@ -537,7 +572,17 @@ export default function PageTree({
   }, [pages]);
 
   useEffect(() => {
-    setExpandedIds(getAncestorIdsForSlug(pagesRef.current, currentSlug));
+    setExpandedIds((previous) => {
+      const ancestors = getAncestorIdsForSlug(pagesRef.current, currentSlug);
+      if (!currentSlug) return ancestors;
+
+      // Preserve expand/collapse of the destination itself when the same click both
+      // toggled the row and navigated (title click on a folder).
+      const next = new Set(ancestors);
+      const currentId = findNodeIdBySlug(pagesRef.current, currentSlug);
+      if (currentId && previous.has(currentId)) next.add(currentId);
+      return next;
+    });
     // The tree can revalidate without a navigation; only the destination should reset manual state.
   }, [currentSlug]);
 
