@@ -10,7 +10,10 @@ export type DirectoryChapter = {
  * Wiki's local `chapters` table is not kept in sync with memberships, so
  * pickers that need real chapter options must call this instead.
  */
-export async function loadChapterDirectory(env: Env, query = ""): Promise<DirectoryChapter[]> {
+export async function loadChapterDirectory(
+  env: Pick<Env, "ACCOUNTS_URL">,
+  query = "",
+): Promise<DirectoryChapter[]> {
   const url = new URL("/api/chapters/directory", env.ACCOUNTS_URL);
   if (query) url.searchParams.set("q", query);
   const response = await fetch(url, { headers: { Accept: "application/json" } });

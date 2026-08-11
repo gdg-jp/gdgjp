@@ -1,0 +1,110 @@
+Error:
+  type: object
+  required: [error]
+  properties:
+    error:
+      type: string
+Job:
+  type: object
+  required: [id, type, status, groupId, createdBy, createdAt, updatedAt]
+  properties:
+    id:
+      type: string
+    type:
+      type: string
+      enum: [create_event, update_event, publish_event, relogin]
+    status:
+      type: string
+      enum: [queued, running, succeeded, failed]
+    groupId:
+      type: string
+    eventId:
+      type: string
+      nullable: true
+    request:
+      type: object
+      additionalProperties: true
+    result:
+      type: object
+      nullable: true
+      additionalProperties: true
+    error:
+      type: string
+      nullable: true
+    artifactKey:
+      type: string
+      nullable: true
+    createdBy:
+      type: string
+    createdAt:
+      type: string
+    updatedAt:
+      type: string
+    startedAt:
+      type: string
+      nullable: true
+    finishedAt:
+      type: string
+      nullable: true
+CreateEventRequest:
+  type: object
+  required: [title]
+  properties:
+    title:
+      type: string
+    subtitle:
+      type: string
+    description:
+      type: string
+    startAt:
+      type: string
+    endAt:
+      type: string
+    place:
+      type: string
+    address:
+      type: string
+    capacity:
+      type: integer
+UpdateEventRequest:
+  type: object
+  properties:
+    title:
+      type: string
+    subtitle:
+      type: string
+    description:
+      type: string
+    startAt:
+      type: string
+    endAt:
+      type: string
+    place:
+      type: string
+    address:
+      type: string
+    capacity:
+      type: integer
+Group:
+  type: object
+  required: [groupId, enabled]
+  properties:
+    groupId:
+      type: string
+    numericGroupId:
+      type: integer
+      nullable: true
+    chapterId:
+      type: string
+      nullable: true
+    enabled:
+      type: boolean
+UpsertGroupRequest:
+  type: object
+  properties:
+    numericGroupId:
+      type: integer
+    chapterId:
+      type: string
+    enabled:
+      type: boolean

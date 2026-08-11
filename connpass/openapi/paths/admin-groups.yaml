@@ -1,0 +1,29 @@
+get:
+  operationId: adminListGroups
+  summary: List allowlisted groups
+  security:
+    - BearerAuth: []
+  responses:
+    "200":
+      description: Groups
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              groups:
+                type: array
+                items:
+                  $ref: ../components/schemas/index.yaml#/Group
+    "401":
+      description: Invalid token
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Error
+    "403":
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Error

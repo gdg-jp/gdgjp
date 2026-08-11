@@ -1,0 +1,8 @@
+APP_URL=http://localhost:5179
+ACCOUNTS_URL=http://localhost:5173
+IDP_URL=http://localhost:5173
+CONNPASS_API_BASE_URL=https://connpass.com/api/v2
+# Official API is unused — reads and writes go through Browser Run.
+CONNPASS_BOT_EMAIL=
+CONNPASS_BOT_PASSWORD=
+SESSION_ENCRYPTION_KEY=

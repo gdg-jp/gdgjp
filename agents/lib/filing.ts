@@ -121,6 +121,7 @@ function defaultEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
   return {
     WIKI_API_URL: env.WIKI_API_URL ?? "https://wiki.gdgs.jp",
     WIKI_PUBLIC_URL: env.WIKI_PUBLIC_URL,
+    CONNPASS_API_URL: env.CONNPASS_API_URL ?? "https://connpass.gdgs.jp",
     ACCOUNTS_URL: env.ACCOUNTS_URL ?? "https://accounts.gdgs.jp",
     GOOGLE_VERTEX_API_KEY: env.GOOGLE_VERTEX_API_KEY,
     AGENT_MODEL: env.AGENT_MODEL,

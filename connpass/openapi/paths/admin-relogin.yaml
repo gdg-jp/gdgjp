@@ -1,0 +1,24 @@
+post:
+  operationId: adminRelogin
+  summary: Force bot account re-login
+  security:
+    - BearerAuth: []
+  responses:
+    "202":
+      description: Job accepted
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Job
+    "401":
+      description: Invalid token
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Error
+    "403":
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Error

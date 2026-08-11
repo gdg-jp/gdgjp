@@ -1,0 +1,35 @@
+post:
+  operationId: publishGroupEvent
+  summary: Publish an event (async browser job)
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: eventId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "202":
+      description: Job accepted
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Job
+    "401":
+      description: Invalid token
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Error
+    "403":
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Error
