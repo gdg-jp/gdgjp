@@ -29,6 +29,14 @@ run_worker_first = ["/ws/*", "/agents/*"]
 pattern = "wiki.gdgs.jp/*"
 zone_name = "gdgs.jp"
 
+# Worker-to-Worker OIDC (discovery / token / userinfo) stays on Cloudflare's
+# internal network. remote=true keeps local `wrangler dev` on the deployed IdP
+# so wiki can run without a local accounts process (e2e forges its own session).
+[[services]]
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+remote = true
+
 [vars]
 ENVIRONMENT = "production"
 BASE_URL = "https://wiki.gdgs.jp"

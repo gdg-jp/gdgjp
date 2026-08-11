@@ -280,6 +280,7 @@ function SortableTreeItem({
               ? `/tasks/${node.slug}`
               : wikiPagePath(pathById.get(node.id) ?? [node.slug])
           }
+          prefetch="intent"
           className="relative z-10 min-w-0 flex-1 truncate"
           onClick={() => {
             if (hasChildren) onToggle?.();
@@ -520,6 +521,7 @@ function TreeNode({
                 ? `/tasks/${node.slug}`
                 : wikiPagePath(pathById.get(node.id) ?? [node.slug])
             }
+            prefetch="intent"
             className="relative z-10 min-w-0 flex-1 truncate"
             onClick={() => {
               if (hasChildren) onToggle(node.id);

@@ -17,6 +17,7 @@ export function NavItem({ to, icon, label, isCollapsed, isActive }: NavItemProps
   return (
     <Link
       to={to}
+      prefetch="intent"
       title={isCollapsed ? label : undefined}
       className={`flex min-h-8 items-center gap-2 rounded px-2 py-1.5 text-sm ${
         isActive
