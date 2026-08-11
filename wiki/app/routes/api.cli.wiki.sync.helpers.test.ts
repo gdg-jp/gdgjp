@@ -5,6 +5,7 @@ import {
   humanOriginSyncError,
   humanParentSyncError,
   jaContentChanged,
+  resolveExistingPageSharing,
   sourceHasReference,
 } from "./api.cli.wiki.sync.helpers";
 
@@ -147,6 +148,80 @@ describe("buildPartialLocaleUpdate", () => {
     expect(update.sql).not.toContain("title_en=?");
     expect(update.sql).toContain("slug=?");
     expect(update.sql).toContain("page_type=?");
+    expect(update.sql).not.toContain("visibility=?");
+  });
+
+  it("writes sharing columns only when updateSharing is set", () => {
+    const update = buildPartialLocaleUpdate(
+      {
+        ...pageBase,
+        meta: { ...baseMeta, updateSharing: true },
+      },
+      undefined,
+      undefined,
+      "user-1",
+      "page-1",
+      7,
+    );
+    expect(update.sql).toContain("visibility=?");
+    expect(update.sql).toContain("general_role=?");
+    expect(update.binds).toContain("restricted");
+  });
+});
+
+describe("resolveExistingPageSharing", () => {
+  const grants = [
+    {
+      subjectType: "chapter" as const,
+      subjectKey: "tokyo",
+      subjectLabel: "Tokyo",
+      role: "viewer" as const,
+    },
+  ];
+
+  it("preserves Wiki-app sharing when the payload looks like create defaults", () => {
+    const result = resolveExistingPageSharing(
+      {
+        visibility: "member",
+        generalRole: "editor",
+        chapterId: "tokyo",
+        access: grants,
+      },
+      {
+        visibility: "restricted",
+        generalRole: "viewer",
+        chapterId: null,
+        access: [],
+      },
+    );
+    expect(result.preserved).toBe(true);
+    expect(result.sharingChanged).toBe(false);
+    expect(result.sharing).toEqual({
+      visibility: "member",
+      generalRole: "editor",
+      chapterId: "tokyo",
+      access: grants,
+    });
+  });
+
+  it("keeps intentional non-default visibility changes", () => {
+    const result = resolveExistingPageSharing(
+      {
+        visibility: "restricted",
+        generalRole: "viewer",
+        chapterId: null,
+        access: [],
+      },
+      {
+        visibility: "public",
+        generalRole: "viewer",
+        chapterId: null,
+        access: [],
+      },
+    );
+    expect(result.preserved).toBe(false);
+    expect(result.sharingChanged).toBe(true);
+    expect(result.sharing.visibility).toBe("public");
   });
 });
 

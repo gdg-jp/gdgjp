@@ -18,6 +18,7 @@ import {
   humanOriginSyncError,
   humanParentSyncError,
   jaContentChanged,
+  resolveExistingPageSharing,
   sourceHasReference,
 } from "./api.cli.wiki.sync.helpers";
 
@@ -216,24 +217,28 @@ export async function action({ request, context }: ActionFunctionArgs) {
       if (expected !== current.syncRevision)
         conflicts.push({ id: current.id, revision: current.syncRevision });
       if (operation.kind === "upsert") {
-        const requestedAccess = operation.page.meta.access
-          .map(
-            (entry) =>
-              `${entry.subjectType}\u0000${entry.subjectKey}\u0000${entry.subjectLabel}\u0000${entry.role}`,
-          )
-          .sort();
         const storedAccess = existingAccess
           .filter((entry) => entry.pageId === current.id)
-          .map(
-            (entry) =>
-              `${entry.subjectType}\u0000${entry.subjectKey}\u0000${entry.subjectLabel}\u0000${entry.role}`,
-          )
-          .sort();
-        const sharingChanged =
-          current.visibility !== operation.page.meta.visibility ||
-          current.generalRole !== operation.page.meta.generalRole ||
-          current.chapterId !== operation.page.meta.chapterId ||
-          requestedAccess.join("\n") !== storedAccess.join("\n");
+          .map((entry) => ({
+            subjectType: entry.subjectType as "email" | "chapter",
+            subjectKey: entry.subjectKey,
+            subjectLabel: entry.subjectLabel,
+            role: entry.role as "viewer" | "commenter" | "editor",
+          }));
+        const { sharingChanged } = resolveExistingPageSharing(
+          {
+            visibility: current.visibility,
+            generalRole: current.generalRole,
+            chapterId: current.chapterId,
+            access: storedAccess,
+          },
+          {
+            visibility: operation.page.meta.visibility,
+            generalRole: operation.page.meta.generalRole,
+            chapterId: operation.page.meta.chapterId,
+            access: operation.page.meta.access,
+          },
+        );
         if (sharingChanged && !permission.canManageSharing)
           return Response.json({ error: "sharing_forbidden", id }, { status: 403 });
       }
@@ -323,6 +328,52 @@ export async function action({ request, context }: ActionFunctionArgs) {
     if (meta.pageType === "task-list")
       return Response.json({ error: "task_list_unsupported" }, { status: 400 });
 
+    const storedAccessForPage = current
+      ? existingAccess
+          .filter((entry) => entry.pageId === current.id)
+          .map((entry) => ({
+            subjectType: entry.subjectType as "email" | "chapter",
+            subjectKey: entry.subjectKey,
+            subjectLabel: entry.subjectLabel,
+            role: entry.role as "viewer" | "commenter" | "editor",
+          }))
+      : [];
+    const resolvedSharing = current
+      ? resolveExistingPageSharing(
+          {
+            visibility: current.visibility,
+            generalRole: current.generalRole,
+            chapterId: current.chapterId,
+            access: storedAccessForPage,
+          },
+          {
+            visibility: meta.visibility,
+            generalRole: meta.generalRole,
+            chapterId: meta.chapterId,
+            access: meta.access,
+          },
+        )
+      : {
+          sharing: {
+            visibility: meta.visibility,
+            generalRole: meta.generalRole,
+            chapterId: meta.chapterId,
+            access: meta.access,
+          },
+          sharingChanged: true,
+          preserved: false,
+        };
+    const effectiveMeta = {
+      ...meta,
+      visibility: resolvedSharing.sharing.visibility,
+      generalRole: resolvedSharing.sharing.generalRole,
+      chapterId: resolvedSharing.sharing.chapterId,
+      access: resolvedSharing.sharing.access,
+      updateSharing: Boolean(current && resolvedSharing.sharingChanged),
+    };
+    if (!isGeneralAccess(effectiveMeta.visibility) || !isPageRole(effectiveMeta.generalRole))
+      return Response.json({ error: "invalid_access" }, { status: 400 });
+
     if (current) {
       const canEditSpans = await pageAclClearance(
         db,
@@ -343,7 +394,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
               title: page.ja.title,
               summary: page.ja.summary,
               content: contentJa,
-              tags: meta.tags,
+              tags: effectiveMeta.tags,
             }
           : undefined,
         en: page.en
@@ -351,14 +402,14 @@ export async function action({ request, context }: ActionFunctionArgs) {
               title: page.en.title,
               summary: page.en.summary,
               content: contentEn,
-              tags: meta.tags,
+              tags: effectiveMeta.tags,
             }
           : undefined,
       },
       {
-        pageVisibility: meta.visibility,
-        pageAccess: meta.access,
-        citedSourceIds: meta.sources
+        pageVisibility: effectiveMeta.visibility,
+        pageAccess: effectiveMeta.access,
+        citedSourceIds: effectiveMeta.sources
           .map((source) => source.sourceId)
           .filter(
             (sourceId): sourceId is string => typeof sourceId === "string" && sourceId.length > 0,
@@ -391,7 +442,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     if (!current) {
       const localeValues = buildNewPageLocaleValues({
         ...page,
-        meta,
+        meta: effectiveMeta,
       });
       statements.push(
         env.DB.prepare(
@@ -411,11 +462,11 @@ export async function action({ request, context }: ActionFunctionArgs) {
           page.parentId === null ? 1 : 0,
           page.sortOrder,
           "published",
-          meta.pageType,
-          meta.pageMetadata === null ? null : JSON.stringify(meta.pageMetadata),
-          meta.visibility,
-          meta.generalRole,
-          meta.chapterId,
+          effectiveMeta.pageType,
+          effectiveMeta.pageMetadata === null ? null : JSON.stringify(effectiveMeta.pageMetadata),
+          effectiveMeta.visibility,
+          effectiveMeta.generalRole,
+          effectiveMeta.chapterId,
           "agent",
           identity.user.id,
           identity.user.id,
@@ -438,7 +489,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
         ),
       );
       const update = buildPartialLocaleUpdate(
-        { ...page, meta },
+        { ...page, meta: effectiveMeta },
         contentJa,
         contentEn,
         identity.user.id,
@@ -447,56 +498,60 @@ export async function action({ request, context }: ActionFunctionArgs) {
         aclSourceIdsJson,
       );
       statements.push(env.DB.prepare(update.sql).bind(...update.binds));
-      // CLI sync replaces both general access and explicit grants, so nested
-      // pages must require an explicit parent sync afterwards.
-      statements.push(
-        env.DB.prepare("UPDATE pages SET acl_synced_with_parent = ? WHERE id = ?").bind(
-          page.parentId === null ? 1 : 0,
-          id,
-        ),
-      );
+      // Only mark ACL drift when sharing actually changes; content-only updates
+      // must not force nested pages to re-sync parent grants.
+      if (resolvedSharing.sharingChanged) {
+        statements.push(
+          env.DB.prepare("UPDATE pages SET acl_synced_with_parent = ? WHERE id = ?").bind(
+            page.parentId === null ? 1 : 0,
+            id,
+          ),
+        );
+      }
       if (jaContentChanged(current, page.ja, contentJa)) translatePageIds.add(id);
     }
-    if (meta.tags.length) {
+    if (effectiveMeta.tags.length) {
       const known = await db
         .select({ slug: schema.tags.slug })
         .from(schema.tags)
-        .where(inArray(schema.tags.slug, meta.tags))
+        .where(inArray(schema.tags.slug, effectiveMeta.tags))
         .all();
-      if (known.length !== new Set(meta.tags).size)
+      if (known.length !== new Set(effectiveMeta.tags).size)
         return Response.json({ error: "unknown_tag" }, { status: 400 });
     }
-    statements.push(
-      env.DB.prepare("DELETE FROM page_tags WHERE page_id = ?").bind(id),
-      env.DB.prepare("DELETE FROM page_access WHERE page_id = ?").bind(id),
-      env.DB.prepare("DELETE FROM page_sources WHERE page_id = ?").bind(id),
-    );
-    for (const tag of [...new Set(meta.tags)])
+    statements.push(env.DB.prepare("DELETE FROM page_tags WHERE page_id = ?").bind(id));
+    if (!current || resolvedSharing.sharingChanged) {
+      statements.push(env.DB.prepare("DELETE FROM page_access WHERE page_id = ?").bind(id));
+    }
+    statements.push(env.DB.prepare("DELETE FROM page_sources WHERE page_id = ?").bind(id));
+    for (const tag of [...new Set(effectiveMeta.tags)])
       statements.push(
         env.DB.prepare("INSERT INTO page_tags (page_id,tag_slug) VALUES (?,?)").bind(id, tag),
       );
-    for (const entry of meta.access)
-      statements.push(
-        env.DB.prepare(
-          "INSERT INTO page_access (id,page_id,subject_type,subject_key,subject_label,user_id,role,granted_by,created_at,updated_at) VALUES (?,?,?,?,?,NULL,?,?,unixepoch(),unixepoch())",
-        ).bind(
-          nanoid(),
-          id,
-          entry.subjectType,
-          entry.subjectKey,
-          entry.subjectLabel,
-          entry.role,
-          identity.user.id,
-        ),
-      );
-    for (const source of meta.sources)
+    if (!current || resolvedSharing.sharingChanged) {
+      for (const entry of effectiveMeta.access)
+        statements.push(
+          env.DB.prepare(
+            "INSERT INTO page_access (id,page_id,subject_type,subject_key,subject_label,user_id,role,granted_by,created_at,updated_at) VALUES (?,?,?,?,?,NULL,?,?,unixepoch(),unixepoch())",
+          ).bind(
+            nanoid(),
+            id,
+            entry.subjectType,
+            entry.subjectKey,
+            entry.subjectLabel,
+            entry.role,
+            identity.user.id,
+          ),
+        );
+    }
+    for (const source of effectiveMeta.sources)
       statements.push(
         env.DB.prepare(
           "INSERT INTO page_sources (id,page_id,url,title,source_id,created_at) VALUES (?,?,?,?,?,unixepoch())",
         ).bind(source.id ?? nanoid(), id, source.url ?? "", source.title, source.sourceId ?? null),
       );
     const attachmentIds: Record<string, string> = {};
-    const requestedIds = new Set(meta.attachments.flatMap((a) => (a.id ? [a.id] : [])));
+    const requestedIds = new Set(effectiveMeta.attachments.flatMap((a) => (a.id ? [a.id] : [])));
     if (current) {
       const currentAttachments = existingAttachments.filter(
         (attachment) => attachment.pageId === id,
@@ -520,7 +575,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
         ).bind(id, ...requestedIds),
       );
     }
-    for (const attachment of meta.attachments) {
+    for (const attachment of effectiveMeta.attachments) {
       const attachmentId = attachment.id ?? nanoid();
       attachmentIds[attachment.fileName] = attachmentId;
       const r2Key = `wiki/${id}/${attachmentId}-${attachment.fileName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;

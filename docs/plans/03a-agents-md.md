@@ -90,7 +90,8 @@ sources:
 - Do not write `id` for a new page. The server assigns it and it appears in the next clone.
 - `parent_slug` must match the parent directory name.
 - Always write `summary`: one or two sentences shown in the parent namespace catalog, `wiki_ls`, and search results. Lead with identifying attributes that answer “what questions can this page answer?” — not a restatement of the title. Do not repeat strings shared by every row in the same catalog (put shared context once under the section heading). Aim for 60–120 characters; the hard limit is 300.
-- `visibility` defaults to `restricted`. Do not raise it without evidence that publication is appropriate.
+- `visibility` defaults to `restricted` for **new** pages only. Do not raise it without evidence that publication is appropriate.
+- When **updating an existing page**, keep the cloned `visibility`, `general_role`, `chapter_id`, and `access` values unless you intentionally change sharing (for example to `member` / `public` / `unlisted`). Never reset them to the template defaults (`restricted` / `viewer` with no grants) — the Wiki app Share UI owns those settings, and sync preserves them when the front matter looks like an accidental template rewrite.
 - Use only tags already present in the clone. The server rejects an unregistered tag with `unknown_tag`; when uncertain, omit `tags` and rely on `page_type` and namespace catalogs for classification.
 
 ## Ingest procedure
@@ -191,8 +192,8 @@ Rules:
 - Do not put `<acl>` in title, summary, or front matter. Do not nest ACL spans.
 - A single span may reference multiple sources with space-separated ids (`src="id1 id2"`); the reader must be allowed for every listed source.
 - Do not edit a page whose front matter has `acl_redacted: true` — the push will be rejected.
-- If the server or `gdg wiki verify-acl` returns `acl_required` / `acl_untagged_read_source`, wrap the cited content with the appropriate tag or lower the page `visibility`, then retry. **These errors mean tagging is incomplete, not that you lack permission.** If you can read the queue item under `raw/`, continue ingest with `<acl>` tags.
-- With `gdg wiki ingest --agent cursor`, a project hook runs `gdg wiki verify-acl` before `git commit` / `git push`. If tagging is incomplete, the hook **denies the command** and the `agent_message` lists the missing `sourceId`. Wrap that source in `<acl src="…">…</acl>` (or lower page visibility) and retry the commit. Infrastructure failures (offline, expired token, missing `gdg`) fail open with a warning — the server `/sync` check remains the hard boundary.
+- If the server or `gdg wiki verify-acl` returns `acl_required` / `acl_untagged_read_source`, wrap the cited content with the appropriate `<acl src>` tag, then retry. Prefer tags over lowering page `visibility`. **These errors mean tagging is incomplete, not that you lack permission.** If you can read the queue item under `raw/`, continue ingest with `<acl>` tags. Page-level visibility set in the Wiki app is preserved across content updates unless you intentionally change it to a non-default value.
+- With `gdg wiki ingest --agent cursor`, a project hook runs `gdg wiki verify-acl` before `git commit` / `git push`. If tagging is incomplete, the hook **denies the command** and the `agent_message` lists the missing `sourceId`. Wrap that source in `<acl src="…">…</acl>` and retry the commit. Infrastructure failures (offline, expired token, missing `gdg`) fail open with a warning — the server `/sync` check remains the hard boundary.
 
 Span ACLs are an additional defense layer inside page-level visibility. They are not a substitute for keeping confidential primary data in `raw/`.
 
