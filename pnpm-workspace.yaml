@@ -5,6 +5,7 @@ packages:
   - "img"
   - "scheduler"
   - "sns"
+  - "connpass"
   - "website"
   - "tinyurl-gateway"
   - "agents"

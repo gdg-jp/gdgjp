@@ -1,0 +1,36 @@
+get:
+  operationId: getJob
+  summary: Get async job status
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: jobId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "200":
+      description: Job
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Job
+    "401":
+      description: Invalid token
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Error
+    "403":
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Error
+    "404":
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Error

@@ -1,0 +1,36 @@
+put:
+  operationId: adminUpsertGroup
+  summary: Upsert an allowlisted group
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/index.yaml#/UpsertGroupRequest
+  responses:
+    "200":
+      description: Group
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Group
+    "401":
+      description: Invalid token
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Error
+    "403":
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Error

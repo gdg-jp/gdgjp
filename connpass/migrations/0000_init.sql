@@ -1,0 +1,33 @@
+-- Allowlisted connpass groups that the shared bot may administer.
+CREATE TABLE groups (
+  group_slug TEXT PRIMARY KEY NOT NULL,
+  group_id INTEGER,
+  chapter_id TEXT,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX groups_chapter_id_idx ON groups (chapter_id);
+
+-- Async browser / API jobs.
+CREATE TABLE jobs (
+  id TEXT PRIMARY KEY NOT NULL,
+  type TEXT NOT NULL,
+  status TEXT NOT NULL,
+  group_slug TEXT NOT NULL,
+  event_id TEXT,
+  request_json TEXT NOT NULL,
+  result_json TEXT,
+  error TEXT,
+  artifact_key TEXT,
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  started_at TEXT,
+  finished_at TEXT
+);
+
+CREATE INDEX jobs_status_idx ON jobs (status);
+CREATE INDEX jobs_group_slug_idx ON jobs (group_slug);
+CREATE INDEX jobs_created_by_idx ON jobs (created_by);

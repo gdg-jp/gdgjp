@@ -9,6 +9,7 @@ const CI_WORKSPACES = [
   { directory: "img", workspace: "@gdgjp/img", build: true, e2e: true },
   { directory: "scheduler", workspace: "@gdgjp/scheduler", build: true, e2e: true },
   { directory: "sns", workspace: "@gdgjp/sns", build: true, e2e: false },
+  { directory: "connpass", workspace: "@gdgjp/connpass", build: true, e2e: false },
   { directory: "website", workspace: "@gdgjp/website", build: true, e2e: false },
   { directory: "gdg-lib", workspace: "@gdgjp/gdg-lib", build: false, e2e: false },
   {
@@ -44,6 +45,12 @@ const DEPLOY_TARGETS = [
   },
   { app: "sns", workspace: "@gdgjp/sns", provider: "cloudflare", migrate: true },
   {
+    app: "connpass",
+    workspace: "@gdgjp/connpass",
+    provider: "cloudflare",
+    migrate: true,
+  },
+  {
     app: "website",
     workspace: "@gdgjp/website",
     provider: "cloudflare",
@@ -70,6 +77,7 @@ const GDG_LIB_DEPENDENTS = new Set([
   "img",
   "scheduler",
   "sns",
+  "connpass",
   "website",
   "agents",
 ]);

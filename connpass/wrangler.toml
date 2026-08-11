@@ -1,0 +1,69 @@
+name = "gdgjp-connpass"
+main = "./workers/app.ts"
+compatibility_date = "2026-07-28"
+compatibility_flags = ["nodejs_compat"]
+
+[alias]
+"virtual:react-router/server-build" = "./build/server/index.js"
+
+[vars]
+ENVIRONMENT = "production"
+APP_URL = "https://connpass.gdgs.jp"
+BASE_URL = "https://connpass.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+IDP_URL = "https://accounts.gdgs.jp"
+CONNPASS_API_BASE_URL = "https://connpass.com/api/v2"
+
+[assets]
+binding = "ASSETS"
+directory = "./build/client"
+
+[[routes]]
+pattern = "connpass.gdgs.jp/*"
+zone_name = "gdgs.jp"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gdgjp-connpass-db"
+# Create this database before production deployment and replace the placeholder.
+database_id = "00000000-0000-0000-0000-000000000001"
+migrations_dir = "./migrations"
+
+[[kv_namespaces]]
+binding = "SESSION_KV"
+# Create with: wrangler kv namespace create gdgjp-connpass-session
+id = "00000000000000000000000000000001"
+
+[[r2_buckets]]
+binding = "ARTIFACTS"
+bucket_name = "gdgjp-connpass-artifacts"
+
+[[queues.producers]]
+binding = "JOB_QUEUE"
+queue = "gdgjp-connpass-jobs"
+
+[[queues.consumers]]
+queue = "gdgjp-connpass-jobs"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 2
+
+[browser]
+binding = "BROWSER"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 0.1
+persist = true
+
+# Set with `wrangler secret put`:
+# CONNPASS_BOT_EMAIL, CONNPASS_BOT_PASSWORD, SESSION_ENCRYPTION_KEY

@@ -1,0 +1,30 @@
+openapi: 3.0.3
+info:
+  title: GDG Japan Connpass API
+  version: 0.1.0
+  description: >
+    Async admin automation for connpass groups where the shared bot account is an organizer.
+    Authenticate with a GDG Accounts OAuth access token (CLI or agents).
+    All connpass reads and writes are performed via Browser Run (no official connpass API).
+servers:
+  - url: https://connpass.gdgs.jp
+paths:
+  /api/jobs/{jobId}:
+    $ref: ./paths/jobs.yaml
+  /api/groups/{groupId}/events:
+    $ref: ./paths/group-events.yaml
+  /api/groups/{groupId}/events/{eventId}:
+    $ref: ./paths/group-event.yaml
+  /api/groups/{groupId}/events/{eventId}/publish:
+    $ref: ./paths/group-event-publish.yaml
+  /api/admin/session/relogin:
+    $ref: ./paths/admin-relogin.yaml
+  /api/admin/groups:
+    $ref: ./paths/admin-groups.yaml
+  /api/admin/groups/{groupId}:
+    $ref: ./paths/admin-group.yaml
+components:
+  schemas:
+    $ref: ./components/schemas/index.yaml
+  securitySchemes:
+    $ref: ./components/securitySchemes/auth.yaml

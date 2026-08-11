@@ -18,6 +18,7 @@ import {
 } from "./link-account";
 import { emitInquiryScores, inquiryJudgeMetadata } from "./scores";
 import { type InquirySpan, agentTelemetry, observeInquiry } from "./telemetry";
+import { type ConnpassTools, createConnpassTools } from "./tools/connpass";
 import {
   type FetchLike,
   type WikiChapter,
@@ -81,15 +82,20 @@ Query is exploration, not retrieval. Navigate the Wiki the way a coding agent na
 9. If exploration finds nothing relevant, say the Wiki does not have an answer and offer to register a source with wiki_add_source. Do not answer from your own knowledge about venues, people, budgets, or chapter operations.
 10. For wiki_add_source: if the user has multiple chapters and has not chosen one, ask in Chat first. Never send chapter __all__ unless the user explicitly chose all chapters.
 
+Connpass admin tools (connpass_*) are available when the user asks to create/list/publish events on allowlisted chapter groups. Writes are async jobs — poll with connpass_get_job. Only chapter organizers (or admins) can write.
+
 Keep answers concise and operational. Japanese or English to match the user.`;
 
 export type AgentEnv = {
   WIKI_API_URL: string;
   WIKI_PUBLIC_URL?: string;
+  CONNPASS_API_URL?: string;
   ACCOUNTS_URL: string;
   GOOGLE_VERTEX_API_KEY?: string;
   AGENT_MODEL?: string;
 };
+
+export type AgentTools = WikiTools & ConnpassTools;
 
 export type RunWikiAgentInput = {
   accessToken: string;
@@ -104,12 +110,12 @@ export type RunWikiAgentInput = {
 };
 
 export type WikiAgentGenerateResult = Awaited<
-  ReturnType<ToolLoopAgent<never, WikiTools>["generate"]>
+  ReturnType<ToolLoopAgent<never, AgentTools>["generate"]>
 >;
 
 export type RunWikiAgentResult = {
   text: string;
-  tools: WikiTools;
+  tools: AgentTools;
   session: ReturnType<typeof createWikiSession>;
   steps: WikiAgentGenerateResult["steps"];
 };
@@ -118,6 +124,7 @@ function defaultEnv(env: NodeJS.ProcessEnv = process.env): AgentEnv {
   return {
     WIKI_API_URL: env.WIKI_API_URL ?? "https://wiki.gdgs.jp",
     WIKI_PUBLIC_URL: env.WIKI_PUBLIC_URL,
+    CONNPASS_API_URL: env.CONNPASS_API_URL ?? "https://connpass.gdgs.jp",
     ACCOUNTS_URL: env.ACCOUNTS_URL ?? "https://accounts.gdgs.jp",
     GOOGLE_VERTEX_API_KEY: env.GOOGLE_VERTEX_API_KEY,
     AGENT_MODEL: env.AGENT_MODEL,
@@ -135,13 +142,13 @@ export function defaultAgentModel(env: AgentEnv = defaultEnv()): LanguageModelV3
 }
 
 export function createWikiAgent(options: {
-  tools: WikiTools;
+  tools: AgentTools;
   model?: LanguageModel;
   stopWhenSteps?: number;
   instructions?: string;
   /** Extra AI SDK telemetry metadata (chapter slugs, model id, …). */
   telemetryMetadata?: Record<string, string | number | boolean | string[]>;
-}): ToolLoopAgent<never, WikiTools> {
+}): ToolLoopAgent<never, AgentTools> {
   return new ToolLoopAgent({
     model: options.model ?? defaultAgentModel(),
     instructions: options.instructions ?? SYSTEM_INSTRUCTIONS,
@@ -155,14 +162,21 @@ export function createWikiAgent(options: {
 export async function runWikiAgent(input: RunWikiAgentInput): Promise<RunWikiAgentResult> {
   const env = input.env ?? defaultEnv();
   const session = createWikiSession();
-  const tools = createWikiTools({
-    accessToken: input.accessToken,
-    wikiApiUrl: env.WIKI_API_URL,
-    wikiPublicUrl: env.WIKI_PUBLIC_URL ?? env.WIKI_API_URL,
-    fetch: input.fetch,
-    session,
-    chapters: input.chapters,
-  });
+  const tools: AgentTools = {
+    ...createWikiTools({
+      accessToken: input.accessToken,
+      wikiApiUrl: env.WIKI_API_URL,
+      wikiPublicUrl: env.WIKI_PUBLIC_URL ?? env.WIKI_API_URL,
+      fetch: input.fetch,
+      session,
+      chapters: input.chapters,
+    }),
+    ...createConnpassTools({
+      accessToken: input.accessToken,
+      connpassApiUrl: env.CONNPASS_API_URL ?? "https://connpass.gdgs.jp",
+      fetch: input.fetch,
+    }),
+  };
   const agent = createWikiAgent({
     tools,
     model: input.model,

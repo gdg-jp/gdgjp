@@ -32,6 +32,11 @@ export const GDG_APP_LINKS: readonly GdgAppLink[] = [
     url: "https://sns.gdgs.jp",
   },
   {
+    iconUrl: "https://connpass.gdgs.jp/app-icon.png",
+    label: "Connpass",
+    url: "https://connpass.gdgs.jp",
+  },
+  {
     iconUrl: "https://raw.githubusercontent.com/gdg-jp/gdgjp/main/cli/icon.png",
     label: "CLI",
     url: "https://github.com/gdg-jp/gdgjp#gdg-cli",
