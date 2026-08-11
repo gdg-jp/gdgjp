@@ -36,6 +36,7 @@ import {
 } from "~/components/ui/select";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
+import { loadChapterDirectory } from "~/lib/chapter-directory.server";
 import { getDb } from "~/lib/db.server";
 import { loadGooglePicker } from "~/lib/google-picker.client";
 import type { GooglePickerConfig, GooglePickerDocument } from "~/lib/google-picker.client";
@@ -159,9 +160,14 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     documentsBySource.set(doc.sourceId, list);
   }
 
-  // Only chapters the user may actually assign, so the picker cannot offer a scope
-  // the action would reject.
-  const allChapters = await db
+  // Chapter labels come from Accounts (same directory ShareDialog uses). Wiki's
+  // local `chapters` table is not kept in sync with memberships, so reading it
+  // left the picker empty and Radix Select appeared not to open.
+  const directoryChapters = await loadChapterDirectory(env).catch((error) => {
+    console.error("[sources] unable to load chapter directory", error);
+    return [];
+  });
+  const localChapters = await db
     .select({
       id: schema.chapters.id,
       nameJa: schema.chapters.nameJa,
@@ -170,9 +176,38 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     .from(schema.chapters)
     .orderBy(schema.chapters.nameJa)
     .all();
+
+  const chapterById = new Map<string, { id: string; nameJa: string; nameEn: string }>();
+  for (const chapter of localChapters) {
+    chapterById.set(chapter.id, chapter);
+  }
+  for (const chapter of directoryChapters) {
+    chapterById.set(chapter.id, {
+      id: chapter.id,
+      nameJa: chapter.name,
+      nameEn: chapter.name,
+    });
+  }
+  for (const membership of identity.chapters) {
+    const id = String(membership.chapterId);
+    if (chapterById.has(id)) continue;
+    const label = membership.chapterSlug || id;
+    chapterById.set(id, { id, nameJa: label, nameEn: label });
+  }
+
+  const allChapters = [...chapterById.values()].sort((a, b) =>
+    a.nameJa.localeCompare(b.nameJa, "ja"),
+  );
+  // Only chapters the user may actually assign, so the picker cannot offer a scope
+  // the action would reject.
   const assignableChapters = user.isAdmin
     ? allChapters
-    : allChapters.filter((chapter) => identity.chapterIds.includes(chapter.id));
+    : identity.chapterIds
+        .map((id) => chapterById.get(id))
+        .filter((chapter): chapter is { id: string; nameJa: string; nameEn: string } =>
+          Boolean(chapter),
+        )
+        .sort((a, b) => a.nameJa.localeCompare(b.nameJa, "ja"));
 
   const senderSamples = await db
     .select({
@@ -995,14 +1030,14 @@ function VisibilitySelect({
   onValueChange: (value: string) => void;
 }) {
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select value={value || undefined} onValueChange={onValueChange}>
       <SelectTrigger
         className="w-full bg-surface-raised sm:w-56"
         aria-label={t("sources.visibility_label")}
       >
         <SelectValue placeholder={t("sources.visibility_placeholder")} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent position="popper">
         {SOURCE_VISIBILITIES.map((option) => (
           <SelectItem key={option} value={option}>
             {t(`sources.visibility.${option}`)}
@@ -1026,15 +1061,28 @@ function ChapterSelect({
   value: string;
   onValueChange: (value: string) => void;
 }) {
+  if (chapters.length === 0) {
+    return (
+      <Select disabled>
+        <SelectTrigger
+          className="w-full bg-surface-raised sm:w-56"
+          aria-label={t("sources.chapter_label")}
+        >
+          <SelectValue placeholder={t("sources.chapter_empty")} />
+        </SelectTrigger>
+      </Select>
+    );
+  }
+
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select value={value || undefined} onValueChange={onValueChange}>
       <SelectTrigger
         className="w-full bg-surface-raised sm:w-56"
         aria-label={t("sources.chapter_label")}
       >
         <SelectValue placeholder={t("sources.chapter_placeholder")} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent position="popper">
         {chapters.map((chapter) => (
           <SelectItem key={chapter.id} value={chapter.id}>
             {language.startsWith("en") ? chapter.nameEn : chapter.nameJa}

@@ -462,6 +462,7 @@
     },
     "chapter_label": "Chapter",
     "chapter_placeholder": "Choose a chapter",
+    "chapter_empty": "No assignable chapters",
     "visibility_label": "Who can read",
     "visibility_placeholder": "Choose who can read this",
     "visibility_save": "Update visibility",

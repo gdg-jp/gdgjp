@@ -462,6 +462,7 @@
     },
     "chapter_label": "チャプター",
     "chapter_placeholder": "チャプターを選択",
+    "chapter_empty": "割り当て可能なチャプターがありません",
     "visibility_label": "公開範囲",
     "visibility_placeholder": "公開範囲を選択",
     "visibility_save": "公開範囲を更新",

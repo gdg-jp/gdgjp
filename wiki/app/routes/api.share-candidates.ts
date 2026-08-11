@@ -3,42 +3,13 @@ import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/lib/auth-utils.server";
 import { createAuth } from "~/lib/auth.server";
+import { loadChapterDirectory } from "~/lib/chapter-directory.server";
 import { getDb } from "~/lib/db.server";
 import {
   getEffectivePagePermissions,
   getPageAccessList,
   normalizeEmail,
 } from "~/lib/page-access.server";
-
-type AccountChapter = { id: string; slug: string; name: string; kind: "gdg" | "gdgoc" };
-
-async function loadChapterCandidates(env: Env, query: string): Promise<AccountChapter[]> {
-  const url = new URL("/api/chapters/directory", env.ACCOUNTS_URL);
-  if (query) url.searchParams.set("q", query);
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!response.ok) throw new Error(`accounts chapter directory returned ${response.status}`);
-  const payload: unknown = await response.json();
-  if (
-    !payload ||
-    typeof payload !== "object" ||
-    !Array.isArray((payload as { chapters?: unknown }).chapters)
-  ) {
-    throw new Error("accounts chapter directory returned an invalid payload");
-  }
-  return (payload as { chapters: unknown[] }).chapters.flatMap((chapter) => {
-    if (!chapter || typeof chapter !== "object") return [];
-    const value = chapter as Record<string, unknown>;
-    if (
-      typeof value.id !== "string" ||
-      typeof value.slug !== "string" ||
-      typeof value.name !== "string" ||
-      (value.kind !== "gdg" && value.kind !== "gdgoc")
-    ) {
-      return [];
-    }
-    return [{ id: value.id, slug: value.slug, name: value.name, kind: value.kind }];
-  });
-}
 
 /** GET /api/share-candidates?pageId=...&q=...&authorOnly=1 */
 export async function loader({ request, context }: LoaderFunctionArgs) {
@@ -99,7 +70,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     pageId && !authorOnly ? getPageAccessList(db, pageId) : Promise.resolve([]),
     authorOnly
       ? Promise.resolve([])
-      : loadChapterCandidates(env, query).catch((error) => {
+      : loadChapterDirectory(env, query).catch((error) => {
           // Keep direct-email sharing usable when the accounts directory is
           // temporarily unavailable. Chapter suggestions simply fail closed.
           console.error("Unable to load Chapter sharing candidates", error);
