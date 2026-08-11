@@ -113,7 +113,7 @@ function deny(findings) {
   process.stdout.write(
     JSON.stringify({
       permission: "deny",
-      agent_message: `<acl> tagging is incomplete. ${findings}\nWrap the material from the listed source in <acl src="…">…</acl>, or lower the page visibility, then retry the commit.`,
+      agent_message: `<acl> tagging is incomplete. ${findings}\nWrap the material from the listed source in <acl src="…">…</acl>, then retry the commit.`,
       user_message: "ACL gate blocked a commit in the Wiki clone.",
     }),
   );

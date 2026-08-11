@@ -256,6 +256,81 @@ describe("Wiki CLI sync action", () => {
     expect(batch).not.toHaveBeenCalled();
   });
 
+  it("does not collapse Wiki-app visibility to restricted on content update", async () => {
+    mocks.allResults = [
+      [storedPage({ id: "page-1", visibility: "member", contentJa: "旧本文", contentEn: "Body" })],
+      [],
+      [],
+      // pageAclClearance
+      [],
+      // validatePageAclForSync
+      [],
+    ];
+    const base = page("page-1", "page", null);
+    const upsert = {
+      ...base,
+      ja: locale("新本文"),
+      en: undefined,
+      meta: {
+        ...base.meta,
+        visibility: "restricted" as const,
+        generalRole: "viewer" as const,
+        chapterId: null,
+        access: [],
+      },
+    };
+    const { args, batch } = actionArgs([{ kind: "upsert", page: upsert, expectedRevision: 1 }], {
+      revisions: [{ id: "page-1", revision: 2 }],
+    });
+
+    const response = await action(args);
+
+    expect(response.status).toBe(200);
+    const statements = batch.mock.calls[0]?.[0] as Prepared[];
+    const update = statements.find((statement) => statement.sql.startsWith("UPDATE pages SET"));
+    expect(update?.sql).not.toContain("visibility=?");
+    expect(statements.some((statement) => statement.sql.includes("DELETE FROM page_access"))).toBe(
+      false,
+    );
+  });
+
+  it("applies intentional non-default visibility changes on update", async () => {
+    mocks.allResults = [
+      [
+        storedPage({
+          id: "page-1",
+          visibility: "restricted",
+          contentJa: "旧本文",
+          contentEn: "Body",
+        }),
+      ],
+      [],
+      [],
+      [],
+      [],
+    ];
+    const base = page("page-1", "page", null);
+    const upsert = {
+      ...base,
+      ja: locale("新本文"),
+      en: undefined,
+      meta: {
+        ...base.meta,
+        visibility: "public" as const,
+      },
+    };
+    const { args, batch } = actionArgs([{ kind: "upsert", page: upsert, expectedRevision: 1 }], {
+      revisions: [{ id: "page-1", revision: 2 }],
+    });
+
+    const response = await action(args);
+
+    expect(response.status).toBe(200);
+    const statements = batch.mock.calls[0]?.[0] as Prepared[];
+    const update = statements.find((statement) => statement.sql.includes("visibility=?"));
+    expect(update?.values).toContain("public");
+  });
+
   it("returns sync_failed from the single transaction without scheduling post-commit work", async () => {
     const { args, batch, waits } = actionArgs(
       [{ kind: "upsert", page: page("page-client-id", "page", null) }],

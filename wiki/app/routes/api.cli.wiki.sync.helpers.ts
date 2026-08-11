@@ -28,8 +28,88 @@ export type PartialLocalePagePayload = {
     visibility: string;
     generalRole: string;
     chapterId: string | null;
+    /** When true, UPDATE also writes visibility / general_role / chapter_id. */
+    updateSharing?: boolean;
   };
 };
+
+export type SyncAccessEntry = {
+  subjectType: "email" | "chapter";
+  subjectKey: string;
+  subjectLabel: string;
+  role: "viewer" | "commenter" | "editor";
+};
+
+export type StoredSyncSharing = {
+  visibility: string;
+  generalRole: string;
+  chapterId: string | null;
+  access: readonly SyncAccessEntry[];
+};
+
+export type RequestedSyncSharing = {
+  visibility: string;
+  generalRole: string;
+  chapterId: string | null;
+  access: readonly SyncAccessEntry[];
+};
+
+/**
+ * Existing-page sync must not collapse Wiki-app sharing back to the AGENTS.md
+ * create defaults (`restricted` / `viewer` / no grants). Agents often rewrite
+ * front matter from the template while updating body content. Non-default
+ * visibility changes are treated as intentional and kept.
+ */
+export function resolveExistingPageSharing(
+  stored: StoredSyncSharing,
+  requested: RequestedSyncSharing,
+): { sharing: RequestedSyncSharing; sharingChanged: boolean; preserved: boolean } {
+  const looksLikeCreateDefault =
+    requested.visibility === "restricted" &&
+    requested.generalRole === "viewer" &&
+    requested.chapterId == null &&
+    requested.access.length === 0;
+  const wouldCollapseWikiSharing =
+    looksLikeCreateDefault &&
+    (stored.visibility !== "restricted" ||
+      stored.generalRole !== "viewer" ||
+      stored.chapterId != null ||
+      stored.access.length > 0);
+
+  const sharing = wouldCollapseWikiSharing
+    ? {
+        visibility: stored.visibility,
+        generalRole: stored.generalRole,
+        chapterId: stored.chapterId,
+        access: stored.access.map((entry) => ({ ...entry })),
+      }
+    : {
+        visibility: requested.visibility,
+        generalRole: requested.generalRole,
+        chapterId: requested.chapterId,
+        access: requested.access.map((entry) => ({ ...entry })),
+      };
+
+  const storedAccess = stored.access
+    .map(
+      (entry) =>
+        `${entry.subjectType}\u0000${entry.subjectKey}\u0000${entry.subjectLabel}\u0000${entry.role}`,
+    )
+    .sort();
+  const nextAccess = sharing.access
+    .map(
+      (entry) =>
+        `${entry.subjectType}\u0000${entry.subjectKey}\u0000${entry.subjectLabel}\u0000${entry.role}`,
+    )
+    .sort();
+  const sharingChanged =
+    stored.visibility !== sharing.visibility ||
+    stored.generalRole !== sharing.generalRole ||
+    stored.chapterId !== sharing.chapterId ||
+    storedAccess.join("\n") !== nextAccess.join("\n");
+
+  return { sharing, sharingChanged, preserved: wouldCollapseWikiSharing };
+}
 
 /** True when JA title, summary, or canonical content differs from the stored row. */
 export function jaContentChanged(
@@ -82,9 +162,6 @@ export function buildPartialLocaleUpdate(
     "sort_order=?",
     "page_type=?",
     "page_metadata=?",
-    "visibility=?",
-    "general_role=?",
-    "chapter_id=?",
     "last_edited_by=?",
     "updated_at=unixepoch()",
   );
@@ -94,11 +171,13 @@ export function buildPartialLocaleUpdate(
     page.sortOrder,
     page.meta.pageType,
     page.meta.pageMetadata === null ? null : JSON.stringify(page.meta.pageMetadata),
-    page.meta.visibility,
-    page.meta.generalRole,
-    page.meta.chapterId,
     lastEditedBy,
   );
+
+  if (page.meta.updateSharing) {
+    sets.push("visibility=?", "general_role=?", "chapter_id=?");
+    binds.push(page.meta.visibility, page.meta.generalRole, page.meta.chapterId);
+  }
 
   if (aclSourceIdsJson !== undefined) {
     sets.push("acl_source_ids=?");
