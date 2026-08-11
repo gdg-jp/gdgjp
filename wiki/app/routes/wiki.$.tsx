@@ -190,21 +190,16 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     );
   }
 
+  const [contentJa, contentEn] = await Promise.all([
+    redactPageMarkdown(db, canonicalMarkdown(page.contentJa), sessionUser, identity.chapters),
+    redactPageMarkdown(db, canonicalMarkdown(page.contentEn), sessionUser, identity.chapters),
+  ]);
+
   return {
     page: {
       ...page,
-      contentJa: await redactPageMarkdown(
-        db,
-        canonicalMarkdown(page.contentJa),
-        sessionUser,
-        identity.chapters,
-      ),
-      contentEn: await redactPageMarkdown(
-        db,
-        canonicalMarkdown(page.contentEn),
-        sessionUser,
-        identity.chapters,
-      ),
+      contentJa,
+      contentEn,
     },
     tags: pageTags,
     author: authorRow ?? null,

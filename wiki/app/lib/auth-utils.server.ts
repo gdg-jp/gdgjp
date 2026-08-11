@@ -11,6 +11,16 @@ export interface AccessIdentity {
   claimsAvailable: boolean;
 }
 
+const CLAIMS_CACHE_TTL_MS = 30_000;
+const CLAIMS_CACHE_MAX_SIZE = 500;
+
+type CachedChapters = {
+  chapterIds: string[];
+  chapters: AccessIdentity["chapters"];
+};
+
+const chapterClaimsCache = new Map<string, { value: CachedChapters; expiresAt: number }>();
+
 /**
  * Returns the current session user, or null if not signed in.
  */
@@ -20,30 +30,56 @@ export function getSessionUser(request: Request, env: Env): Promise<AuthUser | n
 
 /**
  * Resolve the identity used by page authorization. Chapter memberships are
- * deliberately fetched from fresh IdP claims so a membership removal takes
- * effect without waiting for the 30-day RP session cookie to expire.
+ * fetched from IdP claims and cached briefly so in-app navigations are not
+ * blocked by a /userinfo round-trip on every click. Removals still take effect
+ * within CLAIMS_CACHE_TTL_MS instead of waiting for the 30-day RP session cookie.
  */
 export async function getAccessIdentity(request: Request, env: Env): Promise<AccessIdentity> {
   const auth = createAuth(env);
   const user = await auth.getSessionUser(request);
   if (!user) return { user: null, chapterIds: [], chapters: [], claimsAvailable: true };
 
+  const now = Date.now();
+  const hit = chapterClaimsCache.get(user.id);
+  if (hit && hit.expiresAt > now) {
+    return { user, ...hit.value, claimsAvailable: true };
+  }
+
   try {
     const claims = await auth.getFreshClaims(request);
-    return {
-      user,
+    const value: CachedChapters = {
       chapterIds: claims.chapters.map((chapter) => String(chapter.chapterId)),
       chapters: claims.chapters.map((chapter) => ({
         chapterId: String(chapter.chapterId),
         chapterSlug: chapter.chapterSlug,
         role: chapter.role,
       })),
-      claimsAvailable: true,
     };
+    if (chapterClaimsCache.size >= CLAIMS_CACHE_MAX_SIZE) {
+      let oldestKey: string | undefined;
+      let oldestExp = Number.POSITIVE_INFINITY;
+      for (const [key, entry] of chapterClaimsCache) {
+        if (entry.expiresAt < oldestExp) {
+          oldestExp = entry.expiresAt;
+          oldestKey = key;
+        }
+      }
+      if (oldestKey !== undefined) chapterClaimsCache.delete(oldestKey);
+    }
+    chapterClaimsCache.set(user.id, { value, expiresAt: now + CLAIMS_CACHE_TTL_MS });
+    return { user, ...value, claimsAvailable: true };
   } catch (error) {
     console.error("[access] unable to refresh chapter claims", error);
+    // Prefer a recently-expired cache over fail-closed empty chapters so a
+    // transient IdP blip does not blank the shell mid-navigation.
+    if (hit) return { user, ...hit.value, claimsAvailable: true };
     return { user, chapterIds: [], chapters: [], claimsAvailable: false };
   }
+}
+
+/** Test helper — clears the in-isolate chapter-claims cache. */
+export function clearChapterClaimsCacheForTests(): void {
+  chapterClaimsCache.clear();
 }
 
 /**
