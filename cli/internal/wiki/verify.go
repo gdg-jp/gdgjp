@@ -159,32 +159,23 @@ func CollectChangedPageRels(ctx context.Context, root string, runGit GitRunner) 
 	return rels, nil
 }
 
-// recentCommitWalk limits how far we walk for a pages/-touching tip after push.
-// One commit's paths only — never the union of unrelated history (audience-cover
-// would false-fail if a prior public page were mixed in).
-const recentCommitWalk = 5
-
-// CollectCommittedPageRels recovers pages/ dirs from the most recent commit that
-// touches pages/ (HEAD, then HEAD~1 …). Used after push when dirty/diff is empty
-// so --commit run-level checks work for claude/codex and shell-written pages.
+// CollectCommittedPageRels recovers pages/ dirs changed since baseRev (typically
+// HEAD at ingest start). Used after push when dirty/diff is empty so --commit
+// run-level checks work for claude/codex and shell-written pages.
+//
+// When baseRev is empty (legacy traces), returns nil — tip walking without a
+// baseline falsely attributes prior commits to the current queue head.
 // Never loads the whole wiki.
-func CollectCommittedPageRels(ctx context.Context, root string, runGit GitRunner) ([]string, error) {
-	for i := 0; i < recentCommitWalk; i++ {
-		rev := "HEAD"
-		if i > 0 {
-			rev = fmt.Sprintf("HEAD~%d", i)
-		}
-		out, err := runGit(ctx, root, "diff-tree", "--no-commit-id", "--name-only", "-r", rev, "--", "pages/")
-		if err != nil {
-			// Ran out of history or missing rev — stop walking.
-			break
-		}
-		rels := uniquePageRels(strings.Split(out, "\n"))
-		if len(rels) > 0 {
-			return rels, nil
-		}
+func CollectCommittedPageRels(ctx context.Context, root string, runGit GitRunner, baseRev string) ([]string, error) {
+	baseRev = strings.TrimSpace(baseRev)
+	if baseRev == "" {
+		return nil, nil
 	}
-	return nil, nil
+	out, err := runGit(ctx, root, "diff", "--name-only", baseRev+"..HEAD", "--", "pages/")
+	if err != nil {
+		return nil, err
+	}
+	return uniquePageRels(strings.Split(out, "\n")), nil
 }
 
 func pageSourceIDs(sources any) []ValidateACLSource {
@@ -378,12 +369,11 @@ func VerifyACL(ctx context.Context, root string, client *Client, token string, r
 	}
 	readIDs := ResolveReadSourceIDs(root, state, trace)
 	// After git push the worktree matches origin/main, so dirty/diff is empty.
-	// Recover the ingest's submitted page set without loading the whole wiki
-	// (audienceContains on every page would false-fail "lower visibility"
-	// siblings). Prefer tip/recent git history (agent-agnostic --commit
-	// backstop); keep Cursor Writes as a supplement for afterFileEdit traces.
+	// Recover pages changed since ingest start (BaseRev..HEAD) without loading
+	// the whole wiki. Keep Cursor Writes as a supplement for afterFileEdit
+	// traces (shell tee/cat may bypass the write hook).
 	if len(pages) == 0 {
-		commitRels, commitErr := CollectCommittedPageRels(ctx, root, runGit)
+		commitRels, commitErr := CollectCommittedPageRels(ctx, root, runGit, trace.BaseRev)
 		if commitErr != nil {
 			return ValidateACLResult{}, commitErr
 		}

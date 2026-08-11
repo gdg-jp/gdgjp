@@ -433,7 +433,11 @@ func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent string) erro
 	if len(pending) > 0 {
 		queueHeadID = pending[0].DocumentID
 	}
-	if err = wiki.ResetIngestTrace(root, queueHeadID); err != nil {
+	baseRev, revErr := s.runGit(cmd.Context(), root, "rev-parse", "HEAD")
+	if revErr != nil {
+		baseRev = ""
+	}
+	if err = wiki.ResetIngestTrace(root, queueHeadID, strings.TrimSpace(baseRev)); err != nil {
 		return err
 	}
 

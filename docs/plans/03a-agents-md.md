@@ -191,7 +191,7 @@ Rules:
 - Do not put `<acl>` in title, summary, or front matter. Do not nest ACL spans.
 - A single span may reference multiple sources with space-separated ids (`src="id1 id2"`); the reader must be allowed for every listed source.
 - Do not edit a page whose front matter has `acl_redacted: true` — the push will be rejected.
-- If the server returns `acl_required`, wrap the cited content with the appropriate tag or lower the page `visibility`, then resend.
+- If the server or `gdg wiki verify-acl` returns `acl_required` / `acl_untagged_read_source`, wrap the cited content with the appropriate tag or lower the page `visibility`, then retry. **These errors mean tagging is incomplete, not that you lack permission.** If you can read the queue item under `raw/`, continue ingest with `<acl>` tags.
 - With `gdg wiki ingest --agent cursor`, a project hook runs `gdg wiki verify-acl` before `git commit` / `git push`. If tagging is incomplete, the hook **denies the command** and the `agent_message` lists the missing `sourceId`. Wrap that source in `<acl src="…">…</acl>` (or lower page visibility) and retry the commit. Infrastructure failures (offline, expired token, missing `gdg`) fail open with a warning — the server `/sync` check remains the hard boundary.
 
 Span ACLs are an additional defense layer inside page-level visibility. They are not a substitute for keeping confidential primary data in `raw/`.

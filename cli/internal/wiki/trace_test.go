@@ -10,7 +10,7 @@ func TestResetAndAppendTrace(t *testing.T) {
 	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := ResetIngestTrace(root, "doc-1"); err != nil {
+	if err := ResetIngestTrace(root, "doc-1", "abc123"); err != nil {
 		t.Fatal(err)
 	}
 	trace, err := LoadTrace(root)
@@ -19,6 +19,9 @@ func TestResetAndAppendTrace(t *testing.T) {
 	}
 	if trace.QueueHeadID != "doc-1" || trace.RunID == "" || len(trace.Reads) != 0 {
 		t.Fatalf("trace = %#v", trace)
+	}
+	if trace.BaseRev != "abc123" {
+		t.Fatalf("baseRev = %q", trace.BaseRev)
 	}
 	if err = AppendTraceRead(root, "raw/src-1/doc.md"); err != nil {
 		t.Fatal(err)

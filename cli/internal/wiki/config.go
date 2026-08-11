@@ -86,7 +86,21 @@ func WorkTreeRoot(gitDir string) (string, error) {
 }
 
 func CloneGitignore() string {
-	return "raw/\nINGEST_QUEUE.md\n.gdgwiki/\n.cursor/\n"
+	// Keep local agent/runtime dirs out of git status. EnsureCursorHooks rewrites
+	// this file idempotently — omitting a line here makes --commit fail on clones
+	// that already have those directories (skills, hooks, Cursor project config).
+	return strings.Join([]string{
+		"raw/",
+		"AGENTS.original.md",
+		"INGEST_QUEUE.md",
+		".gdgwiki/",
+		".cursor/",
+		".codex",
+		".githooks/",
+		".agents/",
+		".claude/",
+		"",
+	}, "\n")
 }
 
 func WriteCloneGitignore(root string) error {

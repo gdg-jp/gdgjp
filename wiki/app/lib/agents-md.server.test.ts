@@ -15,6 +15,13 @@ describe("initial AGENTS.md", () => {
     expect(INITIAL_AGENTS_MD).toContain("confirm that the processed source is no longer first");
     expect(INITIAL_AGENTS_MD).toContain("do not edit `INGEST_QUEUE.md` or `.gdgwiki/` manually");
   });
+
+  it("includes Confidentiality and Span ACLs guidance", () => {
+    expect(INITIAL_AGENTS_MD).toContain("## Confidentiality and Span ACLs");
+    expect(INITIAL_AGENTS_MD).toContain("<acl src=");
+    expect(INITIAL_AGENTS_MD).toContain("acl_untagged_read_source");
+    expect(INITIAL_AGENTS_MD).toContain("tagging is incomplete, not that you lack permission");
+  });
 });
 
 describe("extractInstructionSections", () => {

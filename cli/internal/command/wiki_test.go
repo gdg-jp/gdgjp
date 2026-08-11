@@ -224,7 +224,7 @@ func TestWikiIngestCommitFailsClosedOnACLFindings(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "page.md"), []byte(page), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := wiki.ResetIngestTrace(root, "doc-1"); err != nil {
+	if err := wiki.ResetIngestTrace(root, "doc-1", "pre"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -250,12 +250,12 @@ func TestWikiIngestCommitFailsClosedOnACLFindings(t *testing.T) {
 			return "", nil
 		case joined == "rev-parse HEAD", joined == "rev-parse refs/remotes/origin/main":
 			return "synced\n", nil
+		case joined == "diff --name-only pre..HEAD -- pages/":
+			// Post-push range since ingest BaseRev carries the ingest pages.
+			return "pages/venues/page.md\n", nil
 		case strings.HasPrefix(joined, "diff --name-only"),
 			strings.HasPrefix(joined, "status --porcelain"):
 			return "", nil
-		case joined == "diff-tree --no-commit-id --name-only -r HEAD -- pages/":
-			// Post-push tip commit carries the ingest pages (no Cursor Writes).
-			return "pages/venues/page.md\n", nil
 		default:
 			t.Fatalf("unexpected git call: %s", joined)
 			return "", nil
@@ -322,8 +322,12 @@ func TestWikiIngestCursorAgentInstallsHooksAndPassesRoot(t *testing.T) {
 	}
 
 	var gotRoot, gotAgent string
-	service := testWikiService(func(context.Context, string, ...string) (string, error) {
-		t.Fatal("ingest --agent must not invoke git")
+	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
+		joined := strings.Join(args, " ")
+		if joined == "rev-parse HEAD" {
+			return "base-rev\n", nil
+		}
+		t.Fatalf("ingest --agent unexpected git: %s", joined)
 		return "", nil
 	})
 	service.runAgent = func(_ context.Context, agentRoot, agent, _ string) error {
@@ -354,8 +358,12 @@ func TestWikiIngestCursorAgentInstallsHooksAndPassesRoot(t *testing.T) {
 	if _, err = os.Stat(filepath.Join(root, ".cursor", "hooks.json")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = os.Stat(wiki.TracePath(root)); err != nil {
+	trace, err := wiki.LoadTrace(root)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if trace.BaseRev != "base-rev" {
+		t.Fatalf("baseRev = %q", trace.BaseRev)
 	}
 }
 
@@ -367,8 +375,12 @@ func TestWikiIngestClaudeDoesNotInstallCursorHooks(t *testing.T) {
 	if err := wiki.WriteState(root, wiki.State{Manifest: &manifest}); err != nil {
 		t.Fatal(err)
 	}
-	service := testWikiService(func(context.Context, string, ...string) (string, error) {
-		t.Fatal("ingest --agent must not invoke git")
+	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
+		joined := strings.Join(args, " ")
+		if joined == "rev-parse HEAD" {
+			return "base-rev\n", nil
+		}
+		t.Fatalf("ingest --agent unexpected git: %s", joined)
 		return "", nil
 	})
 	service.runAgent = func(context.Context, string, string, string) error { return nil }

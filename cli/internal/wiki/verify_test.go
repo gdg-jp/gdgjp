@@ -108,32 +108,36 @@ func TestPageRelsFromTraceWrites(t *testing.T) {
 	}
 }
 
-func TestCollectCommittedPageRelsUsesMostRecentPagesCommit(t *testing.T) {
-	calls := 0
+func TestCollectCommittedPageRelsUsesBaseRevRange(t *testing.T) {
 	runGit := func(_ context.Context, _ string, args ...string) (string, error) {
-		calls++
 		joined := strings.Join(args, " ")
-		switch {
-		case joined == "diff-tree --no-commit-id --name-only -r HEAD -- pages/":
-			// Tip is a non-pages commit (e.g. AGENTS.md-only).
-			return "", nil
-		case joined == "diff-tree --no-commit-id --name-only -r HEAD~1 -- pages/":
+		if joined == "diff --name-only base123..HEAD -- pages/" {
 			return "pages/venues/umeda/page.md\npages/index/page.md\n", nil
-		default:
-			t.Fatalf("unexpected git: %s", joined)
-			return "", nil
 		}
+		t.Fatalf("unexpected git: %s", joined)
+		return "", nil
 	}
-	rels, err := CollectCommittedPageRels(context.Background(), "/tmp", runGit)
+	rels, err := CollectCommittedPageRels(context.Background(), "/tmp", runGit, "base123")
 	if err != nil {
 		t.Fatal(err)
-	}
-	if calls != 2 {
-		t.Fatalf("calls = %d, want 2 (stop at first pages-touching commit)", calls)
 	}
 	got := strings.Join(rels, ",")
 	if !strings.Contains(got, "venues/umeda") || !strings.Contains(got, "index") {
 		t.Fatalf("rels = %#v", rels)
+	}
+}
+
+func TestCollectCommittedPageRelsSkipsWithoutBaseRev(t *testing.T) {
+	runGit := func(context.Context, string, ...string) (string, error) {
+		t.Fatal("must not walk tip history without baseRev")
+		return "", nil
+	}
+	rels, err := CollectCommittedPageRels(context.Background(), "/tmp", runGit, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rels) != 0 {
+		t.Fatalf("rels = %#v, want empty", rels)
 	}
 }
 
@@ -229,8 +233,9 @@ func TestVerifyACLUsesTipCommitWhenGitCleanAndNoWrites(t *testing.T) {
 	}
 	writeVerifyTestPage(t, root, "index", "index", "index", "public", "public body")
 	writeVerifyTestPage(t, root, "umeda", "umeda", "umeda", "organizer", "secret body")
-	// No Cursor Writes — claude/codex / shell tee path.
-	if err := ResetIngestTrace(root, "doc-1"); err != nil {
+	// No Cursor Writes — claude/codex / shell tee path. BaseRev pins the
+	// pre-push tip so only this ingest's commits are recovered.
+	if err := ResetIngestTrace(root, "doc-1", "pre-push"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -251,10 +256,11 @@ func TestVerifyACLUsesTipCommitWhenGitCleanAndNoWrites(t *testing.T) {
 
 	runGit := func(_ context.Context, _ string, args ...string) (string, error) {
 		joined := strings.Join(args, " ")
-		if strings.HasPrefix(joined, "diff --name-only") || strings.HasPrefix(joined, "status --porcelain") {
+		if strings.HasPrefix(joined, "diff --name-only refs/remotes/origin/main") ||
+			strings.HasPrefix(joined, "status --porcelain") {
 			return "", nil
 		}
-		if joined == "diff-tree --no-commit-id --name-only -r HEAD -- pages/" {
+		if joined == "diff --name-only pre-push..HEAD -- pages/" {
 			return "pages/umeda/page.md\n", nil
 		}
 		t.Fatalf("unexpected git: %s", joined)
@@ -275,6 +281,58 @@ func TestVerifyACLUsesTipCommitWhenGitCleanAndNoWrites(t *testing.T) {
 	}
 }
 
+func TestVerifyACLIgnoresUnrelatedTipWithoutNewCommits(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
+		t.Fatal(err)
+	}
+	src := "org-src"
+	if err := WriteState(root, State{Manifest: &SourcesManifest{Version: 1, Documents: []SourcesManifestEntry{{
+		DocumentID: "doc-1", SourceID: &src, Kind: "source-document",
+		Title: "Secret", Path: "raw/org-src/doc.md", ContentHash: "h1",
+	}}}}); err != nil {
+		t.Fatal(err)
+	}
+	writeVerifyTestPage(t, root, "intermission", "intermission", "intermission", "restricted", "old")
+	// Ingest just started: BaseRev == HEAD, no writes yet. Prior tip pages must
+	// not be submitted against the new confidential queue head.
+	if err := ResetIngestTrace(root, "doc-1", "same-as-head"); err != nil {
+		t.Fatal(err)
+	}
+
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		_ = json.NewEncoder(w).Encode(ValidateACLResult{OK: true})
+	}))
+	defer server.Close()
+	client := NewClientAt(server.URL)
+	client.HTTPClient = server.Client()
+
+	runGit := func(_ context.Context, _ string, args ...string) (string, error) {
+		joined := strings.Join(args, " ")
+		if strings.HasPrefix(joined, "diff --name-only refs/remotes/origin/main") ||
+			strings.HasPrefix(joined, "status --porcelain") {
+			return "", nil
+		}
+		if joined == "diff --name-only same-as-head..HEAD -- pages/" {
+			return "", nil
+		}
+		t.Fatalf("unexpected git: %s", joined)
+		return "", nil
+	}
+	result, err := VerifyACL(context.Background(), root, client, "tok", runGit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.OK {
+		t.Fatalf("result = %#v", result)
+	}
+	if called {
+		t.Fatal("must not validate unrelated tip pages against a new queue head")
+	}
+}
+
 func TestVerifyACLOkWhenGitCleanAndNoWrites(t *testing.T) {
 	root := t.TempDir()
 	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
@@ -288,7 +346,7 @@ func TestVerifyACLOkWhenGitCleanAndNoWrites(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeVerifyTestPage(t, root, "index", "index", "index", "public", "body")
-	if err := ResetIngestTrace(root, "doc-1"); err != nil {
+	if err := ResetIngestTrace(root, "doc-1", ""); err != nil {
 		t.Fatal(err)
 	}
 

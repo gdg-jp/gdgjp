@@ -375,13 +375,15 @@ func IngestPrompt(root string, pendingCount int) string {
 	}
 	return strings.TrimSpace(fmt.Sprintf(`
 You are maintaining the GDG Japan Wiki clone at %s.
-Read AGENTS.md and process ONLY the first item in INGEST_QUEUE.md.
+Read AGENTS.md (especially Confidentiality and Span ACLs) and process ONLY the
+first item in INGEST_QUEUE.md.
 Update pages/**, index, and log as instructed, commit and git push, then run
 gdg wiki ingest --commit to mark the source complete and refresh the queue.
 Do not edit raw/**. Do not remove raw/ from .gitignore.
-If a confidential source is not tagged, git commit is refused by the ACL gate.
-Wrap material from the listed source in <acl src="…">…</acl>, or lower the page
-visibility, then retry the commit.
+If visibility is not member, wrap derived material in <acl src="<source_id>">…</acl>
+(or lower page visibility) before commit. ACL gate findings (acl_required,
+acl_untagged_read_source) mean tagging is incomplete — fix tags and retry.
+They do not mean you lack permission when you can already read the raw source.
 `, root))
 }
 

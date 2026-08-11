@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -21,11 +22,15 @@ const TraceFileName = "ingest-trace.json"
 // may also use Writes for Cursor afterFileEdit (PageRelsFromTraceWrites).
 // Writes must still never replace or shrink the read-source set.
 type IngestTrace struct {
-	RunID       string   `json:"runId"`
-	StartedAt   int64    `json:"startedAt"`
-	QueueHeadID string   `json:"queueHeadDocumentId"`
-	Reads       []string `json:"reads"`
-	Writes      []string `json:"writes"`
+	RunID       string `json:"runId"`
+	StartedAt   int64  `json:"startedAt"`
+	QueueHeadID string `json:"queueHeadDocumentId"`
+	// BaseRev is HEAD at ingest start (rev-parse). After push, VerifyACL recovers
+	// only pages changed in BaseRev..HEAD so prior unrelated tip commits are not
+	// attributed to the current queue-head source (acl_untagged_read_source).
+	BaseRev string   `json:"baseRev,omitempty"`
+	Reads   []string `json:"reads"`
+	Writes  []string `json:"writes"`
 }
 
 func TracePath(root string) string {
@@ -79,11 +84,13 @@ func newRunID() string {
 }
 
 // ResetIngestTrace truncates the trace for a new ingest run.
-func ResetIngestTrace(root, queueHeadDocumentID string) error {
+// baseRev should be the clone's HEAD (git rev-parse HEAD) when the run starts.
+func ResetIngestTrace(root, queueHeadDocumentID, baseRev string) error {
 	return WriteTrace(root, IngestTrace{
 		RunID:       newRunID(),
 		StartedAt:   time.Now().Unix(),
 		QueueHeadID: queueHeadDocumentID,
+		BaseRev:     strings.TrimSpace(baseRev),
 		Reads:       []string{},
 		Writes:      []string{},
 	})

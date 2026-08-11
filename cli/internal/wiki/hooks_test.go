@@ -38,6 +38,11 @@ func TestEnsureCursorHooksIdempotentAndGitignored(t *testing.T) {
 	if !strings.Contains(string(gitignore), ".cursor/") {
 		t.Fatalf(".gitignore missing .cursor/: %s", gitignore)
 	}
+	for _, line := range []string{".agents/", ".claude/", ".githooks/", ".codex"} {
+		if !strings.Contains(string(gitignore), line) {
+			t.Fatalf(".gitignore missing %s: %s", line, gitignore)
+		}
+	}
 	exclude, err := os.ReadFile(filepath.Join(root, ".git", "info", "exclude"))
 	if err != nil {
 		t.Fatal(err)
