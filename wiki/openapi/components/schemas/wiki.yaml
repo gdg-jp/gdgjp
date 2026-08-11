@@ -166,6 +166,73 @@ SyncResult:
     pages:
       type: array
       items: { $ref: '#/SyncResultPage' }
+ValidateAclPage:
+  type: object
+  required: [slug, title, summary, content, tags, visibility, access, sources]
+  properties:
+    id: { type: string, nullable: true }
+    slug:
+      type: string
+      minLength: 1
+      maxLength: 160
+      pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+    title: { type: string }
+    summary: { type: string }
+    content: { type: string }
+    tags:
+      type: array
+      items: { type: string }
+    visibility:
+      type: string
+      enum: [restricted, unlisted, public, organizer, member]
+    access:
+      type: array
+      items:
+        type: object
+        required: [subjectType, subjectKey]
+        properties:
+          subjectType: { type: string, enum: [email, chapter] }
+          subjectKey: { type: string, minLength: 1 }
+    sources:
+      type: array
+      items:
+        type: object
+        properties:
+          sourceId: { type: string, minLength: 1 }
+ValidateAclRequest:
+  type: object
+  properties:
+    lang: { type: string, enum: [ja, en], default: ja }
+    pages:
+      type: array
+      items: { $ref: '#/ValidateAclPage' }
+    readSourceIds:
+      type: array
+      items: { type: string, minLength: 1 }
+      description: >
+        Source IDs read during this ingest run. Always includes the queue head.
+        Trace-derived ids may be added. Used for the run-level
+        acl_untagged_read_source check.
+ValidateAclFinding:
+  type: object
+  required: [slug, error]
+  properties:
+    slug: { type: string }
+    error: { type: string }
+    sourceId: { type: string }
+ValidateAclResult:
+  oneOf:
+    - type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean, enum: [true] }
+    - type: object
+      required: [ok, findings]
+      properties:
+        ok: { type: boolean, enum: [false] }
+        findings:
+          type: array
+          items: { $ref: '#/ValidateAclFinding' }
 SourcesManifestEntry:
   type: object
   required: [documentId, kind, title, path, contentHash]

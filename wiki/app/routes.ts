@@ -52,6 +52,7 @@ export default [
   route("/api/users/search", "routes/api.users.search.ts"),
   route("/api/cli/wiki/snapshot", "routes/api.cli.wiki.snapshot.ts"),
   route("/api/cli/wiki/sync", "routes/api.cli.wiki.sync.ts"),
+  route("/api/cli/wiki/validate-acl", "routes/api.cli.wiki.validate-acl.ts"),
   route("/api/cli/wiki/sources", "routes/api.cli.wiki.sources.ts"),
   route(
     "/api/cli/wiki/sources/:documentId/content",

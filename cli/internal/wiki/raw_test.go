@@ -24,6 +24,9 @@ func TestIngestPromptRequiresFinalizationAfterPush(t *testing.T) {
 	if push < 0 || finalize < 0 || finalize < push {
 		t.Fatalf("prompt does not order push before finalization:\n%s", prompt)
 	}
+	if !strings.Contains(prompt, "<acl src=") {
+		t.Fatalf("prompt missing ACL gate recovery hint:\n%s", prompt)
+	}
 }
 
 func TestRawLocalPathStaysUnderRaw(t *testing.T) {

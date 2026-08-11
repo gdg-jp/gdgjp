@@ -86,11 +86,16 @@ func WorkTreeRoot(gitDir string) (string, error) {
 }
 
 func CloneGitignore() string {
-	return "raw/\nINGEST_QUEUE.md\n.gdgwiki/\n"
+	return "raw/\nINGEST_QUEUE.md\n.gdgwiki/\n.cursor/\n"
 }
 
 func WriteCloneGitignore(root string) error {
-	return os.WriteFile(filepath.Join(root, ".gitignore"), []byte(CloneGitignore()), 0o644)
+	path := filepath.Join(root, ".gitignore")
+	want := []byte(CloneGitignore())
+	if existing, err := os.ReadFile(path); err == nil && string(existing) == string(want) {
+		return nil
+	}
+	return os.WriteFile(path, want, 0o644)
 }
 
 // WriteCloneExcludes keeps generated local control files out of git status.

@@ -28,7 +28,7 @@ type wikiService struct {
 	installHelper func(string) (string, error)
 	credentials   store.CredentialStore
 	newClient     func() *wiki.Client
-	runAgent      func(context.Context, string, string) error
+	runAgent      func(ctx context.Context, root, agent, prompt string) error
 }
 
 func newWikiCommand(credentials store.CredentialStore) *cobra.Command {
@@ -97,9 +97,18 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 		},
 	}
 	ingest.Flags().BoolVar(&ingestCommit, "commit", false, "Mark the first queue item as ingested on the server")
-	ingest.Flags().StringVar(&ingestAgent, "agent", "", "Shell out to claude or codex with the ingest prompt")
+	ingest.Flags().StringVar(&ingestAgent, "agent", "", "Shell out to claude, codex, or cursor with the ingest prompt")
 	ingest.MarkFlagsMutuallyExclusive("commit", "agent")
 	command.AddCommand(ingest)
+
+	command.AddCommand(&cobra.Command{
+		Use:   "verify-acl",
+		Short: "Dry-run ACL validation for changed pages (fail-open on infrastructure errors)",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return service.verifyACL(cmd)
+		},
+	})
 
 	command.AddCommand(&cobra.Command{
 		Use:   "lint",
@@ -125,17 +134,20 @@ func runGit(ctx context.Context, directory string, args ...string) (string, erro
 	return string(output), nil
 }
 
-func runCodingAgent(ctx context.Context, agent, prompt string) error {
+func runCodingAgent(ctx context.Context, root, agent, prompt string) error {
 	var name string
 	switch agent {
 	case "claude":
 		name = "claude"
 	case "codex":
 		name = "codex"
+	case "cursor":
+		name = "cursor-agent"
 	default:
-		return fmt.Errorf("unsupported agent %q (use claude or codex)", agent)
+		return fmt.Errorf("unsupported agent %q (use claude, codex, or cursor)", agent)
 	}
 	command := exec.CommandContext(ctx, name, prompt)
+	command.Dir = root
 	command.Stdin = os.Stdin
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
@@ -392,9 +404,15 @@ func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent string) erro
 		if len(pending) == 0 {
 			return errors.New("no pending documents to mark as ingested")
 		}
+		if err = s.verifyACLStrict(cmd); err != nil {
+			return err
+		}
 		first := pending[0]
 		state.Ingested[first.DocumentID] = first.ContentHash
 		if err = wiki.WriteState(root, state); err != nil {
+			return err
+		}
+		if err = wiki.ClearIngestTrace(root); err != nil {
 			return err
 		}
 		_, pending, err = wiki.BuildIngestQueue(root, *state.Manifest, state)
@@ -410,14 +428,94 @@ func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent string) erro
 		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Queue refreshed; %d pending item(s) remain. Start a new ingest task to process the next item.\n", len(pending))
 		return err
 	}
+
+	queueHeadID := ""
+	if len(pending) > 0 {
+		queueHeadID = pending[0].DocumentID
+	}
+	if err = wiki.ResetIngestTrace(root, queueHeadID); err != nil {
+		return err
+	}
+
 	prompt := wiki.IngestPrompt(root, len(pending))
 	if _, err = fmt.Fprintln(cmd.OutOrStdout(), prompt); err != nil {
 		return err
 	}
 	if agent != "" {
-		return s.runAgent(cmd.Context(), agent, prompt)
+		if agent == "cursor" {
+			updated, hookErr := wiki.EnsureCursorHooks(root)
+			if hookErr != nil {
+				return hookErr
+			}
+			if updated {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Installed Cursor ACL hooks in this Wiki clone.")
+			} else {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Cursor ACL hooks already up to date.")
+			}
+		}
+		return s.runAgent(cmd.Context(), root, agent, prompt)
 	}
 	return nil
+}
+
+// runVerifyACL executes the dry-run gate. Infrastructure failures return a
+// warning and ok=true (fail open). ACL findings return ok=false with no error.
+func (s *wikiService) runVerifyACL(cmd *cobra.Command) (ok bool, err error) {
+	root, err := s.findRoot()
+	if err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: ACL verify skipped (%v)\n", err)
+		return true, nil
+	}
+	state, err := wiki.LoadState(root)
+	if err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: ACL verify skipped (%v)\n", err)
+		return true, nil
+	}
+	if state.Manifest == nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: ACL verify skipped (no local raw snapshot)\n")
+		return true, nil
+	}
+	client := s.newClient()
+	var result wiki.ValidateACLResult
+	err = s.withToken(cmd.Context(), func(token string) error {
+		var verifyErr error
+		result, verifyErr = wiki.VerifyACL(cmd.Context(), root, client, token, wiki.GitRunner(s.runGit))
+		return verifyErr
+	})
+	if err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: ACL verify failed open (%v)\n", err)
+		return true, nil
+	}
+	if result.OK {
+		return true, nil
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), wiki.FormatACLFindings(result.Findings))
+	return false, nil
+}
+
+// verifyACLStrict fails closed on ACL violations but still fail-opens on
+// infrastructure errors, matching `gdg wiki verify-acl`.
+func (s *wikiService) verifyACLStrict(cmd *cobra.Command) error {
+	ok, err := s.runVerifyACL(cmd)
+	if err != nil {
+		return err
+	}
+	if ok {
+		return nil
+	}
+	return errors.New("ACL validation failed; fix <acl> tags or page visibility before --commit")
+}
+
+func (s *wikiService) verifyACL(cmd *cobra.Command) error {
+	ok, err := s.runVerifyACL(cmd)
+	if err != nil {
+		return err
+	}
+	if ok {
+		return nil
+	}
+	// Cobra maps returned errors to exit 1 — the only fail-closed path.
+	return errors.New("ACL validation failed")
 }
 
 func (s *wikiService) lint(cmd *cobra.Command) error {

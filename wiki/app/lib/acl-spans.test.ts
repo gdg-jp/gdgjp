@@ -18,6 +18,7 @@ import {
   parseLevelAudienceKey,
   sourceAudienceKey,
   validatePageAclForSync,
+  validateReadSourcesTagged,
 } from "./acl-spans.server";
 
 describe("parseAclSpans", () => {
@@ -438,6 +439,95 @@ describe("validatePageAclForSync", () => {
       ),
     ).resolves.toEqual({ ok: true });
     expect(computeAclSourceIdsJson("ja-only update", contentEn)).toBe(JSON.stringify(["en1"]));
+  });
+});
+
+describe("validateReadSourcesTagged", () => {
+  const memberUser = {
+    id: "author-1",
+    email: "author@example.com",
+    name: "Author",
+    image: null,
+    isAdmin: false,
+  };
+
+  it("ignores member-visibility reads and requires a tag for organizer reads", async () => {
+    const memberSrc = {
+      id: "mem-src",
+      visibility: "member",
+      chapterId: null,
+      status: "ready",
+    };
+    await expect(
+      validateReadSourcesTagged(
+        mockDb([memberSrc]),
+        [{ slug: "a", visibility: "public", access: [], content: "plain" }],
+        ["mem-src"],
+        memberUser,
+        [],
+      ),
+    ).resolves.toEqual({ ok: true });
+
+    await expect(
+      validateReadSourcesTagged(
+        mockDb([organizerSource]),
+        [
+          { slug: "a", visibility: "member", access: [], content: "plain" },
+          { slug: "b", visibility: "member", access: [], content: "also plain" },
+        ],
+        ["org-src"],
+        memberUser,
+        [{ chapterId: "tokyo", role: "organizer" }],
+      ),
+    ).resolves.toMatchObject({ ok: false, error: "acl_untagged_read_source", sourceId: "org-src" });
+  });
+
+  it("passes when any one submitted page tags the read source", async () => {
+    await expect(
+      validateReadSourcesTagged(
+        mockDb([organizerSource]),
+        [
+          { slug: "a", visibility: "member", access: [], content: "plain" },
+          {
+            slug: "b",
+            visibility: "member",
+            access: [],
+            content: 'tagged <acl src="org-src">secret</acl>',
+          },
+          { slug: "c", visibility: "public", access: [], content: "untagged" },
+        ],
+        ["org-src"],
+        memberUser,
+        [{ chapterId: "tokyo", role: "organizer" }],
+      ),
+    ).resolves.toEqual({ ok: true });
+  });
+
+  it("passes when every submitted page audience-covers the source", async () => {
+    await expect(
+      validateReadSourcesTagged(
+        mockDb([organizerSource]),
+        [
+          { slug: "a", visibility: "organizer", access: [], content: "plain" },
+          { slug: "b", visibility: "organizer", access: [], content: "also plain" },
+        ],
+        ["org-src"],
+        memberUser,
+        [{ chapterId: "tokyo", role: "organizer" }],
+      ),
+    ).resolves.toEqual({ ok: true });
+  });
+
+  it("server-side run-level check fails on empty pages (CLI short-circuits before calling)", async () => {
+    // Direct API / library callers with readSourceIds and no pages still fail
+    // acl_untagged_read_source. `gdg wiki verify-acl` intentionally returns OK
+    // without calling the server when dirty/diff, tip history, and Writes are
+    // all empty — so this empty-pages failure is not the CLI contract.
+    await expect(
+      validateReadSourcesTagged(mockDb([organizerSource]), [], ["org-src"], memberUser, [
+        { chapterId: "tokyo", role: "organizer" },
+      ]),
+    ).resolves.toMatchObject({ ok: false, error: "acl_untagged_read_source", sourceId: "org-src" });
   });
 });
 

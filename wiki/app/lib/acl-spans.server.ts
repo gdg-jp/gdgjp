@@ -329,3 +329,70 @@ export async function validatePageAclForSync(
 
   return { ok: true };
 }
+
+export type ValidateReadSourcesPage = {
+  slug: string;
+  visibility: string;
+  access: readonly { subjectType: string; subjectKey: string }[];
+  content: string;
+};
+
+/**
+ * Run-level ingest gate: every read source narrower than `member` must either
+ * appear in an `<acl src>` on at least one submitted page, or be audience-covered
+ * by every submitted page. Does not require every page to tag S.
+ */
+export async function validateReadSourcesTagged(
+  db: Db,
+  pages: readonly ValidateReadSourcesPage[],
+  readSourceIds: readonly string[],
+  _user: AuthUser,
+  _chapters: readonly Membership[],
+): Promise<{ ok: true } | { ok: false; error: string; sourceId?: string }> {
+  const uniqueIds = [...new Set(readSourceIds.filter((id) => id.length > 0))];
+  if (uniqueIds.length === 0) return { ok: true };
+
+  const rows = await db
+    .select({
+      id: schema.sources.id,
+      visibility: schema.sources.visibility,
+      chapterId: schema.sources.chapterId,
+      status: schema.sources.status,
+    })
+    .from(schema.sources)
+    .where(inArray(schema.sources.id, uniqueIds))
+    .all();
+  const byId = new Map(rows.map((row) => [row.id, row]));
+
+  const taggedIds = new Set<string>();
+  for (const page of pages) {
+    for (const id of aclSpanSourceIds(page.content)) taggedIds.add(id);
+  }
+
+  for (const id of uniqueIds) {
+    const source = byId.get(id);
+    if (source && source.status !== "archived" && source.visibility === "member") {
+      continue;
+    }
+    if (taggedIds.has(id)) continue;
+
+    if (source && source.status !== "archived" && pages.length > 0) {
+      const key = sourceAudienceKey(source.visibility, source.chapterId);
+      if (
+        key &&
+        pages.every((page) =>
+          audienceContains(key, {
+            visibility: page.visibility,
+            access: page.access,
+          }),
+        )
+      ) {
+        continue;
+      }
+    }
+
+    return { ok: false, error: "acl_untagged_read_source", sourceId: id };
+  }
+
+  return { ok: true };
+}
