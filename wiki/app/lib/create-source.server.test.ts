@@ -53,6 +53,22 @@ describe("createSource", () => {
     });
   });
 
+  it("stores chapter-organizer with an Accounts chapter id (no local chapters row required)", async () => {
+    const result = await createSource(env(), {
+      url: DOC_URL,
+      visibility: "chapter-organizer",
+      chapter: "accounts-chapter-1",
+      user: MEMBER,
+      chapters: [{ chapterId: "accounts-chapter-1", role: "organizer" }],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(insertMock.mock.calls[0][0]).toMatchObject({
+      chapterId: "accounts-chapter-1",
+      visibility: "chapter-organizer",
+    });
+  });
+
   it("refuses to default a missing visibility to everyone", async () => {
     const result = await createSource(env(), {
       url: DOC_URL,

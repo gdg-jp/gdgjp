@@ -554,7 +554,7 @@ CREATE TABLE IF NOT EXISTS "sources" (
   "external_id"      TEXT,
   "url"              TEXT NOT NULL,
   "title"            TEXT NOT NULL,
-  "chapter_id"       TEXT REFERENCES "chapters"("id") ON DELETE SET NULL,
+  "chapter_id"       TEXT,
   "added_by"         TEXT NOT NULL REFERENCES "user"("id"),
   "status"           TEXT NOT NULL DEFAULT 'pending'
                      CHECK ("status" IN ('pending', 'fetching', 'ready', 'error', 'archived')),
