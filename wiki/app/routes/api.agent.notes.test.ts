@@ -94,7 +94,7 @@ describe("POST /api/agent/notes", () => {
         id: "n1",
         slug: "venue-picks",
         path: "/wiki/answers/venue-picks",
-        pageUrl: "https://wiki.gdgs.jp/wiki/venue-picks",
+        pageUrl: "https://wiki.gdgs.jp/wiki/answers/venue-picks",
         created: true,
       },
     });

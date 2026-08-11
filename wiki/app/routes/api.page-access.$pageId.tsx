@@ -18,6 +18,8 @@ import {
   updatePageAccessRole,
   upsertPageAccess,
 } from "~/lib/page-access.server";
+import { wikiPagePath } from "~/lib/wiki-page-path";
+import { getWikiCanonicalSlugPath } from "~/lib/wiki-page-path.server";
 
 type PageRecord = {
   id: string;
@@ -288,7 +290,10 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     const emailTargets = notify
       ? [...unique.values()].filter((target) => target.subjectType === "email")
       : [];
-    const pagePath = page.pageType === "task-list" ? `/tasks/${page.slug}` : `/wiki/${page.slug}`;
+    const pagePath =
+      page.pageType === "task-list"
+        ? `/tasks/${page.slug}`
+        : wikiPagePath(await getWikiCanonicalSlugPath(env, page.id));
     const pageUrl = new URL(pagePath, env.APP_URL).toString();
     const deliveries = await Promise.allSettled(
       emailTargets.map((target) =>

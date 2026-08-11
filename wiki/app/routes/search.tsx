@@ -8,6 +8,8 @@ import { type RagSearchResult, performRagSearch } from "~/features/ai-search/rag
 import { getAccessIdentity } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
+import { wikiPagePath } from "~/lib/wiki-page-path";
+import { getWikiCanonicalSlugPaths } from "~/lib/wiki-page-path.server";
 import { createAccessContext } from "../../shared/ingestion/domain";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
@@ -83,7 +85,24 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       console.error("search: RAG search failed", err);
       ragResult = { answer: "", sources: [], ragAvailable: false };
     }
-    return { q, tag, mode, allTags, results: [], ragResult };
+    const sourcePaths = await getWikiCanonicalSlugPaths(
+      env,
+      ragResult.sources.map((s) => s.pageId),
+    );
+    return {
+      q,
+      tag,
+      mode,
+      allTags,
+      results: [],
+      ragResult: {
+        ...ragResult,
+        sources: ragResult.sources.map((s) => ({
+          ...s,
+          wikiPath: wikiPagePath(sourcePaths.get(s.pageId) ?? [s.slug]),
+        })),
+      },
+    };
   }
 
   // Case A: tag only (no text query)
@@ -113,12 +132,20 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       tagsByPage.set(pt.pageId, arr);
     }
 
+    const slugPaths = await getWikiCanonicalSlugPaths(
+      env,
+      pages.map((p) => p.id),
+    );
     return {
       q,
       tag,
       mode,
       allTags,
-      results: pages.map((p) => ({ ...p, tags: tagsByPage.get(p.id) ?? [] })),
+      results: pages.map((p) => ({
+        ...p,
+        tags: tagsByPage.get(p.id) ?? [],
+        wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+      })),
       ragResult: null,
     };
   }
@@ -187,12 +214,20 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     tagsByPage.set(pt.pageId, arr);
   }
 
+  const slugPaths = await getWikiCanonicalSlugPaths(
+    env,
+    orderedPages.map((p) => p.id),
+  );
   return {
     q,
     tag,
     mode,
     allTags,
-    results: orderedPages.map((p) => ({ ...p, tags: tagsByPage.get(p.id) ?? [] })),
+    results: orderedPages.map((p) => ({
+      ...p,
+      tags: tagsByPage.get(p.id) ?? [],
+      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+    })),
     ragResult: null,
   };
 }
@@ -349,7 +384,7 @@ export default function SearchPage() {
               return (
                 <li key={page.id}>
                   <Link
-                    to={`/wiki/${page.slug}`}
+                    to={page.wikiPath}
                     className="block rounded-lg border border-border-default bg-surface-raised p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-border-focus/40 hover:shadow-sm"
                   >
                     <span className="font-medium text-content-primary hover:text-action-primary">
@@ -403,7 +438,11 @@ function AiSearchResults({
   navigate,
 }: {
   q: string;
-  ragResult: RagSearchResult | null;
+  ragResult:
+    | (Omit<RagSearchResult, "sources"> & {
+        sources: Array<RagSearchResult["sources"][number] & { wikiPath: string }>;
+      })
+    | null;
   isNavigating: boolean;
   isJa: boolean;
   t: (key: string, opts?: Record<string, unknown>) => string;
@@ -467,7 +506,7 @@ function AiSearchResults({
               return (
                 <li key={source.pageId}>
                   <Link
-                    to={`/wiki/${source.slug}`}
+                    to={source.wikiPath}
                     className="block rounded-lg border border-border-default bg-surface-raised p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-border-focus/40 hover:shadow-sm"
                   >
                     <span className="font-medium text-content-primary hover:text-action-primary">

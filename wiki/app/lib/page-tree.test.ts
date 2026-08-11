@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTree, getAncestorIdsForSlug } from "./page-tree";
+import { buildSlugPathById, buildTree, getAncestorIdsForSlug } from "./page-tree";
 
 const row = (
   id: string,
@@ -83,5 +83,26 @@ describe("getAncestorIdsForSlug", () => {
   it("does not open the current page's descendants or unrelated branches", () => {
     expect(getAncestorIdsForSlug(tree, "child")).toEqual(new Set(["root"]));
     expect(getAncestorIdsForSlug(tree, "other-child")).toEqual(new Set(["other-root"]));
+  });
+});
+
+describe("buildSlugPathById", () => {
+  const tree = buildTree([
+    row("root", null),
+    row("child", "root"),
+    row("grandchild", "child"),
+    row("other-root", null),
+  ]);
+
+  it("returns root→leaf slug segments for every node", () => {
+    const paths = buildSlugPathById(tree);
+    expect(paths.get("root")).toEqual(["root"]);
+    expect(paths.get("child")).toEqual(["root", "child"]);
+    expect(paths.get("grandchild")).toEqual(["root", "child", "grandchild"]);
+    expect(paths.get("other-root")).toEqual(["other-root"]);
+  });
+
+  it("returns an empty map for an empty tree", () => {
+    expect(buildSlugPathById([])).toEqual(new Map());
   });
 });

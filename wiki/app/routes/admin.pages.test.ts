@@ -12,6 +12,14 @@ vi.mock("~/lib/page-archive.server", () => ({
   archivePageAndDescendants: vi.fn(),
 }));
 
+vi.mock("~/lib/wiki-page-path.server", () => ({
+  getWikiCanonicalSlugPaths: vi.fn(async (_env: Env, pageIds: readonly string[]) => {
+    const map = new Map<string, string[]>();
+    for (const id of pageIds) map.set(id, [id]);
+    return map;
+  }),
+}));
+
 import { requireAdmin } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { archivePageAndDescendants } from "~/lib/page-archive.server";
@@ -78,7 +86,7 @@ describe("admin.pages loader", () => {
       unstable_url: new URL(request.url),
     });
 
-    expect(result.pages).toEqual(mockPages);
+    expect(result.pages).toEqual([{ ...mockPages[0], wikiPath: "/wiki/p1" }]);
   });
 });
 

@@ -4,6 +4,8 @@ import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
+import { wikiPagePath } from "~/lib/wiki-page-path";
+import { getWikiCanonicalSlugPaths } from "~/lib/wiki-page-path.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
@@ -46,5 +48,19 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       .all(),
   ]);
 
-  return Response.json({ recentUpdated, recentViewed });
+  const slugPaths = await getWikiCanonicalSlugPaths(env, [
+    ...recentUpdated.map((p) => p.id),
+    ...recentViewed.map((p) => p.id),
+  ]);
+
+  return Response.json({
+    recentUpdated: recentUpdated.map((p) => ({
+      ...p,
+      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+    })),
+    recentViewed: recentViewed.map((p) => ({
+      ...p,
+      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+    })),
+  });
 }

@@ -8,6 +8,8 @@ import { getAccessIdentity } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
 import { timeAgo } from "~/lib/time";
+import { wikiPagePath } from "~/lib/wiki-page-path";
+import { getWikiCanonicalSlugPaths } from "~/lib/wiki-page-path.server";
 
 export const meta: MetaFunction<typeof loader> = ({ matches }) => {
   const origin = (matches.find((m) => m.id === "root")?.data as { origin?: string })?.origin ?? "";
@@ -59,7 +61,17 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       .orderBy(desc(schema.pages.updatedAt))
       .all();
 
-    return { mode: "public" as const, publicPages };
+    const slugPaths = await getWikiCanonicalSlugPaths(
+      env,
+      publicPages.map((p) => p.id),
+    );
+    return {
+      mode: "public" as const,
+      publicPages: publicPages.map((p) => ({
+        ...p,
+        wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+      })),
+    };
   }
 
   const [recentPages, allTags, recentComments] = await Promise.all([
@@ -91,6 +103,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         commentId: schema.pageComments.id,
         authorName: schema.user.name,
         authorImage: schema.user.image,
+        pageId: schema.pages.id,
         pageSlug: schema.pages.slug,
         pageTitleJa: schema.pages.titleJa,
         pageTitleEn: schema.pages.titleEn,
@@ -107,11 +120,22 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       .all(),
   ]);
 
+  const slugPaths = await getWikiCanonicalSlugPaths(env, [
+    ...recentPages.map((p) => p.id),
+    ...recentComments.map((c) => c.pageId),
+  ]);
+
   return {
     mode: "home" as const,
-    recentPages,
+    recentPages: recentPages.map((p) => ({
+      ...p,
+      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+    })),
     allTags,
-    recentComments,
+    recentComments: recentComments.map((c) => ({
+      ...c,
+      wikiPath: wikiPagePath(slugPaths.get(c.pageId) ?? [c.pageSlug]),
+    })),
   };
 }
 
@@ -154,7 +178,7 @@ export default function Index() {
                 return (
                   <li key={page.id}>
                     <Link
-                      to={`/wiki/${page.slug}`}
+                      to={page.wikiPath}
                       className="group flex h-full flex-col rounded-xl border border-border-default bg-surface-raised p-5 transition-colors hover:border-border-focus hover:bg-surface-selected/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
                     >
                       <h2 className="line-clamp-2 font-semibold text-content-primary group-hover:text-action-primary-hover">
@@ -288,7 +312,7 @@ export default function Index() {
                 {recentPages.map((page) => (
                   <li key={page.id}>
                     <Link
-                      to={`/wiki/${page.slug}`}
+                      to={page.wikiPath}
                       className="flex items-center justify-between gap-3 py-2.5 text-sm transition-colors hover:text-action-primary"
                     >
                       <span className="line-clamp-1 font-medium text-content-primary">
@@ -318,7 +342,7 @@ export default function Index() {
                 {recentComments.map((c) => (
                   <li key={c.commentId}>
                     <Link
-                      to={`/wiki/${c.pageSlug}`}
+                      to={c.wikiPath}
                       className="flex items-start gap-2.5 py-2.5 transition-colors hover:text-action-primary"
                     >
                       {c.authorImage ? (

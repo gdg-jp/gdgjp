@@ -8,6 +8,7 @@ import { getEffectivePagePermissions, getPageAccessList } from "~/lib/page-acces
 import { sendOrRunTranslation } from "~/lib/queue-processors.server";
 import { canAssignChapter } from "~/lib/sources.server";
 import { upsertCatalogEntry } from "~/lib/wiki-catalog.server";
+import { wikiPagePath } from "~/lib/wiki-page-path";
 import { createD1WikiWorkspaceStore } from "../../workers/features/ingestion/persistence/d1/wiki-read-repository";
 import { normaliseAbsoluteWorkspacePath } from "../../workers/features/ingestion/tools/workspace/paths";
 import {
@@ -131,7 +132,7 @@ export async function createOrReplaceAnswerNote(
 
   const content = canonicalMarkdown(parsed.body.content);
   const path = `/wiki/${ANSWERS_SLUG}/${parsed.body.slug}`;
-  const pageUrl = `${env.APP_URL.replace(/\/$/, "")}/wiki/${parsed.body.slug}`;
+  const pageUrl = `${env.APP_URL.replace(/\/$/, "")}${wikiPagePath([ANSWERS_SLUG, parsed.body.slug])}`;
   const userId = workspaceCtx.identity.user.id;
 
   if (replaceId) {

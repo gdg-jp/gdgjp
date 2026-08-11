@@ -8,6 +8,7 @@ interface FavoritePage {
   slug: string;
   titleJa: string;
   titleEn: string;
+  wikiPath: string;
 }
 
 interface FavoritesData {
@@ -160,7 +161,7 @@ export default function StarredContent({
             {filtered.map((page) => (
               <li key={page.id}>
                 <Link
-                  to={`/wiki/${page.slug}`}
+                  to={page.wikiPath}
                   onClick={onClose}
                   className="block truncate rounded-lg px-3 py-2 text-sm text-content-secondary hover:bg-surface-canvas hover:text-action-primary"
                 >

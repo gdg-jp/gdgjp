@@ -7,6 +7,8 @@ import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
 import { requireAdmin } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { archivePageAndDescendants } from "~/lib/page-archive.server";
+import { wikiPagePath } from "~/lib/wiki-page-path";
+import { getWikiCanonicalSlugPaths } from "~/lib/wiki-page-path.server";
 
 // ---------------------------------------------------------------------------
 // Loader
@@ -35,7 +37,17 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     .orderBy(desc(schema.pages.updatedAt))
     .all();
 
-  return { pages };
+  const slugPaths = await getWikiCanonicalSlugPaths(
+    env,
+    pages.map((p) => p.id),
+  );
+
+  return {
+    pages: pages.map((p) => ({
+      ...p,
+      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+    })),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -152,7 +164,7 @@ export default function AdminPages() {
             {pages.map((p) => (
               <tr key={p.id} className="hover:bg-surface-hover">
                 <td className="px-4 py-3">
-                  <Link to={`/wiki/${p.slug}`} className="group">
+                  <Link to={p.wikiPath} className="group">
                     <p className="font-medium text-content-primary group-hover:text-action-primary">
                       {p.titleJa}
                     </p>

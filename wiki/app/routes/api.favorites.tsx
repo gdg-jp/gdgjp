@@ -3,6 +3,8 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
+import { wikiPagePath } from "~/lib/wiki-page-path";
+import { getWikiCanonicalSlugPaths } from "~/lib/wiki-page-path.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
@@ -21,7 +23,17 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     .where(eq(schema.pageFavorites.userId, sessionUser.id))
     .all();
 
-  return Response.json({ favorites });
+  const slugPaths = await getWikiCanonicalSlugPaths(
+    env,
+    favorites.map((p) => p.id),
+  );
+
+  return Response.json({
+    favorites: favorites.map((p) => ({
+      ...p,
+      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+    })),
+  });
 }
 
 export async function action({ request, context }: ActionFunctionArgs) {

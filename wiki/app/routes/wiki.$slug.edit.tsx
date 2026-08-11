@@ -13,6 +13,8 @@ import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
+import { wikiPagePath } from "~/lib/wiki-page-path";
+import { getWikiCanonicalSlugPath } from "~/lib/wiki-page-path.server";
 
 // ---------------------------------------------------------------------------
 // Revalidation
@@ -90,6 +92,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       ...page,
       contentJa: canonicalMarkdown(page.contentJa),
       contentEn: canonicalMarkdown(page.contentEn),
+      wikiPath: wikiPagePath(await getWikiCanonicalSlugPath(env, page.id)),
     },
     currentUser: { id: user.id, name: user.name, image: user.image ?? null },
   };

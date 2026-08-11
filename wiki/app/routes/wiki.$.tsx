@@ -34,6 +34,8 @@ import { getEffectivePagePermissions } from "~/lib/page-access.server";
 import { archivePageAndDescendants } from "~/lib/page-archive.server";
 import { buildPageMeta } from "~/lib/page-meta";
 import { timeAgo } from "~/lib/time";
+import { classifyWikiRequestPath, wikiPagePath } from "~/lib/wiki-page-path";
+import { getWikiCanonicalSlugPath } from "~/lib/wiki-page-path.server";
 
 export const meta: MetaFunction<typeof loader> = ({ data, location, matches }) => {
   if (!data) return [{ title: "Page not found" }];
@@ -64,6 +66,9 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const sessionUser = identity.user;
   const db = getDb(env);
 
+  const segments = (params["*"] ?? "").split("/").filter(Boolean);
+  const leafSlug = segments.at(-1) ?? "";
+
   const page = await db
     .select({
       id: schema.pages.id,
@@ -86,7 +91,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       updatedAt: schema.pages.updatedAt,
     })
     .from(schema.pages)
-    .where(eq(schema.pages.slug, params.slug ?? ""))
+    .where(eq(schema.pages.slug, leafSlug))
     .get();
 
   if (!page || page.status !== "published") {
@@ -98,6 +103,16 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     if (!identity.claimsAvailable && page.visibility === "restricted") {
       throw new Response("Access service temporarily unavailable", { status: 503 });
     }
+    throw new Response("Not Found", { status: 404 });
+  }
+
+  const canonical = await getWikiCanonicalSlugPath(env, page.id);
+  const classification = classifyWikiRequestPath(segments, canonical);
+  if (classification === "redirect") {
+    const url = new URL(request.url);
+    throw redirect(wikiPagePath(canonical) + url.search, 301);
+  }
+  if (classification === "not-found") {
     throw new Response("Not Found", { status: 404 });
   }
 
@@ -276,6 +291,9 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   const sessionUser = await requireUser(request, env);
   const db = getDb(env);
 
+  const segments = (params["*"] ?? "").split("/").filter(Boolean);
+  const leafSlug = segments.at(-1) ?? "";
+
   const form = await request.formData();
   const intent = form.get("intent");
 
@@ -319,7 +337,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
         pageType: schema.pages.pageType,
       })
       .from(schema.pages)
-      .where(eq(schema.pages.slug, params.slug ?? ""))
+      .where(eq(schema.pages.slug, leafSlug))
       .get();
     if (!page) throw new Response("Not Found", { status: 404 });
     if (page.pageType === "wiki-index" || page.pageType === "wiki-log") {
@@ -342,7 +360,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       db
         .select({ id: schema.pages.id })
         .from(schema.pages)
-        .where(eq(schema.pages.slug, params.slug ?? ""))
+        .where(eq(schema.pages.slug, leafSlug))
         .get(),
       db.select({ id: schema.user.id }).from(schema.user).where(eq(schema.user.id, authorId)).get(),
     ]);

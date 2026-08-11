@@ -22,6 +22,7 @@ interface Page {
   contentEn: string;
   visibility: string;
   origin: string;
+  wikiPath: string;
 }
 
 interface PageEditorProps {
@@ -191,7 +192,7 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
         {/* Back + title */}
         <div className="flex min-w-0 flex-1 items-center gap-1">
           <Link
-            to={`/wiki/${page.slug}`}
+            to={page.wikiPath}
             className="shrink-0 rounded-md p-1.5 text-content-secondary hover:bg-surface-sunken hover:text-content-secondary"
             aria-label={t("editor.back_to_page")}
           >

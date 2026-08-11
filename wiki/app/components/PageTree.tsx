@@ -31,7 +31,14 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useFetcher } from "react-router";
-import { type FlatNode, type PageNode, flattenTree, getAncestorIdsForSlug } from "~/lib/page-tree";
+import {
+  type FlatNode,
+  type PageNode,
+  buildSlugPathById,
+  flattenTree,
+  getAncestorIdsForSlug,
+} from "~/lib/page-tree";
+import { wikiPagePath } from "~/lib/wiki-page-path";
 
 export type { PageNode };
 
@@ -172,6 +179,7 @@ function SortableTreeItem({
   node,
   depth,
   currentSlug,
+  pathById,
   isDragging,
   isOverlay,
   showDropIndicator,
@@ -182,6 +190,7 @@ function SortableTreeItem({
   node: FlatNode;
   depth: number;
   currentSlug?: string;
+  pathById: Map<string, string[]>;
   isDragging?: boolean;
   isOverlay?: boolean;
   showDropIndicator?: boolean;
@@ -247,7 +256,11 @@ function SortableTreeItem({
         </span>
 
         <Link
-          to={node.pageType === "task-list" ? `/tasks/${node.slug}` : `/wiki/${node.slug}`}
+          to={
+            node.pageType === "task-list"
+              ? `/tasks/${node.slug}`
+              : wikiPagePath(pathById.get(node.id) ?? [node.slug])
+          }
           className="flex-1 truncate"
         >
           {title}
@@ -263,11 +276,13 @@ function SortableTreeItem({
 function DraggablePageTree({
   pages,
   currentSlug,
+  pathById,
   expandedIds,
   onToggle,
 }: {
   pages: PageNode[];
   currentSlug?: string;
+  pathById: Map<string, string[]>;
   expandedIds: Set<string>;
   onToggle: (id: string) => void;
 }) {
@@ -371,6 +386,7 @@ function DraggablePageTree({
               node={node}
               depth={node.depth}
               currentSlug={currentSlug}
+              pathById={pathById}
               isDragging={node.id === activeId}
               showDropIndicator={Boolean(projected) && overId === node.id && overId !== activeId}
               indicatorDepth={projected?.depth}
@@ -391,6 +407,7 @@ function DraggablePageTree({
               node={activeNode}
               depth={projected?.depth ?? activeNode.depth}
               currentSlug={currentSlug}
+              pathById={pathById}
               isOverlay
             />
           </ul>
@@ -406,12 +423,20 @@ function DraggablePageTree({
 interface TreeNodeProps {
   node: PageNode;
   currentSlug?: string;
+  pathById: Map<string, string[]>;
   expandedIds: Set<string>;
   isCollapsed: boolean;
   onToggle: (id: string) => void;
 }
 
-function TreeNode({ node, currentSlug, expandedIds, isCollapsed, onToggle }: TreeNodeProps) {
+function TreeNode({
+  node,
+  currentSlug,
+  pathById,
+  expandedIds,
+  isCollapsed,
+  onToggle,
+}: TreeNodeProps) {
   const { t, i18n } = useTranslation();
   const hasChildren = node.children.length > 0;
   const expanded = expandedIds.has(node.id);
@@ -458,7 +483,11 @@ function TreeNode({ node, currentSlug, expandedIds, isCollapsed, onToggle }: Tre
 
         {!isCollapsed && (
           <Link
-            to={node.pageType === "task-list" ? `/tasks/${node.slug}` : `/wiki/${node.slug}`}
+            to={
+              node.pageType === "task-list"
+                ? `/tasks/${node.slug}`
+                : wikiPagePath(pathById.get(node.id) ?? [node.slug])
+            }
             className="flex-1 truncate"
           >
             {title}
@@ -473,6 +502,7 @@ function TreeNode({ node, currentSlug, expandedIds, isCollapsed, onToggle }: Tre
               key={child.id}
               node={child}
               currentSlug={currentSlug}
+              pathById={pathById}
               expandedIds={expandedIds}
               isCollapsed={isCollapsed}
               onToggle={onToggle}
@@ -500,6 +530,7 @@ export default function PageTree({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef(pages);
   const [expandedIds, setExpandedIds] = useState(() => getAncestorIdsForSlug(pages, currentSlug));
+  const pathById = useMemo(() => buildSlugPathById(pages), [pages]);
 
   useEffect(() => {
     pagesRef.current = pages;
@@ -536,6 +567,7 @@ export default function PageTree({
         <DraggablePageTree
           pages={pages}
           currentSlug={currentSlug}
+          pathById={pathById}
           expandedIds={expandedIds}
           onToggle={toggleExpanded}
         />
@@ -546,6 +578,7 @@ export default function PageTree({
               key={node.id}
               node={node}
               currentSlug={currentSlug}
+              pathById={pathById}
               expandedIds={expandedIds}
               isCollapsed={isCollapsed}
               onToggle={toggleExpanded}

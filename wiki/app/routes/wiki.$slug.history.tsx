@@ -15,6 +15,8 @@ import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
+import { wikiPagePath } from "~/lib/wiki-page-path";
+import { getWikiCanonicalSlugPath } from "~/lib/wiki-page-path.server";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   {
@@ -141,6 +143,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   }
 
   const canRevert = permissions.canEdit;
+  const wikiPath = wikiPagePath(await getWikiCanonicalSlugPath(env, page.id));
 
   return {
     page: {
@@ -149,6 +152,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       titleEn: page.titleEn,
       currentContentJa: canonicalMarkdown(page.contentJa),
       currentContentEn: canonicalMarkdown(page.contentEn),
+      wikiPath,
     },
     versions,
     selectedVersion,
@@ -247,7 +251,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     ).bind(page.id, page.id),
   ]);
 
-  return redirect(`/wiki/${params.slug}`);
+  return redirect(wikiPagePath(await getWikiCanonicalSlugPath(env, page.id)));
 }
 
 function relativeTimeDiff(savedAt: number): { key: string; count?: number } {
@@ -310,7 +314,7 @@ export default function WikiHistory() {
       {/* Mini-header */}
       <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-2 md:px-10">
         <Link
-          to={`/wiki/${page.slug}`}
+          to={page.wikiPath}
           className="text-sm text-content-tertiary hover:text-content-primary"
         >
           ← {pageTitle}
@@ -331,7 +335,7 @@ export default function WikiHistory() {
               {/* "Current" entry linking back to live page */}
               <li>
                 <Link
-                  to={`/wiki/${page.slug}`}
+                  to={page.wikiPath}
                   className="block rounded-md px-3 py-2 text-sm text-content-tertiary hover:bg-surface-hover"
                 >
                   <div className="font-medium text-content-secondary">

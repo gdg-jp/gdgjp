@@ -99,7 +99,7 @@ export default [
     index("routes/_index.tsx"),
     route("/search", "routes/search.tsx"),
     route("/wiki/new", "routes/wiki.new.tsx"),
-    route("/wiki/:slug", "routes/wiki.$slug.tsx"),
+    route("/wiki/*", "routes/wiki.$.tsx"),
     route("/wiki/:slug/edit", "routes/wiki.$slug.edit.tsx"),
     route("/wiki/:slug/history", "routes/wiki.$slug.history.tsx"),
     route("/recent", "routes/recent.tsx"),

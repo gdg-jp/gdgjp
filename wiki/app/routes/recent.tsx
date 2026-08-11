@@ -7,6 +7,8 @@ import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
 import { timeAgo } from "~/lib/time";
+import { wikiPagePath } from "~/lib/wiki-page-path";
+import { getWikiCanonicalSlugPaths } from "~/lib/wiki-page-path.server";
 
 export const meta: MetaFunction = () => [{ title: "Recent — GDG Japan Wiki" }];
 
@@ -94,9 +96,18 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     tagsByPage.set(pt.pageId, arr);
   }
 
+  const slugPaths = await getWikiCanonicalSlugPaths(env, allIds);
   return {
-    recentUpdated: recentUpdated.map((p) => ({ ...p, tags: tagsByPage.get(p.id) ?? [] })),
-    recentViewed: recentViewed.map((p) => ({ ...p, tags: tagsByPage.get(p.id) ?? [] })),
+    recentUpdated: recentUpdated.map((p) => ({
+      ...p,
+      tags: tagsByPage.get(p.id) ?? [],
+      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+    })),
+    recentViewed: recentViewed.map((p) => ({
+      ...p,
+      tags: tagsByPage.get(p.id) ?? [],
+      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+    })),
   };
 }
 
@@ -111,6 +122,7 @@ type PageCard = {
   titleEn: string;
   summaryJa: string;
   summaryEn: string;
+  wikiPath: string;
   tags: { tagSlug: string; labelJa: string; labelEn: string; color: string }[];
   timeLabel: string | null;
 };
@@ -129,7 +141,7 @@ function PageGrid({ pages, emptyKey }: { pages: PageCard[]; emptyKey: string }) 
         {pages.map((page) => (
           <Link
             key={page.id}
-            to={`/wiki/${page.slug}`}
+            to={page.wikiPath}
             className="flex flex-col gap-2 rounded-lg border border-border-default bg-surface-raised p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-border-focus/40 hover:shadow-sm"
           >
             <h3 className="line-clamp-2 font-medium text-content-primary">

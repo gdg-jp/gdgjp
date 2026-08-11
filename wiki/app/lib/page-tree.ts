@@ -113,3 +113,24 @@ export function getAncestorIdsForSlug(nodes: PageNode[], slug?: string): Set<str
   }
   return new Set();
 }
+
+/**
+ * Walk an in-memory page tree and produce root→leaf slug segments per page id.
+ * Used by the sidebar so hierarchical links need no extra DB round trip.
+ */
+export function buildSlugPathById(nodes: PageNode[]): Map<string, string[]> {
+  const paths = new Map<string, string[]>();
+
+  function visit(node: PageNode, ancestors: string[]) {
+    const segments = [...ancestors, node.slug];
+    paths.set(node.id, segments);
+    for (const child of node.children) {
+      visit(child, segments);
+    }
+  }
+
+  for (const node of nodes) {
+    visit(node, []);
+  }
+  return paths;
+}

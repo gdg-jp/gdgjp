@@ -9,6 +9,7 @@ interface RecentPage {
   slug: string;
   titleJa: string;
   titleEn: string;
+  wikiPath: string;
   updatedAt?: string | null;
   viewedAt?: string | null;
 }
@@ -81,7 +82,7 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
               {viewed.map((page) => (
                 <li key={page.id}>
                   <Link
-                    to={`/wiki/${page.slug}`}
+                    to={page.wikiPath}
                     onClick={onClose}
                     className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-content-secondary hover:bg-surface-canvas hover:text-action-primary"
                   >
@@ -112,7 +113,7 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
               {updated.map((page) => (
                 <li key={page.id}>
                   <Link
-                    to={`/wiki/${page.slug}`}
+                    to={page.wikiPath}
                     onClick={onClose}
                     className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-content-secondary hover:bg-surface-canvas hover:text-action-primary"
                   >
