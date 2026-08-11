@@ -1,8 +1,22 @@
 import { FileQuestion } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link, isRouteErrorResponse, useRouteError } from "react-router";
+import {
+  Link,
+  type LoaderFunctionArgs,
+  isRouteErrorResponse,
+  redirect,
+  useRouteError,
+} from "react-router";
+import { wikiPagePath } from "~/lib/wiki-page-path";
 
-export function loader() {
+export function loader({ request, params }: LoaderFunctionArgs) {
+  const segments = (params["*"] ?? "").split("/").filter(Boolean);
+
+  if (segments.length > 0) {
+    const url = new URL(request.url);
+    throw redirect(wikiPagePath(segments) + url.search, 301);
+  }
+
   throw new Response("Not found", { status: 404 });
 }
 

@@ -1,0 +1,9 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wiki-dev",
+      "url": "http://localhost:5177"
+    }
+  ]
+}
