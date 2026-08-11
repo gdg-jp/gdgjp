@@ -33,7 +33,7 @@ export async function extractReceiptFields(
   env: Pick<Env, "GEMINI_API_KEY" | "GEMINI_MODEL_ID">,
   input: { bytes: ArrayBuffer; mimeType: string; filename: string },
 ): Promise<ReceiptExtraction> {
-  const model = env.GEMINI_MODEL_ID || "gemini-2.5-flash";
+  const model = env.GEMINI_MODEL_ID || "gemini-3.5-flash-lite";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
   const bytes = new Uint8Array(input.bytes);
   let binary = "";
@@ -62,8 +62,8 @@ export async function extractReceiptFields(
           parts: [
             { text: prompt },
             {
-              inline_data: {
-                mime_type: input.mimeType,
+              inlineData: {
+                mimeType: input.mimeType,
                 data: base64,
               },
             },
@@ -78,6 +78,7 @@ export async function extractReceiptFields(
   });
   if (!res.ok) {
     const body = await res.text();
+    console.error("Gemini extractReceiptFields failed", { model, status: res.status, body });
     throw new Error(`Gemini error ${res.status}: ${body}`);
   }
   const payload = (await res.json()) as {

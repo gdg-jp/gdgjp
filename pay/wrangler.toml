@@ -12,7 +12,7 @@ ACCOUNTS_URL = "https://accounts.gdgs.jp"
 IDP_URL = "https://accounts.gdgs.jp"
 IDP_CLIENT_ID = "pay"
 SHEETS_TEMPLATE_ID = "1aCZQQMId6NoLLYJ8c9hve-BrxIME4NowWfpZXWb9pag"
-GEMINI_MODEL_ID = "gemini-2.5-flash"
+GEMINI_MODEL_ID = "gemini-3.5-flash-lite"
 COMM_SUPPORT_EMAIL = "comm-support@voice-research.com"
 EMAIL_FROM = "GDG Japan Pay <noreply@gdgs.jp>"
 

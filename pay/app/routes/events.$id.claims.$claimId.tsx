@@ -131,6 +131,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       description: filename,
     };
     let extractionJson: string | null = null;
+    let extractionFailed = false;
     try {
       const extracted = await extractReceiptFields(env, {
         bytes,
@@ -145,6 +146,8 @@ export async function action({ request, context, params }: Route.ActionArgs) {
         description: extracted.description ?? filename,
       };
     } catch (error) {
+      extractionFailed = true;
+      console.error("Receipt extraction failed", error);
       extractionJson = JSON.stringify({
         error: error instanceof Error ? error.message : "extraction failed",
       });
@@ -168,6 +171,13 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       sortOrder: items.length,
     });
     await recalculateClaimTotal(env.DB, claim.id);
+    if (extractionFailed) {
+      return {
+        ok: true,
+        message:
+          "領収書を追加しましたが、自動読み取りに失敗しました。月日・種別・品目・金額を手入力してください。",
+      };
+    }
     return { ok: true, message: "領収書を追加しました。内容を確認して保存してください。" };
   }
 
