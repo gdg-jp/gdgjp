@@ -93,6 +93,7 @@ type Page struct {
 	Visibility   string       `json:"visibility"`
 	GeneralRole  string       `json:"generalRole"`
 	ChapterID    *string      `json:"chapterId"`
+	AclRedacted  bool         `json:"aclRedacted,omitempty"`
 	Tags         []string     `json:"tags"`
 	Access       any          `json:"access"`
 	Sources      any          `json:"sources"`
@@ -140,6 +141,7 @@ type SourcesManifestEntry struct {
 	ContentHash string  `json:"contentHash"`
 	MediaType   *string `json:"mediaType"`
 	CapturedAt  *int64  `json:"capturedAt"`
+	Visibility  *string `json:"visibility"`
 }
 type SourcesManifest struct {
 	Version   int                    `json:"version"`

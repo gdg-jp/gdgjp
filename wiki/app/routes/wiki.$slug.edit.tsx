@@ -9,6 +9,8 @@ import type {
 import { useLoaderData } from "react-router";
 import PageEditor from "~/components/PageEditor";
 import * as schema from "~/db/schema";
+import { computeAclSourceIdsJson } from "~/lib/acl-spans";
+import { pageAclClearance, validatePageAclForSync } from "~/lib/acl-spans.server";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
@@ -87,6 +89,16 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     throw new Response("Forbidden", { status: 403 });
   }
 
+  const clearance = await pageAclClearance(
+    db,
+    [page.contentJa, page.contentEn],
+    user,
+    identity.chapters,
+  );
+  if (!clearance) {
+    throw new Response("Forbidden", { status: 403 });
+  }
+
   return {
     page: {
       ...page,
@@ -149,8 +161,64 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     throw new Response("Forbidden", { status: 403 });
   }
 
+  const clearance = await pageAclClearance(
+    db,
+    [page.contentJa, page.contentEn],
+    user,
+    identity.chapters,
+  );
+  if (!clearance) {
+    throw new Response("Forbidden", { status: 403 });
+  }
+
+  const [accessRows, sourceRows] = await Promise.all([
+    db
+      .select({
+        subjectType: schema.pageAccess.subjectType,
+        subjectKey: schema.pageAccess.subjectKey,
+      })
+      .from(schema.pageAccess)
+      .where(eq(schema.pageAccess.pageId, page.id))
+      .all(),
+    db
+      .select({ sourceId: schema.pageSources.sourceId })
+      .from(schema.pageSources)
+      .where(eq(schema.pageSources.pageId, page.id))
+      .all(),
+  ]);
+  const aclValidation = await validatePageAclForSync(
+    db,
+    {
+      ja: { title: titleJa, content: contentJa },
+      en: { title: titleEn, content: contentEn },
+    },
+    {
+      pageVisibility: page.visibility,
+      pageAccess: accessRows,
+      citedSourceIds: sourceRows
+        .map((row) => row.sourceId)
+        .filter(
+          (sourceId): sourceId is string => typeof sourceId === "string" && sourceId.length > 0,
+        ),
+      contentJa,
+      contentEn,
+    },
+    user,
+    identity.chapters,
+  );
+  if (!aclValidation.ok) {
+    return Response.json(
+      {
+        error: aclValidation.error,
+        ...(aclValidation.sourceId ? { sourceId: aclValidation.sourceId } : {}),
+      },
+      { status: 400 },
+    );
+  }
+
   const versionId = nanoid();
   const now = Math.floor(Date.now() / 1000);
+  const aclSourceIdsJson = computeAclSourceIdsJson(contentJa, contentEn);
 
   const statements = [
     // Snapshot current content before overwriting
@@ -171,9 +239,9 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     // Update page
     env.DB.prepare(
       `UPDATE pages SET title_ja = ?, title_en = ?, content_ja = ?, content_en = ?,
-        last_edited_by = ?, updated_at = unixepoch()
+        acl_source_ids = ?, last_edited_by = ?, updated_at = unixepoch()
        WHERE id = ?`,
-    ).bind(titleJa, titleEn, contentJa, contentEn, user.id, page.id),
+    ).bind(titleJa, titleEn, contentJa, contentEn, aclSourceIdsJson, user.id, page.id),
 
     // Prune old versions — keep last 10
     env.DB.prepare(

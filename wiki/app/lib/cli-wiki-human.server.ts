@@ -19,6 +19,7 @@ type WikiHumanFrontMatter = {
   access?: unknown;
   sources?: unknown;
   attachments?: unknown;
+  acl_redacted?: boolean;
 };
 
 function yamlQuote(value: string): string {
@@ -74,6 +75,7 @@ function renderFrontMatter(fm: WikiHumanFrontMatter): string {
     ...yamlLine("access", fm.access),
     ...yamlLine("sources", fm.sources),
     ...yamlLine("attachments", fm.attachments),
+    ...yamlLine("acl_redacted", fm.acl_redacted),
   ];
   return `---\n${lines.join("\n")}\n---\n`;
 }
@@ -100,6 +102,7 @@ export type WikiHumanPageInput = {
   access: unknown;
   sources: unknown;
   attachments: unknown;
+  aclRedacted?: boolean;
 };
 
 export type WikiCloneLanguage = "ja" | "en";
@@ -157,6 +160,7 @@ export function renderWikiHumanDocument(
     access: page.access,
     sources: page.sources,
     attachments: page.attachments,
+    ...(page.aclRedacted ? { acl_redacted: true } : {}),
   };
 
   return {

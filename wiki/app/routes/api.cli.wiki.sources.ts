@@ -1,6 +1,8 @@
 import { asc, eq } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
+import { removeAclSpans } from "~/lib/acl-spans";
+import { pageAclClearance } from "~/lib/acl-spans.server";
 import { getCliIdentity } from "~/lib/cli-identity.server";
 import {
   parseWikiCloneLanguage,
@@ -119,6 +121,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       contentHash: doc.contentHash,
       mediaType: doc.mediaType,
       capturedAt: toUnixSeconds(doc.capturedAt),
+      visibility: source.visibility,
     });
   }
 
@@ -137,6 +140,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       contentHash: asset.contentHash,
       mediaType: asset.mediaType,
       capturedAt: toUnixSeconds(asset.capturedAt),
+      visibility: source.visibility,
     });
   }
 
@@ -166,6 +170,12 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       .filter((row) => row.pageId === page.id)
       .map(({ id, r2Key, fileName, mimeType }) => ({ id, r2Key, fileName, mimeType }));
 
+    const fullClearance = await pageAclClearance(
+      db,
+      [page.contentJa, page.contentEn],
+      identity.user,
+      identity.chapters,
+    );
     const rendered = renderWikiHumanDocument(
       {
         id: page.id,
@@ -180,8 +190,8 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         titleEn: page.titleEn,
         summaryJa: page.summaryJa,
         summaryEn: page.summaryEn,
-        contentJa: page.contentJa,
-        contentEn: page.contentEn,
+        contentJa: fullClearance ? page.contentJa : removeAclSpans(page.contentJa),
+        contentEn: fullClearance ? page.contentEn : removeAclSpans(page.contentEn),
         translationStatusJa: page.translationStatusJa,
         translationStatusEn: page.translationStatusEn,
         parentSlug: page.parentId ? (slugById.get(page.parentId) ?? null) : null,
@@ -189,6 +199,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         access: pageAccess,
         sources: pageSourceRows,
         attachments: pageAttachmentRows,
+        aclRedacted: !fullClearance,
       },
       lang,
     );

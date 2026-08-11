@@ -2,6 +2,7 @@ import puppeteer from "@cloudflare/puppeteer";
 import { and, eq, inArray } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
+import { removeAclSpans } from "~/lib/acl-spans";
 import { getDb } from "~/lib/db.server";
 import { buildOgImageHtml } from "~/lib/og-image.server";
 
@@ -52,11 +53,12 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     (isEnglish ? pageRecord.titleEn : pageRecord.titleJa) ||
     pageRecord.titleJa ||
     pageRecord.titleEn;
-  const content =
+  const content = removeAclSpans(
     (isEnglish ? pageRecord.contentEn : pageRecord.contentJa) ||
-    pageRecord.contentJa ||
-    pageRecord.contentEn ||
-    "";
+      pageRecord.contentJa ||
+      pageRecord.contentEn ||
+      "",
+  );
   const html = buildOgImageHtml({ title, content });
 
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;

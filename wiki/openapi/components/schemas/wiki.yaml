@@ -86,6 +86,11 @@ SnapshotPage:
         visibility: { type: string, enum: [restricted, unlisted, public] }
         generalRole: { type: string, enum: [viewer, commenter, editor] }
         chapterId: { type: string, nullable: true }
+        aclRedacted:
+          type: boolean
+          description: >
+            True when the caller cannot read every ACL span and span bodies were
+            removed from the returned locale content.
         tags: { type: array, items: { type: string } }
         access: { type: array, items: { $ref: '#/AccessEntry' } }
         sources: { type: array, items: { $ref: '#/Source' } }
@@ -173,6 +178,13 @@ SourcesManifestEntry:
     contentHash: { type: string }
     mediaType: { type: string }
     capturedAt: { type: integer, nullable: true }
+    visibility:
+      type: string
+      nullable: true
+      description: >
+        Source visibility for source-document / source-asset entries
+        (private|member|organizer|chapter-member|chapter-organizer).
+        Omitted for wiki-human entries.
 SourcesManifest:
   type: object
   required: [version, documents]

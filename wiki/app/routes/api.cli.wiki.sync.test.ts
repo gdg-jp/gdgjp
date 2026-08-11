@@ -4,13 +4,14 @@ const mocks = vi.hoisted(() => ({
   allResults: [] as unknown[][],
   getResults: [] as unknown[],
   canEdit: true,
+  identity: {
+    user: { id: "oidc-subject-1", email: "admin@example.com", isAdmin: true as boolean },
+    chapters: [] as Array<{ chapterId: string; role: string }>,
+  },
 }));
 
 vi.mock("~/lib/cli-identity.server", () => ({
-  getCliIdentity: vi.fn().mockResolvedValue({
-    user: { id: "oidc-subject-1", email: "admin@example.com", isAdmin: true },
-    chapters: [],
-  }),
+  getCliIdentity: vi.fn().mockImplementation(async () => mocks.identity),
 }));
 
 vi.mock("~/lib/agents-md.server", async (importOriginal) => {
@@ -51,12 +52,12 @@ import { action, scheduleSyncPostCommit } from "./api.cli.wiki.sync";
 
 type Prepared = { sql: string; values: unknown[]; bind: (...values: unknown[]) => Prepared };
 
-function locale() {
+function locale(content = "Body") {
   return {
     title: "Title",
     summary: "Summary",
     translationStatus: "human" as const,
-    content: "Body",
+    content,
   };
 }
 
@@ -68,16 +69,50 @@ function page(id: string, slug: string, parentId: string | null) {
     sortOrder: 0,
     en: locale(),
     meta: {
-      pageType: null,
-      pageMetadata: null,
-      visibility: "restricted" as const,
-      generalRole: "viewer" as const,
-      chapterId: null,
-      tags: [],
-      access: [],
-      sources: [],
-      attachments: [],
+      pageType: null as string | null,
+      pageMetadata: null as unknown,
+      visibility: "restricted" as "restricted" | "unlisted" | "public" | "organizer" | "member",
+      generalRole: "viewer" as "viewer" | "commenter" | "editor",
+      chapterId: null as string | null,
+      tags: [] as string[],
+      access: [] as Array<{
+        subjectType: "email" | "chapter";
+        subjectKey: string;
+        subjectLabel: string;
+        role: "viewer" | "commenter" | "editor";
+      }>,
+      sources: [] as Array<{
+        url?: string;
+        title: string;
+        sourceId?: string | null;
+      }>,
+      attachments: [] as Array<{ fileName: string; mimeType: string }>,
     },
+  };
+}
+
+function storedPage(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "page-1",
+    slug: "page",
+    parentId: null,
+    sortOrder: 0,
+    origin: "agent",
+    pageType: null,
+    authorId: "oidc-subject-1",
+    visibility: "member",
+    generalRole: "viewer",
+    chapterId: null,
+    syncRevision: 1,
+    titleJa: "タイトル",
+    titleEn: "Title",
+    summaryJa: "要約",
+    summaryEn: "Summary",
+    contentJa: "本文",
+    contentEn: "Body",
+    translationStatusJa: "human",
+    translationStatusEn: "human",
+    ...overrides,
   };
 }
 
@@ -142,6 +177,10 @@ beforeEach(() => {
   mocks.allResults = [[], [], []];
   mocks.getResults = [];
   mocks.canEdit = true;
+  mocks.identity = {
+    user: { id: "oidc-subject-1", email: "admin@example.com", isAdmin: true },
+    chapters: [],
+  };
   vi.mocked(getAgentInstructions).mockResolvedValue({
     content: "existing instructions",
     contentHash: agentsHash("existing instructions"),
@@ -263,6 +302,112 @@ describe("Wiki CLI sync action", () => {
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({ error: "agents_md_user_missing" });
     expect(batch).not.toHaveBeenCalled();
+  });
+
+  it("rejects upserts when the pusher cannot read every stored ACL span", async () => {
+    mocks.identity = {
+      user: { id: "member-1", email: "member@example.com", isAdmin: false },
+      chapters: [{ chapterId: "tokyo", role: "member" }],
+    };
+    mocks.allResults = [
+      [
+        storedPage({
+          id: "page-1",
+          contentJa: 'visible <acl src="org-src">secret</acl>',
+          contentEn: "Body",
+        }),
+      ],
+      [],
+      [],
+      // pageAclClearance source lookup — missing/unreadable → deny for non-admin
+      [],
+    ];
+    const upsert = page("page-1", "page", null);
+    const { args, batch } = actionArgs([{ kind: "upsert", page: upsert, expectedRevision: 1 }]);
+
+    const response = await action(args);
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "redacted_page_not_editable",
+      id: "page-1",
+    });
+    expect(batch).not.toHaveBeenCalled();
+  });
+
+  it("rejects pushes that cite a confidential source without an ACL span", async () => {
+    mocks.allResults = [
+      [],
+      [],
+      [],
+      // validatePageAclForSync cited-source lookup
+      [
+        {
+          id: "org-src",
+          visibility: "organizer",
+          chapterId: null,
+          status: "ready",
+        },
+      ],
+    ];
+    const upsert = {
+      ...page("new-page", "new-page", null),
+      meta: {
+        ...page("new-page", "new-page", null).meta,
+        visibility: "member" as const,
+        sources: [{ url: "https://example.com", title: "Doc", sourceId: "org-src" }],
+      },
+    };
+    const { args, batch } = actionArgs([{ kind: "upsert", page: upsert }]);
+
+    const response = await action(args);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "acl_required",
+      sourceId: "org-src",
+    });
+    expect(batch).not.toHaveBeenCalled();
+  });
+
+  it("keeps opposite-locale acl_source_ids on a ja-only partial upsert", async () => {
+    const enSpan = '<acl src="en1">hidden</acl>';
+    const enSource = {
+      id: "en1",
+      addedBy: "owner",
+      chapterId: null,
+      visibility: "member",
+      status: "ready",
+    };
+    mocks.allResults = [
+      [storedPage({ id: "page-1", contentJa: "旧本文", contentEn: enSpan })],
+      [],
+      [],
+      // pageAclClearance
+      [enSource],
+      // validatePageAclForSync span sources
+      [enSource],
+    ];
+    const base = page("page-1", "page", null);
+    const upsert = {
+      ...base,
+      ja: locale("新本文"),
+      en: undefined,
+      meta: {
+        ...base.meta,
+        visibility: "member" as const,
+      },
+    };
+    const { args, batch } = actionArgs([{ kind: "upsert", page: upsert, expectedRevision: 1 }], {
+      revisions: [{ id: "page-1", revision: 2 }],
+    });
+
+    const response = await action(args);
+
+    expect(response.status).toBe(200);
+    const statements = batch.mock.calls[0]?.[0] as Prepared[];
+    const update = statements.find((statement) => statement.sql.includes("acl_source_ids=?"));
+    expect(update?.values).toContain(JSON.stringify(["en1"]));
   });
 });
 

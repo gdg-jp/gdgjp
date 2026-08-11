@@ -62,6 +62,7 @@ export function buildPartialLocaleUpdate(
   lastEditedBy: string,
   id: string,
   expectedRevision: number | undefined,
+  aclSourceIdsJson?: string,
 ): { sql: string; binds: unknown[] } {
   const sets: string[] = [];
   const binds: unknown[] = [];
@@ -98,6 +99,11 @@ export function buildPartialLocaleUpdate(
     page.meta.chapterId,
     lastEditedBy,
   );
+
+  if (aclSourceIdsJson !== undefined) {
+    sets.push("acl_source_ids=?");
+    binds.push(aclSourceIdsJson);
+  }
 
   const where = expectedRevision ? " WHERE id=? AND sync_revision=?" : " WHERE id=?";
   binds.push(id);

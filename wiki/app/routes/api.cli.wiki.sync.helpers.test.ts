@@ -71,6 +71,23 @@ describe("buildPartialLocaleUpdate", () => {
     meta: baseMeta,
   };
 
+  it("includes acl_source_ids when provided", () => {
+    const update = buildPartialLocaleUpdate(
+      {
+        ...pageBase,
+        ja: { title: "新", summary: "要約", translationStatus: "human", content: "本文" },
+      },
+      "本文",
+      undefined,
+      "user-1",
+      "page-1",
+      3,
+      JSON.stringify(["src-a"]),
+    );
+    expect(update.sql).toContain("acl_source_ids=?");
+    expect(update.binds).toContain(JSON.stringify(["src-a"]));
+  });
+
   it("updates only ja locale columns when en is omitted", () => {
     const update = buildPartialLocaleUpdate(
       {

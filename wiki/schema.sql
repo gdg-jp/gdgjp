@@ -398,7 +398,7 @@ CREATE TABLE IF NOT EXISTS "pages" (
     CHECK (general_role IN ('viewer', 'commenter', 'editor')),
   sync_revision INTEGER NOT NULL DEFAULT 1
 , "origin" TEXT NOT NULL DEFAULT 'human'
-  CHECK ("origin" IN ('human', 'agent')), acl_synced_with_parent INTEGER NOT NULL DEFAULT 1);
+  CHECK ("origin" IN ('human', 'agent')), acl_synced_with_parent INTEGER NOT NULL DEFAULT 1, acl_source_ids TEXT NOT NULL DEFAULT '[]');
 CREATE INDEX idx_pages_status_updated ON pages (status, updated_at DESC);
 CREATE INDEX idx_pages_parent_order ON pages (parent_id, sort_order ASC);
 CREATE INDEX idx_pages_author ON pages (author_id, updated_at DESC);

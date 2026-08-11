@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
+import { removeAclSpans } from "~/lib/acl-spans";
+import { pageAclClearance } from "~/lib/acl-spans.server";
 import { getAgentInstructions } from "~/lib/agents-md.server";
 import { getCliIdentity } from "~/lib/cli-identity.server";
 import { canonicalMarkdown } from "~/lib/content-format";
@@ -37,7 +39,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     db.select().from(schema.pageAttachments).all(),
     getAgentInstructions(db),
   ]);
-  const chapterIds = identity.chapters.map((chapter) => String(chapter.chapterId));
   const visible: WikiSnapshotPage[] = [];
   for (const page of pages) {
     if (page.status === "archived" || page.pageType === "task-list" || page.origin !== "agent")
@@ -49,6 +50,16 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       identity.chapters,
     );
     if (!permissions.canView) continue;
+
+    const fullClearance = await pageAclClearance(
+      db,
+      [page.contentJa, page.contentEn],
+      identity.user,
+      identity.chapters,
+    );
+    const contentJa = snapshotContentAsMarkdown(page.contentJa);
+    const contentEn = snapshotContentAsMarkdown(page.contentEn);
+
     visible.push({
       id: page.id,
       slug: page.slug,
@@ -60,7 +71,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
           title: page.titleJa,
           summary: page.summaryJa,
           translationStatus: page.translationStatusJa,
-          content: snapshotContentAsMarkdown(page.contentJa),
+          content: fullClearance ? contentJa : removeAclSpans(contentJa),
         },
       }),
       ...(locale === "en" && {
@@ -68,7 +79,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
           title: page.titleEn,
           summary: page.summaryEn,
           translationStatus: page.translationStatusEn,
-          content: snapshotContentAsMarkdown(page.contentEn),
+          content: fullClearance ? contentEn : removeAclSpans(contentEn),
         },
       }),
       pageType: page.pageType,
@@ -76,6 +87,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       visibility: page.visibility,
       generalRole: page.generalRole,
       chapterId: page.chapterId,
+      aclRedacted: !fullClearance,
       tags: tags.filter((row) => row.pageId === page.id).map((row) => row.tagSlug),
       access: access
         .filter((row) => row.pageId === page.id)

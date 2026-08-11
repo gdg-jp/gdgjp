@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, isNull, like, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import * as schema from "../../../../../app/db/schema";
+import { redactPageMarkdown } from "../../../../../app/lib/acl-spans.server";
 import { getEffectivePagePermissions } from "../../../../../app/lib/page-access.server";
 import type {
   WikiWorkspaceStore,
@@ -12,6 +13,16 @@ import type {
 
 type Db = DrizzleD1Database<typeof schema>;
 type PageRow = Omit<WorkspacePage, "updatedAt"> & { updatedAt: Date };
+
+function actorAsUser(actor: WorkspaceActor) {
+  return {
+    id: actor.userId,
+    email: actor.email ?? "",
+    name: "",
+    image: null as string | null,
+    isAdmin: actor.isAdmin,
+  };
+}
 
 export function createD1WikiWorkspaceStore(db: Db, actor: WorkspaceActor): WikiWorkspaceStore {
   const pageColumns = {
@@ -51,7 +62,14 @@ export function createD1WikiWorkspaceStore(db: Db, actor: WorkspaceActor): WikiW
       .from(schema.pageTags)
       .where(eq(schema.pageTags.pageId, id))
       .all();
-    return { ...page, tags: tagRows.map(({ tag }) => tag) };
+    const chapters = actor.chapters ?? [];
+    const user = actorAsUser(actor);
+    return {
+      ...page,
+      contentJa: await redactPageMarkdown(db, page.contentJa, user, chapters),
+      contentEn: await redactPageMarkdown(db, page.contentEn, user, chapters),
+      tags: tagRows.map(({ tag }) => tag),
+    };
   }
   const findPages: WikiWorkspaceStore["findPages"] = async (query, { limit, offset }) => {
     const pattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
@@ -105,7 +123,16 @@ export function createD1WikiWorkspaceStore(db: Db, actor: WorkspaceActor): WikiW
       : [];
     const tags = new Map<string, string[]>();
     for (const row of tagRows) tags.set(row.pageId, [...(tags.get(row.pageId) ?? []), row.tag]);
-    return rows.map((row) => ({ ...row, tags: tags.get(row.id) ?? [] }));
+    const chapters = actor.chapters ?? [];
+    const user = actorAsUser(actor);
+    return Promise.all(
+      rows.map(async (row) => ({
+        ...row,
+        contentJa: await redactPageMarkdown(db, row.contentJa, user, chapters),
+        contentEn: await redactPageMarkdown(db, row.contentEn, user, chapters),
+        tags: tags.get(row.id) ?? [],
+      })),
+    );
   };
   return {
     getRootPage: (slug) => getPage(and(eq(schema.pages.slug, slug), isNull(schema.pages.parentId))),

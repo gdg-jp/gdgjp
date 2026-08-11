@@ -32,6 +32,7 @@ type FrontMatter struct {
 	Access            any          `yaml:"access,omitempty"`
 	Sources           any          `yaml:"sources,omitempty"`
 	Attachments       []Attachment `yaml:"attachments,omitempty"`
+	AclRedacted       bool         `yaml:"acl_redacted,omitempty"`
 }
 
 func splitMarkdown(raw []byte) (FrontMatter, string, error) {
@@ -120,6 +121,7 @@ func WritePage(root string, p Page, byID map[string]Page, token string, c *Clien
 		PageType: p.PageType, PageMetadata: p.PageMetadata, ParentSlug: parentSlug, SortOrder: p.SortOrder,
 		Visibility: p.Visibility, GeneralRole: p.GeneralRole, ChapterID: p.ChapterID,
 		Tags: p.Tags, Access: p.Access, Sources: p.Sources, Attachments: attachments,
+		AclRedacted: p.AclRedacted,
 	}
 	pageMD, err := renderMarkdown(fm, locale.Content)
 	if err != nil {

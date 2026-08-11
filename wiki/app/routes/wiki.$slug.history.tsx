@@ -11,6 +11,12 @@ import { Link, redirect, useFetcher, useLoaderData } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
 import * as schema from "~/db/schema";
 import { useThemeMode } from "~/hooks/useThemeMode";
+import { computeAclSourceIdsJson } from "~/lib/acl-spans";
+import {
+  pageAclClearance,
+  redactPageMarkdown,
+  validatePageAclForSync,
+} from "~/lib/acl-spans.server";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
@@ -134,15 +140,27 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
         id: vRow.id,
         titleJa: vRow.title_ja,
         titleEn: vRow.title_en,
-        contentJa: canonicalMarkdown(vRow.content_ja ?? ""),
-        contentEn: canonicalMarkdown(vRow.content_en ?? ""),
+        contentJa: await redactPageMarkdown(
+          db,
+          canonicalMarkdown(vRow.content_ja ?? ""),
+          sessionUser,
+          identity.chapters,
+        ),
+        contentEn: await redactPageMarkdown(
+          db,
+          canonicalMarkdown(vRow.content_en ?? ""),
+          sessionUser,
+          identity.chapters,
+        ),
         savedAt: vRow.saved_at,
         editorName: vRow.editor_name,
       };
     }
   }
 
-  const canRevert = permissions.canEdit;
+  const canRevert =
+    permissions.canEdit &&
+    (await pageAclClearance(db, [page.contentJa, page.contentEn], sessionUser, identity.chapters));
   const wikiPath = wikiPagePath(await getWikiCanonicalSlugPath(env, page.id));
 
   return {
@@ -150,8 +168,18 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       slug: page.slug,
       titleJa: page.titleJa,
       titleEn: page.titleEn,
-      currentContentJa: canonicalMarkdown(page.contentJa),
-      currentContentEn: canonicalMarkdown(page.contentEn),
+      currentContentJa: await redactPageMarkdown(
+        db,
+        canonicalMarkdown(page.contentJa),
+        sessionUser,
+        identity.chapters,
+      ),
+      currentContentEn: await redactPageMarkdown(
+        db,
+        canonicalMarkdown(page.contentEn),
+        sessionUser,
+        identity.chapters,
+      ),
       wikiPath,
     },
     versions,
@@ -199,6 +227,16 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     throw new Response("Forbidden", { status: 403 });
   }
 
+  const clearance = await pageAclClearance(
+    db,
+    [page.contentJa, page.contentEn],
+    user,
+    identity.chapters,
+  );
+  if (!clearance) {
+    throw new Response("Forbidden", { status: 403 });
+  }
+
   const vRow = (await env.DB.prepare(
     `SELECT content_ja, content_en, title_ja, title_en
      FROM page_versions WHERE id = ? AND page_id = ?`,
@@ -215,6 +253,49 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   const snapshotId = nanoid();
   const now = Math.floor(Date.now() / 1000);
+  const restoredJa = canonicalMarkdown(vRow.content_ja);
+  const restoredEn = canonicalMarkdown(vRow.content_en);
+
+  const [accessRows, sourceRows] = await Promise.all([
+    db
+      .select({
+        subjectType: schema.pageAccess.subjectType,
+        subjectKey: schema.pageAccess.subjectKey,
+      })
+      .from(schema.pageAccess)
+      .where(eq(schema.pageAccess.pageId, page.id))
+      .all(),
+    db
+      .select({ sourceId: schema.pageSources.sourceId })
+      .from(schema.pageSources)
+      .where(eq(schema.pageSources.pageId, page.id))
+      .all(),
+  ]);
+  const aclValidation = await validatePageAclForSync(
+    db,
+    {
+      ja: { title: vRow.title_ja, content: restoredJa },
+      en: { title: vRow.title_en, content: restoredEn },
+    },
+    {
+      pageVisibility: page.visibility,
+      pageAccess: accessRows,
+      citedSourceIds: sourceRows
+        .map((row) => row.sourceId)
+        .filter(
+          (sourceId): sourceId is string => typeof sourceId === "string" && sourceId.length > 0,
+        ),
+      contentJa: restoredJa,
+      contentEn: restoredEn,
+    },
+    user,
+    identity.chapters,
+  );
+  if (!aclValidation.ok) {
+    throw new Response(aclValidation.error, { status: 400 });
+  }
+
+  const aclSourceIdsJson = computeAclSourceIdsJson(restoredJa, restoredEn);
 
   await env.DB.batch([
     // Snapshot current state before overwriting
@@ -234,12 +315,13 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     // Overwrite with version content
     env.DB.prepare(
       `UPDATE pages SET title_ja = ?, title_en = ?, content_ja = ?, content_en = ?,
-          last_edited_by = ?, updated_at = unixepoch() WHERE id = ?`,
+          acl_source_ids = ?, last_edited_by = ?, updated_at = unixepoch() WHERE id = ?`,
     ).bind(
       vRow.title_ja,
       vRow.title_en,
-      canonicalMarkdown(vRow.content_ja),
-      canonicalMarkdown(vRow.content_en),
+      restoredJa,
+      restoredEn,
+      aclSourceIdsJson,
       user.id,
       page.id,
     ),

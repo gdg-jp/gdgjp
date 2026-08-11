@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
+import { removeAclSpans } from "~/lib/acl-spans";
 import { chunkPageContent } from "./chunker.server";
 
 type Db = ReturnType<typeof drizzle>;
@@ -40,7 +41,9 @@ export async function indexPageEmbeddings(env: Env, db: Db, pageId: string): Pro
     return;
   }
 
-  const contentHash = await computeHash(page.contentJa + page.contentEn);
+  const contentJa = removeAclSpans(page.contentJa);
+  const contentEn = removeAclSpans(page.contentEn);
+  const contentHash = await computeHash(contentJa + contentEn);
 
   // Check if content is unchanged
   const existing = await db
@@ -61,8 +64,8 @@ export async function indexPageEmbeddings(env: Env, db: Db, pageId: string): Pro
     titleEn: page.titleEn,
     summaryJa: page.summaryJa,
     summaryEn: page.summaryEn,
-    contentJa: page.contentJa,
-    contentEn: page.contentEn,
+    contentJa,
+    contentEn,
   });
 
   if (chunks.length === 0) {

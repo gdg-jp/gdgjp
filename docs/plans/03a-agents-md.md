@@ -175,6 +175,26 @@ Because the original text remains in `raw/`, the Wiki layer need not reproduce e
 
 When uncertain, do not write it. Referring to `raw/` preserves it.
 
+## Confidentiality and Span ACLs
+
+Sources in `INGEST_QUEUE.md` carry a `visibility` line. Any statement written from a source whose visibility is anything other than `member` must be wrapped in an ACL span:
+
+```markdown
+Visible sentence.
+<acl src="<source_id>">Confidential sentence derived from that source.</acl>
+Another visible sentence.
+```
+
+Rules:
+
+- If you cannot wrap the statement, or cannot determine whether it should be wrapped, **do not write that fact**. It remains available in `raw/`.
+- Do not put `<acl>` in title, summary, or front matter. Do not nest ACL spans.
+- A single span may reference multiple sources with space-separated ids (`src="id1 id2"`); the reader must be allowed for every listed source.
+- Do not edit a page whose front matter has `acl_redacted: true` — the push will be rejected.
+- If the server returns `acl_required`, wrap the cited content with the appropriate tag or lower the page `visibility`, then resend.
+
+Span ACLs are an additional defense layer inside page-level visibility. They are not a substitute for keeping confidential primary data in `raw/`.
+
 ## `index` and `log`
 
 **`index`** — Type router only. Lists namespaces and what questions each type answers. It must not list individual pages; page count must not grow the root index.

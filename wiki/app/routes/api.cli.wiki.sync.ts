@@ -3,6 +3,8 @@ import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import * as schema from "~/db/schema";
+import { computeAclSourceIdsJson } from "~/lib/acl-spans";
+import { pageAclClearance, validatePageAclForSync } from "~/lib/acl-spans.server";
 import { agentsHash, getAgentInstructions } from "~/lib/agents-md.server";
 import { getCliIdentity } from "~/lib/cli-identity.server";
 import { canonicalMarkdown } from "~/lib/content-format";
@@ -320,6 +322,72 @@ export async function action({ request, context }: ActionFunctionArgs) {
       return Response.json({ error: "invalid_access" }, { status: 400 });
     if (meta.pageType === "task-list")
       return Response.json({ error: "task_list_unsupported" }, { status: 400 });
+
+    if (current) {
+      const canEditSpans = await pageAclClearance(
+        db,
+        [current.contentJa, current.contentEn],
+        identity.user,
+        identity.chapters,
+      );
+      if (!canEditSpans) {
+        return Response.json({ error: "redacted_page_not_editable", id }, { status: 403 });
+      }
+    }
+
+    const aclValidation = await validatePageAclForSync(
+      db,
+      {
+        ja: page.ja
+          ? {
+              title: page.ja.title,
+              summary: page.ja.summary,
+              content: contentJa,
+              tags: meta.tags,
+            }
+          : undefined,
+        en: page.en
+          ? {
+              title: page.en.title,
+              summary: page.en.summary,
+              content: contentEn,
+              tags: meta.tags,
+            }
+          : undefined,
+      },
+      {
+        pageVisibility: meta.visibility,
+        pageAccess: meta.access,
+        citedSourceIds: meta.sources
+          .map((source) => source.sourceId)
+          .filter(
+            (sourceId): sourceId is string => typeof sourceId === "string" && sourceId.length > 0,
+          ),
+        storedContentJa: current?.contentJa,
+        storedContentEn: current?.contentEn,
+        contentJa,
+        contentEn,
+      },
+      identity.user,
+      identity.chapters,
+    );
+    if (!aclValidation.ok) {
+      return Response.json(
+        {
+          error: aclValidation.error,
+          id,
+          ...(aclValidation.sourceId ? { sourceId: aclValidation.sourceId } : {}),
+        },
+        { status: 400 },
+      );
+    }
+
+    // Partial-locale sync must union both locales — never drop the other side's ids.
+    const aclSourceIdsJson = computeAclSourceIdsJson(
+      contentJa ?? current?.contentJa ?? "",
+      contentEn ?? current?.contentEn ?? "",
+    );
+
     if (!current) {
       const localeValues = buildNewPageLocaleValues({
         ...page,
@@ -327,7 +395,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       });
       statements.push(
         env.DB.prepare(
-          "INSERT INTO pages (id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,acl_synced_with_parent,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,origin,author_id,last_edited_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch())",
+          "INSERT INTO pages (id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,acl_synced_with_parent,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,origin,author_id,last_edited_by,acl_source_ids,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch())",
         ).bind(
           id,
           localeValues.titleJa,
@@ -351,6 +419,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
           "agent",
           identity.user.id,
           identity.user.id,
+          aclSourceIdsJson,
         ),
       );
       if (page.ja) translatePageIds.add(id);
@@ -375,6 +444,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
         identity.user.id,
         id,
         operation.expectedRevision,
+        aclSourceIdsJson,
       );
       statements.push(env.DB.prepare(update.sql).bind(...update.binds));
       // CLI sync replaces both general access and explicit grants, so nested

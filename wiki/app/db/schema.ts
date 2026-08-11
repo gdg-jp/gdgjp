@@ -129,6 +129,9 @@ export const pages = sqliteTable("pages", {
   lastEditedBy: text("last_edited_by").notNull(),
   // "human" | "agent" — human pages appear under raw/ in clones; agent pages under pages/
   origin: text("origin").notNull().default("human"),
+  // JSON array of source ids referenced by <acl src> spans in content_ja ∪ content_en.
+  // Denormalized so listings / push gates avoid reparsing bodies.
+  aclSourceIds: text("acl_source_ids").notNull().default("[]"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   syncRevision: integer("sync_revision").notNull().default(1),

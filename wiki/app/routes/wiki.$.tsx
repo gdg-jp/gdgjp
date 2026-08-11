@@ -27,6 +27,7 @@ import WikiRightSidebar from "~/components/WikiRightSidebar";
 import * as schema from "~/db/schema";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useThemeMode } from "~/hooks/useThemeMode";
+import { redactPageMarkdown } from "~/lib/acl-spans.server";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
@@ -254,8 +255,18 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   return {
     page: {
       ...page,
-      contentJa: canonicalMarkdown(page.contentJa),
-      contentEn: canonicalMarkdown(page.contentEn),
+      contentJa: await redactPageMarkdown(
+        db,
+        canonicalMarkdown(page.contentJa),
+        sessionUser,
+        identity.chapters,
+      ),
+      contentEn: await redactPageMarkdown(
+        db,
+        canonicalMarkdown(page.contentEn),
+        sessionUser,
+        identity.chapters,
+      ),
     },
     tags: pageTags,
     author: authorRow ?? null,

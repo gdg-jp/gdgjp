@@ -408,6 +408,8 @@ export interface components {
             /** @enum {string} */
             generalRole: "viewer" | "commenter" | "editor";
             chapterId: string | null;
+            /** @description True when the caller cannot read every ACL span and span bodies were removed from the returned locale content. */
+            aclRedacted?: boolean;
             tags: string[];
             access: components["schemas"]["AccessEntry"][];
             sources: components["schemas"]["Source"][];
@@ -465,6 +467,8 @@ export interface components {
             contentHash: string;
             mediaType?: string;
             capturedAt?: number | null;
+            /** @description Source visibility for source-document / source-asset entries (private|member|organizer|chapter-member|chapter-organizer). Omitted for wiki-human entries. */
+            visibility?: string | null;
         };
     };
     responses: {

@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
+import { redactPageMarkdown } from "~/lib/acl-spans.server";
 import { canUserSeePageAsync } from "~/lib/page-visibility.server";
 import type { AccessContext } from "../../../shared/ingestion/domain";
 import { type ContentChunk, chunkPageContent } from "./chunker.server";
@@ -360,16 +361,31 @@ export class HybridKnowledgeRetriever implements KnowledgeRetriever {
         const document = documentsById.get(ranked.pageId);
         if (!document) return [];
         return [
-          (async (): Promise<KnowledgeEvidence> => ({
-            pageId: document.id,
-            slug: document.slug,
-            title: document.titleJa || document.titleEn,
-            summary: document.summaryJa || document.summaryEn,
-            ancestorTitles: await resolveAncestorTitles(this.db, input.access, document),
-            chunks: selectChunks(document, hitsByPage.get(document.id) ?? []),
-            score: ranked.score,
-            sources: [...ranked.sources].sort(),
-          }))(),
+          (async (): Promise<KnowledgeEvidence> => {
+            const user = {
+              id: input.access.userId,
+              email: input.access.email,
+              name: "",
+              image: null,
+              isAdmin: input.access.isAdmin,
+            };
+            const chapters = input.access.chapters ?? [];
+            const redacted: PageDocument = {
+              ...document,
+              contentJa: await redactPageMarkdown(this.db, document.contentJa, user, chapters),
+              contentEn: await redactPageMarkdown(this.db, document.contentEn, user, chapters),
+            };
+            return {
+              pageId: document.id,
+              slug: document.slug,
+              title: document.titleJa || document.titleEn,
+              summary: document.summaryJa || document.summaryEn,
+              ancestorTitles: await resolveAncestorTitles(this.db, input.access, document),
+              chunks: selectChunks(redacted, hitsByPage.get(document.id) ?? []),
+              score: ranked.score,
+              sources: [...ranked.sources].sort(),
+            };
+          })(),
         ];
       }),
     );

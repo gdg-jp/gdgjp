@@ -1,0 +1,1 @@
+ALTER TABLE pages ADD COLUMN acl_source_ids TEXT NOT NULL DEFAULT '[]';

@@ -163,10 +163,12 @@ func TestBuildIngestQueueRequeuesChangedLocalDocument(t *testing.T) {
 func TestBuildIngestQueueEmitsSourceIDWhenPresent(t *testing.T) {
 	root := t.TempDir()
 	sourceID := "parent-source-1"
+	visibility := "organizer"
 	manifest := SourcesManifest{Version: 1, Documents: []SourcesManifestEntry{
 		{
 			DocumentID:  "document-with-source",
 			SourceID:    &sourceID,
+			Visibility:  &visibility,
 			Kind:        "source-document",
 			Title:       "Chat message",
 			Path:        "raw/source/chat.md",
@@ -192,8 +194,8 @@ func TestBuildIngestQueueEmitsSourceIDWhenPresent(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(raw)
-	if !strings.Contains(got, "- document_id: `document-with-source`\n- source_id: `parent-source-1`\n") {
-		t.Fatalf("queue missing source_id for document with SourceID:\n%s", got)
+	if !strings.Contains(got, "- document_id: `document-with-source`\n- source_id: `parent-source-1`\n- visibility: `organizer`\n") {
+		t.Fatalf("queue missing source_id/visibility for document with SourceID:\n%s", got)
 	}
 	humanIdx := strings.Index(got, "## 2. Human essay")
 	if humanIdx < 0 {
@@ -201,6 +203,9 @@ func TestBuildIngestQueueEmitsSourceIDWhenPresent(t *testing.T) {
 	}
 	if strings.Contains(got[humanIdx:], "- source_id:") {
 		t.Fatalf("queue unexpectedly emitted source_id for wiki-human entry:\n%s", got[humanIdx:])
+	}
+	if strings.Contains(got[humanIdx:], "- visibility:") {
+		t.Fatalf("queue unexpectedly emitted visibility for wiki-human entry:\n%s", got[humanIdx:])
 	}
 }
 

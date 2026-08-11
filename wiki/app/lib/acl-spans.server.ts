@@ -1,0 +1,331 @@
+/**
+ * Server-side policy evaluation for page-body ACL spans.
+ *
+ * Span evaluation MUST call canAccessSource directly so raw visibility and
+ * derived-span visibility stay in lockstep when source permissions change.
+ * Do not invent a second evaluator or a total confidentiality ordering.
+ */
+
+import type { AuthUser } from "@gdgjp/gdg-lib";
+import { inArray } from "drizzle-orm";
+import type { DrizzleD1Database } from "drizzle-orm/d1";
+import * as schema from "~/db/schema";
+import {
+  type AclSpan,
+  aclSpanSourceIds,
+  metadataContainsAclTag,
+  parseAclSpans,
+  redactAclSpans,
+  scrubResidualAclMarkup,
+  validateAclSpans,
+} from "~/lib/acl-spans";
+import { isSourceVisibility, sourceVisibilityNeedsChapter } from "~/lib/sources-shared";
+import { canAccessSource } from "~/lib/sources.server";
+
+// Structural enough for both getDb() and workers' drizzle(env.DB, { schema }).
+// biome-ignore lint/suspicious/noExplicitAny: Drizzle schema generics are invariant across call sites
+type Db = DrizzleD1Database<any>;
+type Membership = { chapterId: string | number; role: string };
+
+export type PageAudienceSubject = {
+  visibility: string;
+  access: readonly { subjectType: string; subjectKey: string }[];
+};
+
+export type SourceAudienceKey =
+  | { kind: "private" }
+  | { kind: "member" }
+  | { kind: "organizer" }
+  | { kind: "chapter-member"; chapterId: string }
+  | { kind: "chapter-organizer"; chapterId: string };
+
+/** Serialize Stage-9 visibility + chapter into the decision-table key form. */
+export function sourceAudienceKey(
+  visibility: string,
+  chapterId: string | null | undefined,
+): SourceAudienceKey | null {
+  if (!isSourceVisibility(visibility)) return null;
+  if (sourceVisibilityNeedsChapter(visibility)) {
+    if (!chapterId) return null;
+    if (visibility === "chapter-member") return { kind: "chapter-member", chapterId };
+    return { kind: "chapter-organizer", chapterId };
+  }
+  if (visibility === "private") return { kind: "private" };
+  if (visibility === "member") return { kind: "member" };
+  if (visibility === "organizer") return { kind: "organizer" };
+  return null;
+}
+
+/**
+ * Proven inclusions only: A(page) ⊆ A(S).
+ * Every combination not listed returns false (= span required). Never fail open.
+ */
+export function audienceContains(
+  source: SourceAudienceKey | string,
+  page: PageAudienceSubject,
+): boolean {
+  const key = typeof source === "string" ? parseLevelAudienceKey(source) : source;
+  if (!key) return false;
+
+  // public / unlisted include anonymous viewers — never ⊆ any source audience.
+  if (page.visibility === "public" || page.visibility === "unlisted") return false;
+
+  const access = page.access;
+  const hasEmailGrant = access.some((entry) => entry.subjectType === "email");
+  const chapterGrants = access.filter((entry) => entry.subjectType === "chapter");
+
+  switch (key.kind) {
+    case "private":
+      return false;
+    case "member":
+      if (page.visibility === "member" || page.visibility === "organizer") return true;
+      if (page.visibility === "restricted" && !hasEmailGrant && chapterGrants.length > 0) {
+        return true;
+      }
+      return false;
+    case "organizer":
+      return page.visibility === "organizer";
+    case "chapter-member": {
+      if (page.visibility !== "restricted") return false;
+      if (hasEmailGrant) return false;
+      if (chapterGrants.length === 0) return false;
+      return chapterGrants.every((entry) => entry.subjectKey === key.chapterId);
+    }
+    case "chapter-organizer":
+      return false;
+    default:
+      return false;
+  }
+}
+
+/** Parse `level=` / decision-table forms including `chapter-member:C`. */
+export function parseLevelAudienceKey(level: string): SourceAudienceKey | null {
+  if (isSourceVisibility(level) && !sourceVisibilityNeedsChapter(level)) {
+    return sourceAudienceKey(level, null);
+  }
+  const match = /^(chapter-member|chapter-organizer):(.+)$/.exec(level.trim());
+  if (!match) return null;
+  return sourceAudienceKey(match[1], match[2]);
+}
+
+function syntheticSourceFromLevel(
+  level: string,
+): { addedBy: string; chapterId: string | null; visibility: string } | null {
+  const key = parseLevelAudienceKey(level);
+  if (!key) return null;
+  switch (key.kind) {
+    case "private":
+    case "member":
+    case "organizer":
+      return { addedBy: "", chapterId: null, visibility: key.kind };
+    case "chapter-member":
+      return { addedBy: "", chapterId: key.chapterId, visibility: "chapter-member" };
+    case "chapter-organizer":
+      return { addedBy: "", chapterId: key.chapterId, visibility: "chapter-organizer" };
+  }
+}
+
+/**
+ * Build a synchronous allow predicate for redactAclSpans.
+ * Loads every referenced source in one inArray query.
+ */
+export async function buildAclSpanPolicy(
+  db: Db,
+  spanSourceIds: readonly string[],
+  user: AuthUser | null,
+  chapters: readonly Membership[],
+): Promise<(span: AclSpan) => boolean> {
+  const uniqueIds = [...new Set(spanSourceIds.filter((id) => id.length > 0))];
+  const rows =
+    uniqueIds.length === 0
+      ? []
+      : await db
+          .select({
+            id: schema.sources.id,
+            addedBy: schema.sources.addedBy,
+            chapterId: schema.sources.chapterId,
+            visibility: schema.sources.visibility,
+            status: schema.sources.status,
+          })
+          .from(schema.sources)
+          .where(inArray(schema.sources.id, uniqueIds))
+          .all();
+
+  const sourceById = new Map(rows.map((row) => [row.id, row]));
+
+  return (span: AclSpan): boolean => {
+    if (!user) return false;
+
+    if (span.level !== null) {
+      const synthetic = syntheticSourceFromLevel(span.level);
+      if (!synthetic) return false;
+      return canAccessSource(synthetic, user, chapters);
+    }
+
+    if (span.srcIds.length === 0) return false;
+
+    // Logical AND across sources; missing/deleted src → Admin only (fail closed).
+    return span.srcIds.every((id) => {
+      const source = sourceById.get(id);
+      // Missing or archived sources fail closed for everyone except admins.
+      if (!source || source.status === "archived") {
+        return user.isAdmin;
+      }
+      return canAccessSource(source, user, chapters);
+    });
+  };
+}
+
+/** True only when every ACL span across the given markdowns is allowed. */
+export async function pageAclClearance(
+  db: Db,
+  markdowns: readonly (string | null | undefined)[],
+  user: AuthUser | null,
+  chapters: readonly Membership[],
+): Promise<boolean> {
+  const ids: string[] = [];
+  const spans: AclSpan[] = [];
+  for (const markdown of markdowns) {
+    if (!markdown) continue;
+    for (const span of parseAclSpans(markdown)) {
+      spans.push(span);
+      ids.push(...span.srcIds);
+    }
+  }
+  if (spans.length === 0) return true;
+  const allow = await buildAclSpanPolicy(db, ids, user, chapters);
+  return spans.every((span) => allow(span));
+}
+
+/** Redact denied spans and always strip tags. Scrubs residual malformed markers too. */
+export async function redactPageMarkdown(
+  db: Db,
+  markdown: string,
+  user: AuthUser | null,
+  chapters: readonly Membership[],
+): Promise<string> {
+  const spans = parseAclSpans(markdown);
+  if (spans.length === 0) return scrubResidualAclMarkup(markdown);
+  const allow = await buildAclSpanPolicy(
+    db,
+    spans.flatMap((span) => span.srcIds),
+    user,
+    chapters,
+  );
+  return redactAclSpans(markdown, allow).markdown;
+}
+
+export type AclSyncValidationPage = {
+  title?: string;
+  summary?: string;
+  content?: string;
+  tags?: readonly string[];
+};
+
+export type AclSyncContext = {
+  pageVisibility: string;
+  pageAccess: readonly { subjectType: string; subjectKey: string }[];
+  /** Cited source IDs from front matter sources[]. */
+  citedSourceIds: readonly string[];
+  /** Existing opposite-locale body, used when only one locale is in the upsert. */
+  storedContentJa?: string | null;
+  storedContentEn?: string | null;
+  contentJa?: string | null;
+  contentEn?: string | null;
+};
+
+/**
+ * Validate ACL tags on a sync upsert. Does not check redacted_page_not_editable
+ * (that needs the pusher's clearance over the stored page).
+ */
+export async function validatePageAclForSync(
+  db: Db,
+  locales: { ja?: AclSyncValidationPage; en?: AclSyncValidationPage },
+  ctx: AclSyncContext,
+  user: AuthUser,
+  chapters: readonly Membership[],
+): Promise<{ ok: true } | { ok: false; error: string; sourceId?: string }> {
+  for (const locale of [locales.ja, locales.en]) {
+    if (!locale) continue;
+    if (
+      metadataContainsAclTag(locale.title ?? "") ||
+      metadataContainsAclTag(locale.summary ?? "") ||
+      (locale.tags ?? []).some((tag) => metadataContainsAclTag(tag))
+    ) {
+      return { ok: false, error: "acl_in_metadata" };
+    }
+    if (locale.content) {
+      const validated = validateAclSpans(locale.content);
+      if (!validated.ok) return { ok: false, error: validated.error };
+    }
+  }
+
+  const contentJa = ctx.contentJa ?? ctx.storedContentJa ?? "";
+  const contentEn = ctx.contentEn ?? ctx.storedContentEn ?? "";
+  const allSrcIds = [...aclSpanSourceIds(contentJa), ...aclSpanSourceIds(contentEn)];
+  const uniqueSrcIds = [...new Set(allSrcIds)];
+
+  if (uniqueSrcIds.length > 0) {
+    const rows = await db
+      .select({
+        id: schema.sources.id,
+        addedBy: schema.sources.addedBy,
+        chapterId: schema.sources.chapterId,
+        visibility: schema.sources.visibility,
+        status: schema.sources.status,
+      })
+      .from(schema.sources)
+      .where(inArray(schema.sources.id, uniqueSrcIds))
+      .all();
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    for (const id of uniqueSrcIds) {
+      const source = byId.get(id);
+      if (!source || source.status === "archived") {
+        return { ok: false, error: "acl_unknown_source", sourceId: id };
+      }
+      if (!canAccessSource(source, user, chapters)) {
+        return { ok: false, error: "acl_unknown_source", sourceId: id };
+      }
+    }
+  }
+
+  // Invariant: every cited source must either be audience-covered by the page
+  // or appear in at least one <acl src> span in either locale body.
+  const spanIdSet = new Set(uniqueSrcIds);
+  if (ctx.citedSourceIds.length > 0) {
+    const citedUnique = [...new Set(ctx.citedSourceIds.filter(Boolean))];
+    const citedRows =
+      citedUnique.length === 0
+        ? []
+        : await db
+            .select({
+              id: schema.sources.id,
+              visibility: schema.sources.visibility,
+              chapterId: schema.sources.chapterId,
+              status: schema.sources.status,
+            })
+            .from(schema.sources)
+            .where(inArray(schema.sources.id, citedUnique))
+            .all();
+    const citedById = new Map(citedRows.map((row) => [row.id, row]));
+    const pageAudience: PageAudienceSubject = {
+      visibility: ctx.pageVisibility,
+      access: ctx.pageAccess,
+    };
+
+    for (const id of citedUnique) {
+      if (spanIdSet.has(id)) continue;
+      const source = citedById.get(id);
+      if (!source || source.status === "archived") {
+        // Unknown citation is a separate concern; require a span to be safe.
+        return { ok: false, error: "acl_required", sourceId: id };
+      }
+      const key = sourceAudienceKey(source.visibility, source.chapterId);
+      if (!key || !audienceContains(key, pageAudience)) {
+        return { ok: false, error: "acl_required", sourceId: id };
+      }
+    }
+  }
+
+  return { ok: true };
+}

@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { createRequestHandler } from "react-router";
 import * as schema from "../app/db/schema";
 import { processGoogleDocumentImport } from "../app/features/google-documents/import.server";
+import { pageAclClearance } from "../app/lib/acl-spans.server";
 import { createAuth } from "../app/lib/auth.server";
 import { backfillMarkdownContent } from "../app/lib/content-backfill.server";
 import { sendDueTaskReminders } from "../app/lib/discord-reminders.server";
@@ -75,6 +76,8 @@ export default {
           authorId: schema.pages.authorId,
           visibility: schema.pages.visibility,
           generalRole: schema.pages.generalRole,
+          contentJa: schema.pages.contentJa,
+          contentEn: schema.pages.contentEn,
         })
         .from(schema.pages)
         .where(eq(schema.pages.slug, slug))
@@ -91,6 +94,15 @@ export default {
       }
       const permissions = await getEffectivePagePermissions(db, page, user, chapters);
       if (!permissions.canEdit) return new Response("Forbidden", { status: 403 });
+      // Collab bypasses the React Router loader — reject when the caller cannot
+      // read every ACL span so redacted content cannot be loaded into Yjs.
+      const clearance = await pageAclClearance(
+        db,
+        [page.contentJa, page.contentEn],
+        user,
+        chapters,
+      );
+      if (!clearance) return new Response("Forbidden", { status: 403 });
       const doId = env.COLLAB_DO.idFromName(slug);
       return env.COLLAB_DO.get(doId).fetch(request);
     }

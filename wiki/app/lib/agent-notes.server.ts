@@ -161,7 +161,7 @@ export async function createOrReplaceAnswerNote(
            translation_status_ja = 'human', translation_status_en = 'missing',
            summary_ja = ?, summary_en = ?, parent_id = ?, page_type = 'answer',
            visibility = 'restricted', general_role = 'viewer', chapter_id = ?,
-           acl_synced_with_parent = 0,
+           acl_synced_with_parent = 0, acl_source_ids = ?,
            origin = 'agent', last_edited_by = ?, updated_at = unixepoch(),
            sync_revision = sync_revision + 1
          WHERE id = ?`,
@@ -175,6 +175,7 @@ export async function createOrReplaceAnswerNote(
         parsed.body.summary,
         NS_ANSWERS,
         floor.chapterId,
+        "[]",
         userId,
         replaceId,
       ),
@@ -200,7 +201,7 @@ export async function createOrReplaceAnswerNote(
   // error (a 500) instead of the documented 409. Let the database arbitrate.
   const id = nanoid();
   const inserted = await env.DB.prepare(
-    "INSERT INTO pages (id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,acl_synced_with_parent,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,origin,author_id,last_edited_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch()) ON CONFLICT(slug) DO NOTHING",
+    "INSERT INTO pages (id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,acl_synced_with_parent,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,origin,author_id,last_edited_by,acl_source_ids,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch()) ON CONFLICT(slug) DO NOTHING",
   )
     .bind(
       id,
@@ -225,6 +226,7 @@ export async function createOrReplaceAnswerNote(
       "agent",
       userId,
       userId,
+      "[]",
     )
     .run();
 
