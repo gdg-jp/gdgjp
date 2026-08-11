@@ -20,6 +20,8 @@ SNS_CLIENT_ID = "sns"
 SNS_REDIRECT_URLS = "https://sns.gdgs.jp/api/auth/callback/gdgjp"
 AGENTS_CLIENT_ID = "agents"
 AGENTS_REDIRECT_URLS = "https://agent.gdgs.jp/auth/callback"
+PAY_CLIENT_ID = "pay"
+PAY_REDIRECT_URLS = "https://pay.gdgs.jp/api/auth/callback/gdgjp"
 
 [assets]
 binding = "ASSETS"

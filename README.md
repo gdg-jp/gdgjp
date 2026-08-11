@@ -51,6 +51,7 @@ Git to merge locally.
 | `scheduler/` | `@gdgjp/scheduler` | scheduler.gdgs.jp | Meeting scheduler. Anonymous-friendly: anyone can create an event with a weekly schedule and meeting length, and pick available slots; authenticated owners get a cross-device "My events" list plus edit/delete. D1-backed; OAuth client of `accounts`. |
 | `sns/` | `@gdgjp/sns` | sns.gdgs.jp | Social-post management and publishing tool. D1 + R2-backed, with scheduled publishing and X and Google Photos integrations; OAuth client of `accounts`. |
 | `connpass/` | `@gdgjp/connpass` | connpass.gdgs.jp | Connpass group admin automation API. D1 + KV + Queues + Browser Run; Bearer token API for CLI and agents. |
+| `pay/` | `@gdgjp/pay` | pay.gdgs.jp | Event expense reimbursement. D1 + R2, Gemini receipt extraction, Google Sheets/Drive sync; OAuth client of `accounts`. |
 | `tinyurl/` | `@gdgjp/tinyurl` | url.gdgs.jp | URL shortener. D1-backed; OAuth client of `accounts`. |
 | `tinyurl-gateway/` | `@gdgjp/tinyurl-gateway` | Custom short-link domains | Vercel Edge gateway for TinyURL custom domains. It serves an optional upstream first, then resolves a short link when the upstream returns 404. |
 | `website/` | `@gdgjp/website` | gdgs.jp | Public GDG Japan website. Cloudflare Worker using the TinyURL service binding. |

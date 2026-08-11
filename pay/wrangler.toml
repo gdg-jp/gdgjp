@@ -1,0 +1,54 @@
+name = "gdgjp-pay"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+main = "./workers/app.ts"
+
+[alias]
+"virtual:react-router/server-build" = "./build/server/index.js"
+
+[vars]
+APP_URL = "https://pay.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+IDP_URL = "https://accounts.gdgs.jp"
+IDP_CLIENT_ID = "pay"
+SHEETS_TEMPLATE_ID = "1aCZQQMId6NoLLYJ8c9hve-BrxIME4NowWfpZXWb9pag"
+GEMINI_MODEL_ID = "gemini-2.5-flash"
+COMM_SUPPORT_EMAIL = "comm-support@voice-research.com"
+EMAIL_FROM = "GDG Japan Pay <noreply@gdgs.jp>"
+
+[assets]
+binding = "ASSETS"
+directory = "./build/client"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gdgjp-pay-db"
+database_id = "1b87d36f-c80f-482b-9943-5ad63cc02637"
+migrations_dir = "./migrations"
+
+[[r2_buckets]]
+binding = "RECEIPTS"
+bucket_name = "gdgjp-pay-receipts"
+
+[[routes]]
+pattern = "pay.gdgs.jp/*"
+zone_name = "gdgs.jp"
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
+
+# Set with `wrangler secret put`:
+# RP_SESSION_SECRET, IDP_CLIENT_SECRET, TOKEN_ENCRYPTION_KEY,
+# GEMINI_API_KEY, GOOGLE_SERVICE_ACCOUNT_JSON, RESEND_API_KEY

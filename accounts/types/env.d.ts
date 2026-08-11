@@ -19,6 +19,7 @@ declare global {
     SCHEDULER_CLIENT_SECRET: string;
     SNS_CLIENT_SECRET: string;
     AGENTS_CLIENT_SECRET: string;
+    PAY_CLIENT_SECRET: string;
     RESEND_API_KEY?: string;
     EMAIL_FROM?: string;
     /** Better Auth encryption/signing secret. Set with wrangler secret put. */

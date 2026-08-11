@@ -1,0 +1,65 @@
+CREATE TABLE profiles (
+  user_id TEXT PRIMARY KEY NOT NULL,
+  legal_name TEXT NOT NULL,
+  bank_name TEXT NOT NULL,
+  branch_name TEXT NOT NULL,
+  account_type TEXT NOT NULL DEFAULT '普通',
+  account_number_enc TEXT NOT NULL,
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+CREATE TABLE events (
+  id TEXT PRIMARY KEY NOT NULL,
+  title TEXT NOT NULL,
+  owner_user_id TEXT NOT NULL,
+  owner_chapter_ids TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+CREATE INDEX events_owner_user_id_idx ON events (owner_user_id);
+CREATE INDEX events_created_at_idx ON events (created_at DESC);
+
+CREATE TABLE claims (
+  id TEXT PRIMARY KEY NOT NULL,
+  event_id TEXT NOT NULL REFERENCES events (id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('self', 'proxy')),
+  user_id TEXT,
+  applicant_name TEXT NOT NULL,
+  bank_name TEXT NOT NULL,
+  branch_name TEXT NOT NULL,
+  account_type TEXT NOT NULL DEFAULT '普通',
+  account_number_enc TEXT NOT NULL,
+  application_date TEXT NOT NULL,
+  total_amount INTEGER NOT NULL DEFAULT 0,
+  sheet_id TEXT,
+  sheet_url TEXT,
+  drive_folder_id TEXT,
+  email_sent_at INTEGER,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'synced')),
+  created_by TEXT NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+CREATE INDEX claims_event_id_idx ON claims (event_id);
+CREATE INDEX claims_user_id_idx ON claims (user_id);
+CREATE UNIQUE INDEX claims_self_unique_idx ON claims (event_id, user_id) WHERE kind = 'self';
+
+CREATE TABLE claim_items (
+  id TEXT PRIMARY KEY NOT NULL,
+  claim_id TEXT NOT NULL REFERENCES claims (id) ON DELETE CASCADE,
+  spent_on TEXT NOT NULL,
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount_yen INTEGER NOT NULL,
+  receipt_r2_key TEXT,
+  receipt_filename TEXT,
+  receipt_content_type TEXT,
+  receipt_drive_file_id TEXT,
+  extraction_json TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+CREATE INDEX claim_items_claim_id_idx ON claim_items (claim_id, sort_order);

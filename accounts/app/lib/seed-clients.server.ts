@@ -88,6 +88,7 @@ export function collectSpecs(env: Env): ClientSpec[] {
     ],
     ["SNS Manager", env.SNS_CLIENT_ID, env.SNS_CLIENT_SECRET, env.SNS_REDIRECT_URLS],
     ["GDG Japan Agents", env.AGENTS_CLIENT_ID, env.AGENTS_CLIENT_SECRET, env.AGENTS_REDIRECT_URLS],
+    ["GDG Japan Pay", env.PAY_CLIENT_ID, env.PAY_CLIENT_SECRET, env.PAY_REDIRECT_URLS],
   ] as const;
   return apps.flatMap(([clientName, clientId, clientSecret, redirectUrls]) =>
     clientId && clientSecret
