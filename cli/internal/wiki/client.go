@@ -357,3 +357,19 @@ func (c *Client) AgentsMD(ctx context.Context, token string) ([]byte, error) {
 	defer res.Body.Close()
 	return io.ReadAll(res.Body)
 }
+
+// ValidateACL dry-runs page ACL checks on the server without writing to D1.
+func (c *Client) ValidateACL(ctx context.Context, token string, input ValidateACLRequest) (ValidateACLResult, error) {
+	raw, err := json.Marshal(input)
+	if err != nil {
+		return ValidateACLResult{}, err
+	}
+	res, err := c.request(ctx, token, http.MethodPost, "/api/cli/wiki/validate-acl", bytes.NewReader(raw), "application/json")
+	if err != nil {
+		return ValidateACLResult{}, err
+	}
+	defer res.Body.Close()
+	var out ValidateACLResult
+	err = json.NewDecoder(res.Body).Decode(&out)
+	return out, err
+}

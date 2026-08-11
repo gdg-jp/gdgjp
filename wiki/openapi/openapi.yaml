@@ -13,6 +13,8 @@ paths:
     $ref: ./paths/snapshot.yaml
   /api/cli/wiki/sync:
     $ref: ./paths/sync.yaml
+  /api/cli/wiki/validate-acl:
+    $ref: ./paths/validate-acl.yaml
   /api/cli/wiki/attachments/{attachmentId}:
     $ref: ./paths/attachments.yaml
   /api/cli/wiki/sources:
@@ -45,6 +47,10 @@ components:
       $ref: ./components/schemas/wiki.yaml#/SyncRequest
     SyncResult:
       $ref: ./components/schemas/wiki.yaml#/SyncResult
+    ValidateAclRequest:
+      $ref: ./components/schemas/wiki.yaml#/ValidateAclRequest
+    ValidateAclResult:
+      $ref: ./components/schemas/wiki.yaml#/ValidateAclResult
     SourcesManifest:
       $ref: ./components/schemas/wiki.yaml#/SourcesManifest
     AgentLsEntry:

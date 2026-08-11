@@ -51,7 +51,7 @@ func testWikiService(run gitRunner) *wikiService {
 			RefreshToken: "refresh-token",
 		}},
 		newClient: wiki.NewClient,
-		runAgent:  func(context.Context, string, string) error { return nil },
+		runAgent:  func(context.Context, string, string, string) error { return nil },
 	}
 }
 
@@ -154,18 +154,28 @@ func TestWikiIngestCommitMarksOnlyFirstAndStops(t *testing.T) {
 
 	agentRan := false
 	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
-		switch strings.Join(args, " ") {
-		case "status --porcelain --untracked-files=all", "pull --ff-only":
+		joined := strings.Join(args, " ")
+		switch {
+		case joined == "status --porcelain --untracked-files=all",
+			joined == "pull --ff-only":
 			return "", nil
-		case "rev-parse HEAD", "rev-parse refs/remotes/origin/main":
+		case joined == "rev-parse HEAD", joined == "rev-parse refs/remotes/origin/main":
 			return "synced\n", nil
+		case strings.HasPrefix(joined, "diff --name-only"),
+			strings.HasPrefix(joined, "status --porcelain"),
+			strings.HasPrefix(joined, "diff-tree"):
+			return "", nil
 		default:
-			t.Fatalf("unexpected git call: %s", strings.Join(args, " "))
+			t.Fatalf("unexpected git call: %s", joined)
 			return "", nil
 		}
 	})
-	service.newClient = func() *wiki.Client { t.Fatal("ingest must not create a Wiki client"); return nil }
-	service.runAgent = func(context.Context, string, string) error {
+	// verify-acl may construct a client; wiki-human queue heads have no sourceId
+	// and an empty diff/tip/writes returns ok without an HTTP round-trip.
+	service.newClient = func() *wiki.Client {
+		return wiki.NewClientAt("http://127.0.0.1:0")
+	}
+	service.runAgent = func(context.Context, string, string, string) error {
 		agentRan = true
 		return nil
 	}
@@ -196,6 +206,86 @@ func TestWikiIngestCommitMarksOnlyFirstAndStops(t *testing.T) {
 	}
 }
 
+func TestWikiIngestCommitFailsClosedOnACLFindings(t *testing.T) {
+	root := setupWikiIngestRoot(t)
+	src := "org-src"
+	manifest := wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{{
+		DocumentID: "doc-1", SourceID: &src, Kind: "source-document",
+		Title: "Secret", Path: "raw/org-src/doc.md", ContentHash: "secret-hash",
+	}}}
+	if err := wiki.WriteState(root, wiki.State{Manifest: &manifest}); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(root, "pages", "venues")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	page := "---\ngdg_wiki: 1\nid: venues\nslug: venues\nlanguage: ja\ntitle: Venues\ntranslation_status: human\nvisibility: member\ngeneral_role: viewer\n---\nplain\n"
+	if err := os.WriteFile(filepath.Join(dir, "page.md"), []byte(page), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := wiki.ResetIngestTrace(root, "doc-1"); err != nil {
+		t.Fatal(err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/cli/wiki/validate-acl" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(wiki.ValidateACLResult{
+			OK: false,
+			Findings: []wiki.ValidateACLFinding{{
+				Slug: "venues", Error: "acl_untagged_read_source", SourceID: "org-src",
+			}},
+		})
+	}))
+	defer server.Close()
+
+	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
+		joined := strings.Join(args, " ")
+		switch {
+		case joined == "status --porcelain --untracked-files=all",
+			joined == "pull --ff-only":
+			return "", nil
+		case joined == "rev-parse HEAD", joined == "rev-parse refs/remotes/origin/main":
+			return "synced\n", nil
+		case strings.HasPrefix(joined, "diff --name-only"),
+			strings.HasPrefix(joined, "status --porcelain"):
+			return "", nil
+		case joined == "diff-tree --no-commit-id --name-only -r HEAD -- pages/":
+			// Post-push tip commit carries the ingest pages (no Cursor Writes).
+			return "pages/venues/page.md\n", nil
+		default:
+			t.Fatalf("unexpected git call: %s", joined)
+			return "", nil
+		}
+	})
+	service.newClient = func() *wiki.Client {
+		client := wiki.NewClientAt(server.URL)
+		client.HTTPClient = server.Client()
+		return client
+	}
+
+	output, err := executeWiki(t, service, "ingest", "--commit")
+	if err == nil || !strings.Contains(err.Error(), "ACL validation failed") {
+		t.Fatalf("error = %v, want ACL validation failed", err)
+	}
+	if !strings.Contains(output, "acl_untagged_read_source") {
+		t.Fatalf("output = %q, want findings", output)
+	}
+	state, err := wiki.ReadState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, marked := state.Ingested["doc-1"]; marked {
+		t.Fatalf("must not advance Ingested on ACL failure: %#v", state.Ingested)
+	}
+	if _, err = os.Stat(wiki.TracePath(root)); err != nil {
+		t.Fatalf("must keep ingest trace so the agent can fix and retry: %v", err)
+	}
+}
+
 func TestWikiIngestRequiresLocalRawSnapshot(t *testing.T) {
 	root := setupWikiIngestRoot(t)
 	if err := os.Remove(wiki.StatePath(root)); err != nil {
@@ -208,6 +298,186 @@ func TestWikiIngestRequiresLocalRawSnapshot(t *testing.T) {
 	service.newClient = func() *wiki.Client { t.Fatal("ingest must not create a Wiki client"); return nil }
 	if _, err := executeWiki(t, service, "ingest"); err == nil || !strings.Contains(err.Error(), "gdg wiki raw pull") {
 		t.Fatalf("error = %v, want raw pull guidance", err)
+	}
+}
+
+func TestWikiIngestCursorAgentInstallsHooksAndPassesRoot(t *testing.T) {
+	root := setupWikiIngestRoot(t)
+	src := "org-src"
+	manifest := wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{
+		{
+			DocumentID: "doc-1", SourceID: &src, Kind: "source-document",
+			Title: "Secret", Path: "raw/org-src/doc.md", ContentHash: "h1",
+			Visibility: &[]string{"organizer"}[0],
+		},
+	}}
+	if err := wiki.WriteState(root, wiki.State{Manifest: &manifest}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".git", "info"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".git", "info", "exclude"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var gotRoot, gotAgent string
+	service := testWikiService(func(context.Context, string, ...string) (string, error) {
+		t.Fatal("ingest --agent must not invoke git")
+		return "", nil
+	})
+	service.runAgent = func(_ context.Context, agentRoot, agent, _ string) error {
+		gotRoot, gotAgent = agentRoot, agent
+		return nil
+	}
+	output, err := executeWiki(t, service, "ingest", "--agent", "cursor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotAgent != "cursor" {
+		t.Fatalf("runAgent agent=%q", gotAgent)
+	}
+	wantRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		wantRoot = root
+	}
+	gotResolved, err := filepath.EvalSymlinks(gotRoot)
+	if err != nil {
+		gotResolved = gotRoot
+	}
+	if gotResolved != wantRoot {
+		t.Fatalf("runAgent root=%q want %q", gotRoot, root)
+	}
+	if !strings.Contains(output, "Cursor ACL hooks") {
+		t.Fatalf("output missing hooks notice: %q", output)
+	}
+	if _, err = os.Stat(filepath.Join(root, ".cursor", "hooks.json")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = os.Stat(wiki.TracePath(root)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestWikiIngestClaudeDoesNotInstallCursorHooks(t *testing.T) {
+	root := setupWikiIngestRoot(t)
+	manifest := wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{
+		{DocumentID: "doc-1", Kind: "wiki-human", Title: "Note", Path: "raw/human/page.md", ContentHash: "h1"},
+	}}
+	if err := wiki.WriteState(root, wiki.State{Manifest: &manifest}); err != nil {
+		t.Fatal(err)
+	}
+	service := testWikiService(func(context.Context, string, ...string) (string, error) {
+		t.Fatal("ingest --agent must not invoke git")
+		return "", nil
+	})
+	service.runAgent = func(context.Context, string, string, string) error { return nil }
+	if _, err := executeWiki(t, service, "ingest", "--agent", "claude"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".cursor", "hooks.json")); !os.IsNotExist(err) {
+		t.Fatalf("claude agent should not install Cursor hooks, err=%v", err)
+	}
+}
+
+func TestWikiVerifyACLFailClosedOnFindings(t *testing.T) {
+	root := setupWikiIngestRoot(t)
+	src := "org-src"
+	if err := wiki.WriteState(root, wiki.State{Manifest: &wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{{
+		DocumentID: "doc-1", SourceID: &src, Kind: "source-document",
+		Title: "Secret", Path: "raw/org-src/doc.md", ContentHash: "h1",
+	}}}}); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(root, "pages", "venues")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	page := "---\ngdg_wiki: 1\nid: venues\nslug: venues\nlanguage: ja\ntitle: Venues\ntranslation_status: human\nvisibility: member\ngeneral_role: viewer\n---\nplain\n"
+	if err := os.WriteFile(filepath.Join(dir, "page.md"), []byte(page), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/cli/wiki/validate-acl" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(wiki.ValidateACLResult{
+			OK: false,
+			Findings: []wiki.ValidateACLFinding{{
+				Slug: "venues", Error: "acl_untagged_read_source", SourceID: "org-src",
+			}},
+		})
+	}))
+	defer server.Close()
+
+	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
+		joined := strings.Join(args, " ")
+		if strings.HasPrefix(joined, "diff --name-only") {
+			return "pages/venues/page.md\n", nil
+		}
+		if strings.HasPrefix(joined, "status --porcelain") {
+			return "", nil
+		}
+		t.Fatalf("unexpected git: %s", joined)
+		return "", nil
+	})
+	service.newClient = func() *wiki.Client {
+		client := wiki.NewClientAt(server.URL)
+		client.HTTPClient = server.Client()
+		return client
+	}
+
+	output, err := executeWiki(t, service, "verify-acl")
+	if err == nil || !strings.Contains(err.Error(), "ACL validation failed") {
+		t.Fatalf("error = %v, want ACL validation failed", err)
+	}
+	if !strings.Contains(output, "acl_untagged_read_source") {
+		t.Fatalf("output = %q, want findings", output)
+	}
+}
+
+func TestWikiVerifyACLFailOpenOnInfrastructureError(t *testing.T) {
+	root := setupWikiIngestRoot(t)
+	src := "org-src"
+	if err := wiki.WriteState(root, wiki.State{Manifest: &wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{{
+		DocumentID: "doc-1", SourceID: &src, Kind: "source-document",
+		Title: "Secret", Path: "raw/org-src/doc.md", ContentHash: "h1",
+	}}}}); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(root, "pages", "venues")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	page := "---\ngdg_wiki: 1\nid: venues\nslug: venues\nlanguage: ja\ntitle: Venues\ntranslation_status: human\nvisibility: member\ngeneral_role: viewer\n---\nplain\n"
+	if err := os.WriteFile(filepath.Join(dir, "page.md"), []byte(page), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
+		joined := strings.Join(args, " ")
+		if strings.HasPrefix(joined, "diff --name-only") {
+			return "pages/venues/page.md\n", nil
+		}
+		if strings.HasPrefix(joined, "status --porcelain") {
+			return "", nil
+		}
+		t.Fatalf("unexpected git: %s", joined)
+		return "", nil
+	})
+	// Closed listener → connection refused (infrastructure fail-open).
+	service.newClient = func() *wiki.Client {
+		return wiki.NewClientAt("http://127.0.0.1:0")
+	}
+
+	output, err := executeWiki(t, service, "verify-acl")
+	if err != nil {
+		t.Fatalf("verify-acl must fail open on infra errors, got %v", err)
+	}
+	if !strings.Contains(output, "failed open") && !strings.Contains(output, "warning:") {
+		t.Fatalf("output = %q, want fail-open warning", output)
 	}
 }
 

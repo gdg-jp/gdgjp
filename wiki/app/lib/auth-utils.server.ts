@@ -7,7 +7,7 @@ export type { AuthUser };
 export interface AccessIdentity {
   user: AuthUser | null;
   chapterIds: string[];
-  chapters: Array<{ chapterId: string; role: string }>;
+  chapters: Array<{ chapterId: string; chapterSlug: string; role: string }>;
   claimsAvailable: boolean;
 }
 
@@ -35,6 +35,7 @@ export async function getAccessIdentity(request: Request, env: Env): Promise<Acc
       chapterIds: claims.chapters.map((chapter) => String(chapter.chapterId)),
       chapters: claims.chapters.map((chapter) => ({
         chapterId: String(chapter.chapterId),
+        chapterSlug: chapter.chapterSlug,
         role: chapter.role,
       })),
       claimsAvailable: true,

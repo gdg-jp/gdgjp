@@ -106,8 +106,9 @@ Extend the `pageType` enum in `wiki/shared/ingestion/domain.ts`.
 | 6–8 | chat-sender plans | Chat sender samples / placeholder worker / CLI resolution |
 | 9 | [09-source-visibility-acl.md](09-source-visibility-acl.md) | Source visibility ACL (`canAccessSource`) |
 | 10 | [10-page-acl-spans.md](10-page-acl-spans.md) | Page-body `<acl>` spans + server-side redaction |
+| 11 | [11-ingest-acl-hooks.md](11-ingest-acl-hooks.md) | Ingest ACL gate (Cursor hooks + `validate-acl` dry-run) |
 
-Dependencies: 1 → 2, 1 → 3 → 4, 3 → 5, 9 → 10. Stages 2 and 3 can proceed in parallel.
+Dependencies: 1 → 2, 1 → 3 → 4, 3 → 5, 9 → 10 → 11. Stages 2 and 3 can proceed in parallel.
 Within Stage 5: 5a → 5d, 5b → 5e → 5f, 5c → 5d → 5e; 5a, 5b, and 5c can proceed in parallel.
 
 ## Risks and considerations

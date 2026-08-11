@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cli/wiki/validate-acl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dry-run ACL validation for Wiki page upserts without writing to D1 */
+        post: operations["validateWikiAcl"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cli/wiki/attachments/{attachmentId}": {
         parameters: {
             query?: never;
@@ -252,6 +269,24 @@ export interface components {
             ok: true;
             pages: components["schemas"]["SyncResultPage"][];
         };
+        ValidateAclRequest: {
+            /**
+             * @default ja
+             * @enum {string}
+             */
+            lang: "ja" | "en";
+            pages?: components["schemas"]["ValidateAclPage"][];
+            /** @description Source IDs read during this ingest run. Always includes the queue head. Trace-derived ids may be added. Used for the run-level acl_untagged_read_source check. */
+            readSourceIds?: string[];
+        };
+        ValidateAclResult: {
+            /** @enum {boolean} */
+            ok: true;
+        } | {
+            /** @enum {boolean} */
+            ok: false;
+            findings: components["schemas"]["ValidateAclFinding"][];
+        };
         SourcesManifest: {
             /** @enum {integer} */
             version: 1;
@@ -453,6 +488,29 @@ export interface components {
                 revision: number;
             }[];
         };
+        ValidateAclPage: {
+            id?: string | null;
+            slug: string;
+            title: string;
+            summary: string;
+            content: string;
+            tags: string[];
+            /** @enum {string} */
+            visibility: "restricted" | "unlisted" | "public" | "organizer" | "member";
+            access: {
+                /** @enum {string} */
+                subjectType: "email" | "chapter";
+                subjectKey: string;
+            }[];
+            sources: {
+                sourceId?: string;
+            }[];
+        };
+        ValidateAclFinding: {
+            slug: string;
+            error: string;
+            sourceId?: string;
+        };
         Ok: {
             /** @enum {boolean} */
             ok: true;
@@ -587,6 +645,32 @@ export interface operations {
                     "application/json": components["schemas"]["RevisionConflict"];
                 };
             };
+        };
+    };
+    validateWikiAcl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateAclRequest"];
+            };
+        };
+        responses: {
+            /** @description Validation result. Always 200 for authenticated callers; check body.ok. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidateAclResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
         };
     };
     downloadWikiAttachment: {

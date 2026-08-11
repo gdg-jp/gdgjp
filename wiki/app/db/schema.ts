@@ -502,7 +502,9 @@ export const sources = sqliteTable("sources", {
   externalId: text("external_id"),
   url: text("url").notNull(),
   title: text("title").notNull(),
-  chapterId: text("chapter_id").references(() => chapters.id, { onDelete: "set null" }),
+  // Opaque Accounts chapter id — not an FK. Local `chapters` is unsynced; /sources
+  // resolves labels from the Accounts directory / IdP memberships instead.
+  chapterId: text("chapter_id"),
   // "private" | "member" | "organizer" | "chapter-member" | "chapter-organizer"
   visibility: text("visibility").notNull().default("member"),
   addedBy: text("added_by")

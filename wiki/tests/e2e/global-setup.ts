@@ -53,7 +53,7 @@ function findD1Sqlite(): string {
       `D1 directory not found: ${dir}\nRun 'pnpm dev' once to initialise the local D1 database.`,
     );
   }
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".sqlite"));
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".sqlite") && f !== "metadata.sqlite");
   if (files.length === 0) {
     throw new Error(`No SQLite file found in ${dir}. Run 'pnpm dev' first.`);
   }

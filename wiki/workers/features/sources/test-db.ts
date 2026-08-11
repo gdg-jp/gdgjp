@@ -89,6 +89,12 @@ export function createSourcesTestDb() {
       "utf8",
     ),
   );
+  sqlite.exec(
+    readFileSync(
+      new URL("../../../migrations/0056_drop_sources_chapter_fk.sql", import.meta.url),
+      "utf8",
+    ),
+  );
 
   const execute = async (
     sql: string,

@@ -1,0 +1,22 @@
+post:
+  operationId: validateWikiAcl
+  summary: Dry-run ACL validation for Wiki page upserts without writing to D1
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/wiki.yaml#/ValidateAclRequest
+  responses:
+    '200':
+      description: Validation result. Always 200 for authenticated callers; check body.ok.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/wiki.yaml#/ValidateAclResult
+    '400':
+      $ref: ../components/responses/common.yaml#/BadRequest
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
