@@ -17,6 +17,7 @@ vi.mock("./auth.server", () => ({
       env.SCHEDULER_CLIENT_ID,
       env.SNS_CLIENT_ID,
       env.AGENTS_CLIENT_ID,
+      env.PAY_CLIENT_ID,
     ].filter(Boolean),
 }));
 
@@ -116,6 +117,7 @@ function testEnv(options?: {
     SCHEDULER_CLIENT_ID: "scheduler",
     SNS_CLIENT_ID: "sns",
     AGENTS_CLIENT_ID: "agents",
+    PAY_CLIENT_ID: "pay",
   } as Env;
   return { env, calls, batches, preparedSql };
 }

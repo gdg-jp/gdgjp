@@ -11,6 +11,7 @@ IMG_CLIENT_SECRET=""
 SCHEDULER_CLIENT_SECRET=""
 SNS_CLIENT_SECRET=""
 AGENTS_CLIENT_SECRET=""
+PAY_CLIENT_SECRET=""
 
 # Override prod URLs from wrangler.toml so dev runs the IdP at localhost.
 APP_URL=http://localhost:5173
@@ -22,5 +23,6 @@ IMG_REDIRECT_URLS=http://localhost:5175/api/auth/callback/gdgjp
 SCHEDULER_REDIRECT_URLS=http://localhost:5176/api/auth/callback/gdgjp
 WIKI_REDIRECT_URLS=http://localhost:5177/api/auth/callback/gdgjp
 SNS_REDIRECT_URLS=http://localhost:5178/api/auth/callback/gdgjp
+PAY_REDIRECT_URLS=http://localhost:5179/api/auth/callback/gdgjp
 
 RESEND_API_KEY=""

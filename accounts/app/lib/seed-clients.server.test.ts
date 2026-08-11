@@ -85,4 +85,13 @@ describe("trustedOAuthClientIds", () => {
   it("includes agents among the consent-skip trusted clients", () => {
     expect(trustedOAuthClientIds(agentsEnv())).toContain("agents");
   });
+
+  it("includes pay among the consent-skip trusted clients", () => {
+    expect(
+      trustedOAuthClientIds({
+        ...agentsEnv(),
+        PAY_CLIENT_ID: "pay",
+      } as unknown as Env),
+    ).toContain("pay");
+  });
 });
