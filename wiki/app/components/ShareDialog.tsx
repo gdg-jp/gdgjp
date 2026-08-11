@@ -389,6 +389,7 @@ export default function ShareDialog({
   const [localGeneralRole, setLocalGeneralRole] = useState<PageRole>("viewer");
   const [hasSuccessfulPermissionChange, setHasSuccessfulPermissionChange] = useState(false);
   const [showDescendantDialog, setShowDescendantDialog] = useState(false);
+  const [includeUnsyncedDescendants, setIncludeUnsyncedDescendants] = useState(false);
   const [descendantRequestActive, setDescendantRequestActive] = useState(false);
   const [descendantRequestCompleted, setDescendantRequestCompleted] = useState(false);
   const searchInputHeight = useHeightTransition();
@@ -445,6 +446,7 @@ export default function ShareDialog({
     setWarning(null);
     setHasSuccessfulPermissionChange(false);
     setShowDescendantDialog(false);
+    setIncludeUnsyncedDescendants(false);
     setLocalAccess(currentVisibility as GeneralAccess);
     accessFetcher.load(`/api/page-access/${pageId}`);
   }, [open, pageId]);
@@ -525,6 +527,7 @@ export default function ShareDialog({
     onClose();
     if (shouldPrompt) {
       setDescendantRequestCompleted(false);
+      setIncludeUnsyncedDescendants(false);
       setShowDescendantDialog(true);
     }
   }
@@ -604,11 +607,17 @@ export default function ShareDialog({
   function syncDescendants() {
     setDescendantRequestCompleted(false);
     setDescendantRequestActive(true);
-    descendantFetcher.submit(JSON.stringify({ intent: "syncDescendants" }), {
-      method: "post",
-      action: `/api/page-access/${pageId}`,
-      encType: "application/json",
-    });
+    descendantFetcher.submit(
+      JSON.stringify({
+        intent: "syncDescendants",
+        includeUnsynced: includeUnsyncedDescendants,
+      }),
+      {
+        method: "post",
+        action: `/api/page-access/${pageId}`,
+        encType: "application/json",
+      },
+    );
   }
 
   async function copyLink() {
@@ -661,6 +670,12 @@ export default function ShareDialog({
     : null;
   const activeOptionId =
     isListOpen && candidateRows[activeIndex] ? `${listboxId}-${activeIndex}` : undefined;
+  const descendantCount = accessFetcher.data?.descendantCount ?? 0;
+  const syncedDescendantCount = accessFetcher.data?.syncedDescendantCount ?? 0;
+  const hasUnsyncedDescendants = descendantCount > syncedDescendantCount;
+  const canSyncDescendants = includeUnsyncedDescendants
+    ? descendantCount > 0
+    : syncedDescendantCount > 0;
 
   return (
     <>
@@ -1135,13 +1150,25 @@ export default function ShareDialog({
             </AlertDialogTitle>
             <AlertDialogDescription className="text-base leading-relaxed">
               {t("wiki.share_sync_descendants_description", {
-                count: accessFetcher.data?.descendantCount ?? 0,
-                syncedCount: accessFetcher.data?.syncedDescendantCount ?? 0,
+                count: descendantCount,
+                syncedCount: syncedDescendantCount,
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3 px-5 py-5 sm:px-6">
-            {(accessFetcher.data?.syncedDescendantCount ?? 0) === 0 && (
+            {hasUnsyncedDescendants && (
+              <label className="flex min-h-10 items-center gap-2 text-sm text-card-foreground">
+                <input
+                  type="checkbox"
+                  checked={includeUnsyncedDescendants}
+                  onChange={(event) => setIncludeUnsyncedDescendants(event.target.checked)}
+                  disabled={descendantFetcher.state !== "idle" || descendantRequestCompleted}
+                  className="h-5 w-5 accent-primary"
+                />
+                {t("wiki.share_sync_descendants_include_unsynced")}
+              </label>
+            )}
+            {syncedDescendantCount === 0 && !includeUnsyncedDescendants && (
               <p className="rounded-xl bg-muted px-4 py-3 text-sm leading-relaxed text-muted-foreground">
                 {t("wiki.share_sync_descendants_none")}
               </p>
@@ -1174,19 +1201,22 @@ export default function ShareDialog({
                 ? t("close")
                 : t("wiki.share_not_now")}
             </Button>
-            {(!descendantRequestCompleted || !descendantFetcher.data?.ok) &&
-              (accessFetcher.data?.syncedDescendantCount ?? 0) > 0 && (
-                <Button
-                  onClick={syncDescendants}
-                  disabled={descendantFetcher.state !== "idle"}
-                  className="rounded-full px-5"
-                >
-                  {descendantFetcher.state !== "idle" && (
-                    <Loader2 className="animate-spin motion-reduce:animate-none" size={16} />
-                  )}
-                  {t("wiki.share_sync_descendants_action")}
-                </Button>
-              )}
+            {(!descendantRequestCompleted || !descendantFetcher.data?.ok) && canSyncDescendants && (
+              <Button
+                onClick={syncDescendants}
+                disabled={descendantFetcher.state !== "idle"}
+                className="rounded-full px-5"
+              >
+                {descendantFetcher.state !== "idle" && (
+                  <Loader2 className="animate-spin motion-reduce:animate-none" size={16} />
+                )}
+                {t(
+                  includeUnsyncedDescendants
+                    ? "wiki.share_sync_descendants_action_all"
+                    : "wiki.share_sync_descendants_action",
+                )}
+              </Button>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
