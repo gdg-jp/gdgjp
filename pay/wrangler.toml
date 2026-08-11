@@ -35,8 +35,7 @@ pattern = "pay.gdgs.jp/*"
 zone_name = "gdgs.jp"
 
 [observability]
-enabled = false
-head_sampling_rate = 1
+enabled = true
 
 [observability.logs]
 enabled = true
@@ -45,9 +44,9 @@ persist = true
 invocation_logs = true
 
 [observability.traces]
-enabled = false
+enabled = true
+head_sampling_rate = 0.1
 persist = true
-head_sampling_rate = 1
 
 # Set with `wrangler secret put`:
 # RP_SESSION_SECRET, IDP_CLIENT_SECRET, TOKEN_ENCRYPTION_KEY,
