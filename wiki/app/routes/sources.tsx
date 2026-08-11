@@ -39,13 +39,18 @@ import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { loadGooglePicker } from "~/lib/google-picker.client";
 import type { GooglePickerConfig, GooglePickerDocument } from "~/lib/google-picker.client";
-import { ALL_CHAPTERS } from "~/lib/sources-shared";
+import {
+  SOURCE_VISIBILITIES,
+  isSourceVisibility,
+  sourceVisibilityNeedsChapter,
+} from "~/lib/sources-shared";
 import {
   canAccessSource,
   createSource,
   deleteArchivedSource,
   enqueueSourceRefresh,
   unarchiveSource,
+  updateSourceVisibility,
 } from "~/lib/sources.server";
 import {
   isChatSenderResourceName,
@@ -125,7 +130,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
   const rows = await db.select().from(schema.sources).orderBy(desc(schema.sources.createdAt)).all();
 
-  const visible = rows.filter((row) => canAccessSource(row, user, identity.chapterIds));
+  const visible = rows.filter((row) => canAccessSource(row, user, identity.chapters));
   const sourceIds = visible.map((row) => row.id);
 
   const documents =
@@ -195,11 +200,14 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     .all();
 
   return {
+    allChapters,
     assignableChapters,
     chatSenders: {
       profiles,
       samples: visibleSamples,
     },
+    currentUserId: user.id,
+    isAdmin: user.isAdmin,
     sources: visible.map((source) => ({
       ...source,
       documents: documentsBySource.get(source.id) ?? [],
@@ -226,10 +234,11 @@ export async function action({ request, context }: ActionFunctionArgs) {
           ? { kind: candidate.kind, externalId: candidate.externalId }
           : { url: candidate.url }),
         title: candidate.title,
+        visibility: form.get("visibility"),
         chapter: form.get("chapter"),
         refreshPolicy: form.get("refreshPolicy"),
         user,
-        chapterIds: identity.chapterIds,
+        chapters: identity.chapters,
       });
 
       // `createSource` persists an error source when queue delivery fails. It must leave
@@ -247,10 +256,11 @@ export async function action({ request, context }: ActionFunctionArgs) {
     const result = await createSource(env, {
       url: form.get("url"),
       title: form.get("title"),
+      visibility: form.get("visibility"),
       chapter: form.get("chapter"),
       refreshPolicy: form.get("refreshPolicy"),
       user,
-      chapterIds: identity.chapterIds,
+      chapters: identity.chapters,
     });
     return result.ok ? { ok: true as const } : { ok: false as const, error: result.error };
   }
@@ -260,10 +270,11 @@ export async function action({ request, context }: ActionFunctionArgs) {
       kind: "google-chat-space",
       externalId: form.get("externalId"),
       title: form.get("title"),
+      visibility: form.get("visibility"),
       chapter: form.get("chapter"),
       refreshPolicy: form.get("refreshPolicy"),
       user,
-      chapterIds: identity.chapterIds,
+      chapters: identity.chapters,
     });
     return result.ok ? { ok: true as const } : { ok: false as const, error: result.error };
   }
@@ -283,11 +294,22 @@ export async function action({ request, context }: ActionFunctionArgs) {
       .innerJoin(schema.sources, eq(schema.googleChatSenderSamples.sourceId, schema.sources.id))
       .where(eq(schema.googleChatSenderSamples.resourceName, resourceName))
       .all();
-    if (!known.some(({ source }) => canAccessSource(source, user, identity.chapterIds))) {
+    if (!known.some(({ source }) => canAccessSource(source, user, identity.chapters))) {
       return { ok: false as const, error: "invalid_sender" };
     }
     await saveChatSenderName(env, resourceName, displayName);
     return { ok: true as const, senderSaved: true };
+  }
+
+  if (intent === "update-visibility") {
+    const sourceId = String(form.get("sourceId") ?? "");
+    const result = await updateSourceVisibility(env, sourceId, {
+      visibility: form.get("visibility"),
+      chapter: form.get("chapter"),
+      user,
+      chapters: identity.chapters,
+    });
+    return result.ok ? { ok: true as const } : { ok: false as const, error: result.error };
   }
 
   if (
@@ -303,7 +325,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       .from(schema.sources)
       .where(eq(schema.sources.id, sourceId))
       .get();
-    if (!source || !canAccessSource(source, user, identity.chapterIds)) {
+    if (!source || !canAccessSource(source, user, identity.chapters)) {
       return { ok: false as const, error: "not_found" };
     }
 
@@ -371,7 +393,8 @@ function sourceUrlFromGoogleDocument(document: GooglePickerDocument): string | n
 }
 
 export default function SourcesPage() {
-  const { assignableChapters, chatSenders, sources } = useLoaderData<typeof loader>();
+  const { allChapters, assignableChapters, chatSenders, currentUserId, isAdmin, sources } =
+    useLoaderData<typeof loader>();
   const { t, i18n } = useTranslation();
   const revalidator = useRevalidator();
   const batchFetcher = useFetcher<typeof action>();
@@ -389,10 +412,15 @@ export default function SourcesPage() {
   const [needsChatReauth, setNeedsChatReauth] = useState(false);
   const [senderDialogOpen, setSenderDialogOpen] = useState(false);
   const chatSpacesLoadStarted = useRef(false);
+  const [visibility, setVisibility] = useState("");
   const [chapter, setChapter] = useState(
     assignableChapters.length === 1 ? assignableChapters[0].id : "",
   );
   const submitting = batchFetcher.state !== "idle";
+  const needsChapter = isSourceVisibility(visibility) && sourceVisibilityNeedsChapter(visibility);
+  const canSubmitImport = Boolean(
+    visibility && (!needsChapter || chapter) && candidates.length > 0,
+  );
 
   const pendingCount = useMemo(
     () => sources.filter((s) => s.status === "pending" || s.status === "fetching").length,
@@ -617,19 +645,27 @@ export default function SourcesPage() {
             </DropdownMenu>
           </div>
           <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row">
-            <ChapterSelect
-              chapters={assignableChapters}
-              language={i18n.language}
-              t={t}
-              value={chapter}
-              onValueChange={setChapter}
-            />
+            <VisibilitySelect t={t} value={visibility} onValueChange={setVisibility} />
+            {needsChapter ? (
+              <ChapterSelect
+                chapters={assignableChapters}
+                language={i18n.language}
+                t={t}
+                value={chapter}
+                onValueChange={setChapter}
+              />
+            ) : null}
             <button
               type="button"
-              disabled={submitting || candidates.length === 0 || !chapter}
+              disabled={submitting || !canSubmitImport}
               onClick={() =>
                 batchFetcher.submit(
-                  { intent: "create-batch", chapter, candidates: JSON.stringify(candidates) },
+                  {
+                    intent: "create-batch",
+                    visibility,
+                    chapter: needsChapter ? chapter : "",
+                    candidates: JSON.stringify(candidates),
+                  },
                   { method: "post" },
                 )
               }
@@ -738,6 +774,7 @@ export default function SourcesPage() {
               <col className="w-10" />
               <col />
               <col className="w-28" />
+              <col className="w-32" />
               <col className="w-24" />
               <col className="w-24" />
               <col className="w-36" />
@@ -748,6 +785,7 @@ export default function SourcesPage() {
                 <th className="px-3 py-2" />
                 <th className="px-3 py-2">{t("sources.col_title")}</th>
                 <th className="px-3 py-2">{t("sources.col_kind")}</th>
+                <th className="px-3 py-2">{t("sources.col_visibility")}</th>
                 <th className="px-3 py-2">{t("sources.col_status")}</th>
                 <th className="px-3 py-2">{t("sources.col_documents")}</th>
                 <th className="px-3 py-2">{t("sources.col_fetched")}</th>
@@ -763,6 +801,10 @@ export default function SourcesPage() {
                     source={source}
                     open={open}
                     onToggle={() => setExpanded((prev) => ({ ...prev, [source.id]: !open }))}
+                    assignableChapters={assignableChapters}
+                    allChapters={allChapters}
+                    canEditVisibility={source.addedBy === currentUserId || isAdmin}
+                    language={i18n.language}
                   />
                 );
               })}
@@ -943,6 +985,34 @@ function ChatSenderDialog({
   );
 }
 
+function VisibilitySelect({
+  t,
+  value,
+  onValueChange,
+}: {
+  t: (key: string) => string;
+  value: string;
+  onValueChange: (value: string) => void;
+}) {
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger
+        className="w-full bg-surface-raised sm:w-56"
+        aria-label={t("sources.visibility_label")}
+      >
+        <SelectValue placeholder={t("sources.visibility_placeholder")} />
+      </SelectTrigger>
+      <SelectContent>
+        {SOURCE_VISIBILITIES.map((option) => (
+          <SelectItem key={option} value={option}>
+            {t(`sources.visibility.${option}`)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function ChapterSelect({
   chapters,
   language,
@@ -970,7 +1040,6 @@ function ChapterSelect({
             {language.startsWith("en") ? chapter.nameEn : chapter.nameJa}
           </SelectItem>
         ))}
-        <SelectItem value={ALL_CHAPTERS}>{t("sources.chapter_all")}</SelectItem>
       </SelectContent>
     </Select>
   );
@@ -980,6 +1049,10 @@ function SourceRows({
   source,
   open,
   onToggle,
+  assignableChapters,
+  allChapters,
+  canEditVisibility,
+  language,
 }: {
   source: {
     id: string;
@@ -987,6 +1060,8 @@ function SourceRows({
     url: string;
     kind: string;
     status: string;
+    visibility: string;
+    chapterId: string | null;
     errorMessage: string | null;
     lastFetchedAt: Date | string | null;
     documents: Array<{
@@ -1001,20 +1076,42 @@ function SourceRows({
   };
   open: boolean;
   onToggle: () => void;
+  assignableChapters: Array<{ id: string; nameJa: string; nameEn: string }>;
+  allChapters: Array<{ id: string; nameJa: string; nameEn: string }>;
+  canEditVisibility: boolean;
+  language: string;
 }) {
   const { t } = useTranslation();
   const refreshFetcher = useFetcher();
   const archiveFetcher = useFetcher();
   const unarchiveFetcher = useFetcher();
   const deleteFetcher = useFetcher();
+  const visibilityFetcher = useFetcher();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editVisibility, setEditVisibility] = useState(source.visibility);
+  const [editChapter, setEditChapter] = useState(source.chapterId ?? "");
+  const editNeedsChapter =
+    isSourceVisibility(editVisibility) && sourceVisibilityNeedsChapter(editVisibility);
   const busy =
     refreshFetcher.state !== "idle" ||
     archiveFetcher.state !== "idle" ||
     unarchiveFetcher.state !== "idle" ||
-    deleteFetcher.state !== "idle";
+    deleteFetcher.state !== "idle" ||
+    visibilityFetcher.state !== "idle";
 
   const fetchedLabel = source.lastFetchedAt ? new Date(source.lastFetchedAt).toLocaleString() : "—";
+  const visibilityLabel = isSourceVisibility(source.visibility)
+    ? t(`sources.visibility.${source.visibility}`)
+    : source.visibility;
+  const chapterName = source.chapterId
+    ? allChapters.find((chapter) => chapter.id === source.chapterId)
+    : null;
+  const visibilityDetail =
+    chapterName &&
+    isSourceVisibility(source.visibility) &&
+    sourceVisibilityNeedsChapter(source.visibility)
+      ? ` (${language.startsWith("en") ? chapterName.nameEn : chapterName.nameJa})`
+      : "";
 
   return (
     <>
@@ -1049,6 +1146,39 @@ function SourceRows({
         </td>
         <td className="px-3 py-3 text-content-secondary">
           {t(`sources.kind.${source.kind}`, source.kind)}
+        </td>
+        <td className="px-3 py-3">
+          <span className="inline-flex rounded-full bg-surface-hover px-2 py-0.5 text-xs font-medium text-content-secondary">
+            {visibilityLabel}
+            {visibilityDetail}
+          </span>
+          {canEditVisibility ? (
+            <visibilityFetcher.Form method="post" className="mt-2 space-y-2">
+              <input type="hidden" name="intent" value="update-visibility" />
+              <input type="hidden" name="sourceId" value={source.id} />
+              <VisibilitySelect t={t} value={editVisibility} onValueChange={setEditVisibility} />
+              {editNeedsChapter ? (
+                <ChapterSelect
+                  chapters={assignableChapters}
+                  language={language}
+                  t={t}
+                  value={editChapter}
+                  onValueChange={setEditChapter}
+                />
+              ) : null}
+              <button
+                type="submit"
+                disabled={
+                  busy || !isSourceVisibility(editVisibility) || (editNeedsChapter && !editChapter)
+                }
+                className="rounded border border-border-strong px-2 py-1 text-xs hover:bg-surface-hover disabled:opacity-50"
+              >
+                {t("sources.visibility_save")}
+              </button>
+              <input type="hidden" name="visibility" value={editVisibility} />
+              <input type="hidden" name="chapter" value={editNeedsChapter ? editChapter : ""} />
+            </visibilityFetcher.Form>
+          ) : null}
         </td>
         <td className="px-3 py-3">
           <span
@@ -1144,7 +1274,7 @@ function SourceRows({
       />
       {open ? (
         <tr>
-          <td colSpan={7} className="bg-surface-sunken px-6 py-3">
+          <td colSpan={8} className="bg-surface-sunken px-6 py-3">
             {source.documents.length === 0 ? (
               <p className="text-xs text-content-tertiary">{t("sources.no_documents")}</p>
             ) : (

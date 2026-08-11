@@ -34,7 +34,7 @@ export default [
   route("/api/sources/:id/refresh", "routes/api.sources.$id.refresh.ts"),
   route("/api/sources/:id/archive", "routes/api.sources.$id.archive.ts"),
   route("/api/sources/:id/unarchive", "routes/api.sources.$id.unarchive.ts"),
-  route("/api/sources/:id/delete", "routes/api.sources.$id.delete.ts"),
+  route("/api/sources/:id/visibility", "routes/api.sources.$id.visibility.ts"),
   route("/api/pages/reorder", "routes/api.pages.reorder.ts"),
   route("/api/notifications", "routes/api.notifications.ts"),
   route("/api/comments", "routes/api.comments.ts"),

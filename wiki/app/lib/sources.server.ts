@@ -5,11 +5,10 @@ import * as schema from "~/db/schema";
 import { getDb } from "~/lib/db.server";
 import { getGoogleDriveDocumentKind, isGoogleDriveUrl } from "~/lib/google-drive-utils";
 import { isGoogleFormUrl } from "~/lib/google-forms-utils";
-import { ALL_CHAPTERS } from "~/lib/sources-shared";
-import type { SourceKind, SourceRefreshPolicy } from "~/lib/sources-shared";
+import type { SourceKind, SourceRefreshPolicy, SourceVisibility } from "~/lib/sources-shared";
+import { isSourceVisibility, sourceVisibilityNeedsChapter } from "~/lib/sources-shared";
 
-export { ALL_CHAPTERS };
-export type { SourceKind, SourceRefreshPolicy };
+export type { SourceKind, SourceRefreshPolicy, SourceVisibility };
 
 export type ClassifiedSource =
   | {
@@ -20,6 +19,9 @@ export type ClassifiedSource =
       title?: string;
     }
   | { ok: false; error: string };
+
+type SourceSubject = { addedBy: string; chapterId: string | null; visibility: string };
+type Membership = { chapterId: string | number; role: string };
 
 function extractDriveFileId(url: string): string | null {
   const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
@@ -97,16 +99,37 @@ export function classifyGoogleChatSpace(externalId: unknown, title: unknown): Cl
 }
 
 export function canAccessSource(
-  source: { addedBy: string; chapterId: string | null },
+  source: SourceSubject,
   user: AuthUser,
-  chapterIds: readonly string[],
+  chapters: readonly Membership[],
 ): boolean {
   if (user.isAdmin) return true;
   if (source.addedBy === user.id) return true;
-  if (source.chapterId === null) return true;
-  return chapterIds.includes(source.chapterId);
+  if (!isSourceVisibility(source.visibility)) return false;
+
+  switch (source.visibility) {
+    case "private":
+      return false;
+    case "member":
+      return chapters.length > 0;
+    case "organizer":
+      return chapters.some((chapter) => chapter.role === "organizer");
+    case "chapter-member":
+      return chapters.some((chapter) => String(chapter.chapterId) === source.chapterId);
+    case "chapter-organizer":
+      return chapters.some(
+        (chapter) => String(chapter.chapterId) === source.chapterId && chapter.role === "organizer",
+      );
+    default:
+      return false;
+  }
 }
 
+/**
+ * Pre-Stage-9 chapter-only assignment check. `canAssignSourceVisibility` replaced it for
+ * sources; its only remaining caller is `agent-notes.server.ts`'s access-floor check, which
+ * predates the visibility model and was out of scope for this stage.
+ */
 export function canAssignChapter(
   chapterId: string | null | undefined,
   user: AuthUser,
@@ -117,18 +140,47 @@ export function canAssignChapter(
   return chapterIds.includes(chapterId);
 }
 
+export function canAssignSourceVisibility(
+  visibility: SourceVisibility,
+  chapterId: string | null,
+  user: AuthUser,
+  chapters: readonly Membership[],
+): boolean {
+  const needsChapter = sourceVisibilityNeedsChapter(visibility);
+  if (needsChapter !== (chapterId != null && chapterId !== "")) return false;
+
+  if (!needsChapter) return true;
+  if (user.isAdmin) return true;
+  return chapters.some((chapter) => String(chapter.chapterId) === chapterId);
+}
+
 /**
- * Resolve the chapter a submitted form/JSON payload asks for.
+ * Resolve visibility and optional chapter from a submitted form/JSON payload.
  *
- * A source with no chapter is readable by every signed-in member, so it has to be
- * chosen deliberately (`ALL_CHAPTERS`) rather than fallen into by omitting a field.
+ * A source readable by every member has to be chosen deliberately rather than
+ * fallen into by omitting a field.
  */
-export function parseChapterSelection(
-  raw: unknown,
-): { ok: true; chapterId: string | null } | { ok: false; error: string } {
-  if (raw === ALL_CHAPTERS) return { ok: true, chapterId: null };
-  if (typeof raw === "string" && raw.length > 0) return { ok: true, chapterId: raw };
-  return { ok: false, error: "chapter_required" };
+export function parseSourceVisibilitySelection(
+  rawVisibility: unknown,
+  rawChapter: unknown,
+):
+  | { ok: true; visibility: SourceVisibility; chapterId: string | null }
+  | { ok: false; error: string } {
+  if (!isSourceVisibility(rawVisibility)) {
+    return { ok: false, error: "invalid_visibility" };
+  }
+
+  const needsChapter = sourceVisibilityNeedsChapter(rawVisibility);
+  const chapterId = typeof rawChapter === "string" && rawChapter.length > 0 ? rawChapter : null;
+
+  if (needsChapter && chapterId === null) {
+    return { ok: false, error: "chapter_required" };
+  }
+  if (!needsChapter && chapterId !== null) {
+    return { ok: false, error: "invalid_visibility" };
+  }
+
+  return { ok: true, visibility: rawVisibility, chapterId };
 }
 
 export interface CreateSourceInput {
@@ -137,10 +189,11 @@ export interface CreateSourceInput {
   kind?: unknown;
   externalId?: unknown;
   title?: unknown;
+  visibility: unknown;
   chapter: unknown;
   refreshPolicy?: unknown;
   user: AuthUser;
-  chapterIds: readonly string[];
+  chapters: readonly Membership[];
 }
 
 export type CreateSourceResult =
@@ -152,6 +205,7 @@ export type CreateSourceResult =
         url: string;
         title: string;
         chapterId: string | null;
+        visibility: SourceVisibility;
         status: "pending";
         refreshPolicy: SourceRefreshPolicy;
       };
@@ -297,11 +351,18 @@ export async function createSource(
     return { ok: false, error: classified.error, status: 400 };
   }
 
-  const chapter = parseChapterSelection(input.chapter);
-  if (!chapter.ok) {
-    return { ok: false, error: chapter.error, status: 400 };
+  const selection = parseSourceVisibilitySelection(input.visibility, input.chapter);
+  if (!selection.ok) {
+    return { ok: false, error: selection.error, status: 400 };
   }
-  if (!canAssignChapter(chapter.chapterId, input.user, input.chapterIds)) {
+  if (
+    !canAssignSourceVisibility(
+      selection.visibility,
+      selection.chapterId,
+      input.user,
+      input.chapters,
+    )
+  ) {
     return { ok: false, error: "forbidden_chapter", status: 403 };
   }
 
@@ -320,7 +381,8 @@ export async function createSource(
     externalId: classified.externalId,
     url: classified.url,
     title,
-    chapterId: chapter.chapterId,
+    chapterId: selection.chapterId,
+    visibility: selection.visibility,
     addedBy: input.user.id,
     status: "pending",
     refreshPolicy,
@@ -349,11 +411,66 @@ export async function createSource(
       kind: classified.kind,
       url: classified.url,
       title,
-      chapterId: chapter.chapterId,
+      chapterId: selection.chapterId,
+      visibility: selection.visibility,
       status: "pending",
       refreshPolicy,
     },
   };
+}
+
+export async function updateSourceVisibility(
+  env: Env,
+  sourceId: string,
+  input: {
+    visibility: unknown;
+    chapter: unknown;
+    user: AuthUser;
+    chapters: readonly Membership[];
+  },
+): Promise<
+  | { ok: true; visibility: SourceVisibility; chapterId: string | null }
+  | { ok: false; error: string; status: number }
+> {
+  const db = getDb(env);
+  const source = await db
+    .select({
+      addedBy: schema.sources.addedBy,
+    })
+    .from(schema.sources)
+    .where(eq(schema.sources.id, sourceId))
+    .get();
+
+  if (!source) return { ok: false, error: "not_found", status: 404 };
+  if (source.addedBy !== input.user.id && !input.user.isAdmin) {
+    return { ok: false, error: "forbidden", status: 403 };
+  }
+
+  const selection = parseSourceVisibilitySelection(input.visibility, input.chapter);
+  if (!selection.ok) {
+    return { ok: false, error: selection.error, status: 400 };
+  }
+  if (
+    !canAssignSourceVisibility(
+      selection.visibility,
+      selection.chapterId,
+      input.user,
+      input.chapters,
+    )
+  ) {
+    return { ok: false, error: "forbidden_chapter", status: 403 };
+  }
+
+  await db
+    .update(schema.sources)
+    .set({
+      visibility: selection.visibility,
+      chapterId: selection.chapterId,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.sources.id, sourceId));
+
+  return { ok: true, visibility: selection.visibility, chapterId: selection.chapterId };
 }
 
 /** Placeholder until the fetcher reports the real document title. */

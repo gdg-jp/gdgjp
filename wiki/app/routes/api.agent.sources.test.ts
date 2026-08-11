@@ -73,18 +73,18 @@ describe("POST /api/agent/sources", () => {
     expect(getDbMock).not.toHaveBeenCalled();
   });
 
-  it("returns 400 chapter_required and creates no row when chapter is missing", async () => {
+  it("returns 400 invalid_visibility and creates no row when visibility is missing", async () => {
     createSourceMock.mockResolvedValue({
       ok: false,
-      error: "chapter_required",
+      error: "invalid_visibility",
       status: 400,
     });
     const response = await action(actionArgs({ url: "https://example.com" }));
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "chapter_required" });
+    expect(await response.json()).toEqual({ error: "invalid_visibility" });
     expect(createSourceMock).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ chapter: undefined, url: "https://example.com" }),
+      expect.objectContaining({ visibility: undefined, url: "https://example.com" }),
     );
   });
 
@@ -94,7 +94,9 @@ describe("POST /api/agent/sources", () => {
       error: "forbidden_chapter",
       status: 403,
     });
-    const response = await action(actionArgs({ url: "https://example.com", chapter: "999" }));
+    const response = await action(
+      actionArgs({ url: "https://example.com", visibility: "chapter-member", chapter: "999" }),
+    );
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "forbidden_chapter" });
   });
@@ -106,20 +108,28 @@ describe("POST /api/agent/sources", () => {
       url: "https://example.com",
       title: "example.com",
       chapterId: "1",
+      visibility: "chapter-member",
       status: "pending",
       refreshPolicy: "manual",
     };
     createSourceMock.mockResolvedValue({ ok: true, source });
-    const response = await action(actionArgs({ url: "https://example.com", chapter: "1" }));
+    const response = await action(
+      actionArgs({
+        url: "https://example.com",
+        visibility: "chapter-member",
+        chapter: "1",
+      }),
+    );
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual(source);
     expect(createSourceMock).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         url: "https://example.com",
+        visibility: "chapter-member",
         chapter: "1",
         user: identity().user,
-        chapterIds: ["1"],
+        chapters: identity().chapters,
       }),
     );
   });

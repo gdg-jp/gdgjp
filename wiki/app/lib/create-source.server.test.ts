@@ -12,11 +12,12 @@ vi.mock("~/lib/db.server", () => ({
   }),
 }));
 
-import { ALL_CHAPTERS, createSource } from "~/lib/sources.server";
+import { createSource } from "~/lib/sources.server";
 
 const MEMBER = { id: "user-1", isAdmin: false } as AuthUser;
 const ADMIN = { id: "user-2", isAdmin: true } as AuthUser;
 const DOC_URL = "https://docs.google.com/document/d/abc123/edit";
+const OSAKA = { chapterId: "chapter-osaka", role: "member" };
 
 function env(): Env {
   return { SOURCE_FETCH_QUEUE: { send: sendMock } } as unknown as Env;
@@ -29,17 +30,19 @@ beforeEach(() => {
 });
 
 describe("createSource", () => {
-  it("stores the chosen chapter and queues the fetch", async () => {
+  it("stores the chosen chapter visibility and queues the fetch", async () => {
     const result = await createSource(env(), {
       url: DOC_URL,
+      visibility: "chapter-member",
       chapter: "chapter-osaka",
       user: MEMBER,
-      chapterIds: ["chapter-osaka"],
+      chapters: [OSAKA],
     });
 
     expect(result.ok).toBe(true);
     expect(insertMock.mock.calls[0][0]).toMatchObject({
       chapterId: "chapter-osaka",
+      visibility: "chapter-member",
       addedBy: "user-1",
       kind: "google-doc",
       status: "pending",
@@ -50,17 +53,16 @@ describe("createSource", () => {
     });
   });
 
-  it("refuses to default a missing chapter to everyone", async () => {
-    // Raw material is unredacted, so a source readable by every member has to be an
-    // explicit choice rather than the consequence of omitting a form field.
+  it("refuses to default a missing visibility to everyone", async () => {
     const result = await createSource(env(), {
       url: DOC_URL,
+      visibility: null,
       chapter: null,
       user: MEMBER,
-      chapterIds: ["chapter-osaka"],
+      chapters: [OSAKA],
     });
 
-    expect(result).toMatchObject({ ok: false, error: "chapter_required", status: 400 });
+    expect(result).toMatchObject({ ok: false, error: "invalid_visibility", status: 400 });
     expect(insertMock).not.toHaveBeenCalled();
     expect(sendMock).not.toHaveBeenCalled();
   });
@@ -68,21 +70,26 @@ describe("createSource", () => {
   it("accepts an explicit all-members scope", async () => {
     const result = await createSource(env(), {
       url: DOC_URL,
-      chapter: ALL_CHAPTERS,
+      visibility: "member",
+      chapter: null,
       user: MEMBER,
-      chapterIds: ["chapter-osaka"],
+      chapters: [OSAKA],
     });
 
     expect(result.ok).toBe(true);
-    expect(insertMock.mock.calls[0][0]).toMatchObject({ chapterId: null });
+    expect(insertMock.mock.calls[0][0]).toMatchObject({
+      chapterId: null,
+      visibility: "member",
+    });
   });
 
   it("rejects a chapter the user does not belong to", async () => {
     const result = await createSource(env(), {
       url: DOC_URL,
+      visibility: "chapter-member",
       chapter: "chapter-tokyo",
       user: MEMBER,
-      chapterIds: ["chapter-osaka"],
+      chapters: [OSAKA],
     });
 
     expect(result).toMatchObject({ ok: false, error: "forbidden_chapter", status: 403 });
@@ -92,21 +99,26 @@ describe("createSource", () => {
   it("lets an admin assign any chapter", async () => {
     const result = await createSource(env(), {
       url: DOC_URL,
+      visibility: "chapter-member",
       chapter: "chapter-tokyo",
       user: ADMIN,
-      chapterIds: [],
+      chapters: [],
     });
 
     expect(result.ok).toBe(true);
-    expect(insertMock.mock.calls[0][0]).toMatchObject({ chapterId: "chapter-tokyo" });
+    expect(insertMock.mock.calls[0][0]).toMatchObject({
+      chapterId: "chapter-tokyo",
+      visibility: "chapter-member",
+    });
   });
 
   it("rejects an unusable URL before touching the database", async () => {
     const result = await createSource(env(), {
       url: "not-a-url",
-      chapter: ALL_CHAPTERS,
+      visibility: "member",
+      chapter: null,
       user: MEMBER,
-      chapterIds: [],
+      chapters: [],
     });
 
     expect(result).toMatchObject({ ok: false, error: "invalid_url", status: 400 });
@@ -119,13 +131,12 @@ describe("createSource", () => {
 
     const result = await createSource(env(), {
       url: DOC_URL,
-      chapter: ALL_CHAPTERS,
+      visibility: "member",
+      chapter: null,
       user: MEMBER,
-      chapterIds: [],
+      chapters: [],
     });
 
-    // Left `pending`, a manual-policy source is never picked up again by the cron, so
-    // the only recovery would be registering the same URL a second time.
     expect(result).toMatchObject({ ok: false, error: "enqueue_failed", status: 503 });
     expect(updateMock).toHaveBeenCalledWith(
       expect.objectContaining({

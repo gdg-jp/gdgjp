@@ -21,7 +21,6 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   if (!documentId) return Response.json({ error: "not_found" }, { status: 404 });
 
   const db = getDb(env);
-  const chapterIds = identity.chapters.map((chapter) => String(chapter.chapterId));
   const wikiHumanPageId = parseWikiHumanDocumentId(documentId);
 
   if (wikiHumanPageId) {
@@ -146,7 +145,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     if (!source || source.status !== "ready") {
       return Response.json({ error: "not_found" }, { status: 404 });
     }
-    if (!canAccessSource(source, identity.user, chapterIds)) {
+    if (!canAccessSource(source, identity.user, identity.chapters)) {
       return Response.json({ error: "forbidden" }, { status: 403 });
     }
     const object = await env.BUCKET.get(asset.r2Key);
@@ -172,7 +171,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   if (!source || source.status !== "ready") {
     return Response.json({ error: "not_found" }, { status: 404 });
   }
-  if (!canAccessSource(source, identity.user, chapterIds)) {
+  if (!canAccessSource(source, identity.user, identity.chapters)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
   const object = await env.BUCKET.get(document.r2Key);

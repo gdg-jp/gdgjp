@@ -22,7 +22,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     .where(eq(schema.sources.id, sourceId))
     .get();
   if (!source) return Response.json({ error: "not_found" }, { status: 404 });
-  if (!canAccessSource(source, user, identity.chapterIds)) {
+  if (!canAccessSource(source, user, identity.chapters)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 

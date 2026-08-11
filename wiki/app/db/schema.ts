@@ -500,6 +500,8 @@ export const sources = sqliteTable("sources", {
   url: text("url").notNull(),
   title: text("title").notNull(),
   chapterId: text("chapter_id").references(() => chapters.id, { onDelete: "set null" }),
+  // "private" | "member" | "organizer" | "chapter-member" | "chapter-organizer"
+  visibility: text("visibility").notNull().default("member"),
   addedBy: text("added_by")
     .notNull()
     .references(() => user.id),

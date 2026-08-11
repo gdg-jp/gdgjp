@@ -9,11 +9,25 @@ export type SourceKind =
 
 export type SourceRefreshPolicy = "manual" | "daily" | "weekly";
 
-/**
- * Explicit opt-in for a source every signed-in member may read.
- *
- * Lives outside `sources.server.ts` because the `/sources` form renders it as an option
- * value; importing the server module from component code would break the server-only
- * boundary Vite enforces.
- */
-export const ALL_CHAPTERS = "__all__";
+export type SourceVisibility =
+  | "private"
+  | "member"
+  | "organizer"
+  | "chapter-member"
+  | "chapter-organizer";
+
+export const SOURCE_VISIBILITIES: readonly SourceVisibility[] = [
+  "private",
+  "member",
+  "organizer",
+  "chapter-member",
+  "chapter-organizer",
+];
+
+export function isSourceVisibility(value: unknown): value is SourceVisibility {
+  return typeof value === "string" && (SOURCE_VISIBILITIES as readonly string[]).includes(value);
+}
+
+export function sourceVisibilityNeedsChapter(value: SourceVisibility): boolean {
+  return value === "chapter-member" || value === "chapter-organizer";
+}

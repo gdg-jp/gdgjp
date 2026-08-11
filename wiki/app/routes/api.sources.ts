@@ -18,6 +18,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       url: schema.sources.url,
       title: schema.sources.title,
       chapterId: schema.sources.chapterId,
+      visibility: schema.sources.visibility,
       addedBy: schema.sources.addedBy,
       status: schema.sources.status,
       refreshPolicy: schema.sources.refreshPolicy,
@@ -32,7 +33,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     .orderBy(desc(schema.sources.createdAt))
     .all();
 
-  const visible = rows.filter((row) => canAccessSource(row, user, identity.chapterIds));
+  const visible = rows.filter((row) => canAccessSource(row, user, identity.chapters));
 
   return Response.json({ sources: visible });
 }
@@ -47,16 +48,18 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const identity = await getAccessIdentity(request, env);
   const body = (await request.json().catch(() => null)) as {
     url?: unknown;
+    visibility?: unknown;
     chapterId?: unknown;
     refreshPolicy?: unknown;
   } | null;
 
   const result = await createSource(env, {
     url: body?.url,
+    visibility: body?.visibility,
     chapter: body?.chapterId,
     refreshPolicy: body?.refreshPolicy,
     user,
-    chapterIds: identity.chapterIds,
+    chapters: identity.chapters,
   });
 
   if (!result.ok) {

@@ -519,6 +519,26 @@ CREATE TABLE IF NOT EXISTS "source_documents" (
   UNIQUE ("source_id", "path")
 );
 CREATE INDEX "idx_source_documents_source_id" ON "source_documents" ("source_id");
+CREATE TABLE IF NOT EXISTS "google_chat_sender_profiles" (
+  "resource_name" TEXT NOT NULL PRIMARY KEY,
+  "display_name" TEXT NOT NULL,
+  "created_at" INTEGER NOT NULL DEFAULT (unixepoch()),
+  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE TABLE IF NOT EXISTS "google_chat_sender_samples" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "resource_name" TEXT NOT NULL,
+  "source_id" TEXT NOT NULL REFERENCES "sources"("id") ON DELETE CASCADE,
+  "message_name" TEXT NOT NULL,
+  "message_text" TEXT NOT NULL,
+  "created_at" INTEGER NOT NULL,
+  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch()),
+  UNIQUE (resource_name, source_id, message_name)
+);
+CREATE INDEX "idx_google_chat_sender_samples_resource_created"
+  ON "google_chat_sender_samples" ("resource_name", "created_at" DESC);
+CREATE INDEX idx_pages_parent_acl_sync
+  ON pages (parent_id, acl_synced_with_parent);
 CREATE TABLE IF NOT EXISTS "sources" (
   "id"               TEXT NOT NULL PRIMARY KEY,
   "kind"             TEXT NOT NULL
@@ -544,29 +564,21 @@ CREATE TABLE IF NOT EXISTS "sources" (
   "error_message"    TEXT,
   "created_at"       INTEGER NOT NULL DEFAULT (unixepoch()),
   "updated_at"       INTEGER NOT NULL DEFAULT (unixepoch()),
-  "fetch_attempt_id" TEXT
+  "fetch_attempt_id" TEXT,
+  "visibility"       TEXT NOT NULL DEFAULT 'member'
+                     CHECK ("visibility" IN (
+                       'private',
+                       'member',
+                       'organizer',
+                       'chapter-member',
+                       'chapter-organizer'
+                     )),
+  CHECK (
+    ("visibility" IN ('chapter-member', 'chapter-organizer')) = ("chapter_id" IS NOT NULL)
+  )
 );
 CREATE INDEX "idx_sources_status" ON "sources" ("status");
 CREATE INDEX "idx_sources_chapter_id" ON "sources" ("chapter_id");
 CREATE INDEX "idx_sources_added_by" ON "sources" ("added_by");
 CREATE INDEX "idx_sources_refresh_policy" ON "sources" ("refresh_policy", "status");
-CREATE TABLE IF NOT EXISTS "google_chat_sender_profiles" (
-  "resource_name" TEXT NOT NULL PRIMARY KEY,
-  "display_name" TEXT NOT NULL,
-  "created_at" INTEGER NOT NULL DEFAULT (unixepoch()),
-  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
-);
-CREATE TABLE IF NOT EXISTS "google_chat_sender_samples" (
-  "id" TEXT NOT NULL PRIMARY KEY,
-  "resource_name" TEXT NOT NULL,
-  "source_id" TEXT NOT NULL REFERENCES "sources"("id") ON DELETE CASCADE,
-  "message_name" TEXT NOT NULL,
-  "message_text" TEXT NOT NULL,
-  "created_at" INTEGER NOT NULL,
-  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch()),
-  UNIQUE (resource_name, source_id, message_name)
-);
-CREATE INDEX "idx_google_chat_sender_samples_resource_created"
-  ON "google_chat_sender_samples" ("resource_name", "created_at" DESC);
-CREATE INDEX idx_pages_parent_acl_sync
-  ON pages (parent_id, acl_synced_with_parent);
+CREATE INDEX "idx_sources_visibility" ON "sources" ("visibility", "chapter_id");

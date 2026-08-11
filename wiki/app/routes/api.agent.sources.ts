@@ -14,16 +14,18 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   const body = (await request.json().catch(() => null)) as {
     url?: unknown;
+    visibility?: unknown;
     chapter?: unknown;
     refreshPolicy?: unknown;
   } | null;
 
   const result = await createSource(env, {
     url: body?.url,
+    visibility: body?.visibility,
     chapter: body?.chapter,
     refreshPolicy: body?.refreshPolicy,
     user: resolved.identity.user,
-    chapterIds: resolved.chapterIds,
+    chapters: resolved.identity.chapters,
   });
 
   if (!result.ok) {

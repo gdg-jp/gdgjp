@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const createSourceMock = vi.fn();
 
 vi.mock("~/lib/auth-utils.server", () => ({
-  getAccessIdentity: vi.fn().mockResolvedValue({ chapterIds: ["chapter-osaka"] }),
+  getAccessIdentity: vi.fn().mockResolvedValue({
+    chapters: [{ chapterId: "chapter-osaka", role: "member" }],
+  }),
   requireUser: vi.fn().mockResolvedValue({ id: "user-1", isAdmin: false }),
 }));
 
@@ -13,13 +15,19 @@ vi.mock("~/lib/sources.server", () => ({
   deleteArchivedSource: vi.fn(),
   enqueueSourceRefresh: vi.fn(),
   unarchiveSource: vi.fn(),
+  updateSourceVisibility: vi.fn(),
 }));
 
 import { action } from "./sources";
 
-function requestArgs(candidates: unknown, chapter = "chapter-osaka") {
+function requestArgs(
+  candidates: unknown,
+  visibility = "chapter-member",
+  chapter = "chapter-osaka",
+) {
   const form = new FormData();
   form.set("intent", "create-batch");
+  form.set("visibility", visibility);
   form.set("chapter", chapter);
   form.set("candidates", JSON.stringify(candidates));
   const request = new Request("http://localhost/sources", { method: "POST", body: form });
@@ -61,6 +69,7 @@ describe("sources batch action", () => {
       expect.any(Object),
       expect.objectContaining({
         url: "https://docs.google.com/document/d/doc-1/edit",
+        visibility: "chapter-member",
         chapter: "chapter-osaka",
       }),
     );
@@ -70,6 +79,7 @@ describe("sources batch action", () => {
       expect.objectContaining({
         kind: "google-chat-space",
         externalId: "spaces/abc",
+        visibility: "chapter-member",
         chapter: "chapter-osaka",
       }),
     );

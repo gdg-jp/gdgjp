@@ -3,7 +3,7 @@ import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
-import { canAccessSource, enqueueSourceRefresh } from "~/lib/sources.server";
+import { canAccessSource, updateSourceVisibility } from "~/lib/sources.server";
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
   if (request.method !== "POST") {
@@ -23,16 +23,29 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     .from(schema.sources)
     .where(eq(schema.sources.id, sourceId))
     .get();
-  if (!source) return Response.json({ error: "not_found" }, { status: 404 });
-  if (!canAccessSource(source, user, identity.chapters)) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
-  if (source.status === "archived") {
-    return Response.json({ error: "archived" }, { status: 409 });
+  if (!source || !canAccessSource(source, user, identity.chapters)) {
+    return Response.json({ error: "not_found" }, { status: 404 });
   }
 
-  const result = await enqueueSourceRefresh(env, sourceId);
-  if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
+  const body = (await request.json().catch(() => null)) as {
+    visibility?: unknown;
+    chapterId?: unknown;
+    chapter?: unknown;
+  } | null;
 
-  return Response.json({ id: sourceId, status: "pending" }, { status: 202 });
+  const result = await updateSourceVisibility(env, sourceId, {
+    visibility: body?.visibility,
+    chapter: body?.chapter ?? body?.chapterId ?? null,
+    user,
+    chapters: identity.chapters,
+  });
+
+  if (!result.ok) {
+    return Response.json({ error: result.error }, { status: result.status });
+  }
+
+  return Response.json(
+    { id: sourceId, visibility: result.visibility, chapterId: result.chapterId },
+    { status: 200 },
+  );
 }

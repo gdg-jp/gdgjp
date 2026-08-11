@@ -37,7 +37,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   if (!lang) return Response.json({ error: "invalid_lang" }, { status: 400 });
 
   const db = getDb(env);
-  const chapterIds = identity.chapters.map((chapter) => String(chapter.chapterId));
 
   const [documents, assets, pages, tags, access, pageSources, attachments, allPages] =
     await Promise.all([
@@ -110,7 +109,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
   for (const doc of documents) {
     const source = sourceById.get(doc.sourceId);
-    if (!source || !canAccessSource(source, identity.user, chapterIds)) continue;
+    if (!source || !canAccessSource(source, identity.user, identity.chapters)) continue;
     manifestEntries.push({
       kind: "source-document",
       documentId: doc.id,
@@ -127,7 +126,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     const doc = documents.find((row) => row.id === asset.sourceDocumentId);
     if (!doc) continue;
     const source = sourceById.get(doc.sourceId);
-    if (!source || !canAccessSource(source, identity.user, chapterIds)) continue;
+    if (!source || !canAccessSource(source, identity.user, identity.chapters)) continue;
     const fileName = asset.path.split("/").at(-1) ?? asset.path;
     manifestEntries.push({
       kind: "source-asset",

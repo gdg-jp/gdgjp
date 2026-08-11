@@ -290,8 +290,10 @@ export interface components {
         AgentCreateSourceRequest: {
             /** Format: uri */
             url: string;
-            /** @description Chapter id, or the sentinel that assigns no chapter. */
-            chapter: string;
+            /** @enum {string} */
+            visibility: "private" | "member" | "organizer" | "chapter-member" | "chapter-organizer";
+            /** @description Chapter id when visibility is chapter-member or chapter-organizer. */
+            chapter?: string;
             /** @enum {string} */
             refreshPolicy?: "manual" | "daily" | "weekly";
         };
@@ -301,6 +303,8 @@ export interface components {
             url: string;
             title: string;
             chapterId: string | null;
+            /** @enum {string} */
+            visibility: "private" | "member" | "organizer" | "chapter-member" | "chapter-organizer";
             /** @enum {string} */
             status: "pending";
             /** @enum {string} */
