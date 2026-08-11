@@ -23,8 +23,7 @@ directory = "./build/client"
 [[d1_databases]]
 binding = "DB"
 database_name = "gdgjp-pay-db"
-# Create with `wrangler d1 create gdgjp-pay-db` and replace before production deploy.
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "1b87d36f-c80f-482b-9943-5ad63cc02637"
 migrations_dir = "./migrations"
 
 [[r2_buckets]]
