@@ -25,14 +25,12 @@ zone_name = "gdgs.jp"
 [[d1_databases]]
 binding = "DB"
 database_name = "gdgjp-connpass-db"
-# Create this database before production deployment and replace the placeholder.
-database_id = "00000000-0000-0000-0000-000000000001"
+database_id = "13fe4089-62ad-4cc3-bf56-1fa6268ab719"
 migrations_dir = "./migrations"
 
 [[kv_namespaces]]
 binding = "SESSION_KV"
-# Create with: wrangler kv namespace create gdgjp-connpass-session
-id = "00000000000000000000000000000001"
+id = "7b0e65b4110d49c28a291334659b501e"
 
 [[r2_buckets]]
 binding = "ARTIFACTS"

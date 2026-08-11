@@ -1,4 +1,4 @@
-import { CHAPTERS_CLAIM, IS_ADMIN_CLAIM } from "@gdgjp/gdg-lib";
+import { CHAPTERS_CLAIM, IS_ADMIN_CLAIM } from "@gdgjp/gdg-lib/auth/claims";
 
 /** Identity for a non-browser CLI request, obtained through OIDC userinfo. */
 export type CliIdentity = {

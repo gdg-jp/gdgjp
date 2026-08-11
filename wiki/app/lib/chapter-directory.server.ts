@@ -11,7 +11,7 @@ export type DirectoryChapter = {
  * pickers that need real chapter options must call this instead.
  */
 export async function loadChapterDirectory(
-  env: Pick<Env, "ACCOUNTS_URL">,
+  env: { ACCOUNTS_URL: string },
   query = "",
 ): Promise<DirectoryChapter[]> {
   const url = new URL("/api/chapters/directory", env.ACCOUNTS_URL);
