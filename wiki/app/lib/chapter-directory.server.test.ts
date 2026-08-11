@@ -21,7 +21,7 @@ describe("loadChapterDirectory", () => {
 
     const chapters = await loadChapterDirectory({
       ACCOUNTS_URL: "https://accounts.example",
-    } as Env);
+    });
 
     expect(chapters).toEqual([{ id: "1", slug: "tokyo", name: "GDG Tokyo", kind: "gdg" }]);
     expect(fetch).toHaveBeenCalledWith(
@@ -33,7 +33,7 @@ describe("loadChapterDirectory", () => {
   it("forwards the search query", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ chapters: [] })));
 
-    await loadChapterDirectory({ ACCOUNTS_URL: "https://accounts.example" } as Env, "osa");
+    await loadChapterDirectory({ ACCOUNTS_URL: "https://accounts.example" }, "osa");
 
     expect(fetch).toHaveBeenCalledWith(
       new URL("/api/chapters/directory?q=osa", "https://accounts.example"),
@@ -45,7 +45,7 @@ describe("loadChapterDirectory", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("nope", { status: 503 })));
 
     await expect(
-      loadChapterDirectory({ ACCOUNTS_URL: "https://accounts.example" } as Env),
+      loadChapterDirectory({ ACCOUNTS_URL: "https://accounts.example" }),
     ).rejects.toThrow(/503/);
   });
 });

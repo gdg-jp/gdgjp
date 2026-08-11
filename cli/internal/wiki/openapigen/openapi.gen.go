@@ -30,8 +30,8 @@ const (
 
 // Defines values for AccessEntrySubjectType.
 const (
-	Chapter AccessEntrySubjectType = "chapter"
-	Email   AccessEntrySubjectType = "email"
+	AccessEntrySubjectTypeChapter AccessEntrySubjectType = "chapter"
+	AccessEntrySubjectTypeEmail   AccessEntrySubjectType = "email"
 )
 
 // Defines values for AgentCreateSourceRequestRefreshPolicy.
@@ -39,6 +39,15 @@ const (
 	AgentCreateSourceRequestRefreshPolicyDaily  AgentCreateSourceRequestRefreshPolicy = "daily"
 	AgentCreateSourceRequestRefreshPolicyManual AgentCreateSourceRequestRefreshPolicy = "manual"
 	AgentCreateSourceRequestRefreshPolicyWeekly AgentCreateSourceRequestRefreshPolicy = "weekly"
+)
+
+// Defines values for AgentCreateSourceRequestVisibility.
+const (
+	AgentCreateSourceRequestVisibilityChapterMember    AgentCreateSourceRequestVisibility = "chapter-member"
+	AgentCreateSourceRequestVisibilityChapterOrganizer AgentCreateSourceRequestVisibility = "chapter-organizer"
+	AgentCreateSourceRequestVisibilityMember           AgentCreateSourceRequestVisibility = "member"
+	AgentCreateSourceRequestVisibilityOrganizer        AgentCreateSourceRequestVisibility = "organizer"
+	AgentCreateSourceRequestVisibilityPrivate          AgentCreateSourceRequestVisibility = "private"
 )
 
 // Defines values for AgentInstructionsSliceProfile.
@@ -61,6 +70,15 @@ const (
 // Defines values for AgentSourceStatus.
 const (
 	Pending AgentSourceStatus = "pending"
+)
+
+// Defines values for AgentSourceVisibility.
+const (
+	AgentSourceVisibilityChapterMember    AgentSourceVisibility = "chapter-member"
+	AgentSourceVisibilityChapterOrganizer AgentSourceVisibility = "chapter-organizer"
+	AgentSourceVisibilityMember           AgentSourceVisibility = "member"
+	AgentSourceVisibilityOrganizer        AgentSourceVisibility = "organizer"
+	AgentSourceVisibilityPrivate          AgentSourceVisibility = "private"
 )
 
 // Defines values for ArchiveOperationKind.
@@ -128,6 +146,37 @@ const (
 	Upsert UpsertOperationKind = "upsert"
 )
 
+// Defines values for ValidateAclPageAccessSubjectType.
+const (
+	ValidateAclPageAccessSubjectTypeChapter ValidateAclPageAccessSubjectType = "chapter"
+	ValidateAclPageAccessSubjectTypeEmail   ValidateAclPageAccessSubjectType = "email"
+)
+
+// Defines values for ValidateAclPageVisibility.
+const (
+	Member     ValidateAclPageVisibility = "member"
+	Organizer  ValidateAclPageVisibility = "organizer"
+	Public     ValidateAclPageVisibility = "public"
+	Restricted ValidateAclPageVisibility = "restricted"
+	Unlisted   ValidateAclPageVisibility = "unlisted"
+)
+
+// Defines values for ValidateAclRequestLang.
+const (
+	ValidateAclRequestLangEn ValidateAclRequestLang = "en"
+	ValidateAclRequestLangJa ValidateAclRequestLang = "ja"
+)
+
+// Defines values for ValidateAclResult0Ok.
+const (
+	True ValidateAclResult0Ok = true
+)
+
+// Defines values for ValidateAclResult1Ok.
+const (
+	False ValidateAclResult1Ok = false
+)
+
 // Defines values for AgentGetInstructionsParamsProfile.
 const (
 	AgentGetInstructionsParamsProfileQuery AgentGetInstructionsParamsProfile = "query"
@@ -147,8 +196,8 @@ const (
 
 // Defines values for GetWikiSourceContentParamsLang.
 const (
-	En GetWikiSourceContentParamsLang = "en"
-	Ja GetWikiSourceContentParamsLang = "ja"
+	GetWikiSourceContentParamsLangEn GetWikiSourceContentParamsLang = "en"
+	GetWikiSourceContentParamsLangJa GetWikiSourceContentParamsLang = "ja"
 )
 
 // AccessEntry defines model for AccessEntry.
@@ -186,14 +235,18 @@ type AgentCreateNoteRequest struct {
 
 // AgentCreateSourceRequest defines model for AgentCreateSourceRequest.
 type AgentCreateSourceRequest struct {
-	// Chapter Chapter id, or the sentinel that assigns no chapter.
-	Chapter       string                                 `json:"chapter"`
+	// Chapter Chapter id when visibility is chapter-member or chapter-organizer.
+	Chapter       *string                                `json:"chapter,omitempty"`
 	RefreshPolicy *AgentCreateSourceRequestRefreshPolicy `json:"refreshPolicy,omitempty"`
 	Url           string                                 `json:"url"`
+	Visibility    AgentCreateSourceRequestVisibility     `json:"visibility"`
 }
 
 // AgentCreateSourceRequestRefreshPolicy defines model for AgentCreateSourceRequest.RefreshPolicy.
 type AgentCreateSourceRequestRefreshPolicy string
+
+// AgentCreateSourceRequestVisibility defines model for AgentCreateSourceRequest.Visibility.
+type AgentCreateSourceRequestVisibility string
 
 // AgentInstructions defines model for AgentInstructions.
 type AgentInstructions struct {
@@ -285,6 +338,7 @@ type AgentSource struct {
 	Status        AgentSourceStatus        `json:"status"`
 	Title         string                   `json:"title"`
 	Url           string                   `json:"url"`
+	Visibility    AgentSourceVisibility    `json:"visibility"`
 }
 
 // AgentSourceRefreshPolicy defines model for AgentSource.RefreshPolicy.
@@ -292,6 +346,9 @@ type AgentSourceRefreshPolicy string
 
 // AgentSourceStatus defines model for AgentSource.Status.
 type AgentSourceStatus string
+
+// AgentSourceVisibility defines model for AgentSource.Visibility.
+type AgentSourceVisibility string
 
 // ArchiveOperation defines model for ArchiveOperation.
 type ArchiveOperation struct {
@@ -395,7 +452,10 @@ type SnapshotVersion int
 
 // SnapshotPage defines model for SnapshotPage.
 type SnapshotPage struct {
-	Access       []AccessEntry           `json:"access"`
+	Access []AccessEntry `json:"access"`
+
+	// AclRedacted True when the caller cannot read every ACL span and span bodies were removed from the returned locale content.
+	AclRedacted  *bool                   `json:"aclRedacted,omitempty"`
 	Attachments  []Attachment            `json:"attachments"`
 	ChapterId    *string                 `json:"chapterId"`
 	En           *Language               `json:"en,omitempty"`
@@ -465,6 +525,71 @@ type UpsertOperation struct {
 
 // UpsertOperationKind defines model for UpsertOperation.Kind.
 type UpsertOperationKind string
+
+// ValidateAclFinding defines model for ValidateAclFinding.
+type ValidateAclFinding struct {
+	Error    string  `json:"error"`
+	Slug     string  `json:"slug"`
+	SourceId *string `json:"sourceId,omitempty"`
+}
+
+// ValidateAclPage defines model for ValidateAclPage.
+type ValidateAclPage struct {
+	Access []struct {
+		SubjectKey  string                           `json:"subjectKey"`
+		SubjectType ValidateAclPageAccessSubjectType `json:"subjectType"`
+	} `json:"access"`
+	Content string  `json:"content"`
+	Id      *string `json:"id"`
+	Slug    string  `json:"slug"`
+	Sources []struct {
+		SourceId *string `json:"sourceId,omitempty"`
+	} `json:"sources"`
+	Summary    string                    `json:"summary"`
+	Tags       []string                  `json:"tags"`
+	Title      string                    `json:"title"`
+	Visibility ValidateAclPageVisibility `json:"visibility"`
+}
+
+// ValidateAclPageAccessSubjectType defines model for ValidateAclPage.Access.SubjectType.
+type ValidateAclPageAccessSubjectType string
+
+// ValidateAclPageVisibility defines model for ValidateAclPage.Visibility.
+type ValidateAclPageVisibility string
+
+// ValidateAclRequest defines model for ValidateAclRequest.
+type ValidateAclRequest struct {
+	Lang  *ValidateAclRequestLang `json:"lang,omitempty"`
+	Pages *[]ValidateAclPage      `json:"pages,omitempty"`
+
+	// ReadSourceIds Source IDs read during this ingest run. Always includes the queue head. Trace-derived ids may be added. Used for the run-level acl_untagged_read_source check.
+	ReadSourceIds *[]string `json:"readSourceIds,omitempty"`
+}
+
+// ValidateAclRequestLang defines model for ValidateAclRequest.Lang.
+type ValidateAclRequestLang string
+
+// ValidateAclResult defines model for ValidateAclResult.
+type ValidateAclResult struct {
+	union json.RawMessage
+}
+
+// ValidateAclResult0 defines model for .
+type ValidateAclResult0 struct {
+	Ok ValidateAclResult0Ok `json:"ok"`
+}
+
+// ValidateAclResult0Ok defines model for ValidateAclResult.0.Ok.
+type ValidateAclResult0Ok bool
+
+// ValidateAclResult1 defines model for .
+type ValidateAclResult1 struct {
+	Findings []ValidateAclFinding `json:"findings"`
+	Ok       ValidateAclResult1Ok `json:"ok"`
+}
+
+// ValidateAclResult1Ok defines model for ValidateAclResult.1.Ok.
+type ValidateAclResult1Ok bool
 
 // AttachmentId defines model for AttachmentId.
 type AttachmentId = string
@@ -560,6 +685,9 @@ type AgentCreateSourceJSONRequestBody = AgentCreateSourceRequest
 
 // SyncWikiJSONRequestBody defines body for SyncWiki for application/json ContentType.
 type SyncWikiJSONRequestBody = SyncRequest
+
+// ValidateWikiAclJSONRequestBody defines body for ValidateWikiAcl for application/json ContentType.
+type ValidateWikiAclJSONRequestBody = ValidateAclRequest
 
 // AsAgentLsEntryHasChildren0 returns the union data inside the AgentLsEntry_HasChildren as a AgentLsEntryHasChildren0
 func (t AgentLsEntry_HasChildren) AsAgentLsEntryHasChildren0() (AgentLsEntryHasChildren0, error) {
@@ -712,6 +840,68 @@ func (t *SyncRequest_Operations_Item) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+// AsValidateAclResult0 returns the union data inside the ValidateAclResult as a ValidateAclResult0
+func (t ValidateAclResult) AsValidateAclResult0() (ValidateAclResult0, error) {
+	var body ValidateAclResult0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromValidateAclResult0 overwrites any union data inside the ValidateAclResult as the provided ValidateAclResult0
+func (t *ValidateAclResult) FromValidateAclResult0(v ValidateAclResult0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeValidateAclResult0 performs a merge with any union data inside the ValidateAclResult, using the provided ValidateAclResult0
+func (t *ValidateAclResult) MergeValidateAclResult0(v ValidateAclResult0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsValidateAclResult1 returns the union data inside the ValidateAclResult as a ValidateAclResult1
+func (t ValidateAclResult) AsValidateAclResult1() (ValidateAclResult1, error) {
+	var body ValidateAclResult1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromValidateAclResult1 overwrites any union data inside the ValidateAclResult as the provided ValidateAclResult1
+func (t *ValidateAclResult) FromValidateAclResult1(v ValidateAclResult1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeValidateAclResult1 performs a merge with any union data inside the ValidateAclResult, using the provided ValidateAclResult1
+func (t *ValidateAclResult) MergeValidateAclResult1(v ValidateAclResult1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ValidateAclResult) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ValidateAclResult) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
 
@@ -837,6 +1027,11 @@ type ClientInterface interface {
 	SyncWikiWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SyncWiki(ctx context.Context, body SyncWikiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ValidateWikiAclWithBody request with any body
+	ValidateWikiAclWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ValidateWikiAcl(ctx context.Context, body ValidateWikiAclJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) AgentCat(ctx context.Context, params *AgentCatParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1057,6 +1252,30 @@ func (c *Client) SyncWikiWithBody(ctx context.Context, contentType string, body 
 
 func (c *Client) SyncWiki(ctx context.Context, body SyncWikiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSyncWikiRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ValidateWikiAclWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewValidateWikiAclRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ValidateWikiAcl(ctx context.Context, body ValidateWikiAclJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewValidateWikiAclRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1808,6 +2027,46 @@ func NewSyncWikiRequestWithBody(server string, contentType string, body io.Reade
 	return req, nil
 }
 
+// NewValidateWikiAclRequest calls the generic ValidateWikiAcl builder with application/json body
+func NewValidateWikiAclRequest(server string, body ValidateWikiAclJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewValidateWikiAclRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewValidateWikiAclRequestWithBody generates requests for ValidateWikiAcl with any type of body
+func NewValidateWikiAclRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/cli/wiki/validate-acl")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1903,6 +2162,11 @@ type ClientWithResponsesInterface interface {
 	SyncWikiWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SyncWikiResponse, error)
 
 	SyncWikiWithResponse(ctx context.Context, body SyncWikiJSONRequestBody, reqEditors ...RequestEditorFn) (*SyncWikiResponse, error)
+
+	// ValidateWikiAclWithBodyWithResponse request with any body
+	ValidateWikiAclWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ValidateWikiAclResponse, error)
+
+	ValidateWikiAclWithResponse(ctx context.Context, body ValidateWikiAclJSONRequestBody, reqEditors ...RequestEditorFn) (*ValidateWikiAclResponse, error)
 }
 
 type AgentCatResponse struct {
@@ -2278,6 +2542,30 @@ func (r SyncWikiResponse) StatusCode() int {
 	return 0
 }
 
+type ValidateWikiAclResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ValidateAclResult
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+}
+
+// Status returns HTTPResponse.Status
+func (r ValidateWikiAclResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ValidateWikiAclResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // AgentCatWithResponse request returning *AgentCatResponse
 func (c *ClientWithResponses) AgentCatWithResponse(ctx context.Context, params *AgentCatParams, reqEditors ...RequestEditorFn) (*AgentCatResponse, error) {
 	rsp, err := c.AgentCat(ctx, params, reqEditors...)
@@ -2443,6 +2731,23 @@ func (c *ClientWithResponses) SyncWikiWithResponse(ctx context.Context, body Syn
 		return nil, err
 	}
 	return ParseSyncWikiResponse(rsp)
+}
+
+// ValidateWikiAclWithBodyWithResponse request with arbitrary body returning *ValidateWikiAclResponse
+func (c *ClientWithResponses) ValidateWikiAclWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ValidateWikiAclResponse, error) {
+	rsp, err := c.ValidateWikiAclWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseValidateWikiAclResponse(rsp)
+}
+
+func (c *ClientWithResponses) ValidateWikiAclWithResponse(ctx context.Context, body ValidateWikiAclJSONRequestBody, reqEditors ...RequestEditorFn) (*ValidateWikiAclResponse, error) {
+	rsp, err := c.ValidateWikiAcl(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseValidateWikiAclResponse(rsp)
 }
 
 // ParseAgentCatResponse parses an HTTP response from a AgentCatWithResponse call
@@ -3130,6 +3435,46 @@ func ParseSyncWikiResponse(rsp *http.Response) (*SyncWikiResponse, error) {
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseValidateWikiAclResponse parses an HTTP response from a ValidateWikiAclWithResponse call
+func ParseValidateWikiAclResponse(rsp *http.Response) (*ValidateWikiAclResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ValidateWikiAclResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ValidateAclResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	}
 

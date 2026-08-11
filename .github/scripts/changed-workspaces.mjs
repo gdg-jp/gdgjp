@@ -93,7 +93,7 @@ const GLOBAL_INPUTS = new Set([
 ]);
 
 const BIOME_FILE_PATTERN = /\.(?:[cm]?[jt]sx?|jsonc?|css|graphql|ya?ml)$/;
-const OPENAPI_DIRECTORIES = new Set(["accounts", "img", "tinyurl", "wiki"]);
+const OPENAPI_DIRECTORIES = new Set(["accounts", "img", "tinyurl", "wiki", "connpass"]);
 
 function unique(values) {
   return [...new Set(values)];
@@ -152,7 +152,9 @@ export function classifyChanges(files, { forceAll = false } = {}) {
       return (
         (OPENAPI_DIRECTORIES.has(directory) &&
           (second === "openapi" || file === `${directory}/package.json`)) ||
-        /^cli\/internal\/(?:accounts|wiki)\/(?:generate\.go|oapi-codegen\.yaml)$/.test(file)
+        /^cli\/internal\/(?:accounts|wiki|connpass)\/(?:generate\.go|oapi-codegen\.yaml)$/.test(
+          file,
+        )
       );
     });
 
