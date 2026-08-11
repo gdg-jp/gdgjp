@@ -108,6 +108,8 @@ function extensionFor(mimeType: string): string {
   if (mimeType === "application/pdf") return "pdf";
   if (mimeType === "text/plain") return "txt";
   if (mimeType === "text/markdown") return "md";
+  if (mimeType === "text/css") return "css";
+  if (mimeType === "text/html") return "html";
   if (mimeType.startsWith("image/")) return "jpg";
   return "bin";
 }

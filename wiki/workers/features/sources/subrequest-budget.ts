@@ -1,6 +1,12 @@
 /** Soft cap under Workers Free's 50 subrequest limit (room for token refresh + D1). */
 export const SUBREQUEST_BUDGET_LIMIT = 40;
 
+/**
+ * Max stylesheets per website capture (each costs fetch + R2 put).
+ * Leaves the HTML fetch itself as `1 + MAX_STYLESHEETS * 2 <= SUBREQUEST_BUDGET_LIMIT`.
+ */
+export const MAX_WEBSITE_STYLESHEETS = Math.floor((SUBREQUEST_BUDGET_LIMIT - 1) / 2);
+
 /** Max concurrent outgoing attachment downloads (Workers caps concurrent connects at 6). */
 export const ATTACHMENT_PARALLELISM = 4;
 

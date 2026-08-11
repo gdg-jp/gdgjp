@@ -1,5 +1,5 @@
 import { desc, eq, inArray } from "drizzle-orm";
-import { FileText, LoaderCircle, MessageSquare, Trash2 } from "lucide-react";
+import { FileText, Link2, LoaderCircle, MessageSquare, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher, useLoaderData, useRevalidator, useSearchParams } from "react-router";
@@ -64,7 +64,30 @@ type StagedSource =
       title: string;
       url: string;
       externalId: string;
+    }
+  | {
+      id: string;
+      kind: "url";
+      title: string;
+      url: string;
     };
+
+function titleFromUrl(raw: string): string {
+  try {
+    return new URL(raw).hostname || raw;
+  } catch {
+    return raw;
+  }
+}
+
+function isHttpUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw.trim());
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 function parseBatchCandidates(raw: FormDataEntryValue | null): StagedSource[] | null {
   if (typeof raw !== "string") return null;
@@ -103,6 +126,15 @@ function parseBatchCandidates(raw: FormDataEntryValue | null): StagedSource[] | 
           title: candidate.title,
           url: candidate.url,
           externalId: candidate.externalId,
+        });
+      } else if (candidate.kind === "url") {
+        const url = candidate.url.trim();
+        if (!isHttpUrl(url)) return null;
+        candidates.push({
+          id: candidate.id,
+          kind: "url",
+          title: candidate.title.trim() || titleFromUrl(url),
+          url,
         });
       } else {
         return null;
@@ -429,8 +461,11 @@ export default function SourcesPage() {
   );
   const submitting = batchFetcher.state !== "idle";
   const needsChapter = isSourceVisibility(visibility) && sourceVisibilityNeedsChapter(visibility);
+  const urlCandidatesValid = candidates.every(
+    (candidate) => candidate.kind !== "url" || isHttpUrl(candidate.url),
+  );
   const canSubmitImport = Boolean(
-    visibility && (!needsChapter || chapter) && candidates.length > 0,
+    visibility && (!needsChapter || chapter) && candidates.length > 0 && urlCandidatesValid,
   );
 
   const filters = useMemo(() => parseSourceFilters(searchParams), [searchParams]);
@@ -626,6 +661,26 @@ export default function SourcesPage() {
     ]);
   }
 
+  function addUrlCandidate() {
+    const id = `url:${crypto.randomUUID()}`;
+    setCandidates((current) => [...current, { id, kind: "url", title: "", url: "" }]);
+    setCandidateErrors((current) => {
+      const nextErrors = { ...current };
+      delete nextErrors[id];
+      return nextErrors;
+    });
+  }
+
+  function updateUrlCandidate(id: string, url: string) {
+    setCandidates((current) =>
+      current.map((candidate) =>
+        candidate.id === id && candidate.kind === "url"
+          ? { ...candidate, url, title: url.trim() ? titleFromUrl(url.trim()) : "" }
+          : candidate,
+      ),
+    );
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -692,6 +747,14 @@ export default function SourcesPage() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+            <button
+              type="button"
+              onClick={addUrlCandidate}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
+            >
+              <Link2 className="size-4" />
+              {t("sources.add_url")}
+            </button>
           </div>
           <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row">
             <VisibilitySelect t={t} value={visibility} onValueChange={setVisibility} />
@@ -732,21 +795,35 @@ export default function SourcesPage() {
                 <li key={candidate.id} className="flex items-start gap-3 px-3 py-2">
                   {candidate.kind === "google-drive" ? (
                     <FileText className="mt-0.5 size-4 shrink-0" />
+                  ) : candidate.kind === "url" ? (
+                    <Link2 className="mt-0.5 size-4 shrink-0" />
                   ) : (
                     <MessageSquare className="mt-0.5 size-4 shrink-0" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-content-primary">
-                      {candidate.title}
-                    </p>
-                    <a
-                      href={candidate.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block truncate text-xs text-action-primary hover:underline"
-                    >
-                      {candidate.url}
-                    </a>
+                    {candidate.kind === "url" ? (
+                      <input
+                        type="url"
+                        value={candidate.url}
+                        onChange={(event) => updateUrlCandidate(candidate.id, event.target.value)}
+                        placeholder={t("sources.url_placeholder")}
+                        className="w-full rounded-md border border-border-default bg-surface-raised px-2 py-1.5 text-sm text-content-primary placeholder:text-content-tertiary focus:border-border-strong focus:outline-none"
+                      />
+                    ) : (
+                      <>
+                        <p className="truncate text-sm font-medium text-content-primary">
+                          {candidate.title}
+                        </p>
+                        <a
+                          href={candidate.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block truncate text-xs text-action-primary hover:underline"
+                        >
+                          {candidate.url}
+                        </a>
+                      </>
+                    )}
                     {candidateErrors[candidate.id] ? (
                       <p className="mt-1 text-xs text-feedback-danger-foreground">
                         {t(`sources.error_${candidateErrors[candidate.id]}`, {
@@ -759,7 +836,9 @@ export default function SourcesPage() {
                     type="button"
                     onClick={() => removeCandidate(candidate.id)}
                     className="rounded p-1 text-content-tertiary hover:bg-surface-hover"
-                    aria-label={t("sources.remove_candidate", { title: candidate.title })}
+                    aria-label={t("sources.remove_candidate", {
+                      title: candidate.title || candidate.url || t("sources.add_url"),
+                    })}
                   >
                     <Trash2 className="size-4" />
                   </button>
