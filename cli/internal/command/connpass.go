@@ -20,6 +20,7 @@ func newConnpassCommand(credentials store.CredentialStore) *cobra.Command {
 	}
 	command.AddCommand(newConnpassEventsCommand(credentials))
 	command.AddCommand(newConnpassJobsCommand(credentials))
+	command.AddCommand(newConnpassGroupsCommand(credentials))
 	return command
 }
 
@@ -159,5 +160,63 @@ func newConnpassJobsCommand(credentials store.CredentialStore) *cobra.Command {
 			return printConnpassJSON(cmd, job)
 		},
 	})
+	return command
+}
+
+func newConnpassGroupsCommand(credentials store.CredentialStore) *cobra.Command {
+	command := &cobra.Command{
+		Use:   "groups",
+		Short: "Manage allowlisted connpass groups (admin)",
+	}
+
+	command.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "List allowlisted groups",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			client := connpass.NewClient()
+			groups, err := withConnpassToken(cmd.Context(), credentials, func(token string) ([]connpass.Group, error) {
+				return client.ListGroups(cmd.Context(), token)
+			})
+			if err != nil {
+				return err
+			}
+			return printConnpassJSON(cmd, map[string]any{"groups": groups})
+		},
+	})
+
+	var (
+		chapterID      string
+		numericGroupID int
+		enabled        bool
+	)
+	upsert := &cobra.Command{
+		Use:   "upsert GROUP_ID",
+		Short: "Register or update an allowlisted group",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client := connpass.NewClient()
+			input := connpass.UpsertGroupInput{
+				ChapterID: chapterID,
+				Enabled:   &enabled,
+			}
+			if cmd.Flags().Changed("numeric-group-id") {
+				id := numericGroupID
+				input.NumericGroupID = &id
+			}
+			group, err := withConnpassToken(cmd.Context(), credentials, func(token string) (connpass.Group, error) {
+				return client.UpsertGroup(cmd.Context(), token, args[0], input)
+			})
+			if err != nil {
+				return err
+			}
+			return printConnpassJSON(cmd, group)
+		},
+	}
+	upsert.Flags().StringVar(&chapterID, "chapter-id", "", "GDG Accounts chapter id for organizer authorization")
+	upsert.Flags().IntVar(&numericGroupID, "numeric-group-id", 0, "Numeric connpass group id")
+	upsert.Flags().BoolVar(&enabled, "enabled", true, "Whether the group is enabled for automation")
+	command.AddCommand(upsert)
+
 	return command
 }

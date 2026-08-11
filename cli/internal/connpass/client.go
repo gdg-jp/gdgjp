@@ -34,7 +34,11 @@ func NewClient() *Client {
 	if base == "" {
 		base = defaultBaseURL
 	}
-	return &Client{BaseURL: strings.TrimRight(base, "/"), HTTPClient: http.DefaultClient}
+	return NewClientAt(base)
+}
+
+func NewClientAt(baseURL string) *Client {
+	return &Client{BaseURL: strings.TrimRight(baseURL, "/"), HTTPClient: http.DefaultClient}
 }
 
 type Job struct {
@@ -62,6 +66,23 @@ type CreateEventInput struct {
 	Place       string `json:"place,omitempty"`
 	Address     string `json:"address,omitempty"`
 	Capacity    *int   `json:"capacity,omitempty"`
+}
+
+type Group struct {
+	GroupID        string  `json:"groupId"`
+	NumericGroupID *int    `json:"numericGroupId"`
+	ChapterID      *string `json:"chapterId"`
+	Enabled        bool    `json:"enabled"`
+}
+
+type UpsertGroupInput struct {
+	NumericGroupID *int   `json:"numericGroupId,omitempty"`
+	ChapterID      string `json:"chapterId,omitempty"`
+	Enabled        *bool  `json:"enabled,omitempty"`
+}
+
+type listGroupsResponse struct {
+	Groups []Group `json:"groups"`
 }
 
 func (c *Client) doJSON(ctx context.Context, method, path, token string, body any, out any) error {
@@ -104,6 +125,18 @@ func (c *Client) GetJob(ctx context.Context, token, jobID string) (Job, error) {
 	var job Job
 	err := c.doJSON(ctx, http.MethodGet, "/api/jobs/"+url.PathEscape(jobID), token, nil, &job)
 	return job, err
+}
+
+func (c *Client) ListGroups(ctx context.Context, token string) ([]Group, error) {
+	var payload listGroupsResponse
+	err := c.doJSON(ctx, http.MethodGet, "/api/admin/groups", token, nil, &payload)
+	return payload.Groups, err
+}
+
+func (c *Client) UpsertGroup(ctx context.Context, token, groupID string, input UpsertGroupInput) (Group, error) {
+	var group Group
+	err := c.doJSON(ctx, http.MethodPut, "/api/admin/groups/"+url.PathEscape(groupID), token, input, &group)
+	return group, err
 }
 
 func (c *Client) CreateEvent(ctx context.Context, token, groupID string, input CreateEventInput) (Job, error) {
