@@ -438,6 +438,18 @@ export default function SourcesPage() {
   const hasActiveFilters = Boolean(
     filters.q || filters.kind.length > 0 || filters.status.length > 0,
   );
+  const registeredCandidateIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const source of sources) {
+      if (!source.externalId) continue;
+      if (source.kind === "google-chat-space") {
+        ids.add(`chat:${source.externalId}`);
+      } else {
+        ids.add(`drive:${source.externalId}`);
+      }
+    }
+    return ids;
+  }, [sources]);
 
   const pendingCount = useMemo(
     () => sources.filter((s) => s.status === "pending" || s.status === "fetching").length,
@@ -469,17 +481,28 @@ export default function SourcesPage() {
     if (addedIds.size > 0) revalidator.revalidate();
   }, [batchFetcher.data, revalidator]);
 
-  function addCandidates(next: StagedSource[]) {
+  function addCandidates(next: StagedSource[]): boolean {
+    const fresh: StagedSource[] = [];
+    let hadDuplicate = false;
+    for (const candidate of next) {
+      if (registeredCandidateIds.has(candidate.id)) {
+        hadDuplicate = true;
+        continue;
+      }
+      fresh.push(candidate);
+    }
+    if (fresh.length === 0) return hadDuplicate;
     setCandidates((current) => {
       const byId = new Map(current.map((candidate) => [candidate.id, candidate]));
-      for (const candidate of next) byId.set(candidate.id, candidate);
+      for (const candidate of fresh) byId.set(candidate.id, candidate);
       return [...byId.values()];
     });
     setCandidateErrors((current) => {
       const nextErrors = { ...current };
-      for (const candidate of next) delete nextErrors[candidate.id];
+      for (const candidate of fresh) delete nextErrors[candidate.id];
       return nextErrors;
     });
+    return hadDuplicate;
   }
 
   function removeCandidate(id: string) {
@@ -537,8 +560,8 @@ export default function SourcesPage() {
             });
             if (selected.length === 0) {
               setPickerError(t("sources.error_unsupported_document"));
-            } else {
-              addCandidates(selected);
+            } else if (addCandidates(selected)) {
+              setPickerError(t("sources.error_duplicate_source"));
             }
           }
           setPickerLoading(false);
@@ -587,6 +610,11 @@ export default function SourcesPage() {
   }
 
   function addChatSpace(space: (typeof chatSpaces)[number]) {
+    if (registeredCandidateIds.has(`chat:${space.name}`)) {
+      setChatError(t("sources.error_duplicate_source"));
+      return;
+    }
+    setChatError(null);
     addCandidates([
       {
         id: `chat:${space.name}`,
@@ -653,7 +681,11 @@ export default function SourcesPage() {
                   </DropdownMenuItem>
                 ) : (
                   chatSpaces.map((space) => (
-                    <DropdownMenuItem key={space.name} onSelect={() => addChatSpace(space)}>
+                    <DropdownMenuItem
+                      key={space.name}
+                      disabled={registeredCandidateIds.has(`chat:${space.name}`)}
+                      onSelect={() => addChatSpace(space)}
+                    >
                       {space.displayName}
                     </DropdownMenuItem>
                   ))

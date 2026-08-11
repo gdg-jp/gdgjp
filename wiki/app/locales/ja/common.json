@@ -499,7 +499,8 @@
     "error_invalid_sender": "取得済みの有効な Google Chat 送信者を選択してください。",
     "error_sender_name_required": "表示名を120文字以内で入力してください。",
     "error_not_archived": "アーカイブ済みのソースのみ操作できます",
-    "error_delete_failed": "ソースの削除に失敗しました。もう一度お試しください。"
+    "error_delete_failed": "ソースの削除に失敗しました。もう一度お試しください。",
+    "error_duplicate_source": "この一次情報はすでに登録されています"
   },
   "settings": {
     "title": "設定",

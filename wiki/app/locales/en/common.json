@@ -499,7 +499,8 @@
     "error_invalid_sender": "Choose a valid imported Google Chat sender.",
     "error_sender_name_required": "Enter a display name of 120 characters or fewer.",
     "error_not_archived": "Only archived sources can be changed this way",
-    "error_delete_failed": "Could not delete this source. Please try again."
+    "error_delete_failed": "Could not delete this source. Please try again.",
+    "error_duplicate_source": "This primary source is already registered"
   },
   "settings": {
     "title": "Settings",

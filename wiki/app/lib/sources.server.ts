@@ -371,9 +371,27 @@ export async function createSource(
       ? input.refreshPolicy
       : "manual";
 
+  const db = getDb(env);
+  // Drive/Chat identity is external_id; websites have no external id so the
+  // normalized URL is the registration key. Archived rows still count — delete
+  // or unarchive instead of registering a second copy of the same primary material.
+  const duplicate = classified.externalId
+    ? await db
+        .select({ id: schema.sources.id })
+        .from(schema.sources)
+        .where(eq(schema.sources.externalId, classified.externalId))
+        .get()
+    : await db
+        .select({ id: schema.sources.id })
+        .from(schema.sources)
+        .where(eq(schema.sources.url, classified.url))
+        .get();
+  if (duplicate) {
+    return { ok: false, error: "duplicate_source", status: 409 };
+  }
+
   const id = nanoid();
   const title = provisionalTitle(classified);
-  const db = getDb(env);
 
   await db.insert(schema.sources).values({
     id,
