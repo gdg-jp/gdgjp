@@ -864,6 +864,66 @@ func TestFindWikiRootRejectsMalformedCloneConfig(t *testing.T) {
 	}
 }
 
+func TestWikiIngestCommitMarksDocumentID(t *testing.T) {
+	root := setupWikiIngestRoot(t)
+	manifest := wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{
+		{DocumentID: "doc-1", Kind: "wiki-human", Title: "First", Path: "raw/first/page.md", ContentHash: "first-hash"},
+		{DocumentID: "doc-2", Kind: "wiki-human", Title: "Second", Path: "raw/second/page.md", ContentHash: "second-hash"},
+	}}
+	if err := wiki.WriteState(root, wiki.State{Manifest: &manifest}); err != nil {
+		t.Fatal(err)
+	}
+	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
+		joined := strings.Join(args, " ")
+		switch {
+		case joined == "status --porcelain --untracked-files=all",
+			joined == "pull --ff-only":
+			return "", nil
+		case joined == "rev-parse HEAD", joined == "rev-parse refs/remotes/origin/main":
+			return "synced\n", nil
+		case strings.HasPrefix(joined, "diff --name-only"),
+			strings.HasPrefix(joined, "status --porcelain"),
+			strings.HasPrefix(joined, "diff-tree"):
+			return "", nil
+		default:
+			t.Fatalf("unexpected git call: %s", joined)
+			return "", nil
+		}
+	})
+	service.newClient = func() *wiki.Client {
+		return wiki.NewClientAt("http://127.0.0.1:0")
+	}
+
+	output, err := executeWiki(t, service, "ingest", "--commit", "--document-id", "doc-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output, "Marked doc-2 as ingested") {
+		t.Fatalf("output = %q", output)
+	}
+	state, err := wiki.ReadState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Ingested["doc-2"] != "second-hash" {
+		t.Fatalf("ingested = %#v", state.Ingested)
+	}
+	if _, ok := state.Ingested["doc-1"]; ok {
+		t.Fatalf("doc-1 should remain pending: %#v", state.Ingested)
+	}
+}
+
+func TestWikiIngestCommitDocumentIDRequiresCommit(t *testing.T) {
+	setupWikiIngestRoot(t)
+	service := testWikiService(func(context.Context, string, ...string) (string, error) {
+		t.Fatal("git should not run")
+		return "", nil
+	})
+	if _, err := executeWiki(t, service, "ingest", "--document-id", "doc-1"); err == nil || !strings.Contains(err.Error(), "--document-id requires --commit") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestWikiIngestLockUnlock(t *testing.T) {
 	root := setupWikiIngestRoot(t)
 	service := testWikiService(func(context.Context, string, ...string) (string, error) {

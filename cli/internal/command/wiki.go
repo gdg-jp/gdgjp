@@ -88,15 +88,17 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 
 	var ingestCommit bool
 	var ingestAgent string
+	var ingestCommitDocumentID string
 	ingest := &cobra.Command{
 		Use:   "ingest",
 		Short: "Write INGEST_QUEUE.md from the local raw snapshot",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return service.ingest(cmd, ingestCommit, ingestAgent)
+			return service.ingest(cmd, ingestCommit, ingestAgent, ingestCommitDocumentID)
 		},
 	}
-	ingest.Flags().BoolVar(&ingestCommit, "commit", false, "Mark the first queue item as ingested in local state")
+	ingest.Flags().BoolVar(&ingestCommit, "commit", false, "Mark a queue item as ingested in local state")
+	ingest.Flags().StringVar(&ingestCommitDocumentID, "document-id", "", "With --commit, mark this document_id instead of the queue head")
 	ingest.Flags().StringVar(&ingestAgent, "agent", "", "Shell out to claude, codex, or cursor with the ingest prompt")
 	ingest.MarkFlagsMutuallyExclusive("commit", "agent")
 
@@ -467,10 +469,13 @@ func isKnownIngestLockFlag(arg string) bool {
 	}
 }
 
-func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent string) error {
+func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent, commitDocumentID string) error {
 	root, err := s.findRoot()
 	if err != nil {
 		return err
+	}
+	if commitDocumentID != "" && !commit {
+		return errors.New("--document-id requires --commit")
 	}
 	if commit {
 		status, statusErr := s.runGit(cmd.Context(), root, "status", "--porcelain", "--untracked-files=all")
@@ -516,8 +521,11 @@ func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent string) erro
 		if err = s.verifyACLStrict(cmd); err != nil {
 			return err
 		}
-		first := pending[0]
-		state.Ingested[first.DocumentID] = first.ContentHash
+		target, findErr := selectIngestCommitTarget(pending, commitDocumentID)
+		if findErr != nil {
+			return findErr
+		}
+		state.Ingested[target.DocumentID] = target.ContentHash
 		if err = wiki.WriteState(root, state); err != nil {
 			return err
 		}
@@ -528,7 +536,7 @@ func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent string) erro
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Marked %s as ingested.\n", first.DocumentID)
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Marked %s as ingested.\n", target.DocumentID)
 	}
 	if err != nil {
 		return err
@@ -569,6 +577,18 @@ func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent string) erro
 		return s.runAgent(cmd.Context(), root, agent, prompt)
 	}
 	return nil
+}
+
+func selectIngestCommitTarget(pending []wiki.SourcesManifestEntry, documentID string) (wiki.SourcesManifestEntry, error) {
+	if documentID == "" {
+		return pending[0], nil
+	}
+	for _, doc := range pending {
+		if doc.DocumentID == documentID {
+			return doc, nil
+		}
+	}
+	return wiki.SourcesManifestEntry{}, fmt.Errorf("document %s is not pending in the ingest queue", documentID)
 }
 
 // runVerifyACL executes the dry-run gate. Infrastructure failures return a
