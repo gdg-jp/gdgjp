@@ -105,43 +105,6 @@ func TestWikiIngestRejectsCommitWithAgent(t *testing.T) {
 	}
 }
 
-func TestWikiIngestCommitRejectsDirtyWorktree(t *testing.T) {
-	setupWikiIngestRoot(t)
-	for _, status := range []string{" M pages/index/page.md\n", "?? pages/new/page.md\n"} {
-		t.Run(strings.TrimSpace(status), func(t *testing.T) {
-			service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
-				if strings.Join(args, " ") != "status --porcelain --untracked-files=all" {
-					t.Fatalf("unexpected git call: %s", strings.Join(args, " "))
-				}
-				return status, nil
-			})
-			if _, err := executeWiki(t, service, "ingest", "--commit"); err == nil || !strings.Contains(err.Error(), "uncommitted or untracked") {
-				t.Fatalf("error = %v, want dirty worktree rejection", err)
-			}
-		})
-	}
-}
-
-func TestWikiIngestCommitRejectsUnpushedHead(t *testing.T) {
-	setupWikiIngestRoot(t)
-	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
-		switch strings.Join(args, " ") {
-		case "status --porcelain --untracked-files=all", "pull --ff-only":
-			return "", nil
-		case "rev-parse HEAD":
-			return "local\n", nil
-		case "rev-parse refs/remotes/origin/main":
-			return "remote\n", nil
-		default:
-			t.Fatalf("unexpected git call: %s", strings.Join(args, " "))
-			return "", nil
-		}
-	})
-	if _, err := executeWiki(t, service, "ingest", "--commit"); err == nil || !strings.Contains(err.Error(), "synchronized with origin/main") {
-		t.Fatalf("error = %v, want unpushed HEAD rejection", err)
-	}
-}
-
 func TestWikiIngestCommitMarksOnlyFirstAndStops(t *testing.T) {
 	root := setupWikiIngestRoot(t)
 	manifest := wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{
@@ -156,11 +119,6 @@ func TestWikiIngestCommitMarksOnlyFirstAndStops(t *testing.T) {
 	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
 		joined := strings.Join(args, " ")
 		switch {
-		case joined == "status --porcelain --untracked-files=all",
-			joined == "pull --ff-only":
-			return "", nil
-		case joined == "rev-parse HEAD", joined == "rev-parse refs/remotes/origin/main":
-			return "synced\n", nil
 		case strings.HasPrefix(joined, "diff --name-only"),
 			strings.HasPrefix(joined, "status --porcelain"),
 			strings.HasPrefix(joined, "diff-tree"):
@@ -245,11 +203,6 @@ func TestWikiIngestCommitFailsClosedOnACLFindings(t *testing.T) {
 	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
 		joined := strings.Join(args, " ")
 		switch {
-		case joined == "status --porcelain --untracked-files=all",
-			joined == "pull --ff-only":
-			return "", nil
-		case joined == "rev-parse HEAD", joined == "rev-parse refs/remotes/origin/main":
-			return "synced\n", nil
 		case joined == "diff --name-only pre..HEAD -- pages/":
 			// Post-push range since ingest BaseRev carries the ingest pages.
 			return "pages/venues/page.md\n", nil
@@ -876,11 +829,6 @@ func TestWikiIngestCommitMarksDocumentID(t *testing.T) {
 	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
 		joined := strings.Join(args, " ")
 		switch {
-		case joined == "status --porcelain --untracked-files=all",
-			joined == "pull --ff-only":
-			return "", nil
-		case joined == "rev-parse HEAD", joined == "rev-parse refs/remotes/origin/main":
-			return "synced\n", nil
 		case strings.HasPrefix(joined, "diff --name-only"),
 			strings.HasPrefix(joined, "status --porcelain"),
 			strings.HasPrefix(joined, "diff-tree"):
@@ -1047,11 +995,6 @@ func TestWikiIngestCommitUnlocksDocument(t *testing.T) {
 	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
 		joined := strings.Join(args, " ")
 		switch {
-		case joined == "status --porcelain --untracked-files=all",
-			joined == "pull --ff-only":
-			return "", nil
-		case joined == "rev-parse HEAD", joined == "rev-parse refs/remotes/origin/main":
-			return "synced\n", nil
 		case strings.HasPrefix(joined, "diff --name-only"),
 			strings.HasPrefix(joined, "status --porcelain"),
 			strings.HasPrefix(joined, "diff-tree"):

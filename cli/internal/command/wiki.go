@@ -496,31 +496,6 @@ func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent, commitDocum
 	if commitDocumentID != "" && !commit {
 		return errors.New("--document-id requires --commit")
 	}
-	if commit {
-		status, statusErr := s.runGit(cmd.Context(), root, "status", "--porcelain", "--untracked-files=all")
-		if statusErr != nil {
-			return fmt.Errorf("check Wiki worktree: %w", statusErr)
-		}
-		if strings.TrimSpace(status) != "" {
-			return errors.New("cannot finalize Wiki ingest with uncommitted or untracked changes; commit and git push first")
-		}
-	}
-	if commit {
-		if _, err = s.runGit(cmd.Context(), root, "pull", "--ff-only"); err != nil {
-			return fmt.Errorf("git pull: %w", err)
-		}
-		head, headErr := s.runGit(cmd.Context(), root, "rev-parse", "HEAD")
-		if headErr != nil {
-			return fmt.Errorf("resolve Wiki HEAD: %w", headErr)
-		}
-		remote, remoteErr := s.runGit(cmd.Context(), root, "rev-parse", "refs/remotes/origin/main")
-		if remoteErr != nil {
-			return fmt.Errorf("resolve Wiki origin/main: %w", remoteErr)
-		}
-		if strings.TrimSpace(head) != strings.TrimSpace(remote) {
-			return errors.New("cannot finalize Wiki ingest before HEAD is synchronized with origin/main; commit and git push first")
-		}
-	}
 	var pending []wiki.SourcesManifestEntry
 	state, err := wiki.ReadState(root)
 	if err != nil {
