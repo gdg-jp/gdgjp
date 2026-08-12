@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchWebsiteSource } from "./website";
+import { WEBSITE_FETCH_USER_AGENT, fetchWebsiteSource } from "./website";
 import { MAX_HTML_BYTES, MAX_STYLESHEETS } from "./website-html";
 
 function htmlResponse(body: string) {
@@ -14,6 +14,10 @@ function cssResponse(body: string) {
     status: 200,
     headers: { "content-type": "text/css" },
   });
+}
+
+function requestInit(init?: RequestInit): RequestInit | undefined {
+  return init;
 }
 
 describe("fetchWebsiteSource", () => {
@@ -38,27 +42,27 @@ describe("fetchWebsiteSource", () => {
       },
     } as unknown as Env;
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url === "https://example.com/page") {
-          return htmlResponse(
-            `<html><head><title>Demo</title><link rel="stylesheet" href="/main.css"></head><body>hi</body></html>`,
-          );
-        }
-        if (url === "https://example.com/main.css") {
-          return cssResponse('@import url("shared.css");\nbody{color:red}');
-        }
-        if (url === "https://example.com/shared.css") {
-          return cssResponse("@import url('ignored-second-level.css');\np{margin:0}");
-        }
-        if (url === "https://example.com/ignored-second-level.css") {
-          throw new Error("second-level @import must not be fetched");
-        }
-        throw new Error(`unexpected fetch: ${url}`);
-      }),
-    );
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const headers = new Headers(requestInit(init)?.headers);
+      expect(headers.get("User-Agent")).toBe(WEBSITE_FETCH_USER_AGENT);
+      if (url === "https://example.com/page") {
+        return htmlResponse(
+          `<html><head><title>Demo</title><link rel="stylesheet" href="/main.css"></head><body>hi</body></html>`,
+        );
+      }
+      if (url === "https://example.com/main.css") {
+        return cssResponse('@import url("shared.css");\nbody{color:red}');
+      }
+      if (url === "https://example.com/shared.css") {
+        return cssResponse("@import url('ignored-second-level.css');\np{margin:0}");
+      }
+      if (url === "https://example.com/ignored-second-level.css") {
+        throw new Error("second-level @import must not be fetched");
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
     const result = await fetchWebsiteSource(env, "src-1", "https://example.com/page");
     expect(result.title).toBe("Demo");
@@ -73,7 +77,37 @@ describe("fetchWebsiteSource", () => {
     expect(shared?.body).toContain("@import url('ignored-second-level.css')");
   });
 
-  it("rejects non-2xx HTML responses", async () => {
+  it("falls back to Browser Rendering when plain fetch is bot-blocked", async () => {
+    const quickAction = vi.fn(async () =>
+      Response.json({
+        success: true,
+        result: "<html><head><title>Via Browser</title></head><body>ok</body></html>",
+        meta: { status: 200, title: "Via Browser" },
+      }),
+    );
+    const env = {
+      BUCKET: { put: vi.fn() },
+      BROWSER: { quickAction },
+    } as unknown as Env;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("blocked", { status: 403 })),
+    );
+
+    const result = await fetchWebsiteSource(env, "src-1", "https://blocked.example/");
+    expect(result.title).toBe("Via Browser");
+    expect(result.html).toContain("Via Browser");
+    expect(quickAction).toHaveBeenCalledWith(
+      "content",
+      expect.objectContaining({
+        url: "https://blocked.example/",
+        userAgent: WEBSITE_FETCH_USER_AGENT,
+      }),
+    );
+  });
+
+  it("rejects non-2xx HTML responses that are not bot blocks", async () => {
     const env = { BUCKET: { put: vi.fn() } } as unknown as Env;
     vi.stubGlobal(
       "fetch",

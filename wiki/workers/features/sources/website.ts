@@ -26,31 +26,36 @@ interface DownloadedCss {
   text: string;
 }
 
+interface FetchedHtml {
+  html: string;
+  pageUrl: string;
+}
+
+/** Identifies wiki source capture; many origins 403 bare Workers fetches. */
+export const WEBSITE_FETCH_USER_AGENT =
+  "Mozilla/5.0 (compatible; GDG-Wiki/1.0; +https://wiki.gdgs.jp)";
+
 /**
  * Fetch a public website as HTML plus linked stylesheets.
  * CSS files are written under `raw/<sourceId>/assets/`; HTML `href` / `@import`
  * references are rewritten to those asset paths.
+ *
+ * Plain `fetch` first; on bot-block statuses, fall back to Browser Rendering
+ * (`BROWSER.quickAction("content")`) so sites that reject Workers egress still work.
  */
 export async function fetchWebsiteSource(
   env: Env,
   sourceId: string,
   url: string,
 ): Promise<WebsiteFetchResult> {
-  const htmlResponse = await fetch(url, {
-    redirect: "follow",
-    headers: { Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8" },
-  });
-  if (!htmlResponse.ok) {
-    throw new Error(`Failed to fetch website (${htmlResponse.status})`);
-  }
-
-  const htmlBytes = new Uint8Array(await htmlResponse.arrayBuffer());
+  const fetchedHtml = await fetchHtmlDocument(env, url);
+  const htmlBytes = new TextEncoder().encode(fetchedHtml.html);
   if (htmlBytes.byteLength > MAX_HTML_BYTES) {
     throw new Error("Website HTML exceeds the 5 MB limit");
   }
 
-  const pageUrl = htmlResponse.url || url;
-  const htmlText = new TextDecoder("utf-8").decode(htmlBytes);
+  const pageUrl = fetchedHtml.pageUrl;
+  const htmlText = fetchedHtml.html;
   const title = extractHtmlTitle(htmlText) || hostnameTitle(pageUrl);
 
   const primaryUrls = extractStylesheetUrls(htmlText, pageUrl);
@@ -102,6 +107,78 @@ export async function fetchWebsiteSource(
   };
 }
 
+async function fetchHtmlDocument(env: Env, url: string): Promise<FetchedHtml> {
+  const htmlResponse = await fetch(url, {
+    redirect: "follow",
+    headers: htmlFetchHeaders(),
+  });
+  if (htmlResponse.ok) {
+    const htmlBytes = new Uint8Array(await htmlResponse.arrayBuffer());
+    if (htmlBytes.byteLength > MAX_HTML_BYTES) {
+      throw new Error("Website HTML exceeds the 5 MB limit");
+    }
+    return {
+      html: new TextDecoder("utf-8").decode(htmlBytes),
+      pageUrl: htmlResponse.url || url,
+    };
+  }
+
+  if (!shouldFallbackToBrowser(htmlResponse.status)) {
+    throw new Error(`Failed to fetch website (${htmlResponse.status})`);
+  }
+
+  return fetchHtmlViaBrowser(env, url, htmlResponse.status);
+}
+
+function shouldFallbackToBrowser(status: number): boolean {
+  return status === 401 || status === 403 || status === 429 || status === 503;
+}
+
+async function fetchHtmlViaBrowser(
+  env: Env,
+  url: string,
+  plainStatus: number,
+): Promise<FetchedHtml> {
+  if (!env.BROWSER) {
+    throw new Error(`Failed to fetch website (${plainStatus})`);
+  }
+
+  const response = await env.BROWSER.quickAction("content", {
+    url,
+    gotoOptions: { waitUntil: "domcontentloaded", timeout: 30_000 },
+    userAgent: WEBSITE_FETCH_USER_AGENT,
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch website (${plainStatus}; browser ${response.status})`);
+  }
+
+  const data = (await response.json()) as {
+    success?: boolean;
+    result?: string;
+    meta?: { status?: number };
+  };
+  if (!data.success || typeof data.result !== "string") {
+    throw new Error(`Failed to fetch website (${plainStatus}; browser empty)`);
+  }
+  const renderedStatus = data.meta?.status;
+  if (typeof renderedStatus === "number" && renderedStatus >= 400) {
+    throw new Error(`Failed to fetch website (${renderedStatus})`);
+  }
+  if (new TextEncoder().encode(data.result).byteLength > MAX_HTML_BYTES) {
+    throw new Error("Website HTML exceeds the 5 MB limit");
+  }
+
+  return { html: data.result, pageUrl: url };
+}
+
+function htmlFetchHeaders(): HeadersInit {
+  return {
+    Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "ja,en;q=0.8",
+    "User-Agent": WEBSITE_FETCH_USER_AGENT,
+  };
+}
+
 async function storeCssAsset(
   env: Env,
   sourceId: string,
@@ -130,7 +207,10 @@ async function storeCssAsset(
 async function downloadCss(absoluteUrl: string): Promise<DownloadedCss> {
   const response = await fetch(absoluteUrl, {
     redirect: "follow",
-    headers: { Accept: "text/css,*/*;q=0.1" },
+    headers: {
+      Accept: "text/css,*/*;q=0.1",
+      "User-Agent": WEBSITE_FETCH_USER_AGENT,
+    },
   });
   if (!response.ok) {
     throw new Error(`Failed to fetch stylesheet (${response.status})`);
