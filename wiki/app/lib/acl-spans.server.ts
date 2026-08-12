@@ -165,10 +165,10 @@ export async function buildAclSpanPolicy(
     if (span.srcIds.length === 0) return false;
 
     // Logical AND across sources; missing/deleted src → Admin only (fail closed).
+    // Archived sources keep their visibility — archive is a lifecycle state, not ACL revocation.
     return span.srcIds.every((id) => {
       const source = sourceById.get(id);
-      // Missing or archived sources fail closed for everyone except admins.
-      if (!source || source.status === "archived") {
+      if (!source) {
         return user.isAdmin;
       }
       return canAccessSource(source, user, chapters);
@@ -280,7 +280,8 @@ export async function validatePageAclForSync(
     const byId = new Map(rows.map((row) => [row.id, row]));
     for (const id of uniqueSrcIds) {
       const source = byId.get(id);
-      if (!source || source.status === "archived") {
+      // Archived sources remain citeable; only truly missing ids are unknown.
+      if (!source) {
         return { ok: false, error: "acl_unknown_source", sourceId: id };
       }
       if (!canAccessSource(source, user, chapters)) {
@@ -316,10 +317,11 @@ export async function validatePageAclForSync(
     for (const id of citedUnique) {
       if (spanIdSet.has(id)) continue;
       const source = citedById.get(id);
-      if (!source || source.status === "archived") {
+      if (!source) {
         // Unknown citation is a separate concern; require a span to be safe.
         return { ok: false, error: "acl_required", sourceId: id };
       }
+      // Archived sources keep visibility — evaluate the invariant the same way.
       const key = sourceAudienceKey(source.visibility, source.chapterId);
       if (!key || !audienceContains(key, pageAudience)) {
         return { ok: false, error: "acl_required", sourceId: id };
@@ -371,12 +373,13 @@ export async function validateReadSourcesTagged(
 
   for (const id of uniqueIds) {
     const source = byId.get(id);
-    if (source && source.status !== "archived" && source.visibility === "member") {
+    // Archive does not change visibility; member-wide reads still need no tag.
+    if (source && source.visibility === "member") {
       continue;
     }
     if (taggedIds.has(id)) continue;
 
-    if (source && source.status !== "archived" && pages.length > 0) {
+    if (source && pages.length > 0) {
       const key = sourceAudienceKey(source.visibility, source.chapterId);
       if (
         key &&
