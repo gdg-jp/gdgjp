@@ -2,10 +2,19 @@
 export const SUBREQUEST_BUDGET_LIMIT = 40;
 
 /**
- * Max stylesheets per website capture (each costs fetch + R2 put).
- * Leaves the HTML fetch itself as `1 + MAX_STYLESHEETS * 2 <= SUBREQUEST_BUDGET_LIMIT`.
+ * Worst-case subrequests spent by `advanceSourceImportTick` before website content fetch:
+ * `currentRun` (2) + `start`→`content` `commitPhase` (1).
  */
-export const MAX_WEBSITE_STYLESHEETS = Math.floor((SUBREQUEST_BUDGET_LIMIT - 1) / 2);
+export const WEBSITE_CONTENT_TICK_OVERHEAD = 3;
+
+/**
+ * Max stylesheets per website capture (each costs fetch + R2 put).
+ * Fits `1 + MAX * 2` into the remaining budget after per-tick overhead so the content
+ * phase can actually start (otherwise `canSpend` fails forever and status stays fetching).
+ */
+export const MAX_WEBSITE_STYLESHEETS = Math.floor(
+  (SUBREQUEST_BUDGET_LIMIT - WEBSITE_CONTENT_TICK_OVERHEAD - 1) / 2,
+);
 
 /** Max concurrent outgoing attachment downloads (Workers caps concurrent connects at 6). */
 export const ATTACHMENT_PARALLELISM = 4;
