@@ -48,7 +48,10 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       })
       .sort((a, b) => a.name.localeCompare(b.name, "ja"));
 
-    return Response.json({ guilds });
+    return Response.json({
+      botInviteUrl: getDiscordBotInviteUrl(env.DISCORD_CLIENT_ID),
+      guilds,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[discord] guilds.list failed", message);

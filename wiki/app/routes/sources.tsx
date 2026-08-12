@@ -497,6 +497,7 @@ export default function SourcesPage() {
   const [selectedDiscordChannelIds, setSelectedDiscordChannelIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [discordBotInviteUrl, setDiscordBotInviteUrl] = useState<string | null>(null);
   const [discordInviteUrl, setDiscordInviteUrl] = useState<string | null>(null);
   const chatSpacesLoadStarted = useRef(false);
   const [visibility, setVisibility] = useState("");
@@ -706,6 +707,7 @@ export default function SourcesPage() {
     try {
       const response = await fetch("/api/discord/guilds", { credentials: "same-origin" });
       const body = (await response.json().catch(() => null)) as {
+        botInviteUrl?: string;
         guilds?: Array<{
           id: string;
           name: string;
@@ -727,6 +729,7 @@ export default function SourcesPage() {
       if (!response.ok || !body?.guilds) {
         throw new Error(body?.error ?? "guilds_list_failed");
       }
+      setDiscordBotInviteUrl(body.botInviteUrl ?? null);
       setDiscordGuilds(body.guilds);
     } catch {
       setDiscordError(t("sources.error_discord_guilds"));
@@ -863,72 +866,77 @@ export default function SourcesPage() {
       </header>
 
       <section className="mb-8 rounded-lg border border-border-default bg-surface-raised p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <button
-              type="button"
-              onClick={chooseGoogleDriveSource}
-              disabled={pickerLoading}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
-            >
-              {pickerLoading ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : (
-                <FileText className="size-4" />
-              )}
-              {t("sources.choose_google_drive")}
-            </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
-                >
-                  {chatLoading ? (
-                    <LoaderCircle className="size-4 animate-spin" />
-                  ) : (
-                    <MessageSquare className="size-4" />
-                  )}
-                  {t("sources.add_chat_space")}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-56">
-                {chatLoading ? (
-                  <DropdownMenuItem disabled>
-                    <LoaderCircle className="size-4 animate-spin" />
-                    {t("sources.chat_space_placeholder")}
-                  </DropdownMenuItem>
+        <div className="flex flex-col gap-3">
+          <div>
+            <p className="mb-2 text-sm font-medium text-content-primary">
+              {t("sources.add_candidate")}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={chooseGoogleDriveSource}
+                disabled={pickerLoading}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
+              >
+                {pickerLoading ? (
+                  <LoaderCircle className="size-4 animate-spin" />
                 ) : (
-                  chatSpaces.map((space) => (
-                    <DropdownMenuItem
-                      key={space.name}
-                      disabled={registeredCandidateIds.has(`chat:${space.name}`)}
-                      onSelect={() => addChatSpace(space)}
-                    >
-                      {space.displayName}
-                    </DropdownMenuItem>
-                  ))
+                  <FileText className="size-4" />
                 )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <button
-              type="button"
-              onClick={() => void openDiscordDialog()}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
-            >
-              <Hash className="size-4" />
-              {t("sources.add_discord_channel")}
-            </button>
-            <button
-              type="button"
-              onClick={addUrlCandidate}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
-            >
-              <Link2 className="size-4" />
-              {t("sources.add_url")}
-            </button>
+                {t("sources.choose_google_drive")}
+              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
+                  >
+                    {chatLoading ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : (
+                      <MessageSquare className="size-4" />
+                    )}
+                    {t("sources.add_chat_space")}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="min-w-56">
+                  {chatLoading ? (
+                    <DropdownMenuItem disabled>
+                      <LoaderCircle className="size-4 animate-spin" />
+                      {t("sources.chat_space_placeholder")}
+                    </DropdownMenuItem>
+                  ) : (
+                    chatSpaces.map((space) => (
+                      <DropdownMenuItem
+                        key={space.name}
+                        disabled={registeredCandidateIds.has(`chat:${space.name}`)}
+                        onSelect={() => addChatSpace(space)}
+                      >
+                        {space.displayName}
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <button
+                type="button"
+                onClick={() => void openDiscordDialog()}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
+              >
+                <Hash className="size-4" />
+                {t("sources.add_discord_channel")}
+              </button>
+              <button
+                type="button"
+                onClick={addUrlCandidate}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
+              >
+                <Link2 className="size-4" />
+                {t("sources.add_url")}
+              </button>
+            </div>
           </div>
-          <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row">
+          <div className="flex flex-col gap-2 border-t border-border-subtle pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             <VisibilitySelect t={t} value={visibility} onValueChange={setVisibility} />
             {needsChapter ? (
               <ChapterSelect
@@ -953,7 +961,7 @@ export default function SourcesPage() {
                   { method: "post" },
                 )
               }
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60 sm:min-w-24"
             >
               {submitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
               {t("sources.add")}
@@ -1162,28 +1170,34 @@ export default function SourcesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                {discordInviteUrl ? (
+                {discordInviteUrl || discordBotInviteUrl ? (
                   <div className="rounded-md border border-border-default bg-surface-sunken p-3 text-sm">
-                    <p className="mb-2">{t("sources.discord_invite_hint")}</p>
+                    <p className="mb-2">
+                      {discordInviteUrl
+                        ? t("sources.discord_invite_hint")
+                        : t("sources.discord_invite_hint_general")}
+                    </p>
                     <a
-                      href={discordInviteUrl}
+                      href={discordInviteUrl ?? discordBotInviteUrl ?? undefined}
                       target="_blank"
                       rel="noreferrer"
                       className="font-medium text-action-primary hover:underline"
                     >
                       {t("sources.discord_invite_bot")}
                     </a>
-                    <button
-                      type="button"
-                      className="ml-3 text-sm text-content-secondary hover:underline"
-                      onClick={() =>
-                        selectedDiscordGuildId
-                          ? void selectDiscordGuild(selectedDiscordGuildId)
-                          : undefined
-                      }
-                    >
-                      {t("sources.discord_refresh_channels")}
-                    </button>
+                    {discordInviteUrl || selectedDiscordGuildId ? (
+                      <button
+                        type="button"
+                        className="ml-3 text-sm text-content-secondary hover:underline"
+                        onClick={() =>
+                          selectedDiscordGuildId
+                            ? void selectDiscordGuild(selectedDiscordGuildId)
+                            : undefined
+                        }
+                      >
+                        {t("sources.discord_refresh_channels")}
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
                 {discordChannelsLoading ? (

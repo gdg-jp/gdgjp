@@ -57,15 +57,20 @@ export function getDiscordAuthUrl(clientId: string, redirectUri: string, state: 
   return `https://discord.com/api/oauth2/authorize?${params}`;
 }
 
-/** Bot invite URL with a pre-selected guild. Admin must complete the invite. */
-export function getDiscordBotInviteUrl(clientId: string, guildId: string): string {
+/**
+ * Bot invite URL. When `guildId` is set the Discord UI pre-selects that server;
+ * omit it for a general invite the admin can point at any server.
+ */
+export function getDiscordBotInviteUrl(clientId: string, guildId?: string): string {
   const params = new URLSearchParams({
     client_id: clientId,
     permissions: DISCORD_BOT_SOURCE_PERMISSIONS,
     scope: "bot",
-    guild_id: guildId,
-    disable_guild_select: "true",
   });
+  if (guildId) {
+    params.set("guild_id", guildId);
+    params.set("disable_guild_select", "true");
+  }
   return `https://discord.com/api/oauth2/authorize?${params}`;
 }
 

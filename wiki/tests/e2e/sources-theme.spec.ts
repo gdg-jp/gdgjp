@@ -9,9 +9,11 @@ test("Google Chat reauthorization warning uses dark-mode warning tokens", async 
       body: JSON.stringify({ reauthorize: true }),
     });
   });
-  await adminPage.goto("/sources");
 
-  await adminPage.getByRole("button", { name: "Add space" }).click();
+  const spacesResponse = adminPage.waitForResponse("**/api/google-chat/spaces");
+  await adminPage.goto("/sources");
+  await spacesResponse;
+
   const warningText = adminPage.getByText("Google Chat permission is missing.");
   await expect(warningText).toBeVisible();
   const warning = warningText.locator("..");

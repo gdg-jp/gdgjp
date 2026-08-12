@@ -28,8 +28,9 @@ The `/sources` UI builds an invite URL with:
 - Scope: `bot`
 - Permissions: **View Channel** | **Read Message History** (bitfield `66560`)
 
-Server admins complete the invite from the Wiki dialog when a server shows
-“bot missing”.
+Server admins can use the **Invite bot** link shown in the Discord dialog on
+`/sources` (always visible after Connect Discord). Selecting a server that does
+not have the bot yet switches that link to a guild-preselected invite.
 
 ## 3. Local `.dev.vars`
 
