@@ -21,7 +21,7 @@ Single `ExportedHandler<Env>` — understand all three before touching:
 
 - `fetch` — authenticates `/agents/wiki-generation-agent/:session` and routes it through the Agents SDK; short-circuits `/ws/collab/:slug` to `COLLAB_DO`; otherwise → RR.
 - `scheduled` — two crons: `0 15 * * *` (task Discord reminders, 00:00 JST) and `0 16 * * *` (daily/weekly source refresh enqueue).
-- `queue` — consumes `TRANSLATION_QUEUE`, Google Docs import jobs, and `SOURCE_FETCH_QUEUE`. Source import continuation for Chat, Drive, and websites runs in `SOURCE_IMPORT_DO` alarms, not the queue.
+- `queue` — consumes `TRANSLATION_QUEUE`, Google Docs import jobs, and `SOURCE_FETCH_QUEUE`. Source import continuation for Chat, Drive, Discord, and websites runs in `SOURCE_IMPORT_DO` alarms, not the queue.
 
 `CollabDurableObject` and `SourceImportDurableObject` are re-exported from the same file so wrangler registers them.
 

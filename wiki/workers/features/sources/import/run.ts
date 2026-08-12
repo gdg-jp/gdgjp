@@ -5,7 +5,7 @@ import { getDb } from "../../../../app/lib/db.server";
 import { isRetryableFetchError } from "../retry-classification";
 import type { SubrequestBudget } from "../subrequest-budget";
 
-export type SourceImportKind = "google-chat-space" | "google-drive" | "website";
+export type SourceImportKind = "google-chat-space" | "google-drive" | "website" | "discord-channel";
 
 export const MAX_CONSECUTIVE_FAILURES = 5;
 export const ALARM_CONTINUE_MS = 500;
@@ -52,6 +52,7 @@ export interface ClaimedSourceImport {
 
 export function driverKindForSource(source: typeof schema.sources.$inferSelect): SourceImportKind {
   if (source.kind === "google-chat-space") return "google-chat-space";
+  if (source.kind === "discord-channel") return "discord-channel";
   if (source.kind === "website") return "website";
   return "google-drive";
 }
@@ -175,7 +176,7 @@ export async function claimSourceImport(
         kind,
         fetchAttemptId: request.fetchAttemptId,
         sinceCursor,
-        phase: kind === "google-chat-space" ? "listing" : "start",
+        phase: kind === "google-chat-space" || kind === "discord-channel" ? "listing" : "start",
       }),
     ]);
     if (!(await currentRun(env, id))) {

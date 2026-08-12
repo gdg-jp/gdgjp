@@ -1,4 +1,5 @@
 import { getGoogleDriveTokenRow } from "../../../../app/lib/google-drive-token.server";
+import { discordImportDriver } from "../discord-import";
 import { chatImportDriver } from "../google-chat-import";
 import { SourceAuthorizationError } from "../retry-classification";
 import type { SubrequestBudget } from "../subrequest-budget";
@@ -44,6 +45,7 @@ export type ImportKindDriver<P extends string = string> = ImportKindDriverBase<P
 
 const drivers = new Map<SourceImportKind, ImportKindDriver>([
   ["google-chat-space", chatImportDriver],
+  ["discord-channel", discordImportDriver],
   ["website", websiteImportDriver],
   ["google-drive", driveImportDriver],
 ]);

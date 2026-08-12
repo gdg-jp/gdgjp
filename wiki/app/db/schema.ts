@@ -194,6 +194,21 @@ export const googleDriveTokens = sqliteTable("google_drive_tokens", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 });
 
+/** Per-user Discord OAuth tokens for the /sources guild picker (`identify` + `guilds`). */
+export const discordOauthTokens = sqliteTable("discord_oauth_tokens", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token"),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  /** Space-delimited OAuth scopes from the token-exchange response. */
+  grantedScopes: text("granted_scopes"),
+  /** Discord snowflake from `/users/@me` at consent time. */
+  discordUserId: text("discord_user_id"),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+});
+
 // ---------------------------------------------------------------------------
 // google_document_imports / google_document_import_nodes
 // ---------------------------------------------------------------------------
@@ -497,7 +512,8 @@ export const discordGuildSettings = sqliteTable("discord_guild_settings", {
 // ---------------------------------------------------------------------------
 export const sources = sqliteTable("sources", {
   id: text("id").primaryKey(),
-  // "google-doc" | "google-sheet" | "google-slides" | "google-chat-space" | "website" | "upload" | "text"
+  // "google-doc" | "google-sheet" | "google-slides" | "google-chat-space" |
+  // "discord-channel" | "website" | "upload" | "text"
   kind: text("kind").notNull(),
   externalId: text("external_id"),
   url: text("url").notNull(),
