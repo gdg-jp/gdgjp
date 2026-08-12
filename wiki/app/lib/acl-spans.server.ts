@@ -19,6 +19,7 @@ import {
   scrubResidualAclMarkup,
   validateAclSpans,
 } from "~/lib/acl-spans";
+import { mapInChunks } from "~/lib/d1-chunk.server";
 import { isSourceVisibility, sourceVisibilityNeedsChapter } from "~/lib/sources-shared";
 import { canAccessSource } from "~/lib/sources.server";
 
@@ -136,20 +137,19 @@ export async function buildAclSpanPolicy(
   chapters: readonly Membership[],
 ): Promise<(span: AclSpan) => boolean> {
   const uniqueIds = [...new Set(spanSourceIds.filter((id) => id.length > 0))];
-  const rows =
-    uniqueIds.length === 0
-      ? []
-      : await db
-          .select({
-            id: schema.sources.id,
-            addedBy: schema.sources.addedBy,
-            chapterId: schema.sources.chapterId,
-            visibility: schema.sources.visibility,
-            status: schema.sources.status,
-          })
-          .from(schema.sources)
-          .where(inArray(schema.sources.id, uniqueIds))
-          .all();
+  const rows = await mapInChunks(uniqueIds, (chunk) =>
+    db
+      .select({
+        id: schema.sources.id,
+        addedBy: schema.sources.addedBy,
+        chapterId: schema.sources.chapterId,
+        visibility: schema.sources.visibility,
+        status: schema.sources.status,
+      })
+      .from(schema.sources)
+      .where(inArray(schema.sources.id, chunk))
+      .all(),
+  );
 
   const sourceById = new Map(rows.map((row) => [row.id, row]));
 
@@ -266,17 +266,19 @@ export async function validatePageAclForSync(
   const uniqueSrcIds = [...new Set(allSrcIds)];
 
   if (uniqueSrcIds.length > 0) {
-    const rows = await db
-      .select({
-        id: schema.sources.id,
-        addedBy: schema.sources.addedBy,
-        chapterId: schema.sources.chapterId,
-        visibility: schema.sources.visibility,
-        status: schema.sources.status,
-      })
-      .from(schema.sources)
-      .where(inArray(schema.sources.id, uniqueSrcIds))
-      .all();
+    const rows = await mapInChunks(uniqueSrcIds, (chunk) =>
+      db
+        .select({
+          id: schema.sources.id,
+          addedBy: schema.sources.addedBy,
+          chapterId: schema.sources.chapterId,
+          visibility: schema.sources.visibility,
+          status: schema.sources.status,
+        })
+        .from(schema.sources)
+        .where(inArray(schema.sources.id, chunk))
+        .all(),
+    );
     const byId = new Map(rows.map((row) => [row.id, row]));
     for (const id of uniqueSrcIds) {
       const source = byId.get(id);
@@ -295,19 +297,18 @@ export async function validatePageAclForSync(
   const spanIdSet = new Set(uniqueSrcIds);
   if (ctx.citedSourceIds.length > 0) {
     const citedUnique = [...new Set(ctx.citedSourceIds.filter(Boolean))];
-    const citedRows =
-      citedUnique.length === 0
-        ? []
-        : await db
-            .select({
-              id: schema.sources.id,
-              visibility: schema.sources.visibility,
-              chapterId: schema.sources.chapterId,
-              status: schema.sources.status,
-            })
-            .from(schema.sources)
-            .where(inArray(schema.sources.id, citedUnique))
-            .all();
+    const citedRows = await mapInChunks(citedUnique, (chunk) =>
+      db
+        .select({
+          id: schema.sources.id,
+          visibility: schema.sources.visibility,
+          chapterId: schema.sources.chapterId,
+          status: schema.sources.status,
+        })
+        .from(schema.sources)
+        .where(inArray(schema.sources.id, chunk))
+        .all(),
+    );
     const citedById = new Map(citedRows.map((row) => [row.id, row]));
     const pageAudience: PageAudienceSubject = {
       visibility: ctx.pageVisibility,
@@ -354,16 +355,18 @@ export async function validateReadSourcesTagged(
   const uniqueIds = [...new Set(readSourceIds.filter((id) => id.length > 0))];
   if (uniqueIds.length === 0) return { ok: true };
 
-  const rows = await db
-    .select({
-      id: schema.sources.id,
-      visibility: schema.sources.visibility,
-      chapterId: schema.sources.chapterId,
-      status: schema.sources.status,
-    })
-    .from(schema.sources)
-    .where(inArray(schema.sources.id, uniqueIds))
-    .all();
+  const rows = await mapInChunks(uniqueIds, (chunk) =>
+    db
+      .select({
+        id: schema.sources.id,
+        visibility: schema.sources.visibility,
+        chapterId: schema.sources.chapterId,
+        status: schema.sources.status,
+      })
+      .from(schema.sources)
+      .where(inArray(schema.sources.id, chunk))
+      .all(),
+  );
   const byId = new Map(rows.map((row) => [row.id, row]));
 
   const taggedIds = new Set<string>();

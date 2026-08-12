@@ -8,6 +8,7 @@ import { pageAclClearance, validatePageAclForSync } from "~/lib/acl-spans.server
 import { agentsHash, getAgentInstructions } from "~/lib/agents-md.server";
 import { getCliIdentity } from "~/lib/cli-identity.server";
 import { canonicalMarkdown } from "~/lib/content-format";
+import { D1_MAX_BOUND_PARAMETERS, mapInChunks } from "~/lib/d1-chunk.server";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions, isGeneralAccess, isPageRole } from "~/lib/page-access.server";
 import { sendOrRunTranslation } from "~/lib/queue-processors.server";
@@ -163,9 +164,11 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const existingIds = operations.flatMap((op) =>
     op.kind === "archive" ? [op.id] : op.page.id ? [op.page.id] : [],
   );
-  const existing = existingIds.length
-    ? await db.select().from(schema.pages).where(inArray(schema.pages.id, existingIds)).all()
-    : [];
+  // D1 caps bound parameters at 100 — a large git push (e.g. lint across many
+  // pages) must load existing rows in chunks or the sync action 500s.
+  const existing = await mapInChunks(existingIds, (chunk) =>
+    db.select().from(schema.pages).where(inArray(schema.pages.id, chunk)).all(),
+  );
   const byId = new Map(existing.map((page) => [page.id, page]));
   const requestedById = new Map(
     operations.flatMap((operation) =>
@@ -174,20 +177,16 @@ export async function action({ request, context }: ActionFunctionArgs) {
         : [],
     ),
   );
-  const existingAccess = existingIds.length
-    ? await db
-        .select()
-        .from(schema.pageAccess)
-        .where(inArray(schema.pageAccess.pageId, existingIds))
-        .all()
-    : [];
-  const existingAttachments = existingIds.length
-    ? await db
-        .select()
-        .from(schema.pageAttachments)
-        .where(inArray(schema.pageAttachments.pageId, existingIds))
-        .all()
-    : [];
+  const existingAccess = await mapInChunks(existingIds, (chunk) =>
+    db.select().from(schema.pageAccess).where(inArray(schema.pageAccess.pageId, chunk)).all(),
+  );
+  const existingAttachments = await mapInChunks(existingIds, (chunk) =>
+    db
+      .select()
+      .from(schema.pageAttachments)
+      .where(inArray(schema.pageAttachments.pageId, chunk))
+      .all(),
+  );
   const chapterIds = identity.chapters.map((chapter) => String(chapter.chapterId));
   const conflicts: Array<{ id: string; revision: number }> = [];
   const translatePageIds = new Set<string>();
@@ -598,12 +597,21 @@ export async function action({ request, context }: ActionFunctionArgs) {
   let revisions: Array<{ id: string; revision: number }>;
   try {
     if (returned.length) {
-      const placeholders = returned.map(() => "?").join(",");
-      const revisionStatement = env.DB.prepare(
-        `SELECT id, sync_revision AS revision FROM pages WHERE id IN (${placeholders})`,
-      ).bind(...returned.map((page) => page.id));
-      const results = await env.DB.batch([...statements, revisionStatement]);
-      revisions = (results.at(-1)?.results ?? []) as Array<{ id: string; revision: number }>;
+      const revisionStatements: D1PreparedStatement[] = [];
+      for (let i = 0; i < returned.length; i += D1_MAX_BOUND_PARAMETERS) {
+        const chunk = returned.slice(i, i + D1_MAX_BOUND_PARAMETERS);
+        const placeholders = chunk.map(() => "?").join(",");
+        revisionStatements.push(
+          env.DB.prepare(
+            `SELECT id, sync_revision AS revision FROM pages WHERE id IN (${placeholders})`,
+          ).bind(...chunk.map((page) => page.id)),
+        );
+      }
+      const results = await env.DB.batch([...statements, ...revisionStatements]);
+      revisions = revisionStatements.flatMap((_, index) => {
+        const row = results[statements.length + index];
+        return (row?.results ?? []) as Array<{ id: string; revision: number }>;
+      });
     } else {
       await env.DB.batch(statements);
       revisions = [];

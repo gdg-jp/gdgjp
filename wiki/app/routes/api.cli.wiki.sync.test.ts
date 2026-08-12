@@ -484,6 +484,29 @@ describe("Wiki CLI sync action", () => {
     const update = statements.find((statement) => statement.sql.includes("acl_source_ids=?"));
     expect(update?.values).toContain(JSON.stringify(["en1"]));
   });
+
+  it("loads more than 100 page ids without exceeding D1's bound-parameter limit", async () => {
+    const operations = Array.from({ length: 101 }, (_, i) => ({
+      kind: "upsert" as const,
+      page: page(`client-${i}`, `page-${i}`, null),
+    }));
+    // Two chunks (100 + 1) for pages, access, and attachments.
+    mocks.allResults = [[], [], [], [], [], []];
+    const { args, batch } = actionArgs(operations, {
+      revisions: operations.map((operation) => ({ id: operation.page.id as string, revision: 1 })),
+    });
+
+    const response = await action(args);
+
+    expect(response.status).toBe(200);
+    expect(batch).toHaveBeenCalledOnce();
+    const statements = batch.mock.calls[0]?.[0] as Prepared[];
+    const revisionSelects = statements.filter((statement) =>
+      statement.sql.includes("sync_revision AS revision"),
+    );
+    expect(revisionSelects).toHaveLength(2);
+    expect(revisionSelects.every((statement) => statement.values.length <= 100)).toBe(true);
+  });
 });
 
 describe("scheduleSyncPostCommit", () => {
