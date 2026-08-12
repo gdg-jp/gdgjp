@@ -4,6 +4,7 @@ import {
   DRIVE_PHASES,
   driveMetadataUrl,
   isSkippablePdfExport,
+  sheetPdfRetryDelayMs,
   spreadsheetUnitDescriptors,
 } from "./phases";
 
@@ -17,7 +18,7 @@ describe("driveMetadataUrl", () => {
 });
 
 describe("spreadsheetUnitDescriptors", () => {
-  it("creates Markdown for grids and PDF only for object sheets", () => {
+  it("creates Markdown and PDF units for grids, but only PDF for object sheets", () => {
     const units = spreadsheetUnitDescriptors({
       sheets: [
         { properties: { sheetId: 10, title: "Data", index: 0, sheetType: "GRID" } },
@@ -26,6 +27,7 @@ describe("spreadsheetUnitDescriptors", () => {
     });
     expect(units.map(({ unitKind, path }) => [unitKind, path])).toEqual([
       ["sheet-md", "Data.md"],
+      ["sheet-pdf", "Data.pdf"],
       ["sheet-pdf", "Chart.pdf"],
     ]);
   });
@@ -37,7 +39,12 @@ describe("spreadsheetUnitDescriptors", () => {
         { properties: { sheetId: 2, title: "v1.2", index: 1, sheetType: "GRID" } },
       ],
     });
-    expect(units.map((unit) => unit.path)).toEqual(["v1.2.md", "v1.2 (2).md"]);
+    expect(units.map((unit) => unit.path)).toEqual([
+      "v1.2.md",
+      "v1.2.pdf",
+      "v1.2 (2).md",
+      "v1.2 (2).pdf",
+    ]);
   });
 });
 
@@ -52,7 +59,7 @@ it("keeps every Drive phase reachable in order", () => {
   ]);
 });
 
-it("skips semantic and rate-limited failures from unofficial Sheet PDF exports", () => {
+it("skips only semantic failures from unofficial Sheet PDF exports", () => {
   const semantic = new InvalidPdfExportError("not a PDF");
   expect(isSkippablePdfExport("sheet-pdf", semantic)).toBe(true);
   expect(isSkippablePdfExport("file-pdf", semantic)).toBe(false);
@@ -61,23 +68,15 @@ it("skips semantic and rate-limited failures from unofficial Sheet PDF exports",
       "sheet-pdf",
       new PdfExportHttpError(429, "Google Drive PDF export failed (429)"),
     ),
-  ).toBe(true);
-  expect(
-    isSkippablePdfExport(
-      "sheet-pdf",
-      new PdfExportHttpError(503, "Google Drive PDF export failed (503)"),
-    ),
-  ).toBe(true);
-  expect(
-    isSkippablePdfExport(
-      "sheet-pdf",
-      new PdfExportHttpError(401, "Google Drive PDF export failed (401)"),
-    ),
   ).toBe(false);
-  expect(
-    isSkippablePdfExport(
-      "file-pdf",
-      new PdfExportHttpError(429, "Google Drive PDF export failed (429)"),
-    ),
-  ).toBe(false);
+});
+
+describe("sheetPdfRetryDelayMs", () => {
+  it("honors Retry-After when present and otherwise backs off from 15s", () => {
+    expect(sheetPdfRetryDelayMs(1, 8_000)).toBe(8_000);
+    expect(sheetPdfRetryDelayMs(1)).toBe(15_000);
+    expect(sheetPdfRetryDelayMs(2)).toBe(30_000);
+    expect(sheetPdfRetryDelayMs(4)).toBe(120_000);
+    expect(sheetPdfRetryDelayMs(1, 999_000)).toBe(120_000);
+  });
 });

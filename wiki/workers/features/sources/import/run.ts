@@ -28,7 +28,11 @@ export interface SourceImportTickContext {
   accessToken?: string;
 }
 
-export type SourceImportStepOutcome = { phaseComplete: boolean };
+export type SourceImportStepOutcome = {
+  phaseComplete: boolean;
+  /** When phaseComplete is false, ask the DO alarm to wait this long before the next tick. */
+  continueAfterMs?: number;
+};
 
 export type CurrentSourceImport = NonNullable<Awaited<ReturnType<typeof currentRun>>>;
 

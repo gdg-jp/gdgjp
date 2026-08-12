@@ -88,7 +88,7 @@ export class SourceImportDurableObject extends DurableObject<Env> {
         await this.ctx.storage.deleteAll();
         return;
       }
-      await this.ctx.storage.setAlarm(Date.now() + ALARM_CONTINUE_MS);
+      await this.ctx.storage.setAlarm(Date.now() + (result.continueAfterMs ?? ALARM_CONTINUE_MS));
     } catch (error) {
       const outcome = await failSourceImportRun(this.env, runId, error);
       console.error(
