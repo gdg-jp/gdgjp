@@ -866,106 +866,104 @@ export default function SourcesPage() {
       </header>
 
       <section className="mb-8 rounded-lg border border-border-default bg-surface-raised p-4">
-        <div className="flex flex-col gap-3">
-          <div>
-            <p className="mb-2 text-sm font-medium text-content-primary">
-              {t("sources.add_candidate")}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={chooseGoogleDriveSource}
-                disabled={pickerLoading}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
-              >
-                {pickerLoading ? (
-                  <LoaderCircle className="size-4 animate-spin" />
-                ) : (
-                  <FileText className="size-4" />
-                )}
-                {t("sources.choose_google_drive")}
-              </button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
-                  >
-                    {chatLoading ? (
-                      <LoaderCircle className="size-4 animate-spin" />
-                    ) : (
-                      <MessageSquare className="size-4" />
-                    )}
-                    {t("sources.add_chat_space")}
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-56">
-                  {chatLoading ? (
-                    <DropdownMenuItem disabled>
-                      <LoaderCircle className="size-4 animate-spin" />
-                      {t("sources.chat_space_placeholder")}
-                    </DropdownMenuItem>
-                  ) : (
-                    chatSpaces.map((space) => (
-                      <DropdownMenuItem
-                        key={space.name}
-                        disabled={registeredCandidateIds.has(`chat:${space.name}`)}
-                        onSelect={() => addChatSpace(space)}
-                      >
-                        {space.displayName}
-                      </DropdownMenuItem>
-                    ))
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <button
-                type="button"
-                onClick={() => void openDiscordDialog()}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
-              >
-                <Hash className="size-4" />
-                {t("sources.add_discord_channel")}
-              </button>
-              <button
-                type="button"
-                onClick={addUrlCandidate}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
-              >
-                <Link2 className="size-4" />
-                {t("sources.add_url")}
-              </button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 border-t border-border-subtle pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-            <VisibilitySelect t={t} value={visibility} onValueChange={setVisibility} />
-            {needsChapter ? (
-              <ChapterSelect
-                chapters={assignableChapters}
-                language={i18n.language}
-                t={t}
-                value={chapter}
-                onValueChange={setChapter}
-              />
-            ) : null}
+        <div>
+          <p className="mb-2 text-sm font-medium text-content-primary">
+            {t("sources.add_candidate")}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              disabled={submitting || !canSubmitImport}
-              onClick={() =>
-                batchFetcher.submit(
-                  {
-                    intent: "create-batch",
-                    visibility,
-                    chapter: needsChapter ? chapter : "",
-                    candidates: JSON.stringify(candidates),
-                  },
-                  { method: "post" },
-                )
-              }
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60 sm:min-w-24"
+              onClick={chooseGoogleDriveSource}
+              disabled={pickerLoading}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
             >
-              {submitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
-              {t("sources.add")}
+              {pickerLoading ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <FileText className="size-4" />
+              )}
+              {t("sources.choose_google_drive")}
             </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
+                >
+                  {chatLoading ? (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  ) : (
+                    <MessageSquare className="size-4" />
+                  )}
+                  {t("sources.add_chat_space")}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-56">
+                {chatLoading ? (
+                  <DropdownMenuItem disabled>
+                    <LoaderCircle className="size-4 animate-spin" />
+                    {t("sources.chat_space_placeholder")}
+                  </DropdownMenuItem>
+                ) : (
+                  chatSpaces.map((space) => (
+                    <DropdownMenuItem
+                      key={space.name}
+                      disabled={registeredCandidateIds.has(`chat:${space.name}`)}
+                      onSelect={() => addChatSpace(space)}
+                    >
+                      {space.displayName}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <button
+              type="button"
+              onClick={() => void openDiscordDialog()}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
+            >
+              <Hash className="size-4" />
+              {t("sources.add_discord_channel")}
+            </button>
+            <button
+              type="button"
+              onClick={addUrlCandidate}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
+            >
+              <Link2 className="size-4" />
+              {t("sources.add_url")}
+            </button>
+            <div className="flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto">
+              <VisibilitySelect t={t} value={visibility} onValueChange={setVisibility} />
+              {needsChapter ? (
+                <ChapterSelect
+                  chapters={assignableChapters}
+                  language={i18n.language}
+                  t={t}
+                  value={chapter}
+                  onValueChange={setChapter}
+                />
+              ) : null}
+              <button
+                type="button"
+                disabled={submitting || !canSubmitImport}
+                onClick={() =>
+                  batchFetcher.submit(
+                    {
+                      intent: "create-batch",
+                      visibility,
+                      chapter: needsChapter ? chapter : "",
+                      candidates: JSON.stringify(candidates),
+                    },
+                    { method: "post" },
+                  )
+                }
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60 sm:min-w-24"
+              >
+                {submitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
+                {t("sources.add")}
+              </button>
+            </div>
           </div>
         </div>
         <div>
