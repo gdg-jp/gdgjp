@@ -381,9 +381,10 @@ Update pages/**, index, and log as instructed, commit and git push, then run
 gdg wiki ingest --commit to mark the source complete and refresh the queue.
 Do not edit raw/**. Do not remove raw/ from .gitignore.
 If visibility is not member, wrap derived material in <acl src="<source_id>">…</acl>
-(or lower page visibility) before commit. ACL gate findings (acl_required,
-acl_untagged_read_source) mean tagging is incomplete — fix tags and retry.
-They do not mean you lack permission when you can already read the raw source.
+before commit. Do not reset page visibility to restricted while updating content.
+ACL gate findings (acl_required, acl_untagged_read_source) mean tagging is
+incomplete — fix tags and retry. They do not mean you lack permission when you
+can already read the raw source.
 `, root))
 }
 

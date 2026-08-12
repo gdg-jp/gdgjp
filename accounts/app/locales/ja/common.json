@@ -50,6 +50,9 @@
       "cancelDescription": "リクエストは削除されます。後からもう一度参加をリクエストできます。",
       "cancelConfirm": "リクエストを取り消す"
     },
+    "memberSimple": {
+      "oidcLink": "OIDC クライアントを管理"
+    },
     "noChapter": {
       "title": "チャプター未所属",
       "description": "GDG または GDGoC のチャプターを選んで参加リクエストを送ってください。オーガナイザーが承認します。",
@@ -360,14 +363,52 @@
     "skipped": "スキップ: {{value}}"
   },
   "onboarding": {
-    "title": "チャプターを選ぶ",
-    "subtitle": "所属する GDG または GDGoC チャプターを選んでください。オーガナイザーが承認します。",
+    "title": "チャプターに参加",
+    "subtitle": "所属する GDG または GDGoC チャプターを教えてください。オーガナイザーが承認します。",
+    "skip": "あとで",
+    "back": "戻る",
+    "continue": "続ける",
     "empty": {
       "title": "チャプターがまだありません",
       "description": "現時点で利用可能なチャプターはありません。後ほどお試しください。"
     },
-    "fieldsetLegend": "チャプター",
-    "submit": "参加をリクエスト",
+    "steps": {
+      "kind": "コミュニティ",
+      "chapter": "チャプター",
+      "more": "追加",
+      "done": "完了"
+    },
+    "kind": {
+      "title": "どのコミュニティですか？",
+      "subtitle": "GDG か GDGoC を選ぶと一覧が絞り込めます。",
+      "gdgTitle": "GDG",
+      "gdgDescription": "Google Developer Groups — 都市・地域のコミュニティ。",
+      "gdgocTitle": "GDGoC",
+      "gdgocDescription": "GDG on Campus — 大学の学生コミュニティ。"
+    },
+    "chapter": {
+      "title": "チャプターを探す",
+      "subtitle": "地域を選んでからチャプターをタップしてください。検索は任意です。",
+      "regionLabel": "地域",
+      "searchPlaceholder": "名前で絞り込み（任意）",
+      "searchAria": "チャプターを絞り込み",
+      "noMatches": "この地域にチャプターがありません。",
+      "selected": "選択中: {{name}}"
+    },
+    "more": {
+      "title": "ほかのチャプターにも参加しますか？",
+      "subtitle": "任意です。同じ {{kind}} のチャプターにも参加をリクエストできます。",
+      "primaryLabel": "メインのチャプター",
+      "submit": "参加をリクエスト",
+      "submitWithCount": "{{count}} 件をリクエスト",
+      "submitPending": "リクエスト送信中…"
+    },
+    "done": {
+      "title": "リクエストを送りました",
+      "subtitle": "オーガナイザーが確認します。あとからほかのチャプターも探せます。",
+      "requested": "リクエスト済み",
+      "dashboard": "ダッシュボードへ"
+    },
     "errorTitle": "リクエストできませんでした"
   },
   "admin": {
@@ -381,6 +422,7 @@
       "nameLabel": "名前",
       "namePlaceholder": "GDG Tokyo",
       "kindLabel": "種別",
+      "regionLabel": "地域",
       "submit": "チャプターを作成",
       "submitPending": "作成中…",
       "errorTitle": "保存できませんでした"
@@ -390,6 +432,7 @@
       "name": "名前",
       "slug": "Slug",
       "kind": "種別",
+      "region": "地域",
       "members": "メンバー数",
       "actions": "操作",
       "empty": "チャプターはまだありません。",
@@ -443,6 +486,17 @@
   "kind": {
     "gdg": "GDG",
     "gdgoc": "GDGoC"
+  },
+  "region": {
+    "hokkaido": "北海道",
+    "tohoku": "東北",
+    "kanto": "関東",
+    "chubu": "中部",
+    "kansai": "関西",
+    "chugoku": "中国",
+    "shikoku": "四国",
+    "kyushu": "九州・沖縄",
+    "other": "その他"
   },
   "auth": {
     "signin": {

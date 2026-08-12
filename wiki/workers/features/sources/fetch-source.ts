@@ -63,6 +63,7 @@ export async function fetchSource(env: Env, sourceId: string): Promise<FetchSour
 
   if (
     source.kind !== "google-chat-space" &&
+    source.kind !== "discord-channel" &&
     source.kind !== "google-doc" &&
     source.kind !== "google-sheet" &&
     source.kind !== "google-slides" &&

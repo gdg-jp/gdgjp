@@ -21,6 +21,10 @@ declare global {
     WIKI_DISCORD_SECRET: string;
     FCM_SERVICE_ACCOUNT_JSON: string;
     DISCORD_BOT_TOKEN: string;
+    /** Discord application / OAuth2 client id for /sources guild picker. */
+    DISCORD_CLIENT_ID: string;
+    /** Discord OAuth2 client secret for /sources guild picker. */
+    DISCORD_CLIENT_SECRET: string;
   }
 }
 

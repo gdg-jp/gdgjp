@@ -228,6 +228,8 @@ export interface components {
             slug: string;
             name: string;
             kind: string;
+            /** @enum {string} */
+            region: "hokkaido" | "tohoku" | "kanto" | "chubu" | "kansai" | "chugoku" | "shikoku" | "kyushu" | "other";
         };
         ChapterDirectory: {
             chapters: components["schemas"]["Chapter"][];

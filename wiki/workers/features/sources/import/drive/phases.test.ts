@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { InvalidPdfExportError } from "./pdf";
+import { InvalidPdfExportError, PdfExportHttpError } from "./pdf";
 import {
   DRIVE_PHASES,
   driveMetadataUrl,
   isSkippablePdfExport,
+  sheetPdfRetryDelayMs,
   spreadsheetUnitDescriptors,
 } from "./phases";
 
@@ -62,7 +63,20 @@ it("skips only semantic failures from unofficial Sheet PDF exports", () => {
   const semantic = new InvalidPdfExportError("not a PDF");
   expect(isSkippablePdfExport("sheet-pdf", semantic)).toBe(true);
   expect(isSkippablePdfExport("file-pdf", semantic)).toBe(false);
-  expect(isSkippablePdfExport("sheet-pdf", new Error("Google Drive PDF export failed (503)"))).toBe(
-    false,
-  );
+  expect(
+    isSkippablePdfExport(
+      "sheet-pdf",
+      new PdfExportHttpError(429, "Google Drive PDF export failed (429)"),
+    ),
+  ).toBe(false);
+});
+
+describe("sheetPdfRetryDelayMs", () => {
+  it("honors Retry-After when present and otherwise backs off from 15s", () => {
+    expect(sheetPdfRetryDelayMs(1, 8_000)).toBe(8_000);
+    expect(sheetPdfRetryDelayMs(1)).toBe(15_000);
+    expect(sheetPdfRetryDelayMs(2)).toBe(30_000);
+    expect(sheetPdfRetryDelayMs(4)).toBe(120_000);
+    expect(sheetPdfRetryDelayMs(1, 999_000)).toBe(120_000);
+  });
 });

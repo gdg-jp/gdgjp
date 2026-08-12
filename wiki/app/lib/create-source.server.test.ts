@@ -4,11 +4,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const insertMock = vi.fn();
 const sendMock = vi.fn();
 const updateMock = vi.fn();
+const findExistingMock = vi.fn();
 
 vi.mock("~/lib/db.server", () => ({
   getDb: () => ({
     insert: () => ({ values: insertMock }),
     update: () => ({ set: (values: unknown) => ({ where: () => updateMock(values) }) }),
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          get: findExistingMock,
+        }),
+      }),
+    }),
   }),
 }));
 
@@ -27,6 +35,7 @@ beforeEach(() => {
   insertMock.mockReset().mockResolvedValue(undefined);
   sendMock.mockReset().mockResolvedValue(undefined);
   updateMock.mockReset().mockResolvedValue(undefined);
+  findExistingMock.mockReset().mockResolvedValue(undefined);
 });
 
 describe("createSource", () => {
@@ -140,6 +149,54 @@ describe("createSource", () => {
     expect(result).toMatchObject({ ok: false, error: "invalid_url", status: 400 });
     expect(insertMock).not.toHaveBeenCalled();
     expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Drive file that is already registered", async () => {
+    findExistingMock.mockResolvedValue({ id: "existing-source" });
+
+    const result = await createSource(env(), {
+      url: DOC_URL,
+      visibility: "member",
+      chapter: null,
+      user: MEMBER,
+      chapters: [],
+    });
+
+    expect(result).toMatchObject({ ok: false, error: "duplicate_source", status: 409 });
+    expect(insertMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a website URL that is already registered", async () => {
+    findExistingMock.mockResolvedValue({ id: "existing-website" });
+
+    const result = await createSource(env(), {
+      url: "https://example.com/page",
+      visibility: "member",
+      chapter: null,
+      user: MEMBER,
+      chapters: [],
+    });
+
+    expect(result).toMatchObject({ ok: false, error: "duplicate_source", status: 409 });
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Chat space that is already registered", async () => {
+    findExistingMock.mockResolvedValue({ id: "existing-chat" });
+
+    const result = await createSource(env(), {
+      kind: "google-chat-space",
+      externalId: "spaces/abc",
+      title: "Chat",
+      visibility: "member",
+      chapter: null,
+      user: MEMBER,
+      chapters: [],
+    });
+
+    expect(result).toMatchObject({ ok: false, error: "duplicate_source", status: 409 });
+    expect(insertMock).not.toHaveBeenCalled();
   });
 
   it("marks the row as error when the row is committed but the enqueue fails", async () => {

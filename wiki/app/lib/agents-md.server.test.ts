@@ -21,6 +21,7 @@ describe("initial AGENTS.md", () => {
     expect(INITIAL_AGENTS_MD).toContain("<acl src=");
     expect(INITIAL_AGENTS_MD).toContain("acl_untagged_read_source");
     expect(INITIAL_AGENTS_MD).toContain("tagging is incomplete, not that you lack permission");
+    expect(INITIAL_AGENTS_MD).toContain("Never reset them to the template defaults");
   });
 });
 

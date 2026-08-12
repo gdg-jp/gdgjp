@@ -332,6 +332,7 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 		operation := SyncOperation{Kind: "upsert", Page: &page}
 		if previous, exists := basePages[page.ID]; exists {
 			operation.ExpectedRevision = previous.Revision
+			preserveExistingSharing(&page, previous)
 		}
 		request.Operations = append(request.Operations, operation)
 		entries = append(entries, entry)
@@ -386,6 +387,53 @@ func (h *RemoteHelper) push(ctx context.Context, spec pushSpec) error {
 func newPageID(commit, rel string) string {
 	digest := sha256.Sum256([]byte("gdg-wiki-page-v1\x00" + commit + "\x00" + filepath.ToSlash(rel)))
 	return hex.EncodeToString(digest[:16])
+}
+
+// preserveExistingSharing keeps Wiki-app sharing when local front matter looks
+// like the AGENTS.md create defaults. Agents often rewrite visibility to
+// restricted while updating body content; non-default visibility changes stay.
+func preserveExistingSharing(page *Page, previous Page) {
+	if page == nil || !looksLikeCreateDefaultSharing(*page) {
+		return
+	}
+	if looksLikeCreateDefaultSharing(previous) {
+		return
+	}
+	page.Visibility = previous.Visibility
+	page.GeneralRole = previous.GeneralRole
+	page.ChapterID = previous.ChapterID
+	page.Access = previous.Access
+}
+
+func looksLikeCreateDefaultSharing(page Page) bool {
+	visibility := page.Visibility
+	if visibility == "" {
+		visibility = "restricted"
+	}
+	role := page.GeneralRole
+	if role == "" {
+		role = "viewer"
+	}
+	return visibility == "restricted" && role == "viewer" && page.ChapterID == nil && isEmptyAccess(page.Access)
+}
+
+func isEmptyAccess(access any) bool {
+	if access == nil {
+		return true
+	}
+	switch value := access.(type) {
+	case []any:
+		return len(value) == 0
+	case []map[string]any:
+		return len(value) == 0
+	default:
+		raw, err := json.Marshal(access)
+		if err != nil {
+			return false
+		}
+		trimmed := strings.TrimSpace(string(raw))
+		return trimmed == "" || trimmed == "null" || trimmed == "[]"
+	}
 }
 
 func pageChanged(paths []string, rel string) bool {

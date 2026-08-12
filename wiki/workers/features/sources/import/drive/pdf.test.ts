@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { InvalidPdfExportError, spreadsheetSheetPdfUrl, validatedPdfBody } from "./pdf";
+import {
+  InvalidPdfExportError,
+  PdfExportHttpError,
+  parseRetryAfterMs,
+  spreadsheetSheetPdfUrl,
+  validatedPdfBody,
+} from "./pdf";
 
 const encoder = new TextEncoder();
 
@@ -36,15 +42,25 @@ describe("validatedPdfBody", () => {
   });
 
   it("keeps HTTP failures distinct from skippable semantic validation", async () => {
-    const error = await validatedPdfBody(new Response("busy", { status: 503 })).catch(
-      (caught: unknown) => caught,
-    );
-    expect(error).toBeInstanceOf(Error);
+    const error = await validatedPdfBody(
+      new Response("busy", { status: 503, headers: { "retry-after": "12" } }),
+    ).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(PdfExportHttpError);
     expect(error).not.toBeInstanceOf(InvalidPdfExportError);
-    expect((error as Error).message).toContain("(503)");
+    expect((error as PdfExportHttpError).status).toBe(503);
+    expect((error as PdfExportHttpError).retryAfterMs).toBe(12_000);
+    expect((error as PdfExportHttpError).message).toContain("(503)");
   });
 });
 
+it("parses Retry-After as seconds or HTTP-date", () => {
+  expect(parseRetryAfterMs("7")).toBe(7_000);
+  expect(parseRetryAfterMs(null)).toBeNull();
+  const when = new Date(Date.now() + 5_000).toUTCString();
+  const parsed = parseRetryAfterMs(when);
+  expect(parsed).toBeGreaterThan(0);
+  expect(parsed).toBeLessThanOrEqual(5_000);
+});
 it("constructs a single-sheet export URL", () => {
   const url = new URL(spreadsheetSheetPdfUrl("file/id", "123"));
   expect(url.pathname).toContain("file%2Fid");

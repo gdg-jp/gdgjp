@@ -29,11 +29,17 @@ function extractDriveFileId(url: string): string | null {
 }
 
 const SPACE_NAME_RE = /^spaces\/[A-Za-z0-9_-]+$/;
+const DISCORD_SNOWFLAKE_RE = /^\d{5,32}$/;
 
 /** Build the canonical Chat Space URL stored on the sources row. */
 export function googleChatSpaceUrl(spaceName: string): string {
   const id = spaceName.replace(/^spaces\//, "");
   return `https://mail.google.com/chat/u/0/#chat/space/${id}`;
+}
+
+/** Canonical Discord channel deep link stored on the sources row. */
+export function discordChannelSourceUrl(guildId: string, channelId: string): string {
+  return `https://discord.com/channels/${guildId}/${channelId}`;
 }
 
 /** Normalize and classify a user-supplied URL for Stage 1 source registration. */
@@ -93,6 +99,44 @@ export function classifyGoogleChatSpace(externalId: unknown, title: unknown): Cl
     ok: true,
     kind: "google-chat-space",
     url: googleChatSpaceUrl(externalId),
+    externalId,
+    title: displayTitle,
+  };
+}
+
+/**
+ * Classify a Discord channel from the picker. `externalId` is the channel snowflake;
+ * `url` must be `https://discord.com/channels/{guildId}/{channelId}`.
+ */
+export function classifyDiscordChannel(
+  externalId: unknown,
+  title: unknown,
+  url: unknown,
+): ClassifiedSource {
+  if (typeof externalId !== "string" || !DISCORD_SNOWFLAKE_RE.test(externalId)) {
+    return { ok: false, error: "invalid_channel" };
+  }
+  if (typeof url !== "string") return { ok: false, error: "invalid_url" };
+  let parsed: URL;
+  try {
+    parsed = new URL(url.trim());
+  } catch {
+    return { ok: false, error: "invalid_url" };
+  }
+  const match = parsed.pathname.match(/^\/channels\/(\d+)\/(\d+)\/?$/);
+  if (
+    (parsed.hostname !== "discord.com" && parsed.hostname !== "discordapp.com") ||
+    !match ||
+    match[2] !== externalId
+  ) {
+    return { ok: false, error: "invalid_channel" };
+  }
+  const guildId = match[1];
+  const displayTitle = typeof title === "string" && title.trim() ? title.trim() : `#${externalId}`;
+  return {
+    ok: true,
+    kind: "discord-channel",
+    url: discordChannelSourceUrl(guildId, externalId),
     externalId,
     title: displayTitle,
   };
@@ -343,9 +387,11 @@ export async function createSource(
   const classified =
     input.kind === "google-chat-space"
       ? classifyGoogleChatSpace(input.externalId, input.title)
-      : typeof input.url === "string"
-        ? classifySourceUrl(input.url, input.title)
-        : { ok: false as const, error: "url_required" };
+      : input.kind === "discord-channel"
+        ? classifyDiscordChannel(input.externalId, input.title, input.url)
+        : typeof input.url === "string"
+          ? classifySourceUrl(input.url, input.title)
+          : { ok: false as const, error: "url_required" };
 
   if (!classified.ok) {
     return { ok: false, error: classified.error, status: 400 };
@@ -371,9 +417,27 @@ export async function createSource(
       ? input.refreshPolicy
       : "manual";
 
+  const db = getDb(env);
+  // Drive/Chat identity is external_id; websites have no external id so the
+  // normalized URL is the registration key. Archived rows still count — delete
+  // or unarchive instead of registering a second copy of the same primary material.
+  const duplicate = classified.externalId
+    ? await db
+        .select({ id: schema.sources.id })
+        .from(schema.sources)
+        .where(eq(schema.sources.externalId, classified.externalId))
+        .get()
+    : await db
+        .select({ id: schema.sources.id })
+        .from(schema.sources)
+        .where(eq(schema.sources.url, classified.url))
+        .get();
+  if (duplicate) {
+    return { ok: false, error: "duplicate_source", status: 409 };
+  }
+
   const id = nanoid();
   const title = provisionalTitle(classified);
-  const db = getDb(env);
 
   await db.insert(schema.sources).values({
     id,
@@ -485,6 +549,9 @@ function provisionalTitle(classified: Extract<ClassifiedSource, { ok: true }>): 
   }
   if (classified.kind === "google-chat-space") {
     return `Google Chat ${classified.externalId}`;
+  }
+  if (classified.kind === "discord-channel") {
+    return `Discord #${classified.externalId}`;
   }
   try {
     return new URL(classified.url).hostname;

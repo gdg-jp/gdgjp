@@ -1,11 +1,23 @@
 Chapter:
   type: object
-  required: [id, slug, name, kind]
+  required: [id, slug, name, kind, region]
   properties:
     id: { type: string }
     slug: { type: string, minLength: 1 }
     name: { type: string, minLength: 1 }
     kind: { type: string }
+    region:
+      type: string
+      enum:
+        - hokkaido
+        - tohoku
+        - kanto
+        - chubu
+        - kansai
+        - chugoku
+        - shikoku
+        - kyushu
+        - other
 ChapterDirectory:
   type: object
   required: [chapters]

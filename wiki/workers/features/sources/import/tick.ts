@@ -1,4 +1,5 @@
 import { getGoogleDriveTokenRow } from "../../../../app/lib/google-drive-token.server";
+import { discordImportDriver } from "../discord-import";
 import { chatImportDriver } from "../google-chat-import";
 import { SourceAuthorizationError } from "../retry-classification";
 import type { SubrequestBudget } from "../subrequest-budget";
@@ -44,6 +45,7 @@ export type ImportKindDriver<P extends string = string> = ImportKindDriverBase<P
 
 const drivers = new Map<SourceImportKind, ImportKindDriver>([
   ["google-chat-space", chatImportDriver],
+  ["discord-channel", discordImportDriver],
   ["website", websiteImportDriver],
   ["google-drive", driveImportDriver],
 ]);
@@ -61,6 +63,7 @@ export async function advanceSourceImportTick(ctx: SourceImportTickContext): Pro
   finished: boolean;
   phase: string;
   subrequests: number;
+  continueAfterMs?: number;
 }> {
   if (!ctx.budget.canSpend(CURRENT_RUN_SUBREQUESTS)) {
     return { finished: false, phase: "start", subrequests: ctx.budget.spent };
@@ -111,7 +114,12 @@ export async function advanceSourceImportTick(ctx: SourceImportTickContext): Pro
     if (index < 0) throw new Error(`Unknown ${driver.kind} import phase: ${phase}`);
     const outcome = await driver.step(phase as never, ctx, current);
     if (!outcome.phaseComplete) {
-      return { finished: false, phase, subrequests: ctx.budget.spent };
+      return {
+        finished: false,
+        phase,
+        subrequests: ctx.budget.spent,
+        continueAfterMs: outcome.continueAfterMs,
+      };
     }
     const next = driver.phases[index + 1];
     if (!next) {

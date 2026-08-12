@@ -196,7 +196,7 @@ export default function Navbar({
       )}
 
       {/* Logo */}
-      <Link to="/" className="flex flex-shrink-0 items-center gap-2">
+      <Link to="/" prefetch="intent" className="flex flex-shrink-0 items-center gap-2">
         <img
           src="/app-icon.png"
           alt="GDG Japan Wiki"

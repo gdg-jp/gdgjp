@@ -142,6 +142,7 @@ export function trustedOAuthClientIds(env: Env): string[] {
     env.SCHEDULER_CLIENT_ID,
     env.SNS_CLIENT_ID,
     env.AGENTS_CLIENT_ID,
+    env.PAY_CLIENT_ID,
   ].filter(Boolean);
 }
 

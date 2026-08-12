@@ -4,7 +4,8 @@ import { type ComponentType, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigation } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
-import { TopBar, type TopBarUser } from "~/components/top-bar";
+import { TopBar, type TopBarNavItem, type TopBarUser } from "~/components/top-bar";
+import { isOrganizerPlus } from "~/lib/permissions";
 import { cn } from "~/lib/utils";
 
 type NavItem = {
@@ -175,6 +176,17 @@ function MobileDrawer({
   );
 }
 
+function memberPrimaryNav(
+  memberships: AccountMembership[],
+  t: (key: string) => string,
+): TopBarNavItem[] {
+  const items: TopBarNavItem[] = [{ to: "/chapters", label: t("nav.chapters"), exact: true }];
+  if (memberships.some((membership) => membership.status === "active")) {
+    items.push({ to: "/developers/apps", label: t("nav.developerApps") });
+  }
+  return items;
+}
+
 export function DashboardShell({
   user,
   memberships,
@@ -190,6 +202,9 @@ export function DashboardShell({
   const navigation = useNavigation();
   const [navOpen, setNavOpen] = useState(false);
   const busy = navigation.state !== "idle";
+  const organizerChrome = user ? isOrganizerPlus(user, memberships) : false;
+  const primaryNav = organizerChrome ? undefined : memberPrimaryNav(memberships, t);
+
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       {busy ? (
@@ -203,15 +218,22 @@ export function DashboardShell({
           </div>
         </>
       ) : null}
-      <TopBar user={user} navigationOpen={navOpen} onOpenNavigation={() => setNavOpen(true)} />
-      <MobileDrawer
+      <TopBar
         user={user}
-        memberships={memberships}
-        open={navOpen}
-        onClose={() => setNavOpen(false)}
+        primaryNav={primaryNav}
+        navigationOpen={organizerChrome ? navOpen : undefined}
+        onOpenNavigation={organizerChrome ? () => setNavOpen(true) : undefined}
       />
+      {organizerChrome ? (
+        <MobileDrawer
+          user={user}
+          memberships={memberships}
+          open={navOpen}
+          onClose={() => setNavOpen(false)}
+        />
+      ) : null}
       <div className="flex min-h-0 flex-1">
-        <Sidebar user={user} memberships={memberships} />
+        {organizerChrome ? <Sidebar user={user} memberships={memberships} /> : null}
         <main
           aria-busy={busy || undefined}
           className={cn("min-w-0 flex-1 px-4 py-4 md:px-6 md:py-5", className)}

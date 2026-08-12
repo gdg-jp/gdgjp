@@ -19,6 +19,7 @@ import {
   scrubResidualAclMarkup,
   validateAclSpans,
 } from "~/lib/acl-spans";
+import { mapInChunks } from "~/lib/d1-chunk.server";
 import { isSourceVisibility, sourceVisibilityNeedsChapter } from "~/lib/sources-shared";
 import { canAccessSource } from "~/lib/sources.server";
 
@@ -136,20 +137,19 @@ export async function buildAclSpanPolicy(
   chapters: readonly Membership[],
 ): Promise<(span: AclSpan) => boolean> {
   const uniqueIds = [...new Set(spanSourceIds.filter((id) => id.length > 0))];
-  const rows =
-    uniqueIds.length === 0
-      ? []
-      : await db
-          .select({
-            id: schema.sources.id,
-            addedBy: schema.sources.addedBy,
-            chapterId: schema.sources.chapterId,
-            visibility: schema.sources.visibility,
-            status: schema.sources.status,
-          })
-          .from(schema.sources)
-          .where(inArray(schema.sources.id, uniqueIds))
-          .all();
+  const rows = await mapInChunks(uniqueIds, (chunk) =>
+    db
+      .select({
+        id: schema.sources.id,
+        addedBy: schema.sources.addedBy,
+        chapterId: schema.sources.chapterId,
+        visibility: schema.sources.visibility,
+        status: schema.sources.status,
+      })
+      .from(schema.sources)
+      .where(inArray(schema.sources.id, chunk))
+      .all(),
+  );
 
   const sourceById = new Map(rows.map((row) => [row.id, row]));
 
@@ -165,10 +165,10 @@ export async function buildAclSpanPolicy(
     if (span.srcIds.length === 0) return false;
 
     // Logical AND across sources; missing/deleted src → Admin only (fail closed).
+    // Archived sources keep their visibility — archive is a lifecycle state, not ACL revocation.
     return span.srcIds.every((id) => {
       const source = sourceById.get(id);
-      // Missing or archived sources fail closed for everyone except admins.
-      if (!source || source.status === "archived") {
+      if (!source) {
         return user.isAdmin;
       }
       return canAccessSource(source, user, chapters);
@@ -266,21 +266,24 @@ export async function validatePageAclForSync(
   const uniqueSrcIds = [...new Set(allSrcIds)];
 
   if (uniqueSrcIds.length > 0) {
-    const rows = await db
-      .select({
-        id: schema.sources.id,
-        addedBy: schema.sources.addedBy,
-        chapterId: schema.sources.chapterId,
-        visibility: schema.sources.visibility,
-        status: schema.sources.status,
-      })
-      .from(schema.sources)
-      .where(inArray(schema.sources.id, uniqueSrcIds))
-      .all();
+    const rows = await mapInChunks(uniqueSrcIds, (chunk) =>
+      db
+        .select({
+          id: schema.sources.id,
+          addedBy: schema.sources.addedBy,
+          chapterId: schema.sources.chapterId,
+          visibility: schema.sources.visibility,
+          status: schema.sources.status,
+        })
+        .from(schema.sources)
+        .where(inArray(schema.sources.id, chunk))
+        .all(),
+    );
     const byId = new Map(rows.map((row) => [row.id, row]));
     for (const id of uniqueSrcIds) {
       const source = byId.get(id);
-      if (!source || source.status === "archived") {
+      // Archived sources remain citeable; only truly missing ids are unknown.
+      if (!source) {
         return { ok: false, error: "acl_unknown_source", sourceId: id };
       }
       if (!canAccessSource(source, user, chapters)) {
@@ -294,19 +297,18 @@ export async function validatePageAclForSync(
   const spanIdSet = new Set(uniqueSrcIds);
   if (ctx.citedSourceIds.length > 0) {
     const citedUnique = [...new Set(ctx.citedSourceIds.filter(Boolean))];
-    const citedRows =
-      citedUnique.length === 0
-        ? []
-        : await db
-            .select({
-              id: schema.sources.id,
-              visibility: schema.sources.visibility,
-              chapterId: schema.sources.chapterId,
-              status: schema.sources.status,
-            })
-            .from(schema.sources)
-            .where(inArray(schema.sources.id, citedUnique))
-            .all();
+    const citedRows = await mapInChunks(citedUnique, (chunk) =>
+      db
+        .select({
+          id: schema.sources.id,
+          visibility: schema.sources.visibility,
+          chapterId: schema.sources.chapterId,
+          status: schema.sources.status,
+        })
+        .from(schema.sources)
+        .where(inArray(schema.sources.id, chunk))
+        .all(),
+    );
     const citedById = new Map(citedRows.map((row) => [row.id, row]));
     const pageAudience: PageAudienceSubject = {
       visibility: ctx.pageVisibility,
@@ -316,10 +318,11 @@ export async function validatePageAclForSync(
     for (const id of citedUnique) {
       if (spanIdSet.has(id)) continue;
       const source = citedById.get(id);
-      if (!source || source.status === "archived") {
+      if (!source) {
         // Unknown citation is a separate concern; require a span to be safe.
         return { ok: false, error: "acl_required", sourceId: id };
       }
+      // Archived sources keep visibility — evaluate the invariant the same way.
       const key = sourceAudienceKey(source.visibility, source.chapterId);
       if (!key || !audienceContains(key, pageAudience)) {
         return { ok: false, error: "acl_required", sourceId: id };
@@ -352,16 +355,18 @@ export async function validateReadSourcesTagged(
   const uniqueIds = [...new Set(readSourceIds.filter((id) => id.length > 0))];
   if (uniqueIds.length === 0) return { ok: true };
 
-  const rows = await db
-    .select({
-      id: schema.sources.id,
-      visibility: schema.sources.visibility,
-      chapterId: schema.sources.chapterId,
-      status: schema.sources.status,
-    })
-    .from(schema.sources)
-    .where(inArray(schema.sources.id, uniqueIds))
-    .all();
+  const rows = await mapInChunks(uniqueIds, (chunk) =>
+    db
+      .select({
+        id: schema.sources.id,
+        visibility: schema.sources.visibility,
+        chapterId: schema.sources.chapterId,
+        status: schema.sources.status,
+      })
+      .from(schema.sources)
+      .where(inArray(schema.sources.id, chunk))
+      .all(),
+  );
   const byId = new Map(rows.map((row) => [row.id, row]));
 
   const taggedIds = new Set<string>();
@@ -371,12 +376,13 @@ export async function validateReadSourcesTagged(
 
   for (const id of uniqueIds) {
     const source = byId.get(id);
-    if (source && source.status !== "archived" && source.visibility === "member") {
+    // Archive does not change visibility; member-wide reads still need no tag.
+    if (source && source.visibility === "member") {
       continue;
     }
     if (taggedIds.has(id)) continue;
 
-    if (source && source.status !== "archived" && pages.length > 0) {
+    if (source && pages.length > 0) {
       const key = sourceAudienceKey(source.visibility, source.chapterId);
       if (
         key &&

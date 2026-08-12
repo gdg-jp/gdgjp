@@ -6,6 +6,7 @@ packages:
   - "scheduler"
   - "sns"
   - "connpass"
+  - "pay"
   - "website"
   - "tinyurl-gateway"
   - "agents"

@@ -256,6 +256,81 @@ describe("Wiki CLI sync action", () => {
     expect(batch).not.toHaveBeenCalled();
   });
 
+  it("does not collapse Wiki-app visibility to restricted on content update", async () => {
+    mocks.allResults = [
+      [storedPage({ id: "page-1", visibility: "member", contentJa: "旧本文", contentEn: "Body" })],
+      [],
+      [],
+      // pageAclClearance
+      [],
+      // validatePageAclForSync
+      [],
+    ];
+    const base = page("page-1", "page", null);
+    const upsert = {
+      ...base,
+      ja: locale("新本文"),
+      en: undefined,
+      meta: {
+        ...base.meta,
+        visibility: "restricted" as const,
+        generalRole: "viewer" as const,
+        chapterId: null,
+        access: [],
+      },
+    };
+    const { args, batch } = actionArgs([{ kind: "upsert", page: upsert, expectedRevision: 1 }], {
+      revisions: [{ id: "page-1", revision: 2 }],
+    });
+
+    const response = await action(args);
+
+    expect(response.status).toBe(200);
+    const statements = batch.mock.calls[0]?.[0] as Prepared[];
+    const update = statements.find((statement) => statement.sql.startsWith("UPDATE pages SET"));
+    expect(update?.sql).not.toContain("visibility=?");
+    expect(statements.some((statement) => statement.sql.includes("DELETE FROM page_access"))).toBe(
+      false,
+    );
+  });
+
+  it("applies intentional non-default visibility changes on update", async () => {
+    mocks.allResults = [
+      [
+        storedPage({
+          id: "page-1",
+          visibility: "restricted",
+          contentJa: "旧本文",
+          contentEn: "Body",
+        }),
+      ],
+      [],
+      [],
+      [],
+      [],
+    ];
+    const base = page("page-1", "page", null);
+    const upsert = {
+      ...base,
+      ja: locale("新本文"),
+      en: undefined,
+      meta: {
+        ...base.meta,
+        visibility: "public" as const,
+      },
+    };
+    const { args, batch } = actionArgs([{ kind: "upsert", page: upsert, expectedRevision: 1 }], {
+      revisions: [{ id: "page-1", revision: 2 }],
+    });
+
+    const response = await action(args);
+
+    expect(response.status).toBe(200);
+    const statements = batch.mock.calls[0]?.[0] as Prepared[];
+    const update = statements.find((statement) => statement.sql.includes("visibility=?"));
+    expect(update?.values).toContain("public");
+  });
+
   it("returns sync_failed from the single transaction without scheduling post-commit work", async () => {
     const { args, batch, waits } = actionArgs(
       [{ kind: "upsert", page: page("page-client-id", "page", null) }],
@@ -408,6 +483,29 @@ describe("Wiki CLI sync action", () => {
     const statements = batch.mock.calls[0]?.[0] as Prepared[];
     const update = statements.find((statement) => statement.sql.includes("acl_source_ids=?"));
     expect(update?.values).toContain(JSON.stringify(["en1"]));
+  });
+
+  it("loads more than 100 page ids without exceeding D1's bound-parameter limit", async () => {
+    const operations = Array.from({ length: 101 }, (_, i) => ({
+      kind: "upsert" as const,
+      page: page(`client-${i}`, `page-${i}`, null),
+    }));
+    // Two chunks (100 + 1) for pages, access, and attachments.
+    mocks.allResults = [[], [], [], [], [], []];
+    const { args, batch } = actionArgs(operations, {
+      revisions: operations.map((operation) => ({ id: operation.page.id as string, revision: 1 })),
+    });
+
+    const response = await action(args);
+
+    expect(response.status).toBe(200);
+    expect(batch).toHaveBeenCalledOnce();
+    const statements = batch.mock.calls[0]?.[0] as Prepared[];
+    const revisionSelects = statements.filter((statement) =>
+      statement.sql.includes("sync_revision AS revision"),
+    );
+    expect(revisionSelects).toHaveLength(2);
+    expect(revisionSelects.every((statement) => statement.values.length <= 100)).toBe(true);
   });
 });
 

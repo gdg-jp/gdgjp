@@ -10,12 +10,33 @@ import {
   useLoaderData,
   useRouteError,
 } from "react-router";
-import type { LinksFunction, LoaderFunctionArgs, MetaFunction } from "react-router";
+import type {
+  LinksFunction,
+  LoaderFunctionArgs,
+  MetaFunction,
+  ShouldRevalidateFunction,
+} from "react-router";
 import { type SupportedLng, supportedLngs } from "./i18n";
 import { i18nextServer } from "./i18n.server";
 import { FirebaseConfigContext } from "./lib/firebase-config-context";
 
 import appStylesHref from "./app.css?url";
+
+/**
+ * Locale/theme only change via dedicated cookie APIs. Skip revalidating root
+ * on every in-app GET so leaf navigations aren't blocked by an extra loader.
+ */
+export const shouldRevalidate: ShouldRevalidateFunction = ({
+  formAction,
+  formMethod,
+  defaultShouldRevalidate,
+}) => {
+  if (formMethod && formMethod.toUpperCase() !== "GET") return true;
+  if (formAction === "/api/set-ui-lang" || formAction === "/api/set-content-lang") {
+    return defaultShouldRevalidate;
+  }
+  return false;
+};
 
 export const links: LinksFunction = () => [
   { rel: "icon", href: "/app-icon.png", type: "image/png" },

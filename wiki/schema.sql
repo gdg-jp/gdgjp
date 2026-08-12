@@ -547,6 +547,7 @@ CREATE TABLE IF NOT EXISTS "sources" (
                        'google-sheet',
                        'google-slides',
                        'google-chat-space',
+                       'discord-channel',
                        'website',
                        'upload',
                        'text'
@@ -582,3 +583,12 @@ CREATE INDEX "idx_sources_chapter_id" ON "sources" ("chapter_id");
 CREATE INDEX "idx_sources_added_by" ON "sources" ("added_by");
 CREATE INDEX "idx_sources_refresh_policy" ON "sources" ("refresh_policy", "status");
 CREATE INDEX "idx_sources_visibility" ON "sources" ("visibility", "chapter_id");
+CREATE TABLE IF NOT EXISTS "discord_oauth_tokens" (
+  "user_id"       TEXT NOT NULL PRIMARY KEY REFERENCES "user"("id") ON DELETE CASCADE,
+  "access_token"  TEXT NOT NULL,
+  "refresh_token" TEXT,
+  "expires_at"    INTEGER NOT NULL,
+  "granted_scopes" TEXT,
+  "discord_user_id" TEXT,
+  "updated_at"    INTEGER NOT NULL DEFAULT (unixepoch())
+);

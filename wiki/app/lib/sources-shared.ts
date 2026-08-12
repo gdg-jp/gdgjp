@@ -3,6 +3,7 @@ export type SourceKind =
   | "google-sheet"
   | "google-slides"
   | "google-chat-space"
+  | "discord-channel"
   | "website"
   | "upload"
   | "text";

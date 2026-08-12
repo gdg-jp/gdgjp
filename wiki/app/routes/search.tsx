@@ -1,7 +1,9 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { Suspense } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useLoaderData, useNavigate, useNavigation } from "react-router";
+import { Await, Link, useLoaderData, useNavigate, useNavigation } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
+import { ListSkeleton } from "~/components/Skeleton";
 import TagChip from "~/components/TagChip";
 import * as schema from "~/db/schema";
 import { type RagSearchResult, performRagSearch } from "~/features/ai-search/rag-search.server";
@@ -25,6 +27,10 @@ function sanitizeFtsQuery(raw: string): string {
   return raw.replace(/[*"():^{}~<>|]/g, "").trim();
 }
 
+type AiRagResult = Omit<RagSearchResult, "sources"> & {
+  sources: Array<RagSearchResult["sources"][number] & { wikiPath: string }>;
+};
+
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const q = url.searchParams.get("q")?.trim() ?? "";
@@ -37,7 +43,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
   const visFilter = buildVisibilityFilter(identity.user, identity.chapters);
 
-  const allTags = await db.select().from(schema.tags).orderBy(desc(schema.tags.pageCount)).all();
+  const allTagsPromise = db.select().from(schema.tags).orderBy(desc(schema.tags.pageCount)).all();
 
   type PageTag = {
     pageId: string;
@@ -63,47 +69,47 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       .all();
   }
 
-  // AI search mode
+  // AI search mode — stream RAG so the search shell isn't blocked on Vectorize/Gemini.
   if (mode === "ai" && q) {
-    let ragResult: RagSearchResult | null = null;
-    try {
-      ragResult = await performRagSearch(
-        env,
-        db,
-        q,
-        createAccessContext({
-          userId: identity.user?.id ?? "anonymous",
-          email: identity.user?.email,
-          isAdmin: identity.user?.isAdmin,
-          chapterIds: identity.chapterIds,
-          chapters: identity.chapters,
-          claimsAvailable: identity.claimsAvailable,
-          source: "web",
-        }),
-      );
-    } catch (err) {
-      console.error("search: RAG search failed", err);
-      ragResult = { answer: "", sources: [], ragAvailable: false };
-    }
-    const sourcePaths = await getWikiCanonicalSlugPaths(
-      env,
-      ragResult.sources.map((s) => s.pageId),
-    );
+    const access = createAccessContext({
+      userId: identity.user?.id ?? "anonymous",
+      email: identity.user?.email,
+      isAdmin: identity.user?.isAdmin,
+      chapterIds: identity.chapterIds,
+      chapters: identity.chapters,
+      claimsAvailable: identity.claimsAvailable,
+      source: "web",
+    });
+    const ragResult: Promise<AiRagResult> = performRagSearch(env, db, q, access)
+      .then(async (result) => {
+        const sourcePaths = await getWikiCanonicalSlugPaths(
+          env,
+          result.sources.map((s) => s.pageId),
+        );
+        return {
+          ...result,
+          sources: result.sources.map((s) => ({
+            ...s,
+            wikiPath: wikiPagePath(sourcePaths.get(s.pageId) ?? [s.slug]),
+          })),
+        };
+      })
+      .catch((err) => {
+        console.error("search: RAG search failed", err);
+        return { answer: "", sources: [], ragAvailable: false };
+      });
+
     return {
       q,
       tag,
       mode,
-      allTags,
+      allTags: await allTagsPromise,
       results: [],
-      ragResult: {
-        ...ragResult,
-        sources: ragResult.sources.map((s) => ({
-          ...s,
-          wikiPath: wikiPagePath(sourcePaths.get(s.pageId) ?? [s.slug]),
-        })),
-      },
+      ragResult,
     };
   }
+
+  const allTags = await allTagsPromise;
 
   // Case A: tag only (no text query)
   if (!q && tag) {
@@ -351,17 +357,27 @@ export default function SearchPage() {
 
       {/* AI search results */}
       {mode === "ai" ? (
-        <AiSearchResults
-          q={q}
-          ragResult={ragResult}
-          isNavigating={isNavigating}
-          isJa={isJa}
-          t={t}
-          navigate={navigate}
-        />
+        !q ? (
+          <p className="text-sm text-content-tertiary">{t("search.empty_query")}</p>
+        ) : (
+          <Suspense
+            fallback={
+              <div className="flex items-center gap-2 py-8 text-sm text-content-tertiary">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-border-focus border-t-transparent motion-reduce:animate-none" />
+                {t("search.ai_searching")}
+              </div>
+            }
+          >
+            <Await resolve={ragResult ?? Promise.resolve(null)}>
+              {(resolved) => <AiSearchResults q={q} ragResult={resolved} isJa={isJa} t={t} />}
+            </Await>
+          </Suspense>
+        )
       ) : /* Keyword search results */
       !q && !tag ? (
         <p className="text-sm text-content-tertiary">{t("search.empty_query")}</p>
+      ) : isNavigating ? (
+        <ListSkeleton rows={5} />
       ) : results.length === 0 ? (
         <p className="text-sm text-content-tertiary">
           {tag && !q
@@ -432,33 +448,16 @@ export default function SearchPage() {
 function AiSearchResults({
   q,
   ragResult,
-  isNavigating,
   isJa,
   t,
-  navigate,
 }: {
   q: string;
-  ragResult:
-    | (Omit<RagSearchResult, "sources"> & {
-        sources: Array<RagSearchResult["sources"][number] & { wikiPath: string }>;
-      })
-    | null;
-  isNavigating: boolean;
+  ragResult: AiRagResult | null;
   isJa: boolean;
   t: (key: string, opts?: Record<string, unknown>) => string;
-  navigate: (to: string) => void;
 }) {
   if (!q) {
     return <p className="text-sm text-content-tertiary">{t("search.empty_query")}</p>;
-  }
-
-  if (isNavigating) {
-    return (
-      <div className="flex items-center gap-2 py-8 text-sm text-content-tertiary">
-        <div className="h-4 w-4 animate-spin rounded-full border-2 border-border-focus border-t-transparent motion-reduce:animate-none" />
-        {t("search.ai_searching")}
-      </div>
-    );
   }
 
   if (!ragResult) {

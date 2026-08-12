@@ -19,19 +19,29 @@ import {
   ARCHIVE_MISSING_SUBREQUESTS,
   type CurrentSourceImport,
   PERSIST_REPLACE_SUBREQUESTS,
+  type SourceImportStepOutcome,
   type SourceImportTickContext,
   metaGet,
   metaNumber,
   metaSet,
 } from "../run";
 import type { ImportKindDriver } from "../tick";
-import { InvalidPdfExportError, fetchValidatedPdf, spreadsheetSheetPdfUrl } from "./pdf";
+import {
+  InvalidPdfExportError,
+  PdfExportHttpError,
+  fetchValidatedPdf,
+  spreadsheetSheetPdfUrl,
+} from "./pdf";
 import { sheetRange, sheetValuesToMarkdown } from "./sheets";
 
 const DOC_MIME = "application/vnd.google-apps.document";
 const SHEET_MIME = "application/vnd.google-apps.spreadsheet";
 const SLIDES_MIME = "application/vnd.google-apps.presentation";
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+/** Unofficial per-gid sheet PDF exports are rate-limited; retry before giving up. */
+export const MAX_SHEET_PDF_ATTEMPTS = 5;
+const SHEET_PDF_BACKOFF_BASE_MS = 15_000;
+const SHEET_PDF_BACKOFF_CAP_MS = 120_000;
 
 export const DRIVE_PHASES = [
   "metadata",
@@ -246,6 +256,8 @@ export function spreadsheetUnitDescriptors(
         sortIndex: units.length,
       });
     }
+    // Always attempt a PDF. GRID sheets also keep Markdown from the Values API;
+    // OBJECT sheets (charts) only have the unofficial per-gid PDF export.
     units.push({
       unitKind: "sheet-pdf",
       path: `${name}.pdf`,
@@ -256,6 +268,16 @@ export function spreadsheetUnitDescriptors(
     });
   }
   return units;
+}
+
+export function sheetPdfRetryDelayMs(attempt: number, retryAfterMs: number | null = null): number {
+  if (retryAfterMs != null && retryAfterMs > 0) {
+    return Math.min(SHEET_PDF_BACKOFF_CAP_MS, retryAfterMs);
+  }
+  return Math.min(
+    SHEET_PDF_BACKOFF_CAP_MS,
+    SHEET_PDF_BACKOFF_BASE_MS * 2 ** Math.max(0, attempt - 1),
+  );
 }
 
 async function enumerateSheets(
@@ -377,11 +399,32 @@ async function contentSheetMarkdown(ctx: SourceImportTickContext, current: Curre
   return pendingUnits(ctx.sql, "sheet-md", 1).length === 0;
 }
 
+type ContentPdfResult = { deferredMs?: number };
+
+function skipSheetPdf(
+  ctx: SourceImportTickContext,
+  current: CurrentSourceImport,
+  unit: DriveUnit,
+  error: Error,
+): void {
+  ctx.sql.exec("UPDATE drive_units SET status = 'skipped' WHERE id = ?", unit.id);
+  console.warn(
+    JSON.stringify({
+      component: "sources",
+      integration: "google-drive",
+      event: "pdf_export_skipped",
+      sourceId: current.source.id,
+      path: unit.path,
+      error: error.message,
+    }),
+  );
+}
+
 async function contentPdf(
   ctx: SourceImportTickContext,
   current: CurrentSourceImport,
   unit: DriveUnit,
-): Promise<void> {
+): Promise<ContentPdfResult> {
   const url =
     unit.unit_kind === "sheet-pdf"
       ? spreadsheetSheetPdfUrl(fileId(current), unit.gid || "0")
@@ -390,19 +433,40 @@ async function contentPdf(
   try {
     const body = await fetchValidatedPdf(url, requireToken(ctx));
     await stageBody(ctx, current, unit, body);
+    return {};
   } catch (error) {
-    if (!isSkippablePdfExport(unit.unit_kind, error)) throw error;
-    ctx.sql.exec("UPDATE drive_units SET status = 'skipped' WHERE id = ?", unit.id);
-    console.warn(
-      JSON.stringify({
-        component: "sources",
-        integration: "google-drive",
-        event: "pdf_export_skipped",
-        sourceId: current.source.id,
-        path: unit.path,
-        error: error.message,
-      }),
-    );
+    if (isSkippablePdfExport(unit.unit_kind, error)) {
+      skipSheetPdf(ctx, current, unit, error);
+      return {};
+    }
+    if (
+      unit.unit_kind === "sheet-pdf" &&
+      error instanceof PdfExportHttpError &&
+      (error.status === 429 || error.status === 503)
+    ) {
+      const attemptKey = `sheet_pdf_attempts_${unit.id}`;
+      const attempt = metaNumber(ctx.sql, attemptKey) + 1;
+      metaSet(ctx.sql, attemptKey, String(attempt));
+      if (attempt >= MAX_SHEET_PDF_ATTEMPTS) {
+        skipSheetPdf(ctx, current, unit, error);
+        return {};
+      }
+      const deferredMs = sheetPdfRetryDelayMs(attempt, error.retryAfterMs);
+      console.warn(
+        JSON.stringify({
+          component: "sources",
+          integration: "google-drive",
+          event: "pdf_export_deferred",
+          sourceId: current.source.id,
+          path: unit.path,
+          attempt,
+          deferredMs,
+          error: error.message,
+        }),
+      );
+      return { deferredMs };
+    }
+    throw error;
   }
 }
 
@@ -431,13 +495,20 @@ async function contentSlidesMarkdown(
   await stageBody(ctx, current, unit, markdownBody(await response.text()));
 }
 
-async function stepContent(ctx: SourceImportTickContext, current: CurrentSourceImport) {
+async function stepContent(
+  ctx: SourceImportTickContext,
+  current: CurrentSourceImport,
+): Promise<SourceImportStepOutcome> {
   if (!(await contentSheetMarkdown(ctx, current))) return { phaseComplete: false };
   while (ctx.budget.canSpend(2)) {
     const unit = pendingUnits(ctx.sql, undefined, 1)[0];
     if (!unit) return { phaseComplete: true };
     if (unit.unit_kind === "sheet-pdf" || unit.unit_kind === "file-pdf") {
-      await contentPdf(ctx, current, unit);
+      const result = await contentPdf(ctx, current, unit);
+      if (result.deferredMs != null) {
+        // Stop hammering the unofficial export endpoint; wait before retrying.
+        return { phaseComplete: false, continueAfterMs: result.deferredMs };
+      }
     } else if (unit.unit_kind === "slides-md") {
       await contentSlidesMarkdown(ctx, current, unit);
     } else {

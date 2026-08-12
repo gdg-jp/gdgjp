@@ -453,6 +453,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   if (intent === "syncDescendants") {
     type ChildRow = PageRecord;
+    const includeUnsynced = body.includeUnsynced === true;
     const queue: Array<{ id: string }> = [{ id: page.id }];
     let updatedCount = 0;
     let unsyncedSkippedCount = 0;
@@ -469,7 +470,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
         .bind(parent.id)
         .all()) as { results: ChildRow[] };
       for (const child of children.results) {
-        if (!child.aclSyncedWithParent) {
+        if (!child.aclSyncedWithParent && !includeUnsynced) {
           unsyncedSkippedCount += 1;
           continue;
         }

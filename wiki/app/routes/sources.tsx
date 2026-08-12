@@ -1,5 +1,5 @@
 import { desc, eq, inArray } from "drizzle-orm";
-import { FileText, LoaderCircle, MessageSquare, Trash2 } from "lucide-react";
+import { FileText, Hash, Link2, LoaderCircle, MessageSquare, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher, useLoaderData, useRevalidator, useSearchParams } from "react-router";
@@ -64,7 +64,37 @@ type StagedSource =
       title: string;
       url: string;
       externalId: string;
+    }
+  | {
+      id: string;
+      kind: "discord-channel";
+      title: string;
+      url: string;
+      externalId: string;
+    }
+  | {
+      id: string;
+      kind: "url";
+      title: string;
+      url: string;
     };
+
+function titleFromUrl(raw: string): string {
+  try {
+    return new URL(raw).hostname || raw;
+  } catch {
+    return raw;
+  }
+}
+
+function isHttpUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw.trim());
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 function parseBatchCandidates(raw: FormDataEntryValue | null): StagedSource[] | null {
   if (typeof raw !== "string") return null;
@@ -103,6 +133,23 @@ function parseBatchCandidates(raw: FormDataEntryValue | null): StagedSource[] | 
           title: candidate.title,
           url: candidate.url,
           externalId: candidate.externalId,
+        });
+      } else if (candidate.kind === "discord-channel" && typeof candidate.externalId === "string") {
+        candidates.push({
+          id: candidate.id,
+          kind: "discord-channel",
+          title: candidate.title,
+          url: candidate.url,
+          externalId: candidate.externalId,
+        });
+      } else if (candidate.kind === "url") {
+        const url = candidate.url.trim();
+        if (!isHttpUrl(url)) return null;
+        candidates.push({
+          id: candidate.id,
+          kind: "url",
+          title: candidate.title.trim() || titleFromUrl(url),
+          url,
         });
       } else {
         return null;
@@ -258,7 +305,13 @@ export async function action({ request, context }: ActionFunctionArgs) {
       const result = await createSource(env, {
         ...(candidate.kind === "google-chat-space"
           ? { kind: candidate.kind, externalId: candidate.externalId }
-          : { url: candidate.url }),
+          : candidate.kind === "discord-channel"
+            ? {
+                kind: candidate.kind,
+                externalId: candidate.externalId,
+                url: candidate.url,
+              }
+            : { url: candidate.url }),
         title: candidate.title,
         visibility: form.get("visibility"),
         chapter: form.get("chapter"),
@@ -422,6 +475,29 @@ export default function SourcesPage() {
   const [chatError, setChatError] = useState<string | null>(null);
   const [needsChatReauth, setNeedsChatReauth] = useState(false);
   const [senderDialogOpen, setSenderDialogOpen] = useState(false);
+  const [discordDialogOpen, setDiscordDialogOpen] = useState(false);
+  const [discordGuilds, setDiscordGuilds] = useState<
+    Array<{
+      id: string;
+      name: string;
+      icon: string | null;
+      botInstalled: boolean;
+      inviteUrl: string | null;
+    }>
+  >([]);
+  const [discordGuildsLoading, setDiscordGuildsLoading] = useState(false);
+  const [discordChannelsLoading, setDiscordChannelsLoading] = useState(false);
+  const [discordError, setDiscordError] = useState<string | null>(null);
+  const [needsDiscordConnection, setNeedsDiscordConnection] = useState(false);
+  const [needsDiscordReauth, setNeedsDiscordReauth] = useState(false);
+  const [selectedDiscordGuildId, setSelectedDiscordGuildId] = useState<string | null>(null);
+  const [discordChannels, setDiscordChannels] = useState<
+    Array<{ id: string; name: string; type: number; parentId: string | null }>
+  >([]);
+  const [selectedDiscordChannelIds, setSelectedDiscordChannelIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [discordInviteUrl, setDiscordInviteUrl] = useState<string | null>(null);
   const chatSpacesLoadStarted = useRef(false);
   const [visibility, setVisibility] = useState("");
   const [chapter, setChapter] = useState(
@@ -429,8 +505,11 @@ export default function SourcesPage() {
   );
   const submitting = batchFetcher.state !== "idle";
   const needsChapter = isSourceVisibility(visibility) && sourceVisibilityNeedsChapter(visibility);
+  const urlCandidatesValid = candidates.every(
+    (candidate) => candidate.kind !== "url" || isHttpUrl(candidate.url),
+  );
   const canSubmitImport = Boolean(
-    visibility && (!needsChapter || chapter) && candidates.length > 0,
+    visibility && (!needsChapter || chapter) && candidates.length > 0 && urlCandidatesValid,
   );
 
   const filters = useMemo(() => parseSourceFilters(searchParams), [searchParams]);
@@ -438,6 +517,24 @@ export default function SourcesPage() {
   const hasActiveFilters = Boolean(
     filters.q || filters.kind.length > 0 || filters.status.length > 0,
   );
+  const registeredCandidateIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const source of sources) {
+      if (!source.externalId) continue;
+      if (source.kind === "google-chat-space") {
+        ids.add(`chat:${source.externalId}`);
+      } else if (source.kind === "discord-channel") {
+        ids.add(`discord:${source.externalId}`);
+      } else {
+        ids.add(`drive:${source.externalId}`);
+      }
+    }
+    for (const candidate of candidates) {
+      if (candidate.kind === "discord-channel") ids.add(candidate.id);
+      if (candidate.kind === "google-chat-space") ids.add(candidate.id);
+    }
+    return ids;
+  }, [sources, candidates]);
 
   const pendingCount = useMemo(
     () => sources.filter((s) => s.status === "pending" || s.status === "fetching").length,
@@ -469,17 +566,28 @@ export default function SourcesPage() {
     if (addedIds.size > 0) revalidator.revalidate();
   }, [batchFetcher.data, revalidator]);
 
-  function addCandidates(next: StagedSource[]) {
+  function addCandidates(next: StagedSource[]): boolean {
+    const fresh: StagedSource[] = [];
+    let hadDuplicate = false;
+    for (const candidate of next) {
+      if (registeredCandidateIds.has(candidate.id)) {
+        hadDuplicate = true;
+        continue;
+      }
+      fresh.push(candidate);
+    }
+    if (fresh.length === 0) return hadDuplicate;
     setCandidates((current) => {
       const byId = new Map(current.map((candidate) => [candidate.id, candidate]));
-      for (const candidate of next) byId.set(candidate.id, candidate);
+      for (const candidate of fresh) byId.set(candidate.id, candidate);
       return [...byId.values()];
     });
     setCandidateErrors((current) => {
       const nextErrors = { ...current };
-      for (const candidate of next) delete nextErrors[candidate.id];
+      for (const candidate of fresh) delete nextErrors[candidate.id];
       return nextErrors;
     });
+    return hadDuplicate;
   }
 
   function removeCandidate(id: string) {
@@ -537,8 +645,8 @@ export default function SourcesPage() {
             });
             if (selected.length === 0) {
               setPickerError(t("sources.error_unsupported_document"));
-            } else {
-              addCandidates(selected);
+            } else if (addCandidates(selected)) {
+              setPickerError(t("sources.error_duplicate_source"));
             }
           }
           setPickerLoading(false);
@@ -586,7 +694,126 @@ export default function SourcesPage() {
     window.location.assign("/api/google-drive/auth?returnTo=%2Fsources");
   }
 
+  function connectDiscord() {
+    window.location.assign("/api/discord/auth?returnTo=%2Fsources");
+  }
+
+  async function loadDiscordGuilds() {
+    setDiscordError(null);
+    setNeedsDiscordConnection(false);
+    setNeedsDiscordReauth(false);
+    setDiscordGuildsLoading(true);
+    try {
+      const response = await fetch("/api/discord/guilds", { credentials: "same-origin" });
+      const body = (await response.json().catch(() => null)) as {
+        guilds?: Array<{
+          id: string;
+          name: string;
+          icon: string | null;
+          botInstalled: boolean;
+          inviteUrl: string | null;
+        }>;
+        error?: string;
+        reauthorize?: boolean;
+      } | null;
+      if (response.status === 401) {
+        setNeedsDiscordConnection(true);
+        return;
+      }
+      if (response.status === 403 && body?.reauthorize) {
+        setNeedsDiscordReauth(true);
+        return;
+      }
+      if (!response.ok || !body?.guilds) {
+        throw new Error(body?.error ?? "guilds_list_failed");
+      }
+      setDiscordGuilds(body.guilds);
+    } catch {
+      setDiscordError(t("sources.error_discord_guilds"));
+    } finally {
+      setDiscordGuildsLoading(false);
+    }
+  }
+
+  async function openDiscordDialog() {
+    setDiscordDialogOpen(true);
+    setSelectedDiscordGuildId(null);
+    setDiscordChannels([]);
+    setSelectedDiscordChannelIds(new Set());
+    setDiscordInviteUrl(null);
+    await loadDiscordGuilds();
+  }
+
+  async function selectDiscordGuild(guildId: string) {
+    setSelectedDiscordGuildId(guildId);
+    setDiscordChannels([]);
+    setSelectedDiscordChannelIds(new Set());
+    setDiscordInviteUrl(null);
+    setDiscordError(null);
+    const guild = discordGuilds.find((item) => item.id === guildId);
+    if (guild && !guild.botInstalled) {
+      setDiscordInviteUrl(guild.inviteUrl);
+      return;
+    }
+    setDiscordChannelsLoading(true);
+    try {
+      const response = await fetch(`/api/discord/guilds/${encodeURIComponent(guildId)}/channels`, {
+        credentials: "same-origin",
+      });
+      const body = (await response.json().catch(() => null)) as {
+        channels?: Array<{ id: string; name: string; type: number; parentId: string | null }>;
+        error?: string;
+        inviteUrl?: string;
+      } | null;
+      if (response.status === 409 && body?.error === "bot_missing") {
+        setDiscordInviteUrl(body.inviteUrl ?? null);
+        return;
+      }
+      if (!response.ok || !body?.channels) {
+        throw new Error(body?.error ?? "channels_list_failed");
+      }
+      setDiscordChannels(body.channels);
+    } catch {
+      setDiscordError(t("sources.error_discord_channels"));
+    } finally {
+      setDiscordChannelsLoading(false);
+    }
+  }
+
+  function toggleDiscordChannel(channelId: string) {
+    setSelectedDiscordChannelIds((current) => {
+      const next = new Set(current);
+      if (next.has(channelId)) next.delete(channelId);
+      else next.add(channelId);
+      return next;
+    });
+  }
+
+  function stageSelectedDiscordChannels() {
+    if (!selectedDiscordGuildId) return;
+    const selected = discordChannels.filter((channel) => selectedDiscordChannelIds.has(channel.id));
+    if (selected.length === 0) return;
+    const staged = selected.map((channel) => ({
+      id: `discord:${channel.id}`,
+      kind: "discord-channel" as const,
+      title: `#${channel.name}`,
+      url: `https://discord.com/channels/${selectedDiscordGuildId}/${channel.id}`,
+      externalId: channel.id,
+    }));
+    if (addCandidates(staged)) {
+      setDiscordError(t("sources.error_duplicate_source"));
+    } else {
+      setDiscordError(null);
+    }
+    setDiscordDialogOpen(false);
+  }
+
   function addChatSpace(space: (typeof chatSpaces)[number]) {
+    if (registeredCandidateIds.has(`chat:${space.name}`)) {
+      setChatError(t("sources.error_duplicate_source"));
+      return;
+    }
+    setChatError(null);
     addCandidates([
       {
         id: `chat:${space.name}`,
@@ -596,6 +823,26 @@ export default function SourcesPage() {
         externalId: space.name,
       },
     ]);
+  }
+
+  function addUrlCandidate() {
+    const id = `url:${crypto.randomUUID()}`;
+    setCandidates((current) => [...current, { id, kind: "url", title: "", url: "" }]);
+    setCandidateErrors((current) => {
+      const nextErrors = { ...current };
+      delete nextErrors[id];
+      return nextErrors;
+    });
+  }
+
+  function updateUrlCandidate(id: string, url: string) {
+    setCandidates((current) =>
+      current.map((candidate) =>
+        candidate.id === id && candidate.kind === "url"
+          ? { ...candidate, url, title: url.trim() ? titleFromUrl(url.trim()) : "" }
+          : candidate,
+      ),
+    );
   }
 
   return (
@@ -653,13 +900,33 @@ export default function SourcesPage() {
                   </DropdownMenuItem>
                 ) : (
                   chatSpaces.map((space) => (
-                    <DropdownMenuItem key={space.name} onSelect={() => addChatSpace(space)}>
+                    <DropdownMenuItem
+                      key={space.name}
+                      disabled={registeredCandidateIds.has(`chat:${space.name}`)}
+                      onSelect={() => addChatSpace(space)}
+                    >
                       {space.displayName}
                     </DropdownMenuItem>
                   ))
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+            <button
+              type="button"
+              onClick={() => void openDiscordDialog()}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
+            >
+              <Hash className="size-4" />
+              {t("sources.add_discord_channel")}
+            </button>
+            <button
+              type="button"
+              onClick={addUrlCandidate}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
+            >
+              <Link2 className="size-4" />
+              {t("sources.add_url")}
+            </button>
           </div>
           <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row">
             <VisibilitySelect t={t} value={visibility} onValueChange={setVisibility} />
@@ -700,21 +967,37 @@ export default function SourcesPage() {
                 <li key={candidate.id} className="flex items-start gap-3 px-3 py-2">
                   {candidate.kind === "google-drive" ? (
                     <FileText className="mt-0.5 size-4 shrink-0" />
+                  ) : candidate.kind === "url" ? (
+                    <Link2 className="mt-0.5 size-4 shrink-0" />
+                  ) : candidate.kind === "discord-channel" ? (
+                    <Hash className="mt-0.5 size-4 shrink-0" />
                   ) : (
                     <MessageSquare className="mt-0.5 size-4 shrink-0" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-content-primary">
-                      {candidate.title}
-                    </p>
-                    <a
-                      href={candidate.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block truncate text-xs text-action-primary hover:underline"
-                    >
-                      {candidate.url}
-                    </a>
+                    {candidate.kind === "url" ? (
+                      <input
+                        type="url"
+                        value={candidate.url}
+                        onChange={(event) => updateUrlCandidate(candidate.id, event.target.value)}
+                        placeholder={t("sources.url_placeholder")}
+                        className="w-full rounded-md border border-border-default bg-surface-raised px-2 py-1.5 text-sm text-content-primary placeholder:text-content-tertiary focus:border-border-strong focus:outline-none"
+                      />
+                    ) : (
+                      <>
+                        <p className="truncate text-sm font-medium text-content-primary">
+                          {candidate.title}
+                        </p>
+                        <a
+                          href={candidate.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block truncate text-xs text-action-primary hover:underline"
+                        >
+                          {candidate.url}
+                        </a>
+                      </>
+                    )}
                     {candidateErrors[candidate.id] ? (
                       <p className="mt-1 text-xs text-feedback-danger-foreground">
                         {t(`sources.error_${candidateErrors[candidate.id]}`, {
@@ -727,7 +1010,9 @@ export default function SourcesPage() {
                     type="button"
                     onClick={() => removeCandidate(candidate.id)}
                     className="rounded p-1 text-content-tertiary hover:bg-surface-hover"
-                    aria-label={t("sources.remove_candidate", { title: candidate.title })}
+                    aria-label={t("sources.remove_candidate", {
+                      title: candidate.title || candidate.url || t("sources.add_url"),
+                    })}
                   >
                     <Trash2 className="size-4" />
                   </button>
@@ -744,6 +1029,22 @@ export default function SourcesPage() {
                 className="font-medium text-action-primary hover:text-action-primary-hover"
               >
                 {t("sources.connect_google_drive")}
+              </button>
+            </div>
+          ) : null}
+          {needsDiscordConnection || needsDiscordReauth ? (
+            <div className="mt-3 flex items-center gap-3 rounded-md border border-border-default bg-surface-sunken p-3 text-sm">
+              <span>
+                {needsDiscordReauth
+                  ? t("sources.discord_reauth_hint")
+                  : t("sources.connect_discord_hint")}
+              </span>
+              <button
+                type="button"
+                onClick={connectDiscord}
+                className="font-medium text-action-primary hover:text-action-primary-hover"
+              >
+                {t("sources.connect_discord")}
               </button>
             </div>
           ) : null}
@@ -764,6 +1065,9 @@ export default function SourcesPage() {
           ) : null}
           {chatError ? (
             <p className="mt-2 text-sm text-feedback-danger-foreground">{chatError}</p>
+          ) : null}
+          {discordError && !discordDialogOpen ? (
+            <p className="mt-2 text-sm text-feedback-danger-foreground">{discordError}</p>
           ) : null}
           {batchFetcher.data?.ok &&
           "failed" in batchFetcher.data &&
@@ -806,6 +1110,145 @@ export default function SourcesPage() {
           />
         </>
       )}
+      <Dialog open={discordDialogOpen} onOpenChange={setDiscordDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t("sources.discord_dialog_title")}</DialogTitle>
+            <DialogDescription>{t("sources.discord_dialog_description")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {discordGuildsLoading ? (
+              <div className="flex items-center gap-2 text-sm text-content-secondary">
+                <LoaderCircle className="size-4 animate-spin" />
+                {t("sources.discord_loading_guilds")}
+              </div>
+            ) : needsDiscordConnection || needsDiscordReauth ? (
+              <div className="flex flex-col gap-2 text-sm">
+                <p>
+                  {needsDiscordReauth
+                    ? t("sources.discord_reauth_hint")
+                    : t("sources.connect_discord_hint")}
+                </p>
+                <button
+                  type="button"
+                  onClick={connectDiscord}
+                  className="w-fit font-medium text-action-primary hover:text-action-primary-hover"
+                >
+                  {t("sources.connect_discord")}
+                </button>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <p className="mb-1 text-sm font-medium text-content-secondary">
+                    {t("sources.discord_server_label")}
+                  </p>
+                  <Select
+                    value={selectedDiscordGuildId ?? undefined}
+                    onValueChange={(value) => void selectDiscordGuild(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("sources.discord_server_placeholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {discordGuilds.map((guild) => (
+                        <SelectItem key={guild.id} value={guild.id}>
+                          {guild.name}
+                          {!guild.botInstalled
+                            ? ` (${t("sources.discord_bot_missing_badge")})`
+                            : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {discordInviteUrl ? (
+                  <div className="rounded-md border border-border-default bg-surface-sunken p-3 text-sm">
+                    <p className="mb-2">{t("sources.discord_invite_hint")}</p>
+                    <a
+                      href={discordInviteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-action-primary hover:underline"
+                    >
+                      {t("sources.discord_invite_bot")}
+                    </a>
+                    <button
+                      type="button"
+                      className="ml-3 text-sm text-content-secondary hover:underline"
+                      onClick={() =>
+                        selectedDiscordGuildId
+                          ? void selectDiscordGuild(selectedDiscordGuildId)
+                          : undefined
+                      }
+                    >
+                      {t("sources.discord_refresh_channels")}
+                    </button>
+                  </div>
+                ) : null}
+                {discordChannelsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-content-secondary">
+                    <LoaderCircle className="size-4 animate-spin" />
+                    {t("sources.discord_loading_channels")}
+                  </div>
+                ) : null}
+                {!discordChannelsLoading && discordChannels.length > 0 ? (
+                  <div>
+                    <p className="mb-2 text-sm font-medium text-content-secondary">
+                      {t("sources.discord_channel_label")}
+                    </p>
+                    <ul className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-border-default p-2">
+                      {discordChannels.map((channel) => {
+                        const already =
+                          registeredCandidateIds.has(`discord:${channel.id}`) &&
+                          !selectedDiscordChannelIds.has(channel.id);
+                        const checked = selectedDiscordChannelIds.has(channel.id);
+                        return (
+                          <li key={channel.id}>
+                            <label
+                              className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-surface-hover ${
+                                already ? "opacity-50" : ""
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={already && !checked}
+                                onChange={() => toggleDiscordChannel(channel.id)}
+                              />
+                              <span>#{channel.name}</span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ) : null}
+              </>
+            )}
+            {discordError ? (
+              <p className="text-sm text-feedback-danger-foreground">{discordError}</p>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setDiscordDialogOpen(false)}
+              className="rounded-md border border-border-strong px-3 py-2 text-sm"
+            >
+              {t("cancel")}
+            </button>
+            <button
+              type="button"
+              disabled={selectedDiscordChannelIds.size === 0}
+              onClick={stageSelectedDiscordChannels}
+              className="rounded-md bg-action-primary px-3 py-2 text-sm font-medium text-action-primary-foreground disabled:opacity-60"
+            >
+              {t("sources.stage_discord_channels")}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <ChatSenderDialog
         open={senderDialogOpen}
         onOpenChange={setSenderDialogOpen}

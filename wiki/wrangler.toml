@@ -29,6 +29,14 @@ run_worker_first = ["/ws/*", "/agents/*"]
 pattern = "wiki.gdgs.jp/*"
 zone_name = "gdgs.jp"
 
+# Worker-to-Worker OIDC (discovery / token / userinfo) stays on Cloudflare's
+# internal network. remote=true keeps local `wrangler dev` on the deployed IdP
+# so wiki can run without a local accounts process (e2e forges its own session).
+[[services]]
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+remote = true
+
 [vars]
 ENVIRONMENT = "production"
 BASE_URL = "https://wiki.gdgs.jp"
@@ -180,5 +188,7 @@ crons = ["0 15 * * *", "0 16 * * *"]
 # RESEND_API_KEY          — Resend transactional email API key
 # WIKI_DISCORD_SECRET     — shared secret for Discord bot → wiki API auth
 # FCM_SERVICE_ACCOUNT_JSON — Firebase service account key JSON (for push notifications)
-# DISCORD_BOT_TOKEN       — Discord bot token for sending DM reminders
+# DISCORD_BOT_TOKEN       — Discord bot token (reminders + source channel history)
+# DISCORD_CLIENT_ID       — Discord application id (OAuth guild picker on /sources)
+# DISCORD_CLIENT_SECRET   — Discord OAuth2 client secret for /sources
 # ---------------------------------------------------------------------------

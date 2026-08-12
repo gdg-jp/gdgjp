@@ -302,6 +302,26 @@ describe("independent chapter spans", () => {
       ]),
     ).resolves.toBe(true);
   });
+
+  it("keeps clearance when cited sources are archived", async () => {
+    const user = {
+      id: "u1",
+      email: "t@example.com",
+      name: "T",
+      image: null,
+      isAdmin: false,
+    };
+    const db = mockDb([
+      { ...tokyoSource, status: "archived" },
+      { ...osakaSource, status: "archived" },
+    ]);
+    await expect(
+      pageAclClearance(db, [markdown], user, [
+        { chapterId: "tokyo", role: "member" },
+        { chapterId: "osaka", role: "member" },
+      ]),
+    ).resolves.toBe(true);
+  });
 });
 
 describe("validatePageAclForSync", () => {
@@ -409,6 +429,50 @@ describe("validatePageAclForSync", () => {
     ).resolves.toEqual({ ok: true });
   });
 
+  it("accepts archived span and cited sources without acl_unknown_source", async () => {
+    const archivedOrganizer = { ...organizerSource, status: "archived" };
+    const content = 'visible <acl src="org-src">secret</acl>';
+    await expect(
+      validatePageAclForSync(
+        mockDb([archivedOrganizer]),
+        { ja: { content } },
+        {
+          pageVisibility: "member",
+          pageAccess: [],
+          citedSourceIds: ["org-src"],
+          contentJa: content,
+        },
+        {
+          ...memberUser,
+          isAdmin: true,
+        },
+        [{ chapterId: "tokyo", role: "organizer" }],
+      ),
+    ).resolves.toEqual({ ok: true });
+
+    const archivedMember = {
+      id: "mem-src",
+      addedBy: "owner",
+      chapterId: null,
+      visibility: "member",
+      status: "archived",
+    };
+    await expect(
+      validatePageAclForSync(
+        mockDb([archivedMember]),
+        { ja: { content: "plain body citing archived member source" } },
+        {
+          pageVisibility: "member",
+          pageAccess: [],
+          citedSourceIds: ["mem-src"],
+          contentJa: "plain body citing archived member source",
+        },
+        memberUser,
+        [{ chapterId: "tokyo", role: "member" }],
+      ),
+    ).resolves.toEqual({ ok: true });
+  });
+
   it("unions the stored opposite locale when validating partial-locale content", async () => {
     const contentEn = '<acl src="en1">hidden</acl>';
     const enSource = {
@@ -461,6 +525,16 @@ describe("validateReadSourcesTagged", () => {
     await expect(
       validateReadSourcesTagged(
         mockDb([memberSrc]),
+        [{ slug: "a", visibility: "public", access: [], content: "plain" }],
+        ["mem-src"],
+        memberUser,
+        [],
+      ),
+    ).resolves.toEqual({ ok: true });
+
+    await expect(
+      validateReadSourcesTagged(
+        mockDb([{ ...memberSrc, status: "archived" }]),
         [{ slug: "a", visibility: "public", access: [], content: "plain" }],
         ["mem-src"],
         memberUser,

@@ -9,6 +9,7 @@ import {
 } from "~/lib/acl-spans.server";
 import { getCliIdentity } from "~/lib/cli-identity.server";
 import { canonicalMarkdown } from "~/lib/content-format";
+import { mapInChunks } from "~/lib/d1-chunk.server";
 import { getDb } from "~/lib/db.server";
 
 const Access = z.object({
@@ -68,22 +69,22 @@ export async function action({ request, context }: ActionFunctionArgs) {
     .map((page) => page.id)
     .filter((id): id is string => typeof id === "string" && id.length > 0);
   const storedById = new Map<string, { contentJa: string | null; contentEn: string | null }>();
-  if (pageIds.length > 0) {
-    const rows = await db
+  const rows = await mapInChunks(pageIds, (chunk) =>
+    db
       .select({
         id: schema.pages.id,
         contentJa: schema.pages.contentJa,
         contentEn: schema.pages.contentEn,
       })
       .from(schema.pages)
-      .where(inArray(schema.pages.id, pageIds))
-      .all();
-    for (const row of rows) {
-      storedById.set(row.id, {
-        contentJa: row.contentJa,
-        contentEn: row.contentEn,
-      });
-    }
+      .where(inArray(schema.pages.id, chunk))
+      .all(),
+  );
+  for (const row of rows) {
+    storedById.set(row.id, {
+      contentJa: row.contentJa,
+      contentEn: row.contentEn,
+    });
   }
 
   for (const page of pages) {

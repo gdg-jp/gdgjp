@@ -52,7 +52,7 @@ Keep “fetching,” which requires OAuth tokens, Browser Rendering, and R2, in 
 - Fetching happens in the cloud; integration happens locally.
 - Queries are served by agent.gdgs.jp (Chat SDK, Vercel + Redis), called from Google Chat / Discord.
 - **Query is file exploration, not RAG.** The agent reads `index` first, then lists and reads pages, the way a coding agent navigates a codebase — per `llm-wiki.md`, the index-first path “avoids the need for embedding-based RAG infrastructure,” because Ingest has already done the synthesis. The Wiki agent API is an HTTP surface on the existing bounded, permission-aware `ls`/`cat`/`search` workspace in `wiki/workers/features/ingestion/tools/workspace/`. Vectorize stays with the interactive `/search` UI and is not on the agent path.
-- Only Google Chat history is supported. Discord log ingestion is out of scope (Discord is used only as a Query-side adapter).
+- Google Chat Space history and Discord channel history are both supported as `/sources` kinds (`google-chat-space`, `discord-channel`). Discord remains a Query-side adapter on agent.gdgs.jp as well.
 - agent.gdgs.jp links each Chat user with accounts.gdgs.jp and calls the Wiki API using that person’s token. This structurally prevents restricted pages from leaking into Chat.
 - That link is only as trustworthy as the webhook it arrives on. Google Chat JWT verification (signature **and** audience) and Discord Ed25519 verification are a hard precondition of Stage 5, not a hardening pass — an unverified webhook makes the Chat user ID forgeable and defeats the permission model above.
 

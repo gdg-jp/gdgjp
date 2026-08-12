@@ -7,11 +7,36 @@ export class InvalidPdfExportError extends Error {
   }
 }
 
-function responseStatusError(response: Response, body: string): Error {
+export class PdfExportHttpError extends Error {
+  readonly status: number;
+  readonly retryAfterMs: number | null;
+
+  constructor(status: number, message: string, retryAfterMs: number | null = null) {
+    super(message);
+    this.name = "PdfExportHttpError";
+    this.status = status;
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+export function parseRetryAfterMs(header: string | null): number | null {
+  if (!header) return null;
+  const asSeconds = Number(header);
+  if (Number.isFinite(asSeconds) && asSeconds >= 0) return Math.ceil(asSeconds * 1000);
+  const asDate = Date.parse(header);
+  if (!Number.isFinite(asDate)) return null;
+  return Math.max(0, asDate - Date.now());
+}
+
+function responseStatusError(response: Response, body: string): PdfExportHttpError {
   const redirectedToLogin = response.url.includes("accounts.google.com");
   const suffix = body.trim().slice(0, 500);
   const message = `Google Drive PDF export failed (${response.status})${redirectedToLogin ? ": redirected to Google sign-in" : suffix ? `: ${suffix}` : ""}`;
-  return new Error(message);
+  return new PdfExportHttpError(
+    response.status,
+    message,
+    parseRetryAfterMs(response.headers.get("retry-after")),
+  );
 }
 
 export async function validatedPdfBody(

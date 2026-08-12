@@ -1,0 +1,13 @@
+# Secrets — set as production secrets with `wrangler secret put <NAME>`.
+RP_SESSION_SECRET=""
+IDP_CLIENT_SECRET=""
+TOKEN_ENCRYPTION_KEY=""
+GEMINI_API_KEY=""
+# Full Google service account JSON (one line or escaped). Needs Drive + Sheets scope.
+GOOGLE_SERVICE_ACCOUNT_JSON=""
+RESEND_API_KEY=""
+
+# Override prod URLs from wrangler.toml so dev points at the local accounts IdP.
+APP_URL=http://localhost:5179
+ACCOUNTS_URL=http://localhost:5173
+IDP_URL=http://localhost:5173

@@ -33,4 +33,11 @@ GOOGLE_DOCS_CLIENT_SECRET=
 GOOGLE_PICKER_API_KEY=
 GOOGLE_CLOUD_PROJECT_NUMBER=
 
+# Discord — reminders + /sources channel import. Client id/secret power the
+# user OAuth guild picker; the bot token reads channel history after invite.
+DISCORD_CLIENT_ID=
+DISCORD_CLIENT_SECRET=
+DISCORD_BOT_TOKEN=
+WIKI_DISCORD_SECRET=
+
 ENVIRONMENT=development

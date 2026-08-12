@@ -13,13 +13,14 @@ import {
   Star,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
-import { Link, redirect, useFetcher, useLoaderData, useLocation } from "react-router";
+import { Await, Link, redirect, useFetcher, useLoaderData, useLocation } from "react-router";
 import CommentSection from "~/components/CommentSection";
 import ConfirmDialog from "~/components/ConfirmDialog";
 import ShareDialog from "~/components/ShareDialog";
+import { ListSkeleton } from "~/components/Skeleton";
 import TagChip from "~/components/TagChip";
 import Tooltip from "~/components/Tooltip";
 import type { TocItem } from "~/components/WikiRightSidebar";
@@ -117,6 +118,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     throw new Response("Not Found", { status: 404 });
   }
 
+  const comments = loadPageComments(db, page.id, sessionUser?.id);
+
   const [pageTags, authorRow, editorRow, fav, sources, attachments] = await Promise.all([
     db
       .select({
@@ -171,72 +174,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const langParam = url.searchParams.get("lang");
   const lang: "ja" | "en" = langParam === "ja" || langParam === "en" ? langParam : "ja";
 
-  // Fetch comments + reactions
-  const commentsRaw = await db
-    .select({
-      id: schema.pageComments.id,
-      authorId: schema.pageComments.authorId,
-      authorName: schema.user.name,
-      authorImage: schema.user.image,
-      parentId: schema.pageComments.parentId,
-      contentJson: schema.pageComments.contentJson,
-      deletedAt: schema.pageComments.deletedAt,
-      createdAt: schema.pageComments.createdAt,
-    })
-    .from(schema.pageComments)
-    .innerJoin(schema.user, eq(schema.pageComments.authorId, schema.user.id))
-    .where(eq(schema.pageComments.pageId, page.id))
-    .orderBy(asc(schema.pageComments.createdAt))
-    .all();
-
-  const commentIds = commentsRaw.map((c) => c.id);
-  const reactionsRaw =
-    commentIds.length > 0
-      ? await db
-          .select()
-          .from(schema.commentReactions)
-          .where(inArray(schema.commentReactions.commentId, commentIds))
-          .orderBy(asc(schema.commentReactions.createdAt))
-          .all()
-      : [];
-
-  // Build reaction groups per comment
-  const reactionsByComment = new Map<
-    string,
-    { emoji: string; count: number; reactedByMe: boolean }[]
-  >();
-  for (const r of reactionsRaw) {
-    const list = reactionsByComment.get(r.commentId) ?? [];
-    const existing = list.find((x) => x.emoji === r.emoji);
-    if (existing) {
-      existing.count++;
-      if (r.userId === sessionUser?.id) existing.reactedByMe = true;
-    } else {
-      list.push({ emoji: r.emoji, count: 1, reactedByMe: r.userId === sessionUser?.id });
-    }
-    reactionsByComment.set(r.commentId, list);
-  }
-
-  // Build flat list with reactions, then nest replies under top-level
-  type ReactionGroup = { emoji: string; count: number; reactedByMe: boolean };
-  type FlatComment = (typeof commentsRaw)[number] & {
-    reactions: ReactionGroup[];
-    replies: FlatComment[];
-  };
-  const flatComments: FlatComment[] = commentsRaw.map((c) => ({
-    ...c,
-    reactions: reactionsByComment.get(c.id) ?? [],
-    replies: [],
-  }));
-  const commentMap = new Map<string, FlatComment>(flatComments.map((c) => [c.id, c]));
-  const topLevelComments: FlatComment[] = [];
-  for (const c of flatComments) {
-    if (c.parentId) {
-      commentMap.get(c.parentId)?.replies.push(c);
-    } else {
-      topLevelComments.push(c);
-    }
-  }
+  // comments already started above — streamed via <Await> so the page body isn't blocked.
 
   // Fire-and-forget view tracking
   if (sessionUser) {
@@ -252,21 +190,16 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     );
   }
 
+  const [contentJa, contentEn] = await Promise.all([
+    redactPageMarkdown(db, canonicalMarkdown(page.contentJa), sessionUser, identity.chapters),
+    redactPageMarkdown(db, canonicalMarkdown(page.contentEn), sessionUser, identity.chapters),
+  ]);
+
   return {
     page: {
       ...page,
-      contentJa: await redactPageMarkdown(
-        db,
-        canonicalMarkdown(page.contentJa),
-        sessionUser,
-        identity.chapters,
-      ),
-      contentEn: await redactPageMarkdown(
-        db,
-        canonicalMarkdown(page.contentEn),
-        sessionUser,
-        identity.chapters,
-      ),
+      contentJa,
+      contentEn,
     },
     tags: pageTags,
     author: authorRow ?? null,
@@ -289,8 +222,77 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     isStarred: !!fav,
     sources,
     attachments,
-    comments: topLevelComments,
+    comments,
   };
+}
+
+type WikiDb = ReturnType<typeof getDb>;
+
+async function loadPageComments(db: WikiDb, pageId: string, sessionUserId: string | undefined) {
+  const commentsRaw = await db
+    .select({
+      id: schema.pageComments.id,
+      authorId: schema.pageComments.authorId,
+      authorName: schema.user.name,
+      authorImage: schema.user.image,
+      parentId: schema.pageComments.parentId,
+      contentJson: schema.pageComments.contentJson,
+      deletedAt: schema.pageComments.deletedAt,
+      createdAt: schema.pageComments.createdAt,
+    })
+    .from(schema.pageComments)
+    .innerJoin(schema.user, eq(schema.pageComments.authorId, schema.user.id))
+    .where(eq(schema.pageComments.pageId, pageId))
+    .orderBy(asc(schema.pageComments.createdAt))
+    .all();
+
+  const commentIds = commentsRaw.map((c) => c.id);
+  const reactionsRaw =
+    commentIds.length > 0
+      ? await db
+          .select()
+          .from(schema.commentReactions)
+          .where(inArray(schema.commentReactions.commentId, commentIds))
+          .orderBy(asc(schema.commentReactions.createdAt))
+          .all()
+      : [];
+
+  const reactionsByComment = new Map<
+    string,
+    { emoji: string; count: number; reactedByMe: boolean }[]
+  >();
+  for (const r of reactionsRaw) {
+    const list = reactionsByComment.get(r.commentId) ?? [];
+    const existing = list.find((x) => x.emoji === r.emoji);
+    if (existing) {
+      existing.count++;
+      if (r.userId === sessionUserId) existing.reactedByMe = true;
+    } else {
+      list.push({ emoji: r.emoji, count: 1, reactedByMe: r.userId === sessionUserId });
+    }
+    reactionsByComment.set(r.commentId, list);
+  }
+
+  type ReactionGroup = { emoji: string; count: number; reactedByMe: boolean };
+  type FlatComment = (typeof commentsRaw)[number] & {
+    reactions: ReactionGroup[];
+    replies: FlatComment[];
+  };
+  const flatComments: FlatComment[] = commentsRaw.map((c) => ({
+    ...c,
+    reactions: reactionsByComment.get(c.id) ?? [],
+    replies: [],
+  }));
+  const commentMap = new Map<string, FlatComment>(flatComments.map((c) => [c.id, c]));
+  const topLevelComments: FlatComment[] = [];
+  for (const c of flatComments) {
+    if (c.parentId) {
+      commentMap.get(c.parentId)?.replies.push(c);
+    } else {
+      topLevelComments.push(c);
+    }
+  }
+  return topLevelComments;
 }
 
 // ---------------------------------------------------------------------------
@@ -810,14 +812,20 @@ export default function WikiPage() {
 
       {/* Comments section — full article width below content */}
       <div className="max-w-3xl min-w-0 flex-1 border-t border-border-subtle px-4 py-8 md:px-10">
-        <CommentSection
-          comments={comments}
-          pageId={page.id}
-          pageSlug={page.slug}
-          currentUserId={currentUserId}
-          isAdmin={isAdmin}
-          canComment={canComment}
-        />
+        <Suspense fallback={<ListSkeleton rows={3} />}>
+          <Await resolve={comments}>
+            {(resolvedComments) => (
+              <CommentSection
+                comments={resolvedComments}
+                pageId={page.id}
+                pageSlug={page.slug}
+                currentUserId={currentUserId}
+                isAdmin={isAdmin}
+                canComment={canComment}
+              />
+            )}
+          </Await>
+        </Suspense>
       </div>
 
       <ConfirmDialog
