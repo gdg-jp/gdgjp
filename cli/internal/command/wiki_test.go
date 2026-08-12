@@ -879,6 +879,21 @@ func TestWikiIngestLockUnlock(t *testing.T) {
 		t.Fatalf("output = %q", output)
 	}
 
+	// Document IDs may start with '-'; must not be parsed as flags.
+	dashID := "-fwjBM0c_SfPXk7U1zj5Z"
+	if output, err = executeWiki(t, service, "ingest", "lock", dashID); err != nil {
+		t.Fatalf("lock dashed id: %v", err)
+	}
+	if !strings.Contains(output, "Locked "+dashID) {
+		t.Fatalf("output = %q", output)
+	}
+	if output, err = executeWiki(t, service, "ingest", "unlock", dashID); err != nil {
+		t.Fatalf("unlock dashed id: %v", err)
+	}
+	if !strings.Contains(output, "Unlocked "+dashID) {
+		t.Fatalf("output = %q", output)
+	}
+
 	// Simulate another owner holding the lock.
 	if _, err = wiki.LockDocument(root, "doc-2", "other-host:1", ""); err != nil {
 		t.Fatal(err)

@@ -103,22 +103,31 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 	ingest.AddCommand(&cobra.Command{
 		Use:   "lock DOCUMENT_ID",
 		Short: "Acquire an exclusive ingest lock on a document_id",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ArbitraryArgs,
+		// Document IDs may start with '-' (nanoid-style). Disable cobra flag
+		// parsing so those are not treated as shorthand flags.
+		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return service.ingestLock(cmd, args[0])
+			docID, err := parseIngestDocumentArg("lock", args, false)
+			if err != nil {
+				return err
+			}
+			return service.ingestLock(cmd, docID)
 		},
 	})
-	var unlockForce bool
-	unlock := &cobra.Command{
-		Use:   "unlock DOCUMENT_ID",
-		Short: "Release an ingest lock on a document_id",
-		Args:  cobra.ExactArgs(1),
+	ingest.AddCommand(&cobra.Command{
+		Use:                "unlock DOCUMENT_ID",
+		Short:              "Release an ingest lock on a document_id",
+		Args:               cobra.ArbitraryArgs,
+		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return service.ingestUnlock(cmd, args[0], unlockForce)
+			docID, force, err := parseIngestUnlockArgs(args)
+			if err != nil {
+				return err
+			}
+			return service.ingestUnlock(cmd, docID, force)
 		},
-	}
-	unlock.Flags().BoolVar(&unlockForce, "force", false, "Release even if locked by another owner")
-	ingest.AddCommand(unlock)
+	})
 	command.AddCommand(ingest)
 
 	command.AddCommand(&cobra.Command{
@@ -401,6 +410,61 @@ func (s *wikiService) ingestUnlock(cmd *cobra.Command, documentID string, force 
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Unlocked %s.\n", documentID)
 	return err
+}
+
+// parseIngestDocumentArg extracts a single document_id from raw args after
+// DisableFlagParsing. Leading "--" is ignored; other dashed tokens are errors.
+func parseIngestDocumentArg(command string, args []string, allowForce bool) (string, error) {
+	docID, _, err := parseIngestDocArgs(command, args, allowForce)
+	return docID, err
+}
+
+func parseIngestUnlockArgs(args []string) (docID string, force bool, err error) {
+	return parseIngestDocArgs("unlock", args, true)
+}
+
+func parseIngestDocArgs(command string, args []string, allowForce bool) (docID string, force bool, err error) {
+	var ids []string
+	for _, arg := range args {
+		switch {
+		case arg == "--":
+			continue
+		case arg == "--force":
+			if !allowForce {
+				return "", false, fmt.Errorf("unknown flag: %s", arg)
+			}
+			force = true
+		case arg == "-h", arg == "--help":
+			return "", false, fmt.Errorf("help requested")
+		case strings.HasPrefix(arg, "-") && arg != "-":
+			// Nanoid-style IDs may start with '-'; treat any dashed token that
+			// is not a known flag as the document id when we still need one.
+			if allowForce && (arg == "-f") {
+				force = true
+				continue
+			}
+			if len(ids) == 0 && !isKnownIngestLockFlag(arg) {
+				ids = append(ids, arg)
+				continue
+			}
+			return "", false, fmt.Errorf("unknown flag: %s", arg)
+		default:
+			ids = append(ids, arg)
+		}
+	}
+	if len(ids) != 1 {
+		return "", false, fmt.Errorf("accepts 1 arg(s), received %d", len(ids))
+	}
+	return ids[0], force, nil
+}
+
+func isKnownIngestLockFlag(arg string) bool {
+	switch arg {
+	case "-h", "--help", "--force", "-f":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent string) error {
