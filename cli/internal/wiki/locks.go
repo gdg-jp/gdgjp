@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -28,6 +27,10 @@ type IngestLocksFile struct {
 
 func LocksPath(root string) string {
 	return filepath.Join(ConfigDir(root), LocksFileName)
+}
+
+func locksMutexPath(root string) string {
+	return LocksPath(root) + ".mutex"
 }
 
 // LockOwner returns a stable lock identity.
@@ -125,28 +128,18 @@ func withLocksFile(root string, mutate func(*IngestLocksFile) error) error {
 	if err := os.MkdirAll(ConfigDir(root), 0o755); err != nil {
 		return err
 	}
+	if err := acquireLocksMutex(root); err != nil {
+		return err
+	}
+	defer releaseLocksMutex(root)
+
 	path := LocksPath(root)
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
-		return fmt.Errorf("lock %s: %w", path, err)
-	}
-	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-
-	info, err := f.Stat()
-	if err != nil {
-		return err
-	}
 	file := IngestLocksFile{Locks: map[string]IngestLockEntry{}}
-	if info.Size() > 0 {
-		raw := make([]byte, info.Size())
-		if _, err = f.ReadAt(raw, 0); err != nil {
-			return err
-		}
+	raw, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if len(raw) > 0 {
 		if err = json.Unmarshal(raw, &file); err != nil {
 			return fmt.Errorf("parse %s: %w", path, err)
 		}
@@ -157,17 +150,38 @@ func withLocksFile(root string, mutate func(*IngestLocksFile) error) error {
 	if err = mutate(&file); err != nil {
 		return err
 	}
-	raw, err := json.MarshalIndent(file, "", "  ")
+	raw, err = json.MarshalIndent(file, "", "  ")
 	if err != nil {
 		return err
 	}
 	raw = append(raw, '\n')
-	if err = f.Truncate(0); err != nil {
+	tmp := path + ".tmp"
+	if err = os.WriteFile(tmp, raw, 0o644); err != nil {
 		return err
 	}
-	if _, err = f.Seek(0, 0); err != nil {
-		return err
+	return os.Rename(tmp, path)
+}
+
+// acquireLocksMutex uses mkdir as a portable exclusive lock (works on Unix and
+// Windows; syscall.Flock is unavailable on Windows).
+func acquireLocksMutex(root string) error {
+	mutex := locksMutexPath(root)
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		err := os.Mkdir(mutex, 0o700)
+		if err == nil {
+			return nil
+		}
+		if !os.IsExist(err) {
+			return fmt.Errorf("lock %s: %w", mutex, err)
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("lock %s: timed out waiting for mutex", mutex)
+		}
+		time.Sleep(25 * time.Millisecond)
 	}
-	_, err = f.Write(raw)
-	return err
+}
+
+func releaseLocksMutex(root string) {
+	_ = os.Remove(locksMutexPath(root))
 }
