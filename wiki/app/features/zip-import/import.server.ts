@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import * as schema from "~/db/schema";
 import { generateSlug } from "~/features/ingestion/slug";
 import { getDb } from "~/lib/db.server";
+import { isAutoTranslateEnabled } from "~/lib/queue-processors.server";
 
 export const MAX_ZIP_SIZE = 20 * 1024 * 1024;
 const MAX_ENTRIES = 1_000;
@@ -526,11 +527,13 @@ export async function importZip(
       });
     }
   }
-  for (const page of parsed.pages) {
-    try {
-      await env.TRANSLATION_QUEUE.send({ pageId: ids.get(page.key) as string });
-    } catch {
-      // Imported Japanese content remains usable when translation is temporarily unavailable.
+  if (isAutoTranslateEnabled(env)) {
+    for (const page of parsed.pages) {
+      try {
+        await env.TRANSLATION_QUEUE.send({ pageId: ids.get(page.key) as string });
+      } catch {
+        // Imported Japanese content remains usable when translation is temporarily unavailable.
+      }
     }
   }
   return {

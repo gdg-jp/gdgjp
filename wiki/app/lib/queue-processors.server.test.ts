@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  isAutoTranslateEnabled,
   isGoogleDocumentImportQueueBody,
   isSourceFetchQueueBody,
   isTranslationQueueBody,
 } from "~/lib/queue-processors.server";
+
+describe("isAutoTranslateEnabled", () => {
+  it("is enabled only when AUTO_TRANSLATE is the string true", () => {
+    expect(isAutoTranslateEnabled({ AUTO_TRANSLATE: "true" })).toBe(true);
+    expect(isAutoTranslateEnabled({ AUTO_TRANSLATE: "false" })).toBe(false);
+    expect(isAutoTranslateEnabled({ AUTO_TRANSLATE: "" })).toBe(false);
+  });
+});
 
 describe("queue body guards", () => {
   it("recognizes source_fetch messages", () => {

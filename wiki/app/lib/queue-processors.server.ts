@@ -7,6 +7,11 @@ import { canonicalMarkdown } from "~/lib/content-format";
 
 type Db = ReturnType<typeof drizzle>;
 
+/** Wrangler vars are strings; only the literal `"true"` enables auto-translation. */
+export function isAutoTranslateEnabled(env: { AUTO_TRANSLATE: string }): boolean {
+  return String(env.AUTO_TRANSLATE) === "true";
+}
+
 export function isTranslationQueueBody(body: unknown): body is { pageId: string } {
   return (
     typeof body === "object" &&
@@ -42,6 +47,10 @@ export async function processTranslationMessage(
   db: Db,
   body: { pageId: string },
 ): Promise<void> {
+  if (!isAutoTranslateEnabled(env)) {
+    console.log("[translation] skipped (AUTO_TRANSLATE != true)", body.pageId);
+    return;
+  }
   const page = await db
     .select({
       contentJa: schema.pages.contentJa,
@@ -75,6 +84,10 @@ export async function sendOrRunTranslation(
   context: ExecutionContext,
   pageId: string,
 ): Promise<void> {
+  if (!isAutoTranslateEnabled(env)) {
+    console.log("[translation] enqueue skipped (AUTO_TRANSLATE != true)", pageId);
+    return;
+  }
   // Wrangler's production vars generate `ENVIRONMENT` as a literal type, but
   // local development overrides it through `.dev.vars` at runtime.
   const environment: string = env.ENVIRONMENT;
