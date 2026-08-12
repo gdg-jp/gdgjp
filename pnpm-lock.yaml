@@ -251,9 +251,15 @@ importers:
       isbot:
         specifier: ^5.1.17
         version: 5.1.39
+      lucide-react:
+        specifier: ^1.14.0
+        version: 1.14.0(react@19.2.5)
       nanoid:
         specifier: ^5.0.9
         version: 5.1.16
+      radix-ui:
+        specifier: ^1.4.3
+        version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       react:
         specifier: ^19.0.0
         version: 19.2.5
