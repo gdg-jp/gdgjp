@@ -1,12 +1,12 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
-import { DISCORD_IMPORTABLE_CHANNEL_TYPES, listGuildChannels } from "~/lib/discord-api.server";
+import { groupDiscordChannelsByCategory, listGuildChannels } from "~/lib/discord-api.server";
 import { getDiscordBotInviteUrl, hasRequiredDiscordOauthScopes } from "~/lib/discord-oauth.server";
 import { getDiscordOauthTokenRow } from "~/lib/discord-token.server";
 
 /**
- * List text/announcement channels in a guild via the bot token.
+ * List text/announcement channels in a guild via the bot token, grouped by category.
  * Requires the user to be Discord-connected and the bot to be in the guild.
  */
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
@@ -48,19 +48,12 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 
   try {
     const channels = await listGuildChannels(env.DISCORD_BOT_TOKEN, guildId);
-    const textChannels = channels
-      .filter((channel) => DISCORD_IMPORTABLE_CHANNEL_TYPES.has(channel.type))
-      .map((channel) => ({
-        id: channel.id,
-        name: channel.name,
-        type: channel.type,
-        parentId: channel.parent_id ?? null,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+    const groups = groupDiscordChannelsByCategory(channels);
 
     return Response.json({
       guildId,
-      channels: textChannels,
+      groups,
+      channels: groups.flatMap((group) => group.channels),
     });
   } catch (error) {
     const code = (error as Error & { code?: string }).code;

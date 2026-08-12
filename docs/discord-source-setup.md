@@ -28,9 +28,9 @@ The `/sources` UI builds an invite URL with:
 - Scope: `bot`
 - Permissions: **View Channel** | **Read Message History** (bitfield `66560`)
 
-Server admins can use the **Invite bot** link shown in the Discord dialog on
-`/sources` (always visible after Connect Discord). Selecting a server that does
-not have the bot yet switches that link to a guild-preselected invite.
+Server admins can use the **Invite bot** link in the Discord dialog on `/sources`.
+It appears before a server is selected, and again when the selected server does not
+yet have the bot (then with that guild preselected).
 
 ## 3. Local `.dev.vars`
 

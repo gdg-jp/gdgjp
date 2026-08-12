@@ -419,6 +419,7 @@
     "discord_server_label": "サーバー",
     "discord_server_placeholder": "サーバーを選択",
     "discord_channel_label": "チャネル",
+    "discord_uncategorized": "カテゴリなし",
     "discord_loading_guilds": "サーバー一覧を読み込み中…",
     "discord_loading_channels": "チャネル一覧を読み込み中…",
     "discord_bot_missing_badge": "Bot 未参加",

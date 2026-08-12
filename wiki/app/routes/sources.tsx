@@ -494,6 +494,13 @@ export default function SourcesPage() {
   const [discordChannels, setDiscordChannels] = useState<
     Array<{ id: string; name: string; type: number; parentId: string | null }>
   >([]);
+  const [discordChannelGroups, setDiscordChannelGroups] = useState<
+    Array<{
+      categoryId: string | null;
+      categoryName: string | null;
+      channels: Array<{ id: string; name: string; type: number; parentId: string | null }>;
+    }>
+  >([]);
   const [selectedDiscordChannelIds, setSelectedDiscordChannelIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -742,6 +749,7 @@ export default function SourcesPage() {
     setDiscordDialogOpen(true);
     setSelectedDiscordGuildId(null);
     setDiscordChannels([]);
+    setDiscordChannelGroups([]);
     setSelectedDiscordChannelIds(new Set());
     setDiscordInviteUrl(null);
     await loadDiscordGuilds();
@@ -750,6 +758,7 @@ export default function SourcesPage() {
   async function selectDiscordGuild(guildId: string) {
     setSelectedDiscordGuildId(guildId);
     setDiscordChannels([]);
+    setDiscordChannelGroups([]);
     setSelectedDiscordChannelIds(new Set());
     setDiscordInviteUrl(null);
     setDiscordError(null);
@@ -765,6 +774,11 @@ export default function SourcesPage() {
       });
       const body = (await response.json().catch(() => null)) as {
         channels?: Array<{ id: string; name: string; type: number; parentId: string | null }>;
+        groups?: Array<{
+          categoryId: string | null;
+          categoryName: string | null;
+          channels: Array<{ id: string; name: string; type: number; parentId: string | null }>;
+        }>;
         error?: string;
         inviteUrl?: string;
       } | null;
@@ -775,6 +789,12 @@ export default function SourcesPage() {
       if (!response.ok || !body?.channels) {
         throw new Error(body?.error ?? "channels_list_failed");
       }
+      const groups =
+        body.groups ??
+        (body.channels.length > 0
+          ? [{ categoryId: null, categoryName: null, channels: body.channels }]
+          : []);
+      setDiscordChannelGroups(groups);
       setDiscordChannels(body.channels);
     } catch {
       setDiscordError(t("sources.error_discord_channels"));
@@ -1117,12 +1137,12 @@ export default function SourcesPage() {
         </>
       )}
       <Dialog open={discordDialogOpen} onOpenChange={setDiscordDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-h-[85vh] overflow-y-auto bg-surface-raised sm:max-w-lg">
+          <DialogHeader className="border-b border-border-subtle px-5 py-4">
             <DialogTitle>{t("sources.discord_dialog_title")}</DialogTitle>
             <DialogDescription>{t("sources.discord_dialog_description")}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 px-5 py-4">
             {discordGuildsLoading ? (
               <div className="flex items-center gap-2 text-sm text-content-secondary">
                 <LoaderCircle className="size-4 animate-spin" />
@@ -1153,7 +1173,7 @@ export default function SourcesPage() {
                     value={selectedDiscordGuildId ?? undefined}
                     onValueChange={(value) => void selectDiscordGuild(value)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full bg-surface-raised">
                       <SelectValue placeholder={t("sources.discord_server_placeholder")} />
                     </SelectTrigger>
                     <SelectContent>
@@ -1168,34 +1188,36 @@ export default function SourcesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                {discordInviteUrl || discordBotInviteUrl ? (
-                  <div className="rounded-md border border-border-default bg-surface-sunken p-3 text-sm">
+                {discordInviteUrl || (discordBotInviteUrl && !selectedDiscordGuildId) ? (
+                  <div className="rounded-md border border-border-default bg-surface-sunken p-3 text-sm text-content-secondary">
                     <p className="mb-2">
                       {discordInviteUrl
                         ? t("sources.discord_invite_hint")
                         : t("sources.discord_invite_hint_general")}
                     </p>
-                    <a
-                      href={discordInviteUrl ?? discordBotInviteUrl ?? undefined}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-medium text-action-primary hover:underline"
-                    >
-                      {t("sources.discord_invite_bot")}
-                    </a>
-                    {discordInviteUrl || selectedDiscordGuildId ? (
-                      <button
-                        type="button"
-                        className="ml-3 text-sm text-content-secondary hover:underline"
-                        onClick={() =>
-                          selectedDiscordGuildId
-                            ? void selectDiscordGuild(selectedDiscordGuildId)
-                            : undefined
-                        }
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <a
+                        href={discordInviteUrl ?? discordBotInviteUrl ?? undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium text-action-primary hover:underline"
                       >
-                        {t("sources.discord_refresh_channels")}
-                      </button>
-                    ) : null}
+                        {t("sources.discord_invite_bot")}
+                      </a>
+                      {discordInviteUrl ? (
+                        <button
+                          type="button"
+                          className="text-sm text-content-secondary hover:underline"
+                          onClick={() =>
+                            selectedDiscordGuildId
+                              ? void selectDiscordGuild(selectedDiscordGuildId)
+                              : undefined
+                          }
+                        >
+                          {t("sources.discord_refresh_channels")}
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
                 {discordChannelsLoading ? (
@@ -1204,36 +1226,45 @@ export default function SourcesPage() {
                     {t("sources.discord_loading_channels")}
                   </div>
                 ) : null}
-                {!discordChannelsLoading && discordChannels.length > 0 ? (
+                {!discordChannelsLoading && discordChannelGroups.length > 0 ? (
                   <div>
                     <p className="mb-2 text-sm font-medium text-content-secondary">
                       {t("sources.discord_channel_label")}
                     </p>
-                    <ul className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-border-default p-2">
-                      {discordChannels.map((channel) => {
-                        const already =
-                          registeredCandidateIds.has(`discord:${channel.id}`) &&
-                          !selectedDiscordChannelIds.has(channel.id);
-                        const checked = selectedDiscordChannelIds.has(channel.id);
-                        return (
-                          <li key={channel.id}>
-                            <label
-                              className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-surface-hover ${
-                                already ? "opacity-50" : ""
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                disabled={already && !checked}
-                                onChange={() => toggleDiscordChannel(channel.id)}
-                              />
-                              <span>#{channel.name}</span>
-                            </label>
-                          </li>
-                        );
-                      })}
-                    </ul>
+                    <div className="max-h-72 space-y-3 overflow-y-auto rounded-md border border-border-default p-2">
+                      {discordChannelGroups.map((group) => (
+                        <div key={group.categoryId ?? "__uncategorized"}>
+                          <p className="sticky top-0 bg-surface-raised px-2 py-1 text-xs font-semibold tracking-wide text-content-tertiary uppercase">
+                            {group.categoryName ?? t("sources.discord_uncategorized")}
+                          </p>
+                          <ul className="space-y-0.5">
+                            {group.channels.map((channel) => {
+                              const already =
+                                registeredCandidateIds.has(`discord:${channel.id}`) &&
+                                !selectedDiscordChannelIds.has(channel.id);
+                              const checked = selectedDiscordChannelIds.has(channel.id);
+                              return (
+                                <li key={channel.id}>
+                                  <label
+                                    className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-surface-hover ${
+                                      already ? "opacity-50" : ""
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      disabled={already && !checked}
+                                      onChange={() => toggleDiscordChannel(channel.id)}
+                                    />
+                                    <span>#{channel.name}</span>
+                                  </label>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
               </>
@@ -1242,11 +1273,11 @@ export default function SourcesPage() {
               <p className="text-sm text-feedback-danger-foreground">{discordError}</p>
             ) : null}
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t border-border-subtle px-5 py-4">
             <button
               type="button"
               onClick={() => setDiscordDialogOpen(false)}
-              className="rounded-md border border-border-strong px-3 py-2 text-sm"
+              className="rounded-md border border-border-strong px-4 py-2 text-sm hover:bg-surface-hover"
             >
               {t("cancel")}
             </button>
@@ -1254,7 +1285,7 @@ export default function SourcesPage() {
               type="button"
               disabled={selectedDiscordChannelIds.size === 0}
               onClick={stageSelectedDiscordChannels}
-              className="rounded-md bg-action-primary px-3 py-2 text-sm font-medium text-action-primary-foreground disabled:opacity-60"
+              className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60"
             >
               {t("sources.stage_discord_channels")}
             </button>

@@ -419,6 +419,7 @@
     "discord_server_label": "Server",
     "discord_server_placeholder": "Choose a server",
     "discord_channel_label": "Channels",
+    "discord_uncategorized": "Uncategorized",
     "discord_loading_guilds": "Loading servers…",
     "discord_loading_channels": "Loading channels…",
     "discord_bot_missing_badge": "bot missing",
