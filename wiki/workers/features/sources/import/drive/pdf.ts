@@ -7,11 +7,21 @@ export class InvalidPdfExportError extends Error {
   }
 }
 
-function responseStatusError(response: Response, body: string): Error {
+export class PdfExportHttpError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "PdfExportHttpError";
+    this.status = status;
+  }
+}
+
+function responseStatusError(response: Response, body: string): PdfExportHttpError {
   const redirectedToLogin = response.url.includes("accounts.google.com");
   const suffix = body.trim().slice(0, 500);
   const message = `Google Drive PDF export failed (${response.status})${redirectedToLogin ? ": redirected to Google sign-in" : suffix ? `: ${suffix}` : ""}`;
-  return new Error(message);
+  return new PdfExportHttpError(response.status, message);
 }
 
 export async function validatedPdfBody(

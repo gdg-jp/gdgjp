@@ -25,7 +25,12 @@ import {
   metaSet,
 } from "../run";
 import type { ImportKindDriver } from "../tick";
-import { InvalidPdfExportError, fetchValidatedPdf, spreadsheetSheetPdfUrl } from "./pdf";
+import {
+  InvalidPdfExportError,
+  PdfExportHttpError,
+  fetchValidatedPdf,
+  spreadsheetSheetPdfUrl,
+} from "./pdf";
 import { sheetRange, sheetValuesToMarkdown } from "./sheets";
 
 const DOC_MIME = "application/vnd.google-apps.document";
@@ -236,7 +241,11 @@ export function spreadsheetUnitDescriptors(
     const properties = sheet.properties;
     const title = properties?.title || name;
     const gid = String(properties?.sheetId ?? 0);
-    if (properties?.sheetType === "GRID" || !properties?.sheetType) {
+    const isGrid = !properties?.sheetType || properties.sheetType === "GRID";
+    // GRID sheets are fully represented as Markdown via the Values API. The
+    // unofficial per-gid PDF export is rate-limited aggressively (HTTP 429), so
+    // keep PDF only for non-grid sheets where cell values are unavailable.
+    if (isGrid) {
       units.push({
         unitKind: "sheet-md",
         path: `${name}.md`,
@@ -245,6 +254,7 @@ export function spreadsheetUnitDescriptors(
         mediaType: MARKDOWN_MEDIA_TYPE,
         sortIndex: units.length,
       });
+      continue;
     }
     units.push({
       unitKind: "sheet-pdf",
@@ -406,11 +416,13 @@ async function contentPdf(
   }
 }
 
-export function isSkippablePdfExport(
-  unitKind: DriveUnitKind,
-  error: unknown,
-): error is InvalidPdfExportError {
-  return unitKind === "sheet-pdf" && error instanceof InvalidPdfExportError;
+export function isSkippablePdfExport(unitKind: DriveUnitKind, error: unknown): error is Error {
+  if (unitKind !== "sheet-pdf") return false;
+  if (error instanceof InvalidPdfExportError) return true;
+  // Unofficial sheet PDF export is best-effort. Rate limits / transient CDN
+  // failures should not fail the whole spreadsheet when Markdown (or other
+  // sheets) already captured the useful content.
+  return error instanceof PdfExportHttpError && (error.status === 429 || error.status === 503);
 }
 
 async function contentSlidesMarkdown(

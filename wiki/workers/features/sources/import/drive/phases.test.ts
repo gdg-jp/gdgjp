@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InvalidPdfExportError } from "./pdf";
+import { InvalidPdfExportError, PdfExportHttpError } from "./pdf";
 import {
   DRIVE_PHASES,
   driveMetadataUrl,
@@ -17,7 +17,7 @@ describe("driveMetadataUrl", () => {
 });
 
 describe("spreadsheetUnitDescriptors", () => {
-  it("creates Markdown and PDF units for grids, but only PDF for object sheets", () => {
+  it("creates Markdown for grids and PDF only for object sheets", () => {
     const units = spreadsheetUnitDescriptors({
       sheets: [
         { properties: { sheetId: 10, title: "Data", index: 0, sheetType: "GRID" } },
@@ -26,7 +26,6 @@ describe("spreadsheetUnitDescriptors", () => {
     });
     expect(units.map(({ unitKind, path }) => [unitKind, path])).toEqual([
       ["sheet-md", "Data.md"],
-      ["sheet-pdf", "Data.pdf"],
       ["sheet-pdf", "Chart.pdf"],
     ]);
   });
@@ -38,12 +37,7 @@ describe("spreadsheetUnitDescriptors", () => {
         { properties: { sheetId: 2, title: "v1.2", index: 1, sheetType: "GRID" } },
       ],
     });
-    expect(units.map((unit) => unit.path)).toEqual([
-      "v1.2.md",
-      "v1.2.pdf",
-      "v1.2 (2).md",
-      "v1.2 (2).pdf",
-    ]);
+    expect(units.map((unit) => unit.path)).toEqual(["v1.2.md", "v1.2 (2).md"]);
   });
 });
 
@@ -58,11 +52,32 @@ it("keeps every Drive phase reachable in order", () => {
   ]);
 });
 
-it("skips only semantic failures from unofficial Sheet PDF exports", () => {
+it("skips semantic and rate-limited failures from unofficial Sheet PDF exports", () => {
   const semantic = new InvalidPdfExportError("not a PDF");
   expect(isSkippablePdfExport("sheet-pdf", semantic)).toBe(true);
   expect(isSkippablePdfExport("file-pdf", semantic)).toBe(false);
-  expect(isSkippablePdfExport("sheet-pdf", new Error("Google Drive PDF export failed (503)"))).toBe(
-    false,
-  );
+  expect(
+    isSkippablePdfExport(
+      "sheet-pdf",
+      new PdfExportHttpError(429, "Google Drive PDF export failed (429)"),
+    ),
+  ).toBe(true);
+  expect(
+    isSkippablePdfExport(
+      "sheet-pdf",
+      new PdfExportHttpError(503, "Google Drive PDF export failed (503)"),
+    ),
+  ).toBe(true);
+  expect(
+    isSkippablePdfExport(
+      "sheet-pdf",
+      new PdfExportHttpError(401, "Google Drive PDF export failed (401)"),
+    ),
+  ).toBe(false);
+  expect(
+    isSkippablePdfExport(
+      "file-pdf",
+      new PdfExportHttpError(429, "Google Drive PDF export failed (429)"),
+    ),
+  ).toBe(false);
 });

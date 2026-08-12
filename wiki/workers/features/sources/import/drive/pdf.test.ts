@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { InvalidPdfExportError, spreadsheetSheetPdfUrl, validatedPdfBody } from "./pdf";
+import {
+  InvalidPdfExportError,
+  PdfExportHttpError,
+  spreadsheetSheetPdfUrl,
+  validatedPdfBody,
+} from "./pdf";
 
 const encoder = new TextEncoder();
 
@@ -39,12 +44,12 @@ describe("validatedPdfBody", () => {
     const error = await validatedPdfBody(new Response("busy", { status: 503 })).catch(
       (caught: unknown) => caught,
     );
-    expect(error).toBeInstanceOf(Error);
+    expect(error).toBeInstanceOf(PdfExportHttpError);
     expect(error).not.toBeInstanceOf(InvalidPdfExportError);
-    expect((error as Error).message).toContain("(503)");
+    expect((error as PdfExportHttpError).status).toBe(503);
+    expect((error as PdfExportHttpError).message).toContain("(503)");
   });
 });
-
 it("constructs a single-sheet export URL", () => {
   const url = new URL(spreadsheetSheetPdfUrl("file/id", "123"));
   expect(url.pathname).toContain("file%2Fid");
