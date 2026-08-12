@@ -63,6 +63,28 @@ describe("fetchSource Durable Object dispatch", () => {
     ).toEqual({ kind: "google-chat-space", phase: "listing" });
   });
 
+  it("uses the Discord driver identity and first phase", async () => {
+    sqlite
+      .prepare(
+        `UPDATE sources
+         SET kind = 'discord-channel',
+             external_id = '123',
+             url = 'https://discord.com/channels/1/123'
+         WHERE id = ?`,
+      )
+      .run(SOURCE_ID);
+    await fetchSource(sourceDo(), SOURCE_ID);
+
+    expect(
+      sqlite
+        .prepare("SELECT kind, phase FROM source_import_runs WHERE source_id = ?")
+        .get(SOURCE_ID),
+    ).toEqual({ kind: "discord-channel", phase: "listing" });
+    expect(sqlite.prepare("SELECT status FROM sources WHERE id = ?").get(SOURCE_ID)).toEqual({
+      status: "fetching",
+    });
+  });
+
   it("does not replace a run that already owns the fetching lease", async () => {
     sqlite
       .prepare(
@@ -192,6 +214,27 @@ describe("scheduled source refresh", () => {
       await enqueueDueSourceRefreshes({ SOURCE_FETCH_QUEUE: { send } } as unknown as Env),
     ).toBe(1);
     expect(send).toHaveBeenCalledWith({ type: "source_fetch", sourceId: SOURCE_ID });
+  });
+
+  it("repairs a stale pending refresh that still holds a fetchAttemptId", async () => {
+    sqlite
+      .prepare(
+        `UPDATE sources
+         SET refresh_policy = 'manual',
+             fetch_attempt_id = 'refresh-attempt',
+             updated_at = ?
+         WHERE id = ?`,
+      )
+      .run(Math.floor(Date.now() / 1000) - 60 * 60 - 1, SOURCE_ID);
+    const send = vi.fn().mockResolvedValue(undefined);
+
+    expect(
+      await enqueueDueSourceRefreshes({ SOURCE_FETCH_QUEUE: { send } } as unknown as Env),
+    ).toBe(1);
+    expect(send).toHaveBeenCalledWith({ type: "source_fetch", sourceId: SOURCE_ID });
+    expect(
+      sqlite.prepare("SELECT status, fetch_attempt_id FROM sources WHERE id = ?").get(SOURCE_ID),
+    ).toEqual({ status: "pending", fetch_attempt_id: null });
   });
 
   it("does not enqueue a source archived after candidate selection", async () => {

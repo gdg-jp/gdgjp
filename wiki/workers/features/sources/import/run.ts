@@ -180,7 +180,7 @@ export async function claimSourceImport(
       }),
     ]);
     if (!(await currentRun(env, id))) {
-      await db.delete(schema.sourceImportRuns).where(eq(schema.sourceImportRuns.id, id));
+      await releaseSourceImportClaim(env, request.sourceId, request.fetchAttemptId, id);
       return null;
     }
   } catch (error) {

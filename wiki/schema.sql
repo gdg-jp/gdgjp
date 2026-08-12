@@ -493,7 +493,9 @@ CREATE TABLE IF NOT EXISTS "wiki_agent_instructions" (
 CREATE TABLE IF NOT EXISTS "source_import_runs" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "source_id" TEXT NOT NULL UNIQUE REFERENCES "sources"("id") ON DELETE CASCADE,
-  "kind" TEXT NOT NULL CHECK ("kind" IN ('google-chat-space', 'google-drive', 'website')),
+  "kind" TEXT NOT NULL CHECK (
+    "kind" IN ('google-chat-space', 'google-drive', 'website', 'discord-channel')
+  ),
   "fetch_attempt_id" TEXT NOT NULL,
   "phase" TEXT NOT NULL DEFAULT 'start',
   "since_cursor" TEXT,

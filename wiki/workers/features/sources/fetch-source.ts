@@ -109,10 +109,10 @@ export async function enqueueDueSourceRefreshes(env: Env): Promise<number> {
     const last = source.lastFetchedAt?.getTime() ?? 0;
     const scheduledDue =
       source.refreshPolicy === "daily" ? nowMs - last >= dayMs : nowMs - last >= 7 * dayMs;
+    // Refresh sets a non-null fetchAttemptId before enqueue; create leaves it null.
+    // Either way, a dropped queue message must be re-enqueued after an hour.
     const orphanedPending =
-      source.status === "pending" &&
-      source.fetchAttemptId === null &&
-      nowMs - source.updatedAt.getTime() >= 60 * 60 * 1000;
+      source.status === "pending" && nowMs - source.updatedAt.getTime() >= 60 * 60 * 1000;
     const due =
       orphanedPending ||
       ((source.refreshPolicy === "daily" || source.refreshPolicy === "weekly") && scheduledDue);

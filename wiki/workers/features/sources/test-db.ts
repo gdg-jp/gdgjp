@@ -95,6 +95,18 @@ export function createSourcesTestDb() {
       "utf8",
     ),
   );
+  sqlite.exec(
+    readFileSync(
+      new URL("../../../migrations/0057_discord_channel_source.sql", import.meta.url),
+      "utf8",
+    ),
+  );
+  sqlite.exec(
+    readFileSync(
+      new URL("../../../migrations/0058_discord_source_import_runs.sql", import.meta.url),
+      "utf8",
+    ),
+  );
 
   const execute = async (
     sql: string,
