@@ -7,6 +7,7 @@ import {
   parseWikiHumanDocumentId,
   renderWikiHumanDocument,
 } from "~/lib/cli-wiki-human.server";
+import { rawDownloadContentType } from "~/lib/cli-wiki-raw-content.server";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
 import { canAccessSource } from "~/lib/sources.server";
@@ -151,7 +152,10 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
     const object = await env.BUCKET.get(asset.r2Key);
     if (!object) return Response.json({ error: "not_found" }, { status: 404 });
     return new Response(object.body, {
-      headers: { "content-type": asset.mimeType },
+      headers: {
+        "content-type": rawDownloadContentType(asset.mimeType),
+        "x-wiki-media-type": asset.mimeType,
+      },
     });
   }
 
@@ -178,9 +182,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   if (!object) return Response.json({ error: "not_found" }, { status: 404 });
   return new Response(object.body, {
     headers: {
-      "content-type": document.mediaType.startsWith("text/")
-        ? `${document.mediaType}; charset=utf-8`
-        : document.mediaType,
+      "content-type": rawDownloadContentType(document.mediaType),
+      "x-wiki-media-type": document.mediaType,
     },
   });
 }
