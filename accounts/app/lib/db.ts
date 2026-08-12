@@ -1,4 +1,14 @@
 export type ChapterKind = "gdg" | "gdgoc";
+export type ChapterRegion =
+  | "hokkaido"
+  | "tohoku"
+  | "kanto"
+  | "chubu"
+  | "kansai"
+  | "chugoku"
+  | "shikoku"
+  | "kyushu"
+  | "other";
 export type Role = "organizer" | "member";
 export type MembershipStatus = "pending" | "active";
 
@@ -13,6 +23,7 @@ export type Chapter = {
   slug: string;
   name: string;
   kind: ChapterKind;
+  region: ChapterRegion;
   createdAt: number;
 };
 
@@ -42,6 +53,7 @@ type ChapterRow = {
   slug: string;
   name: string;
   kind: ChapterKind;
+  region: ChapterRegion;
   created_at: number;
 };
 
@@ -59,6 +71,7 @@ type MembershipJoinRow = MembershipRow & {
   c_slug: string;
   c_name: string;
   c_kind: ChapterKind;
+  c_region: ChapterRegion;
   c_created_at: number;
 };
 
@@ -68,6 +81,7 @@ function toChapter(row: ChapterRow): Chapter {
     slug: row.slug,
     name: row.name,
     kind: row.kind,
+    region: row.region,
     createdAt: row.created_at,
   };
 }
@@ -91,6 +105,7 @@ function toMembershipWithChapter(row: MembershipJoinRow): MembershipWithChapter 
       slug: row.c_slug,
       name: row.c_name,
       kind: row.c_kind,
+      region: row.c_region,
       createdAt: row.c_created_at,
     },
   };
@@ -102,12 +117,13 @@ const MEMBERSHIP_JOIN_COLS = `
   c.slug AS c_slug,
   c.name AS c_name,
   c.kind AS c_kind,
+  c.region AS c_region,
   c.created_at AS c_created_at
 `;
 
 export async function listChapters(db: D1Database): Promise<Chapter[]> {
   const { results } = await db
-    .prepare("SELECT id, slug, name, kind, created_at FROM chapters ORDER BY name")
+    .prepare("SELECT id, slug, name, kind, region, created_at FROM chapters ORDER BY name")
     .all<ChapterRow>();
   return results.map(toChapter);
 }
@@ -116,7 +132,7 @@ export async function listChaptersWithCounts(db: D1Database): Promise<ChapterWit
   const { results } = await db
     .prepare(
       `SELECT
-         c.id, c.slug, c.name, c.kind, c.created_at,
+         c.id, c.slug, c.name, c.kind, c.region, c.created_at,
          COALESCE(SUM(CASE WHEN m.status = 'active'  THEN 1 ELSE 0 END), 0) AS active_count,
          COALESCE(SUM(CASE WHEN m.status = 'pending' THEN 1 ELSE 0 END), 0) AS pending_count
        FROM chapters c
@@ -167,7 +183,7 @@ export async function bustChaptersWithCountsCache(): Promise<void> {
 
 export async function getChapterBySlug(db: D1Database, slug: string): Promise<Chapter | null> {
   const row = await db
-    .prepare("SELECT id, slug, name, kind, created_at FROM chapters WHERE slug = ?")
+    .prepare("SELECT id, slug, name, kind, region, created_at FROM chapters WHERE slug = ?")
     .bind(slug)
     .first<ChapterRow>();
   return row ? toChapter(row) : null;
@@ -175,7 +191,7 @@ export async function getChapterBySlug(db: D1Database, slug: string): Promise<Ch
 
 export async function getChapterById(db: D1Database, id: number): Promise<Chapter | null> {
   const row = await db
-    .prepare("SELECT id, slug, name, kind, created_at FROM chapters WHERE id = ?")
+    .prepare("SELECT id, slug, name, kind, region, created_at FROM chapters WHERE id = ?")
     .bind(id)
     .first<ChapterRow>();
   return row ? toChapter(row) : null;
@@ -183,11 +199,11 @@ export async function getChapterById(db: D1Database, id: number): Promise<Chapte
 
 export async function createChapter(
   db: D1Database,
-  input: { slug: string; name: string; kind: ChapterKind },
+  input: { slug: string; name: string; kind: ChapterKind; region: ChapterRegion },
 ): Promise<void> {
   await db
-    .prepare("INSERT INTO chapters (slug, name, kind) VALUES (?, ?, ?)")
-    .bind(input.slug, input.name, input.kind)
+    .prepare("INSERT INTO chapters (slug, name, kind, region) VALUES (?, ?, ?, ?)")
+    .bind(input.slug, input.name, input.kind, input.region)
     .run();
 }
 
@@ -517,7 +533,8 @@ export async function listAllPendingRequests(db: D1Database): Promise<PendingReq
     .prepare(
       `SELECT
          m.user_id, m.chapter_id, m.role, m.status, m.created_at, m.approved_at,
-         c.id AS c_id, c.slug AS c_slug, c.name AS c_name, c.kind AS c_kind, c.created_at AS c_created_at,
+         c.id AS c_id, c.slug AS c_slug, c.name AS c_name, c.kind AS c_kind,
+         c.region AS c_region, c.created_at AS c_created_at,
          u.id AS u_id, u.email AS u_email, u.name AS u_name
        FROM memberships m
        JOIN chapters c ON c.id = m.chapter_id
@@ -533,6 +550,7 @@ export async function listAllPendingRequests(db: D1Database): Promise<PendingReq
       slug: row.c_slug,
       name: row.c_name,
       kind: row.c_kind,
+      region: row.c_region,
       createdAt: row.c_created_at,
     },
     user: { id: row.u_id, email: row.u_email, name: row.u_name },

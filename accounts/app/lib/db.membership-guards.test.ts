@@ -13,6 +13,7 @@ const membershipRow = {
   c_slug: "gdg-test",
   c_name: "GDG Test",
   c_kind: "gdg",
+  c_region: "kanto",
   c_created_at: 1,
 };
 

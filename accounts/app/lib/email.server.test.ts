@@ -7,6 +7,7 @@ const chapter: Chapter = {
   slug: "gdg-tokyo",
   name: "GDG Tokyo",
   kind: "gdg",
+  region: "kanto",
   createdAt: 0,
 };
 

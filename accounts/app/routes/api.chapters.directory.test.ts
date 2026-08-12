@@ -6,8 +6,8 @@ vi.mock("~/lib/db", () => ({ listChapters }));
 describe("GET /api/chapters/directory", () => {
   beforeEach(() => {
     listChapters.mockResolvedValue([
-      { id: 2, slug: "tokyo", name: "GDG Tokyo", kind: "gdg", createdAt: 1 },
-      { id: 1, slug: "kyoto", name: "GDGoC Kyoto", kind: "gdgoc", createdAt: 1 },
+      { id: 2, slug: "tokyo", name: "GDG Tokyo", kind: "gdg", region: "kanto", createdAt: 1 },
+      { id: 1, slug: "kyoto", name: "GDGoC Kyoto", kind: "gdgoc", region: "kansai", createdAt: 1 },
     ]);
   });
 
@@ -21,8 +21,8 @@ describe("GET /api/chapters/directory", () => {
     expect(response.headers.get("Cache-Control")).toBe("public, max-age=60, s-maxage=300");
     await expect(response.json()).resolves.toEqual({
       chapters: [
-        { id: "2", slug: "tokyo", name: "GDG Tokyo", kind: "gdg" },
-        { id: "1", slug: "kyoto", name: "GDGoC Kyoto", kind: "gdgoc" },
+        { id: "2", slug: "tokyo", name: "GDG Tokyo", kind: "gdg", region: "kanto" },
+        { id: "1", slug: "kyoto", name: "GDGoC Kyoto", kind: "gdgoc", region: "kansai" },
       ],
     });
   });
@@ -34,7 +34,7 @@ describe("GET /api/chapters/directory", () => {
       request: new Request("https://accounts.example/api/chapters/directory?q=KYOTO"),
     } as never);
     await expect(response.json()).resolves.toEqual({
-      chapters: [{ id: "1", slug: "kyoto", name: "GDGoC Kyoto", kind: "gdgoc" }],
+      chapters: [{ id: "1", slug: "kyoto", name: "GDGoC Kyoto", kind: "gdgoc", region: "kansai" }],
     });
   });
 });

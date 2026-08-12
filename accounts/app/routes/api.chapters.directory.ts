@@ -20,7 +20,13 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
     : all;
 
   const body: ChapterDirectory = {
-    chapters: chapters.map(({ id, slug, name, kind }) => ({ id: String(id), slug, name, kind })),
+    chapters: chapters.map(({ id, slug, name, kind, region }) => ({
+      id: String(id),
+      slug,
+      name,
+      kind,
+      region,
+    })),
   };
   return Response.json(body, { headers: { "Cache-Control": "public, max-age=60, s-maxage=300" } });
 }

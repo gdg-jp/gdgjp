@@ -7,7 +7,18 @@ CREATE TABLE chapters (
   name        TEXT NOT NULL,
   kind        TEXT NOT NULL CHECK (kind IN ('gdg', 'gdgoc')),
   created_at  INTEGER NOT NULL DEFAULT (unixepoch())
-);
+, region TEXT NOT NULL DEFAULT 'other'
+  CHECK (region IN (
+    'hokkaido',
+    'tohoku',
+    'kanto',
+    'chubu',
+    'kansai',
+    'chugoku',
+    'shikoku',
+    'kyushu',
+    'other'
+  )));
 CREATE TABLE IF NOT EXISTS "user" (
   "id"            TEXT NOT NULL PRIMARY KEY,
   "name"          TEXT NOT NULL,

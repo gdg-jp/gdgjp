@@ -48,6 +48,7 @@ import {
 } from "~/components/ui/table";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { requireUser } from "~/lib/auth.server";
+import { CHAPTER_REGIONS, isChapterRegion } from "~/lib/chapter-regions";
 import {
   type ChapterKind,
   bustChaptersWithCountsCache,
@@ -112,14 +113,15 @@ export async function action(args: Route.ActionArgs) {
     const slug = String(form.get("slug") ?? "").trim();
     const name = String(form.get("name") ?? "").trim();
     const kind = String(form.get("kind") ?? "") as ChapterKind;
-    if (!slug || !name || (kind !== "gdg" && kind !== "gdgoc")) {
+    const regionRaw = String(form.get("region") ?? "").trim();
+    if (!slug || !name || (kind !== "gdg" && kind !== "gdgoc") || !isChapterRegion(regionRaw)) {
       return { error: t("errors.fieldsRequired") };
     }
     if (!/^[a-z0-9-]+$/.test(slug)) {
       return { error: t("errors.slugFormat") };
     }
     try {
-      await createChapter(env.DB, { slug, name, kind });
+      await createChapter(env.DB, { slug, name, kind, region: regionRaw });
     } catch {
       return { error: t("errors.createChapterFailed") };
     }
@@ -197,6 +199,9 @@ function ChapterRow({ chapter, index }: { chapter: ChapterRowData; index: number
           {chapter.kind === "gdg" ? t("kind.gdg") : t("kind.gdgoc")}
         </span>
       </TableCell>
+      <TableCell className="text-xs text-muted-foreground">
+        {t(`region.${chapter.region}`)}
+      </TableCell>
       <TableCell className="text-right tabular-nums">
         {chapter.activeCount}
         {chapter.pendingCount > 0 ? (
@@ -271,6 +276,21 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="region">{t("admin.create.regionLabel")}</Label>
+                  <Select name="region" defaultValue="kanto">
+                    <SelectTrigger id="region" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CHAPTER_REGIONS.map((region) => (
+                        <SelectItem key={region} value={region}>
+                          {t(`region.${region}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 {actionData?.error ? (
                   <div>
                     <Alert variant="destructive">
@@ -317,6 +337,7 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
                         {chapter.kind === "gdg" ? t("kind.gdg") : t("kind.gdgoc")}
                       </span>
                     </div>
+                    <p className="text-xs text-muted-foreground">{t(`region.${chapter.region}`)}</p>
                     <p className="text-sm text-muted-foreground">
                       {t("admin.list.memberSummary", {
                         active: chapter.activeCount,
@@ -334,6 +355,7 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
                       <TableHead>{t("admin.list.name")}</TableHead>
                       <TableHead>{t("admin.list.slug")}</TableHead>
                       <TableHead>{t("admin.list.kind")}</TableHead>
+                      <TableHead>{t("admin.list.region")}</TableHead>
                       <TableHead className="text-right">{t("admin.list.members")}</TableHead>
                       <TableHead className="text-right">{t("admin.list.actions")}</TableHead>
                     </TableRow>

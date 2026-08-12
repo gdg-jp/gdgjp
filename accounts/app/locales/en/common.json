@@ -361,14 +361,52 @@
     "skipped": "Skipped: {{value}}"
   },
   "onboarding": {
-    "title": "Choose your chapter",
-    "subtitle": "Pick the GDG or GDGoC chapter you belong to. An organizer will approve your request.",
+    "title": "Join your chapter",
+    "subtitle": "Tell us which GDG or GDGoC chapter you belong to. An organizer will approve your request.",
+    "skip": "Skip for now",
+    "back": "Back",
+    "continue": "Continue",
     "empty": {
       "title": "No chapters yet",
       "description": "No chapters are available yet. Please check back later."
     },
-    "fieldsetLegend": "Chapter",
-    "submit": "Request membership",
+    "steps": {
+      "kind": "Community",
+      "chapter": "Chapter",
+      "more": "More",
+      "done": "Done"
+    },
+    "kind": {
+      "title": "Which community are you part of?",
+      "subtitle": "Choose GDG or GDGoC to narrow the list.",
+      "gdgTitle": "GDG",
+      "gdgDescription": "Google Developer Groups — city and regional communities.",
+      "gdgocTitle": "GDGoC",
+      "gdgocDescription": "GDG on Campus — university student communities."
+    },
+    "chapter": {
+      "title": "Find your chapter",
+      "subtitle": "Pick a region, then tap your chapter. Search is optional.",
+      "regionLabel": "Region",
+      "searchPlaceholder": "Filter by name (optional)",
+      "searchAria": "Filter chapters",
+      "noMatches": "No chapters in this region.",
+      "selected": "Selected: {{name}}"
+    },
+    "more": {
+      "title": "Join any other chapters?",
+      "subtitle": "Optional — request membership in additional {{kind}} chapters.",
+      "primaryLabel": "Your main chapter",
+      "submit": "Request membership",
+      "submitWithCount": "Request {{count}} chapters",
+      "submitPending": "Sending requests…"
+    },
+    "done": {
+      "title": "Request sent",
+      "subtitle": "Organizers will review your request. You can browse more chapters anytime.",
+      "requested": "Requested",
+      "dashboard": "Go to dashboard"
+    },
     "errorTitle": "Couldn't request membership"
   },
   "admin": {
@@ -382,6 +420,7 @@
       "nameLabel": "Name",
       "namePlaceholder": "GDG Tokyo",
       "kindLabel": "Kind",
+      "regionLabel": "Region",
       "submit": "Create chapter",
       "submitPending": "Creating…",
       "errorTitle": "Couldn't save"
@@ -391,6 +430,7 @@
       "name": "Name",
       "slug": "Slug",
       "kind": "Kind",
+      "region": "Region",
       "members": "Members",
       "actions": "Actions",
       "empty": "No chapters yet.",
@@ -444,6 +484,17 @@
   "kind": {
     "gdg": "GDG",
     "gdgoc": "GDGoC"
+  },
+  "region": {
+    "hokkaido": "Hokkaido",
+    "tohoku": "Tohoku",
+    "kanto": "Kanto",
+    "chubu": "Chubu",
+    "kansai": "Kansai",
+    "chugoku": "Chugoku",
+    "shikoku": "Shikoku",
+    "kyushu": "Kyushu / Okinawa",
+    "other": "Other"
   },
   "auth": {
     "signin": {

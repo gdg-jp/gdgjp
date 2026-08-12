@@ -87,7 +87,7 @@ describe("requireOrganizerOf", () => {
     try {
       requireOrganizerOf(member, 2, {
         ...activeOrganizerOf1,
-        chapter: { id: 1, slug: "a", name: "A", kind: "gdg", createdAt: 0 },
+        chapter: { id: 1, slug: "a", name: "A", kind: "gdg", region: "kanto", createdAt: 0 },
       });
       throw new Error("expected throw");
     } catch (err) {

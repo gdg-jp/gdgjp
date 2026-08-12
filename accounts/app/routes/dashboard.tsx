@@ -11,7 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link, useFetcher } from "react-router";
+import { Link, redirect, useFetcher } from "react-router";
 import { PageShell } from "~/components/page-shell";
 import { StatusBadge } from "~/components/status-badge";
 import {
@@ -31,6 +31,8 @@ import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { requireUser } from "~/lib/auth.server";
 import { listMembershipsForUser } from "~/lib/db";
 import { i18n } from "~/lib/i18n/i18n.server";
+import { shouldStartChapterOnboarding } from "~/lib/onboarding-policy";
+import { hasOnboardingSkip } from "~/lib/onboarding-skip.server";
 import type { Route } from "./+types/dashboard";
 
 export async function loader(args: Route.LoaderArgs) {
@@ -49,7 +51,13 @@ export async function loader(args: Route.LoaderArgs) {
     throw userResult.err;
   }
   const user: AuthUser = userResult.user;
-  const memberships = await listMembershipsForUser(env.DB, user.id);
+  const [memberships, skipped] = await Promise.all([
+    listMembershipsForUser(env.DB, user.id),
+    hasOnboardingSkip(args.request),
+  ]);
+  if (shouldStartChapterOnboarding(memberships.length, skipped)) {
+    throw redirect("/onboarding");
+  }
   return { user, memberships, title: t("meta.dashboard") };
 }
 
@@ -73,7 +81,7 @@ function MembershipsSection({
         </CardHeader>
         <CardContent>
           <Button asChild>
-            <Link to="/chapters" prefetch="intent">
+            <Link to="/onboarding" prefetch="intent">
               {t("dashboard.noChapter.cta")} <ArrowRight className="size-4" />
             </Link>
           </Button>
