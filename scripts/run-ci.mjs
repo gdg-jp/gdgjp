@@ -10,7 +10,9 @@ const quickSteps = [
   ["build", "pnpm exec turbo build --output-logs=errors-only"],
   [
     "go",
-    'cd cli && unformatted=$(gofmt -l .) && if [ -n "$unformatted" ]; then printf \'Files requiring gofmt:\\n%s\\n\' "$unformatted" >&2; exit 1; fi && go vet ./... && go test ./... && go build ./...',
+    // Match release targets in .github/workflows/deploy.yml so host-only builds
+    // cannot hide GOOS/GOARCH breakage (for example Windows syscall gaps).
+    'cd cli && unformatted=$(gofmt -l .) && if [ -n "$unformatted" ]; then printf \'Files requiring gofmt:\\n%s\\n\' "$unformatted" >&2; exit 1; fi && go vet ./... && go test ./... && go build ./... && for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do GOOS="${target%/*}" GOARCH="${target#*/}" go build -o /dev/null ./cmd/gdg || exit 1; done',
   ],
 ];
 
