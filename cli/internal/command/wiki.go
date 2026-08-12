@@ -103,24 +103,19 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 	ingest.MarkFlagsMutuallyExclusive("commit", "agent")
 
 	ingest.AddCommand(&cobra.Command{
-		Use:   "lock DOCUMENT_ID",
-		Short: "Acquire an exclusive ingest lock on a document_id",
-		Args:  cobra.ArbitraryArgs,
-		// Document IDs may start with '-' (nanoid-style). Disable cobra flag
-		// parsing so those are not treated as shorthand flags.
-		DisableFlagParsing: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			docID, err := parseIngestDocumentArg("lock", args, false)
-			if err != nil {
-				return err
-			}
-			return service.ingestLock(cmd, docID)
+		Use:   "lock",
+		Short: "Claim the next unlocked pending ingest document_id",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return service.ingestLock(cmd)
 		},
 	})
 	ingest.AddCommand(&cobra.Command{
-		Use:                "unlock DOCUMENT_ID",
-		Short:              "Release an ingest lock on a document_id",
-		Args:               cobra.ArbitraryArgs,
+		Use:   "unlock DOCUMENT_ID",
+		Short: "Release an ingest lock on a document_id",
+		Args:  cobra.ArbitraryArgs,
+		// Document IDs may start with '-' (nanoid-style). Disable cobra flag
+		// parsing so those are not treated as shorthand flags.
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			docID, force, err := parseIngestUnlockArgs(args)
@@ -389,17 +384,48 @@ func (s *wikiService) syncRaw(ctx context.Context, root string) error {
 	})
 }
 
-func (s *wikiService) ingestLock(cmd *cobra.Command, documentID string) error {
+func (s *wikiService) ingestLock(cmd *cobra.Command) error {
 	root, err := s.findRoot()
 	if err != nil {
 		return err
 	}
-	entry, err := wiki.LockDocument(root, documentID, wiki.LockOwner(), "")
+	state, err := wiki.ReadState(root)
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Locked %s (owner %s).\n", entry.DocumentID, entry.Owner)
-	return err
+	if state.Manifest == nil {
+		return errors.New("no local raw snapshot; run gdg wiki raw pull first")
+	}
+	_, pending, err := wiki.BuildIngestQueue(root, *state.Manifest, state)
+	if err != nil {
+		return err
+	}
+	if len(pending) == 0 {
+		return errors.New("no claimable pending documents")
+	}
+	owner := wiki.LockOwner()
+	locks, err := wiki.LoadLocks(root)
+	if err != nil {
+		return err
+	}
+	var lastErr error
+	for _, item := range pending {
+		if existing, ok := locks.Locks[item.DocumentID]; ok && existing.Owner != owner {
+			continue
+		}
+		entry, lockErr := wiki.LockDocument(root, item.DocumentID, owner, item.ContentHash)
+		if lockErr != nil {
+			lastErr = lockErr
+			// Another owner claimed it between LoadLocks and LockDocument; try next.
+			continue
+		}
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Locked %s (owner %s).\n", entry.DocumentID, entry.Owner)
+		return err
+	}
+	if lastErr != nil {
+		return fmt.Errorf("no claimable pending documents: %w", lastErr)
+	}
+	return errors.New("no claimable pending documents")
 }
 
 func (s *wikiService) ingestUnlock(cmd *cobra.Command, documentID string, force bool) error {
@@ -414,13 +440,6 @@ func (s *wikiService) ingestUnlock(cmd *cobra.Command, documentID string, force 
 	return err
 }
 
-// parseIngestDocumentArg extracts a single document_id from raw args after
-// DisableFlagParsing. Leading "--" is ignored; other dashed tokens are errors.
-func parseIngestDocumentArg(command string, args []string, allowForce bool) (string, error) {
-	docID, _, err := parseIngestDocArgs(command, args, allowForce)
-	return docID, err
-}
-
 func parseIngestUnlockArgs(args []string) (docID string, force bool, err error) {
 	return parseIngestDocArgs("unlock", args, true)
 }
@@ -430,7 +449,7 @@ func parseIngestDocArgs(command string, args []string, allowForce bool) (docID s
 	for _, arg := range args {
 		switch {
 		case arg == "--":
-			continue
+			return "", false, fmt.Errorf("unexpected argument: --")
 		case arg == "--force":
 			if !allowForce {
 				return "", false, fmt.Errorf("unknown flag: %s", arg)
@@ -455,7 +474,7 @@ func parseIngestDocArgs(command string, args []string, allowForce bool) (docID s
 		}
 	}
 	if len(ids) != 1 {
-		return "", false, fmt.Errorf("accepts 1 arg(s), received %d", len(ids))
+		return "", false, fmt.Errorf("%s accepts 1 arg(s), received %d", command, len(ids))
 	}
 	return ids[0], force, nil
 }
@@ -536,7 +555,13 @@ func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent, commitDocum
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Marked %s as ingested.\n", target.DocumentID)
+		if _, err = fmt.Fprintf(cmd.OutOrStdout(), "Marked %s as ingested.\n", target.DocumentID); err != nil {
+			return err
+		}
+		if err = wiki.UnlockDocument(root, target.DocumentID, wiki.LockOwner(), true); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Unlocked %s.\n", target.DocumentID)
 	}
 	if err != nil {
 		return err

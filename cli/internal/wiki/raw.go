@@ -375,10 +375,13 @@ func IngestPrompt(root string, pendingCount int) string {
 	}
 	return strings.TrimSpace(fmt.Sprintf(`
 You are maintaining the GDG Japan Wiki clone at %s.
-Read AGENTS.md (especially Confidentiality and Span ACLs) and process ONLY the
-first item in INGEST_QUEUE.md.
+Read AGENTS.md (especially Confidentiality and Span ACLs) and skill wiki-ingest.
+Run gdg wiki ingest lock (no args) to claim one pending document_id, then process
+ONLY that source from INGEST_QUEUE.md.
 Update pages/**, index, and log as instructed, commit and git push, then run
-gdg wiki ingest --commit to mark the source complete and refresh the queue.
+gdg wiki ingest --commit --document-id <id> to mark the source complete, unlock
+it, and refresh the queue.
+If you abort without --commit, run gdg wiki ingest unlock <id> (add --force if needed).
 Do not edit raw/**. Do not remove raw/ from .gitignore.
 If visibility is not member, wrap derived material in <acl src="<source_id>">…</acl>
 before commit. Do not reset page visibility to restricted while updating content.

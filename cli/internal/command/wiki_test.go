@@ -926,12 +926,21 @@ func TestWikiIngestCommitDocumentIDRequiresCommit(t *testing.T) {
 
 func TestWikiIngestLockUnlock(t *testing.T) {
 	root := setupWikiIngestRoot(t)
+	manifest := wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{
+		{DocumentID: "doc-1", Kind: "wiki-human", Title: "First", Path: "raw/first/page.md", ContentHash: "first-hash"},
+		{DocumentID: "doc-2", Kind: "wiki-human", Title: "Second", Path: "raw/second/page.md", ContentHash: "second-hash"},
+		{DocumentID: "-fwjBM0c_SfPXk7U1zj5Z", Kind: "wiki-human", Title: "Dash", Path: "raw/dash/page.md", ContentHash: "dash-hash"},
+	}}
+	if err := wiki.WriteState(root, wiki.State{Manifest: &manifest}); err != nil {
+		t.Fatal(err)
+	}
 	service := testWikiService(func(context.Context, string, ...string) (string, error) {
 		t.Fatal("lock/unlock must not invoke git")
 		return "", nil
 	})
 
-	output, err := executeWiki(t, service, "ingest", "lock", "doc-1")
+	t.Setenv("GDG_WIKI_LOCK_OWNER", "agent-a")
+	output, err := executeWiki(t, service, "ingest", "lock")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -939,9 +948,27 @@ func TestWikiIngestLockUnlock(t *testing.T) {
 		t.Fatalf("output = %q", output)
 	}
 
-	// Document IDs may start with '-'; must not be parsed as flags.
+	// Same owner re-lock is idempotent (returns the already-held claim).
+	if output, err = executeWiki(t, service, "ingest", "lock"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output, "Locked doc-1") {
+		t.Fatalf("re-lock output = %q", output)
+	}
+
+	// A different owner claims the next unlocked pending item.
+	t.Setenv("GDG_WIKI_LOCK_OWNER", "agent-b")
+	if output, err = executeWiki(t, service, "ingest", "lock"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output, "Locked doc-2") {
+		t.Fatalf("output = %q", output)
+	}
+
+	// Document IDs may start with '-'; unlock must not require "--".
 	dashID := "-fwjBM0c_SfPXk7U1zj5Z"
-	if output, err = executeWiki(t, service, "ingest", "lock", dashID); err != nil {
+	t.Setenv("GDG_WIKI_LOCK_OWNER", "agent-c")
+	if output, err = executeWiki(t, service, "ingest", "lock"); err != nil {
 		t.Fatalf("lock dashed id: %v", err)
 	}
 	if !strings.Contains(output, "Locked "+dashID) {
@@ -953,37 +980,112 @@ func TestWikiIngestLockUnlock(t *testing.T) {
 	if !strings.Contains(output, "Unlocked "+dashID) {
 		t.Fatalf("output = %q", output)
 	}
-
-	// Simulate another owner holding the lock.
-	if _, err = wiki.LockDocument(root, "doc-2", "other-host:1", ""); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = executeWiki(t, service, "ingest", "lock", "doc-2"); err == nil || !strings.Contains(err.Error(), "locked by other-host:1") {
-		t.Fatalf("error = %v, want exclusive failure", err)
+	if _, err = executeWiki(t, service, "ingest", "unlock", "--", dashID); err == nil || !strings.Contains(err.Error(), "unexpected argument: --") {
+		t.Fatalf("error = %v, want unexpected --", err)
 	}
 
-	// Idempotent same-owner re-lock.
-	if _, err = executeWiki(t, service, "ingest", "lock", "doc-1"); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err = executeWiki(t, service, "ingest", "unlock", "doc-2"); err == nil || !strings.Contains(err.Error(), "unlock refused") {
+	// Other-owner unlock is refused without --force.
+	t.Setenv("GDG_WIKI_LOCK_OWNER", "agent-b")
+	if _, err = executeWiki(t, service, "ingest", "unlock", "doc-1"); err == nil || !strings.Contains(err.Error(), "unlock refused") {
 		t.Fatalf("error = %v, want unlock refused", err)
 	}
-	if output, err = executeWiki(t, service, "ingest", "unlock", "doc-2", "--force"); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(output, "Unlocked doc-2") {
-		t.Fatalf("output = %q", output)
-	}
-	if output, err = executeWiki(t, service, "ingest", "unlock", "doc-1"); err != nil {
+	if output, err = executeWiki(t, service, "ingest", "unlock", "doc-1", "--force"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(output, "Unlocked doc-1") {
 		t.Fatalf("output = %q", output)
 	}
-	// Missing unlock is idempotent.
-	if _, err = executeWiki(t, service, "ingest", "unlock", "doc-1"); err != nil {
+	if output, err = executeWiki(t, service, "ingest", "unlock", "doc-2"); err != nil {
 		t.Fatal(err)
+	}
+	if !strings.Contains(output, "Unlocked doc-2") {
+		t.Fatalf("output = %q", output)
+	}
+	// Missing unlock is idempotent.
+	if _, err = executeWiki(t, service, "ingest", "unlock", "doc-2"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestWikiIngestLockNoClaimable(t *testing.T) {
+	root := setupWikiIngestRoot(t)
+	service := testWikiService(func(context.Context, string, ...string) (string, error) {
+		t.Fatal("lock must not invoke git")
+		return "", nil
+	})
+	if _, err := executeWiki(t, service, "ingest", "lock"); err == nil || !strings.Contains(err.Error(), "no claimable pending documents") {
+		t.Fatalf("error = %v, want empty pending", err)
+	}
+
+	manifest := wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{
+		{DocumentID: "doc-1", Kind: "wiki-human", Title: "First", Path: "raw/first/page.md", ContentHash: "first-hash"},
+	}}
+	if err := wiki.WriteState(root, wiki.State{Manifest: &manifest}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := wiki.LockDocument(root, "doc-1", "other-host:1", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := executeWiki(t, service, "ingest", "lock"); err == nil || !strings.Contains(err.Error(), "no claimable pending documents") {
+		t.Fatalf("error = %v, want all locked", err)
+	}
+}
+
+func TestWikiIngestCommitUnlocksDocument(t *testing.T) {
+	root := setupWikiIngestRoot(t)
+	manifest := wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{
+		{DocumentID: "doc-1", Kind: "wiki-human", Title: "First", Path: "raw/first/page.md", ContentHash: "first-hash"},
+		{DocumentID: "doc-2", Kind: "wiki-human", Title: "Second", Path: "raw/second/page.md", ContentHash: "second-hash"},
+	}}
+	if err := wiki.WriteState(root, wiki.State{Manifest: &manifest}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := wiki.LockDocument(root, "doc-2", "other-host:1", ""); err != nil {
+		t.Fatal(err)
+	}
+
+	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
+		joined := strings.Join(args, " ")
+		switch {
+		case joined == "status --porcelain --untracked-files=all",
+			joined == "pull --ff-only":
+			return "", nil
+		case joined == "rev-parse HEAD", joined == "rev-parse refs/remotes/origin/main":
+			return "synced\n", nil
+		case strings.HasPrefix(joined, "diff --name-only"),
+			strings.HasPrefix(joined, "status --porcelain"),
+			strings.HasPrefix(joined, "diff-tree"):
+			return "", nil
+		default:
+			t.Fatalf("unexpected git call: %s", joined)
+			return "", nil
+		}
+	})
+	service.newClient = func() *wiki.Client {
+		return wiki.NewClientAt("http://127.0.0.1:0")
+	}
+
+	output, err := executeWiki(t, service, "ingest", "--commit", "--document-id", "doc-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output, "Marked doc-2 as ingested") || !strings.Contains(output, "Unlocked doc-2") {
+		t.Fatalf("output = %q", output)
+	}
+	locks, err := wiki.LoadLocks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := locks.Locks["doc-2"]; ok {
+		t.Fatalf("doc-2 should be unlocked after commit: %#v", locks.Locks)
+	}
+
+	// Commit without a prior lock still succeeds and unlocks idempotently.
+	output, err = executeWiki(t, service, "ingest", "--commit", "--document-id", "doc-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output, "Marked doc-1 as ingested") || !strings.Contains(output, "Unlocked doc-1") {
+		t.Fatalf("output = %q", output)
 	}
 }

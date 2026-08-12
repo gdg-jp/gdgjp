@@ -19,10 +19,14 @@ func writeEmptyChatSenders(w http.ResponseWriter) {
 
 func TestIngestPromptRequiresFinalizationAfterPush(t *testing.T) {
 	prompt := IngestPrompt("/tmp/wiki", 1)
+	lock := strings.Index(prompt, "gdg wiki ingest lock")
 	push := strings.Index(prompt, "commit and git push")
-	finalize := strings.Index(prompt, "gdg wiki ingest --commit")
-	if push < 0 || finalize < 0 || finalize < push {
-		t.Fatalf("prompt does not order push before finalization:\n%s", prompt)
+	finalize := strings.Index(prompt, "gdg wiki ingest --commit --document-id")
+	if lock < 0 || push < 0 || finalize < 0 || lock > push || finalize < push {
+		t.Fatalf("prompt does not order lock, push, then finalization:\n%s", prompt)
+	}
+	if !strings.Contains(prompt, "unlock") {
+		t.Fatalf("prompt missing unlock-on-commit / abort unlock hint:\n%s", prompt)
 	}
 	if !strings.Contains(prompt, "<acl src=") {
 		t.Fatalf("prompt missing ACL gate recovery hint:\n%s", prompt)
