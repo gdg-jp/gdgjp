@@ -96,9 +96,29 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 			return service.ingest(cmd, ingestCommit, ingestAgent)
 		},
 	}
-	ingest.Flags().BoolVar(&ingestCommit, "commit", false, "Mark the first queue item as ingested on the server")
+	ingest.Flags().BoolVar(&ingestCommit, "commit", false, "Mark the first queue item as ingested in local state")
 	ingest.Flags().StringVar(&ingestAgent, "agent", "", "Shell out to claude, codex, or cursor with the ingest prompt")
 	ingest.MarkFlagsMutuallyExclusive("commit", "agent")
+
+	ingest.AddCommand(&cobra.Command{
+		Use:   "lock DOCUMENT_ID",
+		Short: "Acquire an exclusive ingest lock on a document_id",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return service.ingestLock(cmd, args[0])
+		},
+	})
+	var unlockForce bool
+	unlock := &cobra.Command{
+		Use:   "unlock DOCUMENT_ID",
+		Short: "Release an ingest lock on a document_id",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return service.ingestUnlock(cmd, args[0], unlockForce)
+		},
+	}
+	unlock.Flags().BoolVar(&unlockForce, "force", false, "Release even if locked by another owner")
+	ingest.AddCommand(unlock)
 	command.AddCommand(ingest)
 
 	command.AddCommand(&cobra.Command{
@@ -356,6 +376,31 @@ func (s *wikiService) syncRaw(ctx context.Context, root string) error {
 		_, err := wiki.PullRaw(ctx, root, client, token)
 		return err
 	})
+}
+
+func (s *wikiService) ingestLock(cmd *cobra.Command, documentID string) error {
+	root, err := s.findRoot()
+	if err != nil {
+		return err
+	}
+	entry, err := wiki.LockDocument(root, documentID, wiki.LockOwner(), "")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Locked %s (owner %s).\n", entry.DocumentID, entry.Owner)
+	return err
+}
+
+func (s *wikiService) ingestUnlock(cmd *cobra.Command, documentID string, force bool) error {
+	root, err := s.findRoot()
+	if err != nil {
+		return err
+	}
+	if err = wiki.UnlockDocument(root, documentID, wiki.LockOwner(), force); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Unlocked %s.\n", documentID)
+	return err
 }
 
 func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent string) error {

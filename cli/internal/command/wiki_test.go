@@ -863,3 +863,52 @@ func TestFindWikiRootRejectsMalformedCloneConfig(t *testing.T) {
 		t.Fatalf("findWikiRoot error = %v", err)
 	}
 }
+
+func TestWikiIngestLockUnlock(t *testing.T) {
+	root := setupWikiIngestRoot(t)
+	service := testWikiService(func(context.Context, string, ...string) (string, error) {
+		t.Fatal("lock/unlock must not invoke git")
+		return "", nil
+	})
+
+	output, err := executeWiki(t, service, "ingest", "lock", "doc-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output, "Locked doc-1") {
+		t.Fatalf("output = %q", output)
+	}
+
+	// Simulate another owner holding the lock.
+	if _, err = wiki.LockDocument(root, "doc-2", "other-host:1", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = executeWiki(t, service, "ingest", "lock", "doc-2"); err == nil || !strings.Contains(err.Error(), "locked by other-host:1") {
+		t.Fatalf("error = %v, want exclusive failure", err)
+	}
+
+	// Idempotent same-owner re-lock.
+	if _, err = executeWiki(t, service, "ingest", "lock", "doc-1"); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err = executeWiki(t, service, "ingest", "unlock", "doc-2"); err == nil || !strings.Contains(err.Error(), "unlock refused") {
+		t.Fatalf("error = %v, want unlock refused", err)
+	}
+	if output, err = executeWiki(t, service, "ingest", "unlock", "doc-2", "--force"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output, "Unlocked doc-2") {
+		t.Fatalf("output = %q", output)
+	}
+	if output, err = executeWiki(t, service, "ingest", "unlock", "doc-1"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output, "Unlocked doc-1") {
+		t.Fatalf("output = %q", output)
+	}
+	// Missing unlock is idempotent.
+	if _, err = executeWiki(t, service, "ingest", "unlock", "doc-1"); err != nil {
+		t.Fatal(err)
+	}
+}
