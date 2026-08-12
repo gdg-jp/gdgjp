@@ -4,6 +4,7 @@ import type { Membership } from "./db";
 import {
   canManageChapter,
   canManageChapters,
+  isOrganizerPlus,
   requireOrganizerOf,
   requireSuperAdmin,
 } from "./permissions";
@@ -32,6 +33,33 @@ describe("canManageChapters", () => {
   it("only super-admins can manage chapters", () => {
     expect(canManageChapters(admin)).toBe(true);
     expect(canManageChapters(member)).toBe(false);
+  });
+});
+
+describe("isOrganizerPlus", () => {
+  it("is false with no memberships", () => {
+    expect(isOrganizerPlus(member, [])).toBe(false);
+  });
+
+  it("is false for pending-only memberships", () => {
+    expect(isOrganizerPlus(member, [pendingOrganizerOf1])).toBe(false);
+  });
+
+  it("is false for active members who are not organizers", () => {
+    expect(isOrganizerPlus(member, [activeMemberOf1])).toBe(false);
+  });
+
+  it("is true for active organizers", () => {
+    expect(isOrganizerPlus(member, [activeOrganizerOf1])).toBe(true);
+  });
+
+  it("is true for super-admins without organizer membership", () => {
+    expect(isOrganizerPlus(admin, [])).toBe(true);
+    expect(isOrganizerPlus(admin, [activeMemberOf1])).toBe(true);
+  });
+
+  it("is true when any membership is an active organizer", () => {
+    expect(isOrganizerPlus(member, [activeMemberOf1, activeOrganizerOf1])).toBe(true);
   });
 });
 

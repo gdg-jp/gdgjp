@@ -33,6 +33,7 @@ import { listMembershipsForUser } from "~/lib/db";
 import { i18n } from "~/lib/i18n/i18n.server";
 import { shouldStartChapterOnboarding } from "~/lib/onboarding-policy";
 import { hasOnboardingSkip } from "~/lib/onboarding-skip.server";
+import { isOrganizerPlus } from "~/lib/permissions";
 import type { Route } from "./+types/dashboard";
 
 export async function loader(args: Route.LoaderArgs) {
@@ -67,7 +68,11 @@ export function meta({ data }: Route.MetaArgs) {
 
 function MembershipsSection({
   memberships,
-}: { memberships: Route.ComponentProps["loaderData"]["memberships"] }) {
+  compact,
+}: {
+  memberships: Route.ComponentProps["loaderData"]["memberships"];
+  compact?: boolean;
+}) {
   const { t } = useTranslation();
   if (memberships.length === 0) {
     return (
@@ -96,7 +101,11 @@ function MembershipsSection({
           <h2 id="membership-heading" className="text-lg font-medium tracking-tight">
             {t("dashboard.memberships.heading")}
           </h2>
-          <p className="text-sm text-muted-foreground">{t("dashboard.memberships.description")}</p>
+          {compact ? null : (
+            <p className="text-sm text-muted-foreground">
+              {t("dashboard.memberships.description")}
+            </p>
+          )}
         </div>
         <Button asChild variant="ghost" size="sm">
           <Link to="/chapters" prefetch="intent">
@@ -106,7 +115,12 @@ function MembershipsSection({
       </div>
       <ul className="space-y-3">
         {memberships.map((m, i) => (
-          <MembershipRow key={`${m.userId}-${m.chapterId}`} membership={m} index={i} />
+          <MembershipRow
+            key={`${m.userId}-${m.chapterId}`}
+            membership={m}
+            index={i}
+            compact={compact}
+          />
         ))}
       </ul>
     </section>
@@ -116,9 +130,11 @@ function MembershipsSection({
 function MembershipRow({
   membership,
   index,
+  compact,
 }: {
   membership: Route.ComponentProps["loaderData"]["memberships"][number];
   index: number;
+  compact?: boolean;
 }) {
   const { t } = useTranslation();
   const fetcher = useFetcher();
@@ -148,13 +164,15 @@ function MembershipRow({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="min-w-0">
               <CardTitle className="truncate text-base">{membership.chapter.name}</CardTitle>
-              <CardDescription className="font-mono text-xs">
-                {membership.chapter.slug}
-              </CardDescription>
+              {compact ? null : (
+                <CardDescription className="font-mono text-xs">
+                  {membership.chapter.slug}
+                </CardDescription>
+              )}
             </div>
             <StatusBadge status={status}>{statusLabel}</StatusBadge>
           </div>
-          <p className="mt-2 text-sm text-muted-foreground">{desc}</p>
+          {compact ? null : <p className="mt-2 text-sm text-muted-foreground">{desc}</p>}
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-2">
           {isOrganizer && !isPending ? (
@@ -239,99 +257,135 @@ function LeaveDialog({
   );
 }
 
-export default function Dashboard({ loaderData }: Route.ComponentProps) {
+function MemberSimpleOidcLink() {
   const { t } = useTranslation();
+  return (
+    <p className="mt-8 text-sm text-muted-foreground">
+      <Link
+        to="/developers/apps"
+        prefetch="intent"
+        className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline"
+      >
+        {t("dashboard.memberSimple.oidcLink")} <ArrowRight className="size-3.5" />
+      </Link>
+    </p>
+  );
+}
+
+function RoleToolsSection({
+  user,
+  canRegisterApps,
+  organizerMemberships,
+}: {
+  user: AuthUser;
+  canRegisterApps: boolean;
+  organizerMemberships: Route.ComponentProps["loaderData"]["memberships"];
+}) {
+  const { t } = useTranslation();
+  if (!(canRegisterApps || organizerMemberships.length > 0 || user.isAdmin)) {
+    return null;
+  }
+  return (
+    <section aria-labelledby="role-tools-heading" className="mt-10 space-y-3">
+      <div>
+        <h2 id="role-tools-heading" className="text-lg font-medium tracking-tight">
+          {t("dashboard.roleTools.heading")}
+        </h2>
+        <p className="text-sm text-muted-foreground">{t("dashboard.roleTools.description")}</p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {organizerMemberships.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Settings2 className="size-4 text-gdg-green" />
+                <CardTitle className="text-base">{t("dashboard.organizerTools.title")}</CardTitle>
+              </div>
+              <CardDescription>{t("dashboard.organizerTools.description")}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              {organizerMemberships.map((membership) => (
+                <Button asChild key={membership.chapterId} variant="outline" size="sm">
+                  <Link to={`/chapters/${membership.chapter.slug}/organize`} prefetch="intent">
+                    {membership.chapter.name}
+                  </Link>
+                </Button>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
+        {canRegisterApps ? (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Blocks className="size-4 text-gdg-blue" />
+                <CardTitle className="text-base">{t("dashboard.developerApps.title")}</CardTitle>
+              </div>
+              <CardDescription>{t("dashboard.developerApps.description")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/developers/apps" prefetch="intent">
+                  {t("dashboard.developerApps.cta")} <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
+        {user.isAdmin ? (
+          <Card className="border-gdg-blue/30 bg-gdg-blue/5 md:col-span-2">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="size-4 text-gdg-blue" />
+                <CardTitle className="text-base">{t("dashboard.superAdmin.title")}</CardTitle>
+              </div>
+              <CardDescription>{t("dashboard.superAdmin.description")}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link to="/admin/users" prefetch="intent">
+                  <Users className="size-4" /> {t("dashboard.superAdmin.usersCta")}
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/admin/requests" prefetch="intent">
+                  <ListChecks className="size-4" /> {t("dashboard.superAdmin.requestsCta")}
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/admin/chapters" prefetch="intent">
+                  {t("dashboard.superAdmin.manageCta")}
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+export default function Dashboard({ loaderData }: Route.ComponentProps) {
   const { user, memberships } = loaderData;
   const canRegisterApps = memberships.some((membership) => membership.status === "active");
   const organizerMemberships = memberships.filter(
     (membership) => membership.status === "active" && membership.role === "organizer",
   );
+  const organizerChrome = isOrganizerPlus(user, memberships);
+
   return (
     <PageShell user={user} size="lg">
       <div>
-        <MembershipsSection memberships={memberships} />
+        <MembershipsSection memberships={memberships} compact={!organizerChrome} />
       </div>
-      {canRegisterApps || organizerMemberships.length > 0 || user.isAdmin ? (
-        <section aria-labelledby="role-tools-heading" className="mt-10 space-y-3">
-          <div>
-            <h2 id="role-tools-heading" className="text-lg font-medium tracking-tight">
-              {t("dashboard.roleTools.heading")}
-            </h2>
-            <p className="text-sm text-muted-foreground">{t("dashboard.roleTools.description")}</p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {organizerMemberships.length > 0 ? (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <Settings2 className="size-4 text-gdg-green" />
-                    <CardTitle className="text-base">
-                      {t("dashboard.organizerTools.title")}
-                    </CardTitle>
-                  </div>
-                  <CardDescription>{t("dashboard.organizerTools.description")}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-wrap gap-2">
-                  {organizerMemberships.map((membership) => (
-                    <Button asChild key={membership.chapterId} variant="outline" size="sm">
-                      <Link to={`/chapters/${membership.chapter.slug}/organize`} prefetch="intent">
-                        {membership.chapter.name}
-                      </Link>
-                    </Button>
-                  ))}
-                </CardContent>
-              </Card>
-            ) : null}
-            {canRegisterApps ? (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <Blocks className="size-4 text-gdg-blue" />
-                    <CardTitle className="text-base">
-                      {t("dashboard.developerApps.title")}
-                    </CardTitle>
-                  </div>
-                  <CardDescription>{t("dashboard.developerApps.description")}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button asChild variant="outline" size="sm">
-                    <Link to="/developers/apps" prefetch="intent">
-                      {t("dashboard.developerApps.cta")} <ArrowRight className="size-4" />
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : null}
-            {user.isAdmin ? (
-              <Card className="border-gdg-blue/30 bg-gdg-blue/5 md:col-span-2">
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="size-4 text-gdg-blue" />
-                    <CardTitle className="text-base">{t("dashboard.superAdmin.title")}</CardTitle>
-                  </div>
-                  <CardDescription>{t("dashboard.superAdmin.description")}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-wrap gap-2">
-                  <Button asChild variant="outline" size="sm">
-                    <Link to="/admin/users" prefetch="intent">
-                      <Users className="size-4" /> {t("dashboard.superAdmin.usersCta")}
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline" size="sm">
-                    <Link to="/admin/requests" prefetch="intent">
-                      <ListChecks className="size-4" /> {t("dashboard.superAdmin.requestsCta")}
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline" size="sm">
-                    <Link to="/admin/chapters" prefetch="intent">
-                      {t("dashboard.superAdmin.manageCta")}
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : null}
-          </div>
-        </section>
+      {organizerChrome ? (
+        <RoleToolsSection
+          user={user}
+          canRegisterApps={canRegisterApps}
+          organizerMemberships={organizerMemberships}
+        />
+      ) : canRegisterApps ? (
+        <MemberSimpleOidcLink />
       ) : null}
     </PageShell>
   );

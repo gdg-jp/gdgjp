@@ -50,6 +50,9 @@
       "cancelDescription": "Your request will be removed. You can request to join again later.",
       "cancelConfirm": "Cancel request"
     },
+    "memberSimple": {
+      "oidcLink": "Manage OIDC clients"
+    },
     "noChapter": {
       "title": "No chapter yet",
       "description": "Pick a GDG or GDGoC chapter to request membership. An organizer will approve your request.",

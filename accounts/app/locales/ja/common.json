@@ -50,6 +50,9 @@
       "cancelDescription": "リクエストは削除されます。後からもう一度参加をリクエストできます。",
       "cancelConfirm": "リクエストを取り消す"
     },
+    "memberSimple": {
+      "oidcLink": "OIDC クライアントを管理"
+    },
     "noChapter": {
       "title": "チャプター未所属",
       "description": "GDG または GDGoC のチャプターを選んで参加リクエストを送ってください。オーガナイザーが承認します。",

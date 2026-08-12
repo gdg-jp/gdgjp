@@ -6,6 +6,15 @@ export function canManageChapters(user: AuthUser): boolean {
   return isSuperAdmin(user);
 }
 
+/** True when the user is a super-admin or an active organizer of any chapter. */
+export function isOrganizerPlus(
+  user: { isAdmin?: boolean },
+  memberships: ReadonlyArray<{ role: "organizer" | "member"; status: "pending" | "active" }>,
+): boolean {
+  if (user.isAdmin === true) return true;
+  return memberships.some((m) => m.status === "active" && m.role === "organizer");
+}
+
 export function canManageChapter(
   user: AuthUser,
   chapterId: number,
