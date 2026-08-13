@@ -36,6 +36,31 @@ export async function getAllowedGroup(
   };
 }
 
+export async function getAllowedGroupByNumericId(
+  db: D1Database,
+  numericGroupId: number,
+): Promise<AllowedGroup | null> {
+  const row = await db
+    .prepare(
+      `SELECT group_slug AS groupSlug, group_id AS groupId, chapter_id AS chapterId, enabled
+       FROM groups WHERE group_id = ? LIMIT 1`,
+    )
+    .bind(numericGroupId)
+    .first<{
+      groupSlug: string;
+      groupId: number | null;
+      chapterId: string | null;
+      enabled: number;
+    }>();
+  if (!row) return null;
+  return {
+    groupSlug: row.groupSlug,
+    groupId: row.groupId,
+    chapterId: row.chapterId,
+    enabled: row.enabled === 1,
+  };
+}
+
 export function canReadGroup(identity: CliIdentity, group: AllowedGroup): boolean {
   if (!group.enabled) return false;
   if (identity.user.isAdmin) return true;

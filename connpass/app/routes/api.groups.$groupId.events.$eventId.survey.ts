@@ -6,12 +6,34 @@ import {
   resolveGroupSlug,
 } from "~/lib/authorize.server";
 import { getCliIdentity } from "~/lib/cli-identity.server";
-import { getEventInBrowser } from "~/lib/connpass-browser-read.server";
-import { parseParticipationTypes } from "~/lib/connpass-ui/events";
+import { getSurveyInBrowser } from "~/lib/connpass-browser-read.server";
+import type { SurveyQuestion } from "~/lib/connpass-ui/survey";
 import { createJob, jobToJson } from "~/lib/jobs.server";
 import type { components } from "../../openapi/types.generated";
 
-type Event = components["schemas"]["Event"];
+const ANSWER_TYPES = new Set(["free_text", "checkbox", "radio", "dropdown"]);
+
+function parseQuestions(value: unknown): SurveyQuestion[] | null {
+  if (!Array.isArray(value)) return null;
+  const questions: SurveyQuestion[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) return null;
+    const item = entry as Record<string, unknown>;
+    if (typeof item.title !== "string") return null;
+    if (typeof item.answerType !== "string" || !ANSWER_TYPES.has(item.answerType)) return null;
+    if (typeof item.required !== "boolean") return null;
+    const options = Array.isArray(item.options)
+      ? item.options.filter((o): o is string => typeof o === "string")
+      : null;
+    questions.push({
+      title: item.title,
+      answerType: item.answerType as SurveyQuestion["answerType"],
+      required: item.required,
+      options,
+    });
+  }
+  return questions;
+}
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
@@ -28,16 +50,8 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   if (!eventId) return Response.json({ error: "not_found" }, { status: 404 });
 
   try {
-    const detail = await getEventInBrowser(env, eventId);
-    // EventFields declares startAt/endAt/capacity as plain (non-nullable) optional
-    // properties; connpass drafts can leave these unset, so map null -> omitted.
-    const event: Event = {
-      ...detail,
-      startAt: detail.startAt ?? undefined,
-      endAt: detail.endAt ?? undefined,
-      capacity: detail.capacity ?? undefined,
-    };
-    return Response.json({ groupId: group.groupSlug, event });
+    const survey: components["schemas"]["Survey"] = await getSurveyInBrowser(env, eventId);
+    return Response.json({ groupId: group.groupSlug, eventId, survey });
   } catch (error) {
     const message = error instanceof Error ? error.message : "connpass_browser_error";
     return Response.json({ error: message }, { status: 502 });
@@ -45,7 +59,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 }
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
-  if (request.method !== "PATCH") {
+  if (request.method !== "PUT") {
     return Response.json({ error: "method_not_allowed" }, { status: 405 });
   }
   const { env } = context.cloudflare;
@@ -62,33 +76,17 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   if (!eventId) return Response.json({ error: "not_found" }, { status: 404 });
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!body || typeof body !== "object") {
-    return Response.json({ error: "invalid_body" }, { status: 400 });
+  const questions = body ? parseQuestions(body.questions) : null;
+  if (!questions) {
+    return Response.json({ error: "invalid_questions" }, { status: 400 });
   }
 
   const job = await createJob(env, {
-    type: "update_event",
+    type: "upsert_survey",
     groupSlug: group.groupSlug,
     eventId,
     createdBy: identity.user.id,
-    request: {
-      title: typeof body.title === "string" ? body.title : undefined,
-      subtitle: typeof body.subtitle === "string" ? body.subtitle : undefined,
-      description: typeof body.description === "string" ? body.description : undefined,
-      startAt: typeof body.startAt === "string" ? body.startAt : undefined,
-      endAt: typeof body.endAt === "string" ? body.endAt : undefined,
-      place: typeof body.place === "string" ? body.place : undefined,
-      address: typeof body.address === "string" ? body.address : undefined,
-      capacity: typeof body.capacity === "number" ? body.capacity : undefined,
-      reservedAt: typeof body.reservedAt === "string" ? body.reservedAt : undefined,
-      registrationEnabled:
-        typeof body.registrationEnabled === "boolean" ? body.registrationEnabled : undefined,
-      participationTypes: parseParticipationTypes(body.participationTypes),
-      ownerText: typeof body.ownerText === "string" ? body.ownerText : undefined,
-      participantOnlyInfo:
-        typeof body.participantOnlyInfo === "string" ? body.participantOnlyInfo : undefined,
-      cancelPolicy: typeof body.cancelPolicy === "string" ? body.cancelPolicy : undefined,
-    },
+    request: { questions },
   });
 
   return Response.json(jobToJson(job), { status: 202 });

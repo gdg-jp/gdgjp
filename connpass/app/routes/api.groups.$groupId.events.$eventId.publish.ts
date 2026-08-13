@@ -20,12 +20,17 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   const eventId = params.eventId;
   if (!eventId) return Response.json({ error: "not_found" }, { status: 404 });
 
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+
   const job = await createJob(env, {
     type: "publish_event",
     groupSlug: group.groupSlug,
     eventId,
     createdBy: identity.user.id,
-    request: {},
+    request: {
+      postToTwitter: typeof body?.postToTwitter === "boolean" ? body.postToTwitter : undefined,
+      comment: typeof body?.comment === "string" ? body.comment : undefined,
+    },
   });
 
   return Response.json(jobToJson(job), { status: 202 });

@@ -6,12 +6,11 @@ import {
   resolveGroupSlug,
 } from "~/lib/authorize.server";
 import { getCliIdentity } from "~/lib/cli-identity.server";
-import { getEventInBrowser } from "~/lib/connpass-browser-read.server";
-import { parseParticipationTypes } from "~/lib/connpass-ui/events";
+import { listSubEventsInBrowser } from "~/lib/connpass-browser-read.server";
 import { createJob, jobToJson } from "~/lib/jobs.server";
 import type { components } from "../../openapi/types.generated";
 
-type Event = components["schemas"]["Event"];
+type SubEvent = components["schemas"]["SubEvent"];
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
@@ -28,16 +27,13 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   if (!eventId) return Response.json({ error: "not_found" }, { status: 404 });
 
   try {
-    const detail = await getEventInBrowser(env, eventId);
-    // EventFields declares startAt/endAt/capacity as plain (non-nullable) optional
-    // properties; connpass drafts can leave these unset, so map null -> omitted.
-    const event: Event = {
-      ...detail,
-      startAt: detail.startAt ?? undefined,
-      endAt: detail.endAt ?? undefined,
-      capacity: detail.capacity ?? undefined,
-    };
-    return Response.json({ groupId: group.groupSlug, event });
+    const subEvents: SubEvent[] = await listSubEventsInBrowser(env, eventId);
+    return Response.json({
+      groupId: group.groupSlug,
+      eventId,
+      resultsReturned: subEvents.length,
+      subEvents,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "connpass_browser_error";
     return Response.json({ error: message }, { status: 502 });
@@ -45,7 +41,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 }
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
-  if (request.method !== "PATCH") {
+  if (request.method !== "POST") {
     return Response.json({ error: "method_not_allowed" }, { status: 405 });
   }
   const { env } = context.cloudflare;
@@ -62,33 +58,16 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   if (!eventId) return Response.json({ error: "not_found" }, { status: 404 });
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!body || typeof body !== "object") {
-    return Response.json({ error: "invalid_body" }, { status: 400 });
+  if (!body || typeof body.title !== "string" || !body.title.trim()) {
+    return Response.json({ error: "title_required" }, { status: 400 });
   }
 
   const job = await createJob(env, {
-    type: "update_event",
+    type: "create_sub_event",
     groupSlug: group.groupSlug,
     eventId,
     createdBy: identity.user.id,
-    request: {
-      title: typeof body.title === "string" ? body.title : undefined,
-      subtitle: typeof body.subtitle === "string" ? body.subtitle : undefined,
-      description: typeof body.description === "string" ? body.description : undefined,
-      startAt: typeof body.startAt === "string" ? body.startAt : undefined,
-      endAt: typeof body.endAt === "string" ? body.endAt : undefined,
-      place: typeof body.place === "string" ? body.place : undefined,
-      address: typeof body.address === "string" ? body.address : undefined,
-      capacity: typeof body.capacity === "number" ? body.capacity : undefined,
-      reservedAt: typeof body.reservedAt === "string" ? body.reservedAt : undefined,
-      registrationEnabled:
-        typeof body.registrationEnabled === "boolean" ? body.registrationEnabled : undefined,
-      participationTypes: parseParticipationTypes(body.participationTypes),
-      ownerText: typeof body.ownerText === "string" ? body.ownerText : undefined,
-      participantOnlyInfo:
-        typeof body.participantOnlyInfo === "string" ? body.participantOnlyInfo : undefined,
-      cancelPolicy: typeof body.cancelPolicy === "string" ? body.cancelPolicy : undefined,
-    },
+    request: { title: body.title.trim() },
   });
 
   return Response.json(jobToJson(job), { status: 202 });

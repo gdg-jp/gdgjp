@@ -45,9 +45,20 @@ export const selectors = {
     endTime: 'input[name="end_time"]',
     placeName: '#FieldPlace input[name="name"], .place_edit_area input[name="name"]',
     placeAddress: '#FieldPlace input[name="address"], .place_edit_area input[name="address"]',
+    /** イベント編集_会場設定済み.html — rendered venue table (read path) */
+    placeVenueName: "#FieldPlace table tr.spot td",
+    placeVenueAddress: "#FieldPlace table tr.place td",
     reservedTrigger: "#EventPublishReservation",
     reservedDate: 'input[name="reserved_date"]',
     reservedTime: 'input[name="reserved_time"]',
+    /** event-edit_主催者をクリック.html */
+    ownerText: "#FieldOwnerText",
+    ownerTextInput: '#FieldOwnerText input[name="owner_text"]',
+    /** event-edit_参加者への情報をクリック.htm */
+    participantOnlyInfo: "#FieldParticipantOnlyInfo",
+    participantOnlyInfoInput: '#FieldParticipantOnlyInfo textarea[name="participant_only_info"]',
+    /** event-edit.html — inside the #FieldEventType edit panel's paid-options area */
+    cancelPolicyInput: 'textarea[name="cancel_policy"]',
     eventType: {
       root: "#FieldEventType",
       participation: "#EventTypeParticipation",
@@ -60,6 +71,7 @@ export const selectors = {
   },
   publishDialog: {
     comment: 'input[name="Comment"]',
+    postTwitter: 'input[name="PostTwitter"]',
     confirm: "button.PopupSubmit",
   },
   groupEvents: {
@@ -68,9 +80,53 @@ export const selectors = {
     titleLink: "p.event_title a.url.summary, p.event_title a",
     status: "span.label_status_event",
     schedule: "p.schedule",
+    dtstart: "span.dtstart .value-title",
+    dtend: "span.dtend .value-title",
     place: "p.event_place",
     participants: "p.event_participants",
+    participantsAmount: "p.event_participants span.amount span",
     empty: ".no_data_area",
+  },
+  subEvent: {
+    /** event-edit_サブイベントを作成するをクリック.html */
+    createButton: "#SubeventCreateButton",
+    createTitleInput: '.popup:visible input[name="title"], input[name="title"]:visible',
+    createSubmit: "button.EventCreateSubmit:visible",
+    area: ".SubeventEditArea",
+    table: ".SubeventEditArea table",
+    row: ".SubeventEditArea table tbody tr",
+    emptyRowText: "サブイベントは作成されていません",
+    /** subevent-published.html — published-event edit page */
+    cancelTrigger: ".CancelEvent",
+    cancelConfirm: "button.btn_action[type=submit]",
+  },
+  survey: {
+    /** event-edit_アンケートを作成・編集する_アンケートを新規作成をクリック.html */
+    editQuestionForm: "#EditQuestionForm",
+    questionArea: "#EditQuestionForm .QuestionArea",
+    questionBlock: ".question_edit_area",
+    createNewLink: 'a[href$="/edit/form/new"]',
+    addQuestion: ".AddQuestion",
+    deleteQuestion: ".DeleteQuestion",
+    addOption: ".AddQuestionOption",
+    optionsList: ".QuestionOptionsList",
+    saveQuestions: ".SaveQuestions",
+    hasSurveyIndicator: "#enquete_area",
+    hasSurveyEmptyText: "アンケートは追加されていません",
+  },
+  conference: {
+    /** event-edit_カンファレンス情報を編集するをクリック.html */
+    editLink: 'a[href$="/conference_edit/"]',
+    isActive: "#is_active",
+    lpUrl: "#lp_url",
+    cfpUrl: "#cfp_url",
+    cfpStartAt: "#cfp_start_datetime",
+    cfpEndAt: "#cfp_end_datetime",
+    sponsorUrl: "#sponsor_url",
+    sponsorStartAt: "#sponsor_start_datetime",
+    sponsorEndAt: "#sponsor_end_datetime",
+    topics: "#id_topics",
+    submit: "#event_conference_form button[type=submit]",
   },
 } as const;
 

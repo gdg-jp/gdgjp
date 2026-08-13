@@ -5,12 +5,16 @@ import {
   openConnpassSession,
   tryGetLiveViewUrl,
 } from "./browser.server";
+import { type UpsertConferenceInput, upsertConference } from "./connpass-ui/conference";
 import {
   type EventEditFields,
+  cancelSubEvent,
   createEventDraft,
+  createSubEventDraft,
   fillEventEdit,
   publishEvent,
 } from "./connpass-ui/events";
+import { type SurveyQuestion, upsertSurvey } from "./connpass-ui/survey";
 import {
   type JobQueueMessage,
   type JobRecord,
@@ -24,7 +28,11 @@ export type { JobQueueMessage };
 
 type CreateEventRequest = EventEditFields & { title: string };
 type UpdateEventRequest = EventEditFields;
-type PublishEventRequest = Record<string, never>;
+type PublishEventRequest = { postToTwitter?: boolean; comment?: string | null };
+type CreateSubEventRequest = { title: string };
+type DeleteSubEventRequest = Record<string, never>;
+type UpsertSurveyRequest = { questions: SurveyQuestion[] };
+type UpsertConferenceRequest = UpsertConferenceInput;
 
 function parseRequest<T>(job: JobRecord): T {
   return JSON.parse(job.requestJson) as T;
@@ -125,9 +133,9 @@ export async function processJobMessage(
   if (job.type === "publish_event") {
     const eventId = job.eventId;
     if (!eventId) throw new Error("event_id_required");
-    parseRequest<PublishEventRequest>(job);
+    const request = parseRequest<PublishEventRequest>(job);
     await runWithBrowser(env, job, async (page) => {
-      await publishEvent(page, eventId);
+      await publishEvent(page, eventId, request);
       return {
         eventId,
         result: {
@@ -135,6 +143,54 @@ export async function processJobMessage(
           publicUrl: `https://connpass.com/event/${eventId}/`,
         },
       };
+    });
+    return;
+  }
+
+  if (job.type === "create_sub_event") {
+    if (!job.eventId) throw new Error("event_id_required");
+    const request = parseRequest<CreateSubEventRequest>(job);
+    await runWithBrowser(env, job, async (page) => {
+      const created = await createSubEventDraft(page, job.eventId as string, request.title);
+      return {
+        eventId: created.eventId,
+        result: {
+          eventId: created.eventId,
+          editUrl: created.editUrl,
+          publicUrl: `https://connpass.com/event/${created.eventId}/`,
+        },
+      };
+    });
+    return;
+  }
+
+  if (job.type === "delete_sub_event") {
+    const subEventId = job.eventId;
+    if (!subEventId) throw new Error("event_id_required");
+    parseRequest<DeleteSubEventRequest>(job);
+    await runWithBrowser(env, job, async (page) => {
+      await cancelSubEvent(page, subEventId);
+      return { eventId: subEventId, result: { eventId: subEventId, canceled: true } };
+    });
+    return;
+  }
+
+  if (job.type === "upsert_survey") {
+    if (!job.eventId) throw new Error("event_id_required");
+    const request = parseRequest<UpsertSurveyRequest>(job);
+    await runWithBrowser(env, job, async (page) => {
+      await upsertSurvey(page, job.eventId as string, request.questions);
+      return { eventId: job.eventId, result: { eventId: job.eventId } };
+    });
+    return;
+  }
+
+  if (job.type === "upsert_conference") {
+    if (!job.eventId) throw new Error("event_id_required");
+    const request = parseRequest<UpsertConferenceRequest>(job);
+    await runWithBrowser(env, job, async (page) => {
+      await upsertConference(page, job.eventId as string, request);
+      return { eventId: job.eventId, result: { eventId: job.eventId } };
     });
     return;
   }

@@ -9,6 +9,9 @@ import { getCliIdentity } from "~/lib/cli-identity.server";
 import { listGroupEventsInBrowser } from "~/lib/connpass-browser-read.server";
 import { parseParticipationTypes } from "~/lib/connpass-ui/events";
 import { createJob, jobToJson } from "~/lib/jobs.server";
+import type { components } from "../../openapi/types.generated";
+
+type EventSummary = components["schemas"]["EventSummary"];
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
@@ -22,7 +25,15 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
   }
 
   try {
-    const events = await listGroupEventsInBrowser(env, group.groupSlug);
+    const scraped = await listGroupEventsInBrowser(env, group.groupSlug);
+    // EventSummary declares startAt/endAt as required, non-nullable strings; the
+    // public group event list only ever shows published/canceled events, which
+    // always carry dates, so the `?? ""` fallback should never actually trigger.
+    const events: EventSummary[] = scraped.map((event) => ({
+      ...event,
+      startAt: event.startAt ?? "",
+      endAt: event.endAt ?? "",
+    }));
     return Response.json({
       groupId: group.groupSlug,
       resultsReturned: events.length,
@@ -70,6 +81,10 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       registrationEnabled:
         typeof body.registrationEnabled === "boolean" ? body.registrationEnabled : undefined,
       participationTypes: parseParticipationTypes(body.participationTypes),
+      ownerText: typeof body.ownerText === "string" ? body.ownerText : undefined,
+      participantOnlyInfo:
+        typeof body.participantOnlyInfo === "string" ? body.participantOnlyInfo : undefined,
+      cancelPolicy: typeof body.cancelPolicy === "string" ? body.cancelPolicy : undefined,
     },
   });
 

@@ -1,7 +1,15 @@
 import { nanoid } from "nanoid";
 
 export type JobStatus = "queued" | "running" | "succeeded" | "failed";
-export type JobType = "create_event" | "update_event" | "publish_event" | "relogin";
+export type JobType =
+  | "create_event"
+  | "update_event"
+  | "publish_event"
+  | "create_sub_event"
+  | "delete_sub_event"
+  | "upsert_survey"
+  | "upsert_conference"
+  | "relogin";
 
 export type JobRecord = {
   id: string;

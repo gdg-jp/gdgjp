@@ -124,4 +124,119 @@ describe("connpass UI selectors", () => {
       expect(advertisement).toContain('id="EventTypeAdvertisement"');
     },
   );
+
+  const subEventSurveyConferenceFixtures = [
+    "event-edit_サブイベントを作成するをクリック.html",
+    "event-edit_サブイベントの編集画面.html",
+    "event-edit_アンケートを作成・編集するをクリック.html",
+    "event-edit_アンケートを作成・編集する_アンケートを新規作成をクリック.html",
+    "event-edit_カンファレンス情報を編集するをクリック.html",
+    "event-edit_主催者をクリック.html",
+    "event-edit_参加者への情報をクリック.htm",
+  ] as const;
+
+  function hasSubEventSurveyConferenceFixtures(): boolean {
+    return subEventSurveyConferenceFixtures.every((name) => existsSync(fixturePath(name)));
+  }
+
+  it.skipIf(!hasSubEventSurveyConferenceFixtures())(
+    "matches sub-event/survey/conference DOM from the newly captured fixtures",
+    () => {
+      const subEventCreate = readFileSync(
+        fixturePath("event-edit_サブイベントを作成するをクリック.html"),
+        "utf8",
+      );
+      expect(subEventCreate).toContain(selectors.subEvent.createButton.replace("#", 'id="'));
+      expect(subEventCreate).toContain("サブイベントは作成されていません");
+
+      const subEventOwn = readFileSync(
+        fixturePath("event-edit_サブイベントの編集画面.html"),
+        "utf8",
+      );
+      expect(subEventOwn).toContain("FieldGroupSelect");
+
+      const surveyLanding = readFileSync(
+        fixturePath("event-edit_アンケートを作成・編集するをクリック.html"),
+        "utf8",
+      );
+      expect(surveyLanding).toContain("アンケートを新規作成");
+
+      const surveyNew = readFileSync(
+        fixturePath("event-edit_アンケートを作成・編集する_アンケートを新規作成をクリック.html"),
+        "utf8",
+      );
+      expect(surveyNew).toContain('id="EditQuestionForm"');
+      expect(surveyNew).toContain("QuestionArea");
+
+      const conference = readFileSync(
+        fixturePath("event-edit_カンファレンス情報を編集するをクリック.html"),
+        "utf8",
+      );
+      expect(conference).toContain('id="is_active"');
+      expect(conference).toContain('id="lp_url"');
+      expect(conference).toContain('id="id_topics"');
+
+      const owner = readFileSync(fixturePath("event-edit_主催者をクリック.html"), "utf8");
+      expect(owner).toContain('id="FieldOwnerText"');
+      expect(owner).toContain('name="owner_text"');
+
+      const participantOnlyInfo = readFileSync(
+        fixturePath("event-edit_参加者への情報をクリック.htm"),
+        "utf8",
+      );
+      expect(participantOnlyInfo).toContain('id="FieldParticipantOnlyInfo"');
+      expect(participantOnlyInfo).toContain('name="participant_only_info"');
+
+      const eventEdit = readFileSync(fixturePath("event-edit.html"), "utf8");
+      expect(eventEdit).toContain(selectors.survey.hasSurveyIndicator.replace("#", 'id="'));
+      expect(eventEdit).toContain(selectors.survey.hasSurveyEmptyText);
+    },
+  );
+
+  const laterFixtures = [
+    "subevent-published.html",
+    "subevent-published_イベントを中止するをクリック.html",
+    "アンケートを作成・編集する-existing.html",
+    "イベント編集_会場設定済み.html",
+    "event-edit_サブイベント追加後.htm",
+  ] as const;
+
+  function hasLaterFixtures(): boolean {
+    return laterFixtures.every((name) => existsSync(fixturePath(name)));
+  }
+
+  it.skipIf(!hasLaterFixtures())(
+    "matches DOM from the later-captured cancel/existing-survey/venue fixtures",
+    () => {
+      const published = readFileSync(fixturePath("subevent-published.html"), "utf8");
+      expect(published).toContain(selectors.subEvent.cancelTrigger.replace(".", 'class="'));
+      expect(published).toContain("イベントを中止する");
+
+      const cancelClicked = readFileSync(
+        fixturePath("subevent-published_イベントを中止するをクリック.html"),
+        "utf8",
+      );
+      expect(cancelClicked).toContain("EventCancelConfirmPopupTemplate");
+
+      const surveyExisting = readFileSync(
+        fixturePath("アンケートを作成・編集する-existing.html"),
+        "utf8",
+      );
+      expect(surveyExisting).toContain('id="EditQuestionForm"');
+      expect(surveyExisting).toContain('class="QuestionArea"');
+      expect(surveyExisting).toContain('name="title"');
+      expect(surveyExisting).toContain('name="answer_type"');
+      expect(surveyExisting).toContain('name="option_title"');
+
+      const venueSet = readFileSync(fixturePath("イベント編集_会場設定済み.html"), "utf8");
+      expect(venueSet).toContain('id="FieldPlace"');
+      expect(venueSet).toContain('class="spot"');
+      expect(venueSet).toContain('class="place"');
+
+      const subEventAdded = readFileSync(fixturePath("event-edit_サブイベント追加後.htm"), "utf8");
+      expect(subEventAdded).toContain(selectors.subEvent.area.replace(".", 'class="'));
+      expect(subEventAdded).toContain("公開中");
+      expect(subEventAdded).toContain("下書き");
+    },
+  );
 });
