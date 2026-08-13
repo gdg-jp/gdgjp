@@ -96,6 +96,16 @@ function isHttpUrl(raw: string): boolean {
   }
 }
 
+export function buildDiscordSourceTitle(
+  guildName: string,
+  categoryName: string | null,
+  channelName: string,
+): string {
+  return categoryName
+    ? `${guildName}-${categoryName}#${channelName}`
+    : `${guildName}#${channelName}`;
+}
+
 function parseBatchCandidates(raw: FormDataEntryValue | null): StagedSource[] | null {
   if (typeof raw !== "string") return null;
   try {
@@ -816,10 +826,22 @@ export default function SourcesPage() {
     if (!selectedDiscordGuildId) return;
     const selected = discordChannels.filter((channel) => selectedDiscordChannelIds.has(channel.id));
     if (selected.length === 0) return;
+    const guildName =
+      discordGuilds.find((guild) => guild.id === selectedDiscordGuildId)?.name ?? "";
+    const categoryNameByChannelId = new Map<string, string | null>();
+    for (const group of discordChannelGroups) {
+      for (const channel of group.channels) {
+        categoryNameByChannelId.set(channel.id, group.categoryName);
+      }
+    }
     const staged = selected.map((channel) => ({
       id: `discord:${channel.id}`,
       kind: "discord-channel" as const,
-      title: `#${channel.name}`,
+      title: buildDiscordSourceTitle(
+        guildName,
+        categoryNameByChannelId.get(channel.id) ?? null,
+        channel.name,
+      ),
       url: `https://discord.com/channels/${selectedDiscordGuildId}/${channel.id}`,
       externalId: channel.id,
     }));
