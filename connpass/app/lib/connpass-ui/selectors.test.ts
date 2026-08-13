@@ -51,6 +51,8 @@ describe("connpass UI selectors", () => {
     expect(eventEdit).toContain('id="FieldDescription"');
     expect(eventEdit).toContain("PublishEvent");
     expect(eventEdit).toContain("即時公開する");
+    // Subtitle input is injected only after click-to-edit (EventEditView).
+    expect(eventEdit).not.toMatch(/<input[^>]*name="sub_title"/);
 
     const eventPublish = readFileSync(fixturePath("event-publish.html"), "utf8");
     expect(eventPublish).toContain("PopupSubmit");

@@ -95,18 +95,67 @@ export type EventEditFields = {
   cancelPolicy?: string;
 };
 
+/**
+ * EventEditView is constructed in an AMD `require()` callback *after*
+ * DOMContentLoaded. The click-to-edit spans (`#FieldTitle`, `#FieldSubTitle`,
+ * …) are already in the server HTML, so a Playwright click can succeed before
+ * Backbone has bound handlers — the inline `<input>` then never appears.
+ */
+async function waitForEventEditReady(page: Page): Promise<void> {
+  await page.locator(selectors.eventEdit.title).first().waitFor({
+    state: "visible",
+    timeout: 30_000,
+  });
+  await page.waitForFunction(
+    () => {
+      const win = window as unknown as {
+        jQuery?: {
+          _data?: (el: Element, key: string) => { click?: unknown } | undefined;
+        };
+        $?: {
+          _data?: (el: Element, key: string) => { click?: unknown } | undefined;
+        };
+      };
+      const jq = win.jQuery ?? win.$;
+      const root = document.getElementById("EventEditApp");
+      if (!root || !jq?._data) return false;
+      return Boolean(jq._data(root, "events")?.click);
+    },
+    undefined,
+    { timeout: 30_000 },
+  );
+}
+
 async function clickEditAndFill(
   page: Page,
   triggerSelector: string,
   inputSelector: string,
   value: string,
 ): Promise<void> {
-  await page.locator(triggerSelector).first().click();
+  const trigger = page.locator(triggerSelector).first();
+  await trigger.waitFor({ state: "visible", timeout: 30_000 });
   const input = page.locator(inputSelector).first();
+
+  // Native click: a Playwright mouse click retries after the inline editor's
+  // layout shift and can land on the cancel control that is injected into the
+  // same trigger element.
+  const deadline = Date.now() + 20_000;
+  while (!(await input.isVisible().catch(() => false))) {
+    if (Date.now() > deadline) break;
+    await trigger.evaluate((el) => {
+      (el as HTMLElement).click();
+    });
+    await input.waitFor({ state: "visible", timeout: 2_000 }).catch(() => undefined);
+  }
   await input.waitFor({ state: "visible", timeout: 10_000 });
   await input.fill(value);
-  const save = page.locator(selectors.eventEdit.saveButton).first();
-  if ((await save.count()) > 0) {
+
+  const scopedSave = page.locator(`${triggerSelector} button.save`).first();
+  const save =
+    (await scopedSave.count()) > 0
+      ? scopedSave
+      : page.locator(selectors.eventEdit.saveButton).first();
+  if ((await save.count()) > 0 && (await save.isVisible().catch(() => false))) {
     await save.click();
     await page.waitForTimeout(400);
   } else {
@@ -123,6 +172,7 @@ function splitDateTime(value: string): { date: string; time: string } {
 }
 
 export async function fillEventEdit(page: Page, fields: EventEditFields): Promise<void> {
+  await waitForEventEditReady(page);
   if (fields.title !== undefined) {
     await clickEditAndFill(
       page,

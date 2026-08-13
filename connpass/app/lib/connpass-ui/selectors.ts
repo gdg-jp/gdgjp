@@ -37,7 +37,8 @@ export const selectors = {
     inlineTextInput:
       'form input[type="text"]:visible, form textarea:visible, input.form_input_text:visible',
     titleInput: '#FieldTitle input[name="title"]',
-    subtitleInput: '#FieldSubTitle input[name="sub_title"]',
+    subtitleInput:
+      '#FieldSubTitle input[name="sub_title"], .sub_title input[name="sub_title"], input[name="sub_title"]',
     capacityInput: 'input[name="max_num"]',
     startDate: 'input[name="start_date"]',
     startTime: 'input[name="start_time"]',
