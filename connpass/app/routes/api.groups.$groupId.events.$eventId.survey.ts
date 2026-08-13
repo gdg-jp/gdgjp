@@ -62,7 +62,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   if (request.method !== "PUT") {
     return Response.json({ error: "method_not_allowed" }, { status: 405 });
   }
-  const { env } = context.cloudflare;
+  const { env, ctx } = context.cloudflare;
   const identity = await getCliIdentity(request, env);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
 
@@ -81,13 +81,17 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     return Response.json({ error: "invalid_questions" }, { status: 400 });
   }
 
-  const job = await createJob(env, {
-    type: "upsert_survey",
-    groupSlug: group.groupSlug,
-    eventId,
-    createdBy: identity.user.id,
-    request: { questions },
-  });
+  const job = await createJob(
+    env,
+    {
+      type: "upsert_survey",
+      groupSlug: group.groupSlug,
+      eventId,
+      createdBy: identity.user.id,
+      request: { questions },
+    },
+    ctx,
+  );
 
   return Response.json(jobToJson(job), { status: 202 });
 }

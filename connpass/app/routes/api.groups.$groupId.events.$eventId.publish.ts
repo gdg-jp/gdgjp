@@ -7,7 +7,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   if (request.method !== "POST") {
     return Response.json({ error: "method_not_allowed" }, { status: 405 });
   }
-  const { env } = context.cloudflare;
+  const { env, ctx } = context.cloudflare;
   const identity = await getCliIdentity(request, env);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
 
@@ -22,16 +22,20 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
 
-  const job = await createJob(env, {
-    type: "publish_event",
-    groupSlug: group.groupSlug,
-    eventId,
-    createdBy: identity.user.id,
-    request: {
-      postToTwitter: typeof body?.postToTwitter === "boolean" ? body.postToTwitter : undefined,
-      comment: typeof body?.comment === "string" ? body.comment : undefined,
+  const job = await createJob(
+    env,
+    {
+      type: "publish_event",
+      groupSlug: group.groupSlug,
+      eventId,
+      createdBy: identity.user.id,
+      request: {
+        postToTwitter: typeof body?.postToTwitter === "boolean" ? body.postToTwitter : undefined,
+        comment: typeof body?.comment === "string" ? body.comment : undefined,
+      },
     },
-  });
+    ctx,
+  );
 
   return Response.json(jobToJson(job), { status: 202 });
 }

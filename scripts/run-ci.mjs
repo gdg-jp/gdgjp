@@ -52,6 +52,7 @@ const workspaces = new Map([
   ["tinyurl-gateway", "@gdgjp/tinyurl-gateway"],
   ["website", "@gdgjp/website"],
   ["wiki", "@gdgjp/wiki"],
+  ["connpass", "@gdgjp/connpass"],
 ]);
 
 function changedFiles() {

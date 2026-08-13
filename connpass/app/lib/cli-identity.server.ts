@@ -6,10 +6,16 @@ export type CliIdentity = {
   chapters: Array<{ chapterId: string | number; chapterSlug: string; role: string }>;
 };
 
+function accountsBaseUrl(env: Env): string {
+  const e2e = import.meta.env.CONNPASS_E2E_ACCOUNTS_URL;
+  if (typeof e2e === "string" && e2e.length > 0) return e2e;
+  return env.ACCOUNTS_URL;
+}
+
 export async function getCliIdentity(request: Request, env: Env): Promise<CliIdentity | null> {
   const authorization = request.headers.get("authorization");
   if (!authorization?.startsWith("Bearer ")) return null;
-  const response = await fetch(new URL("/api/auth/oauth2/userinfo", env.ACCOUNTS_URL), {
+  const response = await fetch(new URL("/api/auth/oauth2/userinfo", accountsBaseUrl(env)), {
     headers: { authorization },
   });
   if (!response.ok) return null;

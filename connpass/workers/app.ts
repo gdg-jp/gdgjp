@@ -1,6 +1,5 @@
 import { createRequestHandler } from "react-router";
 import type { JobQueueMessage } from "../app/lib/job-runner.server";
-import { CloudflareContext } from "./context";
 
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
@@ -9,10 +8,9 @@ const requestHandler = createRequestHandler(
 
 export default {
   async fetch(request, env, ctx) {
-    return requestHandler(request, new CloudflareContext({ env, ctx }));
+    return requestHandler(request, { cloudflare: { env, ctx } });
   },
   async queue(batch, env, ctx) {
-    // Lazy-load Playwright/job runner so the fetch path stays lean.
     const { processJobMessage } = await import("../app/lib/job-runner.server");
     for (const message of batch.messages) {
       try {

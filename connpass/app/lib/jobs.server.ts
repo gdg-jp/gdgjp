@@ -60,6 +60,7 @@ export async function createJob(
     request: unknown;
     createdBy: string;
   },
+  ctx?: ExecutionContext,
 ): Promise<JobRecord> {
   const id = nanoid(16);
   await env.DB.prepare(
@@ -77,6 +78,14 @@ export async function createJob(
     .run();
 
   await env.JOB_QUEUE.send({ jobId: id } satisfies JobQueueMessage);
+  // Vite local queue consumers often never fire; run the worker inline in dev.
+  if (import.meta.env.DEV && ctx) {
+    ctx.waitUntil(
+      import("./job-runner.server").then((mod) =>
+        mod.processJobMessage(env, ctx, { jobId: id } satisfies JobQueueMessage),
+      ),
+    );
+  }
   const job = await getJob(env.DB, id);
   if (!job) throw new Error("job_create_failed");
   return job;
@@ -87,14 +96,15 @@ export async function getJob(db: D1Database, jobId: string): Promise<JobRecord |
   return row ? mapRow(row as Record<string, unknown>) : null;
 }
 
-export async function markJobRunning(db: D1Database, jobId: string): Promise<void> {
-  await db
+export async function markJobRunning(db: D1Database, jobId: string): Promise<boolean> {
+  const result = await db
     .prepare(
       `UPDATE jobs SET status = 'running', started_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND status = 'queued'`,
     )
     .bind(jobId)
     .run();
+  return (result.meta.changes ?? 0) > 0;
 }
 
 export async function markJobSucceeded(

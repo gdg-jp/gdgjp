@@ -49,7 +49,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   if (request.method !== "POST") {
     return Response.json({ error: "method_not_allowed" }, { status: 405 });
   }
-  const { env } = context.cloudflare;
+  const { env, ctx } = context.cloudflare;
   const identity = await getCliIdentity(request, env);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
 
@@ -64,29 +64,33 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     return Response.json({ error: "title_required" }, { status: 400 });
   }
 
-  const job = await createJob(env, {
-    type: "create_event",
-    groupSlug: group.groupSlug,
-    createdBy: identity.user.id,
-    request: {
-      title: body.title.trim(),
-      subtitle: typeof body.subtitle === "string" ? body.subtitle : undefined,
-      description: typeof body.description === "string" ? body.description : undefined,
-      startAt: typeof body.startAt === "string" ? body.startAt : undefined,
-      endAt: typeof body.endAt === "string" ? body.endAt : undefined,
-      place: typeof body.place === "string" ? body.place : undefined,
-      address: typeof body.address === "string" ? body.address : undefined,
-      capacity: typeof body.capacity === "number" ? body.capacity : undefined,
-      reservedAt: typeof body.reservedAt === "string" ? body.reservedAt : undefined,
-      registrationEnabled:
-        typeof body.registrationEnabled === "boolean" ? body.registrationEnabled : undefined,
-      participationTypes: parseParticipationTypes(body.participationTypes),
-      ownerText: typeof body.ownerText === "string" ? body.ownerText : undefined,
-      participantOnlyInfo:
-        typeof body.participantOnlyInfo === "string" ? body.participantOnlyInfo : undefined,
-      cancelPolicy: typeof body.cancelPolicy === "string" ? body.cancelPolicy : undefined,
+  const job = await createJob(
+    env,
+    {
+      type: "create_event",
+      groupSlug: group.groupSlug,
+      createdBy: identity.user.id,
+      request: {
+        title: body.title.trim(),
+        subtitle: typeof body.subtitle === "string" ? body.subtitle : undefined,
+        description: typeof body.description === "string" ? body.description : undefined,
+        startAt: typeof body.startAt === "string" ? body.startAt : undefined,
+        endAt: typeof body.endAt === "string" ? body.endAt : undefined,
+        place: typeof body.place === "string" ? body.place : undefined,
+        address: typeof body.address === "string" ? body.address : undefined,
+        capacity: typeof body.capacity === "number" ? body.capacity : undefined,
+        reservedAt: typeof body.reservedAt === "string" ? body.reservedAt : undefined,
+        registrationEnabled:
+          typeof body.registrationEnabled === "boolean" ? body.registrationEnabled : undefined,
+        participationTypes: parseParticipationTypes(body.participationTypes),
+        ownerText: typeof body.ownerText === "string" ? body.ownerText : undefined,
+        participantOnlyInfo:
+          typeof body.participantOnlyInfo === "string" ? body.participantOnlyInfo : undefined,
+        cancelPolicy: typeof body.cancelPolicy === "string" ? body.cancelPolicy : undefined,
+      },
     },
-  });
+    ctx,
+  );
 
   return Response.json(jobToJson(job), { status: 202 });
 }

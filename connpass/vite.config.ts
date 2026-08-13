@@ -1,20 +1,14 @@
+import { cloudflare } from "@cloudflare/vite-plugin";
 import { reactRouter } from "@react-router/dev/vite";
-import { cloudflareDevProxy } from "@react-router/dev/vite/cloudflare";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
-import { CloudflareContext } from "./workers/context";
 
 export default defineConfig({
   server: { port: 5179, strictPort: true },
+  envPrefix: ["VITE_", "CONNPASS_E2E_"],
   plugins: [
-    cloudflareDevProxy({
-      getLoadContext: ({ context }) =>
-        new CloudflareContext({
-          env: context.cloudflare.env as Env,
-          ctx: context.cloudflare.ctx,
-        }),
-    }),
+    cloudflare({ viteEnvironment: { name: "ssr" }, remoteBindings: false }),
     tailwindcss(),
     reactRouter(),
     tsconfigPaths(),

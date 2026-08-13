@@ -48,6 +48,8 @@ max_retries = 2
 
 [browser]
 binding = "BROWSER"
+# Local Vite/miniflare launches Chromium on the machine. If spawn fails, temporarily
+# set remote = true to use Cloudflare Browser Run from wrangler dev.
 
 [observability]
 enabled = true

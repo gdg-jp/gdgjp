@@ -39,7 +39,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   if (request.method !== "DELETE") {
     return Response.json({ error: "method_not_allowed" }, { status: 405 });
   }
-  const { env } = context.cloudflare;
+  const { env, ctx } = context.cloudflare;
   const identity = await getCliIdentity(request, env);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
 
@@ -52,13 +52,17 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   const subEventId = params.subEventId;
   if (!subEventId) return Response.json({ error: "not_found" }, { status: 404 });
 
-  const job = await createJob(env, {
-    type: "delete_sub_event",
-    groupSlug: group.groupSlug,
-    eventId: subEventId,
-    createdBy: identity.user.id,
-    request: {},
-  });
+  const job = await createJob(
+    env,
+    {
+      type: "delete_sub_event",
+      groupSlug: group.groupSlug,
+      eventId: subEventId,
+      createdBy: identity.user.id,
+      request: {},
+    },
+    ctx,
+  );
 
   return Response.json(jobToJson(job), { status: 202 });
 }

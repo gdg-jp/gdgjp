@@ -44,7 +44,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   if (request.method !== "POST") {
     return Response.json({ error: "method_not_allowed" }, { status: 405 });
   }
-  const { env } = context.cloudflare;
+  const { env, ctx } = context.cloudflare;
   const identity = await getCliIdentity(request, env);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
 
@@ -62,13 +62,17 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     return Response.json({ error: "title_required" }, { status: 400 });
   }
 
-  const job = await createJob(env, {
-    type: "create_sub_event",
-    groupSlug: group.groupSlug,
-    eventId,
-    createdBy: identity.user.id,
-    request: { title: body.title.trim() },
-  });
+  const job = await createJob(
+    env,
+    {
+      type: "create_sub_event",
+      groupSlug: group.groupSlug,
+      eventId,
+      createdBy: identity.user.id,
+      request: { title: body.title.trim() },
+    },
+    ctx,
+  );
 
   return Response.json(jobToJson(job), { status: 202 });
 }

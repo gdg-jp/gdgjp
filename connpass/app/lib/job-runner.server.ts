@@ -80,7 +80,8 @@ export async function processJobMessage(
   if (!job) return;
   if (job.status === "succeeded" || job.status === "failed") return;
 
-  await markJobRunning(env.DB, job.id);
+  const claimed = await markJobRunning(env.DB, job.id);
+  if (!claimed) return;
 
   if (job.type === "relogin") {
     try {
