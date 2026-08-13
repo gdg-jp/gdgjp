@@ -95,35 +95,64 @@ export type EventEditFields = {
   cancelPolicy?: string;
 };
 
+type ConnpassJQuery = {
+  (
+    selector: string,
+  ): {
+    first: () => { trigger: (event: string) => void };
+    [0]?: Element;
+  };
+  _data: (el: Element, key: string) => { click?: unknown } | undefined;
+};
+
+type ConnpassRequire = (deps: string[], cb: ($: ConnpassJQuery) => void) => void;
+
 /**
- * EventEditView is constructed in an AMD `require()` callback *after*
- * DOMContentLoaded. The click-to-edit spans (`#FieldTitle`, `#FieldSubTitle`,
- * …) are already in the server HTML, so a Playwright click can succeed before
- * Backbone has bound handlers — the inline `<input>` then never appears.
+ * Title/subtitle are jeditable fields (`click.editable` on the span itself),
+ * bound from EventEditView after AMD `require()`. The spans already have
+ * `.ui-editable` in the server HTML, and jQuery is AMD-only (not on window),
+ * so waiting for `#EventEditApp` click handlers never succeeds.
  */
 async function waitForEventEditReady(page: Page): Promise<void> {
+  if (page.url().includes("/login")) {
+    throw new Error("connpass_login_required");
+  }
   await page.locator(selectors.eventEdit.title).first().waitFor({
     state: "visible",
     timeout: 30_000,
   });
-  await page.waitForFunction(
-    () => {
-      const win = window as unknown as {
-        jQuery?: {
-          _data?: (el: Element, key: string) => { click?: unknown } | undefined;
+  await page.evaluate(async () => {
+    const req = (window as unknown as { require?: ConnpassRequire }).require;
+    if (typeof req !== "function") throw new Error("connpass_requirejs_missing");
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("connpass_jeditable_not_bound")), 30_000);
+      req(["jquery"], ($) => {
+        const poll = () => {
+          const el = $("#FieldTitle")[0];
+          const events = el ? $._data(el, "events") : undefined;
+          if (events?.click) {
+            clearTimeout(timeout);
+            resolve();
+            return;
+          }
+          setTimeout(poll, 50);
         };
-        $?: {
-          _data?: (el: Element, key: string) => { click?: unknown } | undefined;
-        };
-      };
-      const jq = win.jQuery ?? win.$;
-      const root = document.getElementById("EventEditApp");
-      if (!root || !jq?._data) return false;
-      return Boolean(jq._data(root, "events")?.click);
-    },
-    undefined,
-    { timeout: 30_000 },
-  );
+        poll();
+      });
+    });
+  });
+}
+
+async function jqueryClick(page: Page, selector: string): Promise<void> {
+  await page.evaluate(async (sel) => {
+    const req = (window as unknown as { require: ConnpassRequire }).require;
+    await new Promise<void>((resolve) => {
+      req(["jquery"], ($) => {
+        $(sel).first().trigger("click");
+        resolve();
+      });
+    });
+  }, selector);
 }
 
 async function clickEditAndFill(
@@ -136,15 +165,10 @@ async function clickEditAndFill(
   await trigger.waitFor({ state: "visible", timeout: 30_000 });
   const input = page.locator(inputSelector).first();
 
-  // Native click: a Playwright mouse click retries after the inline editor's
-  // layout shift and can land on the cancel control that is injected into the
-  // same trigger element.
   const deadline = Date.now() + 20_000;
   while (!(await input.isVisible().catch(() => false))) {
     if (Date.now() > deadline) break;
-    await trigger.evaluate((el) => {
-      (el as HTMLElement).click();
-    });
+    await jqueryClick(page, triggerSelector);
     await input.waitFor({ state: "visible", timeout: 2_000 }).catch(() => undefined);
   }
   await input.waitFor({ state: "visible", timeout: 10_000 });
