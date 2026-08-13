@@ -5,12 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"time"
+
+	openapigen "github.com/gdg-jp/gdgjp/cli/internal/connpass/openapigen"
 )
 
 const defaultBaseURL = "https://connpass.gdgs.jp"
@@ -18,6 +18,7 @@ const defaultBaseURL = "https://connpass.gdgs.jp"
 type Client struct {
 	BaseURL    string
 	HTTPClient *http.Client
+	generated  *openapigen.ClientWithResponses
 }
 
 type HTTPError struct {
@@ -29,6 +30,60 @@ func (e *HTTPError) Error() string {
 	return fmt.Sprintf("connpass request failed (%d): %s", e.StatusCode, e.Message)
 }
 
+type (
+	CreateEventRequest      = openapigen.CreateEventRequest
+	CreateSubEventRequest   = openapigen.CreateSubEventRequest
+	Event                   = openapigen.Event
+	EventFields             = openapigen.EventFields
+	EventSummary            = openapigen.EventSummary
+	Group                   = openapigen.Group
+	Job                     = openapigen.Job
+	JobStatus               = openapigen.JobStatus
+	PublishEventRequest     = openapigen.PublishEventRequest
+	SubEvent                = openapigen.SubEvent
+	Survey                  = openapigen.Survey
+	UpdateEventRequest      = openapigen.UpdateEventRequest
+	UpsertConferenceRequest = openapigen.UpsertConferenceRequest
+	UpsertGroupRequest      = openapigen.UpsertGroupRequest
+	UpsertSurveyRequest     = openapigen.UpsertSurveyRequest
+)
+
+type ListEventsResponse struct {
+	GroupID         string         `json:"groupId"`
+	ResultsReturned int            `json:"resultsReturned"`
+	Events          []EventSummary `json:"events"`
+}
+
+type GetEventResponse struct {
+	GroupID string `json:"groupId"`
+	Event   Event  `json:"event"`
+}
+
+type ListSubEventsResponse struct {
+	GroupID         string     `json:"groupId"`
+	EventID         string     `json:"eventId"`
+	ResultsReturned int        `json:"resultsReturned"`
+	SubEvents       []SubEvent `json:"subEvents"`
+}
+
+type GetSubEventResponse struct {
+	GroupID  string   `json:"groupId"`
+	EventID  string   `json:"eventId"`
+	SubEvent SubEvent `json:"subEvent"`
+}
+
+type GetSurveyResponse struct {
+	GroupID string `json:"groupId"`
+	EventID string `json:"eventId"`
+	Survey  Survey `json:"survey"`
+}
+
+type GetConferenceResponse struct {
+	GroupID    string                `json:"groupId"`
+	EventID    string                `json:"eventId"`
+	Conference openapigen.Conference `json:"conference"`
+}
+
 func NewClient() *Client {
 	base := os.Getenv("GDG_CONNPASS_URL")
 	if base == "" {
@@ -38,116 +93,265 @@ func NewClient() *Client {
 }
 
 func NewClientAt(baseURL string) *Client {
-	return &Client{BaseURL: strings.TrimRight(baseURL, "/"), HTTPClient: http.DefaultClient}
+	client := &Client{BaseURL: strings.TrimRight(baseURL, "/"), HTTPClient: http.DefaultClient}
+	client.generatedClient()
+	return client
 }
 
-type Job struct {
-	ID         string          `json:"id"`
-	Type       string          `json:"type"`
-	Status     string          `json:"status"`
-	GroupID    string          `json:"groupId"`
-	EventID    *string         `json:"eventId"`
-	Request    json.RawMessage `json:"request"`
-	Result     json.RawMessage `json:"result"`
-	Error      *string         `json:"error"`
-	CreatedBy  string          `json:"createdBy"`
-	CreatedAt  string          `json:"createdAt"`
-	UpdatedAt  string          `json:"updatedAt"`
-	StartedAt  *string         `json:"startedAt"`
-	FinishedAt *string         `json:"finishedAt"`
-}
-
-type CreateEventInput struct {
-	Title       string `json:"title"`
-	Subtitle    string `json:"subtitle,omitempty"`
-	Description string `json:"description,omitempty"`
-	StartAt     string `json:"startAt,omitempty"`
-	EndAt       string `json:"endAt,omitempty"`
-	Place       string `json:"place,omitempty"`
-	Address     string `json:"address,omitempty"`
-	Capacity    *int   `json:"capacity,omitempty"`
-}
-
-type Group struct {
-	GroupID        string  `json:"groupId"`
-	NumericGroupID *int    `json:"numericGroupId"`
-	ChapterID      *string `json:"chapterId"`
-	Enabled        bool    `json:"enabled"`
-}
-
-type UpsertGroupInput struct {
-	NumericGroupID *int   `json:"numericGroupId,omitempty"`
-	ChapterID      string `json:"chapterId,omitempty"`
-	Enabled        *bool  `json:"enabled,omitempty"`
-}
-
-type listGroupsResponse struct {
-	Groups []Group `json:"groups"`
-}
-
-func (c *Client) doJSON(ctx context.Context, method, path, token string, body any, out any) error {
-	var reader io.Reader
-	if body != nil {
-		payload, err := json.Marshal(body)
+func (c *Client) generatedClient() *openapigen.ClientWithResponses {
+	if c.generated == nil {
+		generated, err := openapigen.NewClientWithResponses(c.BaseURL, openapigen.WithHTTPClient(c.HTTPClient))
 		if err != nil {
-			return err
+			panic(err)
 		}
-		reader = bytes.NewReader(payload)
+		c.generated = generated
 	}
-	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, reader)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	res, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	data, err := io.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
-	if res.StatusCode >= 400 {
-		return &HTTPError{StatusCode: res.StatusCode, Message: string(data)}
-	}
-	if out == nil || res.StatusCode == http.StatusNoContent {
+	return c.generated
+}
+
+func bearer(token string) openapigen.RequestEditorFn {
+	return func(_ context.Context, request *http.Request) error {
+		request.Header.Set("Authorization", "Bearer "+token)
 		return nil
 	}
-	return json.Unmarshal(data, out)
+}
+
+func decodeResponse[T any](status int, body []byte, out *T) error {
+	if status < 200 || status >= 300 {
+		return &HTTPError{StatusCode: status, Message: strings.TrimSpace(string(body))}
+	}
+	if out == nil || len(body) == 0 {
+		return nil
+	}
+	return json.Unmarshal(body, out)
+}
+
+func jsonBody(body any) (*bytes.Reader, error) {
+	if body == nil {
+		return bytes.NewReader(nil), nil
+	}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(payload), nil
 }
 
 func (c *Client) GetJob(ctx context.Context, token, jobID string) (Job, error) {
+	res, err := c.generatedClient().GetJobWithResponse(ctx, jobID, bearer(token))
+	if err != nil {
+		return Job{}, err
+	}
 	var job Job
-	err := c.doJSON(ctx, http.MethodGet, "/api/jobs/"+url.PathEscape(jobID), token, nil, &job)
+	err = decodeResponse(res.StatusCode(), res.Body, &job)
 	return job, err
 }
 
 func (c *Client) ListGroups(ctx context.Context, token string) ([]Group, error) {
-	var payload listGroupsResponse
-	err := c.doJSON(ctx, http.MethodGet, "/api/admin/groups", token, nil, &payload)
-	return payload.Groups, err
+	res, err := c.generatedClient().AdminListGroupsWithResponse(ctx, bearer(token))
+	if err != nil {
+		return nil, err
+	}
+	var payload struct {
+		Groups []Group `json:"groups"`
+	}
+	if err := decodeResponse(res.StatusCode(), res.Body, &payload); err != nil {
+		return nil, err
+	}
+	if payload.Groups == nil {
+		return []Group{}, nil
+	}
+	return payload.Groups, nil
 }
 
-func (c *Client) UpsertGroup(ctx context.Context, token, groupID string, input UpsertGroupInput) (Group, error) {
+func (c *Client) UpsertGroup(ctx context.Context, token, groupID string, input UpsertGroupRequest) (Group, error) {
+	res, err := c.generatedClient().AdminUpsertGroupWithResponse(ctx, groupID, input, bearer(token))
+	if err != nil {
+		return Group{}, err
+	}
 	var group Group
-	err := c.doJSON(ctx, http.MethodPut, "/api/admin/groups/"+url.PathEscape(groupID), token, input, &group)
+	err = decodeResponse(res.StatusCode(), res.Body, &group)
 	return group, err
 }
 
-func (c *Client) CreateEvent(ctx context.Context, token, groupID string, input CreateEventInput) (Job, error) {
+func (c *Client) Relogin(ctx context.Context, token string) (Job, error) {
+	res, err := c.generatedClient().AdminReloginWithResponse(ctx, bearer(token))
+	if err != nil {
+		return Job{}, err
+	}
 	var job Job
-	err := c.doJSON(ctx, http.MethodPost, "/api/groups/"+url.PathEscape(groupID)+"/events", token, input, &job)
+	err = decodeResponse(res.StatusCode(), res.Body, &job)
 	return job, err
 }
 
-func (c *Client) PublishEvent(ctx context.Context, token, groupID, eventID string) (Job, error) {
+func (c *Client) ListEvents(ctx context.Context, token, groupID string) (ListEventsResponse, error) {
+	res, err := c.generatedClient().ListGroupEventsWithResponse(ctx, groupID, bearer(token))
+	if err != nil {
+		return ListEventsResponse{}, err
+	}
+	var out ListEventsResponse
+	err = decodeResponse(res.StatusCode(), res.Body, &out)
+	return out, err
+}
+
+func (c *Client) CreateEvent(ctx context.Context, token, groupID string, body any) (Job, error) {
+	reader, err := jsonBody(body)
+	if err != nil {
+		return Job{}, err
+	}
+	res, err := c.generatedClient().CreateGroupEventWithBodyWithResponse(
+		ctx, groupID, "application/json", reader, bearer(token),
+	)
+	if err != nil {
+		return Job{}, err
+	}
 	var job Job
-	err := c.doJSON(ctx, http.MethodPost, "/api/groups/"+url.PathEscape(groupID)+"/events/"+url.PathEscape(eventID)+"/publish", token, map[string]any{}, &job)
+	err = decodeResponse(res.StatusCode(), res.Body, &job)
+	return job, err
+}
+
+func (c *Client) GetEvent(ctx context.Context, token, groupID, eventID string) (GetEventResponse, error) {
+	res, err := c.generatedClient().GetGroupEventWithResponse(ctx, groupID, eventID, bearer(token))
+	if err != nil {
+		return GetEventResponse{}, err
+	}
+	var out GetEventResponse
+	err = decodeResponse(res.StatusCode(), res.Body, &out)
+	return out, err
+}
+
+func (c *Client) UpdateEvent(ctx context.Context, token, groupID, eventID string, body any) (Job, error) {
+	reader, err := jsonBody(body)
+	if err != nil {
+		return Job{}, err
+	}
+	res, err := c.generatedClient().UpdateGroupEventWithBodyWithResponse(
+		ctx, groupID, eventID, "application/json", reader, bearer(token),
+	)
+	if err != nil {
+		return Job{}, err
+	}
+	var job Job
+	err = decodeResponse(res.StatusCode(), res.Body, &job)
+	return job, err
+}
+
+func (c *Client) PublishEvent(ctx context.Context, token, groupID, eventID string, body any) (Job, error) {
+	if body == nil {
+		body = map[string]any{}
+	}
+	reader, err := jsonBody(body)
+	if err != nil {
+		return Job{}, err
+	}
+	res, err := c.generatedClient().PublishGroupEventWithBodyWithResponse(
+		ctx, groupID, eventID, "application/json", reader, bearer(token),
+	)
+	if err != nil {
+		return Job{}, err
+	}
+	var job Job
+	err = decodeResponse(res.StatusCode(), res.Body, &job)
+	return job, err
+}
+
+func (c *Client) ListSubEvents(ctx context.Context, token, groupID, eventID string) (ListSubEventsResponse, error) {
+	res, err := c.generatedClient().ListGroupEventSubEventsWithResponse(ctx, groupID, eventID, bearer(token))
+	if err != nil {
+		return ListSubEventsResponse{}, err
+	}
+	var out ListSubEventsResponse
+	err = decodeResponse(res.StatusCode(), res.Body, &out)
+	return out, err
+}
+
+func (c *Client) CreateSubEvent(ctx context.Context, token, groupID, eventID string, body any) (Job, error) {
+	reader, err := jsonBody(body)
+	if err != nil {
+		return Job{}, err
+	}
+	res, err := c.generatedClient().CreateGroupEventSubEventWithBodyWithResponse(
+		ctx, groupID, eventID, "application/json", reader, bearer(token),
+	)
+	if err != nil {
+		return Job{}, err
+	}
+	var job Job
+	err = decodeResponse(res.StatusCode(), res.Body, &job)
+	return job, err
+}
+
+func (c *Client) GetSubEvent(ctx context.Context, token, groupID, eventID, subEventID string) (GetSubEventResponse, error) {
+	res, err := c.generatedClient().GetGroupEventSubEventWithResponse(ctx, groupID, eventID, subEventID, bearer(token))
+	if err != nil {
+		return GetSubEventResponse{}, err
+	}
+	var out GetSubEventResponse
+	err = decodeResponse(res.StatusCode(), res.Body, &out)
+	return out, err
+}
+
+func (c *Client) CancelSubEvent(ctx context.Context, token, groupID, eventID, subEventID string) (Job, error) {
+	res, err := c.generatedClient().DeleteGroupEventSubEventWithResponse(
+		ctx, groupID, eventID, subEventID, bearer(token),
+	)
+	if err != nil {
+		return Job{}, err
+	}
+	var job Job
+	err = decodeResponse(res.StatusCode(), res.Body, &job)
+	return job, err
+}
+
+func (c *Client) GetSurvey(ctx context.Context, token, groupID, eventID string) (GetSurveyResponse, error) {
+	res, err := c.generatedClient().GetGroupEventSurveyWithResponse(ctx, groupID, eventID, bearer(token))
+	if err != nil {
+		return GetSurveyResponse{}, err
+	}
+	var out GetSurveyResponse
+	err = decodeResponse(res.StatusCode(), res.Body, &out)
+	return out, err
+}
+
+func (c *Client) UpsertSurvey(ctx context.Context, token, groupID, eventID string, body any) (Job, error) {
+	reader, err := jsonBody(body)
+	if err != nil {
+		return Job{}, err
+	}
+	res, err := c.generatedClient().UpsertGroupEventSurveyWithBodyWithResponse(
+		ctx, groupID, eventID, "application/json", reader, bearer(token),
+	)
+	if err != nil {
+		return Job{}, err
+	}
+	var job Job
+	err = decodeResponse(res.StatusCode(), res.Body, &job)
+	return job, err
+}
+
+func (c *Client) GetConference(ctx context.Context, token, groupID, eventID string) (GetConferenceResponse, error) {
+	res, err := c.generatedClient().GetGroupEventConferenceWithResponse(ctx, groupID, eventID, bearer(token))
+	if err != nil {
+		return GetConferenceResponse{}, err
+	}
+	var out GetConferenceResponse
+	err = decodeResponse(res.StatusCode(), res.Body, &out)
+	return out, err
+}
+
+func (c *Client) UpsertConference(ctx context.Context, token, groupID, eventID string, body any) (Job, error) {
+	reader, err := jsonBody(body)
+	if err != nil {
+		return Job{}, err
+	}
+	res, err := c.generatedClient().UpsertGroupEventConferenceWithBodyWithResponse(
+		ctx, groupID, eventID, "application/json", reader, bearer(token),
+	)
+	if err != nil {
+		return Job{}, err
+	}
+	var job Job
+	err = decodeResponse(res.StatusCode(), res.Body, &job)
 	return job, err
 }
 
@@ -160,7 +364,7 @@ func (c *Client) WaitJob(ctx context.Context, token, jobID string, pollEvery tim
 		if err != nil {
 			return Job{}, err
 		}
-		if job.Status == "succeeded" || job.Status == "failed" {
+		if job.Status == openapigen.Succeeded || job.Status == openapigen.Failed {
 			return job, nil
 		}
 		select {
@@ -169,4 +373,14 @@ func (c *Client) WaitJob(ctx context.Context, token, jobID string, pollEvery tim
 		case <-time.After(pollEvery):
 		}
 	}
+}
+
+func JobFailed(job Job) error {
+	if job.Status != openapigen.Failed {
+		return nil
+	}
+	if job.Error != nil && *job.Error != "" {
+		return fmt.Errorf("job failed: %s", *job.Error)
+	}
+	return fmt.Errorf("job failed")
 }

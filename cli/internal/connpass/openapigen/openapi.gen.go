@@ -20,6 +20,13 @@ const (
 	BearerAuthScopes = "BearerAuth.Scopes"
 )
 
+// Defines values for EventStatus.
+const (
+	Canceled  EventStatus = "canceled"
+	Draft     EventStatus = "draft"
+	Published EventStatus = "published"
+)
+
 // Defines values for JobStatus.
 const (
 	Failed    JobStatus = "failed"
@@ -30,27 +37,182 @@ const (
 
 // Defines values for JobType.
 const (
-	CreateEvent  JobType = "create_event"
-	PublishEvent JobType = "publish_event"
-	Relogin      JobType = "relogin"
-	UpdateEvent  JobType = "update_event"
+	CreateEvent      JobType = "create_event"
+	CreateSubEvent   JobType = "create_sub_event"
+	DeleteSubEvent   JobType = "delete_sub_event"
+	PublishEvent     JobType = "publish_event"
+	Relogin          JobType = "relogin"
+	UpdateEvent      JobType = "update_event"
+	UpsertConference JobType = "upsert_conference"
+	UpsertSurvey     JobType = "upsert_survey"
 )
+
+// Defines values for ParticipationTypeFeeType.
+const (
+	Place  ParticipationTypeFeeType = "place"
+	Prepay ParticipationTypeFeeType = "prepay"
+)
+
+// Defines values for ParticipationTypeMethod.
+const (
+	Fcfs    ParticipationTypeMethod = "fcfs"
+	Lottery ParticipationTypeMethod = "lottery"
+)
+
+// Defines values for SurveyQuestionAnswerType.
+const (
+	Checkbox SurveyQuestionAnswerType = "checkbox"
+	Dropdown SurveyQuestionAnswerType = "dropdown"
+	FreeText SurveyQuestionAnswerType = "free_text"
+	Radio    SurveyQuestionAnswerType = "radio"
+)
+
+// Conference defines model for Conference.
+type Conference struct {
+	CfpEndAt       *string   `json:"cfpEndAt"`
+	CfpStartAt     *string   `json:"cfpStartAt"`
+	CfpUrl         *string   `json:"cfpUrl"`
+	IsActive       bool      `json:"isActive"`
+	LpUrl          *string   `json:"lpUrl"`
+	SponsorEndAt   *string   `json:"sponsorEndAt"`
+	SponsorStartAt *string   `json:"sponsorStartAt"`
+	SponsorUrl     *string   `json:"sponsorUrl"`
+	Topics         *[]string `json:"topics"`
+}
 
 // CreateEventRequest defines model for CreateEventRequest.
 type CreateEventRequest struct {
-	Address     *string `json:"address,omitempty"`
-	Capacity    *int    `json:"capacity,omitempty"`
-	Description *string `json:"description,omitempty"`
-	EndAt       *string `json:"endAt,omitempty"`
-	Place       *string `json:"place,omitempty"`
-	StartAt     *string `json:"startAt,omitempty"`
-	Subtitle    *string `json:"subtitle,omitempty"`
-	Title       string  `json:"title"`
+	Address              *string              `json:"address,omitempty"`
+	AllowConflictJoin    *bool                `json:"allowConflictJoin,omitempty"`
+	AllowReceipt         *bool                `json:"allowReceipt,omitempty"`
+	CancelPolicy         *string              `json:"cancelPolicy"`
+	Capacity             *int                 `json:"capacity,omitempty"`
+	ContactDetails       *string              `json:"contactDetails"`
+	Description          *string              `json:"description,omitempty"`
+	EndAt                *string              `json:"endAt,omitempty"`
+	EventType            *string              `json:"eventType,omitempty"`
+	Image                *string              `json:"image"`
+	InvoiceNumber        *string              `json:"invoiceNumber"`
+	LotteryPublishDate   *string              `json:"lotteryPublishDate"`
+	OwnerText            *string              `json:"ownerText"`
+	ParticipantOnlyInfo  *string              `json:"participantOnlyInfo"`
+	ParticipationTypes   *[]ParticipationType `json:"participationTypes,omitempty"`
+	PaypalEmail          *string              `json:"paypalEmail"`
+	Place                *string              `json:"place,omitempty"`
+	ReceiptIssuerAddress *string              `json:"receiptIssuerAddress"`
+	ReceiptIssuerName    *string              `json:"receiptIssuerName"`
+	RegistrationCloseAt  *string              `json:"registrationCloseAt"`
+	RegistrationEnabled  *bool                `json:"registrationEnabled,omitempty"`
+	RegistrationOpenAt   *string              `json:"registrationOpenAt"`
+	ReservedAt           *string              `json:"reservedAt"`
+	StartAt              *string              `json:"startAt,omitempty"`
+	Subtitle             *string              `json:"subtitle,omitempty"`
+	Title                string               `json:"title"`
+}
+
+// CreateSubEventRequest defines model for CreateSubEventRequest.
+type CreateSubEventRequest struct {
+	Title string `json:"title"`
 }
 
 // Error defines model for Error.
 type Error struct {
 	Error string `json:"error"`
+}
+
+// Event defines model for Event.
+type Event struct {
+	Address           *string `json:"address,omitempty"`
+	AllowConflictJoin bool    `json:"allowConflictJoin"`
+	AllowReceipt      bool    `json:"allowReceipt"`
+	CancelPolicy      *string `json:"cancelPolicy"`
+	Capacity          *int    `json:"capacity,omitempty"`
+	ContactDetails    *string `json:"contactDetails"`
+	Description       *string `json:"description,omitempty"`
+	EditUrl           string  `json:"editUrl"`
+	EndAt             string  `json:"endAt"`
+	EventType         *string `json:"eventType,omitempty"`
+
+	// GroupId The connpass group this event is organized under. Sub-events created without an explicit group assignment have no group until one is set on the event's own edit screen (an irreversible, one-time choice in connpass).
+	GroupId *string `json:"groupId"`
+
+	// HasConference Whether this event has conference info configured. Fetch it via GET /conference.
+	HasConference bool `json:"hasConference"`
+
+	// HasSurvey Whether this event has a survey configured. Fetch it via GET /survey.
+	HasSurvey          bool    `json:"hasSurvey"`
+	Id                 string  `json:"id"`
+	Image              *string `json:"image"`
+	InvoiceNumber      *string `json:"invoiceNumber"`
+	LotteryPublishDate *string `json:"lotteryPublishDate"`
+	OwnerText          *string `json:"ownerText"`
+
+	// ParentId The parent event ID, if this event is itself a sub-event.
+	ParentId             *string              `json:"parentId"`
+	ParticipantOnlyInfo  *string              `json:"participantOnlyInfo"`
+	ParticipationTypes   *[]ParticipationType `json:"participationTypes,omitempty"`
+	PaypalEmail          *string              `json:"paypalEmail"`
+	Place                *string              `json:"place,omitempty"`
+	ReceiptIssuerAddress *string              `json:"receiptIssuerAddress"`
+	ReceiptIssuerName    *string              `json:"receiptIssuerName"`
+	RegistrationCloseAt  *string              `json:"registrationCloseAt"`
+	RegistrationEnabled  bool                 `json:"registrationEnabled"`
+	RegistrationOpenAt   *string              `json:"registrationOpenAt"`
+	ReservedAt           *string              `json:"reservedAt"`
+	StartAt              string               `json:"startAt"`
+	Status               EventStatus          `json:"status"`
+
+	// SubEventCount Number of linked sub-events. Fetch them via GET /sub-events.
+	SubEventCount int     `json:"subEventCount"`
+	Subtitle      *string `json:"subtitle,omitempty"`
+	Title         string  `json:"title"`
+	Url           string  `json:"url"`
+}
+
+// EventFields Fields shared by event creation, update, and the full event representation.
+type EventFields struct {
+	Address              *string              `json:"address,omitempty"`
+	AllowConflictJoin    *bool                `json:"allowConflictJoin,omitempty"`
+	AllowReceipt         *bool                `json:"allowReceipt,omitempty"`
+	CancelPolicy         *string              `json:"cancelPolicy"`
+	Capacity             *int                 `json:"capacity,omitempty"`
+	ContactDetails       *string              `json:"contactDetails"`
+	Description          *string              `json:"description,omitempty"`
+	EndAt                *string              `json:"endAt,omitempty"`
+	EventType            *string              `json:"eventType,omitempty"`
+	Image                *string              `json:"image"`
+	InvoiceNumber        *string              `json:"invoiceNumber"`
+	LotteryPublishDate   *string              `json:"lotteryPublishDate"`
+	OwnerText            *string              `json:"ownerText"`
+	ParticipantOnlyInfo  *string              `json:"participantOnlyInfo"`
+	ParticipationTypes   *[]ParticipationType `json:"participationTypes,omitempty"`
+	PaypalEmail          *string              `json:"paypalEmail"`
+	Place                *string              `json:"place,omitempty"`
+	ReceiptIssuerAddress *string              `json:"receiptIssuerAddress"`
+	ReceiptIssuerName    *string              `json:"receiptIssuerName"`
+	RegistrationCloseAt  *string              `json:"registrationCloseAt"`
+	RegistrationEnabled  *bool                `json:"registrationEnabled,omitempty"`
+	RegistrationOpenAt   *string              `json:"registrationOpenAt"`
+	ReservedAt           *string              `json:"reservedAt"`
+	StartAt              *string              `json:"startAt,omitempty"`
+	Subtitle             *string              `json:"subtitle,omitempty"`
+	Title                *string              `json:"title,omitempty"`
+}
+
+// EventStatus defines model for EventStatus.
+type EventStatus string
+
+// EventSummary Lightweight event representation, as returned by GET /events (list).
+type EventSummary struct {
+	EditUrl           string      `json:"editUrl"`
+	EndAt             string      `json:"endAt"`
+	Id                string      `json:"id"`
+	ParticipantsCount *int        `json:"participantsCount"`
+	Place             *string     `json:"place"`
+	StartAt           string      `json:"startAt"`
+	Status            EventStatus `json:"status"`
+	Title             string      `json:"title"`
+	Url               string      `json:"url"`
 }
 
 // Group defines model for Group.
@@ -85,16 +247,78 @@ type JobStatus string
 // JobType defines model for Job.Type.
 type JobType string
 
-// UpdateEventRequest defines model for UpdateEventRequest.
-type UpdateEventRequest struct {
-	Address     *string `json:"address,omitempty"`
-	Capacity    *int    `json:"capacity,omitempty"`
-	Description *string `json:"description,omitempty"`
-	EndAt       *string `json:"endAt,omitempty"`
-	Place       *string `json:"place,omitempty"`
-	StartAt     *string `json:"startAt,omitempty"`
-	Subtitle    *string `json:"subtitle,omitempty"`
-	Title       *string `json:"title,omitempty"`
+// ParticipationType defines model for ParticipationType.
+type ParticipationType struct {
+	Fee             *int                      `json:"fee,omitempty"`
+	FeeType         *ParticipationTypeFeeType `json:"feeType,omitempty"`
+	Id              *string                   `json:"id"`
+	MaxParticipants *int                      `json:"maxParticipants,omitempty"`
+	Method          *ParticipationTypeMethod  `json:"method,omitempty"`
+	Name            *string                   `json:"name,omitempty"`
+
+	// SubEventIds IDs of sub-events (see /sub-events) that participants registering under this participation type may also join.
+	SubEventIds *[]string `json:"subEventIds"`
+}
+
+// ParticipationTypeFeeType defines model for ParticipationType.FeeType.
+type ParticipationTypeFeeType string
+
+// ParticipationTypeMethod defines model for ParticipationType.Method.
+type ParticipationTypeMethod string
+
+// PublishEventRequest defines model for PublishEventRequest.
+type PublishEventRequest struct {
+	Comment       *string `json:"comment"`
+	PostToTwitter *bool   `json:"postToTwitter,omitempty"`
+}
+
+// SubEvent Lightweight view of an event linked as a sub-event. Sub-events are full connpass events (create with POST /sub-events, then manage every other field through the regular GET/PATCH /events/{eventId} using the returned event ID).
+type SubEvent struct {
+	EditUrl string  `json:"editUrl"`
+	EndAt   *string `json:"endAt"`
+
+	// GroupId Null until a connpass group is assigned on the sub-event's own edit screen.
+	GroupId *string     `json:"groupId"`
+	Id      string      `json:"id"`
+	StartAt *string     `json:"startAt"`
+	Status  EventStatus `json:"status"`
+	Title   string      `json:"title"`
+	Url     string      `json:"url"`
+}
+
+// Survey defines model for Survey.
+type Survey struct {
+	Questions []SurveyQuestion `json:"questions"`
+}
+
+// SurveyQuestion defines model for SurveyQuestion.
+type SurveyQuestion struct {
+	AnswerType SurveyQuestionAnswerType `json:"answerType"`
+	Id         *string                  `json:"id"`
+
+	// Options Choice labels. Required when answerType is checkbox, radio, or dropdown.
+	Options  *[]string `json:"options"`
+	Required bool      `json:"required"`
+	Title    string    `json:"title"`
+}
+
+// SurveyQuestionAnswerType defines model for SurveyQuestionAnswerType.
+type SurveyQuestionAnswerType string
+
+// UpdateEventRequest Fields shared by event creation, update, and the full event representation.
+type UpdateEventRequest = EventFields
+
+// UpsertConferenceRequest defines model for UpsertConferenceRequest.
+type UpsertConferenceRequest struct {
+	CfpEndAt       *string   `json:"cfpEndAt"`
+	CfpStartAt     *string   `json:"cfpStartAt"`
+	CfpUrl         *string   `json:"cfpUrl"`
+	IsActive       bool      `json:"isActive"`
+	LpUrl          *string   `json:"lpUrl"`
+	SponsorEndAt   *string   `json:"sponsorEndAt"`
+	SponsorStartAt *string   `json:"sponsorStartAt"`
+	SponsorUrl     *string   `json:"sponsorUrl"`
+	Topics         *[]string `json:"topics"`
 }
 
 // UpsertGroupRequest defines model for UpsertGroupRequest.
@@ -104,6 +328,32 @@ type UpsertGroupRequest struct {
 	NumericGroupId *int    `json:"numericGroupId,omitempty"`
 }
 
+// UpsertSurveyRequest defines model for UpsertSurveyRequest.
+type UpsertSurveyRequest struct {
+	Questions []SurveyQuestion `json:"questions"`
+}
+
+// EventId defines model for EventId.
+type EventId = string
+
+// GroupId defines model for GroupId.
+type GroupId = string
+
+// SubEventId defines model for SubEventId.
+type SubEventId = string
+
+// BadRequest defines model for BadRequest.
+type BadRequest = Error
+
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
+
+// NotFound defines model for NotFound.
+type NotFound = Error
+
+// Unauthorized defines model for Unauthorized.
+type Unauthorized = Error
+
 // AdminUpsertGroupJSONRequestBody defines body for AdminUpsertGroup for application/json ContentType.
 type AdminUpsertGroupJSONRequestBody = UpsertGroupRequest
 
@@ -112,6 +362,18 @@ type CreateGroupEventJSONRequestBody = CreateEventRequest
 
 // UpdateGroupEventJSONRequestBody defines body for UpdateGroupEvent for application/json ContentType.
 type UpdateGroupEventJSONRequestBody = UpdateEventRequest
+
+// UpsertGroupEventConferenceJSONRequestBody defines body for UpsertGroupEventConference for application/json ContentType.
+type UpsertGroupEventConferenceJSONRequestBody = UpsertConferenceRequest
+
+// PublishGroupEventJSONRequestBody defines body for PublishGroupEvent for application/json ContentType.
+type PublishGroupEventJSONRequestBody = PublishEventRequest
+
+// CreateGroupEventSubEventJSONRequestBody defines body for CreateGroupEventSubEvent for application/json ContentType.
+type CreateGroupEventSubEventJSONRequestBody = CreateSubEventRequest
+
+// UpsertGroupEventSurveyJSONRequestBody defines body for UpsertGroupEventSurvey for application/json ContentType.
+type UpsertGroupEventSurveyJSONRequestBody = UpsertSurveyRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -213,8 +475,40 @@ type ClientInterface interface {
 
 	UpdateGroupEvent(ctx context.Context, groupId string, eventId string, body UpdateGroupEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PublishGroupEvent request
-	PublishGroupEvent(ctx context.Context, groupId string, eventId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetGroupEventConference request
+	GetGroupEventConference(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpsertGroupEventConferenceWithBody request with any body
+	UpsertGroupEventConferenceWithBody(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpsertGroupEventConference(ctx context.Context, groupId GroupId, eventId EventId, body UpsertGroupEventConferenceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PublishGroupEventWithBody request with any body
+	PublishGroupEventWithBody(ctx context.Context, groupId string, eventId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PublishGroupEvent(ctx context.Context, groupId string, eventId string, body PublishGroupEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListGroupEventSubEvents request
+	ListGroupEventSubEvents(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateGroupEventSubEventWithBody request with any body
+	CreateGroupEventSubEventWithBody(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateGroupEventSubEvent(ctx context.Context, groupId GroupId, eventId EventId, body CreateGroupEventSubEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteGroupEventSubEvent request
+	DeleteGroupEventSubEvent(ctx context.Context, groupId GroupId, eventId EventId, subEventId SubEventId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGroupEventSubEvent request
+	GetGroupEventSubEvent(ctx context.Context, groupId GroupId, eventId EventId, subEventId SubEventId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGroupEventSurvey request
+	GetGroupEventSurvey(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpsertGroupEventSurveyWithBody request with any body
+	UpsertGroupEventSurveyWithBody(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpsertGroupEventSurvey(ctx context.Context, groupId GroupId, eventId EventId, body UpsertGroupEventSurveyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetJob request
 	GetJob(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -340,8 +634,152 @@ func (c *Client) UpdateGroupEvent(ctx context.Context, groupId string, eventId s
 	return c.Client.Do(req)
 }
 
-func (c *Client) PublishGroupEvent(ctx context.Context, groupId string, eventId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPublishGroupEventRequest(c.Server, groupId, eventId)
+func (c *Client) GetGroupEventConference(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGroupEventConferenceRequest(c.Server, groupId, eventId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertGroupEventConferenceWithBody(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertGroupEventConferenceRequestWithBody(c.Server, groupId, eventId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertGroupEventConference(ctx context.Context, groupId GroupId, eventId EventId, body UpsertGroupEventConferenceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertGroupEventConferenceRequest(c.Server, groupId, eventId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PublishGroupEventWithBody(ctx context.Context, groupId string, eventId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishGroupEventRequestWithBody(c.Server, groupId, eventId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PublishGroupEvent(ctx context.Context, groupId string, eventId string, body PublishGroupEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPublishGroupEventRequest(c.Server, groupId, eventId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListGroupEventSubEvents(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGroupEventSubEventsRequest(c.Server, groupId, eventId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateGroupEventSubEventWithBody(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGroupEventSubEventRequestWithBody(c.Server, groupId, eventId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateGroupEventSubEvent(ctx context.Context, groupId GroupId, eventId EventId, body CreateGroupEventSubEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGroupEventSubEventRequest(c.Server, groupId, eventId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteGroupEventSubEvent(ctx context.Context, groupId GroupId, eventId EventId, subEventId SubEventId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteGroupEventSubEventRequest(c.Server, groupId, eventId, subEventId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGroupEventSubEvent(ctx context.Context, groupId GroupId, eventId EventId, subEventId SubEventId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGroupEventSubEventRequest(c.Server, groupId, eventId, subEventId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGroupEventSurvey(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGroupEventSurveyRequest(c.Server, groupId, eventId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertGroupEventSurveyWithBody(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertGroupEventSurveyRequestWithBody(c.Server, groupId, eventId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpsertGroupEventSurvey(ctx context.Context, groupId GroupId, eventId EventId, body UpsertGroupEventSurveyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpsertGroupEventSurveyRequest(c.Server, groupId, eventId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -641,8 +1079,114 @@ func NewUpdateGroupEventRequestWithBody(server string, groupId string, eventId s
 	return req, nil
 }
 
-// NewPublishGroupEventRequest generates requests for PublishGroupEvent
-func NewPublishGroupEventRequest(server string, groupId string, eventId string) (*http.Request, error) {
+// NewGetGroupEventConferenceRequest generates requests for GetGroupEventConference
+func NewGetGroupEventConferenceRequest(server string, groupId GroupId, eventId EventId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/conference", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpsertGroupEventConferenceRequest calls the generic UpsertGroupEventConference builder with application/json body
+func NewUpsertGroupEventConferenceRequest(server string, groupId GroupId, eventId EventId, body UpsertGroupEventConferenceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpsertGroupEventConferenceRequestWithBody(server, groupId, eventId, "application/json", bodyReader)
+}
+
+// NewUpsertGroupEventConferenceRequestWithBody generates requests for UpsertGroupEventConference with any type of body
+func NewUpsertGroupEventConferenceRequestWithBody(server string, groupId GroupId, eventId EventId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/conference", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPublishGroupEventRequest calls the generic PublishGroupEvent builder with application/json body
+func NewPublishGroupEventRequest(server string, groupId string, eventId string, body PublishGroupEventJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPublishGroupEventRequestWithBody(server, groupId, eventId, "application/json", bodyReader)
+}
+
+// NewPublishGroupEventRequestWithBody generates requests for PublishGroupEvent with any type of body
+func NewPublishGroupEventRequestWithBody(server string, groupId string, eventId string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -674,10 +1218,298 @@ func NewPublishGroupEventRequest(server string, groupId string, eventId string) 
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListGroupEventSubEventsRequest generates requests for ListGroupEventSubEvents
+func NewListGroupEventSubEventsRequest(server string, groupId GroupId, eventId EventId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/sub-events", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateGroupEventSubEventRequest calls the generic CreateGroupEventSubEvent builder with application/json body
+func NewCreateGroupEventSubEventRequest(server string, groupId GroupId, eventId EventId, body CreateGroupEventSubEventJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateGroupEventSubEventRequestWithBody(server, groupId, eventId, "application/json", bodyReader)
+}
+
+// NewCreateGroupEventSubEventRequestWithBody generates requests for CreateGroupEventSubEvent with any type of body
+func NewCreateGroupEventSubEventRequestWithBody(server string, groupId GroupId, eventId EventId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/sub-events", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteGroupEventSubEventRequest generates requests for DeleteGroupEventSubEvent
+func NewDeleteGroupEventSubEventRequest(server string, groupId GroupId, eventId EventId, subEventId SubEventId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "subEventId", runtime.ParamLocationPath, subEventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/sub-events/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGroupEventSubEventRequest generates requests for GetGroupEventSubEvent
+func NewGetGroupEventSubEventRequest(server string, groupId GroupId, eventId EventId, subEventId SubEventId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "subEventId", runtime.ParamLocationPath, subEventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/sub-events/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGroupEventSurveyRequest generates requests for GetGroupEventSurvey
+func NewGetGroupEventSurveyRequest(server string, groupId GroupId, eventId EventId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/survey", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpsertGroupEventSurveyRequest calls the generic UpsertGroupEventSurvey builder with application/json body
+func NewUpsertGroupEventSurveyRequest(server string, groupId GroupId, eventId EventId, body UpsertGroupEventSurveyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpsertGroupEventSurveyRequestWithBody(server, groupId, eventId, "application/json", bodyReader)
+}
+
+// NewUpsertGroupEventSurveyRequestWithBody generates requests for UpsertGroupEventSurvey with any type of body
+func NewUpsertGroupEventSurveyRequestWithBody(server string, groupId GroupId, eventId EventId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/survey", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -786,8 +1618,40 @@ type ClientWithResponsesInterface interface {
 
 	UpdateGroupEventWithResponse(ctx context.Context, groupId string, eventId string, body UpdateGroupEventJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGroupEventResponse, error)
 
-	// PublishGroupEventWithResponse request
-	PublishGroupEventWithResponse(ctx context.Context, groupId string, eventId string, reqEditors ...RequestEditorFn) (*PublishGroupEventResponse, error)
+	// GetGroupEventConferenceWithResponse request
+	GetGroupEventConferenceWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*GetGroupEventConferenceResponse, error)
+
+	// UpsertGroupEventConferenceWithBodyWithResponse request with any body
+	UpsertGroupEventConferenceWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertGroupEventConferenceResponse, error)
+
+	UpsertGroupEventConferenceWithResponse(ctx context.Context, groupId GroupId, eventId EventId, body UpsertGroupEventConferenceJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertGroupEventConferenceResponse, error)
+
+	// PublishGroupEventWithBodyWithResponse request with any body
+	PublishGroupEventWithBodyWithResponse(ctx context.Context, groupId string, eventId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishGroupEventResponse, error)
+
+	PublishGroupEventWithResponse(ctx context.Context, groupId string, eventId string, body PublishGroupEventJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishGroupEventResponse, error)
+
+	// ListGroupEventSubEventsWithResponse request
+	ListGroupEventSubEventsWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*ListGroupEventSubEventsResponse, error)
+
+	// CreateGroupEventSubEventWithBodyWithResponse request with any body
+	CreateGroupEventSubEventWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGroupEventSubEventResponse, error)
+
+	CreateGroupEventSubEventWithResponse(ctx context.Context, groupId GroupId, eventId EventId, body CreateGroupEventSubEventJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGroupEventSubEventResponse, error)
+
+	// DeleteGroupEventSubEventWithResponse request
+	DeleteGroupEventSubEventWithResponse(ctx context.Context, groupId GroupId, eventId EventId, subEventId SubEventId, reqEditors ...RequestEditorFn) (*DeleteGroupEventSubEventResponse, error)
+
+	// GetGroupEventSubEventWithResponse request
+	GetGroupEventSubEventWithResponse(ctx context.Context, groupId GroupId, eventId EventId, subEventId SubEventId, reqEditors ...RequestEditorFn) (*GetGroupEventSubEventResponse, error)
+
+	// GetGroupEventSurveyWithResponse request
+	GetGroupEventSurveyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*GetGroupEventSurveyResponse, error)
+
+	// UpsertGroupEventSurveyWithBodyWithResponse request with any body
+	UpsertGroupEventSurveyWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertGroupEventSurveyResponse, error)
+
+	UpsertGroupEventSurveyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, body UpsertGroupEventSurveyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertGroupEventSurveyResponse, error)
 
 	// GetJobWithResponse request
 	GetJobWithResponse(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*GetJobResponse, error)
@@ -870,9 +1734,13 @@ func (r AdminReloginResponse) StatusCode() int {
 type ListGroupEventsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *map[string]interface{}
-	JSON401      *Error
-	JSON403      *Error
+	JSON200      *struct {
+		Events          []EventSummary `json:"events"`
+		GroupId         string         `json:"groupId"`
+		ResultsReturned int            `json:"resultsReturned"`
+	}
+	JSON401 *Error
+	JSON403 *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -919,10 +1787,14 @@ func (r CreateGroupEventResponse) StatusCode() int {
 type GetGroupEventResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *map[string]interface{}
-	JSON401      *Error
-	JSON403      *Error
-	JSON404      *Error
+	JSON200      *struct {
+		// Event Full event representation, as returned by GET /events/{eventId}.
+		Event   Event  `json:"event"`
+		GroupId string `json:"groupId"`
+	}
+	JSON401 *Error
+	JSON403 *Error
+	JSON404 *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -965,6 +1837,61 @@ func (r UpdateGroupEventResponse) StatusCode() int {
 	return 0
 }
 
+type GetGroupEventConferenceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Conference Conference `json:"conference"`
+		EventId    string     `json:"eventId"`
+		GroupId    string     `json:"groupId"`
+	}
+	JSON401 *Unauthorized
+	JSON403 *Forbidden
+	JSON404 *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGroupEventConferenceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGroupEventConferenceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpsertGroupEventConferenceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *Job
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r UpsertGroupEventConferenceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpsertGroupEventConferenceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type PublishGroupEventResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -983,6 +1910,173 @@ func (r PublishGroupEventResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PublishGroupEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListGroupEventSubEventsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		EventId         string     `json:"eventId"`
+		GroupId         string     `json:"groupId"`
+		ResultsReturned int        `json:"resultsReturned"`
+		SubEvents       []SubEvent `json:"subEvents"`
+	}
+	JSON401 *Unauthorized
+	JSON403 *Forbidden
+	JSON404 *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGroupEventSubEventsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGroupEventSubEventsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateGroupEventSubEventResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *Job
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateGroupEventSubEventResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateGroupEventSubEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteGroupEventSubEventResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *Job
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteGroupEventSubEventResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteGroupEventSubEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetGroupEventSubEventResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		EventId string `json:"eventId"`
+		GroupId string `json:"groupId"`
+
+		// SubEvent Lightweight view of an event linked as a sub-event. Sub-events are full connpass events (create with POST /sub-events, then manage every other field through the regular GET/PATCH /events/{eventId} using the returned event ID).
+		SubEvent SubEvent `json:"subEvent"`
+	}
+	JSON401 *Unauthorized
+	JSON403 *Forbidden
+	JSON404 *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGroupEventSubEventResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGroupEventSubEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetGroupEventSurveyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		EventId string `json:"eventId"`
+		GroupId string `json:"groupId"`
+		Survey  Survey `json:"survey"`
+	}
+	JSON401 *Unauthorized
+	JSON403 *Forbidden
+	JSON404 *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGroupEventSurveyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGroupEventSurveyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpsertGroupEventSurveyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *Job
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r UpsertGroupEventSurveyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpsertGroupEventSurveyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1101,13 +2195,117 @@ func (c *ClientWithResponses) UpdateGroupEventWithResponse(ctx context.Context, 
 	return ParseUpdateGroupEventResponse(rsp)
 }
 
-// PublishGroupEventWithResponse request returning *PublishGroupEventResponse
-func (c *ClientWithResponses) PublishGroupEventWithResponse(ctx context.Context, groupId string, eventId string, reqEditors ...RequestEditorFn) (*PublishGroupEventResponse, error) {
-	rsp, err := c.PublishGroupEvent(ctx, groupId, eventId, reqEditors...)
+// GetGroupEventConferenceWithResponse request returning *GetGroupEventConferenceResponse
+func (c *ClientWithResponses) GetGroupEventConferenceWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*GetGroupEventConferenceResponse, error) {
+	rsp, err := c.GetGroupEventConference(ctx, groupId, eventId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGroupEventConferenceResponse(rsp)
+}
+
+// UpsertGroupEventConferenceWithBodyWithResponse request with arbitrary body returning *UpsertGroupEventConferenceResponse
+func (c *ClientWithResponses) UpsertGroupEventConferenceWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertGroupEventConferenceResponse, error) {
+	rsp, err := c.UpsertGroupEventConferenceWithBody(ctx, groupId, eventId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertGroupEventConferenceResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpsertGroupEventConferenceWithResponse(ctx context.Context, groupId GroupId, eventId EventId, body UpsertGroupEventConferenceJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertGroupEventConferenceResponse, error) {
+	rsp, err := c.UpsertGroupEventConference(ctx, groupId, eventId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertGroupEventConferenceResponse(rsp)
+}
+
+// PublishGroupEventWithBodyWithResponse request with arbitrary body returning *PublishGroupEventResponse
+func (c *ClientWithResponses) PublishGroupEventWithBodyWithResponse(ctx context.Context, groupId string, eventId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishGroupEventResponse, error) {
+	rsp, err := c.PublishGroupEventWithBody(ctx, groupId, eventId, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParsePublishGroupEventResponse(rsp)
+}
+
+func (c *ClientWithResponses) PublishGroupEventWithResponse(ctx context.Context, groupId string, eventId string, body PublishGroupEventJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishGroupEventResponse, error) {
+	rsp, err := c.PublishGroupEvent(ctx, groupId, eventId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePublishGroupEventResponse(rsp)
+}
+
+// ListGroupEventSubEventsWithResponse request returning *ListGroupEventSubEventsResponse
+func (c *ClientWithResponses) ListGroupEventSubEventsWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*ListGroupEventSubEventsResponse, error) {
+	rsp, err := c.ListGroupEventSubEvents(ctx, groupId, eventId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGroupEventSubEventsResponse(rsp)
+}
+
+// CreateGroupEventSubEventWithBodyWithResponse request with arbitrary body returning *CreateGroupEventSubEventResponse
+func (c *ClientWithResponses) CreateGroupEventSubEventWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGroupEventSubEventResponse, error) {
+	rsp, err := c.CreateGroupEventSubEventWithBody(ctx, groupId, eventId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGroupEventSubEventResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateGroupEventSubEventWithResponse(ctx context.Context, groupId GroupId, eventId EventId, body CreateGroupEventSubEventJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGroupEventSubEventResponse, error) {
+	rsp, err := c.CreateGroupEventSubEvent(ctx, groupId, eventId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGroupEventSubEventResponse(rsp)
+}
+
+// DeleteGroupEventSubEventWithResponse request returning *DeleteGroupEventSubEventResponse
+func (c *ClientWithResponses) DeleteGroupEventSubEventWithResponse(ctx context.Context, groupId GroupId, eventId EventId, subEventId SubEventId, reqEditors ...RequestEditorFn) (*DeleteGroupEventSubEventResponse, error) {
+	rsp, err := c.DeleteGroupEventSubEvent(ctx, groupId, eventId, subEventId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteGroupEventSubEventResponse(rsp)
+}
+
+// GetGroupEventSubEventWithResponse request returning *GetGroupEventSubEventResponse
+func (c *ClientWithResponses) GetGroupEventSubEventWithResponse(ctx context.Context, groupId GroupId, eventId EventId, subEventId SubEventId, reqEditors ...RequestEditorFn) (*GetGroupEventSubEventResponse, error) {
+	rsp, err := c.GetGroupEventSubEvent(ctx, groupId, eventId, subEventId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGroupEventSubEventResponse(rsp)
+}
+
+// GetGroupEventSurveyWithResponse request returning *GetGroupEventSurveyResponse
+func (c *ClientWithResponses) GetGroupEventSurveyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*GetGroupEventSurveyResponse, error) {
+	rsp, err := c.GetGroupEventSurvey(ctx, groupId, eventId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGroupEventSurveyResponse(rsp)
+}
+
+// UpsertGroupEventSurveyWithBodyWithResponse request with arbitrary body returning *UpsertGroupEventSurveyResponse
+func (c *ClientWithResponses) UpsertGroupEventSurveyWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertGroupEventSurveyResponse, error) {
+	rsp, err := c.UpsertGroupEventSurveyWithBody(ctx, groupId, eventId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertGroupEventSurveyResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpsertGroupEventSurveyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, body UpsertGroupEventSurveyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertGroupEventSurveyResponse, error) {
+	rsp, err := c.UpsertGroupEventSurvey(ctx, groupId, eventId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpsertGroupEventSurveyResponse(rsp)
 }
 
 // GetJobWithResponse request returning *GetJobResponse
@@ -1256,7 +2454,11 @@ func ParseListGroupEventsResponse(rsp *http.Response) (*ListGroupEventsResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest map[string]interface{}
+		var dest struct {
+			Events          []EventSummary `json:"events"`
+			GroupId         string         `json:"groupId"`
+			ResultsReturned int            `json:"resultsReturned"`
+		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1343,7 +2545,11 @@ func ParseGetGroupEventResponse(rsp *http.Response) (*GetGroupEventResponse, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest map[string]interface{}
+		var dest struct {
+			// Event Full event representation, as returned by GET /events/{eventId}.
+			Event   Event  `json:"event"`
+			GroupId string `json:"groupId"`
+		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1415,6 +2621,111 @@ func ParseUpdateGroupEventResponse(rsp *http.Response) (*UpdateGroupEventRespons
 	return response, nil
 }
 
+// ParseGetGroupEventConferenceResponse parses an HTTP response from a GetGroupEventConferenceWithResponse call
+func ParseGetGroupEventConferenceResponse(rsp *http.Response) (*GetGroupEventConferenceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGroupEventConferenceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Conference Conference `json:"conference"`
+			EventId    string     `json:"eventId"`
+			GroupId    string     `json:"groupId"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpsertGroupEventConferenceResponse parses an HTTP response from a UpsertGroupEventConferenceWithResponse call
+func ParseUpsertGroupEventConferenceResponse(rsp *http.Response) (*UpsertGroupEventConferenceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpsertGroupEventConferenceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParsePublishGroupEventResponse parses an HTTP response from a PublishGroupEventWithResponse call
 func ParsePublishGroupEventResponse(rsp *http.Response) (*PublishGroupEventResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -1449,6 +2760,317 @@ func ParsePublishGroupEventResponse(rsp *http.Response) (*PublishGroupEventRespo
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListGroupEventSubEventsResponse parses an HTTP response from a ListGroupEventSubEventsWithResponse call
+func ParseListGroupEventSubEventsResponse(rsp *http.Response) (*ListGroupEventSubEventsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGroupEventSubEventsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			EventId         string     `json:"eventId"`
+			GroupId         string     `json:"groupId"`
+			ResultsReturned int        `json:"resultsReturned"`
+			SubEvents       []SubEvent `json:"subEvents"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateGroupEventSubEventResponse parses an HTTP response from a CreateGroupEventSubEventWithResponse call
+func ParseCreateGroupEventSubEventResponse(rsp *http.Response) (*CreateGroupEventSubEventResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateGroupEventSubEventResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteGroupEventSubEventResponse parses an HTTP response from a DeleteGroupEventSubEventWithResponse call
+func ParseDeleteGroupEventSubEventResponse(rsp *http.Response) (*DeleteGroupEventSubEventResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteGroupEventSubEventResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGroupEventSubEventResponse parses an HTTP response from a GetGroupEventSubEventWithResponse call
+func ParseGetGroupEventSubEventResponse(rsp *http.Response) (*GetGroupEventSubEventResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGroupEventSubEventResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			EventId string `json:"eventId"`
+			GroupId string `json:"groupId"`
+
+			// SubEvent Lightweight view of an event linked as a sub-event. Sub-events are full connpass events (create with POST /sub-events, then manage every other field through the regular GET/PATCH /events/{eventId} using the returned event ID).
+			SubEvent SubEvent `json:"subEvent"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGroupEventSurveyResponse parses an HTTP response from a GetGroupEventSurveyWithResponse call
+func ParseGetGroupEventSurveyResponse(rsp *http.Response) (*GetGroupEventSurveyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGroupEventSurveyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			EventId string `json:"eventId"`
+			GroupId string `json:"groupId"`
+			Survey  Survey `json:"survey"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpsertGroupEventSurveyResponse parses an HTTP response from a UpsertGroupEventSurveyWithResponse call
+func ParseUpsertGroupEventSurveyResponse(rsp *http.Response) (*UpsertGroupEventSurveyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpsertGroupEventSurveyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
