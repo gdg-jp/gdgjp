@@ -63,4 +63,65 @@ describe("connpass UI selectors", () => {
     expect(groupEvents).toContain("label_status_event");
     expect(groupEvents).toMatch(/\/event\/\d+\//);
   });
+
+  const clickThroughFixtures = [
+    "event-edit_サブタイトルをクリック.html",
+    "event-edit_会場未設定をクリック会場を新しく設定するをクリック.html",
+    "event-edit_日付を入力をクリック.html",
+    "event-edit_公開予約設定の日付を入力をクリック.html",
+    "event-edit_参加受付の内容を編集をクリック.html",
+    "event-edit_参加受付の内容を編集をクリックしてconnpassで参加受付をしないをクリック.html",
+  ] as const;
+
+  function hasClickThroughFixtures(): boolean {
+    return clickThroughFixtures.every((name) => existsSync(fixturePath(name)));
+  }
+
+  it.skipIf(!hasClickThroughFixtures())(
+    "matches click-to-edit DOM from the newly captured fixtures",
+    () => {
+      const subtitle = readFileSync(fixturePath("event-edit_サブタイトルをクリック.html"), "utf8");
+      expect(subtitle).toContain('id="FieldSubTitle"');
+      expect(subtitle).toContain('name="sub_title"');
+      expect(subtitle).toContain("ui-editing");
+
+      const place = readFileSync(
+        fixturePath("event-edit_会場未設定をクリック会場を新しく設定するをクリック.html"),
+        "utf8",
+      );
+      expect(place).toContain('id="FieldPlace"');
+      expect(place).toContain('name="name"');
+      expect(place).toContain('name="address"');
+
+      const dates = readFileSync(fixturePath("event-edit_日付を入力をクリック.html"), "utf8");
+      expect(dates).toContain('name="start_date"');
+      expect(dates).toContain('name="start_time"');
+      expect(dates).toContain("hasDatepicker");
+
+      const reserved = readFileSync(
+        fixturePath("event-edit_公開予約設定の日付を入力をクリック.html"),
+        "utf8",
+      );
+      expect(reserved).toContain('id="EventPublishReservation"');
+      expect(reserved).toContain('name="reserved_date"');
+      expect(reserved).toContain('name="reserved_time"');
+
+      const participation = readFileSync(
+        fixturePath("event-edit_参加受付の内容を編集をクリック.html"),
+        "utf8",
+      );
+      expect(participation).toContain('id="FieldEventType"');
+      expect(participation).toContain('class="ParticipationTypes"');
+      expect(participation).toContain("ParticipationTypeAdd");
+      expect(participation).toContain('id="EventTypeParticipation"');
+
+      const advertisement = readFileSync(
+        fixturePath(
+          "event-edit_参加受付の内容を編集をクリックしてconnpassで参加受付をしないをクリック.html",
+        ),
+        "utf8",
+      );
+      expect(advertisement).toContain('id="EventTypeAdvertisement"');
+    },
+  );
 });

@@ -7,6 +7,7 @@ import {
 } from "~/lib/authorize.server";
 import { getCliIdentity } from "~/lib/cli-identity.server";
 import { listGroupEventsInBrowser } from "~/lib/connpass-browser-read.server";
+import { parseParticipationTypes } from "~/lib/connpass-ui/events";
 import { createJob, jobToJson } from "~/lib/jobs.server";
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
@@ -65,6 +66,10 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       place: typeof body.place === "string" ? body.place : undefined,
       address: typeof body.address === "string" ? body.address : undefined,
       capacity: typeof body.capacity === "number" ? body.capacity : undefined,
+      reservedAt: typeof body.reservedAt === "string" ? body.reservedAt : undefined,
+      registrationEnabled:
+        typeof body.registrationEnabled === "boolean" ? body.registrationEnabled : undefined,
+      participationTypes: parseParticipationTypes(body.participationTypes),
     },
   });
 

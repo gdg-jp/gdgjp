@@ -36,6 +36,31 @@ export async function createEventDraft(
   return { eventId: match[1], editUrl: page.url() };
 }
 
+export type ParticipationType = {
+  name?: string;
+  maxParticipants?: number;
+  feeType?: "prepay" | "place";
+  fee?: number;
+  method?: "fcfs" | "lottery";
+};
+
+export function parseParticipationTypes(value: unknown): ParticipationType[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const types: ParticipationType[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const item = entry as Record<string, unknown>;
+    const type: ParticipationType = {};
+    if (typeof item.name === "string") type.name = item.name;
+    if (typeof item.maxParticipants === "number") type.maxParticipants = item.maxParticipants;
+    if (item.feeType === "prepay" || item.feeType === "place") type.feeType = item.feeType;
+    if (typeof item.fee === "number") type.fee = item.fee;
+    if (item.method === "fcfs" || item.method === "lottery") type.method = item.method;
+    types.push(type);
+  }
+  return types;
+}
+
 export type EventEditFields = {
   title?: string;
   subtitle?: string;
@@ -45,6 +70,9 @@ export type EventEditFields = {
   place?: string;
   address?: string;
   capacity?: number;
+  reservedAt?: string;
+  registrationEnabled?: boolean;
+  participationTypes?: ParticipationType[];
 };
 
 async function clickEditAndFill(
@@ -79,7 +107,7 @@ export async function fillEventEdit(page: Page, fields: EventEditFields): Promis
     await clickEditAndFill(
       page,
       selectors.eventEdit.title,
-      `${selectors.eventEdit.title} input, ${selectors.eventEdit.inlineTextInput}`,
+      selectors.eventEdit.titleInput,
       fields.title,
     );
   }
@@ -87,7 +115,7 @@ export async function fillEventEdit(page: Page, fields: EventEditFields): Promis
     await clickEditAndFill(
       page,
       selectors.eventEdit.subtitle,
-      `${selectors.eventEdit.subtitle} input, ${selectors.eventEdit.inlineTextInput}`,
+      selectors.eventEdit.subtitleInput,
       fields.subtitle,
     );
   }
@@ -148,6 +176,72 @@ export async function fillEventEdit(page: Page, fields: EventEditFields): Promis
     if ((await save.count()) > 0) await save.click();
     await page.waitForTimeout(400);
   }
+  if (fields.reservedAt !== undefined) {
+    await page.locator(selectors.eventEdit.reservedTrigger).first().click();
+    const { date, time } = splitDateTime(fields.reservedAt);
+    await page.locator(selectors.eventEdit.reservedDate).fill(date);
+    await page.locator(selectors.eventEdit.reservedTime).fill(time);
+    await page.locator(selectors.eventEdit.saveButton).first().click();
+    await page.waitForTimeout(400);
+  }
+  if (fields.registrationEnabled !== undefined) {
+    const trigger = fields.registrationEnabled
+      ? selectors.eventEdit.eventType.participation
+      : selectors.eventEdit.eventType.advertisement;
+    await page.locator(trigger).first().click();
+    const save = page.locator(selectors.eventEdit.eventType.saveButton).first();
+    if ((await save.count()) > 0) await save.click();
+    await page.waitForTimeout(400);
+  }
+  if (fields.participationTypes !== undefined) {
+    await setParticipationTypes(page, fields.participationTypes);
+  }
+}
+
+export async function setParticipationTypes(page: Page, types: ParticipationType[]): Promise<void> {
+  const { eventType } = selectors.eventEdit;
+  const typesBody = page.locator(eventType.typesBody);
+  if ((await typesBody.count()) === 0) {
+    await page.locator(eventType.editTrigger).first().click();
+    await typesBody.waitFor({ state: "visible", timeout: 10_000 });
+  }
+
+  let rowCount = await typesBody.locator("tr").count();
+  while (rowCount < types.length) {
+    await page.locator(eventType.addRow).first().click();
+    await page.waitForTimeout(200);
+    rowCount = await typesBody.locator("tr").count();
+  }
+  while (rowCount > types.length) {
+    await typesBody.locator("tr").last().locator("td.ptype_name button.RemoveButton").click();
+    await page.waitForTimeout(200);
+    rowCount = await typesBody.locator("tr").count();
+  }
+
+  for (let i = 0; i < types.length; i++) {
+    const type = types[i];
+    const row = typesBody.locator("tr").nth(i);
+    if (type.name !== undefined) {
+      await row.locator('td.ptype_name input[type="text"]').fill(type.name);
+    }
+    if (type.maxParticipants !== undefined) {
+      await row.locator('td.participants input[type="text"]').fill(String(type.maxParticipants));
+    }
+    if (type.feeType !== undefined) {
+      await row.locator(`td.payment_paypal input[type="radio"][value="${type.feeType}"]`).click();
+    }
+    if (type.fee !== undefined) {
+      const feeInputName = type.feeType === "prepay" ? "join_fee" : "place_fee";
+      await row.locator(`td.payment_paypal input[name^="${feeInputName}"]`).fill(String(type.fee));
+    }
+    if (type.method !== undefined) {
+      await row.locator("td.ptype_method select").selectOption(type.method);
+    }
+  }
+
+  const save = page.locator(eventType.saveButton).first();
+  if ((await save.count()) > 0) await save.click();
+  await page.waitForTimeout(400);
 }
 
 export async function publishEvent(page: Page, eventId: string | number): Promise<void> {

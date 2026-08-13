@@ -46,6 +46,21 @@ Job:
     finishedAt:
       type: string
       nullable: true
+ParticipationType:
+  type: object
+  properties:
+    name:
+      type: string
+    maxParticipants:
+      type: integer
+    feeType:
+      type: string
+      enum: [prepay, place]
+    fee:
+      type: integer
+    method:
+      type: string
+      enum: [fcfs, lottery]
 CreateEventRequest:
   type: object
   required: [title]
@@ -66,6 +81,14 @@ CreateEventRequest:
       type: string
     capacity:
       type: integer
+    reservedAt:
+      type: string
+    registrationEnabled:
+      type: boolean
+    participationTypes:
+      type: array
+      items:
+        $ref: "#/ParticipationType"
 UpdateEventRequest:
   type: object
   properties:
@@ -85,6 +108,14 @@ UpdateEventRequest:
       type: string
     capacity:
       type: integer
+    reservedAt:
+      type: string
+    registrationEnabled:
+      type: boolean
+    participationTypes:
+      type: array
+      items:
+        $ref: "#/ParticipationType"
 Group:
   type: object
   required: [groupId, enabled]

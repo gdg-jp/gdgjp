@@ -154,6 +154,15 @@ export interface components {
         Error: {
             error: string;
         };
+        ParticipationType: {
+            name?: string;
+            maxParticipants?: number;
+            /** @enum {string} */
+            feeType?: "prepay" | "place";
+            fee?: number;
+            /** @enum {string} */
+            method?: "fcfs" | "lottery";
+        };
         CreateEventRequest: {
             title: string;
             subtitle?: string;
@@ -163,6 +172,9 @@ export interface components {
             place?: string;
             address?: string;
             capacity?: number;
+            reservedAt?: string;
+            registrationEnabled?: boolean;
+            participationTypes?: components["schemas"]["ParticipationType"][];
         };
         UpdateEventRequest: {
             title?: string;
@@ -173,6 +185,9 @@ export interface components {
             place?: string;
             address?: string;
             capacity?: number;
+            reservedAt?: string;
+            registrationEnabled?: boolean;
+            participationTypes?: components["schemas"]["ParticipationType"][];
         };
         Group: {
             groupId: string;

@@ -24,6 +24,7 @@
       "**/openapi/types.generated.ts",
       "**/openapi.gen.go",
       "**/openapigen/**",
+      "connpass/fixtures/html/*_files/**",
       ".agents/**",
       ".claude/**",
       "learn/**"

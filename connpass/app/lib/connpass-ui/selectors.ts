@@ -36,6 +36,8 @@ export const selectors = {
     saveButton: "button.save, button.btn_high_priority.save",
     inlineTextInput:
       'form input[type="text"]:visible, form textarea:visible, input.form_input_text:visible',
+    titleInput: '#FieldTitle input[name="title"]',
+    subtitleInput: '#FieldSubTitle input[name="sub_title"]',
     capacityInput: 'input[name="max_num"]',
     startDate: 'input[name="start_date"]',
     startTime: 'input[name="start_time"]',
@@ -43,6 +45,18 @@ export const selectors = {
     endTime: 'input[name="end_time"]',
     placeName: '#FieldPlace input[name="name"], .place_edit_area input[name="name"]',
     placeAddress: '#FieldPlace input[name="address"], .place_edit_area input[name="address"]',
+    reservedTrigger: "#EventPublishReservation",
+    reservedDate: 'input[name="reserved_date"]',
+    reservedTime: 'input[name="reserved_time"]',
+    eventType: {
+      root: "#FieldEventType",
+      participation: "#EventTypeParticipation",
+      advertisement: "#EventTypeAdvertisement",
+      editTrigger: "#FieldEventType button.FormEditable",
+      typesBody: "tbody.ParticipationTypes",
+      addRow: ".ParticipationTypeAdd",
+      saveButton: ".JoinOptions .btn_area button.save",
+    },
   },
   publishDialog: {
     comment: 'input[name="Comment"]',

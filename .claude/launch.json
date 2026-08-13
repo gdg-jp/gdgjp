@@ -4,6 +4,10 @@
     {
       "name": "wiki-dev",
       "url": "http://localhost:5177"
+    },
+    {
+      "name": "accounts",
+      "url": "http://localhost:5173"
     }
   ]
 }
