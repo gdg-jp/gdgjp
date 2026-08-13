@@ -21,7 +21,12 @@ get:
         application/json:
           schema:
             type: object
-            additionalProperties: true
+            required: [groupId, event]
+            properties:
+              groupId:
+                type: string
+              event:
+                $ref: ../components/schemas/index.yaml#/Event
     "401":
       description: Invalid token
       content:

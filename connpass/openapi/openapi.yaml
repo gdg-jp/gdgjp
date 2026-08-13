@@ -17,6 +17,14 @@ paths:
     $ref: ./paths/group-event.yaml
   /api/groups/{groupId}/events/{eventId}/publish:
     $ref: ./paths/group-event-publish.yaml
+  /api/groups/{groupId}/events/{eventId}/sub-events:
+    $ref: ./paths/group-event-sub-events.yaml
+  /api/groups/{groupId}/events/{eventId}/sub-events/{subEventId}:
+    $ref: ./paths/group-event-sub-event.yaml
+  /api/groups/{groupId}/events/{eventId}/survey:
+    $ref: ./paths/group-event-survey.yaml
+  /api/groups/{groupId}/events/{eventId}/conference:
+    $ref: ./paths/group-event-conference.yaml
   /api/admin/session/relogin:
     $ref: ./paths/admin-relogin.yaml
   /api/admin/groups:
@@ -26,5 +34,21 @@ paths:
 components:
   schemas:
     $ref: ./components/schemas/index.yaml
+  responses:
+    BadRequest:
+      $ref: ./components/responses/common.yaml#/BadRequest
+    Unauthorized:
+      $ref: ./components/responses/common.yaml#/Unauthorized
+    Forbidden:
+      $ref: ./components/responses/common.yaml#/Forbidden
+    NotFound:
+      $ref: ./components/responses/common.yaml#/NotFound
+  parameters:
+    GroupId:
+      $ref: ./components/parameters/common.yaml#/GroupId
+    EventId:
+      $ref: ./components/parameters/common.yaml#/EventId
+    SubEventId:
+      $ref: ./components/parameters/common.yaml#/SubEventId
   securitySchemes:
     $ref: ./components/securitySchemes/auth.yaml

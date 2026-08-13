@@ -1,0 +1,18 @@
+GroupId:
+  name: groupId
+  in: path
+  required: true
+  schema:
+    type: string
+EventId:
+  name: eventId
+  in: path
+  required: true
+  schema:
+    type: string
+SubEventId:
+  name: subEventId
+  in: path
+  required: true
+  schema:
+    type: string

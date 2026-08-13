@@ -16,7 +16,16 @@ get:
         application/json:
           schema:
             type: object
-            additionalProperties: true
+            required: [groupId, resultsReturned, events]
+            properties:
+              groupId:
+                type: string
+              resultsReturned:
+                type: integer
+              events:
+                type: array
+                items:
+                  $ref: ../components/schemas/index.yaml#/EventSummary
     "401":
       description: Invalid token
       content:

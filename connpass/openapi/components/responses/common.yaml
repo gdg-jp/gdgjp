@@ -1,0 +1,24 @@
+BadRequest:
+  description: The request body is missing required fields or is malformed.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/index.yaml#/Error
+Unauthorized:
+  description: The access token is missing or invalid.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/index.yaml#/Error
+Forbidden:
+  description: The access token cannot perform this operation.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/index.yaml#/Error
+NotFound:
+  description: The requested event, sub-event, survey, or conference does not exist.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/index.yaml#/Error

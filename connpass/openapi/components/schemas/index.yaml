@@ -12,7 +12,17 @@ Job:
       type: string
     type:
       type: string
-      enum: [create_event, update_event, publish_event, relogin]
+      enum:
+        [
+          create_event,
+          update_event,
+          publish_event,
+          create_sub_event,
+          delete_sub_event,
+          upsert_survey,
+          upsert_conference,
+          relogin,
+        ]
     status:
       type: string
       enum: [queued, running, succeeded, failed]
@@ -46,9 +56,15 @@ Job:
     finishedAt:
       type: string
       nullable: true
+EventStatus:
+  type: string
+  enum: [draft, published, canceled]
 ParticipationType:
   type: object
   properties:
+    id:
+      type: string
+      nullable: true
     name:
       type: string
     maxParticipants:
@@ -61,61 +77,311 @@ ParticipationType:
     method:
       type: string
       enum: [fcfs, lottery]
+    subEventIds:
+      description: >
+        IDs of sub-events (see /sub-events) that participants registering under this
+        participation type may also join.
+      type: array
+      nullable: true
+      items:
+        type: string
+EventFields:
+  description: Fields shared by event creation, update, and the full event representation.
+  type: object
+  properties:
+    title:
+      type: string
+    subtitle:
+      type: string
+    description:
+      type: string
+    eventType:
+      type: string
+    image:
+      type: string
+      nullable: true
+    ownerText:
+      type: string
+      nullable: true
+    startAt:
+      type: string
+    endAt:
+      type: string
+    place:
+      type: string
+    address:
+      type: string
+    capacity:
+      type: integer
+    reservedAt:
+      type: string
+      nullable: true
+    registrationEnabled:
+      type: boolean
+    registrationOpenAt:
+      type: string
+      nullable: true
+    registrationCloseAt:
+      type: string
+      nullable: true
+    lotteryPublishDate:
+      type: string
+      nullable: true
+    allowConflictJoin:
+      type: boolean
+    participationTypes:
+      type: array
+      items:
+        $ref: "#/ParticipationType"
+    allowReceipt:
+      type: boolean
+    invoiceNumber:
+      type: string
+      nullable: true
+    receiptIssuerName:
+      type: string
+      nullable: true
+    receiptIssuerAddress:
+      type: string
+      nullable: true
+    paypalEmail:
+      type: string
+      nullable: true
+    contactDetails:
+      type: string
+      nullable: true
+    cancelPolicy:
+      type: string
+      nullable: true
+    participantOnlyInfo:
+      type: string
+      nullable: true
 CreateEventRequest:
+  allOf:
+    - $ref: "#/EventFields"
+    - type: object
+      required: [title]
+UpdateEventRequest:
+  allOf:
+    - $ref: "#/EventFields"
+Event:
+  description: Full event representation, as returned by GET /events/{eventId}.
+  allOf:
+    - $ref: "#/EventFields"
+    - type: object
+      required:
+        - id
+        - url
+        - editUrl
+        - status
+        - title
+        - startAt
+        - endAt
+        - registrationEnabled
+        - allowConflictJoin
+        - allowReceipt
+        - subEventCount
+        - hasSurvey
+        - hasConference
+      properties:
+        id:
+          type: string
+        groupId:
+          description: >
+            The connpass group this event is organized under. Sub-events created without
+            an explicit group assignment have no group until one is set on the event's own
+            edit screen (an irreversible, one-time choice in connpass).
+          type: string
+          nullable: true
+        parentId:
+          description: The parent event ID, if this event is itself a sub-event.
+          type: string
+          nullable: true
+        url:
+          type: string
+        editUrl:
+          type: string
+        status:
+          $ref: "#/EventStatus"
+        subEventCount:
+          description: Number of linked sub-events. Fetch them via GET /sub-events.
+          type: integer
+        hasSurvey:
+          description: Whether this event has a survey configured. Fetch it via GET /survey.
+          type: boolean
+        hasConference:
+          description: >
+            Whether this event has conference info configured. Fetch it via GET /conference.
+          type: boolean
+EventSummary:
+  description: Lightweight event representation, as returned by GET /events (list).
+  type: object
+  required: [id, url, editUrl, status, title, startAt, endAt]
+  properties:
+    id:
+      type: string
+    url:
+      type: string
+    editUrl:
+      type: string
+    status:
+      $ref: "#/EventStatus"
+    title:
+      type: string
+    startAt:
+      type: string
+    endAt:
+      type: string
+    place:
+      type: string
+      nullable: true
+    participantsCount:
+      type: integer
+      nullable: true
+PublishEventRequest:
+  type: object
+  properties:
+    postToTwitter:
+      type: boolean
+    comment:
+      type: string
+      nullable: true
+SubEvent:
+  description: >
+    Lightweight view of an event linked as a sub-event. Sub-events are full connpass
+    events (create with POST /sub-events, then manage every other field through the
+    regular GET/PATCH /events/{eventId} using the returned event ID).
+  type: object
+  required: [id, url, editUrl, status, title]
+  properties:
+    id:
+      type: string
+    groupId:
+      description: Null until a connpass group is assigned on the sub-event's own edit screen.
+      type: string
+      nullable: true
+    url:
+      type: string
+    editUrl:
+      type: string
+    status:
+      $ref: "#/EventStatus"
+    title:
+      type: string
+    startAt:
+      type: string
+      nullable: true
+    endAt:
+      type: string
+      nullable: true
+CreateSubEventRequest:
   type: object
   required: [title]
   properties:
     title:
       type: string
-    subtitle:
-      type: string
-    description:
-      type: string
-    startAt:
-      type: string
-    endAt:
-      type: string
-    place:
-      type: string
-    address:
-      type: string
-    capacity:
-      type: integer
-    reservedAt:
-      type: string
-    registrationEnabled:
-      type: boolean
-    participationTypes:
-      type: array
-      items:
-        $ref: "#/ParticipationType"
-UpdateEventRequest:
+SurveyQuestionAnswerType:
+  type: string
+  enum: [free_text, checkbox, radio, dropdown]
+SurveyQuestion:
   type: object
+  required: [title, answerType, required]
   properties:
+    id:
+      type: string
+      nullable: true
     title:
       type: string
-    subtitle:
-      type: string
-    description:
-      type: string
-    startAt:
-      type: string
-    endAt:
-      type: string
-    place:
-      type: string
-    address:
-      type: string
-    capacity:
-      type: integer
-    reservedAt:
-      type: string
-    registrationEnabled:
+    answerType:
+      $ref: "#/SurveyQuestionAnswerType"
+    required:
       type: boolean
-    participationTypes:
+    options:
+      description: Choice labels. Required when answerType is checkbox, radio, or dropdown.
+      type: array
+      nullable: true
+      items:
+        type: string
+Survey:
+  type: object
+  required: [questions]
+  properties:
+    questions:
       type: array
       items:
-        $ref: "#/ParticipationType"
+        $ref: "#/SurveyQuestion"
+UpsertSurveyRequest:
+  type: object
+  required: [questions]
+  properties:
+    questions:
+      type: array
+      items:
+        $ref: "#/SurveyQuestion"
+Conference:
+  type: object
+  required: [isActive]
+  properties:
+    isActive:
+      type: boolean
+    lpUrl:
+      type: string
+      nullable: true
+    cfpUrl:
+      type: string
+      nullable: true
+    cfpStartAt:
+      type: string
+      nullable: true
+    cfpEndAt:
+      type: string
+      nullable: true
+    sponsorUrl:
+      type: string
+      nullable: true
+    sponsorStartAt:
+      type: string
+      nullable: true
+    sponsorEndAt:
+      type: string
+      nullable: true
+    topics:
+      type: array
+      nullable: true
+      items:
+        type: string
+UpsertConferenceRequest:
+  type: object
+  required: [isActive]
+  properties:
+    isActive:
+      type: boolean
+    lpUrl:
+      type: string
+      nullable: true
+    cfpUrl:
+      type: string
+      nullable: true
+    cfpStartAt:
+      type: string
+      nullable: true
+    cfpEndAt:
+      type: string
+      nullable: true
+    sponsorUrl:
+      type: string
+      nullable: true
+    sponsorStartAt:
+      type: string
+      nullable: true
+    sponsorEndAt:
+      type: string
+      nullable: true
+    topics:
+      type: array
+      nullable: true
+      items:
+        type: string
 Group:
   type: object
   required: [groupId, enabled]

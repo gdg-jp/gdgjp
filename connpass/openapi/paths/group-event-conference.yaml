@@ -1,0 +1,55 @@
+parameters:
+  - $ref: ../components/parameters/common.yaml#/GroupId
+  - $ref: ../components/parameters/common.yaml#/EventId
+get:
+  operationId: getGroupEventConference
+  summary: Get an event's conference info
+  security:
+    - BearerAuth: []
+  responses:
+    "200":
+      description: Conference info
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [groupId, eventId, conference]
+            properties:
+              groupId:
+                type: string
+              eventId:
+                type: string
+              conference:
+                $ref: ../components/schemas/index.yaml#/Conference
+    "401":
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    "403":
+      $ref: ../components/responses/common.yaml#/Forbidden
+    "404":
+      $ref: ../components/responses/common.yaml#/NotFound
+put:
+  operationId: upsertGroupEventConference
+  summary: Create or replace an event's conference info (async browser job)
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/index.yaml#/UpsertConferenceRequest
+  responses:
+    "202":
+      description: Job accepted
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Job
+    "400":
+      $ref: ../components/responses/common.yaml#/BadRequest
+    "401":
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    "403":
+      $ref: ../components/responses/common.yaml#/Forbidden
+    "404":
+      $ref: ../components/responses/common.yaml#/NotFound

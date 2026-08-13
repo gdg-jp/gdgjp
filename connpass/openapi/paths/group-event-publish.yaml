@@ -14,6 +14,12 @@ post:
       required: true
       schema:
         type: string
+  requestBody:
+    required: false
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/index.yaml#/PublishEventRequest
   responses:
     "202":
       description: Job accepted

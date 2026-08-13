@@ -74,6 +74,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/groups/{groupId}/events/{eventId}/sub-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        /** List sub-events linked to an event */
+        get: operations["listGroupEventSubEvents"];
+        put?: never;
+        /**
+         * Create a new event and link it as a sub-event (async browser job)
+         * @description Only the title is set on creation. The created event's ID is returned as the job's eventId once the job succeeds; edit every other field (dates, place, participation types, group assignment, etc.) via the regular GET/PATCH /events/{eventId} endpoints using that ID.
+         */
+        post: operations["createGroupEventSubEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{groupId}/events/{eventId}/sub-events/{subEventId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+                subEventId: components["parameters"]["SubEventId"];
+            };
+            cookie?: never;
+        };
+        /** Get a single sub-event link */
+        get: operations["getGroupEventSubEvent"];
+        put?: never;
+        post?: never;
+        /**
+         * Cancel a sub-event (async browser job)
+         * @description Cancels the linked sub-event, mirroring connpass's "cancel" action; it does not delete it.
+         */
+        delete: operations["deleteGroupEventSubEvent"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{groupId}/events/{eventId}/survey": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        /** Get an event's survey */
+        get: operations["getGroupEventSurvey"];
+        /**
+         * Create or replace an event's survey (async browser job)
+         * @description Replaces the entire question list, matching connpass's survey editor.
+         */
+        put: operations["upsertGroupEventSurvey"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{groupId}/events/{eventId}/conference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        /** Get an event's conference info */
+        get: operations["getGroupEventConference"];
+        /** Create or replace an event's conference info (async browser job) */
+        put: operations["upsertGroupEventConference"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/session/relogin": {
         parameters: {
             query?: never;
@@ -132,7 +226,7 @@ export interface components {
         Job: {
             id: string;
             /** @enum {string} */
-            type: "create_event" | "update_event" | "publish_event" | "relogin";
+            type: "create_event" | "update_event" | "publish_event" | "create_sub_event" | "delete_sub_event" | "upsert_survey" | "upsert_conference" | "relogin";
             /** @enum {string} */
             status: "queued" | "running" | "succeeded" | "failed";
             groupId: string;
@@ -154,7 +248,22 @@ export interface components {
         Error: {
             error: string;
         };
+        /** @enum {string} */
+        EventStatus: "draft" | "published" | "canceled";
+        /** @description Lightweight event representation, as returned by GET /events (list). */
+        EventSummary: {
+            id: string;
+            url: string;
+            editUrl: string;
+            status: components["schemas"]["EventStatus"];
+            title: string;
+            startAt: string;
+            endAt: string;
+            place?: string | null;
+            participantsCount?: number | null;
+        };
         ParticipationType: {
+            id?: string | null;
             name?: string;
             maxParticipants?: number;
             /** @enum {string} */
@@ -162,32 +271,113 @@ export interface components {
             fee?: number;
             /** @enum {string} */
             method?: "fcfs" | "lottery";
+            /** @description IDs of sub-events (see /sub-events) that participants registering under this participation type may also join. */
+            subEventIds?: string[] | null;
         };
-        CreateEventRequest: {
-            title: string;
-            subtitle?: string;
-            description?: string;
-            startAt?: string;
-            endAt?: string;
-            place?: string;
-            address?: string;
-            capacity?: number;
-            reservedAt?: string;
-            registrationEnabled?: boolean;
-            participationTypes?: components["schemas"]["ParticipationType"][];
-        };
-        UpdateEventRequest: {
+        /** @description Fields shared by event creation, update, and the full event representation. */
+        EventFields: {
             title?: string;
             subtitle?: string;
             description?: string;
+            eventType?: string;
+            image?: string | null;
+            ownerText?: string | null;
             startAt?: string;
             endAt?: string;
             place?: string;
             address?: string;
             capacity?: number;
-            reservedAt?: string;
+            reservedAt?: string | null;
             registrationEnabled?: boolean;
+            registrationOpenAt?: string | null;
+            registrationCloseAt?: string | null;
+            lotteryPublishDate?: string | null;
+            allowConflictJoin?: boolean;
             participationTypes?: components["schemas"]["ParticipationType"][];
+            allowReceipt?: boolean;
+            invoiceNumber?: string | null;
+            receiptIssuerName?: string | null;
+            receiptIssuerAddress?: string | null;
+            paypalEmail?: string | null;
+            contactDetails?: string | null;
+            cancelPolicy?: string | null;
+            participantOnlyInfo?: string | null;
+        };
+        CreateEventRequest: components["schemas"]["EventFields"] & Record<string, never>;
+        /** @description Full event representation, as returned by GET /events/{eventId}. */
+        Event: components["schemas"]["EventFields"] & {
+            id: string;
+            /** @description The connpass group this event is organized under. Sub-events created without an explicit group assignment have no group until one is set on the event's own edit screen (an irreversible, one-time choice in connpass). */
+            groupId?: string | null;
+            /** @description The parent event ID, if this event is itself a sub-event. */
+            parentId?: string | null;
+            url: string;
+            editUrl: string;
+            status: components["schemas"]["EventStatus"];
+            /** @description Number of linked sub-events. Fetch them via GET /sub-events. */
+            subEventCount: number;
+            /** @description Whether this event has a survey configured. Fetch it via GET /survey. */
+            hasSurvey: boolean;
+            /** @description Whether this event has conference info configured. Fetch it via GET /conference. */
+            hasConference: boolean;
+        };
+        UpdateEventRequest: components["schemas"]["EventFields"];
+        PublishEventRequest: {
+            postToTwitter?: boolean;
+            comment?: string | null;
+        };
+        /** @description Lightweight view of an event linked as a sub-event. Sub-events are full connpass events (create with POST /sub-events, then manage every other field through the regular GET/PATCH /events/{eventId} using the returned event ID). */
+        SubEvent: {
+            id: string;
+            /** @description Null until a connpass group is assigned on the sub-event's own edit screen. */
+            groupId?: string | null;
+            url: string;
+            editUrl: string;
+            status: components["schemas"]["EventStatus"];
+            title: string;
+            startAt?: string | null;
+            endAt?: string | null;
+        };
+        CreateSubEventRequest: {
+            title: string;
+        };
+        /** @enum {string} */
+        SurveyQuestionAnswerType: "free_text" | "checkbox" | "radio" | "dropdown";
+        SurveyQuestion: {
+            id?: string | null;
+            title: string;
+            answerType: components["schemas"]["SurveyQuestionAnswerType"];
+            required: boolean;
+            /** @description Choice labels. Required when answerType is checkbox, radio, or dropdown. */
+            options?: string[] | null;
+        };
+        Survey: {
+            questions: components["schemas"]["SurveyQuestion"][];
+        };
+        UpsertSurveyRequest: {
+            questions: components["schemas"]["SurveyQuestion"][];
+        };
+        Conference: {
+            isActive: boolean;
+            lpUrl?: string | null;
+            cfpUrl?: string | null;
+            cfpStartAt?: string | null;
+            cfpEndAt?: string | null;
+            sponsorUrl?: string | null;
+            sponsorStartAt?: string | null;
+            sponsorEndAt?: string | null;
+            topics?: string[] | null;
+        };
+        UpsertConferenceRequest: {
+            isActive: boolean;
+            lpUrl?: string | null;
+            cfpUrl?: string | null;
+            cfpStartAt?: string | null;
+            cfpEndAt?: string | null;
+            sponsorUrl?: string | null;
+            sponsorStartAt?: string | null;
+            sponsorEndAt?: string | null;
+            topics?: string[] | null;
         };
         Group: {
             groupId: string;
@@ -201,8 +391,49 @@ export interface components {
             enabled?: boolean;
         };
     };
-    responses: never;
-    parameters: never;
+    responses: {
+        /** @description The request body is missing required fields or is malformed. */
+        BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The access token is missing or invalid. */
+        Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The access token cannot perform this operation. */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The requested event, sub-event, survey, or conference does not exist. */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+    };
+    parameters: {
+        GroupId: string;
+        EventId: string;
+        SubEventId: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -276,7 +507,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        [key: string]: unknown;
+                        groupId: string;
+                        resultsReturned: number;
+                        events: components["schemas"]["EventSummary"][];
                     };
                 };
             };
@@ -372,7 +605,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        [key: string]: unknown;
+                        groupId: string;
+                        event: components["schemas"]["Event"];
                     };
                 };
             };
@@ -460,7 +694,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PublishEventRequest"];
+            };
+        };
         responses: {
             /** @description Job accepted */
             202: {
@@ -489,6 +727,248 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    listGroupEventSubEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sub-events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        groupId: string;
+                        eventId: string;
+                        resultsReturned: number;
+                        subEvents: components["schemas"]["SubEvent"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createGroupEventSubEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSubEventRequest"];
+            };
+        };
+        responses: {
+            /** @description Job accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getGroupEventSubEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+                subEventId: components["parameters"]["SubEventId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sub-event */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        groupId: string;
+                        eventId: string;
+                        subEvent: components["schemas"]["SubEvent"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteGroupEventSubEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+                subEventId: components["parameters"]["SubEventId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getGroupEventSurvey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Survey */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        groupId: string;
+                        eventId: string;
+                        survey: components["schemas"]["Survey"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    upsertGroupEventSurvey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertSurveyRequest"];
+            };
+        };
+        responses: {
+            /** @description Job accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getGroupEventConference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conference info */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        groupId: string;
+                        eventId: string;
+                        conference: components["schemas"]["Conference"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    upsertGroupEventConference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertConferenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Job accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     adminRelogin: {

@@ -1,0 +1,64 @@
+parameters:
+  - $ref: ../components/parameters/common.yaml#/GroupId
+  - $ref: ../components/parameters/common.yaml#/EventId
+get:
+  operationId: listGroupEventSubEvents
+  summary: List sub-events linked to an event
+  security:
+    - BearerAuth: []
+  responses:
+    "200":
+      description: Sub-events
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [groupId, eventId, resultsReturned, subEvents]
+            properties:
+              groupId:
+                type: string
+              eventId:
+                type: string
+              resultsReturned:
+                type: integer
+              subEvents:
+                type: array
+                items:
+                  $ref: ../components/schemas/index.yaml#/SubEvent
+    "401":
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    "403":
+      $ref: ../components/responses/common.yaml#/Forbidden
+    "404":
+      $ref: ../components/responses/common.yaml#/NotFound
+post:
+  operationId: createGroupEventSubEvent
+  summary: Create a new event and link it as a sub-event (async browser job)
+  description: >
+    Only the title is set on creation. The created event's ID is returned as
+    the job's eventId once the job succeeds; edit every other field (dates,
+    place, participation types, group assignment, etc.) via the regular
+    GET/PATCH /events/{eventId} endpoints using that ID.
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/index.yaml#/CreateSubEventRequest
+  responses:
+    "202":
+      description: Job accepted
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Job
+    "400":
+      $ref: ../components/responses/common.yaml#/BadRequest
+    "401":
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    "403":
+      $ref: ../components/responses/common.yaml#/Forbidden
+    "404":
+      $ref: ../components/responses/common.yaml#/NotFound

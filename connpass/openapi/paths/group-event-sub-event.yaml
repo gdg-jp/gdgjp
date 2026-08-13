@@ -1,0 +1,49 @@
+parameters:
+  - $ref: ../components/parameters/common.yaml#/GroupId
+  - $ref: ../components/parameters/common.yaml#/EventId
+  - $ref: ../components/parameters/common.yaml#/SubEventId
+get:
+  operationId: getGroupEventSubEvent
+  summary: Get a single sub-event link
+  security:
+    - BearerAuth: []
+  responses:
+    "200":
+      description: Sub-event
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [groupId, eventId, subEvent]
+            properties:
+              groupId:
+                type: string
+              eventId:
+                type: string
+              subEvent:
+                $ref: ../components/schemas/index.yaml#/SubEvent
+    "401":
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    "403":
+      $ref: ../components/responses/common.yaml#/Forbidden
+    "404":
+      $ref: ../components/responses/common.yaml#/NotFound
+delete:
+  operationId: deleteGroupEventSubEvent
+  summary: Cancel a sub-event (async browser job)
+  description: Cancels the linked sub-event, mirroring connpass's "cancel" action; it does not delete it.
+  security:
+    - BearerAuth: []
+  responses:
+    "202":
+      description: Job accepted
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Job
+    "401":
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    "403":
+      $ref: ../components/responses/common.yaml#/Forbidden
+    "404":
+      $ref: ../components/responses/common.yaml#/NotFound
