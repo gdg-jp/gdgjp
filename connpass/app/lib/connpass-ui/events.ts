@@ -99,48 +99,59 @@ type ConnpassJQuery = {
   (
     selector: string,
   ): {
-    first: () => { trigger: (event: string) => void };
+    first: () => {
+      trigger: (event: string) => unknown;
+      val: (value?: string) => unknown;
+    };
+    val: (value?: string) => unknown;
+    trigger: (event: string) => unknown;
     [0]?: Element;
   };
-  _data: (el: Element, key: string) => { click?: unknown } | undefined;
+  _data: (el: Element, key: string) => Record<string, unknown> | undefined;
 };
 
 type ConnpassRequire = (deps: string[], cb: ($: ConnpassJQuery) => void) => void;
 
 /**
- * Title/subtitle are jeditable fields (`click.editable` on the span itself),
- * bound from EventEditView after AMD `require()`. The spans already have
- * `.ui-editable` in the server HTML, and jQuery is AMD-only (not on window),
- * so waiting for `#EventEditApp` click handlers never succeeds.
+ * Event-edit widgets (jeditable, FormEditable, PlaceEditView) bind through AMD
+ * jQuery after require(), often after an extra XHR (my_places). Server HTML
+ * already contains the placeholders, so Playwright clicks succeed too early.
  */
+async function waitForBoundEvent(page: Page, selector: string, eventName: string): Promise<void> {
+  await page.locator(selector).first().waitFor({ state: "visible", timeout: 30_000 });
+  await page.evaluate(
+    async ({ selector, eventName }) => {
+      const req = (window as unknown as { require?: ConnpassRequire }).require;
+      if (typeof req !== "function") throw new Error("connpass_requirejs_missing");
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error(`connpass_event_not_bound:${selector}:${eventName}`)),
+          30_000,
+        );
+        req(["jquery"], ($) => {
+          const poll = () => {
+            const el = $(selector)[0];
+            const events = el ? $._data(el, "events") : undefined;
+            if (events?.[eventName]) {
+              clearTimeout(timeout);
+              resolve();
+              return;
+            }
+            setTimeout(poll, 50);
+          };
+          poll();
+        });
+      });
+    },
+    { selector, eventName },
+  );
+}
+
 async function waitForEventEditReady(page: Page): Promise<void> {
   if (page.url().includes("/login")) {
     throw new Error("connpass_login_required");
   }
-  await page.locator(selectors.eventEdit.title).first().waitFor({
-    state: "visible",
-    timeout: 30_000,
-  });
-  await page.evaluate(async () => {
-    const req = (window as unknown as { require?: ConnpassRequire }).require;
-    if (typeof req !== "function") throw new Error("connpass_requirejs_missing");
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("connpass_jeditable_not_bound")), 30_000);
-      req(["jquery"], ($) => {
-        const poll = () => {
-          const el = $("#FieldTitle")[0];
-          const events = el ? $._data(el, "events") : undefined;
-          if (events?.click) {
-            clearTimeout(timeout);
-            resolve();
-            return;
-          }
-          setTimeout(poll, 50);
-        };
-        poll();
-      });
-    });
-  });
+  await waitForBoundEvent(page, selectors.eventEdit.title, "click");
 }
 
 async function jqueryClick(page: Page, selector: string): Promise<void> {
@@ -155,37 +166,106 @@ async function jqueryClick(page: Page, selector: string): Promise<void> {
   }, selector);
 }
 
+async function jqueryValChange(page: Page, selector: string, value: string): Promise<void> {
+  await page.evaluate(
+    async ({ sel, value }) => {
+      const req = (window as unknown as { require: ConnpassRequire }).require;
+      await new Promise<void>((resolve) => {
+        req(["jquery"], ($) => {
+          const node = $(sel).first();
+          node.val(value);
+          node.trigger("change");
+          resolve();
+        });
+      });
+    },
+    { sel: selector, value },
+  );
+}
+
+async function isVisible(page: Page, selector: string): Promise<boolean> {
+  return page
+    .locator(selector)
+    .first()
+    .isVisible()
+    .catch(() => false);
+}
+
+async function openUntilVisible(
+  page: Page,
+  triggerSelector: string,
+  inputSelector: string,
+): Promise<void> {
+  await page.locator(triggerSelector).first().waitFor({ state: "visible", timeout: 30_000 });
+  const deadline = Date.now() + 20_000;
+  while (!(await isVisible(page, inputSelector))) {
+    if (Date.now() > deadline) break;
+    await jqueryClick(page, triggerSelector);
+    await page
+      .locator(inputSelector)
+      .first()
+      .waitFor({ state: "visible", timeout: 2_000 })
+      .catch(() => undefined);
+  }
+  await page.locator(inputSelector).first().waitFor({ state: "visible", timeout: 10_000 });
+}
+
+async function clickScopedSave(page: Page, scopeSelector: string): Promise<void> {
+  const scoped = `${scopeSelector} button.save`;
+  if (await isVisible(page, scoped)) {
+    await page.locator(scoped).first().click();
+    await page.waitForTimeout(400);
+    return;
+  }
+  const save = page.locator(selectors.eventEdit.saveButton).first();
+  if ((await save.count()) > 0 && (await save.isVisible().catch(() => false))) {
+    await save.click();
+    await page.waitForTimeout(400);
+  }
+}
+
 async function clickEditAndFill(
   page: Page,
   triggerSelector: string,
   inputSelector: string,
   value: string,
+  saveScope = triggerSelector,
 ): Promise<void> {
-  const trigger = page.locator(triggerSelector).first();
-  await trigger.waitFor({ state: "visible", timeout: 30_000 });
-  const input = page.locator(inputSelector).first();
+  await openUntilVisible(page, triggerSelector, inputSelector);
+  await page.locator(inputSelector).first().fill(value);
+  if (await isVisible(page, `${saveScope} button.save`)) {
+    await clickScopedSave(page, saveScope);
+  } else {
+    await page
+      .locator(inputSelector)
+      .first()
+      .press("Enter")
+      .catch(() => undefined);
+    await page.waitForTimeout(400);
+  }
+}
+
+async function openPlaceEditor(page: Page): Promise<void> {
+  const { place, placeSelect, placeEditLink, placeAddress } = selectors.eventEdit;
+  await waitForBoundEvent(page, place, "change");
+  if (await isVisible(page, placeAddress)) return;
+
+  if (await isVisible(page, placeEditLink)) {
+    await openUntilVisible(page, placeEditLink, placeAddress);
+    return;
+  }
 
   const deadline = Date.now() + 20_000;
-  while (!(await input.isVisible().catch(() => false))) {
+  while (!(await isVisible(page, placeAddress))) {
     if (Date.now() > deadline) break;
-    await jqueryClick(page, triggerSelector);
-    await input.waitFor({ state: "visible", timeout: 2_000 }).catch(() => undefined);
+    await jqueryValChange(page, placeSelect, "new");
+    await page
+      .locator(placeAddress)
+      .first()
+      .waitFor({ state: "visible", timeout: 2_000 })
+      .catch(() => undefined);
   }
-  await input.waitFor({ state: "visible", timeout: 10_000 });
-  await input.fill(value);
-
-  const scopedSave = page.locator(`${triggerSelector} button.save`).first();
-  const save =
-    (await scopedSave.count()) > 0
-      ? scopedSave
-      : page.locator(selectors.eventEdit.saveButton).first();
-  if ((await save.count()) > 0 && (await save.isVisible().catch(() => false))) {
-    await save.click();
-    await page.waitForTimeout(400);
-  } else {
-    await input.press("Enter").catch(() => undefined);
-    await page.waitForTimeout(400);
-  }
+  await page.locator(placeAddress).first().waitFor({ state: "visible", timeout: 10_000 });
 }
 
 function splitDateTime(value: string): { date: string; time: string } {
@@ -197,127 +277,86 @@ function splitDateTime(value: string): { date: string; time: string } {
 
 export async function fillEventEdit(page: Page, fields: EventEditFields): Promise<void> {
   await waitForEventEditReady(page);
+  const edit = selectors.eventEdit;
   if (fields.title !== undefined) {
-    await clickEditAndFill(
-      page,
-      selectors.eventEdit.title,
-      selectors.eventEdit.titleInput,
-      fields.title,
-    );
+    await clickEditAndFill(page, edit.title, edit.titleInput, fields.title);
   }
   if (fields.subtitle !== undefined) {
-    await clickEditAndFill(
-      page,
-      selectors.eventEdit.subtitle,
-      selectors.eventEdit.subtitleInput,
-      fields.subtitle,
-    );
+    await clickEditAndFill(page, edit.subtitle, edit.subtitleInput, fields.subtitle);
   }
   if (fields.description !== undefined) {
-    await page.locator(selectors.eventEdit.description).first().click();
-    const area = page.locator("textarea:visible, [contenteditable='true']:visible").first();
-    await area.waitFor({ state: "visible", timeout: 10_000 });
-    const tag = await area.evaluate((el) => el.tagName.toLowerCase());
-    if (tag === "textarea") {
-      await area.fill(fields.description);
-    } else {
-      await area.click();
-      await page.keyboard.press("Meta+A").catch(() => undefined);
-      await page.keyboard.type(fields.description);
-    }
-    const save = page.locator(selectors.eventEdit.saveButton).first();
-    if ((await save.count()) > 0) await save.click();
-    await page.waitForTimeout(400);
+    await openUntilVisible(page, edit.description, edit.descriptionInput);
+    await page.locator(edit.descriptionInput).first().fill(fields.description);
+    await clickScopedSave(page, edit.description);
   }
   if (fields.capacity !== undefined) {
+    await waitForBoundEvent(page, "#FieldMaxNum", "click");
     await clickEditAndFill(
       page,
-      selectors.eventEdit.capacity,
-      selectors.eventEdit.capacityInput,
+      edit.capacityTrigger,
+      edit.capacityInput,
       String(fields.capacity),
+      "#FieldMaxNum",
     );
   }
   if (fields.startAt !== undefined || fields.endAt !== undefined) {
-    await page.locator(selectors.eventEdit.dates).first().click();
+    await waitForBoundEvent(page, "#EventDates", "click");
+    await openUntilVisible(page, edit.datesTrigger, edit.startDate);
     if (fields.startAt !== undefined) {
       const { date, time } = splitDateTime(fields.startAt);
-      await page.locator(selectors.eventEdit.startDate).fill(date);
-      await page.locator(selectors.eventEdit.startTime).fill(time);
+      await page.locator(edit.startDate).fill(date);
+      await page.locator(edit.startTime).fill(time);
     }
     if (fields.endAt !== undefined) {
       const { date, time } = splitDateTime(fields.endAt);
-      await page.locator(selectors.eventEdit.endDate).fill(date);
-      await page.locator(selectors.eventEdit.endTime).fill(time);
+      await page.locator(edit.endDate).fill(date);
+      await page.locator(edit.endTime).fill(time);
     }
-    await page.locator(selectors.eventEdit.saveButton).first().click();
-    await page.waitForTimeout(400);
+    await clickScopedSave(page, "#EventDates");
   }
   if (fields.place !== undefined || fields.address !== undefined) {
-    // Prefer "会場を新しく設定する" path when present.
-    const select = page.locator("#my_places");
-    if ((await select.count()) > 0) {
-      await select.selectOption("new").catch(() => undefined);
-    } else {
-      await page.locator(selectors.eventEdit.place).first().click();
-    }
+    await openPlaceEditor(page);
     if (fields.place !== undefined) {
-      await page.locator(selectors.eventEdit.placeName).first().fill(fields.place);
+      await page.locator(edit.placeName).first().fill(fields.place);
     }
     if (fields.address !== undefined) {
-      await page.locator(selectors.eventEdit.placeAddress).first().fill(fields.address);
+      await page.locator(edit.placeAddress).first().fill(fields.address);
     }
-    const save = page.locator(selectors.eventEdit.saveButton).first();
-    if ((await save.count()) > 0) await save.click();
-    await page.waitForTimeout(400);
+    await clickScopedSave(page, edit.place);
   }
   if (fields.reservedAt !== undefined) {
-    await page.locator(selectors.eventEdit.reservedTrigger).first().click();
+    await waitForBoundEvent(page, edit.reservedRoot, "click");
+    await openUntilVisible(page, edit.reservedTrigger, edit.reservedDate);
     const { date, time } = splitDateTime(fields.reservedAt);
-    await page.locator(selectors.eventEdit.reservedDate).fill(date);
-    await page.locator(selectors.eventEdit.reservedTime).fill(time);
-    await page.locator(selectors.eventEdit.saveButton).first().click();
-    await page.waitForTimeout(400);
+    await page.locator(edit.reservedDate).fill(date);
+    await page.locator(edit.reservedTime).fill(time);
+    await clickScopedSave(page, edit.reservedRoot);
   }
   if (fields.registrationEnabled !== undefined) {
     const trigger = fields.registrationEnabled
-      ? selectors.eventEdit.eventType.participation
-      : selectors.eventEdit.eventType.advertisement;
-    await page.locator(trigger).first().click();
-    const save = page.locator(selectors.eventEdit.eventType.saveButton).first();
-    if ((await save.count()) > 0) await save.click();
-    await page.waitForTimeout(400);
+      ? edit.eventType.participation
+      : edit.eventType.advertisement;
+    await jqueryClick(page, trigger);
+    await clickScopedSave(page, edit.eventType.root);
   }
   if (fields.participationTypes !== undefined) {
     await setParticipationTypes(page, fields.participationTypes);
   }
   if (fields.ownerText !== undefined) {
-    await clickEditAndFill(
-      page,
-      selectors.eventEdit.ownerText,
-      selectors.eventEdit.ownerTextInput,
-      fields.ownerText,
-    );
+    await clickEditAndFill(page, edit.ownerText, edit.ownerTextInput, fields.ownerText);
   }
   if (fields.participantOnlyInfo !== undefined) {
-    await page.locator(selectors.eventEdit.participantOnlyInfo).first().click();
-    const area = page.locator(selectors.eventEdit.participantOnlyInfoInput).first();
-    await area.waitFor({ state: "visible", timeout: 10_000 });
-    await area.fill(fields.participantOnlyInfo);
-    const save = page.locator(selectors.eventEdit.saveButton).first();
-    if ((await save.count()) > 0) await save.click();
-    await page.waitForTimeout(400);
+    await openUntilVisible(page, edit.participantOnlyInfo, edit.participantOnlyInfoInput);
+    await page.locator(edit.participantOnlyInfoInput).first().fill(fields.participantOnlyInfo);
+    await clickScopedSave(page, edit.participantOnlyInfo);
   }
   if (fields.cancelPolicy !== undefined) {
-    // Lives inside the same #FieldEventType panel as participation types (only
-    // visible once a paid participation type exists), so open it independently
-    // here rather than coupling to setParticipationTypes's own open/save cycle.
-    const { eventType } = selectors.eventEdit;
-    const typesBody = page.locator(eventType.typesBody);
-    if ((await typesBody.count()) === 0) {
-      await page.locator(eventType.editTrigger).first().click();
-      await typesBody.waitFor({ state: "visible", timeout: 10_000 });
+    const { eventType } = edit;
+    await waitForBoundEvent(page, `${eventType.root} .JoinOptions`, "click");
+    if (!(await isVisible(page, edit.cancelPolicyInput))) {
+      await openUntilVisible(page, eventType.editTrigger, edit.cancelPolicyInput);
     }
-    await page.locator(selectors.eventEdit.cancelPolicyInput).fill(fields.cancelPolicy);
+    await page.locator(edit.cancelPolicyInput).fill(fields.cancelPolicy);
     const save = page.locator(eventType.saveButton).first();
     if ((await save.count()) > 0) await save.click();
     await page.waitForTimeout(400);
@@ -326,10 +365,10 @@ export async function fillEventEdit(page: Page, fields: EventEditFields): Promis
 
 export async function setParticipationTypes(page: Page, types: ParticipationType[]): Promise<void> {
   const { eventType } = selectors.eventEdit;
+  await waitForBoundEvent(page, `${eventType.root} .JoinOptions`, "click");
   const typesBody = page.locator(eventType.typesBody);
-  if ((await typesBody.count()) === 0) {
-    await page.locator(eventType.editTrigger).first().click();
-    await typesBody.waitFor({ state: "visible", timeout: 10_000 });
+  if (!(await isVisible(page, `${eventType.typesBody} input`))) {
+    await openUntilVisible(page, eventType.editTrigger, `${eventType.typesBody} input`);
   }
 
   let rowCount = await typesBody.locator("tr").count();
@@ -376,7 +415,8 @@ export async function publishEvent(
   options?: { postToTwitter?: boolean; comment?: string | null },
 ): Promise<void> {
   await page.goto(eventEditUrl(eventId), { waitUntil: "domcontentloaded" });
-  await page.locator(selectors.eventEdit.publish).first().click();
+  await waitForEventEditReady(page);
+  await jqueryClick(page, selectors.eventEdit.publish);
   const confirm = page.locator(selectors.publishDialog.confirm).first();
   await confirm.waitFor({ state: "visible", timeout: 10_000 });
   if (options?.comment != null) {

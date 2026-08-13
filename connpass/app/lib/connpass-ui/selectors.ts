@@ -29,13 +29,19 @@ export const selectors = {
     subtitle: "#FieldSubTitle",
     description: "#FieldDescription",
     capacity: "#FieldMaxNum .FormEditable, #FieldMaxNum",
+    capacityTrigger: "#FieldMaxNum .FormEditable",
     place: "#FieldPlace",
+    placeSelect: "#FieldPlace select.MyPlaces",
+    placeEditLink: "#FieldPlace .PlaceEditLink",
     dates: "#EventDates .FormEditable, #EventDates",
+    datesTrigger: "#EventDates .FormEditable",
     publish: "span.PublishEvent",
     preview: 'a[href*="/preview/"]',
     saveButton: "button.save, button.btn_high_priority.save",
     inlineTextInput:
       'form input[type="text"]:visible, form textarea:visible, input.form_input_text:visible',
+    descriptionInput:
+      '#FieldDescription textarea[name="description_input"], textarea[name="description_input"]',
     titleInput: '#FieldTitle input[name="title"]',
     subtitleInput:
       '#FieldSubTitle input[name="sub_title"], .sub_title input[name="sub_title"], input[name="sub_title"]',
@@ -49,7 +55,8 @@ export const selectors = {
     /** イベント編集_会場設定済み.html — rendered venue table (read path) */
     placeVenueName: "#FieldPlace table tr.spot td",
     placeVenueAddress: "#FieldPlace table tr.place td",
-    reservedTrigger: "#EventPublishReservation",
+    reservedTrigger: "#EventPublishReservation .FormEditable",
+    reservedRoot: "#EventPublishReservation",
     reservedDate: 'input[name="reserved_date"]',
     reservedTime: 'input[name="reserved_time"]',
     /** event-edit_主催者をクリック.html */

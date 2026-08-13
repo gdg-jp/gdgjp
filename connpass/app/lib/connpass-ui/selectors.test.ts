@@ -94,11 +94,14 @@ describe("connpass UI selectors", () => {
       expect(place).toContain('id="FieldPlace"');
       expect(place).toContain('name="name"');
       expect(place).toContain('name="address"');
+      expect(place).toContain('id="my_places"');
+      expect(place).toContain('value="new"');
 
       const dates = readFileSync(fixturePath("event-edit_日付を入力をクリック.html"), "utf8");
       expect(dates).toContain('name="start_date"');
       expect(dates).toContain('name="start_time"');
       expect(dates).toContain("hasDatepicker");
+      expect(dates).toContain('id="EventDates"');
 
       const reserved = readFileSync(
         fixturePath("event-edit_公開予約設定の日付を入力をクリック.html"),
