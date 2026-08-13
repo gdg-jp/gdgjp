@@ -158,7 +158,8 @@ func syncAgentsMD(root string, agents []byte) error {
 
 // PullRaw synchronizes raw/** from the Wiki API. AGENTS.md is Git-tracked.
 // Chat Markdown sender placeholders are resolved locally after hash verification.
-// Files whose rendered digest still matches are skipped. The returned
+// Files whose rendered digest still matches are skipped. Ingested hashes are
+// kept only when the server content hash is unchanged. The returned
 // manifest is the exact snapshot used for local reconciliation.
 func PullRaw(ctx context.Context, root string, client *Client, token string) (SourcesManifest, error) {
 	cfg, err := ReadConfig(root)
@@ -225,6 +226,7 @@ func PullRaw(ctx context.Context, root string, client *Client, token string) (So
 		return SourcesManifest{}, err
 	}
 	pruneRendered(state, manifest)
+	state.Ingested = reconcileIngested(state, manifest)
 	state.SendersHash = sendersHash
 	state.Manifest = &manifest
 	if err = WriteState(root, state); err != nil {
@@ -254,6 +256,9 @@ func rewriteRawSourcePaths(data []byte, doc SourcesManifestEntry) []byte {
 }
 
 func shouldSkipRawPull(state State, sendersHash string, doc SourcesManifestEntry, localPath string) bool {
+	if prev, ok := previousManifestHash(state, doc.DocumentID); ok && prev != doc.ContentHash {
+		return false
+	}
 	if state.SendersHash != sendersHash {
 		return false
 	}
@@ -267,6 +272,96 @@ func shouldSkipRawPull(state State, sendersHash string, doc SourcesManifestEntry
 	}
 	// Pre-Rendered clones: fall back to the server content hash.
 	return localDigest == doc.ContentHash
+}
+
+func previousManifestHash(state State, documentID string) (string, bool) {
+	if state.Manifest == nil {
+		return "", false
+	}
+	for _, doc := range state.Manifest.Documents {
+		if doc.DocumentID == documentID {
+			return doc.ContentHash, true
+		}
+	}
+	return "", false
+}
+
+// reconcileIngested updates local ingest completion after a raw pull.
+// Unchanged content hashes stay ingested. Hash changes stay recorded as the
+// prior hash so the next ingest queue marks them "changed". New documents are
+// omitted. If a document id rotates but source + relative path and hash stay
+// the same, the ingested record moves to the new id. Orphan ids are kept so a
+// later reappearance with the same hash is not treated as new.
+func reconcileIngested(state State, manifest SourcesManifest) map[string]string {
+	alive := make(map[string]struct{})
+	hashByIdentity := map[string]string{}
+	identityID := map[string]string{}
+	if state.Manifest != nil {
+		for _, doc := range state.Manifest.Documents {
+			if doc.Kind == "source-asset" {
+				continue
+			}
+			if hash, ok := state.Ingested[doc.DocumentID]; ok {
+				ident := ingestIdentity(doc)
+				hashByIdentity[ident] = hash
+				identityID[ident] = doc.DocumentID
+			}
+		}
+	}
+	for _, doc := range manifest.Documents {
+		if doc.Kind != "source-asset" {
+			alive[doc.DocumentID] = struct{}{}
+		}
+	}
+
+	next := make(map[string]string, len(state.Ingested))
+	for id, hash := range state.Ingested {
+		if _, ok := alive[id]; !ok {
+			next[id] = hash
+		}
+	}
+	for _, doc := range manifest.Documents {
+		if doc.Kind == "source-asset" {
+			continue
+		}
+		if hash, ok := state.Ingested[doc.DocumentID]; ok {
+			next[doc.DocumentID] = hash
+			continue
+		}
+		ident := ingestIdentity(doc)
+		hash, ok := hashByIdentity[ident]
+		if !ok || hash != doc.ContentHash {
+			continue
+		}
+		next[doc.DocumentID] = hash
+		if oldID := identityID[ident]; oldID != "" && oldID != doc.DocumentID {
+			delete(next, oldID)
+		}
+	}
+	return next
+}
+
+func ingestIdentity(doc SourcesManifestEntry) string {
+	if doc.Kind == "wiki-human" {
+		return "wiki-human\x00" + doc.DocumentID
+	}
+	sourceID := ""
+	if doc.SourceID != nil {
+		sourceID = *doc.SourceID
+	}
+	if sourceID != "" {
+		return sourceID + "\x00" + sourceRelativePath(doc.Path)
+	}
+	return doc.Kind + "\x00" + doc.DocumentID
+}
+
+func sourceRelativePath(manifestPath string) string {
+	remainder := strings.TrimPrefix(filepath.ToSlash(manifestPath), "raw/")
+	_, rest, found := strings.Cut(remainder, "/")
+	if !found {
+		return remainder
+	}
+	return rest
 }
 
 func digestSendersMap(senders map[string]string) (string, error) {

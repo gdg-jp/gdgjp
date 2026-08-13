@@ -149,6 +149,168 @@ func TestPullRawReconcilesManifestUsingCloneLanguage(t *testing.T) {
 	}
 }
 
+func TestPullRawKeepsIngestedWhenContentHashUnchanged(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
+		t.Fatal(err)
+	}
+	sourceID := "source-1"
+	keepBytes := []byte("stable body")
+	changedOld := []byte("old body")
+	changedNew := []byte("new body")
+	freshBytes := []byte("brand new")
+	keepPath := filepath.Join(root, "raw", "source-1", "keep.md")
+	if err := os.MkdirAll(filepath.Dir(keepPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(keepPath, keepBytes, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	prevManifest := SourcesManifest{Version: 1, Documents: []SourcesManifestEntry{
+		{
+			DocumentID:  "keep",
+			SourceID:    &sourceID,
+			Kind:        "source-document",
+			Title:       "Keep",
+			Path:        "raw/source-1/keep.md",
+			ContentHash: digest(keepBytes),
+		},
+		{
+			DocumentID:  "changed",
+			SourceID:    &sourceID,
+			Kind:        "source-document",
+			Title:       "Changed",
+			Path:        "raw/source-1/changed.md",
+			ContentHash: digest(changedOld),
+		},
+		{
+			DocumentID:  "rotated-old",
+			SourceID:    &sourceID,
+			Kind:        "source-document",
+			Title:       "Rotated",
+			Path:        "raw/source-1/rotated.md",
+			ContentHash: digest([]byte("rotated")),
+		},
+	}}
+	emptySendersHash, err := digestSendersMap(map[string]string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteState(root, State{
+		Ingested: map[string]string{
+			"keep":        digest(keepBytes),
+			"changed":     digest(changedOld),
+			"rotated-old": digest([]byte("rotated")),
+			"orphan":      "still-valid",
+		},
+		Rendered:    map[string]string{"keep": digest(keepBytes)},
+		SendersHash: emptySendersHash,
+		Manifest:    &prevManifest,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	manifest := SourcesManifest{Version: 1, Documents: []SourcesManifestEntry{
+		{
+			DocumentID:  "keep",
+			SourceID:    &sourceID,
+			Kind:        "source-document",
+			Title:       "Keep",
+			Path:        "raw/source-1/keep.md",
+			ContentHash: digest(keepBytes),
+		},
+		{
+			DocumentID:  "changed",
+			SourceID:    &sourceID,
+			Kind:        "source-document",
+			Title:       "Changed",
+			Path:        "raw/source-1/changed.md",
+			ContentHash: digest(changedNew),
+		},
+		{
+			DocumentID:  "rotated-new",
+			SourceID:    &sourceID,
+			Kind:        "source-document",
+			Title:       "Rotated",
+			Path:        "raw/source-1/rotated.md",
+			ContentHash: digest([]byte("rotated")),
+		},
+		{
+			DocumentID:  "fresh",
+			SourceID:    &sourceID,
+			Kind:        "source-document",
+			Title:       "Fresh",
+			Path:        "raw/source-1/fresh.md",
+			ContentHash: digest(freshBytes),
+		},
+	}}
+	contentRequests := map[string]int{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/cli/wiki/chat-senders":
+			writeEmptyChatSenders(w)
+		case "/api/cli/wiki/sources":
+			_ = json.NewEncoder(w).Encode(manifest)
+		case "/api/cli/wiki/sources/keep/content":
+			contentRequests["keep"]++
+			_, _ = w.Write(keepBytes)
+		case "/api/cli/wiki/sources/changed/content":
+			contentRequests["changed"]++
+			_, _ = w.Write(changedNew)
+		case "/api/cli/wiki/sources/rotated-new/content":
+			contentRequests["rotated-new"]++
+			_, _ = w.Write([]byte("rotated"))
+		case "/api/cli/wiki/sources/fresh/content":
+			contentRequests["fresh"]++
+			_, _ = w.Write(freshBytes)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client := NewClientAt(server.URL)
+	client.HTTPClient = server.Client()
+
+	if _, err := PullRaw(context.Background(), root, client, "token"); err != nil {
+		t.Fatal(err)
+	}
+	if contentRequests["keep"] != 0 {
+		t.Fatalf("unchanged document was re-downloaded: %d", contentRequests["keep"])
+	}
+	state, err := ReadState(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := state.Ingested["keep"]; got != digest(keepBytes) {
+		t.Fatalf("unchanged ingested dropped: %#v", state.Ingested)
+	}
+	if got := state.Ingested["changed"]; got != digest(changedOld) {
+		t.Fatalf("changed hash should remain as prior ingested: %#v", state.Ingested)
+	}
+	if got := state.Ingested["rotated-new"]; got != digest([]byte("rotated")) {
+		t.Fatalf("rotated id with same hash not transferred: %#v", state.Ingested)
+	}
+	if _, ok := state.Ingested["rotated-old"]; ok {
+		t.Fatalf("old rotated id still ingested: %#v", state.Ingested)
+	}
+	if _, ok := state.Ingested["fresh"]; ok {
+		t.Fatalf("new document must not be ingested: %#v", state.Ingested)
+	}
+	if state.Ingested["orphan"] != "still-valid" {
+		t.Fatalf("orphan ingested dropped: %#v", state.Ingested)
+	}
+	pending := PendingIngestDocuments(manifest, state)
+	wantPending := map[string]struct{}{"changed": {}, "fresh": {}}
+	if len(pending) != 2 {
+		t.Fatalf("pending = %#v, want changed and fresh", pending)
+	}
+	for _, doc := range pending {
+		if _, ok := wantPending[doc.DocumentID]; !ok {
+			t.Fatalf("unexpected pending %s in %#v", doc.DocumentID, pending)
+		}
+	}
+}
+
 func TestBuildIngestQueueRequeuesChangedLocalDocument(t *testing.T) {
 	root := t.TempDir()
 	manifest := SourcesManifest{Version: 1, Documents: []SourcesManifestEntry{{
