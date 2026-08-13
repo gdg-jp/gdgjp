@@ -36,7 +36,8 @@
     "developerApps": "OIDC クライアント — GDG Japan Accounts",
     "developerAppsNew": "OIDC クライアントを作成 — GDG Japan Accounts",
     "developerAppsDetail": "OIDC クライアントを管理 — GDG Japan Accounts",
-    "oauthConsent": "アプリケーションを認可 — GDG Japan Accounts"
+    "oauthConsent": "アプリケーションを認可 — GDG Japan Accounts",
+    "device": "CLI にサインイン — GDG Japan Accounts"
   },
   "dashboard": {
     "memberships": {
@@ -526,6 +527,28 @@
         "chapters": "アクティブな所属チャプターとロールを表示する",
         "unknown": "追加のアカウントアクセスをリクエストする"
       }
+    },
+    "device": {
+      "eyebrow": "GDG Japan Accounts",
+      "enterTitle": "コードを入力",
+      "enterDescription": "続行するには、ターミナルに表示されているコードを入力してください。",
+      "codeLabel": "デバイスコード",
+      "codePlaceholder": "XXXX-XXXX",
+      "submit": "続行",
+      "invalidCode": "コードが無効か期限切れです。ターミナルを確認してもう一度お試しください。",
+      "confirmTitle": "{{appName}} にサインインしますか？",
+      "confirmDescription": "続行する前に、ターミナルに表示されているコードと一致することを確認してください。",
+      "codeConfirm": "コード: {{code}}",
+      "permissions": "リクエストされた権限",
+      "noPermissions": "基本的なアカウントアクセス",
+      "cliScope": "CLI のサインインセッションを管理する",
+      "approve": "承認",
+      "deny": "拒否",
+      "approveFailed": "サインインの承認中に問題が発生しました。もう一度お試しください。",
+      "successTitle": "サインインしました",
+      "successDescription": "ターミナルに戻ってください。CLI が自動的に処理を完了します。このタブは閉じて構いません。",
+      "deniedTitle": "サインインを拒否しました",
+      "deniedDescription": "このタブは閉じて構いません。"
     },
     "userMenuAria": "アカウントメニュー",
     "signOut": "サインアウト"

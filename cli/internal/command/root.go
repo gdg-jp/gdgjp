@@ -26,11 +26,22 @@ func NewRoot() *cobra.Command {
 }
 
 func newLoginCommand(credentials store.CredentialStore) *cobra.Command {
-	return &cobra.Command{
+	var device bool
+	var browser bool
+	command := &cobra.Command{
 		Use:   "login",
-		Short: "Sign in to GDG Japan in your browser",
+		Short: "Sign in to GDG Japan",
+		Long: "Sign in to GDG Japan.\n\n" +
+			"By default this opens a browser on the current machine. On hosts with\n" +
+			"no browser available (e.g. an SSH remote server), it automatically\n" +
+			"falls back to a device code you approve from any browser; pass\n" +
+			"--device to force that flow, or --browser to force the local-browser flow.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			result, err := oauth.Login(cmd.Context())
+			login := oauth.Login
+			if shouldUseDeviceLogin(device, browser, oauth.LikelyHeadless()) {
+				login = oauth.DeviceLogin
+			}
+			result, err := login(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -41,6 +52,18 @@ func newLoginCommand(credentials store.CredentialStore) *cobra.Command {
 			return nil
 		},
 	}
+	command.Flags().BoolVar(&device, "device", false, "Sign in with a device code instead of opening a browser")
+	command.Flags().BoolVar(&browser, "browser", false, "Sign in with a local browser even if this session looks headless")
+	command.MarkFlagsMutuallyExclusive("device", "browser")
+	return command
+}
+
+// shouldUseDeviceLogin decides between the device-code and local-browser
+// login flows. --device always wins; otherwise --browser forces the
+// browser flow, and absent both flags the decision follows whether the
+// current session looks headless.
+func shouldUseDeviceLogin(device, browser, headless bool) bool {
+	return device || (!browser && headless)
 }
 
 func newLogoutCommand(credentials store.CredentialStore) *cobra.Command {

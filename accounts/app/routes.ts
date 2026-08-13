@@ -23,6 +23,7 @@ export default [
   route("api/users/search", "routes/api.users.search.ts"),
   route("api/cli/logout", "routes/api.cli.logout.ts"),
   route("auth/signout", "routes/auth.signout.ts"),
+  route("device", "routes/device.tsx"),
   route("api/auth/*", "routes/api.auth.$.ts"),
   // Compatibility routes keep in-flight requests working across the provider cutover.
   route("authorize", "routes/authorize.tsx"),

@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -20,13 +21,18 @@ import (
 	"github.com/gdg-jp/gdgjp/cli/internal/store"
 )
 
+// issuer is a var, not a const, so tests can point it at an httptest server.
+var issuer = "https://accounts.gdgs.jp"
+
 const (
-	issuer        = "https://accounts.gdgs.jp"
-	clientID      = "gdg-cli"
-	redirectURI   = "http://127.0.0.1:8787/callback"
-	callbackPath  = "/callback"
-	cliScope      = "https://gdgs.jp/scopes/cli"
-	chaptersScope = "https://gdgs.jp/scopes/chapters"
+	clientID                  = "gdg-cli"
+	redirectURI               = "http://127.0.0.1:8787/callback"
+	callbackPath              = "/callback"
+	cliScope                  = "https://gdgs.jp/scopes/cli"
+	chaptersScope             = "https://gdgs.jp/scopes/chapters"
+	deviceGrantType           = "urn:ietf:params:oauth:grant-type:device_code"
+	defaultDevicePollInterval = 5 * time.Second
+	defaultDeviceExpiry       = 10 * time.Minute
 )
 
 type tokenResponse struct {
@@ -98,18 +104,179 @@ func Logout(ctx context.Context, credentials store.Credentials) error {
 	return nil
 }
 
+const loginScope = "openid profile email offline_access " + chaptersScope + " " + cliScope
+
 func authorizationURL(state, verifier string) string {
 	challenge := sha256.Sum256([]byte(verifier))
 	query := url.Values{
 		"client_id":             {clientID},
 		"redirect_uri":          {redirectURI},
 		"response_type":         {"code"},
-		"scope":                 {"openid profile email offline_access " + chaptersScope + " " + cliScope},
+		"scope":                 {loginScope},
 		"state":                 {state},
 		"code_challenge":        {base64.RawURLEncoding.EncodeToString(challenge[:])},
 		"code_challenge_method": {"S256"},
 	}
 	return issuer + "/api/auth/oauth2/authorize?" + query.Encode()
+}
+
+// LikelyHeadless reports whether the current session probably has no
+// browser available, so gdg login can default to the device-code flow
+// without requiring the caller to pass --device explicitly. SSH sessions
+// with X11/Wayland forwarding still have a real display, so they are not
+// treated as headless.
+func LikelyHeadless() bool {
+	return likelyHeadless(runtime.GOOS, os.Getenv)
+}
+
+func likelyHeadless(goos string, getenv func(string) string) bool {
+	sshSession := getenv("SSH_CONNECTION") != "" || getenv("SSH_TTY") != ""
+	if !sshSession {
+		return false
+	}
+	if goos == "linux" {
+		return getenv("DISPLAY") == "" && getenv("WAYLAND_DISPLAY") == ""
+	}
+	return true
+}
+
+type deviceAuthorizationResponse struct {
+	DeviceCode              string `json:"device_code"`
+	UserCode                string `json:"user_code"`
+	VerificationURI         string `json:"verification_uri"`
+	VerificationURIComplete string `json:"verification_uri_complete"`
+	ExpiresIn               int    `json:"expires_in"`
+	Interval                int    `json:"interval"`
+}
+
+type deviceErrorResponse struct {
+	Error string `json:"error"`
+}
+
+// DeviceLogin runs the OAuth 2.0 Device Authorization Grant (RFC 8628): it
+// prints a short code and verification URL for the user to open on any
+// device with a browser, then polls until it is approved. This keeps login
+// usable on hosts with no local browser at all, such as SSH remote servers.
+func DeviceLogin(ctx context.Context) (store.Credentials, error) {
+	authResponse, err := requestDeviceAuthorization(ctx)
+	if err != nil {
+		return store.Credentials{}, err
+	}
+
+	fmt.Printf("To sign in, open this URL and enter the code below:\n%s\n\nCode: %s\n", authResponse.VerificationURI, authResponse.UserCode)
+	if authResponse.VerificationURIComplete != "" {
+		fmt.Printf("Or open this URL directly:\n%s\n", authResponse.VerificationURIComplete)
+	}
+
+	interval := time.Duration(authResponse.Interval) * time.Second
+	if interval <= 0 {
+		interval = defaultDevicePollInterval
+	}
+	expiresIn := time.Duration(authResponse.ExpiresIn) * time.Second
+	if expiresIn <= 0 {
+		expiresIn = defaultDeviceExpiry
+	}
+	deadline := time.Now().Add(expiresIn)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return store.Credentials{}, ctx.Err()
+		case <-time.After(interval):
+		}
+		if time.Now().After(deadline) {
+			return store.Credentials{}, errors.New("device login expired before it was approved")
+		}
+
+		credentials, pollErr, err := pollDeviceToken(ctx, authResponse.DeviceCode)
+		if err != nil {
+			return store.Credentials{}, err
+		}
+		switch pollErr {
+		case "":
+			return credentials, nil
+		case "authorization_pending":
+			continue
+		case "slow_down":
+			interval += 5 * time.Second
+			continue
+		case "access_denied":
+			return store.Credentials{}, errors.New("device login was denied")
+		case "expired_token":
+			return store.Credentials{}, errors.New("device login expired before it was approved")
+		default:
+			return store.Credentials{}, fmt.Errorf("device login failed: %s", pollErr)
+		}
+	}
+}
+
+func requestDeviceAuthorization(ctx context.Context) (deviceAuthorizationResponse, error) {
+	form := url.Values{
+		"client_id": {clientID},
+		"scope":     {loginScope},
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, issuer+"/api/auth/oauth2/device_authorization", strings.NewReader(form.Encode()))
+	if err != nil {
+		return deviceAuthorizationResponse{}, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return deviceAuthorizationResponse{}, fmt.Errorf("start device login: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
+		return deviceAuthorizationResponse{}, fmt.Errorf("device authorization request failed: %s: %s", response.Status, strings.TrimSpace(string(body)))
+	}
+	var authResponse deviceAuthorizationResponse
+	if err := json.NewDecoder(response.Body).Decode(&authResponse); err != nil {
+		return deviceAuthorizationResponse{}, err
+	}
+	if authResponse.DeviceCode == "" || authResponse.UserCode == "" {
+		return deviceAuthorizationResponse{}, errors.New("device authorization response missing device_code or user_code")
+	}
+	return authResponse, nil
+}
+
+// pollDeviceToken makes one poll attempt. A non-empty pollErr is an RFC 8628
+// token-endpoint error code (authorization_pending, slow_down, ...) for the
+// caller to interpret; err is reserved for transport/decoding failures.
+func pollDeviceToken(ctx context.Context, deviceCode string) (store.Credentials, string, error) {
+	form := url.Values{
+		"grant_type":  {deviceGrantType},
+		"device_code": {deviceCode},
+		"client_id":   {clientID},
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, issuer+"/api/auth/oauth2/token", strings.NewReader(form.Encode()))
+	if err != nil {
+		return store.Credentials{}, "", err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return store.Credentials{}, "", err
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(response.Body, 4096))
+	if err != nil {
+		return store.Credentials{}, "", err
+	}
+	if response.StatusCode != http.StatusOK {
+		var errResponse deviceErrorResponse
+		if json.Unmarshal(body, &errResponse) != nil || errResponse.Error == "" {
+			return store.Credentials{}, "", fmt.Errorf("device token request failed: %s: %s", response.Status, strings.TrimSpace(string(body)))
+		}
+		return store.Credentials{}, errResponse.Error, nil
+	}
+	var token tokenResponse
+	if err := json.Unmarshal(body, &token); err != nil {
+		return store.Credentials{}, "", err
+	}
+	if token.AccessToken == "" || token.RefreshToken == "" {
+		return store.Credentials{}, "", errors.New("token response did not contain access and refresh tokens")
+	}
+	return store.Credentials{AccessToken: token.AccessToken, RefreshToken: token.RefreshToken, TokenType: token.TokenType}, "", nil
 }
 
 func callbackHandler(expectedState string, result chan<- string) http.Handler {

@@ -1,5 +1,9 @@
 import { getAuth, runAuthHandler } from "~/lib/auth.server";
 import { handleDeveloperOAuthApi } from "~/lib/developer-oauth-api.server";
+import {
+  handleDeviceAuthorizationRequest,
+  handleDeviceTokenGrant,
+} from "~/lib/device-authorization.server";
 import { handleVerifiedEndSession } from "~/lib/legacy-end-session.server";
 import type { Route } from "./+types/api.auth.$";
 
@@ -28,8 +32,20 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
-  if (new URL(request.url).pathname === "/api/auth/admin/oauth2/update-client") {
+  const pathname = new URL(request.url).pathname;
+  if (pathname === "/api/auth/admin/oauth2/update-client") {
     return new Response("Not Found", { status: 404 });
+  }
+  if (pathname === "/api/auth/oauth2/device_authorization") {
+    return handleDeviceAuthorizationRequest(context.cloudflare.env, request);
+  }
+  if (pathname === "/api/auth/oauth2/token") {
+    const deviceResponse = await handleDeviceTokenGrant(
+      context.cloudflare.env,
+      request,
+      runAuthHandler,
+    );
+    if (deviceResponse) return deviceResponse;
   }
   const developerResponse = await handleDeveloperOAuthApi(context.cloudflare.env, request);
   if (developerResponse) return developerResponse;

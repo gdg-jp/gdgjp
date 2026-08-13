@@ -36,7 +36,8 @@
     "developerApps": "OIDC clients — GDG Japan Accounts",
     "developerAppsNew": "Create an OIDC client — GDG Japan Accounts",
     "developerAppsDetail": "Manage OIDC client — GDG Japan Accounts",
-    "oauthConsent": "Authorize application — GDG Japan Accounts"
+    "oauthConsent": "Authorize application — GDG Japan Accounts",
+    "device": "Sign in to the CLI — GDG Japan Accounts"
   },
   "dashboard": {
     "memberships": {
@@ -527,6 +528,28 @@
         "chapters": "View your active chapter memberships and roles",
         "unknown": "Request additional account access"
       }
+    },
+    "device": {
+      "eyebrow": "GDG Japan Accounts",
+      "enterTitle": "Enter your code",
+      "enterDescription": "Enter the code shown in your terminal to continue.",
+      "codeLabel": "Device code",
+      "codePlaceholder": "XXXX-XXXX",
+      "submit": "Continue",
+      "invalidCode": "That code is invalid or has expired. Check your terminal and try again.",
+      "confirmTitle": "Sign in to {{appName}}?",
+      "confirmDescription": "Make sure this code matches what's shown in your terminal before continuing.",
+      "codeConfirm": "Code: {{code}}",
+      "permissions": "Requested permissions",
+      "noPermissions": "Basic account access",
+      "cliScope": "Manage your CLI sign-in session",
+      "approve": "Approve",
+      "deny": "Deny",
+      "approveFailed": "Something went wrong approving this sign-in. Please try again.",
+      "successTitle": "You're signed in",
+      "successDescription": "Return to your terminal — the CLI will finish automatically. You can close this tab.",
+      "deniedTitle": "Sign-in denied",
+      "deniedDescription": "You can close this tab."
     },
     "userMenuAria": "Account menu",
     "signOut": "Sign out"
