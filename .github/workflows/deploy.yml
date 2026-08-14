@@ -165,6 +165,12 @@ jobs:
               pnpm --filter @gdgjp/connpass build
               pnpm --filter @gdgjp/connpass run deploy
               pnpm --filter @gdgjp/connpass migrate:remote
+          - name: Build, deploy, and migrate pay
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'pay')
+            run: |
+              pnpm --filter @gdgjp/pay build
+              pnpm --filter @gdgjp/pay run deploy
+              pnpm --filter @gdgjp/pay migrate:remote
           - name: Build and deploy website
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'website')
             run: |

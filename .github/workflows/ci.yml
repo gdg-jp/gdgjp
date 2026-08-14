@@ -130,6 +130,9 @@ jobs:
           - name: Typecheck SNS
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/sns')
             run: pnpm --filter @gdgjp/sns typecheck
+          - name: Typecheck pay
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/pay')
+            run: pnpm --filter @gdgjp/pay typecheck
           - name: Typecheck website
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website typecheck
@@ -178,6 +181,9 @@ jobs:
           - name: Test SNS
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/sns')
             run: pnpm --filter @gdgjp/sns test
+          - name: Test pay
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/pay')
+            run: pnpm --filter @gdgjp/pay test
           - name: Test website
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website test
@@ -226,6 +232,9 @@ jobs:
           - name: Build SNS
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/sns')
             run: pnpm --filter @gdgjp/sns build
+          - name: Build pay
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/pay')
+            run: pnpm --filter @gdgjp/pay build
           - name: Build website
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website build
