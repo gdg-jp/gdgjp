@@ -62,6 +62,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
       templateGranted: Boolean(googleToken?.templateGrantedAt),
       folderId: event.googleDriveFolderId,
       folderName: event.googleDriveFolderName,
+      pickerAppId: env.GOOGLE_PICKER_APP_ID,
       pickerApiKey: env.GOOGLE_PICKER_API_KEY,
       templateSpreadsheetId: env.SHEETS_TEMPLATE_ID,
     },
@@ -84,6 +85,7 @@ type GoogleConnectionInfo = {
   templateGranted: boolean;
   folderId: string | null;
   folderName: string | null;
+  pickerAppId: string;
   pickerApiKey: string;
   templateSpreadsheetId: string;
 };
@@ -95,7 +97,7 @@ function GoogleConnectionCard({
   eventId: string;
   google: GoogleConnectionInfo;
 }) {
-  const fetcher = useFetcher();
+  const fetcher = useFetcher<{ error?: string; ok?: boolean }>();
 
   const getAccessToken = useCallback(async () => {
     const res = await fetch(`/events/${eventId}/google`, {
@@ -157,12 +159,13 @@ function GoogleConnectionCard({
               </p>
               <GoogleDrivePickerButton
                 mode="template"
+                appId={google.pickerAppId}
                 pickerApiKey={google.pickerApiKey}
                 getAccessToken={getAccessToken}
                 label={google.templateGranted ? "テンプレートを選び直す" : "テンプレートを選択"}
-                onPicked={() => {
+                onPicked={(item) => {
                   fetcher.submit(
-                    { intent: "grant-template" },
+                    { intent: "grant-template", fileId: item.id },
                     { method: "post", action: `/events/${eventId}/google` },
                   );
                 }}
@@ -172,17 +175,21 @@ function GoogleConnectionCard({
               <p>共有フォルダ: {google.folderName ?? "未設定"}</p>
               <GoogleDrivePickerButton
                 mode="folder"
+                appId={google.pickerAppId}
                 pickerApiKey={google.pickerApiKey}
                 getAccessToken={getAccessToken}
                 label={google.folderId ? "フォルダを選び直す" : "フォルダを選択"}
                 onPicked={(item) => {
                   fetcher.submit(
-                    { intent: "set-folder", folderId: item.id, folderName: item.name },
+                    { intent: "set-folder", folderId: item.id },
                     { method: "post", action: `/events/${eventId}/google` },
                   );
                 }}
               />
             </div>
+            {fetcher.data?.error ? (
+              <p className="text-sm text-destructive">{fetcher.data.error}</p>
+            ) : null}
           </>
         )}
       </CardContent>

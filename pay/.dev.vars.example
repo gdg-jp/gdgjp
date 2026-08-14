@@ -16,4 +16,5 @@ IDP_URL=http://localhost:5173
 # Public Google OAuth client ID + Picker API key (not secret, but dev-local overrides
 # are easiest here since the prod values in wrangler.toml are left blank until GCP setup).
 GOOGLE_OAUTH_CLIENT_ID=""
+GOOGLE_PICKER_APP_ID=""
 GOOGLE_PICKER_API_KEY=""

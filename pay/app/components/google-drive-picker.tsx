@@ -16,6 +16,7 @@ type GapiPickerView = {
 
 type GapiPickerBuilder = {
   addView: (view: GapiPickerView | string) => GapiPickerBuilder;
+  setAppId: (appId: string) => GapiPickerBuilder;
   setOAuthToken: (token: string) => GapiPickerBuilder;
   setDeveloperKey: (key: string) => GapiPickerBuilder;
   setCallback: (callback: (response: GapiPickerResponse) => void) => GapiPickerBuilder;
@@ -64,6 +65,7 @@ async function loadPickerLibrary(): Promise<GapiPickerNamespace> {
 
 export function GoogleDrivePickerButton({
   mode,
+  appId,
   pickerApiKey,
   getAccessToken,
   onPicked,
@@ -71,6 +73,7 @@ export function GoogleDrivePickerButton({
   disabled,
 }: {
   mode: "template" | "folder";
+  appId: string;
   pickerApiKey: string;
   getAccessToken: () => Promise<string>;
   onPicked: (item: PickedItem) => void | Promise<void>;
@@ -92,6 +95,7 @@ export function GoogleDrivePickerButton({
           : new picker.DocsView(picker.ViewId.SPREADSHEETS);
       const pickerInstance = new picker.PickerBuilder()
         .addView(view)
+        .setAppId(appId)
         .setOAuthToken(accessToken)
         .setDeveloperKey(pickerApiKey)
         .setCallback((response) => {
@@ -107,7 +111,7 @@ export function GoogleDrivePickerButton({
     } finally {
       setPending(false);
     }
-  }, [mode, pickerApiKey, getAccessToken, onPicked]);
+  }, [mode, appId, pickerApiKey, getAccessToken, onPicked]);
 
   return (
     <div className="space-y-1">

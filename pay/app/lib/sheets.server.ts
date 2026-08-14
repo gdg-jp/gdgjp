@@ -94,16 +94,28 @@ async function ensureFolder(
   existingId: string | null,
 ): Promise<string> {
   if (existingId) return existingId;
-  const res = await googleFetch(accessToken, "https://www.googleapis.com/drive/v3/files", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name,
-      mimeType: "application/vnd.google-apps.folder",
-      parents: [parentFolderId],
-    }),
-  });
-  if (!res.ok) throw new Error(`Drive folder create failed ${res.status}: ${await res.text()}`);
+  const res = await googleFetch(
+    accessToken,
+    "https://www.googleapis.com/drive/v3/files?supportsAllDrives=true",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        mimeType: "application/vnd.google-apps.folder",
+        parents: [parentFolderId],
+      }),
+    },
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    if (res.status === 404) {
+      throw new GoogleFolderNotConfiguredError(
+        "設定されたGoogle Driveフォルダにアクセスできません。フォルダを選択し直してください",
+      );
+    }
+    throw new Error(`Drive folder create failed ${res.status}: ${body}`);
+  }
   const json = (await res.json()) as { id: string };
   await shareWithoutNotification(accessToken, json.id, COMM_SUPPORT);
   return json.id;
@@ -124,7 +136,7 @@ async function copyTemplate(
   }
   const res = await googleFetch(
     accessToken,
-    `https://www.googleapis.com/drive/v3/files/${templateId}/copy`,
+    `https://www.googleapis.com/drive/v3/files/${templateId}/copy?supportsAllDrives=true`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -181,7 +193,7 @@ async function uploadReceipt(
   if (existingFileId) {
     const updateRes = await googleFetch(
       accessToken,
-      `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=media`,
+      `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=media&supportsAllDrives=true`,
       {
         method: "PATCH",
         headers: { "Content-Type": contentType },
@@ -211,7 +223,7 @@ async function uploadReceipt(
 
   const res = await googleFetch(
     accessToken,
-    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true",
     {
       method: "POST",
       headers: { "Content-Type": `multipart/related; boundary=${boundary}` },

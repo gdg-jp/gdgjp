@@ -1,6 +1,11 @@
 import { canViewAllClaims, requireMember } from "~/lib/auth-redirect.server";
 import { getEvent, markTemplateGranted, setEventGoogleFolder } from "~/lib/db.server";
-import { getValidGoogleAccessToken } from "~/lib/google-oauth.server";
+import {
+  getAccessibleGoogleDriveItem,
+  getValidGoogleAccessToken,
+  isGoogleDriveFolder,
+  isGoogleSpreadsheet,
+} from "~/lib/google-oauth.server";
 import { isEventId } from "~/lib/id";
 import type { Route } from "./+types/events.$id.google";
 
@@ -38,18 +43,45 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   }
 
   if (intent === "grant-template") {
-    await markTemplateGranted(env.DB, user.id);
-    return Response.json({ ok: true });
+    const fileId = String(form.get("fileId") ?? "");
+    if (fileId !== env.SHEETS_TEMPLATE_ID) {
+      return Response.json({ error: "指定されたテンプレートを選択してください" }, { status: 400 });
+    }
+    try {
+      const accessToken = await getValidGoogleAccessToken(env, user.id);
+      const item = await getAccessibleGoogleDriveItem(accessToken, fileId);
+      if (!isGoogleSpreadsheet(item)) {
+        return Response.json({ error: "スプレッドシートを選択してください" }, { status: 400 });
+      }
+      await markTemplateGranted(env.DB, user.id);
+      return Response.json({ ok: true });
+    } catch (error) {
+      return Response.json(
+        { error: error instanceof Error ? error.message : "テンプレートを確認できませんでした" },
+        { status: 400 },
+      );
+    }
   }
 
   if (intent === "set-folder") {
     const folderId = String(form.get("folderId") ?? "");
-    const folderName = String(form.get("folderName") ?? "");
-    if (!folderId || !folderName) {
+    if (!folderId) {
       return Response.json({ error: "フォルダを選択してください" }, { status: 400 });
     }
-    await setEventGoogleFolder(env.DB, event.id, { id: folderId, name: folderName });
-    return Response.json({ ok: true });
+    try {
+      const accessToken = await getValidGoogleAccessToken(env, user.id);
+      const item = await getAccessibleGoogleDriveItem(accessToken, folderId);
+      if (!isGoogleDriveFolder(item)) {
+        return Response.json({ error: "Google Driveフォルダを選択してください" }, { status: 400 });
+      }
+      await setEventGoogleFolder(env.DB, event.id, { id: item.id, name: item.name });
+      return Response.json({ ok: true });
+    } catch (error) {
+      return Response.json(
+        { error: error instanceof Error ? error.message : "フォルダを確認できませんでした" },
+        { status: 400 },
+      );
+    }
   }
 
   return Response.json({ error: "不明な操作です" }, { status: 400 });
