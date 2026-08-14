@@ -17,7 +17,7 @@ CREATE TABLE events (
   owner_chapter_ids TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
-);
+, google_admin_user_id TEXT REFERENCES "user"(id), google_drive_folder_id TEXT, google_drive_folder_name TEXT);
 CREATE INDEX events_owner_user_id_idx ON events (owner_user_id);
 CREATE INDEX events_created_at_idx ON events (created_at DESC);
 CREATE TABLE claims (
@@ -87,3 +87,22 @@ CREATE TABLE oidc_session (
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 CREATE INDEX oidc_session_user_idx ON oidc_session (user_id);
+CREATE TABLE google_oauth_tokens (
+  user_id TEXT PRIMARY KEY NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+  google_email TEXT NOT NULL,
+  access_token_enc TEXT NOT NULL,
+  refresh_token_enc TEXT NOT NULL,
+  access_token_expires_at INTEGER NOT NULL,
+  template_granted_at INTEGER,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE TABLE oauth_transactions (
+  state TEXT PRIMARY KEY NOT NULL,
+  user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+  event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  code_verifier TEXT NOT NULL,
+  return_to TEXT NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+CREATE INDEX events_google_admin_user_id_idx ON events (google_admin_user_id);

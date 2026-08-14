@@ -3,11 +3,17 @@ RP_SESSION_SECRET=""
 IDP_CLIENT_SECRET=""
 TOKEN_ENCRYPTION_KEY=""
 GEMINI_API_KEY=""
-# Full Google service account JSON (one line or escaped). Needs Drive + Sheets scope.
-GOOGLE_SERVICE_ACCOUNT_JSON=""
+# OAuth client secret for the "pay" Google OAuth client (drive.file + spreadsheets scopes).
+# Redirect URI must include http://localhost:5179/google/callback for local dev.
+GOOGLE_OAUTH_CLIENT_SECRET=""
 RESEND_API_KEY=""
 
 # Override prod URLs from wrangler.toml so dev points at the local accounts IdP.
 APP_URL=http://localhost:5179
 ACCOUNTS_URL=http://localhost:5173
 IDP_URL=http://localhost:5173
+
+# Public Google OAuth client ID + Picker API key (not secret, but dev-local overrides
+# are easiest here since the prod values in wrangler.toml are left blank until GCP setup).
+GOOGLE_OAUTH_CLIENT_ID=""
+GOOGLE_PICKER_API_KEY=""

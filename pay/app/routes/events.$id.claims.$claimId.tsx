@@ -28,6 +28,7 @@ import {
 } from "~/lib/db.server";
 import { sendClaimReviewEmail } from "~/lib/email.server";
 import { extractReceiptFields } from "~/lib/gemini.server";
+import { GoogleFolderNotConfiguredError, GoogleNotConnectedError } from "~/lib/google-oauth.server";
 import { isClaimId, isEventId } from "~/lib/id";
 import { CATEGORY_SUGGESTIONS, formatYen, parseYenInput, todayJstDate } from "~/lib/money";
 import {
@@ -245,6 +246,14 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       await recalculateClaimTotal(env.DB, claim.id);
       return { ok: true, message: "スプレッドシートを同期しました（共有通知なし）" };
     } catch (error) {
+      if (
+        error instanceof GoogleNotConnectedError ||
+        error instanceof GoogleFolderNotConfiguredError
+      ) {
+        return {
+          error: `${error.message}。イベントページの「Google連携」から設定してください。`,
+        };
+      }
       return {
         error: error instanceof Error ? error.message : "Sheets 同期に失敗しました",
       };

@@ -19,6 +19,9 @@ export type EventRow = {
   owner_chapter_ids: string;
   status: "open" | "closed";
   created_at: number;
+  google_admin_user_id: string | null;
+  google_drive_folder_id: string | null;
+  google_drive_folder_name: string | null;
 };
 
 export type ClaimRow = {
@@ -80,6 +83,47 @@ export type PayEvent = {
   ownerChapterIds: number[];
   status: "open" | "closed";
   createdAt: number;
+  googleAdminUserId: string | null;
+  googleDriveFolderId: string | null;
+  googleDriveFolderName: string | null;
+};
+
+export type GoogleOAuthTokenRow = {
+  user_id: string;
+  google_email: string;
+  access_token_enc: string;
+  refresh_token_enc: string;
+  access_token_expires_at: number;
+  template_granted_at: number | null;
+  created_at: number;
+  updated_at: number;
+};
+
+export type GoogleOAuthToken = {
+  userId: string;
+  googleEmail: string;
+  accessTokenEnc: string;
+  refreshTokenEnc: string;
+  accessTokenExpiresAt: number;
+  templateGrantedAt: number | null;
+};
+
+export type OAuthTransaction = {
+  state: string;
+  userId: string;
+  eventId: string;
+  codeVerifier: string;
+  returnTo: string;
+  expiresAt: number;
+};
+
+type OAuthTransactionRow = {
+  state: string;
+  user_id: string;
+  event_id: string;
+  code_verifier: string;
+  return_to: string;
+  expires_at: number;
 };
 
 export function parseOwnerChapterIds(raw: string): number[] {
@@ -100,6 +144,20 @@ export function mapEvent(row: EventRow): PayEvent {
     ownerChapterIds: parseOwnerChapterIds(row.owner_chapter_ids),
     status: row.status,
     createdAt: row.created_at,
+    googleAdminUserId: row.google_admin_user_id,
+    googleDriveFolderId: row.google_drive_folder_id,
+    googleDriveFolderName: row.google_drive_folder_name,
+  };
+}
+
+function mapGoogleOAuthToken(row: GoogleOAuthTokenRow): GoogleOAuthToken {
+  return {
+    userId: row.user_id,
+    googleEmail: row.google_email,
+    accessTokenEnc: row.access_token_enc,
+    refreshTokenEnc: row.refresh_token_enc,
+    accessTokenExpiresAt: row.access_token_expires_at,
+    templateGrantedAt: row.template_granted_at,
   };
 }
 
@@ -414,4 +472,128 @@ export async function decryptClaimBank(
 
 export function eventTotal(claims: ClaimRow[]): number {
   return sumAmounts(claims.map((claim) => claim.total_amount));
+}
+
+export async function getGoogleOAuthToken(
+  db: D1Database,
+  userId: string,
+): Promise<GoogleOAuthToken | null> {
+  const row = await db
+    .prepare("SELECT * FROM google_oauth_tokens WHERE user_id = ?")
+    .bind(userId)
+    .first<GoogleOAuthTokenRow>();
+  return row ? mapGoogleOAuthToken(row) : null;
+}
+
+export async function upsertGoogleOAuthToken(
+  db: D1Database,
+  input: {
+    userId: string;
+    googleEmail: string;
+    accessTokenEnc: string;
+    refreshTokenEnc: string;
+    accessTokenExpiresAt: number;
+  },
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO google_oauth_tokens (
+         user_id, google_email, access_token_enc, refresh_token_enc, access_token_expires_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, unixepoch())
+       ON CONFLICT(user_id) DO UPDATE SET
+         google_email = excluded.google_email,
+         access_token_enc = excluded.access_token_enc,
+         refresh_token_enc = excluded.refresh_token_enc,
+         access_token_expires_at = excluded.access_token_expires_at,
+         updated_at = unixepoch()`,
+    )
+    .bind(
+      input.userId,
+      input.googleEmail,
+      input.accessTokenEnc,
+      input.refreshTokenEnc,
+      input.accessTokenExpiresAt,
+    )
+    .run();
+}
+
+export async function markTemplateGranted(db: D1Database, userId: string): Promise<void> {
+  await db
+    .prepare(
+      "UPDATE google_oauth_tokens SET template_granted_at = unixepoch(), updated_at = unixepoch() WHERE user_id = ?",
+    )
+    .bind(userId)
+    .run();
+}
+
+export async function setEventGoogleAdmin(
+  db: D1Database,
+  eventId: string,
+  userId: string,
+): Promise<void> {
+  await db
+    .prepare("UPDATE events SET google_admin_user_id = ? WHERE id = ?")
+    .bind(userId, eventId)
+    .run();
+}
+
+export async function setEventGoogleFolder(
+  db: D1Database,
+  eventId: string,
+  folder: { id: string; name: string },
+): Promise<void> {
+  await db
+    .prepare(
+      "UPDATE events SET google_drive_folder_id = ?, google_drive_folder_name = ? WHERE id = ?",
+    )
+    .bind(folder.id, folder.name, eventId)
+    .run();
+}
+
+export async function insertOAuthTransaction(
+  db: D1Database,
+  input: {
+    state: string;
+    userId: string;
+    eventId: string;
+    codeVerifier: string;
+    returnTo: string;
+    ttlSeconds?: number;
+  },
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO oauth_transactions (state, user_id, event_id, code_verifier, return_to, expires_at)
+       VALUES (?, ?, ?, ?, ?, unixepoch() + ?)`,
+    )
+    .bind(
+      input.state,
+      input.userId,
+      input.eventId,
+      input.codeVerifier,
+      input.returnTo,
+      input.ttlSeconds ?? 600,
+    )
+    .run();
+}
+
+export async function consumeOAuthTransaction(
+  db: D1Database,
+  state: string,
+): Promise<OAuthTransaction | null> {
+  const row = await db
+    .prepare("SELECT * FROM oauth_transactions WHERE state = ?")
+    .bind(state)
+    .first<OAuthTransactionRow>();
+  if (!row) return null;
+  await db.prepare("DELETE FROM oauth_transactions WHERE state = ?").bind(state).run();
+  if (row.expires_at * 1000 < Date.now()) return null;
+  return {
+    state: row.state,
+    userId: row.user_id,
+    eventId: row.event_id,
+    codeVerifier: row.code_verifier,
+    returnTo: row.return_to,
+    expiresAt: row.expires_at,
+  };
 }

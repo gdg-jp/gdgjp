@@ -1,5 +1,10 @@
 import type { BankAccount, ClaimItemRow, ClaimRow, PayEvent } from "~/lib/db.server";
-import { getGoogleAccessToken, googleFetch } from "~/lib/google-auth.server";
+import {
+  GoogleFolderNotConfiguredError,
+  GoogleNotConnectedError,
+  getValidGoogleAccessToken,
+  googleFetch,
+} from "~/lib/google-oauth.server";
 
 const COMM_SUPPORT = "comm-support@voice-research.com";
 
@@ -85,6 +90,7 @@ async function shareWithoutNotification(
 async function ensureFolder(
   accessToken: string,
   name: string,
+  parentFolderId: string,
   existingId: string | null,
 ): Promise<string> {
   if (existingId) return existingId;
@@ -94,6 +100,7 @@ async function ensureFolder(
     body: JSON.stringify({
       name,
       mimeType: "application/vnd.google-apps.folder",
+      parents: [parentFolderId],
     }),
   });
   if (!res.ok) throw new Error(`Drive folder create failed ${res.status}: ${await res.text()}`);
@@ -226,9 +233,16 @@ export async function syncClaimToGoogle(options: {
   loadReceipt: (key: string) => Promise<{ bytes: ArrayBuffer; contentType: string } | null>;
 }): Promise<SheetSyncResult> {
   const { env, event, claim, bank, items, loadReceipt } = options;
-  const accessToken = await getGoogleAccessToken(env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  if (!event.googleAdminUserId) throw new GoogleNotConnectedError();
+  if (!event.googleDriveFolderId) throw new GoogleFolderNotConfiguredError();
+  const accessToken = await getValidGoogleAccessToken(env, event.googleAdminUserId);
   const folderName = `[GDG Pay] ${event.title} / ${claim.applicant_name}`;
-  const folderId = await ensureFolder(accessToken, folderName, claim.drive_folder_id);
+  const folderId = await ensureFolder(
+    accessToken,
+    folderName,
+    event.googleDriveFolderId,
+    claim.drive_folder_id,
+  );
   const sheetName = `経費精算_${claim.application_date.replaceAll("-", "")}_${claim.applicant_name}`;
   const sheet = await copyTemplate(
     accessToken,
