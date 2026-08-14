@@ -15,8 +15,7 @@ SHEETS_TEMPLATE_ID = "1aCZQQMId6NoLLYJ8c9hve-BrxIME4NowWfpZXWb9pag"
 GEMINI_MODEL_ID = "gemini-3.5-flash-lite"
 COMM_SUPPORT_EMAIL = "comm-support@voice-research.com"
 EMAIL_FROM = "GDG Japan Pay <noreply@gdgs.jp>"
-# Fill in after creating the OAuth client / Picker API key in Google Cloud Console.
-GOOGLE_OAUTH_CLIENT_ID = ""
+GOOGLE_OAUTH_CLIENT_ID = "144403252439-poo1vpk8dfr0mr7v0jnues96mi2f7ha6.apps.googleusercontent.com"
 GOOGLE_PICKER_API_KEY = ""
 
 [assets]

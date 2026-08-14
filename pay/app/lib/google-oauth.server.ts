@@ -93,7 +93,11 @@ export async function exchangeGoogleCode(
       code_verifier: verifier,
     }),
   });
-  if (!response.ok) throw new Error(`Google token exchange failed (${response.status})`);
+  if (!response.ok) {
+    const body = await response.text();
+    console.error(`Google token exchange failed (${response.status}): ${body}`);
+    throw new Error(`Google token exchange failed (${response.status}): ${body}`);
+  }
   const token = await response.json<GoogleTokenResponse>();
   if (!token.refresh_token) {
     throw new Error(
@@ -103,9 +107,13 @@ export async function exchangeGoogleCode(
   const me = await fetch(GOOGLE_USERINFO_URL, {
     headers: { Authorization: `Bearer ${token.access_token}` },
   });
-  const meJson = await me.json<GoogleUserinfoResponse>();
-  if (!me.ok || !meJson.email)
+  if (!me.ok) {
+    const body = await me.text();
+    console.error(`Google userinfo request failed (${me.status}): ${body}`);
     throw new Error("Googleアカウントのメールアドレスを取得できませんでした");
+  }
+  const meJson = await me.json<GoogleUserinfoResponse>();
+  if (!meJson.email) throw new Error("Googleアカウントのメールアドレスを取得できませんでした");
   return {
     accessToken: token.access_token,
     refreshToken: token.refresh_token,
