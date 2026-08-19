@@ -2,7 +2,7 @@ import { canClassesAccessSource, canClassesSeePage } from "./access";
 import { sourceAudienceKey } from "./audience";
 import type { PageSubject, PermissionClass, SourceAudienceKey } from "./types";
 
-/** A(inner) ⊆ A(outer), proven by the channel audience decision table. */
+/** The decision table proves A(channel = outer) ⊆ A(source = inner). */
 export function audienceKeyContains(outer: SourceAudienceKey, inner: SourceAudienceKey): boolean {
   switch (outer.kind) {
     case "chapter-organizer":

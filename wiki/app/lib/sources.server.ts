@@ -552,11 +552,7 @@ export async function createInlineSource(
           status: "fetching",
           refreshPolicy: "manual",
         });
-        source = await db
-          .select()
-          .from(schema.sources)
-          .where(eq(schema.sources.id, id))
-          .get();
+        source = await db.select().from(schema.sources).where(eq(schema.sources.id, id)).get();
       } catch (error) {
         // A concurrent caller can win the owner-scoped unique key between the
         // read and insert. Resolve it once, then follow the normal idempotency path.
@@ -675,11 +671,22 @@ export async function createInlineSource(
 }
 
 function isInlineSourceUniqueConstraintError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    /unique constraint failed.*(?:sources|owner_kind_external_id)/i.test(message) ||
-    /constraint failed.*unique/i.test(message)
-  );
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+
+  while (current != null && !seen.has(current)) {
+    seen.add(current);
+    const message = current instanceof Error ? current.message : String(current);
+    if (
+      /unique constraint failed.*(?:sources|owner_kind_external_id)/i.test(message) ||
+      /constraint failed.*unique/i.test(message)
+    ) {
+      return true;
+    }
+    current = current instanceof Error ? current.cause : undefined;
+  }
+
+  return false;
 }
 
 async function inlineContentHash(content: Uint8Array): Promise<string> {

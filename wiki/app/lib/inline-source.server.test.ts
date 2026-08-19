@@ -6,7 +6,7 @@ import { createSourcesTestDb } from "../../workers/features/sources/test-db";
 const { db, sqlite, setAfterExecute } = createSourcesTestDb();
 vi.mock("~/lib/db.server", () => ({ getDb: () => db }));
 
-import { createInlineSource, MAX_INLINE_SOURCE_BYTES } from "./sources.server";
+import { MAX_INLINE_SOURCE_BYTES, createInlineSource } from "./sources.server";
 
 const MEMBER = { id: "user-1", isAdmin: false } as AuthUser;
 const OTHER = { id: "user-2", isAdmin: false } as AuthUser;
@@ -129,7 +129,7 @@ describe("createInlineSource", () => {
 
   it("scopes idempotency by owner", async () => {
     const first = await createInlineSource(env(), input());
-    const second = await createInlineSource(env(OTHER), input(OTHER));
+    const second = await createInlineSource(env(), input(OTHER));
     expect(first).toMatchObject({ ok: true });
     expect(second).toMatchObject({ ok: true });
     if (!first.ok || !second.ok) return;
@@ -168,9 +168,10 @@ describe("createInlineSource", () => {
     await expect(
       createInlineSource(env(), { ...input(), chapter: "other" }),
     ).resolves.toMatchObject({ error: "forbidden_chapter", status: 403 });
-    await expect(
-      createInlineSource(env(), { ...input(), content: "" }),
-    ).resolves.toMatchObject({ error: "content_required", status: 400 });
+    await expect(createInlineSource(env(), { ...input(), content: "" })).resolves.toMatchObject({
+      error: "content_required",
+      status: 400,
+    });
     await expect(
       createInlineSource(env(), {
         ...input(),

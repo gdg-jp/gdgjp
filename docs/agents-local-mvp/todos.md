@@ -11,9 +11,9 @@
 
 ## Wave 2 — 並行して着手できる
 
-- [ ] **01** [ACL 評価器を `gdg-lib` へ](01-acl-evaluator-gdg-lib.md) — 依存: 00
-- [ ] **02** [inline source API + マニフェストの `chapterId`](02-wiki-inline-source-api.md) — 依存なし
-- [ ] **03** [`Principal` の配管、既定権限を閉じる](03-xangi-principal-plumbing.md) — 依存なし
+- [x] **01** [ACL 評価器を `gdg-lib` へ](01-acl-evaluator-gdg-lib.md) — 依存: 00
+- [x] **02** [inline source API + マニフェストの `chapterId`](02-wiki-inline-source-api.md) — 依存なし
+- [x] **03** [`Principal` の配管、既定権限を閉じる](03-xangi-principal-plumbing.md) — 依存なし
 
 ## Wave 3
 
