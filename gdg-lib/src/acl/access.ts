@@ -1,5 +1,4 @@
 import type { Membership, PageSubject, PermissionClass, SourceSubject, UserSubject } from "./types";
-import { isSourceVisibility } from "./visibility";
 
 export function canAccessSource(
   source: SourceSubject,
@@ -8,7 +7,6 @@ export function canAccessSource(
 ): boolean {
   if (user.isAdmin) return true;
   if (source.addedBy === user.id) return true;
-  if (!isSourceVisibility(source.visibility)) return false;
 
   switch (source.visibility) {
     case "private":
@@ -32,8 +30,6 @@ export function canClassesAccessSource(
   source: { visibility: string; chapterId: string | null },
   classes: readonly PermissionClass[],
 ): boolean {
-  if (!isSourceVisibility(source.visibility)) return false;
-
   switch (source.visibility) {
     case "private":
       return false;

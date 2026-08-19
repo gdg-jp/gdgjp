@@ -1,5 +1,3 @@
-import { canClassesAccessSource, canClassesSeePage } from "./access";
-import { sourceAudienceKey } from "./audience";
 import type { PageSubject, PermissionClass, SourceAudienceKey } from "./types";
 
 /** The decision table proves A(channel = outer) ⊆ A(source = inner). */
@@ -66,10 +64,10 @@ export function canClassesAccessSourceInChannel(
   classes: readonly PermissionClass[],
   channel: SourceAudienceKey,
 ): boolean {
-  const sourceKey = sourceAudienceKey(source.visibility, source.chapterId);
+  const sourceKey = sourceKeyForChannel(source.visibility, source.chapterId);
   return (
     sourceKey !== null &&
-    canClassesAccessSource(source, classes) &&
+    classesCanAccessSource(source, classes) &&
     audienceKeyContains(channel, sourceKey)
   );
 }
@@ -79,5 +77,69 @@ export function canClassesSeePageInChannel(
   classes: readonly PermissionClass[],
   channel: SourceAudienceKey,
 ): boolean {
-  return canClassesSeePage(page, classes) && pageAudienceIncludesChannel(page, channel);
+  return classesCanSeePage(page, classes) && pageAudienceIncludesChannel(page, channel);
+}
+
+function sourceKeyForChannel(
+  visibility: string,
+  chapterId: string | null,
+): SourceAudienceKey | null {
+  switch (visibility) {
+    case "private":
+      return { kind: "private" };
+    case "member":
+      return { kind: "member" };
+    case "organizer":
+      return { kind: "organizer" };
+    case "chapter-member":
+      return chapterId ? { kind: "chapter-member", chapterId } : null;
+    case "chapter-organizer":
+      return chapterId ? { kind: "chapter-organizer", chapterId } : null;
+    default:
+      return null;
+  }
+}
+
+function classesCanAccessSource(
+  source: { visibility: string; chapterId: string | null },
+  classes: readonly PermissionClass[],
+): boolean {
+  switch (source.visibility) {
+    case "member":
+      return classes.length > 0;
+    case "organizer":
+      return classes.some((permissionClass) => permissionClass.role === "organizer");
+    case "chapter-member":
+      return classes.some(
+        (permissionClass) => String(permissionClass.chapterId) === source.chapterId,
+      );
+    case "chapter-organizer":
+      return classes.some(
+        (permissionClass) =>
+          String(permissionClass.chapterId) === source.chapterId &&
+          permissionClass.role === "organizer",
+      );
+    default:
+      return false;
+  }
+}
+
+function classesCanSeePage(page: PageSubject, classes: readonly PermissionClass[]): boolean {
+  switch (page.visibility) {
+    case "public":
+    case "unlisted":
+      return true;
+    case "member":
+      return classes.length > 0;
+    case "organizer":
+      return classes.some((permissionClass) => permissionClass.role === "organizer");
+    case "restricted":
+      return page.access.some(
+        (entry) =>
+          entry.subjectType === "chapter" &&
+          classes.some((permissionClass) => String(permissionClass.chapterId) === entry.subjectKey),
+      );
+    default:
+      return false;
+  }
 }

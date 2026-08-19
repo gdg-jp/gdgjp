@@ -11,12 +11,6 @@ export {
   redactAclSpans,
   validateAclSpans,
 } from "./spans";
-export {
-  isSourceVisibility,
-  sourceVisibilityNeedsChapter,
-  SOURCE_VISIBILITIES,
-} from "./visibility";
-export { parseLevelAudienceKey, sourceAudienceKey } from "./audience";
 export type {
   AclSpan,
   Membership,
