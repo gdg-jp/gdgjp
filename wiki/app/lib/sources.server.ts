@@ -20,8 +20,9 @@ export type ClassifiedSource =
     }
   | { ok: false; error: string };
 
-type SourceSubject = { addedBy: string; chapterId: string | null; visibility: string };
 type Membership = { chapterId: string | number; role: string };
+
+export { canAccessSource } from "@gdgjp/gdg-lib/acl";
 
 function extractDriveFileId(url: string): string | null {
   const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
@@ -140,33 +141,6 @@ export function classifyDiscordChannel(
     externalId,
     title: displayTitle,
   };
-}
-
-export function canAccessSource(
-  source: SourceSubject,
-  user: AuthUser,
-  chapters: readonly Membership[],
-): boolean {
-  if (user.isAdmin) return true;
-  if (source.addedBy === user.id) return true;
-  if (!isSourceVisibility(source.visibility)) return false;
-
-  switch (source.visibility) {
-    case "private":
-      return false;
-    case "member":
-      return chapters.length > 0;
-    case "organizer":
-      return chapters.some((chapter) => chapter.role === "organizer");
-    case "chapter-member":
-      return chapters.some((chapter) => String(chapter.chapterId) === source.chapterId);
-    case "chapter-organizer":
-      return chapters.some(
-        (chapter) => String(chapter.chapterId) === source.chapterId && chapter.role === "organizer",
-      );
-    default:
-      return false;
-  }
 }
 
 /**

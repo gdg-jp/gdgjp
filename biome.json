@@ -24,6 +24,7 @@
       "**/openapi/types.generated.ts",
       "**/openapi.gen.go",
       "**/openapigen/**",
+      "cli/internal/wiki/hooks/acl.ts",
       "connpass/fixtures/html/*_files/**",
       ".agents/**",
       ".claude/**",

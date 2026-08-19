@@ -8,18 +8,22 @@
   "exports": {
     ".": "./src/index.ts",
     "./auth/claims": "./src/auth/claims.ts",
+    "./acl": "./src/acl/index.ts",
+    "./acl/agent": "./src/acl/agent.ts",
     "./ui": "./src/ui/index.ts",
     "./ui/app-links": "./src/ui/app-links.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:acl": "esbuild src/acl/agent.ts --bundle --format=esm --platform=neutral --banner:js='// @ts-nocheck' --outfile=../cli/internal/wiki/hooks/acl.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250101.0",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",
+    "esbuild": "^0.25.0",
     "lucide-react": "^1.14.0",
     "radix-ui": "^1.4.3",
     "react": "^19.0.0",

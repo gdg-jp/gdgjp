@@ -7,6 +7,8 @@
  */
 
 import type { AuthUser } from "@gdgjp/gdg-lib";
+import { audienceContains, parseLevelAudienceKey, sourceAudienceKey } from "@gdgjp/gdg-lib/acl";
+import type { PageAudienceSubject, SourceAudienceKey } from "@gdgjp/gdg-lib/acl";
 import { inArray } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
@@ -20,7 +22,6 @@ import {
   validateAclSpans,
 } from "~/lib/acl-spans";
 import { mapInChunks } from "~/lib/d1-chunk.server";
-import { isSourceVisibility, sourceVisibilityNeedsChapter } from "~/lib/sources-shared";
 import { canAccessSource } from "~/lib/sources.server";
 
 // Structural enough for both getDb() and workers' drizzle(env.DB, { schema }).
@@ -28,86 +29,8 @@ import { canAccessSource } from "~/lib/sources.server";
 type Db = DrizzleD1Database<any>;
 type Membership = { chapterId: string | number; role: string };
 
-export type PageAudienceSubject = {
-  visibility: string;
-  access: readonly { subjectType: string; subjectKey: string }[];
-};
-
-export type SourceAudienceKey =
-  | { kind: "private" }
-  | { kind: "member" }
-  | { kind: "organizer" }
-  | { kind: "chapter-member"; chapterId: string }
-  | { kind: "chapter-organizer"; chapterId: string };
-
-/** Serialize Stage-9 visibility + chapter into the decision-table key form. */
-export function sourceAudienceKey(
-  visibility: string,
-  chapterId: string | null | undefined,
-): SourceAudienceKey | null {
-  if (!isSourceVisibility(visibility)) return null;
-  if (sourceVisibilityNeedsChapter(visibility)) {
-    if (!chapterId) return null;
-    if (visibility === "chapter-member") return { kind: "chapter-member", chapterId };
-    return { kind: "chapter-organizer", chapterId };
-  }
-  if (visibility === "private") return { kind: "private" };
-  if (visibility === "member") return { kind: "member" };
-  if (visibility === "organizer") return { kind: "organizer" };
-  return null;
-}
-
-/**
- * Proven inclusions only: A(page) ⊆ A(S).
- * Every combination not listed returns false (= span required). Never fail open.
- */
-export function audienceContains(
-  source: SourceAudienceKey | string,
-  page: PageAudienceSubject,
-): boolean {
-  const key = typeof source === "string" ? parseLevelAudienceKey(source) : source;
-  if (!key) return false;
-
-  // public / unlisted include anonymous viewers — never ⊆ any source audience.
-  if (page.visibility === "public" || page.visibility === "unlisted") return false;
-
-  const access = page.access;
-  const hasEmailGrant = access.some((entry) => entry.subjectType === "email");
-  const chapterGrants = access.filter((entry) => entry.subjectType === "chapter");
-
-  switch (key.kind) {
-    case "private":
-      return false;
-    case "member":
-      if (page.visibility === "member" || page.visibility === "organizer") return true;
-      if (page.visibility === "restricted" && !hasEmailGrant && chapterGrants.length > 0) {
-        return true;
-      }
-      return false;
-    case "organizer":
-      return page.visibility === "organizer";
-    case "chapter-member": {
-      if (page.visibility !== "restricted") return false;
-      if (hasEmailGrant) return false;
-      if (chapterGrants.length === 0) return false;
-      return chapterGrants.every((entry) => entry.subjectKey === key.chapterId);
-    }
-    case "chapter-organizer":
-      return false;
-    default:
-      return false;
-  }
-}
-
-/** Parse `level=` / decision-table forms including `chapter-member:C`. */
-export function parseLevelAudienceKey(level: string): SourceAudienceKey | null {
-  if (isSourceVisibility(level) && !sourceVisibilityNeedsChapter(level)) {
-    return sourceAudienceKey(level, null);
-  }
-  const match = /^(chapter-member|chapter-organizer):(.+)$/.exec(level.trim());
-  if (!match) return null;
-  return sourceAudienceKey(match[1], match[2]);
-}
+export { audienceContains, parseLevelAudienceKey, sourceAudienceKey };
+export type { PageAudienceSubject, SourceAudienceKey };
 
 function syntheticSourceFromLevel(
   level: string,

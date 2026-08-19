@@ -340,6 +340,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.1
         version: 19.2.3(@types/react@19.2.14)
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
       lucide-react:
         specifier: ^1.14.0
         version: 1.14.0(react@19.2.5)

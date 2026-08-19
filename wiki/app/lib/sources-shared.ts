@@ -10,25 +10,9 @@ export type SourceKind =
 
 export type SourceRefreshPolicy = "manual" | "daily" | "weekly";
 
-export type SourceVisibility =
-  | "private"
-  | "member"
-  | "organizer"
-  | "chapter-member"
-  | "chapter-organizer";
-
-export const SOURCE_VISIBILITIES: readonly SourceVisibility[] = [
-  "private",
-  "member",
-  "organizer",
-  "chapter-member",
-  "chapter-organizer",
-];
-
-export function isSourceVisibility(value: unknown): value is SourceVisibility {
-  return typeof value === "string" && (SOURCE_VISIBILITIES as readonly string[]).includes(value);
-}
-
-export function sourceVisibilityNeedsChapter(value: SourceVisibility): boolean {
-  return value === "chapter-member" || value === "chapter-organizer";
-}
+export {
+  SOURCE_VISIBILITIES,
+  isSourceVisibility,
+  sourceVisibilityNeedsChapter,
+} from "@gdgjp/gdg-lib/acl";
+export type { SourceVisibility } from "@gdgjp/gdg-lib/acl";
