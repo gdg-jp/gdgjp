@@ -10,14 +10,18 @@ import { deleteArchivedSource, enqueueSourceRefresh, unarchiveSource } from "./s
 
 const SOURCE_ID = "src-refresh";
 
-function seedSource(store: DatabaseSync, status: "ready" | "archived" = "ready") {
+function seedSource(
+  store: DatabaseSync,
+  status: "ready" | "archived" = "ready",
+  kind = "google-doc",
+) {
   store.exec("DELETE FROM source_assets; DELETE FROM source_documents; DELETE FROM sources;");
   store
     .prepare(
       `INSERT INTO sources (id, kind, url, title, added_by, status)
-       VALUES (?, 'google-doc', 'https://docs.google.com/document/d/abc/edit', 'Doc', 'user-1', ?)`,
+       VALUES (?, ?, 'https://docs.google.com/document/d/abc/edit', 'Doc', 'user-1', ?)`,
     )
-    .run(SOURCE_ID, status);
+    .run(SOURCE_ID, kind, status);
 }
 
 function sourceState(store: DatabaseSync) {
@@ -72,6 +76,19 @@ describe("enqueueSourceRefresh", () => {
       fetch_attempt_id: null,
       error_message: null,
     });
+  });
+
+  it("rejects non-fetchable conversation sources without changing status", async () => {
+    seedSource(sqlite, "ready", "conversation");
+    const send = vi.fn();
+
+    await expect(enqueueSourceRefresh(env(send), SOURCE_ID)).resolves.toEqual({
+      ok: false,
+      error: "unsupported_source_kind",
+      status: 409,
+    });
+    expect(send).not.toHaveBeenCalled();
+    expect(sourceState(sqlite)).toMatchObject({ status: "ready", fetch_attempt_id: null });
   });
 
   it("does not let an older enqueue failure overwrite a newer completed fetch", async () => {

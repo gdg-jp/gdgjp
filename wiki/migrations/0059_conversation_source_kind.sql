@@ -2,6 +2,12 @@
 -- SQLite requires a table rebuild to change the kind CHECK constraint.
 PRAGMA foreign_keys = OFF;
 
+-- Preflight before rebuilding the table. If legacy data violates the new
+-- ownership boundary, this fails while the original table is still intact.
+CREATE UNIQUE INDEX "idx_sources_owner_kind_external_id_preflight"
+  ON "sources" ("added_by", "kind", "external_id") WHERE "external_id" IS NOT NULL;
+DROP INDEX "idx_sources_owner_kind_external_id_preflight";
+
 CREATE TABLE "sources_replacement" (
   "id"               TEXT NOT NULL PRIMARY KEY,
   "kind"             TEXT NOT NULL
@@ -63,8 +69,6 @@ CREATE INDEX "idx_sources_added_by" ON "sources" ("added_by");
 CREATE INDEX "idx_sources_refresh_policy" ON "sources" ("refresh_policy", "status");
 CREATE INDEX "idx_sources_visibility" ON "sources" ("visibility", "chapter_id");
 
--- This CREATE UNIQUE INDEX deliberately fails the migration if existing data has
--- duplicate owner/kind/external-id tuples; those must be resolved before retrying.
 CREATE UNIQUE INDEX "idx_sources_owner_kind_external_id"
   ON "sources" ("added_by", "kind", "external_id") WHERE "external_id" IS NOT NULL;
 

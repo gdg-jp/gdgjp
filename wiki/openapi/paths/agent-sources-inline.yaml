@@ -33,6 +33,29 @@ post:
     '403':
       $ref: ../components/responses/common.yaml#/Forbidden
     '413':
-      description: Inline content exceeds the one mebibyte limit.
+      description: Inline content exceeds the one million UTF-8 byte limit.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error: { type: string, enum: [content_too_large] }
     '409':
       description: Idempotency key conflict.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error: { type: string, enum: [conflict, external_id_conflict, unsupported_source_kind] }
+    '503':
+      description: Source storage or queue service unavailable.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error: { type: string, enum: [storage_error, enqueue_failed] }

@@ -30,6 +30,9 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   if (source.status === "archived") {
     return Response.json({ error: "archived" }, { status: 409 });
   }
+  if (source.kind === "conversation") {
+    return Response.json({ error: "unsupported_source_kind" }, { status: 409 });
+  }
 
   const result = await enqueueSourceRefresh(env, sourceId);
   if (!result.ok) return Response.json({ error: result.error }, { status: result.status });

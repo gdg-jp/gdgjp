@@ -266,4 +266,29 @@ describe("0033_add_sources migration", () => {
       kind: "conversation",
     });
   });
+
+  it("preflights duplicate legacy keys before rebuilding sources", () => {
+    const db = openDb();
+    const insert = db.prepare(
+      "INSERT INTO sources (id, kind, external_id, url, title, added_by) VALUES (?, ?, ?, ?, ?, ?)",
+    );
+    insert.run("src-1", "text", "same-id", "https://one.example", "One", "user-1");
+    insert.run("src-2", "text", "same-id", "https://two.example", "Two", "user-1");
+
+    expect(() =>
+      db.exec(
+        readFileSync(
+          new URL("../../../migrations/0059_conversation_source_kind.sql", import.meta.url),
+          "utf8",
+        ),
+      ),
+    ).toThrow(/UNIQUE/i);
+    expect(db.prepare("SELECT id, url FROM sources ORDER BY id").all()).toEqual([
+      { id: "src-1", url: "https://one.example" },
+      { id: "src-2", url: "https://two.example" },
+    ]);
+    expect(
+      db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sources'").get(),
+    ).toEqual({ name: "sources" });
+  });
 });

@@ -365,7 +365,12 @@ export interface components {
             refreshPolicy: "manual" | "daily" | "weekly";
         };
         InlineSourceRequest: {
+            /**
+             * @description Optional display title. Defaults to Conversation.
+             * @default Conversation
+             */
             title: string;
+            /** @description Markdown content encoded as UTF-8, limited to 1,000,000 bytes. */
             content: string;
             /** @enum {string} */
             visibility: "private" | "member" | "organizer" | "chapter-member" | "chapter-organizer";
@@ -1006,14 +1011,36 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        error: "conflict" | "external_id_conflict" | "unsupported_source_kind";
+                    };
+                };
             };
-            /** @description Inline content exceeds the one mebibyte limit. */
+            /** @description Inline content exceeds the one million UTF-8 byte limit. */
             413: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        error: "content_too_large";
+                    };
+                };
+            };
+            /** @description Source storage or queue service unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        error: "storage_error" | "enqueue_failed";
+                    };
+                };
             };
         };
     };

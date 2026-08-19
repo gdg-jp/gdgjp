@@ -142,9 +142,41 @@ type SourcesManifestEntry struct {
 	MediaType   *string `json:"mediaType"`
 	CapturedAt  *int64  `json:"capturedAt"`
 	Visibility  *string `json:"visibility"`
-	// Nil means the server did not provide chapterId (an older clone/manifest),
-	// not that the source is explicitly chapter-less.
-	ChapterID *string `json:"chapterId"`
+	// ChapterIDPresent distinguishes omitted chapterId from explicit JSON null.
+	ChapterID        *string `json:"chapterId,omitempty"`
+	ChapterIDPresent bool    `json:"-"`
+}
+
+func (entry SourcesManifestEntry) MarshalJSON() ([]byte, error) {
+	type plain SourcesManifestEntry
+	encoded, err := json.Marshal(plain(entry))
+	if err != nil {
+		return nil, err
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(encoded, &fields); err != nil {
+		return nil, err
+	}
+	delete(fields, "chapterId")
+	if entry.ChapterIDPresent {
+		fields["chapterId"] = entry.ChapterID
+	}
+	return json.Marshal(fields)
+}
+
+func (entry *SourcesManifestEntry) UnmarshalJSON(data []byte) error {
+	type plain SourcesManifestEntry
+	var value plain
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	*entry = SourcesManifestEntry(value)
+	_, entry.ChapterIDPresent = fields["chapterId"]
+	return nil
 }
 type SourcesManifest struct {
 	Version   int                    `json:"version"`

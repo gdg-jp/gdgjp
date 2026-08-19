@@ -88,7 +88,37 @@ func TestSourcesManifestDecodesChapterID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(manifest.Documents) != 1 || manifest.Documents[0].ChapterID == nil || *manifest.Documents[0].ChapterID != "chapter-1" {
+	if len(manifest.Documents) != 1 || manifest.Documents[0].ChapterID == nil || *manifest.Documents[0].ChapterID != "chapter-1" || !manifest.Documents[0].ChapterIDPresent {
 		t.Fatalf("manifest = %#v", manifest)
+	}
+}
+
+func TestSourcesManifestPreservesChapterIDPresence(t *testing.T) {
+	var manifest SourcesManifest
+	if err := json.Unmarshal([]byte(`{"version":1,"documents":[{"documentId":"omitted"},{"documentId":"null","chapterId":null},{"documentId":"value","chapterId":"tokyo"}]}`), &manifest); err != nil {
+		t.Fatal(err)
+	}
+	if manifest.Documents[0].ChapterIDPresent || manifest.Documents[0].ChapterID != nil {
+		t.Fatalf("omitted chapterId = %#v", manifest.Documents[0])
+	}
+	if !manifest.Documents[1].ChapterIDPresent || manifest.Documents[1].ChapterID != nil {
+		t.Fatalf("null chapterId = %#v", manifest.Documents[1])
+	}
+	encoded, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var persisted struct {
+		Documents []map[string]any `json:"documents"`
+	}
+	if err := json.Unmarshal(encoded, &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := persisted.Documents[0]["chapterId"]; ok {
+		t.Fatalf("omitted chapterId was persisted: %s", encoded)
+	}
+	value, ok := persisted.Documents[1]["chapterId"]
+	if !ok || value != nil {
+		t.Fatalf("explicit null chapterId was not persisted: %s", encoded)
 	}
 }

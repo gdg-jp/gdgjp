@@ -246,6 +246,7 @@ export interface CreateInlineSourceInput {
 export type EnqueueSourceRefreshResult =
   | { ok: true }
   | { ok: false; error: "archived"; status: 409 }
+  | { ok: false; error: "unsupported_source_kind"; status: 409 }
   | { ok: false; error: "enqueue_failed"; status: 503 };
 
 export type UnarchiveSourceResult =
@@ -316,6 +317,14 @@ export async function enqueueSourceRefresh(
   sourceId: string,
 ): Promise<EnqueueSourceRefreshResult> {
   const db = getDb(env);
+  const source = await db
+    .select({ kind: schema.sources.kind })
+    .from(schema.sources)
+    .where(eq(schema.sources.id, sourceId))
+    .get();
+  if (source?.kind === "conversation") {
+    return { ok: false, error: "unsupported_source_kind", status: 409 };
+  }
   const refreshRequestId = crypto.randomUUID();
   const claimed = await db
     .update(schema.sources)

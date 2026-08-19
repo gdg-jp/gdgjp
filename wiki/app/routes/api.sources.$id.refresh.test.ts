@@ -21,7 +21,7 @@ vi.mock("~/lib/sources.server", () => ({
 
 import { action } from "./api.sources.$id.refresh";
 
-const source = { id: "source-1", status: "ready" };
+const source = { id: "source-1", kind: "website", status: "ready" };
 
 function requestArgs() {
   const request = new Request("http://localhost/api/sources/source-1/refresh", { method: "POST" });
@@ -59,5 +59,15 @@ describe("source refresh action", () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "enqueue_failed" });
     expect(enqueueSourceRefreshMock).toHaveBeenCalledWith(expect.any(Object), source.id);
+  });
+
+  it("rejects conversation sources before queueing", async () => {
+    getMock.mockResolvedValue({ ...source, kind: "conversation" });
+
+    const response = await action(requestArgs());
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "unsupported_source_kind" });
+    expect(enqueueSourceRefreshMock).not.toHaveBeenCalled();
   });
 });

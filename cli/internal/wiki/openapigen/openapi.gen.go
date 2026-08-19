@@ -404,9 +404,13 @@ type Error struct {
 
 // InlineSourceRequest defines model for InlineSourceRequest.
 type InlineSourceRequest struct {
-	Chapter    *string                       `json:"chapter,omitempty"`
-	Content    string                        `json:"content"`
-	ExternalId *string                       `json:"externalId,omitempty"`
+	Chapter *string `json:"chapter,omitempty"`
+
+	// Content Markdown content encoded as UTF-8, limited to 1,000,000 bytes.
+	Content    string  `json:"content"`
+	ExternalId *string `json:"externalId,omitempty"`
+
+	// Title Optional display title. Defaults to Conversation.
 	Title      string                        `json:"title"`
 	Visibility InlineSourceRequestVisibility `json:"visibility"`
 }
@@ -2476,9 +2480,21 @@ type AgentCreateInlineSourceResponse struct {
 	JSON400 *BadRequest
 	JSON401 *Unauthorized
 	JSON403 *Forbidden
+	JSON409 *struct {
+		Error AgentCreateInlineSource409Error `json:"error"`
+	}
+	JSON413 *struct {
+		Error AgentCreateInlineSource413Error `json:"error"`
+	}
+	JSON503 *struct {
+		Error AgentCreateInlineSource503Error `json:"error"`
+	}
 }
 type AgentCreateInlineSource201Kind string
 type AgentCreateInlineSource201Visibility string
+type AgentCreateInlineSource409Error string
+type AgentCreateInlineSource413Error string
+type AgentCreateInlineSource503Error string
 
 // Status returns HTTPResponse.Status
 func (r AgentCreateInlineSourceResponse) Status() string {
@@ -3314,6 +3330,33 @@ func ParseAgentCreateInlineSourceResponse(rsp *http.Response) (*AgentCreateInlin
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest struct {
+			Error AgentCreateInlineSource409Error `json:"error"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest struct {
+			Error AgentCreateInlineSource413Error `json:"error"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest struct {
+			Error AgentCreateInlineSource503Error `json:"error"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
 
 	}
 
