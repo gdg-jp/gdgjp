@@ -17,7 +17,7 @@
 
 ## Wave 3
 
-- [ ] **04** [認可サーバ・nonce・IAM](04-xangi-authz-iam.md) — 依存: 03
+- [x] **04** [認可サーバ・nonce・IAM](04-xangi-authz-iam.md) — 依存: 03
 
 ## Wave 4 — 並行して着手できる
 
