@@ -1,4 +1,9 @@
 export {
+  isSourceVisibility,
+  sourceVisibilityNeedsChapter,
+} from "./visibility";
+export { parseLevelAudienceKey, sourceAudienceKey } from "./audience";
+export {
   canClassesAccessSourceInChannel,
   canClassesSeePageInChannel,
 } from "./channel";

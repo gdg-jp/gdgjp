@@ -8,9 +8,13 @@ const allowed = [
   "canClassesAccessSourceInChannel",
   "canClassesSeePageInChannel",
   "canMutatePage",
+  "isSourceVisibility",
   "metadataContainsAclTag",
   "parseAclSpans",
+  "parseLevelAudienceKey",
   "redactAclSpans",
+  "sourceAudienceKey",
+  "sourceVisibilityNeedsChapter",
   "validateAclSpans",
 ] as const;
 
@@ -69,32 +73,50 @@ describe("agent ACL surface", () => {
       { kind: "organizer" as const },
       { kind: "chapter-member" as const, chapterId: "tokyo" },
       { kind: "chapter-organizer" as const, chapterId: "tokyo" },
+      { kind: "chapter-member" as const, chapterId: "osaka" },
+      { kind: "chapter-organizer" as const, chapterId: "osaka" },
     ];
-    const expected = [
-      [false, false, false, false, false],
-      [false, true, false, false, false],
-      [false, true, true, false, false],
-      [false, true, false, true, false],
-      [false, true, true, true, true],
-    ];
+    const expectedContains = (outer: (typeof keys)[number], inner: (typeof keys)[number]) => {
+      if (outer.kind === "private") return false;
+      if (outer.kind === "member") return inner.kind === "member";
+      if (outer.kind === "organizer") return inner.kind === "member" || inner.kind === "organizer";
+      if (outer.kind === "chapter-member") {
+        return (
+          inner.kind === "member" ||
+          (inner.kind === "chapter-member" && inner.chapterId === outer.chapterId)
+        );
+      }
+      return (
+        inner.kind === "member" ||
+        inner.kind === "organizer" ||
+        (inner.kind === "chapter-member" && inner.chapterId === outer.chapterId) ||
+        (inner.kind === "chapter-organizer" && inner.chapterId === outer.chapterId)
+      );
+    };
     for (const implementation of [agent, generated]) {
       for (let outer = 0; outer < keys.length; outer += 1) {
         for (let inner = 0; inner < keys.length; inner += 1) {
+          const outerKey = keys[outer];
+          const innerKey = keys[inner];
+          if (!outerKey || !innerKey) throw new Error("invalid test matrix");
           expect(
             implementation.canClassesAccessSourceInChannel(
               {
-                visibility: keys[inner]?.kind ?? "future",
-                chapterId:
-                  "chapterId" in (keys[inner] ?? {}) ? (keys[inner].chapterId ?? null) : null,
+                visibility: innerKey.kind,
+                chapterId: "chapterId" in innerKey ? (innerKey.chapterId ?? null) : null,
               },
-              keys[inner]?.kind === "member" || keys[inner]?.kind === "chapter-member"
+              innerKey.kind === "member"
                 ? [{ chapterId: "tokyo", role: "member" as const }]
-                : keys[inner]?.kind === "organizer" || keys[inner]?.kind === "chapter-organizer"
+                : innerKey.kind === "organizer"
                   ? [{ chapterId: "tokyo", role: "organizer" as const }]
-                  : [],
-              keys[outer] ?? { kind: "private" },
+                  : innerKey.kind === "chapter-member"
+                    ? [{ chapterId: innerKey.chapterId, role: "member" as const }]
+                    : innerKey.kind === "chapter-organizer"
+                      ? [{ chapterId: innerKey.chapterId, role: "organizer" as const }]
+                      : [],
+              outerKey,
             ),
-          ).toBe(expected[outer]?.[inner] ?? false);
+          ).toBe(expectedContains(outerKey, innerKey));
         }
       }
     }
@@ -103,8 +125,13 @@ describe("agent ACL surface", () => {
   it("covers page visibility, mutation, and denial branches", async () => {
     const generated = await import("../../../cli/internal/wiki/hooks/acl");
     const implementations = [agent, generated];
-    const member = [{ chapterId: "tokyo", role: "member" as const }];
-    const organizer = [{ chapterId: "osaka", role: "organizer" as const }];
+    const memberTokyo = [{ chapterId: "tokyo", role: "member" as const }];
+    const memberOsaka = [{ chapterId: "osaka", role: "member" as const }];
+    const organizerOsaka = [{ chapterId: "osaka", role: "organizer" as const }];
+    const mixed = [
+      { chapterId: "tokyo", role: "member" as const },
+      { chapterId: "osaka", role: "organizer" as const },
+    ];
     const page = (
       visibility: string,
       chapterId: string | null,
@@ -126,42 +153,63 @@ describe("agent ACL surface", () => {
         implementation.canClassesSeePageInChannel(page("member", null), [], { kind: "member" }),
       ).toBe(false);
       expect(
-        implementation.canClassesSeePageInChannel(page("member", null), member, { kind: "member" }),
+        implementation.canClassesSeePageInChannel(page("member", null), memberTokyo, {
+          kind: "member",
+        }),
       ).toBe(true);
       expect(
-        implementation.canClassesSeePageInChannel(page("organizer", null), member, {
+        implementation.canClassesSeePageInChannel(page("organizer", null), memberTokyo, {
           kind: "organizer",
         }),
       ).toBe(false);
       expect(
-        implementation.canClassesSeePageInChannel(page("organizer", null), organizer, {
+        implementation.canClassesSeePageInChannel(page("organizer", null), organizerOsaka, {
           kind: "organizer",
         }),
       ).toBe(true);
       expect(
         implementation.canClassesSeePageInChannel(
           page("restricted", "tokyo", [{ subjectType: "chapter", subjectKey: "tokyo" }]),
-          member,
+          memberTokyo,
           { kind: "chapter-member", chapterId: "tokyo" },
         ),
       ).toBe(true);
       expect(
         implementation.canClassesSeePageInChannel(
           page("restricted", "tokyo", [{ subjectType: "email", subjectKey: "a@example.com" }]),
-          member,
+          memberTokyo,
           { kind: "chapter-member", chapterId: "tokyo" },
         ),
       ).toBe(false);
       expect(
-        implementation.canClassesSeePageInChannel(page("future", null), member, { kind: "member" }),
+        implementation.canClassesSeePageInChannel(page("future", null), memberTokyo, {
+          kind: "member",
+        }),
       ).toBe(false);
 
-      expect(implementation.canMutatePage([], page("public", null))).toBe(false);
-      expect(implementation.canMutatePage(member, page("public", null))).toBe(true);
-      expect(implementation.canMutatePage(member, page("restricted", "tokyo"))).toBe(true);
-      expect(implementation.canMutatePage(member, page("restricted", "osaka"))).toBe(false);
-      expect(implementation.canMutatePage(organizer, page("restricted", "tokyo"))).toBe(true);
-      expect(implementation.canMutatePage(member, page("future", "tokyo"))).toBe(false);
+      const mutationCases = [
+        { classes: [], visibility: "public", chapterId: null, expected: false },
+        { classes: [], visibility: "restricted", chapterId: "tokyo", expected: false },
+        { classes: memberTokyo, visibility: "public", chapterId: null, expected: true },
+        { classes: memberTokyo, visibility: "unlisted", chapterId: null, expected: true },
+        { classes: memberTokyo, visibility: "member", chapterId: null, expected: false },
+        { classes: memberTokyo, visibility: "organizer", chapterId: null, expected: false },
+        { classes: memberTokyo, visibility: "restricted", chapterId: "tokyo", expected: true },
+        { classes: memberTokyo, visibility: "restricted", chapterId: "osaka", expected: false },
+        { classes: memberTokyo, visibility: "future", chapterId: "tokyo", expected: false },
+        { classes: memberOsaka, visibility: "restricted", chapterId: "osaka", expected: true },
+        { classes: organizerOsaka, visibility: "public", chapterId: null, expected: true },
+        { classes: organizerOsaka, visibility: "unknown", chapterId: "tokyo", expected: true },
+        { classes: mixed, visibility: "restricted", chapterId: "tokyo", expected: true },
+      ] as const;
+      for (const mutationCase of mutationCases) {
+        expect(
+          implementation.canMutatePage(
+            mutationCase.classes,
+            page(mutationCase.visibility, mutationCase.chapterId),
+          ),
+        ).toBe(mutationCase.expected);
+      }
     }
   });
 });
