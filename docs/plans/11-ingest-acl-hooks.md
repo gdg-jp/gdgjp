@@ -48,7 +48,7 @@ Stage 9 でソースに `visibility` が付き、Stage 10 でページ本文の 
 - **検証ロジックはサーバに置く。** Go 側に `<acl>` パーサを書かない。
 - **フックが検証を完了できないときは fail open。** 実効境界はサーバの `/sync` 側にあり、
   ここで通しても漏洩にはならない。リポジトリ既存のフック規約
-  （`.codex/hooks/pre-commit-ci.mjs` は不正ペイロードで必ず fail open）とも一致する。
+  （`.codex/hooks/pre-commit-ci.ts` は不正ペイロードで必ず fail open）とも一致する。
 - Agent (`workers/agents/`, `WikiGenerationAgent`) の権限設計は触らない。
 
 ### 読むべきもの
@@ -74,8 +74,8 @@ Stage 9 でソースに `visibility` が付き、Stage 10 でページ本文の 
 - `cli/internal/wiki/client.go` — `c.request` + Bearer、`*HTTPError`。新メソッドも同じ形で足す
 - `cli/internal/command/wiki.go` の `runGit(ctx, dir, args...)` と `withToken` の 401 リトライ
 - `cli/internal/wiki/config.go` の `CloneGitignore` / `WriteCloneGitignore` / `WriteCloneExcludes`
-- `.codex/hooks/pre-commit-ci.mjs` — **リポジトリのフックスクリプト規約の手本**。
-  ESM `.mjs`、依存ゼロ、stdin を JSON で読む、`node:child_process` の `execFileSync`/`spawnSync`
+- `.codex/hooks/pre-commit-ci.ts` — **リポジトリのフックスクリプト規約の手本**。
+  Node ネイティブ TypeScript、依存ゼロ、stdin を JSON で読む、`node:child_process` の `execFileSync`/`spawnSync`
   （シェル文字列を組み立てない）、不正入力は fail open
 
 ---
@@ -178,7 +178,7 @@ type IngestTrace struct {
 **冪等に**次を書く（既存内容と一致していれば書かない）:
 
 - `<root>/.cursor/hooks.json`
-- `<root>/.gdgwiki/hooks/acl-gate.mjs`（Go の `//go:embed` で埋め込む）
+- `<root>/.gdgwiki/hooks/acl-gate.ts`（Go の `//go:embed` で埋め込む）
 
 `hooks.json`（Cursor のスキーマ。イベントは camelCase、出力はフラット）:
 
@@ -186,9 +186,9 @@ type IngestTrace struct {
 {
   "version": 1,
   "hooks": {
-    "beforeReadFile":       [{ "command": "node .gdgwiki/hooks/acl-gate.mjs read",  "timeout": 10 }],
-    "afterFileEdit":        [{ "command": "node .gdgwiki/hooks/acl-gate.mjs write", "timeout": 10 }],
-    "beforeShellExecution": [{ "command": "node .gdgwiki/hooks/acl-gate.mjs shell", "timeout": 300 }]
+    "beforeReadFile":       [{ "command": "node .gdgwiki/hooks/acl-gate.ts read",  "timeout": 10 }],
+    "afterFileEdit":        [{ "command": "node .gdgwiki/hooks/acl-gate.ts write", "timeout": 10 }],
+    "beforeShellExecution": [{ "command": "node .gdgwiki/hooks/acl-gate.ts shell", "timeout": 300 }]
   }
 }
 ```
@@ -198,7 +198,7 @@ type IngestTrace struct {
 
 `failClosed` は**設定しない**（既定の fail open）。§Context の方針どおり。
 
-`acl-gate.mjs` の責務（`.codex/hooks/pre-commit-ci.mjs` と同じ書き方: ESM、依存ゼロ、
+`acl-gate.ts` の責務（`.codex/hooks/pre-commit-ci.ts` と同じ書き方: Node ネイティブ TypeScript、依存ゼロ、
 stdin を JSON で読み、壊れた入力では必ず素通り）:
 
 | argv | 動作 |
@@ -304,7 +304,7 @@ process.exit(0);
 
 - `internal/command/wiki.go` — `--agent cursor`、`command.Dir = root`、
   `verify-acl` サブコマンド、`--commit` バックストップ、トレース初期化/削除
-- `internal/wiki/hooks.go`（新規）+ `internal/wiki/hooks/acl-gate.mjs`（新規、`//go:embed`）
+- `internal/wiki/hooks.go`（新規）+ `internal/wiki/hooks/acl-gate.ts`（新規、`//go:embed`）
 - `internal/wiki/trace.go`（新規）
 - `internal/wiki/verify.go`（新規） — 変更ページ収集、パス→sourceId 解決、リクエスト組み立て
 - `internal/wiki/client.go` — `ValidateACL` メソッドと型
@@ -324,7 +324,7 @@ process.exit(0);
 ### 完了条件
 
 1. `gdg wiki ingest --agent cursor` が clone に `.cursor/hooks.json` と
-   `.gdgwiki/hooks/acl-gate.mjs` を冪等に設置し、**`cursor-agent` を clone ルートで起動**する。
+   `.gdgwiki/hooks/acl-gate.ts` を ESM marker とともに冪等に設置し、**`cursor-agent` を clone ルートで起動**する。
 2. `organizer` のソースを処理中の Agent が `<acl>` 無しで `git commit` しようとすると、
    フックが拒否し、**どのソースをどう囲めばよいかが `agent_message` に出る**。
 3. 正しく `<acl src>` を付けたあとは同じ commit が通る。
@@ -379,7 +379,7 @@ pnpm ci:quick
 3. `gdg wiki clone --lang ja /tmp/wiki-acl-test && cd /tmp/wiki-acl-test && gdg wiki raw pull`。
 4. `gdg wiki ingest` を実行し、`INGEST_QUEUE.md` の先頭に `- visibility: \`organizer\`` が
    出ていることを確認する。
-5. `.cursor/hooks.json` と `.gdgwiki/hooks/acl-gate.mjs` が生成され、
+5. `.cursor/hooks.json` と `.gdgwiki/hooks/acl-gate.ts`、`.gdgwiki/hooks/package.json` が生成され、
    `git status --porcelain --untracked-files=all` が**空**であることを確認する。
 6. `pages/` 配下のページを手で編集し、機密ソース由来の記述を `<acl>` 無しで書いて
    `git commit` する。フックが拒否し、`agent_message` に該当 `source_id` が出ることを確認する。

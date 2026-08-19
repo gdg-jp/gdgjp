@@ -53,13 +53,38 @@ func TestEnsureCursorHooksIdempotentAndGitignored(t *testing.T) {
 	if _, err = os.Stat(filepath.Join(root, ".cursor", "hooks.json")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = os.Stat(filepath.Join(root, ".gdgwiki", "hooks", "acl-gate.mjs")); err != nil {
+	hooksJSON, err := os.ReadFile(filepath.Join(root, ".cursor", "hooks.json"))
+	if err != nil {
 		t.Fatal(err)
+	}
+	if strings.Contains(string(hooksJSON), "acl-gate.mjs") {
+		t.Fatalf("hooks.json references removed acl-gate.mjs: %s", hooksJSON)
+	}
+	if _, err = os.Stat(filepath.Join(root, ".gdgwiki", "hooks", "acl-gate.ts")); err != nil {
+		t.Fatal(err)
+	}
+	packageJSONPath := filepath.Join(root, ".gdgwiki", "hooks", "package.json")
+	packageJSON, err := os.ReadFile(packageJSONPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(packageJSON) != string(hooksPackageJSON) {
+		t.Fatalf("unexpected hooks package.json: %s", packageJSON)
+	}
+	if node, lookErr := exec.LookPath("node"); lookErr == nil {
+		command := exec.Command(node, filepath.Join(root, ".gdgwiki", "hooks", "acl-gate.ts"), "unknown")
+		command.Dir = root
+		command.Stdin = strings.NewReader("{broken")
+		if output, runErr := command.CombinedOutput(); runErr != nil {
+			t.Fatalf("run deployed native TypeScript hook: %v\n%s", runErr, output)
+		} else if len(output) != 0 {
+			t.Fatalf("unknown mode should fail open without output: %s", output)
+		}
 	}
 
 	gitignorePath := filepath.Join(root, ".gitignore")
 	hooksPath := filepath.Join(root, ".cursor", "hooks.json")
-	scriptPath := filepath.Join(root, ".gdgwiki", "hooks", "acl-gate.mjs")
+	scriptPath := filepath.Join(root, ".gdgwiki", "hooks", "acl-gate.ts")
 	mtime := func(path string) int64 {
 		t.Helper()
 		info, statErr := os.Stat(path)
@@ -71,6 +96,7 @@ func TestEnsureCursorHooksIdempotentAndGitignored(t *testing.T) {
 	beforeGitignore := mtime(gitignorePath)
 	beforeHooks := mtime(hooksPath)
 	beforeScript := mtime(scriptPath)
+	beforePackageJSON := mtime(packageJSONPath)
 
 	updated, err = EnsureCursorHooks(root)
 	if err != nil {
@@ -86,7 +112,10 @@ func TestEnsureCursorHooksIdempotentAndGitignored(t *testing.T) {
 		t.Fatal("hooks.json mtime changed on idempotent EnsureCursorHooks")
 	}
 	if mtime(scriptPath) != beforeScript {
-		t.Fatal("acl-gate.mjs mtime changed on idempotent EnsureCursorHooks")
+		t.Fatal("acl-gate.ts mtime changed on idempotent EnsureCursorHooks")
+	}
+	if mtime(packageJSONPath) != beforePackageJSON {
+		t.Fatal("hooks package.json mtime changed on idempotent EnsureCursorHooks")
 	}
 }
 

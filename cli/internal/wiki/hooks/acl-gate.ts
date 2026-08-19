@@ -2,16 +2,34 @@
  * Cursor project hook for Wiki ingest ACL gating.
  *
  * Usage (argv selects the event — Cursor stdin does not always include the name):
- *   node .gdgwiki/hooks/acl-gate.mjs read|write|shell
+ *   node .gdgwiki/hooks/acl-gate.ts read|write|shell
  *
  * Fail-open on malformed input, missing gdg, network errors. Exit 1 from
  * `gdg wiki verify-acl` means ACL violation and is the only deny path.
  */
 import { spawnSync } from "node:child_process";
+import type { SpawnSyncReturns } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 
-function readStdin() {
+type HookPayload = {
+  command?: unknown;
+  file_path?: unknown;
+  path?: unknown;
+  tool_input?: {
+    command?: unknown;
+  };
+};
+
+type IngestTrace = {
+  runId: string;
+  startedAt: number;
+  queueHeadDocumentId: string;
+  reads: string[];
+  writes: string[];
+};
+
+function readStdin(): string {
   try {
     return readFileSync(0, "utf8").replace(/^\uFEFF/, "");
   } catch {
@@ -19,15 +37,16 @@ function readStdin() {
   }
 }
 
-function parsePayload(raw) {
+function parsePayload(raw: string): HookPayload {
   try {
-    return JSON.parse(raw || "{}");
+    const payload: unknown = JSON.parse(raw || "{}");
+    return typeof payload === "object" && payload !== null ? (payload as HookPayload) : {};
   } catch {
     return {};
   }
 }
 
-function findCloneRoot(start) {
+function findCloneRoot(start: string): string | null {
   let dir = resolve(start || process.cwd());
   for (;;) {
     if (existsSync(join(dir, ".gdgwiki", "config.json"))) return dir;
@@ -37,7 +56,7 @@ function findCloneRoot(start) {
   }
 }
 
-function toRel(root, absoluteOrRel) {
+function toRel(root: string, absoluteOrRel: unknown): string | null {
   if (!absoluteOrRel || typeof absoluteOrRel !== "string") return null;
   const abs = resolve(absoluteOrRel);
   const rel = relative(root, abs);
@@ -45,11 +64,11 @@ function toRel(root, absoluteOrRel) {
   return rel.split(sep).join("/");
 }
 
-function loadTrace(root) {
+function loadTrace(root: string): IngestTrace {
   const path = join(root, ".gdgwiki", "ingest-trace.json");
   try {
     const raw = readFileSync(path, "utf8");
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as Partial<IngestTrace>;
     return {
       runId: parsed.runId || "",
       startedAt: parsed.startedAt || 0,
@@ -68,25 +87,25 @@ function loadTrace(root) {
   }
 }
 
-function saveTrace(root, trace) {
+function saveTrace(root: string, trace: IngestTrace): void {
   const dir = join(root, ".gdgwiki");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "ingest-trace.json"), `${JSON.stringify(trace, null, 2)}\n`, "utf8");
 }
 
-function appendUnique(list, value) {
+function appendUnique(list: string[], value: string): string[] {
   if (!value || list.includes(value)) return list;
   return [...list, value];
 }
 
-function appendRead(root, rel) {
+function appendRead(root: string, rel: string | null): void {
   if (!rel || !rel.startsWith("raw/")) return;
   const trace = loadTrace(root);
   trace.reads = appendUnique(trace.reads, rel);
   saveTrace(root, trace);
 }
 
-function appendWrite(root, rel) {
+function appendWrite(root: string, rel: string | null): void {
   if (!rel || !rel.startsWith("pages/")) return;
   const trace = loadTrace(root);
   // Writes are audit-only pre-push; after push, verify-acl recovers the
@@ -95,21 +114,23 @@ function appendWrite(root, rel) {
   saveTrace(root, trace);
 }
 
-function extractRawPaths(command, root) {
+function extractRawPaths(command: unknown, root: string): void {
   if (!command || typeof command !== "string") return;
   const re = /(?:^|[\s"'`])((?:\.\/)?raw\/[^\s"'`;|&<>]+)/g;
   for (const match of command.matchAll(re)) {
-    const rel = toRel(root, resolve(root, match[1]));
+    const matchedPath = match[1];
+    if (!matchedPath) continue;
+    const rel = toRel(root, resolve(root, matchedPath));
     if (rel) appendRead(root, rel);
   }
 }
 
-function resolveGdgBin() {
+function resolveGdgBin(): string {
   if (process.env.GDG_BIN) return process.env.GDG_BIN;
   return "gdg";
 }
 
-function deny(findings) {
+function deny(findings: string): void {
   process.stdout.write(
     JSON.stringify({
       permission: "deny",
@@ -119,24 +140,35 @@ function deny(findings) {
   );
 }
 
-function handleShell(payload, root) {
+function formatUnknownError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  try {
+    return String(error);
+  } catch {
+    return "unknown error";
+  }
+}
+
+function handleShell(payload: HookPayload, root: string): void {
   const command = payload.command ?? payload.tool_input?.command ?? "";
   extractRawPaths(command, root);
 
-  if (!/\bgit\b[^;&|\n]*\b(commit|push)\b/.test(command)) {
+  if (typeof command !== "string" || !/\bgit\b[^;&|\n]*\b(commit|push)\b/.test(command)) {
     process.exit(0);
   }
 
   const gdg = resolveGdgBin();
-  let result;
+  let result: SpawnSyncReturns<string>;
   try {
     result = spawnSync(gdg, ["wiki", "verify-acl"], {
       cwd: root,
       encoding: "utf8",
       env: process.env,
     });
-  } catch (error) {
-    process.stderr.write(`acl-gate: failed to run ${gdg} wiki verify-acl: ${error}\n`);
+  } catch (error: unknown) {
+    process.stderr.write(
+      `acl-gate: failed to run ${gdg} wiki verify-acl: ${formatUnknownError(error)}\n`,
+    );
     process.exit(0);
   }
 
@@ -161,7 +193,7 @@ function handleShell(payload, root) {
   process.exit(0);
 }
 
-function main() {
+function main(): void {
   const mode = process.argv[2] || "";
   const payload = parsePayload(readStdin());
   const root = findCloneRoot(process.cwd());

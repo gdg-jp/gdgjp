@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/pre-commit-ci.mjs\"",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/pre-commit-ci.ts\"",
             "timeout": 1800,
             "statusMessage": "Running the full CI suite before commit"
           }

@@ -7,7 +7,7 @@
 
 ## Wave 1 — 最初に実施
 
-- [ ] **00** [Node ネイティブ TypeScript 基盤](00-typescript-runtime.md) — 依存なし
+- [x] **00** [Node ネイティブ TypeScript 基盤](00-typescript-runtime.md) — 依存なし
 
 ## Wave 2 — 並行して着手できる
 

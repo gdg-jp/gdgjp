@@ -9,14 +9,18 @@ import (
 	"path/filepath"
 )
 
-//go:embed hooks/acl-gate.mjs
+//go:embed hooks/acl-gate.ts
 var aclGateScript []byte
+
+//go:embed hooks/package.json
+var hooksPackageJSON []byte
 
 const (
 	cursorHooksDirName = ".cursor"
 	cursorHooksJSON    = "hooks.json"
 	gdgHooksDirName    = "hooks"
-	aclGateFileName    = "acl-gate.mjs"
+	aclGateFileName    = "acl-gate.ts"
+	packageJSONName    = "package.json"
 )
 
 // cursorHooksConfig is the project-level Cursor hooks.json for ingest ACL gating.
@@ -24,13 +28,13 @@ var cursorHooksConfig = map[string]any{
 	"version": 1,
 	"hooks": map[string]any{
 		"beforeReadFile": []map[string]any{
-			{"command": "node .gdgwiki/hooks/acl-gate.mjs read", "timeout": 10},
+			{"command": "node .gdgwiki/hooks/acl-gate.ts read", "timeout": 10},
 		},
 		"afterFileEdit": []map[string]any{
-			{"command": "node .gdgwiki/hooks/acl-gate.mjs write", "timeout": 10},
+			{"command": "node .gdgwiki/hooks/acl-gate.ts write", "timeout": 10},
 		},
 		"beforeShellExecution": []map[string]any{
-			{"command": "node .gdgwiki/hooks/acl-gate.mjs shell", "timeout": 300},
+			{"command": "node .gdgwiki/hooks/acl-gate.ts shell", "timeout": 300},
 		},
 	},
 }
@@ -85,6 +89,13 @@ func EnsureCursorHooks(root string) (updated bool, err error) {
 	scriptPath := filepath.Join(scriptDir, aclGateFileName)
 	if !fileMatches(scriptPath, aclGateScript) {
 		if err = os.WriteFile(scriptPath, aclGateScript, 0o755); err != nil {
+			return false, err
+		}
+		updated = true
+	}
+	packageJSONPath := filepath.Join(scriptDir, packageJSONName)
+	if !fileMatches(packageJSONPath, hooksPackageJSON) {
+		if err = os.WriteFile(packageJSONPath, hooksPackageJSON, 0o644); err != nil {
 			return false, err
 		}
 		updated = true

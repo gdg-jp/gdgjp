@@ -5,7 +5,9 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "deploy": "turbo deploy",
-    "typecheck": "turbo typecheck",
+    "build:acl": "pnpm --filter @gdgjp/gdg-lib build:acl",
+    "typecheck:node-scripts": "pnpm build:acl && tsc -p tsconfig.node-scripts.json",
+    "typecheck": "pnpm typecheck:node-scripts && turbo typecheck",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
@@ -16,20 +18,21 @@
     "test": "node --test .github/scripts/*.test.mjs && turbo test",
     "test:e2e": "turbo test:e2e --concurrency=1",
     "ci:go": "node scripts/run-ci.mjs go",
-    "ci:quick": "node scripts/run-ci.mjs quick",
-    "ci:full": "node scripts/run-ci.mjs full",
+    "ci:quick": "pnpm typecheck:node-scripts && node scripts/run-ci.mjs quick",
+    "ci:full": "pnpm typecheck:node-scripts && node scripts/run-ci.mjs full",
     "prepare": "node scripts/install-git-hooks.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@playwright/test": "^1.49.1",
     "@redocly/cli": "^2.40.0",
+    "@types/node": "^22.15.30",
     "openapi-typescript": "^7.13.0",
     "turbo": "^2.3.3",
-    "typescript": "^5.7.2"
+    "typescript": "^5.9.2"
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.18.0"
   }
 }
