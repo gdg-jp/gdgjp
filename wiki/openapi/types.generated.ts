@@ -1035,7 +1035,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        error: "persist_failed";
+                        error: "storage_error" | "persist_failed";
                     };
                 };
             };

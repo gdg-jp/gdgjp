@@ -58,4 +58,4 @@ post:
             type: object
             required: [error]
             properties:
-              error: { type: string, enum: [persist_failed] }
+              error: { type: string, enum: [storage_error, persist_failed] }
