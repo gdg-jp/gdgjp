@@ -493,6 +493,11 @@ cd ~/proj/xangi && node -e "console.log(require('./dist/safe-env.js').ALLOWED_EN
 
 ### 手動 E2E
 
+Linux サーバー上で Cursor agent を使い、元の checkout から `harineko0/xangi` への切り替えも
+含めて対話的に実施する場合は、
+[Stage 04 manual E2E — interactive Cursor agent runbook for Linux](04-manual-e2e-cursor-linux.md)
+を使う。
+
 1. テスト用 Discord サーバー 2 つ（別チャプター相当）で bot を起動する。
 2. 未リンクかつロール写像なしのユーザーが `@bot` する → 実行されず案内が返ることを確認する。
 3. `/login` で device code フローを完走し、`/whoami` にログイン由来のクラスが出ることを確認する。
