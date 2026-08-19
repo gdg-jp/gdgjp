@@ -31,6 +31,8 @@ paths:
     $ref: ./paths/agent.search.yaml
   /api/agent/sources:
     $ref: ./paths/agent.sources.yaml
+  /api/agent/sources/inline:
+    $ref: ./paths/agent-sources-inline.yaml
   /api/agent/notes:
     $ref: ./paths/agent.notes.yaml
   /api/agent/log:
@@ -67,6 +69,8 @@ components:
       $ref: ./components/schemas/agent.yaml#/AgentCreateSourceRequest
     AgentSource:
       $ref: ./components/schemas/agent.yaml#/AgentSource
+    InlineSourceRequest:
+      $ref: ./components/schemas/agent.yaml#/InlineSourceRequest
     AgentCreateNoteRequest:
       $ref: ./components/schemas/agent.yaml#/AgentCreateNoteRequest
     AgentNote:

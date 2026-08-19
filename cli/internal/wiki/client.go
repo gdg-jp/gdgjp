@@ -142,6 +142,9 @@ type SourcesManifestEntry struct {
 	MediaType   *string `json:"mediaType"`
 	CapturedAt  *int64  `json:"capturedAt"`
 	Visibility  *string `json:"visibility"`
+	// Nil means the server did not provide chapterId (an older clone/manifest),
+	// not that the source is explicitly chapter-less.
+	ChapterID *string `json:"chapterId"`
 }
 type SourcesManifest struct {
 	Version   int                    `json:"version"`

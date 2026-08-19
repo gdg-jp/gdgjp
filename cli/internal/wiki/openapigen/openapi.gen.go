@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
 )
@@ -60,6 +61,19 @@ const (
 	Unknown AgentLsEntryHasChildren1 = "unknown"
 )
 
+// Defines values for AgentSourceKind.
+const (
+	Conversation    AgentSourceKind = "conversation"
+	DiscordChannel  AgentSourceKind = "discord-channel"
+	GoogleChatSpace AgentSourceKind = "google-chat-space"
+	GoogleDoc       AgentSourceKind = "google-doc"
+	GoogleSheet     AgentSourceKind = "google-sheet"
+	GoogleSlides    AgentSourceKind = "google-slides"
+	Text            AgentSourceKind = "text"
+	Upload          AgentSourceKind = "upload"
+	Website         AgentSourceKind = "website"
+)
+
 // Defines values for AgentSourceRefreshPolicy.
 const (
 	AgentSourceRefreshPolicyDaily  AgentSourceRefreshPolicy = "daily"
@@ -84,6 +98,15 @@ const (
 // Defines values for ArchiveOperationKind.
 const (
 	Archive ArchiveOperationKind = "archive"
+)
+
+// Defines values for InlineSourceRequestVisibility.
+const (
+	InlineSourceRequestVisibilityChapterMember    InlineSourceRequestVisibility = "chapter-member"
+	InlineSourceRequestVisibilityChapterOrganizer InlineSourceRequestVisibility = "chapter-organizer"
+	InlineSourceRequestVisibilityMember           InlineSourceRequestVisibility = "member"
+	InlineSourceRequestVisibilityOrganizer        InlineSourceRequestVisibility = "organizer"
+	InlineSourceRequestVisibilityPrivate          InlineSourceRequestVisibility = "private"
 )
 
 // Defines values for LanguageTranslationStatus.
@@ -154,11 +177,11 @@ const (
 
 // Defines values for ValidateAclPageVisibility.
 const (
-	Member     ValidateAclPageVisibility = "member"
-	Organizer  ValidateAclPageVisibility = "organizer"
-	Public     ValidateAclPageVisibility = "public"
-	Restricted ValidateAclPageVisibility = "restricted"
-	Unlisted   ValidateAclPageVisibility = "unlisted"
+	ValidateAclPageVisibilityMember     ValidateAclPageVisibility = "member"
+	ValidateAclPageVisibilityOrganizer  ValidateAclPageVisibility = "organizer"
+	ValidateAclPageVisibilityPublic     ValidateAclPageVisibility = "public"
+	ValidateAclPageVisibilityRestricted ValidateAclPageVisibility = "restricted"
+	ValidateAclPageVisibilityUnlisted   ValidateAclPageVisibility = "unlisted"
 )
 
 // Defines values for ValidateAclRequestLang.
@@ -333,13 +356,16 @@ type AgentSearchResult struct {
 type AgentSource struct {
 	ChapterId     *string                  `json:"chapterId"`
 	Id            string                   `json:"id"`
-	Kind          string                   `json:"kind"`
+	Kind          AgentSourceKind          `json:"kind"`
 	RefreshPolicy AgentSourceRefreshPolicy `json:"refreshPolicy"`
 	Status        AgentSourceStatus        `json:"status"`
 	Title         string                   `json:"title"`
 	Url           string                   `json:"url"`
 	Visibility    AgentSourceVisibility    `json:"visibility"`
 }
+
+// AgentSourceKind defines model for AgentSource.Kind.
+type AgentSourceKind string
 
 // AgentSourceRefreshPolicy defines model for AgentSource.RefreshPolicy.
 type AgentSourceRefreshPolicy string
@@ -375,6 +401,18 @@ type Error struct {
 	Id      *string `json:"id,omitempty"`
 	Message *string `json:"message,omitempty"`
 }
+
+// InlineSourceRequest defines model for InlineSourceRequest.
+type InlineSourceRequest struct {
+	Chapter    *string                       `json:"chapter,omitempty"`
+	Content    string                        `json:"content"`
+	ExternalId *string                       `json:"externalId,omitempty"`
+	Title      string                        `json:"title"`
+	Visibility InlineSourceRequestVisibility `json:"visibility"`
+}
+
+// InlineSourceRequestVisibility defines model for InlineSourceRequest.Visibility.
+type InlineSourceRequestVisibility string
 
 // Language defines model for Language.
 type Language struct {
@@ -682,6 +720,9 @@ type AgentCreateNoteJSONRequestBody = AgentCreateNoteRequest
 
 // AgentCreateSourceJSONRequestBody defines body for AgentCreateSource for application/json ContentType.
 type AgentCreateSourceJSONRequestBody = AgentCreateSourceRequest
+
+// AgentCreateInlineSourceJSONRequestBody defines body for AgentCreateInlineSource for application/json ContentType.
+type AgentCreateInlineSourceJSONRequestBody = InlineSourceRequest
 
 // SyncWikiJSONRequestBody defines body for SyncWiki for application/json ContentType.
 type SyncWikiJSONRequestBody = SyncRequest
@@ -1002,6 +1043,11 @@ type ClientInterface interface {
 
 	AgentCreateSource(ctx context.Context, body AgentCreateSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// AgentCreateInlineSourceWithBody request with any body
+	AgentCreateInlineSourceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AgentCreateInlineSource(ctx context.Context, body AgentCreateInlineSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetWikiAgentsMd request
 	GetWikiAgentsMd(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1144,6 +1190,30 @@ func (c *Client) AgentCreateSourceWithBody(ctx context.Context, contentType stri
 
 func (c *Client) AgentCreateSource(ctx context.Context, body AgentCreateSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAgentCreateSourceRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AgentCreateInlineSourceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentCreateInlineSourceRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AgentCreateInlineSource(ctx context.Context, body AgentCreateInlineSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentCreateInlineSourceRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1702,6 +1772,46 @@ func NewAgentCreateSourceRequestWithBody(server string, contentType string, body
 	return req, nil
 }
 
+// NewAgentCreateInlineSourceRequest calls the generic AgentCreateInlineSource builder with application/json body
+func NewAgentCreateInlineSourceRequest(server string, body AgentCreateInlineSourceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAgentCreateInlineSourceRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAgentCreateInlineSourceRequestWithBody generates requests for AgentCreateInlineSource with any type of body
+func NewAgentCreateInlineSourceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agent/sources/inline")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetWikiAgentsMdRequest generates requests for GetWikiAgentsMd
 func NewGetWikiAgentsMdRequest(server string) (*http.Request, error) {
 	var err error
@@ -2137,6 +2247,11 @@ type ClientWithResponsesInterface interface {
 
 	AgentCreateSourceWithResponse(ctx context.Context, body AgentCreateSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentCreateSourceResponse, error)
 
+	// AgentCreateInlineSourceWithBodyWithResponse request with any body
+	AgentCreateInlineSourceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentCreateInlineSourceResponse, error)
+
+	AgentCreateInlineSourceWithResponse(ctx context.Context, body AgentCreateInlineSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentCreateInlineSourceResponse, error)
+
 	// GetWikiAgentsMdWithResponse request
 	GetWikiAgentsMdWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWikiAgentsMdResponse, error)
 
@@ -2341,6 +2456,40 @@ func (r AgentCreateSourceResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r AgentCreateSourceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AgentCreateInlineSourceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *struct {
+		ChapterId  *string                              `json:"chapterId"`
+		CreatedAt  time.Time                            `json:"createdAt"`
+		Id         string                               `json:"id"`
+		Kind       AgentCreateInlineSource201Kind       `json:"kind"`
+		Title      string                               `json:"title"`
+		Visibility AgentCreateInlineSource201Visibility `json:"visibility"`
+	}
+	JSON400 *BadRequest
+	JSON401 *Unauthorized
+	JSON403 *Forbidden
+}
+type AgentCreateInlineSource201Kind string
+type AgentCreateInlineSource201Visibility string
+
+// Status returns HTTPResponse.Status
+func (r AgentCreateInlineSourceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentCreateInlineSourceResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2651,6 +2800,23 @@ func (c *ClientWithResponses) AgentCreateSourceWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseAgentCreateSourceResponse(rsp)
+}
+
+// AgentCreateInlineSourceWithBodyWithResponse request with arbitrary body returning *AgentCreateInlineSourceResponse
+func (c *ClientWithResponses) AgentCreateInlineSourceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentCreateInlineSourceResponse, error) {
+	rsp, err := c.AgentCreateInlineSourceWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentCreateInlineSourceResponse(rsp)
+}
+
+func (c *ClientWithResponses) AgentCreateInlineSourceWithResponse(ctx context.Context, body AgentCreateInlineSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentCreateInlineSourceResponse, error) {
+	rsp, err := c.AgentCreateInlineSource(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentCreateInlineSourceResponse(rsp)
 }
 
 // GetWikiAgentsMdWithResponse request returning *GetWikiAgentsMdResponse
@@ -3069,6 +3235,60 @@ func ParseAgentCreateSourceResponse(rsp *http.Response) (*AgentCreateSourceRespo
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
 		var dest AgentSource
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentCreateInlineSourceResponse parses an HTTP response from a AgentCreateInlineSourceWithResponse call
+func ParseAgentCreateInlineSourceResponse(rsp *http.Response) (*AgentCreateInlineSourceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentCreateInlineSourceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			ChapterId  *string                              `json:"chapterId"`
+			CreatedAt  time.Time                            `json:"createdAt"`
+			Id         string                               `json:"id"`
+			Kind       AgentCreateInlineSource201Kind       `json:"kind"`
+			Title      string                               `json:"title"`
+			Visibility AgentCreateInlineSource201Visibility `json:"visibility"`
+		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

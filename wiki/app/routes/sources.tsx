@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { FileText, Hash, Link2, LoaderCircle, MessageSquare, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -177,7 +177,12 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
-  const rows = await db.select().from(schema.sources).orderBy(desc(schema.sources.createdAt)).all();
+  const rows = await db
+    .select()
+    .from(schema.sources)
+    .where(ne(schema.sources.kind, "conversation"))
+    .orderBy(desc(schema.sources.createdAt))
+    .all();
 
   const visible = rows.filter((row) => canAccessSource(row, user, identity.chapters));
   const sourceIds = visible.map((row) => row.id);

@@ -235,7 +235,7 @@ ValidateAclResult:
           items: { $ref: '#/ValidateAclFinding' }
 SourcesManifestEntry:
   type: object
-  required: [documentId, kind, title, path, contentHash]
+  required: [documentId, kind, title, path, contentHash, chapterId]
   properties:
     documentId: { type: string }
     sourceId: { type: string, nullable: true }
@@ -252,6 +252,10 @@ SourcesManifestEntry:
         Source visibility for source-document / source-asset entries
         (private|member|organizer|chapter-member|chapter-organizer).
         Omitted for wiki-human entries.
+    chapterId:
+      type: string
+      nullable: true
+      description: Chapter scope for source-document / source-asset entries.
 SourcesManifest:
   type: object
   required: [version, documents]

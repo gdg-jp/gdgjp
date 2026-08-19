@@ -1,4 +1,4 @@
-import { desc, sql } from "drizzle-orm";
+import { desc, ne, sql } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
@@ -30,6 +30,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       )`,
     })
     .from(schema.sources)
+    .where(ne(schema.sources.kind, "conversation"))
     .orderBy(desc(schema.sources.createdAt))
     .all();
 

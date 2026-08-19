@@ -6,7 +6,8 @@ export type SourceKind =
   | "discord-channel"
   | "website"
   | "upload"
-  | "text";
+  | "text"
+  | "conversation";
 
 export type SourceRefreshPolicy = "manual" | "daily" | "weekly";
 

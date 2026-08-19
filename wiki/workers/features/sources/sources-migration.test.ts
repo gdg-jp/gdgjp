@@ -205,4 +205,65 @@ describe("0033_add_sources migration", () => {
       fetch_attempt_id: null,
     });
   });
+
+  it("adds conversation kind and owner-scoped external-id uniqueness", () => {
+    const db = openDb();
+    db.prepare("INSERT INTO sources (id, kind, url, title, added_by) VALUES (?, ?, ?, ?, ?)").run(
+      "src-1",
+      "text",
+      "https://example.com",
+      "Text",
+      "user-1",
+    );
+    applySourceMediaAndKindMigrations(db);
+    db.exec(
+      readFileSync(
+        new URL("../../../migrations/0054_add_source_visibility.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    db.exec(
+      readFileSync(
+        new URL("../../../migrations/0056_drop_sources_chapter_fk.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    db.exec(
+      readFileSync(
+        new URL("../../../migrations/0057_discord_channel_source.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    db.exec(
+      readFileSync(
+        new URL("../../../migrations/0059_conversation_source_kind.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    db.exec("INSERT INTO user (id) VALUES ('user-2');");
+
+    db.prepare(
+      `INSERT INTO sources
+        (id, kind, external_id, url, title, added_by, status, visibility)
+       VALUES (?, 'conversation', ?, ?, ?, ?, 'fetching', 'member')`,
+    ).run("conversation-1", "same-session", "gdg-memory://same-session", "One", "user-1");
+    db.prepare(
+      `INSERT INTO sources
+        (id, kind, external_id, url, title, added_by, status, visibility)
+       VALUES (?, 'conversation', ?, ?, ?, ?, 'fetching', 'member')`,
+    ).run("conversation-2", "same-session", "gdg-memory://same-session", "Two", "user-2");
+    expect(() =>
+      db
+        .prepare(
+          `INSERT INTO sources
+            (id, kind, external_id, url, title, added_by, visibility)
+           VALUES ('duplicate', 'conversation', 'same-session',
+             'gdg-memory://same-session', 'Dup', 'user-1', 'member')`,
+        )
+        .run(),
+    ).toThrow(/UNIQUE/i);
+    expect(db.prepare("SELECT kind FROM sources WHERE id = 'conversation-1'").get()).toEqual({
+      kind: "conversation",
+    });
+  });
 });

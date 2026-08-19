@@ -490,21 +490,6 @@ CREATE TABLE IF NOT EXISTS "wiki_agent_instructions" (
   "updated_by" TEXT NOT NULL REFERENCES "user"("id"),
   "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
 );
-CREATE TABLE IF NOT EXISTS "source_import_runs" (
-  "id" TEXT NOT NULL PRIMARY KEY,
-  "source_id" TEXT NOT NULL UNIQUE REFERENCES "sources"("id") ON DELETE CASCADE,
-  "kind" TEXT NOT NULL CHECK (
-    "kind" IN ('google-chat-space', 'google-drive', 'website', 'discord-channel')
-  ),
-  "fetch_attempt_id" TEXT NOT NULL,
-  "phase" TEXT NOT NULL DEFAULT 'start',
-  "since_cursor" TEXT,
-  "progress" TEXT NOT NULL DEFAULT '{}',
-  "consecutive_failures" INTEGER NOT NULL DEFAULT 0,
-  "error_message" TEXT,
-  "created_at" INTEGER NOT NULL DEFAULT (unixepoch()),
-  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
-);
 CREATE TABLE IF NOT EXISTS "source_documents" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "source_id" TEXT NOT NULL REFERENCES "sources"("id") ON DELETE CASCADE,
@@ -541,6 +526,30 @@ CREATE INDEX "idx_google_chat_sender_samples_resource_created"
   ON "google_chat_sender_samples" ("resource_name", "created_at" DESC);
 CREATE INDEX idx_pages_parent_acl_sync
   ON pages (parent_id, acl_synced_with_parent);
+CREATE TABLE IF NOT EXISTS "discord_oauth_tokens" (
+  "user_id"       TEXT NOT NULL PRIMARY KEY REFERENCES "user"("id") ON DELETE CASCADE,
+  "access_token"  TEXT NOT NULL,
+  "refresh_token" TEXT,
+  "expires_at"    INTEGER NOT NULL,
+  "granted_scopes" TEXT,
+  "discord_user_id" TEXT,
+  "updated_at"    INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE TABLE IF NOT EXISTS "source_import_runs" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "source_id" TEXT NOT NULL UNIQUE REFERENCES "sources"("id") ON DELETE CASCADE,
+  "kind" TEXT NOT NULL CHECK (
+    "kind" IN ('google-chat-space', 'google-drive', 'website', 'discord-channel')
+  ),
+  "fetch_attempt_id" TEXT NOT NULL,
+  "phase" TEXT NOT NULL DEFAULT 'start',
+  "since_cursor" TEXT,
+  "progress" TEXT NOT NULL DEFAULT '{}',
+  "consecutive_failures" INTEGER NOT NULL DEFAULT 0,
+  "error_message" TEXT,
+  "created_at" INTEGER NOT NULL DEFAULT (unixepoch()),
+  "updated_at" INTEGER NOT NULL DEFAULT (unixepoch())
+);
 CREATE TABLE IF NOT EXISTS "sources" (
   "id"               TEXT NOT NULL PRIMARY KEY,
   "kind"             TEXT NOT NULL
@@ -552,7 +561,8 @@ CREATE TABLE IF NOT EXISTS "sources" (
                        'discord-channel',
                        'website',
                        'upload',
-                       'text'
+                       'text',
+                       'conversation'
                      )),
   "external_id"      TEXT,
   "url"              TEXT NOT NULL,
@@ -585,12 +595,5 @@ CREATE INDEX "idx_sources_chapter_id" ON "sources" ("chapter_id");
 CREATE INDEX "idx_sources_added_by" ON "sources" ("added_by");
 CREATE INDEX "idx_sources_refresh_policy" ON "sources" ("refresh_policy", "status");
 CREATE INDEX "idx_sources_visibility" ON "sources" ("visibility", "chapter_id");
-CREATE TABLE IF NOT EXISTS "discord_oauth_tokens" (
-  "user_id"       TEXT NOT NULL PRIMARY KEY REFERENCES "user"("id") ON DELETE CASCADE,
-  "access_token"  TEXT NOT NULL,
-  "refresh_token" TEXT,
-  "expires_at"    INTEGER NOT NULL,
-  "granted_scopes" TEXT,
-  "discord_user_id" TEXT,
-  "updated_at"    INTEGER NOT NULL DEFAULT (unixepoch())
-);
+CREATE UNIQUE INDEX "idx_sources_owner_kind_external_id"
+  ON "sources" ("added_by", "kind", "external_id") WHERE "external_id" IS NOT NULL;

@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { removeAclSpans } from "~/lib/acl-spans";
@@ -53,6 +53,13 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
           capturedAt: schema.sourceDocuments.capturedAt,
         })
         .from(schema.sourceDocuments)
+        .innerJoin(
+          schema.sources,
+          and(
+            eq(schema.sourceDocuments.sourceId, schema.sources.id),
+            ne(schema.sources.kind, "conversation"),
+          ),
+        )
         .where(eq(schema.sourceDocuments.status, "ready"))
         .all(),
       db
@@ -69,6 +76,13 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         .innerJoin(
           schema.sourceDocuments,
           eq(schema.sourceAssets.sourceDocumentId, schema.sourceDocuments.id),
+        )
+        .innerJoin(
+          schema.sources,
+          and(
+            eq(schema.sourceDocuments.sourceId, schema.sources.id),
+            ne(schema.sources.kind, "conversation"),
+          ),
         )
         .all(),
       db.select().from(schema.pages).where(eq(schema.pages.origin, "human")).all(),
@@ -101,7 +115,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const sources = await db
     .select()
     .from(schema.sources)
-    .where(eq(schema.sources.status, "ready"))
+    .where(and(eq(schema.sources.status, "ready"), ne(schema.sources.kind, "conversation")))
     .all();
   const sourceById = new Map(sources.map((source) => [source.id, source]));
   const sourceDirectoryByID = rawSourceDirectories(sources);
@@ -122,6 +136,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       mediaType: doc.mediaType,
       capturedAt: toUnixSeconds(doc.capturedAt),
       visibility: source.visibility,
+      chapterId: source.chapterId,
     });
   }
 
@@ -141,6 +156,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       mediaType: asset.mediaType,
       capturedAt: toUnixSeconds(asset.capturedAt),
       visibility: source.visibility,
+      chapterId: source.chapterId,
     });
   }
 
@@ -214,6 +230,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       contentHash,
       mediaType: "text/markdown",
       capturedAt: toUnixSeconds(page.updatedAt ?? page.createdAt),
+      chapterId: null,
     });
   }
 

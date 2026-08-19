@@ -195,6 +195,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/sources/inline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register an inline conversation log as a raw source */
+        post: operations["agentCreateInlineSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/notes": {
         parameters: {
             query?: never;
@@ -276,7 +293,8 @@ export interface components {
              */
             lang: "ja" | "en";
             pages?: components["schemas"]["ValidateAclPage"][];
-            /** @description Source IDs read during this ingest run. Always includes the queue head. Trace-derived ids may be added. Used for the run-level acl_untagged_read_source check. */
+            /** @description Source IDs read during this ingest run. Always includes the queue head. Trace-derived ids may be added. Used for the run-level acl_untagged_read_source check.
+             *      */
             readSourceIds?: string[];
         };
         ValidateAclResult: {
@@ -334,7 +352,8 @@ export interface components {
         };
         AgentSource: {
             id: string;
-            kind: string;
+            /** @enum {string} */
+            kind: "google-doc" | "google-sheet" | "google-slides" | "google-chat-space" | "discord-channel" | "website" | "upload" | "text" | "conversation";
             url: string;
             title: string;
             chapterId: string | null;
@@ -344,6 +363,14 @@ export interface components {
             status: "pending";
             /** @enum {string} */
             refreshPolicy: "manual" | "daily" | "weekly";
+        };
+        InlineSourceRequest: {
+            title: string;
+            content: string;
+            /** @enum {string} */
+            visibility: "private" | "member" | "organizer" | "chapter-member" | "chapter-organizer";
+            chapter?: string;
+            externalId?: string;
         };
         AgentCreateNoteRequest: {
             slug: string;
@@ -443,7 +470,8 @@ export interface components {
             /** @enum {string} */
             generalRole: "viewer" | "commenter" | "editor";
             chapterId: string | null;
-            /** @description True when the caller cannot read every ACL span and span bodies were removed from the returned locale content. */
+            /** @description True when the caller cannot read every ACL span and span bodies were removed from the returned locale content.
+             *      */
             aclRedacted?: boolean;
             tags: string[];
             access: components["schemas"]["AccessEntry"][];
@@ -525,8 +553,11 @@ export interface components {
             contentHash: string;
             mediaType?: string;
             capturedAt?: number | null;
-            /** @description Source visibility for source-document / source-asset entries (private|member|organizer|chapter-member|chapter-organizer). Omitted for wiki-human entries. */
+            /** @description Source visibility for source-document / source-asset entries (private|member|organizer|chapter-member|chapter-organizer). Omitted for wiki-human entries.
+             *      */
             visibility?: string | null;
+            /** @description Chapter scope for source-document / source-asset entries. */
+            chapterId: string | null;
         };
     };
     responses: {
@@ -933,6 +964,57 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    agentCreateInlineSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InlineSourceRequest"];
+            };
+        };
+        responses: {
+            /** @description Inline source persisted and ready. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        /** @enum {string} */
+                        kind: "conversation";
+                        /** @enum {string} */
+                        visibility: "private" | "member" | "organizer" | "chapter-member" | "chapter-organizer";
+                        chapterId: string | null;
+                        title: string;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Idempotency key conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Inline content exceeds the one mebibyte limit. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     agentCreateNote: {

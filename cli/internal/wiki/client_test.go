@@ -73,3 +73,22 @@ func TestSyncEncodesAgentInstructionsUpdate(t *testing.T) {
 		t.Fatalf("agentsMd = %#v", body["agentsMd"])
 	}
 }
+
+func TestSourcesManifestDecodesChapterID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/cli/wiki/sources" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		_, _ = io.WriteString(w, `{"version":1,"documents":[{"documentId":"doc-1","sourceId":"src-1","kind":"source-document","title":"Memo","path":"raw/src-1/conversation.md","contentHash":"hash","visibility":"chapter-member","chapterId":"chapter-1"}]}`)
+	}))
+	defer server.Close()
+
+	client := &Client{BaseURL: server.URL, HTTPClient: server.Client()}
+	manifest, err := client.SourcesManifest(context.Background(), "token", "ja")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(manifest.Documents) != 1 || manifest.Documents[0].ChapterID == nil || *manifest.Documents[0].ChapterID != "chapter-1" {
+		t.Fatalf("manifest = %#v", manifest)
+	}
+}

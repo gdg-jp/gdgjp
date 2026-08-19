@@ -1,0 +1,38 @@
+post:
+  operationId: agentCreateInlineSource
+  summary: Register an inline conversation log as a raw source
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/agent.yaml#/InlineSourceRequest
+  responses:
+    '201':
+      description: Inline source persisted and ready.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [id, kind, visibility, chapterId, title, createdAt]
+            properties:
+              id: { type: string }
+              kind: { type: string, enum: [conversation] }
+              visibility:
+                type: string
+                enum: [private, member, organizer, chapter-member, chapter-organizer]
+              chapterId: { type: string, nullable: true }
+              title: { type: string }
+              createdAt: { type: string, format: date-time }
+    '400':
+      $ref: ../components/responses/common.yaml#/BadRequest
+    '401':
+      $ref: ../components/responses/common.yaml#/Unauthorized
+    '403':
+      $ref: ../components/responses/common.yaml#/Forbidden
+    '413':
+      description: Inline content exceeds the one mebibyte limit.
+    '409':
+      description: Idempotency key conflict.

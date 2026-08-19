@@ -204,6 +204,23 @@ describe("fetchSource Durable Object dispatch", () => {
 });
 
 describe("scheduled source refresh", () => {
+  it("does not enqueue conversation sources even when refresh policy is daily", async () => {
+    sqlite
+      .prepare(
+        `INSERT INTO sources
+          (id, kind, external_id, url, title, added_by, status, refresh_policy, last_fetched_at)
+         VALUES ('conversation-1', 'conversation', 'session-1', 'gdg-memory://session-1',
+           'Conversation', 'user-1', 'ready', 'daily', 0)`,
+      )
+      .run();
+    const send = vi.fn().mockResolvedValue(undefined);
+
+    expect(
+      await enqueueDueSourceRefreshes({ SOURCE_FETCH_QUEUE: { send } } as unknown as Env),
+    ).toBe(0);
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("repairs a stale manual pending source even though it is not a scheduled policy", async () => {
     sqlite
       .prepare("UPDATE sources SET refresh_policy = 'manual', updated_at = ? WHERE id = ?")

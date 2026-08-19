@@ -83,6 +83,23 @@ AgentCreateSourceRequest:
     refreshPolicy:
       type: string
       enum: [manual, daily, weekly]
+InlineSourceRequest:
+  type: object
+  additionalProperties: false
+  required: [title, content, visibility]
+  properties:
+    title:
+      type: string
+    content:
+      type: string
+      maxLength: 1000000
+    visibility:
+      type: string
+      enum: [private, member, organizer, chapter-member, chapter-organizer]
+    chapter:
+      type: string
+    externalId:
+      type: string
 AgentSource:
   type: object
   required: [id, kind, url, title, chapterId, visibility, status, refreshPolicy]
@@ -91,6 +108,7 @@ AgentSource:
       type: string
     kind:
       type: string
+      enum: [google-doc, google-sheet, google-slides, google-chat-space, discord-channel, website, upload, text, conversation]
     url:
       type: string
     title:

@@ -72,6 +72,7 @@ export default [
   route("/api/agent/cat", "routes/api.agent.cat.ts"),
   route("/api/agent/search", "routes/api.agent.search.ts"),
   route("/api/agent/sources", "routes/api.agent.sources.ts"),
+  route("/api/agent/sources/inline", "routes/api.agent.sources.inline.ts"),
   route("/api/agent/notes", "routes/api.agent.notes.ts"),
   route("/api/agent/log", "routes/api.agent.log.ts"),
   route("/api/agent/instructions", "routes/api.agent.instructions.ts"),

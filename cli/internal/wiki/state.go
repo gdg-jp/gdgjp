@@ -12,7 +12,9 @@ type State struct {
 	AgentsHash  string            `json:"agentsHash,omitempty"`
 	Rendered    map[string]string `json:"rendered,omitempty"`    // documentID -> post-replace digest
 	SendersHash string            `json:"sendersHash,omitempty"` // digest of sender map
-	// Manifest is the last complete raw pull snapshot. Ingest deliberately uses
+	// Manifest is the last complete raw pull snapshot. A missing ChapterID in a
+	// legacy entry remains unresolved; consumers must fail closed rather than
+	// treating it as an all-chapters source. Ingest deliberately uses
 	// this local snapshot so queue generation and completion do not call Wiki.
 	Manifest *SourcesManifest `json:"manifest,omitempty"`
 }

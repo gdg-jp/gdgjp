@@ -513,7 +513,7 @@ export const discordGuildSettings = sqliteTable("discord_guild_settings", {
 export const sources = sqliteTable("sources", {
   id: text("id").primaryKey(),
   // "google-doc" | "google-sheet" | "google-slides" | "google-chat-space" |
-  // "discord-channel" | "website" | "upload" | "text"
+  // "discord-channel" | "website" | "upload" | "text" | "conversation"
   kind: text("kind").notNull(),
   externalId: text("external_id"),
   url: text("url").notNull(),

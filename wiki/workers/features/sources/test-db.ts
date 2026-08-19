@@ -107,6 +107,12 @@ export function createSourcesTestDb() {
       "utf8",
     ),
   );
+  sqlite.exec(
+    readFileSync(
+      new URL("../../../migrations/0059_conversation_source_kind.sql", import.meta.url),
+      "utf8",
+    ),
+  );
 
   const execute = async (
     sql: string,

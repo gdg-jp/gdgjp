@@ -69,6 +69,8 @@ export async function fetchSource(env: Env, sourceId: string): Promise<FetchSour
     source.kind !== "google-slides" &&
     source.kind !== "website"
   ) {
+    // Inline conversation logs are already persisted in R2 by createInlineSource;
+    // there is no remote fetch driver for this kind.
     console.warn("[sources] fetch skipped; unsupported source kind", source.kind);
     return { status: "skipped", retryable: false };
   }
@@ -94,6 +96,7 @@ export async function enqueueDueSourceRefreshes(env: Env): Promise<number> {
   const candidates = await db
     .select({
       id: schema.sources.id,
+      kind: schema.sources.kind,
       status: schema.sources.status,
       fetchAttemptId: schema.sources.fetchAttemptId,
       refreshPolicy: schema.sources.refreshPolicy,
@@ -106,6 +109,9 @@ export async function enqueueDueSourceRefreshes(env: Env): Promise<number> {
 
   let enqueued = 0;
   for (const source of candidates) {
+    // Inline conversation logs have no remote fetch driver, even if an operator
+    // manually changes refresh_policy. Keep them out of the scheduled queue too.
+    if (source.kind === "conversation") continue;
     const last = source.lastFetchedAt?.getTime() ?? 0;
     const scheduledDue =
       source.refreshPolicy === "daily" ? nowMs - last >= dayMs : nowMs - last >= 7 * dayMs;
