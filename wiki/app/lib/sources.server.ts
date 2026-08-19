@@ -334,10 +334,26 @@ export async function enqueueSourceRefresh(
       fetchAttemptId: refreshRequestId,
       updatedAt: new Date(),
     })
-    .where(and(eq(schema.sources.id, sourceId), ne(schema.sources.status, "archived")))
+    .where(
+      and(
+        eq(schema.sources.id, sourceId),
+        ne(schema.sources.status, "archived"),
+        ne(schema.sources.kind, "conversation"),
+      ),
+    )
     .returning({ id: schema.sources.id })
     .get();
-  if (!claimed) return { ok: false, error: "archived", status: 409 };
+  if (!claimed) {
+    const current = await db
+      .select({ kind: schema.sources.kind, status: schema.sources.status })
+      .from(schema.sources)
+      .where(eq(schema.sources.id, sourceId))
+      .get();
+    if (current?.kind === "conversation") {
+      return { ok: false, error: "unsupported_source_kind", status: 409 };
+    }
+    return { ok: false, error: "archived", status: 409 };
+  }
 
   try {
     await env.SOURCE_FETCH_QUEUE.send({ type: "source_fetch", sourceId });

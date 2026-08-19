@@ -293,8 +293,7 @@ export interface components {
              */
             lang: "ja" | "en";
             pages?: components["schemas"]["ValidateAclPage"][];
-            /** @description Source IDs read during this ingest run. Always includes the queue head. Trace-derived ids may be added. Used for the run-level acl_untagged_read_source check.
-             *      */
+            /** @description Source IDs read during this ingest run. Always includes the queue head. Trace-derived ids may be added. Used for the run-level acl_untagged_read_source check. */
             readSourceIds?: string[];
         };
         ValidateAclResult: {
@@ -475,8 +474,7 @@ export interface components {
             /** @enum {string} */
             generalRole: "viewer" | "commenter" | "editor";
             chapterId: string | null;
-            /** @description True when the caller cannot read every ACL span and span bodies were removed from the returned locale content.
-             *      */
+            /** @description True when the caller cannot read every ACL span and span bodies were removed from the returned locale content. */
             aclRedacted?: boolean;
             tags: string[];
             access: components["schemas"]["AccessEntry"][];
@@ -558,8 +556,7 @@ export interface components {
             contentHash: string;
             mediaType?: string;
             capturedAt?: number | null;
-            /** @description Source visibility for source-document / source-asset entries (private|member|organizer|chapter-member|chapter-organizer). Omitted for wiki-human entries.
-             *      */
+            /** @description Source visibility for source-document / source-asset entries (private|member|organizer|chapter-member|chapter-organizer). Omitted for wiki-human entries. */
             visibility?: string | null;
             /** @description Chapter scope for source-document / source-asset entries. */
             chapterId: string | null;
@@ -1014,7 +1011,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        error: "conflict" | "external_id_conflict" | "unsupported_source_kind";
+                        error: "conflict";
                     };
                 };
             };
@@ -1030,7 +1027,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description Source storage or queue service unavailable. */
+            /** @description Source storage unavailable while persisting the inline source. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -1038,7 +1035,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        error: "storage_error" | "enqueue_failed";
+                        error: "persist_failed";
                     };
                 };
             };

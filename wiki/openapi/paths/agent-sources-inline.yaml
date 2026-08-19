@@ -49,13 +49,13 @@ post:
             type: object
             required: [error]
             properties:
-              error: { type: string, enum: [conflict, external_id_conflict, unsupported_source_kind] }
+              error: { type: string, enum: [conflict] }
     '503':
-      description: Source storage or queue service unavailable.
+      description: Source storage unavailable while persisting the inline source.
       content:
         application/json:
           schema:
             type: object
             required: [error]
             properties:
-              error: { type: string, enum: [storage_error, enqueue_failed] }
+              error: { type: string, enum: [persist_failed] }

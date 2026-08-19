@@ -411,7 +411,7 @@ type InlineSourceRequest struct {
 	ExternalId *string `json:"externalId,omitempty"`
 
 	// Title Optional display title. Defaults to Conversation.
-	Title      string                        `json:"title"`
+	Title      *string                       `json:"title,omitempty"`
 	Visibility InlineSourceRequestVisibility `json:"visibility"`
 }
 

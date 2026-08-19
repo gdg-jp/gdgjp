@@ -86,7 +86,7 @@ AgentCreateSourceRequest:
 InlineSourceRequest:
   type: object
   additionalProperties: false
-  required: [title, content, visibility]
+  required: [content, visibility]
   properties:
     title:
       type: string
