@@ -560,10 +560,26 @@ export async function createInlineSource(
       } catch (error) {
         // A concurrent caller can win the owner-scoped unique key between the
         // read and insert. Resolve it once, then follow the normal idempotency path.
-        source = await findExisting();
-        if (!source || insertAttempt >= 1) {
+        try {
+          source = await findExisting();
+        } catch (lookupError) {
+          console.error("[sources] inline source collision lookup failed", lookupError);
+          return { ok: false, error: "storage_error", status: 503 };
+        }
+        const uniqueCollision = isInlineSourceUniqueConstraintError(error);
+        if (source && uniqueCollision) {
+          // A row found with the owner-scoped key is the only safe evidence that
+          // this was a concurrent idempotency collision. Follow its normal repair
+          // path; never return a different owner's row.
+          continue;
+        }
+        if (!uniqueCollision || insertAttempt >= 1) {
           console.error("[sources] inline source insert conflict", error);
-          return { ok: false, error: "conflict", status: 409 };
+          return {
+            ok: false,
+            error: uniqueCollision ? "conflict" : "storage_error",
+            status: uniqueCollision ? 409 : 503,
+          };
         }
       }
       if (!source) return { ok: false, error: "conflict", status: 409 };
@@ -656,6 +672,14 @@ export async function createInlineSource(
       return { ok: false, error: "persist_failed", status: 503 };
     }
   }
+}
+
+function isInlineSourceUniqueConstraintError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    /unique constraint failed.*(?:sources|owner_kind_external_id)/i.test(message) ||
+    /constraint failed.*unique/i.test(message)
+  );
 }
 
 async function inlineContentHash(content: Uint8Array): Promise<string> {
