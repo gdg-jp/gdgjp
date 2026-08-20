@@ -103,11 +103,19 @@ func newWikiCommandWithService(service *wikiService) *cobra.Command {
 	ingest.MarkFlagsMutuallyExclusive("commit", "agent")
 
 	ingest.AddCommand(&cobra.Command{
-		Use:   "lock",
-		Short: "Claim the next unlocked pending ingest document_id",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return service.ingestLock(cmd)
+		Use:   "lock [DOCUMENT_ID]",
+		Short: "Claim the next unlocked pending ingest document_id, or a specific one",
+		// Document IDs may start with '-' (nanoid-style).
+		DisableFlagParsing: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				return fmt.Errorf("usage: gdg wiki ingest lock [DOCUMENT_ID]")
+			}
+			documentID := ""
+			if len(args) == 1 {
+				documentID = args[0]
+			}
+			return service.ingestLock(cmd, documentID)
 		},
 	})
 	ingest.AddCommand(&cobra.Command{
@@ -384,7 +392,7 @@ func (s *wikiService) syncRaw(ctx context.Context, root string) error {
 	})
 }
 
-func (s *wikiService) ingestLock(cmd *cobra.Command) error {
+func (s *wikiService) ingestLock(cmd *cobra.Command, documentID string) error {
 	root, err := s.findRoot()
 	if err != nil {
 		return err
@@ -410,6 +418,9 @@ func (s *wikiService) ingestLock(cmd *cobra.Command) error {
 	}
 	var lastErr error
 	for _, item := range pending {
+		if documentID != "" && item.DocumentID != documentID {
+			continue
+		}
 		if existing, ok := locks.Locks[item.DocumentID]; ok && existing.Owner != owner {
 			continue
 		}
@@ -443,6 +454,12 @@ func (s *wikiService) ingestLock(cmd *cobra.Command) error {
 			}
 		}
 		return nil
+	}
+	if documentID != "" {
+		if lastErr != nil {
+			return fmt.Errorf("document %s is not a claimable pending document: %w", documentID, lastErr)
+		}
+		return fmt.Errorf("document %s is not a claimable pending document", documentID)
 	}
 	if lastErr != nil {
 		return fmt.Errorf("no claimable pending documents: %w", lastErr)

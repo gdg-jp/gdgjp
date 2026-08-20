@@ -21,7 +21,7 @@ func hooksDir(t *testing.T) string {
 	return filepath.Join(filepath.Dir(file), "hooks")
 }
 
-func startTestAuthz(t *testing.T) string {
+func startTestAuthz(t *testing.T, verifyStatus ...int) string {
 	t.Helper()
 	dir := t.TempDir()
 	sock := filepath.Join("/tmp", filepath.Base(dir)+".sock")
@@ -30,10 +30,31 @@ func startTestAuthz(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	status := http.StatusOK
+	if len(verifyStatus) > 0 {
+		status = verifyStatus[0]
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/resolve", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"classes":[{"chapterId":"tokyo","role":"organizer"}],"channelAudience":{"kind":"member"}}`))
+	})
+	mux.HandleFunc("/repo-lock", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	})
+	mux.HandleFunc("/verify-acl", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		if status == http.StatusOK {
+			_, _ = w.Write([]byte(`{"ok":true}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"error":"offline"}`))
 	})
 	srv := &http.Server{Handler: mux}
 	go func() { _ = srv.Serve(ln) }()
@@ -327,7 +348,7 @@ func TestWkGitCommitFailOpenWithoutGdg(t *testing.T) {
 	root, page, head := seedPageRepo(t)
 	runID := "run-opengdg"
 	writeWkFixture(t, root, page, head, runID)
-	sock := startTestAuthz(t)
+	sock := startTestAuthz(t, http.StatusServiceUnavailable)
 	next := "---\nvisibility: public\n---\noriginal\nderived from secret\n"
 	if _, stderr, err := runWk(t, root, sock, runID, next, "write", page); err != nil {
 		t.Fatalf("wk write: %v\n%s", err, stderr)
@@ -354,6 +375,53 @@ func TestWkGitCommitFailOpenWithoutGdg(t *testing.T) {
 	}
 	if !strings.Contains(string(out), "fail open") && !strings.Contains(string(out), "verify-acl failed") {
 		t.Fatalf("expected fail-open warning, got %s", out)
+	}
+}
+
+func TestWkWriteFailsWhenRepoLockBusy(t *testing.T) {
+	root, page, head := seedPageRepo(t)
+	runID := "run-lock"
+	writeWkFixture(t, root, page, head, runID)
+	dir := t.TempDir()
+	sock := filepath.Join("/tmp", filepath.Base(dir)+".sock")
+	_ = os.Remove(sock)
+	ln, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/resolve", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"classes":[{"chapterId":"tokyo","role":"organizer"}],"channelAudience":{"kind":"member"}}`))
+	})
+	mux.HandleFunc("/repo-lock", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"error":"repository_locked"}`))
+	})
+	srv := &http.Server{Handler: mux}
+	go func() { _ = srv.Serve(ln) }()
+	t.Cleanup(func() {
+		_ = srv.Close()
+		_ = ln.Close()
+		_ = os.Remove(sock)
+	})
+	before, err := os.ReadFile(filepath.Join(root, page))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, stderr, err := runWk(t, root, sock, runID, "---\nvisibility: public\n---\noriginal\nsecret\n", "write", page)
+	if err == nil {
+		t.Fatal("expected repo lock failure")
+	}
+	if !strings.Contains(stderr, "repository is locked") {
+		t.Fatalf("stderr = %s", stderr)
+	}
+	after, err := os.ReadFile(filepath.Join(root, page))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatal("file changed without a repository lock")
 	}
 }
 

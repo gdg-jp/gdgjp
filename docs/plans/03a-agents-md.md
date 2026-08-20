@@ -229,6 +229,16 @@ When a namespace catalog exceeds **40 entries or 8 KB**, split into intermediate
 The heading must always be `## [YYYY-MM-DD] <type> | <subject>`. Types are `ingest` / `lint` / `query`.
 Do not alter this format: it is parsed with `grep "^## \\["`.
 
+## Conversation logs (`kind: "conversation"`)
+
+Discord conversation logs are ingested from local `memories/` files during sleep.
+They are not listed in `INGEST_QUEUE.md` and do not appear under `raw/`.
+
+- File **decisions, numbers, and agreements** onto topic pages. Do not transcribe the conversation flow (same rule as Meeting minutes).
+- **Do not create a date-based page.**
+- **Do not combine multiple conversation logs into one page.** When appending to an existing page, do not break its `<acl>` structure.
+- Sources with different `visibility` values must not be merged onto one page.
+
 ## Lint
 
 When invoked by `gdg wiki lint`, check the following in order and record results in `log`. You may fix pages as well.
