@@ -13,6 +13,37 @@ import (
 
 const TraceFileName = "ingest-trace.json"
 
+// TracePathForRun is the invocation-scoped trace path used by wk. The run id
+// is supplied only by the fixed agent launcher; there is no shared fallback.
+func TracePathForRun(root, runID string) (string, error) {
+	if runID == "" || strings.ContainsAny(runID, `/\\`) {
+		return "", fmt.Errorf("missing or invalid GDG_WIKI_RUN_ID")
+	}
+	return filepath.Join(ConfigDir(root), "ingest-trace", runID+".json"), nil
+}
+
+func LoadTraceForRun(root, runID string) (IngestTrace, error) {
+	path, err := TracePathForRun(root, runID)
+	if err != nil {
+		return IngestTrace{}, err
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return IngestTrace{}, err
+	}
+	var trace IngestTrace
+	if err = json.Unmarshal(raw, &trace); err != nil {
+		return IngestTrace{}, fmt.Errorf("parse %s: %w", path, err)
+	}
+	if trace.Reads == nil {
+		trace.Reads = []string{}
+	}
+	if trace.Writes == nil {
+		trace.Writes = []string{}
+	}
+	return trace, nil
+}
+
 // IngestTrace records files touched during one ingest agent run.
 //
 // Reads expand the set of sources that need tagging (never shrink it).

@@ -22,6 +22,44 @@ type State struct {
 // CloneState is an alias used by ingest helpers.
 type CloneState = State
 
+// ACLSource is the deliberately minimal local lookup used by wk when it
+// evaluates <acl src="…"> spans. Do not add paths, titles, or content here.
+type ACLSource struct {
+	Visibility string  `json:"visibility"`
+	ChapterID  *string `json:"chapterId"`
+}
+
+const ACLSourcesFileName = "acl-sources.json"
+
+func ACLSourcesPath(root string) string {
+	return filepath.Join(ConfigDir(root), ACLSourcesFileName)
+}
+
+func WriteACLSources(root string, manifest SourcesManifest) error {
+	// Conversation sources are appended by xangi and are absent from the raw
+	// manifest. Keep existing entries while refreshing manifest-backed values.
+	sources := map[string]ACLSource{}
+	if raw, err := os.ReadFile(ACLSourcesPath(root)); err == nil {
+		if err := json.Unmarshal(raw, &sources); err != nil {
+			return fmt.Errorf("parse %s: %w", ACLSourcesPath(root), err)
+		}
+	}
+	for _, doc := range manifest.Documents {
+		if doc.SourceID == nil || *doc.SourceID == "" || doc.Visibility == nil || *doc.Visibility == "" || !doc.ChapterIDPresent {
+			continue
+		}
+		sources[*doc.SourceID] = ACLSource{Visibility: *doc.Visibility, ChapterID: doc.ChapterID}
+	}
+	if err := os.MkdirAll(ConfigDir(root), 0o755); err != nil {
+		return err
+	}
+	raw, err := json.MarshalIndent(sources, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(ACLSourcesPath(root), append(raw, '\n'), 0o644)
+}
+
 func StatePath(root string) string {
 	return filepath.Join(ConfigDir(root), StateFileName)
 }
