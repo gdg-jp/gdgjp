@@ -510,6 +510,10 @@ Stage 09 は `index.db` を `gdgagent-run-*` から読めない所有権にす�
 
 ---
 
+本番 Ubuntu ホストへの配置記録（2026-08-20）:
+[07-ubuntu-host-install-2026-08-20.md](07-ubuntu-host-install-2026-08-20.md)。
+所有権と workdir は載った。Discord Privileged Intents と invocation 実走は未完了。
+
 ## Verification — 完了条件と検証
 
 ### 完了条件

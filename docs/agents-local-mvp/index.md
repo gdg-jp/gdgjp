@@ -104,6 +104,7 @@ Stage 00 の完了後は、01・02・03 を並行して着手できる。
 - `docs/plans/11-ingest-acl-hooks.md` — 現行 ACL ゲートの設計と fail-open の理由
 - `docs/plans/03a-agents-md.md` — `AGENTS.md` 全文ドラフト
 - `~/.cursor/skills-cursor/create-hook/SKILL.md` — Cursor フックの一次資料
+- [07-ubuntu-host-install-2026-08-20.md](07-ubuntu-host-install-2026-08-20.md) — 本番 Ubuntu への Stage 07 配置ログ
 
 ### 再利用する既存実装（書き直さない）
 

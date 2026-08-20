@@ -69,10 +69,16 @@
 
 ### 本番投入する前（07 の完了が条件）
 
+ホスト配置の途中経過（2026-08-20）:
+[07-ubuntu-host-install-2026-08-20.md](07-ubuntu-host-install-2026-08-20.md)。
+
+- [x] OS ユーザー / `/opt/gdg-agent` / sudoers / `/srv/gdg-agent/wiki` 2770 / wiki clone
+- [x] `gdgagent-svc` の systemd `--user` unit（enable）。起動は Discord intents 待ちで stop
 - [ ] **05 / 06 を入れただけの状態を本番のギルドに向けない。**
       ゲートとフックは**同一 uid では `rm` 一発で消える**ので、07 までは境界ではない
       （[ADR-004 の脅威モデル](adr.md#脅威モデル)）。テスト用ギルドだけで回す。
 - [ ] 07 の完了条件（uid 分離・所有権・サンドボックス・`--mcp-config`）が全部通っている
+      — 所有権チェックの一部はホストログに記録済み。invocation 実走と Discord は未完了
 
 > **参考**: 「05 と 07 を原子的に配備しないと `wk read` で運用者の認証情報が漏れる」という
 > 指摘は**採らない**。Stage 05 のゲートは
