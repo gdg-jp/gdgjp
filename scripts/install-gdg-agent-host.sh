@@ -169,11 +169,17 @@ build_acl() {
 create_users() {
   [[ -z "$PREFIX" && "$(id -u)" -eq 0 ]] || return 0
   echo "==> OS users"
+  # tmpfiles and private dirs use owner:group gdgagent-svc:gdgagent-svc.
+  # --gid gdgwiki would skip creating that group (systemd-tmpfiles then fails).
   groupadd --system gdgwiki || true
-  id gdgagent-svc >/dev/null 2>&1 ||
-    useradd --system --create-home --home-dir /home/gdgagent-svc --gid gdgwiki \
-      --shell /usr/sbin/nologin gdgagent-svc
-  usermod -aG gdgwiki gdgagent-svc || true
+  groupadd --system gdgagent-svc || true
+  if ! id gdgagent-svc >/dev/null 2>&1; then
+    useradd --system --create-home --home-dir /home/gdgagent-svc --gid gdgagent-svc \
+      --groups gdgwiki --shell /usr/sbin/nologin gdgagent-svc
+  else
+    usermod -g gdgagent-svc gdgagent-svc || true
+    usermod -aG gdgwiki gdgagent-svc || true
+  fi
   local slot
   for slot in $(seq 0 $((SLOT_COUNT - 1))); do
     groupadd --system "gdgagent-run-${slot}" || true

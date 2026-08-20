@@ -150,6 +150,10 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     const result = spawnSync("bash", [hostInstall], { encoding: "utf8", env });
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(result.stdout, /gdgjp checkout/);
+    const installSrc = await readFile(hostInstall, "utf8");
+    assert.match(installSrc, /groupadd --system gdgagent-svc/);
+    assert.match(installSrc, /--gid gdgagent-svc/);
+    assert.doesNotMatch(installSrc, /useradd.*--gid gdgwiki.*gdgagent-svc/);
     const wk = await stat(join(prefix, "opt/gdg-agent/bin/wk"));
     assert.equal(wk.mode & 0o111, 0o111);
 

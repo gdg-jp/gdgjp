@@ -28,6 +28,8 @@
       "connpass/fixtures/html/*_files/**",
       ".agents/**",
       ".claude/**",
+      ".cursor/**",
+      "agents-local/.cursor/**",
       "learn/**"
     ]
   },
