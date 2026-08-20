@@ -4,6 +4,7 @@ declare global {
     IDP_CLIENT_SECRET: string;
     TOKEN_ENCRYPTION_KEY: string;
     GEMINI_API_KEY: string;
+    GOOGLE_OAUTH_CLIENT_SECRET: string;
     GOOGLE_SERVICE_ACCOUNT_JSON: string;
     RESEND_API_KEY: string;
     SHEETS_TEMPLATE_ID: string;

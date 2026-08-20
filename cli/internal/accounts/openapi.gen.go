@@ -21,6 +21,19 @@ const (
 	CookieAuthScopes = "cookieAuth.Scopes"
 )
 
+// Defines values for ChapterRegion.
+const (
+	Chubu    ChapterRegion = "chubu"
+	Chugoku  ChapterRegion = "chugoku"
+	Hokkaido ChapterRegion = "hokkaido"
+	Kansai   ChapterRegion = "kansai"
+	Kanto    ChapterRegion = "kanto"
+	Kyushu   ChapterRegion = "kyushu"
+	Other    ChapterRegion = "other"
+	Shikoku  ChapterRegion = "shikoku"
+	Tohoku   ChapterRegion = "tohoku"
+)
+
 // Defines values for OAuthClientGrantTypes.
 const (
 	OAuthClientGrantTypesAuthorizationCode OAuthClientGrantTypes = "authorization_code"
@@ -118,11 +131,15 @@ const (
 
 // Chapter defines model for Chapter.
 type Chapter struct {
-	Id   string `json:"id"`
-	Kind string `json:"kind"`
-	Name string `json:"name"`
-	Slug string `json:"slug"`
+	Id     string        `json:"id"`
+	Kind   string        `json:"kind"`
+	Name   string        `json:"name"`
+	Region ChapterRegion `json:"region"`
+	Slug   string        `json:"slug"`
 }
+
+// ChapterRegion defines model for Chapter.Region.
+type ChapterRegion string
 
 // ChapterDirectory defines model for ChapterDirectory.
 type ChapterDirectory struct {
