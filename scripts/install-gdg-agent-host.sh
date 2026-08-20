@@ -192,31 +192,14 @@ create_users() {
 }
 
 apply_ownership() {
-  [[ -z "$PREFIX" && "$(id -u)" -eq 0 ]] || return 0
-  echo "==> ownership + linger"
-  chown -R root:root /opt/gdg-agent
-  find /opt/gdg-agent/lib /opt/gdg-agent/package.json -type f -exec chmod 0444 {} +
-  chmod 0755 /opt/gdg-agent /opt/gdg-agent/bin /opt/gdg-agent/lib
-  chmod 0755 /opt/gdg-agent/bin/wk /opt/gdg-agent/bin/spawn-slot-* /opt/gdg-agent/bin/index-proxy \
-    2>/dev/null || true
-  install -d -m 2770 -o gdgagent-svc -g gdgwiki /srv/gdg-agent/wiki
-  chgrp -R gdgwiki /srv/gdg-agent/wiki
-  find /srv/gdg-agent/wiki -type d -exec chmod 2770 {} +
-  install -d -m 0755 -o gdgagent-svc -g gdgagent-svc /run/gdg-agent
-  local slot
-  for slot in $(seq 0 $((SLOT_COUNT - 1))); do
-    install -d -m 0750 -o root -g "gdgagent-run-${slot}" "/home/gdgagent-run-${slot}"
-    install -d -m 0755 -o root -g "gdgagent-run-${slot}" "/home/gdgagent-run-${slot}/.cursor"
-    chown root:root /home/gdgagent-run-${slot}/.cursor/{hooks,cli-config,sandbox,mcp}.json
-    chmod 0444 /home/gdgagent-run-${slot}/.cursor/{hooks,cli-config,sandbox,mcp}.json
-    install -d -m 0750 -o gdgagent-svc -g "gdgagent-run-${slot}" "/run/gdg-agent/${slot}"
-  done
-  install -d -m 0700 -o gdgagent-svc -g gdgagent-svc /home/gdgagent-svc/.config/gdg
-  install -d -m 0700 -o gdgagent-svc -g gdgagent-svc /home/gdgagent-svc/.config/xangi
-  chmod 0440 /etc/sudoers.d/gdg-agent
-  visudo -c -f /etc/sudoers.d/gdg-agent
-  systemd-tmpfiles --create /etc/tmpfiles.d/gdg-agent.conf
-  loginctl enable-linger gdgagent-svc
+  local src="$layout_dir/lib/apply-ownership.sh"
+  if [[ ! -f "$src" ]]; then
+    echo "missing $src" >&2
+    return 1
+  fi
+  # shellcheck source=lib/apply-ownership.sh
+  . "$src"
+  gdg_agent_apply_ownership "$SLOT_COUNT"
 }
 
 maybe_reexec_root() {

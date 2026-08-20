@@ -117,6 +117,11 @@ for ((slot = 0; slot < SLOT_COUNT; slot++)); do
   install -d -m 0750 "$RUN_ROOT/$slot"
 done
 
+# Prefix/tests keep the invoking uid. Live install must match Stage 07
+# (gdgagent-svc:gdgwiki 2770) before setup.sh's write checks.
+if [[ -z "$PREFIX" ]] && id gdgagent-svc >/dev/null 2>&1 && getent group gdgwiki >/dev/null 2>&1; then
+  chown gdgagent-svc:gdgwiki "$WIKI_ROOT"
+fi
 chmod 2770 "$WIKI_ROOT"
 chmod 0755 "$RUN_ROOT"
 echo "Installed agent layout under $AGENT_ROOT ($SLOT_COUNT slots)"
