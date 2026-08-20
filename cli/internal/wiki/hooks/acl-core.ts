@@ -141,13 +141,14 @@ export async function resolveAuthz(): Promise<Authz> {
   return { classes, channelAudience };
 }
 
-function unixGet(
+function unixRequest(
   socketPath: string,
+  method: "GET" | "POST",
   path: string,
   timeoutMs = 5_000,
 ): Promise<{ status: number; body: string }> {
   return new Promise((ok, reject) => {
-    const req = request({ socketPath, path, method: "GET", host: "localhost" }, (res) => {
+    const req = request({ socketPath, path, method, host: "localhost" }, (res) => {
       let data = "";
       res.setEncoding("utf8");
       res.on("data", (chunk: string) => {
@@ -159,6 +160,42 @@ function unixGet(
     req.on("error", reject);
     req.end();
   });
+}
+
+function unixGet(
+  socketPath: string,
+  path: string,
+  timeoutMs = 5_000,
+): Promise<{ status: number; body: string }> {
+  return unixRequest(socketPath, "GET", path, timeoutMs);
+}
+
+/** Ask xangi to hold the repository mutex for this invocation. Fail closed. */
+export async function acquireRepoLockViaAuthz(): Promise<void> {
+  const nonce = process.env.XANGI_AUTHZ_NONCE;
+  const socketPath = process.env.XANGI_AUTHZ_SOCKET;
+  if (!nonce || !socketPath)
+    fail("wk: missing invocation authorization; retry from the agent launcher");
+  let status = 0;
+  let body = "";
+  try {
+    ({ status, body } = await unixRequest(
+      socketPath,
+      "POST",
+      `/repo-lock?nonce=${encodeURIComponent(nonce)}`,
+      5_000,
+    ));
+  } catch (error) {
+    fail(
+      `wk: repository lock request failed; retry after the other task finishes (${
+        error instanceof Error ? error.message : "error"
+      })`,
+    );
+  }
+  if (status === 200) return;
+  fail(
+    `wk: repository is locked by another invocation; retry after it finishes (${body.trim() || status})`,
+  );
 }
 
 export type VerifyAclOutcome =

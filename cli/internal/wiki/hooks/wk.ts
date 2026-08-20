@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 
 import {
   type Authz,
+  acquireRepoLockViaAuthz,
   findCloneRoot,
   isAlwaysVisible,
   isPagePath,
@@ -228,8 +229,9 @@ function restoreHidden(previous: string, submitted: string, root: string, authz:
   return output;
 }
 
-function writeCommand(root: string, authz: Authz, args: string[]): void {
+async function writeCommand(root: string, authz: Authz, args: string[]): Promise<void> {
   if (args.length !== 1) usage();
+  await acquireRepoLockViaAuthz();
   const content = readFileSync(0, "utf8");
   const target = ensurePageWrite(root, args[0], content, authz);
   const merged =
@@ -247,8 +249,9 @@ function writeCommand(root: string, authz: Authz, args: string[]): void {
   writeFileSync(target.absolute, tagged, "utf8");
 }
 
-function rmCommand(root: string, authz: Authz, args: string[]): void {
+async function rmCommand(root: string, authz: Authz, args: string[]): Promise<void> {
   if (args.length !== 1) usage();
+  await acquireRepoLockViaAuthz();
   const target = ensurePageWrite(root, args[0], "---\nvisibility: private\n---\n", authz);
   if (target.previous === null) fail("wk: cannot remove a missing page");
   const sources = loadAclSources(root);
@@ -277,6 +280,7 @@ function hasGitFilter(root: string, path: string): boolean {
 async function gitCommand(root: string, _authz: Authz, args: string[]): Promise<void> {
   const action = args.shift();
   if (!action || !["status", "add", "commit", "diff"].includes(action)) usage();
+  if (action === "add" || action === "commit") await acquireRepoLockViaAuthz();
   if (action === "status" || action === "diff") {
     if (args.length !== 0) fail(`wk: git ${action} accepts no options or paths`);
   } else if (action === "add") {
@@ -332,10 +336,10 @@ async function main(): Promise<void> {
       lsCommand(root, authz, args);
       break;
     case "write":
-      writeCommand(root, authz, args);
+      await writeCommand(root, authz, args);
       break;
     case "rm":
-      rmCommand(root, authz, args);
+      await rmCommand(root, authz, args);
       break;
     case "git":
       await gitCommand(root, authz, args);
