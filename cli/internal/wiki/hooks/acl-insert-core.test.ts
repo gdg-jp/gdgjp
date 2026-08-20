@@ -50,6 +50,9 @@ describe("acl-insert-core", () => {
 
     const fenced = insertAclSpans(page, `${fm}\`\`\`\nsecret-id\n\`\`\`\n`, fm, ["org-src"]);
     assert.equal(fenced.ok, false);
+
+    const missing = insertAclSpans(page, "not a page\n", "", ["org-src"]);
+    assert.equal(missing.ok, false);
   });
 
   it("does not nest inside an existing span", () => {

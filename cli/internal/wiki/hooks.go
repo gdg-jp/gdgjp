@@ -39,9 +39,6 @@ var cursorHooksConfig = map[string]any{
 		"beforeReadFile": []map[string]any{
 			{"command": "node .gdgwiki/hooks/acl-gate.ts read", "timeout": 10},
 		},
-		"afterFileEdit": []map[string]any{
-			{"command": "node .gdgwiki/hooks/acl-gate.ts write", "timeout": 10},
-		},
 		"beforeShellExecution": []map[string]any{
 			{"command": "node .gdgwiki/hooks/acl-gate.ts shell", "timeout": 300},
 		},

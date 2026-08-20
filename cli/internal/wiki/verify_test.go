@@ -45,6 +45,7 @@ func TestResolveReadSourceIDsUsesLocksNotQueueHead(t *testing.T) {
 	if _, err := LockDocument(root, "doc-2", "owner-a", "def"); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("GDG_WIKI_LOCK_OWNER", "owner-a")
 	ids = ResolveReadSourceIDs(root, state, IngestTrace{})
 	if len(ids) != 1 || ids[0] != "locked-src" {
 		t.Fatalf("ids with lock = %#v", ids)
@@ -241,6 +242,7 @@ func TestVerifyACLUsesTipCommitWhenGitCleanAndNoWrites(t *testing.T) {
 	if _, err := LockDocument(root, "doc-1", "owner-a", "h1"); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("GDG_WIKI_LOCK_OWNER", "owner-a")
 	writeVerifyTestPage(t, root, "index", "index", "index", "public", "public body")
 	writeVerifyTestPage(t, root, "umeda", "umeda", "umeda", "organizer", "secret body")
 	// No Cursor Writes — claude/codex / shell tee path. BaseRev pins the

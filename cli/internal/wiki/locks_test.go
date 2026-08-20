@@ -51,6 +51,7 @@ func TestLockDocumentIdempotentAndExclusive(t *testing.T) {
 	}
 
 	src := "locked-src"
+	t.Setenv("GDG_WIKI_LOCK_OWNER", "owner-b")
 	ids := LockedSourceIDs(root, State{Manifest: &SourcesManifest{Documents: []SourcesManifestEntry{
 		{DocumentID: "doc-1", SourceID: &src},
 	}}})
@@ -67,6 +68,29 @@ func TestLockDocumentIdempotentAndExclusive(t *testing.T) {
 	}
 	if len(locks.Locks) != 0 {
 		t.Fatalf("locks after force unlock = %#v", locks.Locks)
+	}
+}
+
+func TestLockedSourceIDsIgnoresOtherOwners(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
+		t.Fatal(err)
+	}
+	srcA, srcB := "src-a", "src-b"
+	state := State{Manifest: &SourcesManifest{Documents: []SourcesManifestEntry{
+		{DocumentID: "doc-a", SourceID: &srcA},
+		{DocumentID: "doc-b", SourceID: &srcB},
+	}}}
+	if _, err := LockDocument(root, "doc-a", "agent-a", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LockDocument(root, "doc-b", "agent-b", ""); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GDG_WIKI_LOCK_OWNER", "agent-a")
+	ids := LockedSourceIDs(root, state)
+	if len(ids) != 1 || ids[0] != "src-a" {
+		t.Fatalf("ids = %#v, want only agent-a", ids)
 	}
 }
 

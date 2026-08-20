@@ -197,8 +197,10 @@ function ensurePageWrite(
   const resolved = resolveClonePath(root, input, true);
   if (!isPagePath(resolved.rel)) fail("wk: writes are limited to pages/**/page.md");
   const previous = existsSync(resolved.absolute) ? readRaw(resolved.absolute) : null;
-  const page = readPageMeta(previous ?? content);
-  if (!canMutatePage(authz.classes, page)) fail("wk: current classes cannot modify this page");
+  readPageMeta(content);
+  const current = previous === null ? content : previous;
+  if (!canMutatePage(authz.classes, readPageMeta(current)))
+    fail("wk: current classes cannot modify this page");
   return { ...resolved, previous };
 }
 
@@ -232,6 +234,7 @@ function writeCommand(root: string, authz: Authz, args: string[]): void {
   const target = ensurePageWrite(root, args[0], content, authz);
   const merged =
     target.previous === null ? content : restoreHidden(target.previous, content, root, authz);
+  readPageMeta(merged);
   let tagged: string;
   try {
     tagged = applyAclInsertForWrite(root, target.rel, merged, runId());

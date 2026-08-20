@@ -372,14 +372,13 @@ func VerifyACL(ctx context.Context, root string, client *Client, token string, r
 		trace, err = LoadTrace(root)
 	}
 	if err != nil {
-		// Broken trace must not skip the queue-head gate.
+		// Broken trace must not invent source ids. Lock + read traces are the set.
 		trace = IngestTrace{}
 	}
 	readIDs := ResolveReadSourceIDs(root, state, trace)
 	// After git push the worktree matches origin/main, so dirty/diff is empty.
 	// Recover pages changed since ingest start (BaseRev..HEAD) without loading
-	// the whole wiki. Keep Cursor Writes as a supplement for afterFileEdit
-	// traces (shell tee/cat may bypass the write hook).
+	// the whole wiki. Trace writes remain a last-resort supplement.
 	if len(pages) == 0 {
 		commitRels, commitErr := CollectCommittedPageRels(ctx, root, runGit, trace.BaseRev)
 		if commitErr != nil {

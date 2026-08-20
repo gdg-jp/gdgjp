@@ -186,9 +186,8 @@ func releaseLocksMutex(root string) {
 	_ = os.Remove(locksMutexPath(root))
 }
 
-// LockedSourceIDs returns source ids for documents this owner (or any owner)
-// currently holds. Used by verify-acl so parallel ingest does not inherit the
-// queue-head source of a different agent.
+// LockedSourceIDs returns source ids for documents locked by LockOwner.
+// Parallel ingest must not inherit another agent's locked source.
 func LockedSourceIDs(root string, state State) []string {
 	if state.Manifest == nil {
 		return nil
@@ -205,7 +204,10 @@ func LockedSourceIDs(root string, state State) []string {
 	}
 	seen := map[string]struct{}{}
 	var ids []string
-	for documentID := range locks.Locks {
+	for documentID, entry := range locks.Locks {
+		if entry.Owner != LockOwner() {
+			continue
+		}
 		id := byDoc[documentID]
 		if id == "" {
 			continue

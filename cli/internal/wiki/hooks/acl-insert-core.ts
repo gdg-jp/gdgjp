@@ -209,9 +209,16 @@ export function insertAclSpans(
   if (sourceIds.length === 0 || isCatalogOrLogPage(rel))
     return { ok: true, markdown: nextMarkdown };
 
+  const fm = frontMatterRange(nextMarkdown);
+  if (fm === null) {
+    return {
+      ok: false,
+      message: `wk: refused: ${rel} is missing valid front matter; file was not written`,
+    };
+  }
+
   const added = new Set(addedLineIndices(baseMarkdown, nextMarkdown));
   const lines = linesOf(nextMarkdown);
-  const fm = frontMatterRange(nextMarkdown);
   const fences = codeFenceRanges(nextMarkdown);
   const spans = parseAclSpans(nextMarkdown) as Array<{ start: number; end: number }>;
   const wrap: boolean[] = lines.map(() => false);
@@ -341,10 +348,16 @@ function loadAclSourceVisibilities(root: string): Record<string, string> {
   }
 }
 
+function lockOwner(): string {
+  return (process.env.GDG_WIKI_LOCK_OWNER ?? "").trim();
+}
+
 function loadLockedSourceIds(root: string): string[] {
+  const owner = lockOwner();
+  if (!owner) return [];
   const path = join(root, ".gdgwiki", "ingest-locks.json");
   if (!existsSync(path)) return [];
-  let parsed: { locks?: Record<string, { document_id?: unknown }> };
+  let parsed: { locks?: Record<string, { document_id?: unknown; owner?: unknown }> };
   try {
     parsed = readJson(path) as typeof parsed;
   } catch {
@@ -355,8 +368,11 @@ function loadLockedSourceIds(root: string): string[] {
   const state = readJson(join(root, ".gdgwiki", "state.json")) as ManifestState;
   const docs = Array.isArray(state.manifest?.documents) ? state.manifest.documents : [];
   const ids: string[] = [];
-  for (const documentId of Object.keys(locks)) {
-    const match = docs.find((doc) => doc.documentId === documentId);
+  for (const [documentId, entry] of Object.entries(locks)) {
+    if (!entry || entry.owner !== owner) continue;
+    const id =
+      typeof entry.document_id === "string" && entry.document_id ? entry.document_id : documentId;
+    const match = docs.find((doc) => doc.documentId === id);
     if (match && typeof match.sourceId === "string") ids.push(match.sourceId);
   }
   return ids;
@@ -426,30 +442,44 @@ export function applyAclInsertForWrite(
 
 export type TripwireResult = { deny: boolean; message: string; warning?: string };
 
-function stagedPageRels(root: string): string[] {
+function stagedPageRels(root: string): { rels: string[]; warning?: string } {
   const out = gitText(root, ["diff", "--cached", "--name-only", "--", "pages/"]);
-  if (out === null) return [];
-  return out
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((rel) => /^pages\/(?:[^/]+\/)*page\.md$/.test(rel));
+  if (out === null)
+    return {
+      rels: [],
+      warning: "acl-gate: git diff --cached -- pages/ failed; allowing commit (fail open)",
+    };
+  return {
+    rels: out
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((rel) => /^pages\/(?:[^/]+\/)*page\.md$/.test(rel)),
+  };
 }
 
 function showAt(root: string, spec: string): string {
-  const text = gitText(root, ["show", spec]);
-  return text ?? "";
+  return gitText(root, ["show", spec]) ?? "";
 }
 
-export function inspectIndexForUntagged(root: string, runId: string): string[] {
+export function inspectIndexForUntagged(
+  root: string,
+  runId: string,
+): { findings: string[]; warning?: string } {
   let sourceIds: string[] = [];
   try {
     sourceIds = confidentialSourceIdsForRun(root, runId);
-  } catch {
-    return [];
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "source resolution failed";
+    return {
+      findings: [],
+      warning: `acl-gate: ${detail}; allowing commit (fail open)`,
+    };
   }
-  if (sourceIds.length === 0) return [];
+  if (sourceIds.length === 0) return { findings: [] };
+  const staged = stagedPageRels(root);
+  if (staged.warning) return { findings: [], warning: staged.warning };
   const findings: string[] = [];
-  for (const rel of stagedPageRels(root)) {
+  for (const rel of staged.rels) {
     findings.push(
       ...untaggedWrapEligibleAddedLines(
         rel,
@@ -459,7 +489,7 @@ export function inspectIndexForUntagged(root: string, runId: string): string[] {
       ),
     );
   }
-  return findings;
+  return { findings };
 }
 
 export function runCommitTripwire(root: string, runId: string): TripwireResult {
@@ -471,11 +501,14 @@ export function runCommitTripwire(root: string, runId: string): TripwireResult {
       warning: "acl-gate: git diff --cached failed; allowing commit (fail open)",
     };
   }
-  const findings = inspectIndexForUntagged(root, runId);
-  if (findings.length > 0) {
+  const inspected = inspectIndexForUntagged(root, runId);
+  if (inspected.warning && inspected.findings.length === 0) {
+    return { deny: false, message: "", warning: inspected.warning };
+  }
+  if (inspected.findings.length > 0) {
     return {
       deny: true,
-      message: `wk: refused: untagged added lines in the index (${findings.join(", ")}). This may be a gate violation — writes must go through wk write. The worktree was not modified.`,
+      message: `wk: refused: untagged added lines in the index (${inspected.findings.join(", ")}). This may be a gate violation — writes must go through wk write. The worktree was not modified.`,
     };
   }
   return runVerifyAclFailOpen(root);

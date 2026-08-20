@@ -965,6 +965,30 @@ func TestWikiIngestLockUnlock(t *testing.T) {
 	}
 }
 
+func TestWikiIngestLockFailsClosedWithoutHead(t *testing.T) {
+	root := setupWikiIngestRoot(t)
+	manifest := wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{
+		{DocumentID: "doc-1", Kind: "wiki-human", Title: "First", Path: "raw/first/page.md", ContentHash: "first-hash"},
+	}}
+	if err := wiki.WriteState(root, wiki.State{Manifest: &manifest}); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GDG_WIKI_LOCK_OWNER", "agent-head")
+	service := testWikiService(func(context.Context, string, ...string) (string, error) {
+		return "", errors.New("rev-parse failed")
+	})
+	if _, err := executeWiki(t, service, "ingest", "lock"); err == nil || !strings.Contains(err.Error(), "BaseRev") {
+		t.Fatalf("error = %v, want BaseRev failure", err)
+	}
+	locks, err := wiki.LoadLocks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(locks.Locks) != 0 {
+		t.Fatalf("lock must be released after BaseRev failure: %#v", locks.Locks)
+	}
+}
+
 func TestWikiIngestLockNoClaimable(t *testing.T) {
 	root := setupWikiIngestRoot(t)
 	service := testWikiService(func(context.Context, string, ...string) (string, error) {

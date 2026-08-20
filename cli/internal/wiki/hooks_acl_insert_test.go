@@ -128,6 +128,7 @@ func runWk(t *testing.T, root, sock, runID string, stdin string, args ...string)
 	cmd.Stdin = strings.NewReader(stdin)
 	cmd.Env = append(os.Environ(),
 		"GDG_WIKI_RUN_ID="+runID,
+		"GDG_WIKI_LOCK_OWNER=owner-a",
 		"XANGI_AUTHZ_NONCE=test-nonce",
 		"XANGI_AUTHZ_SOCKET="+sock,
 		"GDG_BIN="+writeStubGdg(t),
@@ -294,6 +295,65 @@ func TestWkGitCommitTripwireSeesIndexNotWorktree(t *testing.T) {
 	}
 	if string(after) != tagged {
 		t.Fatal("tripwire must not insert into the worktree")
+	}
+}
+
+func TestWkWriteRefusesMalformedFrontMatter(t *testing.T) {
+	root, page, head := seedPageRepo(t)
+	runID := "run-fm"
+	writeWkFixture(t, root, page, head, runID)
+	before, err := os.ReadFile(filepath.Join(root, page))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sock := startTestAuthz(t)
+	_, stderr, err := runWk(t, root, sock, runID, "no front matter\nsecret\n", "write", page)
+	if err == nil {
+		t.Fatal("expected malformed front matter refuse")
+	}
+	if !strings.Contains(stderr, "front matter") {
+		t.Fatalf("stderr = %s", stderr)
+	}
+	after, err := os.ReadFile(filepath.Join(root, page))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatal("file changed on malformed front matter")
+	}
+}
+
+func TestWkGitCommitFailOpenWithoutGdg(t *testing.T) {
+	root, page, head := seedPageRepo(t)
+	runID := "run-opengdg"
+	writeWkFixture(t, root, page, head, runID)
+	sock := startTestAuthz(t)
+	next := "---\nvisibility: public\n---\noriginal\nderived from secret\n"
+	if _, stderr, err := runWk(t, root, sock, runID, next, "write", page); err != nil {
+		t.Fatalf("wk write: %v\n%s", err, stderr)
+	}
+	if _, stderr, err := runWk(t, root, sock, runID, "", "git", "add", page); err != nil {
+		t.Fatalf("wk git add: %v\n%s", err, stderr)
+	}
+	cmd := exec.Command("node", filepath.Join(hooksDir(t), "wk.ts"), "git", "commit", "-m", "x")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(),
+		"GDG_WIKI_RUN_ID="+runID,
+		"GDG_WIKI_LOCK_OWNER=owner-a",
+		"XANGI_AUTHZ_NONCE=test-nonce",
+		"XANGI_AUTHZ_SOCKET="+sock,
+		"GDG_BIN=/no-such-gdg-bin",
+		"GIT_AUTHOR_NAME=test",
+		"GIT_AUTHOR_EMAIL=test@example.com",
+		"GIT_COMMITTER_NAME=test",
+		"GIT_COMMITTER_EMAIL=test@example.com",
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("commit should fail open: %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), "fail open") && !strings.Contains(string(out), "verify-acl failed") {
+		t.Fatalf("expected fail-open warning, got %s", out)
 	}
 }
 
