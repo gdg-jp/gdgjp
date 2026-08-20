@@ -11,6 +11,8 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..")
 const layoutScript = join(repositoryRoot, "scripts/gdg-agent/install-layout.sh");
 const hooksSrc = join(repositoryRoot, "cli/internal/wiki/hooks");
 const submoduleLayout = join(repositoryRoot, "agents-local/lib/install-layout.sh");
+const hostInstall = join(repositoryRoot, "scripts/install-gdg-agent-host.sh");
+const submoduleHostInstall = join(repositoryRoot, "agents-local/install.sh");
 
 async function withLayoutFixture(run) {
   const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-layout-"));
@@ -40,6 +42,13 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
       await readFile(layoutScript, "utf8"),
       await readFile(submoduleLayout, "utf8"),
       "scripts/gdg-agent/install-layout.sh must match agents-local/lib/install-layout.sh",
+    );
+  }
+  if (existsSync(submoduleHostInstall)) {
+    assert.equal(
+      await readFile(hostInstall, "utf8"),
+      await readFile(submoduleHostInstall, "utf8"),
+      "scripts/install-gdg-agent-host.sh must match agents-local/install.sh",
     );
   }
   await withLayoutFixture(async ({ prefix, env }) => {
@@ -120,4 +129,40 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
     const execSpawn = await readFile(join(prefix, "opt/gdg-agent/lib/exec-spawn.ts"), "utf8");
     assert.match(execSpawn, /"--mcp-config", `\$\{home\}\/\.cursor\/mcp\.json`/);
   });
+});
+
+test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", async () => {
+  const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-install-"));
+  const hooksDir = await mkdtemp(join(tmpdir(), "gdg-agent-install-hooks-"));
+  try {
+    await cp(hooksSrc, hooksDir, { recursive: true });
+    await writeFile(join(hooksDir, "acl.ts"), "export {};\n", "utf8");
+    const env = {
+      ...process.env,
+      GDG_SETUP_PREFIX: prefix,
+      GDGJP_ROOT: repositoryRoot,
+      GDG_SKIP_CLONE: "1",
+      GDG_SKIP_BUILD: "1",
+      GDG_SETUP_HOOKS_SRC: hooksDir,
+      GDG_SETUP_INDEX_PROXY_SRC: join(repositoryRoot, "agents-index/src/proxy.ts"),
+      GDG_AGENT_SLOT_COUNT: "4",
+    };
+    const result = spawnSync("bash", [hostInstall], { encoding: "utf8", env });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /gdgjp checkout/);
+    const wk = await stat(join(prefix, "opt/gdg-agent/bin/wk"));
+    assert.equal(wk.mode & 0o111, 0o111);
+
+    const liveEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => key !== "GDG_SETUP_PREFIX"),
+    );
+    const live = spawnSync("bash", [hostInstall], { encoding: "utf8", env: liveEnv });
+    if (process.platform !== "linux") {
+      assert.notEqual(live.status, 0);
+      assert.match(`${live.stderr}${live.stdout}`, /Ubuntu only/);
+    }
+  } finally {
+    await rm(prefix, { recursive: true, force: true });
+    await rm(hooksDir, { recursive: true, force: true });
+  }
 });
