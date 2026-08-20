@@ -13,3 +13,4 @@ packages:
   - "go-extension"
   - "gdg-lib"
   - "accounts-oidc-client-demo"
+  - "agents-index"
