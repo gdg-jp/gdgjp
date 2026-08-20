@@ -19,6 +19,8 @@ This is a flat pnpm/Turborepo monorepo. The eleven workspace packages are listed
   TinyURL service binding and has no D1 database.
 - `gdg-lib/` is the source-only shared TypeScript package (`@gdgjp/gdg-lib`) for relying-party
   auth and signed-cookie helpers. Keep code app-local unless it is genuinely shared here.
+- `agents-index/` is the local, ACL-filtered semantic navigation MCP service for the shared wiki
+  worktree. Its results must never include indexed document text.
 - `tinyurl-gateway/` is a Vercel Edge gateway for TinyURL custom domains.
 - `go-extension/` is a Manifest V3 Chrome extension.
 - `accounts-oidc-client-demo/` is a standalone Cloudflare Worker demonstrating an OIDC relying
