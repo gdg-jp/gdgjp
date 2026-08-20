@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
@@ -12,20 +12,26 @@ const layoutScript = join(repositoryRoot, "scripts/gdg-agent/install-layout.sh")
 const hooksSrc = join(repositoryRoot, "cli/internal/wiki/hooks");
 const submoduleLayout = join(repositoryRoot, "agents-local/lib/install-layout.sh");
 
-async function installLayout() {
+async function withLayoutFixture(run) {
   const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-layout-"));
-  const result = spawnSync("bash", [layoutScript], {
-    encoding: "utf8",
-    env: {
+  const hooksDir = await mkdtemp(join(tmpdir(), "gdg-agent-hooks-"));
+  try {
+    await cp(hooksSrc, hooksDir, { recursive: true });
+    await writeFile(join(hooksDir, "acl.ts"), "export {};\n", "utf8");
+    const env = {
       ...process.env,
       GDG_SETUP_PREFIX: prefix,
-      GDG_SETUP_HOOKS_SRC: hooksSrc,
+      GDG_SETUP_HOOKS_SRC: hooksDir,
       GDG_SETUP_INDEX_PROXY_SRC: join(repositoryRoot, "agents-index/src/proxy.ts"),
       GDG_AGENT_SLOT_COUNT: "4",
-    },
-  });
-  assert.equal(result.status, 0, result.stderr || result.stdout);
-  return prefix;
+    };
+    const result = spawnSync("bash", [layoutScript], { encoding: "utf8", env });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    await run({ prefix, env });
+  } finally {
+    await rm(prefix, { recursive: true, force: true });
+    await rm(hooksDir, { recursive: true, force: true });
+  }
 }
 
 test("agent layout is idempotent, root-owned templates, and has no sudoers wildcards", async () => {
@@ -36,18 +42,8 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
       "scripts/gdg-agent/install-layout.sh must match agents-local/lib/install-layout.sh",
     );
   }
-  const prefix = await installLayout();
-  try {
-    const again = spawnSync("bash", [layoutScript], {
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        GDG_SETUP_PREFIX: prefix,
-        GDG_SETUP_HOOKS_SRC: hooksSrc,
-        GDG_SETUP_INDEX_PROXY_SRC: join(repositoryRoot, "agents-index/src/proxy.ts"),
-        GDG_AGENT_SLOT_COUNT: "4",
-      },
-    });
+  await withLayoutFixture(async ({ prefix, env }) => {
+    const again = spawnSync("bash", [layoutScript], { encoding: "utf8", env });
     assert.equal(again.status, 0, again.stderr || again.stdout);
 
     const sudoers = await readFile(join(prefix, "etc/sudoers.d/gdg-agent"), "utf8");
@@ -123,7 +119,5 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
 
     const execSpawn = await readFile(join(prefix, "opt/gdg-agent/lib/exec-spawn.ts"), "utf8");
     assert.match(execSpawn, /"--mcp-config", `\$\{home\}\/\.cursor\/mcp\.json`/);
-  } finally {
-    await rm(prefix, { recursive: true, force: true });
-  }
+  });
 });
