@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": "/usr/bin/node /opt/gdg-agent/lib/acl-gate.ts /opt/gdg-agent/bin/wk",
+        "timeout": 10,
+        "failClosed": true
+      }
+    ]
+  }
+}

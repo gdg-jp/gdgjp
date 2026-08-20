@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
@@ -16,6 +16,32 @@ function runNode(script, args, options = {}) {
   return spawnSync(process.execPath, [script, ...args], {
     encoding: "utf8",
     ...options,
+  });
+}
+
+function runNodeAsync(script, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const { input, ...rest } = options;
+    const child = spawn(process.execPath, [script, ...args], {
+      ...rest,
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.setEncoding("utf8");
+    child.stderr?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", reject);
+    child.on("close", (status) => resolve({ status, stdout, stderr }));
+    if (input) {
+      child.stdin?.end(input);
+    } else {
+      child.stdin?.end();
+    }
   });
 }
 
@@ -97,6 +123,82 @@ test("ACL gate denies only the gdg ACL-violation exit status for wk git commit",
   assert.equal(infrastructureFailure.status, 0);
   assert.equal(infrastructureFailure.stdout, "");
   assert.match(infrastructureFailure.stderr, /allowing commit \(fail open\)/);
+});
+
+test("ACL gate uses the authorization socket for verify-acl when present", async () => {
+  const { createServer } = await import("node:http");
+  const root = await makeClone();
+  spawnSync("git", ["init", "-b", "main"], { cwd: root, encoding: "utf8" });
+  const sockDir = await mkdtemp(join("/tmp", "gdgjp-authz-"));
+  const sock = join("/tmp", `${sockDir.split("/").at(-1)}.sock`);
+  const server = createServer((req, res) => {
+    const url = req.url ?? "";
+    if (url.startsWith("/verify-acl?")) {
+      const body = JSON.stringify({ findings: "missing ACL span" });
+      res.writeHead(409, { "Content-Type": "application/json" });
+      res.end(body);
+      return;
+    }
+    res.writeHead(400);
+    res.end();
+  });
+  await new Promise((resolve, reject) => {
+    server.listen(sock, () => resolve(undefined));
+    server.on("error", reject);
+  });
+  try {
+    const result = await runNodeAsync(aclGatePath, [], {
+      cwd: root,
+      input: payload("Shell", { tool_input: { command: "wk git commit -m test" } }),
+      env: {
+        ...process.env,
+        XANGI_AUTHZ_NONCE: "test-nonce",
+        XANGI_AUTHZ_SOCKET: sock,
+        GDG_BIN: "/nonexistent/gdg",
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.stdout, result.stderr);
+    assert.equal(JSON.parse(result.stdout).permission, "deny");
+    assert.match(result.stdout, /missing ACL span/);
+  } finally {
+    await new Promise((resolve) => server.close(() => resolve(undefined)));
+    await rm(sock, { force: true });
+  }
+});
+
+test("ACL gate treats verify-acl 404 as an authorization rejection", async () => {
+  const { createServer } = await import("node:http");
+  const root = await makeClone();
+  spawnSync("git", ["init", "-b", "main"], { cwd: root, encoding: "utf8" });
+  const sockDir = await mkdtemp(join("/tmp", "gdgjp-authz-"));
+  const sock = join("/tmp", `${sockDir.split("/").at(-1)}.sock`);
+  const server = createServer((_req, res) => {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "unknown_or_expired" }));
+  });
+  await new Promise((resolve, reject) => {
+    server.listen(sock, () => resolve(undefined));
+    server.on("error", reject);
+  });
+  try {
+    const result = await runNodeAsync(aclGatePath, [], {
+      cwd: root,
+      input: payload("Shell", { tool_input: { command: "wk git commit -m test" } }),
+      env: {
+        ...process.env,
+        XANGI_AUTHZ_NONCE: "test-nonce",
+        XANGI_AUTHZ_SOCKET: sock,
+        GDG_BIN: "/nonexistent/gdg",
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout).permission, "deny");
+    assert.match(result.stdout, /unknown_or_expired/);
+  } finally {
+    await new Promise((resolve) => server.close(() => resolve(undefined)));
+    await rm(sock, { force: true });
+  }
 });
 
 test("pre-commit hook does not invoke pnpm for malformed or non-commit payloads", async () => {

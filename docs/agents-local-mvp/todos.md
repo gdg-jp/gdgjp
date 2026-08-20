@@ -35,7 +35,7 @@
 
 ## Wave 6
 
-- [ ] **07** [uid 分離と OS サンドボックス](07-agent-uid-isolation.md) — 依存: 05
+- [x] **07** [uid 分離と OS サンドボックス](07-agent-uid-isolation.md) — 依存: 05
   - **07 が通るまで本番投入しない**（下記の関門）
 
 ## Wave 7
