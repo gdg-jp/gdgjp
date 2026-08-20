@@ -1,12 +1,15 @@
 package wiki
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // ValidateACLAccess is the subset of AccessEntry needed for dry-run ACL checks.
@@ -309,6 +312,10 @@ func ResolveReadSourceIDs(root string, state State, trace IngestTrace) []string 
 
 	for _, readPath := range trace.Reads {
 		readPath = filepath.ToSlash(strings.TrimPrefix(readPath, "./"))
+		if strings.HasPrefix(readPath, "memories/") {
+			addSourceID(seen, &ids, sourceIDFromMemoryFile(root, readPath))
+			continue
+		}
 		for _, doc := range state.Manifest.Documents {
 			docPath := filepath.ToSlash(doc.Path)
 			matched := readPath == docPath ||
@@ -320,6 +327,30 @@ func ResolveReadSourceIDs(root string, state State, trace IngestTrace) []string 
 		}
 	}
 	return ids
+}
+
+type memoryFrontMatter struct {
+	UploadedSourceID *string `yaml:"uploaded_source_id"`
+}
+
+func sourceIDFromMemoryFile(root, rel string) string {
+	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		return ""
+	}
+	if !bytes.HasPrefix(raw, []byte("---\n")) {
+		return ""
+	}
+	rest := raw[4:]
+	n := bytes.Index(rest, []byte("\n---\n"))
+	if n < 0 {
+		return ""
+	}
+	var fm memoryFrontMatter
+	if err = yaml.Unmarshal(rest[:n], &fm); err != nil || fm.UploadedSourceID == nil {
+		return ""
+	}
+	return strings.TrimSpace(*fm.UploadedSourceID)
 }
 
 // FormatACLFindings renders findings for agents and --commit output.

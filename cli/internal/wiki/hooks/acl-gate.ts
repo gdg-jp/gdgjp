@@ -1,37 +1,36 @@
 /**
- * Cursor project hook for Wiki ingest ACL gating.
- *
- * Usage (argv selects the event — Cursor stdin does not always include the name):
- *   node .gdgwiki/hooks/acl-gate.ts read|write|shell
- *
- * Insertion is `wk write` only. This file never inserts tags.
- * `wk git commit` runs the index tripwire in-process. This hook, when it still
- * sees a commit, delegates to the same tripwire if `acl-insert-core.ts` is
- * present, then fail-opens on infrastructure errors. Exit 1 from
- * `gdg wiki verify-acl` is an ACL violation; untagged index blobs are a
- * possible gate violation.
+ * Cursor preToolUse gate. Denies every read/write path except wk.
+ * Does not evaluate ACL classes — that lives in wk.
  */
 import { spawnSync } from "node:child_process";
-import type { SpawnSyncReturns } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { appendFileSync, existsSync, readFileSync, realpathSync } from "node:fs";
+import { join, relative, resolve, sep } from "node:path";
 
-type HookPayload = {
+import { findCloneRoot } from "./acl-core.ts";
+import { untaggedStagedAdds } from "./commit-tripwire.ts";
+import { inspectWkScript, isGitCommitInvocation } from "./shell-allowlist.ts";
+
+/** Named allowlist: unknown tool names are deny. */
+const PASSTHROUGH_TOOLS = new Set(["Read", "Grep", "List", "Shell"]);
+const MCP_ALLOWLIST = new Set(["search"]);
+const GATED_PREFIXES = ["pages/", "raw/", "memories/"];
+
+type ToolInput = {
   command?: unknown;
+  cwd?: unknown;
   file_path?: unknown;
+  glob?: unknown;
   path?: unknown;
-  tool_input?: {
-    command?: unknown;
-  };
+  pattern?: unknown;
+  target_directory?: unknown;
 };
 
-type IngestTrace = {
-  runId: string;
-  startedAt: number;
-  queueHeadDocumentId: string;
-  reads: string[];
-  writes: string[];
+type HookPayload = {
+  cwd?: unknown;
+  file_path?: unknown;
+  path?: unknown;
+  tool_input?: ToolInput;
+  tool_name?: unknown;
 };
 
 function readStdin(): string {
@@ -42,218 +41,261 @@ function readStdin(): string {
   }
 }
 
-function parsePayload(raw: string): HookPayload {
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function parsePayload(raw: string): HookPayload | null {
   try {
-    const payload: unknown = JSON.parse(raw || "{}");
-    return typeof payload === "object" && payload !== null ? (payload as HookPayload) : {};
+    const parsed: unknown = JSON.parse(raw || "null");
+    return asRecord(parsed);
   } catch {
-    return {};
+    return null;
   }
 }
 
-function findCloneRoot(start: string): string | null {
-  let dir = resolve(start || process.cwd());
-  for (;;) {
-    if (existsSync(join(dir, ".gdgwiki", "config.json"))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-
-function toRel(root: string, absoluteOrRel: unknown): string | null {
-  if (!absoluteOrRel || typeof absoluteOrRel !== "string") return null;
-  const abs = resolve(absoluteOrRel);
-  const rel = relative(root, abs);
-  if (!rel || rel.startsWith("..") || rel.startsWith(`..${sep}`)) return null;
-  return rel.split(sep).join("/");
-}
-
-function loadTrace(root: string): IngestTrace {
-  const path = join(root, ".gdgwiki", "ingest-trace.json");
+function cloneRootOrNull(start: string): string | null {
   try {
-    const raw = readFileSync(path, "utf8");
-    const parsed = JSON.parse(raw) as Partial<IngestTrace>;
-    return {
-      runId: parsed.runId || "",
-      startedAt: parsed.startedAt || 0,
-      queueHeadDocumentId: parsed.queueHeadDocumentId || "",
-      reads: Array.isArray(parsed.reads) ? parsed.reads : [],
-      writes: Array.isArray(parsed.writes) ? parsed.writes : [],
-    };
+    return findCloneRoot(start);
   } catch {
-    return {
-      runId: `hook-${Date.now()}`,
-      startedAt: Math.floor(Date.now() / 1000),
-      queueHeadDocumentId: "",
-      reads: [],
-      writes: [],
-    };
+    return null;
   }
 }
 
-function saveTrace(root: string, trace: IngestTrace): void {
-  const dir = join(root, ".gdgwiki");
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "ingest-trace.json"), `${JSON.stringify(trace, null, 2)}\n`, "utf8");
+function stringField(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-function appendUnique(list: string[], value: string): string[] {
-  if (!value || list.includes(value)) return list;
-  return [...list, value];
-}
-
-function appendRead(root: string, rel: string | null): void {
-  if (!rel || !rel.startsWith("raw/")) return;
-  const trace = loadTrace(root);
-  trace.reads = appendUnique(trace.reads, rel);
-  saveTrace(root, trace);
-}
-
-function appendWrite(root: string, rel: string | null): void {
-  if (!rel || !rel.startsWith("pages/")) return;
-  const trace = loadTrace(root);
-  // Writes are audit-only pre-push; after push, verify-acl recovers the
-  // submitted page set from this list when the git diff is empty.
-  trace.writes = appendUnique(trace.writes, rel);
-  saveTrace(root, trace);
-}
-
-function extractRawPaths(command: unknown, root: string): void {
-  if (!command || typeof command !== "string") return;
-  const re = /(?:^|[\s"'`])((?:\.\/)?raw\/[^\s"'`;|&<>]+)/g;
-  for (const match of command.matchAll(re)) {
-    const matchedPath = match[1];
-    if (!matchedPath) continue;
-    const rel = toRel(root, resolve(root, matchedPath));
-    if (rel) appendRead(root, rel);
-  }
-}
-
-function resolveGdgBin(): string {
-  if (process.env.GDG_BIN) return process.env.GDG_BIN;
-  return "gdg";
-}
-
-function deny(findings: string, gateViolation = false): void {
-  process.stdout.write(
-    JSON.stringify({
-      permission: "deny",
-      agent_message: gateViolation
-        ? `<acl> tagging is incomplete and this may be a gate violation. ${findings}\nWrites must go through wk write so staged blobs already contain tags.`
-        : `<acl> tagging is incomplete. ${findings}\nWrap the material from the listed source in <acl src="…">…</acl>, then retry the commit.`,
-      user_message: "ACL gate blocked a commit in the Wiki clone.",
-    }),
+function toolPath(payload: HookPayload): string | null {
+  const input = payload.tool_input;
+  return (
+    stringField(input?.file_path) ??
+    stringField(input?.path) ??
+    stringField(input?.target_directory) ??
+    stringField(payload.file_path) ??
+    stringField(payload.path)
   );
 }
 
-function formatUnknownError(error: unknown): string {
-  if (error instanceof Error) return error.message;
+function toolCwd(payload: HookPayload, fallback: string): string {
+  return stringField(payload.tool_input?.cwd) ?? stringField(payload.cwd) ?? fallback;
+}
+
+function toPosix(rel: string): string {
+  return rel.split(sep).join("/");
+}
+
+function isAncestor(ancestor: string, child: string): boolean {
+  const top = toPosix(ancestor).replace(/\/+$/, "");
+  const inner = toPosix(child);
+  return inner === top || inner.startsWith(`${top}/`);
+}
+
+function classifyPath(root: string | null, input: string, cwd: string): "gated" | "other" {
+  const abs = resolve(cwd, input);
+  let target = abs;
   try {
-    return String(error);
+    if (existsSync(abs)) target = realpathSync(abs);
   } catch {
-    return "unknown error";
+    target = abs;
+  }
+  if (root) {
+    const rel = toPosix(relative(root, target));
+    if (!rel) return "gated";
+    if (rel === ".." || rel.startsWith("../")) {
+      return isAncestor(target, root) ? "gated" : "other";
+    }
+    if (GATED_PREFIXES.some((prefix) => rel === prefix.slice(0, -1) || rel.startsWith(prefix))) {
+      return "gated";
+    }
+    return "other";
+  }
+  const posix = toPosix(target);
+  if (
+    GATED_PREFIXES.some(
+      (prefix) => posix.includes(`/${prefix}`) || posix.endsWith(`/${prefix.slice(0, -1)}`),
+    )
+  ) {
+    return "gated";
+  }
+  return "other";
+}
+
+function wkReadHint(input: string | null, cwd: string, root: string | null): string {
+  if (!input) return "wk read <path>";
+  const abs = resolve(cwd, input);
+  let target = abs;
+  try {
+    if (existsSync(abs)) target = realpathSync(abs);
+  } catch {
+    target = abs;
+  }
+  if (!root) return `wk read ${input}`;
+  const rel = toPosix(relative(root, target));
+  if (!rel || rel.startsWith("..")) return `wk read ${input}`;
+  return `wk read ${rel}`;
+}
+
+function wkHint(tool: string, input: string | null, cwd: string, root: string | null): string {
+  const pathHint = wkReadHint(input, cwd, root).replace(/^wk read /, "");
+  if (tool === "Grep") return `wk grep <pattern> ${pathHint === "<path>" ? "pages/" : pathHint}`;
+  if (tool === "List") return `wk ls ${pathHint === "<path>" ? "pages/" : pathHint}`;
+  return `wk read ${pathHint}`;
+}
+
+function audit(root: string | null, permission: "allow" | "deny", tool: string): void {
+  const line = `acl-gate: ${permission} ${tool}\n`;
+  process.stderr.write(line);
+  if (!root) return;
+  try {
+    const auditPath = join(root, ".gdgwiki", "acl-gate-audit.log");
+    appendFileSync(auditPath, `${Date.now()} ${permission} ${tool}\n`);
+  } catch {
+    /* audit is best-effort */
   }
 }
 
-function handleShell(payload: HookPayload, root: string): void {
-  const command = payload.command ?? payload.tool_input?.command ?? "";
-  extractRawPaths(command, root);
+function deny(root: string | null, tool: string, agentMessage: string): void {
+  audit(root, "deny", tool);
+  process.stdout.write(
+    JSON.stringify({
+      permission: "deny",
+      agent_message: agentMessage,
+      user_message: "ACL gate blocked a tool call.",
+    }),
+  );
+  process.exit(0);
+}
 
-  if (typeof command !== "string" || !/\bgit\b[^;&|\n]*\b(commit|push)\b/.test(command)) {
-    process.exit(0);
-  }
+function allow(root: string | null, tool: string): void {
+  audit(root, "allow", tool);
+  process.exit(0);
+}
 
+function resolveGdgBin(): string {
+  return process.env.GDG_BIN || "gdg";
+}
+
+function verifyAclFailOpen(root: string): void {
   const gdg = resolveGdgBin();
-  const insertCore = join(dirname(fileURLToPath(import.meta.url)), "acl-insert-core.ts");
-  if (existsSync(insertCore) && /\bcommit\b/.test(command)) {
-    let tripwire: SpawnSyncReturns<string>;
-    try {
-      tripwire = spawnSync(process.execPath, [insertCore, "commit-tripwire"], {
-        cwd: root,
-        encoding: "utf8",
-        env: process.env,
-      });
-    } catch (error: unknown) {
-      process.stderr.write(
-        `acl-gate: commit tripwire unavailable (${formatUnknownError(error)}); falling through\n`,
-      );
-      tripwire = spawnSync(process.execPath, ["-e", "process.exit(3)"], { encoding: "utf8" });
-    }
-    if (tripwire.status === 2) {
-      deny((tripwire.stderr || tripwire.stdout || "untagged index blob").trim(), true);
-      process.exit(0);
-    }
-    if (tripwire.status === 0) {
-      if (tripwire.stderr) process.stderr.write(tripwire.stderr);
-      process.exit(0);
-    }
-    process.stderr.write("acl-gate: commit tripwire failed open; running verify-acl\n");
+  const result = spawnSync(gdg, ["wiki", "verify-acl"], {
+    cwd: root,
+    encoding: "utf8",
+    env: process.env,
+    timeout: 5_000,
+  });
+  if (result.error || result.status === null) {
+    process.stderr.write("acl-gate: verify-acl unavailable; allowing commit (fail open)\n");
+    return;
   }
-
-  let result: SpawnSyncReturns<string>;
-  try {
-    result = spawnSync(gdg, ["wiki", "verify-acl"], {
-      cwd: root,
-      encoding: "utf8",
-      env: process.env,
-    });
-  } catch (error: unknown) {
-    process.stderr.write(
-      `acl-gate: failed to run ${gdg} wiki verify-acl: ${formatUnknownError(error)}\n`,
-    );
-    process.exit(0);
-  }
-
-  if (result.error) {
-    process.stderr.write(
-      `acl-gate: ${gdg} wiki verify-acl unavailable (${result.error.message}); allowing command\n`,
-    );
-    process.exit(0);
-  }
-
   if (result.status === 1) {
     const findings = (result.stdout || result.stderr || "ACL check failed").trim();
-    deny(findings);
-    process.exit(0);
-  }
-
-  if (result.status !== 0) {
-    process.stderr.write(
-      `acl-gate: verify-acl exited ${result.status}; allowing command (fail open)\n`,
+    deny(
+      root,
+      "Shell",
+      `gdg wiki verify-acl failed.\n${findings}\nFix the findings, then retry: wk git commit -m <message>`,
     );
   }
-  process.exit(0);
+  if (result.status !== 0) {
+    process.stderr.write(
+      `acl-gate: verify-acl exited ${result.status}; allowing commit (fail open)\n`,
+    );
+  }
+}
+
+function handleReadLike(
+  tool: string,
+  payload: HookPayload,
+  root: string | null,
+  cwd: string,
+): void {
+  const input = toolPath(payload);
+  if (!input) {
+    const hint = tool === "Grep" ? "wk grep <pattern> <path>" : "wk ls <path>";
+    deny(root, tool, `${tool} without a path would search gated trees. Use ${hint}.`);
+    return;
+  }
+  if (input && classifyPath(root, input, cwd) === "gated") {
+    deny(
+      root,
+      tool,
+      `pages/, raw/, and memories/ must be read through wk: ${wkHint(tool, input, cwd, root)}`,
+    );
+    return;
+  }
+  allow(root, tool);
+}
+
+function handleShell(payload: HookPayload, root: string | null): void {
+  const command = payload.tool_input?.command ?? (payload as { command?: unknown }).command;
+  if (typeof command !== "string") {
+    deny(root, "Shell", "Use wk for all shell work, for example: wk read pages/x/page.md");
+    return;
+  }
+  const inspected = inspectWkScript(command);
+  if (!inspected.ok) {
+    deny(root, "Shell", `${inspected.reason}. Use wk only, for example: wk read pages/x/page.md`);
+    return;
+  }
+  if (isGitCommitInvocation(inspected.simples)) {
+    if (!root) {
+      deny(root, "Shell", "wk git commit requires a Wiki clone. Run it from the clone root.");
+      return;
+    }
+    const untagged = untaggedStagedAdds(root);
+    if (untagged.length > 0) {
+      const listed = untagged.slice(0, 8).join(", ");
+      deny(
+        root,
+        "Shell",
+        `Possible gate bypass: untagged added lines in the index (${listed}). Do not restage around the gate. Rewrite through wk write, then wk git add and wk git commit.`,
+      );
+      return;
+    }
+    verifyAclFailOpen(root);
+  }
+  allow(root, "Shell");
+}
+
+function handleMcp(tool: string, root: string | null): void {
+  const name = tool.slice("MCP:".length);
+  if (MCP_ALLOWLIST.has(name)) {
+    allow(root, tool);
+    return;
+  }
+  deny(root, tool, "The only MCP tool this agent may use is search.");
+}
+
+function mutateHint(tool: string): string {
+  if (tool === "Delete") return "Removing a page: wk rm pages/<slug>/page.md";
+  return "Write through wk, for example: wk write pages/x/page.md <<'EOF'\n...\nEOF";
 }
 
 function main(): void {
-  const mode = process.argv[2] || "";
   const payload = parsePayload(readStdin());
-  const root = findCloneRoot(process.cwd());
-  if (!root) process.exit(0);
-
-  if (mode === "read") {
-    const rel = toRel(root, payload.file_path ?? payload.path ?? "");
-    if (rel) appendRead(root, rel);
-    process.exit(0);
+  if (!payload) {
+    deny(null, "unknown", "Malformed hook payload. Use wk for Wiki reads and writes.");
+    return;
   }
+  const tool = stringField(payload.tool_name) ?? "";
+  const cwd = toolCwd(payload, process.cwd());
+  const root = cloneRootOrNull(cwd) ?? cloneRootOrNull(process.cwd());
 
-  if (mode === "write") {
-    const rel = toRel(root, payload.file_path ?? payload.path ?? "");
-    if (rel) appendWrite(root, rel);
-    process.exit(0);
-  }
-
-  if (mode === "shell") {
+  if (tool === "Shell") {
     handleShell(payload, root);
     return;
   }
-
-  // Unknown mode: fail open.
-  process.exit(0);
+  if (tool.startsWith("MCP:")) {
+    handleMcp(tool, root);
+    return;
+  }
+  if (PASSTHROUGH_TOOLS.has(tool) && tool !== "Shell") {
+    handleReadLike(tool, payload, root, cwd);
+    return;
+  }
+  deny(root, tool || "unknown", `${tool || "This tool"} is blocked. ${mutateHint(tool)}`);
 }
 
-const invokedDirectly =
-  typeof process.argv[1] === "string" &&
-  fileURLToPath(import.meta.url) === resolve(process.argv[1]);
-if (invokedDirectly) main();
+main();

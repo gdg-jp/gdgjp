@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 //go:embed hooks/acl-gate.ts
@@ -18,6 +19,12 @@ var wkScript []byte
 //go:embed hooks/acl-core.ts
 var aclCoreScript []byte
 
+//go:embed hooks/shell-allowlist.ts
+var shellAllowlistScript []byte
+
+//go:embed hooks/commit-tripwire.ts
+var commitTripwireScript []byte
+
 //go:embed hooks/acl-insert-core.ts
 var aclInsertCoreScript []byte
 
@@ -27,31 +34,13 @@ var hooksPackageJSON []byte
 const (
 	cursorHooksDirName = ".cursor"
 	cursorHooksJSON    = "hooks.json"
-	gdgHooksDirName    = "hooks"
 	aclGateFileName    = "acl-gate.ts"
+	wkFileName         = "wk.ts"
+	aclCoreFileName    = "acl-core.ts"
+	aclBundleFileName  = "acl.ts"
 	packageJSONName    = "package.json"
+	wkLauncherName     = "wk"
 )
-
-// cursorHooksConfig is the project-level Cursor hooks.json for ingest ACL gating.
-var cursorHooksConfig = map[string]any{
-	"version": 1,
-	"hooks": map[string]any{
-		"beforeReadFile": []map[string]any{
-			{"command": "node .gdgwiki/hooks/acl-gate.ts read", "timeout": 10},
-		},
-		"beforeShellExecution": []map[string]any{
-			{"command": "node .gdgwiki/hooks/acl-gate.ts shell", "timeout": 300},
-		},
-	},
-}
-
-func cursorHooksJSONBytes() ([]byte, error) {
-	raw, err := json.MarshalIndent(cursorHooksConfig, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	return append(raw, '\n'), nil
-}
 
 func fileMatches(path string, want []byte) bool {
 	existing, err := os.ReadFile(path)
@@ -61,50 +50,151 @@ func fileMatches(path string, want []byte) bool {
 	return bytes.Equal(existing, want)
 }
 
-// EnsureCursorHooks writes Cursor project hooks and refreshes clone gitignore /
-// excludes so .cursor/ never appears in git status (required for --commit).
-// Idempotent: skips writes when content already matches.
-func EnsureCursorHooks(root string) (updated bool, err error) {
+func userCursorHooksPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".cursor", cursorHooksJSON)
+}
+
+// CursorAbsolutePathRule formats a Cursor permission glob with a resolved
+// absolute path. Relative globs such as Read(pages/*) never match.
+func CursorAbsolutePathRule(tool, cloneRoot, glob string) string {
+	abs := filepath.ToSlash(filepath.Join(cloneRoot, glob))
+	return tool + "(" + abs + ")"
+}
+
+func parseNodeHookCommand(command string) (gatePath string, wkPath string) {
+	fields := strings.Fields(command)
+	for i, field := range fields {
+		if strings.HasSuffix(field, aclGateFileName) {
+			gatePath = field
+			if i+1 < len(fields) {
+				wkPath = fields[i+1]
+			}
+			return gatePath, wkPath
+		}
+	}
+	return "", ""
+}
+
+func inspectUserHooksJSON(raw []byte) (gatePath string, warnings []string) {
+	if bytes.Contains(raw, []byte("afterFileEdit")) {
+		warnings = append(warnings, "user hooks.json still lists afterFileEdit; remove it")
+	}
+	if bytes.Contains(raw, []byte("beforeReadFile")) || bytes.Contains(raw, []byte("beforeShellExecution")) {
+		warnings = append(warnings, "user hooks.json still lists a non-preToolUse Cursor hook")
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return "", append(warnings, "user hooks.json is not valid JSON")
+	}
+	if version, _ := parsed["version"].(float64); version != 1 {
+		warnings = append(warnings, "user hooks.json version is not 1")
+	}
+	hooks, _ := parsed["hooks"].(map[string]any)
+	if hooks == nil {
+		return "", append(warnings, "user hooks.json has no hooks object")
+	}
+	pre, _ := hooks["preToolUse"].([]any)
+	if len(pre) == 0 {
+		return "", append(warnings, "user hooks.json has no preToolUse hook")
+	}
+	foundFailClosed := false
+	for _, item := range pre {
+		entry, _ := item.(map[string]any)
+		if entry == nil {
+			continue
+		}
+		command, _ := entry["command"].(string)
+		failClosed, _ := entry["failClosed"].(bool)
+		if strings.Contains(command, aclGateFileName) {
+			gatePath, _ = parseNodeHookCommand(command)
+			if failClosed {
+				foundFailClosed = true
+			}
+			if _, hasMatcher := entry["matcher"]; hasMatcher {
+				warnings = append(warnings, "user hooks.json preToolUse must not set matcher")
+			}
+		}
+	}
+	if gatePath == "" {
+		warnings = append(warnings, "user hooks.json preToolUse does not run acl-gate.ts")
+	}
+	if !foundFailClosed {
+		warnings = append(warnings, "user hooks.json preToolUse is missing failClosed: true")
+	}
+	return gatePath, warnings
+}
+
+func inspectInstalledScripts(gatePath string) []string {
+	var warnings []string
+	if gatePath == "" {
+		return warnings
+	}
+	libDir := filepath.Dir(gatePath)
+	agentRoot := filepath.Dir(libDir)
+	checks := []struct {
+		path string
+		want []byte
+		name string
+	}{
+		{gatePath, aclGateScript, aclGateFileName},
+		{filepath.Join(libDir, wkFileName), wkScript, wkFileName},
+		{filepath.Join(libDir, aclCoreFileName), aclCoreScript, aclCoreFileName},
+		{filepath.Join(libDir, "shell-allowlist.ts"), shellAllowlistScript, "shell-allowlist.ts"},
+		{filepath.Join(libDir, "commit-tripwire.ts"), commitTripwireScript, "commit-tripwire.ts"},
+		{filepath.Join(libDir, "acl-insert-core.ts"), aclInsertCoreScript, "acl-insert-core.ts"},
+		{filepath.Join(agentRoot, packageJSONName), hooksPackageJSON, packageJSONName},
+	}
+	for _, check := range checks {
+		if _, err := os.Stat(check.path); err != nil {
+			warnings = append(warnings, fmt.Sprintf("missing %s at %s", check.name, check.path))
+			continue
+		}
+		if check.want != nil && !fileMatches(check.path, check.want) {
+			warnings = append(warnings, fmt.Sprintf("stale %s at %s", check.name, check.path))
+		}
+	}
+	if _, err := os.Stat(filepath.Join(libDir, aclBundleFileName)); err != nil {
+		warnings = append(warnings, fmt.Sprintf("missing %s at %s (run pnpm build:acl before setup.sh)", aclBundleFileName, filepath.Join(libDir, aclBundleFileName)))
+	}
+	wkBin := filepath.Join(agentRoot, "bin", wkLauncherName)
+	if _, err := os.Stat(wkBin); err != nil {
+		warnings = append(warnings, fmt.Sprintf("missing wk launcher at %s", wkBin))
+	}
+	return warnings
+}
+
+// InspectCursorUserHooks checks ~/.cursor/hooks.json and the scripts it points at.
+// It never writes clone-local hooks. Missing user hooks are warnings, not errors.
+func InspectCursorUserHooks() []string {
+	path := userCursorHooksPath()
+	if path == "" {
+		return []string{"cannot resolve home directory for ~/.cursor/hooks.json"}
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return []string{"~/.cursor/hooks.json is missing; run scripts/setup-gdg-agent.sh on Ubuntu"}
+	}
+	gatePath, warnings := inspectUserHooksJSON(raw)
+	warnings = append(warnings, inspectInstalledScripts(gatePath)...)
+	return warnings
+}
+
+// EnsureCursorHooks refreshes clone gitignore / excludes and inspects user hooks.
+// It does not write clone-local .cursor/hooks.json (agents can write that tree).
+func EnsureCursorHooks(root string) (updated bool, warnings []string, err error) {
+	gitignorePath := filepath.Join(root, ".gitignore")
+	want := []byte(CloneGitignore())
+	existing, readErr := os.ReadFile(gitignorePath)
+	needGitignore := readErr != nil || !bytes.Equal(existing, want)
 	if err = WriteCloneGitignore(root); err != nil {
-		return false, fmt.Errorf("refresh clone .gitignore: %w", err)
+		return false, nil, fmt.Errorf("refresh clone .gitignore: %w", err)
 	}
 	if err = WriteCloneExcludes(root); err != nil {
-		return false, fmt.Errorf("refresh clone excludes: %w", err)
+		return false, nil, fmt.Errorf("refresh clone excludes: %w", err)
 	}
-
-	hooksJSON, err := cursorHooksJSONBytes()
-	if err != nil {
-		return false, err
-	}
-	cursorDir := filepath.Join(root, cursorHooksDirName)
-	if err = os.MkdirAll(cursorDir, 0o755); err != nil {
-		return false, err
-	}
-	hooksPath := filepath.Join(cursorDir, cursorHooksJSON)
-	if !fileMatches(hooksPath, hooksJSON) {
-		if err = os.WriteFile(hooksPath, hooksJSON, 0o644); err != nil {
-			return false, err
-		}
-		updated = true
-	}
-
-	scriptDir := filepath.Join(ConfigDir(root), gdgHooksDirName)
-	if err = os.MkdirAll(scriptDir, 0o755); err != nil {
-		return false, err
-	}
-	scriptPath := filepath.Join(scriptDir, aclGateFileName)
-	if !fileMatches(scriptPath, aclGateScript) {
-		if err = os.WriteFile(scriptPath, aclGateScript, 0o755); err != nil {
-			return false, err
-		}
-		updated = true
-	}
-	packageJSONPath := filepath.Join(scriptDir, packageJSONName)
-	if !fileMatches(packageJSONPath, hooksPackageJSON) {
-		if err = os.WriteFile(packageJSONPath, hooksPackageJSON, 0o644); err != nil {
-			return false, err
-		}
-		updated = true
-	}
-	return updated, nil
+	return needGitignore, InspectCursorUserHooks(), nil
 }

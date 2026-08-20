@@ -70,6 +70,30 @@ func TestResolveReadSourceIDsAddsTraceReads(t *testing.T) {
 	}
 }
 
+func TestResolveReadSourceIDsAddsMemoryUploads(t *testing.T) {
+	root := t.TempDir()
+	src1 := "src-1"
+	uploaded := "conv-99"
+	if err := os.MkdirAll(filepath.Join(root, "memories"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := "---\ngdg_memory: 1\nuploaded_source_id: conv-99\nvisibility: chapter-organizer\n---\nhello\n"
+	if err := os.WriteFile(filepath.Join(root, "memories", "note.md"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	state := State{
+		Manifest: &SourcesManifest{Version: 1, Documents: []SourcesManifestEntry{
+			{DocumentID: "d1", SourceID: &src1, Kind: "source-document", Title: "A", Path: "raw/src-1/a.md", ContentHash: "1"},
+		}},
+	}
+	ids := ResolveReadSourceIDs(root, state, IngestTrace{
+		Reads: []string{"memories/note.md"},
+	})
+	if len(ids) != 1 || ids[0] != uploaded {
+		t.Fatalf("ids = %#v, want memory upload id only", ids)
+	}
+}
+
 func TestCollectChangedPageRels(t *testing.T) {
 	runGit := func(_ context.Context, _ string, args ...string) (string, error) {
 		joined := strings.Join(args, " ")

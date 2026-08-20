@@ -586,14 +586,16 @@ func (s *wikiService) ingest(cmd *cobra.Command, commit bool, agent, commitDocum
 	}
 	if agent != "" {
 		if agent == "cursor" {
-			updated, hookErr := wiki.EnsureCursorHooks(root)
+			_, warnings, hookErr := wiki.EnsureCursorHooks(root)
 			if hookErr != nil {
 				return hookErr
 			}
-			if updated {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Installed Cursor ACL hooks in this Wiki clone.")
-			} else {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Cursor ACL hooks already up to date.")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Cursor ACL gating uses ~/.cursor/hooks.json; this clone is not a hook install target.")
+			for _, warning := range warnings {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s\n", warning)
+			}
+			if len(warnings) == 0 {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Cursor user hooks look correctly installed.")
 			}
 		}
 		return s.runAgent(cmd.Context(), root, agent, prompt)
