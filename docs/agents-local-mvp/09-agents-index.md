@@ -222,7 +222,8 @@ tool: search
 - MCP 設定に書くのは**プロキシ**である。プロキシは判定もせず `index.db` も開かない。
 - **設定ファイルは `setup.sh` がスロットごとに 1 回置く。root 所有 `0444`。**
   ソケットは `/run/gdg-agent/<N>/index.sock` でスロット固定なので、**内容は静的である。**
-  固定ランチャが `--mcp-config` でそのパスを指す（Stage 07 §6）。
+  固定ランチャが `HOME` をスロットホームにし、そこにある root 所有 `mcp.json` を読む
+  （Stage 07 §6）。`--mcp-config` は無い。
   **xangi が invocation ごとに書く形にしない** — `.cursor/` は root 所有なので
   `gdgagent-svc` は書けず、書ける場所に置けばエージェントも書ける。
   Stage 05 の MCP allowlist は、この固定が前提である（Stage 05 §3-5）。
@@ -262,7 +263,7 @@ tool: search
   ダミーの `user` をでっち上げて既存関数に渡さない。
 - **MCP サーバの実体を MCP 設定に書かない。** プロキシを書く（§5、Stage 07 §6）。
   実体を直接 spawn させると、スロット uid を継いで `index.db` を開けない。
-- **MCP 設定を xangi が実行時に書く形に戻さない。** root 所有の静的ファイル + `--mcp-config` である（§5）。
+- **MCP 設定を xangi が実行時に書く形に戻さない。** root 所有の静的ファイル + `HOME` である（§5）。
   書ける場所に置くと、エージェントもそこに別のサーバを足せる
   （Cursor は `<projectRoot>/.cursor/mcp.json` も読む。Stage 05 の確認済みの事実 9）。
 - **`index.db` を workdir の中に置かない。** `/var/lib/agents-index/` に置き、
@@ -298,7 +299,7 @@ tool: search
 ### `~/proj/xangi`
 
 - **MCP 設定は触らない。** root 所有の静的ファイルを `setup.sh` が置き、
-  固定ランチャが `--mcp-config` で指す（§5、Stage 07 §6）
+  ランチャが `HOME` でそれを選ぶ（§5、Stage 07 §6）。`--mcp-config` は渡さない。
 - `src/authz-server.ts` — インデックスデーモンからの nonce 解決を受ける
   （フックと同じ `/resolve`。**`channelAudience` も返る**）
 

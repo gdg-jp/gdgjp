@@ -129,11 +129,12 @@ xangi 側が握る。スロットを分けたのは **nonce と `/proc` の分�
   lib/acl.ts                          root:root  0444   ← ACL 評価器（Stage 01 の生成物）
 /srv/gdg-agent/wiki/                  gdgagent-svc:gdgwiki  2770   ← workdir（setgid）
 /home/gdgagent-run-<N>/               root:gdgagent-run-<N>  0750
-  .cursor/                            root:gdgagent-run-<N>  0755
+  .cursor/                            root:gdgagent-run-<N>  1775  ← sticky。runtime の mkdir 用
     hooks.json                        root:root  0444
-    mcp.json                          root:root  0444   ← インデックスのプロキシだけ（§6）
+    mcp.json                          root:root  0444   ← HOME 経由で読む（§6）
     cli-config.json                   root:root  0444   ← 書き戻させない（§4）
     sandbox.json                      root:root  0444   ← スロットごとに内容が違う（§4）
+    projects/                         gdgagent-run-<N>:gdgagent-run-<N>  0755  ← CLI セッション状態
 /run/gdg-agent/                       gdgagent-svc:gdgagent-svc  0755   ← 通り抜け可
   <slot>/                             gdgagent-svc:gdgagent-run-<N>  0750
     authz.sock                        gdgagent-svc:gdgagent-run-<N>  0660
@@ -176,6 +177,13 @@ UNIX ソケットへの接続には**親ディレクトリすべての通り抜�
 - **`.cursor` は実ディレクトリにする。** Cursor は
   「symlink を含む設定パスの読み込みを拒否する」ため、symlink farm を作ると
   **ゲートが静かに読まれなくなる**。
+- **`.cursor` は `root:gdgagent-run-<N> 1775`（sticky）にする。**
+  `cursor-agent` は起動時に `~/.cursor/projects/<workspace-id>/` を `mkdir` する。
+  親を `0755` のままにすると `EACCES` で CLI が exit 1 する。
+  sticky があるので、スロット uid は新しい runtime ディレクトリを作れるが、
+  root 所有 `0444` の `hooks.json` / `mcp.json` / `cli-config.json` /
+  `sandbox.json` は unlink できない。
+  `projects/` はスロット uid 所有 `0755` で先に置く。
 - **`cli-config.json` と `sandbox.json` も root 所有 `0444` にする。**
   この 2 つは `sandbox.mode` / `readBoundary` / `additionalReadonlyPaths` を持つ、
   **サンドボックスのポリシーそのもの**である。スロットの uid が書けると、
@@ -255,9 +263,11 @@ Stage 04 が「ambient な env に invocation ごとの値を置かない」と�
    `XANGI_AUTHZ_SOCKET=/run/gdg-agent/<N>/authz.sock` /
    **`GDG_WIKI_RUN_ID`**（トレースの単位。[Stage 11](11-wk-mediator.md) §8）/
    `HOME=/home/gdgagent-run-<N>` /
-   **`PATH=/opt/gdg-agent/bin:/usr/bin:/bin`**（固定）を設定し、
-   **`--mcp-config /home/gdgagent-run-<N>/.cursor/mcp.json`**（§6）を付けて
+   **`PATH=/opt/gdg-agent/bin:/usr/bin:/bin`**（固定）を設定して
    `cursor-agent` を exec する。
+   **`--mcp-config` は付けない。** `cursor-agent 2026.08.11-e8db854` には
+   そのオプションが無く、付けると `unknown option '--mcp-config'` で exit 1 する。
+   user 側の MCP 設定は `HOME` 経由の `~/.cursor/mcp.json`（§6）で読む。
 4. **invocation 終了時に xangi が `nonce` を消す**（`revoke(nonce)` と同じタイミング）。
 
 `GDG_WIKI_RUN_ID` は nonce と同じファイル（`/run/gdg-agent/<N>/nonce`）に
@@ -321,7 +331,8 @@ Cursor は per-user の `~/.cursor/sandbox.json` と **per-repo の
 `<workspace>/.cursor/sandbox.json`** をマージする（§確認済みの事実）。
 `projectRoot` は `gdgwiki` グループで書ける共有 workdir なので、
 そこにファイルを作れる経路が 1 つでもあれば `additionalReadonlyPaths` を足せる。
-**`mcp.json` の `--mcp-config` に相当する探索無効化オプションが sandbox 設定には無い。**
+**`mcp.json` を 1 ファイルに固定する CLI フラグは、この Cursor 版には無い。**
+sandbox 側にも per-repo マージを無効化するオプションは無い。
 閉じているのは次の 2 枚だけである。
 
 - [Stage 05](05-cursor-harness-pretooluse.md) §2 — 変更系ツールの無条件 deny
@@ -368,6 +379,7 @@ Cursor は per-user の `~/.cursor/sandbox.json` と **per-repo の
    - `sudo -u gdgagent-run-0 test -w /opt/gdg-agent/bin/wk` が**失敗する**
    - `sudo -u gdgagent-run-0 test -w /opt/gdg-agent/lib/wk.ts` が**失敗する**
    - `sudo -u gdgagent-run-0 test -w /opt/gdg-agent/package.json` が**失敗する**
+   - `sudo -u gdgagent-run-0 test -w /home/gdgagent-run-0/.cursor/projects` が**成功する**
    - `sudo -u gdgagent-run-0 test -w /home/gdgagent-run-0/.cursor/mcp.json` が**失敗する**
    - `sudo -u gdgagent-run-0 test -w /home/gdgagent-run-0/.cursor/cli-config.json` が**失敗する**
    - `sudo -u gdgagent-run-0 test -w /home/gdgagent-run-0/.cursor/sandbox.json` が**失敗する**
@@ -382,7 +394,7 @@ Stage 09 は `index.db` を `gdgagent-run-*` から読めない所有権にす�
 （本文を丸ごと持つため、読めると read ゲートを迂回して全文が読める）。
 同時に「MCP サーバはエージェントと同じ uid で走らせない」とも書いてある。
 
-**この 2 つと、`~/.cursor/mcp.json` / `--mcp-config` で繋ぐ案は両立しない。**
+**この 2 つと、`~/.cursor/mcp.json` にデーモン本体を書く案は両立しない。**
 その経路では **Cursor が MCP サーバの親になる**ので、
 子プロセスはスロットの uid を継ぐ。`index.db` を開けない。
 
@@ -399,12 +411,14 @@ Stage 09 は `index.db` を `gdgagent-run-*` から読めない所有権にす�
   （`/home/gdgagent-run-<N>/.cursor/mcp.json`、**root 所有 `0444`**）。
   中身はそのスロットのプロキシ 1 本だけ。ソケットパスがスロット固定なので内容も静的にできる。
   **xangi が invocation ごとに書く形にしない**（Stage 09 §5 から削除済み）—
-  `.cursor/` は root 所有なので svc も書けず、書ける場所に置けばエージェントも書ける。
-- **固定ランチャが `--mcp-config` でこのパスを指す**（§3）。
-  Cursor は `~/.cursor/mcp.json` と **`<projectRoot>/.cursor/mcp.json`** の両方を読み、
-  `projectRoot` は `gdgwiki` グループで書ける共有 workdir である
-  （Stage 05 の「確認済みの事実 9」）。
-  **`--mcp-config` で探索経路に依存しない形にする。**
+  ポリシーファイルは root 所有なので svc も書けず、書ける場所に置けばエージェントも書ける。
+- **ランチャは `HOME` をスロットホームに固定し、`--mcp-config` は渡さない**（§3）。
+  Cursor は `~/.cursor/mcp.json` と **`<projectRoot>/.cursor/mcp.json`** の両方を読む
+  （Stage 05 の「確認済みの事実 9」）。user 側は root 所有ファイルで固定できる。
+  project 側は共有 workdir（`gdgwiki` 書き込み可）に残るので、
+  `wk write` の allowlist（Stage 11 §5 手順 0）と
+  `MCP:search` のツール名 deny（Stage 05 §3-5）で閉じる。
+  サーバ同一性まで見るなら `beforeMCPExecution` が次の手である（ADR-004）。
 - **Stage 05 の MCP allowlist はこの固定に依存する。**
   `preToolUse` にサーバ名は渡らないので、フックはツール名しか見られない（Stage 05 §3-5）。
   ここが崩れると、`search` という名前の別サーバが混ざりうる。
@@ -446,12 +460,14 @@ Stage 09 は `index.db` を `gdgagent-run-*` から読めない所有権にす�
   可書きにすると、1 回の invocation が**次回以降のサンドボックスを無効化できる。**
   「Cursor が書き戻すから」を理由に戻さない — 代替は §実装前に疎通確認することにある。
 - **`<workdir>/.cursor/sandbox.json` を作れる経路を開けない**（§4）。
-  per-repo マージには `--mcp-config` に相当する無効化手段が無いので、
-  Stage 05 §2 の変更系 deny と Stage 11 §5 手順 0 の allowlist が唯一の防御である。
+  per-repo マージを無効化する CLI フラグは無いので、
+  Stage 05 §2 の変更系 deny と Stage 11 §5 手順 0 の allowlist が防御である。
 - **`PATH` を固定ランチャから外さない**（§3）。外すと `argv[0] === "wk"` の
   照合先が不定になる。
-- **`--mcp-config` をランチャから外さない。** 外すと
-  `<projectRoot>/.cursor/mcp.json`（共有 workdir、group 書き込み可）が効く経路が残る。
+- **`--mcp-config` をランチャに足し直さない。** この Cursor 版では未知オプションで落ちる。
+  project `mcp.json` の混入は `wk` の書き込み拒否と MCP ツール名 allowlist で止める。
+- **`.cursor` を `0755` に戻さない。** 戻すと `mkdir ~/.cursor/projects/...` が
+  `EACCES` で落ちる。ポリシーファイルの保護は sticky + `0444` で行う。
 - **`GDG_WIKI_RUN_ID` を nonce と別のライフサイクルにしない**（§3）。
   ズレると、トレースが invocation 境界と一致しなくなる。
 - **MCP サーバを Cursor に直接 spawn させない**（§6）。
@@ -540,9 +556,13 @@ Stage 09 は `index.db` を `gdgagent-run-*` から読めない所有権にす�
 4g2. **`<workdir>/.cursor/sandbox.json` を手で書いても、次回 invocation の
     `readBoundary` が変わらない**（Stage 05 §2 の deny と Stage 11 §5 手順 0 で
     そもそも作れないことを、両方の経路で確認する）。
-4h. **`cursor-agent` の argv に `--mcp-config` が入っている**（§3）。
-   `<workdir>/.cursor/mcp.json` に別サーバを書いても読まれない
-   （読まれる場合は Stage 05 §3-5 の `beforeMCPExecution` を足す判断になる）。
+4h. **`cursor-agent` の argv に `--mcp-config` が無い**（§3）。
+   `HOME` がスロットホームで、`~/.cursor/mcp.json` は root `0444`。
+   `<workdir>/.cursor/mcp.json` に別サーバを書いても、そのツールは
+   ゲートの `MCP:search` allowlist で deny される
+   （サーバ名まで見るなら Stage 05 §3-5 の `beforeMCPExecution`）。
+4h2. **`sudo -u gdgagent-run-0 test -w ~/.cursor/projects` が成功し、
+    `rm ~/.cursor/hooks.json` は失敗する**（§1 の 1775 + sticky）。
 4i. **2 つの invocation を同時に投げても、リポジトリを変更するのは 1 つずつである**
    （Stage 10 §1a のミューテックス）。片方は待つ。
 5. サンドボックス有効のまま ingest 相当の作業が完走する。
@@ -608,9 +628,9 @@ cd ~/proj/xangi && npm test && npx tsc --noEmit
   再作成を忘れると全 invocation が fail closed で止まる（症状は派手なので気づく）。
 - **MCP デーモンが svc uid で走り、プロキシがスロット uid で走っている。**
   プロキシ側から `index.db` が開けないことを確認する。
-- **`mcp.json` が root 所有で、`--mcp-config` が渡っている。**
-  どちらかが崩れると、Stage 05 のツール名 allowlist が前提を失う。
-  **MCP サーバが増えても検索は正常に動き続けるので、テストが無ければ気づけない。**
+- **`mcp.json` が root 所有で、ランチャが `--mcp-config` を付けていない。**
+  フラグを足すと CLI が即死する。project `mcp.json` の混入は
+  ツール名 allowlist 側で気づく（検索は動き続けるので、deny ログを見ること）。
 - **スロットプールとリポジトリミューテックスが別物として動いている。**
   同時 2 invocation で、スロットは 2 つ使われ、リポジトリ変更は直列になること。
   **ミューテックスを外しても平常時は動いてしまう** — 壊れるのは競合したときだけで、

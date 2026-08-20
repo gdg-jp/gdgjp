@@ -22,6 +22,38 @@ else
   exit 1
 fi
 
+resolve_extra_mcp() {
+  if [[ -f "$here/../.cursor/mcp.json" ]]; then
+    printf '%s\n' "$(cd "$here/.." && pwd)/.cursor/mcp.json"
+  elif [[ -f "$here/../../agents-local/.cursor/mcp.json" ]]; then
+    printf '%s\n' "$(cd "$here/../../agents-local" && pwd)/.cursor/mcp.json"
+  else
+    echo "missing agents-local/.cursor/mcp.json (looked next to $here)" >&2
+    exit 1
+  fi
+}
+
+EXTRA_MCP="$(resolve_extra_mcp)"
+
+merge_slot_mcp() {
+  local base="$1"
+  local extra="$2"
+  local out="$3"
+  node -e '
+const fs = require("fs");
+const base = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+const extra = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+if (!base.mcpServers || typeof base.mcpServers !== "object") {
+  throw new Error("base mcp.json missing mcpServers");
+}
+if (!extra.mcpServers || typeof extra.mcpServers !== "object") {
+  throw new Error("extra mcp.json missing mcpServers");
+}
+base.mcpServers = { ...extra.mcpServers, ...base.mcpServers };
+fs.writeFileSync(process.argv[3], JSON.stringify(base, null, 2) + "\n");
+' "$base" "$extra" "$out"
+}
+
 if ! [[ "$SLOT_COUNT" =~ ^[1-9][0-9]*$ ]]; then
   echo "GDG_AGENT_SLOT_COUNT must be a positive integer" >&2
   exit 1
@@ -93,7 +125,10 @@ chmod 0444 "$tmpfiles"
 for ((slot = 0; slot < SLOT_COUNT; slot++)); do
   slot_home="${HOME_ROOT}/gdgagent-run-${slot}"
   cursor_dir="${slot_home}/.cursor"
-  install -d -m 0755 "$cursor_dir"
+  # Sticky + group-writable so cursor-agent can mkdir projects/ and other
+  # runtime dirs, but cannot unlink root-owned 0444 policy files.
+  install -d -m 1775 "$cursor_dir"
+  install -d -m 0755 "$cursor_dir/projects"
   # Real directory, never a symlink: Cursor refuses config paths that contain one.
   if [[ -L "$cursor_dir" || -L "$slot_home/.cursor" ]]; then
     echo "$cursor_dir must be a real directory, not a symlink" >&2
@@ -107,7 +142,10 @@ for ((slot = 0; slot < SLOT_COUNT; slot++)); do
   install -m 0444 "$CONFIG_SRC/cli-config.json" "$cursor_dir/cli-config.json"
   sed "s|__RUN_SLOT_DIR__|/run/gdg-agent/${slot}|g" "$CONFIG_SRC/sandbox.json.in" > "$cursor_dir/sandbox.json"
   chmod 0444 "$cursor_dir/sandbox.json"
-  sed "s|__INDEX_SOCKET__|/run/gdg-agent/${slot}/index.sock|g" "$CONFIG_SRC/mcp.json.in" > "$cursor_dir/mcp.json"
+  tmp_mcp="$(mktemp)"
+  sed "s|__INDEX_SOCKET__|/run/gdg-agent/${slot}/index.sock|g" "$CONFIG_SRC/mcp.json.in" > "$tmp_mcp"
+  merge_slot_mcp "$tmp_mcp" "$EXTRA_MCP" "$cursor_dir/mcp.json"
+  rm -f "$tmp_mcp"
   chmod 0444 "$cursor_dir/mcp.json"
 
   writable "$AGENT_ROOT/bin/spawn-slot-${slot}"

@@ -95,7 +95,8 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
     const mcp = JSON.parse(
       await readFile(join(prefix, "home/gdgagent-run-2/.cursor/mcp.json"), "utf8"),
     );
-    assert.deepEqual(Object.keys(mcp.mcpServers), ["gdg-index"]);
+    assert.deepEqual(Object.keys(mcp.mcpServers), ["google-workspace", "gdg-index"]);
+    assert.equal(mcp.mcpServers["google-workspace"].command, "uvx");
     assert.equal(
       mcp.mcpServers["gdg-index"].env.AGENTS_INDEX_SOCKET,
       "/run/gdg-agent/2/index.sock",
@@ -109,6 +110,9 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
     const cursorDir = await stat(join(prefix, "home/gdgagent-run-0/.cursor"));
     assert.equal(cursorDir.isDirectory(), true);
     assert.equal(cursorDir.isSymbolicLink(), false);
+    assert.equal(cursorDir.mode & 0o1777, 0o1775);
+    const projectsDir = await stat(join(prefix, "home/gdgagent-run-0/.cursor/projects"));
+    assert.equal(projectsDir.isDirectory(), true);
 
     const wk = await stat(join(prefix, "opt/gdg-agent/bin/wk"));
     assert.equal(wk.mode & 0o111, 0o111);
@@ -127,7 +131,9 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
     assert.equal(libHook.mode & 0o777, 0o444);
 
     const execSpawn = await readFile(join(prefix, "opt/gdg-agent/lib/exec-spawn.ts"), "utf8");
-    assert.match(execSpawn, /"--mcp-config", `\$\{home\}\/\.cursor\/mcp\.json`/);
+    assert.match(execSpawn, /HOME: home/);
+    assert.match(execSpawn, /spawn\(spec\.command, args,/);
+    assert.doesNotMatch(execSpawn, /spawn\(spec\.command, \["--mcp-config"/);
   });
 });
 
@@ -156,6 +162,24 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.doesNotMatch(installSrc, /useradd.*--gid gdgwiki.*gdgagent-svc/);
     const wk = await stat(join(prefix, "opt/gdg-agent/bin/wk"));
     assert.equal(wk.mode & 0o111, 0o111);
+
+    const wikiMcp = await readFile(join(prefix, "srv/gdg-agent/wiki/.cursor/mcp.json"), "utf8");
+    const sourceMcp = await readFile(join(repositoryRoot, "agents-local/.cursor/mcp.json"), "utf8");
+    assert.equal(wikiMcp, sourceMcp);
+    const localMdc = await readFile(
+      join(prefix, "srv/gdg-agent/wiki/.cursor/rules/local.mdc"),
+      "utf8",
+    );
+    const agentsMd = await readFile(join(repositoryRoot, "agents-local/AGENTS.md"), "utf8");
+    assert.equal(localMdc, `---\nalwaysApply: true\n---\n\n${agentsMd}`);
+    assert.match(installSrc, /gdg wiki clone/);
+    assert.match(installSrc, /\/usr\/local\/bin\/gdg/);
+    assert.match(installSrc, /Harineko0\/xangi/);
+    assert.match(installSrc, /setup --apply/);
+    assert.equal(
+      existsSync(join(prefix, "srv/gdg-agent/wiki/.agents/skills/wiki-ingest/SKILL.md")),
+      true,
+    );
 
     const liveEnv = Object.fromEntries(
       Object.entries(process.env).filter(([key]) => key !== "GDG_SETUP_PREFIX"),

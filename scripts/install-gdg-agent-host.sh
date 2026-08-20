@@ -15,10 +15,12 @@
 #   4. Create gdgwiki / gdgagent-svc / gdgagent-run-* (live root only)
 #   5. Run setup.sh for /opt/gdg-agent layout
 #   6. chown / linger / tmpfiles
+#   7. Install gdg to /usr/local/bin + git-remote-gdg-wiki; login as svc
+#   8. gdg wiki clone /srv/gdg-agent/wiki if empty; seed gitignored Cursor files
+#   9. Install cursor-agent + Harineko0/xangi; xangi setup --apply; systemd user unit
 #
-# Does not (interactive / policy):
-#   - Switch xangi to harineko0/xangi
-#   - gdg login, wiki clone into /srv, xangi setup, Discord token
+# Interactive only when secrets are missing (gdg device login, Discord token,
+# Cursor auth). Discord Developer Portal intents cannot be set from this host.
 set -euo pipefail
 
 SLOT_COUNT="${GDG_AGENT_SLOT_COUNT:-4}"
@@ -113,7 +115,7 @@ install_apt_packages() {
   [[ -z "$PREFIX" && "$(id -u)" -eq 0 ]] || return 0
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
-  apt-get install -y -qq git ca-certificates curl
+  apt-get install -y -qq git ca-certificates curl unzip
 }
 
 install_node_if_needed() {
@@ -189,6 +191,11 @@ create_users() {
         "gdgagent-run-${slot}"
     usermod -aG gdgwiki "gdgagent-run-${slot}" || true
   done
+  local slot_groups=""
+  for slot in $(seq 0 $((SLOT_COUNT - 1))); do
+    slot_groups="${slot_groups},gdgagent-run-${slot}"
+  done
+  usermod -aG "${slot_groups#,}" gdgagent-svc || true
 }
 
 apply_ownership() {
@@ -207,28 +214,296 @@ maybe_reexec_root() {
     return 0
   fi
   echo "==> re-exec as root"
-  exec sudo --preserve-env=GDGJP_ROOT,GDGJP_REPO,GDGJP_REF,GDG_AGENT_SLOT_COUNT,GDG_SETUP_PREFIX,GDG_SETUP_HOOKS_SRC,GDG_SETUP_INDEX_PROXY_SRC,GDG_SKIP_BUILD,GDG_SKIP_CLONE,GDG_SKIP_XANGI_INSTALL,GDG_SKIP_NODE_INSTALL,GDG_SKIP_GDG_INSTALL,PATH \
+  exec sudo --preserve-env=GDGJP_ROOT,GDGJP_REPO,GDGJP_REF,GDG_AGENT_SLOT_COUNT,GDG_SETUP_PREFIX,GDG_SETUP_HOOKS_SRC,GDG_SETUP_INDEX_PROXY_SRC,GDG_SKIP_BUILD,GDG_SKIP_CLONE,GDG_SKIP_XANGI_INSTALL,GDG_SKIP_NODE_INSTALL,GDG_SKIP_GDG_INSTALL,XANGI_REPO,PATH \
     "$0" "$@"
 }
 
-print_remaining() {
-  cat <<EOF
+wiki_root() {
+  printf '%s\n' "${PREFIX}/srv/gdg-agent/wiki"
+}
 
-==> Remaining (not automated):
+operator_home() {
+  if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != root ]]; then
+    getent passwd "$SUDO_USER" | cut -d: -f6
+  fi
+}
 
-1. Install the harineko0/xangi fork (not karaage0703/xangi). This script does not
-   replace an existing /usr/bin or ~/.local/bin xangi.
-2. sudo -u gdgagent-svc gdg login --device
-3. sudo -u gdgagent-svc gdg wiki clone /srv/gdg-agent/wiki   # if empty
-4. sudo -u gdgagent-svc xangi setup
-     workspace : /srv/gdg-agent/wiki
-     backend   : cursor
-     model     : composer-2.5
-     chat      : discord
-5. sudo -u gdgagent-svc xangi service start
+as_svc() {
+  runuser -u gdgagent-svc -- env \
+    HOME=/home/gdgagent-svc \
+    USER=gdgagent-svc \
+    LOGNAME=gdgagent-svc \
+    PATH=/usr/local/bin:/usr/bin:/bin \
+    XDG_CONFIG_HOME=/home/gdgagent-svc/.config \
+    XDG_DATA_HOME=/home/gdgagent-svc/.local/share \
+    XDG_RUNTIME_DIR="/run/user/$(id -u gdgagent-svc)" \
+    "$@"
+}
 
-Wiki Cloudflare deploy (inline source API + D1 migration) is separate from this host.
+agents_local_src() {
+  if [[ -f "$layout_dir/.cursor/mcp.json" && -f "$layout_dir/AGENTS.md" ]]; then
+    printf '%s\n' "$layout_dir"
+  elif [[ -f "$gdgjp/agents-local/.cursor/mcp.json" && -f "$gdgjp/agents-local/AGENTS.md" ]]; then
+    printf '%s\n' "$gdgjp/agents-local"
+  else
+    echo "cannot find agents-local/.cursor/mcp.json and AGENTS.md" >&2
+    exit 1
+  fi
+}
+
+wiki_is_clone() {
+  local wiki="$1"
+  [[ -f "$wiki/.gdgwiki/config.json" || -d "$wiki/.git" || -f "$wiki/.git" ]]
+}
+
+refresh_wiki_ownership() {
+  local wiki="$1"
+  [[ -z "$PREFIX" ]] || return 0
+  chown -R gdgagent-svc:gdgwiki "$wiki"
+  find "$wiki" -type d -exec chmod 2770 {} +
+}
+
+seed_wiki_cursor_files() {
+  local wiki="$1"
+  local src="$2"
+  if [[ ! -f "$src/.cursor/mcp.json" || ! -f "$src/AGENTS.md" ]]; then
+    echo "missing $src/.cursor/mcp.json or $src/AGENTS.md" >&2
+    exit 1
+  fi
+  echo "==> seed $wiki/.cursor from $src"
+  install -d -m 2770 "$wiki/.cursor/rules"
+  install -m 0660 "$src/.cursor/mcp.json" "$wiki/.cursor/mcp.json"
+  {
+    printf '%s\n' "---" "alwaysApply: true" "---" ""
+    cat "$src/AGENTS.md"
+  } > "$wiki/.cursor/rules/local.mdc"
+  chmod 0660 "$wiki/.cursor/rules/local.mdc"
+  local dir
+  for dir in .agents .claude .codex; do
+    if [[ -d "$src/$dir" ]]; then
+      rm -rf "$wiki/$dir"
+      cp -a "$src/$dir" "$wiki/$dir"
+    fi
+  done
+  if [[ -z "$PREFIX" ]] && id gdgagent-svc >/dev/null 2>&1 && getent group gdgwiki >/dev/null 2>&1; then
+    refresh_wiki_ownership "$wiki"
+  fi
+}
+
+ensure_gdg_system() {
+  echo "==> gdg CLI (/usr/local/bin)"
+  local src=""
+  if [[ -x /usr/local/bin/gdg ]]; then
+    echo "    already /usr/local/bin/gdg"
+  else
+    if command -v gdg >/dev/null 2>&1; then
+      src="$(command -v gdg)"
+    else
+      echo "    installing gdg CLI from url.gdgs.jp/cli/install.sh"
+      curl -fsSL https://url.gdgs.jp/cli/install.sh | sh
+      if [[ -x "${HOME}/.local/bin/gdg" ]]; then
+        src="${HOME}/.local/bin/gdg"
+      elif command -v gdg >/dev/null 2>&1; then
+        src="$(command -v gdg)"
+      fi
+    fi
+    if [[ -z "$src" || ! -x "$src" ]]; then
+      echo "gdg CLI install did not produce a binary to copy to /usr/local/bin" >&2
+      exit 1
+    fi
+    install -m 0755 "$src" /usr/local/bin/gdg
+  fi
+  ln -sfn /usr/local/bin/gdg /usr/local/bin/git-remote-gdg-wiki
+}
+
+ensure_svc_gdg_login() {
+  local cred="/home/gdgagent-svc/.config/gdg/credentials.json"
+  install -d -m 0700 -o gdgagent-svc -g gdgagent-svc /home/gdgagent-svc/.config/gdg
+  if [[ -s "$cred" ]]; then
+    echo "==> gdg credentials already present for gdgagent-svc"
+    return 0
+  fi
+  local op_home src
+  op_home="$(operator_home)"
+  src="${op_home:+$op_home/.config/gdg/credentials.json}"
+  if [[ -n "$src" && -s "$src" ]]; then
+    echo "==> copy gdg credentials from ${SUDO_USER} to gdgagent-svc"
+    install -m 0600 -o gdgagent-svc -g gdgagent-svc "$src" "$cred"
+    return 0
+  fi
+  echo "==> gdg login --device (gdgagent-svc)"
+  if [[ ! -t 0 ]]; then
+    echo "gdg login is required and stdin is not a TTY." >&2
+    echo "Re-run from a terminal, or place credentials at $cred" >&2
+    exit 1
+  fi
+  as_svc /usr/local/bin/gdg login --device
+  if [[ ! -s "$cred" ]]; then
+    echo "gdg login did not write $cred" >&2
+    exit 1
+  fi
+}
+
+ensure_wiki_clone_and_seed() {
+  local wiki src
+  wiki="$(wiki_root)"
+  src="$(agents_local_src)"
+  if [[ -n "$PREFIX" ]]; then
+    seed_wiki_cursor_files "$wiki" "$src"
+    return
+  fi
+  ensure_gdg_system
+  ensure_svc_gdg_login
+  if ! wiki_is_clone "$wiki"; then
+    echo "==> gdg wiki clone $wiki"
+    if ! as_svc /usr/local/bin/gdg wiki clone "$wiki"; then
+      echo "gdg wiki clone failed." >&2
+      exit 1
+    fi
+    refresh_wiki_ownership "$wiki"
+  fi
+  seed_wiki_cursor_files "$wiki" "$src"
+}
+
+ensure_cursor_cli() {
+  if command -v cursor-agent >/dev/null 2>&1 || [[ -x /usr/bin/cursor-agent ]]; then
+    echo "==> cursor-agent already installed"
+    return 0
+  fi
+  echo "==> install Cursor CLI"
+  curl -fsSL https://github.com/karaage0703/xangi/releases/latest/download/setup-ai-tools.sh | bash -s -- cursor
+  command -v cursor-agent >/dev/null 2>&1 || [[ -x /usr/bin/cursor-agent ]] || {
+    echo "cursor-agent is still missing after setup-ai-tools.sh" >&2
+    exit 1
+  }
+}
+
+ensure_xangi_fork() {
+  local repo="${XANGI_REPO:-https://github.com/Harineko0/xangi.git}"
+  echo "==> Harineko0/xangi -> /opt/xangi"
+  if [[ ! -d /opt/xangi/.git ]]; then
+    git clone "$repo" /opt/xangi
+  fi
+  (
+    cd /opt/xangi
+    if [[ -f package-lock.json ]]; then
+      npm ci
+    else
+      npm install
+    fi
+  )
+  ln -sfn /opt/xangi/bin/xangi /usr/local/bin/xangi
+}
+
+ensure_xangi_setup() {
+  install -d -m 0700 -o gdgagent-svc -g gdgagent-svc /home/gdgagent-svc/.config/xangi
+  install -d -m 0700 -o gdgagent-svc -g gdgagent-svc /home/gdgagent-svc/.local/share/xangi
+  echo "==> xangi setup --apply"
+  as_svc /usr/local/bin/xangi setup --apply \
+    --backend cursor \
+    --workspace /srv/gdg-agent/wiki \
+    --workspace-mode existing \
+    --web-chat-access local
+}
+
+copy_operator_runtime_secrets() {
+  local op_home slot
+  op_home="$(operator_home)"
+  [[ -n "$op_home" ]] || return 0
+  if [[ -s "$op_home/.config/xangi/secrets.json" ]]; then
+    echo "==> copy xangi secrets.json from ${SUDO_USER}"
+    install -m 0600 -o gdgagent-svc -g gdgagent-svc \
+      "$op_home/.config/xangi/secrets.json" /home/gdgagent-svc/.config/xangi/secrets.json
+  fi
+  if [[ -s "$op_home/.config/cursor/auth.json" ]]; then
+    echo "==> copy Cursor auth.json onto slot homes"
+    for slot in $(seq 0 $((SLOT_COUNT - 1))); do
+      install -d -m 0700 -o "gdgagent-run-${slot}" -g "gdgagent-run-${slot}" \
+        "/home/gdgagent-run-${slot}/.config/cursor"
+      install -m 0600 -o "gdgagent-run-${slot}" -g "gdgagent-run-${slot}" \
+        "$op_home/.config/cursor/auth.json" "/home/gdgagent-run-${slot}/.config/cursor/auth.json"
+    done
+  fi
+}
+
+write_xangi_user_unit() {
+  local unit_dir drop_in uid
+  uid="$(id -u gdgagent-svc)"
+  unit_dir="/home/gdgagent-svc/.config/systemd/user"
+  drop_in="$unit_dir/xangi.service.d"
+  install -d -m 0755 -o gdgagent-svc -g gdgagent-svc "$unit_dir" "$drop_in"
+  cat > "$unit_dir/xangi.service" <<'EOF'
+[Unit]
+Description=xangi (GDG agent)
+After=network-online.target
+
+[Service]
+WorkingDirectory=/opt/xangi
+ExecStart=/usr/bin/node /opt/xangi/node_modules/tsx/dist/cli.mjs /opt/xangi/src/index.ts
+Environment=XANGI_SETUP_CONFIG_PATH=/home/gdgagent-svc/.config/xangi/xangi.json
+Environment=XANGI_SETUP_STATE_DIR=/home/gdgagent-svc/.local/share/xangi
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
 EOF
+  cat > "$drop_in/model.conf" <<'EOF'
+[Service]
+Environment=AGENT_MODEL=composer-2.5
+Environment=DISCORD_SHOW_THINKING=false
+Environment=DISCORD_STREAMING=false
+Environment=DISCORD_COMPLETION_NOTIFY=off
+EOF
+  chown gdgagent-svc:gdgagent-svc "$unit_dir/xangi.service" "$drop_in/model.conf"
+  loginctl enable-linger gdgagent-svc
+  as_svc systemctl --user daemon-reload
+  as_svc systemctl --user enable xangi.service
+  if [[ -s /home/gdgagent-svc/.config/xangi/secrets.json ]] &&
+    grep -q DISCORD_TOKEN /home/gdgagent-svc/.config/xangi/secrets.json; then
+    echo "==> start xangi.service"
+    as_svc systemctl --user start xangi.service
+  else
+    echo "==> skip xangi.service start (no DISCORD_TOKEN in secrets.json)"
+  fi
+  unset uid
+}
+
+print_remaining() {
+  local cred="/home/gdgagent-svc/.config/gdg/credentials.json"
+  local secrets="/home/gdgagent-svc/.config/xangi/secrets.json"
+  local slot0_auth="/home/gdgagent-run-0/.config/cursor/auth.json"
+  local need=0
+  echo
+  echo "==> Remaining (secrets / Discord Portal only):"
+  if [[ ! -s "$cred" ]]; then
+    echo "1. gdg credentials missing for gdgagent-svc (unexpected after login)."
+    need=1
+  fi
+  if [[ ! -s "$secrets" ]] || ! grep -q DISCORD_TOKEN "$secrets" 2>/dev/null; then
+    echo "- Put DISCORD_TOKEN in /home/gdgagent-svc/.config/xangi/secrets.json (0600),"
+    echo "  then: sudo -u gdgagent-svc XDG_RUNTIME_DIR=/run/user/$(id -u gdgagent-svc) systemctl --user start xangi.service"
+    need=1
+  fi
+  if [[ ! -s "$slot0_auth" ]]; then
+    echo "- Copy Cursor auth.json onto /home/gdgagent-run-<N>/.config/cursor/ (0600, slot uid)."
+    need=1
+  fi
+  echo "- Discord Developer Portal: enable Server Members Intent and Message Content Intent."
+  if [[ "$need" -eq 0 ]]; then
+    echo "Host install finished. If Gateway rejects intents, fix the Portal then restart xangi.service."
+  fi
+}
+
+finish_live_host() {
+  [[ -z "$PREFIX" ]] || return 0
+  ensure_wiki_clone_and_seed
+  ensure_cursor_cli
+  ensure_xangi_fork
+  ensure_xangi_setup
+  copy_operator_runtime_secrets
+  write_xangi_user_unit
+  print_remaining
 }
 
 if [[ -n "$PREFIX" ]]; then
@@ -284,7 +559,12 @@ GDG_AGENT_SLOT_COUNT="$SLOT_COUNT" \
   GDG_SETUP_INDEX_PROXY_SRC="$index_proxy" \
   GDG_SKIP_XANGI_INSTALL="${GDG_SKIP_XANGI_INSTALL:-1}" \
   GDG_SKIP_GDG_INSTALL="${GDG_SKIP_GDG_INSTALL:-}" \
+  GDG_SETUP_SKIP_REMAINING=1 \
   "$layout_dir/setup.sh"
 
 apply_ownership
-print_remaining
+if [[ -n "$PREFIX" ]]; then
+  ensure_wiki_clone_and_seed
+else
+  finish_live_host
+fi

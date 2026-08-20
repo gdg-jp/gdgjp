@@ -20,6 +20,7 @@
 - OS ユーザー: `gdgagent-svc`、`gdgagent-run-0..3`。グループ `gdgwiki` に全員所属。linger 有効
 - `/opt/gdg-agent/`（`wk`、`spawn-slot-0..3`、`lib/*.ts`、root 所有）
 - スロット `~/.cursor/{hooks,cli-config,sandbox,mcp}.json` は root `0444`
+- スロット `~/.cursor` は `1775`（sticky）、`projects/` はスロット uid 所有
 - `/etc/sudoers.d/gdg-agent`（ランチャパス固定、wildcard なし）、`/etc/tmpfiles.d/gdg-agent.conf`
 - `/srv/gdg-agent/wiki` は `gdgagent-svc:gdgwiki 2770` だが **空**（`.git` なし）
 - `/opt/xangi` は Harineko0 フォーク（当時 HEAD `d9a5aa6`）、`/usr/local/bin/xangi` がそれを指す
@@ -99,6 +100,7 @@ tsx 起動後、`chown('/run/gdg-agent/<N>/…', svc_uid, gdgagent-run-N gid)` �
 - `gdgagent-run-0` は `/home/gdgagent-svc/.config/gdg/credentials.json` を読めない
 - `gdgagent-run-0` と `gdgagent-svc` の双方が `/srv/gdg-agent/wiki` に書ける
 - スロット uid は `/opt/gdg-agent/bin/wk`、`lib/wk.ts`、`package.json`、スロット `~/.cursor/*.json` を書けない
+- スロット uid は `~/.cursor/projects` に書ける（`hooks.json` の unlink は sticky で失敗する）
 - スロット uid は `/home/gdgagent-svc/.local/share/xangi` を読めない
 - `visudo -c -f /etc/sudoers.d/gdg-agent` OK
 - `wk` はスロットから起動できるが、ランチャ無しでは `GDG_WIKI_RUN_ID` 不足で fail closed
@@ -108,11 +110,22 @@ tsx 起動後、`chown('/run/gdg-agent/<N>/…', svc_uid, gdgagent-run-N gid)` �
 Discord が落ちるため、invocation 実走に依存するものは未実施。例:
 
 - `cursor-agent` が `gdgagent-run-<N>` でフック発火
-- `--mcp-config` が argv に載ること、nonce のライフサイクル、スロット間 `/proc` 分離
+- nonce のライフサイクル、スロット間 `/proc` 分離（`--mcp-config` は CLI に無く、付けない）
 - サンドボックス有効の ingest 相当、shell から workdir 外 / 外向き HTTP の拒否
 - `gdg wiki raw pull` / `git push` を svc から通す確認
 
 手動 E2E（[07 §手動 E2E](07-agent-uid-isolation.md)）も未実施。
+
+## 追記: 最初の Discord invocation（同日）
+
+Intents 修正後の実走で、ランチャが **`--mcp-config` を付けると `cursor-agent` が exit 1**
+（`unknown option '--mcp-config'`）。続けて
+`mkdir '~/.cursor/projects/srv-gdg-agent-wiki'` が **EACCES**
+（`.cursor` が root `0755` のため）。
+
+ライブでは `exec-spawn.ts` から `--mcp-config` を外し、
+`.cursor` を `1775`、`projects/` をスロット uid 所有にした。
+設計の更新は [Stage 07](07-agent-uid-isolation.md) §1 / §3 / §6。
 
 ## 未完了: Discord Privileged Intents
 

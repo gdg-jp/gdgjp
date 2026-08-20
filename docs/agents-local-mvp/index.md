@@ -51,7 +51,7 @@ uid 分離・sudoers・systemd・`/run` の tmpfs は、この 1 台の上でだ
 | 記憶の ACL | Discord チャンネル → `SourceVisibility` の静的写像。未設定は `chapter-organizer` |
 | リポジトリの同時変更 | **ミューテックス 1 本**（xangi が保持）。スロット数は同時変更数ではない（[Stage 10](10-sleep-scheduler.md) §1a） |
 | トレースの単位 | **invocation ごとに 1 ファイル**（`.gdgwiki/ingest-trace/<runId>.json`、[Stage 11](11-wk-mediator.md) §8） |
-| MCP | **既定 deny + ツール名 allowlist**（`search` のみ）。設定は root 所有 + `--mcp-config` |
+| MCP | **既定 deny + ツール名 allowlist**（`search` のみ）。user 設定は root 所有 `mcp.json`（`HOME`）。`--mcp-config` は無い |
 | 記憶の昇格 | 睡眠が `sources/inline` にアップロードして `source.id` を得てから ingest。人手を介さない |
 | 記憶のアップローダ | 参加者から 1 人選び、**`upload_actor` に固定する**。`added_by` は冪等キーの一部なので選び直すと重複する |
 | 既存ページの上書き | `canMutatePage` — organizer は全チャプター、member は自チャプター + public（[ADR-018](adr.md#adr-018-ページ変更権限をクラス集合から直接判定する)） |
@@ -510,7 +510,7 @@ nonce を発行する** — 全チャプター権限を載せると、プロン�
 - **読み取りの判定からチャンネルの天井を落とさない。** `wk` とインデックスは
   `…InChannel` 版だけを使う。落とすと全国チャンネルにチャプター限定の材料が出る。
 - **`MCP:*` を素通りにしない。** 既定 deny + ツール名 allowlist（Stage 05 §3-5）。
-  `preToolUse` にサーバ名は渡らないので、**設定の所有権と `--mcp-config` が前提条件**である。
+  `preToolUse` にサーバ名は渡らないので、**設定の所有権とツール名 allowlist が前提条件**である。
 - **`wk` のパス分類を正規化前のパスで行わない。** `.gdgwiki/../raw/x` が素通り行に
   当たると、判定表を丸ごと迂回できる（Stage 11 §3-0）。
 - **`wk write` を「拒否リスト」形にしない。** `pages/**/page.md` の allowlist である。
@@ -644,7 +644,7 @@ nonce を発行する** — 全チャプター権限を載せると、プロン�
    `.git/hooks/pre-commit` と `<workdir>/.cursor/sandbox.json` を名指しで確認する。
    実在しないツール名も deny される（既定 deny）。
 2b. **`MCP:search` 以外の MCP ツールが deny される。**
-   `mcp.json` は root 所有で、ランチャが `--mcp-config` を渡している。
+   `mcp.json` は root 所有で、ランチャは `--mcp-config` を付けない（`HOME` で読む）。
 3. `!skip` が存在せず、`cursor-agent` に `--force` が渡らない。
 4. 機密ソースを読んだ run が `wk write` でページを書くと、
    **書かれた時点で追加行に `<acl src>` が挿入されている**。

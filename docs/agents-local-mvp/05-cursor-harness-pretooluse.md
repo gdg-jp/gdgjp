@@ -69,7 +69,8 @@ Stage 06 の自動挿入が workdir 内では意味を持たない
    `gdgwiki` グループで全スロットが書ける）なので、
    **workdir にファイルを作れる経路が 1 つでもあれば MCP サーバを増やせる。**
    書き込み経路は `wk write` の allowlist（[Stage 11](11-wk-mediator.md) §5 手順 0）で閉じ、
-   設定自体は root 所有 + `--mcp-config` で固定する（Stage 07 §6）。
+   設定自体はスロット HOME の root 所有 `mcp.json` で固定する（Stage 07 §6）。
+   `--mcp-config` は `cursor-agent 2026.08.11-e8db854` に無く、渡すと exit 1 する。
 10. **クローンの本文は「clone した人間 1 人」の clearance で決まる。**
    `wiki/app/routes/api.cli.wiki.snapshot.ts:73` は `fullClearance` なら
    `<acl>` タグごと全文を返し、そうでなければページ全体に `removeAclSpans` を掛ける。
@@ -103,9 +104,10 @@ Stage 06 の自動挿入が workdir 内では意味を持たない
    `wk read` に切り替えるか。** 切り替えずに同じ Read を繰り返すループに入らないか。
 4. **Write / Edit ツールを deny した状態で、`wk write` による全文書き込みだけで
    ingest 相当の作業が完走するか。**
-5. **`--mcp-config <path>` を渡したとき、`<projectRoot>/.cursor/mcp.json` と
-   `~/.cursor/mcp.json` が無視されるか**（§3-5）。
-   無視されないなら `beforeMCPExecution` を足す判断になる。
+5. **`--mcp-config` は存在しない**（`cursor-agent 2026.08.11-e8db854`、
+   `unknown option '--mcp-config'` で exit 1）。user `mcp.json` は `HOME` で選ぶ。
+   project `mcp.json` は引き続きマージされるので、サーバ名検査が要るなら
+   `beforeMCPExecution` を足す（§3-5）。
 6. **変更系ツールと未知のツール名を既定 deny にした状態で、headless の作業が完走するか**（§2）。
    落ちた場合は、**ファイルシステム・ネットワーク・プロセスのいずれにも触らないツール名だけ**を
    素通りリストに足す。**足すたびに、その根拠を §2 に 1 行書く。**
@@ -210,7 +212,7 @@ stdin の JSON から `tool_name` / `tool_input` / `cwd` を読む。**ゲート
 | 作れるファイル | 帰結 |
 |---|---|
 | `.git/hooks/pre-commit`、`.gitattributes` の filter driver | `wk git commit` が任意コードを実行する。**§3 の argv allowlist が丸ごと無効化され、サンドボックス下でも workdir 全体（＝全チャプターの平文）が読める** |
-| `<workdir>/.cursor/sandbox.json` | `additionalReadonlyPaths` が次回 invocation にマージされ、**`readBoundary: "workspace"` が破れる**。`mcp.json` と違い `--mcp-config` に相当する無効化手段が無い（[Stage 07](07-agent-uid-isolation.md) §4） |
+| `<workdir>/.cursor/sandbox.json` | `additionalReadonlyPaths` が次回 invocation にマージされ、**`readBoundary: "workspace"` が破れる**。per-repo マージを無効化する CLI フラグは無い（[Stage 07](07-agent-uid-isolation.md) §4） |
 | `.gdgwiki/acl-sources.json`、`.gdgwiki/state.json` | スパンの `src` 解決とマニフェスト判定の材料が偽造される（[Stage 11](11-wk-mediator.md) §3-1 / §4） |
 
 前 2 者が壊すのは、[ADR-004 の脅威モデル](adr.md#脅威モデル)が**守るもの**に挙げた機構
@@ -320,12 +322,12 @@ FS / shell / git 能力を持つ MCP サーバが 1 つ増えた瞬間に **`wk`
   `preToolUse` にサーバ名は渡らない。**サーバ同一性はフックでは検査できない。**
 - **したがって、この allowlist はサーバ設定が固定されていることを前提にする。**
   前提の実施は Stage 07 §6 — MCP 設定を **root 所有 `0444`** で置き、
-  固定ランチャが **`--mcp-config <root 所有パス>`** を渡す。
-  **どちらか一方でも崩れると、`search` という名前のツールを持つ別のサーバが混ざりうる。**
-- 疎通確認で「`--mcp-config` を渡したとき `<projectRoot>/.cursor/mcp.json` が
-  無視されるか」を確認する（確認済みの事実 9）。
-  **無視されないなら**、`beforeMCPExecution`（`mcp_server_name` が渡る唯一のイベント）を
-  `failClosed: true` で 1 本足し、サーバ名を検査する。
+  ランチャは `HOME` でそのファイルを選ぶ（`--mcp-config` は無い）。
+  **user 設定が崩れると、`search` という名前のツールを持つ別のサーバが混ざりうる。**
+  project `mcp.json` はまだマージされる。書き込みは `wk` の allowlist で閉じ、
+  未知の MCP ツール名はゲートが deny する。
+  サーバ名まで見るなら `beforeMCPExecution`（`mcp_server_name` が渡る唯一のイベント）を
+  `failClosed: true` で 1 本足す。
   これは「使うフックは `preToolUse` 1 本」の**唯一の例外**であり、
   理由（このイベントだけがサーバ名を持ち、かつ deny を返せる）を
   [ADR-004](adr.md#adr-004-信頼境界を-pretooluse-フックuid-分離os-サンドボックスの-3-点に置く) に書く。
@@ -420,7 +422,8 @@ Cursor 自身の Read/Write ツールしか覆わず（§確認済みの事実 1
   **`search` 以外を足すときは、そのツールが gated path を読まないことを示す。**
 - **MCP のツール名 allowlist を「サーバ名で判定する」に書き換えない。**
   `preToolUse` にサーバ名は渡らない（確認済みの事実 8）。
-  サーバ同一性は設定の所有権と `--mcp-config`（Stage 07 §6）で担保する。
+  サーバ同一性は設定の所有権（Stage 07 §6）とツール名 allowlist で閉じる。
+  project `mcp.json` まで見るなら `beforeMCPExecution`。
 - **`Read` / `Grep` / `List` の deny を「一部のパスだけ」に緩めない。**
   `pages/**` / `raw/**` / `memories/**` は全部 `wk` 経由にする。
   1 つでも直接読める種別を残すと、そこがスパン濾過の迂回路になる。
@@ -494,7 +497,7 @@ Cursor 自身の Read/Write ツールしか覆わず（§確認済みの事実 1
    `wk write <path> <<'EOF'` も通る（唯一の here-doc 例外）。
 4. **`MCP:search` が通り、それ以外の `MCP:<tool>` が deny される。**
 4a. **`<projectRoot>/.cursor/mcp.json` に別の MCP サーバを書いても、
-   そのツールがゲートで deny される**（かつ `--mcp-config` 指定下ではそもそも読まれない）。
+   そのツールがゲートで deny される**（`--mcp-config` では無効化できない）。
 5. フックを非ゼロ終了・タイムアウト・空出力・不正 JSON にすると、すべて deny になる
    （`failClosed`）。
 6. index に未タグの blob を人為的に作って `wk git commit` すると、

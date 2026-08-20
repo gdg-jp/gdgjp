@@ -57,10 +57,10 @@
 - [ ] **Write / Edit の deny 下で、`wk write` だけで ingest 相当の作業が完走する**
   - 落ちた場合の代替案は [05 の「実装前に疎通確認すること」](05-cursor-harness-pretooluse.md) にある
 
-- [ ] `--mcp-config <path>` を渡したとき、`~/.cursor/mcp.json` と
-      `<projectRoot>/.cursor/mcp.json` が**読まれない**
-      （読まれるなら [05 §3-5](05-cursor-harness-pretooluse.md) の
-      `beforeMCPExecution` を足す判断になる）
+- [x] `--mcp-config` は `cursor-agent 2026.08.11-e8db854` に無い
+      （渡すと `unknown option` で exit 1）。user `mcp.json` は `HOME`。
+      project `mcp.json` はマージされるので、サーバ名検査は
+      [05 §3-5](05-cursor-harness-pretooluse.md) の `beforeMCPExecution`
 
 ### 07 に着手する前
 
@@ -77,7 +77,7 @@
 - [ ] **05 / 06 を入れただけの状態を本番のギルドに向けない。**
       ゲートとフックは**同一 uid では `rm` 一発で消える**ので、07 までは境界ではない
       （[ADR-004 の脅威モデル](adr.md#脅威モデル)）。テスト用ギルドだけで回す。
-- [ ] 07 の完了条件（uid 分離・所有権・サンドボックス・`--mcp-config`）が全部通っている
+- [ ] 07 の完了条件（uid 分離・所有権・サンドボックス。`--mcp-config` は使わない）が全部通っている
       — 所有権チェックの一部はホストログに記録済み。invocation 実走と Discord は未完了
 
 > **参考**: 「05 と 07 を原子的に配備しないと `wk read` で運用者の認証情報が漏れる」という
@@ -103,7 +103,7 @@
 - [ ] **`channelAudience` がクラス集合と別に運ばれ、読み取りが `…InChannel` 版で
       判定されている**（01・04・09・11）。全国写像のチャンネルで
       `chapter-*` の材料が読めないこと
-- [ ] **MCP が既定 deny で `search` だけが通り、`mcp.json` が root 所有 + `--mcp-config`**
+- [ ] **MCP が既定 deny で `search` だけが通り、`mcp.json` が root 所有（`--mcp-config` なし）**
       （05 と 07・09）
 - [ ] **`wk` がパスを正規化し、clone 外と `..` 侵入を拒否している**（11）
 - [ ] **`wk write` が `pages/**/page.md` の allowlist になっている**（11）

@@ -357,9 +357,10 @@ Cursor の `permissions.allow` / `deny` は補助として使う。境界とは�
 `mcp_server_name` が渡るのは `beforeMCPExecution` だけである。
 
 - 既定は **ツール名 allowlist（`search` のみ）+ 設定の固定**
-  （root 所有 `mcp.json` と `--mcp-config`。Stage 07 §6）で閉じる。
-- 疎通確認で `--mcp-config` が user / project の `mcp.json` を無効化しないと分かった場合に
-  **限って**、`beforeMCPExecution` を `failClosed: true` で 1 本足してサーバ名を検査する。
+  （root 所有 `mcp.json`、`HOME` で選択。Stage 07 §6）で閉じる。
+- `--mcp-config` は `cursor-agent 2026.08.11-e8db854` に無い。
+  project `mcp.json` はマージされるので、サーバ同一性まで見るなら
+  `beforeMCPExecution` を `failClosed: true` で 1 本足す。
 - **この例外が上の 3 つと違う点**: `beforeMCPExecution` は deny を返せ、
   かつ **他のどのイベントからも得られない情報**（サーバ同一性）を持つ。
   「保険として残す」類の追加ではない。

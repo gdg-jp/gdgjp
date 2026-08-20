@@ -44,6 +44,7 @@ for (let i = 0; i < rawArgs.length; i += 1) {
   const value = rawArgs[i];
   if (typeof value !== "string") throw new Error(`spawn-slot-${slot}: args must be strings`);
   if (value === "--force" || value === "--yolo") continue;
+  // cursor-agent 2026.08.11-e8db854 rejects unknown --mcp-config (exit 1).
   if (value === "--mcp-config") {
     i += 1;
     continue;
@@ -68,7 +69,9 @@ if (typeof extraEnv.LANG === "string") env.LANG = extraEnv.LANG;
 if (typeof extraEnv.TZ === "string") env.TZ = extraEnv.TZ;
 if (typeof cursorApiKey === "string" && cursorApiKey) env.CURSOR_API_KEY = cursorApiKey;
 
-const child = spawn(spec.command, ["--mcp-config", `${home}/.cursor/mcp.json`, ...args], {
+// MCP servers come from $HOME/.cursor/mcp.json (root-owned). There is no CLI
+// flag that pins or disables project mcp.json on this cursor-agent version.
+const child = spawn(spec.command, args, {
   stdio: "inherit",
   cwd: spec.cwd,
   env,
