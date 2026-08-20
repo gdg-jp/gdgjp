@@ -196,6 +196,33 @@ func TestInspectCursorUserHooksWarnsOnAfterFileEdit(t *testing.T) {
 	}
 }
 
+func TestInspectCursorUserHooksWarnsOnMatcher(t *testing.T) {
+	home, agentRoot := installInspectableAgentRoot(t)
+	gate := filepath.Join(agentRoot, "lib", aclGateFileName)
+	wk := filepath.Join(agentRoot, "bin", wkLauncherName)
+	raw, err := json.Marshal(map[string]any{
+		"version": 1,
+		"hooks": map[string]any{
+			"preToolUse": []map[string]any{{
+				"command":    "node " + gate + " " + wk,
+				"failClosed": true,
+				"matcher":    "Read",
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(home, ".cursor", "hooks.json"), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	warnings := InspectCursorUserHooks()
+	joined := strings.Join(warnings, "\n")
+	if !strings.Contains(joined, "matcher") {
+		t.Fatalf("warnings = %s", joined)
+	}
+}
+
 func TestCursorAbsolutePathRuleRejectsRelativeGlobShape(t *testing.T) {
 	got := CursorAbsolutePathRule("Read", "/srv/gdg-agent/wiki", "pages/*")
 	if got != "Read(/srv/gdg-agent/wiki/pages/*)" {

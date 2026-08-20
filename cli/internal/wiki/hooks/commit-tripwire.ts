@@ -1,4 +1,6 @@
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { isAlwaysVisible } from "./acl-core.ts";
 
 const SPAN_OPEN = `<${"acl"}`;
@@ -97,6 +99,14 @@ export function untaggedStagedAdds(root: string): string[] {
     } catch {
       findings.push(rel);
       continue;
+    }
+    const worktree = join(root, rel);
+    if (existsSync(worktree)) {
+      try {
+        if (readFileSync(worktree, "utf8") === staged) continue;
+      } catch {
+        /* compare failed; inspect the index */
+      }
     }
     const ranges = spanRanges(staged);
     const offsets = lineOffsets(staged);

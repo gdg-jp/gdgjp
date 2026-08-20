@@ -111,6 +111,9 @@ func inspectUserHooksJSON(raw []byte) (gatePath string, warnings []string) {
 			if failClosed {
 				foundFailClosed = true
 			}
+			if _, hasMatcher := entry["matcher"]; hasMatcher {
+				warnings = append(warnings, "user hooks.json preToolUse must not set matcher")
+			}
 		}
 	}
 	if gatePath == "" {

@@ -87,6 +87,12 @@ function toPosix(rel: string): string {
   return rel.split(sep).join("/");
 }
 
+function isAncestor(ancestor: string, child: string): boolean {
+  const top = toPosix(ancestor).replace(/\/+$/, "");
+  const inner = toPosix(child);
+  return inner === top || inner.startsWith(`${top}/`);
+}
+
 function classifyPath(root: string | null, input: string, cwd: string): "gated" | "other" {
   const abs = resolve(cwd, input);
   let target = abs;
@@ -97,7 +103,10 @@ function classifyPath(root: string | null, input: string, cwd: string): "gated" 
   }
   if (root) {
     const rel = toPosix(relative(root, target));
-    if (!rel || rel === ".." || rel.startsWith("../")) return "other";
+    if (!rel) return "gated";
+    if (rel === ".." || rel.startsWith("../")) {
+      return isAncestor(target, root) ? "gated" : "other";
+    }
     if (GATED_PREFIXES.some((prefix) => rel === prefix.slice(0, -1) || rel.startsWith(prefix))) {
       return "gated";
     }
@@ -127,6 +136,13 @@ function wkReadHint(input: string | null, cwd: string, root: string | null): str
   const rel = toPosix(relative(root, target));
   if (!rel || rel.startsWith("..")) return `wk read ${input}`;
   return `wk read ${rel}`;
+}
+
+function wkHint(tool: string, input: string | null, cwd: string, root: string | null): string {
+  const pathHint = wkReadHint(input, cwd, root).replace(/^wk read /, "");
+  if (tool === "Grep") return `wk grep <pattern> ${pathHint === "<path>" ? "pages/" : pathHint}`;
+  if (tool === "List") return `wk ls ${pathHint === "<path>" ? "pages/" : pathHint}`;
+  return `wk read ${pathHint}`;
 }
 
 function audit(root: string | null, permission: "allow" | "deny", tool: string): void {
@@ -205,7 +221,7 @@ function handleReadLike(
     deny(
       root,
       tool,
-      `pages/, raw/, and memories/ must be read through wk: ${wkReadHint(input, cwd, root)}`,
+      `pages/, raw/, and memories/ must be read through wk: ${wkHint(tool, input, cwd, root)}`,
     );
     return;
   }

@@ -106,6 +106,29 @@ func TestACLGateReadGatedPaths(t *testing.T) {
 	assertAllow(t, stdout)
 }
 
+func TestACLGateGrepOfCloneRootIsDenied(t *testing.T) {
+	root := t.TempDir()
+	writeClone(t, root)
+	stdout, _ := runGate(t, root, map[string]any{
+		"tool_name":  "Grep",
+		"cwd":        root,
+		"tool_input": map[string]any{"pattern": "secret", "path": root},
+	}, "")
+	assertDeny(t, stdout, "wk grep")
+	stdout, _ = runGate(t, root, map[string]any{
+		"tool_name":  "Grep",
+		"cwd":        root,
+		"tool_input": map[string]any{"pattern": "secret", "path": filepath.Dir(root)},
+	}, "")
+	assertDeny(t, stdout, "wk grep")
+	stdout, _ = runGate(t, root, map[string]any{
+		"tool_name":  "List",
+		"cwd":        root,
+		"tool_input": map[string]any{"path": "."},
+	}, "")
+	assertDeny(t, stdout, "wk ls")
+}
+
 func TestACLGateWriteAlwaysDenied(t *testing.T) {
 	root := t.TempDir()
 	writeClone(t, root)
@@ -269,6 +292,20 @@ func TestACLGateCommitTripwireLooksAtIndex(t *testing.T) {
 	}, "")
 	if strings.Contains(stdout, "gate bypass") {
 		t.Fatalf("tagged index must not trip the bypass message: %s", stdout)
+	}
+
+	untaggedWorktree := "---\nvisibility: public\n---\npublic note\n"
+	if err := os.WriteFile(filepath.Join(root, "pages", "x", "page.md"), []byte(untaggedWorktree), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "pages/x/page.md")
+	stdout, _ = runGate(t, root, map[string]any{
+		"tool_name":  "Shell",
+		"cwd":        root,
+		"tool_input": map[string]any{"command": "wk git commit -m x"},
+	}, "")
+	if strings.Contains(stdout, "gate bypass") {
+		t.Fatalf("worktree matching the index must not trip: %s", stdout)
 	}
 }
 
