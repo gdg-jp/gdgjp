@@ -178,6 +178,7 @@ func (entry *SourcesManifestEntry) UnmarshalJSON(data []byte) error {
 	_, entry.ChapterIDPresent = fields["chapterId"]
 	return nil
 }
+
 type SourcesManifest struct {
 	Version   int                    `json:"version"`
 	Documents []SourcesManifestEntry `json:"documents"`

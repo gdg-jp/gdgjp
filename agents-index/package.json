@@ -1,0 +1,28 @@
+{
+  "name": "@gdgjp/agents-index",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "agents-index": "./src/cli.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@gdgjp/gdg-lib": "workspace:*",
+    "@huggingface/transformers": "^3.8.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "better-sqlite3": "^12.10.0",
+    "chokidar": "^4.0.3",
+    "sqlite-vec": "^0.1.7-alpha.2",
+    "yaml": "^2.9.0",
+    "zod": "^4.4.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.10"
+  }
+}

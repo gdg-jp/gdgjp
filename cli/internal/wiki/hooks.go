@@ -12,6 +12,12 @@ import (
 //go:embed hooks/acl-gate.ts
 var aclGateScript []byte
 
+//go:embed hooks/wk.ts
+var wkScript []byte
+
+//go:embed hooks/acl-core.ts
+var aclCoreScript []byte
+
 //go:embed hooks/package.json
 var hooksPackageJSON []byte
 
