@@ -1,12 +1,15 @@
 package wiki
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // ValidateACLAccess is the subset of AccessEntry needed for dry-run ACL checks.
@@ -307,6 +310,10 @@ func ResolveReadSourceIDs(root string, state State, trace IngestTrace) []string 
 
 	for _, readPath := range trace.Reads {
 		readPath = filepath.ToSlash(strings.TrimPrefix(readPath, "./"))
+		if strings.HasPrefix(readPath, "memories/") {
+			addSourceID(seen, &ids, sourceIDFromMemoryFile(root, readPath))
+			continue
+		}
 		for _, doc := range state.Manifest.Documents {
 			docPath := filepath.ToSlash(doc.Path)
 			matched := readPath == docPath ||
@@ -318,6 +325,30 @@ func ResolveReadSourceIDs(root string, state State, trace IngestTrace) []string 
 		}
 	}
 	return ids
+}
+
+type memoryFrontMatter struct {
+	UploadedSourceID *string `yaml:"uploaded_source_id"`
+}
+
+func sourceIDFromMemoryFile(root, rel string) string {
+	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		return ""
+	}
+	if !bytes.HasPrefix(raw, []byte("---\n")) {
+		return ""
+	}
+	rest := raw[4:]
+	n := bytes.Index(rest, []byte("\n---\n"))
+	if n < 0 {
+		return ""
+	}
+	var fm memoryFrontMatter
+	if err = yaml.Unmarshal(rest[:n], &fm); err != nil || fm.UploadedSourceID == nil {
+		return ""
+	}
+	return strings.TrimSpace(*fm.UploadedSourceID)
 }
 
 // FormatACLFindings renders findings for agents and --commit output.
@@ -376,8 +407,7 @@ func VerifyACL(ctx context.Context, root string, client *Client, token string, r
 	readIDs := ResolveReadSourceIDs(root, state, trace)
 	// After git push the worktree matches origin/main, so dirty/diff is empty.
 	// Recover pages changed since ingest start (BaseRev..HEAD) without loading
-	// the whole wiki. Keep Cursor Writes as a supplement for afterFileEdit
-	// traces (shell tee/cat may bypass the write hook).
+	// the whole wiki. Keep Writes as a supplement when the worktree is clean.
 	if len(pages) == 0 {
 		commitRels, commitErr := CollectCommittedPageRels(ctx, root, runGit, trace.BaseRev)
 		if commitErr != nil {

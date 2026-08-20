@@ -19,6 +19,14 @@ function runNode(script, args, options = {}) {
   });
 }
 
+function payload(toolName, extra = {}) {
+  return JSON.stringify({
+    hook_event_name: "preToolUse",
+    tool_name: toolName,
+    ...extra,
+  });
+}
+
 async function makeClone() {
   const root = await mkdtemp(join(tmpdir(), "gdgjp-hook-clone-"));
   const configDir = join(root, ".gdgwiki");
@@ -34,16 +42,16 @@ async function makeFakeExecutable(directory, name, source) {
   return path;
 }
 
-test("ACL gate fails open for malformed shell payloads", async () => {
+test("ACL gate denies malformed preToolUse payloads", async () => {
   const root = await makeClone();
-  const result = runNode(aclGatePath, ["shell"], { cwd: root, input: "{broken" });
+  const result = runNode(aclGatePath, [], { cwd: root, input: "{broken" });
 
   assert.equal(result.status, 0);
-  assert.equal(result.stdout, "");
+  assert.equal(JSON.parse(result.stdout).permission, "deny");
 });
 
-test("ACL gate does not invoke gdg outside a Wiki clone", async () => {
-  const root = await mkdtemp(join(tmpdir(), "gdgjp-hook-outside-"));
+test("ACL gate does not invoke gdg for non-wk shell commands", async () => {
+  const root = await makeClone();
   const binDir = await mkdtemp(join(tmpdir(), "gdgjp-hook-bin-"));
   const logPath = join(binDir, "gdg.log");
   const gdgPath = await makeFakeExecutable(
@@ -51,28 +59,29 @@ test("ACL gate does not invoke gdg outside a Wiki clone", async () => {
     "gdg",
     'require("node:fs").writeFileSync(process.env.FAKE_LOG, "called"); process.exit(1);',
   );
-  const result = runNode(aclGatePath, ["shell"], {
+  const result = runNode(aclGatePath, [], {
     cwd: root,
-    input: JSON.stringify({ command: "git commit -m test" }),
+    input: payload("Shell", { tool_input: { command: "git commit -m test" } }),
     env: { ...process.env, FAKE_LOG: logPath, GDG_BIN: gdgPath },
   });
 
   assert.equal(result.status, 0);
-  assert.equal(result.stdout, "");
+  assert.equal(JSON.parse(result.stdout).permission, "deny");
   assert.equal(existsSync(logPath), false);
 });
 
-test("ACL gate denies only the gdg ACL-violation exit status", async () => {
+test("ACL gate denies only the gdg ACL-violation exit status for wk git commit", async () => {
   const root = await makeClone();
+  spawnSync("git", ["init", "-b", "main"], { cwd: root, encoding: "utf8" });
   const binDir = await mkdtemp(join(tmpdir(), "gdgjp-hook-gdg-"));
   const gdgPath = await makeFakeExecutable(
     binDir,
     "gdg",
     'process.stdout.write("missing ACL span"); process.exit(Number(process.env.FAKE_EXIT));',
   );
-  const input = JSON.stringify({ command: "git commit -m test" });
+  const input = payload("Shell", { tool_input: { command: "wk git commit -m test" } });
 
-  const violation = runNode(aclGatePath, ["shell"], {
+  const violation = runNode(aclGatePath, [], {
     cwd: root,
     input,
     env: { ...process.env, FAKE_EXIT: "1", GDG_BIN: gdgPath },
@@ -80,14 +89,14 @@ test("ACL gate denies only the gdg ACL-violation exit status", async () => {
   assert.equal(violation.status, 0);
   assert.equal(JSON.parse(violation.stdout).permission, "deny");
 
-  const infrastructureFailure = runNode(aclGatePath, ["shell"], {
+  const infrastructureFailure = runNode(aclGatePath, [], {
     cwd: root,
     input,
     env: { ...process.env, FAKE_EXIT: "2", GDG_BIN: gdgPath },
   });
   assert.equal(infrastructureFailure.status, 0);
   assert.equal(infrastructureFailure.stdout, "");
-  assert.match(infrastructureFailure.stderr, /allowing command \(fail open\)/);
+  assert.match(infrastructureFailure.stderr, /allowing commit \(fail open\)/);
 });
 
 test("pre-commit hook does not invoke pnpm for malformed or non-commit payloads", async () => {

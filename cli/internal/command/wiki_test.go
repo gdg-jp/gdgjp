@@ -305,11 +305,11 @@ func TestWikiIngestCursorAgentInstallsHooksAndPassesRoot(t *testing.T) {
 	if gotResolved != wantRoot {
 		t.Fatalf("runAgent root=%q want %q", gotRoot, root)
 	}
-	if !strings.Contains(output, "Cursor ACL hooks") {
+	if !strings.Contains(output, "this clone is not a hook install target") {
 		t.Fatalf("output missing hooks notice: %q", output)
 	}
-	if _, err = os.Stat(filepath.Join(root, ".cursor", "hooks.json")); err != nil {
-		t.Fatal(err)
+	if _, err = os.Stat(filepath.Join(root, ".cursor", "hooks.json")); !os.IsNotExist(err) {
+		t.Fatalf("ingest --agent cursor must not write clone hooks, err=%v", err)
 	}
 	trace, err := wiki.LoadTrace(root)
 	if err != nil {

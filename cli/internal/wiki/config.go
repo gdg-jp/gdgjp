@@ -87,8 +87,8 @@ func WorkTreeRoot(gitDir string) (string, error) {
 
 func CloneGitignore() string {
 	// Keep local agent/runtime dirs out of git status. EnsureCursorHooks rewrites
-	// this file idempotently — omitting a line here makes --commit fail on clones
-	// that already have those directories (skills, hooks, Cursor project config).
+	// this file idempotently. .cursor/ stays ignored even though clones no longer
+	// receive project hooks — leftover agent-writable config must not appear in git.
 	return strings.Join([]string{
 		"raw/",
 		"AGENTS.original.md",
