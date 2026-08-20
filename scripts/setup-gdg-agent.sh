@@ -32,7 +32,7 @@ fi
 
 install -d -m 0755 "$AGENT_ROOT/lib" "$AGENT_ROOT/bin"
 install -m 0444 "$HOOKS_SRC/package.json" "$AGENT_ROOT/package.json"
-for f in acl-gate.ts wk.ts acl-core.ts shell-allowlist.ts commit-tripwire.ts acl.ts; do
+for f in acl-gate.ts wk.ts acl-core.ts shell-allowlist.ts commit-tripwire.ts acl-insert-core.ts acl.ts; do
   install -m 0444 "$HOOKS_SRC/$f" "$AGENT_ROOT/lib/$f"
 done
 cat > "$AGENT_ROOT/bin/wk" <<EOF

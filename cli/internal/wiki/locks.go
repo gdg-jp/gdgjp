@@ -185,3 +185,38 @@ func acquireLocksMutex(root string) error {
 func releaseLocksMutex(root string) {
 	_ = os.Remove(locksMutexPath(root))
 }
+
+// LockedSourceIDs returns source ids for documents locked by LockOwner.
+// Parallel ingest must not inherit another agent's locked source.
+func LockedSourceIDs(root string, state State) []string {
+	if state.Manifest == nil {
+		return nil
+	}
+	locks, err := LoadLocks(root)
+	if err != nil {
+		return nil
+	}
+	byDoc := map[string]string{}
+	for _, doc := range state.Manifest.Documents {
+		if doc.SourceID != nil && *doc.SourceID != "" {
+			byDoc[doc.DocumentID] = *doc.SourceID
+		}
+	}
+	seen := map[string]struct{}{}
+	var ids []string
+	for documentID, entry := range locks.Locks {
+		if entry.Owner != LockOwner() {
+			continue
+		}
+		id := byDoc[documentID]
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	return ids
+}

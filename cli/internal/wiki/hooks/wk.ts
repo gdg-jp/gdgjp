@@ -15,6 +15,7 @@ import {
   sourceMetaFromManifest,
   sourceMetaFromMemory,
 } from "./acl-core.ts";
+import { AclInsertError, applyAclInsertForWrite, runCommitTripwire } from "./acl-insert-core.ts";
 import {
   ACL_REDACTION_PLACEHOLDER,
   canClassesAccessSourceInChannel,
@@ -44,18 +45,26 @@ function runId(): string {
 function traceRead(root: string, rel: string): void {
   if (!rel.startsWith("raw/")) return;
   const path = join(root, ".gdgwiki", "ingest-trace", `${runId()}.json`);
-  let trace: { runId: string; reads: string[]; writes: string[]; startedAt: number } = {
+  let trace: {
+    runId: string;
+    reads: string[];
+    writes: string[];
+    startedAt: number;
+    baseRev?: string;
+    sourceIds?: string[];
+  } = {
     runId: runId(),
     reads: [],
     writes: [],
     startedAt: Date.now(),
   };
   try {
-    trace = JSON.parse(readFileSync(path, "utf8")) as typeof trace;
+    trace = { ...trace, ...(JSON.parse(readFileSync(path, "utf8")) as typeof trace) };
   } catch {
     /* start a fresh invocation trace */
   }
   if (!Array.isArray(trace.reads)) trace.reads = [];
+  if (!Array.isArray(trace.sourceIds)) trace.sourceIds = [];
   if (!trace.reads.includes(rel)) trace.reads.push(rel);
   // The directory is provisioned by the launcher. Do not silently use a shared trace.
   if (!existsSync(dirname(path))) fail("wk: invocation trace directory is missing");
@@ -188,8 +197,10 @@ function ensurePageWrite(
   const resolved = resolveClonePath(root, input, true);
   if (!isPagePath(resolved.rel)) fail("wk: writes are limited to pages/**/page.md");
   const previous = existsSync(resolved.absolute) ? readRaw(resolved.absolute) : null;
-  const page = readPageMeta(previous ?? content);
-  if (!canMutatePage(authz.classes, page)) fail("wk: current classes cannot modify this page");
+  readPageMeta(content);
+  const current = previous === null ? content : previous;
+  if (!canMutatePage(authz.classes, readPageMeta(current)))
+    fail("wk: current classes cannot modify this page");
   return { ...resolved, previous };
 }
 
@@ -223,9 +234,17 @@ function writeCommand(root: string, authz: Authz, args: string[]): void {
   const target = ensurePageWrite(root, args[0], content, authz);
   const merged =
     target.previous === null ? content : restoreHidden(target.previous, content, root, authz);
-  const valid = validateAclSpans(merged);
+  readPageMeta(merged);
+  let tagged: string;
+  try {
+    tagged = applyAclInsertForWrite(root, target.rel, merged, runId());
+  } catch (error) {
+    if (error instanceof AclInsertError) fail(error.message);
+    fail("wk: refused: automatic <acl> insertion failed; file was not written");
+  }
+  const valid = validateAclSpans(tagged);
   if (!valid.ok) fail("wk: refused: ACL spans are malformed");
-  writeFileSync(target.absolute, merged, "utf8");
+  writeFileSync(target.absolute, tagged, "utf8");
 }
 
 function rmCommand(root: string, authz: Authz, args: string[]): void {
@@ -271,6 +290,10 @@ function gitCommand(root: string, _authz: Authz, args: string[]): void {
       if (hasGitFilter(root, path)) fail("wk: refusing git add through an attribute filter");
   } else if (args.length !== 2 || args[0] !== "-m" || !args[1]) {
     fail("wk: git commit requires only -m <message>");
+  } else {
+    const tripwire = runCommitTripwire(root, runId());
+    if (tripwire.warning) process.stderr.write(`${tripwire.warning}\n`);
+    if (tripwire.deny) fail(tripwire.message);
   }
   // A unified diff cannot be safely reconstructed from independently-redacted
   // lines: diff prefixes break span boundaries. Names are sufficient for the

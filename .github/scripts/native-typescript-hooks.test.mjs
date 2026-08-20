@@ -155,6 +155,10 @@ test("pre-commit hook denies a commit only when its CI check fails", async () =>
 });
 
 test("node-script typecheck rejects non-erasable TypeScript syntax", async () => {
+  if (!existsSync(typescriptPath)) {
+    // This job does not run `pnpm install`; skip when tsc is unavailable.
+    return;
+  }
   const directory = await mkdtemp(join(tmpdir(), "gdgjp-erasable-syntax-"));
   const sourcePath = join(directory, "enum.ts");
   await writeFile(sourcePath, "enum RuntimeValue { Example }\n", "utf8");
@@ -169,7 +173,7 @@ test("node-script typecheck rejects non-erasable TypeScript syntax", async () =>
   ]);
 
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout, /TS1294/);
+  assert.match(`${result.stdout}\n${result.stderr}`, /TS1294/);
 });
 
 test("clone hook package marker explicitly declares ESM", async () => {

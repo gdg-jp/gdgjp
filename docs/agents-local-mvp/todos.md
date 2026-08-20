@@ -31,7 +31,7 @@
 
 - [x] **05** [`preToolUse` ゲート](05-cursor-harness-pretooluse.md) — 依存: 00, 11
   - **11 より先に入れない。** Read を deny されたエージェントに代替手段が無くなる
-- [ ] **06** [`wk write` の `<acl>` 自動挿入](06-acl-span-autoinsert.md) — 依存: 11
+- [x] **06** [`wk write` の `<acl>` 自動挿入](06-acl-span-autoinsert.md) — 依存: 11
 
 ## Wave 6
 

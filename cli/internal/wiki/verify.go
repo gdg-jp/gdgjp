@@ -292,9 +292,9 @@ func addSourceID(seen map[string]struct{}, ids *[]string, id string) {
 	*ids = append(*ids, id)
 }
 
-// ResolveReadSourceIDs always includes the queue-head source id (when present)
-// and adds any source ids resolved from the ingest trace reads. A missing or
-// broken trace never skips the queue-head check.
+// ResolveReadSourceIDs includes source ids from documents this run locked,
+// ids recorded directly on the invocation trace (memory uploads), and ids
+// resolved from traced raw/ reads. It does not use the ingest queue head.
 func ResolveReadSourceIDs(root string, state State, trace IngestTrace) []string {
 	seen := map[string]struct{}{}
 	var ids []string
@@ -303,9 +303,11 @@ func ResolveReadSourceIDs(root string, state State, trace IngestTrace) []string 
 		return ids
 	}
 
-	pending := PendingIngestDocuments(*state.Manifest, state)
-	if len(pending) > 0 && pending[0].SourceID != nil {
-		addSourceID(seen, &ids, *pending[0].SourceID)
+	for _, id := range LockedSourceIDs(root, state) {
+		addSourceID(seen, &ids, id)
+	}
+	for _, id := range trace.SourceIDs {
+		addSourceID(seen, &ids, id)
 	}
 
 	for _, readPath := range trace.Reads {
@@ -401,13 +403,13 @@ func VerifyACL(ctx context.Context, root string, client *Client, token string, r
 		trace, err = LoadTrace(root)
 	}
 	if err != nil {
-		// Broken trace must not skip the queue-head gate.
+		// Broken trace must not invent source ids. Lock + read traces are the set.
 		trace = IngestTrace{}
 	}
 	readIDs := ResolveReadSourceIDs(root, state, trace)
 	// After git push the worktree matches origin/main, so dirty/diff is empty.
 	// Recover pages changed since ingest start (BaseRev..HEAD) without loading
-	// the whole wiki. Keep Writes as a supplement when the worktree is clean.
+	// the whole wiki. Trace writes remain a last-resort supplement.
 	if len(pages) == 0 {
 		commitRels, commitErr := CollectCommittedPageRels(ctx, root, runGit, trace.BaseRev)
 		if commitErr != nil {

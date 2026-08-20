@@ -25,6 +25,9 @@ var shellAllowlistScript []byte
 //go:embed hooks/commit-tripwire.ts
 var commitTripwireScript []byte
 
+//go:embed hooks/acl-insert-core.ts
+var aclInsertCoreScript []byte
+
 //go:embed hooks/package.json
 var hooksPackageJSON []byte
 
@@ -142,6 +145,7 @@ func inspectInstalledScripts(gatePath string) []string {
 		{filepath.Join(libDir, aclCoreFileName), aclCoreScript, aclCoreFileName},
 		{filepath.Join(libDir, "shell-allowlist.ts"), shellAllowlistScript, "shell-allowlist.ts"},
 		{filepath.Join(libDir, "commit-tripwire.ts"), commitTripwireScript, "commit-tripwire.ts"},
+		{filepath.Join(libDir, "acl-insert-core.ts"), aclInsertCoreScript, "acl-insert-core.ts"},
 		{filepath.Join(agentRoot, packageJSONName), hooksPackageJSON, packageJSONName},
 	}
 	for _, check := range checks {

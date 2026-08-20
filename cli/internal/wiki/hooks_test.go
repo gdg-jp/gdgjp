@@ -30,6 +30,7 @@ func installInspectableAgentRoot(t *testing.T) (home, agentRoot string) {
 		filepath.Join(lib, aclCoreFileName):       aclCoreScript,
 		filepath.Join(lib, "shell-allowlist.ts"):  shellAllowlistScript,
 		filepath.Join(lib, "commit-tripwire.ts"):  commitTripwireScript,
+		filepath.Join(lib, "acl-insert-core.ts"):  aclInsertCoreScript,
 		filepath.Join(lib, aclBundleFileName):     []byte("export {}\n"),
 		filepath.Join(agentRoot, packageJSONName): hooksPackageJSON,
 		filepath.Join(bin, wkLauncherName):        []byte("#!/bin/sh\nexec node \"$(dirname \"$0\")/../lib/wk.ts\" \"$@\"\n"),
@@ -103,6 +104,13 @@ func TestEnsureCursorHooksIdempotentAndGitignored(t *testing.T) {
 	}
 	if _, err = os.Stat(filepath.Join(root, ".gdgwiki", "hooks", "acl-gate.ts")); !os.IsNotExist(err) {
 		t.Fatalf("clone must not receive hook scripts: %v", err)
+	}
+	exclude, err := os.ReadFile(filepath.Join(root, ".git", "info", "exclude"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(exclude), ".gitignore") {
+		t.Fatalf("exclude missing .gitignore: %s", exclude)
 	}
 
 	gitignorePath := filepath.Join(root, ".gitignore")
