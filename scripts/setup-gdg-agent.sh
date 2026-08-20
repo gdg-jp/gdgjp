@@ -20,7 +20,7 @@ fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HOOKS_SRC="${GDG_SETUP_HOOKS_SRC:-$ROOT/cli/internal/wiki/hooks}"
-LAYOUT="$ROOT/agents-local/lib/install-layout.sh"
+LAYOUT="$ROOT/scripts/gdg-agent/install-layout.sh"
 if [[ ! -x "$LAYOUT" ]]; then
   echo "missing $LAYOUT" >&2
   exit 1

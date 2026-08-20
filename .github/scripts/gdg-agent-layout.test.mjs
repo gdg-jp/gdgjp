@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -7,8 +8,9 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const layoutScript = join(repositoryRoot, "agents-local/lib/install-layout.sh");
+const layoutScript = join(repositoryRoot, "scripts/gdg-agent/install-layout.sh");
 const hooksSrc = join(repositoryRoot, "cli/internal/wiki/hooks");
+const submoduleLayout = join(repositoryRoot, "agents-local/lib/install-layout.sh");
 
 async function installLayout() {
   const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-layout-"));
@@ -27,6 +29,13 @@ async function installLayout() {
 }
 
 test("agent layout is idempotent, root-owned templates, and has no sudoers wildcards", async () => {
+  if (existsSync(submoduleLayout)) {
+    assert.equal(
+      await readFile(layoutScript, "utf8"),
+      await readFile(submoduleLayout, "utf8"),
+      "scripts/gdg-agent/install-layout.sh must match agents-local/lib/install-layout.sh",
+    );
+  }
   const prefix = await installLayout();
   try {
     const again = spawnSync("bash", [layoutScript], {

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(wk)",
+      "Shell(/opt/gdg-agent/bin/wk)",
+      "Read(**)",
+      "Grep(**)",
+      "List(**)",
+      "Mcp(gdg-index, search)"
+    ],
+    "deny": []
+  },
+  "approvalMode": "allowlist",
+  "sandbox": {
+    "mode": "enabled",
+    "readBoundary": "workspace",
+    "networkAccess": "user_config_only",
+    "networkAllowlist": []
+  }
+}

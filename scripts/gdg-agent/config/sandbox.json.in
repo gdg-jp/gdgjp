@@ -1,0 +1,10 @@
+{
+  "additionalReadonlyPaths": [
+    "/opt/gdg-agent/lib",
+    "/opt/gdg-agent/bin",
+    "/usr/bin",
+    "/usr/lib",
+    "__RUN_SLOT_DIR__"
+  ],
+  "additionalReadwritePaths": []
+}
