@@ -50,6 +50,29 @@ func TestResetAndAppendTrace(t *testing.T) {
 	}
 }
 
+func TestAppendTraceSourceAndRunReset(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := ResetIngestTraceForRun(root, "run-1", "doc-9", "abc123"); err != nil {
+		t.Fatal(err)
+	}
+	if err := AppendTraceSource(root, "run-1", "mem-src"); err != nil {
+		t.Fatal(err)
+	}
+	if err := AppendTraceSource(root, "run-1", "mem-src"); err != nil {
+		t.Fatal(err)
+	}
+	trace, err := LoadTraceForRun(root, "run-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if trace.BaseRev != "abc123" || len(trace.SourceIDs) != 1 || trace.SourceIDs[0] != "mem-src" {
+		t.Fatalf("trace = %#v", trace)
+	}
+}
+
 func TestLoadTraceBrokenJSONStartsEmpty(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(ConfigDir(root), 0o755); err != nil {

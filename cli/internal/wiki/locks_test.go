@@ -50,6 +50,14 @@ func TestLockDocumentIdempotentAndExclusive(t *testing.T) {
 		t.Fatalf("second lock = %#v", second)
 	}
 
+	src := "locked-src"
+	ids := LockedSourceIDs(root, State{Manifest: &SourcesManifest{Documents: []SourcesManifestEntry{
+		{DocumentID: "doc-1", SourceID: &src},
+	}}})
+	if len(ids) != 1 || ids[0] != "locked-src" {
+		t.Fatalf("LockedSourceIDs = %#v", ids)
+	}
+
 	if err = UnlockDocument(root, "doc-1", "owner-a", true); err != nil {
 		t.Fatal(err)
 	}

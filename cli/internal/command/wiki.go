@@ -420,7 +420,23 @@ func (s *wikiService) ingestLock(cmd *cobra.Command) error {
 			continue
 		}
 		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Locked %s (owner %s).\n", entry.DocumentID, entry.Owner)
-		return err
+		if err != nil {
+			return err
+		}
+		baseRev, revErr := s.runGit(cmd.Context(), root, "rev-parse", "HEAD")
+		if revErr != nil {
+			baseRev = ""
+		}
+		baseRev = strings.TrimSpace(baseRev)
+		if err = wiki.ResetIngestTrace(root, entry.DocumentID, baseRev); err != nil {
+			return err
+		}
+		if runID := strings.TrimSpace(os.Getenv("GDG_WIKI_RUN_ID")); runID != "" {
+			if err = wiki.ResetIngestTraceForRun(root, runID, entry.DocumentID, baseRev); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	if lastErr != nil {
 		return fmt.Errorf("no claimable pending documents: %w", lastErr)

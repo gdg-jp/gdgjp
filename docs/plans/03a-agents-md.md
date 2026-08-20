@@ -178,7 +178,7 @@ When uncertain, do not write it. Referring to `raw/` preserves it.
 
 ## Confidentiality and Span ACLs
 
-Sources in `INGEST_QUEUE.md` carry a `visibility` line. Any statement written from a source whose visibility is anything other than `member` must be wrapped in an ACL span:
+Sources in `INGEST_QUEUE.md` carry a `visibility` line. `wk write` automatically wraps added body lines in an ACL span when this run read or locked a source whose visibility is anything other than `member`:
 
 ```markdown
 Visible sentence.
@@ -186,14 +186,17 @@ Visible sentence.
 Another visible sentence.
 ```
 
+The insertion is conservative. It may wrap sentences that could later be public. **Do not remove `<acl>` tags yourself.** A human editor un-tags them in the Wiki UI if they should be visible.
+
 Rules:
 
-- If you cannot wrap the statement, or cannot determine whether it should be wrapped, **do not write that fact**. It remains available in `raw/`.
+- Write confidential facts as ordinary body paragraphs. `wk write` inserts the tags. If it refuses, its stderr names the file, line, and `source_id` — move that content out of a heading or fenced code block and retry.
 - Do not put `<acl>` in title, summary, or front matter. Do not nest ACL spans.
 - A single span may reference multiple sources with space-separated ids (`src="id1 id2"`); the reader must be allowed for every listed source.
 - Do not edit a page whose front matter has `acl_redacted: true` — the push will be rejected.
-- If the server or `gdg wiki verify-acl` returns `acl_required` / `acl_untagged_read_source`, wrap the cited content with the appropriate `<acl src>` tag, then retry. Prefer tags over lowering page `visibility`. **These errors mean tagging is incomplete, not that you lack permission.** If you can read the queue item under `raw/`, continue ingest with `<acl>` tags. Page-level visibility set in the Wiki app is preserved across content updates unless you intentionally change it to a non-default value.
-- With `gdg wiki ingest --agent cursor`, a project hook runs `gdg wiki verify-acl` before `git commit` / `git push`. If tagging is incomplete, the hook **denies the command** and the `agent_message` lists the missing `sourceId`. Wrap that source in `<acl src="…">…</acl>` and retry the commit. Infrastructure failures (offline, expired token, missing `gdg`) fail open with a warning — the server `/sync` check remains the hard boundary.
+- **`⬛︎⬛︎⬛︎` is a span you cannot read. Do not delete or rearrange it.** Writing the page back without those placeholders is refused.
+- If `wk write` or `gdg wiki verify-acl` returns `acl_required` / `acl_untagged_read_source`, the automatic insertion could not cover the edit. Follow the stderr instructions; do not lower page `visibility` to silence the error. **These errors mean tagging is incomplete, not that you lack permission.**
+- `wk git commit` does not insert tags. If it denies with a possible gate violation, the index contains untagged added lines — those writes did not go through `wk write`. Infrastructure failures (offline, expired token, missing `gdg`) fail open with a warning — the server `/sync` check remains the hard boundary.
 
 Span ACLs are an additional defense layer inside page-level visibility. They are not a substitute for keeping confidential primary data in `raw/`.
 

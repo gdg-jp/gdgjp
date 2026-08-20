@@ -882,8 +882,11 @@ func TestWikiIngestLockUnlock(t *testing.T) {
 	if err := wiki.WriteState(root, wiki.State{Manifest: &manifest}); err != nil {
 		t.Fatal(err)
 	}
-	service := testWikiService(func(context.Context, string, ...string) (string, error) {
-		t.Fatal("lock/unlock must not invoke git")
+	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
+		if len(args) >= 1 && args[0] == "rev-parse" {
+			return "base-rev-lock\n", nil
+		}
+		t.Fatalf("unexpected git: %v", args)
 		return "", nil
 	})
 
@@ -894,6 +897,13 @@ func TestWikiIngestLockUnlock(t *testing.T) {
 	}
 	if !strings.Contains(output, "Locked doc-1") {
 		t.Fatalf("output = %q", output)
+	}
+	trace, err := wiki.LoadTrace(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if trace.BaseRev != "base-rev-lock" || trace.QueueHeadID != "doc-1" {
+		t.Fatalf("lock must initialize BaseRev: %#v", trace)
 	}
 
 	// Same owner re-lock is idempotent (returns the already-held claim).

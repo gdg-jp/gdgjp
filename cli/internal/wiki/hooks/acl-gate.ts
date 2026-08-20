@@ -4,13 +4,18 @@
  * Usage (argv selects the event — Cursor stdin does not always include the name):
  *   node .gdgwiki/hooks/acl-gate.ts read|write|shell
  *
- * Fail-open on malformed input, missing gdg, network errors. Exit 1 from
- * `gdg wiki verify-acl` means ACL violation and is the only deny path.
+ * Insertion is `wk write` only. This file never inserts tags.
+ * `wk git commit` runs the index tripwire in-process. This hook, when it still
+ * sees a commit, delegates to the same tripwire if `acl-insert-core.ts` is
+ * present, then fail-opens on infrastructure errors. Exit 1 from
+ * `gdg wiki verify-acl` is an ACL violation; untagged index blobs are a
+ * possible gate violation.
  */
 import { spawnSync } from "node:child_process";
 import type { SpawnSyncReturns } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
 type HookPayload = {
   command?: unknown;
@@ -130,11 +135,13 @@ function resolveGdgBin(): string {
   return "gdg";
 }
 
-function deny(findings: string): void {
+function deny(findings: string, gateViolation = false): void {
   process.stdout.write(
     JSON.stringify({
       permission: "deny",
-      agent_message: `<acl> tagging is incomplete. ${findings}\nWrap the material from the listed source in <acl src="…">…</acl>, then retry the commit.`,
+      agent_message: gateViolation
+        ? `<acl> tagging is incomplete and this may be a gate violation. ${findings}\nWrites must go through wk write so staged blobs already contain tags.`
+        : `<acl> tagging is incomplete. ${findings}\nWrap the material from the listed source in <acl src="…">…</acl>, then retry the commit.`,
       user_message: "ACL gate blocked a commit in the Wiki clone.",
     }),
   );
@@ -158,6 +165,32 @@ function handleShell(payload: HookPayload, root: string): void {
   }
 
   const gdg = resolveGdgBin();
+  const insertCore = join(dirname(fileURLToPath(import.meta.url)), "acl-insert-core.ts");
+  if (existsSync(insertCore) && /\bcommit\b/.test(command)) {
+    let tripwire: SpawnSyncReturns<string>;
+    try {
+      tripwire = spawnSync(process.execPath, [insertCore, "commit-tripwire"], {
+        cwd: root,
+        encoding: "utf8",
+        env: process.env,
+      });
+    } catch (error: unknown) {
+      process.stderr.write(
+        `acl-gate: commit tripwire unavailable (${formatUnknownError(error)}); falling through\n`,
+      );
+      tripwire = spawnSync(process.execPath, ["-e", "process.exit(3)"], { encoding: "utf8" });
+    }
+    if (tripwire.status === 2) {
+      deny((tripwire.stderr || tripwire.stdout || "untagged index blob").trim(), true);
+      process.exit(0);
+    }
+    if (tripwire.status === 0) {
+      if (tripwire.stderr) process.stderr.write(tripwire.stderr);
+      process.exit(0);
+    }
+    process.stderr.write("acl-gate: commit tripwire failed open; running verify-acl\n");
+  }
+
   let result: SpawnSyncReturns<string>;
   try {
     result = spawnSync(gdg, ["wiki", "verify-acl"], {
@@ -220,4 +253,7 @@ function main(): void {
   process.exit(0);
 }
 
-main();
+const invokedDirectly =
+  typeof process.argv[1] === "string" &&
+  fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+if (invokedDirectly) main();

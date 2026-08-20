@@ -18,6 +18,9 @@ var wkScript []byte
 //go:embed hooks/acl-core.ts
 var aclCoreScript []byte
 
+//go:embed hooks/acl-insert-core.ts
+var aclInsertCoreScript []byte
+
 //go:embed hooks/package.json
 var hooksPackageJSON []byte
 
