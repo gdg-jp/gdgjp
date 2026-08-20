@@ -41,6 +41,9 @@ func LoadTraceForRun(root, runID string) (IngestTrace, error) {
 	if trace.Writes == nil {
 		trace.Writes = []string{}
 	}
+	if trace.SourceIDs == nil {
+		trace.SourceIDs = []string{}
+	}
 	return trace, nil
 }
 
@@ -59,9 +62,10 @@ type IngestTrace struct {
 	// BaseRev is HEAD at ingest start (rev-parse). After push, VerifyACL recovers
 	// only pages changed in BaseRev..HEAD so prior unrelated tip commits are not
 	// attributed to the current queue-head source (acl_untagged_read_source).
-	BaseRev string   `json:"baseRev,omitempty"`
-	Reads   []string `json:"reads"`
-	Writes  []string `json:"writes"`
+	BaseRev   string   `json:"baseRev,omitempty"`
+	SourceIDs []string `json:"sourceIds,omitempty"`
+	Reads     []string `json:"reads"`
+	Writes    []string `json:"writes"`
 }
 
 func TracePath(root string) string {
@@ -95,6 +99,9 @@ func WriteTrace(root string, trace IngestTrace) error {
 	}
 	if trace.Writes == nil {
 		trace.Writes = []string{}
+	}
+	if trace.SourceIDs == nil {
+		trace.SourceIDs = []string{}
 	}
 	if err := os.MkdirAll(ConfigDir(root), 0o755); err != nil {
 		return err
@@ -163,4 +170,57 @@ func AppendTraceWrite(root, relPath string) error {
 	}
 	trace.Writes = appendUnique(trace.Writes, filepath.ToSlash(relPath))
 	return WriteTrace(root, trace)
+}
+
+func WriteTraceForRun(root, runID string, trace IngestTrace) error {
+	path, err := TracePathForRun(root, runID)
+	if err != nil {
+		return err
+	}
+	if trace.Reads == nil {
+		trace.Reads = []string{}
+	}
+	if trace.Writes == nil {
+		trace.Writes = []string{}
+	}
+	if trace.SourceIDs == nil {
+		trace.SourceIDs = []string{}
+	}
+	trace.RunID = runID
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	raw, err := json.MarshalIndent(trace, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(raw, '\n'), 0o644)
+}
+
+// ResetIngestTraceForRun truncates the invocation-scoped trace and records BaseRev.
+func ResetIngestTraceForRun(root, runID, queueHeadDocumentID, baseRev string) error {
+	return WriteTraceForRun(root, runID, IngestTrace{
+		RunID:       runID,
+		StartedAt:   time.Now().Unix(),
+		QueueHeadID: queueHeadDocumentID,
+		BaseRev:     strings.TrimSpace(baseRev),
+		SourceIDs:   []string{},
+		Reads:       []string{},
+		Writes:      []string{},
+	})
+}
+
+// AppendTraceSource records a source id that is not in the raw manifest
+// (conversation / memory uploads). Visibility still lives in acl-sources.json.
+func AppendTraceSource(root, runID, sourceID string) error {
+	sourceID = strings.TrimSpace(sourceID)
+	if sourceID == "" {
+		return nil
+	}
+	trace, err := LoadTraceForRun(root, runID)
+	if err != nil {
+		trace = IngestTrace{RunID: runID, StartedAt: time.Now().Unix()}
+	}
+	trace.SourceIDs = appendUnique(trace.SourceIDs, sourceID)
+	return WriteTraceForRun(root, runID, trace)
 }

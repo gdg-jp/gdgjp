@@ -18,6 +18,9 @@ var wkScript []byte
 //go:embed hooks/acl-core.ts
 var aclCoreScript []byte
 
+//go:embed hooks/acl-insert-core.ts
+var aclInsertCoreScript []byte
+
 //go:embed hooks/package.json
 var hooksPackageJSON []byte
 
@@ -35,9 +38,6 @@ var cursorHooksConfig = map[string]any{
 	"hooks": map[string]any{
 		"beforeReadFile": []map[string]any{
 			{"command": "node .gdgwiki/hooks/acl-gate.ts read", "timeout": 10},
-		},
-		"afterFileEdit": []map[string]any{
-			{"command": "node .gdgwiki/hooks/acl-gate.ts write", "timeout": 10},
 		},
 		"beforeShellExecution": []map[string]any{
 			{"command": "node .gdgwiki/hooks/acl-gate.ts shell", "timeout": 300},

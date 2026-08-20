@@ -11,32 +11,44 @@ import (
 	"testing"
 )
 
-func TestResolveReadSourceIDsUsesQueueHeadWithoutTrace(t *testing.T) {
+func TestResolveReadSourceIDsUsesLocksNotQueueHead(t *testing.T) {
 	root := t.TempDir()
 	if err := WriteConfig(root, Config{Lang: "ja"}); err != nil {
 		t.Fatal(err)
 	}
-	src := "org-src"
+	srcHead := "org-src"
+	srcLocked := "locked-src"
 	state := State{
 		Manifest: &SourcesManifest{Version: 1, Documents: []SourcesManifestEntry{
 			{
 				DocumentID:  "doc-1",
-				SourceID:    &src,
+				SourceID:    &srcHead,
 				Kind:        "source-document",
-				Title:       "Secret",
+				Title:       "Head",
 				Path:        "raw/org-src/doc.md",
 				ContentHash: "abc",
+			},
+			{
+				DocumentID:  "doc-2",
+				SourceID:    &srcLocked,
+				Kind:        "source-document",
+				Title:       "Locked",
+				Path:        "raw/locked-src/doc.md",
+				ContentHash: "def",
 			},
 		}},
 	}
 	ids := ResolveReadSourceIDs(root, state, IngestTrace{})
-	if len(ids) != 1 || ids[0] != "org-src" {
-		t.Fatalf("ids = %#v", ids)
+	if len(ids) != 0 {
+		t.Fatalf("ids without locks = %#v, want none (queue head must not be implied)", ids)
 	}
-	// Broken/empty trace must not drop the queue head.
-	ids = ResolveReadSourceIDs(root, state, IngestTrace{Reads: nil})
-	if len(ids) != 1 || ids[0] != "org-src" {
-		t.Fatalf("ids with nil reads = %#v", ids)
+	if _, err := LockDocument(root, "doc-2", "owner-a", "def"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GDG_WIKI_LOCK_OWNER", "owner-a")
+	ids = ResolveReadSourceIDs(root, state, IngestTrace{})
+	if len(ids) != 1 || ids[0] != "locked-src" {
+		t.Fatalf("ids with lock = %#v", ids)
 	}
 }
 
@@ -53,12 +65,8 @@ func TestResolveReadSourceIDsAddsTraceReads(t *testing.T) {
 	ids := ResolveReadSourceIDs(root, state, IngestTrace{
 		Reads: []string{"raw/src-2/b.md", "raw/src-2/extra.txt"},
 	})
-	if len(ids) != 2 {
-		t.Fatalf("ids = %#v", ids)
-	}
-	joined := strings.Join(ids, ",")
-	if !strings.Contains(joined, "src-1") || !strings.Contains(joined, "src-2") {
-		t.Fatalf("expected queue head + traced source, got %s", joined)
+	if len(ids) != 1 || ids[0] != "src-2" {
+		t.Fatalf("ids = %#v, want only traced source (not the unlocked queue head)", ids)
 	}
 }
 
@@ -231,6 +239,10 @@ func TestVerifyACLUsesTipCommitWhenGitCleanAndNoWrites(t *testing.T) {
 	}}}}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := LockDocument(root, "doc-1", "owner-a", "h1"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GDG_WIKI_LOCK_OWNER", "owner-a")
 	writeVerifyTestPage(t, root, "index", "index", "index", "public", "public body")
 	writeVerifyTestPage(t, root, "umeda", "umeda", "umeda", "organizer", "secret body")
 	// No Cursor Writes — claude/codex / shell tee path. BaseRev pins the

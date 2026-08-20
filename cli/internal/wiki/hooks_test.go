@@ -60,6 +60,9 @@ func TestEnsureCursorHooksIdempotentAndGitignored(t *testing.T) {
 	if strings.Contains(string(hooksJSON), "acl-gate.mjs") {
 		t.Fatalf("hooks.json references removed acl-gate.mjs: %s", hooksJSON)
 	}
+	if strings.Contains(string(hooksJSON), "afterFileEdit") {
+		t.Fatalf("hooks.json must not install afterFileEdit: %s", hooksJSON)
+	}
 	if _, err = os.Stat(filepath.Join(root, ".gdgwiki", "hooks", "acl-gate.ts")); err != nil {
 		t.Fatal(err)
 	}

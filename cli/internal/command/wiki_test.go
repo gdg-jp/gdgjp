@@ -882,8 +882,11 @@ func TestWikiIngestLockUnlock(t *testing.T) {
 	if err := wiki.WriteState(root, wiki.State{Manifest: &manifest}); err != nil {
 		t.Fatal(err)
 	}
-	service := testWikiService(func(context.Context, string, ...string) (string, error) {
-		t.Fatal("lock/unlock must not invoke git")
+	service := testWikiService(func(_ context.Context, _ string, args ...string) (string, error) {
+		if len(args) >= 1 && args[0] == "rev-parse" {
+			return "base-rev-lock\n", nil
+		}
+		t.Fatalf("unexpected git: %v", args)
 		return "", nil
 	})
 
@@ -894,6 +897,13 @@ func TestWikiIngestLockUnlock(t *testing.T) {
 	}
 	if !strings.Contains(output, "Locked doc-1") {
 		t.Fatalf("output = %q", output)
+	}
+	trace, err := wiki.LoadTrace(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if trace.BaseRev != "base-rev-lock" || trace.QueueHeadID != "doc-1" {
+		t.Fatalf("lock must initialize BaseRev: %#v", trace)
 	}
 
 	// Same owner re-lock is idempotent (returns the already-held claim).
@@ -952,6 +962,30 @@ func TestWikiIngestLockUnlock(t *testing.T) {
 	// Missing unlock is idempotent.
 	if _, err = executeWiki(t, service, "ingest", "unlock", "doc-2"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestWikiIngestLockFailsClosedWithoutHead(t *testing.T) {
+	root := setupWikiIngestRoot(t)
+	manifest := wiki.SourcesManifest{Version: 1, Documents: []wiki.SourcesManifestEntry{
+		{DocumentID: "doc-1", Kind: "wiki-human", Title: "First", Path: "raw/first/page.md", ContentHash: "first-hash"},
+	}}
+	if err := wiki.WriteState(root, wiki.State{Manifest: &manifest}); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GDG_WIKI_LOCK_OWNER", "agent-head")
+	service := testWikiService(func(context.Context, string, ...string) (string, error) {
+		return "", errors.New("rev-parse failed")
+	})
+	if _, err := executeWiki(t, service, "ingest", "lock"); err == nil || !strings.Contains(err.Error(), "BaseRev") {
+		t.Fatalf("error = %v, want BaseRev failure", err)
+	}
+	locks, err := wiki.LoadLocks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(locks.Locks) != 0 {
+		t.Fatalf("lock must be released after BaseRev failure: %#v", locks.Locks)
 	}
 }
 
