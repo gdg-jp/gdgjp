@@ -232,6 +232,9 @@ func PullRaw(ctx context.Context, root string, client *Client, token string) (So
 	if err = WriteState(root, state); err != nil {
 		return SourcesManifest{}, err
 	}
+	if err = WriteACLSources(root, manifest); err != nil {
+		return SourcesManifest{}, fmt.Errorf("write ACL source metadata: %w", err)
+	}
 	return manifest, nil
 }
 

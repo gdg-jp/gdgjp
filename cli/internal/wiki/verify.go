@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -362,7 +363,12 @@ func VerifyACL(ctx context.Context, root string, client *Client, token string, r
 	if err != nil {
 		return ValidateACLResult{}, err
 	}
-	trace, err := LoadTrace(root)
+	var trace IngestTrace
+	if runID := os.Getenv("GDG_WIKI_RUN_ID"); runID != "" {
+		trace, err = LoadTraceForRun(root, runID)
+	} else {
+		trace, err = LoadTrace(root)
+	}
 	if err != nil {
 		// Broken trace must not skip the queue-head gate.
 		trace = IngestTrace{}
