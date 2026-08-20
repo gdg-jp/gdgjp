@@ -9,6 +9,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { verifyAclViaAuthz } from "./acl-core.ts";
 import { parseAclSpans, validateAclSpans } from "./acl.ts";
 
 export class AclInsertError extends Error {
@@ -492,7 +493,7 @@ export function inspectIndexForUntagged(
   return { findings };
 }
 
-export function runCommitTripwire(root: string, runId: string): TripwireResult {
+export async function runCommitTripwire(root: string, runId: string): Promise<TripwireResult> {
   const cached = gitText(root, ["diff", "--cached", "--name-only"]);
   if (cached === null) {
     return {
@@ -511,10 +512,27 @@ export function runCommitTripwire(root: string, runId: string): TripwireResult {
       message: `wk: refused: untagged added lines in the index (${inspected.findings.join(", ")}). This may be a gate violation — writes must go through wk write. The worktree was not modified.`,
     };
   }
-  return runVerifyAclFailOpen(root);
+  return await runVerifyAclFailOpen(root);
 }
 
-export function runVerifyAclFailOpen(root: string): TripwireResult {
+export async function runVerifyAclFailOpen(root: string): Promise<TripwireResult> {
+  if (process.env.XANGI_AUTHZ_SOCKET) {
+    const outcome = await verifyAclViaAuthz();
+    if (outcome.kind === "violation") {
+      return {
+        deny: true,
+        message: `wk: refused: ACL verification failed.\n${outcome.findings}`,
+      };
+    }
+    if (outcome.kind === "infra") {
+      return {
+        deny: false,
+        message: "",
+        warning: `acl-gate: verify-acl failed (${outcome.detail}); allowing commit (fail open)`,
+      };
+    }
+    return { deny: false, message: "" };
+  }
   const gdg = process.env.GDG_BIN || "gdg";
   try {
     const result = execFileSync(gdg, ["wiki", "verify-acl"], {
@@ -558,7 +576,7 @@ if (invokedDirectly && process.argv[2] === "commit-tripwire") {
   try {
     const root = process.env.GDG_WIKI_ROOT || process.cwd();
     const runId = process.env.GDG_WIKI_RUN_ID || "";
-    const result = runCommitTripwire(root, runId);
+    const result = await runCommitTripwire(root, runId);
     if (result.warning) process.stderr.write(`${result.warning}\n`);
     if (result.deny) {
       process.stderr.write(`${result.message}\n`);

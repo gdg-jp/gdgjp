@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync, realpathSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 
-import { findCloneRoot } from "./acl-core.ts";
+import { findCloneRoot, verifyAclViaAuthz } from "./acl-core.ts";
 import { untaggedStagedAdds } from "./commit-tripwire.ts";
 import { inspectWkScript, isGitCommitInvocation } from "./shell-allowlist.ts";
 
@@ -178,7 +178,23 @@ function resolveGdgBin(): string {
   return process.env.GDG_BIN || "gdg";
 }
 
-function verifyAclFailOpen(root: string): void {
+async function verifyAclFailOpen(root: string): Promise<void> {
+  if (process.env.XANGI_AUTHZ_SOCKET) {
+    const outcome = await verifyAclViaAuthz();
+    if (outcome.kind === "violation") {
+      deny(
+        root,
+        "Shell",
+        `gdg wiki verify-acl failed.\n${outcome.findings}\nFix the findings, then retry: wk git commit -m <message>`,
+      );
+    }
+    if (outcome.kind === "infra") {
+      process.stderr.write(
+        `acl-gate: verify-acl unavailable (${outcome.detail}); allowing commit (fail open)\n`,
+      );
+    }
+    return;
+  }
   const gdg = resolveGdgBin();
   const result = spawnSync(gdg, ["wiki", "verify-acl"], {
     cwd: root,
@@ -228,7 +244,7 @@ function handleReadLike(
   allow(root, tool);
 }
 
-function handleShell(payload: HookPayload, root: string | null): void {
+async function handleShell(payload: HookPayload, root: string | null): Promise<void> {
   const command = payload.tool_input?.command ?? (payload as { command?: unknown }).command;
   if (typeof command !== "string") {
     deny(root, "Shell", "Use wk for all shell work, for example: wk read pages/x/page.md");
@@ -254,7 +270,7 @@ function handleShell(payload: HookPayload, root: string | null): void {
       );
       return;
     }
-    verifyAclFailOpen(root);
+    await verifyAclFailOpen(root);
   }
   allow(root, "Shell");
 }
@@ -273,7 +289,7 @@ function mutateHint(tool: string): string {
   return "Write through wk, for example: wk write pages/x/page.md <<'EOF'\n...\nEOF";
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const payload = parsePayload(readStdin());
   if (!payload) {
     deny(null, "unknown", "Malformed hook payload. Use wk for Wiki reads and writes.");
@@ -284,7 +300,7 @@ function main(): void {
   const root = cloneRootOrNull(cwd) ?? cloneRootOrNull(process.cwd());
 
   if (tool === "Shell") {
-    handleShell(payload, root);
+    await handleShell(payload, root);
     return;
   }
   if (tool.startsWith("MCP:")) {
@@ -298,4 +314,7 @@ function main(): void {
   deny(root, tool || "unknown", `${tool || "This tool"} is blocked. ${mutateHint(tool)}`);
 }
 
-main();
+main().catch((error: unknown) => {
+  process.stderr.write(`${error instanceof Error ? error.message : "acl-gate: failed"}\n`);
+  process.exit(1);
+});

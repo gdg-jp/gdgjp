@@ -103,7 +103,12 @@ export async function resolveAuthz(): Promise<Authz> {
     fail("wk: missing invocation authorization; retry from the agent launcher");
   const body = await new Promise<string>((ok, reject) => {
     const req = request(
-      { socketPath, path: `/resolve?nonce=${encodeURIComponent(nonce)}`, method: "GET" },
+      {
+        socketPath,
+        path: `/resolve?nonce=${encodeURIComponent(nonce)}`,
+        method: "GET",
+        host: "localhost",
+      },
       (res) => {
         let data = "";
         res.setEncoding("utf8");
@@ -134,6 +139,66 @@ export async function resolveAuthz(): Promise<Authz> {
   if (classes === null || channelAudience === null)
     fail("wk: authorization response is incomplete; retry from the agent launcher");
   return { classes, channelAudience };
+}
+
+function unixGet(
+  socketPath: string,
+  path: string,
+  timeoutMs = 5_000,
+): Promise<{ status: number; body: string }> {
+  return new Promise((ok, reject) => {
+    const req = request({ socketPath, path, method: "GET", host: "localhost" }, (res) => {
+      let data = "";
+      res.setEncoding("utf8");
+      res.on("data", (chunk: string) => {
+        data += chunk;
+      });
+      res.on("end", () => ok({ status: res.statusCode ?? 0, body: data }));
+    });
+    req.setTimeout(timeoutMs, () => req.destroy(new Error("authorization server timed out")));
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+export type VerifyAclOutcome =
+  | { kind: "ok" }
+  | { kind: "violation"; findings: string }
+  | { kind: "infra"; detail: string };
+
+/** Ask the svc-side authorization server to run `gdg wiki verify-acl`. Fail-open on infra. */
+export async function verifyAclViaAuthz(): Promise<VerifyAclOutcome> {
+  const nonce = process.env.XANGI_AUTHZ_NONCE;
+  const socketPath = process.env.XANGI_AUTHZ_SOCKET;
+  if (!nonce || !socketPath) {
+    return { kind: "infra", detail: "missing invocation authorization" };
+  }
+  try {
+    const { status, body } = await unixGet(
+      socketPath,
+      `/verify-acl?nonce=${encodeURIComponent(nonce)}`,
+      8_000,
+    );
+    if (status === 200) return { kind: "ok" };
+    if (status === 409 || status === 404 || status === 401 || status === 403 || status === 429) {
+      let findings = body.trim();
+      try {
+        const parsed = JSON.parse(body) as { findings?: unknown; error?: unknown };
+        if (typeof parsed.findings === "string") findings = parsed.findings;
+        else if (typeof parsed.error === "string") findings = parsed.error;
+      } catch {
+        // Keep the raw body.
+      }
+      return { kind: "violation", findings: findings || "ACL check failed" };
+    }
+    if (status === 503) {
+      return { kind: "infra", detail: body.trim() || "authorization server unavailable" };
+    }
+    return { kind: "infra", detail: `authorization server returned ${status}` };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "verify-acl unavailable";
+    return { kind: "infra", detail };
+  }
 }
 
 function scalar(value: string): string | null {

@@ -274,7 +274,7 @@ function hasGitFilter(root: string, path: string): boolean {
   return !output.trim().endsWith("filter: unspecified");
 }
 
-function gitCommand(root: string, _authz: Authz, args: string[]): void {
+async function gitCommand(root: string, _authz: Authz, args: string[]): Promise<void> {
   const action = args.shift();
   if (!action || !["status", "add", "commit", "diff"].includes(action)) usage();
   if (action === "status" || action === "diff") {
@@ -291,7 +291,7 @@ function gitCommand(root: string, _authz: Authz, args: string[]): void {
   } else if (args.length !== 2 || args[0] !== "-m" || !args[1]) {
     fail("wk: git commit requires only -m <message>");
   } else {
-    const tripwire = runCommitTripwire(root, runId());
+    const tripwire = await runCommitTripwire(root, runId());
     if (tripwire.warning) process.stderr.write(`${tripwire.warning}\n`);
     if (tripwire.deny) fail(tripwire.message);
   }
@@ -338,7 +338,7 @@ async function main(): Promise<void> {
       rmCommand(root, authz, args);
       break;
     case "git":
-      gitCommand(root, authz, args);
+      await gitCommand(root, authz, args);
       break;
     default:
       usage();
