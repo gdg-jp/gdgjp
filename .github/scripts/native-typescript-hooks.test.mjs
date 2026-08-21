@@ -76,6 +76,34 @@ test("ACL gate denies malformed preToolUse payloads", async () => {
   assert.equal(JSON.parse(result.stdout).permission, "deny");
 });
 
+test("ACL gate allows wk ls even with trailing newline or safe quotes", async () => {
+  const root = await makeClone();
+  for (const command of ["wk ls pages/", "wk ls pages/\n", 'wk ls "pages/"', "wk ls 'pages/'"]) {
+    const result = runNode(aclGatePath, [], {
+      cwd: root,
+      input: payload("Shell", { cwd: root, tool_input: { command } }),
+    });
+    assert.equal(result.status, 0, command);
+    assert.equal(JSON.parse(result.stdout).permission, "allow", command);
+  }
+
+  const quotedExpansion = runNode(aclGatePath, [], {
+    cwd: root,
+    input: payload("Shell", { cwd: root, tool_input: { command: 'wk ls "pages/$x"' } }),
+  });
+  assert.equal(JSON.parse(quotedExpansion.stdout).permission, "deny");
+
+  const globPages = runNode(aclGatePath, [], {
+    cwd: root,
+    input: payload("Glob", {
+      cwd: root,
+      tool_input: { glob_pattern: "*", target_directory: join(root, "pages") },
+    }),
+  });
+  assert.equal(JSON.parse(globPages.stdout).permission, "deny");
+  assert.match(globPages.stdout, /wk ls/);
+});
+
 test("ACL gate does not invoke gdg for non-wk shell commands", async () => {
   const root = await makeClone();
   const binDir = await mkdtemp(join(tmpdir(), "gdgjp-hook-bin-"));
@@ -121,7 +149,7 @@ test("ACL gate denies only the gdg ACL-violation exit status for wk git commit",
     env: { ...process.env, FAKE_EXIT: "2", GDG_BIN: gdgPath },
   });
   assert.equal(infrastructureFailure.status, 0);
-  assert.equal(infrastructureFailure.stdout, "");
+  assert.equal(JSON.parse(infrastructureFailure.stdout).permission, "allow");
   assert.match(infrastructureFailure.stderr, /allowing commit \(fail open\)/);
 });
 

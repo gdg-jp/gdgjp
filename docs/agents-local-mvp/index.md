@@ -303,7 +303,7 @@ Stage 00 の完了後は、01・02・03 を並行して着手できる。
 
 | `tool_name` | 動作 |
 |---|---|
-| `Read` / `Grep` / `List` | `pages/**` / `raw/**` / `memories/**` なら **deny**。`wk read` を案内 |
+| `Read` / `Grep` / `Glob` / `List` | `pages/**` / `raw/**` / `memories/**` なら **deny**。`wk read` / `wk ls` を案内 |
 | `Shell` | **argv allowlist** — すべての単純コマンドの `argv[0]` が `wk` であること。加えて `wk git commit` なら tripwire |
 | `MCP:<tool>` | **ツール名 allowlist（既定 deny）**。通すのは `search` だけ（Stage 05 §3-5） |
 | **上記以外のすべて** | **deny。パスを見ない**（`Write` / `Delete` / `Edit` 系 / `Fetch` / `task` / 未知のツール名） |
@@ -337,7 +337,10 @@ Write ツールから `.git/hooks/pre-commit`・`.gitattributes` の filter・
   （`sourceId` → `visibility` / `chapterId` だけ）を `raw pull` が生成する。
   会話ソースは xangi がアップロード時に追記する。**引けない id は拒否側に倒す。**
 - ゲートの出力は stdout に JSON、診断は stderr。stdout の JSON パーサは末尾の `{...}` を拾う
-  実装なので、ログ行に `}` を混ぜない。`wk` は通常の CLI（本文は stdout、拒否は非ゼロ終了）。
+  実装なので、ログ行に `}` を混ぜない。**deny も allow も JSON を書く。**
+  `failClosed: true` では空の stdout がフック失敗になり、許可した `wk` まで落ちる
+  （Discord の `wk ls pages/` がゲート拒否に見えた原因）。
+  `wk` は通常の CLI（本文は stdout、拒否は非ゼロ終了）。
 
 ### 5. 共有 ACL 評価器
 
@@ -696,6 +699,7 @@ cd ~/proj/xangi && npm test
   **画面上は完全に正常に見える。**
 - **`failClosed` が効いている。** フックを非ゼロ終了・タイムアウト・空出力・不正 JSON に
   したとき、すべて deny になること。fail open に反転すると全チャプターが素通しになる。
+  allow は `{"permission":"allow"}` を書く。空出力の allow は `wk` まで deny する。
 - **Cursor の glob の落とし穴。** `Read(raw/*)` 形式の相対パスルールが**マッチしない**ことを
   テストで固定する。相対パスで書いた deny ルールは静かに全許可になる。
 - **権限クラスが空の invocation は拒否される。** ロール由来もログイン由来も空のとき、

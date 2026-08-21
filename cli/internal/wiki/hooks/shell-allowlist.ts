@@ -5,7 +5,6 @@ const DELIM = /^[A-Za-z0-9_]+$/;
 const FORBIDDEN = new Set([
   "$",
   "`",
-  '"',
   "(",
   ")",
   "{",
@@ -55,6 +54,21 @@ function readQuoted(input: string, index: number): { value: string; next: number
   return { value: input.slice(index + 1, cursor), next: cursor + 1 };
 }
 
+/** Double quotes are accepted only when the interior cannot expand. */
+function readDoubleQuoted(input: string, index: number): { value: string; next: number } | null {
+  if (input[index] !== '"') return null;
+  let cursor = index + 1;
+  while (cursor < input.length && input[cursor] !== '"') {
+    const char = input[cursor] ?? "";
+    if (char === "$" || char === "`" || char === "\\" || char === "\n" || char === "\r")
+      return null;
+    cursor += 1;
+  }
+  if (cursor >= input.length) return null;
+  const value = input.slice(index + 1, cursor);
+  return BARE.test(value) ? { value, next: cursor + 1 } : null;
+}
+
 function readBare(input: string, index: number): { value: string; next: number } | null {
   let cursor = index;
   while (cursor < input.length && BARE.test(input[cursor] ?? "")) cursor += 1;
@@ -64,15 +78,24 @@ function readBare(input: string, index: number): { value: string; next: number }
 }
 
 function charsetOk(input: string): boolean {
-  let inQuote = false;
+  let quote: "'" | '"' | null = null;
   for (let index = 0; index < input.length; index += 1) {
     const char = input[index];
-    if (inQuote) {
-      if (char === "'") inQuote = false;
+    if (quote === "'") {
+      if (char === "'") quote = null;
       continue;
     }
-    if (char === "'") {
-      inQuote = true;
+    if (quote === '"') {
+      if (char === '"') {
+        quote = null;
+        continue;
+      }
+      if (char === "$" || char === "`" || char === "\\" || char === "\n" || char === "\r")
+        return false;
+      continue;
+    }
+    if (char === "'" || char === '"') {
+      quote = char;
       continue;
     }
     if (char === "&" && input[index + 1] === "&") {
@@ -81,7 +104,7 @@ function charsetOk(input: string): boolean {
     }
     if (char === "&" || FORBIDDEN.has(char)) return false;
   }
-  return !inQuote;
+  return quote === null;
 }
 
 function tokenizeSimples(input: string): string[][] | null {
@@ -93,7 +116,7 @@ function tokenizeSimples(input: string): string[][] | null {
       index = skipWs(input, index);
       if (index >= input.length) break;
       if (input.startsWith("&&", index)) break;
-      const quoted = readQuoted(input, index);
+      const quoted = readQuoted(input, index) ?? readDoubleQuoted(input, index);
       if (quoted) {
         argv.push(quoted.value);
         index = quoted.next;
@@ -162,7 +185,7 @@ export function inspectWkScript(command: string): ShellDecision {
   if (typeof command !== "string" || command.trim() === "") {
     return { ok: false, reason: "shell command is empty" };
   }
-  const trimmed = command.replace(/^[ \t]+|[ \t]+$/g, "");
+  const trimmed = command.replace(/^[ \t\n\r]+|[ \t\n\r]+$/g, "");
   const hereDoc = parseHereDoc(trimmed);
   if (hereDoc) return hereDoc;
   if (!charsetOk(trimmed)) {

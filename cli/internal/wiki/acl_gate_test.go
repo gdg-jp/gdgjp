@@ -80,8 +80,14 @@ func assertDeny(t *testing.T, stdout, want string) {
 
 func assertAllow(t *testing.T, stdout string) {
 	t.Helper()
-	if strings.TrimSpace(stdout) != "" {
-		t.Fatalf("allow must write no stdout, got %s", stdout)
+	var payload struct {
+		Permission string `json:"permission"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stdout)), &payload); err != nil {
+		t.Fatalf("allow must write permission JSON, got %s", stdout)
+	}
+	if payload.Permission != "allow" {
+		t.Fatalf("expected permission allow, got %s", stdout)
 	}
 }
 
@@ -125,6 +131,15 @@ func TestACLGateGrepOfCloneRootIsDenied(t *testing.T) {
 		"tool_name":  "List",
 		"cwd":        root,
 		"tool_input": map[string]any{"path": "."},
+	}, "")
+	assertDeny(t, stdout, "wk ls")
+	stdout, _ = runGate(t, root, map[string]any{
+		"tool_name": "Glob",
+		"cwd":       root,
+		"tool_input": map[string]any{
+			"glob_pattern":     "*",
+			"target_directory": filepath.Join(root, "pages"),
+		},
 	}, "")
 	assertDeny(t, stdout, "wk ls")
 }
@@ -171,6 +186,10 @@ func TestACLGateShellAllowlist(t *testing.T) {
 	writeClone(t, root)
 	allow := []string{
 		"wk read pages/x/page.md",
+		"wk ls pages/",
+		"wk ls pages/\n",
+		"wk ls \"pages/\"",
+		"wk ls 'pages/'",
 		"wk grep '締切' pages/",
 		"wk read pages/x/page.md && wk grep 'x' pages/",
 		"wk write pages/x/page.md <<'EOF'\nhello\nEOF\n",
@@ -195,6 +214,7 @@ func TestACLGateShellAllowlist(t *testing.T) {
 		"./wk read x",
 		"wkx read x",
 		"wk read a; wk read b",
+		"wk ls \"pages/$x\"",
 		"wk write p <<EOF\nbody\nEOF\n",
 		"wk write p <<'EOF'\nbody\nEOF; rm x\n",
 	}

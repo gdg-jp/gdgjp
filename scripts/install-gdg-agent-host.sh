@@ -229,15 +229,21 @@ operator_home() {
 }
 
 as_svc() {
+  # runuser keeps the caller's cwd. sudo ./install.sh from an operator home
+  # (typically 750) leaves gdgagent-svc in a directory it cannot chdir to;
+  # tsx then spawn()s esbuild with that cwd and Node reports EACCES.
+  local uid
+  uid="$(id -u gdgagent-svc)"
   runuser -u gdgagent-svc -- env \
     HOME=/home/gdgagent-svc \
     USER=gdgagent-svc \
     LOGNAME=gdgagent-svc \
     PATH=/usr/local/bin:/usr/bin:/bin \
+    TMPDIR=/tmp \
     XDG_CONFIG_HOME=/home/gdgagent-svc/.config \
     XDG_DATA_HOME=/home/gdgagent-svc/.local/share \
-    XDG_RUNTIME_DIR="/run/user/$(id -u gdgagent-svc)" \
-    "$@"
+    XDG_RUNTIME_DIR="/run/user/${uid}" \
+    bash -c 'cd "$HOME" && exec "$@"' bash "$@"
 }
 
 agents_local_src() {
@@ -391,6 +397,7 @@ ensure_xangi_fork() {
     else
       npm install
     fi
+    chmod -R a+rX node_modules
   )
   ln -sfn /opt/xangi/bin/xangi /usr/local/bin/xangi
 }

@@ -106,6 +106,7 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
     assert.match(launcher, /takes no arguments/);
     assert.match(launcher, /SLOT="1"/);
     assert.match(launcher, /PATH="\/opt\/gdg-agent\/bin:\/usr\/bin:\/bin"/);
+    assert.match(launcher, /cp \/opt\/gdg-agent\/lib\/cli-config\.json/);
 
     const cursorDir = await stat(join(prefix, "home/gdgagent-run-0/.cursor"));
     assert.equal(cursorDir.isDirectory(), true);
@@ -123,10 +124,14 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
     const sudoersAgain = await readFile(join(prefix, "etc/sudoers.d/gdg-agent"), "utf8");
     assert.match(sudoersAgain, /pkill -KILL -u gdgagent-run-0$/m);
 
-    for (const name of ["hooks.json", "cli-config.json", "sandbox.json", "mcp.json"]) {
+    for (const name of ["hooks.json", "sandbox.json", "mcp.json"]) {
       const info = await stat(join(prefix, "home/gdgagent-run-0/.cursor", name));
       assert.equal(info.mode & 0o777, 0o444, name);
     }
+    const liveCliConfig = await stat(join(prefix, "home/gdgagent-run-0/.cursor/cli-config.json"));
+    assert.equal(liveCliConfig.mode & 0o777, 0o644);
+    const canonicalCliConfig = await stat(join(prefix, "opt/gdg-agent/lib/cli-config.json"));
+    assert.equal(canonicalCliConfig.mode & 0o777, 0o444);
     const libHook = await stat(join(prefix, "opt/gdg-agent/lib/wk.ts"));
     assert.equal(libHook.mode & 0o777, 0o444);
 
@@ -176,6 +181,8 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.match(installSrc, /\/usr\/local\/bin\/gdg/);
     assert.match(installSrc, /Harineko0\/xangi/);
     assert.match(installSrc, /setup --apply/);
+    assert.match(installSrc, /cd "\$HOME" && exec/);
+    assert.match(installSrc, /chmod -R a\+rX node_modules/);
     assert.equal(
       existsSync(join(prefix, "srv/gdg-agent/wiki/.agents/skills/wiki-ingest/SKILL.md")),
       true,

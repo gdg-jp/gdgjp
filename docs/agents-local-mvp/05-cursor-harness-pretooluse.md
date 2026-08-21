@@ -49,6 +49,12 @@ Stage 06 の自動挿入が workdir 内では意味を持たない
 5. **`failClosed: true` は enterprise / team / project / user 由来の設定でのみ有効。**
    `.claude/settings.json` 由来は除外される。
    既定でも exit 2 と不正 JSON はブロック、その他の非ゼロ・タイムアウト・空出力は fail open。
+   **`failClosed: true` では空の stdout もフック失敗としてツールを deny する**
+   （`cursor-agent 2026.08.11-e8db854`、メッセージは
+   `Hook "…" returned no output`）。許可は何も書かずに exit 0 してはいけない。
+   Discord で `wk ls pages/` がゲートにブロックされたように見えたのは、
+   argv allowlist が `wk` を拒否したからではなく、allow 経路の空出力が
+   fail-closed に落ちたためである。
 6. **Cursor の設定機構はどれも信頼境界ではない。** すべて同一 uid のプロセス設定であり、
    shell を持つエージェントは自分を縛る `cli-config.json` も `hooks.json` も書き換えられる。
    **所有権による保護が要る（Stage 07）。**
@@ -195,7 +201,7 @@ stdin の JSON から `tool_name` / `tool_input` / `cwd` を読む。**ゲート
 
 | `tool_name` | 判定 |
 |---|---|
-| `Read` / `Grep` / `List` | 対象が clone root 内の `pages/**` / `raw/**` / `memories/**` なら **deny**。`agent_message` に `wk read <path>` を案内する。それ以外は素通り |
+| `Read` / `Grep` / `Glob` / `List` | 対象が clone root 内の `pages/**` / `raw/**` / `memories/**` なら **deny**。`agent_message` に `wk read` / `wk ls` を案内する。それ以外は素通り |
 | `Shell` | **§3 の argv allowlist**。加えて `git commit` 相当なら §5 の tripwire |
 | `MCP:<tool>` | **§3-5 のツール名 allowlist（既定 deny）** |
 | **上記以外のすべて** | **deny。パスを見ない** |
@@ -240,6 +246,7 @@ deny のメッセージには**そのまま実行できるコマンド**を書�
 | 入力 | 結果 |
 |---|---|
 | `wk read pages/x/page.md` | 通す |
+| `wk ls pages/` / `wk ls pages/\n` / `wk ls "pages/"` | 通す（末尾空白・改行は捨てる。二重引用は中身が展開不能な bare のときだけ） |
 | `wk grep '締切' pages/` | 通す |
 | `wk git add -A && wk git commit -m x` | 通す（両方 `wk`） |
 | `cat pages/x/page.md` | **deny** |
@@ -264,17 +271,19 @@ deny のメッセージには**そのまま実行できるコマンド**を書�
 script  := simple ( '&&' simple )*
 simple  := WK arg*
 WK      := 'wk' | '/opt/gdg-agent/bin/wk'
-arg     := bare | "'" <単一クォート内の任意のバイト> "'"
+arg     := bare | "'" <単一クォート内の任意のバイト> "'" | '"' bare '"'
 bare    := [A-Za-z0-9._/@:,+=-]+
 ```
 
-実装は 2 段にする。
+実装は 2 段にする。先頭・末尾の ASCII 空白と改行は先に捨てる（Cursor が
+`wk ls pages/\n` を渡すことがある）。
 
 1. **文字集合の事前検査。** 単一クォートの内側と here-doc の本体を除いて、
-   次のいずれかが 1 つでも現れたら **即 deny する**。
+   次のいずれかが 1 つでも現れたら **即 deny する**。二重引用は対になる
+   区切りとしてだけ許し、内側の `$` / backtick / `\` / 改行は deny。
 
    ```
-   $  `  "  (  )  {  }  |  ;  <  >  \  *  ?  [  ]  ~  !  #  改行
+   $  `  (  )  {  }  |  ;  <  >  \  *  ?  [  ]  ~  !  #  改行
    および & （ただし && の 2 連は許す）
    ```
 
@@ -383,7 +392,13 @@ process.stdout.write(JSON.stringify({
 process.exit(0);
 ```
 
-許可のときは何も出力せず exit 0。
+許可のときも JSON を書く。空の stdout + exit 0 は `failClosed: true` で
+ツール拒否になる。
+
+```js
+process.stdout.write(JSON.stringify({ permission: "allow" }));
+process.exit(0);
+```
 
 **`wk`** は通常の CLI として振る舞う。本文は stdout、理由は stderr、
 拒否は**非ゼロ終了**で表す（JSON を出さない）。
@@ -424,7 +439,7 @@ Cursor 自身の Read/Write ツールしか覆わず（§確認済みの事実 1
   `preToolUse` にサーバ名は渡らない（確認済みの事実 8）。
   サーバ同一性は設定の所有権（Stage 07 §6）とツール名 allowlist で閉じる。
   project `mcp.json` まで見るなら `beforeMCPExecution`。
-- **`Read` / `Grep` / `List` の deny を「一部のパスだけ」に緩めない。**
+- **`Read` / `Grep` / `Glob` / `List` の deny を「一部のパスだけ」に緩めない。**
   `pages/**` / `raw/**` / `memories/**` は全部 `wk` 経由にする。
   1 つでも直接読める種別を残すと、そこがスパン濾過の迂回路になる。
 - **変更系ツールにパス条件を付け直さない**（§2）。`Write` / `Delete` / `Edit` 系は
@@ -484,7 +499,7 @@ Cursor 自身の Read/Write ツールしか覆わず（§確認済みの事実 1
 
 1. `~/.cursor/hooks.json` の `preToolUse` が全ツールコールで発火する。
    `hooks.json` に `afterFileEdit` が**無い**。
-2. **`Read` / `Grep` / `List` が `pages/**` / `raw/**` / `memories/**` に
+2. **`Read` / `Grep` / `Glob` / `List` が `pages/**` / `raw/**` / `memories/**` に
    対して deny され、`agent_message` にそのまま実行できる `wk` コマンドが出る。**
    それ以外のパス（`AGENTS.md` 等）への `Read` は通る。
 2a. **`Write` / `Delete` / `Edit` 系が、パスによらず常に deny される。**
@@ -493,8 +508,9 @@ Cursor 自身の Read/Write ツールしか覆わず（§確認済みの事実 1
 2b. **実在しないツール名（`FooBar`）を投げると deny される**（既定 deny）。
    素通りするツール名がスクリプト内で名指しの allowlist になっている。
 3. **`cat` / `sed -i` / `python` / パイプ / リダイレクト / コマンド置換が deny される。**
-   `wk read` と `wk git add -A && wk git commit -m x` は通る。
+   `wk read`、`wk ls pages/`、`wk ls "pages/"`、`wk git add -A && wk git commit -m x` は通る。
    `wk write <path> <<'EOF'` も通る（唯一の here-doc 例外）。
+   allow の stdout は `{"permission":"allow"}` であり、空ではない。
 4. **`MCP:search` が通り、それ以外の `MCP:<tool>` が deny される。**
 4a. **`<projectRoot>/.cursor/mcp.json` に別の MCP サーバを書いても、
    そのツールがゲートで deny される**（`--mcp-config` では無効化できない）。
@@ -532,6 +548,9 @@ pnpm ci:quick
   **画面上は完全に正常に見える。** 発火の有無を観測できる仕組み（監査ログ）を併せて置く。
 - **`failClosed` が効いている。** 非ゼロ終了・タイムアウト・空出力・不正 JSON の
   すべてが deny になること。fail open に反転すると全チャプターが素通しになる。
+  **allow 経路が空 stdout のまま残ると、許可した `wk` まで deny になる。**
+  `agent -p --output-format stream-json` で `wk ls pages/` を投げ、
+  `returned no output` が出ないことと `shellToolCall` が実行まで進むことを固定する。
 - **argv allowlist の網。** `cat` / `sed -i` / `$()` / backtick / リダイレクト /
   クォート無し here-doc / `wk read x | head` / `;` 連結 / `FOO=bar wk read x` /
   `./wk` / `wkx` がすべて deny されること。
@@ -546,7 +565,7 @@ pnpm ci:quick
 - **未知の `tool_name` が deny される。** 実在しない名前を投げて deny になること、
   素通りするツール名が grep で列挙できる名指しの allowlist であること。
   **「その他は素通り」に戻すと、Cursor が編集ツールを増やした日に静かに穴が開く。**
-- **`Read` / `Grep` / `List` の deny が 3 種別すべてを覆う。** `pages/**` だけ、
+- **`Read` / `Grep` / `Glob` / `List` の deny が gated prefix を覆う。** `pages/**` だけ、
   `raw/**` だけ、のような取りこぼしが無いこと。
 - **ゲートに ACL 判定が無い。** `acl-gate.ts` に `canClasses*` / `canMutatePage` /
   `visibility` の文字列比較・`<acl` の正規表現が現れないこと（grep で固定する）。

@@ -11,7 +11,7 @@ import { untaggedStagedAdds } from "./commit-tripwire.ts";
 import { inspectWkScript, isGitCommitInvocation } from "./shell-allowlist.ts";
 
 /** Named allowlist: unknown tool names are deny. */
-const PASSTHROUGH_TOOLS = new Set(["Read", "Grep", "List", "Shell"]);
+const PASSTHROUGH_TOOLS = new Set(["Read", "Grep", "Glob", "List", "Shell"]);
 const MCP_ALLOWLIST = new Set(["search"]);
 const GATED_PREFIXES = ["pages/", "raw/", "memories/"];
 
@@ -20,6 +20,7 @@ type ToolInput = {
   cwd?: unknown;
   file_path?: unknown;
   glob?: unknown;
+  glob_pattern?: unknown;
   path?: unknown;
   pattern?: unknown;
   target_directory?: unknown;
@@ -74,6 +75,8 @@ function toolPath(payload: HookPayload): string | null {
     stringField(input?.file_path) ??
     stringField(input?.path) ??
     stringField(input?.target_directory) ??
+    stringField(input?.glob) ??
+    stringField(input?.glob_pattern) ??
     stringField(payload.file_path) ??
     stringField(payload.path)
   );
@@ -141,7 +144,9 @@ function wkReadHint(input: string | null, cwd: string, root: string | null): str
 function wkHint(tool: string, input: string | null, cwd: string, root: string | null): string {
   const pathHint = wkReadHint(input, cwd, root).replace(/^wk read /, "");
   if (tool === "Grep") return `wk grep <pattern> ${pathHint === "<path>" ? "pages/" : pathHint}`;
-  if (tool === "List") return `wk ls ${pathHint === "<path>" ? "pages/" : pathHint}`;
+  if (tool === "List" || tool === "Glob") {
+    return `wk ls ${pathHint === "<path>" ? "pages/" : pathHint}`;
+  }
   return `wk read ${pathHint}`;
 }
 
@@ -171,6 +176,8 @@ function deny(root: string | null, tool: string, agentMessage: string): void {
 
 function allow(root: string | null, tool: string): void {
   audit(root, "allow", tool);
+  // failClosed: true treats empty stdout as a hook failure and blocks the tool.
+  process.stdout.write(JSON.stringify({ permission: "allow" }));
   process.exit(0);
 }
 
@@ -252,7 +259,11 @@ async function handleShell(payload: HookPayload, root: string | null): Promise<v
   }
   const inspected = inspectWkScript(command);
   if (!inspected.ok) {
-    deny(root, "Shell", `${inspected.reason}. Use wk only, for example: wk read pages/x/page.md`);
+    deny(
+      root,
+      "Shell",
+      `${inspected.reason}. Retry as a bare wk argv, for example: wk ls pages/  (no double-quote expansion, pipes, or comments). The gate allows wk; it is not a channel ACL denial.`,
+    );
     return;
   }
   if (isGitCommitInvocation(inspected.simples)) {

@@ -83,6 +83,7 @@ if [[ -z "$INDEX_PROXY_SRC" || ! -f "$INDEX_PROXY_SRC" ]]; then
   echo "GDG_SETUP_INDEX_PROXY_SRC must point at agents-index/src/proxy.ts" >&2
   exit 1
 fi
+install -m 0444 "$CONFIG_SRC/cli-config.json" "$AGENT_ROOT/lib/cli-config.json"
 install -m 0444 "$INDEX_PROXY_SRC" "$AGENT_ROOT/lib/index-proxy.ts"
 cat > "$AGENT_ROOT/bin/index-proxy" <<EOF
 #!/bin/sh
@@ -139,7 +140,7 @@ for ((slot = 0; slot < SLOT_COUNT; slot++)); do
   writable "$cursor_dir/sandbox.json"
   writable "$cursor_dir/mcp.json"
   install -m 0444 "$CONFIG_SRC/hooks.json" "$cursor_dir/hooks.json"
-  install -m 0444 "$CONFIG_SRC/cli-config.json" "$cursor_dir/cli-config.json"
+  install -m 0644 "$CONFIG_SRC/cli-config.json" "$cursor_dir/cli-config.json"
   sed "s|__RUN_SLOT_DIR__|/run/gdg-agent/${slot}|g" "$CONFIG_SRC/sandbox.json.in" > "$cursor_dir/sandbox.json"
   chmod 0444 "$cursor_dir/sandbox.json"
   tmp_mcp="$(mktemp)"
