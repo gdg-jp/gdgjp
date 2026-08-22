@@ -113,7 +113,7 @@ Docker の唯一の優位は CI だが、**実 `cursor-agent`（課金・非決�
 | ファイル | 役割 |
 |---|---|
 | `agents-local/dev/lima-gdg-agent.yaml` | Ubuntu 24.04、vz + virtiofs、CPU 4 / mem 8GiB / disk 40GiB。`~/proj/gdgjp` を **`/mnt/gdgjp-src` に read-only** マウント（`/opt/gdgjp` にはマウントしない） |
-| `agents-local/dev/provision.sh` | `install.sh` を呼び、そのあと **VM 専用の systemd drop-in を置いてサービスを明示的に start する**（下記） |
+| `agents-local/dev/provision.sh` | `install.sh` を呼び、そのあと VM 専用の systemd drop-in を置く。IAM を seed してから `activate.sh` がサービスを start する |
 | `agents-local/dev/README.md` | 起動・秘密の投入・1 ターン実行・リセットの手順 |
 
 決めごと:
@@ -123,7 +123,8 @@ Docker の唯一の優位は CI だが、**実 `cursor-agent`（課金・非決�
 - **`install.sh` は Discord トークンが無いとサービスを start しない**（`install.sh:470-474` が
   `secrets.json` に `DISCORD_TOKEN` が有るときだけ `systemctl --user start` する）。
   また `install.sh:217` の `--preserve-env` は自身の root 再 exec 用であって、サービスの環境ではない。
-  **ここに `GDG_AGENT_HARNESS` を足さない。** 代わりに `provision.sh` が起動後に drop-in を置く:
+  **ここに `GDG_AGENT_HARNESS` を足さない。** `provision.sh` は start せず drop-in を置き、
+  `seed-iam.sh` の後に `activate.sh` が起動する:
 
   ```ini
   # /home/gdgagent-svc/.config/systemd/user/xangi.service.d/harness.conf  (VM 専用)
@@ -133,8 +134,8 @@ Docker の唯一の優位は CI だが、**実 `cursor-agent`（課金・非決�
   Environment=GDG_WIKI_LOCK_OWNER=lima-gdg-agent
   ```
 
-  そのうえで `provision.sh` が `daemon-reload` → `systemctl --user start xangi.service` を
-  `gdgagent-svc` として明示的に実行する。`install.sh` の start 判定には依存しない。
+  `provision.sh` は `daemon-reload` までを `gdgagent-svc` として実行する。
+  `activate.sh` が `systemctl --user start xangi.service` を実行し、`install.sh` の start 判定には依存しない。
 - **`XDG_RUNTIME_DIR` の uid をハードコードしない。** `install.sh:179` の `useradd --system` は
   番号を固定しないので、`999` は mincra-srv でたまたまそうなっただけである
   （`ENVIRONMENT.md` の uid 表は「this host」の値）。Lima イメージや再プロビジョンでずれる。
@@ -351,8 +352,10 @@ sudo -u gdgagent-svc xangi harness invoke \
 
 ### 完了条件
 
-1. Mac から `limactl start` → `provision.sh` だけで、Discord トークンなしの xangi が VM 内で **起動する**
-   （`install.sh` の start は `DISCORD_TOKEN` 依存なので、drop-in 配置 + 明示 start まで `provision.sh` が担う）
+1. Mac から `limactl start` → `provision.sh` → `seed-iam.sh` → `activate.sh` の四段階で、Discord
+   トークンなしの xangi が VM 内で起動する。`seed-iam.sh` は committed の合成 IAM fixture
+   (`agents-local/dev/iam-fixture.json`) を配置するだけで、env var や `provision.sh` の変更は不要。
+   IAM は start-time-only なので seed は activate より前でなければならない。
 2. `xangi harness invoke` 1 コマンドで cursor-agent が 1 ターン走り、結果が stdout に出る
 3. その 1 ターンが本番と同じ経路を通る — IAM で class が解決され、nonce と slot が発行され、
    `gdgagent-run-N` の uid で `cursor-agent` が動き、`preToolUse` ゲートが発火する
@@ -370,11 +373,19 @@ limactl shell gdg-agent sudo /mnt/gdgjp-src/agents-local/dev/provision.sh
 ```
 
 ```bash
+limactl shell gdg-agent sudo /opt/gdgjp/agents-local/dev/seed-iam.sh
+```
+
+```bash
+limactl shell gdg-agent sudo /opt/gdgjp/agents-local/dev/activate.sh
+```
+
+```bash
 limactl shell gdg-agent -- sudo -u gdgagent-svc XDG_RUNTIME_DIR=/run/user/$(id -u gdgagent-svc) systemctl --user status xangi.service
 ```
 
 ```bash
-limactl shell gdg-agent -- sudo -u gdgagent-svc xangi harness invoke --guild "$TEST_GUILD" --channel "$TEST_CHANNEL" --user "$TEST_USER" --roles "$TEST_ROLE" --message "pages/ から会場費の扱いを調べて要約して" --json
+limactl shell gdg-agent -- sudo -u gdgagent-svc xangi harness invoke --guild test-guild --channel ch-chapter --user test-user --roles role-organizer --message "pages/ から会場費の扱いを調べて要約して" --json
 ```
 
 ### 回帰として固定すべきテスト（静かに壊れる経路）

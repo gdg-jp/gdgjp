@@ -269,8 +269,14 @@ export function readPageMeta(markdown: string): PageMeta {
   )
     fail("wk: page visibility is missing or invalid");
   const chapterId = fields.get("chapter_id") ?? null;
-  // YAML access grants are intentionally fail-closed unless parsed by a supported shape.
-  return { visibility, chapterId, access: [] };
+  // LocalPages persist a chapter-scoped restricted page as `restricted` plus
+  // `chapter_id`. Treat only that compact, validated shape as a chapter grant.
+  // Any other restricted shape remains deny-by-default.
+  const access =
+    visibility === "restricted" && chapterId
+      ? [{ subjectType: "chapter", subjectKey: chapterId }]
+      : [];
+  return { visibility, chapterId, access };
 }
 
 export function isPagePath(rel: string): boolean {

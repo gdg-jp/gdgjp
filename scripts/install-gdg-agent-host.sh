@@ -15,9 +15,9 @@
 #   4. Create gdgwiki / gdgagent-svc / gdgagent-run-* (live root only)
 #   5. Run setup.sh for /opt/gdg-agent layout
 #   6. chown / linger / tmpfiles
-#   7. Install gdg to /usr/local/bin + git-remote-gdg-wiki; login as svc
-#   8. gdg wiki clone /srv/gdg-agent/wiki if empty; seed gitignored Cursor files
-#   9. Install cursor-agent + Harineko0/xangi; xangi setup --apply; systemd user unit
+#   7. Place gdg, Cursor CLI, Harineko0/xangi, runtime secrets, and systemd user unit
+#   8. Activate when credentials are available (or on a TTY): login as svc, clone and seed wiki,
+#      apply xangi configuration, and conditionally start the service
 #
 # Interactive only when secrets are missing (gdg device login, Discord token,
 # Cursor auth). Discord Developer Portal intents cannot be set from this host.
@@ -29,6 +29,7 @@ GDGJP_REPO="${GDGJP_REPO:-https://github.com/gdg-jp/gdgjp.git}"
 GDGJP_REF="${GDGJP_REF:-main}"
 NODE_MAJOR_MIN=22
 NODE_MINOR_MIN=18
+ACTIVATE_ONLY=0
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -228,6 +229,13 @@ operator_home() {
   fi
 }
 
+svc_credentials_available() {
+  local op_home
+  [[ -s /home/gdgagent-svc/.config/gdg/credentials.json ]] && return 0
+  op_home="$(operator_home)"
+  [[ -n "$op_home" && -s "$op_home/.config/gdg/credentials.json" ]]
+}
+
 as_svc() {
   # runuser keeps the caller's cwd. sudo ./install.sh from an operator home
   # (typically 750) leaves gdgagent-svc in a directory it cannot chdir to;
@@ -393,7 +401,11 @@ ensure_xangi_fork() {
   (
     cd /opt/xangi
     if [[ -f package-lock.json ]]; then
-      npm ci
+      if ! npm ci; then
+        echo "npm ci failed; retrying once with a clean node_modules directory." >&2
+        rm -rf /opt/xangi/node_modules
+        npm ci
+      fi
     else
       npm install
     fi
@@ -404,6 +416,7 @@ ensure_xangi_fork() {
 
 ensure_xangi_setup() {
   install -d -m 0700 -o gdgagent-svc -g gdgagent-svc /home/gdgagent-svc/.config/xangi
+  install -d -m 0700 -o gdgagent-svc -g gdgagent-svc /home/gdgagent-svc/.local/share
   install -d -m 0700 -o gdgagent-svc -g gdgagent-svc /home/gdgagent-svc/.local/share/xangi
   echo "==> xangi setup --apply"
   as_svc /usr/local/bin/xangi setup --apply \
@@ -466,6 +479,9 @@ EOF
   loginctl enable-linger gdgagent-svc
   as_svc systemctl --user daemon-reload
   as_svc systemctl --user enable xangi.service
+}
+
+start_xangi_service() {
   if [[ -s /home/gdgagent-svc/.config/xangi/secrets.json ]] &&
     grep -q DISCORD_TOKEN /home/gdgagent-svc/.config/xangi/secrets.json; then
     echo "==> start xangi.service"
@@ -473,7 +489,6 @@ EOF
   else
     echo "==> skip xangi.service start (no DISCORD_TOKEN in secrets.json)"
   fi
-  unset uid
 }
 
 print_remaining() {
@@ -502,14 +517,29 @@ print_remaining() {
   fi
 }
 
-finish_live_host() {
+place_live_host() {
   [[ -z "$PREFIX" ]] || return 0
-  ensure_wiki_clone_and_seed
+  ensure_gdg_system
   ensure_cursor_cli
   ensure_xangi_fork
-  ensure_xangi_setup
   copy_operator_runtime_secrets
   write_xangi_user_unit
+  if svc_credentials_available || [[ -t 0 ]]; then
+    activate_live_host
+  else
+    echo
+    echo "==> Placement complete. To activate after authenticating:"
+    echo "sudo /opt/gdgjp/agents-local/install.sh --activate"
+  fi
+}
+
+activate_live_host() {
+  [[ -z "$PREFIX" ]] || return 0
+  ensure_gdg_system
+  ensure_svc_gdg_login
+  ensure_wiki_clone_and_seed
+  ensure_xangi_setup
+  start_xangi_service
   print_remaining
 }
 
@@ -520,6 +550,15 @@ if [[ -n "$PREFIX" ]]; then
 fi
 
 require_ubuntu
+for arg in "$@"; do
+  case "$arg" in
+    --activate) ACTIVATE_ONLY=1 ;;
+    *)
+      echo "Unknown argument: $arg" >&2
+      exit 1
+      ;;
+  esac
+done
 maybe_reexec_root "$@"
 
 layout_dir="$(resolve_layout_dir)"
@@ -530,6 +569,11 @@ fi
 if [[ -z "$layout_dir" || ! -x "$layout_dir/setup.sh" ]]; then
   echo "cannot find agents-local/setup.sh next to $here or under $gdgjp" >&2
   exit 1
+fi
+
+if [[ "$ACTIVATE_ONLY" -eq 1 ]]; then
+  activate_live_host
+  exit 0
 fi
 
 hooks_src="${GDG_SETUP_HOOKS_SRC:-$gdgjp/cli/internal/wiki/hooks}"
@@ -573,5 +617,5 @@ apply_ownership
 if [[ -n "$PREFIX" ]]; then
   ensure_wiki_clone_and_seed
 else
-  finish_live_host
+  place_live_host
 fi

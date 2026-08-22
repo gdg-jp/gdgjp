@@ -11,6 +11,7 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..")
 const layoutScript = join(repositoryRoot, "scripts/gdg-agent/install-layout.sh");
 const hooksSrc = join(repositoryRoot, "cli/internal/wiki/hooks");
 const submoduleLayout = join(repositoryRoot, "agents-local/lib/install-layout.sh");
+const ownershipScript = join(repositoryRoot, "agents-local/lib/apply-ownership.sh");
 const hostInstall = join(repositoryRoot, "scripts/install-gdg-agent-host.sh");
 const submoduleHostInstall = join(repositoryRoot, "agents-local/install.sh");
 
@@ -51,6 +52,9 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
       "scripts/install-gdg-agent-host.sh must match agents-local/install.sh",
     );
   }
+  const ownership = await readFile(ownershipScript, "utf8");
+  assert.match(ownership, /\.config\/cursor/);
+  assert.match(ownership, /install -d -m 0700 -o "gdgagent-run-\$\{slot\}"/);
   await withLayoutFixture(async ({ prefix, env }) => {
     const again = spawnSync("bash", [layoutScript], { encoding: "utf8", env });
     assert.equal(again.status, 0, again.stderr || again.stdout);
@@ -180,9 +184,52 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.match(installSrc, /gdg wiki clone/);
     assert.match(installSrc, /\/usr\/local\/bin\/gdg/);
     assert.match(installSrc, /Harineko0\/xangi/);
+    assert.match(installSrc, /npm ci failed; retrying once/);
+    assert.match(installSrc, /\.local\/share\n/);
     assert.match(installSrc, /setup --apply/);
     assert.match(installSrc, /cd "\$HOME" && exec/);
     assert.match(installSrc, /chmod -R a\+rX node_modules/);
+    assert.match(installSrc, /--activate/);
+    assert.match(installSrc, /activate_live_host/);
+    assert.match(installSrc, /place_live_host/);
+    const setupSrc = await readFile(join(repositoryRoot, "agents-local/setup.sh"), "utf8");
+    assert.doesNotMatch(setupSrc, /gdg wiki clone wiki/);
+    const provisionSrc = await readFile(
+      join(repositoryRoot, "agents-local/dev/provision.sh"),
+      "utf8",
+    );
+    assert.match(provisionSrc, /--exclude \/agents-local\/wiki/);
+    assert.match(provisionSrc, /readonly xangi_source=\/mnt\/xangi-src/);
+    assert.match(provisionSrc, /rsync -a --delete --exclude node_modules "\$xangi_source\/"/);
+    assert.doesNotMatch(provisionSrc, /systemctl --user start/);
+    const seedIam = join(repositoryRoot, "agents-local/dev/seed-iam.sh");
+    const seedIamStat = await stat(seedIam);
+    assert.equal(seedIamStat.mode & 0o111, 0o111);
+    const seedIamSrc = await readFile(seedIam, "utf8");
+    assert.doesNotMatch(seedIamSrc, /--activate|install\.sh/);
+    assert.match(seedIamSrc, /0600/);
+    assert.match(seedIamSrc, /gdgagent-svc/);
+    const iamFixture = await readFile(
+      join(repositoryRoot, "agents-local/dev/iam-fixture.json"),
+      "utf8",
+    );
+    const fixture = JSON.parse(iamFixture);
+    assert.equal(fixture.version, 1);
+    const guildIds = Object.keys(fixture.guilds);
+    assert.equal(guildIds.length, 1);
+    const guild = fixture.guilds[guildIds[0]];
+    const channelKeys = Object.keys(guild.channels).sort();
+    assert.deepEqual(channelKeys, ["ch-chapter", "ch-national", "ch-other"]);
+    assert.deepEqual(Object.keys(guild.roles), ["role-organizer"]);
+    assert.equal(guild.roles["role-organizer"].role, "organizer");
+    assert.notEqual(guild.chapterId, guild.channels["ch-other"].chapterId);
+    assert.equal(new Date(guild.boundAt).toISOString(), guild.boundAt);
+    assert.doesNotMatch(installSrc, /iam\.json/);
+    const limaConfig = await readFile(
+      join(repositoryRoot, "agents-local/dev/lima-gdg-agent.yaml"),
+      "utf8",
+    );
+    assert.match(limaConfig, /mountPoint: \/mnt\/xangi-src/);
     assert.equal(
       existsSync(join(prefix, "srv/gdg-agent/wiki/.agents/skills/wiki-ingest/SKILL.md")),
       true,

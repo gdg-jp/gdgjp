@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agents Local Testing"
+  short_description: "Run agents-local Lima IAM harness tests."
+  default_prompt: "Use $agents-testing to validate agents-local in the local Lima VM."
