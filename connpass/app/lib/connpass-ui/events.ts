@@ -546,6 +546,15 @@ export async function fillEventEdit(page: Page, fields: EventEditFields): Promis
   if (fields.ownerText !== undefined) {
     await clickEditAndFill(page, edit.ownerText, edit.ownerTextInput, fields.ownerText);
   }
+  if (fields.checkinCode !== undefined) {
+    await clickEditAndFill(page, edit.checkinCode, edit.checkinCodeInput, fields.checkinCode);
+  }
+  if (fields.hashtag !== undefined) {
+    await clickEditAndFill(page, edit.hashtag, edit.hashtagInput, fields.hashtag);
+  }
+  if (fields.speakerTitle !== undefined) {
+    await clickEditAndFill(page, edit.speakerTitle, edit.speakerTitleInput, fields.speakerTitle);
+  }
   if (fields.participantOnlyInfo !== undefined) {
     await openUntilVisible(page, edit.participantOnlyInfo, edit.participantOnlyInfoInput);
     await page.locator(edit.participantOnlyInfoInput).first().fill(fields.participantOnlyInfo);

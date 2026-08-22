@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"os"
 	"path"
 	"strings"
@@ -195,7 +197,14 @@ func (c *Client) UploadEventImage(ctx context.Context, token, groupID, eventID, 
 	}
 	var payload bytes.Buffer
 	writer := multipart.NewWriter(&payload)
-	part, err := writer.CreateFormFile("image", path.Base(filename))
+	contentType := mime.TypeByExtension(path.Ext(filename))
+	if contentType == "" {
+		return Job{}, fmt.Errorf("unsupported image extension: %s", path.Ext(filename))
+	}
+	headers := make(textproto.MIMEHeader)
+	headers.Set("Content-Disposition", fmt.Sprintf(`form-data; name="image"; filename="%s"`, path.Base(filename)))
+	headers.Set("Content-Type", contentType)
+	part, err := writer.CreatePart(headers)
 	if err != nil {
 		return Job{}, err
 	}
