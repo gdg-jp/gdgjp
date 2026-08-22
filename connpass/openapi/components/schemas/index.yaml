@@ -158,12 +158,47 @@ EventFields:
       nullable: true
 CreateEventRequest:
   allOf:
-    - $ref: "#/EventFields"
+    - $ref: "#/EventWriteFields"
     - type: object
       required: [title]
 UpdateEventRequest:
   allOf:
-    - $ref: "#/EventFields"
+    - $ref: "#/EventWriteFields"
+EventWriteFields:
+  description: Fields that the browser worker can update reliably on connpass's edit page.
+  type: object
+  additionalProperties: false
+  properties:
+    title:
+      type: string
+    subtitle:
+      type: string
+    description:
+      type: string
+    startAt:
+      type: string
+    endAt:
+      type: string
+    place:
+      type: string
+    address:
+      type: string
+    capacity:
+      type: integer
+    reservedAt:
+      type: string
+    registrationEnabled:
+      type: boolean
+    participationTypes:
+      type: array
+      items:
+        $ref: "#/ParticipationType"
+    ownerText:
+      type: string
+    cancelPolicy:
+      type: string
+    participantOnlyInfo:
+      type: string
 Event:
   description: Full event representation, as returned by GET /events/{eventId}.
   allOf:

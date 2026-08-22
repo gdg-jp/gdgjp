@@ -7,7 +7,7 @@ import {
 } from "~/lib/authorize.server";
 import { getCliIdentity } from "~/lib/cli-identity.server";
 import { getEventInBrowser } from "~/lib/connpass-browser-read.server";
-import { parseParticipationTypes } from "~/lib/connpass-ui/events";
+import { parseEventWriteFields } from "~/lib/connpass-ui/events";
 import { createJob, jobToJson } from "~/lib/jobs.server";
 import type { components } from "../../openapi/types.generated";
 
@@ -65,6 +65,11 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   if (!body || typeof body !== "object") {
     return Response.json({ error: "invalid_body" }, { status: 400 });
   }
+  const parsed = parseEventWriteFields(body);
+  if ("error" in parsed) return Response.json({ error: parsed.error }, { status: 400 });
+  if (Object.values(parsed.fields).every((value) => value === undefined)) {
+    return Response.json({ error: "event_fields_required" }, { status: 400 });
+  }
 
   const job = await createJob(
     env,
@@ -73,24 +78,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       groupSlug: group.groupSlug,
       eventId,
       createdBy: identity.user.id,
-      request: {
-        title: typeof body.title === "string" ? body.title : undefined,
-        subtitle: typeof body.subtitle === "string" ? body.subtitle : undefined,
-        description: typeof body.description === "string" ? body.description : undefined,
-        startAt: typeof body.startAt === "string" ? body.startAt : undefined,
-        endAt: typeof body.endAt === "string" ? body.endAt : undefined,
-        place: typeof body.place === "string" ? body.place : undefined,
-        address: typeof body.address === "string" ? body.address : undefined,
-        capacity: typeof body.capacity === "number" ? body.capacity : undefined,
-        reservedAt: typeof body.reservedAt === "string" ? body.reservedAt : undefined,
-        registrationEnabled:
-          typeof body.registrationEnabled === "boolean" ? body.registrationEnabled : undefined,
-        participationTypes: parseParticipationTypes(body.participationTypes),
-        ownerText: typeof body.ownerText === "string" ? body.ownerText : undefined,
-        participantOnlyInfo:
-          typeof body.participantOnlyInfo === "string" ? body.participantOnlyInfo : undefined,
-        cancelPolicy: typeof body.cancelPolicy === "string" ? body.cancelPolicy : undefined,
-      },
+      request: parsed.fields,
     },
     ctx,
   );

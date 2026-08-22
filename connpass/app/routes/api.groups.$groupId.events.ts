@@ -7,7 +7,7 @@ import {
 } from "~/lib/authorize.server";
 import { getCliIdentity } from "~/lib/cli-identity.server";
 import { listGroupEventsInBrowser } from "~/lib/connpass-browser-read.server";
-import { parseParticipationTypes } from "~/lib/connpass-ui/events";
+import { parseEventWriteFields } from "~/lib/connpass-ui/events";
 import { createJob, jobToJson } from "~/lib/jobs.server";
 import type { components } from "../../openapi/types.generated";
 
@@ -63,6 +63,8 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   if (!body || typeof body.title !== "string" || !body.title.trim()) {
     return Response.json({ error: "title_required" }, { status: 400 });
   }
+  const parsed = parseEventWriteFields(body);
+  if ("error" in parsed) return Response.json({ error: parsed.error }, { status: 400 });
 
   const job = await createJob(
     env,
@@ -70,24 +72,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       type: "create_event",
       groupSlug: group.groupSlug,
       createdBy: identity.user.id,
-      request: {
-        title: body.title.trim(),
-        subtitle: typeof body.subtitle === "string" ? body.subtitle : undefined,
-        description: typeof body.description === "string" ? body.description : undefined,
-        startAt: typeof body.startAt === "string" ? body.startAt : undefined,
-        endAt: typeof body.endAt === "string" ? body.endAt : undefined,
-        place: typeof body.place === "string" ? body.place : undefined,
-        address: typeof body.address === "string" ? body.address : undefined,
-        capacity: typeof body.capacity === "number" ? body.capacity : undefined,
-        reservedAt: typeof body.reservedAt === "string" ? body.reservedAt : undefined,
-        registrationEnabled:
-          typeof body.registrationEnabled === "boolean" ? body.registrationEnabled : undefined,
-        participationTypes: parseParticipationTypes(body.participationTypes),
-        ownerText: typeof body.ownerText === "string" ? body.ownerText : undefined,
-        participantOnlyInfo:
-          typeof body.participantOnlyInfo === "string" ? body.participantOnlyInfo : undefined,
-        cancelPolicy: typeof body.cancelPolicy === "string" ? body.cancelPolicy : undefined,
-      },
+      request: { ...parsed.fields, title: body.title.trim() },
     },
     ctx,
   );
