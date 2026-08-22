@@ -693,17 +693,39 @@ export type ScrapedEventDetail = {
  * the venue as a separate DOM table, not through the Backbone model.
  */
 async function scrapePlaceFromDom(page: Page): Promise<{ name: string; address: string }> {
-  const nameCell = page.locator(selectors.eventEdit.placeVenueName).first();
-  if ((await nameCell.count()) === 0) return { name: "", address: "" };
-  const name = readableText((await nameCell.textContent()) ?? "");
-  const address = readableText(
-    await page
-      .locator(selectors.eventEdit.placeVenueAddress)
-      .first()
-      .textContent()
-      .catch(() => ""),
+  // PlaceEditView binds after its my_places request completes. Synchronize with
+  // that lifecycle rather than depending on a warm Browser Run session.
+  await waitForBoundEvent(page, selectors.eventEdit.place, "change");
+
+  // Connpass replaces this widget asynchronously after domcontentloaded. Wait
+  // for a selected saved place (or a populated venue cell) before reading it.
+  await page.evaluate(
+    async ({ nameSelector }) => {
+      const deadline = Date.now() + 5_000;
+      while (Date.now() < deadline) {
+        const name = document.querySelector(nameSelector)?.textContent?.trim();
+        const selectedPlace = document.querySelector("#FieldPlace .MyPlaces option[selected]");
+        if (name || selectedPlace) return;
+        await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      }
+    },
+    { nameSelector: selectors.eventEdit.placeVenueName },
   );
-  return { name, address };
+
+  // Browser Run's Locator text APIs can return an empty string for Connpass's
+  // off-screen edit panels. Read the rendered DOM directly instead; this also
+  // keeps venue extraction independent of element visibility.
+  const place = await page.evaluate(
+    ({ nameSelector, addressSelector }) => ({
+      name: document.querySelector(nameSelector)?.textContent ?? "",
+      address: document.querySelector(addressSelector)?.textContent ?? "",
+    }),
+    {
+      nameSelector: selectors.eventEdit.placeVenueName,
+      addressSelector: selectors.eventEdit.placeVenueAddress,
+    },
+  );
+  return { name: readableText(place.name), address: readableText(place.address) };
 }
 
 export async function scrapeEventDetail(
@@ -724,18 +746,22 @@ export async function scrapeEventDetail(
     .innerText()
     .catch(() => "");
   const hasSurvey = !hasSurveyText.includes(selectors.survey.hasSurveyEmptyText);
-  const conference = await scrapeConference(page, eventId);
   const place = await scrapePlaceFromDom(page);
+  const fallback = !model
+    ? {
+        title: readableText(await page.locator(selectors.eventEdit.title).innerText()),
+        subtitle: readableText(await page.locator(selectors.eventEdit.subtitle).innerText()),
+        description: readableText(await page.locator(selectors.eventEdit.description).innerText()),
+        capacityText: readableText(await page.locator(selectors.eventEdit.capacity).innerText()),
+      }
+    : undefined;
+  // scrapeConference navigates to its own edit page, so it must be last. All
+  // event fields above are read while the event-edit DOM is still loaded.
+  const conference = await scrapeConference(page, eventId);
 
   if (!model) {
     // Fall back to the pre-alignment DOM scrape if connpass ever drops the
     // embedded model dump; keeps the endpoint degraded-but-working.
-    const title = readableText(await page.locator(selectors.eventEdit.title).innerText());
-    const subtitle = readableText(await page.locator(selectors.eventEdit.subtitle).innerText());
-    const description = readableText(
-      await page.locator(selectors.eventEdit.description).innerText(),
-    );
-    const capacityText = readableText(await page.locator(selectors.eventEdit.capacity).innerText());
     return {
       id: String(eventId),
       groupNumericId: null,
@@ -743,9 +769,9 @@ export async function scrapeEventDetail(
       url: `https://connpass.com/event/${eventId}/`,
       editUrl: eventEditUrl(eventId),
       status: "draft",
-      title,
-      subtitle,
-      description,
+      title: fallback?.title ?? "",
+      subtitle: fallback?.subtitle ?? "",
+      description: fallback?.description ?? "",
       eventType: "participation",
       image: null,
       ownerText: null,
@@ -753,7 +779,7 @@ export async function scrapeEventDetail(
       endAt: null,
       place: place.name,
       address: place.address,
-      capacity: capacityText ? Number.parseInt(capacityText, 10) || null : null,
+      capacity: fallback?.capacityText ? Number.parseInt(fallback.capacityText, 10) || null : null,
       reservedAt: null,
       registrationEnabled: true,
       registrationOpenAt: null,
