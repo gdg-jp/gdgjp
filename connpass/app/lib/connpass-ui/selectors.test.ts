@@ -237,6 +237,8 @@ describe("connpass UI selectors", () => {
       expect(venueSet).toContain('id="FieldPlace"');
       expect(venueSet).toContain('class="spot"');
       expect(venueSet).toContain('class="place"');
+      expect(selectors.eventEdit.placeVenueName).toBe("#FieldPlace table tr.spot > td");
+      expect(selectors.eventEdit.placeVenueAddress).toBe("#FieldPlace table tr.place > td");
 
       const subEventAdded = readFileSync(fixturePath("event-edit_サブイベント追加後.htm"), "utf8");
       expect(subEventAdded).toContain(selectors.subEvent.area.replace(".", 'class="'));
