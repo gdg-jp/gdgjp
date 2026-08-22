@@ -9,31 +9,19 @@ import (
 )
 
 type eventFieldFlags struct {
-	title                string
-	subtitle             string
-	description          string
-	startAt              string
-	endAt                string
-	place                string
-	address              string
-	capacity             int
-	eventType            string
-	image                string
-	ownerText            string
-	reservedAt           string
-	registrationEnabled  bool
-	registrationOpenAt   string
-	registrationCloseAt  string
-	lotteryPublishDate   string
-	allowConflictJoin    bool
-	allowReceipt         bool
-	invoiceNumber        string
-	receiptIssuerName    string
-	receiptIssuerAddress string
-	paypalEmail          string
-	contactDetails       string
-	cancelPolicy         string
-	participantOnlyInfo  string
+	title               string
+	subtitle            string
+	description         string
+	startAt             string
+	endAt               string
+	place               string
+	address             string
+	capacity            int
+	ownerText           string
+	reservedAt          string
+	registrationEnabled bool
+	cancelPolicy        string
+	participantOnlyInfo string
 }
 
 func addEventFieldFlags(cmd *cobra.Command, flags *eventFieldFlags) {
@@ -45,21 +33,9 @@ func addEventFieldFlags(cmd *cobra.Command, flags *eventFieldFlags) {
 	cmd.Flags().StringVar(&flags.place, "place", "", "Venue name")
 	cmd.Flags().StringVar(&flags.address, "address", "", "Venue address")
 	cmd.Flags().IntVar(&flags.capacity, "capacity", 0, "Capacity")
-	cmd.Flags().StringVar(&flags.eventType, "event-type", "", "Event type")
-	cmd.Flags().StringVar(&flags.image, "image", "", "Event image URL or identifier")
 	cmd.Flags().StringVar(&flags.ownerText, "owner-text", "", "Owner text")
 	cmd.Flags().StringVar(&flags.reservedAt, "reserved-at", "", "Venue reserved-at datetime")
 	cmd.Flags().BoolVar(&flags.registrationEnabled, "registration-enabled", false, "Whether registration is enabled")
-	cmd.Flags().StringVar(&flags.registrationOpenAt, "registration-open-at", "", "Registration open datetime")
-	cmd.Flags().StringVar(&flags.registrationCloseAt, "registration-close-at", "", "Registration close datetime")
-	cmd.Flags().StringVar(&flags.lotteryPublishDate, "lottery-publish-date", "", "Lottery publish date")
-	cmd.Flags().BoolVar(&flags.allowConflictJoin, "allow-conflict-join", false, "Allow joining conflicting events")
-	cmd.Flags().BoolVar(&flags.allowReceipt, "allow-receipt", false, "Allow receipts")
-	cmd.Flags().StringVar(&flags.invoiceNumber, "invoice-number", "", "Invoice number")
-	cmd.Flags().StringVar(&flags.receiptIssuerName, "receipt-issuer-name", "", "Receipt issuer name")
-	cmd.Flags().StringVar(&flags.receiptIssuerAddress, "receipt-issuer-address", "", "Receipt issuer address")
-	cmd.Flags().StringVar(&flags.paypalEmail, "paypal-email", "", "PayPal email")
-	cmd.Flags().StringVar(&flags.contactDetails, "contact-details", "", "Contact details")
 	cmd.Flags().StringVar(&flags.cancelPolicy, "cancel-policy", "", "Cancel policy")
 	cmd.Flags().StringVar(&flags.participantOnlyInfo, "participant-only-info", "", "Participant-only info")
 }
@@ -73,21 +49,9 @@ func (flags *eventFieldFlags) apply(cmd *cobra.Command, body map[string]any) {
 	setStringFlag(cmd, body, "place", "place", flags.place)
 	setStringFlag(cmd, body, "address", "address", flags.address)
 	setIntFlag(cmd, body, "capacity", "capacity", flags.capacity)
-	setStringFlag(cmd, body, "event-type", "eventType", flags.eventType)
-	setStringFlag(cmd, body, "image", "image", flags.image)
 	setStringFlag(cmd, body, "owner-text", "ownerText", flags.ownerText)
 	setStringFlag(cmd, body, "reserved-at", "reservedAt", flags.reservedAt)
 	setBoolFlag(cmd, body, "registration-enabled", "registrationEnabled", flags.registrationEnabled)
-	setStringFlag(cmd, body, "registration-open-at", "registrationOpenAt", flags.registrationOpenAt)
-	setStringFlag(cmd, body, "registration-close-at", "registrationCloseAt", flags.registrationCloseAt)
-	setStringFlag(cmd, body, "lottery-publish-date", "lotteryPublishDate", flags.lotteryPublishDate)
-	setBoolFlag(cmd, body, "allow-conflict-join", "allowConflictJoin", flags.allowConflictJoin)
-	setBoolFlag(cmd, body, "allow-receipt", "allowReceipt", flags.allowReceipt)
-	setStringFlag(cmd, body, "invoice-number", "invoiceNumber", flags.invoiceNumber)
-	setStringFlag(cmd, body, "receipt-issuer-name", "receiptIssuerName", flags.receiptIssuerName)
-	setStringFlag(cmd, body, "receipt-issuer-address", "receiptIssuerAddress", flags.receiptIssuerAddress)
-	setStringFlag(cmd, body, "paypal-email", "paypalEmail", flags.paypalEmail)
-	setStringFlag(cmd, body, "contact-details", "contactDetails", flags.contactDetails)
 	setStringFlag(cmd, body, "cancel-policy", "cancelPolicy", flags.cancelPolicy)
 	setStringFlag(cmd, body, "participant-only-info", "participantOnlyInfo", flags.participantOnlyInfo)
 }

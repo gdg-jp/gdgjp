@@ -53,8 +53,8 @@ export const selectors = {
     placeName: '#FieldPlace input[name="name"], .place_edit_area input[name="name"]',
     placeAddress: '#FieldPlace input[name="address"], .place_edit_area input[name="address"]',
     /** イベント編集_会場設定済み.html — rendered venue table (read path) */
-    placeVenueName: "#FieldPlace table tr.spot td",
-    placeVenueAddress: "#FieldPlace table tr.place td",
+    placeVenueName: "#FieldPlace table tr.spot > td",
+    placeVenueAddress: "#FieldPlace table tr.place > td",
     reservedTrigger: "#EventPublishReservation .FormEditable",
     reservedRoot: "#EventPublishReservation",
     reservedDate: 'input[name="reserved_date"]',

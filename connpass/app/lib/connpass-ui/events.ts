@@ -95,6 +95,88 @@ export type EventEditFields = {
   cancelPolicy?: string;
 };
 
+const eventWriteFieldNames = [
+  "title",
+  "subtitle",
+  "description",
+  "startAt",
+  "endAt",
+  "place",
+  "address",
+  "capacity",
+  "reservedAt",
+  "registrationEnabled",
+  "participationTypes",
+  "ownerText",
+  "participantOnlyInfo",
+  "cancelPolicy",
+] as const;
+
+/**
+ * Keep HTTP writes and the Browser Run job on the same, deliberately small
+ * contract. Connpass exposes additional read-only or file-upload-only fields;
+ * accepting those here would otherwise create successful no-op jobs.
+ */
+export function parseEventWriteFields(
+  body: Record<string, unknown>,
+): { fields: EventEditFields } | { error: string } {
+  const unsupported = Object.keys(body).filter(
+    (key) => !eventWriteFieldNames.includes(key as (typeof eventWriteFieldNames)[number]),
+  );
+  if (unsupported.length > 0) return { error: `unsupported_event_fields:${unsupported.join(",")}` };
+
+  const stringFields = [
+    "title",
+    "subtitle",
+    "description",
+    "startAt",
+    "endAt",
+    "place",
+    "address",
+    "reservedAt",
+    "ownerText",
+    "participantOnlyInfo",
+    "cancelPolicy",
+  ] as const;
+  const invalid: string[] = stringFields.filter(
+    (key) => body[key] !== undefined && typeof body[key] !== "string",
+  );
+  if (
+    body.capacity !== undefined &&
+    (typeof body.capacity !== "number" || !Number.isFinite(body.capacity))
+  ) {
+    invalid.push("capacity");
+  }
+  if (body.registrationEnabled !== undefined && typeof body.registrationEnabled !== "boolean") {
+    invalid.push("registrationEnabled");
+  }
+  if (body.participationTypes !== undefined && !Array.isArray(body.participationTypes)) {
+    invalid.push("participationTypes");
+  }
+  if (invalid.length > 0) return { error: `invalid_event_fields:${invalid.join(",")}` };
+
+  return {
+    fields: {
+      title: typeof body.title === "string" ? body.title : undefined,
+      subtitle: typeof body.subtitle === "string" ? body.subtitle : undefined,
+      description: typeof body.description === "string" ? body.description : undefined,
+      startAt: typeof body.startAt === "string" ? body.startAt : undefined,
+      endAt: typeof body.endAt === "string" ? body.endAt : undefined,
+      place: typeof body.place === "string" ? body.place : undefined,
+      address: typeof body.address === "string" ? body.address : undefined,
+      capacity: typeof body.capacity === "number" ? body.capacity : undefined,
+      reservedAt: typeof body.reservedAt === "string" ? body.reservedAt : undefined,
+      registrationEnabled:
+        typeof body.registrationEnabled === "boolean" ? body.registrationEnabled : undefined,
+      participationTypes: parseParticipationTypes(body.participationTypes),
+      ownerText: typeof body.ownerText === "string" ? body.ownerText : undefined,
+      participantOnlyInfo:
+        typeof body.participantOnlyInfo === "string" ? body.participantOnlyInfo : undefined,
+      cancelPolicy: typeof body.cancelPolicy === "string" ? body.cancelPolicy : undefined,
+    },
+  };
+}
+
 type ConnpassJQuery = {
   (
     selector: string,
@@ -224,6 +306,20 @@ async function clickScopedSave(page: Page, scopeSelector: string): Promise<void>
   }
 }
 
+/** jQuery UI date/time pickers stay above the edit form until explicitly dismissed. */
+async function closeDateTimePickers(page: Page, inputSelector: string): Promise<void> {
+  await page
+    .locator(inputSelector)
+    .first()
+    .press("Escape")
+    .catch(() => undefined);
+  await page
+    .locator("#ui-datepicker-div, .ui-timepicker-wrapper, .ui-timepicker")
+    .first()
+    .waitFor({ state: "hidden", timeout: 2_000 })
+    .catch(() => undefined);
+}
+
 async function clickEditAndFill(
   page: Page,
   triggerSelector: string,
@@ -275,6 +371,46 @@ function splitDateTime(value: string): { date: string; time: string } {
   return { date, time: time.slice(0, 5) };
 }
 
+async function setCapacity(page: Page, capacity: number): Promise<void> {
+  const edit = selectors.eventEdit;
+  if (await isVisible(page, edit.capacityTrigger)) {
+    await waitForBoundEvent(page, "#FieldMaxNum", "click");
+    await clickEditAndFill(
+      page,
+      edit.capacityTrigger,
+      edit.capacityInput,
+      String(capacity),
+      "#FieldMaxNum",
+    );
+    return;
+  }
+
+  // Connpass only exposes event-level capacity for advertisement events. A
+  // participation event has capacity per participation type, so mapping is
+  // unambiguous only when it has exactly one type.
+  await waitForBoundEvent(page, `${edit.eventType.root} .JoinOptions`, "click");
+  if (!(await isVisible(page, `${edit.eventType.typesBody} input`))) {
+    await openUntilVisible(page, edit.eventType.editTrigger, `${edit.eventType.typesBody} input`);
+  }
+  const rows = page.locator(`${edit.eventType.typesBody} tr`);
+  if ((await rows.count()) !== 1) {
+    throw new Error("connpass_capacity_requires_single_participation_type");
+  }
+  await rows.locator('td.participants input[type="text"]').fill(String(capacity));
+  await clickScopedSave(page, edit.eventType.root);
+}
+
+async function setRegistrationEnabled(page: Page, enabled: boolean): Promise<void> {
+  const { eventType } = selectors.eventEdit;
+  await waitForBoundEvent(page, `${eventType.root} .JoinOptions`, "click");
+  if (!(await isVisible(page, `${eventType.typesBody} input`))) {
+    await openUntilVisible(page, eventType.editTrigger, `${eventType.typesBody} input`);
+  }
+  const target = enabled ? eventType.participation : eventType.advertisement;
+  await page.locator(target).first().setChecked(true);
+  await clickScopedSave(page, eventType.root);
+}
+
 export async function fillEventEdit(page: Page, fields: EventEditFields): Promise<void> {
   await waitForEventEditReady(page);
   const edit = selectors.eventEdit;
@@ -290,14 +426,7 @@ export async function fillEventEdit(page: Page, fields: EventEditFields): Promis
     await clickScopedSave(page, edit.description);
   }
   if (fields.capacity !== undefined) {
-    await waitForBoundEvent(page, "#FieldMaxNum", "click");
-    await clickEditAndFill(
-      page,
-      edit.capacityTrigger,
-      edit.capacityInput,
-      String(fields.capacity),
-      "#FieldMaxNum",
-    );
+    await setCapacity(page, fields.capacity);
   }
   if (fields.startAt !== undefined || fields.endAt !== undefined) {
     await waitForBoundEvent(page, "#EventDates", "click");
@@ -306,11 +435,13 @@ export async function fillEventEdit(page: Page, fields: EventEditFields): Promis
       const { date, time } = splitDateTime(fields.startAt);
       await page.locator(edit.startDate).fill(date);
       await page.locator(edit.startTime).fill(time);
+      await closeDateTimePickers(page, edit.startTime);
     }
     if (fields.endAt !== undefined) {
       const { date, time } = splitDateTime(fields.endAt);
       await page.locator(edit.endDate).fill(date);
       await page.locator(edit.endTime).fill(time);
+      await closeDateTimePickers(page, edit.endTime);
     }
     await clickScopedSave(page, "#EventDates");
   }
@@ -330,14 +461,11 @@ export async function fillEventEdit(page: Page, fields: EventEditFields): Promis
     const { date, time } = splitDateTime(fields.reservedAt);
     await page.locator(edit.reservedDate).fill(date);
     await page.locator(edit.reservedTime).fill(time);
+    await closeDateTimePickers(page, edit.reservedTime);
     await clickScopedSave(page, edit.reservedRoot);
   }
   if (fields.registrationEnabled !== undefined) {
-    const trigger = fields.registrationEnabled
-      ? edit.eventType.participation
-      : edit.eventType.advertisement;
-    await jqueryClick(page, trigger);
-    await clickScopedSave(page, edit.eventType.root);
+    await setRegistrationEnabled(page, fields.registrationEnabled);
   }
   if (fields.participationTypes !== undefined) {
     await setParticipationTypes(page, fields.participationTypes);
@@ -567,12 +695,12 @@ export type ScrapedEventDetail = {
 async function scrapePlaceFromDom(page: Page): Promise<{ name: string; address: string }> {
   const nameCell = page.locator(selectors.eventEdit.placeVenueName).first();
   if ((await nameCell.count()) === 0) return { name: "", address: "" };
-  const name = readableText(await nameCell.innerText());
+  const name = readableText((await nameCell.textContent()) ?? "");
   const address = readableText(
     await page
       .locator(selectors.eventEdit.placeVenueAddress)
       .first()
-      .innerText()
+      .textContent()
       .catch(() => ""),
   );
   return { name, address };

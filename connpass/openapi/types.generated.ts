@@ -274,6 +274,24 @@ export interface components {
             /** @description IDs of sub-events (see /sub-events) that participants registering under this participation type may also join. */
             subEventIds?: string[] | null;
         };
+        /** @description Fields that the browser worker can update reliably on connpass's edit page. */
+        EventWriteFields: {
+            title?: string;
+            subtitle?: string;
+            description?: string;
+            startAt?: string;
+            endAt?: string;
+            place?: string;
+            address?: string;
+            capacity?: number;
+            reservedAt?: string;
+            registrationEnabled?: boolean;
+            participationTypes?: components["schemas"]["ParticipationType"][];
+            ownerText?: string;
+            cancelPolicy?: string;
+            participantOnlyInfo?: string;
+        };
+        CreateEventRequest: components["schemas"]["EventWriteFields"] & Record<string, never>;
         /** @description Fields shared by event creation, update, and the full event representation. */
         EventFields: {
             title?: string;
@@ -303,7 +321,6 @@ export interface components {
             cancelPolicy?: string | null;
             participantOnlyInfo?: string | null;
         };
-        CreateEventRequest: components["schemas"]["EventFields"] & Record<string, never>;
         /** @description Full event representation, as returned by GET /events/{eventId}. */
         Event: components["schemas"]["EventFields"] & {
             id: string;
@@ -321,7 +338,7 @@ export interface components {
             /** @description Whether this event has conference info configured. Fetch it via GET /conference. */
             hasConference: boolean;
         };
-        UpdateEventRequest: components["schemas"]["EventFields"];
+        UpdateEventRequest: components["schemas"]["EventWriteFields"];
         PublishEventRequest: {
             postToTwitter?: boolean;
             comment?: string | null;

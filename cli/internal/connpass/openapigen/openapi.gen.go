@@ -82,32 +82,20 @@ type Conference struct {
 
 // CreateEventRequest defines model for CreateEventRequest.
 type CreateEventRequest struct {
-	Address              *string              `json:"address,omitempty"`
-	AllowConflictJoin    *bool                `json:"allowConflictJoin,omitempty"`
-	AllowReceipt         *bool                `json:"allowReceipt,omitempty"`
-	CancelPolicy         *string              `json:"cancelPolicy"`
-	Capacity             *int                 `json:"capacity,omitempty"`
-	ContactDetails       *string              `json:"contactDetails"`
-	Description          *string              `json:"description,omitempty"`
-	EndAt                *string              `json:"endAt,omitempty"`
-	EventType            *string              `json:"eventType,omitempty"`
-	Image                *string              `json:"image"`
-	InvoiceNumber        *string              `json:"invoiceNumber"`
-	LotteryPublishDate   *string              `json:"lotteryPublishDate"`
-	OwnerText            *string              `json:"ownerText"`
-	ParticipantOnlyInfo  *string              `json:"participantOnlyInfo"`
-	ParticipationTypes   *[]ParticipationType `json:"participationTypes,omitempty"`
-	PaypalEmail          *string              `json:"paypalEmail"`
-	Place                *string              `json:"place,omitempty"`
-	ReceiptIssuerAddress *string              `json:"receiptIssuerAddress"`
-	ReceiptIssuerName    *string              `json:"receiptIssuerName"`
-	RegistrationCloseAt  *string              `json:"registrationCloseAt"`
-	RegistrationEnabled  *bool                `json:"registrationEnabled,omitempty"`
-	RegistrationOpenAt   *string              `json:"registrationOpenAt"`
-	ReservedAt           *string              `json:"reservedAt"`
-	StartAt              *string              `json:"startAt,omitempty"`
-	Subtitle             *string              `json:"subtitle,omitempty"`
-	Title                string               `json:"title"`
+	Address             *string              `json:"address,omitempty"`
+	CancelPolicy        *string              `json:"cancelPolicy,omitempty"`
+	Capacity            *int                 `json:"capacity,omitempty"`
+	Description         *string              `json:"description,omitempty"`
+	EndAt               *string              `json:"endAt,omitempty"`
+	OwnerText           *string              `json:"ownerText,omitempty"`
+	ParticipantOnlyInfo *string              `json:"participantOnlyInfo,omitempty"`
+	ParticipationTypes  *[]ParticipationType `json:"participationTypes,omitempty"`
+	Place               *string              `json:"place,omitempty"`
+	RegistrationEnabled *bool                `json:"registrationEnabled,omitempty"`
+	ReservedAt          *string              `json:"reservedAt,omitempty"`
+	StartAt             *string              `json:"startAt,omitempty"`
+	Subtitle            *string              `json:"subtitle,omitempty"`
+	Title               string               `json:"title"`
 }
 
 // CreateSubEventRequest defines model for CreateSubEventRequest.
@@ -215,6 +203,24 @@ type EventSummary struct {
 	Url               string      `json:"url"`
 }
 
+// EventWriteFields Fields that the browser worker can update reliably on connpass's edit page.
+type EventWriteFields struct {
+	Address             *string              `json:"address,omitempty"`
+	CancelPolicy        *string              `json:"cancelPolicy,omitempty"`
+	Capacity            *int                 `json:"capacity,omitempty"`
+	Description         *string              `json:"description,omitempty"`
+	EndAt               *string              `json:"endAt,omitempty"`
+	OwnerText           *string              `json:"ownerText,omitempty"`
+	ParticipantOnlyInfo *string              `json:"participantOnlyInfo,omitempty"`
+	ParticipationTypes  *[]ParticipationType `json:"participationTypes,omitempty"`
+	Place               *string              `json:"place,omitempty"`
+	RegistrationEnabled *bool                `json:"registrationEnabled,omitempty"`
+	ReservedAt          *string              `json:"reservedAt,omitempty"`
+	StartAt             *string              `json:"startAt,omitempty"`
+	Subtitle            *string              `json:"subtitle,omitempty"`
+	Title               *string              `json:"title,omitempty"`
+}
+
 // Group defines model for Group.
 type Group struct {
 	ChapterId      *string `json:"chapterId"`
@@ -305,8 +311,8 @@ type SurveyQuestion struct {
 // SurveyQuestionAnswerType defines model for SurveyQuestionAnswerType.
 type SurveyQuestionAnswerType string
 
-// UpdateEventRequest Fields shared by event creation, update, and the full event representation.
-type UpdateEventRequest = EventFields
+// UpdateEventRequest Fields that the browser worker can update reliably on connpass's edit page.
+type UpdateEventRequest = EventWriteFields
 
 // UpsertConferenceRequest defines model for UpsertConferenceRequest.
 type UpsertConferenceRequest struct {
