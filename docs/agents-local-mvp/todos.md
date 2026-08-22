@@ -42,6 +42,10 @@
 
 - [x] **10** [睡眠スケジューラ](10-sleep-scheduler.md) — 依存: 06, 08
 
+## Wave 8
+
+- [ ] **12** [ローカル検証環境](12-local-test-environment.md) — Lima VM と Discord-less harness。05 / 07 の未達関門はこの VM で回し、結果を記録する。
+
 ---
 
 ## 止まって報告する関門
@@ -54,6 +58,7 @@
       `{"permission":"deny"}` で Shell と Read を止められる
 - [ ] `--force` / `--yolo` 無しで headless（`-p`）が実用に耐える
 - [ ] **`cursor-agent` が Read の deny を受けて `wk read` に切り替える**（同じ Read を繰り返さない）
+  - Stage 12 の Lima VM で検証する。
 - [ ] **Write / Edit の deny 下で、`wk write` だけで ingest 相当の作業が完走する**
   - 落ちた場合の代替案は [05 の「実装前に疎通確認すること」](05-cursor-harness-pretooluse.md) にある
 
@@ -66,6 +71,7 @@
 
 - [ ] `sandbox.mode: "enabled"` + `readBoundary: "workspace"` で
       ingest 相当の作業（`git`、`gdg wiki`、`pages/` の読み書き）が完走する
+  - Stage 12 の Lima VM で検証する。
 
 ### 本番投入する前（07 の完了が条件）
 

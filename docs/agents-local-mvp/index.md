@@ -79,6 +79,7 @@ uid 分離・sudoers・systemd・`/run` の tmpfs は、この 1 台の上でだ
 | 08 | [08-episodic-memory.md](08-episodic-memory.md) | `memories/` 書き出しとアップロード | 02, 04 |
 | 09 | [09-agents-index.md](09-agents-index.md) | `agents-index/` ローカルインデックス | 01, 02, 04 |
 | 10 | [10-sleep-scheduler.md](10-sleep-scheduler.md) | 睡眠ループ | 06, 08 |
+| 12 | [12-local-test-environment.md](12-local-test-environment.md) | Lima VM と Discord-less harness | 05, 07 |
 
 **Stage 00 は最初に実施する。** Node ネイティブ TypeScript の実行契約を先に固定し、
 後続ステージは実行物を最初から `.ts` で作る。

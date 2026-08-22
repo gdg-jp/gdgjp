@@ -1874,3 +1874,28 @@ TypeScript として新規作成する。
 - `/opt/gdg-agent/package.json` もフック・library と同じく root 所有で設置・検査する。
 - `wk` は extensionless command を維持するため launcher が 1 枚増えるが、launcher に
   ACL 判定、引数解釈、fallback を置かないことで判定の一元化は崩れない。
+
+## ADR-023: ローカル検証環境を Ubuntu VM に置き、Docker を採らない
+
+### Context
+
+検証対象は `install.sh`、systemd user unit、tmpfiles、uid 分離、AppArmor、Cursor の OS
+サンドボックスを含む本番経路である。さらに実 Cursor CLI と production wiki を使うため、課金と
+非決定性の観点から CI には載せられない。
+
+### Decision
+
+macOS の Lima 上に Ubuntu 24.04 VM を作る。ホストの checkout は read-only でマウントし、VM 内の
+書き込み可能な `/opt/gdgjp` コピーから無改変の `install.sh` を実行する。Discord は使わず、
+service-user-only Unix socket の `xangi harness invoke` を operator entry point にする。
+
+### Alternatives Considered
+
+Docker は CI に向くが、Docker Desktop の LinuxKit では AppArmor と systemd user/linger/tmpfiles の
+本番経路を再現できない。Cursor sandbox の nested namespace/seccomp も別経路になるため採用しない。
+
+### Consequences
+
+VM は使い捨てで `limactl delete` によりリセットする。固定 Cursor 版を事前配置するため、
+`install.sh` の latest Cursor 取得だけはこの検証対象から外れる。arm64 VM の結果は x86-64 本番の
+保証ではなく、差分を Stage 12 に記録する。
