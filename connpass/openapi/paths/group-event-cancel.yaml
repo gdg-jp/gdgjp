@@ -1,0 +1,9 @@
+post:
+  operationId: cancelGroupEvent
+  summary: Cancel a published event
+  security: [{BearerAuth: []}]
+  parameters:
+    - $ref: ../components/parameters/common.yaml#/GroupId
+    - $ref: ../components/parameters/common.yaml#/EventId
+  responses:
+    "202": {description: Job accepted, content: {application/json: {schema: {$ref: ../components/schemas/index.yaml#/Job}}}}

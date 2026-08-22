@@ -50,7 +50,8 @@ export interface paths {
         get: operations["getGroupEvent"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete an event draft through an async browser job */
+        delete: operations["deleteGroupEventDraft"];
         options?: never;
         head?: never;
         /** Update event fields on the edit page (async browser job) */
@@ -72,6 +73,163 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{groupId}/events/{eventId}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload an event image through an async browser job */
+        post: operations["uploadGroupEventImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{groupId}/events/{eventId}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy an event into a new draft */
+        post: operations["copyGroupEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{groupId}/events/{eventId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a published event */
+        post: operations["cancelGroupEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{groupId}/events/{eventId}/participants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List event participants including organizer-visible details */
+        get: operations["listGroupEventParticipants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{groupId}/events/{eventId}/participants/{participantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an event participant */
+        get: operations["getGroupEventParticipant"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update an event participant through an async browser job */
+        patch: operations["updateGroupEventParticipant"];
+        trace?: never;
+    };
+    "/api/groups/{groupId}/events/{eventId}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get organizer event statistics */
+        get: operations["getGroupEventStatistics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{groupId}/events/{eventId}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a message to event registrants */
+        post: operations["sendGroupEventMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{groupId}/events/{eventId}/vouchers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List voucher recipients */
+        get: operations["listGroupEventVoucherRecipients"];
+        put?: never;
+        /** Create voucher recipient codes through an async browser job */
+        post: operations["createGroupEventVoucherRecipient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{groupId}/events/{eventId}/vouchers/{voucherId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a voucher recipient */
+        get: operations["getGroupEventVoucherRecipient"];
+        put?: never;
+        post?: never;
+        /** Delete a voucher recipient through an async browser job */
+        delete: operations["deleteGroupEventVoucherRecipient"];
+        options?: never;
+        head?: never;
+        /** Update a voucher recipient through an async browser job */
+        patch: operations["updateGroupEventVoucherRecipient"];
         trace?: never;
     };
     "/api/groups/{groupId}/events/{eventId}/sub-events": {
@@ -290,8 +448,29 @@ export interface components {
             ownerText?: string;
             cancelPolicy?: string;
             participantOnlyInfo?: string;
+            registrationOpenAt?: string | null;
+            registrationCloseAt?: string | null;
+            lotteryPublishDate?: string | null;
+            allowConflictJoin?: boolean;
+            checkinCode?: string;
+            hashtag?: string;
+            organizerIds?: string[];
+            speakerTitle?: string;
+            speakerIds?: string[];
+            paypalEmail?: string;
+            contactDetails?: string;
+            allowReceipt?: boolean;
+            invoiceNumber?: string;
+            receiptIssuerName?: string;
+            receiptIssuerAddress?: string;
         };
         CreateEventRequest: components["schemas"]["EventWriteFields"] & Record<string, never>;
+        ReceiptSettings: {
+            allowReceipt?: boolean;
+            invoiceNumber?: string | null;
+            issuerName?: string | null;
+            issuerAddress?: string | null;
+        };
         /** @description Fields shared by event creation, update, and the full event representation. */
         EventFields: {
             title?: string;
@@ -320,6 +499,20 @@ export interface components {
             contactDetails?: string | null;
             cancelPolicy?: string | null;
             participantOnlyInfo?: string | null;
+            checkinCode?: string | null;
+            hashtag?: string | null;
+            organizerIds?: string[];
+            speakerTitle?: string | null;
+            speakerIds?: string[];
+            receiptSettings?: components["schemas"]["ReceiptSettings"];
+        };
+        OrganizerUser: {
+            /** @description connpass user ID. */
+            id: string;
+            displayName?: string | null;
+        };
+        Speaker: components["schemas"]["OrganizerUser"] & {
+            profileUrl?: string | null;
         };
         /** @description Full event representation, as returned by GET /events/{eventId}. */
         Event: components["schemas"]["EventFields"] & {
@@ -337,11 +530,72 @@ export interface components {
             hasSurvey: boolean;
             /** @description Whether this event has conference info configured. Fetch it via GET /conference. */
             hasConference: boolean;
+            checkinCode?: string | null;
+            hashtag?: string | null;
+            organizers?: components["schemas"]["OrganizerUser"][];
+            speakerTitle?: string | null;
+            speakers?: components["schemas"]["Speaker"][];
         };
         UpdateEventRequest: components["schemas"]["EventWriteFields"];
         PublishEventRequest: {
             postToTwitter?: boolean;
             comment?: string | null;
+        };
+        /** @enum {string} */
+        ParticipantStatus: "registered" | "waitlisted" | "canceled";
+        Participant: {
+            id: string;
+            displayName: string;
+            email?: string | null;
+            status: components["schemas"]["ParticipantStatus"];
+            participationTypeId?: string | null;
+            participationTypeName?: string | null;
+            checkedIn?: boolean;
+            registeredAt?: string | null;
+            surveyAnswers?: {
+                [key: string]: unknown;
+            };
+        };
+        ParticipantUpdate: {
+            status?: components["schemas"]["ParticipantStatus"];
+            participationTypeId?: string;
+            checkedIn?: boolean;
+        };
+        EventStatistics: {
+            registeredCount: number;
+            waitlistedCount: number;
+            canceledCount: number;
+            checkedInCount?: number;
+            byParticipationType?: {
+                [key: string]: number;
+            };
+        };
+        EventMessage: {
+            subject: string;
+            body: string;
+            /**
+             * @default all
+             * @enum {string}
+             */
+            recipients: "registered" | "waitlisted" | "all";
+        };
+        VoucherCode: {
+            code: string;
+            used: boolean;
+            usedBy?: string | null;
+            usedAt?: string | null;
+        };
+        VoucherRecipient: {
+            id: string;
+            name: string;
+            quantity: number;
+            participationTypeIds: string[];
+            codes: components["schemas"]["VoucherCode"][];
+        };
+        VoucherRecipientWrite: {
+            name: string;
+            quantity: number;
+            participationTypeIds: string[];
         };
         /** @description Lightweight view of an event linked as a sub-event. Sub-events are full connpass events (create with POST /sub-events, then manage every other field through the regular GET/PATCH /events/{eventId} using the returned event ID). */
         SubEvent: {
@@ -406,6 +660,11 @@ export interface components {
             numericGroupId?: number;
             chapterId?: string;
             enabled?: boolean;
+        };
+        RegistrationPeriod: {
+            openAt?: string | null;
+            closeAt?: string | null;
+            lotteryPublishDate?: string | null;
         };
     };
     responses: {
@@ -656,6 +915,29 @@ export interface operations {
             };
         };
     };
+    deleteGroupEventDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: string;
+                eventId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
     updateGroupEvent: {
         parameters: {
             query?: never;
@@ -742,6 +1024,345 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    uploadGroupEventImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    image: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Job accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    copyGroupEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    cancelGroupEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    listGroupEventParticipants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Participants */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        groupId: string;
+                        eventId: string;
+                        participants: components["schemas"]["Participant"][];
+                    };
+                };
+            };
+        };
+    };
+    getGroupEventParticipant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+                participantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Participant */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        participant: components["schemas"]["Participant"];
+                    };
+                };
+            };
+        };
+    };
+    updateGroupEventParticipant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+                participantId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantUpdate"];
+            };
+        };
+        responses: {
+            /** @description Job accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    getGroupEventStatistics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Statistics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        statistics: components["schemas"]["EventStatistics"];
+                    };
+                };
+            };
+        };
+    };
+    sendGroupEventMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventMessage"];
+            };
+        };
+        responses: {
+            /** @description Job accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    listGroupEventVoucherRecipients: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Voucher recipients */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        vouchers: components["schemas"]["VoucherRecipient"][];
+                    };
+                };
+            };
+        };
+    };
+    createGroupEventVoucherRecipient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoucherRecipientWrite"];
+            };
+        };
+        responses: {
+            /** @description Job accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    getGroupEventVoucherRecipient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+                voucherId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Voucher recipient */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        voucher: components["schemas"]["VoucherRecipient"];
+                    };
+                };
+            };
+        };
+    };
+    deleteGroupEventVoucherRecipient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+                voucherId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    updateGroupEventVoucherRecipient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: components["parameters"]["GroupId"];
+                eventId: components["parameters"]["EventId"];
+                voucherId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoucherRecipientWrite"];
+            };
+        };
+        responses: {
+            /** @description Job accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
                 };
             };
         };

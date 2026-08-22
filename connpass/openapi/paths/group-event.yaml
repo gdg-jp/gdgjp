@@ -86,3 +86,26 @@ patch:
         application/json:
           schema:
             $ref: ../components/schemas/index.yaml#/Error
+delete:
+  operationId: deleteGroupEventDraft
+  summary: Delete an event draft through an async browser job
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: eventId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    "202":
+      description: Job accepted
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/index.yaml#/Job

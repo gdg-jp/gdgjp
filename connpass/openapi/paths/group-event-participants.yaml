@@ -1,0 +1,9 @@
+get:
+  operationId: listGroupEventParticipants
+  summary: List event participants including organizer-visible details
+  security: [{BearerAuth: []}]
+  parameters:
+    - $ref: ../components/parameters/common.yaml#/GroupId
+    - $ref: ../components/parameters/common.yaml#/EventId
+  responses:
+    "200": {description: Participants, content: {application/json: {schema: {type: object, required: [groupId, eventId, participants], properties: {groupId: {type: string}, eventId: {type: string}, participants: {type: array, items: {$ref: ../components/schemas/index.yaml#/Participant}}}}}}}

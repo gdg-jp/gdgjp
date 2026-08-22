@@ -9,19 +9,31 @@ import (
 )
 
 type eventFieldFlags struct {
-	title               string
-	subtitle            string
-	description         string
-	startAt             string
-	endAt               string
-	place               string
-	address             string
-	capacity            int
-	ownerText           string
-	reservedAt          string
-	registrationEnabled bool
-	cancelPolicy        string
-	participantOnlyInfo string
+	title                string
+	subtitle             string
+	description          string
+	startAt              string
+	endAt                string
+	place                string
+	address              string
+	capacity             int
+	ownerText            string
+	reservedAt           string
+	registrationEnabled  bool
+	cancelPolicy         string
+	participantOnlyInfo  string
+	registrationOpenAt   string
+	registrationCloseAt  string
+	lotteryPublishDate   string
+	allowConflictJoin    bool
+	checkinCode          string
+	hashtag              string
+	paypalEmail          string
+	contactDetails       string
+	allowReceipt         bool
+	invoiceNumber        string
+	receiptIssuerName    string
+	receiptIssuerAddress string
 }
 
 func addEventFieldFlags(cmd *cobra.Command, flags *eventFieldFlags) {
@@ -38,6 +50,18 @@ func addEventFieldFlags(cmd *cobra.Command, flags *eventFieldFlags) {
 	cmd.Flags().BoolVar(&flags.registrationEnabled, "registration-enabled", false, "Whether registration is enabled")
 	cmd.Flags().StringVar(&flags.cancelPolicy, "cancel-policy", "", "Cancel policy")
 	cmd.Flags().StringVar(&flags.participantOnlyInfo, "participant-only-info", "", "Participant-only info")
+	cmd.Flags().StringVar(&flags.registrationOpenAt, "registration-open-at", "", "Registration open datetime")
+	cmd.Flags().StringVar(&flags.registrationCloseAt, "registration-close-at", "", "Registration close datetime")
+	cmd.Flags().StringVar(&flags.lotteryPublishDate, "lottery-publish-date", "", "Lottery publish date")
+	cmd.Flags().BoolVar(&flags.allowConflictJoin, "allow-conflict-join", false, "Allow overlapping event participation")
+	cmd.Flags().StringVar(&flags.checkinCode, "checkin-code", "", "Attendance check-in code")
+	cmd.Flags().StringVar(&flags.hashtag, "hashtag", "", "Event hashtag")
+	cmd.Flags().StringVar(&flags.paypalEmail, "paypal-email", "", "PayPal account email")
+	cmd.Flags().StringVar(&flags.contactDetails, "contact-details", "", "Participant contact details")
+	cmd.Flags().BoolVar(&flags.allowReceipt, "allow-receipt", false, "Enable receipt data")
+	cmd.Flags().StringVar(&flags.invoiceNumber, "invoice-number", "", "Invoice registration number")
+	cmd.Flags().StringVar(&flags.receiptIssuerName, "receipt-issuer-name", "", "Receipt issuer name")
+	cmd.Flags().StringVar(&flags.receiptIssuerAddress, "receipt-issuer-address", "", "Receipt issuer address")
 }
 
 func (flags *eventFieldFlags) apply(cmd *cobra.Command, body map[string]any) {
@@ -54,6 +78,18 @@ func (flags *eventFieldFlags) apply(cmd *cobra.Command, body map[string]any) {
 	setBoolFlag(cmd, body, "registration-enabled", "registrationEnabled", flags.registrationEnabled)
 	setStringFlag(cmd, body, "cancel-policy", "cancelPolicy", flags.cancelPolicy)
 	setStringFlag(cmd, body, "participant-only-info", "participantOnlyInfo", flags.participantOnlyInfo)
+	setStringFlag(cmd, body, "registration-open-at", "registrationOpenAt", flags.registrationOpenAt)
+	setStringFlag(cmd, body, "registration-close-at", "registrationCloseAt", flags.registrationCloseAt)
+	setStringFlag(cmd, body, "lottery-publish-date", "lotteryPublishDate", flags.lotteryPublishDate)
+	setBoolFlag(cmd, body, "allow-conflict-join", "allowConflictJoin", flags.allowConflictJoin)
+	setStringFlag(cmd, body, "checkin-code", "checkinCode", flags.checkinCode)
+	setStringFlag(cmd, body, "hashtag", "hashtag", flags.hashtag)
+	setStringFlag(cmd, body, "paypal-email", "paypalEmail", flags.paypalEmail)
+	setStringFlag(cmd, body, "contact-details", "contactDetails", flags.contactDetails)
+	setBoolFlag(cmd, body, "allow-receipt", "allowReceipt", flags.allowReceipt)
+	setStringFlag(cmd, body, "invoice-number", "invoiceNumber", flags.invoiceNumber)
+	setStringFlag(cmd, body, "receipt-issuer-name", "receiptIssuerName", flags.receiptIssuerName)
+	setStringFlag(cmd, body, "receipt-issuer-address", "receiptIssuerAddress", flags.receiptIssuerAddress)
 }
 
 func newConnpassEventsCommand(credentials store.CredentialStore) *cobra.Command {
@@ -69,6 +105,9 @@ func newConnpassEventsCommand(credentials store.CredentialStore) *cobra.Command 
 	command.AddCommand(newConnpassSubEventsCommand(credentials))
 	command.AddCommand(newConnpassSurveyCommand(credentials))
 	command.AddCommand(newConnpassConferenceCommand(credentials))
+	for _, operation := range newConnpassEventOperationsCommand(credentials).Commands() {
+		command.AddCommand(operation)
+	}
 	return command
 }
 

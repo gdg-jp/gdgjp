@@ -1,0 +1,20 @@
+post:
+  operationId: uploadGroupEventImage
+  summary: Upload an event image through an async browser job
+  security: [{BearerAuth: []}]
+  parameters:
+    - $ref: ../components/parameters/common.yaml#/GroupId
+    - $ref: ../components/parameters/common.yaml#/EventId
+  requestBody:
+    required: true
+    content:
+      multipart/form-data:
+        schema:
+          type: object
+          required: [image]
+          properties:
+            image:
+              type: string
+              format: binary
+  responses:
+    "202": {description: Job accepted, content: {application/json: {schema: {$ref: ../components/schemas/index.yaml#/Job}}}}

@@ -7,7 +7,9 @@ import {
   scrapeGroupEvents,
   scrapeSubEvents,
 } from "./connpass-ui/events";
+import { scrapeEventStatistics, scrapeParticipants } from "./connpass-ui/participants";
 import { scrapeSurvey } from "./connpass-ui/survey";
+import { scrapeVoucherRecipients } from "./connpass-ui/vouchers";
 
 export async function listGroupEventsInBrowser(env: Env, groupSlug: string) {
   const session = await openConnpassSession(env);
@@ -73,6 +75,42 @@ export async function getConferenceInBrowser(env: Env, eventId: string | number)
     const conference = await scrapeConference(session.page, eventId);
     await session.persist();
     return conference;
+  } finally {
+    await session.close();
+  }
+}
+
+export async function getParticipantsInBrowser(env: Env, eventId: string | number) {
+  const session = await openConnpassSession(env);
+  try {
+    await ensureLoggedIn(env, session);
+    const participants = await scrapeParticipants(session.page, String(eventId));
+    await session.persist();
+    return participants;
+  } finally {
+    await session.close();
+  }
+}
+
+export async function getEventStatisticsInBrowser(env: Env, eventId: string | number) {
+  const session = await openConnpassSession(env);
+  try {
+    await ensureLoggedIn(env, session);
+    const statistics = await scrapeEventStatistics(session.page, String(eventId));
+    await session.persist();
+    return statistics;
+  } finally {
+    await session.close();
+  }
+}
+
+export async function getVoucherRecipientsInBrowser(env: Env, eventId: string | number) {
+  const session = await openConnpassSession(env);
+  try {
+    await ensureLoggedIn(env, session);
+    const vouchers = await scrapeVoucherRecipients(session.page, String(eventId));
+    await session.persist();
+    return vouchers;
   } finally {
     await session.close();
   }

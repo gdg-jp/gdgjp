@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -135,6 +138,90 @@ func jsonBody(body any) (*bytes.Reader, error) {
 		return nil, err
 	}
 	return bytes.NewReader(payload), nil
+}
+
+func (c *Client) request(ctx context.Context, token, method, pathname string, body any, contentType string, out any) error {
+	var reader io.Reader
+	if body != nil {
+		payload, err := json.Marshal(body)
+		if err != nil {
+			return err
+		}
+		reader = bytes.NewReader(payload)
+		if contentType == "" {
+			contentType = "application/json"
+		}
+	}
+	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+pathname, reader)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	res, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	payload, err := io.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return &HTTPError{StatusCode: res.StatusCode, Message: strings.TrimSpace(string(payload))}
+	}
+	if out == nil || len(payload) == 0 {
+		return nil
+	}
+	return json.Unmarshal(payload, out)
+}
+
+func (c *Client) StartEventAction(ctx context.Context, token, method, groupID, eventID, suffix string, body any) (Job, error) {
+	var job Job
+	err := c.request(ctx, token, method, path.Join("/api/groups", groupID, "events", eventID, suffix), body, "", &job)
+	return job, err
+}
+
+func (c *Client) GetEventResource(ctx context.Context, token, groupID, eventID, suffix string, out any) error {
+	return c.request(ctx, token, http.MethodGet, path.Join("/api/groups", groupID, "events", eventID, suffix), nil, "", out)
+}
+
+func (c *Client) UploadEventImage(ctx context.Context, token, groupID, eventID, filename string) (Job, error) {
+	contents, err := os.ReadFile(filename)
+	if err != nil {
+		return Job{}, err
+	}
+	var payload bytes.Buffer
+	writer := multipart.NewWriter(&payload)
+	part, err := writer.CreateFormFile("image", path.Base(filename))
+	if err != nil {
+		return Job{}, err
+	}
+	if _, err := part.Write(contents); err != nil {
+		return Job{}, err
+	}
+	if err := writer.Close(); err != nil {
+		return Job{}, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+path.Join("/api/groups", groupID, "events", eventID, "image"), &payload)
+	if err != nil {
+		return Job{}, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	res, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return Job{}, err
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return Job{}, err
+	}
+	var job Job
+	return job, decodeResponse(res.StatusCode, body, &job)
 }
 
 func (c *Client) GetJob(ctx context.Context, token, jobID string) (Job, error) {

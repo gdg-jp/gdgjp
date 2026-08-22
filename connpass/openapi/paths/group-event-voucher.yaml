@@ -1,0 +1,42 @@
+get:
+  operationId: getGroupEventVoucherRecipient
+  summary: Get a voucher recipient
+  security: [{BearerAuth: []}]
+  parameters:
+    - $ref: ../components/parameters/common.yaml#/GroupId
+    - $ref: ../components/parameters/common.yaml#/EventId
+    - name: voucherId
+      in: path
+      required: true
+      schema: {type: string}
+  responses:
+    "200": {description: Voucher recipient, content: {application/json: {schema: {type: object, required: [voucher], properties: {voucher: {$ref: ../components/schemas/index.yaml#/VoucherRecipient}}}}}}
+patch:
+  operationId: updateGroupEventVoucherRecipient
+  summary: Update a voucher recipient through an async browser job
+  security: [{BearerAuth: []}]
+  parameters:
+    - $ref: ../components/parameters/common.yaml#/GroupId
+    - $ref: ../components/parameters/common.yaml#/EventId
+    - name: voucherId
+      in: path
+      required: true
+      schema: {type: string}
+  requestBody:
+    required: true
+    content: {application/json: {schema: {$ref: ../components/schemas/index.yaml#/VoucherRecipientWrite}}}
+  responses:
+    "202": {description: Job accepted, content: {application/json: {schema: {$ref: ../components/schemas/index.yaml#/Job}}}}
+delete:
+  operationId: deleteGroupEventVoucherRecipient
+  summary: Delete a voucher recipient through an async browser job
+  security: [{BearerAuth: []}]
+  parameters:
+    - $ref: ../components/parameters/common.yaml#/GroupId
+    - $ref: ../components/parameters/common.yaml#/EventId
+    - name: voucherId
+      in: path
+      required: true
+      schema: {type: string}
+  responses:
+    "202": {description: Job accepted, content: {application/json: {schema: {$ref: ../components/schemas/index.yaml#/Job}}}}

@@ -14,7 +14,19 @@ import {
   fillEventEdit,
   publishEvent,
 } from "./connpass-ui/events";
+import {
+  cancelEvent,
+  copyEvent,
+  deleteEventDraft,
+  uploadEventImage,
+} from "./connpass-ui/lifecycle";
+import { sendEventMessage, updateParticipant } from "./connpass-ui/participants";
 import { type SurveyQuestion, upsertSurvey } from "./connpass-ui/survey";
+import {
+  type VoucherRecipientWrite,
+  deleteVoucherRecipient,
+  saveVoucherRecipient,
+} from "./connpass-ui/vouchers";
 import {
   type JobQueueMessage,
   type JobRecord,
@@ -33,6 +45,13 @@ type CreateSubEventRequest = { title: string };
 type DeleteSubEventRequest = Record<string, never>;
 type UpsertSurveyRequest = { questions: SurveyQuestion[] };
 type UpsertConferenceRequest = UpsertConferenceInput;
+type UploadEventImageRequest = { artifactKey: string; contentType: string; name: string };
+type UpdateParticipantRequest = {
+  participantId: string;
+  input: Parameters<typeof updateParticipant>[3];
+};
+type EventMessageRequest = { subject: string; body: string; recipients?: string };
+type VoucherRequest = { voucherId?: string; input: VoucherRecipientWrite };
 
 function parseRequest<T>(job: JobRecord): T {
   return JSON.parse(job.requestJson) as T;
@@ -192,6 +211,92 @@ export async function processJobMessage(
     await runWithBrowser(env, job, async (page) => {
       await upsertConference(page, job.eventId as string, request);
       return { eventId: job.eventId, result: { eventId: job.eventId } };
+    });
+    return;
+  }
+
+  if (job.type === "upload_event_image") {
+    if (!job.eventId) throw new Error("event_id_required");
+    const request = parseRequest<UploadEventImageRequest>(job);
+    await runWithBrowser(env, job, async (page) => {
+      const object = await env.ARTIFACTS.get(request.artifactKey);
+      if (!object) throw new Error("event_image_missing");
+      try {
+        await uploadEventImage(
+          page,
+          job.eventId as string,
+          new Uint8Array(await object.arrayBuffer()),
+          request.contentType,
+          request.name,
+        );
+      } finally {
+        await env.ARTIFACTS.delete(request.artifactKey);
+      }
+      return { eventId: job.eventId, result: { eventId: job.eventId } };
+    });
+    return;
+  }
+
+  if (job.type === "copy_event") {
+    if (!job.eventId) throw new Error("event_id_required");
+    await runWithBrowser(env, job, async (page) => {
+      const copied = await copyEvent(page, job.eventId as string);
+      return { eventId: copied.eventId, result: { eventId: copied.eventId } };
+    });
+    return;
+  }
+
+  if (job.type === "delete_event_draft" || job.type === "cancel_event") {
+    if (!job.eventId) throw new Error("event_id_required");
+    await runWithBrowser(env, job, async (page) => {
+      if (job.type === "delete_event_draft") await deleteEventDraft(page, job.eventId as string);
+      else await cancelEvent(page, job.eventId as string);
+      return { eventId: job.eventId, result: { eventId: job.eventId } };
+    });
+    return;
+  }
+
+  if (job.type === "update_participant") {
+    if (!job.eventId) throw new Error("event_id_required");
+    const request = parseRequest<UpdateParticipantRequest>(job);
+    await runWithBrowser(env, job, async (page) => {
+      await updateParticipant(page, job.eventId as string, request.participantId, request.input);
+      return {
+        eventId: job.eventId,
+        result: { eventId: job.eventId, participantId: request.participantId },
+      };
+    });
+    return;
+  }
+
+  if (job.type === "send_event_message") {
+    if (!job.eventId) throw new Error("event_id_required");
+    const request = parseRequest<EventMessageRequest>(job);
+    await runWithBrowser(env, job, async (page) => {
+      await sendEventMessage(page, job.eventId as string, request);
+      return { eventId: job.eventId, result: { eventId: job.eventId } };
+    });
+    return;
+  }
+
+  if (
+    job.type === "create_voucher_recipient" ||
+    job.type === "update_voucher_recipient" ||
+    job.type === "delete_voucher_recipient"
+  ) {
+    if (!job.eventId) throw new Error("event_id_required");
+    const request = parseRequest<VoucherRequest>(job);
+    await runWithBrowser(env, job, async (page) => {
+      if (job.type === "delete_voucher_recipient") {
+        if (!request.voucherId) throw new Error("voucher_id_required");
+        await deleteVoucherRecipient(page, job.eventId as string, request.voucherId);
+      } else {
+        await saveVoucherRecipient(page, job.eventId as string, request.input, request.voucherId);
+      }
+      return {
+        eventId: job.eventId,
+        result: { eventId: job.eventId, voucherId: request.voucherId },
+      };
     });
     return;
   }

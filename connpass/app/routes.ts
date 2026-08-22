@@ -10,6 +10,42 @@ export default [
     "routes/api.groups.$groupId.events.$eventId.publish.ts",
   ),
   route(
+    "api/groups/:groupId/events/:eventId/image",
+    "routes/api.groups.$groupId.events.$eventId.image.ts",
+  ),
+  route(
+    "api/groups/:groupId/events/:eventId/copy",
+    "routes/api.groups.$groupId.events.$eventId.copy.ts",
+  ),
+  route(
+    "api/groups/:groupId/events/:eventId/cancel",
+    "routes/api.groups.$groupId.events.$eventId.cancel.ts",
+  ),
+  route(
+    "api/groups/:groupId/events/:eventId/participants",
+    "routes/api.groups.$groupId.events.$eventId.participants.ts",
+  ),
+  route(
+    "api/groups/:groupId/events/:eventId/participants/:participantId",
+    "routes/api.groups.$groupId.events.$eventId.participants.$participantId.ts",
+  ),
+  route(
+    "api/groups/:groupId/events/:eventId/stats",
+    "routes/api.groups.$groupId.events.$eventId.stats.ts",
+  ),
+  route(
+    "api/groups/:groupId/events/:eventId/messages",
+    "routes/api.groups.$groupId.events.$eventId.messages.ts",
+  ),
+  route(
+    "api/groups/:groupId/events/:eventId/vouchers",
+    "routes/api.groups.$groupId.events.$eventId.vouchers.ts",
+  ),
+  route(
+    "api/groups/:groupId/events/:eventId/vouchers/:voucherId",
+    "routes/api.groups.$groupId.events.$eventId.vouchers.$voucherId.ts",
+  ),
+  route(
     "api/groups/:groupId/events/:eventId/sub-events",
     "routes/api.groups.$groupId.events.$eventId.sub-events.ts",
   ),

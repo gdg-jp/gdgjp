@@ -93,6 +93,21 @@ export type EventEditFields = {
   ownerText?: string;
   participantOnlyInfo?: string;
   cancelPolicy?: string;
+  registrationOpenAt?: string | null;
+  registrationCloseAt?: string | null;
+  lotteryPublishDate?: string | null;
+  allowConflictJoin?: boolean;
+  checkinCode?: string;
+  hashtag?: string;
+  organizerIds?: string[];
+  speakerTitle?: string;
+  speakerIds?: string[];
+  paypalEmail?: string;
+  contactDetails?: string;
+  allowReceipt?: boolean;
+  invoiceNumber?: string;
+  receiptIssuerName?: string;
+  receiptIssuerAddress?: string;
 };
 
 const eventWriteFieldNames = [
@@ -110,6 +125,21 @@ const eventWriteFieldNames = [
   "ownerText",
   "participantOnlyInfo",
   "cancelPolicy",
+  "registrationOpenAt",
+  "registrationCloseAt",
+  "lotteryPublishDate",
+  "allowConflictJoin",
+  "checkinCode",
+  "hashtag",
+  "organizerIds",
+  "speakerTitle",
+  "speakerIds",
+  "paypalEmail",
+  "contactDetails",
+  "allowReceipt",
+  "invoiceNumber",
+  "receiptIssuerName",
+  "receiptIssuerAddress",
 ] as const;
 
 /**
@@ -137,6 +167,17 @@ export function parseEventWriteFields(
     "ownerText",
     "participantOnlyInfo",
     "cancelPolicy",
+    "registrationOpenAt",
+    "registrationCloseAt",
+    "lotteryPublishDate",
+    "checkinCode",
+    "hashtag",
+    "speakerTitle",
+    "paypalEmail",
+    "contactDetails",
+    "invoiceNumber",
+    "receiptIssuerName",
+    "receiptIssuerAddress",
   ] as const;
   const invalid: string[] = stringFields.filter(
     (key) => body[key] !== undefined && typeof body[key] !== "string",
@@ -149,6 +190,17 @@ export function parseEventWriteFields(
   }
   if (body.registrationEnabled !== undefined && typeof body.registrationEnabled !== "boolean") {
     invalid.push("registrationEnabled");
+  }
+  for (const key of ["allowConflictJoin", "allowReceipt"] as const) {
+    if (body[key] !== undefined && typeof body[key] !== "boolean") invalid.push(key);
+  }
+  for (const key of ["organizerIds", "speakerIds"] as const) {
+    if (
+      body[key] !== undefined &&
+      (!Array.isArray(body[key]) || !body[key].every((v) => typeof v === "string"))
+    ) {
+      invalid.push(key);
+    }
   }
   if (body.participationTypes !== undefined && !Array.isArray(body.participationTypes)) {
     invalid.push("participationTypes");
@@ -173,6 +225,27 @@ export function parseEventWriteFields(
       participantOnlyInfo:
         typeof body.participantOnlyInfo === "string" ? body.participantOnlyInfo : undefined,
       cancelPolicy: typeof body.cancelPolicy === "string" ? body.cancelPolicy : undefined,
+      registrationOpenAt:
+        typeof body.registrationOpenAt === "string" ? body.registrationOpenAt : undefined,
+      registrationCloseAt:
+        typeof body.registrationCloseAt === "string" ? body.registrationCloseAt : undefined,
+      lotteryPublishDate:
+        typeof body.lotteryPublishDate === "string" ? body.lotteryPublishDate : undefined,
+      allowConflictJoin:
+        typeof body.allowConflictJoin === "boolean" ? body.allowConflictJoin : undefined,
+      checkinCode: typeof body.checkinCode === "string" ? body.checkinCode : undefined,
+      hashtag: typeof body.hashtag === "string" ? body.hashtag : undefined,
+      organizerIds: Array.isArray(body.organizerIds) ? (body.organizerIds as string[]) : undefined,
+      speakerTitle: typeof body.speakerTitle === "string" ? body.speakerTitle : undefined,
+      speakerIds: Array.isArray(body.speakerIds) ? (body.speakerIds as string[]) : undefined,
+      paypalEmail: typeof body.paypalEmail === "string" ? body.paypalEmail : undefined,
+      contactDetails: typeof body.contactDetails === "string" ? body.contactDetails : undefined,
+      allowReceipt: typeof body.allowReceipt === "boolean" ? body.allowReceipt : undefined,
+      invoiceNumber: typeof body.invoiceNumber === "string" ? body.invoiceNumber : undefined,
+      receiptIssuerName:
+        typeof body.receiptIssuerName === "string" ? body.receiptIssuerName : undefined,
+      receiptIssuerAddress:
+        typeof body.receiptIssuerAddress === "string" ? body.receiptIssuerAddress : undefined,
     },
   };
 }

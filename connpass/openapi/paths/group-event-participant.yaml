@@ -1,0 +1,29 @@
+get:
+  operationId: getGroupEventParticipant
+  summary: Get an event participant
+  security: [{BearerAuth: []}]
+  parameters:
+    - $ref: ../components/parameters/common.yaml#/GroupId
+    - $ref: ../components/parameters/common.yaml#/EventId
+    - name: participantId
+      in: path
+      required: true
+      schema: {type: string}
+  responses:
+    "200": {description: Participant, content: {application/json: {schema: {type: object, required: [participant], properties: {participant: {$ref: ../components/schemas/index.yaml#/Participant}}}}}}
+patch:
+  operationId: updateGroupEventParticipant
+  summary: Update an event participant through an async browser job
+  security: [{BearerAuth: []}]
+  parameters:
+    - $ref: ../components/parameters/common.yaml#/GroupId
+    - $ref: ../components/parameters/common.yaml#/EventId
+    - name: participantId
+      in: path
+      required: true
+      schema: {type: string}
+  requestBody:
+    required: true
+    content: {application/json: {schema: {$ref: ../components/schemas/index.yaml#/ParticipantUpdate}}}
+  responses:
+    "202": {description: Job accepted, content: {application/json: {schema: {$ref: ../components/schemas/index.yaml#/Job}}}}

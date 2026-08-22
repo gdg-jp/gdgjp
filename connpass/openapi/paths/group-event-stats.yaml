@@ -1,0 +1,9 @@
+get:
+  operationId: getGroupEventStatistics
+  summary: Get organizer event statistics
+  security: [{BearerAuth: []}]
+  parameters:
+    - $ref: ../components/parameters/common.yaml#/GroupId
+    - $ref: ../components/parameters/common.yaml#/EventId
+  responses:
+    "200": {description: Statistics, content: {application/json: {schema: {type: object, required: [statistics], properties: {statistics: {$ref: ../components/schemas/index.yaml#/EventStatistics}}}}}}

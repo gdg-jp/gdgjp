@@ -45,7 +45,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 }
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
-  if (request.method !== "PATCH") {
+  if (request.method !== "PATCH" && request.method !== "DELETE") {
     return Response.json({ error: "method_not_allowed" }, { status: 405 });
   }
   const { env, ctx } = context.cloudflare;
@@ -60,6 +60,21 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   const eventId = params.eventId;
   if (!eventId) return Response.json({ error: "not_found" }, { status: 404 });
+
+  if (request.method === "DELETE") {
+    const job = await createJob(
+      env,
+      {
+        type: "delete_event_draft",
+        groupSlug: group.groupSlug,
+        eventId,
+        createdBy: identity.user.id,
+        request: {},
+      },
+      ctx,
+    );
+    return Response.json(jobToJson(job), { status: 202 });
+  }
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body || typeof body !== "object") {
