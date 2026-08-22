@@ -57,6 +57,7 @@ const extraEnv =
     ? (spec.env as Record<string, unknown>)
     : {};
 const cursorApiKey = extraEnv.CURSOR_API_KEY;
+const lockOwner = extraEnv.GDG_WIKI_LOCK_OWNER;
 const env: NodeJS.ProcessEnv = {
   PATH: "/opt/gdg-agent/bin:/usr/bin:/bin",
   HOME: home,
@@ -68,6 +69,7 @@ const env: NodeJS.ProcessEnv = {
 if (typeof extraEnv.LANG === "string") env.LANG = extraEnv.LANG;
 if (typeof extraEnv.TZ === "string") env.TZ = extraEnv.TZ;
 if (typeof cursorApiKey === "string" && cursorApiKey) env.CURSOR_API_KEY = cursorApiKey;
+if (typeof lockOwner === "string" && lockOwner) env.GDG_WIKI_LOCK_OWNER = lockOwner;
 
 // MCP servers come from $HOME/.cursor/mcp.json (root-owned). There is no CLI
 // flag that pins or disables project mcp.json on this cursor-agent version.
