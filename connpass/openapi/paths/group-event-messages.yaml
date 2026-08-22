@@ -1,0 +1,12 @@
+post:
+  operationId: sendGroupEventMessage
+  summary: Send a message to event registrants
+  security: [{BearerAuth: []}]
+  parameters:
+    - $ref: ../components/parameters/common.yaml#/GroupId
+    - $ref: ../components/parameters/common.yaml#/EventId
+  requestBody:
+    required: true
+    content: {application/json: {schema: {$ref: ../components/schemas/index.yaml#/EventMessage}}}
+  responses:
+    "202": {description: Job accepted, content: {application/json: {schema: {$ref: ../components/schemas/index.yaml#/Job}}}}

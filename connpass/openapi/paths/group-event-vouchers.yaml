@@ -1,0 +1,21 @@
+get:
+  operationId: listGroupEventVoucherRecipients
+  summary: List voucher recipients
+  security: [{BearerAuth: []}]
+  parameters:
+    - $ref: ../components/parameters/common.yaml#/GroupId
+    - $ref: ../components/parameters/common.yaml#/EventId
+  responses:
+    "200": {description: Voucher recipients, content: {application/json: {schema: {type: object, required: [vouchers], properties: {vouchers: {type: array, items: {$ref: ../components/schemas/index.yaml#/VoucherRecipient}}}}}}}
+post:
+  operationId: createGroupEventVoucherRecipient
+  summary: Create voucher recipient codes through an async browser job
+  security: [{BearerAuth: []}]
+  parameters:
+    - $ref: ../components/parameters/common.yaml#/GroupId
+    - $ref: ../components/parameters/common.yaml#/EventId
+  requestBody:
+    required: true
+    content: {application/json: {schema: {$ref: ../components/schemas/index.yaml#/VoucherRecipientWrite}}}
+  responses:
+    "202": {description: Job accepted, content: {application/json: {schema: {$ref: ../components/schemas/index.yaml#/Job}}}}

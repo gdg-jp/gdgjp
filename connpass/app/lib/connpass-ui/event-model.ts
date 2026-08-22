@@ -16,6 +16,7 @@ export type ConnpassEventModel = {
   participants_count: number;
   waitlist_count: number;
   cancelled_count: number;
+  checkin_code: string | null;
   status: string;
   event_type: string;
   public_url: string;
@@ -46,6 +47,7 @@ export type ConnpassEventModel = {
   receipt_issuer_address: string;
   invoice_number: string;
   participant_only_info: string;
+  presenter_title: string;
 };
 
 const MODEL_PREFIX = "new Models.Event(";

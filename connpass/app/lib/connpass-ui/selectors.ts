@@ -62,6 +62,12 @@ export const selectors = {
     /** event-edit_主催者をクリック.html */
     ownerText: "#FieldOwnerText",
     ownerTextInput: '#FieldOwnerText input[name="owner_text"]',
+    checkinCode: "#FieldCheckinCode",
+    checkinCodeInput: '#FieldCheckinCode input[name="checkin_code"]',
+    hashtag: "#FieldHashtag",
+    hashtagInput: '#FieldHashtag input[name="hashtag"]',
+    speakerTitle: "#FieldPresenterTitle",
+    speakerTitleInput: '#FieldPresenterTitle input[name="presenter_title"]',
     /** event-edit_参加者への情報をクリック.htm */
     participantOnlyInfo: "#FieldParticipantOnlyInfo",
     participantOnlyInfoInput: '#FieldParticipantOnlyInfo textarea[name="participant_only_info"]',

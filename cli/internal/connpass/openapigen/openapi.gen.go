@@ -14,10 +14,18 @@ import (
 	"strings"
 
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
 	BearerAuthScopes = "BearerAuth.Scopes"
+)
+
+// Defines values for EventMessageRecipients.
+const (
+	EventMessageRecipientsAll        EventMessageRecipients = "all"
+	EventMessageRecipientsRegistered EventMessageRecipients = "registered"
+	EventMessageRecipientsWaitlisted EventMessageRecipients = "waitlisted"
 )
 
 // Defines values for EventStatus.
@@ -45,6 +53,13 @@ const (
 	UpdateEvent      JobType = "update_event"
 	UpsertConference JobType = "upsert_conference"
 	UpsertSurvey     JobType = "upsert_survey"
+)
+
+// Defines values for ParticipantStatus.
+const (
+	ParticipantStatusCanceled   ParticipantStatus = "canceled"
+	ParticipantStatusRegistered ParticipantStatus = "registered"
+	ParticipantStatusWaitlisted ParticipantStatus = "waitlisted"
 )
 
 // Defines values for ParticipationTypeFeeType.
@@ -82,20 +97,35 @@ type Conference struct {
 
 // CreateEventRequest defines model for CreateEventRequest.
 type CreateEventRequest struct {
-	Address             *string              `json:"address,omitempty"`
-	CancelPolicy        *string              `json:"cancelPolicy,omitempty"`
-	Capacity            *int                 `json:"capacity,omitempty"`
-	Description         *string              `json:"description,omitempty"`
-	EndAt               *string              `json:"endAt,omitempty"`
-	OwnerText           *string              `json:"ownerText,omitempty"`
-	ParticipantOnlyInfo *string              `json:"participantOnlyInfo,omitempty"`
-	ParticipationTypes  *[]ParticipationType `json:"participationTypes,omitempty"`
-	Place               *string              `json:"place,omitempty"`
-	RegistrationEnabled *bool                `json:"registrationEnabled,omitempty"`
-	ReservedAt          *string              `json:"reservedAt,omitempty"`
-	StartAt             *string              `json:"startAt,omitempty"`
-	Subtitle            *string              `json:"subtitle,omitempty"`
-	Title               string               `json:"title"`
+	Address              *string              `json:"address,omitempty"`
+	AllowConflictJoin    *bool                `json:"allowConflictJoin,omitempty"`
+	AllowReceipt         *bool                `json:"allowReceipt,omitempty"`
+	CancelPolicy         *string              `json:"cancelPolicy,omitempty"`
+	Capacity             *int                 `json:"capacity,omitempty"`
+	CheckinCode          *string              `json:"checkinCode,omitempty"`
+	ContactDetails       *string              `json:"contactDetails,omitempty"`
+	Description          *string              `json:"description,omitempty"`
+	EndAt                *string              `json:"endAt,omitempty"`
+	Hashtag              *string              `json:"hashtag,omitempty"`
+	InvoiceNumber        *string              `json:"invoiceNumber,omitempty"`
+	LotteryPublishDate   *string              `json:"lotteryPublishDate"`
+	OrganizerIds         *[]string            `json:"organizerIds,omitempty"`
+	OwnerText            *string              `json:"ownerText,omitempty"`
+	ParticipantOnlyInfo  *string              `json:"participantOnlyInfo,omitempty"`
+	ParticipationTypes   *[]ParticipationType `json:"participationTypes,omitempty"`
+	PaypalEmail          *string              `json:"paypalEmail,omitempty"`
+	Place                *string              `json:"place,omitempty"`
+	ReceiptIssuerAddress *string              `json:"receiptIssuerAddress,omitempty"`
+	ReceiptIssuerName    *string              `json:"receiptIssuerName,omitempty"`
+	RegistrationCloseAt  *string              `json:"registrationCloseAt"`
+	RegistrationEnabled  *bool                `json:"registrationEnabled,omitempty"`
+	RegistrationOpenAt   *string              `json:"registrationOpenAt"`
+	ReservedAt           *string              `json:"reservedAt,omitempty"`
+	SpeakerIds           *[]string            `json:"speakerIds,omitempty"`
+	SpeakerTitle         *string              `json:"speakerTitle,omitempty"`
+	StartAt              *string              `json:"startAt,omitempty"`
+	Subtitle             *string              `json:"subtitle,omitempty"`
+	Title                string               `json:"title"`
 }
 
 // CreateSubEventRequest defines model for CreateSubEventRequest.
@@ -115,6 +145,7 @@ type Event struct {
 	AllowReceipt      bool    `json:"allowReceipt"`
 	CancelPolicy      *string `json:"cancelPolicy"`
 	Capacity          *int    `json:"capacity,omitempty"`
+	CheckinCode       *string `json:"checkinCode"`
 	ContactDetails    *string `json:"contactDetails"`
 	Description       *string `json:"description,omitempty"`
 	EditUrl           string  `json:"editUrl"`
@@ -128,12 +159,15 @@ type Event struct {
 	HasConference bool `json:"hasConference"`
 
 	// HasSurvey Whether this event has a survey configured. Fetch it via GET /survey.
-	HasSurvey          bool    `json:"hasSurvey"`
-	Id                 string  `json:"id"`
-	Image              *string `json:"image"`
-	InvoiceNumber      *string `json:"invoiceNumber"`
-	LotteryPublishDate *string `json:"lotteryPublishDate"`
-	OwnerText          *string `json:"ownerText"`
+	HasSurvey          bool             `json:"hasSurvey"`
+	Hashtag            *string          `json:"hashtag"`
+	Id                 string           `json:"id"`
+	Image              *string          `json:"image"`
+	InvoiceNumber      *string          `json:"invoiceNumber"`
+	LotteryPublishDate *string          `json:"lotteryPublishDate"`
+	OrganizerIds       *[]string        `json:"organizerIds,omitempty"`
+	Organizers         *[]OrganizerUser `json:"organizers,omitempty"`
+	OwnerText          *string          `json:"ownerText"`
 
 	// ParentId The parent event ID, if this event is itself a sub-event.
 	ParentId             *string              `json:"parentId"`
@@ -143,10 +177,14 @@ type Event struct {
 	Place                *string              `json:"place,omitempty"`
 	ReceiptIssuerAddress *string              `json:"receiptIssuerAddress"`
 	ReceiptIssuerName    *string              `json:"receiptIssuerName"`
+	ReceiptSettings      *ReceiptSettings     `json:"receiptSettings,omitempty"`
 	RegistrationCloseAt  *string              `json:"registrationCloseAt"`
 	RegistrationEnabled  bool                 `json:"registrationEnabled"`
 	RegistrationOpenAt   *string              `json:"registrationOpenAt"`
 	ReservedAt           *string              `json:"reservedAt"`
+	SpeakerIds           *[]string            `json:"speakerIds,omitempty"`
+	SpeakerTitle         *string              `json:"speakerTitle"`
+	Speakers             *[]Speaker           `json:"speakers,omitempty"`
 	StartAt              string               `json:"startAt"`
 	Status               EventStatus          `json:"status"`
 
@@ -164,13 +202,16 @@ type EventFields struct {
 	AllowReceipt         *bool                `json:"allowReceipt,omitempty"`
 	CancelPolicy         *string              `json:"cancelPolicy"`
 	Capacity             *int                 `json:"capacity,omitempty"`
+	CheckinCode          *string              `json:"checkinCode"`
 	ContactDetails       *string              `json:"contactDetails"`
 	Description          *string              `json:"description,omitempty"`
 	EndAt                *string              `json:"endAt,omitempty"`
 	EventType            *string              `json:"eventType,omitempty"`
+	Hashtag              *string              `json:"hashtag"`
 	Image                *string              `json:"image"`
 	InvoiceNumber        *string              `json:"invoiceNumber"`
 	LotteryPublishDate   *string              `json:"lotteryPublishDate"`
+	OrganizerIds         *[]string            `json:"organizerIds,omitempty"`
 	OwnerText            *string              `json:"ownerText"`
 	ParticipantOnlyInfo  *string              `json:"participantOnlyInfo"`
 	ParticipationTypes   *[]ParticipationType `json:"participationTypes,omitempty"`
@@ -178,13 +219,35 @@ type EventFields struct {
 	Place                *string              `json:"place,omitempty"`
 	ReceiptIssuerAddress *string              `json:"receiptIssuerAddress"`
 	ReceiptIssuerName    *string              `json:"receiptIssuerName"`
+	ReceiptSettings      *ReceiptSettings     `json:"receiptSettings,omitempty"`
 	RegistrationCloseAt  *string              `json:"registrationCloseAt"`
 	RegistrationEnabled  *bool                `json:"registrationEnabled,omitempty"`
 	RegistrationOpenAt   *string              `json:"registrationOpenAt"`
 	ReservedAt           *string              `json:"reservedAt"`
+	SpeakerIds           *[]string            `json:"speakerIds,omitempty"`
+	SpeakerTitle         *string              `json:"speakerTitle"`
 	StartAt              *string              `json:"startAt,omitempty"`
 	Subtitle             *string              `json:"subtitle,omitempty"`
 	Title                *string              `json:"title,omitempty"`
+}
+
+// EventMessage defines model for EventMessage.
+type EventMessage struct {
+	Body       string                  `json:"body"`
+	Recipients *EventMessageRecipients `json:"recipients,omitempty"`
+	Subject    string                  `json:"subject"`
+}
+
+// EventMessageRecipients defines model for EventMessage.Recipients.
+type EventMessageRecipients string
+
+// EventStatistics defines model for EventStatistics.
+type EventStatistics struct {
+	ByParticipationType *map[string]int `json:"byParticipationType,omitempty"`
+	CanceledCount       int             `json:"canceledCount"`
+	CheckedInCount      *int            `json:"checkedInCount,omitempty"`
+	RegisteredCount     int             `json:"registeredCount"`
+	WaitlistedCount     int             `json:"waitlistedCount"`
 }
 
 // EventStatus defines model for EventStatus.
@@ -205,20 +268,35 @@ type EventSummary struct {
 
 // EventWriteFields Fields that the browser worker can update reliably on connpass's edit page.
 type EventWriteFields struct {
-	Address             *string              `json:"address,omitempty"`
-	CancelPolicy        *string              `json:"cancelPolicy,omitempty"`
-	Capacity            *int                 `json:"capacity,omitempty"`
-	Description         *string              `json:"description,omitempty"`
-	EndAt               *string              `json:"endAt,omitempty"`
-	OwnerText           *string              `json:"ownerText,omitempty"`
-	ParticipantOnlyInfo *string              `json:"participantOnlyInfo,omitempty"`
-	ParticipationTypes  *[]ParticipationType `json:"participationTypes,omitempty"`
-	Place               *string              `json:"place,omitempty"`
-	RegistrationEnabled *bool                `json:"registrationEnabled,omitempty"`
-	ReservedAt          *string              `json:"reservedAt,omitempty"`
-	StartAt             *string              `json:"startAt,omitempty"`
-	Subtitle            *string              `json:"subtitle,omitempty"`
-	Title               *string              `json:"title,omitempty"`
+	Address              *string              `json:"address,omitempty"`
+	AllowConflictJoin    *bool                `json:"allowConflictJoin,omitempty"`
+	AllowReceipt         *bool                `json:"allowReceipt,omitempty"`
+	CancelPolicy         *string              `json:"cancelPolicy,omitempty"`
+	Capacity             *int                 `json:"capacity,omitempty"`
+	CheckinCode          *string              `json:"checkinCode,omitempty"`
+	ContactDetails       *string              `json:"contactDetails,omitempty"`
+	Description          *string              `json:"description,omitempty"`
+	EndAt                *string              `json:"endAt,omitempty"`
+	Hashtag              *string              `json:"hashtag,omitempty"`
+	InvoiceNumber        *string              `json:"invoiceNumber,omitempty"`
+	LotteryPublishDate   *string              `json:"lotteryPublishDate"`
+	OrganizerIds         *[]string            `json:"organizerIds,omitempty"`
+	OwnerText            *string              `json:"ownerText,omitempty"`
+	ParticipantOnlyInfo  *string              `json:"participantOnlyInfo,omitempty"`
+	ParticipationTypes   *[]ParticipationType `json:"participationTypes,omitempty"`
+	PaypalEmail          *string              `json:"paypalEmail,omitempty"`
+	Place                *string              `json:"place,omitempty"`
+	ReceiptIssuerAddress *string              `json:"receiptIssuerAddress,omitempty"`
+	ReceiptIssuerName    *string              `json:"receiptIssuerName,omitempty"`
+	RegistrationCloseAt  *string              `json:"registrationCloseAt"`
+	RegistrationEnabled  *bool                `json:"registrationEnabled,omitempty"`
+	RegistrationOpenAt   *string              `json:"registrationOpenAt"`
+	ReservedAt           *string              `json:"reservedAt,omitempty"`
+	SpeakerIds           *[]string            `json:"speakerIds,omitempty"`
+	SpeakerTitle         *string              `json:"speakerTitle,omitempty"`
+	StartAt              *string              `json:"startAt,omitempty"`
+	Subtitle             *string              `json:"subtitle,omitempty"`
+	Title                *string              `json:"title,omitempty"`
 }
 
 // Group defines model for Group.
@@ -253,6 +331,37 @@ type JobStatus string
 // JobType defines model for Job.Type.
 type JobType string
 
+// OrganizerUser defines model for OrganizerUser.
+type OrganizerUser struct {
+	DisplayName *string `json:"displayName"`
+
+	// Id connpass user ID.
+	Id string `json:"id"`
+}
+
+// Participant defines model for Participant.
+type Participant struct {
+	CheckedIn             *bool                   `json:"checkedIn,omitempty"`
+	DisplayName           string                  `json:"displayName"`
+	Email                 *string                 `json:"email"`
+	Id                    string                  `json:"id"`
+	ParticipationTypeId   *string                 `json:"participationTypeId"`
+	ParticipationTypeName *string                 `json:"participationTypeName"`
+	RegisteredAt          *string                 `json:"registeredAt"`
+	Status                ParticipantStatus       `json:"status"`
+	SurveyAnswers         *map[string]interface{} `json:"surveyAnswers,omitempty"`
+}
+
+// ParticipantStatus defines model for ParticipantStatus.
+type ParticipantStatus string
+
+// ParticipantUpdate defines model for ParticipantUpdate.
+type ParticipantUpdate struct {
+	CheckedIn           *bool              `json:"checkedIn,omitempty"`
+	ParticipationTypeId *string            `json:"participationTypeId,omitempty"`
+	Status              *ParticipantStatus `json:"status,omitempty"`
+}
+
 // ParticipationType defines model for ParticipationType.
 type ParticipationType struct {
 	Fee             *int                      `json:"fee,omitempty"`
@@ -276,6 +385,23 @@ type ParticipationTypeMethod string
 type PublishEventRequest struct {
 	Comment       *string `json:"comment"`
 	PostToTwitter *bool   `json:"postToTwitter,omitempty"`
+}
+
+// ReceiptSettings defines model for ReceiptSettings.
+type ReceiptSettings struct {
+	AllowReceipt  *bool   `json:"allowReceipt,omitempty"`
+	InvoiceNumber *string `json:"invoiceNumber"`
+	IssuerAddress *string `json:"issuerAddress"`
+	IssuerName    *string `json:"issuerName"`
+}
+
+// Speaker defines model for Speaker.
+type Speaker struct {
+	DisplayName *string `json:"displayName"`
+
+	// Id connpass user ID.
+	Id         string  `json:"id"`
+	ProfileUrl *string `json:"profileUrl"`
 }
 
 // SubEvent Lightweight view of an event linked as a sub-event. Sub-events are full connpass events (create with POST /sub-events, then manage every other field through the regular GET/PATCH /events/{eventId} using the returned event ID).
@@ -339,6 +465,30 @@ type UpsertSurveyRequest struct {
 	Questions []SurveyQuestion `json:"questions"`
 }
 
+// VoucherCode defines model for VoucherCode.
+type VoucherCode struct {
+	Code   string  `json:"code"`
+	Used   bool    `json:"used"`
+	UsedAt *string `json:"usedAt"`
+	UsedBy *string `json:"usedBy"`
+}
+
+// VoucherRecipient defines model for VoucherRecipient.
+type VoucherRecipient struct {
+	Codes                []VoucherCode `json:"codes"`
+	Id                   string        `json:"id"`
+	Name                 string        `json:"name"`
+	ParticipationTypeIds []string      `json:"participationTypeIds"`
+	Quantity             int           `json:"quantity"`
+}
+
+// VoucherRecipientWrite defines model for VoucherRecipientWrite.
+type VoucherRecipientWrite struct {
+	Name                 string   `json:"name"`
+	ParticipationTypeIds []string `json:"participationTypeIds"`
+	Quantity             int      `json:"quantity"`
+}
+
 // EventId defines model for EventId.
 type EventId = string
 
@@ -360,6 +510,11 @@ type NotFound = Error
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
 
+// UploadGroupEventImageMultipartBody defines parameters for UploadGroupEventImage.
+type UploadGroupEventImageMultipartBody struct {
+	Image openapi_types.File `json:"image"`
+}
+
 // AdminUpsertGroupJSONRequestBody defines body for AdminUpsertGroup for application/json ContentType.
 type AdminUpsertGroupJSONRequestBody = UpsertGroupRequest
 
@@ -372,6 +527,15 @@ type UpdateGroupEventJSONRequestBody = UpdateEventRequest
 // UpsertGroupEventConferenceJSONRequestBody defines body for UpsertGroupEventConference for application/json ContentType.
 type UpsertGroupEventConferenceJSONRequestBody = UpsertConferenceRequest
 
+// UploadGroupEventImageMultipartRequestBody defines body for UploadGroupEventImage for multipart/form-data ContentType.
+type UploadGroupEventImageMultipartRequestBody UploadGroupEventImageMultipartBody
+
+// SendGroupEventMessageJSONRequestBody defines body for SendGroupEventMessage for application/json ContentType.
+type SendGroupEventMessageJSONRequestBody = EventMessage
+
+// UpdateGroupEventParticipantJSONRequestBody defines body for UpdateGroupEventParticipant for application/json ContentType.
+type UpdateGroupEventParticipantJSONRequestBody = ParticipantUpdate
+
 // PublishGroupEventJSONRequestBody defines body for PublishGroupEvent for application/json ContentType.
 type PublishGroupEventJSONRequestBody = PublishEventRequest
 
@@ -380,6 +544,12 @@ type CreateGroupEventSubEventJSONRequestBody = CreateSubEventRequest
 
 // UpsertGroupEventSurveyJSONRequestBody defines body for UpsertGroupEventSurvey for application/json ContentType.
 type UpsertGroupEventSurveyJSONRequestBody = UpsertSurveyRequest
+
+// CreateGroupEventVoucherRecipientJSONRequestBody defines body for CreateGroupEventVoucherRecipient for application/json ContentType.
+type CreateGroupEventVoucherRecipientJSONRequestBody = VoucherRecipientWrite
+
+// UpdateGroupEventVoucherRecipientJSONRequestBody defines body for UpdateGroupEventVoucherRecipient for application/json ContentType.
+type UpdateGroupEventVoucherRecipientJSONRequestBody = VoucherRecipientWrite
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -473,6 +643,9 @@ type ClientInterface interface {
 
 	CreateGroupEvent(ctx context.Context, groupId string, body CreateGroupEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteGroupEventDraft request
+	DeleteGroupEventDraft(ctx context.Context, groupId string, eventId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetGroupEvent request
 	GetGroupEvent(ctx context.Context, groupId string, eventId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -480,6 +653,9 @@ type ClientInterface interface {
 	UpdateGroupEventWithBody(ctx context.Context, groupId string, eventId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateGroupEvent(ctx context.Context, groupId string, eventId string, body UpdateGroupEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelGroupEvent request
+	CancelGroupEvent(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetGroupEventConference request
 	GetGroupEventConference(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -489,10 +665,35 @@ type ClientInterface interface {
 
 	UpsertGroupEventConference(ctx context.Context, groupId GroupId, eventId EventId, body UpsertGroupEventConferenceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CopyGroupEvent request
+	CopyGroupEvent(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UploadGroupEventImageWithBody request with any body
+	UploadGroupEventImageWithBody(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SendGroupEventMessageWithBody request with any body
+	SendGroupEventMessageWithBody(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SendGroupEventMessage(ctx context.Context, groupId GroupId, eventId EventId, body SendGroupEventMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListGroupEventParticipants request
+	ListGroupEventParticipants(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGroupEventParticipant request
+	GetGroupEventParticipant(ctx context.Context, groupId GroupId, eventId EventId, participantId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateGroupEventParticipantWithBody request with any body
+	UpdateGroupEventParticipantWithBody(ctx context.Context, groupId GroupId, eventId EventId, participantId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateGroupEventParticipant(ctx context.Context, groupId GroupId, eventId EventId, participantId string, body UpdateGroupEventParticipantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PublishGroupEventWithBody request with any body
 	PublishGroupEventWithBody(ctx context.Context, groupId string, eventId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PublishGroupEvent(ctx context.Context, groupId string, eventId string, body PublishGroupEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGroupEventStatistics request
+	GetGroupEventStatistics(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListGroupEventSubEvents request
 	ListGroupEventSubEvents(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -515,6 +716,25 @@ type ClientInterface interface {
 	UpsertGroupEventSurveyWithBody(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpsertGroupEventSurvey(ctx context.Context, groupId GroupId, eventId EventId, body UpsertGroupEventSurveyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListGroupEventVoucherRecipients request
+	ListGroupEventVoucherRecipients(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateGroupEventVoucherRecipientWithBody request with any body
+	CreateGroupEventVoucherRecipientWithBody(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateGroupEventVoucherRecipient(ctx context.Context, groupId GroupId, eventId EventId, body CreateGroupEventVoucherRecipientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteGroupEventVoucherRecipient request
+	DeleteGroupEventVoucherRecipient(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGroupEventVoucherRecipient request
+	GetGroupEventVoucherRecipient(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateGroupEventVoucherRecipientWithBody request with any body
+	UpdateGroupEventVoucherRecipientWithBody(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateGroupEventVoucherRecipient(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, body UpdateGroupEventVoucherRecipientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetJob request
 	GetJob(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -604,6 +824,18 @@ func (c *Client) CreateGroupEvent(ctx context.Context, groupId string, body Crea
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteGroupEventDraft(ctx context.Context, groupId string, eventId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteGroupEventDraftRequest(c.Server, groupId, eventId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetGroupEvent(ctx context.Context, groupId string, eventId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetGroupEventRequest(c.Server, groupId, eventId)
 	if err != nil {
@@ -630,6 +862,18 @@ func (c *Client) UpdateGroupEventWithBody(ctx context.Context, groupId string, e
 
 func (c *Client) UpdateGroupEvent(ctx context.Context, groupId string, eventId string, body UpdateGroupEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateGroupEventRequest(c.Server, groupId, eventId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CancelGroupEvent(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelGroupEventRequest(c.Server, groupId, eventId)
 	if err != nil {
 		return nil, err
 	}
@@ -676,6 +920,102 @@ func (c *Client) UpsertGroupEventConference(ctx context.Context, groupId GroupId
 	return c.Client.Do(req)
 }
 
+func (c *Client) CopyGroupEvent(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCopyGroupEventRequest(c.Server, groupId, eventId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UploadGroupEventImageWithBody(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadGroupEventImageRequestWithBody(c.Server, groupId, eventId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SendGroupEventMessageWithBody(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendGroupEventMessageRequestWithBody(c.Server, groupId, eventId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SendGroupEventMessage(ctx context.Context, groupId GroupId, eventId EventId, body SendGroupEventMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendGroupEventMessageRequest(c.Server, groupId, eventId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListGroupEventParticipants(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGroupEventParticipantsRequest(c.Server, groupId, eventId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGroupEventParticipant(ctx context.Context, groupId GroupId, eventId EventId, participantId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGroupEventParticipantRequest(c.Server, groupId, eventId, participantId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateGroupEventParticipantWithBody(ctx context.Context, groupId GroupId, eventId EventId, participantId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateGroupEventParticipantRequestWithBody(c.Server, groupId, eventId, participantId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateGroupEventParticipant(ctx context.Context, groupId GroupId, eventId EventId, participantId string, body UpdateGroupEventParticipantJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateGroupEventParticipantRequest(c.Server, groupId, eventId, participantId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) PublishGroupEventWithBody(ctx context.Context, groupId string, eventId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPublishGroupEventRequestWithBody(c.Server, groupId, eventId, contentType, body)
 	if err != nil {
@@ -690,6 +1030,18 @@ func (c *Client) PublishGroupEventWithBody(ctx context.Context, groupId string, 
 
 func (c *Client) PublishGroupEvent(ctx context.Context, groupId string, eventId string, body PublishGroupEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPublishGroupEventRequest(c.Server, groupId, eventId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGroupEventStatistics(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGroupEventStatisticsRequest(c.Server, groupId, eventId)
 	if err != nil {
 		return nil, err
 	}
@@ -786,6 +1138,90 @@ func (c *Client) UpsertGroupEventSurveyWithBody(ctx context.Context, groupId Gro
 
 func (c *Client) UpsertGroupEventSurvey(ctx context.Context, groupId GroupId, eventId EventId, body UpsertGroupEventSurveyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpsertGroupEventSurveyRequest(c.Server, groupId, eventId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListGroupEventVoucherRecipients(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGroupEventVoucherRecipientsRequest(c.Server, groupId, eventId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateGroupEventVoucherRecipientWithBody(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGroupEventVoucherRecipientRequestWithBody(c.Server, groupId, eventId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateGroupEventVoucherRecipient(ctx context.Context, groupId GroupId, eventId EventId, body CreateGroupEventVoucherRecipientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGroupEventVoucherRecipientRequest(c.Server, groupId, eventId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteGroupEventVoucherRecipient(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteGroupEventVoucherRecipientRequest(c.Server, groupId, eventId, voucherId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGroupEventVoucherRecipient(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGroupEventVoucherRecipientRequest(c.Server, groupId, eventId, voucherId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateGroupEventVoucherRecipientWithBody(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateGroupEventVoucherRecipientRequestWithBody(c.Server, groupId, eventId, voucherId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateGroupEventVoucherRecipient(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, body UpdateGroupEventVoucherRecipientJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateGroupEventVoucherRecipientRequest(c.Server, groupId, eventId, voucherId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -990,6 +1426,47 @@ func NewCreateGroupEventRequestWithBody(server string, groupId string, contentTy
 	return req, nil
 }
 
+// NewDeleteGroupEventDraftRequest generates requests for DeleteGroupEventDraft
+func NewDeleteGroupEventDraftRequest(server string, groupId string, eventId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetGroupEventRequest generates requests for GetGroupEvent
 func NewGetGroupEventRequest(server string, groupId string, eventId string) (*http.Request, error) {
 	var err error
@@ -1081,6 +1558,47 @@ func NewUpdateGroupEventRequestWithBody(server string, groupId string, eventId s
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCancelGroupEventRequest generates requests for CancelGroupEvent
+func NewCancelGroupEventRequest(server string, groupId GroupId, eventId EventId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/cancel", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -1180,6 +1698,294 @@ func NewUpsertGroupEventConferenceRequestWithBody(server string, groupId GroupId
 	return req, nil
 }
 
+// NewCopyGroupEventRequest generates requests for CopyGroupEvent
+func NewCopyGroupEventRequest(server string, groupId GroupId, eventId EventId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/copy", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUploadGroupEventImageRequestWithBody generates requests for UploadGroupEventImage with any type of body
+func NewUploadGroupEventImageRequestWithBody(server string, groupId GroupId, eventId EventId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/image", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSendGroupEventMessageRequest calls the generic SendGroupEventMessage builder with application/json body
+func NewSendGroupEventMessageRequest(server string, groupId GroupId, eventId EventId, body SendGroupEventMessageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSendGroupEventMessageRequestWithBody(server, groupId, eventId, "application/json", bodyReader)
+}
+
+// NewSendGroupEventMessageRequestWithBody generates requests for SendGroupEventMessage with any type of body
+func NewSendGroupEventMessageRequestWithBody(server string, groupId GroupId, eventId EventId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/messages", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListGroupEventParticipantsRequest generates requests for ListGroupEventParticipants
+func NewListGroupEventParticipantsRequest(server string, groupId GroupId, eventId EventId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/participants", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGroupEventParticipantRequest generates requests for GetGroupEventParticipant
+func NewGetGroupEventParticipantRequest(server string, groupId GroupId, eventId EventId, participantId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "participantId", runtime.ParamLocationPath, participantId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/participants/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateGroupEventParticipantRequest calls the generic UpdateGroupEventParticipant builder with application/json body
+func NewUpdateGroupEventParticipantRequest(server string, groupId GroupId, eventId EventId, participantId string, body UpdateGroupEventParticipantJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateGroupEventParticipantRequestWithBody(server, groupId, eventId, participantId, "application/json", bodyReader)
+}
+
+// NewUpdateGroupEventParticipantRequestWithBody generates requests for UpdateGroupEventParticipant with any type of body
+func NewUpdateGroupEventParticipantRequestWithBody(server string, groupId GroupId, eventId EventId, participantId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "participantId", runtime.ParamLocationPath, participantId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/participants/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewPublishGroupEventRequest calls the generic PublishGroupEvent builder with application/json body
 func NewPublishGroupEventRequest(server string, groupId string, eventId string, body PublishGroupEventJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1230,6 +2036,47 @@ func NewPublishGroupEventRequestWithBody(server string, groupId string, eventId 
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetGroupEventStatisticsRequest generates requests for GetGroupEventStatistics
+func NewGetGroupEventStatisticsRequest(server string, groupId GroupId, eventId EventId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/stats", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -1520,6 +2367,258 @@ func NewUpsertGroupEventSurveyRequestWithBody(server string, groupId GroupId, ev
 	return req, nil
 }
 
+// NewListGroupEventVoucherRecipientsRequest generates requests for ListGroupEventVoucherRecipients
+func NewListGroupEventVoucherRecipientsRequest(server string, groupId GroupId, eventId EventId) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/vouchers", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateGroupEventVoucherRecipientRequest calls the generic CreateGroupEventVoucherRecipient builder with application/json body
+func NewCreateGroupEventVoucherRecipientRequest(server string, groupId GroupId, eventId EventId, body CreateGroupEventVoucherRecipientJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateGroupEventVoucherRecipientRequestWithBody(server, groupId, eventId, "application/json", bodyReader)
+}
+
+// NewCreateGroupEventVoucherRecipientRequestWithBody generates requests for CreateGroupEventVoucherRecipient with any type of body
+func NewCreateGroupEventVoucherRecipientRequestWithBody(server string, groupId GroupId, eventId EventId, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/vouchers", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteGroupEventVoucherRecipientRequest generates requests for DeleteGroupEventVoucherRecipient
+func NewDeleteGroupEventVoucherRecipientRequest(server string, groupId GroupId, eventId EventId, voucherId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "voucherId", runtime.ParamLocationPath, voucherId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/vouchers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGroupEventVoucherRecipientRequest generates requests for GetGroupEventVoucherRecipient
+func NewGetGroupEventVoucherRecipientRequest(server string, groupId GroupId, eventId EventId, voucherId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "voucherId", runtime.ParamLocationPath, voucherId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/vouchers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateGroupEventVoucherRecipientRequest calls the generic UpdateGroupEventVoucherRecipient builder with application/json body
+func NewUpdateGroupEventVoucherRecipientRequest(server string, groupId GroupId, eventId EventId, voucherId string, body UpdateGroupEventVoucherRecipientJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateGroupEventVoucherRecipientRequestWithBody(server, groupId, eventId, voucherId, "application/json", bodyReader)
+}
+
+// NewUpdateGroupEventVoucherRecipientRequestWithBody generates requests for UpdateGroupEventVoucherRecipient with any type of body
+func NewUpdateGroupEventVoucherRecipientRequestWithBody(server string, groupId GroupId, eventId EventId, voucherId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupId", runtime.ParamLocationPath, groupId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "eventId", runtime.ParamLocationPath, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "voucherId", runtime.ParamLocationPath, voucherId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/groups/%s/events/%s/vouchers/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetJobRequest generates requests for GetJob
 func NewGetJobRequest(server string, jobId string) (*http.Request, error) {
 	var err error
@@ -1616,6 +2715,9 @@ type ClientWithResponsesInterface interface {
 
 	CreateGroupEventWithResponse(ctx context.Context, groupId string, body CreateGroupEventJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGroupEventResponse, error)
 
+	// DeleteGroupEventDraftWithResponse request
+	DeleteGroupEventDraftWithResponse(ctx context.Context, groupId string, eventId string, reqEditors ...RequestEditorFn) (*DeleteGroupEventDraftResponse, error)
+
 	// GetGroupEventWithResponse request
 	GetGroupEventWithResponse(ctx context.Context, groupId string, eventId string, reqEditors ...RequestEditorFn) (*GetGroupEventResponse, error)
 
@@ -1623,6 +2725,9 @@ type ClientWithResponsesInterface interface {
 	UpdateGroupEventWithBodyWithResponse(ctx context.Context, groupId string, eventId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateGroupEventResponse, error)
 
 	UpdateGroupEventWithResponse(ctx context.Context, groupId string, eventId string, body UpdateGroupEventJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGroupEventResponse, error)
+
+	// CancelGroupEventWithResponse request
+	CancelGroupEventWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*CancelGroupEventResponse, error)
 
 	// GetGroupEventConferenceWithResponse request
 	GetGroupEventConferenceWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*GetGroupEventConferenceResponse, error)
@@ -1632,10 +2737,35 @@ type ClientWithResponsesInterface interface {
 
 	UpsertGroupEventConferenceWithResponse(ctx context.Context, groupId GroupId, eventId EventId, body UpsertGroupEventConferenceJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertGroupEventConferenceResponse, error)
 
+	// CopyGroupEventWithResponse request
+	CopyGroupEventWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*CopyGroupEventResponse, error)
+
+	// UploadGroupEventImageWithBodyWithResponse request with any body
+	UploadGroupEventImageWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadGroupEventImageResponse, error)
+
+	// SendGroupEventMessageWithBodyWithResponse request with any body
+	SendGroupEventMessageWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendGroupEventMessageResponse, error)
+
+	SendGroupEventMessageWithResponse(ctx context.Context, groupId GroupId, eventId EventId, body SendGroupEventMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*SendGroupEventMessageResponse, error)
+
+	// ListGroupEventParticipantsWithResponse request
+	ListGroupEventParticipantsWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*ListGroupEventParticipantsResponse, error)
+
+	// GetGroupEventParticipantWithResponse request
+	GetGroupEventParticipantWithResponse(ctx context.Context, groupId GroupId, eventId EventId, participantId string, reqEditors ...RequestEditorFn) (*GetGroupEventParticipantResponse, error)
+
+	// UpdateGroupEventParticipantWithBodyWithResponse request with any body
+	UpdateGroupEventParticipantWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, participantId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateGroupEventParticipantResponse, error)
+
+	UpdateGroupEventParticipantWithResponse(ctx context.Context, groupId GroupId, eventId EventId, participantId string, body UpdateGroupEventParticipantJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGroupEventParticipantResponse, error)
+
 	// PublishGroupEventWithBodyWithResponse request with any body
 	PublishGroupEventWithBodyWithResponse(ctx context.Context, groupId string, eventId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishGroupEventResponse, error)
 
 	PublishGroupEventWithResponse(ctx context.Context, groupId string, eventId string, body PublishGroupEventJSONRequestBody, reqEditors ...RequestEditorFn) (*PublishGroupEventResponse, error)
+
+	// GetGroupEventStatisticsWithResponse request
+	GetGroupEventStatisticsWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*GetGroupEventStatisticsResponse, error)
 
 	// ListGroupEventSubEventsWithResponse request
 	ListGroupEventSubEventsWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*ListGroupEventSubEventsResponse, error)
@@ -1658,6 +2788,25 @@ type ClientWithResponsesInterface interface {
 	UpsertGroupEventSurveyWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpsertGroupEventSurveyResponse, error)
 
 	UpsertGroupEventSurveyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, body UpsertGroupEventSurveyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpsertGroupEventSurveyResponse, error)
+
+	// ListGroupEventVoucherRecipientsWithResponse request
+	ListGroupEventVoucherRecipientsWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*ListGroupEventVoucherRecipientsResponse, error)
+
+	// CreateGroupEventVoucherRecipientWithBodyWithResponse request with any body
+	CreateGroupEventVoucherRecipientWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGroupEventVoucherRecipientResponse, error)
+
+	CreateGroupEventVoucherRecipientWithResponse(ctx context.Context, groupId GroupId, eventId EventId, body CreateGroupEventVoucherRecipientJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGroupEventVoucherRecipientResponse, error)
+
+	// DeleteGroupEventVoucherRecipientWithResponse request
+	DeleteGroupEventVoucherRecipientWithResponse(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, reqEditors ...RequestEditorFn) (*DeleteGroupEventVoucherRecipientResponse, error)
+
+	// GetGroupEventVoucherRecipientWithResponse request
+	GetGroupEventVoucherRecipientWithResponse(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, reqEditors ...RequestEditorFn) (*GetGroupEventVoucherRecipientResponse, error)
+
+	// UpdateGroupEventVoucherRecipientWithBodyWithResponse request with any body
+	UpdateGroupEventVoucherRecipientWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateGroupEventVoucherRecipientResponse, error)
+
+	UpdateGroupEventVoucherRecipientWithResponse(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, body UpdateGroupEventVoucherRecipientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGroupEventVoucherRecipientResponse, error)
 
 	// GetJobWithResponse request
 	GetJobWithResponse(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*GetJobResponse, error)
@@ -1790,6 +2939,28 @@ func (r CreateGroupEventResponse) StatusCode() int {
 	return 0
 }
 
+type DeleteGroupEventDraftResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *Job
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteGroupEventDraftResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteGroupEventDraftResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetGroupEventResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1837,6 +3008,28 @@ func (r UpdateGroupEventResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateGroupEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CancelGroupEventResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *Job
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelGroupEventResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelGroupEventResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1898,6 +3091,144 @@ func (r UpsertGroupEventConferenceResponse) StatusCode() int {
 	return 0
 }
 
+type CopyGroupEventResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *Job
+}
+
+// Status returns HTTPResponse.Status
+func (r CopyGroupEventResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CopyGroupEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UploadGroupEventImageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *Job
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadGroupEventImageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadGroupEventImageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SendGroupEventMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *Job
+}
+
+// Status returns HTTPResponse.Status
+func (r SendGroupEventMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SendGroupEventMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListGroupEventParticipantsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		EventId      string        `json:"eventId"`
+		GroupId      string        `json:"groupId"`
+		Participants []Participant `json:"participants"`
+	}
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGroupEventParticipantsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGroupEventParticipantsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetGroupEventParticipantResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Participant Participant `json:"participant"`
+	}
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGroupEventParticipantResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGroupEventParticipantResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateGroupEventParticipantResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *Job
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateGroupEventParticipantResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateGroupEventParticipantResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type PublishGroupEventResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1916,6 +3247,30 @@ func (r PublishGroupEventResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PublishGroupEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetGroupEventStatisticsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Statistics EventStatistics `json:"statistics"`
+	}
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGroupEventStatisticsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGroupEventStatisticsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2089,6 +3444,120 @@ func (r UpsertGroupEventSurveyResponse) StatusCode() int {
 	return 0
 }
 
+type ListGroupEventVoucherRecipientsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Vouchers []VoucherRecipient `json:"vouchers"`
+	}
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGroupEventVoucherRecipientsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGroupEventVoucherRecipientsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateGroupEventVoucherRecipientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *Job
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateGroupEventVoucherRecipientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateGroupEventVoucherRecipientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteGroupEventVoucherRecipientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *Job
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteGroupEventVoucherRecipientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteGroupEventVoucherRecipientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetGroupEventVoucherRecipientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Voucher VoucherRecipient `json:"voucher"`
+	}
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGroupEventVoucherRecipientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGroupEventVoucherRecipientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateGroupEventVoucherRecipientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON202      *Job
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateGroupEventVoucherRecipientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateGroupEventVoucherRecipientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetJobResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2175,6 +3644,15 @@ func (c *ClientWithResponses) CreateGroupEventWithResponse(ctx context.Context, 
 	return ParseCreateGroupEventResponse(rsp)
 }
 
+// DeleteGroupEventDraftWithResponse request returning *DeleteGroupEventDraftResponse
+func (c *ClientWithResponses) DeleteGroupEventDraftWithResponse(ctx context.Context, groupId string, eventId string, reqEditors ...RequestEditorFn) (*DeleteGroupEventDraftResponse, error) {
+	rsp, err := c.DeleteGroupEventDraft(ctx, groupId, eventId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteGroupEventDraftResponse(rsp)
+}
+
 // GetGroupEventWithResponse request returning *GetGroupEventResponse
 func (c *ClientWithResponses) GetGroupEventWithResponse(ctx context.Context, groupId string, eventId string, reqEditors ...RequestEditorFn) (*GetGroupEventResponse, error) {
 	rsp, err := c.GetGroupEvent(ctx, groupId, eventId, reqEditors...)
@@ -2199,6 +3677,15 @@ func (c *ClientWithResponses) UpdateGroupEventWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseUpdateGroupEventResponse(rsp)
+}
+
+// CancelGroupEventWithResponse request returning *CancelGroupEventResponse
+func (c *ClientWithResponses) CancelGroupEventWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*CancelGroupEventResponse, error) {
+	rsp, err := c.CancelGroupEvent(ctx, groupId, eventId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelGroupEventResponse(rsp)
 }
 
 // GetGroupEventConferenceWithResponse request returning *GetGroupEventConferenceResponse
@@ -2227,6 +3714,76 @@ func (c *ClientWithResponses) UpsertGroupEventConferenceWithResponse(ctx context
 	return ParseUpsertGroupEventConferenceResponse(rsp)
 }
 
+// CopyGroupEventWithResponse request returning *CopyGroupEventResponse
+func (c *ClientWithResponses) CopyGroupEventWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*CopyGroupEventResponse, error) {
+	rsp, err := c.CopyGroupEvent(ctx, groupId, eventId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCopyGroupEventResponse(rsp)
+}
+
+// UploadGroupEventImageWithBodyWithResponse request with arbitrary body returning *UploadGroupEventImageResponse
+func (c *ClientWithResponses) UploadGroupEventImageWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadGroupEventImageResponse, error) {
+	rsp, err := c.UploadGroupEventImageWithBody(ctx, groupId, eventId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadGroupEventImageResponse(rsp)
+}
+
+// SendGroupEventMessageWithBodyWithResponse request with arbitrary body returning *SendGroupEventMessageResponse
+func (c *ClientWithResponses) SendGroupEventMessageWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendGroupEventMessageResponse, error) {
+	rsp, err := c.SendGroupEventMessageWithBody(ctx, groupId, eventId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendGroupEventMessageResponse(rsp)
+}
+
+func (c *ClientWithResponses) SendGroupEventMessageWithResponse(ctx context.Context, groupId GroupId, eventId EventId, body SendGroupEventMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*SendGroupEventMessageResponse, error) {
+	rsp, err := c.SendGroupEventMessage(ctx, groupId, eventId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendGroupEventMessageResponse(rsp)
+}
+
+// ListGroupEventParticipantsWithResponse request returning *ListGroupEventParticipantsResponse
+func (c *ClientWithResponses) ListGroupEventParticipantsWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*ListGroupEventParticipantsResponse, error) {
+	rsp, err := c.ListGroupEventParticipants(ctx, groupId, eventId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGroupEventParticipantsResponse(rsp)
+}
+
+// GetGroupEventParticipantWithResponse request returning *GetGroupEventParticipantResponse
+func (c *ClientWithResponses) GetGroupEventParticipantWithResponse(ctx context.Context, groupId GroupId, eventId EventId, participantId string, reqEditors ...RequestEditorFn) (*GetGroupEventParticipantResponse, error) {
+	rsp, err := c.GetGroupEventParticipant(ctx, groupId, eventId, participantId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGroupEventParticipantResponse(rsp)
+}
+
+// UpdateGroupEventParticipantWithBodyWithResponse request with arbitrary body returning *UpdateGroupEventParticipantResponse
+func (c *ClientWithResponses) UpdateGroupEventParticipantWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, participantId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateGroupEventParticipantResponse, error) {
+	rsp, err := c.UpdateGroupEventParticipantWithBody(ctx, groupId, eventId, participantId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateGroupEventParticipantResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateGroupEventParticipantWithResponse(ctx context.Context, groupId GroupId, eventId EventId, participantId string, body UpdateGroupEventParticipantJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGroupEventParticipantResponse, error) {
+	rsp, err := c.UpdateGroupEventParticipant(ctx, groupId, eventId, participantId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateGroupEventParticipantResponse(rsp)
+}
+
 // PublishGroupEventWithBodyWithResponse request with arbitrary body returning *PublishGroupEventResponse
 func (c *ClientWithResponses) PublishGroupEventWithBodyWithResponse(ctx context.Context, groupId string, eventId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PublishGroupEventResponse, error) {
 	rsp, err := c.PublishGroupEventWithBody(ctx, groupId, eventId, contentType, body, reqEditors...)
@@ -2242,6 +3799,15 @@ func (c *ClientWithResponses) PublishGroupEventWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParsePublishGroupEventResponse(rsp)
+}
+
+// GetGroupEventStatisticsWithResponse request returning *GetGroupEventStatisticsResponse
+func (c *ClientWithResponses) GetGroupEventStatisticsWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*GetGroupEventStatisticsResponse, error) {
+	rsp, err := c.GetGroupEventStatistics(ctx, groupId, eventId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGroupEventStatisticsResponse(rsp)
 }
 
 // ListGroupEventSubEventsWithResponse request returning *ListGroupEventSubEventsResponse
@@ -2312,6 +3878,67 @@ func (c *ClientWithResponses) UpsertGroupEventSurveyWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseUpsertGroupEventSurveyResponse(rsp)
+}
+
+// ListGroupEventVoucherRecipientsWithResponse request returning *ListGroupEventVoucherRecipientsResponse
+func (c *ClientWithResponses) ListGroupEventVoucherRecipientsWithResponse(ctx context.Context, groupId GroupId, eventId EventId, reqEditors ...RequestEditorFn) (*ListGroupEventVoucherRecipientsResponse, error) {
+	rsp, err := c.ListGroupEventVoucherRecipients(ctx, groupId, eventId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGroupEventVoucherRecipientsResponse(rsp)
+}
+
+// CreateGroupEventVoucherRecipientWithBodyWithResponse request with arbitrary body returning *CreateGroupEventVoucherRecipientResponse
+func (c *ClientWithResponses) CreateGroupEventVoucherRecipientWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGroupEventVoucherRecipientResponse, error) {
+	rsp, err := c.CreateGroupEventVoucherRecipientWithBody(ctx, groupId, eventId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGroupEventVoucherRecipientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateGroupEventVoucherRecipientWithResponse(ctx context.Context, groupId GroupId, eventId EventId, body CreateGroupEventVoucherRecipientJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGroupEventVoucherRecipientResponse, error) {
+	rsp, err := c.CreateGroupEventVoucherRecipient(ctx, groupId, eventId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGroupEventVoucherRecipientResponse(rsp)
+}
+
+// DeleteGroupEventVoucherRecipientWithResponse request returning *DeleteGroupEventVoucherRecipientResponse
+func (c *ClientWithResponses) DeleteGroupEventVoucherRecipientWithResponse(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, reqEditors ...RequestEditorFn) (*DeleteGroupEventVoucherRecipientResponse, error) {
+	rsp, err := c.DeleteGroupEventVoucherRecipient(ctx, groupId, eventId, voucherId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteGroupEventVoucherRecipientResponse(rsp)
+}
+
+// GetGroupEventVoucherRecipientWithResponse request returning *GetGroupEventVoucherRecipientResponse
+func (c *ClientWithResponses) GetGroupEventVoucherRecipientWithResponse(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, reqEditors ...RequestEditorFn) (*GetGroupEventVoucherRecipientResponse, error) {
+	rsp, err := c.GetGroupEventVoucherRecipient(ctx, groupId, eventId, voucherId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGroupEventVoucherRecipientResponse(rsp)
+}
+
+// UpdateGroupEventVoucherRecipientWithBodyWithResponse request with arbitrary body returning *UpdateGroupEventVoucherRecipientResponse
+func (c *ClientWithResponses) UpdateGroupEventVoucherRecipientWithBodyWithResponse(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateGroupEventVoucherRecipientResponse, error) {
+	rsp, err := c.UpdateGroupEventVoucherRecipientWithBody(ctx, groupId, eventId, voucherId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateGroupEventVoucherRecipientResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateGroupEventVoucherRecipientWithResponse(ctx context.Context, groupId GroupId, eventId EventId, voucherId string, body UpdateGroupEventVoucherRecipientJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGroupEventVoucherRecipientResponse, error) {
+	rsp, err := c.UpdateGroupEventVoucherRecipient(ctx, groupId, eventId, voucherId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateGroupEventVoucherRecipientResponse(rsp)
 }
 
 // GetJobWithResponse request returning *GetJobResponse
@@ -2536,6 +4163,32 @@ func ParseCreateGroupEventResponse(rsp *http.Response) (*CreateGroupEventRespons
 	return response, nil
 }
 
+// ParseDeleteGroupEventDraftResponse parses an HTTP response from a DeleteGroupEventDraftWithResponse call
+func ParseDeleteGroupEventDraftResponse(rsp *http.Response) (*DeleteGroupEventDraftResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteGroupEventDraftResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetGroupEventResponse parses an HTTP response from a GetGroupEventWithResponse call
 func ParseGetGroupEventResponse(rsp *http.Response) (*GetGroupEventResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2621,6 +4274,32 @@ func ParseUpdateGroupEventResponse(rsp *http.Response) (*UpdateGroupEventRespons
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelGroupEventResponse parses an HTTP response from a CancelGroupEventWithResponse call
+func ParseCancelGroupEventResponse(rsp *http.Response) (*CancelGroupEventResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelGroupEventResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
 
 	}
 
@@ -2732,6 +4411,168 @@ func ParseUpsertGroupEventConferenceResponse(rsp *http.Response) (*UpsertGroupEv
 	return response, nil
 }
 
+// ParseCopyGroupEventResponse parses an HTTP response from a CopyGroupEventWithResponse call
+func ParseCopyGroupEventResponse(rsp *http.Response) (*CopyGroupEventResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CopyGroupEventResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUploadGroupEventImageResponse parses an HTTP response from a UploadGroupEventImageWithResponse call
+func ParseUploadGroupEventImageResponse(rsp *http.Response) (*UploadGroupEventImageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadGroupEventImageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSendGroupEventMessageResponse parses an HTTP response from a SendGroupEventMessageWithResponse call
+func ParseSendGroupEventMessageResponse(rsp *http.Response) (*SendGroupEventMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SendGroupEventMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListGroupEventParticipantsResponse parses an HTTP response from a ListGroupEventParticipantsWithResponse call
+func ParseListGroupEventParticipantsResponse(rsp *http.Response) (*ListGroupEventParticipantsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGroupEventParticipantsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			EventId      string        `json:"eventId"`
+			GroupId      string        `json:"groupId"`
+			Participants []Participant `json:"participants"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGroupEventParticipantResponse parses an HTTP response from a GetGroupEventParticipantWithResponse call
+func ParseGetGroupEventParticipantResponse(rsp *http.Response) (*GetGroupEventParticipantResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGroupEventParticipantResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Participant Participant `json:"participant"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateGroupEventParticipantResponse parses an HTTP response from a UpdateGroupEventParticipantWithResponse call
+func ParseUpdateGroupEventParticipantResponse(rsp *http.Response) (*UpdateGroupEventParticipantResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateGroupEventParticipantResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParsePublishGroupEventResponse parses an HTTP response from a PublishGroupEventWithResponse call
 func ParsePublishGroupEventResponse(rsp *http.Response) (*PublishGroupEventResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2766,6 +4607,34 @@ func ParsePublishGroupEventResponse(rsp *http.Response) (*PublishGroupEventRespo
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGroupEventStatisticsResponse parses an HTTP response from a GetGroupEventStatisticsWithResponse call
+func ParseGetGroupEventStatisticsResponse(rsp *http.Response) (*GetGroupEventStatisticsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGroupEventStatisticsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Statistics EventStatistics `json:"statistics"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	}
 
@@ -3077,6 +4946,140 @@ func ParseUpsertGroupEventSurveyResponse(rsp *http.Response) (*UpsertGroupEventS
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListGroupEventVoucherRecipientsResponse parses an HTTP response from a ListGroupEventVoucherRecipientsWithResponse call
+func ParseListGroupEventVoucherRecipientsResponse(rsp *http.Response) (*ListGroupEventVoucherRecipientsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGroupEventVoucherRecipientsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Vouchers []VoucherRecipient `json:"vouchers"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateGroupEventVoucherRecipientResponse parses an HTTP response from a CreateGroupEventVoucherRecipientWithResponse call
+func ParseCreateGroupEventVoucherRecipientResponse(rsp *http.Response) (*CreateGroupEventVoucherRecipientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateGroupEventVoucherRecipientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteGroupEventVoucherRecipientResponse parses an HTTP response from a DeleteGroupEventVoucherRecipientWithResponse call
+func ParseDeleteGroupEventVoucherRecipientResponse(rsp *http.Response) (*DeleteGroupEventVoucherRecipientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteGroupEventVoucherRecipientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGroupEventVoucherRecipientResponse parses an HTTP response from a GetGroupEventVoucherRecipientWithResponse call
+func ParseGetGroupEventVoucherRecipientResponse(rsp *http.Response) (*GetGroupEventVoucherRecipientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGroupEventVoucherRecipientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Voucher VoucherRecipient `json:"voucher"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateGroupEventVoucherRecipientResponse parses an HTTP response from a UpdateGroupEventVoucherRecipientWithResponse call
+func ParseUpdateGroupEventVoucherRecipientResponse(rsp *http.Response) (*UpdateGroupEventVoucherRecipientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateGroupEventVoucherRecipientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Job
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
 
 	}
 

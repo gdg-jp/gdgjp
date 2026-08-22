@@ -85,6 +85,50 @@ ParticipationType:
       nullable: true
       items:
         type: string
+OrganizerUser:
+  type: object
+  required: [id]
+  properties:
+    id:
+      description: connpass user ID.
+      type: string
+    displayName:
+      type: string
+      nullable: true
+Speaker:
+  allOf:
+    - $ref: "#/OrganizerUser"
+    - type: object
+      properties:
+        profileUrl:
+          type: string
+          nullable: true
+ReceiptSettings:
+  type: object
+  properties:
+    allowReceipt:
+      type: boolean
+    invoiceNumber:
+      type: string
+      nullable: true
+    issuerName:
+      type: string
+      nullable: true
+    issuerAddress:
+      type: string
+      nullable: true
+RegistrationPeriod:
+  type: object
+  properties:
+    openAt:
+      type: string
+      nullable: true
+    closeAt:
+      type: string
+      nullable: true
+    lotteryPublishDate:
+      type: string
+      nullable: true
 EventFields:
   description: Fields shared by event creation, update, and the full event representation.
   type: object
@@ -156,6 +200,25 @@ EventFields:
     participantOnlyInfo:
       type: string
       nullable: true
+    checkinCode:
+      type: string
+      nullable: true
+    hashtag:
+      type: string
+      nullable: true
+    organizerIds:
+      type: array
+      items:
+        type: string
+    speakerTitle:
+      type: string
+      nullable: true
+    speakerIds:
+      type: array
+      items:
+        type: string
+    receiptSettings:
+      $ref: "#/ReceiptSettings"
 CreateEventRequest:
   allOf:
     - $ref: "#/EventWriteFields"
@@ -198,6 +261,43 @@ EventWriteFields:
     cancelPolicy:
       type: string
     participantOnlyInfo:
+      type: string
+    registrationOpenAt:
+      type: string
+      nullable: true
+    registrationCloseAt:
+      type: string
+      nullable: true
+    lotteryPublishDate:
+      type: string
+      nullable: true
+    allowConflictJoin:
+      type: boolean
+    checkinCode:
+      type: string
+    hashtag:
+      type: string
+    organizerIds:
+      type: array
+      items:
+        type: string
+    speakerTitle:
+      type: string
+    speakerIds:
+      type: array
+      items:
+        type: string
+    paypalEmail:
+      type: string
+    contactDetails:
+      type: string
+    allowReceipt:
+      type: boolean
+    invoiceNumber:
+      type: string
+    receiptIssuerName:
+      type: string
+    receiptIssuerAddress:
       type: string
 Event:
   description: Full event representation, as returned by GET /events/{eventId}.
@@ -248,6 +348,23 @@ Event:
           description: >
             Whether this event has conference info configured. Fetch it via GET /conference.
           type: boolean
+        checkinCode:
+          type: string
+          nullable: true
+        hashtag:
+          type: string
+          nullable: true
+        organizers:
+          type: array
+          items:
+            $ref: "#/OrganizerUser"
+        speakerTitle:
+          type: string
+          nullable: true
+        speakers:
+          type: array
+          items:
+            $ref: "#/Speaker"
 EventSummary:
   description: Lightweight event representation, as returned by GET /events (list).
   type: object
@@ -415,6 +532,122 @@ UpsertConferenceRequest:
     topics:
       type: array
       nullable: true
+      items:
+        type: string
+ParticipantStatus:
+  type: string
+  enum: [registered, waitlisted, canceled]
+Participant:
+  type: object
+  required: [id, displayName, status]
+  properties:
+    id:
+      type: string
+    displayName:
+      type: string
+    email:
+      type: string
+      nullable: true
+    status:
+      $ref: "#/ParticipantStatus"
+    participationTypeId:
+      type: string
+      nullable: true
+    participationTypeName:
+      type: string
+      nullable: true
+    checkedIn:
+      type: boolean
+    registeredAt:
+      type: string
+      nullable: true
+    surveyAnswers:
+      type: object
+      additionalProperties: true
+ParticipantUpdate:
+  type: object
+  additionalProperties: false
+  properties:
+    status:
+      $ref: "#/ParticipantStatus"
+    participationTypeId:
+      type: string
+    checkedIn:
+      type: boolean
+EventStatistics:
+  type: object
+  required: [registeredCount, waitlistedCount, canceledCount]
+  properties:
+    registeredCount:
+      type: integer
+    waitlistedCount:
+      type: integer
+    canceledCount:
+      type: integer
+    checkedInCount:
+      type: integer
+    byParticipationType:
+      type: object
+      additionalProperties:
+        type: integer
+EventMessage:
+  type: object
+  required: [subject, body]
+  additionalProperties: false
+  properties:
+    subject:
+      type: string
+    body:
+      type: string
+    recipients:
+      type: string
+      enum: [registered, waitlisted, all]
+      default: all
+VoucherCode:
+  type: object
+  required: [code, used]
+  properties:
+    code:
+      type: string
+    used:
+      type: boolean
+    usedBy:
+      type: string
+      nullable: true
+    usedAt:
+      type: string
+      nullable: true
+VoucherRecipient:
+  type: object
+  required: [id, name, quantity, participationTypeIds, codes]
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+    quantity:
+      type: integer
+    participationTypeIds:
+      type: array
+      items:
+        type: string
+    codes:
+      type: array
+      items:
+        $ref: "#/VoucherCode"
+VoucherRecipientWrite:
+  type: object
+  required: [name, quantity, participationTypeIds]
+  additionalProperties: false
+  properties:
+    name:
+      type: string
+    quantity:
+      type: integer
+      minimum: 1
+    participationTypeIds:
+      type: array
+      minItems: 1
       items:
         type: string
 Group:

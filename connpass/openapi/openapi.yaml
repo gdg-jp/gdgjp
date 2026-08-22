@@ -17,6 +17,24 @@ paths:
     $ref: ./paths/group-event.yaml
   /api/groups/{groupId}/events/{eventId}/publish:
     $ref: ./paths/group-event-publish.yaml
+  /api/groups/{groupId}/events/{eventId}/image:
+    $ref: ./paths/group-event-image.yaml
+  /api/groups/{groupId}/events/{eventId}/copy:
+    $ref: ./paths/group-event-copy.yaml
+  /api/groups/{groupId}/events/{eventId}/cancel:
+    $ref: ./paths/group-event-cancel.yaml
+  /api/groups/{groupId}/events/{eventId}/participants:
+    $ref: ./paths/group-event-participants.yaml
+  /api/groups/{groupId}/events/{eventId}/participants/{participantId}:
+    $ref: ./paths/group-event-participant.yaml
+  /api/groups/{groupId}/events/{eventId}/stats:
+    $ref: ./paths/group-event-stats.yaml
+  /api/groups/{groupId}/events/{eventId}/messages:
+    $ref: ./paths/group-event-messages.yaml
+  /api/groups/{groupId}/events/{eventId}/vouchers:
+    $ref: ./paths/group-event-vouchers.yaml
+  /api/groups/{groupId}/events/{eventId}/vouchers/{voucherId}:
+    $ref: ./paths/group-event-voucher.yaml
   /api/groups/{groupId}/events/{eventId}/sub-events:
     $ref: ./paths/group-event-sub-events.yaml
   /api/groups/{groupId}/events/{eventId}/sub-events/{subEventId}:

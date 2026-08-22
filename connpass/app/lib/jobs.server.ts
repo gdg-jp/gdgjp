@@ -9,6 +9,15 @@ export type JobType =
   | "delete_sub_event"
   | "upsert_survey"
   | "upsert_conference"
+  | "upload_event_image"
+  | "copy_event"
+  | "delete_event_draft"
+  | "cancel_event"
+  | "update_participant"
+  | "send_event_message"
+  | "create_voucher_recipient"
+  | "update_voucher_recipient"
+  | "delete_voucher_recipient"
   | "relogin";
 
 export type JobRecord = {
@@ -140,13 +149,17 @@ export async function markJobFailed(
 }
 
 export function jobToJson(job: JobRecord) {
+  const request = JSON.parse(job.requestJson) as Record<string, unknown>;
+  const redactedRequest = Object.fromEntries(
+    Object.entries(request).filter(([key]) => !["artifactKey", "body", "message"].includes(key)),
+  );
   return {
     id: job.id,
     type: job.type,
     status: job.status,
     groupId: job.groupSlug,
     eventId: job.eventId,
-    request: JSON.parse(job.requestJson) as unknown,
+    request: redactedRequest,
     result: job.resultJson ? (JSON.parse(job.resultJson) as unknown) : null,
     error: job.error,
     artifactKey: job.artifactKey,
