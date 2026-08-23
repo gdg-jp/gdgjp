@@ -177,8 +177,10 @@ func TestACLGateMCPAllowlist(t *testing.T) {
 	writeClone(t, root)
 	stdout, _ := runGate(t, root, map[string]any{"tool_name": "MCP:search", "cwd": root}, "")
 	assertAllow(t, stdout)
+	stdout, _ = runGate(t, root, map[string]any{"tool_name": "MCP:search_drive_files", "cwd": root}, "")
+	assertAllow(t, stdout)
 	stdout, _ = runGate(t, root, map[string]any{"tool_name": "MCP:filesystem", "cwd": root}, "")
-	assertDeny(t, stdout, "search")
+	assertDeny(t, stdout, "not approved")
 }
 
 func TestACLGateShellAllowlist(t *testing.T) {

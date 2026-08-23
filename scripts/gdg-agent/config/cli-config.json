@@ -6,7 +6,8 @@
       "Read(**)",
       "Grep(**)",
       "List(**)",
-      "Mcp(gdg-index, search)"
+      "Mcp(gdg-index, search)",
+      "Mcp(google-workspace, search_drive_files)"
     ],
     "deny": []
   },

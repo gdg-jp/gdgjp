@@ -97,6 +97,30 @@ exec /usr/bin/node "$AGENT_ROOT/lib/wk.ts" "\$@"
 EOF
 chmod 0755 "$AGENT_ROOT/bin/wk"
 
+cat > "$AGENT_ROOT/bin/google-workspace-mcp" <<'EOF'
+#!/bin/sh
+set -eu
+env_file="$HOME/.config/google-workspace-mcp.env"
+if [ ! -r "$env_file" ]; then
+  echo "missing Google Workspace MCP environment file: $env_file" >&2
+  exit 1
+fi
+while IFS='=' read -r key value; do
+  case "$key" in
+    GOOGLE_OAUTH_CLIENT_ID|GOOGLE_OAUTH_CLIENT_SECRET|GOOGLE_OAUTH_REDIRECT_URI|OAUTHLIB_INSECURE_TRANSPORT|WORKSPACE_MCP_PORT)
+      export "$key=$value"
+      ;;
+  esac
+done < "$env_file"
+tool="$(find "$HOME/.cache/uv/archive-v0" -type f -path '*/bin/workspace-mcp' -perm -u+x -print -quit 2>/dev/null || true)"
+if [ -z "$tool" ]; then
+  /usr/local/bin/uvx workspace-mcp --help >/dev/null
+  tool="$(find "$HOME/.cache/uv/archive-v0" -type f -path '*/bin/workspace-mcp' -perm -u+x -print -quit)"
+fi
+exec "$tool" "$@"
+EOF
+chmod 0755 "$AGENT_ROOT/bin/google-workspace-mcp"
+
 sudoers="$ETC_ROOT/sudoers.d/gdg-agent"
 if [[ -f "$sudoers" ]]; then
   chmod u+w "$sudoers" || true
@@ -139,6 +163,7 @@ for ((slot = 0; slot < SLOT_COUNT; slot++)); do
   writable "$cursor_dir/cli-config.json"
   writable "$cursor_dir/sandbox.json"
   writable "$cursor_dir/mcp.json"
+  writable "$cursor_dir/permissions.json"
   install -m 0444 "$CONFIG_SRC/hooks.json" "$cursor_dir/hooks.json"
   install -m 0644 "$CONFIG_SRC/cli-config.json" "$cursor_dir/cli-config.json"
   sed "s|__RUN_SLOT_DIR__|/run/gdg-agent/${slot}|g" "$CONFIG_SRC/sandbox.json.in" > "$cursor_dir/sandbox.json"
@@ -148,6 +173,7 @@ for ((slot = 0; slot < SLOT_COUNT; slot++)); do
   merge_slot_mcp "$tmp_mcp" "$EXTRA_MCP" "$cursor_dir/mcp.json"
   rm -f "$tmp_mcp"
   chmod 0444 "$cursor_dir/mcp.json"
+  install -m 0444 "$CONFIG_SRC/permissions.json" "$cursor_dir/permissions.json"
 
   writable "$AGENT_ROOT/bin/spawn-slot-${slot}"
   sed "s|__SLOT__|${slot}|g" "$CONFIG_SRC/spawn-slot.sh" > "$AGENT_ROOT/bin/spawn-slot-${slot}"

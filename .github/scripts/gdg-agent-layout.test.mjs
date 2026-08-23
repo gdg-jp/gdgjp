@@ -54,6 +54,9 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
   }
   const ownership = await readFile(ownershipScript, "utf8");
   assert.match(ownership, /\.config\/cursor/);
+  assert.match(ownership, /\.google_workspace_mcp\/credentials/);
+  assert.match(ownership, /\.google_workspace_mcp\/logs/);
+  assert.match(ownership, /\.cache/);
   assert.match(ownership, /install -d -m 0700 -o "gdgagent-run-\$\{slot\}"/);
   await withLayoutFixture(async ({ prefix, env }) => {
     const again = spawnSync("bash", [layoutScript], { encoding: "utf8", env });
@@ -100,7 +103,10 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
       await readFile(join(prefix, "home/gdgagent-run-2/.cursor/mcp.json"), "utf8"),
     );
     assert.deepEqual(Object.keys(mcp.mcpServers), ["google-workspace", "gdg-index"]);
-    assert.equal(mcp.mcpServers["google-workspace"].command, "uvx");
+    assert.equal(
+      mcp.mcpServers["google-workspace"].command,
+      "/opt/gdg-agent/bin/google-workspace-mcp",
+    );
     assert.equal(
       mcp.mcpServers["gdg-index"].env.AGENTS_INDEX_SOCKET,
       "/run/gdg-agent/2/index.sock",
@@ -111,6 +117,16 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
     assert.match(launcher, /SLOT="1"/);
     assert.match(launcher, /PATH="\/opt\/gdg-agent\/bin:\/usr\/bin:\/bin"/);
     assert.match(launcher, /cp \/opt\/gdg-agent\/lib\/cli-config\.json/);
+    const mcpWrapper = await readFile(
+      join(prefix, "opt/gdg-agent/bin/google-workspace-mcp"),
+      "utf8",
+    );
+    assert.match(mcpWrapper, /GOOGLE_OAUTH_CLIENT_SECRET/);
+    assert.match(mcpWrapper, /\*\/bin\/workspace-mcp/);
+    const permissions = JSON.parse(
+      await readFile(join(prefix, "home/gdgagent-run-0/.cursor/permissions.json"), "utf8"),
+    );
+    assert.deepEqual(permissions.mcpAllowlist, ["google-workspace:search_drive_files"]);
 
     const cursorDir = await stat(join(prefix, "home/gdgagent-run-0/.cursor"));
     assert.equal(cursorDir.isDirectory(), true);
@@ -184,6 +200,15 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.match(installSrc, /gdg wiki clone/);
     assert.match(installSrc, /\/usr\/local\/bin\/gdg/);
     assert.match(installSrc, /Harineko0\/xangi/);
+    assert.match(installSrc, /ensure_uv/);
+    assert.match(installSrc, /UV_UNMANAGED_INSTALL=\/usr\/local\/bin/);
+    assert.match(installSrc, /uvx is required for the google-workspace MCP/);
+    assert.match(installSrc, /Environment=AGENT_MODEL=gpt-5\.3-codex-low/);
+    const cliConfigSrc = await readFile(
+      join(repositoryRoot, "agents-local/config/cli-config.json"),
+      "utf8",
+    );
+    assert.match(cliConfigSrc, /Mcp\(google-workspace, search_drive_files\)/);
     assert.match(installSrc, /npm ci failed; retrying once/);
     assert.match(installSrc, /\.local\/share\n/);
     assert.match(installSrc, /setup --apply/);
@@ -192,6 +217,8 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.match(installSrc, /--activate/);
     assert.match(installSrc, /activate_live_host/);
     assert.match(installSrc, /place_live_host/);
+    const submoduleInstallSrc = await readFile(submoduleHostInstall, "utf8");
+    assert.match(submoduleInstallSrc, /Environment=AGENT_MODEL=gpt-5\.3-codex-low/);
     const setupSrc = await readFile(join(repositoryRoot, "agents-local/setup.sh"), "utf8");
     assert.doesNotMatch(setupSrc, /gdg wiki clone wiki/);
     const provisionSrc = await readFile(
@@ -209,6 +236,27 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.doesNotMatch(seedIamSrc, /--activate|install\.sh/);
     assert.match(seedIamSrc, /0600/);
     assert.match(seedIamSrc, /gdgagent-svc/);
+    assert.match(seedIamSrc, /\.gdgwiki\/config\.json/);
+    assert.match(seedIamSrc, /not a wiki clone yet/);
+    const configureGoogleWorkspace = join(
+      repositoryRoot,
+      "agents-local/dev/configure-google-workspace-mcp.sh",
+    );
+    const configureGoogleWorkspaceStat = await stat(configureGoogleWorkspace);
+    assert.equal(configureGoogleWorkspaceStat.mode & 0o111, 0o111);
+    const configureGoogleWorkspaceSrc = await readFile(configureGoogleWorkspace, "utf8");
+    assert.match(configureGoogleWorkspaceSrc, /A TTY is required/);
+    assert.match(configureGoogleWorkspaceSrc, /GOOGLE_OAUTH_REDIRECT_URI=http:\/\/localhost:/);
+    assert.match(configureGoogleWorkspaceSrc, /install -m 0600/);
+    const googleOAuthTunnel = join(
+      repositoryRoot,
+      "agents-local/dev/open-google-workspace-oauth-tunnel.sh",
+    );
+    const googleOAuthTunnelStat = await stat(googleOAuthTunnel);
+    assert.equal(googleOAuthTunnelStat.mode & 0o111, 0o111);
+    const googleOAuthTunnelSrc = await readFile(googleOAuthTunnel, "utf8");
+    assert.match(googleOAuthTunnelSrc, /ssh -F/);
+    assert.match(googleOAuthTunnelSrc, /127\.0\.0\.1:\$\{port\}:127\.0\.0\.1:\$\{port\}/);
     const iamFixture = await readFile(
       join(repositoryRoot, "agents-local/dev/iam-fixture.json"),
       "utf8",

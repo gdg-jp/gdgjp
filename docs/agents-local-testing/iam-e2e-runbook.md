@@ -17,6 +17,11 @@ or an `error` response.
   `~/.config/cursor/auth.json` to copy (its credential lives in the Keychain).
 - IAM was seeded before `activate.sh`, or xangi was restarted after a re-seed — IAM is read only
   at startup.
+- For a Google Workspace MCP E2E, a test-only Google OAuth client has been written with
+  `dev/configure-google-workspace-mcp.sh`, and
+  `dev/open-google-workspace-oauth-tunnel.sh` is running on the Mac host. The first MCP tool
+  call must return an authorization URL; complete it in the host browser, then retry the same
+  call. Do not copy production Google refresh tokens into the VM.
 
 ```bash
 invoke() {
@@ -28,6 +33,16 @@ invoke() {
 Response shape is `{classes, channelAudience, slot, runId, denialReason, result?, error?}`.
 **Check `error` first** — on the error branch `denialReason` is null, so a null denial reason
 reads like an allow unless `error` is also checked.
+
+## Google Workspace MCP OAuth URL flow
+
+Use the organizer allow path to ask Cursor to perform a harmless Google Workspace read with the
+dedicated test account. On the first call, record the authorization URL, complete consent in the
+Mac browser while the SSH tunnel is open, and retry the same request.
+
+Pass: the retry succeeds without a new authorization URL; the token exists only in the invoking
+slot's `.google_workspace_mcp/credentials/` directory with mode `0600`; and no `DISCORD_TOKEN`,
+production OAuth client, or production refresh token is present in the VM.
 
 ## Check 1 — organizer allow path
 

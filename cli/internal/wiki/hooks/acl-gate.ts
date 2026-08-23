@@ -12,7 +12,9 @@ import { inspectWkScript, isGitCommitInvocation } from "./shell-allowlist.ts";
 
 /** Named allowlist: unknown tool names are deny. */
 const PASSTHROUGH_TOOLS = new Set(["Read", "Grep", "Glob", "List", "Shell"]);
-const MCP_ALLOWLIST = new Set(["search"]);
+// MCP tools are named without their server identifier in Cursor hook payloads.
+// Keep this list to read-only tools that do not expose workspace content.
+const MCP_ALLOWLIST = new Set(["search", "search_drive_files"]);
 const GATED_PREFIXES = ["pages/", "raw/", "memories/"];
 
 type ToolInput = {
@@ -292,7 +294,7 @@ function handleMcp(tool: string, root: string | null): void {
     allow(root, tool);
     return;
   }
-  deny(root, tool, "The only MCP tool this agent may use is search.");
+  deny(root, tool, "This MCP tool is not approved for this agent.");
 }
 
 function mutateHint(tool: string): string {

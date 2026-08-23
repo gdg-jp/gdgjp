@@ -150,6 +150,24 @@ ensure_pnpm() {
   }
 }
 
+ensure_uv() {
+  if command -v uvx >/dev/null 2>&1; then
+    echo "    uvx $(uvx --version)"
+    return
+  fi
+  if [[ -n "$PREFIX" || "$(id -u)" -ne 0 ]]; then
+    echo "uvx is required for the google-workspace MCP; install uv system-wide first." >&2
+    exit 1
+  fi
+  echo "==> install uv (google-workspace MCP runtime)"
+  curl -LsSf https://astral.sh/uv/install.sh |
+    env UV_UNMANAGED_INSTALL=/usr/local/bin sh
+  command -v uvx >/dev/null 2>&1 || {
+    echo "uv installer did not put uvx on PATH" >&2
+    exit 1
+  }
+}
+
 build_acl() {
   local root="$1"
   if [[ "${GDG_SKIP_BUILD:-}" == 1 ]]; then
@@ -470,7 +488,7 @@ WantedBy=default.target
 EOF
   cat > "$drop_in/model.conf" <<'EOF'
 [Service]
-Environment=AGENT_MODEL=composer-2.5
+Environment=AGENT_MODEL=gpt-5.3-codex-low
 Environment=DISCORD_SHOW_THINKING=false
 Environment=DISCORD_STREAMING=false
 Environment=DISCORD_COMPLETION_NOTIFY=off
@@ -520,6 +538,7 @@ print_remaining() {
 place_live_host() {
   [[ -z "$PREFIX" ]] || return 0
   ensure_gdg_system
+  ensure_uv
   ensure_cursor_cli
   ensure_xangi_fork
   copy_operator_runtime_secrets
