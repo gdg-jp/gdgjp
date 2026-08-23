@@ -3,8 +3,8 @@
  * Does not evaluate ACL classes — that lives in wk.
  */
 import { spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, readFileSync, realpathSync } from "node:fs";
-import { join, relative, resolve, sep } from "node:path";
+import { appendFileSync, readFileSync, realpathSync } from "node:fs";
+import { dirname, join, relative, resolve, sep } from "node:path";
 
 import { findCloneRoot, verifyAclViaAuthz } from "./acl-core.ts";
 import { untaggedStagedAdds } from "./commit-tripwire.ts";
@@ -105,14 +105,24 @@ function isAncestor(ancestor: string, child: string): boolean {
   return inner === top || inner.startsWith(`${top}/`);
 }
 
-function classifyPath(root: string | null, input: string, cwd: string): "gated" | "other" {
-  const abs = resolve(cwd, input);
-  let target = abs;
+/**
+ * Resolve symlinks in `path` up to its nearest existing ancestor, then reattach the
+ * missing tail as-is. `root` is realpath'd via findCloneRoot even when the leaf under
+ * test does not exist yet (e.g. a Glob target directory), so a plain realpathSync-if-exists
+ * would compare a resolved root against an unresolved target and misclassify the path.
+ */
+function realpathAsFarAsPossible(path: string): string {
   try {
-    if (existsSync(abs)) target = realpathSync(abs);
+    return realpathSync(path);
   } catch {
-    target = abs;
+    const parent = dirname(path);
+    if (parent === path) return path;
+    return join(realpathAsFarAsPossible(parent), path.slice(parent.length + 1));
   }
+}
+
+function classifyPath(root: string | null, input: string, cwd: string): "gated" | "other" {
+  const target = realpathAsFarAsPossible(resolve(cwd, input));
   if (root) {
     const rel = toPosix(relative(root, target));
     if (!rel) return "gated";
@@ -137,13 +147,7 @@ function classifyPath(root: string | null, input: string, cwd: string): "gated" 
 
 function wkReadHint(input: string | null, cwd: string, root: string | null): string {
   if (!input) return "wk read <path>";
-  const abs = resolve(cwd, input);
-  let target = abs;
-  try {
-    if (existsSync(abs)) target = realpathSync(abs);
-  } catch {
-    target = abs;
-  }
+  const target = realpathAsFarAsPossible(resolve(cwd, input));
   if (!root) return `wk read ${input}`;
   const rel = toPosix(relative(root, target));
   if (!rel || rel.startsWith("..")) return `wk read ${input}`;
