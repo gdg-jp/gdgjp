@@ -54,8 +54,7 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
   }
   const ownership = await readFile(ownershipScript, "utf8");
   assert.match(ownership, /\.config\/cursor/);
-  assert.match(ownership, /\.google_workspace_mcp\/credentials/);
-  assert.match(ownership, /\.google_workspace_mcp\/logs/);
+  assert.doesNotMatch(ownership, /\.google_workspace_mcp/);
   assert.match(ownership, /\.cache/);
   assert.match(ownership, /install -d -m 0700 -o "gdgagent-run-\$\{slot\}"/);
   await withLayoutFixture(async ({ prefix, env }) => {
@@ -102,11 +101,7 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
     const mcp = JSON.parse(
       await readFile(join(prefix, "home/gdgagent-run-2/.cursor/mcp.json"), "utf8"),
     );
-    assert.deepEqual(Object.keys(mcp.mcpServers), ["google-workspace", "gdg-index"]);
-    assert.equal(
-      mcp.mcpServers["google-workspace"].command,
-      "/opt/gdg-agent/bin/google-workspace-mcp",
-    );
+    assert.deepEqual(Object.keys(mcp.mcpServers), ["gdg-index"]);
     assert.equal(
       mcp.mcpServers["gdg-index"].env.AGENTS_INDEX_SOCKET,
       "/run/gdg-agent/2/index.sock",
@@ -117,16 +112,14 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
     assert.match(launcher, /SLOT="1"/);
     assert.match(launcher, /PATH="\/opt\/gdg-agent\/bin:\/usr\/bin:\/bin"/);
     assert.match(launcher, /cp \/opt\/gdg-agent\/lib\/cli-config\.json/);
-    const mcpWrapper = await readFile(
-      join(prefix, "opt/gdg-agent/bin/google-workspace-mcp"),
-      "utf8",
-    );
-    assert.match(mcpWrapper, /GOOGLE_OAUTH_CLIENT_SECRET/);
-    assert.match(mcpWrapper, /\*\/bin\/workspace-mcp/);
+    const gwsWrapper = await readFile(join(prefix, "opt/gdg-agent/bin/gws"), "utf8");
+    assert.match(gwsWrapper, /exec \/usr\/bin\/node ".*\/lib\/gws\.ts" "\$@"/);
+    const gwsHook = await stat(join(prefix, "opt/gdg-agent/lib/gws.ts"));
+    assert.equal(gwsHook.mode & 0o777, 0o444);
     const permissions = JSON.parse(
       await readFile(join(prefix, "home/gdgagent-run-0/.cursor/permissions.json"), "utf8"),
     );
-    assert.deepEqual(permissions.mcpAllowlist, ["google-workspace:search_drive_files"]);
+    assert.deepEqual(permissions.gwsAllowlist, ["drive files list", "drive files get"]);
 
     const cursorDir = await stat(join(prefix, "home/gdgagent-run-0/.cursor"));
     assert.equal(cursorDir.isDirectory(), true);
@@ -200,15 +193,18 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.match(installSrc, /gdg wiki clone/);
     assert.match(installSrc, /\/usr\/local\/bin\/gdg/);
     assert.match(installSrc, /Harineko0\/xangi/);
-    assert.match(installSrc, /ensure_uv/);
-    assert.match(installSrc, /UV_UNMANAGED_INSTALL=\/usr\/local\/bin/);
-    assert.match(installSrc, /uvx is required for the google-workspace MCP/);
+    assert.match(installSrc, /ensure_gws/);
+    assert.doesNotMatch(installSrc, /ensure_uv\b/);
+    assert.doesNotMatch(installSrc, /uvx/);
+    assert.match(installSrc, /gws did not install correctly/);
     assert.match(installSrc, /Environment=AGENT_MODEL=gpt-5\.3-codex-low/);
     const cliConfigSrc = await readFile(
       join(repositoryRoot, "agents-local/config/cli-config.json"),
       "utf8",
     );
-    assert.match(cliConfigSrc, /Mcp\(google-workspace, search_drive_files\)/);
+    assert.doesNotMatch(cliConfigSrc, /google-workspace/);
+    assert.match(cliConfigSrc, /Shell\(gws\)/);
+    assert.match(cliConfigSrc, /Shell\(\/opt\/gdg-agent\/bin\/gws\)/);
     assert.match(installSrc, /npm ci failed; retrying once/);
     assert.match(installSrc, /\.local\/share\n/);
     assert.match(installSrc, /setup --apply/);

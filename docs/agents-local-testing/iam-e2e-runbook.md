@@ -101,6 +101,32 @@ member`) and the seeded `pages/test-chapter-restricted/page.md` (`visibility: re
 Pass only when the harness answer and direct `wk ls` / `wk read` evaluation agree, under the same
 nonce, for both pages.
 
+## Check 5 — gws network egress (networkAllowlist)
+
+`sandbox.networkAccess: "user_config_only"` with `networkAllowlist: ["www.googleapis.com"]`
+(`agents-local/config/cli-config.json`) is meant to let `gws` reach the Google Discovery Service
+and Drive API while blocking everything else. `networkAllowlist`'s exact matching semantics
+(hostname vs. full URL, port handling) are undocumented Cursor sandbox behavior — this check is
+the only place that verifies them; the JS/Go test suites only assert the config file's *content*,
+never that Cursor's sandbox actually enforces it.
+
+Run both probes as the same slot user, inside the sandboxed session (not `sudo -u` from outside
+it — that bypasses the sandbox entirely):
+
+```bash
+# 1. An approved gws call must reach www.googleapis.com and succeed.
+gws drive files list --page-limit 1
+
+# 2. An arbitrary non-allowlisted host must be blocked.
+curl -sS --max-time 5 https://example.com
+```
+
+Pass: (1) returns a Drive API response (or a clean auth/token error — anything other than a
+connect/DNS/timeout failure proves egress to `www.googleapis.com` worked); (2) fails with a
+connection-level error (refused, timed out, or DNS blocked) rather than a `200` or any HTTP
+response. If (2) succeeds, the sandbox is not enforcing `networkAllowlist` as configured and the
+gws rollout must not proceed until that's understood.
+
 ## Results record
 
 ```text
@@ -113,5 +139,6 @@ Check 1 (allow + nonce + wk fallback): PASS | FAIL
 Check 2 (no-held-classes, no child): PASS | FAIL
 Check 3 (no-effective-classes, no child): PASS | FAIL
 Check 4 (harness/wk visibility parity): PASS | FAIL
+Check 5 (gws allowed to www.googleapis.com, blocked to example.com): PASS | FAIL
 arm64 divergence from production x86-64:
 ```

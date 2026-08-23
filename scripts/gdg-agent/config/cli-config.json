@@ -3,11 +3,12 @@
     "allow": [
       "Shell(wk)",
       "Shell(/opt/gdg-agent/bin/wk)",
+      "Shell(gws)",
+      "Shell(/opt/gdg-agent/bin/gws)",
       "Read(**)",
       "Grep(**)",
       "List(**)",
-      "Mcp(gdg-index, search)",
-      "Mcp(google-workspace, search_drive_files)"
+      "Mcp(gdg-index, search)"
     ],
     "deny": []
   },
@@ -16,6 +17,9 @@
     "mode": "enabled",
     "readBoundary": "workspace",
     "networkAccess": "user_config_only",
-    "networkAllowlist": []
+    "networkAllowlist": ["www.googleapis.com"]
+  },
+  "networkAllowlistReasons": {
+    "www.googleapis.com": "Discovery documents and the Drive API for the approved gwsAllowlist entries (drive files list/get)"
   }
 }

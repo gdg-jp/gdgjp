@@ -8,13 +8,20 @@ import { join, relative, resolve, sep } from "node:path";
 
 import { findCloneRoot, verifyAclViaAuthz } from "./acl-core.ts";
 import { untaggedStagedAdds } from "./commit-tripwire.ts";
-import { inspectWkScript, isGitCommitInvocation } from "./shell-allowlist.ts";
+import {
+  inspectGwsScript,
+  inspectWkScript,
+  isAllowedGws,
+  isGitCommitInvocation,
+  loadGwsAllowlist,
+  peekArgv0,
+} from "./shell-allowlist.ts";
 
 /** Named allowlist: unknown tool names are deny. */
 const PASSTHROUGH_TOOLS = new Set(["Read", "Grep", "Glob", "List", "Shell"]);
 // MCP tools are named without their server identifier in Cursor hook payloads.
 // Keep this list to read-only tools that do not expose workspace content.
-const MCP_ALLOWLIST = new Set(["search", "search_drive_files"]);
+const MCP_ALLOWLIST = new Set(["search"]);
 const GATED_PREFIXES = ["pages/", "raw/", "memories/"];
 
 type ToolInput = {
@@ -259,6 +266,21 @@ async function handleShell(payload: HookPayload, root: string | null): Promise<v
     deny(root, "Shell", "Use wk for all shell work, for example: wk read pages/x/page.md");
     return;
   }
+  const argv0 = peekArgv0(command);
+  if (argv0 !== null && isAllowedGws(argv0)) {
+    const inspectedGws = inspectGwsScript(command, loadGwsAllowlist());
+    if (!inspectedGws.ok) {
+      deny(
+        root,
+        "Shell",
+        `${inspectedGws.reason}. gws access follows a fixed service/resource/method allowlist; this call is not on it.`,
+      );
+      return;
+    }
+    allow(root, "Shell");
+    return;
+  }
+
   const inspected = inspectWkScript(command);
   if (!inspected.ok) {
     deny(

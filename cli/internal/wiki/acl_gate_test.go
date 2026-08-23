@@ -10,6 +10,40 @@ import (
 	"testing"
 )
 
+func TestShellAllowlistNodeTests(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node not available")
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hooksDir := filepath.Join(wd, "hooks")
+	cmd := exec.Command("node", "--test", filepath.Join(hooksDir, "shell-allowlist.test.ts"))
+	cmd.Dir = hooksDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("node --test: %v\n%s", err, out)
+	}
+}
+
+func TestGwsNodeTests(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node not available")
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hooksDir := filepath.Join(wd, "hooks")
+	cmd := exec.Command("node", "--test", filepath.Join(hooksDir, "gws.test.ts"))
+	cmd.Dir = hooksDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("node --test: %v\n%s", err, out)
+	}
+}
+
 func gateScript(t *testing.T) string {
 	t.Helper()
 	wd, err := os.Getwd()
@@ -45,6 +79,20 @@ func writeClone(t *testing.T, root string) {
 
 func runGate(t *testing.T, dir string, payload map[string]any, extraWk string) (stdout, stderr string) {
 	t.Helper()
+	if extraWk != "" {
+		return runGateEnv(t, dir, nil, payload, extraWk)
+	}
+	return runGateEnv(t, dir, nil, payload)
+}
+
+func runGateEnv(
+	t *testing.T,
+	dir string,
+	env []string,
+	payload map[string]any,
+	extraArgv ...string,
+) (stdout, stderr string) {
+	t.Helper()
 	if _, err := exec.LookPath("node"); err != nil {
 		t.Skip("node not available")
 	}
@@ -52,12 +100,12 @@ func runGate(t *testing.T, dir string, payload map[string]any, extraWk string) (
 	if err != nil {
 		t.Fatal(err)
 	}
-	args := []string{gateScript(t)}
-	if extraWk != "" {
-		args = append(args, extraWk)
-	}
+	args := append([]string{gateScript(t)}, extraArgv...)
 	cmd := exec.Command("node", args...)
 	cmd.Dir = dir
+	if env != nil {
+		cmd.Env = env
+	}
 	cmd.Stdin = bytes.NewReader(raw)
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
@@ -66,6 +114,21 @@ func runGate(t *testing.T, dir string, payload map[string]any, extraWk string) (
 		t.Fatalf("gate exited %v\nstdout=%s\nstderr=%s", runErr, outBuf.String(), errBuf.String())
 	}
 	return outBuf.String(), errBuf.String()
+}
+
+func writeGwsAllowlist(t *testing.T, home string, entries []string) {
+	t.Helper()
+	dir := filepath.Join(home, ".cursor")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(map[string]any{"gwsAllowlist": entries})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "permissions.json"), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func assertDeny(t *testing.T, stdout, want string) {
@@ -177,10 +240,52 @@ func TestACLGateMCPAllowlist(t *testing.T) {
 	writeClone(t, root)
 	stdout, _ := runGate(t, root, map[string]any{"tool_name": "MCP:search", "cwd": root}, "")
 	assertAllow(t, stdout)
-	stdout, _ = runGate(t, root, map[string]any{"tool_name": "MCP:search_drive_files", "cwd": root}, "")
-	assertAllow(t, stdout)
 	stdout, _ = runGate(t, root, map[string]any{"tool_name": "MCP:filesystem", "cwd": root}, "")
 	assertDeny(t, stdout, "not approved")
+}
+
+func TestACLGateShellGwsAllowlist(t *testing.T) {
+	root := t.TempDir()
+	writeClone(t, root)
+	home := t.TempDir()
+	writeGwsAllowlist(t, home, []string{"drive files list", "drive files get"})
+	env := append(os.Environ(), "HOME="+home)
+
+	allow := []string{
+		"gws drive files list",
+		"gws drive files list --json",
+		"gws drive files list --page-all --page-limit 50",
+		"gws drive files get FILE_ID",
+	}
+	for _, command := range allow {
+		stdout, _ := runGateEnv(t, root, env, map[string]any{
+			"tool_name":  "Shell",
+			"cwd":        root,
+			"tool_input": map[string]any{"command": command},
+		})
+		if strings.Contains(stdout, `"permission":"deny"`) {
+			t.Fatalf("allowlisted gws command denied: %s\n%s", command, stdout)
+		}
+	}
+
+	deny := []string{
+		"gws drive files emptyTrash",
+		"gws drive files list --upload",
+		"gws drive files list --unknown-flag",
+		"gws drive files list | cat",
+		"gws drive files list; rm -rf /",
+		"gws drive files `id`",
+		"gws drive files list && wk read pages/x/page.md",
+		"wk read pages/x/page.md && gws drive files list",
+	}
+	for _, command := range deny {
+		stdout, _ := runGateEnv(t, root, env, map[string]any{
+			"tool_name":  "Shell",
+			"cwd":        root,
+			"tool_input": map[string]any{"command": command},
+		})
+		assertDeny(t, stdout, "")
+	}
 }
 
 func TestACLGateShellAllowlist(t *testing.T) {

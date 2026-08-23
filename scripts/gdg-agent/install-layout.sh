@@ -58,7 +58,7 @@ if ! [[ "$SLOT_COUNT" =~ ^[1-9][0-9]*$ ]]; then
   echo "GDG_AGENT_SLOT_COUNT must be a positive integer" >&2
   exit 1
 fi
-if [[ -z "$HOOKS_SRC" || ! -f "$HOOKS_SRC/acl-gate.ts" || ! -f "$HOOKS_SRC/wk.ts" ]]; then
+if [[ -z "$HOOKS_SRC" || ! -f "$HOOKS_SRC/acl-gate.ts" || ! -f "$HOOKS_SRC/wk.ts" || ! -f "$HOOKS_SRC/gws.ts" ]]; then
   echo "GDG_SETUP_HOOKS_SRC must point at cli/internal/wiki/hooks" >&2
   exit 1
 fi
@@ -75,7 +75,7 @@ install -d -m 0755 "$AGENT_ROOT/lib" "$AGENT_ROOT/bin" "$WIKI_ROOT" "$RUN_ROOT" 
   "$ETC_ROOT/sudoers.d" "$ETC_ROOT/tmpfiles.d"
 
 install -m 0444 "$HOOKS_SRC/package.json" "$AGENT_ROOT/package.json"
-for f in acl-gate.ts wk.ts acl-core.ts shell-allowlist.ts commit-tripwire.ts acl-insert-core.ts acl.ts exec-spawn.ts; do
+for f in acl-gate.ts wk.ts gws.ts acl-core.ts shell-allowlist.ts commit-tripwire.ts acl-insert-core.ts acl.ts exec-spawn.ts; do
   writable "$AGENT_ROOT/lib/$f"
   install -m 0444 "$HOOKS_SRC/$f" "$AGENT_ROOT/lib/$f"
 done
@@ -97,29 +97,11 @@ exec /usr/bin/node "$AGENT_ROOT/lib/wk.ts" "\$@"
 EOF
 chmod 0755 "$AGENT_ROOT/bin/wk"
 
-cat > "$AGENT_ROOT/bin/google-workspace-mcp" <<'EOF'
+cat > "$AGENT_ROOT/bin/gws" <<EOF
 #!/bin/sh
-set -eu
-env_file="$HOME/.config/google-workspace-mcp.env"
-if [ ! -r "$env_file" ]; then
-  echo "missing Google Workspace MCP environment file: $env_file" >&2
-  exit 1
-fi
-while IFS='=' read -r key value; do
-  case "$key" in
-    GOOGLE_OAUTH_CLIENT_ID|GOOGLE_OAUTH_CLIENT_SECRET|GOOGLE_OAUTH_REDIRECT_URI|OAUTHLIB_INSECURE_TRANSPORT|WORKSPACE_MCP_PORT)
-      export "$key=$value"
-      ;;
-  esac
-done < "$env_file"
-tool="$(find "$HOME/.cache/uv/archive-v0" -type f -path '*/bin/workspace-mcp' -perm -u+x -print -quit 2>/dev/null || true)"
-if [ -z "$tool" ]; then
-  /usr/local/bin/uvx workspace-mcp --help >/dev/null
-  tool="$(find "$HOME/.cache/uv/archive-v0" -type f -path '*/bin/workspace-mcp' -perm -u+x -print -quit)"
-fi
-exec "$tool" "$@"
+exec /usr/bin/node "$AGENT_ROOT/lib/gws.ts" "\$@"
 EOF
-chmod 0755 "$AGENT_ROOT/bin/google-workspace-mcp"
+chmod 0755 "$AGENT_ROOT/bin/gws"
 
 sudoers="$ETC_ROOT/sudoers.d/gdg-agent"
 if [[ -f "$sudoers" ]]; then

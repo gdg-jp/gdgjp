@@ -3,7 +3,7 @@
   "hooks": {
     "preToolUse": [
       {
-        "command": "/usr/bin/node /opt/gdg-agent/lib/acl-gate.ts /opt/gdg-agent/bin/wk",
+        "command": "/usr/bin/node /opt/gdg-agent/lib/acl-gate.ts /opt/gdg-agent/bin/wk /opt/gdg-agent/bin/gws",
         "timeout": 10,
         "failClosed": true
       }

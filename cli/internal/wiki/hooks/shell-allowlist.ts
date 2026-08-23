@@ -1,4 +1,6 @@
 /** Narrow argv allowlist for Shell. Anything outside this grammar is deny. */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const BARE = /^[A-Za-z0-9._/@:,+=-]+$/;
 const DELIM = /^[A-Za-z0-9_]+$/;
@@ -27,16 +29,23 @@ const FORBIDDEN = new Set([
 
 export type ShellDecision = { ok: true; simples: string[][] } | { ok: false; reason: string };
 
-function extraWkPath(): string | null {
-  const raw = process.argv[2];
+/** acl-gate.ts is invoked as `node acl-gate.ts <extraWkPath> <extraGwsPath>`. */
+function extraBinaryPath(argIndex: number, name: string): string | null {
+  const raw = process.argv[argIndex];
   if (!raw || !raw.startsWith("/") || raw.includes("..") || raw.includes("//")) return null;
-  if (!raw.endsWith("/wk")) return null;
+  if (!raw.endsWith(`/${name}`)) return null;
   return raw;
 }
 
 export function isAllowedWk(argv0: string): boolean {
   if (argv0 === "wk") return true;
-  const extra = extraWkPath();
+  const extra = extraBinaryPath(2, "wk");
+  return extra !== null && argv0 === extra;
+}
+
+export function isAllowedGws(argv0: string): boolean {
+  if (argv0 === "gws") return true;
+  const extra = extraBinaryPath(3, "gws");
   return extra !== null && argv0 === extra;
 }
 
@@ -204,4 +213,99 @@ export function inspectWkScript(command: string): ShellDecision {
 
 export function isGitCommitInvocation(simples: string[][]): boolean {
   return simples.some((argv) => argv[1] === "git" && argv[2] === "commit");
+}
+
+/** Peeks at the first token of a shell command without validating the rest. */
+export function peekArgv0(command: string): string | null {
+  if (typeof command !== "string") return null;
+  const trimmed = command.replace(/^[ \t\n\r]+|[ \t\n\r]+$/g, "");
+  const index = skipWs(trimmed, 0);
+  const token =
+    readQuoted(trimmed, index) ?? readDoubleQuoted(trimmed, index) ?? readBare(trimmed, index);
+  return token ? token.value : null;
+}
+
+/** local-file exfiltration vector; every other flag outside GWS_ALLOWED_FLAGS is also deny. */
+const GWS_UPLOAD_FLAG = "--upload";
+const GWS_ALLOWED_FLAGS = new Set(["--params", "--json", "--page-all", "--page-limit"]);
+
+function gwsFlagsOk(argsAfterBinary: string[]): { ok: true } | { ok: false; reason: string } {
+  for (const token of argsAfterBinary) {
+    if (!token.startsWith("-")) continue;
+    if (token === GWS_UPLOAD_FLAG) {
+      return { ok: false, reason: "gws --upload is not permitted (local-file exfiltration risk)" };
+    }
+    if (!GWS_ALLOWED_FLAGS.has(token)) {
+      return { ok: false, reason: `gws flag ${token} is not on the approved flag list` };
+    }
+  }
+  return { ok: true };
+}
+
+/**
+ * gws's command surface is Discovery-driven, not statically enumerable — Google
+ * could add a more dangerous method under an already-approved resource at any
+ * time. Match the exact "service resource method" (or "service +helper")
+ * signature only; never fall back to a resource-level or service-level wildcard.
+ */
+function gwsSignature(argsAfterBinary: string[], allowlist: Set<string>): string | null {
+  for (const length of [3, 2]) {
+    if (argsAfterBinary.length < length) continue;
+    const candidate = argsAfterBinary.slice(0, length).join(" ");
+    if (allowlist.has(candidate)) return candidate;
+  }
+  return null;
+}
+
+export function isApprovedGwsArgs(
+  argsAfterBinary: string[],
+  allowlist: Set<string>,
+): { ok: true } | { ok: false; reason: string } {
+  const flags = gwsFlagsOk(argsAfterBinary);
+  if (!flags.ok) return flags;
+  const signature = gwsSignature(argsAfterBinary, allowlist);
+  if (!signature) {
+    return {
+      ok: false,
+      reason: "gws command is not on the approved service/resource/method allowlist",
+    };
+  }
+  return { ok: true };
+}
+
+export function inspectGwsScript(command: string, allowlist: Set<string>): ShellDecision {
+  if (typeof command !== "string" || command.trim() === "") {
+    return { ok: false, reason: "shell command is empty" };
+  }
+  const trimmed = command.replace(/^[ \t\n\r]+|[ \t\n\r]+$/g, "");
+  if (!charsetOk(trimmed)) {
+    return { ok: false, reason: "shell uses a metacharacter outside the argv allowlist" };
+  }
+  const simples = tokenizeSimples(trimmed);
+  if (!simples) return { ok: false, reason: "shell command could not be tokenized" };
+  for (const argv of simples) {
+    const argv0 = argv[0] ?? "";
+    if (argv0.includes("=") || !isAllowedGws(argv0)) {
+      return { ok: false, reason: "every simple command must start with gws" };
+    }
+    const approved = isApprovedGwsArgs(argv.slice(1), allowlist);
+    if (!approved.ok) return { ok: false, reason: approved.reason };
+  }
+  return { ok: true, simples };
+}
+
+/** Fail closed: a missing, unreadable, or malformed allowlist approves nothing. */
+export function loadGwsAllowlist(): Set<string> {
+  const home = process.env.HOME;
+  if (!home) return new Set();
+  try {
+    const raw = readFileSync(join(home, ".cursor", "permissions.json"), "utf8");
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return new Set();
+    const list = (parsed as { gwsAllowlist?: unknown }).gwsAllowlist;
+    if (!Array.isArray(list)) return new Set();
+    return new Set(list.filter((entry): entry is string => typeof entry === "string"));
+  } catch {
+    return new Set();
+  }
 }

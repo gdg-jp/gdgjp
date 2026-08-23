@@ -150,20 +150,58 @@ ensure_pnpm() {
   }
 }
 
-ensure_uv() {
-  if command -v uvx >/dev/null 2>&1; then
-    echo "    uvx $(uvx --version)"
-    return
+GWS_VERSION="v0.22.5"
+GWS_SHA256_X86_64_LINUX="de78ecdbd2f1a84cca0063a7ecbc440240fc14b6ebccbb17f4646b792a8c5c1f"
+GWS_SHA256_AARCH64_LINUX="94490295d9580e1e88574e715a0a162991747d12d62f8c7b8dcc8268b6c1cea0"
+
+ensure_gws() {
+  local dest="/opt/gdg-agent/bin/gws-bin"
+  # gws prints exactly "gws <CARGO_PKG_VERSION>" for --version (no "v" prefix,
+  # unlike the release tag): verified against crates/google-workspace-cli/src/main.rs.
+  local want="gws ${GWS_VERSION#v}"
+  if [[ -x "$dest" ]]; then
+    local have
+    have="$("$dest" --version 2>/dev/null || true)"
+    if [[ "$have" == "$want" ]]; then
+      echo "    gws already installed: $have"
+      return
+    fi
+    echo "    gws at $dest reports '$have', not the pinned '$want'; reinstalling"
   fi
   if [[ -n "$PREFIX" || "$(id -u)" -ne 0 ]]; then
-    echo "uvx is required for the google-workspace MCP; install uv system-wide first." >&2
+    echo "gws $want is required at $dest; install it or unset GDG_SETUP_PREFIX to let install.sh fetch it." >&2
     exit 1
   fi
-  echo "==> install uv (google-workspace MCP runtime)"
-  curl -LsSf https://astral.sh/uv/install.sh |
-    env UV_UNMANAGED_INSTALL=/usr/local/bin sh
-  command -v uvx >/dev/null 2>&1 || {
-    echo "uv installer did not put uvx on PATH" >&2
+  local arch asset sha256
+  arch="$(uname -m)"
+  case "$arch" in
+    x86_64)
+      asset="google-workspace-cli-x86_64-unknown-linux-gnu.tar.gz"
+      sha256="$GWS_SHA256_X86_64_LINUX"
+      ;;
+    aarch64)
+      asset="google-workspace-cli-aarch64-unknown-linux-gnu.tar.gz"
+      sha256="$GWS_SHA256_AARCH64_LINUX"
+      ;;
+    *)
+      echo "unsupported architecture for gws: $arch" >&2
+      exit 1
+      ;;
+  esac
+  echo "==> install gws $GWS_VERSION ($arch) from GitHub Releases"
+  local tmp
+  tmp="$(mktemp -d)"
+  curl -fsSL -o "$tmp/gws.tar.gz" \
+    "https://github.com/googleworkspace/cli/releases/download/${GWS_VERSION}/${asset}"
+  echo "$sha256  $tmp/gws.tar.gz" | sha256sum -c -
+  tar -xzf "$tmp/gws.tar.gz" -C "$tmp" gws
+  install -d -m 0755 "$(dirname "$dest")"
+  install -m 0755 "$tmp/gws" "$dest"
+  rm -rf "$tmp"
+  local installed
+  installed="$("$dest" --version 2>/dev/null || true)"
+  [[ "$installed" == "$want" ]] || {
+    echo "gws did not install correctly at $dest (got '$installed', want '$want')" >&2
     exit 1
   }
 }
@@ -538,7 +576,7 @@ print_remaining() {
 place_live_host() {
   [[ -z "$PREFIX" ]] || return 0
   ensure_gdg_system
-  ensure_uv
+  ensure_gws
   ensure_cursor_cli
   ensure_xangi_fork
   copy_operator_runtime_secrets
@@ -607,7 +645,7 @@ if [[ -z "$PREFIX" ]]; then
 fi
 build_acl "$gdgjp"
 
-if [[ ! -f "$hooks_src/acl-gate.ts" || ! -f "$hooks_src/wk.ts" ]]; then
+if [[ ! -f "$hooks_src/acl-gate.ts" || ! -f "$hooks_src/wk.ts" || ! -f "$hooks_src/gws.ts" ]]; then
   echo "GDG_SETUP_HOOKS_SRC must point at cli/internal/wiki/hooks ($hooks_src)" >&2
   exit 1
 fi
