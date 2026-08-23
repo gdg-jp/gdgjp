@@ -37,7 +37,8 @@
     "developerAppsNew": "Create an OIDC client — GDG Japan Accounts",
     "developerAppsDetail": "Manage OIDC client — GDG Japan Accounts",
     "oauthConsent": "Authorize application — GDG Japan Accounts",
-    "device": "Sign in to the CLI — GDG Japan Accounts"
+    "device": "Sign in to the CLI — GDG Japan Accounts",
+    "googleWorkspace": "Google Workspace — GDG Japan Accounts"
   },
   "dashboard": {
     "memberships": {
@@ -54,6 +55,7 @@
     "memberSimple": {
       "oidcLink": "Manage OIDC clients"
     },
+    "googleWorkspaceLink": "Connect Google Workspace",
     "noChapter": {
       "title": "No chapter yet",
       "description": "Pick a GDG or GDGoC chapter to request membership. An organizer will approve your request.",
@@ -553,6 +555,22 @@
     },
     "userMenuAria": "Account menu",
     "signOut": "Sign out"
+  },
+  "settings": {
+    "googleWorkspace": {
+      "title": "Google Workspace",
+      "description": "Additively grant the GDG agent read-only access to your Google Drive, on top of your existing sign-in.",
+      "connectedTitle": "Connected",
+      "connectedDescription": "Granted scope: {{scope}}",
+      "notConnectedTitle": "Not connected",
+      "notConnectedDescription": "Connect your Google account to let the GDG agent read your Drive on your behalf.",
+      "connect": "Connect Google Workspace",
+      "disconnect": "Disconnect",
+      "disconnectConfirmTitle": "Disconnect Google Workspace?",
+      "disconnectConfirmDescription": "The GDG agent will no longer be able to access your Google Drive. You can reconnect at any time.",
+      "toastConnected": "Google Workspace connected.",
+      "toastError": "Couldn't connect Google Workspace ({{reason}})."
+    }
   },
   "errors": {
     "selectChapter": "Please select a chapter.",

@@ -393,7 +393,10 @@ function sameStringArray(left: string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-async function requireCliTokenUser(env: Env, authorization: string): Promise<{ id: string }> {
+export async function requireCliTokenUser(
+  env: Env,
+  authorization: string,
+): Promise<{ id: string }> {
   const token = /^Bearer ([^\s]+)$/i.exec(authorization)?.[1];
   if (!token) throw unauthorized();
   const row = await env.DB.prepare(

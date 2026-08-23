@@ -272,6 +272,21 @@ function MemberSimpleOidcLink() {
   );
 }
 
+function GoogleWorkspaceLink() {
+  const { t } = useTranslation();
+  return (
+    <p className="mt-4 text-sm text-muted-foreground">
+      <Link
+        to="/settings/google-workspace"
+        prefetch="intent"
+        className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline"
+      >
+        {t("dashboard.googleWorkspaceLink")} <ArrowRight className="size-3.5" />
+      </Link>
+    </p>
+  );
+}
+
 function RoleToolsSection({
   user,
   canRegisterApps,
@@ -377,6 +392,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
     <PageShell user={user} size="lg">
       <div>
         <MembershipsSection memberships={memberships} compact={!organizerChrome} />
+        <GoogleWorkspaceLink />
       </div>
       {organizerChrome ? (
         <RoleToolsSection

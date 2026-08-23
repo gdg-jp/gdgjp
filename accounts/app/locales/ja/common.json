@@ -37,7 +37,8 @@
     "developerAppsNew": "OIDC クライアントを作成 — GDG Japan Accounts",
     "developerAppsDetail": "OIDC クライアントを管理 — GDG Japan Accounts",
     "oauthConsent": "アプリケーションを認可 — GDG Japan Accounts",
-    "device": "CLI にサインイン — GDG Japan Accounts"
+    "device": "CLI にサインイン — GDG Japan Accounts",
+    "googleWorkspace": "Google Workspace — GDG Japan Accounts"
   },
   "dashboard": {
     "memberships": {
@@ -54,6 +55,7 @@
     "memberSimple": {
       "oidcLink": "OIDC クライアントを管理"
     },
+    "googleWorkspaceLink": "Google Workspace を連携",
     "noChapter": {
       "title": "チャプター未所属",
       "description": "GDG または GDGoC のチャプターを選んで参加リクエストを送ってください。オーガナイザーが承認します。",
@@ -552,6 +554,22 @@
     },
     "userMenuAria": "アカウントメニュー",
     "signOut": "サインアウト"
+  },
+  "settings": {
+    "googleWorkspace": {
+      "title": "Google Workspace",
+      "description": "既存のサインインに加えて、GDG エージェントに Google ドライブへの読み取り専用アクセスを追加で許可します。",
+      "connectedTitle": "連携済み",
+      "connectedDescription": "許可されたスコープ: {{scope}}",
+      "notConnectedTitle": "未連携",
+      "notConnectedDescription": "Google アカウントを連携すると、GDG エージェントがあなたに代わって Google ドライブを読み取れるようになります。",
+      "connect": "Google Workspace を連携",
+      "disconnect": "連携を解除",
+      "disconnectConfirmTitle": "Google Workspace の連携を解除しますか?",
+      "disconnectConfirmDescription": "GDG エージェントはあなたの Google ドライブにアクセスできなくなります。いつでも再連携できます。",
+      "toastConnected": "Google Workspace を連携しました。",
+      "toastError": "Google Workspace の連携に失敗しました（{{reason}}）。"
+    }
   },
   "errors": {
     "selectChapter": "チャプターを選択してください。",

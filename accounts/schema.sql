@@ -224,3 +224,36 @@ CREATE TABLE oauthDeviceCode (
 CREATE INDEX oauthDeviceCode_expiresAt_idx ON oauthDeviceCode (expiresAt);
 CREATE INDEX oauthDeviceCode_clientId_idx ON oauthDeviceCode (clientId);
 CREATE INDEX oauthDeviceCode_ipHash_idx ON oauthDeviceCode (ipHash);
+CREATE TABLE googleWorkspaceOauthState (
+  id TEXT NOT NULL PRIMARY KEY,
+  userId TEXT NOT NULL REFERENCES "user" (id) ON DELETE CASCADE,
+  codeVerifier TEXT NOT NULL,
+  returnTo TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  expiresAt TEXT NOT NULL
+);
+CREATE INDEX googleWorkspaceOauthState_expiresAt_idx ON googleWorkspaceOauthState (expiresAt);
+CREATE TABLE googleWorkspaceConnection (
+  userId TEXT NOT NULL PRIMARY KEY REFERENCES "user" (id) ON DELETE CASCADE,
+  refreshTokenCiphertext TEXT NOT NULL,
+  refreshTokenNonce TEXT NOT NULL,
+  encryptionKeyVersion INTEGER NOT NULL,
+  scope TEXT NOT NULL,
+  connectedAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL,
+  revokedAt TEXT
+);
+CREATE TABLE googleWorkspaceTokenAudit (
+  id TEXT NOT NULL PRIMARY KEY,
+  callerUserId TEXT NOT NULL,
+  targetUserId TEXT NOT NULL,
+  outcome TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX googleWorkspaceTokenAudit_caller_createdAt_idx
+  ON googleWorkspaceTokenAudit (callerUserId, createdAt);
+CREATE TABLE googleWorkspaceTokenRateLimit (
+  callerUserId TEXT NOT NULL PRIMARY KEY,
+  windowStart INTEGER NOT NULL,
+  count INTEGER NOT NULL
+);

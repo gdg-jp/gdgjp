@@ -2,6 +2,10 @@
 GOOGLE_CLIENT_SECRET=""
 # Better Auth encryption/signing key. Generate with e.g. `openssl rand -base64 48`.
 BETTER_AUTH_SECRET=""
+# AES-256 key encrypting google_workspace_connections refresh tokens at rest.
+# Generate with `openssl rand -base64 32`. See rotation notes in
+# accounts/app/lib/google-workspace.server.ts.
+GOOGLE_WORKSPACE_ENCRYPTION_KEY=""
 
 # Per-RP client secrets (one per app registered as a trusted OIDC client; written
 # into D1 by the /admin/seed-clients route).
