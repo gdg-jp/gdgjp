@@ -17,32 +17,28 @@ or an `error` response.
   `~/.config/cursor/auth.json` to copy (its credential lives in the Keychain).
 - IAM was seeded before `activate.sh`, or xangi was restarted after a re-seed — IAM is read only
   at startup.
-- For a Google Workspace MCP E2E, a test-only Google OAuth client has been written with
-  `dev/configure-google-workspace-mcp.sh`, and
-  `dev/open-google-workspace-oauth-tunnel.sh` is running on the Mac host. The first MCP tool
-  call must return an authorization URL; complete it in the host browser, then retry the same
-  call. Do not copy production Google refresh tokens into the VM.
+- For the real `gws` linking flow below (checks 6/7), two **real** Discord user ids are needed —
+  `/login` and "Connect Google Workspace" bind to the actual Discord interaction user, not the
+  synthetic `test-user` fixture id used by checks 1–5: one that has run `/login` in Discord *and*
+  used "Connect Google Workspace" on `accounts.gdgs.jp` (a real Google OAuth consent, done once,
+  outside the VM), and one that has done neither (or `/login` only, no Workspace connection).
+  For the fast local-wiring check instead, `dev/seed-gws-fake-token.sh` needs no precondition
+  beyond `activate.sh`. Never copy production Google refresh tokens into the VM.
 
 ```bash
 invoke() {
+  local user="${4:-test-user}"
   sudo -u gdgagent-svc xangi harness invoke --guild test-guild --channel "$1" \
-    --user test-user --roles "$2" --message "$3" --json
+    --user "$user" --roles "$2" --message "$3" --json
 }
 ```
+
+Checks 1–5 call `invoke` with three arguments and get the synthetic `test-user` fixture id.
+Checks 6/7 pass a fourth argument — a real Discord user id — explicitly.
 
 Response shape is `{classes, channelAudience, slot, runId, denialReason, result?, error?}`.
 **Check `error` first** — on the error branch `denialReason` is null, so a null denial reason
 reads like an allow unless `error` is also checked.
-
-## Google Workspace MCP OAuth URL flow
-
-Use the organizer allow path to ask Cursor to perform a harmless Google Workspace read with the
-dedicated test account. On the first call, record the authorization URL, complete consent in the
-Mac browser while the SSH tunnel is open, and retry the same request.
-
-Pass: the retry succeeds without a new authorization URL; the token exists only in the invoking
-slot's `.google_workspace_mcp/credentials/` directory with mode `0600`; and no `DISCORD_TOKEN`,
-production OAuth client, or production refresh token is present in the VM.
 
 ## Check 1 — organizer allow path
 
@@ -127,6 +123,51 @@ connection-level error (refused, timed out, or DNS blocked) rather than a `200` 
 response. If (2) succeeds, the sandbox is not enforcing `networkAllowlist` as configured and the
 gws rollout must not proceed until that's understood.
 
+## Check 6 — gws linked case
+
+Use the organizer allow path, with the **real** Discord user id of the account that has already
+run `/login` and "Connect Google Workspace", to ask Cursor to perform a harmless Google Workspace
+read (`gws drive files list`):
+
+```bash
+invoke ch-chapter role-organizer \
+  "Read one Drive file listing with gws to confirm Google Workspace access." \
+  "<linked-discord-user-id>"
+```
+
+Because `accounts.gdgs.jp` is the real deployed service (not something this VM runs), no OAuth
+URL or local browser step is needed at invocation time — that consent already happened once,
+outside the VM, when the account was linked.
+
+Pass: the call succeeds without any authorization prompt; `gws.ts` never wrote a credential file
+anywhere in the slot's home; and no `DISCORD_TOKEN`, production Google OAuth client secret, or
+production refresh token is present in the VM.
+
+## Check 7 — gws unlinked case (graceful failure)
+
+Repeat with the **real** Discord user id of an account that has **not** run `/login`, or has
+`/login` but no Workspace connection:
+
+```bash
+invoke ch-chapter role-organizer \
+  "Read one Drive file listing with gws to confirm Google Workspace access." \
+  "<unlinked-discord-user-id>"
+```
+
+Pass: the harness result surfaces `gws`'s "connect Google Workspace first: run /login in Discord,
+then accounts.gdgs.jp/settings" message as a normal tool-output error (not a crash, not an
+authorization URL, not a hang); no access token was requested.
+
+## Fast local `gws` wiring check (no real Google consent, not a pass/fail gate)
+
+For iterating on `gws.ts`, the Shell allowlist, or the authz-socket plumbing without doing the
+real consent every time, run `dev/seed-gws-fake-token.sh` in one VM terminal and, in a second
+terminal, run the `sudo -u gdgagent-run-<N> env XANGI_AUTHZ_SOCKET=... XANGI_AUTHZ_NONCE=... gws
+...` command it prints. This is **not** a substitute for checks 6/7 above — it proves the
+mediator's own wiring, not real Google connectivity, and the token it hands `gws-bin` is fake (an
+approved call reaches Google and fails with a 401, which is expected). See
+`agents-local/dev/README.md`.
+
 ## Results record
 
 ```text
@@ -140,5 +181,7 @@ Check 2 (no-held-classes, no child): PASS | FAIL
 Check 3 (no-effective-classes, no child): PASS | FAIL
 Check 4 (harness/wk visibility parity): PASS | FAIL
 Check 5 (gws allowed to www.googleapis.com, blocked to example.com): PASS | FAIL
+Check 6 (gws linked case, no authorization prompt): PASS | FAIL
+Check 7 (gws unlinked case, graceful "connect Google Workspace first" error): PASS | FAIL
 arm64 divergence from production x86-64:
 ```

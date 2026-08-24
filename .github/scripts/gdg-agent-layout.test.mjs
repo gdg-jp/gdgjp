@@ -234,25 +234,28 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.match(seedIamSrc, /gdgagent-svc/);
     assert.match(seedIamSrc, /\.gdgwiki\/config\.json/);
     assert.match(seedIamSrc, /not a wiki clone yet/);
-    const configureGoogleWorkspace = join(
-      repositoryRoot,
-      "agents-local/dev/configure-google-workspace-mcp.sh",
+    assert.equal(
+      existsSync(join(repositoryRoot, "agents-local/dev/configure-google-workspace-mcp.sh")),
+      false,
+      "the device-local OAuth-tunnel dev script must not come back",
     );
-    const configureGoogleWorkspaceStat = await stat(configureGoogleWorkspace);
-    assert.equal(configureGoogleWorkspaceStat.mode & 0o111, 0o111);
-    const configureGoogleWorkspaceSrc = await readFile(configureGoogleWorkspace, "utf8");
-    assert.match(configureGoogleWorkspaceSrc, /A TTY is required/);
-    assert.match(configureGoogleWorkspaceSrc, /GOOGLE_OAUTH_REDIRECT_URI=http:\/\/localhost:/);
-    assert.match(configureGoogleWorkspaceSrc, /install -m 0600/);
-    const googleOAuthTunnel = join(
-      repositoryRoot,
-      "agents-local/dev/open-google-workspace-oauth-tunnel.sh",
+    assert.equal(
+      existsSync(join(repositoryRoot, "agents-local/dev/open-google-workspace-oauth-tunnel.sh")),
+      false,
+      "the device-local OAuth-tunnel dev script must not come back",
     );
-    const googleOAuthTunnelStat = await stat(googleOAuthTunnel);
-    assert.equal(googleOAuthTunnelStat.mode & 0o111, 0o111);
-    const googleOAuthTunnelSrc = await readFile(googleOAuthTunnel, "utf8");
-    assert.match(googleOAuthTunnelSrc, /ssh -F/);
-    assert.match(googleOAuthTunnelSrc, /127\.0\.0\.1:\$\{port\}:127\.0\.0\.1:\$\{port\}/);
+    const seedGwsFakeToken = join(repositoryRoot, "agents-local/dev/seed-gws-fake-token.sh");
+    const seedGwsFakeTokenStat = await stat(seedGwsFakeToken);
+    assert.equal(seedGwsFakeTokenStat.mode & 0o111, 0o111);
+    const seedGwsFakeTokenSrc = await readFile(seedGwsFakeToken, "utf8");
+    assert.match(seedGwsFakeTokenSrc, /Run with sudo inside the VM/);
+    assert.match(seedGwsFakeTokenSrc, /XANGI_AUTHZ_SOCKET/);
+    assert.match(seedGwsFakeTokenSrc, /XANGI_AUTHZ_NONCE/);
+    const gwsFakeTokenStub = join(repositoryRoot, "agents-local/dev/gws-fake-token-stub.mjs");
+    const gwsFakeTokenStubSrc = await readFile(gwsFakeTokenStub, "utf8");
+    assert.match(gwsFakeTokenStubSrc, /\/resolve/);
+    assert.match(gwsFakeTokenStubSrc, /\/workspace-token/);
+    assert.match(gwsFakeTokenStubSrc, /fake/i);
     const iamFixture = await readFile(
       join(repositoryRoot, "agents-local/dev/iam-fixture.json"),
       "utf8",

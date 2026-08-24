@@ -95,8 +95,11 @@ Google Workspace MCP のプロセスとログは、この最小 Cursor 実行で
 2. 完了: `gpt-5.3-codex-low` で最小 prompt が JSON を返し、organizer allow path も
    `result: "ok"`、chapter-organizer class、slot、run ID を返した。nonce と Cursor child の
    cleanup、`xangi.service` の active 状態も確認した。
-3. 未実施: Google Workspace MCP の read-only tool callで OAuth URL → host browser
-   callback → retry を検証する。
+3. **Superseded**: この項目が指していた「Google Workspace MCP の read-only tool call で OAuth URL
+   → host browser callback → retry を検証する」テストは、google-workspace-mcp 自体の廃止
+   (`docs/agents-local-gws/plan.md`) により対象が存在しない。後継の検証は
+   `docs/agents-local-testing/iam-e2e-runbook.md` の Check 6 / Check 7（`gws` の linked/unlinked
+   ケース）が引き継ぐ。
 
 Cursor の sandbox を無効化したり、production の Cursor／Google tokens を VM へコピーしたりして
 回避してはならない。どちらもこの E2E の検証対象である uid isolation と安全境界を失わせる。
