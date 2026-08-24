@@ -527,6 +527,63 @@ EOF
   as_svc systemctl --user enable langfuse-forwarder.timer
 }
 
+prompt_langfuse_credentials() {
+  local cred="/home/gdgagent-svc/.config/langfuse/credentials.json"
+  [[ -s "$cred" ]] && return 0
+  [[ -t 0 ]] || return 0
+
+  echo
+  local reply
+  read -r -p "==> Set up Langfuse observability now? (optional; bot works without it) [y/N] " reply
+  case "$reply" in
+    [yY] | [yY][eE][sS]) ;;
+    *) return 0 ;;
+  esac
+
+  local public_key secret_key host id_salt
+  read -r -p "    LANGFUSE_PUBLIC_KEY (pk-lf-...): " public_key
+  read -r -s -p "    LANGFUSE_SECRET_KEY (sk-lf-..., input hidden): " secret_key
+  echo
+  read -r -p "    LANGFUSE_HOST [https://jp.cloud.langfuse.com]: " host
+  host="${host:-https://jp.cloud.langfuse.com}"
+  read -r -p "    idSalt (random string for hashing ids; blank = auto-generate): " id_salt
+  if [[ -z "$id_salt" ]]; then
+    id_salt="$(node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))')"
+    echo "    (generated idSalt)"
+  fi
+
+  if [[ -z "$public_key" || -z "$secret_key" ]]; then
+    echo "==> Skipping Langfuse setup (LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are required)."
+    return 0
+  fi
+
+  install -d -m 0700 -o gdgagent-svc -g gdgagent-svc /home/gdgagent-svc/.config/langfuse
+  local tmp
+  tmp="$(mktemp)"
+  # Written via node -e (not printf/heredoc) so a key containing a quote or
+  # backslash can't produce invalid or injected JSON.
+  LF_PUBLIC_KEY="$public_key" LF_SECRET_KEY="$secret_key" LF_HOST="$host" LF_ID_SALT="$id_salt" \
+    node -e '
+      const fs = require("fs");
+      fs.writeFileSync(
+        process.argv[1],
+        JSON.stringify(
+          {
+            LANGFUSE_PUBLIC_KEY: process.env.LF_PUBLIC_KEY,
+            LANGFUSE_SECRET_KEY: process.env.LF_SECRET_KEY,
+            LANGFUSE_HOST: process.env.LF_HOST,
+            idSalt: process.env.LF_ID_SALT,
+          },
+          null,
+          2
+        ) + "\n"
+      );
+    ' "$tmp"
+  install -m 0600 -o gdgagent-svc -g gdgagent-svc "$tmp" "$cred"
+  rm -f "$tmp"
+  echo "==> Wrote $cred"
+}
+
 start_langfuse_forwarder() {
   if [[ -s /home/gdgagent-svc/.config/langfuse/credentials.json ]]; then
     echo "==> start langfuse-forwarder.timer"
@@ -641,8 +698,10 @@ print_remaining() {
     need=1
   fi
   if [[ ! -s "$langfuse_creds" ]]; then
-    echo "- (optional) Put LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY/LANGFUSE_HOST/idSalt in"
-    echo "  $langfuse_creds (0600), then:"
+    echo "- (optional) Langfuse observability was skipped or ran non-interactively."
+    echo "  Re-run 'sudo ./agents-local/install.sh --activate' on a TTY to be prompted, or put"
+    echo "  LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY/LANGFUSE_HOST/idSalt in $langfuse_creds (0600)"
+    echo "  yourself, then:"
     echo "  sudo -u gdgagent-svc XDG_RUNTIME_DIR=/run/user/$(id -u gdgagent-svc) systemctl --user start langfuse-forwarder.timer"
   fi
   echo "- Discord Developer Portal: enable Server Members Intent and Message Content Intent."
@@ -677,6 +736,7 @@ activate_live_host() {
   ensure_wiki_clone_and_seed
   ensure_xangi_setup
   start_xangi_service
+  prompt_langfuse_credentials
   start_langfuse_forwarder
   print_remaining
 }
