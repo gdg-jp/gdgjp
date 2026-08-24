@@ -566,6 +566,12 @@ copy_operator_runtime_secrets() {
         "$op_home/.config/cursor/auth.json" "/home/gdgagent-run-${slot}/.config/cursor/auth.json"
     done
   fi
+  if [[ -s "$op_home/.config/langfuse/credentials.json" ]]; then
+    echo "==> copy langfuse credentials.json from ${SUDO_USER}"
+    install -d -m 0700 -o gdgagent-svc -g gdgagent-svc /home/gdgagent-svc/.config/langfuse
+    install -m 0600 -o gdgagent-svc -g gdgagent-svc \
+      "$op_home/.config/langfuse/credentials.json" /home/gdgagent-svc/.config/langfuse/credentials.json
+  fi
 }
 
 write_xangi_user_unit() {
