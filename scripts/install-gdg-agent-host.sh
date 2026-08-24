@@ -472,6 +472,70 @@ ensure_xangi_fork() {
   ln -sfn /opt/xangi/bin/xangi /usr/local/bin/xangi
 }
 
+ensure_langfuse_forwarder() {
+  echo "==> lib/langfuse-forwarder -> /opt/langfuse-forwarder"
+  rm -rf /opt/langfuse-forwarder
+  cp -a "$layout_dir/lib/langfuse-forwarder" /opt/langfuse-forwarder
+  (
+    cd /opt/langfuse-forwarder
+    if [[ -f package-lock.json ]]; then
+      if ! npm ci; then
+        echo "npm ci failed; retrying once with a clean node_modules directory." >&2
+        rm -rf /opt/langfuse-forwarder/node_modules
+        npm ci
+      fi
+    else
+      npm install
+    fi
+    chmod -R a+rX node_modules
+  )
+}
+
+write_langfuse_forwarder_unit() {
+  local unit_dir uid
+  uid="$(id -u gdgagent-svc)"
+  unit_dir="/home/gdgagent-svc/.config/systemd/user"
+  install -d -m 0755 -o gdgagent-svc -g gdgagent-svc "$unit_dir"
+  cat > "$unit_dir/langfuse-forwarder.service" <<'EOF'
+[Unit]
+Description=langfuse-forwarder (GDG agent observability)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/langfuse-forwarder
+ExecStart=/usr/bin/node /opt/langfuse-forwarder/node_modules/tsx/dist/cli.mjs /opt/langfuse-forwarder/src/index.ts
+Environment=DATA_DIR=/srv/gdg-agent/wiki/.xangi
+Environment=LANGFUSE_CREDENTIALS_PATH=/home/gdgagent-svc/.config/langfuse/credentials.json
+Environment=LANGFUSE_FORWARDER_STATE_DIR=/home/gdgagent-svc/.local/share/langfuse-forwarder
+EOF
+  cat > "$unit_dir/langfuse-forwarder.timer" <<'EOF'
+[Unit]
+Description=Run langfuse-forwarder every 5 minutes
+
+[Timer]
+OnUnitActiveSec=5min
+OnBootSec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+  chown gdgagent-svc:gdgagent-svc "$unit_dir/langfuse-forwarder.service" "$unit_dir/langfuse-forwarder.timer"
+  loginctl enable-linger gdgagent-svc
+  as_svc systemctl --user daemon-reload
+  as_svc systemctl --user enable langfuse-forwarder.timer
+}
+
+start_langfuse_forwarder() {
+  if [[ -s /home/gdgagent-svc/.config/langfuse/credentials.json ]]; then
+    echo "==> start langfuse-forwarder.timer"
+    as_svc systemctl --user start langfuse-forwarder.timer
+  else
+    echo "==> skip langfuse-forwarder.timer start (no /home/gdgagent-svc/.config/langfuse/credentials.json)"
+  fi
+}
+
 ensure_xangi_setup() {
   install -d -m 0700 -o gdgagent-svc -g gdgagent-svc /home/gdgagent-svc/.config/xangi
   install -d -m 0700 -o gdgagent-svc -g gdgagent-svc /home/gdgagent-svc/.local/share
@@ -553,6 +617,7 @@ print_remaining() {
   local cred="/home/gdgagent-svc/.config/gdg/credentials.json"
   local secrets="/home/gdgagent-svc/.config/xangi/secrets.json"
   local slot0_auth="/home/gdgagent-run-0/.config/cursor/auth.json"
+  local langfuse_creds="/home/gdgagent-svc/.config/langfuse/credentials.json"
   local need=0
   echo
   echo "==> Remaining (secrets / Discord Portal only):"
@@ -569,6 +634,11 @@ print_remaining() {
     echo "- Copy Cursor auth.json onto /home/gdgagent-run-<N>/.config/cursor/ (0600, slot uid)."
     need=1
   fi
+  if [[ ! -s "$langfuse_creds" ]]; then
+    echo "- (optional) Put LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY/LANGFUSE_HOST/idSalt in"
+    echo "  $langfuse_creds (0600), then:"
+    echo "  sudo -u gdgagent-svc XDG_RUNTIME_DIR=/run/user/$(id -u gdgagent-svc) systemctl --user start langfuse-forwarder.timer"
+  fi
   echo "- Discord Developer Portal: enable Server Members Intent and Message Content Intent."
   if [[ "$need" -eq 0 ]]; then
     echo "Host install finished. If Gateway rejects intents, fix the Portal then restart xangi.service."
@@ -581,8 +651,10 @@ place_live_host() {
   ensure_gws
   ensure_cursor_cli
   ensure_xangi_fork
+  ensure_langfuse_forwarder
   copy_operator_runtime_secrets
   write_xangi_user_unit
+  write_langfuse_forwarder_unit
   if svc_credentials_available || [[ -t 0 ]]; then
     activate_live_host
   else
@@ -599,6 +671,7 @@ activate_live_host() {
   ensure_wiki_clone_and_seed
   ensure_xangi_setup
   start_xangi_service
+  start_langfuse_forwarder
   print_remaining
 }
 

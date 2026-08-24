@@ -3,6 +3,16 @@
 Online tracing and evaluation for `@gdgjp/agents`. Offline datasets / CI regression
 harnesses are intentionally out of scope — see the decisions in the implementation plan.
 
+**Not the only Langfuse integration in this monorepo.** The self-hosted Discord bot
+(`agents-local/`, xangi + Cursor CLI on `mincra-srv`) has its own, independent Langfuse
+integration — see [`docs/agents-local-o11y/plan.md`](agents-local-o11y/plan.md) and
+`agents-local/lib/langfuse-forwarder/`. It shares this doc's Langfuse Cloud **Japan** region,
+masking approach, and hashed-id convention, but forwards asynchronously from an
+append-only event log (batch, via `@langfuse/tracing`'s low-level `startObservation` API with
+explicit timestamps) rather than instrumenting a live request the way this app does with
+`@langfuse/otel`'s `LangfuseSpanProcessor` — xangi's LLM call happens inside the closed-source
+`cursor-agent` binary, so there is no live request to instrument in-process.
+
 **Region:** this project uses Langfuse Cloud **Japan** — <https://jp.cloud.langfuse.com>
 (Tokyo, `ap-northeast-1`), alongside the `hnd1` Vercel deployment region. Regions are fully
 isolated: accounts, data, and API keys do not cross between them, so every UI step below
