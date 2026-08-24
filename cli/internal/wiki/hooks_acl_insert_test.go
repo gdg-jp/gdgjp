@@ -37,7 +37,7 @@ func startTestAuthz(t *testing.T, verifyStatus ...int) string {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/resolve", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"classes":[{"chapterId":"tokyo","role":"organizer"}],"channelAudience":{"kind":"member"}}`))
+		_, _ = w.Write([]byte(`{"classes":[{"chapterId":"tokyo","role":"organizer"}],"channelAudience":{"kind":"member"},"gdgSub":null}`))
 	})
 	mux.HandleFunc("/repo-lock", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -392,7 +392,7 @@ func TestWkWriteFailsWhenRepoLockBusy(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/resolve", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"classes":[{"chapterId":"tokyo","role":"organizer"}],"channelAudience":{"kind":"member"}}`))
+		_, _ = w.Write([]byte(`{"classes":[{"chapterId":"tokyo","role":"organizer"}],"channelAudience":{"kind":"member"},"gdgSub":null}`))
 	})
 	mux.HandleFunc("/repo-lock", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusConflict)

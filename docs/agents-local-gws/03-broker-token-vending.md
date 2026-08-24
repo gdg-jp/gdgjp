@@ -65,7 +65,11 @@ Precise, narrow ask for that repo — hand this section to whoever works there:
    `accounts.gdgs.jp` token-vending endpoint from Phase 1 — either by shelling out to `gdg agent
    workspace-token --sub <gdgSub>` or calling the HTTP endpoint directly — and return only the
    resulting short-lived Google access token. Never log, cache to disk, or forward the underlying
-   Google refresh token; it never leaves `accounts.gdgs.jp`.
+   Google refresh token; it never leaves `accounts.gdgs.jp`. On success, respond with
+   `{"access_token": "<token>"}` — the same `access_token` key both the CLI's stdout and the
+   `accounts.gdgs.jp` endpoint already use (see `resolveWorkspaceToken()` in
+   `cli/internal/wiki/hooks/acl-core.ts`), so either upstream response can be forwarded verbatim
+   without renaming fields. Respond 404 for "not connected".
 3. No change to `links.json`'s stored scopes — it stays login-only; Workspace auth is entirely an
    `accounts.gdgs.jp` concern (Phase 1).
 4. Whatever currently gates on "empty classes → refuse" should *not* also require `gdgSub` — a

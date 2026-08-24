@@ -1,9 +1,11 @@
 package accounts
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"reflect"
 	"strings"
@@ -12,7 +14,9 @@ import (
 const DefaultBaseURL = "https://accounts.gdgs.jp"
 
 type AccountsClient struct {
-	client *ClientWithResponses
+	baseURL    string
+	httpClient *http.Client
+	client     *ClientWithResponses
 }
 
 type HTTPError struct {
@@ -22,7 +26,7 @@ type HTTPError struct {
 }
 
 func (err *HTTPError) Error() string {
-	return fmt.Sprintf("OIDC client request failed: %s: %s", err.Status, err.Message)
+	return fmt.Sprintf("GDG Japan Accounts request failed: %s: %s", err.Status, err.Message)
 }
 
 func NewAccountsClient(baseURL string, httpClient *http.Client) *AccountsClient {
@@ -32,11 +36,12 @@ func NewAccountsClient(baseURL string, httpClient *http.Client) *AccountsClient 
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
-	generated, err := NewClientWithResponses(strings.TrimRight(baseURL, "/"), WithHTTPClient(httpClient))
+	trimmed := strings.TrimRight(baseURL, "/")
+	generated, err := NewClientWithResponses(trimmed, WithHTTPClient(httpClient))
 	if err != nil {
 		panic(err)
 	}
-	return &AccountsClient{client: generated}
+	return &AccountsClient{baseURL: trimmed, httpClient: httpClient, client: generated}
 }
 
 type CreateClientInput struct {
@@ -112,6 +117,72 @@ func (c *AccountsClient) DeleteOIDCClient(
 	response, err := c.client.DeleteOAuthClientWithResponse(ctx, DeleteOAuthClientJSONRequestBody{ClientId: clientID}, bearer(accessToken))
 	_, err = rawResponse(response, err)
 	return err
+}
+
+type WorkspaceTokenResult struct {
+	AccessToken string
+	ExpiresIn   int
+}
+
+// VendWorkspaceToken calls the privileged token-vending endpoint added in
+// docs/agents-local-gws/01-accounts-workspace-link.md. It is not part of the
+// generated OpenAPI client: that endpoint is a narrowly-gated internal API for
+// the gdgagent-svc identity, not a public OIDC client-management operation.
+// accessToken must be gdgagent-svc's own gdg login access token; userID is the
+// target GDG account's sub whose stored Workspace refresh token gets exchanged.
+func (c *AccountsClient) VendWorkspaceToken(
+	ctx context.Context,
+	accessToken string,
+	userID string,
+) (WorkspaceTokenResult, error) {
+	body, err := json.Marshal(struct {
+		UserID string `json:"userId"`
+	}{UserID: userID})
+	if err != nil {
+		return WorkspaceTokenResult{}, err
+	}
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		c.baseURL+"/api/agents/google-workspace-token",
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		return WorkspaceTokenResult{}, err
+	}
+	request.Header.Set("Authorization", "Bearer "+accessToken)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return WorkspaceTokenResult{}, fmt.Errorf("contact GDG Japan Accounts: %w", err)
+	}
+	defer response.Body.Close()
+	contents, err := io.ReadAll(response.Body)
+	if err != nil {
+		return WorkspaceTokenResult{}, fmt.Errorf("read GDG Japan Accounts response: %w", err)
+	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return WorkspaceTokenResult{}, &HTTPError{
+			StatusCode: response.StatusCode,
+			Status:     response.Status,
+			Message:    errorMessage(contents),
+		}
+	}
+	var parsed struct {
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
+	}
+	if err := json.Unmarshal(contents, &parsed); err != nil {
+		return WorkspaceTokenResult{}, fmt.Errorf("parse Google Workspace token response: %w", err)
+	}
+	if parsed.AccessToken == "" || parsed.ExpiresIn <= 0 {
+		return WorkspaceTokenResult{}, fmt.Errorf(
+			"GDG Japan Accounts returned a malformed token response: %s",
+			strings.TrimSpace(string(contents)),
+		)
+	}
+	return WorkspaceTokenResult{AccessToken: parsed.AccessToken, ExpiresIn: parsed.ExpiresIn}, nil
 }
 
 func bearer(token string) RequestEditorFn {

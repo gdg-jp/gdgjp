@@ -2,15 +2,19 @@
  * The only filtered CLI surface for `gws` (googleworkspace/cli), mirroring wk.ts's
  * role for the Wiki. `/opt/gdg-agent/bin/gws` execs this, never the raw binary.
  *
- * Phase 2 stub: the token source is `GOOGLE_WORKSPACE_CLI_TOKEN` read directly from
- * this process's environment. Phase 3 replaces that read with a call through
- * resolveAuthz()'s authz-socket to vend a real per-Discord-user Workspace token.
+ * The token source is the per-Discord-user flow: resolveAuthz() over the per-slot
+ * authz socket resolves the invoking Discord user's linked GDG identity (gdgSub),
+ * then resolveWorkspaceToken() exchanges it for a short-lived Google access token —
+ * never a refresh token, never written to disk. The slot itself never holds any
+ * long-lived credential and can never request a token for any identity other than
+ * the one already bound to its own run.
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { resolveAuthz, resolveWorkspaceToken } from "./acl-core.ts";
 import { isApprovedGwsArgs, loadGwsAllowlist } from "./shell-allowlist.ts";
 
 /** Fixed, non-PATH trust boundary. Never overridable by inherited environment state. */
@@ -20,11 +24,20 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
-/** Phase 3 replaces this with the vended-token call over XANGI_AUTHZ_SOCKET. */
-function resolveToken(): string {
-  const token = process.env.GOOGLE_WORKSPACE_CLI_TOKEN;
-  if (!token) fail("gws: no Google Workspace token available; connect Google Workspace and retry");
-  return token;
+function failNotConnected(): never {
+  fail(
+    "gws: connect Google Workspace first: run /login in Discord, then accounts.gdgs.jp/settings",
+  );
+}
+
+async function resolveToken(): Promise<string> {
+  const authz = await resolveAuthz();
+  if (!authz.gdgSub) failNotConnected();
+
+  const outcome = await resolveWorkspaceToken();
+  if (outcome.kind === "ok") return outcome.accessToken;
+  if (outcome.kind === "not-connected") failNotConnected();
+  fail(`gws: could not obtain a Google Workspace token: ${outcome.detail}`);
 }
 
 /**
@@ -43,11 +56,11 @@ function freshConfigDir(): string {
  * by a deployed invocation. `main()` below always calls this with the fixed
  * GWS_BIN_PATH.
  */
-export function runGwsMediator(args: string[], binPath: string): number {
+export async function runGwsMediator(args: string[], binPath: string): Promise<number> {
   const approved = isApprovedGwsArgs(args, loadGwsAllowlist());
   if (!approved.ok) fail(`gws: ${approved.reason}`);
 
-  const token = resolveToken();
+  const token = await resolveToken();
   const configDir = freshConfigDir();
 
   const env = { ...process.env };
@@ -66,15 +79,13 @@ export function runGwsMediator(args: string[], binPath: string): number {
   return result.status ?? 1;
 }
 
-function main(): void {
-  process.exitCode = runGwsMediator(process.argv.slice(2), GWS_BIN_PATH);
+async function main(): Promise<void> {
+  process.exitCode = await runGwsMediator(process.argv.slice(2), GWS_BIN_PATH);
 }
 
 if (process.argv[1] === import.meta.filename) {
-  try {
-    main();
-  } catch (error) {
+  main().catch((error: unknown) => {
     process.stderr.write(`${error instanceof Error ? error.message : "gws: failed"}\n`);
     process.exitCode = 1;
-  }
+  });
 }

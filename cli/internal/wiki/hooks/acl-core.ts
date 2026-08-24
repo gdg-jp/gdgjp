@@ -10,7 +10,12 @@ export type SourceAudienceKey =
   | { kind: "private" | "member" | "organizer" }
   | { kind: "chapter-member" | "chapter-organizer"; chapterId: string };
 
-export type Authz = { classes: PermissionClass[]; channelAudience: SourceAudienceKey };
+export type Authz = {
+  classes: PermissionClass[];
+  channelAudience: SourceAudienceKey;
+  /** The Discord invoker's linked GDG account (accounts.gdgs.jp `sub`), or null if unlinked. */
+  gdgSub: string | null;
+};
 export type SourceMeta = { visibility: string; chapterId: string | null };
 export type PageMeta = SourceMeta & {
   access: Array<{ subjectType: string; subjectKey: string }>;
@@ -19,6 +24,7 @@ export type PageMeta = SourceMeta & {
 type AuthzResponse = {
   classes?: unknown;
   channelAudience?: unknown;
+  gdgSub?: unknown;
 };
 
 const sourceVisibilities = new Set([
@@ -81,6 +87,12 @@ function asClass(value: unknown): PermissionClass | null {
     : null;
 }
 
+/** undefined means "invalid/missing" (fail closed); null is the valid "not linked" value. */
+function asGdgSub(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  return typeof value === "string" && value ? value : undefined;
+}
+
 function asAudience(value: unknown): SourceAudienceKey | null {
   if (!value || typeof value !== "object") return null;
   const item = value as Record<string, unknown>;
@@ -136,9 +148,10 @@ export async function resolveAuthz(): Promise<Authz> {
     ? parsed.classes.map(asClass).filter((v): v is PermissionClass => v !== null)
     : null;
   const channelAudience = asAudience(parsed.channelAudience);
-  if (classes === null || channelAudience === null)
+  const gdgSub = "gdgSub" in parsed ? asGdgSub(parsed.gdgSub) : undefined;
+  if (classes === null || channelAudience === null || gdgSub === undefined)
     fail("wk: authorization response is incomplete; retry from the agent launcher");
-  return { classes, channelAudience };
+  return { classes, channelAudience, gdgSub };
 }
 
 function unixRequest(
@@ -196,6 +209,69 @@ export async function acquireRepoLockViaAuthz(): Promise<void> {
   fail(
     `wk: repository is locked by another invocation; retry after it finishes (${body.trim() || status})`,
   );
+}
+
+export type WorkspaceTokenOutcome =
+  | { kind: "ok"; accessToken: string }
+  | { kind: "not-connected" }
+  | { kind: "error"; detail: string };
+
+/**
+ * Ask the svc-side authorization server to vend a short-lived Google Workspace
+ * access token for the gdgSub already bound to this run's nonce. The endpoint
+ * resolves that identity itself from the nonce — there is no caller-supplied
+ * user/sub parameter, so a slot can never request a token for any identity
+ * other than the one already bound to its own run.
+ *
+ * Wire contract for a 200 response: `{"access_token": string}` — the same
+ * `access_token` key as accounts.gdgs.jp's own token-vending endpoint
+ * (docs/agents-local-gws/01-accounts-workspace-link.md) and `gdg agent
+ * workspace-token`'s stdout (cli/internal/command/agent_workspace_token.go),
+ * so the authz-server can forward either response verbatim without
+ * translating field names. A 404 means the linked account has no Workspace
+ * connection; any other status is treated as an infra error.
+ */
+export async function resolveWorkspaceToken(): Promise<WorkspaceTokenOutcome> {
+  const nonce = process.env.XANGI_AUTHZ_NONCE;
+  const socketPath = process.env.XANGI_AUTHZ_SOCKET;
+  if (!nonce || !socketPath)
+    return {
+      kind: "error",
+      detail: "missing invocation authorization; retry from the agent launcher",
+    };
+  let status: number;
+  let body: string;
+  try {
+    ({ status, body } = await unixGet(
+      socketPath,
+      `/workspace-token?nonce=${encodeURIComponent(nonce)}`,
+      8_000,
+    ));
+  } catch (error) {
+    return {
+      kind: "error",
+      detail: error instanceof Error ? error.message : "workspace token request failed",
+    };
+  }
+  if (status === 200) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      return { kind: "error", detail: "authorization server returned invalid JSON" };
+    }
+    const accessToken =
+      parsed &&
+      typeof parsed === "object" &&
+      typeof (parsed as { access_token?: unknown }).access_token === "string"
+        ? (parsed as { access_token: string }).access_token
+        : "";
+    if (!accessToken)
+      return { kind: "error", detail: "authorization server returned no access token" };
+    return { kind: "ok", accessToken };
+  }
+  if (status === 404) return { kind: "not-connected" };
+  return { kind: "error", detail: body.trim() || `authorization server returned ${status}` };
 }
 
 export type VerifyAclOutcome =
