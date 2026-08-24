@@ -58,8 +58,16 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
   assert.match(ownership, /\.cache/);
   assert.match(ownership, /install -d -m 0700 -o "gdgagent-run-\$\{slot\}"/);
   await withLayoutFixture(async ({ prefix, env }) => {
+    const staleWrapper = join(prefix, "opt/gdg-agent/bin/google-workspace-mcp");
+    await writeFile(staleWrapper, "#!/bin/sh\necho stale\n", { mode: 0o755 });
+
     const again = spawnSync("bash", [layoutScript], { encoding: "utf8", env });
     assert.equal(again.status, 0, again.stderr || again.stdout);
+    assert.equal(
+      existsSync(staleWrapper),
+      false,
+      "install-layout.sh must remove wrappers left over from superseded designs",
+    );
 
     const sudoers = await readFile(join(prefix, "etc/sudoers.d/gdg-agent"), "utf8");
     assert.doesNotMatch(sudoers, /[*\?]/);
