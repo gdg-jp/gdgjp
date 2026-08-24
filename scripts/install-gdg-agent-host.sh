@@ -161,7 +161,7 @@ ensure_gws() {
   local want="gws ${GWS_VERSION#v}"
   if [[ -x "$dest" ]]; then
     local have
-    have="$("$dest" --version 2>/dev/null || true)"
+    have="$("$dest" --version 2>/dev/null | head -n1 || true)"
     if [[ "$have" == "$want" ]]; then
       echo "    gws already installed: $have"
       return
@@ -194,12 +194,14 @@ ensure_gws() {
   curl -fsSL -o "$tmp/gws.tar.gz" \
     "https://github.com/googleworkspace/cli/releases/download/${GWS_VERSION}/${asset}"
   echo "$sha256  $tmp/gws.tar.gz" | sha256sum -c -
-  tar -xzf "$tmp/gws.tar.gz" -C "$tmp" gws
+  # Release members are stored as "./gws"; match by suffix since GNU tar's
+  # default (anchored) extraction pattern won't match the "./" prefix.
+  tar -xzf "$tmp/gws.tar.gz" -C "$tmp" --wildcards '*gws'
   install -d -m 0755 "$(dirname "$dest")"
   install -m 0755 "$tmp/gws" "$dest"
   rm -rf "$tmp"
   local installed
-  installed="$("$dest" --version 2>/dev/null || true)"
+  installed="$("$dest" --version 2>/dev/null | head -n1 || true)"
   [[ "$installed" == "$want" ]] || {
     echo "gws did not install correctly at $dest (got '$installed', want '$want')" >&2
     exit 1
