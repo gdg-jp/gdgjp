@@ -227,16 +227,29 @@ export function peekArgv0(command: string): string | null {
 
 /** local-file exfiltration vector; every other flag outside GWS_ALLOWED_FLAGS is also deny. */
 const GWS_UPLOAD_FLAG = "--upload";
-const GWS_ALLOWED_FLAGS = new Set(["--params", "--json", "--page-all", "--page-limit"]);
+const GWS_ALLOWED_FLAGS = new Set([
+  "--params",
+  "--json",
+  "--page-all",
+  "--page-limit",
+  "--format",
+  "--dry-run",
+  "--page-delay",
+  "--api-version",
+]);
 
 function gwsFlagsOk(argsAfterBinary: string[]): { ok: true } | { ok: false; reason: string } {
   for (const token of argsAfterBinary) {
     if (!token.startsWith("-")) continue;
-    if (token === GWS_UPLOAD_FLAG) {
+    // clap (gws-bin's arg parser) accepts `--flag=value` as well as `--flag value`;
+    // match on the flag name only, same as the space-separated form already does.
+    const eq = token.indexOf("=");
+    const flag = eq === -1 ? token : token.slice(0, eq);
+    if (flag === GWS_UPLOAD_FLAG) {
       return { ok: false, reason: "gws --upload is not permitted (local-file exfiltration risk)" };
     }
-    if (!GWS_ALLOWED_FLAGS.has(token)) {
-      return { ok: false, reason: `gws flag ${token} is not on the approved flag list` };
+    if (!GWS_ALLOWED_FLAGS.has(flag)) {
+      return { ok: false, reason: `gws flag ${flag} is not on the approved flag list` };
     }
   }
   return { ok: true };

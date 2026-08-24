@@ -93,8 +93,13 @@ appears in both unless marked otherwise.
   `drive files emptyTrash` even though `gws`'s command surface is Discovery-driven and not
   statically enumerable (Google could add a new, more dangerous method under an already-approved
   resource at any time; the matcher must never fall back to resource-level wildcards). Also
-  explicitly deny `--upload` (local-file exfiltration vector) and any flag outside a small fixed
-  set (`--params`, `--json`, `--page-all`, `--page-limit`).
+  explicitly deny `--upload`/`--upload-content-type` (local-file exfiltration vector), `-o`/
+  `--output` (local-file write), and `--sanitize` (needs a `cloud-platform` OAuth scope not
+  currently granted), and any flag outside a small fixed set of safe, no-file-I/O,
+  no-new-scope output/metadata flags: `--params`, `--json`, `--page-all`, `--page-limit`,
+  `--format`, `--dry-run`, `--page-delay`, `--api-version`. Flags are matched by name only — a
+  `--flag=value` token (clap, gws-bin's arg parser, accepts this form same as `--flag value`) is
+  split on the first `=` before the allowlist check, so it isn't rejected as an unrecognized flag.
 - `cli/internal/wiki/hooks/acl-gate.ts` — in `handleShell`, branch on argv0: `wk` → existing path
   unchanged; `gws` → new `inspectGwsScript` path. Remove `"search_drive_files"` from
   `MCP_ALLOWLIST` (back to `Set(["search"])` for `gdg-index` only).

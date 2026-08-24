@@ -16,6 +16,47 @@ describe("inspectGwsScript", () => {
     assert.equal(result.ok, true);
   });
 
+  it("allows the safe output/metadata flags (--format, --dry-run, --page-delay, --api-version)", () => {
+    for (const command of [
+      "gws drive files list --format json",
+      "gws drive files list --dry-run",
+      "gws drive files list --page-delay 200",
+      "gws drive files list --api-version v3",
+    ]) {
+      const result = inspectGwsScript(command, gwsAllowlist);
+      assert.equal(result.ok, true, command);
+    }
+  });
+
+  it("still denies flags with file I/O or scope implications", () => {
+    for (const command of [
+      "gws drive files list --output /tmp/x",
+      "gws drive files list -o /tmp/x",
+      "gws drive files list --sanitize projects/p/locations/l/templates/t",
+      "gws drive files list --upload-content-type text/plain",
+    ]) {
+      const result = inspectGwsScript(command, gwsAllowlist);
+      assert.equal(result.ok, false, command);
+    }
+  });
+
+  it("matches the flag name when clap's `--flag=value` form is used", () => {
+    for (const command of [
+      "gws drive files list --format=json",
+      "gws drive files list --page-limit=50",
+    ]) {
+      const result = inspectGwsScript(command, gwsAllowlist);
+      assert.equal(result.ok, true, command);
+    }
+    for (const command of [
+      "gws drive files list --upload=/etc/passwd",
+      "gws drive files list --sanitize=projects/p/locations/l/templates/t",
+    ]) {
+      const result = inspectGwsScript(command, gwsAllowlist);
+      assert.equal(result.ok, false, command);
+    }
+  });
+
   it("does not implicitly approve a sibling method under an approved resource", () => {
     const result = inspectGwsScript("gws drive files emptyTrash", gwsAllowlist);
     assert.equal(result.ok, false);
