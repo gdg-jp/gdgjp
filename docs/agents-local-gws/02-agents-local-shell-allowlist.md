@@ -100,6 +100,19 @@ appears in both unless marked otherwise.
   `--format`, `--dry-run`, `--page-delay`, `--api-version`. Flags are matched by name only — a
   `--flag=value` token (clap, gws-bin's arg parser, accepts this form same as `--flag value`) is
   split on the first `=` before the allowlist check, so it isn't rejected as an unrecognized flag.
+  A trailing `[ \t]+2>&1[ \t]*$` (merging stderr into stdout — the standard way an agent captures
+  full output, not a redirect to/from a file) is stripped before grammar validation. The tokenizer
+  also concatenates adjacent quoted/bare fragments into one shell word — matching real shell
+  behavior — and recognizes the one POSIX idiom for embedding a literal `'` inside a single-quoted
+  value (`'...'\''...'`, i.e. close-quote, backslash-escaped quote, reopen-quote) as a single
+  escaped-quote token; this is required because Google Drive's `q` query syntax itself uses single
+  quotes around string literals (e.g. `mimeType='application/vnd.google-apps.document'`), so a
+  `--params` JSON blob embedding a `q` value needs it. No other backslash use is permitted, and the
+  boundary check for the `&&` chain separator runs before each fragment is read, so `&&` can never
+  be smuggled through the escape into looking like part of a word's content (`acl_gate_test.go` /
+  `shell-allowlist.test.ts` assert this directly, alongside the still-forbidden bare cases: a
+  dangling or non-quote-escaping backslash, and `;`/`&&`/etc. immediately adjacent to a quoted
+  fragment).
 - `cli/internal/wiki/hooks/acl-gate.ts` — in `handleShell`, branch on argv0: `wk` → existing path
   unchanged; `gws` → new `inspectGwsScript` path. Remove `"search_drive_files"` from
   `MCP_ALLOWLIST` (back to `Set(["search"])` for `gdg-index` only).

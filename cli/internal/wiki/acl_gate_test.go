@@ -262,6 +262,9 @@ func TestACLGateShellGwsAllowlist(t *testing.T) {
 		"gws drive files list --api-version v3",
 		"gws drive files list --format=json",
 		"gws drive files list --page-limit=50",
+		"gws drive files list --format json 2>&1",
+		`gws drive files list --params 'x'\''y'`,
+		`gws drive files list --params '{"q": "mimeType='\''application/vnd.google-apps.document'\'' and trashed=false", "pageSize": 50}' --format table 2>&1`,
 	}
 	for _, command := range allow {
 		stdout, _ := runGateEnv(t, root, env, map[string]any{
@@ -288,6 +291,9 @@ func TestACLGateShellGwsAllowlist(t *testing.T) {
 		"gws drive files list --sanitize projects/p/locations/l/templates/t",
 		"gws drive files list --upload=/etc/passwd",
 		"gws drive files list --sanitize=projects/p/locations/l/templates/t",
+		`gws drive files list --params x\y`,
+		`gws drive files list --params a\'&& rm -rf /`,
+		`gws drive files list --params 'x';id`,
 	}
 	for _, command := range deny {
 		stdout, _ := runGateEnv(t, root, env, map[string]any{

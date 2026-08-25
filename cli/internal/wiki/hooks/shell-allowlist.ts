@@ -86,6 +86,16 @@ function readBare(input: string, index: number): { value: string; next: number }
   return BARE.test(value) ? { value, next: cursor } : null;
 }
 
+/**
+ * Agents habitually append `2>&1` to merge stderr into stdout for visibility; it
+ * doesn't read or write a file and can't chain into another command, unlike a bare
+ * `>`/`<`/`&`, which stay forbidden everywhere else in the string. Strip only this
+ * exact, unquoted trailing form before grammar validation.
+ */
+function stripTrailingStderrMerge(input: string): string {
+  return input.replace(/[ \t]+2>&1[ \t]*$/, "");
+}
+
 function charsetOk(input: string): boolean {
   let quote: "'" | '"' | null = null;
   for (let index = 0; index < input.length; index += 1) {
@@ -107,6 +117,14 @@ function charsetOk(input: string): boolean {
       quote = char;
       continue;
     }
+    // POSIX single quotes have no escapes, so a literal `'` inside a single-quoted
+    // value can only be spelled by closing the quote, escaping a bare `'`, and
+    // reopening: '...'\''...'. Allow exactly that one escape outside quotes; every
+    // other backslash use stays forbidden.
+    if (char === "\\" && input[index + 1] === "'") {
+      index += 1;
+      continue;
+    }
     if (char === "&" && input[index + 1] === "&") {
       index += 1;
       continue;
@@ -114,6 +132,51 @@ function charsetOk(input: string): boolean {
     if (char === "&" || FORBIDDEN.has(char)) return false;
   }
   return quote === null;
+}
+
+/**
+ * Reads one shell word: a maximal run of quoted segments, the `\'` literal-quote
+ * escape, and bare runs with no intervening whitespace, concatenated into a single
+ * value — matching how a real shell joins adjacent fragments into one argument
+ * (e.g. '{"q": "x='\''y'\''"}' is one word, not three).
+ */
+function readWord(input: string, index: number): { value: string; next: number } | null {
+  let cursor = index;
+  let value = "";
+  let matchedAny = false;
+  while (cursor < input.length) {
+    const char = input[cursor];
+    if (char === " " || char === "\t" || input.startsWith("&&", cursor)) break;
+    const squoted = readQuoted(input, cursor);
+    if (squoted) {
+      value += squoted.value;
+      cursor = squoted.next;
+      matchedAny = true;
+      continue;
+    }
+    const dquoted = readDoubleQuoted(input, cursor);
+    if (dquoted) {
+      value += dquoted.value;
+      cursor = dquoted.next;
+      matchedAny = true;
+      continue;
+    }
+    if (char === "\\" && input[cursor + 1] === "'") {
+      value += "'";
+      cursor += 2;
+      matchedAny = true;
+      continue;
+    }
+    const bare = readBare(input, cursor);
+    if (bare) {
+      value += bare.value;
+      cursor = bare.next;
+      matchedAny = true;
+      continue;
+    }
+    break;
+  }
+  return matchedAny ? { value, next: cursor } : null;
 }
 
 function tokenizeSimples(input: string): string[][] | null {
@@ -125,16 +188,10 @@ function tokenizeSimples(input: string): string[][] | null {
       index = skipWs(input, index);
       if (index >= input.length) break;
       if (input.startsWith("&&", index)) break;
-      const quoted = readQuoted(input, index) ?? readDoubleQuoted(input, index);
-      if (quoted) {
-        argv.push(quoted.value);
-        index = quoted.next;
-        continue;
-      }
-      const bare = readBare(input, index);
-      if (!bare) return null;
-      argv.push(bare.value);
-      index = bare.next;
+      const word = readWord(input, index);
+      if (!word) return null;
+      argv.push(word.value);
+      index = word.next;
     }
     if (argv.length === 0) return null;
     simples.push(argv);
@@ -194,7 +251,7 @@ export function inspectWkScript(command: string): ShellDecision {
   if (typeof command !== "string" || command.trim() === "") {
     return { ok: false, reason: "shell command is empty" };
   }
-  const trimmed = command.replace(/^[ \t\n\r]+|[ \t\n\r]+$/g, "");
+  const trimmed = stripTrailingStderrMerge(command.replace(/^[ \t\n\r]+|[ \t\n\r]+$/g, ""));
   const hereDoc = parseHereDoc(trimmed);
   if (hereDoc) return hereDoc;
   if (!charsetOk(trimmed)) {
@@ -290,7 +347,7 @@ export function inspectGwsScript(command: string, allowlist: Set<string>): Shell
   if (typeof command !== "string" || command.trim() === "") {
     return { ok: false, reason: "shell command is empty" };
   }
-  const trimmed = command.replace(/^[ \t\n\r]+|[ \t\n\r]+$/g, "");
+  const trimmed = stripTrailingStderrMerge(command.replace(/^[ \t\n\r]+|[ \t\n\r]+$/g, ""));
   if (!charsetOk(trimmed)) {
     return { ok: false, reason: "shell uses a metacharacter outside the argv allowlist" };
   }

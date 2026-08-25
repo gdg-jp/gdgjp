@@ -40,6 +40,54 @@ describe("inspectGwsScript", () => {
     }
   });
 
+  it("strips a trailing `2>&1` (stderr merge) before grammar validation", () => {
+    const result = inspectGwsScript("gws drive files list --format json 2>&1", gwsAllowlist);
+    assert.equal(result.ok, true);
+  });
+
+  it("reconstructs a literal single quote embedded via the '\\'' idiom", () => {
+    // gws drive files list --params 'x'\''y'  ->  --params value should be x'y
+    const command = "gws drive files list --params 'x'\\''y'";
+    const result = inspectGwsScript(command, gwsAllowlist);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.deepEqual(result.simples, [["gws", "drive", "files", "list", "--params", "x'y"]]);
+  });
+
+  it("allows the real production --params payload with an embedded Drive query literal", () => {
+    const command =
+      "gws drive files list --params '{\"q\": \"mimeType='\\''application/vnd.google-apps.document'\\'' and trashed=false\", \"pageSize\": 50}' --format table 2>&1";
+    const result = inspectGwsScript(command, gwsAllowlist);
+    assert.equal(result.ok, true);
+  });
+
+  it("does not let the escaped-quote idiom smuggle an unquoted && chain separator", () => {
+    const result = inspectGwsScript("gws drive files list --params a\\'&& rm -rf /", gwsAllowlist);
+    assert.equal(result.ok, false);
+  });
+
+  it("still denies a stray backslash not immediately followed by a single quote", () => {
+    for (const command of [
+      "gws drive files list --params x\\y",
+      "gws drive files list --params x\\",
+    ]) {
+      const result = inspectGwsScript(command, gwsAllowlist);
+      assert.equal(result.ok, false, command);
+    }
+  });
+
+  it("&& inside real quotes stays literal content, not a chain separator", () => {
+    const result = inspectGwsScript("gws drive files list --params 'a && b'", gwsAllowlist);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.deepEqual(result.simples, [["gws", "drive", "files", "list", "--params", "a && b"]]);
+  });
+
+  it("still denies a semicolon immediately adjacent to a quoted fragment", () => {
+    const result = inspectGwsScript("gws drive files list --params 'x';id", gwsAllowlist);
+    assert.equal(result.ok, false);
+  });
+
   it("matches the flag name when clap's `--flag=value` form is used", () => {
     for (const command of [
       "gws drive files list --format=json",
@@ -102,6 +150,15 @@ describe("inspectGwsScript", () => {
     assert.equal(inspectWkScript("wk read pages/x/page.md").ok, true);
     assert.equal(inspectWkScript("cat pages/x/page.md").ok, false);
     assert.equal(inspectWkScript("wk read a; wk read b").ok, false);
+  });
+
+  it("wk also gets the trailing 2>&1 strip and the '\\'' quote idiom (shared tokenizer)", () => {
+    const trailing = inspectWkScript("wk ls pages/ 2>&1");
+    assert.equal(trailing.ok, true);
+    const quoted = inspectWkScript("wk grep 'x'\\''y' pages/");
+    assert.equal(quoted.ok, true);
+    if (!quoted.ok) return;
+    assert.deepEqual(quoted.simples, [["wk", "grep", "x'y", "pages/"]]);
   });
 });
 
