@@ -3,7 +3,7 @@
  * Does not evaluate ACL classes — that lives in wk.
  */
 import { spawnSync } from "node:child_process";
-import { appendFileSync, readFileSync, realpathSync } from "node:fs";
+import { appendFileSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 
 import { findCloneRoot, verifyAclViaAuthz } from "./acl-core.ts";
@@ -264,6 +264,41 @@ function handleReadLike(
   allow(root, tool);
 }
 
+/**
+ * TEMPORARY diagnostic for https://github.com/gdg-jp/gdgjp gws ACL gate debugging.
+ * Writes to a unique world-readable /tmp file (no sudo needed to inspect) so the
+ * operator can see what the hook subprocess actually observes. Remove once the
+ * live-host `gws drive files list` denial is root-caused.
+ */
+function debugGwsSnapshot(argv0: string, command: string, allowlist: Set<string>): void {
+  try {
+    const home = process.env.HOME;
+    let permissionsRaw: string;
+    try {
+      permissionsRaw = home
+        ? readFileSync(join(home, ".cursor", "permissions.json"), "utf8")
+        : "<HOME unset>";
+    } catch (error) {
+      permissionsRaw = `<read failed: ${error instanceof Error ? error.message : String(error)}>`;
+    }
+    const line = [
+      new Date().toISOString(),
+      `pid=${process.pid}`,
+      `uid=${typeof process.getuid === "function" ? process.getuid() : "?"}`,
+      `HOME=${home ?? "<unset>"}`,
+      `argv0=${argv0}`,
+      `allowlistSize=${allowlist.size}`,
+      `allowlist=${JSON.stringify([...allowlist])}`,
+      `command=${JSON.stringify(command)}`,
+      `permissionsRaw=${JSON.stringify(permissionsRaw)}`,
+    ].join(" ");
+    const path = `/tmp/gws-acl-debug-${process.pid}-${Math.random().toString(36).slice(2)}.log`;
+    writeFileSync(path, `${line}\n`, { mode: 0o644 });
+  } catch {
+    /* best effort; never affect the actual gate decision */
+  }
+}
+
 async function handleShell(payload: HookPayload, root: string | null): Promise<void> {
   const command = payload.tool_input?.command ?? (payload as { command?: unknown }).command;
   if (typeof command !== "string") {
@@ -272,7 +307,9 @@ async function handleShell(payload: HookPayload, root: string | null): Promise<v
   }
   const argv0 = peekArgv0(command);
   if (argv0 !== null && isAllowedGws(argv0)) {
-    const inspectedGws = inspectGwsScript(command, loadGwsAllowlist());
+    const gwsAllowlist = loadGwsAllowlist();
+    debugGwsSnapshot(argv0, command, gwsAllowlist);
+    const inspectedGws = inspectGwsScript(command, gwsAllowlist);
     if (!inspectedGws.ok) {
       deny(
         root,
