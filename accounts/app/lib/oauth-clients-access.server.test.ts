@@ -127,6 +127,16 @@ beforeEach(() => {
   authMocks.requireUser.mockResolvedValue(user);
 });
 
+/** Mirrors oauth-clients.server.ts's private sha256Base64Url, used only to assert its output. */
+async function sha256Base64Url(value: string): Promise<string> {
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)),
+  );
+  let binary = "";
+  for (const byte of digest) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
 describe("developer client access", () => {
   it("requires an active membership even for a super admin", async () => {
     authMocks.requireUser.mockResolvedValue({ ...user, isAdmin: true });
@@ -223,7 +233,8 @@ describe("developer client access", () => {
     );
 
     const tokenLookup = calls.find((call) => call.sql.includes("FROM oauthAccessToken"));
-    expect(tokenLookup?.args).toContain("cli-access-token");
+    expect(tokenLookup?.args).toContain(await sha256Base64Url("cli-access-token"));
+    expect(tokenLookup?.args).not.toContain("cli-access-token");
     expect(tokenLookup?.args).toContain("gdg-cli");
   });
 

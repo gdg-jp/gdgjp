@@ -13,13 +13,14 @@ export async function action({ request, context }: Route.ActionArgs) {
   const token = bearerToken(request);
   if (!token) return unauthorized();
 
+  const tokenHash = await hashAccessToken(token);
   const row = await context.cloudflare.env.DB.prepare(
     `SELECT refreshId, scopes
      FROM oauthAccessToken
      WHERE token = ? AND clientId = ? AND expiresAt > ?
      LIMIT 1`,
   )
-    .bind(token, CLI_CLIENT_ID, new Date().toISOString())
+    .bind(tokenHash, CLI_CLIENT_ID, new Date().toISOString())
     .first<AccessTokenRow>();
   if (!row || !hasScope(row.scopes, CLI_SCOPE)) return unauthorized();
 
@@ -29,7 +30,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       .run();
   } else {
     await context.cloudflare.env.DB.prepare("DELETE FROM oauthAccessToken WHERE token = ?")
-      .bind(token)
+      .bind(tokenHash)
       .run();
   }
   return new Response(null, { status: 204 });
@@ -38,6 +39,16 @@ export async function action({ request, context }: Route.ActionArgs) {
 function bearerToken(request: Request): string | null {
   const match = /^Bearer ([^\s]+)$/i.exec(request.headers.get("Authorization") ?? "");
   return match?.[1] ?? null;
+}
+
+/** Better Auth stores OAuth access tokens as unpadded base64url SHA-256 hashes. */
+async function hashAccessToken(token: string): Promise<string> {
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)),
+  );
+  let binary = "";
+  for (const byte of digest) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 function hasScope(value: string, required: string): boolean {

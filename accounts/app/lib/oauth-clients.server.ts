@@ -405,7 +405,7 @@ export async function requireCliTokenUser(
      WHERE token = ? AND clientId = ? AND expiresAt > ? AND userId IS NOT NULL
      LIMIT 1`,
   )
-    .bind(token, CLI_CLIENT_ID, new Date().toISOString())
+    .bind(await sha256Base64Url(token), CLI_CLIENT_ID, new Date().toISOString())
     .first<{ userId: string; scopes: string }>();
   if (!row || !hasScope(row.scopes, CLI_SCOPE)) throw unauthorized();
   return { id: row.userId };

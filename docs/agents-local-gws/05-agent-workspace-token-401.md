@@ -1,13 +1,13 @@
-# Incident: `gws drive files list` — ACL gate fixed, `gdg agent workspace-token` still 401s
+# Incident: `gws drive files list` — ACL gate fixed, `gdg agent workspace-token` 401 root-caused
 
 ## Context
 
 A user report — "agents cannot run `gws drive files list`, blocked by ACL, error `ACL gate
-blocked a tool call.`" — led to three independent bugs on `mincra-srv` (the live `agents-local`
-host), fixed and deployed in order. The first is fully resolved. The other two are host-level
-workarounds. A fourth, still-open problem was found past them, in code that was merged to `main`
-but never released or exercised end-to-end before this investigation. This doc records the chain
-so the open problem isn't re-diagnosed from scratch.
+blocked a tool call.`" — led to four independent bugs on `mincra-srv` (the live `agents-local`
+host) and in the `accounts` OAuth provider, fixed in order. The first three are fully resolved.
+The fourth (§4) had its root cause confirmed and fixed in the `accounts` package in this repo;
+what remains is deploying that fix and a few host/release-level follow-ups (see "Suggested next
+steps"). This doc records the chain so the fix isn't re-diagnosed from scratch.
 
 ## 1. Fixed: ACL gate tokenizer rejected legitimate `gws` commands
 
@@ -66,7 +66,7 @@ non-official-looking). **This will be silently reverted back to the stale `0.1.7
 `gdg update` runs** (which now happens on every `install.sh` run, per fix #2) — the real fix is
 cutting and publishing an official `gdg` release that includes `agent_workspace_token.go`.
 
-## 4. Open: `gdg agent workspace-token` gets 401 from `accounts.gdgs.jp`
+## 4. Fixed: `gdg agent workspace-token` got 401 from `accounts.gdgs.jp`
 
 With the local build in place, `gdg agent workspace-token --sub <sub>` runs but the accounts API
 call itself fails:
@@ -99,29 +99,37 @@ sudo -u gdgagent-svc HOME=/home/gdgagent-svc /usr/local/bin/gdg agent workspace-
   for a *different*, not-yet-reached problem — see "Also worth fixing" below — but it correctly
   didn't change this symptom.)
 
-### Leading hypothesis, not yet confirmed
+### Root cause, confirmed
 
-`requireCliTokenUser` (`accounts/app/lib/oauth-clients.server.ts`) does a raw D1 query:
+`requireCliTokenUser` (`accounts/app/lib/oauth-clients.server.ts`) did a raw D1 query:
 
 ```sql
 SELECT userId, scopes FROM oauthAccessToken
 WHERE token = ? AND clientId = ? AND expiresAt > ? AND userId IS NOT NULL
 ```
 
-binding the bearer token **as received, in plaintext**. `oauthAccessToken.token` (schema in
-`accounts/migrations/0013_better_auth_oauth_provider.sql`) is a bare `TEXT NOT NULL UNIQUE`
-column with no hint either way about whether `@better-auth/oauth-provider` (`1.6.23`, per
-`accounts/package.json`) stores access tokens hashed or in plaintext. If it stores them hashed
-(a common practice for bearer-token tables), this raw comparison would **never** match — for
-anyone, not just `gdgagent-svc` — explaining a 401 that persists across a successful refresh.
+binding the bearer token **as received, in plaintext**. Reading the installed
+`@better-auth/oauth-provider@1.6.23` source confirmed it stores access tokens **hashed**:
+`accounts/app/lib/auth.server.ts` calls `oauthProvider({...})` without overriding `storeTokens`,
+so the plugin's default `storeTokens: "hashed"` applies. Tokens are written via
+`storeToken("hashed", token, "access_token")`, which hashes with unpadded base64url-encoded
+SHA-256 of the raw token. The raw-token comparison in `requireCliTokenUser` could therefore
+**never** match — for anyone, not just `gdgagent-svc` — which is exactly the observed symptom (a
+fresh refresh, then the same 401).
 
-**This is unconfirmed.** Checking it needs either:
-- Inspecting the installed `@better-auth/oauth-provider` source for its token-storage/verification
-  code (attempted during this investigation; aborted after hitting a root-owned `node_modules` and
-  an interactive "wipe and reinstall from scratch" `pnpm install` prompt on `mincra-srv` — redo
-  this in a disposable checkout or with `pnpm install --frozen-lockfile` instead), or
-- Cloudflare D1/Worker log access to inspect the actual `oauthAccessToken` row written by the
-  refresh and compare it against what `requireCliTokenUser` receives.
+The same codebase already had the correct pattern in `accounts/app/routes/api.users.search.ts`
+(a `hashAccessToken` helper hashing the bearer token before the same raw-SQL shape), and
+`oauth-clients.server.ts` already had a `sha256Base64Url` helper doing the identical hash (used
+only for client secrets). A sibling instance of the same bug also existed in
+`accounts/app/routes/api.cli.logout.ts`'s token lookup and delete.
+
+**Fix**: `requireCliTokenUser` now hashes the bearer token with `sha256Base64Url` before binding
+it into the query, and `api.cli.logout.ts` got the same fix with a local `hashAccessToken` helper
+mirroring `api.users.search.ts`'s. Tests in `oauth-clients-access.server.test.ts` were updated to
+assert the hashed token is bound, not the raw one.
+
+**This is not yet deployed or verified end-to-end.** Deploying `accounts` and re-running
+`gdg agent workspace-token --sub <sub>` on `mincra-srv` is the remaining confirmation step.
 
 ### Also worth fixing (lower priority, separate from the 401)
 
@@ -139,11 +147,12 @@ stopgap but should be revisited once a real service-account identity exists.
 
 ## Suggested next steps, in order
 
-1. Confirm or rule out the Better Auth token-hashing hypothesis (§4).
-2. Once the accounts-side bug (whatever it turns out to be) is fixed, cut and publish a real `gdg`
-   CLI release containing `agent_workspace_token.go`, then replace the `mincra-srv` stopgap build
-   with it (`sudo gdg update` will pick it up automatically once released).
+1. Deploy the `accounts` fix (§4) and re-run `gdg agent workspace-token --sub <sub>` on
+   `mincra-srv` to confirm the 401 is gone end-to-end.
+2. Cut and publish a real `gdg` CLI release containing `agent_workspace_token.go`, then replace
+   the `mincra-srv` stopgap build with it (`sudo gdg update` will pick it up automatically once
+   released).
 3. Decide on `gdgagent-svc`'s long-term identity (§4, "Also worth fixing") instead of leaning on
    `AGENTS_SERVICE_ACCOUNT_USER_ID` pointing at an operator's personal account.
 4. Revert the temporary diagnostic in `cli/internal/wiki/hooks/acl-gate.ts` (`af5e71d`,
-   `debugGwsSnapshot`) once §4 is resolved and no longer needed.
+   `debugGwsSnapshot`) now that §4 is root-caused and no longer needs it.
