@@ -1,10 +1,10 @@
+import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { eq } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { removeAclSpans } from "~/lib/acl-spans";
 import { pageAclClearance } from "~/lib/acl-spans.server";
 import { getAgentInstructions } from "~/lib/agents-md.server";
-import { getCliIdentity } from "~/lib/cli-identity.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
@@ -24,7 +24,7 @@ export function snapshotContentAsMarkdown(content: string): string {
 /** GET /api/cli/wiki/snapshot -- agent pages visible to the CLI token. */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const identity = await getCliIdentity(request, env);
+  const identity = await getBearerIdentity(request, env.ACCOUNTS_URL);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
   const db = getDb(env);
   const langParam = new URL(request.url).searchParams.get("lang");

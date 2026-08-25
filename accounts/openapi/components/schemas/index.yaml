@@ -31,6 +31,28 @@ ErrorResponse:
   properties:
     error: { type: string }
     error_description: { type: string }
+CliIdentity:
+  type: object
+  required: [user, chapters]
+  properties:
+    user:
+      type: object
+      required: [id, email, name, image, isAdmin]
+      properties:
+        id: { type: string, minLength: 1 }
+        email: { type: string }
+        name: { type: string }
+        image: { type: string, nullable: true }
+        isAdmin: { type: boolean }
+    chapters:
+      type: array
+      items:
+        type: object
+        required: [chapterId, chapterSlug, role]
+        properties:
+          chapterId: { type: integer }
+          chapterSlug: { type: string, minLength: 1 }
+          role: { type: string, enum: [organizer, member] }
 OAuthClient:
   type: object
   required: [client_id, client_name, redirect_uris, post_logout_redirect_uris, scope, token_endpoint_auth_method, grant_types, response_types, public, type, disabled, skip_consent, enable_end_session, require_pkce, subject_type]

@@ -1,3 +1,4 @@
+import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
@@ -6,7 +7,6 @@ import * as schema from "~/db/schema";
 import { computeAclSourceIdsJson } from "~/lib/acl-spans";
 import { pageAclClearance, validatePageAclForSync } from "~/lib/acl-spans.server";
 import { agentsHash, getAgentInstructions } from "~/lib/agents-md.server";
-import { getCliIdentity } from "~/lib/cli-identity.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { D1_MAX_BOUND_PARAMETERS, mapInChunks } from "~/lib/d1-chunk.server";
 import { getDb } from "~/lib/db.server";
@@ -112,7 +112,7 @@ const Body = z
 export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST") return new Response(null, { status: 405 });
   const { env } = context.cloudflare;
-  const identity = await getCliIdentity(request, env);
+  const identity = await getBearerIdentity(request, env.ACCOUNTS_URL);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
   const parsed = Body.safeParse(await request.json());
   if (!parsed.success)

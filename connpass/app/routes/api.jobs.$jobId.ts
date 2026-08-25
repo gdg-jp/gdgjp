@@ -1,11 +1,12 @@
+import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import type { LoaderFunctionArgs } from "react-router";
+import { accountsBaseUrl } from "~/lib/accounts-url.server";
 import { canReadGroup, getAllowedGroup, resolveGroupSlug } from "~/lib/authorize.server";
-import { getCliIdentity } from "~/lib/cli-identity.server";
 import { getJob, jobToJson } from "~/lib/jobs.server";
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const identity = await getCliIdentity(request, env);
+  const identity = await getBearerIdentity(request, accountsBaseUrl(env));
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
 
   const jobId = params.jobId;

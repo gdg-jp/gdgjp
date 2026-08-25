@@ -1,6 +1,7 @@
+import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import type { ActionFunctionArgs } from "react-router";
+import { accountsBaseUrl } from "~/lib/accounts-url.server";
 import { canWriteGroup, getAllowedGroup, resolveGroupSlug } from "~/lib/authorize.server";
-import { getCliIdentity } from "~/lib/cli-identity.server";
 import { createJob, jobToJson } from "~/lib/jobs.server";
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
@@ -8,7 +9,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     return Response.json({ error: "method_not_allowed" }, { status: 405 });
   }
   const { env, ctx } = context.cloudflare;
-  const identity = await getCliIdentity(request, env);
+  const identity = await getBearerIdentity(request, accountsBaseUrl(env));
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
 
   const groupSlug = resolveGroupSlug(params.groupId ?? "");

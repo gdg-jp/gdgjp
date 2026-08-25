@@ -1,18 +1,18 @@
+import type { BearerIdentity } from "@gdgjp/gdg-lib";
 import { describe, expect, it } from "vitest";
 import { canReadGroup, canWriteGroup, resolveGroupSlug } from "./authorize.server";
-import type { CliIdentity } from "./cli-identity.server";
 
-const organizer: CliIdentity = {
+const organizer: BearerIdentity = {
   user: { id: "u1", email: "a@b.c", name: "A", image: null, isAdmin: false },
   chapters: [{ chapterId: 10, chapterSlug: "tokyo", role: "organizer" }],
 };
 
-const member: CliIdentity = {
+const member: BearerIdentity = {
   user: { id: "u2", email: "m@b.c", name: "M", image: null, isAdmin: false },
   chapters: [{ chapterId: 10, chapterSlug: "tokyo", role: "member" }],
 };
 
-const admin: CliIdentity = {
+const admin: BearerIdentity = {
   user: { id: "u3", email: "admin@b.c", name: "Admin", image: null, isAdmin: true },
   chapters: [],
 };

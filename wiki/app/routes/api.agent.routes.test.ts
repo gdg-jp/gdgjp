@@ -1,5 +1,5 @@
+import type { BearerIdentity } from "@gdgjp/gdg-lib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CliIdentity } from "~/lib/cli-identity.server";
 import { WORKSPACE_LIMITS } from "../../workers/features/ingestion/tools/workspace/contracts";
 import { encodeOffsetCursor } from "../../workers/features/ingestion/tools/workspace/paths";
 import type {
@@ -8,13 +8,17 @@ import type {
   WorkspaceActor,
 } from "../../workers/features/ingestion/tools/workspace/wiki-adapter";
 
-const getCliIdentityMock = vi.fn<(...args: unknown[]) => unknown>();
+const getBearerIdentityMock = vi.fn<(...args: unknown[]) => unknown>();
 const createStoreMock = vi.fn<(...args: unknown[]) => unknown>();
 const getDbMock = vi.fn<(...args: unknown[]) => unknown>(() => ({ tag: "db" }));
 
-vi.mock("~/lib/cli-identity.server", () => ({
-  getCliIdentity: (...args: unknown[]) => getCliIdentityMock(...args),
-}));
+vi.mock("@gdgjp/gdg-lib", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@gdgjp/gdg-lib")>();
+  return {
+    ...original,
+    getBearerIdentity: (...args: unknown[]) => getBearerIdentityMock(...args),
+  };
+});
 
 vi.mock("~/lib/db.server", () => ({
   getDb: (...args: unknown[]) => getDbMock(...args),
@@ -28,7 +32,7 @@ import { loader as catLoader } from "./api.agent.cat";
 import { loader as lsLoader } from "./api.agent.ls";
 import { loader as searchLoader } from "./api.agent.search";
 
-function identity(overrides?: Partial<CliIdentity["user"]> & { id?: string }): CliIdentity {
+function identity(overrides?: Partial<BearerIdentity["user"]> & { id?: string }): BearerIdentity {
   return {
     user: {
       id: overrides?.id ?? "user-a",
@@ -149,10 +153,10 @@ function loaderArgs(path: string, search = "") {
 }
 
 beforeEach(() => {
-  getCliIdentityMock.mockReset();
+  getBearerIdentityMock.mockReset();
   createStoreMock.mockReset();
   getDbMock.mockClear();
-  getCliIdentityMock.mockResolvedValue(identity());
+  getBearerIdentityMock.mockResolvedValue(identity());
   createStoreMock.mockImplementation((...args: unknown[]) =>
     createFakeStore(args[1] as WorkspaceActor, basePages),
   );
@@ -160,7 +164,7 @@ beforeEach(() => {
 
 describe("GET /api/agent/ls", () => {
   it("returns 401 invalid_token without calling the store", async () => {
-    getCliIdentityMock.mockResolvedValue(null);
+    getBearerIdentityMock.mockResolvedValue(null);
     const response = await lsLoader(loaderArgs("/api/agent/ls", "?path=/wiki"));
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "invalid_token" });
@@ -206,9 +210,9 @@ describe("GET /api/agent/ls", () => {
   });
 
   it("returns different listings for callers with different permissions", async () => {
-    getCliIdentityMock.mockResolvedValueOnce(identity({ id: "user-a" }));
+    getBearerIdentityMock.mockResolvedValueOnce(identity({ id: "user-a" }));
     const denied = await lsLoader(loaderArgs("/api/agent/ls", "?path=/wiki"));
-    getCliIdentityMock.mockResolvedValueOnce(identity({ id: "user-allowed" }));
+    getBearerIdentityMock.mockResolvedValueOnce(identity({ id: "user-allowed" }));
     const allowed = await lsLoader(loaderArgs("/api/agent/ls", "?path=/wiki"));
 
     const deniedNames = ((await denied.json()) as { entries: Array<{ name: string }> }).entries.map(
@@ -273,7 +277,7 @@ describe("GET /api/agent/ls", () => {
 
 describe("GET /api/agent/cat", () => {
   it("returns 401 invalid_token without calling the store", async () => {
-    getCliIdentityMock.mockResolvedValue(null);
+    getBearerIdentityMock.mockResolvedValue(null);
     const response = await catLoader(loaderArgs("/api/agent/cat", "?path=/wiki/index"));
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "invalid_token" });
@@ -320,7 +324,7 @@ describe("GET /api/agent/cat", () => {
 
 describe("GET /api/agent/search", () => {
   it("returns 401 invalid_token without calling the store", async () => {
-    getCliIdentityMock.mockResolvedValue(null);
+    getBearerIdentityMock.mockResolvedValue(null);
     const response = await searchLoader(loaderArgs("/api/agent/search", "?q=umeda"));
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "invalid_token" });

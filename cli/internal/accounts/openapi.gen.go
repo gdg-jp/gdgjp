@@ -34,6 +34,12 @@ const (
 	Tohoku   ChapterRegion = "tohoku"
 )
 
+// Defines values for CliIdentityChaptersRole.
+const (
+	Member    CliIdentityChaptersRole = "member"
+	Organizer CliIdentityChaptersRole = "organizer"
+)
+
 // Defines values for OAuthClientGrantTypes.
 const (
 	OAuthClientGrantTypesAuthorizationCode OAuthClientGrantTypes = "authorization_code"
@@ -145,6 +151,25 @@ type ChapterRegion string
 type ChapterDirectory struct {
 	Chapters []Chapter `json:"chapters"`
 }
+
+// CliIdentity defines model for CliIdentity.
+type CliIdentity struct {
+	Chapters []struct {
+		ChapterId   int                     `json:"chapterId"`
+		ChapterSlug string                  `json:"chapterSlug"`
+		Role        CliIdentityChaptersRole `json:"role"`
+	} `json:"chapters"`
+	User struct {
+		Email   string  `json:"email"`
+		Id      string  `json:"id"`
+		Image   *string `json:"image"`
+		IsAdmin bool    `json:"isAdmin"`
+		Name    string  `json:"name"`
+	} `json:"user"`
+}
+
+// CliIdentityChaptersRole defines model for CliIdentity.Chapters.Role.
+type CliIdentityChaptersRole string
 
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
@@ -446,6 +471,9 @@ type ClientInterface interface {
 	// LogoutCli request
 	LogoutCli(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetCliIdentity request
+	GetCliIdentity(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// Authorize request
 	Authorize(ctx context.Context, params *AuthorizeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -619,6 +647,18 @@ func (c *Client) ListChapterDirectory(ctx context.Context, params *ListChapterDi
 
 func (c *Client) LogoutCli(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewLogoutCliRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetCliIdentity(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCliIdentityRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -1051,6 +1091,33 @@ func NewLogoutCliRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetCliIdentityRequest generates requests for GetCliIdentity
+func NewGetCliIdentityRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/cli/v1/identity")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewAuthorizeRequest generates requests for Authorize
 func NewAuthorizeRequest(server string, params *AuthorizeParams) (*http.Request, error) {
 	var err error
@@ -1355,6 +1422,9 @@ type ClientWithResponsesInterface interface {
 	// LogoutCliWithResponse request
 	LogoutCliWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LogoutCliResponse, error)
 
+	// GetCliIdentityWithResponse request
+	GetCliIdentityWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCliIdentityResponse, error)
+
 	// AuthorizeWithResponse request
 	AuthorizeWithResponse(ctx context.Context, params *AuthorizeParams, reqEditors ...RequestEditorFn) (*AuthorizeResponse, error)
 
@@ -1591,6 +1661,29 @@ func (r LogoutCliResponse) StatusCode() int {
 	return 0
 }
 
+type GetCliIdentityResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CliIdentity
+	JSON401      *Unauthorized
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCliIdentityResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCliIdentityResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type AuthorizeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1798,6 +1891,15 @@ func (c *ClientWithResponses) LogoutCliWithResponse(ctx context.Context, reqEdit
 		return nil, err
 	}
 	return ParseLogoutCliResponse(rsp)
+}
+
+// GetCliIdentityWithResponse request returning *GetCliIdentityResponse
+func (c *ClientWithResponses) GetCliIdentityWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCliIdentityResponse, error) {
+	rsp, err := c.GetCliIdentity(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCliIdentityResponse(rsp)
 }
 
 // AuthorizeWithResponse request returning *AuthorizeResponse
@@ -2081,6 +2183,39 @@ func ParseLogoutCliResponse(rsp *http.Response) (*LogoutCliResponse, error) {
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCliIdentityResponse parses an HTTP response from a GetCliIdentityWithResponse call
+func ParseGetCliIdentityResponse(rsp *http.Response) (*GetCliIdentityResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCliIdentityResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CliIdentity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

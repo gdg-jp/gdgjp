@@ -86,8 +86,8 @@ function workspaceCtx(chapterIds: string[]): AgentWorkspaceContext {
     identity: {
       user: { id: "u1", email: "u@example.com", name: "U", image: null, isAdmin: false },
       chapters: chapterIds.map((chapterId, i) => ({
-        chapterId,
-        chapterSlug: `c${i}`,
+        chapterId: i,
+        chapterSlug: chapterId,
         role: "member",
       })),
     },

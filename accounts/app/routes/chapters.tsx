@@ -116,7 +116,13 @@ export async function action(args: Route.ActionArgs) {
         { env, ctx: args.context.cloudflare.ctx, locale },
         {
           chapter,
-          requester: { id: user.id, email: user.email, name: user.name },
+          requester: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+            isAdmin: user.isAdmin,
+          },
           organizerEmails,
         },
       );
@@ -140,6 +146,8 @@ export async function action(args: Route.ActionArgs) {
         id: user.id,
         email: user.email,
         name: user.name,
+        image: user.image,
+        isAdmin: user.isAdmin,
       };
       sendMemberLeft(
         { env, ctx: args.context.cloudflare.ctx, locale },

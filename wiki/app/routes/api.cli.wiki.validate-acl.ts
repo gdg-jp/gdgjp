@@ -1,3 +1,4 @@
+import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { inArray } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
@@ -7,7 +8,6 @@ import {
   validatePageAclForSync,
   validateReadSourcesTagged,
 } from "~/lib/acl-spans.server";
-import { getCliIdentity } from "~/lib/cli-identity.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { mapInChunks } from "~/lib/d1-chunk.server";
 import { getDb } from "~/lib/db.server";
@@ -50,7 +50,7 @@ type Finding = { slug: string; error: string; sourceId?: string };
 export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST") return new Response(null, { status: 405 });
   const { env } = context.cloudflare;
-  const identity = await getCliIdentity(request, env);
+  const identity = await getBearerIdentity(request, env.ACCOUNTS_URL);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
 
   const parsed = Body.safeParse(await request.json());

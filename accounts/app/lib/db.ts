@@ -583,14 +583,21 @@ export async function getOrganizerEmailsForChapter(
   return results.map((r) => r.email).filter(Boolean);
 }
 
-export type UserSummary = { id: string; email: string; name: string };
+export type UserSummary = {
+  id: string;
+  email: string;
+  name: string;
+  image: string | null;
+  isAdmin: boolean;
+};
 
 export async function getUserById(db: D1Database, userId: string): Promise<UserSummary | null> {
   const row = await db
-    .prepare(`SELECT id, email, name FROM "user" WHERE id = ?`)
+    .prepare(`SELECT id, email, name, image, is_admin AS isAdmin FROM "user" WHERE id = ?`)
     .bind(userId)
-    .first<UserSummary>();
-  return row ?? null;
+    .first<{ id: string; email: string; name: string; image: string | null; isAdmin: number }>();
+  if (!row) return null;
+  return { ...row, isAdmin: row.isAdmin === 1 };
 }
 
 export async function getUsersByIds(

@@ -1,5 +1,5 @@
-import type { CliIdentity } from "~/lib/cli-identity.server";
-import { getCliIdentity } from "~/lib/cli-identity.server";
+import type { BearerIdentity } from "@gdgjp/gdg-lib";
+import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { getDb } from "~/lib/db.server";
 import { createD1WikiWorkspaceStore } from "../../workers/features/ingestion/persistence/d1/wiki-read-repository";
 import type { WorkspaceResult } from "../../workers/features/ingestion/tools/workspace/contracts";
@@ -13,7 +13,7 @@ import {
 } from "../../workers/features/ingestion/tools/workspace/workspace";
 
 export type AgentWorkspaceContext = {
-  identity: CliIdentity;
+  identity: BearerIdentity;
   workspace: MountedWorkspace;
   chapterIds: string[];
 };
@@ -27,7 +27,7 @@ export async function resolveAgentWorkspace(
   request: Request,
   env: Env,
 ): Promise<AgentWorkspaceContext | null> {
-  const identity = await getCliIdentity(request, env);
+  const identity = await getBearerIdentity(request, env.ACCOUNTS_URL);
   if (!identity) return null;
   const actor: WorkspaceActor = {
     userId: identity.user.id,

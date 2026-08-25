@@ -15,6 +15,8 @@ const requester: UserSummary = {
   id: "u_1",
   email: "alice@example.com",
   name: "Alice",
+  image: null,
+  isAdmin: false,
 };
 
 const appUrl = "https://accounts.gdgs.jp";
@@ -60,6 +62,8 @@ describe("email renderers", () => {
       id: "u_2",
       email: "bob@example.com",
       name: "<script>alert('x')</script>",
+      image: null,
+      isAdmin: false,
     };
     const r = __renderers.requestSubmitted("en", { chapter, requester: evil, appUrl });
     expect(r.html).not.toContain("<script>alert");

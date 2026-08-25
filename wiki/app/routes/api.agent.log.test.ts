@@ -1,14 +1,18 @@
+import type { BearerIdentity } from "@gdgjp/gdg-lib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CliIdentity } from "~/lib/cli-identity.server";
 
-const getCliIdentityMock = vi.fn<(...args: unknown[]) => unknown>();
+const getBearerIdentityMock = vi.fn<(...args: unknown[]) => unknown>();
 const createStoreMock = vi.fn<(...args: unknown[]) => unknown>();
 const getDbMock = vi.fn<(...args: unknown[]) => unknown>(() => ({ tag: "db" }));
 const appendLogEntryMock = vi.fn<(...args: unknown[]) => unknown>();
 
-vi.mock("~/lib/cli-identity.server", () => ({
-  getCliIdentity: (...args: unknown[]) => getCliIdentityMock(...args),
-}));
+vi.mock("@gdgjp/gdg-lib", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@gdgjp/gdg-lib")>();
+  return {
+    ...original,
+    getBearerIdentity: (...args: unknown[]) => getBearerIdentityMock(...args),
+  };
+});
 
 vi.mock("~/lib/db.server", () => ({
   getDb: (...args: unknown[]) => getDbMock(...args),
@@ -25,8 +29,8 @@ vi.mock("~/lib/wiki-catalog.server", () => ({
 import { action } from "./api.agent.log";
 
 function identity(
-  chapters: CliIdentity["chapters"] = [{ chapterId: 1, chapterSlug: "osaka", role: "member" }],
-): CliIdentity {
+  chapters: BearerIdentity["chapters"] = [{ chapterId: 1, chapterSlug: "osaka", role: "member" }],
+): BearerIdentity {
   return {
     user: {
       id: "user-a",
@@ -58,7 +62,7 @@ function actionArgs(body: unknown) {
 }
 
 beforeEach(() => {
-  getCliIdentityMock.mockReset().mockResolvedValue(identity());
+  getBearerIdentityMock.mockReset().mockResolvedValue(identity());
   createStoreMock.mockReset().mockReturnValue({ tag: "store" });
   getDbMock.mockClear();
   appendLogEntryMock.mockReset().mockResolvedValue({ ok: true });
@@ -66,14 +70,14 @@ beforeEach(() => {
 
 describe("POST /api/agent/log", () => {
   it("returns 401 without calling append", async () => {
-    getCliIdentityMock.mockResolvedValue(null);
+    getBearerIdentityMock.mockResolvedValue(null);
     const response = await action(actionArgs({ subject: "q", lines: ["a"] }));
     expect(response.status).toBe(401);
     expect(appendLogEntryMock).not.toHaveBeenCalled();
   });
 
   it("returns 403 when the caller has no chapter membership", async () => {
-    getCliIdentityMock.mockResolvedValue(identity([]));
+    getBearerIdentityMock.mockResolvedValue(identity([]));
     const response = await action(actionArgs({ subject: "q", lines: ["a"] }));
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "no_chapter_membership" });

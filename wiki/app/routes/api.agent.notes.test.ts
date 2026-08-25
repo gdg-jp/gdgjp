@@ -1,14 +1,18 @@
+import type { BearerIdentity } from "@gdgjp/gdg-lib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CliIdentity } from "~/lib/cli-identity.server";
 
-const getCliIdentityMock = vi.fn<(...args: unknown[]) => unknown>();
+const getBearerIdentityMock = vi.fn<(...args: unknown[]) => unknown>();
 const createStoreMock = vi.fn<(...args: unknown[]) => unknown>();
 const getDbMock = vi.fn<(...args: unknown[]) => unknown>(() => ({ tag: "db" }));
 const createOrReplaceMock = vi.fn<(...args: unknown[]) => unknown>();
 
-vi.mock("~/lib/cli-identity.server", () => ({
-  getCliIdentity: (...args: unknown[]) => getCliIdentityMock(...args),
-}));
+vi.mock("@gdgjp/gdg-lib", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@gdgjp/gdg-lib")>();
+  return {
+    ...original,
+    getBearerIdentity: (...args: unknown[]) => getBearerIdentityMock(...args),
+  };
+});
 
 vi.mock("~/lib/db.server", () => ({
   getDb: (...args: unknown[]) => getDbMock(...args),
@@ -30,7 +34,7 @@ vi.mock("~/lib/agent-notes.server", async () => {
 
 import { action } from "./api.agent.notes";
 
-function identity(): CliIdentity {
+function identity(): BearerIdentity {
   return {
     user: {
       id: "user-a",
@@ -64,7 +68,7 @@ function actionArgs(body: unknown) {
 }
 
 beforeEach(() => {
-  getCliIdentityMock.mockReset().mockResolvedValue(identity());
+  getBearerIdentityMock.mockReset().mockResolvedValue(identity());
   createStoreMock.mockReset().mockReturnValue({ tag: "store" });
   getDbMock.mockClear();
   createOrReplaceMock.mockReset();
@@ -72,7 +76,7 @@ beforeEach(() => {
 
 describe("POST /api/agent/notes", () => {
   it("returns 401 invalid_token without creating a note", async () => {
-    getCliIdentityMock.mockResolvedValue(null);
+    getBearerIdentityMock.mockResolvedValue(null);
     const response = await action(
       actionArgs({
         slug: "a",

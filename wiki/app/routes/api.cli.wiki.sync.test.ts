@@ -10,9 +10,13 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("~/lib/cli-identity.server", () => ({
-  getCliIdentity: vi.fn().mockImplementation(async () => mocks.identity),
-}));
+vi.mock("@gdgjp/gdg-lib", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@gdgjp/gdg-lib")>();
+  return {
+    ...original,
+    getBearerIdentity: vi.fn().mockImplementation(async () => mocks.identity),
+  };
+});
 
 vi.mock("~/lib/agents-md.server", async (importOriginal) => {
   const original = await importOriginal<typeof import("~/lib/agents-md.server")>();

@@ -19,9 +19,13 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("~/lib/cli-identity.server", () => ({
-  getCliIdentity: vi.fn().mockImplementation(async () => mocks.identity),
-}));
+vi.mock("@gdgjp/gdg-lib", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@gdgjp/gdg-lib")>();
+  return {
+    ...original,
+    getBearerIdentity: vi.fn().mockImplementation(async () => mocks.identity),
+  };
+});
 
 vi.mock("~/lib/db.server", () => ({
   getDb: vi.fn(() => ({
@@ -36,7 +40,7 @@ vi.mock("~/lib/db.server", () => ({
   })),
 }));
 
-import { getCliIdentity } from "~/lib/cli-identity.server";
+import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { action } from "./api.cli.wiki.validate-acl";
 
 function makeContext() {
@@ -79,11 +83,11 @@ describe("POST /api/cli/wiki/validate-acl", () => {
     mocks.getResults = [];
     mocks.prepareCalls = [];
     mocks.identity.user.isAdmin = true;
-    vi.mocked(getCliIdentity).mockResolvedValue(mocks.identity as never);
+    vi.mocked(getBearerIdentity).mockResolvedValue(mocks.identity as never);
   });
 
   it("returns 401 without identity", async () => {
-    vi.mocked(getCliIdentity).mockResolvedValueOnce(null);
+    vi.mocked(getBearerIdentity).mockResolvedValueOnce(null);
     const response = await post({ pages: [], readSourceIds: [] });
     expect(response.status).toBe(401);
   });

@@ -119,6 +119,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cli/v1/identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCliIdentity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/oauth2/create-client": {
         parameters: {
             query?: never;
@@ -233,6 +249,21 @@ export interface components {
         };
         ChapterDirectory: {
             chapters: components["schemas"]["Chapter"][];
+        };
+        CliIdentity: {
+            user: {
+                id: string;
+                email: string;
+                name: string;
+                image: string | null;
+                isAdmin: boolean;
+            };
+            chapters: {
+                chapterId: number;
+                chapterSlug: string;
+                /** @enum {string} */
+                role: "organizer" | "member";
+            }[];
         };
         OAuthClientInput: {
             client_id?: string;
@@ -479,6 +510,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getCliIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Identity for a gdg-cli access token carrying the CLI scope. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliIdentity"];
+                };
             };
             401: components["responses"]["Unauthorized"];
         };

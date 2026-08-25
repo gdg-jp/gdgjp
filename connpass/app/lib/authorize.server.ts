@@ -1,4 +1,4 @@
-import type { CliIdentity } from "./cli-identity.server";
+import type { BearerIdentity } from "@gdgjp/gdg-lib";
 
 export type AllowedGroup = {
   groupSlug: string;
@@ -61,14 +61,14 @@ export async function getAllowedGroupByNumericId(
   };
 }
 
-export function canReadGroup(identity: CliIdentity, group: AllowedGroup): boolean {
+export function canReadGroup(identity: BearerIdentity, group: AllowedGroup): boolean {
   if (!group.enabled) return false;
   if (identity.user.isAdmin) return true;
   if (!group.chapterId) return identity.user.isAdmin;
   return identity.chapters.some((c) => String(c.chapterId) === String(group.chapterId));
 }
 
-export function canWriteGroup(identity: CliIdentity, group: AllowedGroup): boolean {
+export function canWriteGroup(identity: BearerIdentity, group: AllowedGroup): boolean {
   if (!group.enabled) return false;
   if (identity.user.isAdmin) return true;
   if (!group.chapterId) return false;
@@ -77,6 +77,6 @@ export function canWriteGroup(identity: CliIdentity, group: AllowedGroup): boole
   );
 }
 
-export function requireAdmin(identity: CliIdentity): boolean {
+export function requireAdmin(identity: BearerIdentity): boolean {
   return identity.user.isAdmin;
 }

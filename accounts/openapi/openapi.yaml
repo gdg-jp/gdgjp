@@ -20,6 +20,8 @@ paths:
     $ref: ./paths/chapter-directory.yaml
   /api/cli/logout:
     $ref: ./paths/cli-logout.yaml
+  /api/cli/v1/identity:
+    $ref: ./paths/cli-identity.yaml
   /api/auth/oauth2/create-client:
     $ref: ./paths/oauth-clients.yaml#/createClient
   /api/auth/oauth2/get-client:

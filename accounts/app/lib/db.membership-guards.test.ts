@@ -1,6 +1,10 @@
 import type { D1Database, D1PreparedStatement } from "@cloudflare/workers-types";
 import { describe, expect, it } from "vitest";
-import { demoteMembershipUnlessLastOrganizer, removeMembershipUnlessLastOrganizer } from "./db";
+import {
+  demoteMembershipUnlessLastOrganizer,
+  getUserById,
+  removeMembershipUnlessLastOrganizer,
+} from "./db";
 
 const membershipRow = {
   user_id: "target-user",
@@ -67,5 +71,66 @@ describe("organizer membership guards", () => {
     const { db, statements } = fakeDb({ exists: false });
     await expect(removeMembershipUnlessLastOrganizer(db, "missing", 1)).resolves.toBe("not_found");
     expect(statements).toHaveLength(1);
+  });
+});
+
+describe("getUserById", () => {
+  function fakeUserDb(row: Record<string, unknown> | null) {
+    const statements: string[] = [];
+    const db = {
+      prepare(sql: string) {
+        statements.push(sql);
+        return {
+          bind() {
+            return this;
+          },
+          async first() {
+            return row;
+          },
+        } as unknown as D1PreparedStatement;
+      },
+    } as D1Database;
+    return { db, statements };
+  }
+
+  it("maps the user table's image and is_admin columns onto UserSummary", async () => {
+    const { db, statements } = fakeUserDb({
+      id: "user-1",
+      email: "organizer@example.com",
+      name: "Organizer",
+      image: "https://example.com/avatar.png",
+      isAdmin: 1,
+    });
+    await expect(getUserById(db, "user-1")).resolves.toEqual({
+      id: "user-1",
+      email: "organizer@example.com",
+      name: "Organizer",
+      image: "https://example.com/avatar.png",
+      isAdmin: true,
+    });
+    expect(statements[0]).toContain("image");
+    expect(statements[0]).toContain("is_admin");
+  });
+
+  it("maps is_admin = 0 to isAdmin: false", async () => {
+    const { db } = fakeUserDb({
+      id: "user-2",
+      email: "member@example.com",
+      name: "Member",
+      image: null,
+      isAdmin: 0,
+    });
+    await expect(getUserById(db, "user-2")).resolves.toEqual({
+      id: "user-2",
+      email: "member@example.com",
+      name: "Member",
+      image: null,
+      isAdmin: false,
+    });
+  });
+
+  it("returns null when no row exists", async () => {
+    const { db } = fakeUserDb(null);
+    await expect(getUserById(db, "missing")).resolves.toBeNull();
   });
 });

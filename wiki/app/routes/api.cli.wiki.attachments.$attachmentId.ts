@@ -1,7 +1,7 @@
+import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { eq } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { getCliIdentity } from "~/lib/cli-identity.server";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
 import type { components } from "../../openapi/types.generated";
@@ -11,7 +11,7 @@ type OkResponse = components["schemas"]["SyncResult"] extends { ok: infer TOk }
   : never;
 
 async function permitted(request: Request, env: Env, attachmentId: string, write: boolean) {
-  const identity = await getCliIdentity(request, env);
+  const identity = await getBearerIdentity(request, env.ACCOUNTS_URL);
   if (!identity) return { error: new Response(null, { status: 401 }) };
   const db = getDb(env);
   const attachment = await db

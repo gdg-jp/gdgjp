@@ -1,11 +1,12 @@
+import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import { accountsBaseUrl } from "~/lib/accounts-url.server";
 import {
   canReadGroup,
   canWriteGroup,
   getAllowedGroup,
   resolveGroupSlug,
 } from "~/lib/authorize.server";
-import { getCliIdentity } from "~/lib/cli-identity.server";
 import { listSubEventsInBrowser } from "~/lib/connpass-browser-read.server";
 import { createJob, jobToJson } from "~/lib/jobs.server";
 import type { components } from "../../openapi/types.generated";
@@ -14,7 +15,7 @@ type SubEvent = components["schemas"]["SubEvent"];
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const identity = await getCliIdentity(request, env);
+  const identity = await getBearerIdentity(request, accountsBaseUrl(env));
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
 
   const groupSlug = resolveGroupSlug(params.groupId ?? "");
@@ -45,7 +46,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     return Response.json({ error: "method_not_allowed" }, { status: 405 });
   }
   const { env, ctx } = context.cloudflare;
-  const identity = await getCliIdentity(request, env);
+  const identity = await getBearerIdentity(request, accountsBaseUrl(env));
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
 
   const groupSlug = resolveGroupSlug(params.groupId ?? "");

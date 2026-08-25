@@ -42,8 +42,8 @@ describe("computeAccessFloor", () => {
           isAdmin: false,
         },
         chapters: chapterIds.map((chapterId, i) => ({
-          chapterId,
-          chapterSlug: `c${i}`,
+          chapterId: i,
+          chapterSlug: chapterId,
           role: "member",
         })),
       },

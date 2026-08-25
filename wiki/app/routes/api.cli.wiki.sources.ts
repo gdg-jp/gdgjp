@@ -1,9 +1,9 @@
+import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { and, asc, eq, ne } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { removeAclSpans } from "~/lib/acl-spans";
 import { pageAclClearance } from "~/lib/acl-spans.server";
-import { getCliIdentity } from "~/lib/cli-identity.server";
 import {
   parseWikiCloneLanguage,
   renderWikiHumanDocument,
@@ -32,7 +32,7 @@ function toUnixSeconds(value: Date | number | null | undefined): number | null {
 /** GET /api/cli/wiki/sources — manifest of raw documents for gdg wiki raw pull. */
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
-  const identity = await getCliIdentity(request, env);
+  const identity = await getBearerIdentity(request, env.ACCOUNTS_URL);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
 
   const lang = parseWikiCloneLanguage(new URL(request.url).searchParams.get("lang"));
