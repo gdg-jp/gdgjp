@@ -26,7 +26,7 @@ PAY_REDIRECT_URLS = "https://pay.gdgs.jp/api/auth/callback/gdgjp"
 # caller allowed to hit api/agents/google-workspace-token. Not sensitive (an
 # opaque user id, not a credential), but set only after that account exists
 # (docs/agents-local-gws/01-accounts-workspace-link.md).
-AGENTS_SERVICE_ACCOUNT_USER_ID = ""
+AGENTS_SERVICE_ACCOUNT_USER_ID = "FgyuX0YnIzQ6R2PvJfg26GKvoii0f1ea"
 
 [assets]
 binding = "ASSETS"
