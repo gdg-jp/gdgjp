@@ -116,6 +116,7 @@ function allResults() {
     lint: true,
     openapi: true,
     scriptTests: true,
+    cli: true,
     full: true,
   };
 }
@@ -174,6 +175,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
     lint: normalizedFiles.some((file) => BIOME_FILE_PATTERN.test(file)),
     openapi,
     scriptTests: normalizedFiles.some((file) => /^\.github\/scripts\/.*\.mjs$/.test(file)),
+    cli: ciGlobal || normalizedFiles.some((file) => file.startsWith("cli/")),
     full: false,
   };
 }
@@ -226,6 +228,7 @@ function workflowOutputs(result, base, head) {
     lint: String(result.lint),
     openapi: String(result.openapi),
     "script-tests": String(result.scriptTests),
+    cli: String(result.cli),
     full: String(result.full),
     base: base ?? "",
     head: head ?? "",

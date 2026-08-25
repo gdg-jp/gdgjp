@@ -30,6 +30,8 @@ type HTTPError struct {
 func (e *HTTPError) Error() string {
 	return fmt.Sprintf("wiki request failed (%d): %s", e.StatusCode, e.Message)
 }
+
+func (e *HTTPError) HTTPStatus() int { return e.StatusCode }
 func NewClient() *Client {
 	base := os.Getenv("GDG_WIKI_URL")
 	if base == "" {

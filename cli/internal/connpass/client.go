@@ -35,6 +35,8 @@ func (e *HTTPError) Error() string {
 	return fmt.Sprintf("connpass request failed (%d): %s", e.StatusCode, e.Message)
 }
 
+func (e *HTTPError) HTTPStatus() int { return e.StatusCode }
+
 type (
 	CreateEventRequest      = openapigen.CreateEventRequest
 	CreateSubEventRequest   = openapigen.CreateSubEventRequest

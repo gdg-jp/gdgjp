@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/gdg-jp/gdgjp/cli/internal/cliutil"
 	"github.com/gdg-jp/gdgjp/cli/internal/connpass"
 	"github.com/gdg-jp/gdgjp/cli/internal/store"
 	"github.com/spf13/cobra"
@@ -44,13 +45,13 @@ func newConnpassEventOperationsCommand(credentials store.CredentialStore) *cobra
 func newConnpassEventReadCommand(credentials store.CredentialStore, use, suffix string) *cobra.Command {
 	return &cobra.Command{Use: use + " GROUP_ID EVENT_ID", Args: cobra.ExactArgs(2), RunE: func(cmd *cobra.Command, args []string) error {
 		var output map[string]any
-		_, err := withConnpassToken(cmd.Context(), credentials, func(token string) (struct{}, error) {
+		_, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (struct{}, error) {
 			return struct{}{}, connpass.NewClient().GetEventResource(cmd.Context(), token, args[0], args[1], suffix, &output)
 		})
 		if err != nil {
 			return err
 		}
-		return printConnpassJSON(cmd, output)
+		return cliutil.PrintJSON(cmd.OutOrStdout(), output)
 	}}
 }
 

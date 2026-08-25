@@ -3,6 +3,7 @@ package command
 import (
 	"errors"
 
+	"github.com/gdg-jp/gdgjp/cli/internal/cliutil"
 	"github.com/gdg-jp/gdgjp/cli/internal/connpass"
 	"github.com/gdg-jp/gdgjp/cli/internal/store"
 	"github.com/spf13/cobra"
@@ -118,13 +119,13 @@ func newConnpassEventsListCommand(credentials store.CredentialStore) *cobra.Comm
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := connpass.NewClient()
-			out, err := withConnpassToken(cmd.Context(), credentials, func(token string) (connpass.ListEventsResponse, error) {
+			out, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (connpass.ListEventsResponse, error) {
 				return client.ListEvents(cmd.Context(), token, args[0])
 			})
 			if err != nil {
 				return err
 			}
-			return printConnpassJSON(cmd, out)
+			return cliutil.PrintJSON(cmd.OutOrStdout(), out)
 		},
 	}
 }
@@ -164,13 +165,13 @@ func newConnpassEventsGetCommand(credentials store.CredentialStore) *cobra.Comma
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := connpass.NewClient()
-			out, err := withConnpassToken(cmd.Context(), credentials, func(token string) (connpass.GetEventResponse, error) {
+			out, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (connpass.GetEventResponse, error) {
 				return client.GetEvent(cmd.Context(), token, args[0], args[1])
 			})
 			if err != nil {
 				return err
 			}
-			return printConnpassJSON(cmd, out)
+			return cliutil.PrintJSON(cmd.OutOrStdout(), out)
 		},
 	}
 }
@@ -242,13 +243,13 @@ func newConnpassSubEventsCommand(credentials store.CredentialStore) *cobra.Comma
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := connpass.NewClient()
-			out, err := withConnpassToken(cmd.Context(), credentials, func(token string) (connpass.ListSubEventsResponse, error) {
+			out, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (connpass.ListSubEventsResponse, error) {
 				return client.ListSubEvents(cmd.Context(), token, args[0], args[1])
 			})
 			if err != nil {
 				return err
 			}
-			return printConnpassJSON(cmd, out)
+			return cliutil.PrintJSON(cmd.OutOrStdout(), out)
 		},
 	})
 
@@ -284,13 +285,13 @@ func newConnpassSubEventsCommand(credentials store.CredentialStore) *cobra.Comma
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := connpass.NewClient()
-			out, err := withConnpassToken(cmd.Context(), credentials, func(token string) (connpass.GetSubEventResponse, error) {
+			out, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (connpass.GetSubEventResponse, error) {
 				return client.GetSubEvent(cmd.Context(), token, args[0], args[1], args[2])
 			})
 			if err != nil {
 				return err
 			}
-			return printConnpassJSON(cmd, out)
+			return cliutil.PrintJSON(cmd.OutOrStdout(), out)
 		},
 	})
 
@@ -321,13 +322,13 @@ func newConnpassSurveyCommand(credentials store.CredentialStore) *cobra.Command 
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := connpass.NewClient()
-			out, err := withConnpassToken(cmd.Context(), credentials, func(token string) (connpass.GetSurveyResponse, error) {
+			out, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (connpass.GetSurveyResponse, error) {
 				return client.GetSurvey(cmd.Context(), token, args[0], args[1])
 			})
 			if err != nil {
 				return err
 			}
-			return printConnpassJSON(cmd, out)
+			return cliutil.PrintJSON(cmd.OutOrStdout(), out)
 		},
 	})
 	upsert := &cobra.Command{
@@ -365,13 +366,13 @@ func newConnpassConferenceCommand(credentials store.CredentialStore) *cobra.Comm
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := connpass.NewClient()
-			out, err := withConnpassToken(cmd.Context(), credentials, func(token string) (connpass.GetConferenceResponse, error) {
+			out, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (connpass.GetConferenceResponse, error) {
 				return client.GetConference(cmd.Context(), token, args[0], args[1])
 			})
 			if err != nil {
 				return err
 			}
-			return printConnpassJSON(cmd, out)
+			return cliutil.PrintJSON(cmd.OutOrStdout(), out)
 		},
 	})
 

@@ -29,6 +29,8 @@ func (err *HTTPError) Error() string {
 	return fmt.Sprintf("GDG Japan Accounts request failed: %s: %s", err.Status, err.Message)
 }
 
+func (err *HTTPError) HTTPStatus() int { return err.StatusCode }
+
 func NewAccountsClient(baseURL string, httpClient *http.Client) *AccountsClient {
 	if baseURL == "" {
 		baseURL = DefaultBaseURL

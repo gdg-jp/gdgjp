@@ -1,16 +1,14 @@
 package command
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"time"
 
+	"github.com/gdg-jp/gdgjp/cli/internal/cliutil"
 	"github.com/gdg-jp/gdgjp/cli/internal/connpass"
-	"github.com/gdg-jp/gdgjp/cli/internal/oauth"
 	"github.com/gdg-jp/gdgjp/cli/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -25,43 +23,6 @@ func newConnpassCommand(credentials store.CredentialStore) *cobra.Command {
 	command.AddCommand(newConnpassGroupsCommand(credentials))
 	command.AddCommand(newConnpassSessionCommand(credentials))
 	return command
-}
-
-func withConnpassToken[T any](
-	ctx context.Context,
-	credentials store.CredentialStore,
-	fn func(token string) (T, error),
-) (T, error) {
-	var zero T
-	credential, err := credentials.Load()
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return zero, errors.New("not logged in; run gdg login")
-		}
-		return zero, err
-	}
-	result, err := fn(credential.AccessToken)
-	if err == nil {
-		return result, nil
-	}
-	var httpErr *connpass.HTTPError
-	if !errors.As(err, &httpErr) || httpErr.StatusCode != 401 {
-		return zero, err
-	}
-	fresh, refreshErr := oauth.Refresh(ctx, credential.RefreshToken)
-	if refreshErr != nil {
-		return zero, fmt.Errorf("refresh GDG Japan login: %w", refreshErr)
-	}
-	if saveErr := credentials.Save(fresh); saveErr != nil {
-		return zero, saveErr
-	}
-	return fn(fresh.AccessToken)
-}
-
-func printConnpassJSON(cmd *cobra.Command, value any) error {
-	enc := json.NewEncoder(cmd.OutOrStdout())
-	enc.SetIndent("", "  ")
-	return enc.Encode(value)
 }
 
 func addJSONBodyFlags(cmd *cobra.Command) {
@@ -124,12 +85,12 @@ func runConnpassJob(
 	start func(token string) (connpass.Job, error),
 ) error {
 	client := connpass.NewClient()
-	job, err := withConnpassToken(cmd.Context(), credentials, start)
+	job, err := cliutil.WithToken(cmd.Context(), credentials, start)
 	if err != nil {
 		return err
 	}
 	if wait {
-		job, err = withConnpassToken(cmd.Context(), credentials, func(token string) (connpass.Job, error) {
+		job, err = cliutil.WithToken(cmd.Context(), credentials, func(token string) (connpass.Job, error) {
 			return client.WaitJob(cmd.Context(), token, job.Id, 2*time.Second)
 		})
 		if err != nil {
@@ -139,7 +100,7 @@ func runConnpassJob(
 			return fail
 		}
 	}
-	return printConnpassJSON(cmd, job)
+	return cliutil.PrintJSON(cmd.OutOrStdout(), job)
 }
 
 func setStringFlag(cmd *cobra.Command, body map[string]any, name, jsonKey, value string) {
@@ -171,13 +132,13 @@ func newConnpassJobsCommand(credentials store.CredentialStore) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := connpass.NewClient()
-			job, err := withConnpassToken(cmd.Context(), credentials, func(token string) (connpass.Job, error) {
+			job, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (connpass.Job, error) {
 				return client.GetJob(cmd.Context(), token, args[0])
 			})
 			if err != nil {
 				return err
 			}
-			return printConnpassJSON(cmd, job)
+			return cliutil.PrintJSON(cmd.OutOrStdout(), job)
 		},
 	})
 	command.AddCommand(&cobra.Command{
@@ -186,7 +147,7 @@ func newConnpassJobsCommand(credentials store.CredentialStore) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := connpass.NewClient()
-			job, err := withConnpassToken(cmd.Context(), credentials, func(token string) (connpass.Job, error) {
+			job, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (connpass.Job, error) {
 				return client.WaitJob(cmd.Context(), token, args[0], 2*time.Second)
 			})
 			if err != nil {
@@ -195,7 +156,7 @@ func newConnpassJobsCommand(credentials store.CredentialStore) *cobra.Command {
 			if fail := connpass.JobFailed(job); fail != nil {
 				return fail
 			}
-			return printConnpassJSON(cmd, job)
+			return cliutil.PrintJSON(cmd.OutOrStdout(), job)
 		},
 	})
 	return command
@@ -213,13 +174,13 @@ func newConnpassGroupsCommand(credentials store.CredentialStore) *cobra.Command 
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			client := connpass.NewClient()
-			groups, err := withConnpassToken(cmd.Context(), credentials, func(token string) ([]connpass.Group, error) {
+			groups, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) ([]connpass.Group, error) {
 				return client.ListGroups(cmd.Context(), token)
 			})
 			if err != nil {
 				return err
 			}
-			return printConnpassJSON(cmd, map[string]any{"groups": groups})
+			return cliutil.PrintJSON(cmd.OutOrStdout(), map[string]any{"groups": groups})
 		},
 	})
 
@@ -244,13 +205,13 @@ func newConnpassGroupsCommand(credentials store.CredentialStore) *cobra.Command 
 				id := numericGroupID
 				input.NumericGroupId = &id
 			}
-			group, err := withConnpassToken(cmd.Context(), credentials, func(token string) (connpass.Group, error) {
+			group, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (connpass.Group, error) {
 				return client.UpsertGroup(cmd.Context(), token, args[0], input)
 			})
 			if err != nil {
 				return err
 			}
-			return printConnpassJSON(cmd, group)
+			return cliutil.PrintJSON(cmd.OutOrStdout(), group)
 		},
 	}
 	upsert.Flags().StringVar(&chapterID, "chapter-id", "", "GDG Accounts chapter id for organizer authorization")

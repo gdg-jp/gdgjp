@@ -2,11 +2,9 @@ package command
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	accountsapi "github.com/gdg-jp/gdgjp/cli/internal/accounts"
-	"github.com/gdg-jp/gdgjp/cli/internal/oauth"
+	"github.com/gdg-jp/gdgjp/cli/internal/cliutil"
 	"github.com/gdg-jp/gdgjp/cli/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -75,23 +73,5 @@ func (service *agentService) withAccessToken(
 	ctx context.Context,
 	operation func(string) (accountsapi.WorkspaceTokenResult, error),
 ) (accountsapi.WorkspaceTokenResult, error) {
-	credentials, err := service.credentials.Load()
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return accountsapi.WorkspaceTokenResult{}, errors.New("not logged in; run gdg login")
-		}
-		return accountsapi.WorkspaceTokenResult{}, err
-	}
-	result, err := operation(credentials.AccessToken)
-	if !isUnauthorized(err) {
-		return result, err
-	}
-	refreshed, err := oauth.Refresh(ctx, credentials.RefreshToken)
-	if err != nil {
-		return accountsapi.WorkspaceTokenResult{}, fmt.Errorf("refresh GDG Japan login: %w", err)
-	}
-	if err := service.credentials.Save(refreshed); err != nil {
-		return accountsapi.WorkspaceTokenResult{}, fmt.Errorf("save refreshed credentials: %w", err)
-	}
-	return operation(refreshed.AccessToken)
+	return cliutil.WithToken(ctx, saveWrappingCredentialStore{service.credentials}, operation)
 }

@@ -41,6 +41,56 @@ func (s *memoryCredentialStore) Delete() error {
 	return nil
 }
 
+type notLoggedInWikiStore struct{}
+
+func (notLoggedInWikiStore) Save(store.Credentials) error { return nil }
+func (notLoggedInWikiStore) Load() (store.Credentials, error) {
+	return store.Credentials{}, store.ErrNotFound
+}
+func (notLoggedInWikiStore) Delete() error { return nil }
+
+func TestWikiServiceWithTokenRequiresLogin(t *testing.T) {
+	service := testWikiService(nil)
+	service.credentials = notLoggedInWikiStore{}
+	err := service.withToken(context.Background(), func(string) error { return nil })
+	want := "load credentials (run gdg login): gdg credentials not found"
+	if err == nil || err.Error() != want {
+		t.Fatalf("error = %v, want %q", err, want)
+	}
+}
+
+type brokenWikiStore struct{ err error }
+
+func (brokenWikiStore) Save(store.Credentials) error { return nil }
+func (s brokenWikiStore) Load() (store.Credentials, error) {
+	return store.Credentials{}, s.err
+}
+func (brokenWikiStore) Delete() error { return nil }
+
+func TestWikiServiceWithTokenWrapsNonNotFoundLoadErrors(t *testing.T) {
+	service := testWikiService(nil)
+	loadErr := errors.New("keyring unavailable")
+	service.credentials = brokenWikiStore{err: loadErr}
+	err := service.withToken(context.Background(), func(string) error {
+		t.Fatal("fn should not be called on a load error")
+		return nil
+	})
+	want := "load credentials (run gdg login): keyring unavailable"
+	if err == nil || err.Error() != want {
+		t.Fatalf("error = %v, want %q", err, want)
+	}
+}
+
+func TestWikiServiceWithTokenNilStore(t *testing.T) {
+	service := testWikiService(nil)
+	service.credentials = nil
+	err := service.withToken(context.Background(), func(string) error { return nil })
+	want := "credentials store is not configured"
+	if err == nil || err.Error() != want {
+		t.Fatalf("error = %v, want %q", err, want)
+	}
+}
+
 func testWikiService(run gitRunner) *wikiService {
 	return &wikiService{
 		runGit:        run,

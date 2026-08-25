@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gdg-jp/gdgjp/cli/internal/oauth"
+	"github.com/gdg-jp/gdgjp/cli/internal/cliutil"
 	"github.com/gdg-jp/gdgjp/cli/internal/store"
 	"github.com/gdg-jp/gdgjp/cli/internal/wiki"
 	"github.com/spf13/cobra"
@@ -349,27 +349,37 @@ func (s *wikiService) withToken(ctx context.Context, fn func(string) error) erro
 	if s.credentials == nil {
 		return errors.New("credentials store is not configured")
 	}
-	credential, err := s.credentials.Load()
-	if err != nil {
-		return fmt.Errorf("load credentials (run gdg login): %w", err)
+	_, err := cliutil.WithToken(ctx, loadTaggingCredentialStore{s.credentials}, func(token string) (struct{}, error) {
+		return struct{}{}, fn(token)
+	})
+	var loadErr *taggedLoadError
+	if errors.As(err, &loadErr) {
+		return fmt.Errorf("load credentials (run gdg login): %w", loadErr.cause)
 	}
-	err = fn(credential.AccessToken)
-	if !isWikiUnauthorized(err) {
-		return err
-	}
-	fresh, refreshErr := oauth.Refresh(ctx, credential.RefreshToken)
-	if refreshErr != nil {
-		return fmt.Errorf("refresh GDG Japan login: %w", refreshErr)
-	}
-	if saveErr := s.credentials.Save(fresh); saveErr != nil {
-		return saveErr
-	}
-	return fn(fresh.AccessToken)
+	return err
 }
 
-func isWikiUnauthorized(err error) bool {
-	var httpErr *wiki.HTTPError
-	return errors.As(err, &httpErr) && httpErr.StatusCode == 401
+// loadTaggingCredentialStore preserves wiki's existing
+// "load credentials (run gdg login): %w" wrapper for every Load failure (not
+// only store.ErrNotFound) now that the retry flow is shared via
+// cliutil.WithToken. The tag is deliberately not Unwrap-able to
+// store.ErrNotFound, so cliutil.WithToken's own ErrNotFound short-circuit
+// (which returns its own generic NotLoggedInError) never fires here; wiki's
+// wrapper is restored afterwards from the tagged error instead.
+type loadTaggingCredentialStore struct {
+	store.CredentialStore
+}
+
+type taggedLoadError struct{ cause error }
+
+func (e *taggedLoadError) Error() string { return e.cause.Error() }
+
+func (s loadTaggingCredentialStore) Load() (store.Credentials, error) {
+	credentials, err := s.CredentialStore.Load()
+	if err != nil {
+		return credentials, &taggedLoadError{cause: err}
+	}
+	return credentials, nil
 }
 
 func (s *wikiService) rawPull(cmd *cobra.Command) error {

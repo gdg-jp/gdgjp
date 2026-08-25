@@ -103,4 +103,11 @@ test("manual execution selects every CI and deploy target", () => {
   assert.equal(result.ci.length, 13);
   assert.equal(result.deploy.length, 11);
   assert.equal(result.lint, true);
+  assert.equal(result.cli, true);
+});
+
+test("gates the CLI Go job on cli/ changes", () => {
+  assert.equal(classifyChanges(["cli/internal/command/wiki.go"]).cli, true);
+  assert.equal(classifyChanges(["docs/operations.md"]).cli, false);
+  assert.equal(classifyChanges(["pnpm-lock.yaml"]).cli, true);
 });

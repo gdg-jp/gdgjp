@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	accountsapi "github.com/gdg-jp/gdgjp/cli/internal/accounts"
-	"github.com/gdg-jp/gdgjp/cli/internal/oauth"
+	"github.com/gdg-jp/gdgjp/cli/internal/cliutil"
 	"github.com/gdg-jp/gdgjp/cli/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -212,30 +212,22 @@ func (service *accountsService) withAccessToken(
 	ctx context.Context,
 	operation func(string) (json.RawMessage, error),
 ) (json.RawMessage, error) {
-	credentials, err := service.credentials.Load()
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return nil, errors.New("not logged in; run gdg login")
-		}
-		return nil, err
-	}
-	result, err := operation(credentials.AccessToken)
-	if !isUnauthorized(err) {
-		return result, err
-	}
-	refreshed, err := oauth.Refresh(ctx, credentials.RefreshToken)
-	if err != nil {
-		return nil, fmt.Errorf("refresh GDG Japan login: %w", err)
-	}
-	if err := service.credentials.Save(refreshed); err != nil {
-		return nil, fmt.Errorf("save refreshed credentials: %w", err)
-	}
-	return operation(refreshed.AccessToken)
+	return cliutil.WithToken(ctx, saveWrappingCredentialStore{service.credentials}, operation)
 }
 
-func isUnauthorized(err error) bool {
-	var httpError *accountsapi.HTTPError
-	return errors.As(err, &httpError) && httpError.StatusCode == 401
+// saveWrappingCredentialStore preserves the Accounts and Agent commands'
+// existing "save refreshed credentials: %w" error text now that refresh-on-401
+// retry is shared via cliutil.WithToken, which otherwise returns Save errors
+// bare (matching connpass and wiki's original, unwrapped behavior).
+type saveWrappingCredentialStore struct {
+	store.CredentialStore
+}
+
+func (s saveWrappingCredentialStore) Save(credentials store.Credentials) error {
+	if err := s.CredentialStore.Save(credentials); err != nil {
+		return fmt.Errorf("save refreshed credentials: %w", err)
+	}
+	return nil
 }
 
 func writeJSON(cmd *cobra.Command, value any) error {
