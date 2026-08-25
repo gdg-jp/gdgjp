@@ -114,7 +114,9 @@ jobs:
       - parallel:
           - name: Typecheck accounts
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/accounts')
-            run: pnpm --filter @gdgjp/accounts typecheck
+            run: |
+              cp accounts/.dev.vars.example accounts/.dev.vars
+              pnpm --filter @gdgjp/accounts typecheck
           - name: Typecheck tinyurl
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/tinyurl')
             run: pnpm --filter @gdgjp/tinyurl typecheck
