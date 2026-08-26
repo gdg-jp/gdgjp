@@ -1,8 +1,7 @@
+import { isValidImageId } from "~/features/images/id";
+import { deleteImageForActor } from "~/features/images/service";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
-import { isValidImageId } from "~/lib/id";
-import { deleteImage, getImage } from "~/lib/images";
-import { canMutateImage } from "~/lib/permissions";
-import { deleteOriginal } from "~/lib/r2";
+import { dashboardImageErrorResponse } from "~/lib/image-errors.server";
 import type { components } from "../../openapi/types.generated";
 import type { Route } from "./+types/api.delete.$id";
 
@@ -14,16 +13,15 @@ export async function action(args: Route.ActionArgs) {
   if (!isValidImageId(id)) return new Response("Not found", { status: 404 });
 
   const env = args.context.cloudflare.env;
-  const { user } = await requireUserWithChapter(env, args.request);
-  const image = await getImage(env.DB, id);
-  if (!image) return new Response("Not found", { status: 404 });
-  if (!canMutateImage(user, image)) return new Response("Forbidden", { status: 403 });
+  const { user, chapter } = await requireUserWithChapter(env, args.request);
 
-  await deleteImage(env.DB, id);
-  args.context.cloudflare.ctx.waitUntil(deleteOriginal(env, image.r2Key));
-  if (image.mobileR2Key) {
-    args.context.cloudflare.ctx.waitUntil(deleteOriginal(env, image.mobileR2Key));
-  }
+  const result = await deleteImageForActor(
+    env,
+    args.context.cloudflare.ctx,
+    { user, chapters: [chapter] },
+    id,
+  );
+  if (!result.ok) return dashboardImageErrorResponse(result.error);
 
   const body: components["schemas"]["Success"] = { ok: true };
   return Response.json(body);

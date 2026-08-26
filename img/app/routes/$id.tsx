@@ -1,6 +1,6 @@
+import { isValidImageId } from "~/features/images/id";
+import { getImage } from "~/features/images/repository";
 import { prefersMobileImage } from "~/lib/device";
-import { isValidImageId } from "~/lib/id";
-import { getImage } from "~/lib/images";
 import { hasTransform, parseTransformOpts } from "~/lib/img-url";
 import type { Route } from "./+types/$id";
 

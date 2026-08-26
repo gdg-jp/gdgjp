@@ -3,8 +3,8 @@ import { Await } from "react-router";
 import { GalleryGrid, GalleryGridSkeleton, type GalleryItem } from "~/components/gallery-grid";
 import { PageShell } from "~/components/page-shell";
 import { UploadForm } from "~/components/upload-form";
+import { listImagesForActor } from "~/features/images/service";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
-import { listImagesByUser } from "~/lib/images";
 import { deliveryUrl } from "~/lib/img-url";
 import type { Route } from "./+types/home";
 
@@ -14,13 +14,16 @@ export function meta() {
 
 export async function loader(args: Route.LoaderArgs) {
   const env = args.context.cloudflare.env;
-  const { user } = await requireUserWithChapter(env, args.request);
-  const items = listImagesByUser(env.DB, user.id).then((rows): GalleryItem[] =>
-    rows.map((r) => ({
-      id: r.id,
-      thumbUrl: `${deliveryUrl(r.id, { w: 400, fit: "cover" })}&v=${r.updatedAt}`,
-      filename: r.filename,
-    })),
+  const { user, chapter } = await requireUserWithChapter(env, args.request);
+  const items = listImagesForActor(env, { user, chapters: [chapter] }, { limit: 60 }).then(
+    (result): GalleryItem[] =>
+      result.ok
+        ? result.value.images.map((r) => ({
+            id: r.id,
+            thumbUrl: `${deliveryUrl(r.id, { w: 400, fit: "cover" })}&v=${r.updatedAt}`,
+            filename: r.filename,
+          }))
+        : [],
   );
   return { user: { email: user.email, image: user.image, name: user.name }, items };
 }

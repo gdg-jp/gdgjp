@@ -2,3 +2,7 @@ cookieAuth:
   type: apiKey
   in: cookie
   name: gdgjp-img.session_token
+BearerAuth:
+  type: http
+  scheme: bearer
+  bearerFormat: OAuth 2.0 access token

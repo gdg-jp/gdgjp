@@ -1,5 +1,5 @@
 import { type AuthUser, MAX_IMAGE_UPLOAD_BYTES } from "@gdgjp/gdg-lib";
-import { uploadImage } from "~/lib/upload";
+import { uploadImage } from "~/features/images/service";
 import type { components } from "../../openapi/types.generated";
 import type { Route } from "./+types/api.internal-upload";
 

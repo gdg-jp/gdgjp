@@ -71,16 +71,71 @@ export async function getImage(db: D1Database, id: string): Promise<ImageRow | n
   return row ? toImageRow(row) : null;
 }
 
+export type ImageListCursor = { createdAt: number; id: string };
+
+export type ListImagesOptions = {
+  chapterId?: number;
+  limit?: number;
+  cursor?: ImageListCursor | null;
+};
+
+export type ListImagesResult = {
+  images: ImageRow[];
+  nextCursor: string | null;
+};
+
+/**
+ * Parses an opaque cursor token from a caller. Returns undefined when it is
+ * malformed, distinct from the "no cursor" case (null), so callers can tell
+ * "start from the beginning" apart from "this token is invalid".
+ */
+export function parseImageListCursor(cursor: string): ImageListCursor | undefined {
+  try {
+    const value = JSON.parse(cursor) as { createdAt?: unknown; id?: unknown };
+    return typeof value.createdAt === "number" && typeof value.id === "string"
+      ? { createdAt: value.createdAt, id: value.id }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function listImagesByUser(
   db: D1Database,
   userId: string,
-  limit = 60,
-): Promise<ImageRow[]> {
+  options: ListImagesOptions = {},
+): Promise<ListImagesResult> {
+  const limit = options.limit ?? 60;
+  const cursor = options.cursor ?? null;
+
+  const conditions = ["user_id = ?"];
+  const params: unknown[] = [userId];
+  if (options.chapterId !== undefined) {
+    conditions.push("chapter_id = ?");
+    params.push(options.chapterId);
+  }
+  if (cursor) {
+    conditions.push("(created_at < ? OR (created_at = ? AND id < ?))");
+    params.push(cursor.createdAt, cursor.createdAt, cursor.id);
+  }
+
   const { results } = await db
-    .prepare(`SELECT ${SELECT_COLS} FROM images WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`)
-    .bind(userId, limit)
+    .prepare(
+      `SELECT ${SELECT_COLS} FROM images WHERE ${conditions.join(" AND ")}
+       ORDER BY created_at DESC, id DESC LIMIT ?`,
+    )
+    .bind(...params, limit + 1)
     .all<ImageDbRow>();
-  return results.map(toImageRow);
+
+  const rows = results.slice(0, limit);
+  const last = rows.at(-1);
+  return {
+    images: rows.map(toImageRow),
+    nextCursor:
+      results.length > limit && last
+        ? JSON.stringify({ createdAt: last.created_at, id: last.id })
+        : null,
+  };
 }
 
 export type CreateImageInput = {
@@ -127,43 +182,52 @@ export async function updateImageBytes(
     height: number | null;
     filename: string | null;
   },
-): Promise<void> {
-  await db
+): Promise<ImageRow> {
+  const row = await db
     .prepare(
       `UPDATE images
        SET content_type = ?, byte_size = ?, width = ?, height = ?, filename = ?, updated_at = unixepoch()
-       WHERE id = ?`,
+       WHERE id = ?
+       RETURNING ${SELECT_COLS}`,
     )
     .bind(patch.contentType, patch.byteSize, patch.width, patch.height, patch.filename, id)
-    .run();
+    .first<ImageDbRow>();
+  if (!row) throw new Error(`image not found: ${id}`);
+  return toImageRow(row);
 }
 
 export async function setMobileImage(
   db: D1Database,
   id: string,
   mobile: { r2Key: string; contentType: string; byteSize: number; filename: string | null },
-): Promise<void> {
-  await db
+): Promise<ImageRow> {
+  const row = await db
     .prepare(
       `UPDATE images
        SET mobile_r2_key = ?, mobile_content_type = ?, mobile_byte_size = ?, mobile_filename = ?,
            mobile_updated_at = unixepoch(), updated_at = unixepoch()
-       WHERE id = ?`,
+       WHERE id = ?
+       RETURNING ${SELECT_COLS}`,
     )
     .bind(mobile.r2Key, mobile.contentType, mobile.byteSize, mobile.filename, id)
-    .run();
+    .first<ImageDbRow>();
+  if (!row) throw new Error(`image not found: ${id}`);
+  return toImageRow(row);
 }
 
-export async function removeMobileImage(db: D1Database, id: string): Promise<void> {
-  await db
+export async function removeMobileImage(db: D1Database, id: string): Promise<ImageRow> {
+  const row = await db
     .prepare(
       `UPDATE images
        SET mobile_r2_key = NULL, mobile_content_type = NULL, mobile_byte_size = NULL,
            mobile_filename = NULL, mobile_updated_at = NULL, updated_at = unixepoch()
-       WHERE id = ?`,
+       WHERE id = ?
+       RETURNING ${SELECT_COLS}`,
     )
     .bind(id)
-    .run();
+    .first<ImageDbRow>();
+  if (!row) throw new Error(`image not found: ${id}`);
+  return toImageRow(row);
 }
 
 export async function deleteImage(db: D1Database, id: string): Promise<void> {

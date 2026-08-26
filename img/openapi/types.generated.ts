@@ -102,6 +102,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cli/v1/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listCliImages"];
+        put?: never;
+        post: operations["createCliImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/images/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCliImage"];
+        put: operations["replaceCliImage"];
+        post?: never;
+        delete: operations["deleteCliImage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/images/{id}/mobile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uploadCliMobileImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -117,6 +165,50 @@ export interface components {
         Success: {
             /** @enum {boolean} */
             ok: true;
+        };
+        CliImage: {
+            id: string;
+            userId: string;
+            accountId: string;
+            chapterId: number;
+            r2Key: string;
+            contentType: string;
+            byteSize: number;
+            width: number | null;
+            height: number | null;
+            filename: string | null;
+            mobileR2Key: string | null;
+            mobileContentType: string | null;
+            mobileByteSize: number | null;
+            mobileFilename: string | null;
+            mobileUpdatedAt: number | null;
+            createdAt: number;
+            updatedAt: number;
+        };
+        CliImageList: {
+            images: components["schemas"]["CliImage"][];
+            nextCursor: string | null;
+        };
+        Error: {
+            error: string;
+        };
+        CliImageResponse: {
+            image: components["schemas"]["CliImage"];
+        };
+        CliReplaceResult: {
+            id: string;
+            /** Format: uri */
+            url: string;
+            updatedAt: number;
+        };
+        CliDeleteResult: {
+            id: string;
+            /** @enum {boolean} */
+            deleted: true;
+        };
+        CliMobileResult: {
+            id: string;
+            updatedAt: number;
         };
         InternalUploadUser: {
             id: string;
@@ -142,6 +234,51 @@ export interface components {
                 [name: string]: unknown;
             };
             content?: never;
+        };
+        /** @description The request is missing required fields or is malformed. */
+        CliBadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The bearer token is missing, invalid, or lacks the CLI scope. */
+        CliUnauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The caller cannot act on this image or chapter. */
+        CliForbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The image exceeds 10 MiB. */
+        CliTooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Image not found. */
+        CliNotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
         };
         /** @description Authentication is required. */
         Unauthorized: {
@@ -399,6 +536,187 @@ export interface operations {
                     "application/json": components["schemas"]["Success"];
                 };
             };
+        };
+    };
+    listCliImages: {
+        parameters: {
+            query?: {
+                chapterId?: number;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's images */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliImageList"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+        };
+    };
+    createCliImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description Image file
+                     */
+                    file: string;
+                    /** @description Required when the caller has more than one chapter membership. */
+                    chapterId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Uploaded image */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResult"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            413: components["responses"]["CliTooLarge"];
+        };
+    };
+    getCliImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ImageId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image management metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliImageResponse"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    replaceCliImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ImageId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Image replaced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliReplaceResult"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            413: components["responses"]["CliTooLarge"];
+        };
+    };
+    deleteCliImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ImageId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliDeleteResult"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    uploadCliMobileImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ImageId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Mobile image uploaded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliMobileResult"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            413: components["responses"]["CliTooLarge"];
         };
     };
 }

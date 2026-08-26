@@ -6,11 +6,10 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { isValidImageId } from "~/features/images/id";
+import { getImageForActor } from "~/features/images/service";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
-import { isValidImageId } from "~/lib/id";
-import { getImage } from "~/lib/images";
 import { deliveryUrl } from "~/lib/img-url";
-import { canMutateImage } from "~/lib/permissions";
 import type { Route } from "./+types/i.$id";
 
 export function meta({ params }: Route.MetaArgs) {
@@ -21,12 +20,14 @@ export async function loader(args: Route.LoaderArgs) {
   const id = args.params.id;
   if (!isValidImageId(id)) throw new Response("Not found", { status: 404 });
   const env = args.context.cloudflare.env;
-  const { user } = await requireUserWithChapter(env, args.request);
-  const image = await getImage(env.DB, id);
-  if (!image) throw new Response("Not found", { status: 404 });
-  if (!canMutateImage(user, image)) {
-    throw new Response("Forbidden", { status: 403 });
+  const { user, chapter } = await requireUserWithChapter(env, args.request);
+  const result = await getImageForActor(env, { user, chapters: [chapter] }, id);
+  if (!result.ok) {
+    throw new Response(result.error === "not_found" ? "Not found" : "Forbidden", {
+      status: result.error === "not_found" ? 404 : 403,
+    });
   }
+  const image = result.value;
   return {
     user: { email: user.email, image: user.image, name: user.name },
     image: {

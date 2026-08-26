@@ -4,3 +4,18 @@ Forbidden:
   description: The authenticated user cannot modify this image.
 NotFound:
   description: Image not found.
+CliBadRequest:
+  description: The request is missing required fields or is malformed.
+  content: { application/json: { schema: { $ref: ../schemas/index.yaml#/Error } } }
+CliUnauthorized:
+  description: The bearer token is missing, invalid, or lacks the CLI scope.
+  content: { application/json: { schema: { $ref: ../schemas/index.yaml#/Error } } }
+CliForbidden:
+  description: The caller cannot act on this image or chapter.
+  content: { application/json: { schema: { $ref: ../schemas/index.yaml#/Error } } }
+CliNotFound:
+  description: Image not found.
+  content: { application/json: { schema: { $ref: ../schemas/index.yaml#/Error } } }
+CliTooLarge:
+  description: The image exceeds 10 MiB.
+  content: { application/json: { schema: { $ref: ../schemas/index.yaml#/Error } } }

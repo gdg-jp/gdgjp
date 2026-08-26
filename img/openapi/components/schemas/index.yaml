@@ -27,3 +27,78 @@ Success:
   required: [ok]
   properties:
     ok: { type: boolean, enum: [true] }
+Error:
+  type: object
+  required: [error]
+  properties:
+    error: { type: string }
+CliImage:
+  type: object
+  required:
+    [
+      id,
+      userId,
+      accountId,
+      chapterId,
+      r2Key,
+      contentType,
+      byteSize,
+      width,
+      height,
+      filename,
+      mobileR2Key,
+      mobileContentType,
+      mobileByteSize,
+      mobileFilename,
+      mobileUpdatedAt,
+      createdAt,
+      updatedAt,
+    ]
+  properties:
+    id: { type: string, pattern: '^[0-9A-Za-z]{8}$', minLength: 8, maxLength: 8 }
+    userId: { type: string }
+    accountId: { type: string }
+    chapterId: { type: integer }
+    r2Key: { type: string }
+    contentType: { type: string }
+    byteSize: { type: integer }
+    width: { type: integer, nullable: true }
+    height: { type: integer, nullable: true }
+    filename: { type: string, nullable: true }
+    mobileR2Key: { type: string, nullable: true }
+    mobileContentType: { type: string, nullable: true }
+    mobileByteSize: { type: integer, nullable: true }
+    mobileFilename: { type: string, nullable: true }
+    mobileUpdatedAt: { type: integer, nullable: true }
+    createdAt: { type: integer }
+    updatedAt: { type: integer }
+CliImageResponse:
+  type: object
+  required: [image]
+  properties:
+    image: { $ref: '#/CliImage' }
+CliImageList:
+  type: object
+  required: [images, nextCursor]
+  properties:
+    images: { type: array, items: { $ref: '#/CliImage' } }
+    nextCursor: { type: string, nullable: true }
+CliReplaceResult:
+  type: object
+  required: [id, url, updatedAt]
+  properties:
+    id: { type: string, pattern: '^[0-9A-Za-z]{8}$', minLength: 8, maxLength: 8 }
+    url: { type: string, format: uri }
+    updatedAt: { type: integer }
+CliMobileResult:
+  type: object
+  required: [id, updatedAt]
+  properties:
+    id: { type: string, pattern: '^[0-9A-Za-z]{8}$', minLength: 8, maxLength: 8 }
+    updatedAt: { type: integer }
+CliDeleteResult:
+  type: object
+  required: [id, deleted]
+  properties:
+    id: { type: string, pattern: '^[0-9A-Za-z]{8}$', minLength: 8, maxLength: 8 }
+    deleted: { type: boolean, enum: [true] }

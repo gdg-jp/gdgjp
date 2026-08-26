@@ -18,6 +18,12 @@ paths:
     $ref: ./paths/mobile.yaml
   /api/delete/{id}:
     $ref: ./paths/delete.yaml
+  /api/cli/v1/images:
+    $ref: ./paths/cli-images.yaml
+  /api/cli/v1/images/{id}:
+    $ref: ./paths/cli-image.yaml
+  /api/cli/v1/images/{id}/mobile:
+    $ref: ./paths/cli-image-mobile.yaml
 components:
   schemas:
     $ref: ./components/schemas/index.yaml

@@ -1,0 +1,37 @@
+get:
+  operationId: listCliImages
+  security: [{ BearerAuth: [] }]
+  parameters:
+    - name: chapterId
+      in: query
+      schema: { type: integer }
+    - name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    - name: cursor
+      in: query
+      schema: { type: string }
+  responses:
+    '200': { description: The caller's images, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/CliImageList } } } }
+    '400': { $ref: ../components/responses/index.yaml#/CliBadRequest }
+    '401': { $ref: ../components/responses/index.yaml#/CliUnauthorized }
+    '403': { $ref: ../components/responses/index.yaml#/CliForbidden }
+post:
+  operationId: createCliImage
+  security: [{ BearerAuth: [] }]
+  requestBody:
+    required: true
+    content:
+      multipart/form-data:
+        schema:
+          type: object
+          required: [file]
+          properties:
+            file: { type: string, format: binary, description: Image file, maxLength: 10485760 }
+            chapterId: { type: string, description: Required when the caller has more than one chapter membership. }
+  responses:
+    '201': { description: Uploaded image, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/UploadResult } } } }
+    '400': { $ref: ../components/responses/index.yaml#/CliBadRequest }
+    '413': { $ref: ../components/responses/index.yaml#/CliTooLarge }
+    '401': { $ref: ../components/responses/index.yaml#/CliUnauthorized }
+    '403': { $ref: ../components/responses/index.yaml#/CliForbidden }

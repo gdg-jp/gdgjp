@@ -1,6 +1,6 @@
 import { MAX_IMAGE_UPLOAD_BYTES } from "@gdgjp/gdg-lib";
+import { uploadImage } from "~/features/images/service";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
-import { uploadImage } from "~/lib/upload";
 import type { components } from "../../openapi/types.generated";
 import type { Route } from "./+types/api.upload";
 

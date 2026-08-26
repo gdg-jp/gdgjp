@@ -1,12 +1,9 @@
+import { isValidImageId } from "~/features/images/id";
+import { removeMobileImageForActor, setMobileImageForActor } from "~/features/images/service";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
-import { isValidImageId } from "~/lib/id";
-import { getImage, removeMobileImage, setMobileImage } from "~/lib/images";
-import { canMutateImage } from "~/lib/permissions";
-import { deleteOriginal, putOriginal } from "~/lib/r2";
+import { dashboardImageErrorResponse } from "~/lib/image-errors.server";
 import type { components } from "../../openapi/types.generated";
 import type { Route } from "./+types/api.mobile.$id";
-
-const MAX_BYTES = 10 * 1024 * 1024;
 
 export async function action(args: Route.ActionArgs) {
   if (args.request.method !== "POST" && args.request.method !== "DELETE") {
@@ -16,39 +13,20 @@ export async function action(args: Route.ActionArgs) {
   if (!isValidImageId(id)) return new Response("Not found", { status: 404 });
 
   const env = args.context.cloudflare.env;
-  const { user } = await requireUserWithChapter(env, args.request);
-  const image = await getImage(env.DB, id);
-  if (!image) return new Response("Not found", { status: 404 });
-  if (!canMutateImage(user, image)) return new Response("Forbidden", { status: 403 });
+  const { user, chapter } = await requireUserWithChapter(env, args.request);
+  const actor = { user, chapters: [chapter] };
 
   if (args.request.method === "DELETE") {
-    if (!image.mobileR2Key) return success();
-    await removeMobileImage(env.DB, id);
-    args.context.cloudflare.ctx.waitUntil(deleteOriginal(env, image.mobileR2Key));
+    const result = await removeMobileImageForActor(env, args.context.cloudflare.ctx, actor, id);
+    if (!result.ok) return dashboardImageErrorResponse(result.error);
     return success();
   }
 
   const form = await args.request.formData();
-  const file = form.get("file");
-  if (!(file instanceof File)) return new Response("missing file", { status: 400 });
-  if (!file.type.startsWith("image/")) return new Response("not an image", { status: 415 });
-  if (file.size > MAX_BYTES) return new Response("file too large", { status: 413 });
+  const result = await setMobileImageForActor(env, actor, id, form.get("file"));
+  if (!result.ok) return dashboardImageErrorResponse(result.error);
 
-  const r2Key = `${id}/mobile`;
-  await putOriginal(env, r2Key, await file.arrayBuffer(), {
-    contentType: file.type,
-    userId: image.userId,
-    chapterId: image.chapterId,
-    filename: file.name || null,
-  });
-  await setMobileImage(env.DB, id, {
-    r2Key,
-    contentType: file.type,
-    byteSize: file.size,
-    filename: file.name || null,
-  });
-
-  const body: components["schemas"]["ImageId"] = { id };
+  const body: components["schemas"]["ImageId"] = { id: result.value.id };
   return Response.json(body);
 }
 
