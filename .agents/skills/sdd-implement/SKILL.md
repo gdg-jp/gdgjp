@@ -13,6 +13,8 @@ This skill runs as the orchestrator. It doesn't
 write code itself — it drives a separate Claude Code to implement, and a
 separate Codex to review, both non-interactively.
 
+You must not edit any files - instead, delegate it to claude.
+
 ## Precondition
 
 `docs/<feature>/` must already exist on `main`, committed, with an `index.md` overview
@@ -77,6 +79,8 @@ directly. For each stage `docs/<feature>/xx-<stage>.md`:
    git worktree remove ../gdgjp-sdd-<feature>-<stage>
    git branch -d <the worktree's branch>
    ```
+
+   If merge conflict happens, do not resolve it by yourself. Instead, ask the claude code session to fix it.
 
 Repeat for every stage, respecting the dependency order from `index.md`. When all stages
 are done, report a summary of what was implemented and the resulting commits.
