@@ -12,8 +12,7 @@ const layoutScript = join(repositoryRoot, "scripts/gdg-agent/install-layout.sh")
 const hooksSrc = join(repositoryRoot, "cli/internal/wiki/hooks");
 const submoduleLayout = join(repositoryRoot, "agents-local/lib/install-layout.sh");
 const ownershipScript = join(repositoryRoot, "agents-local/lib/apply-ownership.sh");
-const hostInstall = join(repositoryRoot, "scripts/install-gdg-agent-host.sh");
-const submoduleHostInstall = join(repositoryRoot, "agents-local/install.sh");
+const hostInstall = join(repositoryRoot, "agents-local/install.sh");
 
 async function withLayoutFixture(run) {
   const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-layout-"));
@@ -43,13 +42,6 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
       await readFile(layoutScript, "utf8"),
       await readFile(submoduleLayout, "utf8"),
       "scripts/gdg-agent/install-layout.sh must match agents-local/lib/install-layout.sh",
-    );
-  }
-  if (existsSync(submoduleHostInstall)) {
-    assert.equal(
-      await readFile(hostInstall, "utf8"),
-      await readFile(submoduleHostInstall, "utf8"),
-      "scripts/install-gdg-agent-host.sh must match agents-local/install.sh",
     );
   }
   const ownership = await readFile(ownershipScript, "utf8");
@@ -205,7 +197,7 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.doesNotMatch(installSrc, /ensure_uv\b/);
     assert.doesNotMatch(installSrc, /uvx/);
     assert.match(installSrc, /gws did not install correctly/);
-    assert.match(installSrc, /Environment=AGENT_MODEL=gpt-5\.3-codex-low/);
+    assert.match(installSrc, /Environment=AGENT_MODEL=composer-2\.5/);
     const cliConfigSrc = await readFile(
       join(repositoryRoot, "agents-local/config/cli-config.json"),
       "utf8",
@@ -221,8 +213,6 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.match(installSrc, /--activate/);
     assert.match(installSrc, /activate_live_host/);
     assert.match(installSrc, /place_live_host/);
-    const submoduleInstallSrc = await readFile(submoduleHostInstall, "utf8");
-    assert.match(submoduleInstallSrc, /Environment=AGENT_MODEL=gpt-5\.3-codex-low/);
     const setupSrc = await readFile(join(repositoryRoot, "agents-local/setup.sh"), "utf8");
     assert.doesNotMatch(setupSrc, /gdg wiki clone wiki/);
     const provisionSrc = await readFile(

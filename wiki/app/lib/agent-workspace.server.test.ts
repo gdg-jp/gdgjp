@@ -24,7 +24,7 @@ import { resolveAgentWorkspace } from "./agent-workspace.server";
 const ACCOUNTS_URL = "https://accounts.example";
 
 function testEnv(): Env {
-  return { ACCOUNTS_URL } as Env;
+  return { ACCOUNTS_URL } as unknown as Env;
 }
 
 function requestWithAuth(authorization?: string): Request {
