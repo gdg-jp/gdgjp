@@ -6,7 +6,7 @@ description: Orchestrates the implement half of this repo's SDD loop — for eac
 # SDD Implementer
 
 This is the **implement** half of a two-skill loop. The companion skill, `sdd-plan`, produces the `docs/<feature>/` files this skill consumes — read
-`docs/<feature>/index.md` first; it carries the dependency graph and parallel-safe
+`docs/<feature>/index.md` and `docs/<feature>/todos.md` first; it carries the dependency graph and parallel-safe
 groupings this skill needs to decide implementation order.
 
 This skill runs as the orchestrator. It doesn't
