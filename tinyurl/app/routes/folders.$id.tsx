@@ -43,6 +43,7 @@ import {
 } from "~/components/ui/select";
 import { Skeleton } from "~/components/ui/skeleton";
 import { SubmitButton } from "~/components/ui/submit-button";
+import { listDomainsForChapters } from "~/features/domains";
 import { clicksByLinkId } from "~/lib/analytics-engine";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
 import type { UserChapter } from "~/lib/chapter.server";
@@ -71,7 +72,6 @@ import {
   type DisplayPreferences,
   readDisplayPreferences,
 } from "~/lib/display-preferences";
-import { listDomainsForChapters } from "~/lib/domains";
 import type { Route } from "./+types/folders.$id";
 import { DeleteFolderDialog, type FolderActionData, folderViewer } from "./folders";
 

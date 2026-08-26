@@ -22,7 +22,7 @@ export type Link = {
   deletedAt: number | null;
 };
 
-type LinkRow = {
+export type LinkRow = {
   id: string;
   domain_id?: number;
   domain_hostname?: string;
@@ -64,7 +64,7 @@ export function toLink(row: LinkRow): Link {
   };
 }
 
-function linkColumns(tableRef: "links" | "l" = "links"): string {
+export function linkColumns(tableRef: "links" | "l" = "links"): string {
   const columns = [
     "id",
     "domain_id",
@@ -92,7 +92,7 @@ function linkColumns(tableRef: "links" | "l" = "links"): string {
   return qualified.join(", ");
 }
 
-const LINK_COLS = linkColumns();
+export const LINK_COLS = linkColumns();
 
 export async function listLinksForUser(
   db: D1Database,
@@ -136,166 +136,6 @@ export async function getLinkBySlug(
     .bind(hostname, slug)
     .first<LinkRow>();
   return row ? toLink(row) : null;
-}
-
-export async function getLinkById(db: D1Database, id: string): Promise<Link | null> {
-  const row = await db
-    .prepare(`SELECT ${LINK_COLS} FROM links WHERE id = ? AND deleted_at IS NULL`)
-    .bind(id)
-    .first<LinkRow>();
-  return row ? toLink(row) : null;
-}
-
-export type CreateLinkInput = {
-  domainId?: number;
-  slug: string;
-  destinationUrl: string;
-  title?: string | null;
-  description?: string | null;
-  ogImageUrl?: string | null;
-  ownerUserId: string;
-  ownerChapterId?: number | null;
-  campaignChannelId?: number | null;
-  folderId?: number | null;
-  visibility?: LinkVisibility;
-};
-
-export type CreateLinkResult = { ok: true; link: Link } | { ok: false; reason: "slug_taken" };
-
-export async function createLink(
-  db: D1Database,
-  input: CreateLinkInput,
-): Promise<CreateLinkResult> {
-  const ownerChapterId = input.ownerChapterId ?? null;
-  try {
-    const row = await db
-      .prepare(
-        `INSERT INTO links (id, domain_id, slug, destination_url, title, description, og_image_url, owner_user_id, owner_chapter_id, campaign_channel_id, folder_id, visibility)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         RETURNING ${LINK_COLS}`,
-      )
-      .bind(
-        newLinkId(),
-        input.domainId ?? 1,
-        input.slug,
-        input.destinationUrl,
-        input.title ?? null,
-        input.description ?? null,
-        input.ogImageUrl ?? null,
-        input.ownerUserId,
-        ownerChapterId,
-        input.campaignChannelId ?? null,
-        input.folderId ?? null,
-        input.visibility ?? "private",
-      )
-      .first<LinkRow>();
-    if (!row) throw new Error("Insert returned no row");
-    return { ok: true, link: toLink(row) };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("UNIQUE")) return { ok: false, reason: "slug_taken" };
-    throw err;
-  }
-}
-
-export type UpdateLinkInput = {
-  domainId?: number;
-  slug?: string;
-  destinationUrl?: string;
-  title?: string | null;
-  description?: string | null;
-  ogImageUrl?: string | null;
-  campaignChannelId?: number | null;
-  folderId?: number | null;
-  visibility?: LinkVisibility;
-  ownerChapterId?: number | null;
-};
-
-export async function updateLink(
-  db: D1Database,
-  id: string,
-  input: UpdateLinkInput,
-): Promise<Link | null> {
-  const sets: string[] = [];
-  const values: (string | number | null)[] = [];
-  if (input.domainId !== undefined) {
-    sets.push("domain_id = ?");
-    values.push(input.domainId);
-  }
-  if (input.slug !== undefined) {
-    sets.push("slug = ?");
-    values.push(input.slug);
-  }
-  if (input.destinationUrl !== undefined) {
-    sets.push("destination_url = ?");
-    values.push(input.destinationUrl);
-  }
-  if (input.title !== undefined) {
-    sets.push("title = ?");
-    values.push(input.title);
-  }
-  if (input.description !== undefined) {
-    sets.push("description = ?");
-    values.push(input.description);
-  }
-  if (input.ogImageUrl !== undefined) {
-    sets.push("og_image_url = ?");
-    values.push(input.ogImageUrl);
-  }
-  if (input.campaignChannelId !== undefined) {
-    sets.push("campaign_channel_id = ?");
-    values.push(input.campaignChannelId);
-  }
-  if (input.folderId !== undefined) {
-    sets.push("folder_id = ?");
-    values.push(input.folderId);
-  }
-  if (input.visibility !== undefined) {
-    sets.push("visibility = ?");
-    values.push(input.visibility);
-  }
-  if (input.ownerChapterId !== undefined) {
-    sets.push("owner_chapter_id = ?");
-    values.push(input.ownerChapterId);
-  }
-  if (sets.length === 0) return getLinkById(db, id);
-  sets.push("updated_at = unixepoch()");
-  const row = await db
-    .prepare(
-      `UPDATE links SET ${sets.join(", ")} WHERE id = ? AND deleted_at IS NULL RETURNING ${LINK_COLS}`,
-    )
-    .bind(...values, id)
-    .first<LinkRow>();
-  return row ? toLink(row) : null;
-}
-
-export async function softDeleteLink(db: D1Database, id: string): Promise<void> {
-  await db
-    .prepare("UPDATE links SET deleted_at = unixepoch() WHERE id = ? AND deleted_at IS NULL")
-    .bind(id)
-    .run();
-}
-
-export async function archiveLink(db: D1Database, id: string): Promise<void> {
-  await db
-    .prepare(
-      "UPDATE links SET archived_at = unixepoch(), updated_at = unixepoch() WHERE id = ? AND archived_at IS NULL AND deleted_at IS NULL",
-    )
-    .bind(id)
-    .run();
-}
-
-export async function restoreLink(db: D1Database, id: string): Promise<void> {
-  await db
-    .prepare(
-      "UPDATE links SET archived_at = NULL, updated_at = unixepoch() WHERE id = ? AND archived_at IS NOT NULL AND deleted_at IS NULL",
-    )
-    .bind(id)
-    .run();
-}
-
-export async function deleteLink(db: D1Database, id: string): Promise<void> {
-  await db.prepare("DELETE FROM links WHERE id = ?").bind(id).run();
 }
 
 // ---------- Campaigns ----------
@@ -1595,21 +1435,6 @@ export async function copyFolderPermissions(
     .run();
 }
 
-export async function copyFolderPermissionsToLink(
-  db: D1Database,
-  folderId: number,
-  linkId: string,
-): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO link_permissions (link_id, principal_type, principal_id, role)
-       SELECT ?, principal_type, principal_id, role FROM folder_permissions WHERE folder_id = ?
-       ON CONFLICT(link_id, principal_type, principal_id) DO NOTHING`,
-    )
-    .bind(linkId, folderId)
-    .run();
-}
-
 // Compatibility for existing callers while they move to FolderViewer-based access checks.
 export async function isFolderAvailableForLinkOwner(
   db: D1Database,
@@ -1822,20 +1647,6 @@ export async function listTagsForChapterWithCounts(
   return results.map(toTagWithCount);
 }
 
-export async function setLinkTags(db: D1Database, linkId: string, tagIds: number[]): Promise<void> {
-  const stmts: D1PreparedStatement[] = [
-    db.prepare("DELETE FROM link_tags WHERE link_id = ?").bind(linkId),
-  ];
-  for (const tagId of tagIds) {
-    stmts.push(
-      db
-        .prepare("INSERT OR IGNORE INTO link_tags (link_id, tag_id) VALUES (?, ?)")
-        .bind(linkId, tagId),
-    );
-  }
-  await db.batch(stmts);
-}
-
 // ---------- Comments ----------
 
 export type Comment = {
@@ -1846,7 +1657,7 @@ export type Comment = {
   createdAt: number;
 };
 
-type CommentRow = {
+export type CommentRow = {
   id: number;
   link_id: string;
   author_user_id: string;
@@ -1864,15 +1675,7 @@ export function toComment(row: CommentRow): Comment {
   };
 }
 
-const COMMENT_COLS = "id, link_id, author_user_id, body, created_at";
-
-export async function listComments(db: D1Database, linkId: string): Promise<Comment[]> {
-  const { results } = await db
-    .prepare(`SELECT ${COMMENT_COLS} FROM comments WHERE link_id = ? ORDER BY created_at`)
-    .bind(linkId)
-    .all<CommentRow>();
-  return results.map(toComment);
-}
+export const COMMENT_COLS = "id, link_id, author_user_id, body, created_at";
 
 export async function listLatestCommentsForCampaign(
   db: D1Database,
@@ -1900,26 +1703,6 @@ export async function listLatestCommentsForCampaign(
   return comments;
 }
 
-export async function addComment(
-  db: D1Database,
-  input: { linkId: string; authorUserId: string; body: string },
-): Promise<Comment> {
-  const row = await db
-    .prepare(
-      `INSERT INTO comments (link_id, author_user_id, body)
-       VALUES (?, ?, ?)
-       RETURNING ${COMMENT_COLS}`,
-    )
-    .bind(input.linkId, input.authorUserId, input.body)
-    .first<CommentRow>();
-  if (!row) throw new Error("Insert returned no row");
-  return toComment(row);
-}
-
-export async function deleteComment(db: D1Database, id: number): Promise<void> {
-  await db.prepare("DELETE FROM comments WHERE id = ?").bind(id).run();
-}
-
 // ---------- Permissions ----------
 
 export type LinkPermission = {
@@ -1931,7 +1714,7 @@ export type LinkPermission = {
   createdAt: number;
 };
 
-type LinkPermissionRow = {
+export type LinkPermissionRow = {
   id: number;
   link_id: string;
   principal_type: PrincipalType;
@@ -1951,18 +1734,7 @@ export function toLinkPermission(row: LinkPermissionRow): LinkPermission {
   };
 }
 
-const PERM_COLS = "id, link_id, principal_type, principal_id, role, created_at";
-
-export async function listPermissionsForLink(
-  db: D1Database,
-  linkId: string,
-): Promise<LinkPermission[]> {
-  const { results } = await db
-    .prepare(`SELECT ${PERM_COLS} FROM link_permissions WHERE link_id = ? ORDER BY created_at`)
-    .bind(linkId)
-    .all<LinkPermissionRow>();
-  return results.map(toLinkPermission);
-}
+export const PERM_COLS = "id, link_id, principal_type, principal_id, role, created_at";
 
 export async function listLinksAccessibleByEmail(
   db: D1Database,
@@ -2000,66 +1772,6 @@ export async function listLinksAccessibleByEmail(
     .bind(includeArchived ? 1 : 0, email, String(chapterId))
     .all<LinkRow>();
   return results.map(toLink);
-}
-
-export type AddPermissionInput = {
-  linkId: string;
-  principalType: PrincipalType;
-  principalId: string;
-  role: LinkRole;
-};
-
-export type AddPermissionResult =
-  | { ok: true; permission: LinkPermission }
-  | { ok: false; reason: "duplicate" };
-
-export async function addPermission(
-  db: D1Database,
-  input: AddPermissionInput,
-): Promise<AddPermissionResult> {
-  try {
-    const row = await db
-      .prepare(
-        `INSERT INTO link_permissions (link_id, principal_type, principal_id, role)
-         VALUES (?, ?, ?, ?)
-         RETURNING ${PERM_COLS}`,
-      )
-      .bind(input.linkId, input.principalType, input.principalId, input.role)
-      .first<LinkPermissionRow>();
-    if (!row) throw new Error("Insert returned no row");
-    return { ok: true, permission: toLinkPermission(row) };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("UNIQUE") || msg.includes("CONSTRAINT")) {
-      return { ok: false, reason: "duplicate" };
-    }
-    throw err;
-  }
-}
-
-export async function removePermission(
-  db: D1Database,
-  linkId: string,
-  id: number,
-): Promise<boolean> {
-  const result = await db
-    .prepare("DELETE FROM link_permissions WHERE id = ? AND link_id = ?")
-    .bind(id, linkId)
-    .run();
-  return (result.meta.changes ?? 0) > 0;
-}
-
-export async function updatePermissionRole(
-  db: D1Database,
-  linkId: string,
-  id: number,
-  role: LinkRole,
-): Promise<boolean> {
-  const result = await db
-    .prepare("UPDATE link_permissions SET role = ? WHERE id = ? AND link_id = ?")
-    .bind(role, id, linkId)
-    .run();
-  return (result.meta.changes ?? 0) > 0;
 }
 
 export type UserSummary = { id: string; email: string; name: string; image: string | null };

@@ -16,7 +16,6 @@ import {
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Form, useFetcher, useRevalidator } from "react-router";
-import { parse } from "tldts";
 import { DashboardPage, DashboardPageHeader } from "~/components/dashboard-page";
 import { DashboardShell } from "~/components/dashboard-shell";
 import {
@@ -54,26 +53,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { requireUserWithChapter } from "~/lib/auth-redirect";
-import { type DomainDetection, detectCustomDomain } from "~/lib/domain-detection";
-import {
-  DomainProviderHttpError,
-  type ProviderDomainState,
-  createDomainProvider,
-} from "~/lib/domain-provider";
 import {
   type Domain,
+  type DomainServiceDependencies,
+  VERCEL_HOBBY_DOMAIN_LIMIT,
   countLinksForDomain,
-  createPendingDomain,
+  createDomainProvider,
   getDomainById,
   listDomainsForChapters,
+  manageableChapterIds,
+  normalizeApex,
+  registerDomain,
   softDeleteDomain,
-  updateDomainProviderState,
-} from "~/lib/domains";
-import { canManageChapterDomains } from "~/lib/permissions";
+  syncDomain,
+} from "~/features/domains";
+import { requireUserWithChapter } from "~/lib/auth-redirect";
+import { type DomainDetection, detectCustomDomain } from "~/lib/domain-detection";
 import type { Route } from "./+types/domains";
-
-const VERCEL_HOBBY_DOMAIN_LIMIT = 50;
 
 export function meta() {
   return [{ title: "Domains — GDG Japan Links" }];
@@ -81,79 +77,6 @@ export function meta() {
 
 function featureEnabled(env: Env): boolean {
   return String(env.DOMAINS_ENABLED) === "true";
-}
-
-function manageableChapterIds(
-  user: Awaited<ReturnType<typeof requireUserWithChapter>>["user"],
-  chapters: Awaited<ReturnType<typeof requireUserWithChapter>>["chapters"],
-): number[] {
-  return chapters
-    .filter((chapter) => canManageChapterDomains(user, chapter))
-    .map((chapter) => chapter.chapterId);
-}
-
-function normalizeApex(value: string): string | null {
-  const raw = value.trim().toLowerCase().replace(/\.$/, "");
-  try {
-    const hostname = new URL(`https://${raw}`).hostname;
-    const result = parse(hostname, { allowPrivateDomains: false });
-    return result.isIcann && result.domain === hostname ? hostname : null;
-  } catch {
-    return null;
-  }
-}
-
-async function upstreamReadiness(domain: Pick<Domain, "mode" | "upstreamOrigin">) {
-  if (domain.mode === "short-only") return { ready: true, error: null };
-  if (!domain.upstreamOrigin) return { ready: false, error: "The upstream origin is missing." };
-  const hostname = new URL(domain.upstreamOrigin).hostname;
-  const detection = await detectCustomDomain(hostname);
-  return detection.existingSite
-    ? { ready: true, error: null }
-    : {
-        ready: false,
-        error: `Connect ${hostname} to your existing website before switching the apex DNS.`,
-      };
-}
-
-async function persistProviderState(env: Env, domain: Domain, state: ProviderDomainState) {
-  const upstream = await upstreamReadiness(domain);
-  return updateDomainProviderState(env.DB, domain.id, {
-    status: state.verified && state.configured && upstream.ready ? "active" : "verifying",
-    providerDomainId: state.providerDomainId,
-    verificationRecords: state.records,
-    providerError: upstream.error ?? state.error,
-  });
-}
-
-async function syncDomain(env: Env, domain: Domain): Promise<void> {
-  if (domain.kind !== "custom" || domain.deletedAt !== null) return;
-  const provider = createDomainProvider(env);
-  try {
-    let state: ProviderDomainState;
-    try {
-      state = await provider.check(domain.hostname);
-    } catch (error) {
-      // A previous attempt can fail before the Vercel domain is created. Once
-      // provisioning configuration is fixed, retrying should create it.
-      if (!(error instanceof DomainProviderHttpError) || error.status !== 404) throw error;
-      state = await provider.create(domain.hostname);
-    }
-    if (!state.verified) {
-      try {
-        state = await provider.verify(domain.hostname);
-      } catch (error) {
-        if (!(error instanceof DomainProviderHttpError) || error.status !== 400) throw error;
-        state = await provider.check(domain.hostname);
-      }
-    }
-    await persistProviderState(env, domain, state);
-  } catch (error) {
-    await updateDomainProviderState(env.DB, domain.id, {
-      status: "error",
-      providerError: error instanceof Error ? error.message : "Vercel synchronization failed",
-    });
-  }
 }
 
 export async function loader(args: Route.LoaderArgs) {
@@ -193,12 +116,18 @@ export async function action(args: Route.ActionArgs) {
     return { inspection: await detectCustomDomain(hostname) };
   }
 
+  const deps: DomainServiceDependencies = {
+    db: env.DB,
+    provider: createDomainProvider(env),
+    detectCustomDomain,
+  };
+
   if (intent === "syncAll") {
     const domains = await listDomainsForChapters(env.DB, manageableIds, false);
     await Promise.all(
       domains
         .filter((domain) => domain.status !== "active")
-        .map((domain) => syncDomain(env, domain)),
+        .map((domain) => syncDomain(deps, domain.id)),
     );
     return { ok: true };
   }
@@ -214,14 +143,14 @@ export async function action(args: Route.ActionArgs) {
       throw new Response("Forbidden", { status: 403 });
     }
     if (intent === "sync") {
-      await syncDomain(env, domain);
+      await syncDomain(deps, domain.id);
       return { ok: true };
     }
     if ((await countLinksForDomain(env.DB, domain.id)) > 0) {
       return { error: "This domain still has active links and cannot be removed." };
     }
     try {
-      await createDomainProvider(env).remove(domain.hostname);
+      await deps.provider.remove(domain.hostname);
       await softDeleteDomain(env.DB, domain.id);
       return { ok: true };
     } catch (error) {
@@ -230,48 +159,23 @@ export async function action(args: Route.ActionArgs) {
   }
 
   const chapterId = Number(form.get("chapterId"));
-  if (!Number.isInteger(chapterId) || !manageableIds.includes(chapterId)) {
-    throw new Response("Forbidden", { status: 403 });
+  const result = await registerDomain(
+    deps,
+    { user, chapters },
+    { hostname: String(form.get("hostname") ?? ""), chapterId },
+  );
+  if (!result.ok) {
+    if (result.code === "forbidden") throw new Response("Forbidden", { status: 403 });
+    return { error: result.error };
   }
-  const hostname = normalizeApex(String(form.get("hostname") ?? ""));
-  if (!hostname || hostname === "gdgs.jp") {
-    return { error: "Enter a registrable apex domain such as gdg-tokyo.jp." };
+  if (result.domain.status === "error") {
+    return {
+      ok: true,
+      domainId: result.domain.id,
+      provisioningWarning: result.domain.providerError ?? "Vercel provisioning failed",
+    };
   }
-  const inspection = await detectCustomDomain(hostname);
-  if (inspection.dns.status === "unsafe" || inspection.https.status === "unsafe-redirect") {
-    return { error: "This domain resolves to an unsafe or private destination." };
-  }
-  const mode = inspection.mode;
-  const upstreamOrigin = inspection.suggestedUpstreamOrigin;
-  const existing = await listDomainsForChapters(env.DB, manageableIds, false);
-  if (existing.length >= VERCEL_HOBBY_DOMAIN_LIMIT) {
-    return { error: "The Vercel Hobby project domain limit has been reached." };
-  }
-
-  let domain: Domain;
-  try {
-    domain = await createPendingDomain(env.DB, {
-      hostname,
-      mode,
-      upstreamOrigin,
-      ownerChapterId: chapterId,
-      createdByUserId: user.id,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("UNIQUE")) {
-      return { error: "That domain is already registered." };
-    }
-    throw error;
-  }
-  try {
-    const state = await createDomainProvider(env).create(hostname);
-    await persistProviderState(env, domain, state);
-    return { ok: true, domainId: domain.id };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Vercel provisioning failed";
-    await updateDomainProviderState(env.DB, domain.id, { status: "error", providerError: message });
-    return { ok: true, domainId: domain.id, provisioningWarning: message };
-  }
+  return { ok: true, domainId: result.domain.id };
 }
 
 type Organizer = { chapterId: number; chapterSlug: string };

@@ -1,4 +1,4 @@
-import type { DnsRecord } from "./domains";
+import type { DnsRecord } from "./domain.repository";
 
 export type ProviderDomainState = {
   providerDomainId: string | null;

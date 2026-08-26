@@ -25,6 +25,7 @@ import {
 import { Input } from "~/components/ui/input";
 import { MotionPresence } from "~/components/ui/motion";
 import { Skeleton } from "~/components/ui/skeleton";
+import { listDomainsForChapters } from "~/features/domains";
 import { clicksByLinkId } from "~/lib/analytics-engine";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
 import {
@@ -50,7 +51,6 @@ import {
   type LinkSortKey,
   readDisplayPreferences,
 } from "~/lib/display-preferences";
-import { listDomainsForChapters } from "~/lib/domains";
 import type { Route } from "./+types/dashboard";
 
 export function meta() {

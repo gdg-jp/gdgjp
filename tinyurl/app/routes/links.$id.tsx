@@ -54,40 +54,41 @@ import {
 import { Spinner } from "~/components/ui/spinner";
 import { SubmitButton } from "~/components/ui/submit-button";
 import { Textarea } from "~/components/ui/textarea";
+import { getDomainById, listDomainsForChapters } from "~/features/domains";
+import {
+  type LinkPermission,
+  type LinkVisibility,
+  type ViewerContext,
+  addComment,
+  addPermission,
+  archiveLink,
+  canEditLink,
+  canViewLink,
+  deleteComment,
+  getLinkById,
+  listComments,
+  listPermissionsForLink,
+  removePermission,
+  restoreLink,
+  softDeleteLink,
+  updateLink,
+  updateLinkWithExtras,
+  updatePermissionRole,
+} from "~/features/links";
 import { clicksByLinkId } from "~/lib/analytics-engine";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
 import type { UserChapter } from "~/lib/chapter.server";
 import {
-  type LinkPermission,
-  type LinkVisibility,
   type UserSummary,
-  addComment,
-  addPermission,
-  archiveLink,
-  canEditFolder,
-  createTag,
-  deleteComment,
-  getLinkById,
   getUsersByIds,
   listAllAccessibleFolders,
-  listComments,
-  listPermissionsForLink,
   listTagsForChapter,
   listTagsForLink,
   listTagsForUser,
-  removePermission,
-  restoreLink,
-  setLinkTags,
-  softDeleteLink,
-  updateLink,
-  updatePermissionRole,
 } from "~/lib/db";
-import { getDomainById, listDomainsForChapters } from "~/lib/domains";
 import { isLinkId } from "~/lib/id";
-import { fetchOgp, validatePublicHttpUrl } from "~/lib/ogp";
-import { type ViewerContext, canEditLink, canViewLink } from "~/lib/permissions";
+import { fetchOgp } from "~/lib/ogp";
 import { shortDomainLabel, shortLinkDisplay } from "~/lib/short-url";
-import { validateSlug } from "~/lib/slug";
 import type { Route } from "./+types/links.$id";
 
 async function ensureAccess(args: Route.LoaderArgs | Route.ActionArgs) {
@@ -160,7 +161,7 @@ export function meta({ data }: Route.MetaArgs) {
 }
 
 export async function action(args: Route.ActionArgs) {
-  const { env, user, chapters, link, editable, id } = await ensureAccess(args);
+  const { env, user, chapter, chapters, link, editable, id } = await ensureAccess(args);
   const form = await args.request.formData();
   const intent = form.get("intent");
 
@@ -182,7 +183,7 @@ export async function action(args: Route.ActionArgs) {
   }
 
   if (intent === "update") {
-    const update: Parameters<typeof updateLink>[2] = {};
+    let domainUpdate: Parameters<typeof updateLinkWithExtras>[4];
 
     if (form.has("domainId")) {
       const domainId = Number(form.get("domainId"));
@@ -202,130 +203,57 @@ export async function action(args: Route.ActionArgs) {
       ) {
         return { error: "Campaign and domain must belong to the same chapter." };
       }
-      update.domainId = domain.id;
-      if (domain.ownerChapterId !== null) update.ownerChapterId = domain.ownerChapterId;
+      domainUpdate = {
+        domainId: domain.id,
+        ownerChapterId: domain.ownerChapterId !== null ? domain.ownerChapterId : undefined,
+      };
     }
 
+    const patch: Parameters<typeof updateLinkWithExtras>[3] = {};
     if (form.has("destinationUrl")) {
-      const destinationUrl = String(form.get("destinationUrl") ?? "").trim();
-      if (!destinationUrl) return { error: "Destination URL is required." };
-      let parsedUrl: URL;
-      try {
-        parsedUrl = new URL(destinationUrl);
-      } catch {
-        return { error: "Destination URL is not a valid URL." };
-      }
-      if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-        return { error: "Destination URL must use http or https." };
-      }
-      update.destinationUrl = destinationUrl;
+      patch.destinationUrl = String(form.get("destinationUrl") ?? "").trim();
     }
-
     if (form.has("slug")) {
-      const slug = String(form.get("slug") ?? "").trim();
-      if (!slug) return { error: "Slug is required." };
-      const validation = validateSlug(slug);
-      if (!validation.ok) {
-        return {
-          error:
-            validation.reason === "reserved"
-              ? `"${slug}" is a reserved slug.`
-              : "Slug may only contain letters, numbers, hyphens, and underscores (1–64 chars).",
-        };
-      }
-      update.slug = slug;
+      patch.slug = String(form.get("slug") ?? "").trim();
     }
-
     if (form.has("title")) {
-      update.title = String(form.get("title") ?? "").trim() || null;
+      patch.title = String(form.get("title") ?? "").trim() || null;
     }
     if (form.has("description")) {
-      update.description = String(form.get("description") ?? "").trim() || null;
+      patch.description = String(form.get("description") ?? "").trim() || null;
     }
     if (form.has("ogImageUrl")) {
-      const ogImageUrl = String(form.get("ogImageUrl") ?? "").trim() || null;
-      const imageValidation = ogImageUrl ? await validatePublicHttpUrl(ogImageUrl) : null;
-      if (imageValidation && !imageValidation.ok) {
-        return { error: `OG image ${imageValidation.reason}` };
-      }
-      update.ogImageUrl = ogImageUrl;
+      patch.ogImageUrl = String(form.get("ogImageUrl") ?? "").trim() || null;
     }
     if (form.has("visibility")) {
-      const v = String(form.get("visibility") ?? "");
-      if (v !== "private" && v !== "public") {
-        return { error: "Visibility must be private or public." };
-      }
-      update.visibility = v;
+      patch.visibility = String(form.get("visibility") ?? "") as LinkVisibility;
     }
     if (form.has("folderId")) {
       const rawFolderId = String(form.get("folderId") ?? "").trim();
-      if (!rawFolderId) {
-        update.folderId = null;
-      } else {
-        const folderId = Number(rawFolderId);
-        if (
-          !Number.isInteger(folderId) ||
-          folderId <= 0 ||
-          !(await canEditFolder(env.DB, folderId, {
-            userId: user.id,
-            email: user.email,
-            chapterIds: chapters.map((item) => item.chapterId),
-            isSuperAdmin: isSuperAdmin(user),
-          }))
-        ) {
-          return { error: "Folder is not available." };
-        }
-        update.folderId = folderId;
-      }
+      patch.folderId = rawFolderId ? Number(rawFolderId) : null;
     }
-
-    try {
-      await updateLink(env.DB, id, update);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("UNIQUE")) {
-        return { error: `The slug "${update.slug}" is already taken.` };
-      }
-      throw err;
-    }
-
     if (form.has("manageTags")) {
-      const existingIds = form
+      patch.tagIds = form
         .getAll("tagId")
         .map((v) => Number(v))
         .filter((n) => Number.isInteger(n) && n > 0);
-      const newNames = form
+      patch.newTagNames = form
         .getAll("newTagName")
         .map((v) => String(v).trim())
         .filter((n) => n.length > 0 && n.length <= 32);
-
-      const finalIds = new Set(await listAllowedTagIds(env.DB, user.id, existingIds));
-      for (const name of newNames) {
-        const result = await createTag(env.DB, { name, color: null, ownerUserId: user.id });
-        if (result.ok) {
-          finalIds.add(result.tag.id);
-        } else {
-          const row = await env.DB.prepare(
-            "SELECT id FROM tags WHERE name = ? AND (owner_user_id = ? OR owner_user_id IS NULL)",
-          )
-            .bind(name, user.id)
-            .first<{ id: number }>();
-          if (row?.id) finalIds.add(row.id);
-        }
-      }
-      await setLinkTags(env.DB, id, [...finalIds]);
     }
-
     if (form.has("comment")) {
-      const body = String(form.get("comment") ?? "").trim();
-      if (body.length > 2000) return { error: "Comment is too long (max 2000 chars)." };
-      const existing = await listComments(env.DB, id);
-      for (const c of existing.filter((c) => c.authorUserId === user.id))
-        await deleteComment(env.DB, c.id);
-      if (body) {
-        await addComment(env.DB, { linkId: id, authorUserId: user.id, body });
-      }
+      patch.comment = String(form.get("comment") ?? "").trim();
     }
+
+    const result = await updateLinkWithExtras(
+      { db: env.DB },
+      { user, chapter, chapters },
+      id,
+      patch,
+      domainUpdate,
+    );
+    if (!result.ok) return { error: result.error };
 
     return { success: "Saved." };
   }
@@ -425,25 +353,6 @@ function faviconUrl(url: string): string | null {
   const host = hostnameOf(url);
   if (!host) return null;
   return `https://www.google.com/s2/favicons?domain=${host}&sz=64`;
-}
-
-async function listAllowedTagIds(
-  db: D1Database,
-  userId: string,
-  tagIds: number[],
-): Promise<number[]> {
-  const ids = [...new Set(tagIds)];
-  if (ids.length === 0) return [];
-  const placeholders = ids.map(() => "?").join(", ");
-  const { results } = await db
-    .prepare(
-      `SELECT id FROM tags
-       WHERE id IN (${placeholders})
-         AND (owner_user_id = ? OR owner_user_id IS NULL)`,
-    )
-    .bind(...ids, userId)
-    .all<{ id: number }>();
-  return results.map((row) => row.id);
 }
 
 function FieldLabel({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) {

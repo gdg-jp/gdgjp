@@ -18,6 +18,12 @@ import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
 import {
+  type ViewerContext,
+  canViewLink,
+  getLinkById,
+  listPermissionsForLink,
+} from "~/features/links";
+import {
   type BlobTrendPoint,
   type Granularity,
   type QueryOpts,
@@ -40,15 +46,8 @@ import {
   serializeAnalyticsParams,
 } from "~/lib/analytics-filters";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
-import {
-  getLinkById,
-  listLinksAccessibleByEmail,
-  listLinksForChapter,
-  listLinksForUser,
-  listPermissionsForLink,
-} from "~/lib/db";
+import { listLinksAccessibleByEmail, listLinksForChapter, listLinksForUser } from "~/lib/db";
 import { isLinkId } from "~/lib/id";
-import { type ViewerContext, canViewLink } from "~/lib/permissions";
 import type { Route } from "./+types/analytics";
 
 export function meta({ data }: Route.MetaArgs) {

@@ -1,5 +1,5 @@
+import { getDomainByHostname } from "~/features/domains/domain.repository";
 import type { components } from "../../openapi/types.generated";
-import { getDomainByHostname } from "./domains";
 import { gatewaySignaturePayload, verifyGatewayRequest } from "./hmac";
 import { handleApexRedirect } from "./redirect-handler";
 

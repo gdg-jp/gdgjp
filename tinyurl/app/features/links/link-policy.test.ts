@@ -1,7 +1,7 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { describe, expect, it } from "vitest";
-import type { Link, LinkPermission } from "./db";
-import { canEditLink, canManageChapterDomains, canViewLink } from "./permissions";
+import type { Link, LinkPermission } from "~/lib/db";
+import { canEditLink, canViewLink, validateSharePrincipal } from "./link-policy";
 
 const owner: AuthUser = {
   id: "u_owner",
@@ -140,16 +140,58 @@ describe("canViewLink / canEditLink", () => {
   });
 });
 
-describe("canManageChapterDomains", () => {
-  it("allows organizers and superadmins, but not ordinary members", () => {
-    expect(
-      canManageChapterDomains(owner, { chapterId: 1, chapterSlug: "tokyo", role: "organizer" }),
-    ).toBe(true);
-    expect(
-      canManageChapterDomains(owner, { chapterId: 1, chapterSlug: "tokyo", role: "member" }),
-    ).toBe(false);
-    expect(
-      canManageChapterDomains(admin, { chapterId: 1, chapterSlug: "tokyo", role: "member" }),
-    ).toBe(true);
+describe("validateSharePrincipal", () => {
+  it("accepts a valid user share", () => {
+    const result = validateSharePrincipal({
+      principalType: "user",
+      principalId: "someone@example.com",
+      role: "viewer",
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("accepts a valid chapter share", () => {
+    const result = validateSharePrincipal({
+      principalType: "chapter",
+      principalId: "42",
+      role: "editor",
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects an unknown principal type", () => {
+    const result = validateSharePrincipal({
+      principalType: "team",
+      principalId: "42",
+      role: "editor",
+    });
+    expect(result).toEqual({ ok: false, error: "Invalid sharing principal type." });
+  });
+
+  it("rejects an unknown role", () => {
+    const result = validateSharePrincipal({
+      principalType: "user",
+      principalId: "someone@example.com",
+      role: "owner",
+    });
+    expect(result).toEqual({ ok: false, error: "Invalid sharing role." });
+  });
+
+  it("rejects a malformed email for a user share", () => {
+    const result = validateSharePrincipal({
+      principalType: "user",
+      principalId: "not-an-email",
+      role: "viewer",
+    });
+    expect(result).toEqual({ ok: false, error: "Invalid sharing email address." });
+  });
+
+  it("rejects a non-numeric chapter id", () => {
+    const result = validateSharePrincipal({
+      principalType: "chapter",
+      principalId: "tokyo",
+      role: "viewer",
+    });
+    expect(result).toEqual({ ok: false, error: "Sharing chapter id must be a number." });
   });
 });

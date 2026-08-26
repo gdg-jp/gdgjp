@@ -1,4 +1,4 @@
-import type { DomainMode } from "./domains";
+import type { DomainMode } from "~/features/domains/domain.repository";
 import { isPrivateIP } from "./ogp";
 
 const DNS_QUERY_ENDPOINT = "https://cloudflare-dns.com/dns-query";
