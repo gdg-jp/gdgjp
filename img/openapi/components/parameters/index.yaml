@@ -1,4 +1,4 @@
-ImageId:
+ImageIdPath:
   name: id
   in: path
   required: true

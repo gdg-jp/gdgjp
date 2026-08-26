@@ -1,0 +1,5 @@
+package: openapigen
+generate:
+  models: true
+  client: true
+output: openapigen/openapi.gen.go

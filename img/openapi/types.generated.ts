@@ -289,7 +289,7 @@ export interface components {
         };
     };
     parameters: {
-        ImageId: string;
+        ImageIdPath: string;
     };
     requestBodies: never;
     headers: never;
@@ -309,7 +309,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                id: components["parameters"]["ImageId"];
+                id: components["parameters"]["ImageIdPath"];
             };
             cookie?: never;
         };
@@ -439,7 +439,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["ImageId"];
+                id: components["parameters"]["ImageIdPath"];
             };
             cookie?: never;
         };
@@ -470,7 +470,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["ImageId"];
+                id: components["parameters"]["ImageIdPath"];
             };
             cookie?: never;
         };
@@ -499,7 +499,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["ImageId"];
+                id: components["parameters"]["ImageIdPath"];
             };
             cookie?: never;
         };
@@ -521,7 +521,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["ImageId"];
+                id: components["parameters"]["ImageIdPath"];
             };
             cookie?: never;
         };
@@ -606,7 +606,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["ImageId"];
+                id: components["parameters"]["ImageIdPath"];
             };
             cookie?: never;
         };
@@ -631,7 +631,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["ImageId"];
+                id: components["parameters"]["ImageIdPath"];
             };
             cookie?: never;
         };
@@ -665,7 +665,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["ImageId"];
+                id: components["parameters"]["ImageIdPath"];
             };
             cookie?: never;
         };
@@ -690,7 +690,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: components["parameters"]["ImageId"];
+                id: components["parameters"]["ImageIdPath"];
             };
             cookie?: never;
         };

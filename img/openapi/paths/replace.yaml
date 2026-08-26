@@ -1,7 +1,7 @@
 post:
   operationId: replaceImage
   security: [{ cookieAuth: [] }]
-  parameters: [{ $ref: ../components/parameters/index.yaml#/ImageId }]
+  parameters: [{ $ref: ../components/parameters/index.yaml#/ImageIdPath }]
   requestBody:
     required: true
     content: { multipart/form-data: { schema: { type: object, required: [file], properties: { file: { type: string, format: binary, maxLength: 10485760 } } } } }

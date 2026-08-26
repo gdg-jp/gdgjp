@@ -29,6 +29,17 @@ func (NotLoggedInError) Error() string { return "not logged in; run gdg login" }
 // this package can stub the network call (mirrors oauth's own issuer seam).
 var refreshAccessToken = oauth.Refresh
 
+// SetRefreshForTesting overrides the refresh-token exchange used by
+// WithToken and returns a func that restores the previous value. It is
+// exported (unlike refreshAccessToken itself) so command-package tests,
+// which can't reach this package's private var, can exercise the
+// 401-refresh-retry-once path end-to-end without a real network call.
+func SetRefreshForTesting(fn func(ctx context.Context, refreshToken string) (store.Credentials, error)) func() {
+	previous := refreshAccessToken
+	refreshAccessToken = fn
+	return func() { refreshAccessToken = previous }
+}
+
 // WithToken loads stored credentials and calls fn with the access token. If
 // fn fails with a 401 (per StatusError.HTTPStatus), it refreshes the access
 // token via oauth.Refresh, saves the refreshed credentials, and calls fn

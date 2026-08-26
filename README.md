@@ -37,6 +37,20 @@ The clone's `origin` is `gdg-wiki::https://wiki.gdgs.jp/api/cli/wiki`. `git push
 page and attachment changes to D1/R2; `git pull` fetches Web and Google Docs import changes for
 Git to merge locally.
 
+### Images
+
+```sh
+gdg img list --chapter-id 5
+gdg img upload ./photo.jpg --chapter-id 5
+gdg img get abcd1234
+gdg img replace abcd1234 ./photo-v2.jpg
+gdg img mobile abcd1234 ./photo-mobile.jpg
+gdg img delete abcd1234
+```
+
+Every subcommand prints indented JSON on success and writes a one-line error message to stderr on
+failure.
+
 ## Apps
 
 | Directory | Package | Hostname | Description |
