@@ -10,7 +10,7 @@
 - [x] [07 — tinyurl domains CLI API (async)](07-tinyurl-domains-bearer-api.md)
 - [x] [07A — shared async-job primitives](07a-shared-job-primitives.md)
 - [x] [08 — tinyurl campaigns CLI API and feature boundary](08-tinyurl-campaigns-bearer-api.md)
-- [ ] [09 — tinyurl Go CLI client](09-tinyurl-cli-client.md)
+- [x] [09 — tinyurl Go CLI client](09-tinyurl-cli-client.md)
 - [ ] [10 — sns posts/media service-layer extraction](10-sns-posts-media-service.md)
 - [ ] [11 — sns contributors/X-account service-layer extraction](11-sns-contributors-x-service.md)
 - [ ] [12 — sns CLI API (posts/media/X accounts/contributors)](12-sns-bearer-api.md)
