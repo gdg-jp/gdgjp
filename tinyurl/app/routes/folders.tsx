@@ -35,8 +35,6 @@ import {
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { SubmitButton } from "~/components/ui/submit-button";
-import { requireUserWithChapter } from "~/lib/auth-redirect";
-import type { FolderWithCounts } from "~/lib/db";
 import {
   canEditFolder,
   createFolder,
@@ -44,6 +42,8 @@ import {
   listAccessibleRootFoldersWithCounts,
   updateFolder,
 } from "~/features/folders";
+import { requireUserWithChapter } from "~/lib/auth-redirect";
+import type { FolderWithCounts } from "~/lib/db";
 import type { Route } from "./+types/folders";
 
 export function meta() {

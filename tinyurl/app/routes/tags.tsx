@@ -48,8 +48,6 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { SubmitButton } from "~/components/ui/submit-button";
-import { requireUserWithChapter } from "~/lib/auth-redirect";
-import type { TagWithCount } from "~/lib/db";
 import {
   createTag,
   deleteTag,
@@ -57,6 +55,8 @@ import {
   listTagsForUserWithCounts,
   updateTag,
 } from "~/features/tags";
+import { requireUserWithChapter } from "~/lib/auth-redirect";
+import type { TagWithCount } from "~/lib/db";
 import { cn } from "~/lib/utils";
 import type { Route } from "./+types/tags";
 

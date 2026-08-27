@@ -2,8 +2,8 @@ import { isSuperAdmin } from "@gdgjp/gdg-lib";
 import type { AuthUser, UserChapter } from "@gdgjp/gdg-lib";
 import { getCampaignById, getCampaignChannelById } from "~/features/campaigns";
 import { getDomainById } from "~/features/domains";
-import { canEditFolder, getFolderById } from "~/lib/db";
 import { createTag } from "~/features/tags";
+import { canEditFolder, getFolderById } from "~/lib/db";
 import { validatePublicHttpUrl } from "~/lib/ogp";
 import { generateRandomSlug, validateSlug } from "~/lib/slug";
 import { type FeatureFailure, featureFailure } from "../shared/errors";
@@ -16,8 +16,8 @@ import {
   findExistingTagId,
   listAllowedTagIds,
   listPermissionsForLink,
-  replaceLinkPermissions,
   replaceCommentForAuthor,
+  replaceLinkPermissions,
   createLink as repoCreateLink,
   updateLink as repoUpdateLink,
   setLinkTags,
@@ -50,6 +50,10 @@ function validOptionalString(value: unknown): boolean {
   return value === undefined || value === null || typeof value === "string";
 }
 
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+
 function validateOptionalLinkFields(value: Record<string, unknown>): FeatureFailure | null {
   if (
     !validOptionalString(value.title) ||
@@ -62,21 +66,20 @@ function validateOptionalLinkFields(value: Record<string, unknown>): FeatureFail
   if (
     value.folderId !== undefined &&
     value.folderId !== null &&
-    (!Number.isInteger(value.folderId) || value.folderId <= 0)
+    !isPositiveInteger(value.folderId)
   ) {
     return invalidPayload();
   }
   if (
     value.campaignChannelId !== undefined &&
     value.campaignChannelId !== null &&
-    (!Number.isInteger(value.campaignChannelId) || value.campaignChannelId <= 0)
+    !isPositiveInteger(value.campaignChannelId)
   ) {
     return invalidPayload();
   }
   if (
     value.tagIds !== undefined &&
-    (!Array.isArray(value.tagIds) ||
-      !value.tagIds.every((tagId) => Number.isInteger(tagId) && tagId > 0))
+    (!Array.isArray(value.tagIds) || !value.tagIds.every(isPositiveInteger))
   ) {
     return invalidPayload();
   }
@@ -108,12 +111,11 @@ function validateOptionalLinkFields(value: Record<string, unknown>): FeatureFail
 export function parseCreateLinkInput(value: unknown): LinkPayloadResult<CreateLinkInput> {
   if (!isRecord(value)) return invalidPayload();
   if (
-    !Number.isInteger(value.domainId) ||
-    value.domainId <= 0 ||
+    !isPositiveInteger(value.domainId) ||
     typeof value.slug !== "string" ||
     typeof value.destinationUrl !== "string" ||
     (value.visibility !== "private" && value.visibility !== "public") ||
-    (value.chapterId !== undefined && (!Number.isInteger(value.chapterId) || value.chapterId <= 0))
+    (value.chapterId !== undefined && !isPositiveInteger(value.chapterId))
   ) {
     return invalidPayload();
   }
@@ -126,7 +128,9 @@ export function parseUpdateLinkPatch(value: unknown): LinkPayloadResult<UpdateLi
   if (
     (value.slug !== undefined && typeof value.slug !== "string") ||
     (value.destinationUrl !== undefined && typeof value.destinationUrl !== "string") ||
-    (value.visibility !== undefined && value.visibility !== "private" && value.visibility !== "public")
+    (value.visibility !== undefined &&
+      value.visibility !== "private" &&
+      value.visibility !== "public")
   ) {
     return invalidPayload();
   }
@@ -172,12 +176,12 @@ function resolveCampaignChapterId(
   const accessible = campaignChapterIds.filter((chapterId) =>
     actor.chapters.some((chapter) => chapter.chapterId === chapterId),
   );
-  if (accessible.length === 1) return accessible[0]!;
+  const [onlyAccessibleChapterId] = accessible;
+  if (onlyAccessibleChapterId !== undefined && accessible.length === 1) {
+    return onlyAccessibleChapterId;
+  }
 
-  return featureFailure(
-    "invalid_input",
-    "A campaign chapter must be selected for this link.",
-  );
+  return featureFailure("invalid_input", "A campaign chapter must be selected for this link.");
 }
 
 async function applyLinkExtras(

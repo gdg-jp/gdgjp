@@ -5,6 +5,10 @@ RP_SESSION_SECRET=""
 # Client secret issued by the accounts IdP for this RP.
 IDP_CLIENT_SECRET=""
 
+# Public OAuth client identifier. This must remain available when `.dev.vars`
+# overrides the `[vars]` values from wrangler.toml.
+IDP_CLIENT_ID=tinyurl
+
 # Required for the /analytics and /dashboard pages to read Analytics Engine via the SQL API.
 # Set as production secrets too: `wrangler secret put CF_ACCOUNT_ID` and `wrangler secret put CF_AE_API_TOKEN`.
 # The token needs Account → Account Analytics: Read for the dataset's account.

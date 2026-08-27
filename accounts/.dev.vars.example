@@ -22,11 +22,17 @@ APP_URL=http://localhost:5173
 
 # Override RP redirect URLs so OIDC callbacks resolve to the local dev servers.
 # Path must match the openid-client RP factory's callback (post-PR-2: /api/auth/callback/gdgjp).
+TINYURL_CLIENT_ID=tinyurl
 TINYURL_REDIRECT_URLS=http://localhost:5174/api/auth/callback/gdgjp
+IMG_CLIENT_ID=img
 IMG_REDIRECT_URLS=http://localhost:5175/api/auth/callback/gdgjp
+SCHEDULER_CLIENT_ID=scheduler
 SCHEDULER_REDIRECT_URLS=http://localhost:5176/api/auth/callback/gdgjp
+WIKI_CLIENT_ID=wiki
 WIKI_REDIRECT_URLS=http://localhost:5177/api/auth/callback/gdgjp
+SNS_CLIENT_ID=sns
 SNS_REDIRECT_URLS=http://localhost:5178/api/auth/callback/gdgjp
+PAY_CLIENT_ID=pay
 PAY_REDIRECT_URLS=http://localhost:5179/api/auth/callback/gdgjp
 
 RESEND_API_KEY=""

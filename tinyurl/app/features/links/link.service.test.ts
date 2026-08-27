@@ -276,10 +276,12 @@ describe("createLinkWithExtras", () => {
     ["folderId", 0],
     ["shares", [{ principalType: "user", principalId: 1, role: "viewer" }]],
   ])("rejects malformed optional POST %s", (field, value) => {
-    expect(parseCreateLinkInput({ ...baseInput({ slug: "valid" }), [field]: value })).toMatchObject({
-      ok: false,
-      code: "invalid_input",
-    });
+    expect(parseCreateLinkInput({ ...baseInput({ slug: "valid" }), [field]: value })).toMatchObject(
+      {
+        ok: false,
+        code: "invalid_input",
+      },
+    );
   });
 });
 

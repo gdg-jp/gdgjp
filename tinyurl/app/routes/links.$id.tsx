@@ -58,6 +58,7 @@ import { getDomainById, listDomainsForChapters } from "~/features/domains";
 import {
   type LinkPermission,
   type LinkVisibility,
+  type UpdateLinkPatch,
   type ViewerContext,
   addComment,
   addPermission,
@@ -209,7 +210,7 @@ export async function action(args: Route.ActionArgs) {
       };
     }
 
-    const patch: Parameters<typeof updateLinkWithExtras>[3] = {};
+    const patch: UpdateLinkPatch = {};
     if (form.has("destinationUrl")) {
       patch.destinationUrl = String(form.get("destinationUrl") ?? "").trim();
     }

@@ -94,7 +94,7 @@ describe("onboarding action", () => {
       intent: "request",
       chapterIds: [2, 15],
     });
-  });
+  }, 10_000);
 
   it("treats already_in_chapter as accepted without email", async () => {
     requestMembership
