@@ -1,0 +1,30 @@
+CliBadRequest:
+  description: The request is missing required fields or is malformed.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error
+CliUnauthorized:
+  description: The bearer token is missing, invalid, or lacks the CLI scope.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error
+CliForbidden:
+  description: The caller is not a super-admin and does not belong to any of the campaign's chapters.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error
+CliNotFound:
+  description: The campaign, channel, or source does not exist.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error
+CliConflict:
+  description: The code is already taken, or the resource is not in the expected archived/active state.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error

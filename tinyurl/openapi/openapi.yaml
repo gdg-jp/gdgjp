@@ -2,12 +2,15 @@ openapi: 3.0.3
 info:
   title: GDG Japan TinyURL API
   version: 1.0.0
-  description: Public redirect and custom-domain gateway contract.
+  description: >-
+    Public redirect and custom-domain gateway contract (go.gdgs.jp), plus the
+    authenticated CLI/agent campaign management API (url.gdgs.jp).
   license:
     name: Proprietary
     url: https://gdgs.jp
 servers:
   - url: https://go.gdgs.jp
+  - url: https://url.gdgs.jp
 paths:
   /{slug}:
     $ref: ./paths/short-url.yaml
@@ -17,20 +20,86 @@ paths:
     $ref: ./paths/gateway-config.yaml
   /api/internal/gateway/resolve:
     $ref: ./paths/gateway-resolve.yaml
+  /api/cli/v1/campaigns:
+    $ref: ./paths/cli-campaigns.yaml
+  /api/cli/v1/campaigns/{id}:
+    $ref: ./paths/cli-campaign.yaml
+  /api/cli/v1/campaigns/{id}/restore:
+    $ref: ./paths/cli-campaign-restore.yaml
+  /api/cli/v1/campaigns/{id}/analytics:
+    $ref: ./paths/cli-campaign-analytics.yaml
+  /api/cli/v1/campaigns/{id}/channels:
+    $ref: ./paths/cli-campaign-channels.yaml
+  /api/cli/v1/campaigns/{id}/channels/{channelId}:
+    $ref: ./paths/cli-campaign-channel.yaml
+  /api/cli/v1/campaigns/{id}/channels/{channelId}/restore:
+    $ref: ./paths/cli-campaign-channel-restore.yaml
+  /api/cli/v1/campaigns/{id}/channels/{channelId}/sources:
+    $ref: ./paths/cli-campaign-sources.yaml
+  /api/cli/v1/campaigns/{id}/channels/{channelId}/sources/{sourceId}:
+    $ref: ./paths/cli-campaign-source.yaml
+  /api/cli/v1/campaigns/{id}/channels/{channelId}/sources/{sourceId}/restore:
+    $ref: ./paths/cli-campaign-source-restore.yaml
 components:
   schemas:
     GatewayConfig:
       $ref: ./components/schemas/gateway.yaml#/GatewayConfig
     Error:
       $ref: ./components/schemas/common.yaml#/Error
+    CliArchiveResult:
+      $ref: ./components/schemas/common.yaml#/CliArchiveResult
+    Campaign:
+      $ref: ./components/schemas/cli-campaigns.yaml#/Campaign
+    CliCampaignResponse:
+      $ref: ./components/schemas/cli-campaigns.yaml#/CliCampaignResponse
+    CliCampaignList:
+      $ref: ./components/schemas/cli-campaigns.yaml#/CliCampaignList
+    CampaignChannel:
+      $ref: ./components/schemas/cli-campaign-channels.yaml#/CampaignChannel
+    CliCampaignChannelResponse:
+      $ref: ./components/schemas/cli-campaign-channels.yaml#/CliCampaignChannelResponse
+    CliCampaignChannelList:
+      $ref: ./components/schemas/cli-campaign-channels.yaml#/CliCampaignChannelList
+    CampaignChannelSource:
+      $ref: ./components/schemas/cli-campaign-sources.yaml#/CampaignChannelSource
+    CliCampaignChannelSourceResponse:
+      $ref: ./components/schemas/cli-campaign-sources.yaml#/CliCampaignChannelSourceResponse
+    CliCampaignChannelSourceList:
+      $ref: ./components/schemas/cli-campaign-sources.yaml#/CliCampaignChannelSourceList
+    CliCampaignAnalytics:
+      $ref: ./components/schemas/cli-campaign-analytics.yaml#/CliCampaignAnalytics
+    CliCampaignAnalyticsResponse:
+      $ref: ./components/schemas/cli-campaign-analytics.yaml#/CliCampaignAnalyticsResponse
   responses:
     Unauthorized:
       $ref: ./components/responses/common.yaml#/Unauthorized
     NotFound:
       $ref: ./components/responses/common.yaml#/NotFound
+    CliBadRequest:
+      $ref: ./components/responses/cli.yaml#/CliBadRequest
+    CliUnauthorized:
+      $ref: ./components/responses/cli.yaml#/CliUnauthorized
+    CliForbidden:
+      $ref: ./components/responses/cli.yaml#/CliForbidden
+    CliNotFound:
+      $ref: ./components/responses/cli.yaml#/CliNotFound
+    CliConflict:
+      $ref: ./components/responses/cli.yaml#/CliConflict
   parameters:
     Slug:
       $ref: ./components/parameters/common.yaml#/Slug
+    CampaignIdPath:
+      $ref: ./components/parameters/cli.yaml#/CampaignIdPath
+    ChannelIdPath:
+      $ref: ./components/parameters/cli.yaml#/ChannelIdPath
+    SourceIdPath:
+      $ref: ./components/parameters/cli.yaml#/SourceIdPath
+    IncludeArchived:
+      $ref: ./components/parameters/cli.yaml#/IncludeArchived
+    Limit:
+      $ref: ./components/parameters/cli.yaml#/Limit
+    Cursor:
+      $ref: ./components/parameters/cli.yaml#/Cursor
   securitySchemes:
     GatewayTimestamp:
       $ref: ./components/securitySchemes/gateway.yaml#/GatewayTimestamp
@@ -38,3 +107,5 @@ components:
       $ref: ./components/securitySchemes/gateway.yaml#/GatewaySignature
     GatewayHost:
       $ref: ./components/securitySchemes/gateway.yaml#/GatewayHost
+    BearerAuth:
+      $ref: ./components/securitySchemes/cli.yaml#/BearerAuth

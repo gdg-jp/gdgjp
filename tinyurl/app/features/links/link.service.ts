@@ -1,13 +1,8 @@
 import { isSuperAdmin } from "@gdgjp/gdg-lib";
 import type { AuthUser, UserChapter } from "@gdgjp/gdg-lib";
+import { getCampaignById, getCampaignChannelById } from "~/features/campaigns";
 import { getDomainById } from "~/features/domains";
-import {
-  canEditFolder,
-  createTag,
-  getCampaignById,
-  getCampaignChannelById,
-  getFolderById,
-} from "~/lib/db";
+import { canEditFolder, createTag, getFolderById } from "~/lib/db";
 import { validatePublicHttpUrl } from "~/lib/ogp";
 import { generateRandomSlug, validateSlug } from "~/lib/slug";
 import { type FeatureFailure, featureFailure } from "../shared/errors";

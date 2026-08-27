@@ -55,6 +55,17 @@ import { Label } from "~/components/ui/label";
 import { Skeleton } from "~/components/ui/skeleton";
 import { SubmitButton } from "~/components/ui/submit-button";
 import {
+  archiveCampaignChannel,
+  archiveCampaignChannelSource,
+  createCampaignChannel,
+  createCampaignChannelSource,
+  getCampaignById,
+  getCampaignWithChannelLinks,
+  listCampaignChannelsWithLinks,
+  updateCampaignChannel,
+  updateCampaignChannelSource,
+} from "~/features/campaigns";
+import {
   type TopBlob,
   type TopRow,
   clicksByLinkId,
@@ -85,21 +96,12 @@ import {
 } from "~/lib/campaign-participant-analytics-db";
 import { buildCampaignParticipantAnalyticsInput } from "~/lib/campaign-participant-import.server";
 import {
-  archiveCampaignChannel,
-  archiveCampaignChannelSource,
   assignLinksToChannel,
-  createCampaignChannel,
-  createCampaignChannelSource,
-  getCampaignById,
-  getCampaignWithChannelLinks,
   getUsersByIds,
   listAssignableLinksForCampaign,
-  listCampaignChannelsWithLinks,
   listLatestCommentsForCampaign,
   listTagsForChapter,
   listTagsForUser,
-  updateCampaignChannel,
-  updateCampaignChannelSource,
 } from "~/lib/db";
 import type { UserSummary } from "~/lib/db";
 import { cn } from "~/lib/utils";

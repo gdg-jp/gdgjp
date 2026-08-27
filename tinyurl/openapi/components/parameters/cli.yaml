@@ -1,0 +1,40 @@
+CampaignIdPath:
+  name: id
+  in: path
+  required: true
+  schema:
+    type: integer
+    minimum: 1
+ChannelIdPath:
+  name: channelId
+  in: path
+  required: true
+  schema:
+    type: integer
+    minimum: 1
+SourceIdPath:
+  name: sourceId
+  in: path
+  required: true
+  schema:
+    type: integer
+    minimum: 1
+IncludeArchived:
+  name: includeArchived
+  in: query
+  schema:
+    type: boolean
+    default: false
+Limit:
+  name: limit
+  in: query
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 100
+    default: 20
+Cursor:
+  name: cursor
+  in: query
+  schema:
+    type: string

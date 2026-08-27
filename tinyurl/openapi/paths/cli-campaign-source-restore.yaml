@@ -1,0 +1,24 @@
+post:
+  operationId: restoreCliCampaignChannelSource
+  summary: Restore an archived channel source
+  security:
+    - BearerAuth: []
+  parameters:
+    - $ref: ../components/parameters/cli.yaml#/CampaignIdPath
+    - $ref: ../components/parameters/cli.yaml#/ChannelIdPath
+    - $ref: ../components/parameters/cli.yaml#/SourceIdPath
+  responses:
+    '200':
+      description: Source restored.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/cli-campaign-sources.yaml#/CliCampaignChannelSourceResponse
+    '401':
+      $ref: ../components/responses/cli.yaml#/CliUnauthorized
+    '403':
+      $ref: ../components/responses/cli.yaml#/CliForbidden
+    '404':
+      $ref: ../components/responses/cli.yaml#/CliNotFound
+    '409':
+      $ref: ../components/responses/cli.yaml#/CliConflict

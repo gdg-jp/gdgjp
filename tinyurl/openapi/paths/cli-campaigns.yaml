@@ -1,0 +1,65 @@
+get:
+  operationId: listCliCampaigns
+  summary: List the caller's campaigns
+  security:
+    - BearerAuth: []
+  parameters:
+    - $ref: ../components/parameters/cli.yaml#/IncludeArchived
+    - $ref: ../components/parameters/cli.yaml#/Limit
+    - $ref: ../components/parameters/cli.yaml#/Cursor
+  responses:
+    '200':
+      description: The caller's campaigns.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/cli-campaigns.yaml#/CliCampaignList
+    '400':
+      $ref: ../components/responses/cli.yaml#/CliBadRequest
+    '401':
+      $ref: ../components/responses/cli.yaml#/CliUnauthorized
+post:
+  operationId: createCliCampaign
+  summary: Create a campaign
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [name, code, chapterIds]
+          properties:
+            name:
+              type: string
+              minLength: 1
+              maxLength: 80
+            code:
+              type: string
+              minLength: 1
+              maxLength: 32
+            defaultDestinationUrl:
+              type: string
+              format: uri
+              nullable: true
+            chapterIds:
+              type: array
+              minItems: 1
+              items:
+                type: integer
+  responses:
+    '201':
+      description: Created campaign.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/cli-campaigns.yaml#/CliCampaignResponse
+    '400':
+      $ref: ../components/responses/cli.yaml#/CliBadRequest
+    '401':
+      $ref: ../components/responses/cli.yaml#/CliUnauthorized
+    '403':
+      $ref: ../components/responses/cli.yaml#/CliForbidden
+    '409':
+      $ref: ../components/responses/cli.yaml#/CliConflict

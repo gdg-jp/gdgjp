@@ -1,0 +1,90 @@
+CliCampaignAnalyticsTrendPoint:
+  type: object
+  required: [hour, clicks]
+  properties:
+    hour:
+      type: string
+      format: date-time
+    clicks:
+      type: integer
+CliCampaignAnalyticsLinkRow:
+  type: object
+  required: [linkId, slug, clicks]
+  properties:
+    linkId:
+      type: string
+    slug:
+      type: string
+    clicks:
+      type: integer
+CliCampaignAnalyticsSourceRow:
+  type: object
+  required: [channelId, channelName, sourceCode, sourceName, clicks]
+  properties:
+    channelId:
+      type: integer
+    channelName:
+      type: string
+    sourceCode:
+      type: string
+      nullable: true
+    sourceName:
+      type: string
+      nullable: true
+    clicks:
+      type: integer
+CliCampaignAnalyticsAcquisitionChannel:
+  type: object
+  required: [name, count]
+  properties:
+    name:
+      type: string
+    count:
+      type: integer
+CliCampaignAnalyticsAcquisition:
+  type: object
+  required: [applications, cancellations, attendanceRate, channels]
+  properties:
+    applications:
+      type: integer
+    cancellations:
+      type: integer
+    attendanceRate:
+      type: number
+      nullable: true
+    channels:
+      type: array
+      maxItems: 10
+      items:
+        $ref: '#/CliCampaignAnalyticsAcquisitionChannel'
+CliCampaignAnalytics:
+  type: object
+  required: [totalClicks, trend, links, sources, acquisition]
+  properties:
+    totalClicks:
+      type: integer
+    trend:
+      type: array
+      items:
+        $ref: '#/CliCampaignAnalyticsTrendPoint'
+    links:
+      type: array
+      maxItems: 10
+      items:
+        $ref: '#/CliCampaignAnalyticsLinkRow'
+    sources:
+      type: array
+      maxItems: 10
+      items:
+        $ref: '#/CliCampaignAnalyticsSourceRow'
+    acquisition:
+      type: object
+      nullable: true
+      allOf:
+        - $ref: '#/CliCampaignAnalyticsAcquisition'
+CliCampaignAnalyticsResponse:
+  type: object
+  required: [analytics]
+  properties:
+    analytics:
+      $ref: '#/CliCampaignAnalytics'

@@ -1,0 +1,67 @@
+get:
+  operationId: listCliCampaignChannels
+  summary: List a campaign's channels
+  security:
+    - BearerAuth: []
+  parameters:
+    - $ref: ../components/parameters/cli.yaml#/CampaignIdPath
+    - $ref: ../components/parameters/cli.yaml#/IncludeArchived
+    - $ref: ../components/parameters/cli.yaml#/Limit
+    - $ref: ../components/parameters/cli.yaml#/Cursor
+  responses:
+    '200':
+      description: The campaign's channels.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/cli-campaign-channels.yaml#/CliCampaignChannelList
+    '400':
+      $ref: ../components/responses/cli.yaml#/CliBadRequest
+    '401':
+      $ref: ../components/responses/cli.yaml#/CliUnauthorized
+    '403':
+      $ref: ../components/responses/cli.yaml#/CliForbidden
+    '404':
+      $ref: ../components/responses/cli.yaml#/CliNotFound
+post:
+  operationId: createCliCampaignChannel
+  summary: Create a campaign channel
+  security:
+    - BearerAuth: []
+  parameters:
+    - $ref: ../components/parameters/cli.yaml#/CampaignIdPath
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [name, code]
+          properties:
+            name:
+              type: string
+              minLength: 1
+              maxLength: 64
+            code:
+              type: string
+              minLength: 1
+              maxLength: 32
+            sortOrder:
+              type: integer
+  responses:
+    '201':
+      description: Created channel.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/cli-campaign-channels.yaml#/CliCampaignChannelResponse
+    '400':
+      $ref: ../components/responses/cli.yaml#/CliBadRequest
+    '401':
+      $ref: ../components/responses/cli.yaml#/CliUnauthorized
+    '403':
+      $ref: ../components/responses/cli.yaml#/CliForbidden
+    '404':
+      $ref: ../components/responses/cli.yaml#/CliNotFound
+    '409':
+      $ref: ../components/responses/cli.yaml#/CliConflict

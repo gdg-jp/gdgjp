@@ -23,14 +23,14 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Skeleton } from "~/components/ui/skeleton";
 import { SubmitButton } from "~/components/ui/submit-button";
-import { requireUserWithChapter } from "~/lib/auth-redirect";
 import {
   archiveCampaign,
   createCampaign,
   getCampaignById,
   listCampaignsForChaptersWithCounts,
   updateCampaign,
-} from "~/lib/db";
+} from "~/features/campaigns";
+import { requireUserWithChapter } from "~/lib/auth-redirect";
 import { validatePublicHttpUrl } from "~/lib/ogp";
 import type { Route } from "./+types/campaigns";
 

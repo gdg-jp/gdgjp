@@ -1,0 +1,22 @@
+post:
+  operationId: restoreCliCampaign
+  summary: Restore an archived campaign
+  security:
+    - BearerAuth: []
+  parameters:
+    - $ref: ../components/parameters/cli.yaml#/CampaignIdPath
+  responses:
+    '200':
+      description: Campaign restored.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/cli-campaigns.yaml#/CliCampaignResponse
+    '401':
+      $ref: ../components/responses/cli.yaml#/CliUnauthorized
+    '403':
+      $ref: ../components/responses/cli.yaml#/CliForbidden
+    '404':
+      $ref: ../components/responses/cli.yaml#/CliNotFound
+    '409':
+      $ref: ../components/responses/cli.yaml#/CliConflict

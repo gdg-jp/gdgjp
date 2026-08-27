@@ -1,0 +1,88 @@
+get:
+  operationId: getCliCampaign
+  summary: Get a campaign
+  security:
+    - BearerAuth: []
+  parameters:
+    - $ref: ../components/parameters/cli.yaml#/CampaignIdPath
+  responses:
+    '200':
+      description: Campaign detail.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/cli-campaigns.yaml#/CliCampaignResponse
+    '401':
+      $ref: ../components/responses/cli.yaml#/CliUnauthorized
+    '403':
+      $ref: ../components/responses/cli.yaml#/CliForbidden
+    '404':
+      $ref: ../components/responses/cli.yaml#/CliNotFound
+patch:
+  operationId: updateCliCampaign
+  summary: Update a campaign
+  security:
+    - BearerAuth: []
+  parameters:
+    - $ref: ../components/parameters/cli.yaml#/CampaignIdPath
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              minLength: 1
+              maxLength: 80
+            code:
+              type: string
+              minLength: 1
+              maxLength: 32
+            defaultDestinationUrl:
+              type: string
+              format: uri
+              nullable: true
+            chapterIds:
+              type: array
+              minItems: 1
+              items:
+                type: integer
+  responses:
+    '200':
+      description: Updated campaign.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/cli-campaigns.yaml#/CliCampaignResponse
+    '400':
+      $ref: ../components/responses/cli.yaml#/CliBadRequest
+    '401':
+      $ref: ../components/responses/cli.yaml#/CliUnauthorized
+    '403':
+      $ref: ../components/responses/cli.yaml#/CliForbidden
+    '404':
+      $ref: ../components/responses/cli.yaml#/CliNotFound
+    '409':
+      $ref: ../components/responses/cli.yaml#/CliConflict
+delete:
+  operationId: archiveCliCampaign
+  summary: Archive a campaign
+  security:
+    - BearerAuth: []
+  parameters:
+    - $ref: ../components/parameters/cli.yaml#/CampaignIdPath
+  responses:
+    '200':
+      description: Campaign archived.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/common.yaml#/CliArchiveResult
+    '401':
+      $ref: ../components/responses/cli.yaml#/CliUnauthorized
+    '403':
+      $ref: ../components/responses/cli.yaml#/CliForbidden
+    '404':
+      $ref: ../components/responses/cli.yaml#/CliNotFound

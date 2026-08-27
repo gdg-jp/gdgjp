@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   assignLinksToChannel,
-  createCampaign,
   getFolderAccessRole,
   isFolderAvailableForLinkOwner,
   listAccessibleRootFoldersWithCounts,
@@ -9,8 +8,6 @@ import {
   listLatestCommentsForCampaign,
   listLinksAccessibleByEmail,
   listLinksInFolderAccessible,
-  normalizeCampaignCode,
-  toCampaign,
   toLink,
 } from "./db";
 
@@ -234,49 +231,6 @@ describe("folder permissions", () => {
   });
 });
 
-describe("createCampaign", () => {
-  it("creates the default その他 channel after creating the Campaign", async () => {
-    const prepared: { sql: string; bindings: unknown[] }[] = [];
-    const db = {
-      prepare(sql: string) {
-        const call = { sql, bindings: [] as unknown[] };
-        prepared.push(call);
-        return {
-          bind(...values: unknown[]) {
-            call.bindings = values;
-            return this;
-          },
-          async first() {
-            return {
-              id: 7,
-              name: "DevFest 2026",
-              code: "df26",
-              default_destination_url: null,
-              owner_user_id: "user_abc",
-              created_at: 1700000000,
-              updated_at: 1700000000,
-              archived_at: null,
-            };
-          },
-        };
-      },
-      async batch() {
-        return [];
-      },
-    } as unknown as D1Database;
-
-    await createCampaign(db, {
-      name: "DevFest 2026",
-      code: "df26",
-      ownerUserId: "user_abc",
-      chapterIds: [42],
-    });
-
-    const defaultChannel = prepared.find((call) => call.sql.includes("'その他', 'other'"));
-    expect(defaultChannel?.bindings).toEqual([7]);
-  });
-});
-
 describe("toLink", () => {
   const row = {
     id: "link_01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -339,46 +293,6 @@ describe("toLink", () => {
     expect(link.folderId).toBeNull();
     expect(link.archivedAt).toBeNull();
     expect(link.deletedAt).toBeNull();
-  });
-});
-
-describe("normalizeCampaignCode", () => {
-  it("trims and lowercases valid codes", () => {
-    expect(normalizeCampaignCode(" DF26_X ")).toBe("df26_x");
-  });
-
-  it.each(["", "-df26", "tokyo?", "東京", "a".repeat(33)])(
-    "rejects an invalid campaign code: %s",
-    (code) => {
-      expect(() => normalizeCampaignCode(code)).toThrow(RangeError);
-    },
-  );
-});
-
-describe("toCampaign", () => {
-  it("maps the default destination URL and channel-era campaign fields", () => {
-    expect(
-      toCampaign({
-        id: 3,
-        name: "DevFest 2026",
-        code: "df26",
-        default_destination_url: "https://example.com/devfest",
-        owner_user_id: "user_abc",
-        created_at: 1700000000,
-        updated_at: 1700001000,
-        archived_at: null,
-      }),
-    ).toEqual({
-      id: 3,
-      name: "DevFest 2026",
-      code: "df26",
-      defaultDestinationUrl: "https://example.com/devfest",
-      ownerUserId: "user_abc",
-      chapterIds: [],
-      createdAt: 1700000000,
-      updatedAt: 1700001000,
-      archivedAt: null,
-    });
   });
 });
 

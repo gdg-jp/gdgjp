@@ -1,0 +1,45 @@
+Campaign:
+  type: object
+  required:
+    [id, name, code, defaultDestinationUrl, ownerUserId, chapterIds, createdAt, updatedAt, archivedAt]
+  properties:
+    id:
+      type: integer
+    name:
+      type: string
+    code:
+      type: string
+    defaultDestinationUrl:
+      type: string
+      format: uri
+      nullable: true
+    ownerUserId:
+      type: string
+    chapterIds:
+      type: array
+      items:
+        type: integer
+    createdAt:
+      type: integer
+    updatedAt:
+      type: integer
+    archivedAt:
+      type: integer
+      nullable: true
+CliCampaignResponse:
+  type: object
+  required: [campaign]
+  properties:
+    campaign:
+      $ref: '#/Campaign'
+CliCampaignList:
+  type: object
+  required: [campaigns, nextCursor]
+  properties:
+    campaigns:
+      type: array
+      items:
+        $ref: '#/Campaign'
+    nextCursor:
+      type: string
+      nullable: true

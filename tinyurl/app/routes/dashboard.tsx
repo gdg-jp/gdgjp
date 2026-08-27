@@ -25,6 +25,7 @@ import {
 import { Input } from "~/components/ui/input";
 import { MotionPresence } from "~/components/ui/motion";
 import { Skeleton } from "~/components/ui/skeleton";
+import { listCampaignChannels, listCampaignsForChaptersWithCounts } from "~/features/campaigns";
 import { listDomainsForChapters } from "~/features/domains";
 import { clicksByLinkId } from "~/lib/analytics-engine";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
@@ -34,8 +35,6 @@ import {
   type UserSummary,
   getUsersByIds,
   listAllAccessibleFolders,
-  listCampaignChannels,
-  listCampaignsForChaptersWithCounts,
   listLinksAccessibleByEmail,
   listLinksForChapter,
   listLinksForUser,

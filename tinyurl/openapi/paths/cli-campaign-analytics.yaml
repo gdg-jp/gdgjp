@@ -1,0 +1,57 @@
+get:
+  operationId: getCliCampaignAnalytics
+  summary: Get aggregate campaign analytics
+  security:
+    - BearerAuth: []
+  parameters:
+    - $ref: ../components/parameters/cli.yaml#/CampaignIdPath
+    - name: from
+      in: query
+      required: true
+      description: Inclusive range start, as an ISO instant.
+      schema:
+        type: string
+        format: date-time
+    - name: to
+      in: query
+      required: true
+      description: Inclusive range end, as an ISO instant. The range is capped at 366 days.
+      schema:
+        type: string
+        format: date-time
+    - name: bucket
+      in: query
+      description: Rejected as hour for ranges over 31 days.
+      schema:
+        type: string
+        enum: [hour, day]
+        default: day
+    - name: channelId
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+    - name: linkId
+      in: query
+      schema:
+        type: string
+    - name: includeAutomated
+      in: query
+      schema:
+        type: boolean
+        default: false
+  responses:
+    '200':
+      description: Aggregate click and acquisition analytics for the campaign. Never includes participant identifiers.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/cli-campaign-analytics.yaml#/CliCampaignAnalyticsResponse
+    '400':
+      $ref: ../components/responses/cli.yaml#/CliBadRequest
+    '401':
+      $ref: ../components/responses/cli.yaml#/CliUnauthorized
+    '403':
+      $ref: ../components/responses/cli.yaml#/CliForbidden
+    '404':
+      $ref: ../components/responses/cli.yaml#/CliNotFound

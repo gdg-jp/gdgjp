@@ -1,0 +1,63 @@
+patch:
+  operationId: updateCliCampaignChannel
+  summary: Update a campaign channel
+  security:
+    - BearerAuth: []
+  parameters:
+    - $ref: ../components/parameters/cli.yaml#/CampaignIdPath
+    - $ref: ../components/parameters/cli.yaml#/ChannelIdPath
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              minLength: 1
+              maxLength: 64
+            code:
+              type: string
+              minLength: 1
+              maxLength: 32
+            sortOrder:
+              type: integer
+  responses:
+    '200':
+      description: Updated channel.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/cli-campaign-channels.yaml#/CliCampaignChannelResponse
+    '400':
+      $ref: ../components/responses/cli.yaml#/CliBadRequest
+    '401':
+      $ref: ../components/responses/cli.yaml#/CliUnauthorized
+    '403':
+      $ref: ../components/responses/cli.yaml#/CliForbidden
+    '404':
+      $ref: ../components/responses/cli.yaml#/CliNotFound
+    '409':
+      $ref: ../components/responses/cli.yaml#/CliConflict
+delete:
+  operationId: archiveCliCampaignChannel
+  summary: Archive a campaign channel
+  security:
+    - BearerAuth: []
+  parameters:
+    - $ref: ../components/parameters/cli.yaml#/CampaignIdPath
+    - $ref: ../components/parameters/cli.yaml#/ChannelIdPath
+  responses:
+    '200':
+      description: Channel archived.
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/common.yaml#/CliArchiveResult
+    '401':
+      $ref: ../components/responses/cli.yaml#/CliUnauthorized
+    '403':
+      $ref: ../components/responses/cli.yaml#/CliForbidden
+    '404':
+      $ref: ../components/responses/cli.yaml#/CliNotFound
