@@ -98,3 +98,4 @@ are done, report a summary of what was implemented and the resulting commits.
 - If a stage's implementation touches files clearly outside its own "Files to touch"
   list without an obvious reason, stop and ask before committing — that's usually a
   sign the stage boundary was wrong, not that the extra edit is fine.
+- Allow up to two parallel processes. Never exceed two parallel processes.
