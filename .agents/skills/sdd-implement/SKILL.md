@@ -44,7 +44,7 @@ directly. For each stage `docs/<feature>/xx-<stage>.md`:
    claude -p "Implement @docs/<feature>/xx-<stage>.md as planned" \
      --session-id "$IMPLEMENT_SESSION" \
      --model "sonnet" \
-     --config 'model_reasoning_effort="medium"' \
+     --effort "high" \
      --permission-mode auto
    ```
 
@@ -67,7 +67,7 @@ directly. For each stage `docs/<feature>/xx-<stage>.md`:
    loaded, so the prompt only needs to carry the review itself, not the plan file again.
 
    ```bash
-   claude -p --resume "$IMPLEMENT_SESSION" --model "sonnet" --config 'model_reasoning_effort="medium"' --permission-mode auto "Codex reviewed the code you just wrote for docs/<feature>/xx-<stage>.md. Revise your implementation to address each finding below, but only where the finding is legitimate — some may misread the plan's intent or your own reasoning; push back (in your response, not in the code) on those instead of applying them. Commit after all the issues were resolved.
+   claude -p --resume "$IMPLEMENT_SESSION" --model "sonnet" --effort "high" --permission-mode auto "Codex reviewed the code you just wrote for docs/<feature>/xx-<stage>.md. Revise your implementation to address each finding below, but only where the finding is legitimate — some may misread the plan's intent or your own reasoning; push back (in your response, not in the code) on those instead of applying them. Commit after all the issues were resolved.
 
    <Codex's review output, in full>"
    ```
