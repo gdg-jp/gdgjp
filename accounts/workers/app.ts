@@ -35,6 +35,10 @@ export default {
     // poison the module-scoped init promise for the rest of this isolate.
     ctx.waitUntil(warmAuth(env));
     if (env.E2E_TEST_MODE === "true") await seedE2eClients(env);
+    const url = new URL(request.url);
+    if (env.E2E_TEST_MODE === "true" && url.pathname === "/api/auth/oauth2/authorize") {
+      return Response.redirect(`${url.origin}/signin?${url.searchParams}`, 302);
+    }
     return requestHandler(request, { cloudflare: { env, ctx } });
   },
 } satisfies ExportedHandler<Env>;
