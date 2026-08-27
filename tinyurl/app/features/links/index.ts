@@ -23,6 +23,7 @@ export {
   getLinkById,
   listVisibleLinksPage,
   listPermissionsForLink,
+  replaceLinkPermissions,
   listComments,
   removePermission,
   restoreLink,

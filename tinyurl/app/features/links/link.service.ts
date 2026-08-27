@@ -18,6 +18,7 @@ import {
   listAllowedTagIds,
   listComments,
   listPermissionsForLink,
+  replaceLinkPermissions,
   createLink as repoCreateLink,
   updateLink as repoUpdateLink,
   setLinkTags,
@@ -262,6 +263,18 @@ export async function updateLinkWithExtras(
 ): Promise<{ ok: true; link: Link } | FeatureFailure> {
   const { user, chapters } = actor;
   const update: Parameters<typeof repoUpdateLink>[2] = { ...domainUpdate };
+  let replacementShares: ValidatedShare[] | undefined;
+
+  // Validate before changing the link itself so an invalid replacement does
+  // not leave a partially-applied PATCH behind.
+  if (patch.shares !== undefined) {
+    replacementShares = [];
+    for (const raw of patch.shares) {
+      const result = validateSharePrincipal(raw);
+      if (!result.ok) return featureFailure("invalid_input", result.error);
+      replacementShares.push(result.share);
+    }
+  }
 
   if (patch.destinationUrl !== undefined) {
     const destinationUrl = patch.destinationUrl.trim();
@@ -364,6 +377,12 @@ export async function updateLinkWithExtras(
       await deleteComment(deps.db, comment.id);
     }
     if (body) await addComment(deps.db, { linkId: id, authorUserId: user.id, body });
+  }
+
+  // PATCH shares has replacement semantics: when present, this complete list
+  // atomically becomes the link's permission set. Omitting it preserves shares.
+  if (replacementShares !== undefined) {
+    await replaceLinkPermissions(deps.db, id, replacementShares);
   }
 
   return { ok: true, link: updatedLink };

@@ -281,4 +281,56 @@ describe("updateLinkWithExtras", () => {
     );
     expect(result).toMatchObject({ ok: false, code: "invalid_input" });
   });
+
+  it("atomically replaces shares when PATCH supplies them", async () => {
+    const batches: D1PreparedStatement[][] = [];
+    const preparedSql: string[] = [];
+    const db = {
+      prepare(sql: string) {
+        preparedSql.push(sql);
+        let bound: unknown[] = [];
+        return {
+          bind(...values: unknown[]) {
+            bound = values;
+            return this;
+          },
+          async first<T>() {
+            if (sql.startsWith("UPDATE links SET") || sql.includes("FROM links WHERE id = ?")) {
+              return existingLink as T;
+            }
+            throw new Error(`Unhandled SQL: ${sql}`);
+          },
+          get bound() {
+            return bound;
+          },
+        };
+      },
+      async batch(statements: D1PreparedStatement[]) {
+        batches.push(statements);
+        return [];
+      },
+    } as unknown as D1Database;
+
+    const result = await updateLinkWithExtras(
+      { db },
+      { user, chapter, chapters: [chapter] },
+      "link_existing",
+      {
+        shares: [
+          { principalType: "user", principalId: "viewer@example.com", role: "viewer" },
+          { principalType: "chapter", principalId: "42", role: "editor" },
+        ],
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(batches).toHaveLength(1);
+    expect(batches[0]).toHaveLength(3);
+    expect(preparedSql).toEqual([
+      expect.stringContaining("FROM links WHERE id = ?"),
+      "DELETE FROM link_permissions WHERE link_id = ?",
+      expect.stringContaining("INSERT INTO link_permissions"),
+      expect.stringContaining("INSERT INTO link_permissions"),
+    ]);
+  });
 });
