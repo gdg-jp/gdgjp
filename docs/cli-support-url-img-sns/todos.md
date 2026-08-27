@@ -6,7 +6,7 @@
 - [x] [03 — img CLI API and image feature boundary](03-img-bearer-api.md)
 - [x] [04 — img Go CLI client](04-img-cli-client.md)
 - [x] [05 — tinyurl core service-layer refactor](05-tinyurl-core-refactor.md)
-- [ ] [06 — tinyurl links/tags/folders CLI API](06-tinyurl-links-bearer-api.md)
+- [x] [06 — tinyurl links/tags/folders CLI API](06-tinyurl-links-bearer-api.md)
 - [x] [07 — tinyurl domains CLI API (async)](07-tinyurl-domains-bearer-api.md)
 - [x] [07A — shared async-job primitives](07a-shared-job-primitives.md)
 - [x] [08 — tinyurl campaigns CLI API and feature boundary](08-tinyurl-campaigns-bearer-api.md)

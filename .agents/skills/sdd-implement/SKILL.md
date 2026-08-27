@@ -49,10 +49,16 @@ run all other stages sequentially on `main`. For each `xx-<stage>.md`:
    are no blocking findings.
    ```
 
-4. **Resolve findings.** Send the review output to the same implementation worker
-   as a continuation. It fixes legitimate findings, explains rejected ones,
-   reruns relevant validation, and reports the result. Send that update to the
-   same review worker as a continuation. Repeat until clear or the loop limit.
+4. **Resolve findings.** Send the following continuation prompt to the same
+   implementation worker, substituting the review output without changing the
+   template. Then send its update to the same review worker as a continuation.
+   Repeat until clear or the loop limit.
+
+   ```text
+   Codex reviewed the code you just wrote for docs/<feature>/xx-<stage>.md. Revise your implementation to address each finding below, but only where the finding is legitimate — some may misread the plan's intent or your own reasoning; push back (in your response, not in the code) on those instead of applying them. Commit after all the issues were resolved.
+
+   <Codex's review output, in full>
+   ```
 
 5. **Land a worktree.** If used, merge it directly into `main` — no PR:
 
@@ -70,6 +76,6 @@ After all stages, report implemented work and resulting commits.
 ## Guardrails
 
 - Never push, force-push, force-merge, or rewrite history.
-- Commit only when authorized by the stage plan or completed worker workflow.
+- 2nd review is prohibited.
 - If work clearly exceeds a stage's "Files to touch" list, stop and ask before committing.
 - At most two parallel processes.
