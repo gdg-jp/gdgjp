@@ -27,6 +27,27 @@ export async function listContributors(db: D1Database, chapterId: number): Promi
   return result.results.map((row) => ({ email: row.user_email, createdAt: row.created_at }));
 }
 
+/**
+ * Offset-paginated contributor list. Fetches one extra row (`LIMIT limit + 1`)
+ * so the caller can tell whether another page exists without a second query.
+ */
+export async function listContributorsPage(
+  db: D1Database,
+  options: { chapterId: number; limit: number; offset: number },
+): Promise<{ contributors: Contributor[]; hasMore: boolean }> {
+  const result = await db
+    .prepare(
+      "SELECT user_email, created_at FROM sns_contributors WHERE chapter_id = ? ORDER BY user_email COLLATE NOCASE LIMIT ? OFFSET ?",
+    )
+    .bind(options.chapterId, options.limit + 1, options.offset)
+    .all<{ user_email: string; created_at: string }>();
+  const rows = result.results.slice(0, options.limit);
+  return {
+    contributors: rows.map((row) => ({ email: row.user_email, createdAt: row.created_at })),
+    hasMore: result.results.length > options.limit,
+  };
+}
+
 export type InsertContributorRecord = {
   chapterId: number;
   userEmail: string;

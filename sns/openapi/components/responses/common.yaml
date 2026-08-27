@@ -1,0 +1,42 @@
+CliBadRequest:
+  description: The request is missing required fields or is malformed.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/index.yaml#/Error
+CliUnauthorized:
+  description: The bearer token is missing, invalid, or lacks the CLI scope.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/index.yaml#/Error
+CliForbidden:
+  description: The caller is not an organizer or contributor of this chapter.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/index.yaml#/Error
+CliNotFound:
+  description: >-
+    The resource does not exist, or the caller cannot see it. Id-addressed
+    routes deliberately return 404 (never 403) for a resource in another
+    chapter, so a caller cannot enumerate ids across chapters.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/index.yaml#/Error
+CliConflict:
+  description: >-
+    The request conflicts with the post's current state — for example editing,
+    deleting, or attaching media to a post that is already `posting` or
+    `published`.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/index.yaml#/Error
+CliPayloadTooLarge:
+  description: An uploaded image exceeds 5 MiB.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/index.yaml#/Error

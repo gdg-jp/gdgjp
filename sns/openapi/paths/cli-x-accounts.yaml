@@ -1,0 +1,47 @@
+collection:
+  get:
+    operationId: listCliXAccounts
+    summary: List a chapter's usable X accounts
+    description: >-
+      Returns only identity/metadata for the chapter's active (non-revoked) X
+      accounts, so `xAccountId` is discoverable when creating a post. Encrypted
+      token columns are never returned.
+    security: [{ BearerAuth: [] }]
+    parameters:
+      - $ref: ../components/parameters/common.yaml#/ChapterIdQuery
+    responses:
+      '200':
+        description: The chapter's usable X account summaries.
+        content:
+          application/json:
+            schema: { $ref: ../components/schemas/index.yaml#/XAccountList }
+      '400': { $ref: ../components/responses/common.yaml#/CliBadRequest }
+      '401': { $ref: ../components/responses/common.yaml#/CliUnauthorized }
+      '403': { $ref: ../components/responses/common.yaml#/CliForbidden }
+
+item:
+  delete:
+    operationId: revokeCliXAccount
+    summary: Revoke a chapter's X account
+    description: >-
+      Soft-revokes the account (the row is kept because published posts still
+      reference it). Requires an `xUserId` in the JSON body that exactly matches
+      the account, matching the dashboard's revoke confirmation. Organizer or
+      contributor access to the account's chapter is required.
+    security: [{ BearerAuth: [] }]
+    parameters:
+      - $ref: ../components/parameters/common.yaml#/ResourceIdPath
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: ../components/schemas/index.yaml#/RevokeXAccountRequest }
+    responses:
+      '200':
+        description: The account was revoked.
+        content:
+          application/json:
+            schema: { $ref: ../components/schemas/index.yaml#/RevokeXAccountResult }
+      '400': { $ref: ../components/responses/common.yaml#/CliBadRequest }
+      '401': { $ref: ../components/responses/common.yaml#/CliUnauthorized }
+      '404': { $ref: ../components/responses/common.yaml#/CliNotFound }

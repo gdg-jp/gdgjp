@@ -92,6 +92,7 @@ test("limits OpenAPI checks to contract and generator inputs", () => {
   assert.equal(classifyChanges(["accounts/openapi/openapi.yaml"]).openapi, true);
   assert.equal(classifyChanges(["cli/internal/wiki/generate.go"]).openapi, true);
   assert.equal(classifyChanges(["connpass/openapi/openapi.yaml"]).openapi, true);
+  assert.equal(classifyChanges(["sns/openapi/openapi.yaml"]).openapi, true);
   assert.equal(classifyChanges(["cli/internal/connpass/generate.go"]).openapi, true);
   assert.equal(classifyChanges(["accounts/app/routes/home.tsx"]).openapi, false);
 });

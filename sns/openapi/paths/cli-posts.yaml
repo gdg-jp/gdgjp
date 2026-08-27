@@ -1,0 +1,125 @@
+collection:
+  get:
+    operationId: listCliPosts
+    summary: List scheduled posts for a chapter
+    security: [{ BearerAuth: [] }]
+    parameters:
+      - $ref: ../components/parameters/common.yaml#/ChapterIdQuery
+      - name: status
+        in: query
+        required: false
+        schema: { $ref: ../components/schemas/index.yaml#/PostStatus }
+      - $ref: ../components/parameters/common.yaml#/Limit
+      - $ref: ../components/parameters/common.yaml#/Cursor
+    responses:
+      '200':
+        description: A bounded page of the chapter's posts.
+        content:
+          application/json:
+            schema: { $ref: ../components/schemas/index.yaml#/PostList }
+      '400': { $ref: ../components/responses/common.yaml#/CliBadRequest }
+      '401': { $ref: ../components/responses/common.yaml#/CliUnauthorized }
+      '403': { $ref: ../components/responses/common.yaml#/CliForbidden }
+  post:
+    operationId: createCliPost
+    summary: Create a scheduled post draft
+    security: [{ BearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: ../components/schemas/index.yaml#/CreatePostRequest }
+    responses:
+      '201':
+        description: The created post.
+        content:
+          application/json:
+            schema: { $ref: ../components/schemas/index.yaml#/PostResponse }
+      '400': { $ref: ../components/responses/common.yaml#/CliBadRequest }
+      '401': { $ref: ../components/responses/common.yaml#/CliUnauthorized }
+      '403': { $ref: ../components/responses/common.yaml#/CliForbidden }
+
+item:
+  get:
+    operationId: getCliPost
+    summary: Read a post and its ordered media
+    security: [{ BearerAuth: [] }]
+    parameters:
+      - $ref: ../components/parameters/common.yaml#/ResourceIdPath
+    responses:
+      '200':
+        description: The post aggregate — the post plus its `sortOrder`-ordered media.
+        content:
+          application/json:
+            schema: { $ref: ../components/schemas/index.yaml#/PostDetailResponse }
+      '401': { $ref: ../components/responses/common.yaml#/CliUnauthorized }
+      '404': { $ref: ../components/responses/common.yaml#/CliNotFound }
+  patch:
+    operationId: updateCliPost
+    summary: Update a post draft
+    security: [{ BearerAuth: [] }]
+    parameters:
+      - $ref: ../components/parameters/common.yaml#/ResourceIdPath
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: ../components/schemas/index.yaml#/UpdatePostRequest }
+    responses:
+      '200':
+        description: The updated post.
+        content:
+          application/json:
+            schema: { $ref: ../components/schemas/index.yaml#/PostResponse }
+      '400': { $ref: ../components/responses/common.yaml#/CliBadRequest }
+      '401': { $ref: ../components/responses/common.yaml#/CliUnauthorized }
+      '404': { $ref: ../components/responses/common.yaml#/CliNotFound }
+      '409': { $ref: ../components/responses/common.yaml#/CliConflict }
+  delete:
+    operationId: deleteCliPost
+    summary: Delete a post draft
+    description: >-
+      Rejected with 409 when the post is already `posting` or `published` — a
+      state conflict, not a malformed request.
+    security: [{ BearerAuth: [] }]
+    parameters:
+      - $ref: ../components/parameters/common.yaml#/ResourceIdPath
+    responses:
+      '200':
+        description: The post was deleted.
+        content:
+          application/json:
+            schema: { $ref: ../components/schemas/index.yaml#/PostDeleteResult }
+      '401': { $ref: ../components/responses/common.yaml#/CliUnauthorized }
+      '404': { $ref: ../components/responses/common.yaml#/CliNotFound }
+      '409': { $ref: ../components/responses/common.yaml#/CliConflict }
+
+itemMedia:
+  post:
+    operationId: attachCliPostMedia
+    summary: Attach an image to a post draft
+    security: [{ BearerAuth: [] }]
+    parameters:
+      - $ref: ../components/parameters/common.yaml#/ResourceIdPath
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [file, sortOrder]
+            properties:
+              file: { type: string, format: binary, description: Image file, maxLength: 5242880 }
+              sortOrder: { type: string, description: Zero-based position of this image within the post. }
+              altText: { type: string }
+    responses:
+      '201':
+        description: The attached media plus the recomputed post.
+        content:
+          application/json:
+            schema: { $ref: ../components/schemas/index.yaml#/MediaAttachResult }
+      '400': { $ref: ../components/responses/common.yaml#/CliBadRequest }
+      '401': { $ref: ../components/responses/common.yaml#/CliUnauthorized }
+      '404': { $ref: ../components/responses/common.yaml#/CliNotFound }
+      '409': { $ref: ../components/responses/common.yaml#/CliConflict }
+      '413': { $ref: ../components/responses/common.yaml#/CliPayloadTooLarge }

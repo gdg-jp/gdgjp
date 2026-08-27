@@ -5,10 +5,12 @@ export {
   insertContributor,
   isContributor,
   listContributors,
+  listContributorsPage,
 } from "./contributor.repository.server";
 export {
   addContributor,
   listChapterContributors,
+  listChapterContributorsPage,
   removeContributor,
 } from "./contributor.service.server";
 export type {

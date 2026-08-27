@@ -1,9 +1,9 @@
 import type { PostStatus } from "~/lib/db.server";
-import { getPost } from "~/lib/db.server";
+import { getPost, listPostsPage } from "~/lib/db.server";
 import { nowIso } from "~/lib/utils";
 import type { PostCondition } from "./post.types";
 
-export { getPost };
+export { getPost, listPostsPage };
 
 type PersistedLinkPreview = {
   url: string | null;

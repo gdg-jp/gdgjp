@@ -236,6 +236,33 @@ export async function getPost(db: D1Database, id: string): Promise<Post | null> 
   return row ? postFromRow(row) : null;
 }
 
+/**
+ * Offset-paginated post list for a chapter, optionally filtered to one status.
+ * Fetches one extra row so the caller can tell whether another page exists.
+ * Unlike {@link listPosts}, this does not exclude `published` posts — the CLI
+ * uses it to inspect a chapter's whole schedule, filtering by `status` itself.
+ */
+export async function listPostsPage(
+  db: D1Database,
+  options: { chapterId: number; status?: PostStatus; limit: number; offset: number },
+): Promise<{ posts: Post[]; hasMore: boolean }> {
+  const clauses = ["chapter_id = ?"];
+  const binds: unknown[] = [options.chapterId];
+  if (options.status) {
+    clauses.push("status = ?");
+    binds.push(options.status);
+  }
+  const result = await db
+    .prepare(
+      `SELECT * FROM posts WHERE ${clauses.join(" AND ")}
+       ORDER BY scheduled_at ASC, created_at ASC, id ASC LIMIT ? OFFSET ?`,
+    )
+    .bind(...binds, options.limit + 1, options.offset)
+    .all<PostRow>();
+  const rows = result.results.slice(0, options.limit);
+  return { posts: rows.map(postFromRow), hasMore: result.results.length > options.limit };
+}
+
 type GooglePhotosAlbumRow = {
   id: string;
   chapter_id: number;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addContributor,
   listChapterContributors,
+  listChapterContributorsPage,
   removeContributor,
 } from "./contributor.service.server";
 import type { ContributorDependencies } from "./contributor.types";
@@ -53,11 +54,15 @@ function makeDb(seed: Row[] = []) {
 
   function all(sql: string, b: unknown[]) {
     if (sql.startsWith("SELECT user_email, created_at FROM sns_contributors")) {
-      const [chapterId] = b as [number];
-      const results = rows
+      const chapterId = b[0] as number;
+      let results = rows
         .filter((row) => row.chapter_id === chapterId)
         .sort((x, y) => x.user_email.toLowerCase().localeCompare(y.user_email.toLowerCase()))
         .map((row) => ({ user_email: row.user_email, created_at: row.created_at }));
+      if (sql.includes("LIMIT ? OFFSET ?")) {
+        const [, limit, offset] = b as [number, number, number];
+        results = results.slice(offset, offset + limit);
+      }
       return { results };
     }
     throw new Error(`Unhandled all SQL: ${sql}`);
@@ -155,5 +160,28 @@ describe("listChapterContributors", () => {
       { email: "Alpha@example.com", createdAt: "t0" },
       { email: "beta@example.com", createdAt: "t1" },
     ]);
+  });
+});
+
+describe("listChapterContributorsPage", () => {
+  const seed = Array.from({ length: 5 }, (_, i) => ({
+    chapter_id: 1,
+    user_email: `c${i}@example.com`,
+    granted_by_user_id: "g",
+    created_at: `t${i}`,
+  }));
+
+  it("returns a bounded page and a nextCursor flag while more rows remain", async () => {
+    const { db } = makeDb(seed);
+    const page = await listChapterContributorsPage(deps(db), { chapterId: 1, limit: 2, offset: 0 });
+    expect(page.contributors.map((c) => c.email)).toEqual(["c0@example.com", "c1@example.com"]);
+    expect(page.hasMore).toBe(true);
+  });
+
+  it("reports hasMore false on the last page", async () => {
+    const { db } = makeDb(seed);
+    const page = await listChapterContributorsPage(deps(db), { chapterId: 1, limit: 2, offset: 4 });
+    expect(page.contributors.map((c) => c.email)).toEqual(["c4@example.com"]);
+    expect(page.hasMore).toBe(false);
   });
 });

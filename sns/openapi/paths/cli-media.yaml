@@ -1,0 +1,21 @@
+item:
+  delete:
+    operationId: deleteCliMedia
+    summary: Remove an image from its post
+    description: >-
+      Removes a single `post_media` row (and its stored object) by media id. The
+      media id is discovered from `GET /api/cli/v1/posts/{id}`, so a client can
+      remove media attached by the dashboard or an earlier CLI session, not only
+      media it uploaded itself.
+    security: [{ BearerAuth: [] }]
+    parameters:
+      - $ref: ../components/parameters/common.yaml#/ResourceIdPath
+    responses:
+      '200':
+        description: The media was removed; the recomputed post is returned.
+        content:
+          application/json:
+            schema: { $ref: ../components/schemas/index.yaml#/MediaDeleteResult }
+      '401': { $ref: ../components/responses/common.yaml#/CliUnauthorized }
+      '404': { $ref: ../components/responses/common.yaml#/CliNotFound }
+      '409': { $ref: ../components/responses/common.yaml#/CliConflict }

@@ -101,7 +101,7 @@ const GLOBAL_INPUTS = new Set([
 ]);
 
 const BIOME_FILE_PATTERN = /\.(?:[cm]?[jt]sx?|jsonc?|css|graphql|ya?ml)$/;
-const OPENAPI_DIRECTORIES = new Set(["accounts", "img", "tinyurl", "wiki", "connpass"]);
+const OPENAPI_DIRECTORIES = new Set(["accounts", "img", "tinyurl", "wiki", "connpass", "sns"]);
 
 function unique(values) {
   return [...new Set(values)];

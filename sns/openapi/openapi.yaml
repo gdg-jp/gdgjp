@@ -1,0 +1,35 @@
+openapi: 3.0.3
+info:
+  title: GDG Japan SNS API
+  version: 1.0.0
+  description: >-
+    Authenticated CLI/agent management API for scheduled X (Twitter) posts:
+    post and media CRUD, contributor administration, and X-account discovery
+    and revocation. Google Photos import and "publish now to X" are not part of
+    this contract.
+servers:
+  - url: https://sns.gdgs.jp
+paths:
+  /api/cli/v1/posts:
+    $ref: ./paths/cli-posts.yaml#/collection
+  /api/cli/v1/posts/{id}:
+    $ref: ./paths/cli-posts.yaml#/item
+  /api/cli/v1/posts/{id}/media:
+    $ref: ./paths/cli-posts.yaml#/itemMedia
+  /api/cli/v1/media/{id}:
+    $ref: ./paths/cli-media.yaml#/item
+  /api/cli/v1/contributors:
+    $ref: ./paths/cli-contributors.yaml#/collection
+  /api/cli/v1/x-accounts:
+    $ref: ./paths/cli-x-accounts.yaml#/collection
+  /api/cli/v1/x-accounts/{id}:
+    $ref: ./paths/cli-x-accounts.yaml#/item
+components:
+  schemas:
+    $ref: ./components/schemas/index.yaml
+  responses:
+    $ref: ./components/responses/common.yaml
+  parameters:
+    $ref: ./components/parameters/common.yaml
+  securitySchemes:
+    $ref: ./components/securitySchemes/auth.yaml

@@ -1,0 +1,229 @@
+Error:
+  type: object
+  required: [error]
+  properties:
+    error: { type: string }
+
+PostCondition:
+  type: string
+  enum: [scheduled, photo_required]
+
+PostStatus:
+  type: string
+  enum: [scheduled, waiting_for_photo, posting, published, failed, needs_confirmation]
+
+Post:
+  type: object
+  required:
+    [
+      id,
+      chapterId,
+      xAccountId,
+      text,
+      scheduledAt,
+      condition,
+      status,
+      createdByUserId,
+      publishedXPostId,
+      publishedAt,
+      failureReason,
+      linkPreviewUrl,
+      linkPreviewTitle,
+      linkPreviewDescription,
+      linkPreviewImageUrl,
+      createdAt,
+      updatedAt,
+    ]
+  properties:
+    id: { type: string }
+    chapterId: { type: integer }
+    xAccountId: { type: string }
+    text: { type: string }
+    scheduledAt: { type: string }
+    condition: { $ref: '#/PostCondition' }
+    status: { $ref: '#/PostStatus' }
+    createdByUserId: { type: string }
+    publishedXPostId: { type: string, nullable: true }
+    publishedAt: { type: string, nullable: true }
+    failureReason: { type: string, nullable: true }
+    linkPreviewUrl: { type: string, nullable: true }
+    linkPreviewTitle: { type: string, nullable: true }
+    linkPreviewDescription: { type: string, nullable: true }
+    linkPreviewImageUrl: { type: string, nullable: true }
+    createdAt: { type: string }
+    updatedAt: { type: string }
+
+PostMedia:
+  type: object
+  required: [id, postId, r2Key, contentType, byteSize, altText, sortOrder, createdAt]
+  properties:
+    id: { type: string }
+    postId: { type: string }
+    r2Key: { type: string }
+    contentType: { type: string }
+    byteSize: { type: integer }
+    altText: { type: string }
+    sortOrder: { type: integer }
+    createdAt: { type: string }
+
+CreatePostRequest:
+  type: object
+  required: [chapterId, xAccountId, text, scheduledAt, condition]
+  properties:
+    chapterId: { type: integer, minimum: 1 }
+    xAccountId: { type: string, minLength: 1 }
+    text: { type: string, minLength: 1 }
+    scheduledAt: { type: string, minLength: 1 }
+    condition: { $ref: '#/PostCondition' }
+    tagHandles:
+      type: array
+      items: { type: string }
+      description: X handles to tag; normalized and resolved through the selected X account, maximum 10.
+
+UpdatePostRequest:
+  type: object
+  description: >-
+    Every field is optional; omitted fields are left unchanged. `linkPreview` is
+    intentionally not accepted — preview metadata is always derived server-side
+    from the final text.
+  properties:
+    xAccountId: { type: string, minLength: 1 }
+    text: { type: string, minLength: 1 }
+    scheduledAt: { type: string, minLength: 1 }
+    condition: { $ref: '#/PostCondition' }
+    tagHandles:
+      type: array
+      items: { type: string }
+
+PostResponse:
+  type: object
+  required: [post]
+  properties:
+    post: { $ref: '#/Post' }
+
+PostDetailResponse:
+  type: object
+  required: [post, media]
+  properties:
+    post: { $ref: '#/Post' }
+    media:
+      type: array
+      items: { $ref: '#/PostMedia' }
+
+PostList:
+  type: object
+  required: [posts, nextCursor]
+  properties:
+    posts:
+      type: array
+      items: { $ref: '#/Post' }
+    nextCursor: { type: string, nullable: true }
+
+PostDeleteResult:
+  type: object
+  required: [id, deleted]
+  properties:
+    id: { type: string }
+    deleted: { type: boolean, enum: [true] }
+
+MediaAttachResult:
+  type: object
+  required: [media, post]
+  properties:
+    media: { $ref: '#/PostMedia' }
+    post: { $ref: '#/Post' }
+
+MediaDeleteResult:
+  type: object
+  required: [id, deleted, post]
+  properties:
+    id: { type: string }
+    deleted: { type: boolean, enum: [true] }
+    post: { $ref: '#/Post' }
+
+Contributor:
+  type: object
+  required: [email, createdAt]
+  properties:
+    email: { type: string, format: email }
+    createdAt: { type: string }
+
+ContributorList:
+  type: object
+  required: [contributors, nextCursor]
+  properties:
+    contributors:
+      type: array
+      items: { $ref: '#/Contributor' }
+    nextCursor: { type: string, nullable: true }
+
+AddContributorRequest:
+  type: object
+  required: [chapterId, userEmail]
+  properties:
+    chapterId: { type: integer, minimum: 1 }
+    userEmail: { type: string, format: email }
+
+AddContributorResult:
+  type: object
+  required: [chapterId, userEmail]
+  properties:
+    chapterId: { type: integer }
+    userEmail: { type: string, format: email }
+
+DeleteContributorResult:
+  type: object
+  required: [deleted]
+  properties:
+    deleted: { type: boolean, enum: [true] }
+
+XAccountSummary:
+  type: object
+  required:
+    [
+      id,
+      chapterId,
+      xUserId,
+      username,
+      displayName,
+      profileImageUrl,
+      authorizedByUserId,
+      createdAt,
+      updatedAt,
+      revokedAt,
+    ]
+  properties:
+    id: { type: string }
+    chapterId: { type: integer }
+    xUserId: { type: string }
+    username: { type: string }
+    displayName: { type: string }
+    profileImageUrl: { type: string, nullable: true }
+    authorizedByUserId: { type: string }
+    createdAt: { type: string }
+    updatedAt: { type: string }
+    revokedAt: { type: string, nullable: true }
+
+XAccountList:
+  type: object
+  required: [accounts]
+  properties:
+    accounts:
+      type: array
+      items: { $ref: '#/XAccountSummary' }
+
+RevokeXAccountRequest:
+  type: object
+  required: [xUserId]
+  properties:
+    xUserId:
+      type: string
+      minLength: 1
+      description: Must exactly match the account's current `xUserId`, to guard against an accidental revoke.
+
+RevokeXAccountResult:
+  type: object
+  required: [id, revoked]
+  properties:
+    id: { type: string }
+    revoked: { type: boolean, enum: [true] }
