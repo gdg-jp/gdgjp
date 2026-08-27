@@ -6,7 +6,12 @@ export type LinkShareInput = {
   role: string;
 };
 
-export type CreateLinkInput = {
+export type LinkCreateInput = {
+  /** Required to disambiguate a campaign chapter for multi-chapter CLI callers. */
+  chapterId?: number;
+};
+
+export type CreateLinkInput = LinkCreateInput & {
   domainId: number;
   slug: string;
   destinationUrl: string;

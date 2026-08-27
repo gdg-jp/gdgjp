@@ -53,7 +53,11 @@ export async function action(args: Route.ActionArgs): Promise<ApiLinksActionData
     }),
   };
 
-  const result = await createLinkWithExtras({ db: env.DB }, { user, chapter, chapters }, input);
+  const result = await createLinkWithExtras(
+    { db: env.DB },
+    { user, chapters, selectedChapterId: chapter.chapterId },
+    input,
+  );
   if (!result.ok) return { error: result.error };
   throw redirect(`/links/${result.link.id}`);
 }

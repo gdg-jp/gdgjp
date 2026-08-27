@@ -5,8 +5,16 @@ import { requireCliActor } from "~/lib/cli-auth.server";
 import { cliError, cliJson, cliMethodNotAllowed, parseCliJsonBody } from "~/lib/cli-http.server";
 import type { Route } from "./+types/api.cli.v1.links";
 
-function actor(auth: { actor: { user: import("@gdgjp/gdg-lib").AuthUser; chapters: import("@gdgjp/gdg-lib").UserChapter[] } }) {
-  return { user: auth.actor.user, chapter: auth.actor.chapters[0]!, chapters: auth.actor.chapters };
+function actor(
+  auth: {
+    actor: {
+      user: import("@gdgjp/gdg-lib").AuthUser;
+      chapters: import("@gdgjp/gdg-lib").UserChapter[];
+    };
+  },
+  selectedChapterId: number | null,
+) {
+  return { user: auth.actor.user, chapters: auth.actor.chapters, selectedChapterId };
 }
 function positive(raw: string | null): number | undefined | null {
   if (raw === null) return undefined;
@@ -37,7 +45,11 @@ export async function action(args: Route.ActionArgs) {
   const parsed = await parseCliJsonBody<Record<string, unknown>>(args.request);
   if (!parsed.ok) return parsed.response;
   const b = parsed.value;
-  if (typeof b.domainId !== "number" || typeof b.slug !== "string" || typeof b.destinationUrl !== "string" || (b.visibility !== "private" && b.visibility !== "public")) return cliError("invalid_request", 400);
-  const result = await createLinkWithExtras({ db: env.DB }, actor(auth), b as Parameters<typeof createLinkWithExtras>[2]);
+  if (typeof b.domainId !== "number" || typeof b.slug !== "string" || typeof b.destinationUrl !== "string" || (b.visibility !== "private" && b.visibility !== "public") || (b.chapterId !== undefined && (!Number.isInteger(b.chapterId) || b.chapterId <= 0))) return cliError("invalid_request", 400);
+  const result = await createLinkWithExtras(
+    { db: env.DB },
+    actor(auth, typeof b.chapterId === "number" ? b.chapterId : null),
+    b as Parameters<typeof createLinkWithExtras>[2],
+  );
   return result.ok ? cliJson({ link: result.link }, { status: 201 }) : featureFailureResponse(result);
 }

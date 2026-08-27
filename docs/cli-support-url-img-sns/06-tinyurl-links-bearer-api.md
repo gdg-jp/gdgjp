@@ -66,7 +66,7 @@ security scheme (matching the shape Stage 03 added to img's, or Stage 01's contr
 
 | Method | Path | Auth | Request body | Success | Errors |
 |---|---|---|---|---|---|
-| `POST` | `/api/cli/v1/links` | CLI Bearer | `{ domainId, slug, destinationUrl, title?, description?, ogImageUrl?, visibility, tagIds?, newTagNames?, comment?, campaignChannelId?, folderId?, shares? }` | `201 { link: Link }` | `400`, `401`, `403`, `404`, `409` |
+| `POST` | `/api/cli/v1/links` | CLI Bearer | `{ domainId, slug, destinationUrl, title?, description?, ogImageUrl?, visibility, chapterId?, tagIds?, newTagNames?, comment?, campaignChannelId?, folderId?, shares? }` | `201 { link: Link }` | `400`, `401`, `403`, `404`, `409` |
 | `GET` | `/api/cli/v1/links` | CLI Bearer | query: `folderId?`, `tagId?`, `limit?`, `cursor?` | `200 { links: Link[], nextCursor }` | `400`, `401` |
 | `GET` | `/api/cli/v1/links/:id` | CLI Bearer | — | `200 { link: Link }` | `401`, `403`, `404` |
 | `PATCH` | `/api/cli/v1/links/:id` | CLI Bearer | partial create body minus `domainId`; supplied `shares` atomically replace all existing shares | `200 { link: Link }` | `400`, `401`, `403`, `404` |
@@ -94,6 +94,11 @@ there's no equivalent "parent id" to include, so the envelope is just `{ link }`
 - Do not implement campaign-channel creation here — `campaignChannelId` in the create/update body
   must reference an existing channel (Stage 08 adds the endpoints that create one); this stage
   only accepts the id as a foreign key.
+- For a campaign-channel link, `chapterId` selects its owning campaign chapter when the caller
+  has multiple matching memberships (or is a chapterless super-admin). If the service cannot
+  resolve one deterministic owning chapter, it returns `400`; it never derives one from an
+  arbitrary first membership. Stage 09's create command must expose this as an optional
+  `--chapter-id` flag.
 - Preserve the existing `canViewLink`/`canEditLink`/`matchingRole` semantics in Stage 05's link
   policy and make both CLI and dashboard adapters call it. The dashboard passes one currently
   selected `chapterId`; the CLI evaluates the same policy once per bearer identity membership and

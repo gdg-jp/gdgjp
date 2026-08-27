@@ -21,7 +21,10 @@ function stubPublicDns() {
   );
 }
 
-function fakeLinksDb(domains: Row[]): D1Database {
+function fakeLinksDb(
+  domains: Row[],
+  options: { channels?: Row[]; campaigns?: Row[]; campaignChapters?: Row[] } = {},
+): D1Database {
   const links: Row[] = [];
 
   function prepare(sql: string) {
@@ -31,6 +34,22 @@ function fakeLinksDb(domains: Row[]): D1Database {
         const [id] = bound;
         const row = domains.find((d) => d.id === id);
         return row ? [row] : [];
+      }
+      if (sql.includes("FROM campaign_channels WHERE id = ?")) {
+        const [id] = bound;
+        const row = options.channels?.find((channel) => channel.id === id);
+        return row ? [row] : [];
+      }
+      if (sql.includes("FROM campaigns WHERE id = ?")) {
+        const [id] = bound;
+        const row = options.campaigns?.find((campaign) => campaign.id === id);
+        return row ? [row] : [];
+      }
+      if (sql.includes("FROM campaign_chapters")) {
+        const [campaignId] = bound;
+        return (options.campaignChapters ?? []).filter(
+          (campaignChapter) => campaignChapter.campaign_id === campaignId,
+        );
       }
       if (sql.startsWith("INSERT INTO links")) {
         const [
@@ -151,7 +170,7 @@ describe("createLinkWithExtras", () => {
     const deps = { db: fakeLinksDb([activeDomain]) };
     const result = await createLinkWithExtras(
       deps,
-      { user, chapter, chapters: [chapter] },
+      { user, chapters: [chapter], selectedChapterId: chapter.chapterId },
       baseInput({
         slug: "shared-link",
         shares: [{ principalType: "user", principalId: "not-an-email", role: "viewer" }],
@@ -167,7 +186,7 @@ describe("createLinkWithExtras", () => {
   it("rejects a slug that is already taken", async () => {
     stubPublicDns();
     const deps = { db: fakeLinksDb([activeDomain]) };
-    const actor = { user, chapter, chapters: [chapter] };
+    const actor = { user, chapters: [chapter], selectedChapterId: chapter.chapterId };
 
     const first = await createLinkWithExtras(deps, actor, baseInput({ slug: "unique-slug" }));
     expect(first.ok).toBe(true);
@@ -185,7 +204,7 @@ describe("createLinkWithExtras", () => {
     const deps = { db: fakeLinksDb([activeDomain]) };
     const result = await createLinkWithExtras(
       deps,
-      { user, chapter, chapters: [chapter] },
+      { user, chapters: [chapter], selectedChapterId: chapter.chapterId },
       baseInput({
         slug: "my-link",
       }),
@@ -195,6 +214,50 @@ describe("createLinkWithExtras", () => {
       expect(result.link.slug).toBe("my-link");
       expect(result.link.ownerUserId).toBe(user.id);
     }
+  });
+
+  it("requires a campaign chapter when a chapterless super-admin cannot select one", async () => {
+    const superAdmin: AuthUser = { ...user, id: "u_admin", isAdmin: true };
+    const result = await createLinkWithExtras(
+      {
+        db: fakeLinksDb([activeDomain], {
+          channels: [
+            {
+              id: 10,
+              campaign_id: 20,
+              name: "Social",
+              code: "social",
+              sort_order: 0,
+              archived_at: null,
+            },
+          ],
+          campaigns: [
+            {
+              id: 20,
+              name: "Campaign",
+              code: "campaign",
+              default_destination_url: null,
+              owner_user_id: "u_owner",
+              created_at: 0,
+              updated_at: 0,
+              archived_at: null,
+            },
+          ],
+          campaignChapters: [
+            { campaign_id: 20, chapter_id: 7 },
+            { campaign_id: 20, chapter_id: 8 },
+          ],
+        }),
+      },
+      { user: superAdmin, chapters: [], selectedChapterId: null },
+      baseInput({ campaignChannelId: 10, slug: "campaign-link" }),
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: "invalid_input",
+      error: "A campaign chapter must be selected for this link.",
+    });
   });
 });
 
@@ -260,7 +323,7 @@ describe("updateLinkWithExtras", () => {
     const deps = { db: fakeUpdateDb(existingLink) };
     const result = await updateLinkWithExtras(
       deps,
-      { user, chapter, chapters: [chapter] },
+      { user, chapters: [chapter], selectedChapterId: chapter.chapterId },
       "link_existing",
       { destinationUrl: "https://internal.example" },
     );
@@ -275,7 +338,7 @@ describe("updateLinkWithExtras", () => {
     const deps = { db: fakeUpdateDb(existingLink) };
     const result = await updateLinkWithExtras(
       deps,
-      { user, chapter, chapters: [chapter] },
+      { user, chapters: [chapter], selectedChapterId: chapter.chapterId },
       "link_existing",
       { slug: "not a valid slug!" },
     );
@@ -313,7 +376,7 @@ describe("updateLinkWithExtras", () => {
 
     const result = await updateLinkWithExtras(
       { db },
-      { user, chapter, chapters: [chapter] },
+      { user, chapters: [chapter], selectedChapterId: chapter.chapterId },
       "link_existing",
       {
         shares: [
@@ -332,5 +395,45 @@ describe("updateLinkWithExtras", () => {
       expect.stringContaining("INSERT INTO link_permissions"),
       expect.stringContaining("INSERT INTO link_permissions"),
     ]);
+  });
+
+  it("rejects duplicate PATCH shares before updating the link", async () => {
+    const result = await updateLinkWithExtras(
+      { db: fakeUpdateDb(existingLink) },
+      { user, chapters: [chapter], selectedChapterId: chapter.chapterId },
+      "link_existing",
+      {
+        shares: [
+          { principalType: "user", principalId: "viewer@example.com", role: "viewer" },
+          { principalType: "user", principalId: "viewer@example.com", role: "editor" },
+        ],
+      },
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: "invalid_input",
+      error: "Duplicate sharing principal.",
+    });
+  });
+
+  it("rejects an overlong comment before updating the link", async () => {
+    const db = {
+      prepare() {
+        throw new Error("repoUpdateLink must not run");
+      },
+    } as unknown as D1Database;
+    const result = await updateLinkWithExtras(
+      { db },
+      { user, chapters: [chapter], selectedChapterId: chapter.chapterId },
+      "link_existing",
+      { title: "would otherwise update", comment: "x".repeat(2001) },
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: "invalid_input",
+      error: "Comment is too long (max 2000 chars).",
+    });
   });
 });

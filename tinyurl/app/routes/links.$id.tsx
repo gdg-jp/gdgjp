@@ -248,7 +248,7 @@ export async function action(args: Route.ActionArgs) {
 
     const result = await updateLinkWithExtras(
       { db: env.DB },
-      { user, chapter, chapters },
+      { user, chapters, selectedChapterId: chapter.chapterId },
       id,
       patch,
       domainUpdate,
