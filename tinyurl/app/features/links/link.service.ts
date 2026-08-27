@@ -36,6 +36,108 @@ export type LinkServiceActor = {
   selectedChapterId: number | null;
 };
 
+type LinkPayloadResult<T> = { ok: true; value: T } | FeatureFailure;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function invalidPayload(): FeatureFailure {
+  return featureFailure("invalid_input", "Link payload is invalid.");
+}
+
+function validOptionalString(value: unknown): boolean {
+  return value === undefined || value === null || typeof value === "string";
+}
+
+function validateOptionalLinkFields(value: Record<string, unknown>): FeatureFailure | null {
+  if (
+    !validOptionalString(value.title) ||
+    !validOptionalString(value.description) ||
+    !validOptionalString(value.ogImageUrl) ||
+    !validOptionalString(value.comment)
+  ) {
+    return invalidPayload();
+  }
+  if (
+    value.folderId !== undefined &&
+    value.folderId !== null &&
+    (!Number.isInteger(value.folderId) || value.folderId <= 0)
+  ) {
+    return invalidPayload();
+  }
+  if (
+    value.campaignChannelId !== undefined &&
+    value.campaignChannelId !== null &&
+    (!Number.isInteger(value.campaignChannelId) || value.campaignChannelId <= 0)
+  ) {
+    return invalidPayload();
+  }
+  if (
+    value.tagIds !== undefined &&
+    (!Array.isArray(value.tagIds) ||
+      !value.tagIds.every((tagId) => Number.isInteger(tagId) && tagId > 0))
+  ) {
+    return invalidPayload();
+  }
+  if (
+    value.newTagNames !== undefined &&
+    (!Array.isArray(value.newTagNames) ||
+      !value.newTagNames.every(
+        (name) => typeof name === "string" && name.trim().length > 0 && name.trim().length <= 32,
+      ))
+  ) {
+    return invalidPayload();
+  }
+  if (
+    value.shares !== undefined &&
+    (!Array.isArray(value.shares) ||
+      !value.shares.every(
+        (share) =>
+          isRecord(share) &&
+          typeof share.principalType === "string" &&
+          typeof share.principalId === "string" &&
+          typeof share.role === "string",
+      ))
+  ) {
+    return invalidPayload();
+  }
+  return null;
+}
+
+export function parseCreateLinkInput(value: unknown): LinkPayloadResult<CreateLinkInput> {
+  if (!isRecord(value)) return invalidPayload();
+  if (
+    !Number.isInteger(value.domainId) ||
+    value.domainId <= 0 ||
+    typeof value.slug !== "string" ||
+    typeof value.destinationUrl !== "string" ||
+    (value.visibility !== "private" && value.visibility !== "public") ||
+    (value.chapterId !== undefined && (!Number.isInteger(value.chapterId) || value.chapterId <= 0))
+  ) {
+    return invalidPayload();
+  }
+  const optionalFailure = validateOptionalLinkFields(value);
+  return optionalFailure ?? { ok: true, value: value as CreateLinkInput };
+}
+
+export function parseUpdateLinkPatch(value: unknown): LinkPayloadResult<UpdateLinkPatch> {
+  if (!isRecord(value) || "domainId" in value || "chapterId" in value) return invalidPayload();
+  if (
+    (value.slug !== undefined && typeof value.slug !== "string") ||
+    (value.destinationUrl !== undefined && typeof value.destinationUrl !== "string") ||
+    (value.visibility !== undefined && value.visibility !== "private" && value.visibility !== "public")
+  ) {
+    return invalidPayload();
+  }
+  const optionalFailure = validateOptionalLinkFields(value);
+  if (optionalFailure) return optionalFailure;
+  if (typeof value.comment === "string" && value.comment.trim().length > 2000) {
+    return featureFailure("invalid_input", "Comment is too long (max 2000 chars).");
+  }
+  return { ok: true, value: value as UpdateLinkPatch };
+}
+
 function validateShares(
   rawShares: LinkShareInput[] | undefined,
 ): { ok: true; shares: ValidatedShare[] } | FeatureFailure {
@@ -128,8 +230,11 @@ async function applyLinkExtras(
 export async function createLinkWithExtras(
   deps: LinkServiceDependencies,
   actor: LinkServiceActor,
-  input: CreateLinkInput,
+  rawInput: unknown,
 ): Promise<{ ok: true; link: Link } | FeatureFailure> {
+  const inputResult = parseCreateLinkInput(rawInput);
+  if (!inputResult.ok) return inputResult;
+  const input = inputResult.value;
   const { user, chapters } = actor;
 
   if (!Number.isInteger(input.domainId) || input.domainId <= 0) {
@@ -289,7 +394,7 @@ export async function createLinkWithExtras(
   return { ok: true, link: result.link };
 }
 
-export type UpdateLinkPatch = Partial<Omit<CreateLinkInput, "domainId">>;
+export type UpdateLinkPatch = Partial<Omit<CreateLinkInput, "domainId" | "chapterId">>;
 
 export type UpdateLinkDomainChange = { domainId: number; ownerChapterId?: number | null };
 
@@ -297,9 +402,12 @@ export async function updateLinkWithExtras(
   deps: LinkServiceDependencies,
   actor: LinkServiceActor,
   id: string,
-  patch: UpdateLinkPatch,
+  rawPatch: unknown,
   domainUpdate?: UpdateLinkDomainChange,
 ): Promise<{ ok: true; link: Link } | FeatureFailure> {
+  const patchResult = parseUpdateLinkPatch(rawPatch);
+  if (!patchResult.ok) return patchResult;
+  const patch = patchResult.value;
   const { user, chapters } = actor;
   const update: Parameters<typeof repoUpdateLink>[2] = { ...domainUpdate };
   let replacementShares: ValidatedShare[] | undefined;
@@ -314,13 +422,7 @@ export async function updateLinkWithExtras(
   }
 
   if (patch.comment !== undefined) {
-    if (patch.comment !== null && typeof patch.comment !== "string") {
-      return featureFailure("invalid_input", "Comment must be a string.");
-    }
     commentBody = (patch.comment ?? "").trim();
-    if (commentBody.length > 2000) {
-      return featureFailure("invalid_input", "Comment is too long (max 2000 chars).");
-    }
   }
 
   if (patch.destinationUrl !== undefined) {
