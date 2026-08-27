@@ -1,0 +1,49 @@
+get:
+  operationId: listCliDomains
+  summary: List domains visible to the caller
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: chapterId
+      in: query
+      schema: { type: integer }
+    - name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    - name: cursor
+      in: query
+      schema: { type: string }
+  responses:
+    '200':
+      description: The caller's visible domains.
+      content:
+        application/json:
+          schema: { $ref: ../components/schemas/cli-domains.yaml#/DomainList }
+    '400': { $ref: ../components/responses/cli.yaml#/CliBadRequest }
+    '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }
+    '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }
+post:
+  operationId: createCliDomain
+  summary: Register a custom domain and provision it asynchronously
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [hostname, chapterId]
+          properties:
+            hostname: { type: string }
+            chapterId: { type: integer }
+  responses:
+    '202':
+      description: The domain was created and a provisioning job was queued.
+      content:
+        application/json:
+          schema: { $ref: ../components/schemas/cli-domains.yaml#/JobResponse }
+    '400': { $ref: ../components/responses/cli.yaml#/CliBadRequest }
+    '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }
+    '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }
+    '503': { $ref: ../components/responses/cli.yaml#/CliServiceUnavailable }

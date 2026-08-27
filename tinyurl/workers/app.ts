@@ -1,4 +1,8 @@
 import { createRequestHandler } from "react-router";
+import type {
+  DomainJobQueueMessage,
+  DomainJobQueueMessageHandle,
+} from "../app/features/domains/domain-job-runner.server";
 import { serveCliInstaller } from "../app/lib/cli-installer.server";
 import { CloudflareContext } from "./context";
 
@@ -51,5 +55,19 @@ export default {
       if (response) return response;
     }
     return requestHandler(request, new CloudflareContext({ env, ctx }));
+  },
+  async queue(batch, env, ctx) {
+    const { processDomainJobQueueBatch } = await import(
+      "../app/features/domains/domain-job-runner.server"
+    );
+    const { createDomainProvider } = await import("../app/features/domains");
+    const { detectCustomDomain } = await import("../app/lib/domain-detection");
+    const deps = { db: env.DB, provider: createDomainProvider(env), detectCustomDomain };
+    const messages: DomainJobQueueMessageHandle[] = batch.messages.map((message) => ({
+      body: message.body as DomainJobQueueMessage,
+      ack: () => message.ack(),
+      retry: (options) => message.retry(options),
+    }));
+    await processDomainJobQueueBatch(deps, messages);
   },
 } satisfies ExportedHandler<Env>;

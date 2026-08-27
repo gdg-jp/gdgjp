@@ -1,0 +1,39 @@
+get:
+  operationId: getCliDomain
+  summary: Get a domain by id
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema: { type: integer }
+  responses:
+    '200':
+      description: The domain.
+      content:
+        application/json:
+          schema: { $ref: ../components/schemas/cli-domains.yaml#/DomainResponse }
+    '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }
+    '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }
+    '404': { $ref: ../components/responses/cli.yaml#/CliNotFound }
+delete:
+  operationId: deleteCliDomain
+  summary: Soft-delete a custom domain
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema: { type: integer }
+  responses:
+    '200':
+      description: The domain was deleted.
+      content:
+        application/json:
+          schema: { $ref: ../components/schemas/cli-domains.yaml#/DomainDeleteResult }
+    '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }
+    '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }
+    '404': { $ref: ../components/responses/cli.yaml#/CliNotFound }
+    '409': { $ref: ../components/responses/cli.yaml#/CliConflict }

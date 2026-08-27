@@ -72,6 +72,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cli/v1/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List domains visible to the caller */
+        get: operations["listCliDomains"];
+        put?: never;
+        /** Register a custom domain and provision it asynchronously */
+        post: operations["createCliDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/domains/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a domain by id */
+        get: operations["getCliDomain"];
+        put?: never;
+        post?: never;
+        /** Soft-delete a custom domain */
+        delete: operations["deleteCliDomain"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/domains/{id}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry provisioning for a non-active domain */
+        post: operations["syncCliDomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/jobs/{jobId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an async job's status */
+        get: operations["getCliJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -86,6 +156,83 @@ export interface components {
         };
         Error: {
             error: string;
+        };
+        DnsRecord: {
+            /** @enum {string} */
+            type: "A" | "AAAA" | "CNAME" | "TXT" | "CAA";
+            name: string;
+            value: string;
+            reason?: string;
+            /** @enum {string} */
+            purpose?: "ownership" | "routing";
+            /** @enum {string} */
+            status?: "pending" | "verified";
+            /** @enum {string} */
+            alternativeGroup?: "apex-routing";
+        };
+        Domain: {
+            id: number;
+            hostname: string;
+            /** @enum {string} */
+            kind: "system" | "custom";
+            /** @enum {string} */
+            mode: "short-only" | "origin-first";
+            upstreamOrigin: string | null;
+            ownerChapterId: number | null;
+            /** @enum {string} */
+            status: "pending" | "verifying" | "active" | "error" | "deleted";
+            providerDomainId: string | null;
+            verificationRecords: components["schemas"]["DnsRecord"][];
+            providerError: string | null;
+            createdByUserId: string | null;
+            /** @description Unix seconds. */
+            createdAt: number;
+            /** @description Unix seconds. */
+            updatedAt: number;
+            /** @description Unix seconds. */
+            checkedAt: number | null;
+            /** @description Unix seconds. */
+            deletedAt: number | null;
+        };
+        DomainList: {
+            domains: components["schemas"]["Domain"][];
+            nextCursor: string | null;
+        };
+        DomainResponse: {
+            domain: components["schemas"]["Domain"];
+        };
+        DomainDeleteResult: {
+            id: number;
+            /** @enum {boolean} */
+            deleted: true;
+        };
+        Job: {
+            id: string;
+            /** @enum {string} */
+            type: "provision_domain";
+            /** @enum {string} */
+            status: "queued" | "running" | "succeeded" | "failed";
+            domainId: number;
+            request: {
+                [key: string]: unknown;
+            };
+            /** @description The persisted success or error-state Domain snapshot, once finished. */
+            result: {
+                [key: string]: unknown;
+            } | null;
+            error: string | null;
+            createdBy: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            startedAt: string | null;
+            /** Format: date-time */
+            finishedAt: string | null;
+        };
+        JobResponse: {
+            job: components["schemas"]["Job"];
         };
     };
     responses: {
@@ -105,6 +252,60 @@ export interface components {
             };
             content: {
                 "text/plain": string;
+            };
+        };
+        /** @description The request is missing required fields or is malformed. */
+        CliBadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The bearer token is missing, invalid, or lacks the CLI scope. */
+        CliUnauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The caller cannot act on this domain or chapter. */
+        CliForbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Domain or job not found. */
+        CliNotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The request conflicts with the resource's current state. */
+        CliConflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The job could not be queued; retry later. */
+        CliServiceUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
             };
         };
     };
@@ -230,6 +431,166 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listCliDomains: {
+        parameters: {
+            query?: {
+                chapterId?: number;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's visible domains. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainList"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+        };
+    };
+    createCliDomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    hostname: string;
+                    chapterId: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The domain was created and a provisioning job was queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobResponse"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            503: components["responses"]["CliServiceUnavailable"];
+        };
+    };
+    getCliDomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The domain. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainResponse"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    deleteCliDomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The domain was deleted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainDeleteResult"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    syncCliDomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A resynchronization job was queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobResponse"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
+            503: components["responses"]["CliServiceUnavailable"];
+        };
+    };
+    getCliJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            404: components["responses"]["CliNotFound"];
         };
     };
 }

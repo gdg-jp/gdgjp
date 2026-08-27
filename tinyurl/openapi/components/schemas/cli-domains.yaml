@@ -1,0 +1,103 @@
+DnsRecord:
+  type: object
+  required: [type, name, value]
+  properties:
+    type: { type: string, enum: [A, AAAA, CNAME, TXT, CAA] }
+    name: { type: string }
+    value: { type: string }
+    reason: { type: string }
+    purpose: { type: string, enum: [ownership, routing] }
+    status: { type: string, enum: [pending, verified] }
+    alternativeGroup: { type: string, enum: [apex-routing] }
+Domain:
+  type: object
+  required:
+    [
+      id,
+      hostname,
+      kind,
+      mode,
+      upstreamOrigin,
+      ownerChapterId,
+      status,
+      providerDomainId,
+      verificationRecords,
+      providerError,
+      createdByUserId,
+      createdAt,
+      updatedAt,
+      checkedAt,
+      deletedAt,
+    ]
+  properties:
+    id: { type: integer }
+    hostname: { type: string }
+    kind: { type: string, enum: [system, custom] }
+    mode: { type: string, enum: [short-only, origin-first] }
+    upstreamOrigin: { type: string, nullable: true }
+    ownerChapterId: { type: integer, nullable: true }
+    status: { type: string, enum: [pending, verifying, active, error, deleted] }
+    providerDomainId: { type: string, nullable: true }
+    verificationRecords: { type: array, items: { $ref: '#/DnsRecord' } }
+    providerError: { type: string, nullable: true }
+    createdByUserId: { type: string, nullable: true }
+    createdAt: { type: integer, description: Unix seconds. }
+    updatedAt: { type: integer, description: Unix seconds. }
+    checkedAt: { type: integer, nullable: true, description: Unix seconds. }
+    deletedAt: { type: integer, nullable: true, description: Unix seconds. }
+DomainList:
+  type: object
+  required: [domains, nextCursor]
+  properties:
+    domains: { type: array, items: { $ref: '#/Domain' } }
+    nextCursor: { type: string, nullable: true }
+DomainResponse:
+  type: object
+  required: [domain]
+  properties:
+    domain: { $ref: '#/Domain' }
+DomainDeleteResult:
+  type: object
+  required: [id, deleted]
+  properties:
+    id: { type: integer }
+    deleted: { type: boolean, enum: [true] }
+Job:
+  type: object
+  required:
+    [
+      id,
+      type,
+      status,
+      domainId,
+      request,
+      result,
+      error,
+      createdBy,
+      createdAt,
+      updatedAt,
+      startedAt,
+      finishedAt,
+    ]
+  properties:
+    id: { type: string }
+    type: { type: string, enum: [provision_domain] }
+    status: { type: string, enum: [queued, running, succeeded, failed] }
+    domainId: { type: integer }
+    request: { type: object, additionalProperties: true }
+    result:
+      type: object
+      nullable: true
+      additionalProperties: true
+      description: The persisted success or error-state Domain snapshot, once finished.
+    error: { type: string, nullable: true }
+    createdBy: { type: string }
+    createdAt: { type: string, format: date-time }
+    updatedAt: { type: string, format: date-time }
+    startedAt: { type: string, format: date-time, nullable: true }
+    finishedAt: { type: string, format: date-time, nullable: true }
+JobResponse:
+  type: object
+  required: [job]
+  properties:
+    job: { $ref: '#/Job' }

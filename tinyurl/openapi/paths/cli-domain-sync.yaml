@@ -1,0 +1,21 @@
+post:
+  operationId: syncCliDomain
+  summary: Retry provisioning for a non-active domain
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema: { type: integer }
+  responses:
+    '202':
+      description: A resynchronization job was queued.
+      content:
+        application/json:
+          schema: { $ref: ../components/schemas/cli-domains.yaml#/JobResponse }
+    '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }
+    '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }
+    '404': { $ref: ../components/responses/cli.yaml#/CliNotFound }
+    '409': { $ref: ../components/responses/cli.yaml#/CliConflict }
+    '503': { $ref: ../components/responses/cli.yaml#/CliServiceUnavailable }
