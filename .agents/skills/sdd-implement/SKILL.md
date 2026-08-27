@@ -17,6 +17,7 @@ does not end a worker. Replace one only if its thread is unavailable.
 
 `docs/<feature>/` must be committed on `main`, including `index.md`, `todos.md`,
 and numbered stage files. Otherwise stop: this skill implements plans, not writes them.
+But updating plan files is not prohibited.
 
 ## Per-stage loop
 
@@ -70,6 +71,5 @@ After all stages, report implemented work and resulting commits.
 
 - Never push, force-push, force-merge, or rewrite history.
 - Commit only when authorized by the stage plan or completed worker workflow.
-- Stop and surface a review→revise loop after two attempts.
 - If work clearly exceeds a stage's "Files to touch" list, stop and ask before committing.
 - At most two parallel processes.
