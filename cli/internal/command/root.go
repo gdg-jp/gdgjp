@@ -24,6 +24,7 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(newConnpassCommand(credentials))
 	root.AddCommand(newImgCommand(credentials))
 	root.AddCommand(newTinyurlCommand(credentials))
+	root.AddCommand(newSnsCommand(credentials))
 	root.AddCommand(newAgentCommand(credentials))
 	return root
 }

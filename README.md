@@ -77,6 +77,32 @@ gdg tinyurl campaigns analytics 7 --from 2026-03-01T00:00:00Z --to 2026-03-31T00
 non-zero if it failed; `domains create`/`domains sync --wait` do the same inline. Every list
 subcommand takes `--limit`/`--cursor` and prints the server's `nextCursor` rather than auto-paging.
 
+### Scheduled X posts
+
+```sh
+gdg sns x-accounts list --chapter-id 5
+gdg sns posts create --chapter-id 5 --x-account-id xa_01h... --text "See you there!" \
+  --scheduled-at 2026-09-01T09:00:00Z --condition photo_required --tag-handle gdg
+gdg sns media add post_01h... ./photo.jpg --sort-order 0 --alt "Room full of attendees"
+gdg sns posts publish post_01h...
+gdg sns posts get post_01h...
+
+gdg sns posts list --chapter-id 5 --status scheduled
+gdg sns posts update post_01h... --text "Updated copy" --scheduled-at 2026-09-02T09:00:00Z
+gdg sns posts delete post_01h...
+
+gdg sns contributors list --chapter-id 5
+gdg sns contributors add --chapter-id 5 --email a@b.com
+gdg sns contributors remove --chapter-id 5 --email a@b.com
+gdg sns x-accounts revoke xa_01h... --x-user-id 1234567890
+```
+
+Every request is synchronous. `gdg sns posts publish` prints the terminal post; if the X API
+rejects it the server replies `502` with the persisted post (`status` `failed` or
+`needs_confirmation`, `failureReason` set), which is still printed before the command exits
+non-zero. `contributors remove` is addressed by `--chapter-id`/`--email`, not a positional id,
+because that grant has no single-column id.
+
 ## Apps
 
 | Directory | Package | Hostname | Description |
