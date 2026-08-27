@@ -4,8 +4,8 @@ info:
   version: 1.0.0
   description: >-
     Authenticated CLI/agent management API for scheduled X (Twitter) posts:
-    post and media CRUD, contributor administration, and X-account discovery
-    and revocation. Google Photos import and "publish now to X" are not part of
+    post and media CRUD, "publish now to X", contributor administration, and
+    X-account discovery and revocation. Google Photos import is not part of
     this contract.
 servers:
   - url: https://sns.gdgs.jp
@@ -16,6 +16,8 @@ paths:
     $ref: ./paths/cli-posts.yaml#/item
   /api/cli/v1/posts/{id}/media:
     $ref: ./paths/cli-posts.yaml#/itemMedia
+  /api/cli/v1/posts/{id}/publish:
+    $ref: ./paths/cli-publish.yaml#/item
   /api/cli/v1/media/{id}:
     $ref: ./paths/cli-media.yaml#/item
   /api/cli/v1/contributors:

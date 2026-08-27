@@ -14,6 +14,7 @@ export default [
   route("api/cli/v1/posts", "routes/api.cli.v1.posts.ts"),
   route("api/cli/v1/posts/:id", "routes/api.cli.v1.posts.$id.ts"),
   route("api/cli/v1/posts/:id/media", "routes/api.cli.v1.posts.$id.media.ts"),
+  route("api/cli/v1/posts/:id/publish", "routes/api.cli.v1.posts.$id.publish.ts"),
   route("api/cli/v1/media/:id", "routes/api.cli.v1.media.$id.ts"),
   route("api/cli/v1/contributors", "routes/api.cli.v1.contributors.ts"),
   route("api/cli/v1/x-accounts", "routes/api.cli.v1.x-accounts.ts"),

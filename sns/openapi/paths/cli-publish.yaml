@@ -1,0 +1,30 @@
+item:
+  post:
+    operationId: publishCliPost
+    summary: Publish a post to X now
+    description: >-
+      Atomically claims the post and performs the X API call inline, converging
+      with the minute cron on the same claim so the two can never both post. A
+      future `scheduledAt` is ignored. Eligible from `scheduled`,
+      `waiting_for_photo`, `failed`, and `needs_confirmation`; retrying
+      `needs_confirmation` is an explicit operator action after checking X for an
+      uncertain prior attempt, and cron never reclaims it on its own.
+      `published` and `posting` are refused with 409, as is a `photo_required`
+      post with no attached media. On an X-side failure the endpoint returns 502
+      whose body still carries the persisted post (`status: failed` or
+      `needs_confirmation`, with `failureReason` set).
+    security: [{ BearerAuth: [] }]
+    parameters:
+      - $ref: ../components/parameters/common.yaml#/ResourceIdPath
+    responses:
+      '200':
+        description: >-
+          The post was published; `status` is `published` and
+          `publishedXPostId` is set.
+        content:
+          application/json:
+            schema: { $ref: ../components/schemas/index.yaml#/PostResponse }
+      '401': { $ref: ../components/responses/common.yaml#/CliUnauthorized }
+      '404': { $ref: ../components/responses/common.yaml#/CliNotFound }
+      '409': { $ref: ../components/responses/common.yaml#/CliConflict }
+      '502': { $ref: ../components/responses/common.yaml#/CliBadGateway }

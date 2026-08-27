@@ -61,6 +61,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cli/v1/posts/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a post to X now
+         * @description Atomically claims the post and performs the X API call inline, converging with the minute cron on the same claim so the two can never both post. A future `scheduledAt` is ignored. Eligible from `scheduled`, `waiting_for_photo`, `failed`, and `needs_confirmation`; retrying `needs_confirmation` is an explicit operator action after checking X for an uncertain prior attempt, and cron never reclaims it on its own. `published` and `posting` are refused with 409, as is a `photo_required` post with no attached media. On an X-side failure the endpoint returns 502 whose body still carries the persisted post (`status: failed` or `needs_confirmation`, with `failureReason` set).
+         */
+        post: operations["publishCliPost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cli/v1/media/{id}": {
         parameters: {
             query?: never;
@@ -329,6 +349,15 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description The X API call failed. The body still carries the persisted post with `status: failed` or `needs_confirmation` and `failureReason` set, so a script can read why the attempt did not succeed. */
+        CliBadGateway: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PostResponse"];
+            };
+        };
     };
     parameters: {
         ChapterIdQuery: number;
@@ -514,6 +543,32 @@ export interface operations {
             404: components["responses"]["CliNotFound"];
             409: components["responses"]["CliConflict"];
             413: components["responses"]["CliPayloadTooLarge"];
+        };
+    };
+    publishCliPost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The post was published; `status` is `published` and `publishedXPostId` is set. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostResponse"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
+            502: components["responses"]["CliBadGateway"];
         };
     };
     deleteCliMedia: {

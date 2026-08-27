@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loader as mediaIdLoader } from "./api.cli.v1.media.$id";
 import { loader as postMediaLoader } from "./api.cli.v1.posts.$id.media";
+import { loader as postPublishLoader } from "./api.cli.v1.posts.$id.publish";
 import { action as xAccountsAction } from "./api.cli.v1.x-accounts";
 import { loader as xAccountIdLoader } from "./api.cli.v1.x-accounts.$id";
 
@@ -15,6 +16,7 @@ const noArgs = {} as never;
 describe("CLI method guards on action-only / loader-only routes", () => {
   it.each([
     ["GET /api/cli/v1/posts/:id/media", () => postMediaLoader(noArgs)],
+    ["GET /api/cli/v1/posts/:id/publish", () => postPublishLoader(noArgs)],
     ["GET /api/cli/v1/media/:id", () => mediaIdLoader(noArgs)],
     ["GET /api/cli/v1/x-accounts/:id", () => xAccountIdLoader(noArgs)],
     ["POST /api/cli/v1/x-accounts", () => xAccountsAction(noArgs)],

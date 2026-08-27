@@ -40,3 +40,12 @@ CliPayloadTooLarge:
     application/json:
       schema:
         $ref: ../schemas/index.yaml#/Error
+CliBadGateway:
+  description: >-
+    The X API call failed. The body still carries the persisted post with
+    `status: failed` or `needs_confirmation` and `failureReason` set, so a
+    script can read why the attempt did not succeed.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/index.yaml#/PostResponse
