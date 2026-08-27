@@ -41,7 +41,7 @@ inside plan mode itself.
 2. **Send it to Codex for review.** Run non-interactively:
 
    ```bash
-   codex exec "/code-review-and-quality Review plan files under docs/<feature>/ not only its quality but also whether it matches what product really needs.
+   codex exec --model "gpt-5.6-terra" --config 'model_reasoning_effort="medium"' "/code-review-and-quality Review plan files under docs/<feature>/ not only its quality but also whether it matches what product really needs.
 
    <the Summary of the plan creation>"
    ```
