@@ -1,0 +1,10 @@
+get:
+  operationId: listCliTags
+  summary: List tags visible to the caller
+  security: [{ BearerAuth: [] }]
+  responses: { '200': { description: Tags }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized } }
+post:
+  operationId: createCliTag
+  summary: Create a personal tag
+  security: [{ BearerAuth: [] }]
+  responses: { '201': { description: Created tag }, '400': { $ref: ../components/responses/cli.yaml#/CliBadRequest }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }, '409': { $ref: ../components/responses/cli.yaml#/CliConflict } }

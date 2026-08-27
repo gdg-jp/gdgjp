@@ -1,0 +1,10 @@
+patch:
+  operationId: updateCliTag
+  summary: Update a personal tag
+  security: [{ BearerAuth: [] }]
+  responses: { '200': { description: Updated tag }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }, '404': { $ref: ../components/responses/cli.yaml#/CliNotFound }, '409': { $ref: ../components/responses/cli.yaml#/CliConflict } }
+delete:
+  operationId: deleteCliTag
+  summary: Delete a personal tag
+  security: [{ BearerAuth: [] }]
+  responses: { '200': { description: Deleted tag }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }, '404': { $ref: ../components/responses/cli.yaml#/CliNotFound } }

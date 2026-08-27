@@ -3,6 +3,7 @@ import {
   type Comment,
   type CommentRow,
   LINK_COLS,
+  linkColumns,
   type Link,
   type LinkPermission,
   type LinkPermissionRow,
@@ -23,6 +24,33 @@ export async function getLinkById(db: D1Database, id: string): Promise<Link | nu
     .bind(id)
     .first<LinkRow>();
   return row ? toLink(row) : null;
+}
+
+export async function listVisibleLinksPage(
+  db: D1Database,
+  input: {
+    userId: string;
+    email: string;
+    chapterIds: number[];
+    isSuperAdmin?: boolean;
+    folderId?: number;
+    tagId?: number;
+    limit: number;
+    offset: number;
+  },
+): Promise<{ links: Link[]; nextCursor: string | null }> {
+  const conditions = ["l.deleted_at IS NULL"];
+  const values: (string | number)[] = [];
+  if (!input.isSuperAdmin) {
+    conditions.push("(l.owner_user_id = ? OR l.owner_chapter_id IN (SELECT value FROM json_each(?)) OR l.visibility = 'public' OR EXISTS (SELECT 1 FROM link_permissions p WHERE p.link_id = l.id AND ((p.principal_type = 'user' AND p.principal_id = ?) OR (p.principal_type = 'chapter' AND p.principal_id IN (SELECT value FROM json_each(?))))))");
+    values.push(input.userId, JSON.stringify(input.chapterIds), input.email, JSON.stringify(input.chapterIds));
+  }
+  if (input.folderId !== undefined) { conditions.push("l.folder_id = ?"); values.push(input.folderId); }
+  if (input.tagId !== undefined) { conditions.push("EXISTS (SELECT 1 FROM link_tags lt WHERE lt.link_id = l.id AND lt.tag_id = ?)"); values.push(input.tagId); }
+  const { results } = await db.prepare(`SELECT ${linkColumns("l")} FROM links l WHERE ${conditions.join(" AND ")} ORDER BY l.created_at DESC LIMIT ? OFFSET ?`).bind(...values, input.limit + 1, input.offset).all<LinkRow>();
+  const page = results.map(toLink);
+  const hasMore = page.length > input.limit;
+  return { links: page.slice(0, input.limit), nextCursor: hasMore ? btoa(String(input.offset + input.limit)) : null };
 }
 
 export type CreateLinkRecord = {
