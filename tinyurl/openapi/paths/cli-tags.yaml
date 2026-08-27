@@ -7,4 +7,5 @@ post:
   operationId: createCliTag
   summary: Create a personal tag
   security: [{ BearerAuth: [] }]
+  requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
   responses: { '201': { description: Created tag }, '400': { $ref: ../components/responses/cli.yaml#/CliBadRequest }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }, '409': { $ref: ../components/responses/cli.yaml#/CliConflict } }

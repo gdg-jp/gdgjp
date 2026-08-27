@@ -7,4 +7,5 @@ post:
   operationId: createCliFolder
   summary: Create a folder
   security: [{ BearerAuth: [] }]
+  requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
   responses: { '201': { description: Created folder }, '400': { $ref: ../components/responses/cli.yaml#/CliBadRequest }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }, '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }, '409': { $ref: ../components/responses/cli.yaml#/CliConflict } }

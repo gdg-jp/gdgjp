@@ -51,6 +51,32 @@ gdg img delete abcd1234
 Every subcommand prints indented JSON on success and writes a one-line error message to stderr on
 failure.
 
+### Short links, domains, and campaigns
+
+```sh
+gdg tinyurl domains list --chapter-id 5
+gdg tinyurl domains create --hostname go.example.org --chapter-id 5 --wait
+gdg tinyurl domains sync 12 --wait
+
+gdg tinyurl links create --domain-id 12 --slug launch --url https://example.org \
+  --visibility public --new-tag campaign --share user:a@b.com:editor
+gdg tinyurl links list --folder-id 3 --limit 20
+gdg tinyurl links update link_01h... --url https://example.org/v2
+gdg tinyurl links delete link_01h...
+
+gdg tinyurl tags list
+gdg tinyurl folders create --name "Q3 launch"
+
+gdg tinyurl campaigns create --name "Spring 2026" --code spring26 --chapter-id 5
+gdg tinyurl campaigns channels create --campaign-id 7 --name Newsletter --code nl
+gdg tinyurl campaigns sources create --campaign-id 7 --channel-id 3 --name "Issue 12" --code i12
+gdg tinyurl campaigns analytics 7 --from 2026-03-01T00:00:00Z --to 2026-03-31T00:00:00Z --bucket day
+```
+
+`gdg tinyurl jobs wait JOB_ID` blocks until an async domain job reaches a terminal state and exits
+non-zero if it failed; `domains create`/`domains sync --wait` do the same inline. Every list
+subcommand takes `--limit`/`--cursor` and prints the server's `nextCursor` rather than auto-paging.
+
 ## Apps
 
 | Directory | Package | Hostname | Description |

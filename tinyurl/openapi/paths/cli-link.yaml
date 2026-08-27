@@ -12,6 +12,7 @@ patch:
   operationId: updateCliLink
   summary: Update a link
   security: [{ BearerAuth: [] }]
+  requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
   responses: { '200': { description: Updated link }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }, '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }, '404': { $ref: ../components/responses/cli.yaml#/CliNotFound } }
 delete:
   operationId: deleteCliLink

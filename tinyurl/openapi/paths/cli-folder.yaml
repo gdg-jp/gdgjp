@@ -12,6 +12,7 @@ patch:
   operationId: updateCliFolder
   summary: Rename a folder
   security: [{ BearerAuth: [] }]
+  requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
   responses: { '200': { description: Updated folder }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }, '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }, '404': { $ref: ../components/responses/cli.yaml#/CliNotFound }, '409': { $ref: ../components/responses/cli.yaml#/CliConflict } }
 delete:
   operationId: deleteCliFolder

@@ -23,6 +23,7 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(newWikiCommand(credentials))
 	root.AddCommand(newConnpassCommand(credentials))
 	root.AddCommand(newImgCommand(credentials))
+	root.AddCommand(newTinyurlCommand(credentials))
 	root.AddCommand(newAgentCommand(credentials))
 	return root
 }
