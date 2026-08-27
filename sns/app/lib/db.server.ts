@@ -99,6 +99,7 @@ export async function listAccessibleChapters(
   db: D1Database,
   email: string,
   memberships: UserChapter[],
+  isSuperAdmin = false,
 ): Promise<
   { chapterId: number; chapterSlug: string; role: "organizer" | "member" | "contributor" }[]
 > {
@@ -113,21 +114,12 @@ export async function listAccessibleChapters(
       chapters.push({ chapterId, chapterSlug: `chapter-${chapterId}`, role: "contributor" });
     }
   }
+  // A super-admin keeps every chapter they are a member of; everyone else only
+  // reaches sns as an organizer or a contributor of the chapter.
   return chapters.filter(
-    (chapter) => chapter.role === "organizer" || contributorIds.has(chapter.chapterId),
+    (chapter) =>
+      isSuperAdmin || chapter.role === "organizer" || contributorIds.has(chapter.chapterId),
   );
-}
-
-export async function isContributor(
-  db: D1Database,
-  chapterId: number,
-  email: string,
-): Promise<boolean> {
-  const row = await db
-    .prepare("SELECT 1 AS ok FROM sns_contributors WHERE chapter_id = ? AND user_email = ?")
-    .bind(chapterId, email)
-    .first<{ ok: number }>();
-  return row?.ok === 1;
 }
 
 export async function listXAccounts(db: D1Database, chapterId: number): Promise<XAccount[]> {
@@ -408,17 +400,4 @@ export async function listPostMedia(
     byPost[row.post_id] = values;
   }
   return byPost;
-}
-
-export async function listContributors(
-  db: D1Database,
-  chapterId: number,
-): Promise<{ email: string; createdAt: string }[]> {
-  const result = await db
-    .prepare(
-      "SELECT user_email, created_at FROM sns_contributors WHERE chapter_id = ? ORDER BY user_email COLLATE NOCASE",
-    )
-    .bind(chapterId)
-    .all<{ user_email: string; created_at: string }>();
-  return result.results.map((row) => ({ email: row.user_email, createdAt: row.created_at }));
 }

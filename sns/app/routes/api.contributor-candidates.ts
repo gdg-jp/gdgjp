@@ -1,3 +1,5 @@
+import { isSuperAdmin } from "@gdgjp/gdg-lib";
+import { canAdministerContributors } from "~/features/contributors/contributor-policy";
 import { requireSnsAccess } from "~/lib/access.server";
 import { getAuth } from "~/lib/auth.server";
 import type { Route } from "./+types/api.contributor-candidates";
@@ -11,7 +13,13 @@ type UserRow = {
 /** Returns Accounts users who can be added as contributors. */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const access = await requireSnsAccess(context.cloudflare.env, request);
-  if (access.chapter.role !== "organizer") throw new Response("Forbidden", { status: 403 });
+  if (
+    !canAdministerContributors({
+      role: access.chapter.role,
+      isSuperAdmin: isSuperAdmin(access.user),
+    })
+  )
+    throw new Response("Forbidden", { status: 403 });
 
   const query = new URL(request.url).searchParams.get("q")?.trim().slice(0, 120) ?? "";
   if (!query) return Response.json({ candidates: [] });

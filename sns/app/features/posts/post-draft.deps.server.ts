@@ -1,5 +1,5 @@
+import { resolveXUsername } from "~/features/x-accounts/x-provider.server";
 import { fetchLinkPreview } from "~/lib/link-preview.server";
-import { resolveXUsername } from "~/lib/x.server";
 import type { PostDraftDependencies } from "./post.types";
 
 /** Wires the aggregate draft service to the Worker's real D1/R2/X/OGP surfaces. */

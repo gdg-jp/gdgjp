@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 describe("X authorization", () => {
   it("requests the scopes required to identify and post as the authorized user", async () => {
-    const { xAuthorizationUrl } = await import("./x.server");
+    const { xAuthorizationUrl } = await import("./x-provider.server");
     const url = await xAuthorizationUrl(
       {
         APP_URL: "https://sns.gdgs.jp",

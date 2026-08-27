@@ -1,7 +1,8 @@
-import type { AuthUser, UserChapter } from "@gdgjp/gdg-lib";
+import { type AuthUser, type UserChapter, isSuperAdmin } from "@gdgjp/gdg-lib";
 import { redirect } from "react-router";
+import { isContributor } from "~/features/contributors/contributor.repository.server";
 import { getAuth } from "~/lib/auth.server";
-import { isContributor, listAccessibleChapters } from "~/lib/db.server";
+import { listAccessibleChapters } from "~/lib/db.server";
 import { safeReturnTo } from "~/lib/utils";
 
 const CHAPTER_COOKIE = "sns-chapter";
@@ -47,13 +48,16 @@ export async function requireSnsAccess(
   } catch {
     throw buildSignInRedirect(request);
   }
-  const chapters = await listAccessibleChapters(env.DB, user.email, memberships);
+  const superAdmin = isSuperAdmin(user);
+  const chapters = await listAccessibleChapters(env.DB, user.email, memberships, superAdmin);
   if (chapters.length === 0) throw redirect("/no-chapter");
   const selectedId = readSelectedChapter(request);
   const chapter = chapters.find((item) => item.chapterId === selectedId) ?? chapters[0];
   if (!chapter) throw redirect("/no-chapter");
   const permitted =
-    chapter.role === "organizer" || (await isContributor(env.DB, chapter.chapterId, user.email));
+    chapter.role === "organizer" ||
+    superAdmin ||
+    (await isContributor(env.DB, chapter.chapterId, user.email));
   if (!permitted) throw new Response("Forbidden", { status: 403 });
   return { user, chapter, chapters };
 }

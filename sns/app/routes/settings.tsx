@@ -1,14 +1,12 @@
+import { isSuperAdmin } from "@gdgjp/gdg-lib";
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
 import { useEffect, useState } from "react";
 import { Form, Link, useFetcher } from "react-router";
 import { AppShell } from "~/components/app-shell";
+import { canAdministerContributors } from "~/features/contributors/contributor-policy";
+import { listContributors } from "~/features/contributors/contributor.repository.server";
 import { requireSnsAccess } from "~/lib/access.server";
-import {
-  getGooglePhotosAlbum,
-  listContributors,
-  listGooglePhotosPollRuns,
-  listXAccounts,
-} from "~/lib/db.server";
+import { getGooglePhotosAlbum, listGooglePhotosPollRuns, listXAccounts } from "~/lib/db.server";
 import type { Route } from "./+types/settings";
 
 type ContributorCandidate = { email: string; name: string; image: string | null };
@@ -26,8 +24,13 @@ function useDebouncedValue(value: string, delay = 250) {
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const access = await requireSnsAccess(context.cloudflare.env, request);
+  const canAdminContributors = canAdministerContributors({
+    role: access.chapter.role,
+    isSuperAdmin: isSuperAdmin(access.user),
+  });
   return {
     ...access,
+    canAdminContributors,
     accounts: await listXAccounts(context.cloudflare.env.DB, access.chapter.chapterId),
     googlePhotosAlbum: await getGooglePhotosAlbum(
       context.cloudflare.env.DB,
@@ -37,14 +40,14 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       context.cloudflare.env.DB,
       access.chapter.chapterId,
     ),
-    contributors:
-      access.chapter.role === "organizer"
-        ? await listContributors(context.cloudflare.env.DB, access.chapter.chapterId)
-        : [],
+    contributors: canAdminContributors
+      ? await listContributors(context.cloudflare.env.DB, access.chapter.chapterId)
+      : [],
   };
 }
 export default function Settings({ loaderData }: Route.ComponentProps) {
   const organizer = loaderData.chapter.role === "organizer";
+  const canAdminContributors = loaderData.canAdminContributors;
   const [contributorQuery, setContributorQuery] = useState("");
   const [showContributorCandidates, setShowContributorCandidates] = useState(false);
   const debouncedContributorQuery = useDebouncedValue(contributorQuery);
@@ -52,11 +55,11 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: fetcher functions are stable
   useEffect(() => {
-    if (!organizer || !showContributorCandidates) return;
+    if (!canAdminContributors || !showContributorCandidates) return;
     contributorCandidates.load(
       `/api/contributor-candidates?q=${encodeURIComponent(debouncedContributorQuery)}`,
     );
-  }, [debouncedContributorQuery, organizer, showContributorCandidates]);
+  }, [debouncedContributorQuery, canAdminContributors, showContributorCandidates]);
 
   return (
     <AppShell user={loaderData.user} chapter={loaderData.chapter} chapters={loaderData.chapters}>
@@ -91,7 +94,7 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
             )}
           </div>
         </section>
-        {organizer ? (
+        {canAdminContributors ? (
           <section className="rounded-2xl border p-4">
             <h2 className="font-bold">Contributors</h2>
             <p className="mt-1 text-sm text-muted-foreground">

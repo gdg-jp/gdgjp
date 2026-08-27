@@ -1,6 +1,6 @@
+import { accessTokenForAccount } from "~/features/x-accounts/x-provider.server";
 import { getPost, getXAccount, listPostMedia } from "~/lib/db.server";
 import { nowIso } from "~/lib/utils";
-import { accessTokenForAccount } from "~/lib/x.server";
 
 async function setAttempt(
   env: Env,
