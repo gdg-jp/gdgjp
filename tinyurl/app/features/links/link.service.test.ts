@@ -1,6 +1,11 @@
 import type { AuthUser, UserChapter } from "@gdgjp/gdg-lib";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLinkWithExtras, updateLinkWithExtras } from "./link.service";
+import {
+  createLinkWithExtras,
+  parseCreateLinkInput,
+  parseUpdateLinkPatch,
+  updateLinkWithExtras,
+} from "./link.service";
 import type { CreateLinkInput } from "./link.types";
 
 type Row = Record<string, unknown>;
@@ -259,6 +264,23 @@ describe("createLinkWithExtras", () => {
       error: "A campaign chapter must be selected for this link.",
     });
   });
+
+  it.each([
+    ["title", 1],
+    ["description", 1],
+    ["ogImageUrl", 1],
+    ["comment", 1],
+    ["tagIds", [1, "2"]],
+    ["newTagNames", ["valid", ""]],
+    ["campaignChannelId", "1"],
+    ["folderId", 0],
+    ["shares", [{ principalType: "user", principalId: 1, role: "viewer" }]],
+  ])("rejects malformed optional POST %s", (field, value) => {
+    expect(parseCreateLinkInput({ ...baseInput({ slug: "valid" }), [field]: value })).toMatchObject({
+      ok: false,
+      code: "invalid_input",
+    });
+  });
 });
 
 describe("updateLinkWithExtras", () => {
@@ -434,6 +456,40 @@ describe("updateLinkWithExtras", () => {
       ok: false,
       code: "invalid_input",
       error: "Comment is too long (max 2000 chars).",
+    });
+  });
+
+  it("rejects malformed PATCH fields before any link update", async () => {
+    const db = {
+      prepare() {
+        throw new Error("repoUpdateLink must not run");
+      },
+    } as unknown as D1Database;
+    const result = await updateLinkWithExtras(
+      { db },
+      { user, chapters: [chapter], selectedChapterId: chapter.chapterId },
+      "link_existing",
+      { title: "would otherwise update", tagIds: [1, "2"] } as unknown,
+    );
+
+    expect(result).toMatchObject({ ok: false, code: "invalid_input" });
+  });
+
+  it.each([
+    ["title", 1],
+    ["description", 1],
+    ["ogImageUrl", 1],
+    ["comment", 1],
+    ["tagIds", [1, "2"]],
+    ["newTagNames", ["valid", ""]],
+    ["campaignChannelId", "1"],
+    ["folderId", 0],
+    ["shares", [{ principalType: "user", principalId: 1, role: "viewer" }]],
+    ["chapterId", 1],
+  ])("rejects malformed or create-only PATCH %s", (field, value) => {
+    expect(parseUpdateLinkPatch({ [field]: value })).toMatchObject({
+      ok: false,
+      code: "invalid_input",
     });
   });
 });

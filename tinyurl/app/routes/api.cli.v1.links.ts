@@ -1,5 +1,5 @@
 import { isSuperAdmin } from "@gdgjp/gdg-lib";
-import { createLinkWithExtras, listVisibleLinksPage } from "~/features/links";
+import { createLinkWithExtras, listVisibleLinksPage, parseCreateLinkInput } from "~/features/links";
 import { featureFailureResponse } from "~/lib/cli-errors.server";
 import { requireCliActor } from "~/lib/cli-auth.server";
 import { cliError, cliJson, cliMethodNotAllowed, parseCliJsonBody } from "~/lib/cli-http.server";
@@ -44,12 +44,12 @@ export async function action(args: Route.ActionArgs) {
   if (!auth.ok) return auth.response;
   const parsed = await parseCliJsonBody<Record<string, unknown>>(args.request);
   if (!parsed.ok) return parsed.response;
-  const b = parsed.value;
-  if (typeof b.domainId !== "number" || typeof b.slug !== "string" || typeof b.destinationUrl !== "string" || (b.visibility !== "private" && b.visibility !== "public") || (b.chapterId !== undefined && (!Number.isInteger(b.chapterId) || b.chapterId <= 0))) return cliError("invalid_request", 400);
+  const input = parseCreateLinkInput(parsed.value);
+  if (!input.ok) return featureFailureResponse(input);
   const result = await createLinkWithExtras(
     { db: env.DB },
-    actor(auth, typeof b.chapterId === "number" ? b.chapterId : null),
-    b as Parameters<typeof createLinkWithExtras>[2],
+    actor(auth, input.value.chapterId ?? null),
+    input.value,
   );
   return result.ok ? cliJson({ link: result.link }, { status: 201 }) : featureFailureResponse(result);
 }

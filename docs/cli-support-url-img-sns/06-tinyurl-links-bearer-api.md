@@ -69,7 +69,7 @@ security scheme (matching the shape Stage 03 added to img's, or Stage 01's contr
 | `POST` | `/api/cli/v1/links` | CLI Bearer | `{ domainId, slug, destinationUrl, title?, description?, ogImageUrl?, visibility, chapterId?, tagIds?, newTagNames?, comment?, campaignChannelId?, folderId?, shares? }` | `201 { link: Link }` | `400`, `401`, `403`, `404`, `409` |
 | `GET` | `/api/cli/v1/links` | CLI Bearer | query: `folderId?`, `tagId?`, `limit?`, `cursor?` | `200 { links: Link[], nextCursor }` | `400`, `401` |
 | `GET` | `/api/cli/v1/links/:id` | CLI Bearer | — | `200 { link: Link }` | `401`, `403`, `404` |
-| `PATCH` | `/api/cli/v1/links/:id` | CLI Bearer | partial create body minus `domainId`; supplied `shares` atomically replace all existing shares | `200 { link: Link }` | `400`, `401`, `403`, `404` |
+| `PATCH` | `/api/cli/v1/links/:id` | CLI Bearer | partial create body minus create-only `domainId` and `chapterId`; supplied `shares` atomically replace all existing shares | `200 { link: Link }` | `400`, `401`, `403`, `404` |
 | `DELETE` | `/api/cli/v1/links/:id` | CLI Bearer | — | `200 { id, deleted: true }` | `401`, `403`, `404` |
 | `GET` | `/api/cli/v1/tags` | CLI Bearer | query: `limit?`, `cursor?` | `200 { tags: Tag[], nextCursor }` | `400`, `401` |
 | `POST` | `/api/cli/v1/tags` | CLI Bearer | `{ name, color? }` | `201 { tag: Tag }` | `400`, `401` |

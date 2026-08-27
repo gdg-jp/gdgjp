@@ -37,4 +37,9 @@ export type {
   LinkServiceDependencies,
   UpdateLinkPatch,
 } from "./link.service";
-export { createLinkWithExtras, updateLinkWithExtras } from "./link.service";
+export {
+  createLinkWithExtras,
+  parseCreateLinkInput,
+  parseUpdateLinkPatch,
+  updateLinkWithExtras,
+} from "./link.service";
