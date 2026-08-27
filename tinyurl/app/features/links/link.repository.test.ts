@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   archiveLink,
   copyFolderPermissionsToLink,
+  listVisibleLinksPage,
   restoreLink,
   updateLink,
 } from "./link.repository";
@@ -115,5 +116,34 @@ describe("copyFolderPermissionsToLink", () => {
     expect(sql).toContain("SELECT ?, principal_type, principal_id, role FROM folder_permissions");
     expect(sql).toContain("ON CONFLICT(link_id, principal_type, principal_id) DO NOTHING");
     expect(bindings).toEqual(["link_1", 8]);
+  });
+});
+
+describe("listVisibleLinksPage", () => {
+  it("uses limit plus one instead of reading the entire visible set", async () => {
+    let bindings: unknown[] = [];
+    const db = {
+      prepare() {
+        return {
+          bind(...values: unknown[]) {
+            bindings = values;
+            return this;
+          },
+          async all() {
+            return { results: [] };
+          },
+        };
+      },
+    } as unknown as D1Database;
+
+    await listVisibleLinksPage(db, {
+      userId: "u",
+      email: "u@example.com",
+      chapterIds: [],
+      limit: 10,
+      offset: 20,
+    });
+
+    expect(bindings.slice(-2)).toEqual([11, 20]);
   });
 });

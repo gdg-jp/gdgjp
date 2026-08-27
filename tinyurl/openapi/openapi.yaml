@@ -21,6 +21,18 @@ paths:
     $ref: ./paths/gateway-config.yaml
   /api/internal/gateway/resolve:
     $ref: ./paths/gateway-resolve.yaml
+  /api/cli/v1/links:
+    $ref: ./paths/cli-links.yaml
+  /api/cli/v1/links/{id}:
+    $ref: ./paths/cli-link.yaml
+  /api/cli/v1/tags:
+    $ref: ./paths/cli-tags.yaml
+  /api/cli/v1/tags/{id}:
+    $ref: ./paths/cli-tag.yaml
+  /api/cli/v1/folders:
+    $ref: ./paths/cli-folders.yaml
+  /api/cli/v1/folders/{id}:
+    $ref: ./paths/cli-folder.yaml
   /api/cli/v1/domains:
     $ref: ./paths/cli-domains.yaml
   /api/cli/v1/domains/{id}:

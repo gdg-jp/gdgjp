@@ -50,6 +50,34 @@ export function canEditLink(
   return matchingRole(ctx, permissions) === "editor";
 }
 
+/**
+ * The dashboard evaluates a single selected chapter. CLI identities carry all
+ * memberships, so evaluate the exact same policy once for every membership.
+ */
+export function canViewLinkForChapters(
+  user: AuthUser,
+  chapterIds: number[],
+  link: Link,
+  permissions: LinkPermission[],
+): boolean {
+  return (
+    canViewLink({ user, chapterId: null }, link, permissions) ||
+    chapterIds.some((chapterId) => canViewLink({ user, chapterId }, link, permissions))
+  );
+}
+
+export function canEditLinkForChapters(
+  user: AuthUser,
+  chapterIds: number[],
+  link: Link,
+  permissions: LinkPermission[],
+): boolean {
+  return (
+    canEditLink({ user, chapterId: null }, link, permissions) ||
+    chapterIds.some((chapterId) => canEditLink({ user, chapterId }, link, permissions))
+  );
+}
+
 export function requireCanView(
   ctx: ViewerContext,
   link: Link,

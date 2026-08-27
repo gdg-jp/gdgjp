@@ -7,15 +7,23 @@ export type {
   LinkVisibility,
 } from "./link.types";
 export type { ViewerContext } from "./link-policy";
-export { canEditLink, canViewLink, requireCanEdit, requireCanView } from "./link-policy";
+export {
+  canEditLink,
+  canEditLinkForChapters,
+  canViewLink,
+  canViewLinkForChapters,
+  requireCanEdit,
+  requireCanView,
+} from "./link-policy";
 export {
   addComment,
   addPermission,
   archiveLink,
   deleteComment,
   getLinkById,
-  listComments,
+  listVisibleLinksPage,
   listPermissionsForLink,
+  listComments,
   removePermission,
   restoreLink,
   softDeleteLink,

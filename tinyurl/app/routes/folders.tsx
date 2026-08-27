@@ -36,14 +36,14 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { SubmitButton } from "~/components/ui/submit-button";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
+import type { FolderWithCounts } from "~/lib/db";
 import {
-  type FolderWithCounts,
   canEditFolder,
   createFolder,
   deleteFolder,
   listAccessibleRootFoldersWithCounts,
   updateFolder,
-} from "~/lib/db";
+} from "~/features/folders";
 import type { Route } from "./+types/folders";
 
 export function meta() {

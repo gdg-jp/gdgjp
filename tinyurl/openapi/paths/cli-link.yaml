@@ -1,0 +1,15 @@
+get:
+  operationId: getCliLink
+  summary: Get a link
+  security: [{ BearerAuth: [] }]
+  responses: { '200': { description: Link }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }, '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }, '404': { $ref: ../components/responses/cli.yaml#/CliNotFound } }
+patch:
+  operationId: updateCliLink
+  summary: Update a link
+  security: [{ BearerAuth: [] }]
+  responses: { '200': { description: Updated link }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }, '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }, '404': { $ref: ../components/responses/cli.yaml#/CliNotFound } }
+delete:
+  operationId: deleteCliLink
+  summary: Soft delete a link
+  security: [{ BearerAuth: [] }]
+  responses: { '200': { description: Deleted link }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }, '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }, '404': { $ref: ../components/responses/cli.yaml#/CliNotFound } }

@@ -1,0 +1,10 @@
+get:
+  operationId: listCliFolders
+  summary: List accessible folders
+  security: [{ BearerAuth: [] }]
+  responses: { '200': { description: Folders }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized } }
+post:
+  operationId: createCliFolder
+  summary: Create a folder
+  security: [{ BearerAuth: [] }]
+  responses: { '201': { description: Created folder }, '400': { $ref: ../components/responses/cli.yaml#/CliBadRequest }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }, '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }, '409': { $ref: ../components/responses/cli.yaml#/CliConflict } }

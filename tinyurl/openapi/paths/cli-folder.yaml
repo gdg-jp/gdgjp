@@ -1,0 +1,15 @@
+get:
+  operationId: getCliFolder
+  summary: Get an accessible folder
+  security: [{ BearerAuth: [] }]
+  responses: { '200': { description: Folder }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }, '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }, '404': { $ref: ../components/responses/cli.yaml#/CliNotFound } }
+patch:
+  operationId: updateCliFolder
+  summary: Rename a folder
+  security: [{ BearerAuth: [] }]
+  responses: { '200': { description: Updated folder }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }, '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }, '404': { $ref: ../components/responses/cli.yaml#/CliNotFound }, '409': { $ref: ../components/responses/cli.yaml#/CliConflict } }
+delete:
+  operationId: deleteCliFolder
+  summary: Delete an empty folder
+  security: [{ BearerAuth: [] }]
+  responses: { '200': { description: Deleted folder }, '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }, '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }, '404': { $ref: ../components/responses/cli.yaml#/CliNotFound }, '409': { $ref: ../components/responses/cli.yaml#/CliConflict } }

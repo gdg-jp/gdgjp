@@ -1,7 +1,7 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { describe, expect, it } from "vitest";
 import type { Link, LinkPermission } from "~/lib/db";
-import { canEditLink, canViewLink, validateSharePrincipal } from "./link-policy";
+import { canEditLink, canViewLink, canViewLinkForChapters, validateSharePrincipal } from "./link-policy";
 
 const owner: AuthUser = {
   id: "u_owner",
@@ -137,6 +137,16 @@ describe("canViewLink / canEditLink", () => {
   it("private link without perms still hidden from non-members", () => {
     const ctx = { user: stranger, chapterId: 42 };
     expect(canViewLink(ctx, link, [])).toBe(false);
+  });
+
+  it("keeps a private link forbidden while public links are viewable", () => {
+    expect(canViewLinkForChapters(stranger, [1], link, [])).toBe(false);
+    expect(canViewLinkForChapters(stranger, [1], { ...link, visibility: "public" }, [])).toBe(true);
+  });
+
+  it("checks every CLI membership, not just the first one", () => {
+    const chapterLink: Link = { ...link, ownerChapterId: 42 };
+    expect(canViewLinkForChapters(stranger, [1, 42], chapterLink, [])).toBe(true);
   });
 });
 

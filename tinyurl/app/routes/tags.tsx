@@ -49,14 +49,14 @@ import {
 } from "~/components/ui/select";
 import { SubmitButton } from "~/components/ui/submit-button";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
+import type { TagWithCount } from "~/lib/db";
 import {
-  type TagWithCount,
   createTag,
   deleteTag,
   listTagsForChapterWithCounts,
   listTagsForUserWithCounts,
   updateTag,
-} from "~/lib/db";
+} from "~/features/tags";
 import { cn } from "~/lib/utils";
 import type { Route } from "./+types/tags";
 
