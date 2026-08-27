@@ -7,6 +7,7 @@ export default [
   route("api/internal/upload", "routes/api.internal-upload.ts"),
   route("api/replace/:id", "routes/api.replace.$id.ts"),
   route("api/mobile/:id", "routes/api.mobile.$id.ts"),
+  route("api/slug/:id", "routes/api.slug.$id.ts"),
   route("api/delete/:id", "routes/api.delete.$id.ts"),
   route("api/cli/v1/images", "routes/api.cli.v1.images.ts"),
   route("api/cli/v1/images/:id", "routes/api.cli.v1.images.$id.ts"),

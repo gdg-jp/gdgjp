@@ -1,0 +1,25 @@
+post:
+  operationId: setImageSlug
+  summary: Set or clear an image's custom slug (dashboard session)
+  security: [{ cookieAuth: [] }]
+  parameters: [{ $ref: ../components/parameters/index.yaml#/ImageIdPath }]
+  requestBody:
+    required: true
+    content:
+      multipart/form-data:
+        schema:
+          type: object
+          properties:
+            slug:
+              type: string
+              maxLength: 64
+              description: New slug; an empty or absent value clears it.
+      application/json:
+        schema:
+          type: object
+          properties:
+            slug: { type: string, nullable: true, maxLength: 64 }
+  responses:
+    '200': { description: Slug updated, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/ImageId } } } }
+    '400': { description: The slug is malformed or reserved. }
+    '409': { description: The slug is already in use by another image. }

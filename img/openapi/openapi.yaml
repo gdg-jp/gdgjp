@@ -16,6 +16,8 @@ paths:
     $ref: ./paths/replace.yaml
   /api/mobile/{id}:
     $ref: ./paths/mobile.yaml
+  /api/slug/{id}:
+    $ref: ./paths/slug.yaml
   /api/delete/{id}:
     $ref: ./paths/delete.yaml
   /api/cli/v1/images:

@@ -40,6 +40,7 @@ CliImage:
       userId,
       accountId,
       chapterId,
+      slug,
       r2Key,
       contentType,
       byteSize,
@@ -59,6 +60,7 @@ CliImage:
     userId: { type: string }
     accountId: { type: string }
     chapterId: { type: integer }
+    slug: { type: string, nullable: true, pattern: '^[a-zA-Z0-9_-]{1,64}$' }
     r2Key: { type: string }
     contentType: { type: string }
     byteSize: { type: integer }

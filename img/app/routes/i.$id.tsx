@@ -1,4 +1,4 @@
-import { Check, Copy, Smartphone, Trash2, Upload } from "lucide-react";
+import { Check, Copy, Link2, Smartphone, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { PageShell } from "~/components/page-shell";
@@ -28,10 +28,12 @@ export async function loader(args: Route.LoaderArgs) {
     });
   }
   const image = result.value;
+  const appUrl = env.APP_URL.replace(/\/$/, "");
   return {
     user: { email: user.email, image: user.image, name: user.name },
     image: {
       id: image.id,
+      slug: image.slug,
       url: deliveryUrl(image.id, { w: 1600 }),
       filename: image.filename,
       contentType: image.contentType,
@@ -47,12 +49,13 @@ export async function loader(args: Route.LoaderArgs) {
           }
         : null,
     },
-    publicUrl: `${env.APP_URL}/${image.id}`,
+    publicUrl: image.slug ? `${appUrl}/${image.slug}` : `${appUrl}/${image.id}`,
+    idUrl: `${appUrl}/${image.id}`,
   };
 }
 
 export default function ImageDetail({ loaderData }: Route.ComponentProps) {
-  const { user, image, publicUrl } = loaderData;
+  const { user, image, publicUrl, idUrl } = loaderData;
   const navigate = useNavigate();
   const replaceRef = useRef<HTMLInputElement>(null);
   const mobileRef = useRef<HTMLInputElement>(null);
@@ -61,6 +64,9 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [copied, setCopied] = useState(false);
   const copyResetRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const [slug, setSlug] = useState(image.slug ?? "");
+  const [slugBusy, setSlugBusy] = useState(false);
+  const [slugErr, setSlugErr] = useState<string | null>(null);
 
   useEffect(
     () => () => {
@@ -145,6 +151,33 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function submitSlug(value: string) {
+    setSlugBusy(true);
+    setSlugErr(null);
+    try {
+      const form = new FormData();
+      form.append("slug", value);
+      const res = await fetch(`/api/slug/${image.id}`, { method: "POST", body: form });
+      if (!res.ok) throw new Error((await res.text()) || "Could not update the custom URL.");
+      setSlug(value);
+      navigate(".", { replace: true });
+    } catch (e) {
+      setSlugErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSlugBusy(false);
+    }
+  }
+
+  async function onSaveSlug(e: React.FormEvent) {
+    e.preventDefault();
+    await submitSlug(slug.trim());
+  }
+
+  async function onClearSlug() {
+    if (!confirm("Remove the custom URL? The image stays reachable at its id URL.")) return;
+    await submitSlug("");
   }
 
   return (
@@ -256,8 +289,57 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
           style={{ "--motion-index": 1 } as React.CSSProperties}
         >
           <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Link2 className="size-4" /> Custom URL
+            </CardTitle>
+            <CardDescription>
+              Optional. Give this image a memorable link. Letters, numbers, hyphens and underscores,
+              up to 64 characters.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onSaveSlug} className="flex flex-col gap-2">
+              <Label htmlFor="slug" className="sr-only">
+                Custom slug
+              </Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-muted-foreground">img.gdgs.jp/</span>
+                <Input
+                  id="slug"
+                  name="slug"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  placeholder="my-image"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="w-48"
+                />
+                <Button type="submit" disabled={slugBusy || slug.trim() === (image.slug ?? "")}>
+                  Save
+                </Button>
+                {image.slug ? (
+                  <Button type="button" variant="outline" disabled={slugBusy} onClick={onClearSlug}>
+                    <Trash2 className="size-4" /> Clear
+                  </Button>
+                ) : null}
+              </div>
+              {slugErr ? <p className="text-sm text-destructive">{slugErr}</p> : null}
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="motion-stagger transition-shadow duration-300 hover:shadow-md"
+          style={{ "--motion-index": 3 } as React.CSSProperties}
+        >
+          <CardHeader>
             <CardTitle className="text-base">Public URL</CardTitle>
-            <CardDescription>Anyone with this link can view the image.</CardDescription>
+            <CardDescription>
+              {image.slug
+                ? "Anyone with this link can view the image. It also stays reachable at its id URL."
+                : "Anyone with this link can view the image."}
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
@@ -266,6 +348,14 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
               </Label>
               <Input id="public-url" readOnly value={publicUrl} />
             </div>
+            {image.slug ? (
+              <div className="flex items-center gap-2">
+                <Label htmlFor="id-url" className="sr-only">
+                  Id URL
+                </Label>
+                <Input id="id-url" readOnly value={idUrl} className="text-muted-foreground" />
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </div>

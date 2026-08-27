@@ -4,6 +4,7 @@
 package openapigen
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -69,6 +70,7 @@ type CliImage struct {
 	MobileR2Key       *string `json:"mobileR2Key"`
 	MobileUpdatedAt   *int    `json:"mobileUpdatedAt"`
 	R2Key             string  `json:"r2Key"`
+	Slug              *string `json:"slug"`
 	UpdatedAt         int     `json:"updatedAt"`
 	UserId            string  `json:"userId"`
 	Width             *int    `json:"width"`
@@ -128,6 +130,9 @@ type ImageIdPath = string
 // CliBadRequest defines model for CliBadRequest.
 type CliBadRequest = Error
 
+// CliConflict defines model for CliConflict.
+type CliConflict = Error
+
 // CliForbidden defines model for CliForbidden.
 type CliForbidden = Error
 
@@ -154,6 +159,12 @@ type CreateCliImageMultipartBody struct {
 
 	// File Image file
 	File openapi_types.File `json:"file"`
+}
+
+// UpdateCliImageSlugJSONBody defines parameters for UpdateCliImageSlug.
+type UpdateCliImageSlugJSONBody struct {
+	// Slug New slug, or null / empty string to clear it.
+	Slug *string `json:"slug"`
 }
 
 // ReplaceCliImageMultipartBody defines parameters for ReplaceCliImage.
@@ -185,6 +196,17 @@ type ReplaceImageMultipartBody struct {
 	File openapi_types.File `json:"file"`
 }
 
+// SetImageSlugJSONBody defines parameters for SetImageSlug.
+type SetImageSlugJSONBody struct {
+	Slug *string `json:"slug"`
+}
+
+// SetImageSlugMultipartBody defines parameters for SetImageSlug.
+type SetImageSlugMultipartBody struct {
+	// Slug New slug; an empty or absent value clears it.
+	Slug *string `json:"slug,omitempty"`
+}
+
 // UploadImageMultipartBody defines parameters for UploadImage.
 type UploadImageMultipartBody struct {
 	// File Image file
@@ -210,6 +232,9 @@ type GetPublicImageParamsVariant string
 // CreateCliImageMultipartRequestBody defines body for CreateCliImage for multipart/form-data ContentType.
 type CreateCliImageMultipartRequestBody CreateCliImageMultipartBody
 
+// UpdateCliImageSlugJSONRequestBody defines body for UpdateCliImageSlug for application/json ContentType.
+type UpdateCliImageSlugJSONRequestBody UpdateCliImageSlugJSONBody
+
 // ReplaceCliImageMultipartRequestBody defines body for ReplaceCliImage for multipart/form-data ContentType.
 type ReplaceCliImageMultipartRequestBody ReplaceCliImageMultipartBody
 
@@ -224,6 +249,12 @@ type UploadMobileImageMultipartRequestBody UploadMobileImageMultipartBody
 
 // ReplaceImageMultipartRequestBody defines body for ReplaceImage for multipart/form-data ContentType.
 type ReplaceImageMultipartRequestBody ReplaceImageMultipartBody
+
+// SetImageSlugJSONRequestBody defines body for SetImageSlug for application/json ContentType.
+type SetImageSlugJSONRequestBody SetImageSlugJSONBody
+
+// SetImageSlugMultipartRequestBody defines body for SetImageSlug for multipart/form-data ContentType.
+type SetImageSlugMultipartRequestBody SetImageSlugMultipartBody
 
 // UploadImageMultipartRequestBody defines body for UploadImage for multipart/form-data ContentType.
 type UploadImageMultipartRequestBody UploadImageMultipartBody
@@ -313,6 +344,11 @@ type ClientInterface interface {
 	// GetCliImage request
 	GetCliImage(ctx context.Context, id ImageIdPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// UpdateCliImageSlugWithBody request with any body
+	UpdateCliImageSlugWithBody(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateCliImageSlug(ctx context.Context, id ImageIdPath, body UpdateCliImageSlugJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ReplaceCliImageWithBody request with any body
 	ReplaceCliImageWithBody(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -333,6 +369,11 @@ type ClientInterface interface {
 
 	// ReplaceImageWithBody request with any body
 	ReplaceImageWithBody(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetImageSlugWithBody request with any body
+	SetImageSlugWithBody(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetImageSlug(ctx context.Context, id ImageIdPath, body SetImageSlugJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UploadImageWithBody request with any body
 	UploadImageWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -379,6 +420,30 @@ func (c *Client) DeleteCliImage(ctx context.Context, id ImageIdPath, reqEditors 
 
 func (c *Client) GetCliImage(ctx context.Context, id ImageIdPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetCliImageRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateCliImageSlugWithBody(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCliImageSlugRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateCliImageSlug(ctx context.Context, id ImageIdPath, body UpdateCliImageSlugJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCliImageSlugRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -463,6 +528,30 @@ func (c *Client) UploadMobileImageWithBody(ctx context.Context, id ImageIdPath, 
 
 func (c *Client) ReplaceImageWithBody(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewReplaceImageRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetImageSlugWithBody(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetImageSlugRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetImageSlug(ctx context.Context, id ImageIdPath, body SetImageSlugJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetImageSlugRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -671,6 +760,53 @@ func NewGetCliImageRequest(server string, id ImageIdPath) (*http.Request, error)
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewUpdateCliImageSlugRequest calls the generic UpdateCliImageSlug builder with application/json body
+func NewUpdateCliImageSlugRequest(server string, id ImageIdPath, body UpdateCliImageSlugJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateCliImageSlugRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateCliImageSlugRequestWithBody generates requests for UpdateCliImageSlug with any type of body
+func NewUpdateCliImageSlugRequestWithBody(server string, id ImageIdPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/cli/v1/images/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -916,6 +1052,53 @@ func NewReplaceImageRequestWithBody(server string, id ImageIdPath, contentType s
 	return req, nil
 }
 
+// NewSetImageSlugRequest calls the generic SetImageSlug builder with application/json body
+func NewSetImageSlugRequest(server string, id ImageIdPath, body SetImageSlugJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetImageSlugRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSetImageSlugRequestWithBody generates requests for SetImageSlug with any type of body
+func NewSetImageSlugRequestWithBody(server string, id ImageIdPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/slug/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewUploadImageRequestWithBody generates requests for UploadImage with any type of body
 func NewUploadImageRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
@@ -1136,6 +1319,11 @@ type ClientWithResponsesInterface interface {
 	// GetCliImageWithResponse request
 	GetCliImageWithResponse(ctx context.Context, id ImageIdPath, reqEditors ...RequestEditorFn) (*GetCliImageResponse, error)
 
+	// UpdateCliImageSlugWithBodyWithResponse request with any body
+	UpdateCliImageSlugWithBodyWithResponse(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCliImageSlugResponse, error)
+
+	UpdateCliImageSlugWithResponse(ctx context.Context, id ImageIdPath, body UpdateCliImageSlugJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCliImageSlugResponse, error)
+
 	// ReplaceCliImageWithBodyWithResponse request with any body
 	ReplaceCliImageWithBodyWithResponse(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceCliImageResponse, error)
 
@@ -1156,6 +1344,11 @@ type ClientWithResponsesInterface interface {
 
 	// ReplaceImageWithBodyWithResponse request with any body
 	ReplaceImageWithBodyWithResponse(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceImageResponse, error)
+
+	// SetImageSlugWithBodyWithResponse request with any body
+	SetImageSlugWithBodyWithResponse(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetImageSlugResponse, error)
+
+	SetImageSlugWithResponse(ctx context.Context, id ImageIdPath, body SetImageSlugJSONRequestBody, reqEditors ...RequestEditorFn) (*SetImageSlugResponse, error)
 
 	// UploadImageWithBodyWithResponse request with any body
 	UploadImageWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadImageResponse, error)
@@ -1259,6 +1452,33 @@ func (r GetCliImageResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetCliImageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateCliImageSlugResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CliImageResponse
+	JSON400      *CliBadRequest
+	JSON401      *CliUnauthorized
+	JSON403      *CliForbidden
+	JSON404      *CliNotFound
+	JSON409      *CliConflict
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateCliImageSlugResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateCliImageSlugResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1429,6 +1649,28 @@ func (r ReplaceImageResponse) StatusCode() int {
 	return 0
 }
 
+type SetImageSlugResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ImageId
+}
+
+// Status returns HTTPResponse.Status
+func (r SetImageSlugResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetImageSlugResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type UploadImageResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1508,6 +1750,23 @@ func (c *ClientWithResponses) GetCliImageWithResponse(ctx context.Context, id Im
 	return ParseGetCliImageResponse(rsp)
 }
 
+// UpdateCliImageSlugWithBodyWithResponse request with arbitrary body returning *UpdateCliImageSlugResponse
+func (c *ClientWithResponses) UpdateCliImageSlugWithBodyWithResponse(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCliImageSlugResponse, error) {
+	rsp, err := c.UpdateCliImageSlugWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateCliImageSlugResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateCliImageSlugWithResponse(ctx context.Context, id ImageIdPath, body UpdateCliImageSlugJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCliImageSlugResponse, error) {
+	rsp, err := c.UpdateCliImageSlug(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateCliImageSlugResponse(rsp)
+}
+
 // ReplaceCliImageWithBodyWithResponse request with arbitrary body returning *ReplaceCliImageResponse
 func (c *ClientWithResponses) ReplaceCliImageWithBodyWithResponse(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceCliImageResponse, error) {
 	rsp, err := c.ReplaceCliImageWithBody(ctx, id, contentType, body, reqEditors...)
@@ -1569,6 +1828,23 @@ func (c *ClientWithResponses) ReplaceImageWithBodyWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseReplaceImageResponse(rsp)
+}
+
+// SetImageSlugWithBodyWithResponse request with arbitrary body returning *SetImageSlugResponse
+func (c *ClientWithResponses) SetImageSlugWithBodyWithResponse(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetImageSlugResponse, error) {
+	rsp, err := c.SetImageSlugWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetImageSlugResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetImageSlugWithResponse(ctx context.Context, id ImageIdPath, body SetImageSlugJSONRequestBody, reqEditors ...RequestEditorFn) (*SetImageSlugResponse, error) {
+	rsp, err := c.SetImageSlug(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetImageSlugResponse(rsp)
 }
 
 // UploadImageWithBodyWithResponse request with arbitrary body returning *UploadImageResponse
@@ -1778,6 +2054,67 @@ func ParseGetCliImageResponse(rsp *http.Response) (*GetCliImageResponse, error) 
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateCliImageSlugResponse parses an HTTP response from a UpdateCliImageSlugWithResponse call
+func ParseUpdateCliImageSlugResponse(rsp *http.Response) (*UpdateCliImageSlugResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateCliImageSlugResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CliImageResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest CliBadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest CliUnauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest CliForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest CliNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest CliConflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 
@@ -2019,6 +2356,32 @@ func ParseReplaceImageResponse(rsp *http.Response) (*ReplaceImageResponse, error
 	}
 
 	response := &ReplaceImageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ImageId
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetImageSlugResponse parses an HTTP response from a SetImageSlugWithResponse call
+func ParseSetImageSlugResponse(rsp *http.Response) (*SetImageSlugResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetImageSlugResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

@@ -213,6 +213,18 @@ func (c *Client) UploadMobile(ctx context.Context, token, id, filePath string) (
 	return out, err
 }
 
+// SetSlug sets an image's custom slug, or clears it when slug is nil.
+func (c *Client) SetSlug(ctx context.Context, token, id string, slug *string) (CliImageResponse, error) {
+	body := openapigen.UpdateCliImageSlugJSONRequestBody{Slug: slug}
+	res, err := c.generatedClient().UpdateCliImageSlugWithResponse(ctx, id, body, bearer(token))
+	if err != nil {
+		return CliImageResponse{}, err
+	}
+	var out CliImageResponse
+	err = decodeResponse(res.StatusCode(), res.Body, &out)
+	return out, err
+}
+
 func (c *Client) Delete(ctx context.Context, token, id string) (CliDeleteResult, error) {
 	res, err := c.generatedClient().DeleteCliImageWithResponse(ctx, id, bearer(token))
 	if err != nil {
