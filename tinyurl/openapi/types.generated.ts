@@ -142,6 +142,183 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cli/v1/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the caller's campaigns */
+        get: operations["listCliCampaigns"];
+        put?: never;
+        /** Create a campaign */
+        post: operations["createCliCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/campaigns/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a campaign */
+        get: operations["getCliCampaign"];
+        put?: never;
+        post?: never;
+        /** Archive a campaign */
+        delete: operations["archiveCliCampaign"];
+        options?: never;
+        head?: never;
+        /** Update a campaign */
+        patch: operations["updateCliCampaign"];
+        trace?: never;
+    };
+    "/api/cli/v1/campaigns/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore an archived campaign */
+        post: operations["restoreCliCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/campaigns/{id}/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get aggregate campaign analytics */
+        get: operations["getCliCampaignAnalytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/campaigns/{id}/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a campaign's channels */
+        get: operations["listCliCampaignChannels"];
+        put?: never;
+        /** Create a campaign channel */
+        post: operations["createCliCampaignChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/campaigns/{id}/channels/{channelId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Archive a campaign channel */
+        delete: operations["archiveCliCampaignChannel"];
+        options?: never;
+        head?: never;
+        /** Update a campaign channel */
+        patch: operations["updateCliCampaignChannel"];
+        trace?: never;
+    };
+    "/api/cli/v1/campaigns/{id}/channels/{channelId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore an archived campaign channel */
+        post: operations["restoreCliCampaignChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/campaigns/{id}/channels/{channelId}/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a channel's sources */
+        get: operations["listCliCampaignChannelSources"];
+        put?: never;
+        /** Create a channel source */
+        post: operations["createCliCampaignChannelSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/campaigns/{id}/channels/{channelId}/sources/{sourceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Archive a channel source */
+        delete: operations["archiveCliCampaignChannelSource"];
+        options?: never;
+        head?: never;
+        /** Update a channel source */
+        patch: operations["updateCliCampaignChannelSource"];
+        trace?: never;
+    };
+    "/api/cli/v1/campaigns/{id}/channels/{channelId}/sources/{sourceId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore an archived channel source */
+        post: operations["restoreCliCampaignChannelSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -234,6 +411,96 @@ export interface components {
         JobResponse: {
             job: components["schemas"]["Job"];
         };
+        CliArchiveResult: {
+            id: number;
+            /** @enum {boolean} */
+            archived: true;
+        };
+        Campaign: {
+            id: number;
+            name: string;
+            code: string;
+            /** Format: uri */
+            defaultDestinationUrl: string | null;
+            ownerUserId: string;
+            chapterIds: number[];
+            createdAt: number;
+            updatedAt: number;
+            archivedAt: number | null;
+        };
+        CliCampaignResponse: {
+            campaign: components["schemas"]["Campaign"];
+        };
+        CliCampaignList: {
+            campaigns: components["schemas"]["Campaign"][];
+            nextCursor: string | null;
+        };
+        CampaignChannel: {
+            id: number;
+            campaignId: number;
+            name: string;
+            code: string;
+            sortOrder: number;
+            archivedAt: number | null;
+        };
+        CliCampaignChannelResponse: {
+            channel: components["schemas"]["CampaignChannel"];
+        };
+        CliCampaignChannelList: {
+            channels: components["schemas"]["CampaignChannel"][];
+            nextCursor: string | null;
+        };
+        CampaignChannelSource: {
+            id: number;
+            channelId: number;
+            name: string;
+            code: string;
+            archivedAt: number | null;
+        };
+        CliCampaignChannelSourceResponse: {
+            source: components["schemas"]["CampaignChannelSource"];
+        };
+        CliCampaignChannelSourceList: {
+            sources: components["schemas"]["CampaignChannelSource"][];
+            nextCursor: string | null;
+        };
+        CliCampaignAnalytics: {
+            totalClicks: number;
+            trend: components["schemas"]["CliCampaignAnalyticsTrendPoint"][];
+            links: components["schemas"]["CliCampaignAnalyticsLinkRow"][];
+            sources: components["schemas"]["CliCampaignAnalyticsSourceRow"][];
+            acquisition: components["schemas"]["CliCampaignAnalyticsAcquisition"] | null;
+        };
+        CliCampaignAnalyticsResponse: {
+            analytics: components["schemas"]["CliCampaignAnalytics"];
+        };
+        CliCampaignAnalyticsTrendPoint: {
+            /** Format: date-time */
+            hour: string;
+            clicks: number;
+        };
+        CliCampaignAnalyticsLinkRow: {
+            linkId: string;
+            slug: string;
+            clicks: number;
+        };
+        CliCampaignAnalyticsSourceRow: {
+            channelId: number;
+            channelName: string;
+            sourceCode: string | null;
+            sourceName: string | null;
+            clicks: number;
+        };
+        CliCampaignAnalyticsAcquisitionChannel: {
+            name: string;
+            count: number;
+        };
+        CliCampaignAnalyticsAcquisition: {
+            applications: number;
+            cancellations: number;
+            attendanceRate: number | null;
+            channels: components["schemas"]["CliCampaignAnalyticsAcquisitionChannel"][];
+        };
     };
     responses: {
         /** @description The gateway signature is missing, invalid, or expired. */
@@ -272,7 +539,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description The caller cannot act on this domain or chapter. */
+        /** @description The caller does not have access to this resource or its chapter. */
         CliForbidden: {
             headers: {
                 [name: string]: unknown;
@@ -281,7 +548,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description Domain or job not found. */
+        /** @description The requested resource does not exist. */
         CliNotFound: {
             headers: {
                 [name: string]: unknown;
@@ -290,7 +557,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description The request conflicts with the resource's current state. */
+        /** @description The request conflicts with the resource's current state (e.g. a duplicate code, an already-registered domain, or an unexpected archived/active state). */
         CliConflict: {
             headers: {
                 [name: string]: unknown;
@@ -311,6 +578,12 @@ export interface components {
     };
     parameters: {
         Slug: string;
+        CampaignIdPath: number;
+        ChannelIdPath: number;
+        SourceIdPath: number;
+        IncludeArchived: boolean;
+        Limit: number;
+        Cursor: string;
     };
     requestBodies: never;
     headers: never;
@@ -591,6 +864,526 @@ export interface operations {
             };
             401: components["responses"]["CliUnauthorized"];
             404: components["responses"]["CliNotFound"];
+        };
+    };
+    listCliCampaigns: {
+        parameters: {
+            query?: {
+                includeArchived?: components["parameters"]["IncludeArchived"];
+                limit?: components["parameters"]["Limit"];
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's campaigns. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCampaignList"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+        };
+    };
+    createCliCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    code: string;
+                    /** Format: uri */
+                    defaultDestinationUrl?: string | null;
+                    chapterIds: number[];
+                };
+            };
+        };
+        responses: {
+            /** @description Created campaign. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCampaignResponse"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    getCliCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign detail. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCampaignResponse"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    archiveCliCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign archived. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliArchiveResult"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    updateCliCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    code?: string;
+                    /** Format: uri */
+                    defaultDestinationUrl?: string | null;
+                    chapterIds?: number[];
+                };
+            };
+        };
+        responses: {
+            /** @description Updated campaign. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCampaignResponse"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    restoreCliCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign restored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCampaignResponse"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    getCliCampaignAnalytics: {
+        parameters: {
+            query: {
+                /** @description Inclusive range start, as an ISO instant. */
+                from: string;
+                /** @description Inclusive range end, as an ISO instant. The range is capped at 366 days. */
+                to: string;
+                /** @description Rejected as hour for ranges over 31 days. */
+                bucket?: "hour" | "day";
+                channelId?: number;
+                linkId?: string;
+                includeAutomated?: boolean;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Aggregate click and acquisition analytics for the campaign. Never includes participant identifiers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCampaignAnalyticsResponse"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    listCliCampaignChannels: {
+        parameters: {
+            query?: {
+                includeArchived?: components["parameters"]["IncludeArchived"];
+                limit?: components["parameters"]["Limit"];
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The campaign's channels. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCampaignChannelList"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    createCliCampaignChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    code: string;
+                    sortOrder?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Created channel. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCampaignChannelResponse"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    archiveCliCampaignChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+                channelId: components["parameters"]["ChannelIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Channel archived. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliArchiveResult"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    updateCliCampaignChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+                channelId: components["parameters"]["ChannelIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    code?: string;
+                    sortOrder?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated channel. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCampaignChannelResponse"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    restoreCliCampaignChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+                channelId: components["parameters"]["ChannelIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Channel restored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCampaignChannelResponse"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    listCliCampaignChannelSources: {
+        parameters: {
+            query?: {
+                includeArchived?: components["parameters"]["IncludeArchived"];
+                limit?: components["parameters"]["Limit"];
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+                channelId: components["parameters"]["ChannelIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The channel's sources. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCampaignChannelSourceList"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    createCliCampaignChannelSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+                channelId: components["parameters"]["ChannelIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created source. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCampaignChannelSourceResponse"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    archiveCliCampaignChannelSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+                channelId: components["parameters"]["ChannelIdPath"];
+                sourceId: components["parameters"]["SourceIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Source archived. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliArchiveResult"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    updateCliCampaignChannelSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+                channelId: components["parameters"]["ChannelIdPath"];
+                sourceId: components["parameters"]["SourceIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    code?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated source. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCampaignChannelSourceResponse"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    restoreCliCampaignChannelSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["CampaignIdPath"];
+                channelId: components["parameters"]["ChannelIdPath"];
+                sourceId: components["parameters"]["SourceIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Source restored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliCampaignChannelSourceResponse"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
         };
     };
 }

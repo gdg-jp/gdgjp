@@ -4,3 +4,12 @@ Error:
   properties:
     error:
       type: string
+CliArchiveResult:
+  type: object
+  required: [id, archived]
+  properties:
+    id:
+      type: integer
+    archived:
+      type: boolean
+      enum: [true]

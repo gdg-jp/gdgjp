@@ -1,18 +1,38 @@
 CliBadRequest:
   description: The request is missing required fields or is malformed.
-  content: { application/json: { schema: { $ref: ../schemas/common.yaml#/Error } } }
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error
 CliUnauthorized:
   description: The bearer token is missing, invalid, or lacks the CLI scope.
-  content: { application/json: { schema: { $ref: ../schemas/common.yaml#/Error } } }
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error
 CliForbidden:
-  description: The caller cannot act on this domain or chapter.
-  content: { application/json: { schema: { $ref: ../schemas/common.yaml#/Error } } }
+  description: The caller does not have access to this resource or its chapter.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error
 CliNotFound:
-  description: Domain or job not found.
-  content: { application/json: { schema: { $ref: ../schemas/common.yaml#/Error } } }
+  description: The requested resource does not exist.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error
 CliConflict:
-  description: The request conflicts with the resource's current state.
-  content: { application/json: { schema: { $ref: ../schemas/common.yaml#/Error } } }
+  description: >-
+    The request conflicts with the resource's current state (e.g. a duplicate code, an already-registered
+    domain, or an unexpected archived/active state).
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error
 CliServiceUnavailable:
   description: The job could not be queued; retry later.
-  content: { application/json: { schema: { $ref: ../schemas/common.yaml#/Error } } }
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/Error

@@ -11,6 +11,31 @@ export default [
   route("api/cli/v1/domains/:id", "routes/api.cli.v1.domains.$id.ts"),
   route("api/cli/v1/domains/:id/sync", "routes/api.cli.v1.domains.$id.sync.ts"),
   route("api/cli/v1/jobs/:jobId", "routes/api.cli.v1.jobs.$jobId.ts"),
+  route("api/cli/v1/campaigns", "routes/api.cli.v1.campaigns.ts"),
+  route("api/cli/v1/campaigns/:id", "routes/api.cli.v1.campaigns.$id.ts"),
+  route("api/cli/v1/campaigns/:id/restore", "routes/api.cli.v1.campaigns.$id.restore.ts"),
+  route("api/cli/v1/campaigns/:id/analytics", "routes/api.cli.v1.campaigns.$id.analytics.ts"),
+  route("api/cli/v1/campaigns/:id/channels", "routes/api.cli.v1.campaigns.$id.channels.ts"),
+  route(
+    "api/cli/v1/campaigns/:id/channels/:channelId",
+    "routes/api.cli.v1.campaigns.$id.channels.$channelId.ts",
+  ),
+  route(
+    "api/cli/v1/campaigns/:id/channels/:channelId/restore",
+    "routes/api.cli.v1.campaigns.$id.channels.$channelId.restore.ts",
+  ),
+  route(
+    "api/cli/v1/campaigns/:id/channels/:channelId/sources",
+    "routes/api.cli.v1.campaigns.$id.channels.$channelId.sources.ts",
+  ),
+  route(
+    "api/cli/v1/campaigns/:id/channels/:channelId/sources/:sourceId",
+    "routes/api.cli.v1.campaigns.$id.channels.$channelId.sources.$sourceId.ts",
+  ),
+  route(
+    "api/cli/v1/campaigns/:id/channels/:channelId/sources/:sourceId/restore",
+    "routes/api.cli.v1.campaigns.$id.channels.$channelId.sources.$sourceId.restore.ts",
+  ),
   route("links/:id", "routes/links.$id.tsx"),
   route("analytics", "routes/analytics.tsx"),
   route("tags", "routes/tags.tsx"),

@@ -1,0 +1,32 @@
+CampaignChannelSource:
+  type: object
+  required: [id, channelId, name, code, archivedAt]
+  properties:
+    id:
+      type: integer
+    channelId:
+      type: integer
+    name:
+      type: string
+    code:
+      type: string
+    archivedAt:
+      type: integer
+      nullable: true
+CliCampaignChannelSourceResponse:
+  type: object
+  required: [source]
+  properties:
+    source:
+      $ref: '#/CampaignChannelSource'
+CliCampaignChannelSourceList:
+  type: object
+  required: [sources, nextCursor]
+  properties:
+    sources:
+      type: array
+      items:
+        $ref: '#/CampaignChannelSource'
+    nextCursor:
+      type: string
+      nullable: true

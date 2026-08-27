@@ -49,9 +49,14 @@ export async function parseCliJsonBody<T>(request: Request): Promise<CliJsonBody
     return { ok: false, response: cliError("payload_too_large", 413) };
   }
 
+  let value: unknown;
   try {
-    return { ok: true, value: JSON.parse(text) as T };
+    value = JSON.parse(text);
   } catch {
     return { ok: false, response: cliError("invalid_json", 400) };
   }
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return { ok: false, response: cliError("invalid_json", 400) };
+  }
+  return { ok: true, value: value as T };
 }

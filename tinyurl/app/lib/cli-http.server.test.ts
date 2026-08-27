@@ -91,6 +91,17 @@ describe("parseCliJsonBody", () => {
     await expect(result.response.json()).resolves.toEqual({ error: "invalid_json" });
   });
 
+  it.each(['"a string"', "[1,2,3]", "null", "42"])(
+    "rejects well-formed but non-object JSON (%s) with 400, not a thrown TypeError",
+    async (body) => {
+      const result = await parseCliJsonBody(jsonRequest(body));
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.response.status).toBe(400);
+      await expect(result.response.json()).resolves.toEqual({ error: "invalid_json" });
+    },
+  );
+
   it("every rejection response carries Cache-Control: no-store", async () => {
     const result = await parseCliJsonBody(jsonRequest("{not json"));
     if (result.ok) throw new Error("expected rejection");
