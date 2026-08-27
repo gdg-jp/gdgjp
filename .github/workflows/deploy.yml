@@ -196,22 +196,22 @@ jobs:
               VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
               VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
               VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          - name: Build and deploy agents
-            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'agents')
-            # agents/ depends on @gdgjp/gdg-lib via workspace:* and ships that
-            # package as untranspiled TS. Run every Vercel command from the
-            # monorepo root so the project's `agents` Root Directory is applied
-            # exactly once and the local build can resolve workspace packages.
-            # Deploying the prebuilt output also avoids a remote install.
-            run: |
-              pnpm --filter @gdgjp/agents build
-              pnpm --filter @gdgjp/agents exec vercel pull --cwd "$GITHUB_WORKSPACE" --yes --environment=production --token="$VERCEL_TOKEN"
-              pnpm --filter @gdgjp/agents exec vercel build --cwd "$GITHUB_WORKSPACE" --prod --token="$VERCEL_TOKEN"
-              pnpm --filter @gdgjp/agents exec vercel deploy --cwd "$GITHUB_WORKSPACE" --prebuilt --prod --yes --token="$VERCEL_TOKEN"
-              node agents/scripts/sync-discord-commands.mjs
-            env:
-              VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-              VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-              VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_AGENTS }}
-              DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
-              DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          # - name: Build and deploy agents
+          #   if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'agents')
+          #   # agents/ depends on @gdgjp/gdg-lib via workspace:* and ships that
+          #   # package as untranspiled TS. Run every Vercel command from the
+          #   # monorepo root so the project's `agents` Root Directory is applied
+          #   # exactly once and the local build can resolve workspace packages.
+          #   # Deploying the prebuilt output also avoids a remote install.
+          #   run: |
+          #     pnpm --filter @gdgjp/agents build
+          #     pnpm --filter @gdgjp/agents exec vercel pull --cwd "$GITHUB_WORKSPACE" --yes --environment=production --token="$VERCEL_TOKEN"
+          #     pnpm --filter @gdgjp/agents exec vercel build --cwd "$GITHUB_WORKSPACE" --prod --token="$VERCEL_TOKEN"
+          #     pnpm --filter @gdgjp/agents exec vercel deploy --cwd "$GITHUB_WORKSPACE" --prebuilt --prod --yes --token="$VERCEL_TOKEN"
+          #     node agents/scripts/sync-discord-commands.mjs
+          #   env:
+          #     VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          #     VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          #     VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_AGENTS }}
+          #     DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
+          #     DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
