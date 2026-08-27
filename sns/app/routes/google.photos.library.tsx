@@ -2,10 +2,12 @@ import { decode } from "blurhash";
 import { useEffect, useRef, useState } from "react";
 import { Form, data, redirect, useFetcher } from "react-router";
 import { AppShell } from "~/components/app-shell";
+import { postDraftDepsFromEnv } from "~/features/posts/post-draft.deps.server";
+import { PostDraftError, attachMedia } from "~/features/posts/post-draft.service.server";
 import { requireSnsAccess } from "~/lib/access.server";
 import { getPost, listGooglePhotosLibraryMedia, listPostMedia } from "~/lib/db.server";
 import { claimAndPublish } from "~/lib/publish.server";
-import { MAX_IMAGES, nowIso } from "~/lib/utils";
+import { MAX_IMAGES } from "~/lib/utils";
 import type { Route } from "./+types/google.photos.library";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
@@ -56,24 +58,21 @@ export async function action({ request, context }: Route.ActionArgs) {
     .all<{ id: string; r2_key: string; content_type: string; byte_size: number }>();
   if (selected.results.length !== selectedIds.length)
     return data({ error: "選択した画像が見つかりません。" }, { status: 404 });
+  const deps = postDraftDepsFromEnv(env);
   for (const [index, item] of selected.results.entries()) {
     const source = await env.MEDIA.get(item.r2_key);
     if (!source) return data({ error: "保存済み画像が見つかりません。" }, { status: 409 });
-    const key = `${post.chapterId}/${post.id}/${crypto.randomUUID()}`;
-    await env.MEDIA.put(key, source.body, { httpMetadata: { contentType: item.content_type } });
-    await env.DB.prepare(
-      "INSERT INTO post_media (id, post_id, r2_key, content_type, byte_size, alt_text, sort_order, created_at) VALUES (?, ?, ?, ?, ?, '', ?, ?)",
-    )
-      .bind(
-        crypto.randomUUID(),
-        post.id,
-        key,
-        item.content_type,
-        item.byte_size,
-        existing.length + index,
-        nowIso(),
-      )
-      .run();
+    try {
+      await attachMedia(deps, post.id, {
+        bytes: await source.arrayBuffer(),
+        contentType: item.content_type,
+        sortOrder: existing.length + index,
+      });
+    } catch (error) {
+      if (error instanceof PostDraftError && error.code === "not_editable")
+        return data({ error: "投稿済みの投稿には画像を追加できません。" }, { status: 409 });
+      throw error;
+    }
   }
   await claimAndPublish(env, post.id);
   throw redirect(`/schedule?edit=${post.id}`);

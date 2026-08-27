@@ -7,11 +7,22 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Form, Link, data, redirect } from "react-router";
 import { AppShell } from "~/components/app-shell";
+import { postDraftDepsFromEnv } from "~/features/posts/post-draft.deps.server";
+import {
+  PostDraftError,
+  attachMedia,
+  createDraft,
+  deleteDraft,
+  getDraft,
+  removeMedia,
+  updateDraft,
+  updateMediaMetadata,
+} from "~/features/posts/post-draft.service.server";
+import type { Post } from "~/features/posts/post.types";
 import { requireSnsAccess } from "~/lib/access.server";
 import { getPost, listPostMedia, listXAccounts } from "~/lib/db.server";
-import { fetchLinkPreview } from "~/lib/link-preview.server";
 import { claimAndPublish } from "~/lib/publish.server";
-import { MAX_IMAGES, MAX_IMAGE_BYTES, nowIso } from "~/lib/utils";
+import { MAX_IMAGES, MAX_IMAGE_BYTES } from "~/lib/utils";
 import {
   X_COUNTER_NUMBER_THRESHOLD,
   X_POST_CHARACTER_LIMIT,
@@ -58,25 +69,20 @@ export async function action({ request, context }: Route.ActionArgs) {
   const env = context.cloudflare.env;
   const access = await requireSnsAccess(env, request);
   const form = await request.formData();
+  const deps = postDraftDepsFromEnv(env);
   const intent = String(form.get("intent") ?? "save");
+
   if (intent === "delete") {
     const postId = String(form.get("postId") ?? "");
     const post = await getPost(env.DB, postId);
     if (!post || post.chapterId !== access.chapter.chapterId)
       throw new Response("Not found", { status: 404 });
-    const media = (await listPostMedia(env.DB, [post.id]))[post.id] ?? [];
-    const deletion = await env.DB.prepare(
-      "DELETE FROM posts WHERE id = ? AND status NOT IN ('published', 'posting')",
-    )
-      .bind(post.id)
-      .run();
-    // D1's `changes` uses SQLite's total-change count, so cascaded media and tag deletions can
-    // make it greater than one even when the post itself was deleted successfully.
-    if (deletion.meta.changes < 1)
+    const result = await deleteDraft(deps, post.id);
+    if (!result.ok)
       return data({ error: "投稿中または投稿済みの予約は削除できません。" }, { status: 409 });
-    await Promise.all(media.map((item) => env.MEDIA.delete(item.r2Key)));
     throw redirect("/posts");
   }
+
   const text = String(form.get("text") ?? "");
   const xAccountId = String(form.get("xAccountId") ?? "");
   const postingOption: PostingOption =
@@ -87,26 +93,25 @@ export async function action({ request, context }: Route.ActionArgs) {
         : "photo_required";
   const condition = postingOption === "photo_required" ? "photo_required" : "scheduled";
   const scheduledInput = String(form.get("scheduledAt") ?? "");
-  const scheduledAt =
+  const scheduledDate =
     postingOption === "immediate" ? new Date() : new Date(`${scheduledInput}:00+09:00`);
   if (
     !text.trim() ||
     !parseXPostText(text).valid ||
     !xAccountId ||
-    Number.isNaN(scheduledAt.getTime())
+    Number.isNaN(scheduledDate.getTime())
   )
     return data({ error: "本文、投稿先、予約日時を確認してください。" }, { status: 400 });
-  const account = (await listXAccounts(env.DB, access.chapter.chapterId)).find(
-    (item) => item.id === xAccountId,
-  );
-  if (!account) throw new Response("Forbidden", { status: 403 });
-  const id = String(form.get("postId") ?? "") || crypto.randomUUID();
-  const existing = await getPost(env.DB, id);
+  const scheduledAt = scheduledDate.toISOString();
+
+  const id = String(form.get("postId") ?? "");
+  const existing = id ? await getPost(env.DB, id) : null;
   if (existing && existing.chapterId !== access.chapter.chapterId)
     throw new Response("Forbidden", { status: 403 });
   if (existing?.status === "published" || existing?.status === "posting")
     return data({ error: "投稿中または投稿済みの予約は変更できません。" }, { status: 409 });
-  const existingMedia = existing ? ((await listPostMedia(env.DB, [id]))[id] ?? []) : [];
+
+  const existingMedia = existing ? ((await getDraft(deps, existing.id))?.media ?? []) : [];
   const deletedMediaIds = new Set(form.getAll("deletedMedia").map(String));
   const deletedMedia = existingMedia.filter((media) => deletedMediaIds.has(media.id));
   const remainingMedia = existingMedia.filter((media) => !deletedMediaIds.has(media.id));
@@ -121,106 +126,76 @@ export async function action({ request, context }: Route.ActionArgs) {
       { error: "画像は4枚まで、1枚5MB以下の画像ファイルを指定してください。" },
       { status: 400 },
     );
-  const preview = await fetchLinkPreview(text).catch(() => null);
-  const now = nowIso();
-  const status =
-    condition === "photo_required" && remainingMedia.length + files.length === 0
-      ? "waiting_for_photo"
-      : "scheduled";
-  if (existing) {
-    await env.DB.prepare(
-      "UPDATE posts SET x_account_id = ?, text = ?, scheduled_at = ?, condition = ?, status = ?, link_preview_url = ?, link_preview_title = ?, link_preview_description = ?, link_preview_image_url = ?, updated_at = ?, failure_reason = NULL WHERE id = ?",
-    )
-      .bind(
+
+  const tagHandles = [String(form.get("tagHandles") ?? "")];
+  let post: Post;
+  try {
+    if (existing) {
+      for (const media of deletedMedia) await removeMedia(deps, media.id);
+      await updateMediaMetadata(
+        deps,
+        remainingMedia.map((media, index) => ({
+          id: media.id,
+          altText: String(form.get(`alt-${media.id}`) ?? ""),
+          sortOrder: index,
+        })),
+      );
+      post = await updateDraft(deps, existing.id, {
         xAccountId,
         text,
-        scheduledAt.toISOString(),
+        scheduledAt,
         condition,
-        status,
-        preview?.url ?? null,
-        preview?.title ?? null,
-        preview?.description ?? null,
-        preview?.imageUrl ?? null,
-        now,
-        id,
-      )
-      .run();
-    await Promise.all(
-      remainingMedia.map((media, index) =>
-        env.DB.prepare("UPDATE post_media SET alt_text = ?, sort_order = ? WHERE id = ?")
-          .bind(String(form.get(`alt-${media.id}`) ?? ""), index, media.id)
-          .run(),
-      ),
-    );
-    await Promise.all(
-      deletedMedia.map(async (media) => {
-        await env.MEDIA.delete(media.r2Key);
-        await env.DB.prepare("DELETE FROM post_media WHERE id = ?").bind(media.id).run();
-      }),
-    );
-  } else {
-    await env.DB.prepare(
-      "INSERT INTO posts (id, chapter_id, x_account_id, text, scheduled_at, condition, status, created_by_user_id, link_preview_url, link_preview_title, link_preview_description, link_preview_image_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    )
-      .bind(
-        id,
-        access.chapter.chapterId,
+        tagHandles,
+      });
+    } else {
+      post = await createDraft(deps, {
+        chapterId: access.chapter.chapterId,
         xAccountId,
         text,
-        scheduledAt.toISOString(),
+        scheduledAt,
         condition,
-        status,
-        access.user.id,
-        preview?.url ?? null,
-        preview?.title ?? null,
-        preview?.description ?? null,
-        preview?.imageUrl ?? null,
-        now,
-        now,
+        createdByUserId: access.user.id,
+        tagHandles,
+      });
+    }
+    for (const [index, file] of files.entries()) {
+      const result = await attachMedia(deps, post.id, {
+        bytes: await file.arrayBuffer(),
+        contentType: file.type,
+        altText: String(form.get(`new-alt-${index}`) ?? ""),
+        sortOrder: remainingMedia.length + index,
+      });
+      post = result.post;
+    }
+  } catch (error) {
+    if (error instanceof PostDraftError) {
+      if (error.code === "account_not_found") throw new Response("Forbidden", { status: 403 });
+      if (error.code === "not_editable")
+        return data({ error: "投稿中または投稿済みの予約は変更できません。" }, { status: 409 });
+      if (
+        error.code === "too_many_images" ||
+        error.code === "image_too_large" ||
+        error.code === "not_image"
       )
-      .run();
-  }
-  for (const [index, file] of files.entries()) {
-    const key = `${access.chapter.chapterId}/${id}/${crypto.randomUUID()}`;
-    await env.MEDIA.put(key, await file.arrayBuffer(), {
-      httpMetadata: { contentType: file.type },
-    });
-    await env.DB.prepare(
-      "INSERT INTO post_media (id, post_id, r2_key, content_type, byte_size, alt_text, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-    )
-      .bind(
-        crypto.randomUUID(),
-        id,
-        key,
-        file.type,
-        file.size,
-        String(form.get(`new-alt-${index}`) ?? ""),
-        remainingMedia.length + index,
-        nowIso(),
+        return data(
+          { error: "画像は4枚まで、1枚5MB以下の画像ファイルを指定してください。" },
+          { status: 400 },
+        );
+      if (
+        error.code === "invalid_text" ||
+        error.code === "invalid_schedule" ||
+        error.code === "invalid_condition"
       )
-      .run();
+        return data({ error: "本文、投稿先、予約日時を確認してください。" }, { status: 400 });
+    }
+    throw error;
   }
-  const handles = String(form.get("tagHandles") ?? "")
-    .split(/[\s,]+/)
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .slice(0, 10);
-  await env.DB.prepare("DELETE FROM post_media_tags WHERE post_id = ?").bind(id).run();
-  for (const handle of handles) {
-    // Resolve at submit time; failures are user-visible rather than creating an invalid X tag.
-    const { resolveXUsername } = await import("~/lib/x.server");
-    const resolved = await resolveXUsername(env, xAccountId, handle);
-    await env.DB.prepare(
-      "INSERT INTO post_media_tags (post_id, x_user_id, username) VALUES (?, ?, ?)",
-    )
-      .bind(id, resolved.id, resolved.username)
-      .run();
-  }
+
   if (intent === "save_and_add_google_photos")
-    throw redirect(`/google/photos/library?postId=${id}`, {
+    throw redirect(`/google/photos/library?postId=${post.id}`, {
       headers: { "Set-Cookie": postingOptionCookie(postingOption) },
     });
-  await claimAndPublish(env, id);
+  await claimAndPublish(env, post.id);
   throw redirect("/posts", { headers: { "Set-Cookie": postingOptionCookie(postingOption) } });
 }
 
