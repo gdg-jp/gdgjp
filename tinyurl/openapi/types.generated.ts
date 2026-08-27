@@ -72,6 +72,122 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cli/v1/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List links visible to the caller */
+        get: operations["listCliLinks"];
+        put?: never;
+        /** Create a short link */
+        post: operations["createCliLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/links/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Get a link */
+        get: operations["getCliLink"];
+        put?: never;
+        post?: never;
+        /** Soft delete a link */
+        delete: operations["deleteCliLink"];
+        options?: never;
+        head?: never;
+        /** Update a link */
+        patch: operations["updateCliLink"];
+        trace?: never;
+    };
+    "/api/cli/v1/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List tags visible to the caller */
+        get: operations["listCliTags"];
+        put?: never;
+        /** Create a personal tag */
+        post: operations["createCliTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/tags/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a personal tag */
+        delete: operations["deleteCliTag"];
+        options?: never;
+        head?: never;
+        /** Update a personal tag */
+        patch: operations["updateCliTag"];
+        trace?: never;
+    };
+    "/api/cli/v1/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List accessible folders */
+        get: operations["listCliFolders"];
+        put?: never;
+        /** Create a folder */
+        post: operations["createCliFolder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/folders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /** Get an accessible folder */
+        get: operations["getCliFolder"];
+        put?: never;
+        post?: never;
+        /** Delete an empty folder */
+        delete: operations["deleteCliFolder"];
+        options?: never;
+        head?: never;
+        /** Rename a folder */
+        patch: operations["updateCliFolder"];
+        trace?: never;
+    };
     "/api/cli/v1/domains": {
         parameters: {
             query?: never;
@@ -704,6 +820,323 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listCliLinks: {
+        parameters: {
+            query?: {
+                folderId?: number;
+                tagId?: number;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Visible links */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+        };
+    };
+    createCliLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Created link */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    getCliLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Link */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    deleteCliLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted link */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    updateCliLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated link */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    listCliTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tags */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["CliUnauthorized"];
+        };
+    };
+    createCliTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created tag */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    deleteCliTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted tag */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["CliUnauthorized"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    updateCliTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated tag */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["CliUnauthorized"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    listCliFolders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Folders */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["CliUnauthorized"];
+        };
+    };
+    createCliFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created folder */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    getCliFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Folder */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    deleteCliFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted folder */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    updateCliFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated folder */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
         };
     };
     listCliDomains: {

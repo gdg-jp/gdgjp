@@ -36,7 +36,11 @@ the legacy catch-all `app/lib/db.ts` from a new route.
   public — same visibility rule as `canViewLink`), with `?folderId=`/`?tagId=` filters mirroring
   the dashboard's existing filter query params.
 - `GET /api/cli/v1/links/:id` — single link, gated by the link policy.
-- `PATCH /api/cli/v1/links/:id` — via `updateLinkWithExtras`, gated by the link policy.
+- `PATCH /api/cli/v1/links/:id` — via `updateLinkWithExtras`, gated by `canEditLink` (a
+  viewer share is not sufficient). `domainId` is rejected with `400`; moving a link between
+  domains is not part of this stage. When `shares` is supplied, it atomically replaces the
+  link's complete share set; omitting `shares` preserves the existing set. Stage 09's
+  "same flags" wording means supported PATCH flags and must not expose `--domain-id`.
 - `DELETE /api/cli/v1/links/:id` — soft delete (sets `deleted_at`, matching the existing
   `deleteLink` semantics used by the cookie route), gated by `canEditLink`.
 - `GET|POST /api/cli/v1/tags` and `PATCH|DELETE /api/cli/v1/tags/:id` — bounded list plus
@@ -65,7 +69,7 @@ security scheme (matching the shape Stage 03 added to img's, or Stage 01's contr
 | `POST` | `/api/cli/v1/links` | CLI Bearer | `{ domainId, slug, destinationUrl, title?, description?, ogImageUrl?, visibility, tagIds?, newTagNames?, comment?, campaignChannelId?, folderId?, shares? }` | `201 { link: Link }` | `400`, `401`, `403`, `404`, `409` |
 | `GET` | `/api/cli/v1/links` | CLI Bearer | query: `folderId?`, `tagId?`, `limit?`, `cursor?` | `200 { links: Link[], nextCursor }` | `400`, `401` |
 | `GET` | `/api/cli/v1/links/:id` | CLI Bearer | — | `200 { link: Link }` | `401`, `403`, `404` |
-| `PATCH` | `/api/cli/v1/links/:id` | CLI Bearer | partial create body minus `domainId` | `200 { link: Link }` | `400`, `401`, `403`, `404` |
+| `PATCH` | `/api/cli/v1/links/:id` | CLI Bearer | partial create body minus `domainId`; supplied `shares` atomically replace all existing shares | `200 { link: Link }` | `400`, `401`, `403`, `404` |
 | `DELETE` | `/api/cli/v1/links/:id` | CLI Bearer | — | `200 { id, deleted: true }` | `401`, `403`, `404` |
 | `GET` | `/api/cli/v1/tags` | CLI Bearer | query: `limit?`, `cursor?` | `200 { tags: Tag[], nextCursor }` | `400`, `401` |
 | `POST` | `/api/cli/v1/tags` | CLI Bearer | `{ name, color? }` | `201 { tag: Tag }` | `400`, `401` |

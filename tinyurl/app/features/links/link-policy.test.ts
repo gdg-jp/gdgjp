@@ -1,7 +1,13 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { describe, expect, it } from "vitest";
 import type { Link, LinkPermission } from "~/lib/db";
-import { canEditLink, canViewLink, canViewLinkForChapters, validateSharePrincipal } from "./link-policy";
+import {
+  canEditLink,
+  canEditLinkForChapters,
+  canViewLink,
+  canViewLinkForChapters,
+  validateSharePrincipal,
+} from "./link-policy";
 
 const owner: AuthUser = {
   id: "u_owner",
@@ -147,6 +153,14 @@ describe("canViewLink / canEditLink", () => {
   it("checks every CLI membership, not just the first one", () => {
     const chapterLink: Link = { ...link, ownerChapterId: 42 };
     expect(canViewLinkForChapters(stranger, [1, 42], chapterLink, [])).toBe(true);
+  });
+
+  it("allows PATCH only for an editor share, not a viewer share", () => {
+    const viewer = [perm({ role: "viewer" })];
+    const editor = [perm({ role: "editor" })];
+
+    expect(canEditLinkForChapters(stranger, [1, 42], link, viewer)).toBe(false);
+    expect(canEditLinkForChapters(stranger, [1, 42], link, editor)).toBe(true);
   });
 });
 

@@ -373,3 +373,30 @@ export async function updatePermissionRole(
     .run();
   return (result.meta.changes ?? 0) > 0;
 }
+
+/**
+ * Replaces every explicit permission on a link in one D1 batch. Callers must
+ * validate the requested principals before invoking this function.
+ */
+export async function replaceLinkPermissions(
+  db: D1Database,
+  linkId: string,
+  permissions: Array<{
+    principalType: PrincipalType;
+    principalId: string;
+    role: LinkRole;
+  }>,
+): Promise<void> {
+  const statements = [
+    db.prepare("DELETE FROM link_permissions WHERE link_id = ?").bind(linkId),
+    ...permissions.map((permission) =>
+      db
+        .prepare(
+          `INSERT INTO link_permissions (link_id, principal_type, principal_id, role)
+           VALUES (?, ?, ?, ?)`,
+        )
+        .bind(linkId, permission.principalType, permission.principalId, permission.role),
+    ),
+  ];
+  await db.batch(statements);
+}
