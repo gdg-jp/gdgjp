@@ -12,19 +12,18 @@ import {
   addComment,
   addPermission,
   copyFolderPermissionsToLink,
-  deleteComment,
   deleteLink,
   findExistingTagId,
   listAllowedTagIds,
-  listComments,
   listPermissionsForLink,
   replaceLinkPermissions,
+  replaceCommentForAuthor,
   createLink as repoCreateLink,
   updateLink as repoUpdateLink,
   setLinkTags,
   updatePermissionRole,
 } from "./link.repository";
-import type { CreateLinkInput, Link } from "./link.types";
+import type { CreateLinkInput, Link, LinkShareInput } from "./link.types";
 
 export type LinkServiceDependencies = {
   db: D1Database;
@@ -32,9 +31,52 @@ export type LinkServiceDependencies = {
 
 export type LinkServiceActor = {
   user: AuthUser;
-  chapter: UserChapter;
   chapters: UserChapter[];
+  /** Dashboard selection or the CLI's explicitly requested chapter. */
+  selectedChapterId: number | null;
 };
+
+function validateShares(
+  rawShares: LinkShareInput[] | undefined,
+): { ok: true; shares: ValidatedShare[] } | FeatureFailure {
+  const shares: ValidatedShare[] = [];
+  const principals = new Set<string>();
+  for (const raw of rawShares ?? []) {
+    const result = validateSharePrincipal(raw);
+    if (!result.ok) return featureFailure("invalid_input", result.error);
+    const key = `${result.share.principalType}:${result.share.principalId}`;
+    if (principals.has(key)) {
+      return featureFailure("invalid_input", "Duplicate sharing principal.");
+    }
+    principals.add(key);
+    shares.push(result.share);
+  }
+  return { ok: true, shares };
+}
+
+function resolveCampaignChapterId(
+  actor: LinkServiceActor,
+  campaignChapterIds: number[],
+): number | FeatureFailure {
+  const selected = actor.selectedChapterId;
+  if (
+    selected !== null &&
+    campaignChapterIds.includes(selected) &&
+    (isSuperAdmin(actor.user) || actor.chapters.some((chapter) => chapter.chapterId === selected))
+  ) {
+    return selected;
+  }
+
+  const accessible = campaignChapterIds.filter((chapterId) =>
+    actor.chapters.some((chapter) => chapter.chapterId === chapterId),
+  );
+  if (accessible.length === 1) return accessible[0]!;
+
+  return featureFailure(
+    "invalid_input",
+    "A campaign chapter must be selected for this link.",
+  );
+}
 
 async function applyLinkExtras(
   deps: LinkServiceDependencies,
@@ -88,7 +130,7 @@ export async function createLinkWithExtras(
   actor: LinkServiceActor,
   input: CreateLinkInput,
 ): Promise<{ ok: true; link: Link } | FeatureFailure> {
-  const { user, chapter, chapters } = actor;
+  const { user, chapters } = actor;
 
   if (!Number.isInteger(input.domainId) || input.domainId <= 0) {
     return featureFailure("invalid_input", "Domain is invalid.");
@@ -109,12 +151,9 @@ export async function createLinkWithExtras(
     return featureFailure("invalid_input", "Visibility must be private or public.");
   }
 
-  const shares: ValidatedShare[] = [];
-  for (const raw of input.shares ?? []) {
-    const result = validateSharePrincipal(raw);
-    if (!result.ok) return featureFailure("invalid_input", result.error);
-    shares.push(result.share);
-  }
+  const shareValidation = validateShares(input.shares);
+  if (!shareValidation.ok) return shareValidation;
+  const shares = shareValidation.shares;
 
   let campaignChannelId: number | null = null;
   let ownerChapterId: number | null = null;
@@ -126,19 +165,19 @@ export async function createLinkWithExtras(
     }
     const channel = await getCampaignChannelById(deps.db, campaignChannelId);
     const campaign = channel ? await getCampaignById(deps.db, channel.campaignId) : null;
-    const accessChapter = campaign?.chapterIds
-      .map((id) => chapters.find((item) => item.chapterId === id))
-      .find((item) => item !== undefined);
     if (
       !channel ||
       !campaign ||
       channel.archivedAt !== null ||
       campaign.archivedAt !== null ||
-      (!accessChapter && !isSuperAdmin(user))
+      (!isSuperAdmin(user) &&
+        !campaign.chapterIds.some((id) => chapters.some((chapter) => chapter.chapterId === id)))
     ) {
       return featureFailure("invalid_input", "Campaign channel is not available for your chapter.");
     }
-    ownerChapterId = accessChapter?.chapterId ?? chapter.chapterId;
+    const resolvedChapterId = resolveCampaignChapterId(actor, campaign.chapterIds);
+    if (typeof resolvedChapterId !== "number") return resolvedChapterId;
+    ownerChapterId = resolvedChapterId;
     if (!destinationUrl && campaign.defaultDestinationUrl) {
       destinationUrl = campaign.defaultDestinationUrl;
     }
@@ -264,15 +303,23 @@ export async function updateLinkWithExtras(
   const { user, chapters } = actor;
   const update: Parameters<typeof repoUpdateLink>[2] = { ...domainUpdate };
   let replacementShares: ValidatedShare[] | undefined;
+  let commentBody: string | undefined;
 
   // Validate before changing the link itself so an invalid replacement does
   // not leave a partially-applied PATCH behind.
   if (patch.shares !== undefined) {
-    replacementShares = [];
-    for (const raw of patch.shares) {
-      const result = validateSharePrincipal(raw);
-      if (!result.ok) return featureFailure("invalid_input", result.error);
-      replacementShares.push(result.share);
+    const shareValidation = validateShares(patch.shares);
+    if (!shareValidation.ok) return shareValidation;
+    replacementShares = shareValidation.shares;
+  }
+
+  if (patch.comment !== undefined) {
+    if (patch.comment !== null && typeof patch.comment !== "string") {
+      return featureFailure("invalid_input", "Comment must be a string.");
+    }
+    commentBody = (patch.comment ?? "").trim();
+    if (commentBody.length > 2000) {
+      return featureFailure("invalid_input", "Comment is too long (max 2000 chars).");
     }
   }
 
@@ -368,15 +415,12 @@ export async function updateLinkWithExtras(
     await setLinkTags(deps.db, id, [...finalIds]);
   }
 
-  if (patch.comment !== undefined) {
-    const body = (patch.comment ?? "").trim();
-    if (body.length > 2000)
-      return featureFailure("invalid_input", "Comment is too long (max 2000 chars).");
-    const existing = await listComments(deps.db, id);
-    for (const comment of existing.filter((c) => c.authorUserId === user.id)) {
-      await deleteComment(deps.db, comment.id);
-    }
-    if (body) await addComment(deps.db, { linkId: id, authorUserId: user.id, body });
+  if (commentBody !== undefined) {
+    await replaceCommentForAuthor(deps.db, {
+      linkId: id,
+      authorUserId: user.id,
+      body: commentBody,
+    });
   }
 
   // PATCH shares has replacement semantics: when present, this complete list

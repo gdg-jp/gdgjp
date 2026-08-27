@@ -286,6 +286,26 @@ export async function deleteComment(db: D1Database, id: number): Promise<void> {
   await db.prepare("DELETE FROM comments WHERE id = ?").bind(id).run();
 }
 
+/** Replaces one author's comment atomically; an empty body removes it. */
+export async function replaceCommentForAuthor(
+  db: D1Database,
+  input: { linkId: string; authorUserId: string; body: string },
+): Promise<void> {
+  const statements = [
+    db
+      .prepare("DELETE FROM comments WHERE link_id = ? AND author_user_id = ?")
+      .bind(input.linkId, input.authorUserId),
+  ];
+  if (input.body) {
+    statements.push(
+      db
+        .prepare("INSERT INTO comments (link_id, author_user_id, body) VALUES (?, ?, ?)")
+        .bind(input.linkId, input.authorUserId, input.body),
+    );
+  }
+  await db.batch(statements);
+}
+
 // ---------- Permissions ----------
 
 export async function listPermissionsForLink(
