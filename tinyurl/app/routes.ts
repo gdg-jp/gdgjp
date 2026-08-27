@@ -16,7 +16,6 @@ export default [
   route("api/cli/v1/domains", "routes/api.cli.v1.domains.ts"),
   route("api/cli/v1/domains/:id", "routes/api.cli.v1.domains.$id.ts"),
   route("api/cli/v1/domains/:id/sync", "routes/api.cli.v1.domains.$id.sync.ts"),
-  route("api/cli/v1/jobs/:jobId", "routes/api.cli.v1.jobs.$jobId.ts"),
   route("api/cli/v1/campaigns", "routes/api.cli.v1.campaigns.ts"),
   route("api/cli/v1/campaigns/:id", "routes/api.cli.v1.campaigns.$id.ts"),
   route("api/cli/v1/campaigns/:id/restore", "routes/api.cli.v1.campaigns.$id.restore.ts"),

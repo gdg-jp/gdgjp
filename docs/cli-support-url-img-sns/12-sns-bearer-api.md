@@ -13,11 +13,10 @@ Depends on Stage 01 (strict `getCliIdentity`), Stage 10's post aggregate operati
 contributor/X-account feature services.
 
 Explicitly excludes: Google Photos routes (deferred per `00-overview.md`'s resolved scope) and
-"publish now to X" (Stage 13 — it needs the async Job+Queue pattern this stage's endpoints don't).
+"publish now to X" (Stage 13).
 
 Read first: `img/openapi/`'s directory tree (Stage 03 already extended it — use it, not
-connpass's, as the structural template, since img is closer to sns in shape: no async jobs in its
-base contract). `sns/app/lib/access.server.ts`'s `requireSnsAccess` — the CLI routes need an
+connpass's, as the structural template, since img is closer to sns in shape). `sns/app/lib/access.server.ts`'s `requireSnsAccess` — the CLI routes need an
 equivalent chapter/contributor-role check built from `getCliIdentity`'s
 `{ user, chapters }` instead of a session cookie; write a small CLI-specific access helper (see
 Design) rather than trying to reuse `requireSnsAccess` itself, since it's built around
@@ -129,9 +128,8 @@ this stage's actual OpenAPI spec so it isn't mistaken for an oversight.
 - Do not add Google Photos routes here — deferred per `00-overview.md`. If a delegate session
   finds `google.photos.library.tsx`'s logic tempting to reuse for a `POST /api/cli/v1/posts/:id/media`
   variant, don't — that's explicitly out of scope.
-- Do not add a "publish now" endpoint here — that's Stage 13, which needs the async Job pattern.
-- Follow img's `openapi/` directory shape (Design step 1), not connpass's — connpass's includes
-  job/async schemas this stage's base contract doesn't need yet (Stage 13 adds those).
+- Do not add a "publish now" endpoint here — that's Stage 13.
+- Follow img's `openapi/` directory shape (Design step 1), not connpass's.
 
 ## Files to touch
 

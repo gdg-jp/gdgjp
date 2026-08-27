@@ -198,7 +198,7 @@ export interface paths {
         /** List domains visible to the caller */
         get: operations["listCliDomains"];
         put?: never;
-        /** Register a custom domain and provision it asynchronously */
+        /** Register a custom domain and provision it with the gateway provider */
         post: operations["createCliDomain"];
         delete?: never;
         options?: never;
@@ -235,23 +235,6 @@ export interface paths {
         put?: never;
         /** Retry provisioning for a non-active domain */
         post: operations["syncCliDomain"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/cli/v1/jobs/{jobId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get an async job's status */
-        get: operations["getCliJob"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -499,34 +482,6 @@ export interface components {
             /** @enum {boolean} */
             deleted: true;
         };
-        Job: {
-            id: string;
-            /** @enum {string} */
-            type: "provision_domain";
-            /** @enum {string} */
-            status: "queued" | "running" | "succeeded" | "failed";
-            domainId: number;
-            request: {
-                [key: string]: unknown;
-            };
-            /** @description The persisted success or error-state Domain snapshot, once finished. */
-            result: {
-                [key: string]: unknown;
-            } | null;
-            error: string | null;
-            createdBy: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-            /** Format: date-time */
-            startedAt: string | null;
-            /** Format: date-time */
-            finishedAt: string | null;
-        };
-        JobResponse: {
-            job: components["schemas"]["Job"];
-        };
         CliArchiveResult: {
             id: number;
             /** @enum {boolean} */
@@ -675,15 +630,6 @@ export interface components {
         };
         /** @description The request conflicts with the resource's current state (e.g. a duplicate code, an already-registered domain, or an unexpected archived/active state). */
         CliConflict: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description The job could not be queued; retry later. */
-        CliServiceUnavailable: {
             headers: {
                 [name: string]: unknown;
             };
@@ -1202,19 +1148,19 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The domain was created and a provisioning job was queued. */
-            202: {
+            /** @description The domain was created; provisioning was attempted synchronously. */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JobResponse"];
+                    "application/json": components["schemas"]["DomainResponse"];
                 };
             };
             400: components["responses"]["CliBadRequest"];
             401: components["responses"]["CliUnauthorized"];
             403: components["responses"]["CliForbidden"];
-            503: components["responses"]["CliServiceUnavailable"];
+            409: components["responses"]["CliConflict"];
         };
     };
     getCliDomain: {
@@ -1279,44 +1225,19 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description A resynchronization job was queued. */
-            202: {
+            /** @description Provisioning was re-checked synchronously; the persisted domain is returned. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JobResponse"];
+                    "application/json": components["schemas"]["DomainResponse"];
                 };
             };
             401: components["responses"]["CliUnauthorized"];
             403: components["responses"]["CliForbidden"];
             404: components["responses"]["CliNotFound"];
             409: components["responses"]["CliConflict"];
-            503: components["responses"]["CliServiceUnavailable"];
-        };
-    };
-    getCliJob: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                jobId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The job. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Job"];
-                };
-            };
-            401: components["responses"]["CliUnauthorized"];
-            404: components["responses"]["CliNotFound"];
         };
     };
     listCliCampaigns: {

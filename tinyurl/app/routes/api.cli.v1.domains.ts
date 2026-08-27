@@ -1,7 +1,6 @@
-import { createDomainProvider, listDomainsForChapters } from "~/features/domains";
-import { createDomainRegistrationJob } from "~/features/domains/domain-job.service.server";
+import { createDomainProvider, listDomainsForChapters, registerDomain } from "~/features/domains";
 import { requireCliActor } from "~/lib/cli-auth.server";
-import { domainJobErrorResponse } from "~/lib/cli-errors.server";
+import { featureFailureResponse } from "~/lib/cli-errors.server";
 import { cliError, cliJson, cliMethodNotAllowed, parseCliJsonBody } from "~/lib/cli-http.server";
 import { detectCustomDomain } from "~/lib/domain-detection";
 import type { components } from "../../openapi/types.generated";
@@ -62,7 +61,6 @@ export async function loader(args: Route.LoaderArgs) {
 export async function action(args: Route.ActionArgs) {
   if (args.request.method !== "POST") return cliMethodNotAllowed();
   const env = args.context.cloudflare.env;
-  const ctx = args.context.cloudflare.ctx;
   const auth = await requireCliActor(env, args.request);
   if (!auth.ok) return auth.response;
 
@@ -78,11 +76,8 @@ export async function action(args: Route.ActionArgs) {
     provider: createDomainProvider(env),
     detectCustomDomain,
   };
-  const result = await createDomainRegistrationJob(deps, env, ctx, auth.actor, {
-    hostname,
-    chapterId,
-  });
-  if (!result.ok) return domainJobErrorResponse(result);
-  const body: components["schemas"]["JobResponse"] = { job: result.job };
-  return cliJson(body, { status: 202 });
+  const result = await registerDomain(deps, auth.actor, { hostname, chapterId });
+  if (!result.ok) return featureFailureResponse(result);
+  const body: components["schemas"]["DomainResponse"] = { domain: result.domain };
+  return cliJson(body, { status: 201 });
 }

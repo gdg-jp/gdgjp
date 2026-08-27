@@ -10,7 +10,6 @@
     "./auth/claims": "./src/auth/claims.ts",
     "./acl": "./src/acl/index.ts",
     "./acl/agent": "./src/acl/agent.ts",
-    "./jobs": "./src/jobs/index.ts",
     "./ui": "./src/ui/index.ts",
     "./ui/app-links": "./src/ui/app-links.ts"
   },

@@ -24,7 +24,7 @@ get:
     '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }
 post:
   operationId: createCliDomain
-  summary: Register a custom domain and provision it asynchronously
+  summary: Register a custom domain and provision it with the gateway provider
   security:
     - BearerAuth: []
   requestBody:
@@ -38,12 +38,12 @@ post:
             hostname: { type: string }
             chapterId: { type: integer }
   responses:
-    '202':
-      description: The domain was created and a provisioning job was queued.
+    '201':
+      description: The domain was created; provisioning was attempted synchronously.
       content:
         application/json:
-          schema: { $ref: ../components/schemas/cli-domains.yaml#/JobResponse }
+          schema: { $ref: ../components/schemas/cli-domains.yaml#/DomainResponse }
     '400': { $ref: ../components/responses/cli.yaml#/CliBadRequest }
     '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }
     '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }
-    '503': { $ref: ../components/responses/cli.yaml#/CliServiceUnavailable }
+    '409': { $ref: ../components/responses/cli.yaml#/CliConflict }

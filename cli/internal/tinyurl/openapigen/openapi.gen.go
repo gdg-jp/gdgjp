@@ -87,19 +87,6 @@ const (
 	GatewayConfigModeShortOnly   GatewayConfigMode = "short-only"
 )
 
-// Defines values for JobStatus.
-const (
-	Failed    JobStatus = "failed"
-	Queued    JobStatus = "queued"
-	Running   JobStatus = "running"
-	Succeeded JobStatus = "succeeded"
-)
-
-// Defines values for JobType.
-const (
-	ProvisionDomain JobType = "provision_domain"
-)
-
 // Defines values for GetCliCampaignAnalyticsParamsBucket.
 const (
 	Day  GetCliCampaignAnalyticsParamsBucket = "day"
@@ -323,35 +310,6 @@ type GatewayConfig struct {
 // GatewayConfigMode defines model for GatewayConfig.Mode.
 type GatewayConfigMode string
 
-// Job defines model for Job.
-type Job struct {
-	CreatedAt  time.Time              `json:"createdAt"`
-	CreatedBy  string                 `json:"createdBy"`
-	DomainId   int                    `json:"domainId"`
-	Error      *string                `json:"error"`
-	FinishedAt *time.Time             `json:"finishedAt"`
-	Id         string                 `json:"id"`
-	Request    map[string]interface{} `json:"request"`
-
-	// Result The persisted success or error-state Domain snapshot, once finished.
-	Result    *map[string]interface{} `json:"result"`
-	StartedAt *time.Time              `json:"startedAt"`
-	Status    JobStatus               `json:"status"`
-	Type      JobType                 `json:"type"`
-	UpdatedAt time.Time               `json:"updatedAt"`
-}
-
-// JobStatus defines model for Job.Status.
-type JobStatus string
-
-// JobType defines model for Job.Type.
-type JobType string
-
-// JobResponse defines model for JobResponse.
-type JobResponse struct {
-	Job Job `json:"job"`
-}
-
 // CampaignIdPath defines model for CampaignIdPath.
 type CampaignIdPath = int
 
@@ -384,9 +342,6 @@ type CliForbidden = Error
 
 // CliNotFound defines model for CliNotFound.
 type CliNotFound = Error
-
-// CliServiceUnavailable defines model for CliServiceUnavailable.
-type CliServiceUnavailable = Error
 
 // CliUnauthorized defines model for CliUnauthorized.
 type CliUnauthorized = Error
@@ -727,9 +682,6 @@ type ClientInterface interface {
 	UpdateCliFolderWithBody(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateCliFolder(ctx context.Context, id int, body UpdateCliFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetCliJob request
-	GetCliJob(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListCliLinks request
 	ListCliLinks(ctx context.Context, params *ListCliLinksParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1201,18 +1153,6 @@ func (c *Client) UpdateCliFolderWithBody(ctx context.Context, id int, contentTyp
 
 func (c *Client) UpdateCliFolder(ctx context.Context, id int, body UpdateCliFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateCliFolderRequest(c.Server, id, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetCliJob(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetCliJobRequest(c.Server, jobId)
 	if err != nil {
 		return nil, err
 	}
@@ -2807,40 +2747,6 @@ func NewUpdateCliFolderRequestWithBody(server string, id int, contentType string
 	return req, nil
 }
 
-// NewGetCliJobRequest generates requests for GetCliJob
-func NewGetCliJobRequest(server string, jobId string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "jobId", runtime.ParamLocationPath, jobId)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/cli/v1/jobs/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewListCliLinksRequest generates requests for ListCliLinks
 func NewListCliLinksRequest(server string, params *ListCliLinksParams) (*http.Request, error) {
 	var err error
@@ -3539,9 +3445,6 @@ type ClientWithResponsesInterface interface {
 
 	UpdateCliFolderWithResponse(ctx context.Context, id int, body UpdateCliFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCliFolderResponse, error)
 
-	// GetCliJobWithResponse request
-	GetCliJobWithResponse(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*GetCliJobResponse, error)
-
 	// ListCliLinksWithResponse request
 	ListCliLinksWithResponse(ctx context.Context, params *ListCliLinksParams, reqEditors ...RequestEditorFn) (*ListCliLinksResponse, error)
 
@@ -4059,11 +3962,11 @@ func (r ListCliDomainsResponse) StatusCode() int {
 type CreateCliDomainResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON202      *JobResponse
+	JSON201      *DomainResponse
 	JSON400      *CliBadRequest
 	JSON401      *CliUnauthorized
 	JSON403      *CliForbidden
-	JSON503      *CliServiceUnavailable
+	JSON409      *CliConflict
 }
 
 // Status returns HTTPResponse.Status
@@ -4136,12 +4039,11 @@ func (r GetCliDomainResponse) StatusCode() int {
 type SyncCliDomainResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON202      *JobResponse
+	JSON200      *DomainResponse
 	JSON401      *CliUnauthorized
 	JSON403      *CliForbidden
 	JSON404      *CliNotFound
 	JSON409      *CliConflict
-	JSON503      *CliServiceUnavailable
 }
 
 // Status returns HTTPResponse.Status
@@ -4275,30 +4177,6 @@ func (r UpdateCliFolderResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateCliFolderResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetCliJobResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *Job
-	JSON401      *CliUnauthorized
-	JSON404      *CliNotFound
-}
-
-// Status returns HTTPResponse.Status
-func (r GetCliJobResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetCliJobResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -4916,15 +4794,6 @@ func (c *ClientWithResponses) UpdateCliFolderWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseUpdateCliFolderResponse(rsp)
-}
-
-// GetCliJobWithResponse request returning *GetCliJobResponse
-func (c *ClientWithResponses) GetCliJobWithResponse(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*GetCliJobResponse, error) {
-	rsp, err := c.GetCliJob(ctx, jobId, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetCliJobResponse(rsp)
 }
 
 // ListCliLinksWithResponse request returning *ListCliLinksResponse
@@ -6048,12 +5917,12 @@ func ParseCreateCliDomainResponse(rsp *http.Response) (*CreateCliDomainResponse,
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
-		var dest JobResponse
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest DomainResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON202 = &dest
+		response.JSON201 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest CliBadRequest
@@ -6076,12 +5945,12 @@ func ParseCreateCliDomainResponse(rsp *http.Response) (*CreateCliDomainResponse,
 		}
 		response.JSON403 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest CliServiceUnavailable
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest CliConflict
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON503 = &dest
+		response.JSON409 = &dest
 
 	}
 
@@ -6203,12 +6072,12 @@ func ParseSyncCliDomainResponse(rsp *http.Response) (*SyncCliDomainResponse, err
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
-		var dest JobResponse
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DomainResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON202 = &dest
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest CliUnauthorized
@@ -6237,13 +6106,6 @@ func ParseSyncCliDomainResponse(rsp *http.Response) (*SyncCliDomainResponse, err
 			return nil, err
 		}
 		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest CliServiceUnavailable
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON503 = &dest
 
 	}
 
@@ -6451,46 +6313,6 @@ func ParseUpdateCliFolderResponse(rsp *http.Response) (*UpdateCliFolderResponse,
 			return nil, err
 		}
 		response.JSON409 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetCliJobResponse parses an HTTP response from a GetCliJobWithResponse call
-func ParseGetCliJobResponse(rsp *http.Response) (*GetCliJobResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetCliJobResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Job
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest CliUnauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest CliNotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
 
 	}
 

@@ -71,28 +71,31 @@ func newTinyurlDomainsGetCommand(credentials store.CredentialStore) *cobra.Comma
 func newTinyurlDomainsCreateCommand(credentials store.CredentialStore) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "create",
-		Short: "Register a custom domain and provision it asynchronously",
+		Short: "Register a custom domain and provision it with the gateway provider",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			hostname, _ := cmd.Flags().GetString("hostname")
 			chapterID, _ := cmd.Flags().GetInt("chapter-id")
-			wait, _ := cmd.Flags().GetBool("wait")
 			body := map[string]any{"hostname": hostname, "chapterId": chapterID}
-			return runTinyurlDomainJob(cmd, credentials, wait, func(token string) (tinyurl.JobResponse, error) {
-				return tinyurl.NewClient().CreateDomain(cmd.Context(), token, body)
+			client := tinyurl.NewClient()
+			out, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (tinyurl.DomainResponse, error) {
+				return client.CreateDomain(cmd.Context(), token, body)
 			})
+			if err != nil {
+				return err
+			}
+			return printJSON(cmd, out)
 		},
 	}
 	command.Flags().String("hostname", "", "Custom hostname, e.g. go.example.org")
 	command.Flags().Int("chapter-id", 0, "Owning chapter id")
-	command.Flags().Bool("wait", false, "Wait for the provisioning job to finish")
 	_ = command.MarkFlagRequired("hostname")
 	_ = command.MarkFlagRequired("chapter-id")
 	return command
 }
 
 func newTinyurlDomainsSyncCommand(credentials store.CredentialStore) *cobra.Command {
-	command := &cobra.Command{
+	return &cobra.Command{
 		Use:   "sync DOMAIN_ID",
 		Short: "Retry provisioning for a non-active domain",
 		Args:  cobra.ExactArgs(1),
@@ -101,14 +104,16 @@ func newTinyurlDomainsSyncCommand(credentials store.CredentialStore) *cobra.Comm
 			if err != nil {
 				return err
 			}
-			wait, _ := cmd.Flags().GetBool("wait")
-			return runTinyurlDomainJob(cmd, credentials, wait, func(token string) (tinyurl.JobResponse, error) {
-				return tinyurl.NewClient().SyncDomain(cmd.Context(), token, id)
+			client := tinyurl.NewClient()
+			out, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (tinyurl.DomainResponse, error) {
+				return client.SyncDomain(cmd.Context(), token, id)
 			})
+			if err != nil {
+				return err
+			}
+			return printJSON(cmd, out)
 		},
 	}
-	command.Flags().Bool("wait", false, "Wait for the resynchronization job to finish")
-	return command
 }
 
 func newTinyurlDomainsDeleteCommand(credentials store.CredentialStore) *cobra.Command {

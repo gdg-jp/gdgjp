@@ -41,16 +41,6 @@ service = "gdgjp-img"
 binding = "ACCOUNTS"
 service = "gdgjp-accounts"
 
-[[queues.producers]]
-binding = "JOB_QUEUE"
-queue = "gdgjp-tinyurl-jobs"
-
-[[queues.consumers]]
-queue = "gdgjp-tinyurl-jobs"
-max_batch_size = 1
-max_batch_timeout = 5
-max_retries = 2
-
 [[routes]]
 pattern = "url.gdgs.jp/*"
 zone_name = "gdgs.jp"

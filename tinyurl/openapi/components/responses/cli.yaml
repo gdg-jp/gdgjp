@@ -30,9 +30,3 @@ CliConflict:
     application/json:
       schema:
         $ref: ../schemas/common.yaml#/Error
-CliServiceUnavailable:
-  description: The job could not be queued; retry later.
-  content:
-    application/json:
-      schema:
-        $ref: ../schemas/common.yaml#/Error

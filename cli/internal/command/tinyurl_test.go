@@ -33,15 +33,6 @@ func defaultTinyurlCredentialStore() *memoryCredentialStore {
 	}}
 }
 
-func tinyurlJob(id, status string) map[string]any {
-	return map[string]any{
-		"id": id, "type": "provision_domain", "status": status, "domainId": 7,
-		"request": map[string]any{}, "result": nil, "error": nil,
-		"createdBy": "u", "createdAt": "2026-01-01T00:00:00Z", "updatedAt": "2026-01-01T00:00:00Z",
-		"startedAt": nil, "finishedAt": nil,
-	}
-}
-
 func TestTinyurlLinksCreate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/cli/v1/links" {
@@ -132,55 +123,49 @@ func TestTinyurlTagsCreate(t *testing.T) {
 	}
 }
 
-func TestTinyurlDomainsCreateWait(t *testing.T) {
+func TestTinyurlDomainsCreate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/api/cli/v1/domains":
-			body, _ := io.ReadAll(r.Body)
-			var payload map[string]any
-			_ = json.Unmarshal(body, &payload)
-			if payload["hostname"] != "go.example.org" || payload["chapterId"] != float64(2) {
-				t.Fatalf("payload = %#v", payload)
-			}
-			w.WriteHeader(http.StatusAccepted)
-			_ = json.NewEncoder(w).Encode(map[string]any{"job": tinyurlJob("job-1", "queued")})
-		case r.Method == http.MethodGet && r.URL.Path == "/api/cli/v1/jobs/job-1":
-			_ = json.NewEncoder(w).Encode(tinyurlJob("job-1", "succeeded"))
-		default:
+		if r.Method != http.MethodPost || r.URL.Path != "/api/cli/v1/domains" {
 			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
 		}
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]any
+		_ = json.Unmarshal(body, &payload)
+		if payload["hostname"] != "go.example.org" || payload["chapterId"] != float64(2) {
+			t.Fatalf("payload = %#v", payload)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"domain":{"id":7,"hostname":"go.example.org","status":"verifying"}}`))
 	}))
 	t.Cleanup(server.Close)
 	t.Setenv("GDG_TINYURL_URL", server.URL)
 
 	out, err := executeTinyurl(t, defaultTinyurlCredentialStore(),
-		"domains", "create", "--hostname", "go.example.org", "--chapter-id", "2", "--wait")
+		"domains", "create", "--hostname", "go.example.org", "--chapter-id", "2")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, `"status": "succeeded"`) {
+	if !strings.Contains(out, `"status": "verifying"`) {
 		t.Fatalf("output = %s", out)
 	}
 }
 
-// TestTinyurlJobsWaitFailed pins the regression called out in the plan: a job
-// that transitions to "failed" must exit non-zero with the job's error
-// message, never exit 0.
-func TestTinyurlJobsWaitFailed(t *testing.T) {
+func TestTinyurlDomainsSync(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/cli/v1/jobs/job-fail" {
-			t.Fatalf("path = %s", r.URL.Path)
+		if r.Method != http.MethodPost || r.URL.Path != "/api/cli/v1/domains/7/sync" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
 		}
-		job := tinyurlJob("job-fail", "failed")
-		job["error"] = "provider rejected the hostname"
-		_ = json.NewEncoder(w).Encode(job)
+		_, _ = w.Write([]byte(`{"domain":{"id":7,"hostname":"go.example.org","status":"active"}}`))
 	}))
 	t.Cleanup(server.Close)
 	t.Setenv("GDG_TINYURL_URL", server.URL)
 
-	out, err := executeTinyurl(t, defaultTinyurlCredentialStore(), "jobs", "wait", "job-fail")
-	if err == nil || !strings.Contains(err.Error(), "provider rejected the hostname") {
-		t.Fatalf("err = %v (output %s), want a non-nil error carrying the job message", err, out)
+	out, err := executeTinyurl(t, defaultTinyurlCredentialStore(), "domains", "sync", "7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"status": "active"`) {
+		t.Fatalf("output = %s", out)
 	}
 }
 

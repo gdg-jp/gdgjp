@@ -9,13 +9,12 @@ post:
       required: true
       schema: { type: integer }
   responses:
-    '202':
-      description: A resynchronization job was queued.
+    '200':
+      description: Provisioning was re-checked synchronously; the persisted domain is returned.
       content:
         application/json:
-          schema: { $ref: ../components/schemas/cli-domains.yaml#/JobResponse }
+          schema: { $ref: ../components/schemas/cli-domains.yaml#/DomainResponse }
     '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }
     '403': { $ref: ../components/responses/cli.yaml#/CliForbidden }
     '404': { $ref: ../components/responses/cli.yaml#/CliNotFound }
     '409': { $ref: ../components/responses/cli.yaml#/CliConflict }
-    '503': { $ref: ../components/responses/cli.yaml#/CliServiceUnavailable }

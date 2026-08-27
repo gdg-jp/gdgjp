@@ -8,8 +8,7 @@ tags, and folders (sharing is part of link create/update per Stage 05's `shares`
 separate resource) built on top of those functions, under a separate `api.cli.v1.*` namespace from
 the existing cookie routes (`api.links.tsx`, `links.$id.tsx`, `tags.tsx`, `folders.tsx`), which
 keep their HTTP/UI behavior while their tag/folder imports move. Domains (Stage 07) and campaigns (Stage 08) are explicitly out of scope here — they
-get their own CLI routes in later stages, partly because domain provisioning needs the async
-Job+Queue pattern this stage's endpoints don't.
+get their own CLI routes in later stages.
 
 Depends on Stage 01 (`getCliIdentity`) and Stage 05 (`createLinkWithExtras`/
 `updateLinkWithExtras` — call them directly, do not reimplement their validation inline in the new
@@ -90,7 +89,7 @@ there's no equivalent "parent id" to include, so the envelope is just `{ link }`
 
 - Do not implement domain creation/provisioning here — `POST /api/cli/v1/links` requires an
   already-`active` `domainId` (Stage 05's `createLinkWithExtras` already enforces this); domain
-  provisioning is Stage 07's async endpoint.
+  provisioning is Stage 07's endpoint.
 - Do not implement campaign-channel creation here — `campaignChannelId` in the create/update body
   must reference an existing channel (Stage 08 adds the endpoints that create one); this stage
   only accepts the id as a foreign key.

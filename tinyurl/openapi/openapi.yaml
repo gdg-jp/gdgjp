@@ -4,8 +4,8 @@ info:
   version: 1.0.0
   description: >-
     Public redirect and custom-domain gateway contract (go.gdgs.jp), plus the
-    authenticated CLI/agent management API for domains, async provisioning
-    jobs, and campaigns (url.gdgs.jp).
+    authenticated CLI/agent management API for domains and campaigns
+    (url.gdgs.jp).
   license:
     name: Proprietary
     url: https://gdgs.jp
@@ -39,8 +39,6 @@ paths:
     $ref: ./paths/cli-domain.yaml
   /api/cli/v1/domains/{id}/sync:
     $ref: ./paths/cli-domain-sync.yaml
-  /api/cli/v1/jobs/{jobId}:
-    $ref: ./paths/cli-jobs.yaml
   /api/cli/v1/campaigns:
     $ref: ./paths/cli-campaigns.yaml
   /api/cli/v1/campaigns/{id}:
@@ -77,10 +75,6 @@ components:
       $ref: ./components/schemas/cli-domains.yaml#/DomainResponse
     DomainDeleteResult:
       $ref: ./components/schemas/cli-domains.yaml#/DomainDeleteResult
-    Job:
-      $ref: ./components/schemas/cli-domains.yaml#/Job
-    JobResponse:
-      $ref: ./components/schemas/cli-domains.yaml#/JobResponse
     CliArchiveResult:
       $ref: ./components/schemas/common.yaml#/CliArchiveResult
     Campaign:
@@ -120,8 +114,6 @@ components:
       $ref: ./components/responses/cli.yaml#/CliNotFound
     CliConflict:
       $ref: ./components/responses/cli.yaml#/CliConflict
-    CliServiceUnavailable:
-      $ref: ./components/responses/cli.yaml#/CliServiceUnavailable
   parameters:
     Slug:
       $ref: ./components/parameters/common.yaml#/Slug

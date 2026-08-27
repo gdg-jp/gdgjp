@@ -73,8 +73,9 @@ normalization, `DOMAINS_ENABLED`, unsafe/private destination checks, detected mo
 duplicate detection, or the Vercel project limit.
 
 `syncDomain` returns a typed result instead of swallowing errors ambiguously:
-`{ ok: true; domain: Domain } | { ok: false; domain: Domain; error: string }`. It still persists
-the domain's `error` state, but Stage 07 can now mark its job failed coherently.
+`{ ok: true; domain: Domain } | { ok: false; domain: Domain; error: string }`. It persists the
+domain's `error` state and hands the caller (the dashboard action or Stage 07's CLI route) an
+explicit outcome to surface.
 
 ### API Contract
 

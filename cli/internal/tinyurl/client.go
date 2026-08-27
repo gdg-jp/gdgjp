@@ -1,7 +1,7 @@
 // Package tinyurl is the gdg CLI client for the tinyurl (url.gdgs.jp)
-// authenticated CLI/agent API: links, tags, folders, custom domains with
-// async provisioning jobs, and campaigns with channels, sources, and
-// aggregate analytics. It wraps the generated OpenAPI client in openapigen.
+// authenticated CLI/agent API: links, tags, folders, custom domains, and
+// campaigns with channels, sources, and aggregate analytics. It wraps the
+// generated OpenAPI client in openapigen.
 package tinyurl
 
 import (
@@ -44,9 +44,6 @@ type (
 	DomainList                       = openapigen.DomainList
 	DomainResponse                   = openapigen.DomainResponse
 	DomainDeleteResult               = openapigen.DomainDeleteResult
-	Job                              = openapigen.Job
-	JobResponse                      = openapigen.JobResponse
-	JobStatus                        = openapigen.JobStatus
 	Campaign                         = openapigen.Campaign
 	CliCampaignResponse              = openapigen.CliCampaignResponse
 	CliCampaignList                  = openapigen.CliCampaignList
@@ -58,14 +55,6 @@ type (
 	CliCampaignChannelSourceList     = openapigen.CliCampaignChannelSourceList
 	CliCampaignAnalyticsResponse     = openapigen.CliCampaignAnalyticsResponse
 	CliArchiveResult                 = openapigen.CliArchiveResult
-)
-
-// Job status values (openapigen names them bare, matching connpass).
-const (
-	JobQueued       = openapigen.Queued
-	JobRunning      = openapigen.Running
-	JobSucceeded    = openapigen.Succeeded
-	JobFailedStatus = openapigen.Failed
 )
 
 // Page carries the API's common --limit/--cursor pagination flags. Nil
@@ -375,26 +364,26 @@ func (c *Client) GetDomain(ctx context.Context, token string, id int) (DomainRes
 	return out, err
 }
 
-func (c *Client) CreateDomain(ctx context.Context, token string, body map[string]any) (JobResponse, error) {
+func (c *Client) CreateDomain(ctx context.Context, token string, body map[string]any) (DomainResponse, error) {
 	reader, err := jsonReader(body)
 	if err != nil {
-		return JobResponse{}, err
+		return DomainResponse{}, err
 	}
 	res, err := c.generatedClient().CreateCliDomainWithBodyWithResponse(ctx, "application/json", reader, bearer(token))
 	if err != nil {
-		return JobResponse{}, err
+		return DomainResponse{}, err
 	}
-	var out JobResponse
+	var out DomainResponse
 	err = decodeResponse(res.StatusCode(), res.Body, &out)
 	return out, err
 }
 
-func (c *Client) SyncDomain(ctx context.Context, token string, id int) (JobResponse, error) {
+func (c *Client) SyncDomain(ctx context.Context, token string, id int) (DomainResponse, error) {
 	res, err := c.generatedClient().SyncCliDomainWithResponse(ctx, id, bearer(token))
 	if err != nil {
-		return JobResponse{}, err
+		return DomainResponse{}, err
 	}
-	var out JobResponse
+	var out DomainResponse
 	err = decodeResponse(res.StatusCode(), res.Body, &out)
 	return out, err
 }
@@ -407,53 +396,6 @@ func (c *Client) DeleteDomain(ctx context.Context, token string, id int) (Domain
 	var out DomainDeleteResult
 	err = decodeResponse(res.StatusCode(), res.Body, &out)
 	return out, err
-}
-
-// --- jobs ------------------------------------------------------------------
-
-func (c *Client) GetJob(ctx context.Context, token, jobID string) (Job, error) {
-	res, err := c.generatedClient().GetCliJobWithResponse(ctx, jobID, bearer(token))
-	if err != nil {
-		return Job{}, err
-	}
-	var job Job
-	err = decodeResponse(res.StatusCode(), res.Body, &job)
-	return job, err
-}
-
-// WaitJob polls GET /api/cli/v1/jobs/:jobId until the job reaches a terminal
-// state (succeeded or failed), then returns it. Copied structurally from
-// connpass/client.go's WaitJob.
-func (c *Client) WaitJob(ctx context.Context, token, jobID string, pollEvery time.Duration) (Job, error) {
-	if pollEvery <= 0 {
-		pollEvery = 2 * time.Second
-	}
-	for {
-		job, err := c.GetJob(ctx, token, jobID)
-		if err != nil {
-			return Job{}, err
-		}
-		if job.Status == JobSucceeded || job.Status == JobFailedStatus {
-			return job, nil
-		}
-		select {
-		case <-ctx.Done():
-			return job, ctx.Err()
-		case <-time.After(pollEvery):
-		}
-	}
-}
-
-// JobFailed turns a terminal "failed" job into a non-nil error carrying the
-// job's error message, so `--wait` and `jobs wait` exit non-zero on failure.
-func JobFailed(job Job) error {
-	if job.Status != JobFailedStatus {
-		return nil
-	}
-	if job.Error != nil && *job.Error != "" {
-		return fmt.Errorf("job failed: %s", *job.Error)
-	}
-	return fmt.Errorf("job failed")
 }
 
 // --- campaigns -----------------------------------------------------------------

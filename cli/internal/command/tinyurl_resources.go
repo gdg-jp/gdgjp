@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/gdg-jp/gdgjp/cli/internal/cliutil"
 	"github.com/gdg-jp/gdgjp/cli/internal/store"
@@ -268,47 +267,4 @@ func newTinyurlFoldersDeleteCommand(credentials store.CredentialStore) *cobra.Co
 			return printJSON(cmd, out)
 		},
 	}
-}
-
-// --- jobs --------------------------------------------------------------------
-
-func newTinyurlJobsCommand(credentials store.CredentialStore) *cobra.Command {
-	command := &cobra.Command{
-		Use:   "jobs",
-		Short: "Inspect async domain provisioning jobs",
-	}
-	command.AddCommand(&cobra.Command{
-		Use:   "get JOB_ID",
-		Short: "Get job status",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client := tinyurl.NewClient()
-			job, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (tinyurl.Job, error) {
-				return client.GetJob(cmd.Context(), token, args[0])
-			})
-			if err != nil {
-				return err
-			}
-			return printJSON(cmd, job)
-		},
-	})
-	command.AddCommand(&cobra.Command{
-		Use:   "wait JOB_ID",
-		Short: "Wait until a job succeeds or fails",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client := tinyurl.NewClient()
-			job, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (tinyurl.Job, error) {
-				return client.WaitJob(cmd.Context(), token, args[0], 2*time.Second)
-			})
-			if err != nil {
-				return err
-			}
-			if fail := tinyurl.JobFailed(job); fail != nil {
-				return fail
-			}
-			return printJSON(cmd, job)
-		},
-	})
-	return command
 }
