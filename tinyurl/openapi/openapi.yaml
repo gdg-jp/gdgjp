@@ -17,17 +17,51 @@ paths:
     $ref: ./paths/gateway-config.yaml
   /api/internal/gateway/resolve:
     $ref: ./paths/gateway-resolve.yaml
+  /api/cli/v1/domains:
+    $ref: ./paths/cli-domains.yaml
+  /api/cli/v1/domains/{id}:
+    $ref: ./paths/cli-domain.yaml
+  /api/cli/v1/domains/{id}/sync:
+    $ref: ./paths/cli-domain-sync.yaml
+  /api/cli/v1/jobs/{jobId}:
+    $ref: ./paths/cli-jobs.yaml
 components:
   schemas:
     GatewayConfig:
       $ref: ./components/schemas/gateway.yaml#/GatewayConfig
     Error:
       $ref: ./components/schemas/common.yaml#/Error
+    DnsRecord:
+      $ref: ./components/schemas/cli-domains.yaml#/DnsRecord
+    Domain:
+      $ref: ./components/schemas/cli-domains.yaml#/Domain
+    DomainList:
+      $ref: ./components/schemas/cli-domains.yaml#/DomainList
+    DomainResponse:
+      $ref: ./components/schemas/cli-domains.yaml#/DomainResponse
+    DomainDeleteResult:
+      $ref: ./components/schemas/cli-domains.yaml#/DomainDeleteResult
+    Job:
+      $ref: ./components/schemas/cli-domains.yaml#/Job
+    JobResponse:
+      $ref: ./components/schemas/cli-domains.yaml#/JobResponse
   responses:
     Unauthorized:
       $ref: ./components/responses/common.yaml#/Unauthorized
     NotFound:
       $ref: ./components/responses/common.yaml#/NotFound
+    CliBadRequest:
+      $ref: ./components/responses/cli.yaml#/CliBadRequest
+    CliUnauthorized:
+      $ref: ./components/responses/cli.yaml#/CliUnauthorized
+    CliForbidden:
+      $ref: ./components/responses/cli.yaml#/CliForbidden
+    CliNotFound:
+      $ref: ./components/responses/cli.yaml#/CliNotFound
+    CliConflict:
+      $ref: ./components/responses/cli.yaml#/CliConflict
+    CliServiceUnavailable:
+      $ref: ./components/responses/cli.yaml#/CliServiceUnavailable
   parameters:
     Slug:
       $ref: ./components/parameters/common.yaml#/Slug
@@ -38,3 +72,5 @@ components:
       $ref: ./components/securitySchemes/gateway.yaml#/GatewaySignature
     GatewayHost:
       $ref: ./components/securitySchemes/gateway.yaml#/GatewayHost
+    BearerAuth:
+      $ref: ./components/securitySchemes/bearer.yaml#/BearerAuth

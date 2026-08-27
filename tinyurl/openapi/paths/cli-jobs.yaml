@@ -1,0 +1,18 @@
+get:
+  operationId: getCliJob
+  summary: Get an async job's status
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: jobId
+      in: path
+      required: true
+      schema: { type: string }
+  responses:
+    '200':
+      description: The job.
+      content:
+        application/json:
+          schema: { $ref: ../components/schemas/cli-domains.yaml#/Job }
+    '401': { $ref: ../components/responses/cli.yaml#/CliUnauthorized }
+    '404': { $ref: ../components/responses/cli.yaml#/CliNotFound }
