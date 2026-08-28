@@ -137,10 +137,7 @@ func newConnpassEventsCreateCommand(credentials store.CredentialStore) *cobra.Co
 		Short: "Create an event draft (async job)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			body, err := mergeJSONBody(cmd)
-			if err != nil {
-				return err
-			}
+			body := map[string]any{}
 			fields.apply(cmd, body)
 			title, _ := body["title"].(string)
 			if title == "" {
@@ -153,7 +150,6 @@ func newConnpassEventsCreateCommand(credentials store.CredentialStore) *cobra.Co
 		},
 	}
 	addEventFieldFlags(create, &fields)
-	addJSONBodyFlags(create)
 	addWaitFlag(create)
 	return create
 }
@@ -183,10 +179,7 @@ func newConnpassEventsUpdateCommand(credentials store.CredentialStore) *cobra.Co
 		Short: "Update event fields (async job)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			body, err := mergeJSONBody(cmd)
-			if err != nil {
-				return err
-			}
+			body := map[string]any{}
 			fields.apply(cmd, body)
 			if len(body) == 0 {
 				return errors.New("specify at least one field to update")
@@ -198,7 +191,6 @@ func newConnpassEventsUpdateCommand(credentials store.CredentialStore) *cobra.Co
 		},
 	}
 	addEventFieldFlags(update, &fields)
-	addJSONBodyFlags(update)
 	addWaitFlag(update)
 	return update
 }
@@ -213,10 +205,7 @@ func newConnpassEventsPublishCommand(credentials store.CredentialStore) *cobra.C
 		Short: "Publish an event (async job)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			body, err := mergeJSONBody(cmd)
-			if err != nil {
-				return err
-			}
+			body := map[string]any{}
 			setBoolFlag(cmd, body, "post-to-twitter", "postToTwitter", postToTwitter)
 			setStringFlag(cmd, body, "comment", "comment", comment)
 			wait, _ := cmd.Flags().GetBool("wait")
@@ -227,7 +216,6 @@ func newConnpassEventsPublishCommand(credentials store.CredentialStore) *cobra.C
 	}
 	publish.Flags().BoolVar(&postToTwitter, "post-to-twitter", false, "Also post to Twitter/X when publishing")
 	publish.Flags().StringVar(&comment, "comment", "", "Publish comment")
-	addJSONBodyFlags(publish)
 	addWaitFlag(publish)
 	return publish
 }
@@ -259,15 +247,10 @@ func newConnpassSubEventsCommand(credentials store.CredentialStore) *cobra.Comma
 		Short: "Create a linked sub-event (async job)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			body, err := mergeJSONBody(cmd)
-			if err != nil {
-				return err
-			}
-			setStringFlag(cmd, body, "title", "title", title)
-			got, _ := body["title"].(string)
-			if got == "" {
+			if title == "" {
 				return errors.New("--title is required")
 			}
+			body := map[string]any{"title": title}
 			wait, _ := cmd.Flags().GetBool("wait")
 			return runConnpassJob(cmd, credentials, wait, func(token string) (connpass.Job, error) {
 				return connpass.NewClient().CreateSubEvent(cmd.Context(), token, args[0], args[1], body)
@@ -275,7 +258,6 @@ func newConnpassSubEventsCommand(credentials store.CredentialStore) *cobra.Comma
 		},
 	}
 	create.Flags().StringVar(&title, "title", "", "Sub-event title")
-	addJSONBodyFlags(create)
 	addWaitFlag(create)
 	command.AddCommand(create)
 
@@ -391,10 +373,7 @@ func newConnpassConferenceCommand(credentials store.CredentialStore) *cobra.Comm
 		Short: "Create or replace conference info (async job)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			body, err := mergeJSONBody(cmd)
-			if err != nil {
-				return err
-			}
+			body := map[string]any{}
 			setBoolFlag(cmd, body, "is-active", "isActive", isActive)
 			setStringFlag(cmd, body, "lp-url", "lpUrl", lpURL)
 			setStringFlag(cmd, body, "cfp-url", "cfpUrl", cfpURL)
@@ -420,7 +399,6 @@ func newConnpassConferenceCommand(credentials store.CredentialStore) *cobra.Comm
 	upsert.Flags().StringVar(&sponsorURL, "sponsor-url", "", "Sponsor URL")
 	upsert.Flags().StringVar(&sponsorStartAt, "sponsor-start-at", "", "Sponsor start datetime")
 	upsert.Flags().StringVar(&sponsorEndAt, "sponsor-end-at", "", "Sponsor end datetime")
-	addJSONBodyFlags(upsert)
 	addWaitFlag(upsert)
 	command.AddCommand(upsert)
 	return command

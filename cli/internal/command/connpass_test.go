@@ -6,8 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -208,36 +206,16 @@ func TestConnpassEventsUpdateSendsOnlyChangedFlags(t *testing.T) {
 	}
 }
 
-func TestConnpassEventsCreateFromFileTitleOverride(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/api/groups/gdg-tokyo/events" {
-			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+func TestConnpassEventsCreateRejectsJSONBodyFlags(t *testing.T) {
+	for _, flag := range [][]string{
+		{"--from-file", "event.json"},
+		{"--json", `{"title":"x"}`},
+	} {
+		args := append([]string{"events", "create", "gdg-tokyo", "--title", "Meetup"}, flag...)
+		_, err := executeConnpass(t, args...)
+		if err == nil || !strings.Contains(err.Error(), "unknown flag") {
+			t.Fatalf("%v: err = %v", flag, err)
 		}
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var payload map[string]any
-		if err := json.Unmarshal(body, &payload); err != nil {
-			t.Fatal(err)
-		}
-		if payload["title"] != "FromFlag" || payload["place"] != "Tokyo" {
-			t.Fatalf("payload = %#v", payload)
-		}
-		w.WriteHeader(http.StatusAccepted)
-		_ = json.NewEncoder(w).Encode(queuedJob("job-create", "create_event", "queued"))
-	}))
-	t.Cleanup(server.Close)
-	t.Setenv("GDG_CONNPASS_URL", server.URL)
-
-	path := filepath.Join(t.TempDir(), "event.json")
-	if err := os.WriteFile(path, []byte(`{"title":"FromFile","place":"Tokyo"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err := executeConnpass(t, "events", "create", "gdg-tokyo", "--from-file", path, "--title", "FromFlag")
-	if err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -264,6 +242,9 @@ func TestConnpassWaitSucceededAndFailed(t *testing.T) {
 		if !strings.Contains(out, `"status": "succeeded"`) {
 			t.Fatalf("output = %s", out)
 		}
+		if !strings.Contains(out, "submitted job job-wait") {
+			t.Fatalf("missing submission notice: %s", out)
+		}
 	})
 
 	t.Run("failed", func(t *testing.T) {
@@ -285,6 +266,36 @@ func TestConnpassWaitSucceededAndFailed(t *testing.T) {
 			t.Fatalf("err = %v", err)
 		}
 	})
+}
+
+func TestConnpassWaitEmitsProgress(t *testing.T) {
+	polls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/groups/gdg-tokyo/events":
+			w.WriteHeader(http.StatusAccepted)
+			_ = json.NewEncoder(w).Encode(queuedJob("job-prog", "create_event", "queued"))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/jobs/job-prog":
+			polls++
+			status := "running"
+			if polls >= 2 {
+				status = "succeeded"
+			}
+			_ = json.NewEncoder(w).Encode(queuedJob("job-prog", "create_event", status))
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("GDG_CONNPASS_URL", server.URL)
+
+	out, err := executeConnpass(t, "events", "create", "gdg-tokyo", "--title", "Meetup", "--wait")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "job job-prog status=running elapsed=") {
+		t.Fatalf("missing progress line: %s", out)
+	}
 }
 
 func TestConnpassSurveyUpsertRequiresJSON(t *testing.T) {

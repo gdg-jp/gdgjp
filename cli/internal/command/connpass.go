@@ -2,6 +2,7 @@ package command
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -62,9 +63,19 @@ func mergeJSONBody(cmd *cobra.Command) (map[string]any, error) {
 	} else {
 		data = []byte(rawJSON)
 	}
+	if fromFile == "-" && len(data) == 0 {
+		return nil, errors.New(
+			"empty input on --from-file -: pipe the raw JSON bytes directly " +
+				"(no pager, formatter, logger, or output-trimming wrapper in the pipeline)",
+		)
+	}
 	var body map[string]any
 	if err := json.Unmarshal(data, &body); err != nil {
-		return nil, fmt.Errorf("parse JSON body: %w", err)
+		preview := data
+		if len(preview) > 200 {
+			preview = preview[:200]
+		}
+		return nil, fmt.Errorf("parse JSON body (%d bytes read): %w; first bytes: %s", len(data), err, preview)
 	}
 	if body == nil {
 		return map[string]any{}, nil
@@ -78,6 +89,13 @@ func jsonBodySpecified(cmd *cobra.Command) bool {
 	return fromFile != "" || rawJSON != ""
 }
 
+// jobProgress writes async-job status lines to stderr so callers (and agents
+// watching the process) can tell a long-running connpass browser job apart from
+// a hang. stdout stays reserved for the single terminal-job JSON document.
+func jobProgress(cmd *cobra.Command, job connpass.Job, elapsed time.Duration) {
+	fmt.Fprintf(cmd.ErrOrStderr(), "job %s status=%s elapsed=%s\n", job.Id, job.Status, elapsed.Round(time.Second))
+}
+
 func runConnpassJob(
 	cmd *cobra.Command,
 	credentials store.CredentialStore,
@@ -89,9 +107,12 @@ func runConnpassJob(
 	if err != nil {
 		return err
 	}
+	fmt.Fprintf(cmd.ErrOrStderr(), "submitted job %s (type=%s, status=%s)\n", job.Id, job.Type, job.Status)
 	if wait {
 		job, err = cliutil.WithToken(cmd.Context(), credentials, func(token string) (connpass.Job, error) {
-			return client.WaitJob(cmd.Context(), token, job.Id, 2*time.Second)
+			return client.WaitJob(cmd.Context(), token, job.Id, 2*time.Second, func(j connpass.Job, elapsed time.Duration) {
+				jobProgress(cmd, j, elapsed)
+			})
 		})
 		if err != nil {
 			return err
@@ -148,7 +169,9 @@ func newConnpassJobsCommand(credentials store.CredentialStore) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := connpass.NewClient()
 			job, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (connpass.Job, error) {
-				return client.WaitJob(cmd.Context(), token, args[0], 2*time.Second)
+				return client.WaitJob(cmd.Context(), token, args[0], 2*time.Second, func(j connpass.Job, elapsed time.Duration) {
+					jobProgress(cmd, j, elapsed)
+				})
 			})
 			if err != nil {
 				return err

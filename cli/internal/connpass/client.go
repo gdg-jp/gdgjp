@@ -453,10 +453,15 @@ func (c *Client) UpsertConference(ctx context.Context, token, groupID, eventID s
 	return job, err
 }
 
-func (c *Client) WaitJob(ctx context.Context, token, jobID string, pollEvery time.Duration) (Job, error) {
+// WaitJob polls the job until it reaches a terminal status. onPoll, when
+// non-nil, is invoked once per non-terminal poll with the current job and the
+// elapsed wait time, letting callers surface progress. There is no client-side
+// timeout: waiting ends only on a terminal status or ctx cancellation.
+func (c *Client) WaitJob(ctx context.Context, token, jobID string, pollEvery time.Duration, onPoll func(job Job, elapsed time.Duration)) (Job, error) {
 	if pollEvery <= 0 {
 		pollEvery = 2 * time.Second
 	}
+	start := time.Now()
 	for {
 		job, err := c.GetJob(ctx, token, jobID)
 		if err != nil {
@@ -464,6 +469,9 @@ func (c *Client) WaitJob(ctx context.Context, token, jobID string, pollEvery tim
 		}
 		if job.Status == openapigen.Succeeded || job.Status == openapigen.Failed {
 			return job, nil
+		}
+		if onPoll != nil {
+			onPoll(job, time.Since(start))
 		}
 		select {
 		case <-ctx.Done():
