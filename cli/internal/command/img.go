@@ -1,6 +1,8 @@
 package command
 
 import (
+	"fmt"
+
 	"github.com/gdg-jp/gdgjp/cli/internal/cliutil"
 	"github.com/gdg-jp/gdgjp/cli/internal/img"
 	"github.com/gdg-jp/gdgjp/cli/internal/store"
@@ -17,6 +19,7 @@ func newImgCommand(credentials store.CredentialStore) *cobra.Command {
 	command.AddCommand(newImgUploadCommand(credentials))
 	command.AddCommand(newImgReplaceCommand(credentials))
 	command.AddCommand(newImgMobileCommand(credentials))
+	command.AddCommand(newImgSlugCommand(credentials))
 	command.AddCommand(newImgDeleteCommand(credentials))
 	return command
 }
@@ -133,6 +136,38 @@ func newImgMobileCommand(credentials store.CredentialStore) *cobra.Command {
 			return cliutil.PrintJSON(cmd.OutOrStdout(), out)
 		},
 	}
+}
+
+func newImgSlugCommand(credentials store.CredentialStore) *cobra.Command {
+	var clear bool
+	command := &cobra.Command{
+		Use:   "slug IMAGE_ID [SLUG]",
+		Short: "Set or clear an image's custom slug",
+		Args:  cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var slug *string
+			switch {
+			case clear:
+				if len(args) == 2 {
+					return fmt.Errorf("pass either a SLUG or --clear, not both")
+				}
+			case len(args) == 2:
+				slug = &args[1]
+			default:
+				return fmt.Errorf("provide a SLUG argument or --clear")
+			}
+			client := img.NewClient()
+			out, err := cliutil.WithToken(cmd.Context(), credentials, func(token string) (img.CliImageResponse, error) {
+				return client.SetSlug(cmd.Context(), token, args[0], slug)
+			})
+			if err != nil {
+				return err
+			}
+			return cliutil.PrintJSON(cmd.OutOrStdout(), out)
+		},
+	}
+	command.Flags().BoolVar(&clear, "clear", false, "Remove the image's custom slug")
+	return command
 }
 
 func newImgDeleteCommand(credentials store.CredentialStore) *cobra.Command {

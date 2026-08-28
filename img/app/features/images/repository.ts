@@ -3,6 +3,7 @@ export type ImageRow = {
   userId: string;
   accountId: string;
   chapterId: number;
+  slug: string | null;
   r2Key: string;
   contentType: string;
   byteSize: number;
@@ -23,6 +24,7 @@ type ImageDbRow = {
   user_id: string;
   account_id: string;
   chapter_id: number;
+  slug: string | null;
   r2_key: string;
   content_type: string;
   byte_size: number;
@@ -44,6 +46,7 @@ function toImageRow(row: ImageDbRow): ImageRow {
     userId: row.user_id,
     accountId: row.account_id,
     chapterId: row.chapter_id,
+    slug: row.slug,
     r2Key: row.r2_key,
     contentType: row.content_type,
     byteSize: row.byte_size,
@@ -61,12 +64,20 @@ function toImageRow(row: ImageDbRow): ImageRow {
 }
 
 const SELECT_COLS =
-  "id, user_id, account_id, chapter_id, r2_key, content_type, byte_size, width, height, filename, mobile_r2_key, mobile_content_type, mobile_byte_size, mobile_filename, mobile_updated_at, created_at, updated_at";
+  "id, user_id, account_id, chapter_id, slug, r2_key, content_type, byte_size, width, height, filename, mobile_r2_key, mobile_content_type, mobile_byte_size, mobile_filename, mobile_updated_at, created_at, updated_at";
 
 export async function getImage(db: D1Database, id: string): Promise<ImageRow | null> {
   const row = await db
     .prepare(`SELECT ${SELECT_COLS} FROM images WHERE id = ?`)
     .bind(id)
+    .first<ImageDbRow>();
+  return row ? toImageRow(row) : null;
+}
+
+export async function getImageBySlug(db: D1Database, slug: string): Promise<ImageRow | null> {
+  const row = await db
+    .prepare(`SELECT ${SELECT_COLS} FROM images WHERE slug = ?`)
+    .bind(slug)
     .first<ImageDbRow>();
   return row ? toImageRow(row) : null;
 }
@@ -194,6 +205,36 @@ export async function updateImageBytes(
     .first<ImageDbRow>();
   if (!row) throw new Error(`image not found: ${id}`);
   return toImageRow(row);
+}
+
+export type SetImageSlugResult =
+  | { ok: true; image: ImageRow }
+  | { ok: false; reason: "not_found" | "slug_taken" };
+
+/**
+ * Sets or clears (slug === null) an image's custom slug. A slug-only change
+ * intentionally does NOT bump updated_at — unlike updateImageBytes/setMobileImage
+ * — so the public image ETag/cache in routes/$id.tsx (keyed on updated_at) is not
+ * needlessly invalidated. Translates the partial UNIQUE index violation into a
+ * typed `slug_taken` result.
+ */
+export async function setImageSlug(
+  db: D1Database,
+  id: string,
+  slug: string | null,
+): Promise<SetImageSlugResult> {
+  try {
+    const row = await db
+      .prepare(`UPDATE images SET slug = ? WHERE id = ? RETURNING ${SELECT_COLS}`)
+      .bind(slug, id)
+      .first<ImageDbRow>();
+    if (!row) return { ok: false, reason: "not_found" };
+    return { ok: true, image: toImageRow(row) };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("UNIQUE")) return { ok: false, reason: "slug_taken" };
+    throw err;
+  }
 }
 
 export async function setMobileImage(

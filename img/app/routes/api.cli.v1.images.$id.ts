@@ -4,6 +4,7 @@ import {
   getImageForActor,
   imageUrl,
   replaceImageForActor,
+  setImageSlugForActor,
 } from "~/features/images/service";
 import { requireCliActor } from "~/lib/cli-auth.server";
 import { imageServiceErrorResponse } from "~/lib/cli-errors.server";
@@ -53,6 +54,24 @@ export async function action(args: Route.ActionArgs) {
     if (!result.ok) return imageServiceErrorResponse(result.error);
 
     const body: components["schemas"]["CliDeleteResult"] = { id: result.value.id, deleted: true };
+    return Response.json(body, { headers: NO_STORE });
+  }
+
+  if (args.request.method === "PATCH") {
+    const payload = (await args.request.json().catch(() => null)) as { slug?: unknown } | null;
+    if (!payload || !("slug" in payload)) {
+      return Response.json({ error: "invalid_request" }, { status: 400 });
+    }
+    const slug =
+      payload.slug === null || typeof payload.slug === "string"
+        ? (payload.slug as string | null)
+        : undefined;
+    if (slug === undefined) return Response.json({ error: "invalid_request" }, { status: 400 });
+
+    const result = await setImageSlugForActor(env, auth.actor, id, slug);
+    if (!result.ok) return imageServiceErrorResponse(result.error);
+
+    const body: components["schemas"]["CliImageResponse"] = { image: result.value };
     return Response.json(body, { headers: NO_STORE });
   }
 

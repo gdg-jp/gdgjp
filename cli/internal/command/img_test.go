@@ -171,6 +171,77 @@ func TestImgMobile(t *testing.T) {
 	}
 }
 
+func TestImgSlug(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch || r.URL.Path != "/api/cli/v1/images/abcd1234" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		var body struct {
+			Slug *string `json:"slug"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Slug == nil || *body.Slug != "my-pic" {
+			t.Fatalf("slug = %#v, want \"my-pic\"", body.Slug)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"image": map[string]any{
+				"id": "abcd1234", "userId": "u", "accountId": "a", "chapterId": 1,
+				"slug": "my-pic", "r2Key": "k", "contentType": "image/jpeg", "byteSize": 1,
+				"width": nil, "height": nil, "filename": nil,
+				"mobileR2Key": nil, "mobileContentType": nil, "mobileByteSize": nil,
+				"mobileFilename": nil, "mobileUpdatedAt": nil,
+				"createdAt": 0, "updatedAt": 0,
+			},
+		})
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("GDG_IMG_URL", server.URL)
+
+	out, err := executeImg(t, defaultImgCredentialStore(), "slug", "abcd1234", "my-pic")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"slug": "my-pic"`) {
+		t.Fatalf("output = %s", out)
+	}
+}
+
+func TestImgSlugClear(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Slug *string `json:"slug"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Slug != nil {
+			t.Fatalf("slug = %#v, want null", body.Slug)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"image": map[string]any{
+				"id": "abcd1234", "userId": "u", "accountId": "a", "chapterId": 1,
+				"slug": nil, "r2Key": "k", "contentType": "image/jpeg", "byteSize": 1,
+				"width": nil, "height": nil, "filename": nil,
+				"mobileR2Key": nil, "mobileContentType": nil, "mobileByteSize": nil,
+				"mobileFilename": nil, "mobileUpdatedAt": nil,
+				"createdAt": 0, "updatedAt": 0,
+			},
+		})
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("GDG_IMG_URL", server.URL)
+
+	out, err := executeImg(t, defaultImgCredentialStore(), "slug", "abcd1234", "--clear")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"id": "abcd1234"`) {
+		t.Fatalf("output = %s", out)
+	}
+}
+
 func TestImgDelete(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete || r.URL.Path != "/api/cli/v1/images/abcd1234" {

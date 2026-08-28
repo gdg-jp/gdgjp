@@ -86,6 +86,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/slug/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set or clear an image's custom slug (dashboard session) */
+        post: operations["setImageSlug"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/delete/{id}": {
         parameters: {
             query?: never;
@@ -131,7 +148,8 @@ export interface paths {
         delete: operations["deleteCliImage"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Set or clear an image's custom slug */
+        patch: operations["updateCliImageSlug"];
         trace?: never;
     };
     "/api/cli/v1/images/{id}/mobile": {
@@ -171,6 +189,7 @@ export interface components {
             userId: string;
             accountId: string;
             chapterId: number;
+            slug: string | null;
             r2Key: string;
             contentType: string;
             byteSize: number;
@@ -273,6 +292,15 @@ export interface components {
         };
         /** @description Image not found. */
         CliNotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The requested slug is already in use by another image. */
+        CliConflict: {
             headers: {
                 [name: string]: unknown;
             };
@@ -516,6 +544,52 @@ export interface operations {
             };
         };
     };
+    setImageSlug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ImageIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @description New slug; an empty or absent value clears it. */
+                    slug?: string;
+                };
+                "application/json": {
+                    slug?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Slug updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageId"];
+                };
+            };
+            /** @description The slug is malformed or reserved. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The slug is already in use by another image. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     deleteImage: {
         parameters: {
             query?: never;
@@ -683,6 +757,40 @@ export interface operations {
             401: components["responses"]["CliUnauthorized"];
             403: components["responses"]["CliForbidden"];
             404: components["responses"]["CliNotFound"];
+        };
+    };
+    updateCliImageSlug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ImageIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description New slug, or null / empty string to clear it. */
+                    slug: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Slug updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CliImageResponse"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
         };
     };
     uploadCliMobileImage: {

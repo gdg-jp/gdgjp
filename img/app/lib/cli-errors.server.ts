@@ -8,6 +8,8 @@ const STATUS_BY_CODE: Record<ImageServiceErrorCode, number> = {
   not_found: 404,
   chapter_required: 400,
   invalid_cursor: 400,
+  invalid_slug: 400,
+  slug_taken: 409,
 };
 
 export function imageServiceErrorResponse(code: ImageServiceErrorCode): Response {

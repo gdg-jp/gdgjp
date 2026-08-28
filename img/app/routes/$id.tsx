@@ -1,5 +1,5 @@
 import { isValidImageId } from "~/features/images/id";
-import { getImage } from "~/features/images/repository";
+import { getImage, getImageBySlug } from "~/features/images/repository";
 import { prefersMobileImage } from "~/lib/device";
 import { hasTransform, parseTransformOpts } from "~/lib/img-url";
 import type { Route } from "./+types/$id";
@@ -12,11 +12,20 @@ const CACHE_HEADERS = {
 const DEVICE_VARY = "Sec-CH-UA-Mobile, CF-Device-Type, User-Agent";
 
 export async function loader(args: Route.LoaderArgs) {
-  const id = args.params.id;
-  if (!isValidImageId(id)) throw new Response("Not found", { status: 404 });
+  const param = args.params.id;
   const env = args.context.cloudflare.env;
-  const image = await getImage(env.DB, id);
+  // The path segment is an image id when it has the id shape, otherwise a
+  // custom slug. Everything downstream keys off the resolved row id, so the
+  // slug URL and the id URL are byte- and cache-identical.
+  const image = isValidImageId(param)
+    ? await getImage(env.DB, param)
+    : await getImageBySlug(env.DB, param);
   if (!image) throw new Response("Not found", { status: 404 });
+  const id = image.id;
+  const canonicalLink =
+    param === id
+      ? undefined
+      : { Link: `<${env.APP_URL.replace(/\/$/, "")}/${id}>; rel="canonical"` };
 
   const url = new URL(args.request.url);
   const hasMobile =
@@ -53,7 +62,12 @@ export async function loader(args: Route.LoaderArgs) {
   if (matchesEtag(args.request.headers.get("if-none-match"), etag)) {
     return new Response(null, {
       status: 304,
-      headers: { ETag: etag, ...(deviceVary ? { Vary: deviceVary } : {}), ...CACHE_HEADERS },
+      headers: {
+        ETag: etag,
+        ...(deviceVary ? { Vary: deviceVary } : {}),
+        ...(canonicalLink ?? {}),
+        ...CACHE_HEADERS,
+      },
     });
   }
 
@@ -68,6 +82,7 @@ export async function loader(args: Route.LoaderArgs) {
         "Content-Length": String(selected.byteSize),
         ETag: etag,
         ...(deviceVary ? { Vary: deviceVary } : {}),
+        ...(canonicalLink ?? {}),
         ...CACHE_HEADERS,
       },
     });
@@ -91,6 +106,7 @@ export async function loader(args: Route.LoaderArgs) {
   const vary = [opts.f ? null : "Accept", deviceVary].filter(Boolean).join(", ");
   if (vary) headers.set("Vary", vary);
   headers.set("Accept-CH", "Sec-CH-UA-Mobile");
+  if (canonicalLink) headers.set("Link", canonicalLink.Link);
   return new Response(res.body, { status: res.status, headers });
 }
 

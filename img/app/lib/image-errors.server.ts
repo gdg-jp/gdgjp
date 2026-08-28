@@ -17,5 +17,12 @@ export function dashboardImageErrorResponse(code: ImageServiceErrorCode): Respon
       return new Response("chapter required", { status: 400 });
     case "invalid_cursor":
       return new Response("invalid cursor", { status: 400 });
+    case "invalid_slug":
+      return new Response(
+        "That custom URL isn't allowed. Use 1–64 letters, numbers, hyphens or underscores, and avoid reserved words.",
+        { status: 400 },
+      );
+    case "slug_taken":
+      return new Response("That custom URL is already in use.", { status: 409 });
   }
 }

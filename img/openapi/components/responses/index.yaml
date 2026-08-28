@@ -19,3 +19,6 @@ CliNotFound:
 CliTooLarge:
   description: The image exceeds 10 MiB.
   content: { application/json: { schema: { $ref: ../schemas/index.yaml#/Error } } }
+CliConflict:
+  description: The requested slug is already in use by another image.
+  content: { application/json: { schema: { $ref: ../schemas/index.yaml#/Error } } }

@@ -16,9 +16,11 @@ import {
   listImagesByUser,
   parseImageListCursor,
   removeMobileImage,
+  setImageSlug,
   setMobileImage,
   updateImageBytes,
 } from "./repository";
+import { validateSlug } from "./slug";
 import { deleteOriginal, putOriginal } from "./storage";
 
 export type ImageActor = { user: AuthUser; chapters: UserChapter[] };
@@ -30,7 +32,9 @@ export type ImageServiceErrorCode =
   | "forbidden"
   | "not_found"
   | "chapter_required"
-  | "invalid_cursor";
+  | "invalid_cursor"
+  | "invalid_slug"
+  | "slug_taken";
 
 export type ImageServiceResult<T> =
   | { ok: true; value: T }
@@ -61,6 +65,11 @@ function validateImageFile(value: FormDataEntryValue | null): ValidatedFile {
 
 export function imageUrl(env: Env, id: string): string {
   return `${env.APP_URL.replace(/\/$/, "")}/${id}`;
+}
+
+/** Canonical public URL for a known row: the custom slug when set, else the id. */
+export function imageUrlFor(env: Env, image: Pick<ImageRow, "id" | "slug">): string {
+  return `${env.APP_URL.replace(/\/$/, "")}/${image.slug ?? image.id}`;
 }
 
 /**
@@ -199,6 +208,32 @@ export async function getImageForActor(
   if (!image) return fail("not_found");
   if (!canMutateImage(actor.user, image)) return fail("forbidden");
   return ok(image);
+}
+
+/**
+ * Sets or clears an image's custom slug. An empty/whitespace-only value clears
+ * it. `validateSlug`'s three rejection reasons collapse into `invalid_slug`;
+ * the HTTP error mappers turn that into human-readable text. Keyed by id — the
+ * slug namespace is only resolved by the public serve route.
+ */
+export async function setImageSlugForActor(
+  env: Env,
+  actor: ImageActor,
+  id: string,
+  rawSlug: string | null,
+): Promise<ImageServiceResult<ImageRow>> {
+  const image = await getImage(env.DB, id);
+  if (!image) return fail("not_found");
+  if (!canMutateImage(actor.user, image)) return fail("forbidden");
+
+  const trimmed = (rawSlug ?? "").trim();
+  const next = trimmed === "" ? null : trimmed;
+  if (next !== null && !validateSlug(next).ok) return fail("invalid_slug");
+  if (image.slug === next) return ok(image);
+
+  const result = await setImageSlug(env.DB, id, next);
+  if (!result.ok) return fail(result.reason);
+  return ok(result.image);
 }
 
 /**
