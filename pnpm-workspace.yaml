@@ -7,6 +7,7 @@ packages:
   - "sns"
   - "connpass"
   - "pay"
+  - "ost"
   - "website"
   - "tinyurl-gateway"
   - "agents"

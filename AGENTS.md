@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This is a flat pnpm/Turborepo monorepo. The eleven workspace packages are listed in
+This is a flat pnpm/Turborepo monorepo. The workspace packages are listed in
 `pnpm-workspace.yaml`:
 
 - `accounts/` is the GDG Accounts OAuth/OIDC identity provider on Cloudflare Workers, backed by
@@ -17,6 +17,9 @@ This is a flat pnpm/Turborepo monorepo. The eleven workspace packages are listed
   admin automation; `pay/` uses D1, R2, Gemini receipt extraction, and Google Sheets/Drive sync.
 - `website/` is the public GDG Japan React Router v7 SSR website on Cloudflare Workers. It uses a
   TinyURL service binding and has no D1 database.
+- `ost/` is the Open Space Technology support app (`ost.gdgs.jp`): a public participant form plus a
+  live projector screen. React Router v7 SSR on Cloudflare Workers with a single Durable Object
+  (`OstBoard`, SQLite storage + hibernatable WebSockets); no D1, no `accounts/` auth.
 - `gdg-lib/` is the source-only shared TypeScript package (`@gdgjp/gdg-lib`) for relying-party
   auth and signed-cookie helpers. Keep code app-local unless it is genuinely shared here.
 - `agents-index/` is the local, ACL-filtered semantic navigation MCP service for the shared wiki

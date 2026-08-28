@@ -1,0 +1,40 @@
+name = "gdgjp-ost"
+main = "./workers/app.ts"
+compatibility_date = "2026-07-28"
+compatibility_flags = ["nodejs_compat"]
+
+[alias]
+"virtual:react-router/server-build" = "./build/server/index.js"
+
+[vars]
+ENVIRONMENT = "production"
+APP_URL = "https://ost.gdgs.jp"
+
+[assets]
+binding = "ASSETS"
+directory = "./build/client"
+# The admin projector opens a WebSocket at /ws; that upgrade must reach the
+# Worker (and the Durable Object) instead of being served as a static asset.
+run_worker_first = ["/ws"]
+
+[[routes]]
+pattern = "ost.gdgs.jp/*"
+zone_name = "gdgs.jp"
+
+[durable_objects]
+bindings = [
+  { name = "OST_BOARD", class_name = "OstBoard" },
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["OstBoard"]
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true

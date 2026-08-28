@@ -1,0 +1,2 @@
+# ost has no secrets. This file exists only to mirror the other Worker apps.
+APP_URL=http://localhost:5185
