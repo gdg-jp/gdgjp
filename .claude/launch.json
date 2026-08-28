@@ -8,6 +8,12 @@
     {
       "name": "accounts",
       "url": "http://localhost:5173"
+    },
+    {
+      "name": "ost-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@gdgjp/ost", "dev"],
+      "port": 5185
     }
   ]
 }

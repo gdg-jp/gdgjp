@@ -1,0 +1,57 @@
+name = "gdgjp-ost"
+main = "./workers/app.ts"
+compatibility_date = "2026-07-28"
+compatibility_flags = ["nodejs_compat"]
+
+[alias]
+"virtual:react-router/server-build" = "./build/server/index.js"
+
+[vars]
+ENVIRONMENT = "production"
+APP_URL = "https://ost.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+IDP_URL = "https://accounts.gdgs.jp"
+IDP_CLIENT_ID = "ost"
+
+[assets]
+binding = "ASSETS"
+directory = "./build/client"
+# The admin projector opens a WebSocket at /ws; that upgrade must reach the
+# Worker (and the Durable Object) instead of being served as a static asset.
+run_worker_first = ["/ws"]
+
+[[routes]]
+pattern = "ost.gdgs.jp/*"
+zone_name = "gdgs.jp"
+
+[durable_objects]
+bindings = [
+  { name = "OST_BOARD", class_name = "OstBoard" },
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["OstBoard"]
+
+# Registry (events) + relying-party auth tables (user, oidc_session). No topic,
+# vote, or desk data lives here — that stays in each event's Durable Object.
+[[d1_databases]]
+binding = "DB"
+database_name = "gdgjp-ost-db"
+database_id = "6df01e4e-bfbd-4e0b-82da-a60beb04a7c4"
+migrations_dir = "./migrations"
+
+# Worker-to-Worker OIDC (discovery, token, UserInfo) stays on Cloudflare's
+# internal network instead of looping through public HTTPS.
+[[services]]
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true

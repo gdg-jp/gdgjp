@@ -22,6 +22,8 @@ AGENTS_CLIENT_ID = "agents"
 AGENTS_REDIRECT_URLS = "https://agent.gdgs.jp/auth/callback"
 PAY_CLIENT_ID = "pay"
 PAY_REDIRECT_URLS = "https://pay.gdgs.jp/api/auth/callback/gdgjp"
+OST_CLIENT_ID = "ost"
+OST_REDIRECT_URLS = "https://ost.gdgs.jp/api/auth/callback/gdgjp"
 # gdg-cli userId of the pre-registered gdgagent-svc service account — the only
 # caller allowed to hit api/agents/google-workspace-token. Not sensitive (an
 # opaque user id, not a credential), but set only after that account exists

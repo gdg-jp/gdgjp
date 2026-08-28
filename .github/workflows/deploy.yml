@@ -182,6 +182,11 @@ jobs:
               pnpm --filter @gdgjp/pay build
               pnpm --filter @gdgjp/pay run deploy
               pnpm --filter @gdgjp/pay migrate:remote
+          - name: Build and deploy ost
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'ost')
+            run: |
+              pnpm --filter @gdgjp/ost build
+              pnpm --filter @gdgjp/ost run deploy
           - name: Build and deploy website
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'website')
             run: |

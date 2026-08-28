@@ -37,7 +37,8 @@ After changing a client secret, ID, or redirect URI, open `/admin/seed-clients` 
 `OAUTH_KV`.
 
 Development ports are `5173` (accounts), `5174` (tinyurl), `5175` (img), `5176`
-(scheduler), `5177` (wiki), `5178` (sns), `5179` (connpass), and `5180` (website).
+(scheduler), `5177` (wiki), `5178` (sns), `5179` (connpass), `5180` (website), and
+`5185` (ost).
 
 `sns/.dev.vars.example` lists its additional X and Google Photos credentials. The public
 `website/` does not require a `.dev.vars` file for local development.
@@ -65,7 +66,7 @@ pnpm --filter @gdgjp/scheduler migrate:local    # apply D1 migrations locally
 pnpm --filter @gdgjp/scheduler migrate:remote   # apply D1 migrations to production
 ```
 
-D1-backed apps provide `migrate:local` and `migrate:remote` scripts. `website/`, `gdg-lib/`,
+D1-backed apps provide `migrate:local` and `migrate:remote` scripts. `website/`, `ost/`, `gdg-lib/`,
 `tinyurl-gateway/`, `go-extension/`, and `accounts-oidc-client-demo/` do not have D1 migrations.
 
 ## Before opening a pull request

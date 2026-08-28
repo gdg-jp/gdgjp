@@ -173,6 +173,9 @@ jobs:
           - name: Typecheck pay
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/pay')
             run: pnpm --filter @gdgjp/pay typecheck
+          - name: Typecheck ost
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/ost')
+            run: pnpm --filter @gdgjp/ost typecheck
           - name: Typecheck website
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website typecheck
@@ -224,6 +227,9 @@ jobs:
           - name: Test pay
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/pay')
             run: pnpm --filter @gdgjp/pay test
+          - name: Test ost
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/ost')
+            run: pnpm --filter @gdgjp/ost test
           - name: Test website
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website test
@@ -275,6 +281,9 @@ jobs:
           - name: Build pay
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/pay')
             run: pnpm --filter @gdgjp/pay build
+          - name: Build ost
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/ost')
+            run: pnpm --filter @gdgjp/ost build
           - name: Build website
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website build

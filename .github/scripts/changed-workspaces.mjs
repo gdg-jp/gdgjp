@@ -11,6 +11,7 @@ const CI_WORKSPACES = [
   { directory: "sns", workspace: "@gdgjp/sns", build: true, e2e: false },
   { directory: "connpass", workspace: "@gdgjp/connpass", build: true, e2e: false },
   { directory: "pay", workspace: "@gdgjp/pay", build: true, e2e: false },
+  { directory: "ost", workspace: "@gdgjp/ost", build: true, e2e: false },
   { directory: "website", workspace: "@gdgjp/website", build: true, e2e: false },
   { directory: "gdg-lib", workspace: "@gdgjp/gdg-lib", build: false, e2e: false },
   {
@@ -56,6 +57,12 @@ const DEPLOY_TARGETS = [
     workspace: "@gdgjp/pay",
     provider: "cloudflare",
     migrate: true,
+  },
+  {
+    app: "ost",
+    workspace: "@gdgjp/ost",
+    provider: "cloudflare",
+    migrate: false,
   },
   {
     app: "website",

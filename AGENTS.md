@@ -2,21 +2,29 @@
 
 ## Project Structure & Module Organization
 
-This is a flat pnpm/Turborepo monorepo. The eleven workspace packages are listed in
+This is a flat pnpm/Turborepo monorepo. The workspace packages are listed in
 `pnpm-workspace.yaml`:
 
 - `accounts/` is the GDG Accounts OAuth/OIDC identity provider on Cloudflare Workers, backed by
   D1 and KV.
 - `tinyurl/`, `img/`, `scheduler/`, `sns/`, `connpass/`, `pay/`, and `wiki/` are React Router v7 SSR
   Cloudflare Workers and relying parties of `accounts/` (connpass is Bearer-API oriented for
-  CLI/agents). They keep routes in `app/routes/`, route registration in `app/routes.ts`, Worker
-  entrypoints in `workers/`, and D1 migrations in `migrations/`.
+  CLI/agents; `ost/` below is a relying party for its admin surfaces only). They keep routes in
+  `app/routes/`, route registration in `app/routes.ts`, Worker entrypoints in `workers/`, and D1
+  migrations in `migrations/`.
   `wiki/` additionally uses R2, Queues, Browser Rendering, Workers AI, Vectorize, and a Durable
   Object; `img/` uses R2 and Cloudflare Images; `sns/` uses D1, R2, scheduled publishing, and X
   and Google Photos integrations; `connpass/` uses D1, KV, Queues, and Browser Run for connpass.com
   admin automation; `pay/` uses D1, R2, Gemini receipt extraction, and Google Sheets/Drive sync.
 - `website/` is the public GDG Japan React Router v7 SSR website on Cloudflare Workers. It uses a
   TinyURL service binding and has no D1 database.
+- `ost/` is the Open Space Technology support app (`ost.gdgs.jp`): per-event topic collection,
+  participant voting, a venue desk-layout editor, projector screens, and auto-assignment of
+  top-voted topics to desks. React Router v7 SSR on Cloudflare Workers. Public participant pages
+  live at `/:slug`; all admin surfaces (dashboard, screens, editor) are `accounts/` relying-party
+  routes gated by GDG chapter membership. D1 (`DB`) holds only auth tables + an `events` registry;
+  each event's live state (topics, votes, merge groups, desks) is one per-slug Durable Object
+  (`OstBoard`, SQLite storage + hibernatable WebSockets, `getByName(slug)`).
 - `gdg-lib/` is the source-only shared TypeScript package (`@gdgjp/gdg-lib`) for relying-party
   auth and signed-cookie helpers. Keep code app-local unless it is genuinely shared here.
 - `agents-index/` is the local, ACL-filtered semantic navigation MCP service for the shared wiki
