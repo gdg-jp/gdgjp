@@ -6,6 +6,7 @@ const BASE_URL = `http://localhost:${PORT}`;
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.spec.ts",
+  globalSetup: "./e2e/global-setup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -19,8 +20,11 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: "pnpm dev",
-    url: BASE_URL,
+    // Wait on the TCP port, not an HTTP 200 — every route either redirects to
+    // sign-in or 404s without a seeded event.
+    port: PORT,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    // Cold `@cloudflare/vite-plugin` + dep optimization can exceed 2 min.
+    timeout: 240_000,
   },
 });

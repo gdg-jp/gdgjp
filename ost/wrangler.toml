@@ -9,6 +9,9 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 ENVIRONMENT = "production"
 APP_URL = "https://ost.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+IDP_URL = "https://accounts.gdgs.jp"
+IDP_CLIENT_ID = "ost"
 
 [assets]
 binding = "ASSETS"
@@ -29,6 +32,20 @@ bindings = [
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["OstBoard"]
+
+# Registry (events) + relying-party auth tables (user, oidc_session). No topic,
+# vote, or desk data lives here — that stays in each event's Durable Object.
+[[d1_databases]]
+binding = "DB"
+database_name = "gdgjp-ost-db"
+database_id = "6df01e4e-bfbd-4e0b-82da-a60beb04a7c4"
+migrations_dir = "./migrations"
+
+# Worker-to-Worker OIDC (discovery, token, UserInfo) stays on Cloudflare's
+# internal network instead of looping through public HTTPS.
+[[services]]
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
 
 [observability]
 enabled = true
