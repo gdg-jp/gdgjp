@@ -1,5 +1,6 @@
+import type { Page } from "@cloudflare/playwright";
 import { getAllowedGroupByNumericId } from "./authorize.server";
-import { ensureLoggedIn, openConnpassSession } from "./browser.server";
+import { ensureLoggedIn, forceRelogin, openConnpassSession } from "./browser.server";
 import { scrapeConference } from "./connpass-ui/conference";
 import {
   type ScrapedEventDetail,
@@ -11,107 +12,82 @@ import { scrapeEventStatistics, scrapeParticipants } from "./connpass-ui/partici
 import { scrapeSurvey } from "./connpass-ui/survey";
 import { scrapeVoucherRecipients } from "./connpass-ui/vouchers";
 
-export async function listGroupEventsInBrowser(env: Env, groupSlug: string) {
-  const session = await openConnpassSession(env);
-  try {
-    await ensureLoggedIn(env, session);
-    const events = await scrapeGroupEvents(session.page, groupSlug);
-    await session.persist();
-    return events;
-  } finally {
-    await session.close();
+/**
+ * Run a connpass.com read against a browser session, reusing a warm session when
+ * one is available. Reads have no queue behind them, so if the (possibly skipped)
+ * auth pre-check let a dead-cookie session through and the scrape hits a login
+ * wall, retry once after a forced relogin.
+ */
+async function withConnpassRead<T>(env: Env, fn: (page: Page) => Promise<T>): Promise<T> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const session = await openConnpassSession(env);
+    let poisoned = false;
+    try {
+      await ensureLoggedIn(env, session);
+      const out = await fn(session.page);
+      await session.persist();
+      return out;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const authish = message.includes("login") || session.page.url().includes("/login");
+      if (authish && attempt === 0) {
+        poisoned = true;
+        try {
+          await forceRelogin(env);
+        } catch {
+          // fall through and retry anyway
+        }
+        continue;
+      }
+      throw error;
+    } finally {
+      if (poisoned) await session.destroy();
+      else await session.release();
+    }
   }
+  throw new Error("connpass_read_unreachable");
+}
+
+export function listGroupEventsInBrowser(env: Env, groupSlug: string) {
+  return withConnpassRead(env, (page) => scrapeGroupEvents(page, groupSlug));
 }
 
 export type EventDetailWithGroup = Omit<ScrapedEventDetail, "groupNumericId"> & {
   groupId: string | null;
 };
 
-export async function getEventInBrowser(
+export function getEventInBrowser(
   env: Env,
   eventId: string | number,
 ): Promise<EventDetailWithGroup> {
-  const session = await openConnpassSession(env);
-  try {
-    await ensureLoggedIn(env, session);
-    const { groupNumericId, ...rest } = await scrapeEventDetail(session.page, eventId);
-    await session.persist();
+  return withConnpassRead(env, async (page) => {
+    const { groupNumericId, ...rest } = await scrapeEventDetail(page, eventId);
     const group =
       groupNumericId != null ? await getAllowedGroupByNumericId(env.DB, groupNumericId) : null;
     return { ...rest, groupId: group?.groupSlug ?? null };
-  } finally {
-    await session.close();
-  }
+  });
 }
 
-export async function listSubEventsInBrowser(env: Env, eventId: string | number) {
-  const session = await openConnpassSession(env);
-  try {
-    await ensureLoggedIn(env, session);
-    const subEvents = await scrapeSubEvents(session.page, eventId);
-    await session.persist();
-    return subEvents;
-  } finally {
-    await session.close();
-  }
+export function listSubEventsInBrowser(env: Env, eventId: string | number) {
+  return withConnpassRead(env, (page) => scrapeSubEvents(page, eventId));
 }
 
-export async function getSurveyInBrowser(env: Env, eventId: string | number) {
-  const session = await openConnpassSession(env);
-  try {
-    await ensureLoggedIn(env, session);
-    const survey = await scrapeSurvey(session.page, eventId);
-    await session.persist();
-    return survey;
-  } finally {
-    await session.close();
-  }
+export function getSurveyInBrowser(env: Env, eventId: string | number) {
+  return withConnpassRead(env, (page) => scrapeSurvey(page, eventId));
 }
 
-export async function getConferenceInBrowser(env: Env, eventId: string | number) {
-  const session = await openConnpassSession(env);
-  try {
-    await ensureLoggedIn(env, session);
-    const conference = await scrapeConference(session.page, eventId);
-    await session.persist();
-    return conference;
-  } finally {
-    await session.close();
-  }
+export function getConferenceInBrowser(env: Env, eventId: string | number) {
+  return withConnpassRead(env, (page) => scrapeConference(page, eventId));
 }
 
-export async function getParticipantsInBrowser(env: Env, eventId: string | number) {
-  const session = await openConnpassSession(env);
-  try {
-    await ensureLoggedIn(env, session);
-    const participants = await scrapeParticipants(session.page, String(eventId));
-    await session.persist();
-    return participants;
-  } finally {
-    await session.close();
-  }
+export function getParticipantsInBrowser(env: Env, eventId: string | number) {
+  return withConnpassRead(env, (page) => scrapeParticipants(page, String(eventId)));
 }
 
-export async function getEventStatisticsInBrowser(env: Env, eventId: string | number) {
-  const session = await openConnpassSession(env);
-  try {
-    await ensureLoggedIn(env, session);
-    const statistics = await scrapeEventStatistics(session.page, String(eventId));
-    await session.persist();
-    return statistics;
-  } finally {
-    await session.close();
-  }
+export function getEventStatisticsInBrowser(env: Env, eventId: string | number) {
+  return withConnpassRead(env, (page) => scrapeEventStatistics(page, String(eventId)));
 }
 
-export async function getVoucherRecipientsInBrowser(env: Env, eventId: string | number) {
-  const session = await openConnpassSession(env);
-  try {
-    await ensureLoggedIn(env, session);
-    const vouchers = await scrapeVoucherRecipients(session.page, String(eventId));
-    await session.persist();
-    return vouchers;
-  } finally {
-    await session.close();
-  }
+export function getVoucherRecipientsInBrowser(env: Env, eventId: string | number) {
+  return withConnpassRead(env, (page) => scrapeVoucherRecipients(page, String(eventId)));
 }
