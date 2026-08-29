@@ -5,8 +5,10 @@
 
 - このマップは**ファイルを移動したら同じ変更内で更新する契約**。更新しないマップは即座に嘘になる。
 - 全体計画とステージ分割は `docs/wiki-refactoring/index.md`。
-- Stage 05 完了。`app/lib/` は横断プリミティブ 8 本のみ、ドメインコードは `app/features/<domain>/` に集約済み。
-  残る「配置ルール」逸脱はファイルサイズ（Stage 06 の担当）。
+- Stage 06 完了（最終）。`app/lib/` は横断プリミティブ 8 本のみ、ドメインコードは `app/features/<domain>/` に
+  集約済み、非テストソースは 1 ファイル 400 行以下（`file-size.test.ts` の縮小専用 allowlist で例外 2 本を固定）。
+  大きかったファイルは同一ディレクトリ内の焦点モジュール（`<domain>/<name>.server.ts` の分割、`components/<Name>/`
+  ディレクトリ化）に割った。どのファイルを見るかはディレクトリ単位で下の表から絞る。
 
 ## Code map
 
@@ -50,9 +52,9 @@ app/routes/
   _index.tsx        シェル配下のホーム
   $.tsx / $.test.ts catch-all 404
   settings.tsx
-  public/           シェルを持たない公開ページ（about/privacy/terms/signin/logout/api-auth）
-  wiki/             /wiki/*・閲覧系（page/edit/history/new/recent/archived/search/og-image）
-  sources/          /sources（page.tsx + テスト）
+  public/           シェルを持たない公開ページ（about/privacy/terms/signin/logout/api-auth）。ランディング部品は _components/
+  wiki/             /wiki/*・閲覧系（page/edit/history/new/recent/archived/search/og-image）。ビュー部品は _components/
+  sources/          /sources（page.tsx + テスト）。フォーム部品は _components/
   tasks/            /tasks/*（detail/settings/history/new）
   ingest/           /ingest/*・/analyze（start/session/analyze）
   admin/            /admin/*（layout/index/pages/tags/stats）
@@ -157,7 +159,7 @@ app/routes/
 
 ## 規約を強制しているテスト
 
-後続ステージで `tests/architecture/` が増えたらここに追記する。
+新しい規約テストを `tests/architecture/` に足したらここに追記する。
 
 | テスト | 強制する規約 |
 |---|---|
@@ -165,6 +167,8 @@ app/routes/
 | `app/routes/api/agent/architecture.test.ts` | エージェント読み取り API が Vectorize / embedding を使わない |
 | `workers/app.scheduled.test.ts` | `scheduled` の 2 cron 分岐が移動後の feature モジュールへ届く（cron は本番のみ実行） |
 | `tests/architecture/test-colocation.test.ts` | ユニットテストが被験ソースの隣に `<subject>.test.ts` で置かれている |
+| `tests/architecture/file-size.test.ts` | 非テストソースは 1 ファイル 400 行以下。例外は縮小専用 allowlist（現在 2 本）で凍結 |
+| `tests/architecture/layering.test.ts` | Stage 05 の配置ルール: `app/lib/` の中身固定 / `app/components/` はシェルのみ / `app/features/` は routes を import しない / app 層は worker の persistence・orchestration 内部へ届かない |
 | `tests/architecture/route-urls.test.ts` | `app/routes.ts` が公開する URL 全集合（スナップショット固定） |
 | `tests/architecture/design-token-policy.test.ts` | セマンティックトークンのみ使用（`DESIGN.md`）。走査対象は `app/{components,routes}` + `app/features/*/components/` |
 | `tests/architecture/theme-tokens.test.ts` | ライト / ダークのトークン定義が揃っている |

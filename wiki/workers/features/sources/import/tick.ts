@@ -1,10 +1,10 @@
 import { getGoogleDriveTokenRow } from "../../../../app/features/google/drive-token.server";
-import { discordImportDriver } from "../discord-import";
-import { chatImportDriver } from "../google-chat-import";
 import { SourceAuthorizationError } from "../retry-classification";
 import type { SubrequestBudget } from "../subrequest-budget";
+import { discordImportDriver } from "./discord/phases";
 import { ensureSourceImportDoSchema } from "./do-store";
 import { driveImportDriver } from "./drive/phases";
+import { chatImportDriver } from "./google-chat/phases";
 import {
   ACCESS_TOKEN_SUBREQUESTS,
   CURRENT_RUN_SUBREQUESTS,

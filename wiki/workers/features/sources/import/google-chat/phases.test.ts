@@ -1,32 +1,33 @@
 import { DatabaseSync } from "node:sqlite";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as schema from "../../../app/db/schema";
-import { saveChatSenderName } from "./chat-sender-registry";
-import { GOOGLE_CHAT_REAUTH_MESSAGE } from "./google-chat";
-import { ensureSourceImportDoSchema } from "./import/do-store";
-import { sha256Hex } from "./persist";
-import { createSourcesTestDb } from "./test-db";
+import * as schema from "../../../../../app/db/schema";
+import { saveChatSenderName } from "../../chat-sender-registry";
+import { GOOGLE_CHAT_REAUTH_MESSAGE } from "../../google-chat";
+import { sha256Hex } from "../../persist";
+import { createSourcesTestDb } from "../../test-db";
+import { ensureSourceImportDoSchema } from "../do-store";
 
 const { db, sqlite, setAfterExecute } = createSourcesTestDb();
 const start = vi.fn();
 
-vi.mock("../../../app/lib/db.server", () => ({ getDb: () => db }));
-vi.mock("../../../app/features/google/drive-token.server", () => ({
+vi.mock("../../../../../app/lib/db.server", () => ({ getDb: () => db }));
+vi.mock("../../../../../app/features/google/drive-token.server", () => ({
   getGoogleDriveTokenRow: vi.fn().mockResolvedValue({
     accessToken: "token-1",
     grantedScopes: "google-chat",
   }),
 }));
-vi.mock("../../../app/features/google/drive.server", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../../app/features/google/drive.server")>()),
+vi.mock("../../../../../app/features/google/drive.server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../../../app/features/google/drive.server")>()),
   GOOGLE_DRIVE_REAUTH_MESSAGE: "Reconnect Google Drive",
   hasRequiredGoogleChatScopes: () => true,
   REQUIRED_GOOGLE_CHAT_SCOPES: ["google-chat"],
 }));
 
-import { getGoogleDriveTokenRow } from "../../../app/features/google/drive-token.server";
-import { CHAT_PAGE_SIZE, SENDERS_FLUSH_BATCH_SIZE } from "./google-chat-import";
+import { getGoogleDriveTokenRow } from "../../../../../app/features/google/drive-token.server";
+import { SourceAuthorizationError } from "../../retry-classification";
+import { SubrequestBudget } from "../../subrequest-budget";
 import {
   ACCESS_TOKEN_SUBREQUESTS,
   CURRENT_RUN_SUBREQUESTS,
@@ -34,10 +35,9 @@ import {
   claimSourceImport,
   failSourceImportRun,
   startSourceImport,
-} from "./import/run";
-import { advanceSourceImportTick } from "./import/tick";
-import { SourceAuthorizationError } from "./retry-classification";
-import { SubrequestBudget } from "./subrequest-budget";
+} from "../run";
+import { advanceSourceImportTick } from "../tick";
+import { CHAT_PAGE_SIZE, SENDERS_FLUSH_BATCH_SIZE } from "./phases";
 
 const SOURCE_ID = "chat-source-1";
 

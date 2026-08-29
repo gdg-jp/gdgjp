@@ -19,8 +19,9 @@ describe("search excludes raw sources", () => {
   });
 
   it("keyword /search loader only queries pages_fts_trigram and pages", () => {
+    // The `/search` loader query moved to the ai-search feature in Stage 06.
     const source = readFileSync(
-      new URL("../../app/routes/wiki/search.tsx", import.meta.url),
+      new URL("../../app/features/ai-search/wiki-search.server.ts", import.meta.url),
       "utf8",
     );
     expect(source).toMatch(/FROM pages_fts_trigram/);

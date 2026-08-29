@@ -2,18 +2,17 @@ import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
-import { z } from "zod";
 import * as schema from "~/db/schema";
 import { agentsHash, getAgentInstructions } from "~/features/agent-api/agents-md.server";
+import { humanParentSyncError } from "~/features/agent-api/cli-sync-helpers";
+import { SyncBody } from "~/features/agent-api/cli-sync-schema";
+import type { WikiSyncResult } from "~/features/agent-api/cli-sync-schema";
 import {
-  buildNewPageLocaleValues,
-  buildPartialLocaleUpdate,
-  humanOriginSyncError,
-  humanParentSyncError,
-  jaContentChanged,
-  resolveExistingPageSharing,
-  sourceHasReference,
-} from "~/features/agent-api/cli-sync-helpers";
+  buildSyncPageWriteStatements,
+  preflightSyncOperations,
+  resolveSyncPageSharing,
+  scheduleSyncPostCommit,
+} from "~/features/agent-api/cli-sync.server";
 import { canonicalMarkdown } from "~/features/editor/content-format";
 import {
   getEffectivePagePermissions,
@@ -25,87 +24,6 @@ import { pageAclClearance, validatePageAclForSync } from "~/features/pages/acl-s
 import { D1_MAX_BOUND_PARAMETERS, mapInChunks } from "~/features/pages/d1-chunk.server";
 import { getDb } from "~/lib/db.server";
 import { sendOrRunTranslation } from "~/lib/queue-processors.server";
-import type { components } from "../../../../openapi/types.generated";
-
-type WikiSyncResult = components["schemas"]["SyncResult"];
-
-const Language = z.object({
-  title: z.string(),
-  summary: z.string(),
-  translationStatus: z.enum(["human", "ai", "missing"]),
-  content: z.string(),
-});
-const Access = z.object({
-  subjectType: z.enum(["email", "chapter"]),
-  subjectKey: z.string().min(1),
-  subjectLabel: z.string(),
-  role: z.enum(["viewer", "commenter", "editor"]),
-});
-const Source = z
-  .object({
-    id: z.string().optional(),
-    url: z.string().optional(),
-    title: z.string(),
-    sourceId: z.string().nullable().optional(),
-  })
-  .refine(sourceHasReference, { message: "source requires title and url or sourceId" });
-const Attachment = z.object({
-  id: z.string().optional(),
-  fileName: z.string().min(1),
-  mimeType: z.string().min(1),
-});
-const PagePayload = z
-  .object({
-    id: z.string().min(1).max(128).optional(),
-    slug: z
-      .string()
-      .min(1)
-      .max(160)
-      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
-    parentId: z.string().nullable(),
-    sortOrder: z.number().int().min(0),
-    ja: Language.optional(),
-    en: Language.optional(),
-    meta: z.object({
-      pageType: z.string().nullable(),
-      pageMetadata: z.unknown().nullable(),
-      visibility: z.enum(["restricted", "unlisted", "public", "organizer", "member"]),
-      generalRole: z.enum(["viewer", "commenter", "editor"]),
-      chapterId: z.string().nullable(),
-      tags: z.array(z.string().min(1)),
-      access: z.array(Access),
-      sources: z.array(Source),
-      attachments: z.array(Attachment),
-    }),
-  })
-  .refine((page) => page.ja || page.en, { message: "one locale is required" });
-const AgentInstructionsUpdate = z.object({
-  content: z.string().min(1).max(262144),
-  expectedContentHash: z.string().regex(/^[a-f0-9]{64}$/),
-});
-const Body = z
-  .object({
-    operations: z
-      .array(
-        z.discriminatedUnion("kind", [
-          z.object({
-            kind: z.literal("upsert"),
-            expectedRevision: z.number().int().positive().optional(),
-            page: PagePayload,
-          }),
-          z.object({
-            kind: z.literal("archive"),
-            id: z.string(),
-            expectedRevision: z.number().int().positive(),
-          }),
-        ]),
-      )
-      .default([]),
-    agentsMd: AgentInstructionsUpdate.optional(),
-  })
-  .refine((body) => body.operations.length > 0 || body.agentsMd, {
-    message: "operations or agentsMd is required",
-  });
 
 /** POST /api/cli/wiki/sync
  * Atomically applies page upserts/archives.  Every existing operation must
@@ -118,7 +36,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
   const { env } = context.cloudflare;
   const identity = await getBearerIdentity(request, env.ACCOUNTS_URL);
   if (!identity) return Response.json({ error: "invalid_token" }, { status: 401 });
-  const parsed = Body.safeParse(await request.json());
+  const parsed = SyncBody.safeParse(await request.json());
   if (!parsed.success)
     return Response.json(
       { error: "invalid_request", details: parsed.error.flatten() },
@@ -191,64 +109,10 @@ export async function action({ request, context }: ActionFunctionArgs) {
       .where(inArray(schema.pageAttachments.pageId, chunk))
       .all(),
   );
-  const chapterIds = identity.chapters.map((chapter) => String(chapter.chapterId));
-  const conflicts: Array<{ id: string; revision: number }> = [];
   const translatePageIds = new Set<string>();
 
-  for (const operation of operations) {
-    const id = operation.kind === "archive" ? operation.id : operation.page.id;
-    const current = id ? byId.get(id) : undefined;
-    if (
-      id &&
-      !current &&
-      (operation.kind === "archive" || operation.expectedRevision !== undefined)
-    )
-      return Response.json({ error: "not_found", id }, { status: 404 });
-    if (current) {
-      const originError = humanOriginSyncError(current.origin);
-      if (originError) return Response.json({ error: originError, id }, { status: 403 });
-      if (current.pageType === "task-list")
-        return Response.json({ error: "task_list_unsupported", id }, { status: 400 });
-      const permission = await getEffectivePagePermissions(
-        db,
-        current,
-        identity.user,
-        identity.chapters,
-      );
-      if (!permission.canEdit) return Response.json({ error: "forbidden", id }, { status: 403 });
-      const expected = operation.expectedRevision;
-      if (expected !== current.syncRevision)
-        conflicts.push({ id: current.id, revision: current.syncRevision });
-      if (operation.kind === "upsert") {
-        const storedAccess = existingAccess
-          .filter((entry) => entry.pageId === current.id)
-          .map((entry) => ({
-            subjectType: entry.subjectType as "email" | "chapter",
-            subjectKey: entry.subjectKey,
-            subjectLabel: entry.subjectLabel,
-            role: entry.role as "viewer" | "commenter" | "editor",
-          }));
-        const { sharingChanged } = resolveExistingPageSharing(
-          {
-            visibility: current.visibility,
-            generalRole: current.generalRole,
-            chapterId: current.chapterId,
-            access: storedAccess,
-          },
-          {
-            visibility: operation.page.meta.visibility,
-            generalRole: operation.page.meta.generalRole,
-            chapterId: operation.page.meta.chapterId,
-            access: operation.page.meta.access,
-          },
-        );
-        if (sharingChanged && !permission.canManageSharing)
-          return Response.json({ error: "sharing_forbidden", id }, { status: 403 });
-      }
-    }
-  }
-  if (conflicts.length)
-    return Response.json({ error: "revision_conflict", conflicts }, { status: 409 });
+  const preflight = await preflightSyncOperations(db, operations, byId, existingAccess, identity);
+  if (preflight) return preflight;
 
   const statements: D1PreparedStatement[] = [];
   if (agentsUpdate) {
@@ -331,51 +195,9 @@ export async function action({ request, context }: ActionFunctionArgs) {
     if (meta.pageType === "task-list")
       return Response.json({ error: "task_list_unsupported" }, { status: 400 });
 
-    const storedAccessForPage = current
-      ? existingAccess
-          .filter((entry) => entry.pageId === current.id)
-          .map((entry) => ({
-            subjectType: entry.subjectType as "email" | "chapter",
-            subjectKey: entry.subjectKey,
-            subjectLabel: entry.subjectLabel,
-            role: entry.role as "viewer" | "commenter" | "editor",
-          }))
-      : [];
-    const resolvedSharing = current
-      ? resolveExistingPageSharing(
-          {
-            visibility: current.visibility,
-            generalRole: current.generalRole,
-            chapterId: current.chapterId,
-            access: storedAccessForPage,
-          },
-          {
-            visibility: meta.visibility,
-            generalRole: meta.generalRole,
-            chapterId: meta.chapterId,
-            access: meta.access,
-          },
-        )
-      : {
-          sharing: {
-            visibility: meta.visibility,
-            generalRole: meta.generalRole,
-            chapterId: meta.chapterId,
-            access: meta.access,
-          },
-          sharingChanged: true,
-          preserved: false,
-        };
-    const effectiveMeta = {
-      ...meta,
-      visibility: resolvedSharing.sharing.visibility,
-      generalRole: resolvedSharing.sharing.generalRole,
-      chapterId: resolvedSharing.sharing.chapterId,
-      access: resolvedSharing.sharing.access,
-      updateSharing: Boolean(current && resolvedSharing.sharingChanged),
-    };
-    if (!isGeneralAccess(effectiveMeta.visibility) || !isPageRole(effectiveMeta.generalRole))
-      return Response.json({ error: "invalid_access" }, { status: 400 });
+    const sharing = resolveSyncPageSharing(current, existingAccess, meta);
+    if (sharing instanceof Response) return sharing;
+    const { effectiveMeta, resolvedSharing } = sharing;
 
     if (current) {
       const canEditSpans = await pageAclClearance(
@@ -442,160 +264,26 @@ export async function action({ request, context }: ActionFunctionArgs) {
       contentEn ?? current?.contentEn ?? "",
     );
 
-    if (!current) {
-      const localeValues = buildNewPageLocaleValues({
-        ...page,
-        meta: effectiveMeta,
-      });
-      statements.push(
-        env.DB.prepare(
-          "INSERT INTO pages (id,title_ja,title_en,slug,content_ja,content_en,translation_status_ja,translation_status_en,summary_ja,summary_en,parent_id,acl_synced_with_parent,sort_order,status,page_type,page_metadata,visibility,general_role,chapter_id,origin,author_id,last_edited_by,acl_source_ids,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,unixepoch(),unixepoch())",
-        ).bind(
-          id,
-          localeValues.titleJa,
-          localeValues.titleEn,
-          page.slug,
-          contentJa ?? "",
-          contentEn ?? "",
-          localeValues.translationStatusJa,
-          localeValues.translationStatusEn,
-          localeValues.summaryJa,
-          localeValues.summaryEn,
-          page.parentId,
-          page.parentId === null ? 1 : 0,
-          page.sortOrder,
-          "published",
-          effectiveMeta.pageType,
-          effectiveMeta.pageMetadata === null ? null : JSON.stringify(effectiveMeta.pageMetadata),
-          effectiveMeta.visibility,
-          effectiveMeta.generalRole,
-          effectiveMeta.chapterId,
-          "agent",
-          identity.user.id,
-          identity.user.id,
-          aclSourceIdsJson,
-        ),
-      );
-      if (page.ja) translatePageIds.add(id);
-    } else {
-      statements.push(
-        env.DB.prepare(
-          "INSERT INTO page_versions (id,page_id,content_ja,content_en,title_ja,title_en,edited_by,saved_at) VALUES (?,?,?,?,?,?,?,unixepoch())",
-        ).bind(
-          nanoid(),
-          id,
-          canonicalMarkdown(current.contentJa),
-          canonicalMarkdown(current.contentEn),
-          current.titleJa,
-          current.titleEn,
-          identity.user.id,
-        ),
-      );
-      const update = buildPartialLocaleUpdate(
-        { ...page, meta: effectiveMeta },
-        contentJa,
-        contentEn,
-        identity.user.id,
-        id,
-        operation.expectedRevision,
-        aclSourceIdsJson,
-      );
-      statements.push(env.DB.prepare(update.sql).bind(...update.binds));
-      // Only mark ACL drift when sharing actually changes; content-only updates
-      // must not force nested pages to re-sync parent grants.
-      if (resolvedSharing.sharingChanged) {
-        statements.push(
-          env.DB.prepare("UPDATE pages SET acl_synced_with_parent = ? WHERE id = ?").bind(
-            page.parentId === null ? 1 : 0,
-            id,
-          ),
-        );
-      }
-      if (jaContentChanged(current, page.ja, contentJa)) translatePageIds.add(id);
-    }
-    if (effectiveMeta.tags.length) {
-      const known = await db
-        .select({ slug: schema.tags.slug })
-        .from(schema.tags)
-        .where(inArray(schema.tags.slug, effectiveMeta.tags))
-        .all();
-      if (known.length !== new Set(effectiveMeta.tags).size)
-        return Response.json({ error: "unknown_tag" }, { status: 400 });
-    }
-    statements.push(env.DB.prepare("DELETE FROM page_tags WHERE page_id = ?").bind(id));
-    if (!current || resolvedSharing.sharingChanged) {
-      statements.push(env.DB.prepare("DELETE FROM page_access WHERE page_id = ?").bind(id));
-    }
-    statements.push(env.DB.prepare("DELETE FROM page_sources WHERE page_id = ?").bind(id));
-    for (const tag of [...new Set(effectiveMeta.tags)])
-      statements.push(
-        env.DB.prepare("INSERT INTO page_tags (page_id,tag_slug) VALUES (?,?)").bind(id, tag),
-      );
-    if (!current || resolvedSharing.sharingChanged) {
-      for (const entry of effectiveMeta.access)
-        statements.push(
-          env.DB.prepare(
-            "INSERT INTO page_access (id,page_id,subject_type,subject_key,subject_label,user_id,role,granted_by,created_at,updated_at) VALUES (?,?,?,?,?,NULL,?,?,unixepoch(),unixepoch())",
-          ).bind(
-            nanoid(),
-            id,
-            entry.subjectType,
-            entry.subjectKey,
-            entry.subjectLabel,
-            entry.role,
-            identity.user.id,
-          ),
-        );
-    }
-    for (const source of effectiveMeta.sources)
-      statements.push(
-        env.DB.prepare(
-          "INSERT INTO page_sources (id,page_id,url,title,source_id,created_at) VALUES (?,?,?,?,?,unixepoch())",
-        ).bind(source.id ?? nanoid(), id, source.url ?? "", source.title, source.sourceId ?? null),
-      );
-    const attachmentIds: Record<string, string> = {};
-    const requestedIds = new Set(effectiveMeta.attachments.flatMap((a) => (a.id ? [a.id] : [])));
-    if (current) {
-      const currentAttachments = existingAttachments.filter(
-        (attachment) => attachment.pageId === id,
-      );
-      const unknownAttachment = [...requestedIds].find(
-        (attachmentId) => !currentAttachments.some((attachment) => attachment.id === attachmentId),
-      );
-      if (unknownAttachment)
-        return Response.json(
-          { error: "unknown_attachment", id: unknownAttachment },
-          { status: 400 },
-        );
-      objectsToDelete.push(
-        ...currentAttachments
-          .filter((attachment) => !requestedIds.has(attachment.id))
-          .map((attachment) => attachment.r2Key),
-      );
-      statements.push(
-        env.DB.prepare(
-          `DELETE FROM page_attachments WHERE page_id = ? AND id NOT IN (${requestedIds.size ? [...requestedIds].map(() => "?").join(",") : "''"})`,
-        ).bind(id, ...requestedIds),
-      );
-    }
-    for (const attachment of effectiveMeta.attachments) {
-      const attachmentId = attachment.id ?? nanoid();
-      attachmentIds[attachment.fileName] = attachmentId;
-      const r2Key = `wiki/${id}/${attachmentId}-${attachment.fileName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-      if (attachment.id)
-        statements.push(
-          env.DB.prepare(
-            "UPDATE page_attachments SET file_name=?, mime_type=? WHERE id=? AND page_id=?",
-          ).bind(attachment.fileName, attachment.mimeType, attachmentId, id),
-        );
-      else
-        statements.push(
-          env.DB.prepare(
-            "INSERT INTO page_attachments (id,page_id,r2_key,file_name,mime_type,created_at) VALUES (?,?,?,?,?,unixepoch())",
-          ).bind(attachmentId, id, r2Key, attachment.fileName, attachment.mimeType),
-        );
-    }
-    returned.push({ id, slug: page.slug, attachmentIds });
+    const written = await buildSyncPageWriteStatements({
+      db,
+      env,
+      page,
+      current,
+      id,
+      effectiveMeta,
+      contentJa,
+      contentEn,
+      aclSourceIdsJson,
+      resolvedSharing,
+      expectedRevision: operation.expectedRevision,
+      existingAttachments,
+      identity,
+      statements,
+      objectsToDelete,
+      translatePageIds,
+    });
+    if (written instanceof Response) return written;
+    returned.push({ id, slug: page.slug, attachmentIds: written.attachmentIds });
     if (!current) createdRequestIds.add(id);
   }
   let revisions: Array<{ id: string; revision: number }>;
@@ -641,22 +329,4 @@ export async function action({ request, context }: ActionFunctionArgs) {
     })),
   };
   return Response.json(syncResult);
-}
-
-/** Post-commit cleanup must never turn an already-committed sync into a 5xx. */
-export function scheduleSyncPostCommit(context: ExecutionContext, tasks: Promise<unknown>[]): void {
-  if (tasks.length === 0) return;
-  context.waitUntil(
-    Promise.allSettled(tasks).then((results) => {
-      for (const result of results) {
-        if (result.status === "rejected")
-          console.error(
-            JSON.stringify({
-              message: "Wiki sync post-commit task failed",
-              error: result.reason instanceof Error ? result.reason.message : String(result.reason),
-            }),
-          );
-      }
-    }),
-  );
 }

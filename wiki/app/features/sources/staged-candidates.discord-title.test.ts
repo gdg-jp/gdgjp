@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDiscordSourceTitle } from "./page";
+import { buildDiscordSourceTitle } from "./staged-candidates";
 
 describe("buildDiscordSourceTitle", () => {
   it("includes the category segment when a category name is present", () => {

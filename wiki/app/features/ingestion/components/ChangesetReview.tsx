@@ -1,59 +1,16 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import TipTapEditor from "~/features/editor/components/TipTapEditor";
-import { applyPatchesToMarkdown, tiptapToMarkdown } from "~/features/editor/tiptap-convert";
 import PageStructurePreview from "~/features/ingestion/components/PageStructurePreview";
 import { buildTree, flattenTree } from "~/features/pages/tree";
-import type { AiDraftJson, ChangesetOperation } from "../../../../shared/ingestion/domain";
-
-type ResultDraft = Extract<AiDraftJson, { planRationale: string }>;
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const PAGE_TYPE_VALUES = [
-  "event-report",
-  "speaker-profile",
-  "project-log",
-  "how-to-guide",
-  "onboarding-guide",
-  "survey-report",
-] as const;
-
-const CANONICAL_TAG_SLUGS = [
-  "event-operations",
-  "speaker-management",
-  "sponsor-relations",
-  "project",
-  "onboarding",
-  "community-ops",
-  "technical",
-  "template",
-] as const;
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface PageIndexEntry {
-  id: string;
-  titleJa: string;
-  titleEn: string;
-  slug: string;
-  parentId: string | null;
-}
-
-interface OperationState {
-  title: string;
-  tiptapJson: string;
-  summaryJa: string;
-  pageType: string;
-  tags: string[];
-  pageMetadata: Record<string, string>;
-  suggestedSlug?: string;
-  parentId: string | null;
-}
+import type { ChangesetOperation } from "../../../../shared/ingestion/domain";
+import { ChangesetOperationCard } from "./ChangesetOperationCard";
+import {
+  type OperationState,
+  type PageIndexEntry,
+  type ResultDraft,
+  buildImageUrlMap,
+  initOpState,
+} from "./changeset-review-helpers";
 
 interface ChangesetReviewProps {
   draft: ResultDraft;
@@ -65,10 +22,6 @@ interface ChangesetReviewProps {
     feedback: string;
   }) => Promise<{ operation: ChangesetOperation } | null>;
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 export default function ChangesetReview({
   draft,
@@ -312,231 +265,29 @@ export default function ChangesetReview({
       )}
 
       {/* Operation cards */}
-      {operations.map((op, idx) => {
-        const state = opStates[idx];
-        const score = op.draft?.actionabilityScore ?? op.patch?.actionabilityScore;
-        const notes = op.draft?.actionabilityNotes ?? op.patch?.actionabilityNotes;
-        const draftMarkdown = resolveImgPlaceholders(
-          op.draft
-            ? buildMarkdownFromDraft(op.draft)
-            : op.patch
-              ? buildMarkdownFromPatch(op.patch, op.existingTipTapJson)
-              : "",
-          imageUrlMap,
-        );
-        const opKey = op.tempId ?? op.pageId ?? String(idx);
-
-        // Other CREATE ops in this changeset (for parent selector)
-        const otherCreateOps = operations
-          .map((o, i) => ({ op: o, state: opStates[i], idx: i }))
-          .filter(({ op: o, idx: i }) => i !== idx && o.type === "create" && o.tempId);
-
-        return (
-          <div
-            key={opKey}
-            className="rounded-xl border border-default bg-surface-raised p-6 shadow-sm"
-          >
-            {/* Op header */}
-            <div className="mb-4 flex items-center gap-3">
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  op.type === "create"
-                    ? "bg-feedback-success-surface text-feedback-success-foreground"
-                    : "bg-feedback-info-surface text-action-primary"
-                }`}
-              >
-                {op.type === "create" ? t("ingest.review.op_create") : t("ingest.review.op_update")}
-              </span>
-              <span className="text-sm text-content-secondary">{op.rationale}</span>
-            </div>
-
-            {/* Actionability score banner */}
-            {score && score < 3 && (
-              <div
-                className={`mb-4 rounded-lg p-3 text-sm ${
-                  score === 1
-                    ? "border border-feedback-danger-border bg-feedback-danger-surface text-feedback-danger-foreground"
-                    : "border border-feedback-warning-border bg-feedback-warning-surface text-feedback-warning-foreground"
-                }`}
-              >
-                <strong>
-                  {t("ingest.review.actionability_score", { score })}
-                  {score === 1 && ` ${t("ingest.review.actionability_regen_hint")}`}
-                </strong>
-                {notes && <p className="mt-1">{notes}</p>}
-              </div>
-            )}
-
-            {/* Parent page selector (CREATE only) */}
-            {op.type === "create" && (
-              <div className="mb-4">
-                <label
-                  htmlFor={`parent-${idx}`}
-                  className="mb-1 block text-xs font-medium text-content-secondary"
-                >
-                  {t("ingest.review.field_parent_page")}
-                </label>
-                <select
-                  id={`parent-${idx}`}
-                  value={state?.parentId ?? ""}
-                  onChange={(e) => updateOp(idx, { parentId: e.target.value || null })}
-                  className="w-full rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-                >
-                  <option value="">{t("ingest.review.parent_none")}</option>
-                  {existingPageFlatList.length > 0 && (
-                    <optgroup label={t("ingest.review.existing_pages")}>
-                      {existingPageFlatList.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {"\u2003".repeat(p.depth)}
-                          {p.titleJa || p.titleEn || p.slug}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {otherCreateOps.length > 0 && (
-                    <optgroup label={t("ingest.review.new_pages_in_changeset")}>
-                      {otherCreateOps.map(({ op: o, state: s }) => (
-                        <option key={o.tempId} value={o.tempId ?? ""}>
-                          {s?.title || "(Untitled)"}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-              </div>
-            )}
-
-            {/* Title */}
-            <div className="mb-4">
-              <label
-                htmlFor={`title-${idx}`}
-                className="mb-1 block text-xs font-medium text-content-secondary"
-              >
-                {t("ingest.review.field_title")}
-              </label>
-              <input
-                id={`title-${idx}`}
-                type="text"
-                value={state.title}
-                onChange={(e) => updateOp(idx, { title: e.target.value })}
-                className="w-full rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-              />
-            </div>
-
-            {/* Summary */}
-            <div className="mb-4">
-              <label
-                htmlFor={`summary-${idx}`}
-                className="mb-1 block text-xs font-medium text-content-secondary"
-              >
-                {t("ingest.review.field_summary")}
-              </label>
-              <textarea
-                id={`summary-${idx}`}
-                value={state.summaryJa}
-                onChange={(e) => updateOp(idx, { summaryJa: e.target.value })}
-                rows={2}
-                className="w-full rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-              />
-            </div>
-
-            {/* Page type */}
-            <div className="mb-4">
-              <label
-                htmlFor={`pagetype-${idx}`}
-                className="mb-1 block text-xs font-medium text-content-secondary"
-              >
-                {t("ingest.review.field_page_type")}
-              </label>
-              <select
-                id={`pagetype-${idx}`}
-                value={state.pageType}
-                onChange={(e) => updateOp(idx, { pageType: e.target.value })}
-                className="rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-              >
-                {PAGE_TYPE_VALUES.map((value) => (
-                  <option key={value} value={value}>
-                    {t(`ingest.review.pageType.${value}`)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Tags */}
-            <div className="mb-4">
-              <p className="mb-1 text-xs font-medium text-content-secondary">
-                {t("ingest.review.field_tags")}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {CANONICAL_TAG_SLUGS.map((slug) => (
-                  <button
-                    key={slug}
-                    type="button"
-                    onClick={() => toggleTag(idx, slug)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      state.tags.includes(slug)
-                        ? "bg-action-primary text-content-inverse"
-                        : "bg-surface-sunken text-content-secondary hover:bg-surface-hover"
-                    }`}
-                  >
-                    {t(`ingest.review.tag.${slug}`)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Editor */}
-            <div className="mb-4">
-              <p className="mb-1 text-xs font-medium text-content-secondary">
-                {t("ingest.review.field_body")}
-              </p>
-              <TipTapEditor
-                initialMarkdown={draftMarkdown}
-                onChange={(json) => updateOp(idx, { tiptapJson: json })}
-              />
-            </div>
-
-            {/* Regenerate */}
-            <div className="mt-4 border-t border-subtle pt-4">
-              <label
-                htmlFor={`feedback-${idx}`}
-                className="mb-1 block text-xs font-medium text-content-secondary"
-              >
-                {t("ingest.review.field_feedback")}
-              </label>
-              <div className="flex gap-2">
-                <input
-                  id={`feedback-${idx}`}
-                  type="text"
-                  value={feedback[idx]}
-                  onChange={(e) => {
-                    const next = [...feedback];
-                    next[idx] = e.target.value;
-                    setFeedback(next);
-                  }}
-                  placeholder={t("ingest.review.feedback_placeholder")}
-                  className="flex-1 rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRegenerate(idx)}
-                  disabled={regenerating[idx] || !feedback[idx].trim()}
-                  className="rounded-lg border border-default px-4 py-2 text-sm text-content-secondary transition-colors hover:bg-surface-canvas disabled:opacity-50"
-                >
-                  {regenerating[idx]
-                    ? t("ingest.review.regenerating")
-                    : t("ingest.review.regenerate")}
-                </button>
-              </div>
-              {regenerateErrors[idx] && (
-                <p className="mt-2 text-xs text-feedback-danger-foreground">
-                  {regenerateErrors[idx]}
-                </p>
-              )}
-            </div>
-          </div>
-        );
-      })}
+      {operations.map((op, idx) => (
+        <ChangesetOperationCard
+          key={op.tempId ?? op.pageId ?? String(idx)}
+          op={op}
+          state={opStates[idx]}
+          idx={idx}
+          operations={operations}
+          opStates={opStates}
+          imageUrlMap={imageUrlMap}
+          existingPageFlatList={existingPageFlatList}
+          feedbackValue={feedback[idx]}
+          regenerating={regenerating[idx]}
+          regenerateError={regenerateErrors[idx]}
+          onUpdateOp={(updates) => updateOp(idx, updates)}
+          onToggleTag={(slug) => toggleTag(idx, slug)}
+          onFeedbackChange={(value) => {
+            const next = [...feedback];
+            next[idx] = value;
+            setFeedback(next);
+          }}
+          onRegenerate={() => handleRegenerate(idx)}
+        />
+      ))}
 
       {/* Page structure preview */}
       <PageStructurePreview pageIndex={pageIndex} operations={operations} opStates={opStates} />
@@ -554,49 +305,4 @@ export default function ChangesetReview({
       </div>
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function initOpState(op: ChangesetOperation): OperationState {
-  const draft = op.draft;
-  return {
-    title: draft?.title.ja ?? op.pageTitle ?? "",
-    tiptapJson: "",
-    summaryJa: draft?.summary.ja ?? "",
-    pageType: draft?.suggestedPageType ?? "how-to-guide",
-    tags: draft?.suggestedTags ?? [],
-    pageMetadata: draft?.metadata ?? {},
-    suggestedSlug: draft?.suggestedSlug,
-    parentId: draft?.suggestedParentId ?? null,
-  };
-}
-
-function buildMarkdownFromDraft(
-  draft: import("../../../../shared/ingestion/domain").PageDraft,
-): string {
-  return draft.sections.map((section) => `## ${section.heading}\n\n${section.body}`).join("\n\n");
-}
-
-function buildMarkdownFromPatch(
-  patch: import("../../../../shared/ingestion/domain").SectionPatchResponse,
-  existingTipTapJson?: string,
-): string {
-  const existingMarkdown = existingTipTapJson ? tiptapToMarkdown(existingTipTapJson) : "";
-  return applyPatchesToMarkdown(existingMarkdown, patch.sectionPatches);
-}
-
-function buildImageUrlMap(imageKeys: string[]): Record<string, string> {
-  const map: Record<string, string> = {};
-  for (const key of imageKeys) {
-    const name = key.split("/").at(-1) ?? key;
-    map[name] = `/api/images/${key}`;
-  }
-  return map;
-}
-
-function resolveImgPlaceholders(markdown: string, imageUrlMap: Record<string, string>): string {
-  return markdown.replace(/\(img:([^)]+)\)/g, (_, name) => `(${imageUrlMap[name] ?? "#"})`);
 }

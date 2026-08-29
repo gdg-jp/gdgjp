@@ -5,6 +5,7 @@ run its resumable import phases. UI/API side is `app/features/sources/sources.se
 
 - `fetch-source.ts` — `fetchSource`, `enqueueDueSourceRefreshes`; holds the cron strings.
 - `import/run.ts` + `import/tick.ts` — the `SOURCE_IMPORT_DO` alarm self-chain loop.
-- `import/drive/`, `import/website/` — per-driver phase modules.
+- `import/drive/`, `import/website/`, `import/google-chat/`, `import/discord/` — per-driver phase
+  modules (`phases.ts` = the driver `tick.ts` registers; siblings are its step functions + `shared.ts`).
 
 Import continuation runs in DO alarms, not `SOURCE_FETCH_QUEUE` (start messages only).

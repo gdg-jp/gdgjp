@@ -108,7 +108,7 @@ Details in `ARCHITECTURE.md`. Scan this table to narrow the location before you 
 | リアルタイム共同編集 | クライアント `app/features/editor/`（README あり）、DO `workers/collab-durable-object.ts` |
 | DB スキーマ | `app/db/schema/`（ドメイン別モジュール + `index.ts`。割り当て表は `ARCHITECTURE.md`） |
 | 横断プリミティブ | `app/lib/`（8 本のみ: db / utils / time / color-utils / url-extract / queue-processors / chapter-directory / og-image） |
-| テストの置き場 | ユニットは被験対象の隣（`<subject>.test.ts`）。マイグレーションは `tests/migrations/`、アーキ規約は `tests/architecture/`（`ARCHITECTURE.md` 参照） |
+| テストの置き場 | ユニットは被験対象の隣（`<subject>.test.ts`）。マイグレーションは `tests/migrations/`、アーキ規約は `tests/architecture/`（配置ルール = `layering.test.ts`、400 行上限 = `file-size.test.ts`。一覧は `ARCHITECTURE.md`） |
 
 **読まないファイル**（生成物、grep のノイズ）: `worker-configuration.d.ts`（14,750 行、正本は
 `wrangler.toml` の表）・`schema.sql`（599、正本 `app/db/schema/`）・`openapi/types.generated.ts`

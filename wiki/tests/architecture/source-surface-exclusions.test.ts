@@ -5,9 +5,14 @@ function routeSource(name: string): string {
   return readFileSync(new URL(`../../app/routes/${name}`, import.meta.url), "utf8");
 }
 
+function appSource(name: string): string {
+  return readFileSync(new URL(`../../app/${name}`, import.meta.url), "utf8");
+}
+
 describe("conversation source surface exclusions", () => {
   it("filters conversation sources at database query time in all three surfaces", () => {
-    const page = routeSource("sources/page.tsx");
+    // The `/sources` loader query moved to the feature layer in Stage 06.
+    const page = appSource("features/sources/sources-page.server.ts");
     const json = routeSource("api/sources/list.ts");
     const manifest = routeSource("api/cli/sources.ts");
 
