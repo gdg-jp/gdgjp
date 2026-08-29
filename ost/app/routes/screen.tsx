@@ -1,7 +1,9 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useMemo, useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { useFetcher } from "react-router";
+import { AnimatedCount, ConnectionPill } from "~/components/motion";
 import { requireEventAccess } from "~/lib/auth-redirect.server";
+import { staggerDelay, tap, transitions } from "~/lib/motion";
 import type { Group, Topic } from "~/lib/topics";
 import { useLiveBoard } from "~/lib/useLiveBoard";
 import type { Route } from "./+types/screen";
@@ -57,6 +59,7 @@ export default function Screen({ loaderData }: Route.ComponentProps) {
 
   const rectRefs = useRef(new Map<string, DOMRect>());
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   const cells = useMemo<Cell[]>(() => {
     const membersByGroup = new Map<string, Topic[]>();
@@ -115,18 +118,14 @@ export default function Screen({ loaderData }: Route.ComponentProps) {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-baseline gap-4">
           <h1 className="text-3xl font-bold lg:text-4xl">{loaderData.event.title}</h1>
-          <span className="text-xl text-neutral-500">{state.topics.length} テーマ</span>
+          <span className="text-xl text-neutral-500">
+            <AnimatedCount value={state.topics.length} /> テーマ
+          </span>
         </div>
         <div className="flex items-center gap-4">
-          <span className="flex items-center gap-2 text-lg text-neutral-500">
-            <span
-              className={`inline-block size-3 rounded-full border border-black ${
-                connected ? "bg-gdg-green" : "bg-gdg-yellow"
-              }`}
-            />
-            {connected ? "ライブ" : "再接続中…"}
-          </span>
-          <button
+          <ConnectionPill connected={connected} />
+          <motion.button
+            {...tap}
             type="button"
             onClick={() => {
               if (window.confirm("すべてのテーマを削除します。よろしいですか？")) {
@@ -136,7 +135,7 @@ export default function Screen({ loaderData }: Route.ComponentProps) {
             className="rounded-full border-2 border-black bg-white px-6 py-2 text-lg font-bold transition hover:bg-neutral-100"
           >
             すべてクリア
-          </button>
+          </motion.button>
         </div>
       </header>
 
@@ -146,42 +145,54 @@ export default function Screen({ loaderData }: Route.ComponentProps) {
         </div>
       ) : (
         <ul className="grid flex-1 auto-rows-min gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr))]">
-          {cells.map((c, index) => (
-            <motion.li
-              key={cellId(c)}
-              layout={!reduceMotion}
-              drag
-              dragSnapToOrigin
-              onDragStart={() => {
-                for (const other of cells) {
-                  const el = document.getElementById(`cell-${cellId(other)}`);
-                  if (el) rectRefs.current.set(cellId(other), el.getBoundingClientRect());
-                }
-              }}
-              onDragEnd={(_e, info) => onDragEnd(c, info.point.x, info.point.y)}
-              id={`cell-${cellId(c)}`}
-              className="relative cursor-grab active:cursor-grabbing"
-            >
-              {c.kind === "topic" ? (
-                <TopicCard
-                  topic={c.topic}
-                  votes={state.voteCounts[c.topic.id] ?? 0}
-                  accent={ACCENTS[index % ACCENTS.length]}
-                  onDelete={() =>
-                    fetcher.submit({ intent: "delete", topicId: c.topic.id }, { method: "post" })
+          <AnimatePresence initial={false} mode="popLayout">
+            {cells.map((c, index) => (
+              <motion.li
+                key={cellId(c)}
+                layout={!reduceMotion}
+                initial={reduceMotion ? false : { opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
+                transition={transitions.springSoft}
+                drag
+                dragSnapToOrigin
+                onDragStart={() => {
+                  setDragging(true);
+                  for (const other of cells) {
+                    const el = document.getElementById(`cell-${cellId(other)}`);
+                    if (el) rectRefs.current.set(cellId(other), el.getBoundingClientRect());
                   }
-                />
-              ) : (
-                <StackCard
-                  count={c.members.length}
-                  top={c.members[0]}
-                  votes={c.members.reduce((s, m) => s + (state.voteCounts[m.id] ?? 0), 0)}
-                  accent={ACCENTS[index % ACCENTS.length]}
-                  onOpen={() => setExpandedGroupId(c.group.id)}
-                />
-              )}
-            </motion.li>
-          ))}
+                }}
+                onDragEnd={(_e, info) => {
+                  setDragging(false);
+                  onDragEnd(c, info.point.x, info.point.y);
+                }}
+                id={`cell-${cellId(c)}`}
+                className="relative cursor-grab active:cursor-grabbing"
+              >
+                {c.kind === "topic" ? (
+                  <TopicCard
+                    topic={c.topic}
+                    votes={state.voteCounts[c.topic.id] ?? 0}
+                    accent={ACCENTS[index % ACCENTS.length]}
+                    interactive={!dragging}
+                    onDelete={() =>
+                      fetcher.submit({ intent: "delete", topicId: c.topic.id }, { method: "post" })
+                    }
+                  />
+                ) : (
+                  <StackCard
+                    count={c.members.length}
+                    top={c.members[0]}
+                    votes={c.members.reduce((s, m) => s + (state.voteCounts[m.id] ?? 0), 0)}
+                    accent={ACCENTS[index % ACCENTS.length]}
+                    interactive={!dragging}
+                    onOpen={() => setExpandedGroupId(c.group.id)}
+                  />
+                )}
+              </motion.li>
+            ))}
+          </AnimatePresence>
         </ul>
       )}
 
@@ -192,6 +203,7 @@ export default function Screen({ loaderData }: Route.ComponentProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={transitions.fade}
             onClick={() => setExpandedGroupId(null)}
           >
             <motion.div
@@ -204,11 +216,12 @@ export default function Screen({ loaderData }: Route.ComponentProps) {
                   layout={!reduceMotion}
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: reduceMotion ? 0 : i * 0.04 }}
+                  transition={{ ...transitions.spring, delay: reduceMotion ? 0 : staggerDelay(i) }}
                   className="relative w-80 rounded-[2rem] border-2 border-black bg-white p-8"
                   style={{ borderTop: `14px solid ${ACCENTS[i % ACCENTS.length]}` }}
                 >
-                  <button
+                  <motion.button
+                    {...tap}
                     type="button"
                     aria-label="このテーマをグループから外す"
                     onClick={() =>
@@ -217,9 +230,11 @@ export default function Screen({ loaderData }: Route.ComponentProps) {
                     className="absolute right-3 top-3 grid size-9 place-items-center rounded-full border-2 border-black bg-white text-lg leading-none hover:bg-gdg-red hover:text-white"
                   >
                     ⤴
-                  </button>
+                  </motion.button>
                   <p className="pr-10 text-3xl font-bold leading-snug break-words">{m.text}</p>
-                  <p className="mt-3 text-sm text-neutral-500">{state.voteCounts[m.id] ?? 0} 票</p>
+                  <p className="mt-3 text-sm text-neutral-500">
+                    <AnimatedCount value={state.voteCounts[m.id] ?? 0} /> 票
+                  </p>
                 </motion.div>
               ))}
             </motion.div>
@@ -230,51 +245,67 @@ export default function Screen({ loaderData }: Route.ComponentProps) {
   );
 }
 
-function TopicCard({
+const TopicCard = memo(function TopicCard({
   topic,
   votes,
   accent,
+  interactive,
   onDelete,
 }: {
   topic: Topic;
   votes: number;
   accent: string;
+  interactive: boolean;
   onDelete: () => void;
 }) {
   return (
-    <div
+    <motion.div
+      whileHover={interactive ? { y: -3 } : undefined}
+      transition={transitions.spring}
       className="relative rounded-[2rem] border-2 border-black bg-white p-8 lg:p-10"
       style={{ borderTop: `14px solid ${accent}` }}
     >
-      <button
+      <motion.button
+        {...tap}
         type="button"
         aria-label="このテーマを削除"
         onClick={onDelete}
         className="absolute right-4 top-4 grid size-10 place-items-center rounded-full border-2 border-black bg-white text-2xl leading-none transition hover:bg-gdg-red hover:text-white"
       >
         ×
-      </button>
+      </motion.button>
       <p className="pr-12 text-4xl font-bold leading-snug break-words lg:text-5xl">{topic.text}</p>
-      <p className="mt-4 text-lg text-neutral-500">{votes} 票</p>
-    </div>
+      <p className="mt-4 text-lg text-neutral-500">
+        <AnimatedCount value={votes} /> 票
+      </p>
+    </motion.div>
   );
-}
+});
 
-function StackCard({
+const StackCard = memo(function StackCard({
   count,
   top,
   votes,
   accent,
+  interactive,
   onOpen,
 }: {
   count: number;
   top: Topic;
   votes: number;
   accent: string;
+  interactive: boolean;
   onOpen: () => void;
 }) {
   return (
-    <button type="button" onClick={onOpen} className="block w-full text-left">
+    <motion.button
+      type="button"
+      onClick={onOpen}
+      whileHover={interactive ? { y: -3 } : undefined}
+      whileTap={{ scale: 0.98 }}
+      transition={transitions.spring}
+      className="block w-full text-left"
+    >
       <span
         aria-hidden
         className="pointer-events-none absolute inset-0 translate-x-2 translate-y-2 rounded-[2rem] border-2 border-black bg-white"
@@ -291,8 +322,10 @@ function StackCard({
           {count}
         </span>
         <p className="pr-12 text-4xl font-bold leading-snug break-words lg:text-5xl">{top.text}</p>
-        <p className="mt-4 text-lg text-neutral-500">まとめて {votes} 票 ・ タップで展開</p>
+        <p className="mt-4 text-lg text-neutral-500">
+          まとめて <AnimatedCount value={votes} /> 票 ・ タップで展開
+        </p>
       </div>
-    </button>
+    </motion.button>
   );
-}
+});

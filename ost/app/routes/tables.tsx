@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { ConnectionPill } from "~/components/motion";
 import { requireEventAccess } from "~/lib/auth-redirect.server";
 import { boundingBox, fitTransform } from "~/lib/layout";
+import { staggerDelay, transitions } from "~/lib/motion";
 import type { Topic } from "~/lib/topics";
 import { useLiveBoard } from "~/lib/useLiveBoard";
 import type { Route } from "./+types/tables";
@@ -54,14 +57,7 @@ export default function Tables({ loaderData }: Route.ComponentProps) {
     <div className="flex min-h-dvh flex-col gap-4 p-6 lg:p-10">
       <header className="flex items-baseline justify-between gap-4">
         <h1 className="text-3xl font-bold lg:text-4xl">{loaderData.event.title} — 机の割り当て</h1>
-        <span className="flex items-center gap-2 text-lg text-neutral-500">
-          <span
-            className={`inline-block size-3 rounded-full border border-black ${
-              connected ? "bg-gdg-green" : "bg-gdg-yellow"
-            }`}
-          />
-          {connected ? "ライブ" : "再接続中…"}
-        </span>
+        <ConnectionPill connected={connected} />
       </header>
 
       <div
@@ -73,37 +69,111 @@ export default function Tables({ loaderData }: Route.ComponentProps) {
             机がまだ設定されていません
           </div>
         ) : (
-          state.desks.map((desk) => {
-            const assigned = topicsByDesk.get(desk.id) ?? [];
-            return (
-              <div
-                key={desk.id}
-                className="absolute grid place-items-center rounded-2xl border-2 border-black bg-surface p-2 text-center"
-                style={{
-                  width: desk.width * transform.scale,
-                  height: desk.height * transform.scale,
-                  left: desk.x * transform.scale + transform.offsetX,
-                  top: desk.y * transform.scale + transform.offsetY,
-                  transform: `rotate(${desk.rotation}deg)`,
-                }}
-              >
-                <div>
-                  <div className="text-xs font-bold text-neutral-500">{desk.label || "机"}</div>
-                  {assigned.length === 0 ? (
-                    <div className="text-sm text-neutral-400">未割り当て</div>
-                  ) : (
-                    assigned.map((t) => (
-                      <div key={t.id} className="text-sm font-bold leading-tight break-words">
-                        {t.text}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            );
-          })
+          <AnimatePresence initial={false}>
+            {state.desks.map((desk, index) => {
+              const assigned = topicsByDesk.get(desk.id) ?? [];
+              return (
+                <DeskTile
+                  key={desk.id}
+                  index={index}
+                  label={desk.label}
+                  x={desk.x}
+                  y={desk.y}
+                  width={desk.width}
+                  height={desk.height}
+                  rotation={desk.rotation}
+                  scale={transform.scale}
+                  offsetX={transform.offsetX}
+                  offsetY={transform.offsetY}
+                  assignedKey={assigned.map((t) => t.id).join("\n")}
+                  assignedText={assigned.map((t) => t.text).join("\n")}
+                />
+              );
+            })}
+          </AnimatePresence>
         )}
       </div>
     </div>
   );
 }
+
+const DeskTile = memo(function DeskTile({
+  index,
+  label,
+  x,
+  y,
+  width,
+  height,
+  rotation,
+  scale,
+  offsetX,
+  offsetY,
+  assignedKey,
+  assignedText,
+}: {
+  index: number;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+  assignedKey: string;
+  assignedText: string;
+}) {
+  const reduceMotion = useReducedMotion();
+  const lines = assignedText ? assignedText.split("\n") : [];
+
+  return (
+    <motion.div
+      layout
+      initial={reduceMotion ? false : { opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0 }}
+      transition={transitions.springSoft}
+      className="absolute"
+      style={{
+        width: width * scale,
+        height: height * scale,
+        left: x * scale + offsetX,
+        top: y * scale + offsetY,
+      }}
+    >
+      <motion.div
+        animate={{ rotate: rotation }}
+        transition={transitions.springSoft}
+        className="grid h-full w-full place-items-center rounded-2xl border-2 border-black bg-surface p-2 text-center"
+      >
+        <div>
+          <div className="text-xs font-bold text-neutral-500">{label || "机"}</div>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={assignedKey || "none"}
+              initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+              transition={{ ...transitions.fade, delay: reduceMotion ? 0 : staggerDelay(index) }}
+            >
+              {lines.length === 0 ? (
+                <div className="text-sm text-neutral-400">未割り当て</div>
+              ) : (
+                lines.map((text, i) => (
+                  <div
+                    // biome-ignore lint/suspicious/noArrayIndexKey: assigned lines are positional, no stable id here
+                    key={i}
+                    className="text-sm font-bold leading-tight break-words"
+                  >
+                    {text}
+                  </div>
+                ))
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+});

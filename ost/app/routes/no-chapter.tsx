@@ -1,6 +1,8 @@
+import { motion } from "motion/react";
 import { redirect } from "react-router";
 import { getAuth } from "~/lib/auth.server";
 import { ClaimsUnavailableError, fetchChapterForUser } from "~/lib/chapter.server";
+import { tap, transitions } from "~/lib/motion";
 import type { Route } from "./+types/no-chapter";
 
 export function meta() {
@@ -24,19 +26,25 @@ export async function loader(args: Route.LoaderArgs) {
 export default function NoChapter({ loaderData }: Route.ComponentProps) {
   return (
     <main className="grid min-h-dvh place-items-center p-6">
-      <div className="w-full max-w-md space-y-6 rounded-[2rem] border-2 border-black bg-white p-8 text-center sm:p-10">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={transitions.spring}
+        className="w-full max-w-md space-y-6 rounded-[2rem] border-2 border-black bg-white p-8 text-center sm:p-10"
+      >
         <h1 className="text-2xl font-bold sm:text-3xl">GDG チャプターへの参加が必要です</h1>
         <p className="text-base text-neutral-600">
           OST の管理画面は GDG / GDG on Campus チャプターのメンバーが利用できます。
           チャプターに参加してからもう一度お試しください。
         </p>
-        <a
+        <motion.a
+          {...tap}
           href={`${loaderData.accountsUrl}/onboarding`}
           className="inline-block rounded-full border-2 border-black bg-gdg-blue px-8 py-3 text-lg font-bold text-white transition hover:brightness-95"
         >
           チャプターに参加する
-        </a>
-      </div>
+        </motion.a>
+      </motion.div>
     </main>
   );
 }

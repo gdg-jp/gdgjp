@@ -1,7 +1,9 @@
+import { AnimatePresence, motion } from "motion/react";
 import { Form, Link, useNavigation } from "react-router";
 import { Header } from "~/components/header";
 import { requireUserWithChapter } from "~/lib/auth-redirect.server";
 import { createEvent, listEventsForChapters } from "~/lib/db";
+import { listItem, tapSubtle, transitions } from "~/lib/motion";
 import { normalizeSlug } from "~/lib/slug";
 import type { Route } from "./+types/home";
 
@@ -101,27 +103,44 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
             </select>
           </label>
 
-          {actionData && "error" in actionData && actionData.error ? (
-            <p role="alert" className="text-sm font-medium text-gdg-red">
-              {actionData.error}
-            </p>
-          ) : null}
-          {actionData && "created" in actionData && actionData.created ? (
-            <p className="text-sm font-medium text-gdg-green">
-              作成しました。
-              <Link className="underline" to={`/${actionData.created}/edit`}>
-                {actionData.created} を設定する
-              </Link>
-            </p>
-          ) : null}
+          <AnimatePresence mode="wait">
+            {actionData && "error" in actionData && actionData.error ? (
+              <motion.p
+                key="error"
+                role="alert"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={transitions.fade}
+                className="text-sm font-medium text-gdg-red"
+              >
+                {actionData.error}
+              </motion.p>
+            ) : actionData && "created" in actionData && actionData.created ? (
+              <motion.p
+                key="created"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={transitions.fade}
+                className="text-sm font-medium text-gdg-green"
+              >
+                作成しました。
+                <Link className="underline" to={`/${actionData.created}/edit`}>
+                  {actionData.created} を設定する
+                </Link>
+              </motion.p>
+            ) : null}
+          </AnimatePresence>
 
-          <button
+          <motion.button
+            {...tapSubtle}
             type="submit"
             disabled={submitting}
             className="rounded-full border-2 border-black bg-gdg-blue px-6 py-2.5 font-bold text-white transition hover:brightness-95 disabled:opacity-60"
           >
             {submitting ? "作成中…" : "作成する"}
-          </button>
+          </motion.button>
         </Form>
       </section>
 
@@ -131,8 +150,14 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
           <p className="text-neutral-600">まだイベントがありません。</p>
         ) : (
           <ul className="space-y-3">
-            {events.map((e) => (
-              <li key={e.slug} className="rounded-2xl border-2 border-black bg-white p-4 sm:p-5">
+            {events.map((e, i) => (
+              <motion.li
+                key={e.slug}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...transitions.fade, delay: Math.min(i * 0.04, 0.3) }}
+                className="rounded-2xl border-2 border-black bg-white p-4 sm:p-5"
+              >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="text-lg font-bold">{e.title}</span>
                   <span className="text-sm text-neutral-500">{e.chapterSlug}</span>
@@ -151,7 +176,7 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
                     設定
                   </Link>
                 </div>
-              </li>
+              </motion.li>
             ))}
           </ul>
         )}

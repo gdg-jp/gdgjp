@@ -1,7 +1,8 @@
-import { motion, useDragControls, useMotionValue } from "motion/react";
+import { AnimatePresence, motion, useDragControls, useMotionValue } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { Header } from "~/components/header";
+import { AnimatedCount } from "~/components/motion";
 import { requireEventAccess } from "~/lib/auth-redirect.server";
 import {
   type Transform,
@@ -11,6 +12,7 @@ import {
   normalizeAngle,
   resizeDesk,
 } from "~/lib/layout";
+import { listItem, tapSubtle, transitions } from "~/lib/motion";
 import type { Desk } from "~/lib/topics";
 import { useLiveBoard } from "~/lib/useLiveBoard";
 import type { Route } from "./+types/edit";
@@ -108,6 +110,13 @@ function DeskNode({
       dragListener={false}
       dragControls={controls}
       dragMomentum={false}
+      // Opacity-only entrance (a new desk fades in); scale-out on removal.
+      // Deliberately no transform on enter and no `layout` — the resize/rotate
+      // pointer math reads this node's box directly and must not see it scaled.
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, scale: 0 }}
+      transition={{ opacity: { duration: 0.18 }, scale: { duration: 0.18 } }}
       onPointerDown={(e) => {
         onBeginGesture(t);
         controls.start(e);
@@ -306,27 +315,30 @@ export default function Edit({ loaderData }: Route.ComponentProps) {
       <Header title={`${loaderData.event.title} — 設定`} accountsUrl={accountsUrl} user={user} />
 
       <div className="flex flex-wrap gap-3">
-        <button
+        <motion.button
+          {...tapSubtle}
           type="button"
           onClick={addDesk}
           className="rounded-full border-2 border-black bg-gdg-blue px-5 py-2 font-bold text-white transition hover:brightness-95"
         >
           机を追加
-        </button>
-        <button
+        </motion.button>
+        <motion.button
+          {...tapSubtle}
           type="button"
           onClick={() => fetcher.submit({ intent: "autoAssign" }, { method: "post" })}
           className="rounded-full border-2 border-black bg-white px-5 py-2 font-bold transition hover:bg-neutral-100"
         >
           自動割り当て
-        </button>
-        <button
+        </motion.button>
+        <motion.button
+          {...tapSubtle}
           type="button"
           onClick={() => fetcher.submit({ intent: "clearAssign" }, { method: "post" })}
           className="rounded-full border-2 border-black bg-white px-5 py-2 font-bold transition hover:bg-neutral-100"
         >
           割り当てクリア
-        </button>
+        </motion.button>
         <Link
           to={`/${slug}/tables`}
           className="rounded-full border-2 border-black bg-white px-5 py-2 font-bold transition hover:bg-neutral-100"
@@ -339,18 +351,20 @@ export default function Edit({ loaderData }: Route.ComponentProps) {
         ref={wrapRef}
         className="relative h-[60vh] overflow-hidden rounded-[1.5rem] border-2 border-black bg-white"
       >
-        {desks.map((desk) => (
-          <DeskNode
-            key={desk.id}
-            desk={desk}
-            t={t}
-            onBeginGesture={beginGesture}
-            onEndGesture={endGesture}
-            onDragCommit={handleDragCommit}
-            onHandleStart={startHandle}
-            onRemove={handleRemove}
-          />
-        ))}
+        <AnimatePresence initial={false}>
+          {desks.map((desk) => (
+            <DeskNode
+              key={desk.id}
+              desk={desk}
+              t={t}
+              onBeginGesture={beginGesture}
+              onEndGesture={endGesture}
+              onDragCommit={handleDragCommit}
+              onHandleStart={startHandle}
+              onRemove={handleRemove}
+            />
+          ))}
+        </AnimatePresence>
         {desks.length === 0 ? (
           <div className="grid h-full place-items-center text-neutral-400">
             「机を追加」でレイアウトを作成
@@ -361,7 +375,8 @@ export default function Edit({ loaderData }: Route.ComponentProps) {
       <section className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">テーマ（{state.topics.length}）</h2>
-          <button
+          <motion.button
+            {...tapSubtle}
             type="button"
             onClick={() => {
               if (window.confirm("すべてのテーマを削除します。よろしいですか？")) {
@@ -371,28 +386,39 @@ export default function Edit({ loaderData }: Route.ComponentProps) {
             className="rounded-full border-2 border-black bg-white px-4 py-1.5 text-sm font-bold hover:bg-neutral-100"
           >
             すべて削除
-          </button>
+          </motion.button>
         </div>
         <ul className="space-y-1">
-          {state.topics.map((topic) => (
-            <li
-              key={topic.id}
-              className="flex items-center gap-3 rounded-xl border-2 border-black bg-white p-2.5"
-            >
-              <span className="flex-1 break-words">{topic.text}</span>
-              <span className="text-sm text-neutral-500">{state.voteCounts[topic.id] ?? 0} 票</span>
-              <button
-                type="button"
-                aria-label="削除"
-                onClick={() =>
-                  fetcher.submit({ intent: "deleteTopic", topicId: topic.id }, { method: "post" })
-                }
-                className="grid size-8 place-items-center rounded-full border-2 border-black text-lg leading-none hover:bg-gdg-red hover:text-white"
+          <AnimatePresence initial={false}>
+            {state.topics.map((topic) => (
+              <motion.li
+                key={topic.id}
+                layout
+                variants={listItem}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={transitions.springSoft}
+                className="flex items-center gap-3 rounded-xl border-2 border-black bg-white p-2.5"
               >
-                ×
-              </button>
-            </li>
-          ))}
+                <span className="flex-1 break-words">{topic.text}</span>
+                <span className="text-sm text-neutral-500">
+                  <AnimatedCount value={state.voteCounts[topic.id] ?? 0} /> 票
+                </span>
+                <motion.button
+                  {...tapSubtle}
+                  type="button"
+                  aria-label="削除"
+                  onClick={() =>
+                    fetcher.submit({ intent: "deleteTopic", topicId: topic.id }, { method: "post" })
+                  }
+                  className="grid size-8 place-items-center rounded-full border-2 border-black text-lg leading-none hover:bg-gdg-red hover:text-white"
+                >
+                  ×
+                </motion.button>
+              </motion.li>
+            ))}
+          </AnimatePresence>
         </ul>
       </section>
     </div>

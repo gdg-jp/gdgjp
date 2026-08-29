@@ -1,8 +1,10 @@
+import { AnimatePresence, motion } from "motion/react";
 import { Dialog } from "radix-ui";
 import { useEffect, useMemo, useState } from "react";
-import { Form, useActionData, useFetcher, useNavigation } from "react-router";
-import { data } from "react-router";
+import { Form, data, useActionData, useFetcher, useNavigation } from "react-router";
+import { AnimatedCount, ConfettiBurst } from "~/components/motion";
 import { getEventBySlug } from "~/lib/db";
+import { listItem, tap, transitions } from "~/lib/motion";
 import { normalizeSlug } from "~/lib/slug";
 import { normalizeTopicText } from "~/lib/topics";
 import { useLiveBoard } from "~/lib/useLiveBoard";
@@ -103,63 +105,94 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   return (
     <main className="grid min-h-dvh place-items-center p-6">
       <div className="w-full max-w-xl space-y-6">
-        <div className="space-y-6 rounded-[2rem] border-2 border-black bg-white p-8 sm:p-10">
+        <div className="relative space-y-6 rounded-[2rem] border-2 border-black bg-white p-8 sm:p-10">
           <GdgAccentBar />
-          {submitted ? (
-            <div className="space-y-6 text-center">
-              <h1 className="text-2xl font-bold sm:text-3xl">送信しました 🎉</h1>
-              <p className="text-lg text-neutral-700">
-                スクリーンにテーマが表示されます。ありがとうございます！
-              </p>
-              <a
-                href={`/${slug}`}
-                className="inline-block rounded-full border-2 border-black bg-white px-8 py-3 text-lg font-bold transition hover:bg-neutral-100"
+          <AnimatePresence mode="wait" initial={false}>
+            {submitted ? (
+              <motion.div
+                key="done"
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={transitions.spring}
+                className="relative space-y-6 text-center"
               >
-                もう一つ投稿する
-              </a>
-            </div>
-          ) : (
-            <Form method="post" className="space-y-6">
-              <div className="space-y-2">
-                <h1 className="text-2xl font-bold sm:text-3xl">話したいテーマは？</h1>
-                <p className="text-base text-neutral-600">
-                  Open Space Technology のセッションで扱いたいテーマを教えてください。
+                <ConfettiBurst />
+                <motion.h1
+                  initial={{ scale: 0.7, rotate: -6 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: "spring", stiffness: 420, damping: 13 }}
+                  className="text-2xl font-bold sm:text-3xl"
+                >
+                  送信しました 🎉
+                </motion.h1>
+                <p className="text-lg text-neutral-700">
+                  スクリーンにテーマが表示されます。ありがとうございます！
                 </p>
-              </div>
-              <textarea
-                name="text"
-                required
-                rows={3}
-                maxLength={200}
-                // biome-ignore lint/a11y/noAutofocus: single-field kiosk form; focus is the expected action
-                autoFocus
-                placeholder="例: Cloudflare Workers でリアルタイム機能をどう作る？"
-                className="w-full resize-none rounded-2xl border-2 border-black bg-white p-4 text-lg outline-none focus:ring-4 focus:ring-gdg-blue/40"
-              />
-              {errorText ? (
-                <p role="alert" className="text-base font-medium text-gdg-red">
-                  {errorText}
-                </p>
-              ) : null}
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full rounded-full border-2 border-black bg-gdg-blue px-8 py-3 text-lg font-bold text-white transition hover:brightness-95 disabled:opacity-60"
-              >
-                {submitting ? "送信中…" : "送信する"}
-              </button>
-            </Form>
-          )}
+                <motion.a
+                  {...tap}
+                  href={`/${slug}`}
+                  className="inline-block rounded-full border-2 border-black bg-white px-8 py-3 text-lg font-bold transition hover:bg-neutral-100"
+                >
+                  もう一つ投稿する
+                </motion.a>
+              </motion.div>
+            ) : (
+              <motion.div key="form" exit={{ opacity: 0, y: -8 }} transition={transitions.fade}>
+                <Form method="post" className="space-y-6">
+                  <div className="space-y-2">
+                    <h1 className="text-2xl font-bold sm:text-3xl">話したいテーマは？</h1>
+                    <p className="text-base text-neutral-600">
+                      Open Space Technology のセッションで扱いたいテーマを教えてください。
+                    </p>
+                  </div>
+                  <textarea
+                    name="text"
+                    required
+                    rows={3}
+                    maxLength={200}
+                    // biome-ignore lint/a11y/noAutofocus: single-field kiosk form; focus is the expected action
+                    autoFocus
+                    placeholder="例: Cloudflare Workers でリアルタイム機能をどう作る？"
+                    className="w-full resize-none rounded-2xl border-2 border-black bg-white p-4 text-lg outline-none focus:ring-4 focus:ring-gdg-blue/40"
+                  />
+                  <AnimatePresence>
+                    {errorText ? (
+                      <motion.p
+                        role="alert"
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={transitions.fade}
+                        className="text-base font-medium text-gdg-red"
+                      >
+                        {errorText}
+                      </motion.p>
+                    ) : null}
+                  </AnimatePresence>
+                  <motion.button
+                    {...tap}
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full rounded-full border-2 border-black bg-gdg-blue px-8 py-3 text-lg font-bold text-white transition hover:brightness-95 disabled:opacity-60"
+                  >
+                    {submitting ? "送信中…" : "送信する"}
+                  </motion.button>
+                </Form>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="text-center">
-          <button
+          <motion.button
+            {...tap}
             type="button"
             onClick={() => setDialogOpen(true)}
             className="rounded-full border-2 border-black bg-white px-8 py-3 text-lg font-bold transition hover:bg-neutral-100"
           >
             投票する
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -214,54 +247,84 @@ function VoteDialog({
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/60" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 flex max-h-[85dvh] w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-[1.5rem] border-2 border-black bg-white p-6 shadow-xl">
-          <div className="flex items-center justify-between">
-            <Dialog.Title className="text-xl font-bold">テーマに投票</Dialog.Title>
-            <Dialog.Close
-              aria-label="閉じる"
-              className="grid size-9 place-items-center rounded-full border-2 border-black text-xl leading-none hover:bg-neutral-100"
-            >
-              ×
-            </Dialog.Close>
-          </div>
-          <Dialog.Description className="mt-1 text-sm text-neutral-600">
-            気になるテーマに 👍 を付けましょう（テーマごとに1回、取り消しも可）。
-          </Dialog.Description>
-
-          <ul className="mt-4 space-y-2 overflow-y-auto">
-            {sorted.length === 0 ? (
-              <li className="py-6 text-center text-neutral-500">まだテーマがありません。</li>
-            ) : (
-              sorted.map((t) => {
-                const voted = myVotes.has(t.id);
-                return (
-                  <li
-                    key={t.id}
-                    className="flex items-center gap-3 rounded-xl border-2 border-black p-3"
+      <AnimatePresence>
+        {open ? (
+          <Dialog.Portal forceMount>
+            <Dialog.Overlay asChild forceMount>
+              <motion.div
+                className="fixed inset-0 bg-black/60"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={transitions.fade}
+              />
+            </Dialog.Overlay>
+            <Dialog.Content asChild forceMount>
+              <motion.div
+                className="fixed left-1/2 top-1/2 flex max-h-[85dvh] w-[92vw] max-w-lg flex-col rounded-[1.5rem] border-2 border-black bg-white p-6 shadow-xl"
+                initial={{ opacity: 0, scale: 0.96, x: "-50%", y: "-50%" }}
+                animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+                exit={{ opacity: 0, scale: 0.96, x: "-50%", y: "-50%" }}
+                transition={transitions.spring}
+              >
+                <div className="flex items-center justify-between">
+                  <Dialog.Title className="text-xl font-bold">テーマに投票</Dialog.Title>
+                  <Dialog.Close
+                    aria-label="閉じる"
+                    className="grid size-9 place-items-center rounded-full border-2 border-black text-xl leading-none hover:bg-neutral-100"
                   >
-                    <span className="flex-1 break-words">{t.text}</span>
-                    <span className="tabular-nums text-sm text-neutral-500">
-                      {voteCounts[t.id] ?? 0}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => toggle(t.id)}
-                      aria-pressed={voted}
-                      className={`rounded-full border-2 border-black px-4 py-1.5 font-bold transition ${
-                        voted ? "bg-gdg-green text-white" : "bg-white hover:bg-neutral-100"
-                      }`}
-                    >
-                      👍
-                    </button>
-                  </li>
-                );
-              })
-            )}
-          </ul>
-        </Dialog.Content>
-      </Dialog.Portal>
+                    ×
+                  </Dialog.Close>
+                </div>
+                <Dialog.Description className="mt-1 text-sm text-neutral-600">
+                  気になるテーマに 👍 を付けましょう（テーマごとに1回、取り消しも可）。
+                </Dialog.Description>
+
+                <ul className="mt-4 space-y-2 overflow-y-auto">
+                  {sorted.length === 0 ? (
+                    <li className="py-6 text-center text-neutral-500">まだテーマがありません。</li>
+                  ) : (
+                    <AnimatePresence initial={false}>
+                      {sorted.map((t) => {
+                        const voted = myVotes.has(t.id);
+                        return (
+                          <motion.li
+                            key={t.id}
+                            layout="position"
+                            variants={listItem}
+                            initial="initial"
+                            animate="animate"
+                            exit="exit"
+                            transition={transitions.springSoft}
+                            className="flex items-center gap-3 rounded-xl border-2 border-black p-3"
+                          >
+                            <span className="flex-1 break-words">{t.text}</span>
+                            <span className="tabular-nums text-sm text-neutral-500">
+                              <AnimatedCount value={voteCounts[t.id] ?? 0} />
+                            </span>
+                            <motion.button
+                              type="button"
+                              onClick={() => toggle(t.id)}
+                              aria-pressed={voted}
+                              whileTap={{ scale: 0.85 }}
+                              transition={transitions.spring}
+                              className={`rounded-full border-2 border-black px-4 py-1.5 font-bold transition ${
+                                voted ? "bg-gdg-green text-white" : "bg-white hover:bg-neutral-100"
+                              }`}
+                            >
+                              👍
+                            </motion.button>
+                          </motion.li>
+                        );
+                      })}
+                    </AnimatePresence>
+                  )}
+                </ul>
+              </motion.div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        ) : null}
+      </AnimatePresence>
     </Dialog.Root>
   );
 }
