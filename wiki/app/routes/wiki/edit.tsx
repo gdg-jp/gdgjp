@@ -7,16 +7,16 @@ import type {
   ShouldRevalidateFunctionArgs,
 } from "react-router";
 import { useLoaderData } from "react-router";
-import PageEditor from "~/components/PageEditor";
 import * as schema from "~/db/schema";
-import { computeAclSourceIdsJson } from "~/lib/acl-spans";
-import { pageAclClearance, validatePageAclForSync } from "~/lib/acl-spans.server";
-import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
-import { canonicalMarkdown } from "~/lib/content-format";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { canonicalMarkdown } from "~/features/editor/content-format";
+import { getEffectivePagePermissions } from "~/features/pages/access.server";
+import { computeAclSourceIdsJson } from "~/features/pages/acl-spans";
+import { pageAclClearance, validatePageAclForSync } from "~/features/pages/acl-spans.server";
+import PageEditor from "~/features/pages/components/PageEditor";
+import { wikiPagePath } from "~/features/pages/wiki-page-path";
+import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server";
 import { getDb } from "~/lib/db.server";
-import { getEffectivePagePermissions } from "~/lib/page-access.server";
-import { wikiPagePath } from "~/lib/wiki-page-path";
-import { getWikiCanonicalSlugPath } from "~/lib/wiki-page-path.server";
 
 // ---------------------------------------------------------------------------
 // Revalidation

@@ -2,12 +2,12 @@ import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { eq } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { removeAclSpans } from "~/lib/acl-spans";
-import { pageAclClearance } from "~/lib/acl-spans.server";
-import { getAgentInstructions } from "~/lib/agents-md.server";
-import { canonicalMarkdown } from "~/lib/content-format";
+import { getAgentInstructions } from "~/features/agent-api/agents-md.server";
+import { canonicalMarkdown } from "~/features/editor/content-format";
+import { getEffectivePagePermissions } from "~/features/pages/access.server";
+import { removeAclSpans } from "~/features/pages/acl-spans";
+import { pageAclClearance } from "~/features/pages/acl-spans.server";
 import { getDb } from "~/lib/db.server";
-import { getEffectivePagePermissions } from "~/lib/page-access.server";
 import type { components } from "../../../../openapi/types.generated";
 
 type WikiSnapshot = components["schemas"]["Snapshot"];

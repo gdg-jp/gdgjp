@@ -2,8 +2,8 @@
  * Discord message normalization for source import (pure helpers + no network).
  */
 
-import type { DiscordAttachment, DiscordMessage } from "../../../app/lib/discord-api.server";
-import { authorDisplayName } from "../../../app/lib/discord-api.server";
+import type { DiscordAttachment, DiscordMessage } from "../../../app/features/discord/api.server";
+import { authorDisplayName } from "../../../app/features/discord/api.server";
 import { formatChatTimestamp, weekPathFromCreateTime } from "./google-chat";
 
 export interface NormalizedDiscordWeek {

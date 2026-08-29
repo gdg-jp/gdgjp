@@ -12,8 +12,8 @@ describe("agent API architecture", () => {
       "notes.ts",
       "log.ts",
       "instructions.ts",
-      "../../../lib/agent-workspace.server.ts",
-      "../../../lib/agent-notes.server.ts",
+      "../../../features/agent-api/workspace.server.ts",
+      "../../../features/agent-api/notes.server.ts",
     ].map((name) => readFileSync(new URL(name, root), "utf8"));
 
     expect(sources.join("\n")).not.toMatch(

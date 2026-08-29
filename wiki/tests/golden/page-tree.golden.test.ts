@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTree, flattenTree } from "~/lib/page-tree";
+import { buildTree, flattenTree } from "~/features/pages/tree";
 
 type FlatRow = {
   id: string;

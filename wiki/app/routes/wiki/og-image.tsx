@@ -2,7 +2,7 @@ import puppeteer from "@cloudflare/puppeteer";
 import { and, eq, inArray } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { removeAclSpans } from "~/lib/acl-spans";
+import { removeAclSpans } from "~/features/pages/acl-spans";
 import { getDb } from "~/lib/db.server";
 import { buildOgImageHtml } from "~/lib/og-image.server";
 

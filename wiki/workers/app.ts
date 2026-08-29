@@ -3,12 +3,12 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { createRequestHandler } from "react-router";
 import * as schema from "../app/db/schema";
-import { processGoogleDocumentImport } from "../app/features/google-documents/import.server";
-import { pageAclClearance } from "../app/lib/acl-spans.server";
-import { createAuth } from "../app/lib/auth.server";
-import { backfillMarkdownContent } from "../app/lib/content-backfill.server";
-import { sendDueTaskReminders } from "../app/lib/discord-reminders.server";
-import { getEffectivePagePermissions } from "../app/lib/page-access.server";
+import { createAuth } from "../app/features/auth/auth.server";
+import { sendDueTaskReminders } from "../app/features/discord/reminders.server";
+import { processGoogleDocumentImport } from "../app/features/google/documents/import.server";
+import { getEffectivePagePermissions } from "../app/features/pages/access.server";
+import { pageAclClearance } from "../app/features/pages/acl-spans.server";
+import { backfillMarkdownContent } from "../app/features/pages/content-backfill.server";
 import {
   isGoogleDocumentImportQueueBody,
   isSourceFetchQueueBody,

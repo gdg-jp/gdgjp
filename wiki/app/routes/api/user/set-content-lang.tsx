@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
+import { getSessionUser } from "~/features/auth/utils.server";
 import { type SupportedLng, supportedLngs } from "~/i18n";
-import { getSessionUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 
 export async function action({ request, context }: ActionFunctionArgs) {

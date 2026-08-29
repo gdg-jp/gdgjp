@@ -11,23 +11,23 @@ import {
   useRevalidator,
 } from "react-router";
 import type { LoaderFunctionArgs, ShouldRevalidateFunctionArgs } from "react-router";
-import ArchivedContent from "~/components/ArchivedContent";
 import Footer from "~/components/Footer";
-import GoogleDocumentImportDialog from "~/components/GoogleDocumentImportDialog";
 import Navbar from "~/components/Navbar";
-import RecentContent from "~/components/RecentContent";
 import Sidebar from "~/components/Sidebar";
 import SidebarDialog from "~/components/SidebarDialog";
 import SidebarPopover from "~/components/SidebarPopover";
 import { ListSkeleton } from "~/components/Skeleton";
-import StarredContent from "~/components/StarredContent";
-import ZipImportDialog from "~/components/ZipImportDialog";
 import * as schema from "~/db/schema";
+import { getAccessIdentity } from "~/features/auth/utils.server";
+import GoogleDocumentImportDialog from "~/features/google/components/GoogleDocumentImportDialog";
+import ArchivedContent from "~/features/pages/components/ArchivedContent";
+import RecentContent from "~/features/pages/components/RecentContent";
+import StarredContent from "~/features/pages/components/StarredContent";
+import { buildTree } from "~/features/pages/tree";
+import { buildVisibilityFilter } from "~/features/pages/visibility.server";
+import ZipImportDialog from "~/features/zip-import/components/ZipImportDialog";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
-import { getAccessIdentity } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
-import { buildTree } from "~/lib/page-tree";
-import { buildVisibilityFilter } from "~/lib/page-visibility.server";
 
 // ---------------------------------------------------------------------------
 // Revalidation

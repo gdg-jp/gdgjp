@@ -1,9 +1,9 @@
 import { desc, ne, sql } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { canAccessSource, createSource } from "~/features/sources/sources.server";
 import { getDb } from "~/lib/db.server";
-import { canAccessSource, createSource } from "~/lib/sources.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;

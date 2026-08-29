@@ -22,9 +22,9 @@ vi.mock("../../workers/features/ingestion/persistence/d1/wiki-read-repository", 
   createD1WikiWorkspaceStore: (...args: unknown[]) => createStoreMock(...args),
 }));
 
-vi.mock("~/lib/agent-notes.server", async () => {
-  const actual = await vi.importActual<typeof import("~/lib/agent-notes.server")>(
-    "~/lib/agent-notes.server",
+vi.mock("~/features/agent-api/notes.server", async () => {
+  const actual = await vi.importActual<typeof import("~/features/agent-api/notes.server")>(
+    "~/features/agent-api/notes.server",
   );
   return {
     ...actual,

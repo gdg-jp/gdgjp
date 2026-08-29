@@ -5,8 +5,11 @@ import { StrictMode, startTransition } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { initReactI18next } from "react-i18next";
 import { HydratedRouter } from "react-router/dom";
+import {
+  localCursorReporter,
+  remoteCursorsExtension,
+} from "./features/editor/remote-cursors-extension";
 import { defaultNS, fallbackLng, supportedLngs } from "./i18n";
-import { localCursorReporter, remoteCursorsExtension } from "./lib/remote-cursors-extension";
 import enCommon from "./locales/en/common.json";
 import jaCommon from "./locales/ja/common.json";
 

@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import LandingContent from "~/components/LandingContent";
-import { requireUser } from "~/lib/auth-utils.server";
+import { requireUser } from "~/features/auth/utils.server";
+import LandingContent from "~/routes/public/_components/LandingContent";
 
 export const meta: MetaFunction = ({ matches }) => {
   const origin = (matches.find((m) => m.id === "root")?.data as { origin?: string })?.origin ?? "";

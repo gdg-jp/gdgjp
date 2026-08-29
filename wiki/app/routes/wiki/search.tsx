@@ -4,14 +4,14 @@ import { useTranslation } from "react-i18next";
 import { Await, Link, useLoaderData, useNavigate, useNavigation } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { ListSkeleton } from "~/components/Skeleton";
-import TagChip from "~/components/TagChip";
 import * as schema from "~/db/schema";
 import { type RagSearchResult, performRagSearch } from "~/features/ai-search/rag-search.server";
-import { getAccessIdentity } from "~/lib/auth-utils.server";
+import { getAccessIdentity } from "~/features/auth/utils.server";
+import TagChip from "~/features/pages/components/TagChip";
+import { buildVisibilityFilter } from "~/features/pages/visibility.server";
+import { wikiPagePath } from "~/features/pages/wiki-page-path";
+import { getWikiCanonicalSlugPaths } from "~/features/pages/wiki-page-path.server";
 import { getDb } from "~/lib/db.server";
-import { buildVisibilityFilter } from "~/lib/page-visibility.server";
-import { wikiPagePath } from "~/lib/wiki-page-path";
-import { getWikiCanonicalSlugPaths } from "~/lib/wiki-page-path.server";
 import { createAccessContext } from "../../../shared/ingestion/domain";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [

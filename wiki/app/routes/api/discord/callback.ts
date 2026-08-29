@@ -2,9 +2,12 @@ import { eq } from "drizzle-orm";
 import { redirect } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
+import { requireUser } from "~/features/auth/utils.server";
+import {
+  exchangeDiscordCodeForToken,
+  fetchDiscordCurrentUser,
+} from "~/features/discord/oauth.server";
 import { getDb } from "~/lib/db.server";
-import { exchangeDiscordCodeForToken, fetchDiscordCurrentUser } from "~/lib/discord-oauth.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;

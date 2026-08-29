@@ -4,10 +4,10 @@ import { nanoid } from "nanoid";
 import { useTranslation } from "react-i18next";
 import { redirect, useActionData, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
-import InputPanel from "~/components/ingest/InputPanel";
 import * as schema from "~/db/schema";
-import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
-import { isGoogleDriveUrl } from "~/lib/google-drive-utils";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { isGoogleDriveUrl } from "~/features/google/drive-utils";
+import InputPanel from "~/features/ingestion/components/InputPanel";
 import { createAccessContext } from "../../../shared/ingestion/domain";
 import { createAndStartIngestion } from "../../../workers/features/ingestion/start-ingestion.server";
 

@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { canAccessSource, updateSourceVisibility } from "~/features/sources/sources.server";
 import { getDb } from "~/lib/db.server";
-import { canAccessSource, updateSourceVisibility } from "~/lib/sources.server";
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
   if (request.method !== "POST") {

@@ -3,11 +3,11 @@ import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Form, Link, redirect, useLoaderData, useRevalidator } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
-import TeamManager from "~/components/tasks/TeamManager";
 import * as schema from "~/db/schema";
-import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { getEffectivePagePermissions } from "~/features/pages/access.server";
+import TeamManager from "~/features/tasks/components/TeamManager";
 import { getDb } from "~/lib/db.server";
-import { getEffectivePagePermissions } from "~/lib/page-access.server";
 
 // ---------------------------------------------------------------------------
 // Meta

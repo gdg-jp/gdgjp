@@ -5,7 +5,7 @@ import {
   parseOptionalPositiveInt,
   resolveAgentWorkspace,
   workspaceDataResponse,
-} from "~/lib/agent-workspace.server";
+} from "~/features/agent-api/workspace.server";
 
 /** GET /api/agent/search — D1 title/body search filtered by the caller's canView. */
 export async function loader({ request, context }: LoaderFunctionArgs) {

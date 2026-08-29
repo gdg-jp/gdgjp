@@ -1,9 +1,9 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { requireUser } from "~/lib/auth-utils.server";
+import { requireUser } from "~/features/auth/utils.server";
+import { listGoogleChatSpaces } from "~/features/google/chat.server";
+import { getGoogleDriveTokenRow } from "~/features/google/drive-token.server";
+import { hasRequiredGoogleChatScopes } from "~/features/google/drive.server";
 import { getDb } from "~/lib/db.server";
-import { listGoogleChatSpaces } from "~/lib/google-chat.server";
-import { getGoogleDriveTokenRow } from "~/lib/google-drive-token.server";
-import { hasRequiredGoogleChatScopes } from "~/lib/google-drive.server";
 
 /**
  * List Google Chat Spaces the signed-in user participates in.

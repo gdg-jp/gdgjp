@@ -2,7 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
-import { requireUser } from "~/lib/auth-utils.server";
+import { requireUser } from "~/features/auth/utils.server";
 import { getDb } from "~/lib/db.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {

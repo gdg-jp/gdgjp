@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "react-router";
-import { createOrReplaceAnswerNote } from "~/lib/agent-notes.server";
-import { agentUnauthorized, resolveAgentWorkspace } from "~/lib/agent-workspace.server";
+import { createOrReplaceAnswerNote } from "~/features/agent-api/notes.server";
+import { agentUnauthorized, resolveAgentWorkspace } from "~/features/agent-api/workspace.server";
 
 /**
  * POST /api/agent/notes — create or replace a filed query answer under ns-answers.

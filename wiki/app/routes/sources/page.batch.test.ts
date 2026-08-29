@@ -2,14 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createSourceMock = vi.fn();
 
-vi.mock("~/lib/auth-utils.server", () => ({
+vi.mock("~/features/auth/utils.server", () => ({
   getAccessIdentity: vi.fn().mockResolvedValue({
     chapters: [{ chapterId: "chapter-osaka", role: "member" }],
   }),
   requireUser: vi.fn().mockResolvedValue({ id: "user-1", isAdmin: false }),
 }));
 
-vi.mock("~/lib/sources.server", () => ({
+vi.mock("~/features/sources/sources.server", () => ({
   canAccessSource: vi.fn(),
   createSource: (...args: unknown[]) => createSourceMock(...args),
   deleteArchivedSource: vi.fn(),

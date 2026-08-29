@@ -4,7 +4,7 @@ import {
   type TipTapDoc,
   applyPatchesToMarkdown,
   tiptapToMarkdown,
-} from "~/lib/tiptap-convert";
+} from "~/features/editor/tiptap-convert";
 
 describe("tiptapToMarkdown golden snapshots", () => {
   it("full-featured doc: h1, mixed inline marks, bullet list, code block, table, blockquote, hr", () => {

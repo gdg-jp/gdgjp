@@ -1,7 +1,7 @@
 import { redirect } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
-import { requireUser } from "~/lib/auth-utils.server";
-import { getGoogleDriveAuthUrl } from "~/lib/google-drive.server";
+import { requireUser } from "~/features/auth/utils.server";
+import { getGoogleDriveAuthUrl } from "~/features/google/drive.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;

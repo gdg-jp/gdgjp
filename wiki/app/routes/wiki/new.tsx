@@ -8,9 +8,9 @@ import { useTranslation } from "react-i18next";
 import { Form, Link, redirect } from "react-router";
 import type { ActionFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
+import { requireUser } from "~/features/auth/utils.server";
 import { generateSlug } from "~/features/ingestion/slug";
 import { useThemeMode } from "~/hooks/useThemeMode";
-import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { sendOrRunTranslation } from "~/lib/queue-processors.server";
 

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const prepareMock = vi.fn();
 const batchMock = vi.fn();
 
-vi.mock("~/lib/auth-utils.server", () => ({
+vi.mock("~/features/auth/utils.server", () => ({
   requireUser: vi.fn().mockResolvedValue({ id: "user-1", isAdmin: true }),
 }));
 

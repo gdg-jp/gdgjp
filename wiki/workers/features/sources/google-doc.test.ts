@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { convertGoogleDocsDocument } from "../../../app/lib/google-docs-markdown.server";
-import type { GoogleDocsDocument } from "../../../app/lib/google-drive.server";
+import { convertGoogleDocsDocument } from "../../../app/features/google/docs-markdown.server";
+import type { GoogleDocsDocument } from "../../../app/features/google/drive.server";
 import { collectDocuments } from "./google-doc";
 
 function documents(document: GoogleDocsDocument) {

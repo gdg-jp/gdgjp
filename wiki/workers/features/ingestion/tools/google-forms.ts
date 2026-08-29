@@ -1,8 +1,8 @@
-import { extractFormId, fetchFormData } from "../../../../app/lib/google-forms.server";
+import { extractFormId, fetchFormData } from "../../../../app/features/google/forms.server";
 import {
   computeSurveyStats,
   formatSurveyStatsAsText,
-} from "../../../../app/lib/survey-stats.server";
+} from "../../../../app/features/google/survey-stats.server";
 import type { GoogleAccessTokenProvider } from "./google-drive";
 
 export function createGoogleFormsTool(tokens: GoogleAccessTokenProvider) {

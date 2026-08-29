@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { type WikiModel, createWikiModel } from "~/features/ai/model/index.server";
-import { canonicalMarkdown } from "~/lib/content-format";
+import { canonicalMarkdown } from "~/features/editor/content-format";
 
 const TranslationSchema = z.object({
   titleEn: z.string().min(1),

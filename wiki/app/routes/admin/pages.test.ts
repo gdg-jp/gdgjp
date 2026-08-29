@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("~/lib/auth-utils.server", () => ({
+vi.mock("~/features/auth/utils.server", () => ({
   requireAdmin: vi.fn(),
 }));
 
@@ -8,11 +8,11 @@ vi.mock("~/lib/db.server", () => ({
   getDb: vi.fn(),
 }));
 
-vi.mock("~/lib/page-archive.server", () => ({
+vi.mock("~/features/pages/archive.server", () => ({
   archivePageAndDescendants: vi.fn(),
 }));
 
-vi.mock("~/lib/wiki-page-path.server", () => ({
+vi.mock("~/features/pages/wiki-page-path.server", () => ({
   getWikiCanonicalSlugPaths: vi.fn(async (_env: Env, pageIds: readonly string[]) => {
     const map = new Map<string, string[]>();
     for (const id of pageIds) map.set(id, [id]);
@@ -20,9 +20,9 @@ vi.mock("~/lib/wiki-page-path.server", () => ({
   }),
 }));
 
-import { requireAdmin } from "~/lib/auth-utils.server";
+import { requireAdmin } from "~/features/auth/utils.server";
+import { archivePageAndDescendants } from "~/features/pages/archive.server";
 import { getDb } from "~/lib/db.server";
-import { archivePageAndDescendants } from "~/lib/page-archive.server";
 import { action, loader } from "./pages";
 
 const mockContext = { cloudflare: { env: {} as Env } } as Parameters<typeof loader>[0]["context"];

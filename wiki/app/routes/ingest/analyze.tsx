@@ -6,8 +6,8 @@ import { useTranslation } from "react-i18next";
 import { redirect, useActionData, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
-import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
-import { isGoogleFormUrl } from "~/lib/google-forms-utils";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { isGoogleFormUrl } from "~/features/google/forms-utils";
 import { createAccessContext } from "../../../shared/ingestion/domain";
 import { createAndStartIngestion } from "../../../workers/features/ingestion/start-ingestion.server";
 

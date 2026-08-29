@@ -2,9 +2,9 @@ import { eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { getDb } from "~/lib/db.server";
-import { getEffectivePagePermissions } from "~/lib/page-access.server";
 
 // ---------------------------------------------------------------------------
 // GET — list teams for a task list

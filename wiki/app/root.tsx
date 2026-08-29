@@ -16,9 +16,9 @@ import type {
   MetaFunction,
   ShouldRevalidateFunction,
 } from "react-router";
+import { FirebaseConfigContext } from "./features/notifications/firebase-config-context";
 import { type SupportedLng, supportedLngs } from "./i18n";
 import { i18nextServer } from "./i18n.server";
-import { FirebaseConfigContext } from "./lib/firebase-config-context";
 
 import appStylesHref from "./app.css?url";
 

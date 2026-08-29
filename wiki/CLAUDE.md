@@ -44,7 +44,7 @@ Single `ExportedHandler<Env>` — understand all three before touching:
 
 ## Auth — RP
 
-OAuth **client** of accounts.gdgs.jp. No local password / better-auth (migrations `0021_drop_better_auth.sql`, `0022_simplify_user.sql`). `app/lib/auth.server.ts` → `initializeRpAuth`:
+OAuth **client** of accounts.gdgs.jp. No local password / better-auth (migrations `0021_drop_better_auth.sql`, `0022_simplify_user.sql`). `app/features/auth/auth.server.ts` → `initializeRpAuth`:
 
 - `cookiePrefix: "gdgjp-wiki"` → session cookie `gdgjp-wiki-session`
 - `RP_SESSION_SECRET` + `IDP_CLIENT_ID=wiki` + `IDP_CLIENT_SECRET`
@@ -71,7 +71,7 @@ Agents SDK multi-phase flow: user-uploaded docs / URLs / Google Drive → wiki p
 
 ## Realtime collab editor
 
-TipTap on client, Yjs CRDT over WebSocket to `COLLAB_DO`. Awareness via `PresenceAvatars.tsx` + `remote-cursors-extension.ts`. Page and version storage is canonical Markdown; `tiptap-convert.ts` is only a legacy TipTap JSON → Markdown boundary converter. Golden suite (`tests/golden/tiptap-*.test.tsx`) snapshots conversion and rendering — when editor schema changes, run `test:golden:update` and review diff.
+TipTap on client, Yjs CRDT over WebSocket to `COLLAB_DO`. Client code lives in `app/features/editor/` (`use-collab-editor.ts`, `remote-cursors-extension.ts`, `tiptap-convert.ts`, `components/`). Awareness via `components/PresenceAvatars.tsx` + `remote-cursors-extension.ts`. Page and version storage is canonical Markdown; `tiptap-convert.ts` is only a legacy TipTap JSON → Markdown boundary converter. Golden suite (`tests/golden/tiptap-*.test.tsx`) snapshots conversion and rendering — when editor schema changes, run `test:golden:update` and review diff.
 
 ## i18n
 
@@ -93,17 +93,21 @@ Details in `ARCHITECTURE.md`. Scan this table to narrow the location before you 
 
 | 探しもの | 場所 |
 |---|---|
-| ページ本体 / ACL / 可視性 / ツリー / バージョン | `app/lib/page-*.server.ts`, `app/lib/acl-spans*` |
-| ソース取り込み（UI・API 側） | `app/lib/sources.server.ts`, `app/routes/sources/`, `app/routes/api/sources/` |
+| ページ本体 / ACL / 可視性 / ツリー / メタ / アーカイブ | `app/features/pages/`（README あり。UI は `components/`） |
+| ソース取り込み（UI・API 側） | `app/features/sources/`（README あり）, `app/routes/sources/`, `app/routes/api/sources/` |
 | ソース取り込み（Worker 実行・DO alarm・refresh cron） | `workers/features/sources/` |
 | wiki 生成 AI（Agents SDK / Workflow） | `workers/features/ingestion/` — README あり |
-| wiki 生成 AI（クライアント配線 / ingest 画面） | `app/features/ingestion/`, `app/routes/ingest/` |
+| wiki 生成 AI（クライアント配線 / ingest 画面） | `app/features/ingestion/`（README あり）, `app/routes/ingest/` |
 | AI 検索（Workers AI + Vectorize） | `app/features/ai-search/` |
-| Google 連携（Drive / Docs / Forms / Chat） | `app/lib/google-*.server.ts`, `app/features/google-documents/` |
-| Discord 連携 | `app/lib/discord-*.server.ts` |
-| CLI / エージェント読み取り API | `app/routes/api/cli/*`, `app/routes/api/agent/*` |
-| リアルタイム共同編集 | `workers/collab-durable-object.ts`, `app/hooks/useCollabEditor.ts` |
+| Google 連携（Drive / Docs / Forms / Chat / Picker） | `app/features/google/`（README あり。Docs インポートは `documents/`） |
+| Discord 連携 | `app/features/discord/`（README あり） |
+| 認証（RP / セッション） | `app/features/auth/`（README あり） |
+| 通知（メール / FCM / Discord） | `app/features/notifications/`（README あり） |
+| タスク | `app/features/tasks/`（README あり）, `app/routes/tasks/` |
+| CLI / エージェント読み取り API | サーバは `app/features/agent-api/`（README あり）。ルートは `app/routes/api/{cli,agent}/*` |
+| リアルタイム共同編集 | クライアント `app/features/editor/`（README あり）、DO `workers/collab-durable-object.ts` |
 | DB スキーマ | `app/db/schema/`（ドメイン別モジュール + `index.ts`。割り当て表は `ARCHITECTURE.md`） |
+| 横断プリミティブ | `app/lib/`（8 本のみ: db / utils / time / color-utils / url-extract / queue-processors / chapter-directory / og-image） |
 | テストの置き場 | ユニットは被験対象の隣（`<subject>.test.ts`）。マイグレーションは `tests/migrations/`、アーキ規約は `tests/architecture/`（`ARCHITECTURE.md` 参照） |
 
 **読まないファイル**（生成物、grep のノイズ）: `worker-configuration.d.ts`（14,750 行、正本は

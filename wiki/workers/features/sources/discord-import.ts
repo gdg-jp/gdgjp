@@ -5,8 +5,8 @@ import {
   listChannelMessages,
   parseDiscordChannelUrl,
   snowflakeFromUnixMs,
-} from "../../../app/lib/discord-api.server";
-import { DISCORD_BOT_ACCESS_MESSAGE } from "../../../app/lib/discord-oauth.server";
+} from "../../../app/features/discord/api.server";
+import { DISCORD_BOT_ACCESS_MESSAGE } from "../../../app/features/discord/oauth.server";
 import { type ResolvedSourceAsset, assetR2Key } from "./assets";
 import {
   discordAttachmentObjectId,

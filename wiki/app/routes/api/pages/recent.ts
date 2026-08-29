@@ -1,11 +1,11 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { buildVisibilityFilter } from "~/features/pages/visibility.server";
+import { wikiPagePath } from "~/features/pages/wiki-page-path";
+import { getWikiCanonicalSlugPaths } from "~/features/pages/wiki-page-path.server";
 import { getDb } from "~/lib/db.server";
-import { buildVisibilityFilter } from "~/lib/page-visibility.server";
-import { wikiPagePath } from "~/lib/wiki-page-path";
-import { getWikiCanonicalSlugPaths } from "~/lib/wiki-page-path.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;

@@ -2,8 +2,8 @@ import { drizzle } from "drizzle-orm/d1";
 import { redirect } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
-import { exchangeCodeForToken } from "~/lib/google-drive.server";
+import { requireUser } from "~/features/auth/utils.server";
+import { exchangeCodeForToken } from "~/features/google/drive.server";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;

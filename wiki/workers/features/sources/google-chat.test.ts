@@ -3,7 +3,7 @@ import {
   GOOGLE_DRIVE_READONLY_SCOPE,
   getGoogleDriveAuthUrl,
   hasRequiredGoogleChatScopes,
-} from "../../../app/lib/google-drive.server";
+} from "../../../app/features/google/drive.server";
 import {
   type ChatMessage,
   GOOGLE_CHAT_REAUTH_MESSAGE,

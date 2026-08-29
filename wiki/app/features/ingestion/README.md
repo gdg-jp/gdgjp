@@ -5,6 +5,6 @@ Client wiring for wiki generation. The logic runs in the Worker under
 
 - `agent-client.ts` / `use-ingestion-agent.ts` — `useAgent()` transport for `/ingest/:sessionId`.
 - `live-activity.ts` — display-safe realtime event projection.
-- `slug.ts` — `generateSlug`, also reused by `zip-import/` and `google-documents/`.
+- `slug.ts` — `generateSlug`, also reused by `zip-import/` and `google/documents/`.
 
 Consumed by `app/routes/ingest/` and `app/routes/api/ingest/`.

@@ -3,13 +3,13 @@ import { inArray } from "drizzle-orm";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import * as schema from "~/db/schema";
+import { canonicalMarkdown } from "~/features/editor/content-format";
 import {
   pageAclClearance,
   validatePageAclForSync,
   validateReadSourcesTagged,
-} from "~/lib/acl-spans.server";
-import { canonicalMarkdown } from "~/lib/content-format";
-import { mapInChunks } from "~/lib/d1-chunk.server";
+} from "~/features/pages/acl-spans.server";
+import { mapInChunks } from "~/features/pages/d1-chunk.server";
 import { getDb } from "~/lib/db.server";
 
 const Access = z.object({

@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "react-router";
-import { agentUnauthorized, resolveAgentWorkspace } from "~/lib/agent-workspace.server";
-import { createInlineSource } from "~/lib/sources.server";
+import { agentUnauthorized, resolveAgentWorkspace } from "~/features/agent-api/workspace.server";
+import { createInlineSource } from "~/features/sources/sources.server";
 
 /** POST /api/agent/sources/inline — register an inline conversation log. */
 export async function action({ request, context }: ActionFunctionArgs) {

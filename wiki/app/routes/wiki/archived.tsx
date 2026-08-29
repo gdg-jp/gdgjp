@@ -8,7 +8,7 @@ import ConfirmDialog from "~/components/ConfirmDialog";
 import Tooltip from "~/components/Tooltip";
 import * as schema from "~/db/schema";
 import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
-import { requireUser } from "~/lib/auth-utils.server";
+import { requireUser } from "~/features/auth/utils.server";
 import { getDb } from "~/lib/db.server";
 import { timeAgo } from "~/lib/time";
 

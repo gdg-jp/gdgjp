@@ -10,19 +10,19 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 import { Link, redirect, useFetcher, useLoaderData } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
 import * as schema from "~/db/schema";
-import { useThemeMode } from "~/hooks/useThemeMode";
-import { computeAclSourceIdsJson } from "~/lib/acl-spans";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { canonicalMarkdown } from "~/features/editor/content-format";
+import { getEffectivePagePermissions } from "~/features/pages/access.server";
+import { computeAclSourceIdsJson } from "~/features/pages/acl-spans";
 import {
   pageAclClearance,
   redactPageMarkdown,
   validatePageAclForSync,
-} from "~/lib/acl-spans.server";
-import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
-import { canonicalMarkdown } from "~/lib/content-format";
+} from "~/features/pages/acl-spans.server";
+import { wikiPagePath } from "~/features/pages/wiki-page-path";
+import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server";
+import { useThemeMode } from "~/hooks/useThemeMode";
 import { getDb } from "~/lib/db.server";
-import { getEffectivePagePermissions } from "~/lib/page-access.server";
-import { wikiPagePath } from "~/lib/wiki-page-path";
-import { getWikiCanonicalSlugPath } from "~/lib/wiki-page-path.server";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   {

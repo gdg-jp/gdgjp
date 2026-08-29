@@ -5,7 +5,7 @@ import {
   parseOptionalPositiveInt,
   resolveAgentWorkspace,
   workspaceDataResponse,
-} from "~/lib/agent-workspace.server";
+} from "~/features/agent-api/workspace.server";
 
 /** GET /api/agent/cat — read a workspace page for the Bearer token's actor. */
 export async function loader({ request, context }: LoaderFunctionArgs) {

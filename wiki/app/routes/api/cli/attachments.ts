@@ -2,8 +2,8 @@ import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { eq } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
+import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { getDb } from "~/lib/db.server";
-import { getEffectivePagePermissions } from "~/lib/page-access.server";
 import type { components } from "../../../../openapi/types.generated";
 
 type OkResponse = components["schemas"]["SyncResult"] extends { ok: infer TOk }

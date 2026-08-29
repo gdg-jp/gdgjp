@@ -18,8 +18,8 @@ vi.mock("@gdgjp/gdg-lib", async (importOriginal) => {
   };
 });
 
-vi.mock("~/lib/agents-md.server", async (importOriginal) => {
-  const original = await importOriginal<typeof import("~/lib/agents-md.server")>();
+vi.mock("~/features/agent-api/agents-md.server", async (importOriginal) => {
+  const original = await importOriginal<typeof import("~/features/agent-api/agents-md.server")>();
   return { ...original, getAgentInstructions: vi.fn() };
 });
 
@@ -36,8 +36,8 @@ vi.mock("~/lib/db.server", () => ({
   })),
 }));
 
-vi.mock("~/lib/page-access.server", async (importOriginal) => {
-  const original = await importOriginal<typeof import("~/lib/page-access.server")>();
+vi.mock("~/features/pages/access.server", async (importOriginal) => {
+  const original = await importOriginal<typeof import("~/features/pages/access.server")>();
   return {
     ...original,
     getEffectivePagePermissions: vi.fn(async () => ({
@@ -51,7 +51,7 @@ vi.mock("~/lib/queue-processors.server", () => ({
   sendOrRunTranslation: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { agentsHash, getAgentInstructions } from "~/lib/agents-md.server";
+import { agentsHash, getAgentInstructions } from "~/features/agent-api/agents-md.server";
 import { action, scheduleSyncPostCommit } from "./sync";
 
 type Prepared = { sql: string; values: unknown[]; bind: (...values: unknown[]) => Prepared };

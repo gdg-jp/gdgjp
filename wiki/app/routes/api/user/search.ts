@@ -1,7 +1,7 @@
 import { like, or } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
+import { requireUser } from "~/features/auth/utils.server";
 import { getDb } from "~/lib/db.server";
 
 // GET /api/users/search?q=<query>

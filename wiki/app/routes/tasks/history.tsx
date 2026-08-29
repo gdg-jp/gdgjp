@@ -4,9 +4,9 @@ import { useTranslation } from "react-i18next";
 import { Link, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
-import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { getDb } from "~/lib/db.server";
-import { getEffectivePagePermissions } from "~/lib/page-access.server";
 import { timeAgo } from "~/lib/time";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [

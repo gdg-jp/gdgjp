@@ -1,4 +1,4 @@
-import { getGoogleDriveTokenRow } from "../../../../app/lib/google-drive-token.server";
+import { getGoogleDriveTokenRow } from "../../../../app/features/google/drive-token.server";
 import { discordImportDriver } from "../discord-import";
 import { chatImportDriver } from "../google-chat-import";
 import { SourceAuthorizationError } from "../retry-classification";

@@ -2,22 +2,22 @@ import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import { and, asc, eq, ne } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { removeAclSpans } from "~/lib/acl-spans";
-import { pageAclClearance } from "~/lib/acl-spans.server";
 import {
   parseWikiCloneLanguage,
   renderWikiHumanDocument,
   sha256Hex,
   wikiHumanDocumentId,
-} from "~/lib/cli-wiki-human.server";
+} from "~/features/agent-api/cli-wiki-human.server";
 import {
   disambiguateRawManifestPaths,
   rawSourceDirectories,
   wikiHumanRawPath,
-} from "~/lib/cli-wiki-source-path.server";
+} from "~/features/agent-api/cli-wiki-source-path.server";
+import { getEffectivePagePermissions } from "~/features/pages/access.server";
+import { removeAclSpans } from "~/features/pages/acl-spans";
+import { pageAclClearance } from "~/features/pages/acl-spans.server";
+import { canAccessSource } from "~/features/sources/sources.server";
 import { getDb } from "~/lib/db.server";
-import { getEffectivePagePermissions } from "~/lib/page-access.server";
-import { canAccessSource } from "~/lib/sources.server";
 import type { components } from "../../../../openapi/types.generated";
 
 type SourcesManifest = components["schemas"]["SourcesManifest"];

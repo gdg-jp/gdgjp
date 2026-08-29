@@ -6,11 +6,11 @@ import {
   parseWikiCloneLanguage,
   parseWikiHumanDocumentId,
   renderWikiHumanDocument,
-} from "~/lib/cli-wiki-human.server";
-import { rawDownloadContentType } from "~/lib/cli-wiki-raw-content.server";
+} from "~/features/agent-api/cli-wiki-human.server";
+import { rawDownloadContentType } from "~/features/agent-api/cli-wiki-raw-content.server";
+import { getEffectivePagePermissions } from "~/features/pages/access.server";
+import { canAccessSource } from "~/features/sources/sources.server";
 import { getDb } from "~/lib/db.server";
-import { getEffectivePagePermissions } from "~/lib/page-access.server";
-import { canAccessSource } from "~/lib/sources.server";
 
 /** GET /api/cli/wiki/sources/:documentId/content */
 export async function loader({ request, context, params }: LoaderFunctionArgs) {

@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
-import { removeAclSpans } from "~/lib/acl-spans";
+import { removeAclSpans } from "~/features/pages/acl-spans";
 import { chunkPageContent } from "./chunker.server";
 
 type Db = ReturnType<typeof drizzle>;

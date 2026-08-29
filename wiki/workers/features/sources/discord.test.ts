@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DiscordMessage } from "../../../app/lib/discord-api.server";
+import type { DiscordMessage } from "../../../app/features/discord/api.server";
 import { extractUrlsFromDiscordMessage, normalizeDiscordMessages } from "./discord";
 
 function message(

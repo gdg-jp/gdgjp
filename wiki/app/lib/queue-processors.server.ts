@@ -2,8 +2,8 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
 import { indexPageEmbeddings } from "~/features/ai-search/embedding.server";
+import { canonicalMarkdown } from "~/features/editor/content-format";
 import { translatePageWithEnv } from "~/features/translation/translation.server";
-import { canonicalMarkdown } from "~/lib/content-format";
 
 type Db = ReturnType<typeof drizzle>;
 

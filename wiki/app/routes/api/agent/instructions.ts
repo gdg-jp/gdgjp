@@ -1,6 +1,9 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { agentUnauthorized, resolveAgentWorkspace } from "~/lib/agent-workspace.server";
-import { extractInstructionSections, getAgentInstructions } from "~/lib/agents-md.server";
+import {
+  extractInstructionSections,
+  getAgentInstructions,
+} from "~/features/agent-api/agents-md.server";
+import { agentUnauthorized, resolveAgentWorkspace } from "~/features/agent-api/workspace.server";
 import { getDb } from "~/lib/db.server";
 
 const QUERY_HEADINGS = ["## Sensitive information", "### Citations"] as const;

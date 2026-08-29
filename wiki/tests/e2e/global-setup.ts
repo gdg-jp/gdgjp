@@ -43,7 +43,7 @@ const STORAGE_STATE_DIR = path.join(process.cwd(), "tests/e2e/storage-state");
 
 // Must match the cookie name the openid-client RP factory writes:
 // `${cookiePrefix}-session` where cookiePrefix = "gdgjp-wiki" (see
-// wiki/app/lib/auth.server.ts).
+// wiki/app/features/auth/auth.server.ts).
 const SESSION_COOKIE = "gdgjp-wiki-session";
 
 function findD1Sqlite(): string {

@@ -1,8 +1,8 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/d1";
 import * as schema from "~/db/schema";
-import { redactPageMarkdown } from "~/lib/acl-spans.server";
-import { canUserSeePageAsync } from "~/lib/page-visibility.server";
+import { redactPageMarkdown } from "~/features/pages/acl-spans.server";
+import { canUserSeePageAsync } from "~/features/pages/visibility.server";
 import type { AccessContext } from "../../../shared/ingestion/domain";
 import { type ContentChunk, chunkPageContent } from "./chunker.server";
 

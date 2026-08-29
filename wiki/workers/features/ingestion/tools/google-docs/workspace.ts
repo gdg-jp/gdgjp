@@ -2,7 +2,7 @@ import type {
   GoogleDocsDocument,
   GoogleDocsStructuralElement,
   GoogleDocsTab,
-} from "../../../../../app/lib/google-drive.server";
+} from "../../../../../app/features/google/drive.server";
 import type {
   AdapterResult,
   ListOptions,

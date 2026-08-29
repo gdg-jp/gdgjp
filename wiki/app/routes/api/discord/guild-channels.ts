@@ -1,9 +1,12 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { requireUser } from "~/lib/auth-utils.server";
+import { requireUser } from "~/features/auth/utils.server";
+import { groupDiscordChannelsByCategory, listGuildChannels } from "~/features/discord/api.server";
+import {
+  getDiscordBotInviteUrl,
+  hasRequiredDiscordOauthScopes,
+} from "~/features/discord/oauth.server";
+import { getDiscordOauthTokenRow } from "~/features/discord/token.server";
 import { getDb } from "~/lib/db.server";
-import { groupDiscordChannelsByCategory, listGuildChannels } from "~/lib/discord-api.server";
-import { getDiscordBotInviteUrl, hasRequiredDiscordOauthScopes } from "~/lib/discord-oauth.server";
-import { getDiscordOauthTokenRow } from "~/lib/discord-token.server";
 
 /**
  * List text/announcement channels in a guild via the bot token, grouped by category.
@@ -35,7 +38,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 
   // Confirm the user belongs to this guild before exposing channel names.
   try {
-    const { listUserGuilds } = await import("~/lib/discord-api.server");
+    const { listUserGuilds } = await import("~/features/discord/api.server");
     const userGuilds = await listUserGuilds(token.accessToken);
     if (!userGuilds.some((guild) => guild.id === guildId)) {
       return Response.json({ error: "forbidden_guild" }, { status: 403 });

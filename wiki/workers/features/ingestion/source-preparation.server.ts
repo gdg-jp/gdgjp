@@ -2,7 +2,7 @@
 import { eq } from "drizzle-orm";
 import type { drizzle } from "drizzle-orm/d1";
 import * as schema from "../../../app/db/schema";
-import { getGoogleDriveAccessToken } from "../../../app/lib/google-drive-token.server";
+import { getGoogleDriveAccessToken } from "../../../app/features/google/drive-token.server";
 import { extractUrls } from "../../../app/lib/url-extract";
 import type { AiDraftJson, IngestionInputs, SourceUrl } from "../../../shared/ingestion/domain";
 import type { ExecutionEventSink } from "./orchestration/ports/tool-event-sink";

@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { requireUser } from "~/lib/auth-utils.server";
+import { requireUser } from "~/features/auth/utils.server";
+import { getGoogleDriveAccessToken } from "~/features/google/drive-token.server";
 import { getDb } from "~/lib/db.server";
-import { getGoogleDriveAccessToken } from "~/lib/google-drive-token.server";
 
 /** Supplies the authenticated browser with the short-lived token Google Picker requires. */
 export async function loader({ request, context }: LoaderFunctionArgs) {

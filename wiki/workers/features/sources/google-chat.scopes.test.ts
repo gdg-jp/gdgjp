@@ -8,12 +8,12 @@ import { createSourcesTestDb } from "./test-db";
 const getTokenRow = vi.fn();
 const { db, sqlite } = createSourcesTestDb();
 
-vi.mock("../../../app/lib/google-drive-token.server", () => ({
+vi.mock("../../../app/features/google/drive-token.server", () => ({
   getGoogleDriveTokenRow: (...args: unknown[]) => getTokenRow(...args),
 }));
 vi.mock("../../../app/lib/db.server", () => ({ getDb: () => db }));
-vi.mock("../../../app/lib/google-drive.server", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../../app/lib/google-drive.server")>()),
+vi.mock("../../../app/features/google/drive.server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../app/features/google/drive.server")>()),
   REQUIRED_GOOGLE_CHAT_SCOPES: ["https://www.googleapis.com/auth/chat.messages.readonly"],
   hasRequiredGoogleChatScopes: (scopes: string | null) =>
     Boolean(scopes?.includes("chat.messages.readonly")),

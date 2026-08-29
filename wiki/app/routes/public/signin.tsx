@@ -1,6 +1,6 @@
 import { redirect } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
-import { safeReturnTo } from "~/lib/auth-redirect";
+import { safeReturnTo } from "~/features/auth/redirect";
 
 export function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { GoogleDocsDocument } from "../../../../../app/lib/google-drive.server";
+import type { GoogleDocsDocument } from "../../../../../app/features/google/drive.server";
 import {
   createGoogleDocsWorkspaceAdapter,
   flattenGoogleDocsWorkspaceNodes,

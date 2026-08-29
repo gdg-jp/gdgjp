@@ -1,10 +1,10 @@
-import { getGoogleDriveDocumentKind } from "../../../../app/lib/google-drive-utils";
+import { getGoogleDriveDocumentKind } from "../../../../app/features/google/drive-utils";
 import {
   exportFileAsText,
   extractFileId,
   getDriveFileName,
   getGoogleDocumentWithTabs,
-} from "../../../../app/lib/google-drive.server";
+} from "../../../../app/features/google/drive.server";
 import {
   type GoogleDocsWorkspaceNode,
   flattenGoogleDocsWorkspaceNodes,

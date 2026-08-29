@@ -17,17 +17,17 @@ import { useTranslation } from "react-i18next";
 import { Link, redirect, useFetcher, useLoaderData, useRevalidator } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
-import ShareDialog from "~/components/ShareDialog";
 import Tooltip from "~/components/Tooltip";
-import TaskRemainingView from "~/components/tasks/TaskRemainingView";
-import TaskTableView from "~/components/tasks/TaskTableView";
-import TaskTimelineView from "~/components/tasks/TaskTimelineView";
 import * as schema from "~/db/schema";
-import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { getEffectivePagePermissions } from "~/features/pages/access.server";
+import { archivePageAndDescendants } from "~/features/pages/archive.server";
+import ShareDialog from "~/features/pages/components/ShareDialog";
+import { buildPageMeta } from "~/features/pages/meta";
+import TaskRemainingView from "~/features/tasks/components/TaskRemainingView";
+import TaskTableView from "~/features/tasks/components/TaskTableView";
+import TaskTimelineView from "~/features/tasks/components/TaskTimelineView";
 import { getDb } from "~/lib/db.server";
-import { getEffectivePagePermissions } from "~/lib/page-access.server";
-import { archivePageAndDescendants } from "~/lib/page-archive.server";
-import { buildPageMeta } from "~/lib/page-meta";
 
 // ---------------------------------------------------------------------------
 // Meta

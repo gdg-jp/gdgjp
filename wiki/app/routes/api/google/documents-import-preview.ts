@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "react-router";
-import { previewGoogleDocumentImport } from "~/features/google-documents/import.server";
-import { requireUser } from "~/lib/auth-utils.server";
+import { requireUser } from "~/features/auth/utils.server";
+import { previewGoogleDocumentImport } from "~/features/google/documents/import.server";
 
 export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });

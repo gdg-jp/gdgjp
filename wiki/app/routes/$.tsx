@@ -7,7 +7,7 @@ import {
   redirect,
   useRouteError,
 } from "react-router";
-import { wikiPagePath } from "~/lib/wiki-page-path";
+import { wikiPagePath } from "~/features/pages/wiki-page-path";
 
 export function loader({ request, params }: LoaderFunctionArgs) {
   const segments = (params["*"] ?? "").split("/").filter(Boolean);

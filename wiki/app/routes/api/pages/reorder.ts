@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
-import { requireUser } from "~/lib/auth-utils.server";
+import { requireUser } from "~/features/auth/utils.server";
 
 const BodySchema = z.object({
   pageId: z.string().min(1),

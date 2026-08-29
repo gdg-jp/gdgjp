@@ -4,9 +4,12 @@ import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import * as schema from "~/db/schema";
+import { requireUser } from "~/features/auth/utils.server";
+import {
+  canonicalMarkdown,
+  ingestionImageKeysFromMarkdown,
+} from "~/features/editor/content-format";
 import { generateSlug } from "~/features/ingestion/slug";
-import { requireUser } from "~/lib/auth-utils.server";
-import { canonicalMarkdown, ingestionImageKeysFromMarkdown } from "~/lib/content-format";
 import { sendOrRunTranslation } from "~/lib/queue-processors.server";
 
 // ---------------------------------------------------------------------------

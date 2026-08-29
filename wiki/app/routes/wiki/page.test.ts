@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("~/lib/auth-utils.server", () => ({
+vi.mock("~/features/auth/utils.server", () => ({
   getAccessIdentity: vi.fn(),
   requireUser: vi.fn(),
 }));
@@ -9,22 +9,22 @@ vi.mock("~/lib/db.server", () => ({
   getDb: vi.fn(),
 }));
 
-vi.mock("~/lib/page-access.server", () => ({
+vi.mock("~/features/pages/access.server", () => ({
   getEffectivePagePermissions: vi.fn(),
 }));
 
-vi.mock("~/lib/wiki-page-path.server", () => ({
+vi.mock("~/features/pages/wiki-page-path.server", () => ({
   getWikiCanonicalSlugPath: vi.fn(),
 }));
 
-vi.mock("~/lib/page-archive.server", () => ({
+vi.mock("~/features/pages/archive.server", () => ({
   archivePageAndDescendants: vi.fn(),
 }));
 
-import { getAccessIdentity } from "~/lib/auth-utils.server";
+import { getAccessIdentity } from "~/features/auth/utils.server";
+import { getEffectivePagePermissions } from "~/features/pages/access.server";
+import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server";
 import { getDb } from "~/lib/db.server";
-import { getEffectivePagePermissions } from "~/lib/page-access.server";
-import { getWikiCanonicalSlugPath } from "~/lib/wiki-page-path.server";
 import { loader } from "./page";
 
 const mockContext = {

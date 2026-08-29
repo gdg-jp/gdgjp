@@ -1,15 +1,15 @@
 import { asc, eq, like, or } from "drizzle-orm";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
-import { createAuth } from "~/lib/auth.server";
-import { loadChapterDirectory } from "~/lib/chapter-directory.server";
-import { getDb } from "~/lib/db.server";
+import { createAuth } from "~/features/auth/auth.server";
+import { requireUser } from "~/features/auth/utils.server";
 import {
   getEffectivePagePermissions,
   getPageAccessList,
   normalizeEmail,
-} from "~/lib/page-access.server";
+} from "~/features/pages/access.server";
+import { loadChapterDirectory } from "~/lib/chapter-directory.server";
+import { getDb } from "~/lib/db.server";
 
 /** GET /api/share-candidates?pageId=...&q=...&authorOnly=1 */
 export async function loader({ request, context }: LoaderFunctionArgs) {

@@ -12,7 +12,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import NotificationBell from "./NotificationBell";
+import NotificationBell from "~/features/notifications/components/NotificationBell";
 
 interface NavbarProps {
   user: { name: string; email: string; image?: string | null } | null;

@@ -4,11 +4,11 @@ import { Form, Link, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
-import { requireAdmin } from "~/lib/auth-utils.server";
+import { requireAdmin } from "~/features/auth/utils.server";
+import { archivePageAndDescendants } from "~/features/pages/archive.server";
+import { wikiPagePath } from "~/features/pages/wiki-page-path";
+import { getWikiCanonicalSlugPaths } from "~/features/pages/wiki-page-path.server";
 import { getDb } from "~/lib/db.server";
-import { archivePageAndDescendants } from "~/lib/page-archive.server";
-import { wikiPagePath } from "~/lib/wiki-page-path";
-import { getWikiCanonicalSlugPaths } from "~/lib/wiki-page-path.server";
 
 // ---------------------------------------------------------------------------
 // Loader

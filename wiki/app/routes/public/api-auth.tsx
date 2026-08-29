@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { createAuth } from "~/lib/auth.server";
+import { createAuth } from "~/features/auth/auth.server";
 
 /**
  * Catch-all route forwarding /api/auth/* to the openid-client RP factory.

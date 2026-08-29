@@ -1,10 +1,14 @@
 import { readFile, readdir } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const APP_DIRECTORY = fileURLToPath(new URL("../../app/", import.meta.url));
+// `components/` and `routes/` are wholly UI. Under `features/` only the
+// `*/components/` subtrees are UI — feature `*.server.ts` (email HTML, colour
+// parsing) legitimately carries colour literals and must not be scanned.
 const UI_DIRECTORIES = ["components", "routes"];
+const FEATURE_COMPONENTS_ROOT = "features";
 const UI_ROOT_FILES = ["root.tsx"];
 const EXCEPTION = "design-token-policy: allow-dynamic-color";
 
@@ -47,8 +51,12 @@ describe("Wiki UI color-token policy", () => {
     const componentFiles = await Promise.all(
       UI_DIRECTORIES.map((directory) => findUiFiles(join(APP_DIRECTORY, directory))),
     );
+    const featureComponentFiles = (
+      await findUiFiles(join(APP_DIRECTORY, FEATURE_COMPONENTS_ROOT))
+    ).filter((file) => file.includes(`${sep}components${sep}`));
     const files = [
       ...componentFiles.flat(),
+      ...featureComponentFiles,
       ...UI_ROOT_FILES.map((file) => join(APP_DIRECTORY, file)),
     ];
     const violations = (

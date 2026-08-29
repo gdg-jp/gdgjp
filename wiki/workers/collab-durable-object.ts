@@ -4,8 +4,8 @@ import * as encoding from "lib0/encoding";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as syncProtocol from "y-protocols/sync";
 import * as Y from "yjs";
-import { createAuth } from "../app/lib/auth.server";
-import { canonicalMarkdown } from "../app/lib/content-format";
+import { createAuth } from "../app/features/auth/auth.server";
+import { canonicalMarkdown } from "../app/features/editor/content-format";
 
 // Wire protocol message types
 const MSG_SYNC = 0;

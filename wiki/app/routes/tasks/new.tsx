@@ -6,8 +6,8 @@ import { useTranslation } from "react-i18next";
 import { Form, Link, data, redirect, useActionData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
+import { requireUser } from "~/features/auth/utils.server";
 import { generateSlug } from "~/features/ingestion/slug";
-import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 
 // ---------------------------------------------------------------------------

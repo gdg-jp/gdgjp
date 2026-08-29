@@ -2,8 +2,8 @@ import { Archive, ChevronRight, Clock, FileInput, Home, Settings, Star } from "l
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import BaseSidebar from "~/components/BaseSidebar";
-import PageTree from "~/components/PageTree";
-import type { PageNode } from "~/lib/page-tree";
+import PageTree from "~/features/pages/components/PageTree";
+import type { PageNode } from "~/features/pages/tree";
 
 interface NavItemProps {
   to: string;

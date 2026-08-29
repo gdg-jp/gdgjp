@@ -5,7 +5,8 @@
 
 - このマップは**ファイルを移動したら同じ変更内で更新する契約**。更新しないマップは即座に嘘になる。
 - 全体計画とステージ分割は `docs/wiki-refactoring/index.md`。
-- 「配置ルール」はステージ 02〜06 が実現していく目標状態。現時点のツリーはまだ従っていない。
+- Stage 05 完了。`app/lib/` は横断プリミティブ 8 本のみ、ドメインコードは `app/features/<domain>/` に集約済み。
+  残る「配置ルール」逸脱はファイルサイズ（Stage 06 の担当）。
 
 ## Code map
 
@@ -13,26 +14,27 @@
 
 | 探しもの | 場所 |
 |---|---|
-| ページ本体 / アーカイブ / メタ / ツリー / パス | `app/lib/page-*.ts`, `app/lib/page-*.server.ts`, `app/lib/wiki-page-path*.ts` |
-| ページ ACL / 可視性 | `app/lib/acl-spans*.ts`, `app/lib/page-access.server.ts`, `app/lib/page-visibility.server.ts` |
-| ソース取り込み（UI / API / loader・action 側） | `app/lib/sources.server.ts`, `app/lib/sources-shared.ts`, `app/routes/sources/`, `app/routes/api/sources/` |
+| ページ本体 / ACL / 可視性 / ツリー / メタ / パス / アーカイブ | `app/features/pages/` — README あり。UI は `app/features/pages/components/` |
+| ソース取り込み（UI / API / loader・action 側） | `app/features/sources/` — README あり。ルートは `app/routes/sources/`, `app/routes/api/sources/` |
 | ソース取り込み（Worker 実行 / DO alarm / refresh cron） | `workers/features/sources/` — README あり |
 | wiki 生成 AI（Agents SDK / Workflow / model・tools） | `workers/features/ingestion/` — README あり |
-| 生成 AI のクライアント配線・slug | `app/features/ingestion/`, `app/routes/ingest/`, `app/routes/api/ingest/` |
+| 生成 AI のクライアント配線・slug | `app/features/ingestion/` — README あり。ルートは `app/routes/ingest/`, `app/routes/api/ingest/`。UI は `app/features/ingestion/components/` |
 | AI 検索（Workers AI + Vectorize） | `app/features/ai-search/` — README あり |
 | AI モデル共通ラッパ（Vercel AI SDK / structured output） | `app/features/ai/model/` — README あり |
 | 翻訳（JA→EN、`TRANSLATION_QUEUE`） | `app/features/translation/` — README あり。振り分けは `app/lib/queue-processors.server.ts` |
 | ZIP インポート | `app/features/zip-import/` — README あり。ルートは `app/routes/api/pages/import-zip*.ts` |
-| Google Docs インポート（プレビュー / ジョブ / 反映） | `app/features/google-documents/` — README あり。ルートは `app/routes/api/google/documents-*.ts` |
-| Google 連携（Drive / Docs / Forms / Chat / Picker） | `app/lib/google-*.ts`, `app/lib/google-*.server.ts` |
-| Discord 連携（OAuth / API / トークン / リマインダ） | `app/lib/discord-*.server.ts` |
-| CLI 読み取り API（`gdg wiki`） | `app/routes/api/cli/*`（URL は `/api/cli/wiki/*`、正本は `openapi/openapi.yaml`） |
-| エージェント読み取り API（ls / cat / search、Vectorize 不使用） | `app/routes/api/agent/*` |
-| リアルタイム共同編集 | `workers/collab-durable-object.ts`, `app/hooks/useCollabEditor.ts`, `app/lib/remote-cursors-*.ts`, `app/lib/tiptap-convert.ts` |
-| 通知（メール / FCM / Discord） | `app/lib/notify.server.ts`, `app/lib/email.server.ts`, `app/lib/fcm.server.ts` |
-| タスク | `app/routes/tasks/`, `app/routes/api/tasks/`（Discord リマインダ cron は `workers/features/sources/fetch-source.ts`） |
+| Google 連携（Drive / Docs / Forms / Chat / Picker） | `app/features/google/` — README あり |
+| Google Docs インポート（プレビュー / ジョブ / 反映） | `app/features/google/documents/` — README あり。ルートは `app/routes/api/google/documents-*.ts` |
+| Discord 連携（OAuth / API / トークン / リマインダ） | `app/features/discord/` — README あり |
+| 認証（RP / セッション / クレーム） | `app/features/auth/` — README あり |
+| CLI 読み取り API（`gdg wiki`） | サーバロジックは `app/features/agent-api/`。ルートは `app/routes/api/cli/*`（URL は `/api/cli/wiki/*`、正本は `openapi/openapi.yaml`） |
+| エージェント読み取り API（ls / cat / search、Vectorize 不使用） | サーバロジックは `app/features/agent-api/`。ルートは `app/routes/api/agent/*` |
+| リアルタイム共同編集 | `workers/collab-durable-object.ts`, `app/features/editor/`（`use-collab-editor.ts`, `remote-cursors-*.ts`, `tiptap-convert.ts`）— README あり |
+| 通知（メール / FCM / Discord） | `app/features/notifications/` — README あり |
+| タスク | サーバ・UI は `app/features/tasks/`（README あり）。ルートは `app/routes/tasks/`, `app/routes/api/tasks/`。リマインダ cron は `app/features/discord/reminders.server.ts` |
 | DB スキーマ | `app/db/schema/`（ドメイン別モジュール。テーブル割り当ては下の「DB スキーマ」節） |
-| 横断プリミティブ（DB / 時刻 / 色 / URL / キュー振り分け / 章ディレクトリ / OG 画像） | `app/lib/db.server.ts`, `utils.ts`, `time.ts`, `color-utils.ts`, `url-extract.ts`, `queue-processors.server.ts`, `chapter-directory.server.ts`, `og-image.server.tsx` |
+| 横断プリミティブ（DB / 時刻 / 色 / URL / キュー振り分け / 章ディレクトリ / OG 画像） | `app/lib/`（8 本のみ: `db.server.ts`, `utils.ts`, `time.ts`, `color-utils.ts`, `url-extract.ts`, `queue-processors.server.ts`, `chapter-directory.server.ts`, `og-image.server.tsx`） |
+| アプリシェル UI | `app/components/`（10 本 + `ui/` プリミティブのみ。それ以外は feature 配下） |
 
 ## ルート構成
 
@@ -40,7 +42,7 @@
 URL パラメータ（`$slug` / `$id`）はファイル名から落とし、ディレクトリが接頭辞を担う。
 **URL は `app/routes.ts` の `route()` 第 1 引数が持つ。ファイル名は「何をするか」だけ。**
 一覧系 API は `list.ts`（`index.ts` は barrel と紛らわしいので使わない）。
-アンダースコア接頭辞（`api/cli/_sync-helpers.ts`）はルートではないモジュール。
+アンダースコア接頭辞（`public/_components/`, `wiki/_components/` 等）はルートではないモジュール。
 
 ```
 app/routes/
@@ -56,7 +58,7 @@ app/routes/
   admin/            /admin/*（layout/index/pages/tags/stats）
   api/
     agent/          /api/agent/*        — architecture.test.ts はここに留める
-    cli/            /api/cli/wiki/*     — _sync-helpers.ts は Stage 05 で features/agent-api/ へ
+    cli/            /api/cli/wiki/*     — サーバロジックは app/features/agent-api/
     pages/          コメント / お気に入り / アクセス / 画像 / ZIP / reorder / recent / archived
     google/         Drive auth・Chat spaces・Documents インポート
     sources/        /api/sources/*（list/archive/unarchive/refresh/visibility）
@@ -161,9 +163,10 @@ app/routes/
 |---|---|
 | `workers/features/ingestion/architecture.test.ts` | ingestion 4 層（orchestration / model / tools / persistence）の import 境界 |
 | `app/routes/api/agent/architecture.test.ts` | エージェント読み取り API が Vectorize / embedding を使わない |
+| `workers/app.scheduled.test.ts` | `scheduled` の 2 cron 分岐が移動後の feature モジュールへ届く（cron は本番のみ実行） |
 | `tests/architecture/test-colocation.test.ts` | ユニットテストが被験ソースの隣に `<subject>.test.ts` で置かれている |
 | `tests/architecture/route-urls.test.ts` | `app/routes.ts` が公開する URL 全集合（スナップショット固定） |
-| `tests/architecture/design-token-policy.test.ts` | セマンティックトークンのみ使用（`DESIGN.md`）。パレット直値・色リテラル禁止 |
+| `tests/architecture/design-token-policy.test.ts` | セマンティックトークンのみ使用（`DESIGN.md`）。走査対象は `app/{components,routes}` + `app/features/*/components/` |
 | `tests/architecture/theme-tokens.test.ts` | ライト / ダークのトークン定義が揃っている |
 | `tests/architecture/source-surface-exclusions.test.ts` | conversation ソースが 3 サーフェスで DB クエリ時に除外される |
 | `tests/architecture/search-source-exclusions.test.ts` | 生ソースが Vectorize / pages FTS に入らない |

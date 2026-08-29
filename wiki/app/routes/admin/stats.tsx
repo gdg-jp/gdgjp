@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useLoaderData } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireAdmin } from "~/lib/auth-utils.server";
+import { requireAdmin } from "~/features/auth/utils.server";
 import { getDb } from "~/lib/db.server";
 
 // ---------------------------------------------------------------------------

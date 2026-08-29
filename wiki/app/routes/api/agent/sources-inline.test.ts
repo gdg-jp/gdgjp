@@ -3,11 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const resolveWorkspaceMock = vi.fn();
 const createInlineSourceMock = vi.fn();
 
-vi.mock("~/lib/agent-workspace.server", () => ({
+vi.mock("~/features/agent-api/workspace.server", () => ({
   resolveAgentWorkspace: (...args: unknown[]) => resolveWorkspaceMock(...args),
   agentUnauthorized: () => Response.json({ error: "invalid_token" }, { status: 401 }),
 }));
-vi.mock("~/lib/sources.server", () => ({
+vi.mock("~/features/sources/sources.server", () => ({
   createInlineSource: (...args: unknown[]) => createInlineSourceMock(...args),
 }));
 

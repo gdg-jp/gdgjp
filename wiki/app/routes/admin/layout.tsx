@@ -6,8 +6,8 @@ import type { LoaderFunctionArgs } from "react-router";
 import BaseSidebar from "~/components/BaseSidebar";
 import Navbar from "~/components/Navbar";
 import { NavItem } from "~/components/Sidebar";
+import { requireAdmin } from "~/features/auth/utils.server";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
-import { requireAdmin } from "~/lib/auth-utils.server";
 
 // ---------------------------------------------------------------------------
 // Loader

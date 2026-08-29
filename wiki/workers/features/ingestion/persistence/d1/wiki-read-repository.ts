@@ -2,8 +2,8 @@ import { and, asc, eq, inArray, isNull, like, or } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 import * as schema from "../../../../../app/db/schema";
-import { redactPageMarkdown } from "../../../../../app/lib/acl-spans.server";
-import { getEffectivePagePermissions } from "../../../../../app/lib/page-access.server";
+import { getEffectivePagePermissions } from "../../../../../app/features/pages/access.server";
+import { redactPageMarkdown } from "../../../../../app/features/pages/acl-spans.server";
 import type {
   WikiWorkspaceStore,
   WorkspaceActor,

@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { getGoogleDocumentImportJob } from "~/features/google-documents/import.server";
-import { requireUser } from "~/lib/auth-utils.server";
+import { requireUser } from "~/features/auth/utils.server";
+import { getGoogleDocumentImportJob } from "~/features/google/documents/import.server";
 
 export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const jobId = params.jobId;

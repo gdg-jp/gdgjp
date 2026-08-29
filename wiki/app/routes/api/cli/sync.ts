@@ -4,15 +4,7 @@ import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import * as schema from "~/db/schema";
-import { computeAclSourceIdsJson } from "~/lib/acl-spans";
-import { pageAclClearance, validatePageAclForSync } from "~/lib/acl-spans.server";
-import { agentsHash, getAgentInstructions } from "~/lib/agents-md.server";
-import { canonicalMarkdown } from "~/lib/content-format";
-import { D1_MAX_BOUND_PARAMETERS, mapInChunks } from "~/lib/d1-chunk.server";
-import { getDb } from "~/lib/db.server";
-import { getEffectivePagePermissions, isGeneralAccess, isPageRole } from "~/lib/page-access.server";
-import { sendOrRunTranslation } from "~/lib/queue-processors.server";
-import type { components } from "../../../../openapi/types.generated";
+import { agentsHash, getAgentInstructions } from "~/features/agent-api/agents-md.server";
 import {
   buildNewPageLocaleValues,
   buildPartialLocaleUpdate,
@@ -21,7 +13,19 @@ import {
   jaContentChanged,
   resolveExistingPageSharing,
   sourceHasReference,
-} from "./_sync-helpers";
+} from "~/features/agent-api/cli-sync-helpers";
+import { canonicalMarkdown } from "~/features/editor/content-format";
+import {
+  getEffectivePagePermissions,
+  isGeneralAccess,
+  isPageRole,
+} from "~/features/pages/access.server";
+import { computeAclSourceIdsJson } from "~/features/pages/acl-spans";
+import { pageAclClearance, validatePageAclForSync } from "~/features/pages/acl-spans.server";
+import { D1_MAX_BOUND_PARAMETERS, mapInChunks } from "~/features/pages/d1-chunk.server";
+import { getDb } from "~/lib/db.server";
+import { sendOrRunTranslation } from "~/lib/queue-processors.server";
+import type { components } from "../../../../openapi/types.generated";
 
 type WikiSyncResult = components["schemas"]["SyncResult"];
 

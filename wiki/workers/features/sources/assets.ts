@@ -1,4 +1,4 @@
-import type { GoogleDocsInlineImage } from "../../../app/lib/google-docs-markdown.server";
+import type { GoogleDocsInlineImage } from "../../../app/features/google/docs-markdown.server";
 import { sha256Hex } from "./persist";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;

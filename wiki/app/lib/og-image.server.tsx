@@ -1,7 +1,7 @@
 import { Marked, Renderer } from "marked";
 import { renderToStaticMarkup } from "react-dom/server";
-import { TipTapRenderer } from "~/components/TipTapRenderer";
-import type { TipTapDoc } from "~/lib/tiptap-convert";
+import { TipTapRenderer } from "~/features/editor/components/TipTapRenderer";
+import type { TipTapDoc } from "~/features/editor/tiptap-convert";
 
 type OgImageHtmlInput = {
   content: string;

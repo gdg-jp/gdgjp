@@ -5,18 +5,18 @@ import { useTranslation } from "react-i18next";
 import { useLoaderData, useRevalidator } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import Toast from "~/components/Toast";
-import ChangesetReview from "~/components/ingest/ChangesetReview";
-import SensitiveReviewModal from "~/components/ingest/SensitiveReviewModal";
-import type { ResolvedItem } from "~/components/ingest/SensitiveReviewModal";
 import { MotionSwap } from "~/components/ui/motion";
 import * as schema from "~/db/schema";
+import { requireUser } from "~/features/auth/utils.server";
+import ChangesetReview from "~/features/ingestion/components/ChangesetReview";
+import SensitiveReviewModal from "~/features/ingestion/components/SensitiveReviewModal";
+import type { ResolvedItem } from "~/features/ingestion/components/SensitiveReviewModal";
 import {
   type ToolActivityItem,
   buildLiveActivity,
   formatToolArguments,
 } from "~/features/ingestion/live-activity";
 import { useIngestionAgent } from "~/features/ingestion/use-ingestion-agent";
-import { requireUser } from "~/lib/auth-utils.server";
 import type { ExtractedUrl } from "~/lib/url-extract";
 import type { IngestionStatus } from "../../../shared/ingestion/agent-state";
 import type {

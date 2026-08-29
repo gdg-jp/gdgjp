@@ -1,7 +1,10 @@
 import { and, eq, ne } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import * as schema from "../../../app/db/schema";
-import { REQUIRED_GOOGLE_CHAT_SCOPES, driveFilesUrl } from "../../../app/lib/google-drive.server";
+import {
+  REQUIRED_GOOGLE_CHAT_SCOPES,
+  driveFilesUrl,
+} from "../../../app/features/google/drive.server";
 import { type ResolvedSourceAsset, assetR2Key } from "./assets";
 import { MAX_SENDER_SAMPLES, pruneSenderSamplesStatement } from "./chat-sender-registry";
 import {

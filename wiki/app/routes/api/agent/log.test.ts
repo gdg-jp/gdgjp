@@ -22,7 +22,7 @@ vi.mock("../../workers/features/ingestion/persistence/d1/wiki-read-repository", 
   createD1WikiWorkspaceStore: (...args: unknown[]) => createStoreMock(...args),
 }));
 
-vi.mock("~/lib/wiki-catalog.server", () => ({
+vi.mock("~/features/pages/wiki-catalog.server", () => ({
   appendLogEntry: (...args: unknown[]) => appendLogEntryMock(...args),
 }));
 

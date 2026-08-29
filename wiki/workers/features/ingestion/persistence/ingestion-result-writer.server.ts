@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../../../../app/db/schema";
-import { sendIngestionCompleteEmail } from "../../../../app/lib/email.server";
-import { sendPushToUser } from "../../../../app/lib/fcm.server";
+import { sendIngestionCompleteEmail } from "../../../../app/features/notifications/email.server";
+import { sendPushToUser } from "../../../../app/features/notifications/fcm.server";
 import type { AiDraftJson } from "../../../../shared/ingestion/domain";
 
 type Db = ReturnType<typeof drizzle>;

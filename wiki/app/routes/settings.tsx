@@ -2,10 +2,10 @@ import { eq } from "drizzle-orm";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher, useLoaderData } from "react-router";
-import { PushNotificationToggle } from "~/components/PushNotificationToggle";
 import * as schema from "~/db/schema";
+import { requireUser } from "~/features/auth/utils.server";
+import { PushNotificationToggle } from "~/features/notifications/components/PushNotificationToggle";
 import { supportedLngs } from "~/i18n";
-import { requireUser } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import type { Route } from ".react-router/types/app/routes/+types/settings";
 

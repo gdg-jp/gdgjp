@@ -4,10 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher, useLoaderData, useRevalidator, useSearchParams } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
-import SourceList from "~/components/sources/SourceList";
-import SourcesToolbar from "~/components/sources/SourcesToolbar";
-import { filterSources, parseSourceFilters } from "~/components/sources/filter-sources";
-import { ChapterSelect, VisibilitySelect } from "~/components/sources/source-selects";
 import {
   Dialog,
   DialogContent,
@@ -30,12 +26,14 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import * as schema from "~/db/schema";
-import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
-import { loadChapterDirectory } from "~/lib/chapter-directory.server";
-import { getDb } from "~/lib/db.server";
-import { loadGooglePicker } from "~/lib/google-picker.client";
-import type { GooglePickerConfig, GooglePickerDocument } from "~/lib/google-picker.client";
-import { isSourceVisibility, sourceVisibilityNeedsChapter } from "~/lib/sources-shared";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { loadGooglePicker } from "~/features/google/picker.client";
+import type { GooglePickerConfig, GooglePickerDocument } from "~/features/google/picker.client";
+import SourceList from "~/features/sources/components/SourceList";
+import SourcesToolbar from "~/features/sources/components/SourcesToolbar";
+import { filterSources, parseSourceFilters } from "~/features/sources/components/filter-sources";
+import { ChapterSelect, VisibilitySelect } from "~/features/sources/components/source-selects";
+import { isSourceVisibility, sourceVisibilityNeedsChapter } from "~/features/sources/shared";
 import {
   canAccessSource,
   createSource,
@@ -43,7 +41,9 @@ import {
   enqueueSourceRefresh,
   unarchiveSource,
   updateSourceVisibility,
-} from "~/lib/sources.server";
+} from "~/features/sources/sources.server";
+import { loadChapterDirectory } from "~/lib/chapter-directory.server";
+import { getDb } from "~/lib/db.server";
 import {
   isChatSenderResourceName,
   saveChatSenderName,

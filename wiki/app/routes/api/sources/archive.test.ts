@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getMock = vi.fn();
 const setMock = vi.fn();
 
-vi.mock("~/lib/auth-utils.server", () => ({
+vi.mock("~/features/auth/utils.server", () => ({
   getAccessIdentity: vi.fn().mockResolvedValue({ chapterIds: [] }),
   requireUser: vi.fn().mockResolvedValue({ id: "user-1", isAdmin: true }),
 }));
@@ -15,7 +15,9 @@ vi.mock("~/lib/db.server", () => ({
   })),
 }));
 
-vi.mock("~/lib/sources.server", () => ({ canAccessSource: vi.fn().mockReturnValue(true) }));
+vi.mock("~/features/sources/sources.server", () => ({
+  canAccessSource: vi.fn().mockReturnValue(true),
+}));
 
 import { action } from "./archive";
 

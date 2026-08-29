@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "react-router";
+import { requireUser } from "~/features/auth/utils.server";
 import { ZipImportError, previewZipImport } from "~/features/zip-import/import.server";
-import { requireUser } from "~/lib/auth-utils.server";
 
 export async function action({ request, context }: ActionFunctionArgs) {
   if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });

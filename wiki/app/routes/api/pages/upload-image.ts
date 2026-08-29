@@ -3,8 +3,8 @@ import { drizzle } from "drizzle-orm/d1";
 import { nanoid } from "nanoid";
 import type { ActionFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
-import { getEffectivePagePermissions } from "~/lib/page-access.server";
+import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
+import { getEffectivePagePermissions } from "~/features/pages/access.server";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 

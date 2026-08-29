@@ -1,9 +1,12 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { requireUser } from "~/lib/auth-utils.server";
+import { requireUser } from "~/features/auth/utils.server";
+import { listBotGuilds, listUserGuilds } from "~/features/discord/api.server";
+import {
+  getDiscordBotInviteUrl,
+  hasRequiredDiscordOauthScopes,
+} from "~/features/discord/oauth.server";
+import { getDiscordOauthTokenRow } from "~/features/discord/token.server";
 import { getDb } from "~/lib/db.server";
-import { listBotGuilds, listUserGuilds } from "~/lib/discord-api.server";
-import { getDiscordBotInviteUrl, hasRequiredDiscordOauthScopes } from "~/lib/discord-oauth.server";
-import { getDiscordOauthTokenRow } from "~/lib/discord-token.server";
 
 /**
  * List Discord guilds the signed-in user belongs to, annotated with whether the

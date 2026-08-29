@@ -1,13 +1,13 @@
 import { and, eq } from "drizzle-orm";
 import * as schema from "../../../../../app/db/schema";
-import { convertGoogleDocsDocument } from "../../../../../app/lib/google-docs-markdown.server";
+import { convertGoogleDocsDocument } from "../../../../../app/features/google/docs-markdown.server";
 import {
   GOOGLE_DRIVE_REAUTH_MESSAGE,
   type GoogleDocsDocument,
   driveFilesUrl,
   extractFileId,
   getGoogleDocumentWithTabs,
-} from "../../../../../app/lib/google-drive.server";
+} from "../../../../../app/features/google/drive.server";
 import { googleDocsPathSegment } from "../../../ingestion/tools/google-docs/workspace";
 import { type ResolvedSourceAsset, assetR2Key } from "../../assets";
 import { collectDocuments, withUniqueNames } from "../../google-doc";

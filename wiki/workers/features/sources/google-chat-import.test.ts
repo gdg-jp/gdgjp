@@ -12,20 +12,20 @@ const { db, sqlite, setAfterExecute } = createSourcesTestDb();
 const start = vi.fn();
 
 vi.mock("../../../app/lib/db.server", () => ({ getDb: () => db }));
-vi.mock("../../../app/lib/google-drive-token.server", () => ({
+vi.mock("../../../app/features/google/drive-token.server", () => ({
   getGoogleDriveTokenRow: vi.fn().mockResolvedValue({
     accessToken: "token-1",
     grantedScopes: "google-chat",
   }),
 }));
-vi.mock("../../../app/lib/google-drive.server", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../../app/lib/google-drive.server")>()),
+vi.mock("../../../app/features/google/drive.server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../app/features/google/drive.server")>()),
   GOOGLE_DRIVE_REAUTH_MESSAGE: "Reconnect Google Drive",
   hasRequiredGoogleChatScopes: () => true,
   REQUIRED_GOOGLE_CHAT_SCOPES: ["google-chat"],
 }));
 
-import { getGoogleDriveTokenRow } from "../../../app/lib/google-drive-token.server";
+import { getGoogleDriveTokenRow } from "../../../app/features/google/drive-token.server";
 import { CHAT_PAGE_SIZE, SENDERS_FLUSH_BATCH_SIZE } from "./google-chat-import";
 import {
   ACCESS_TOKEN_SUBREQUESTS,

@@ -1,10 +1,9 @@
 import { eq } from "drizzle-orm";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
-import { requireUser } from "~/lib/auth-utils.server";
-import { createAuth } from "~/lib/auth.server";
-import { getDb } from "~/lib/db.server";
-import { sendPageShareEmail } from "~/lib/email.server";
+import { createAuth } from "~/features/auth/auth.server";
+import { requireUser } from "~/features/auth/utils.server";
+import { sendPageShareEmail } from "~/features/notifications/email.server";
 import {
   type GeneralAccess,
   type PageRole,
@@ -17,9 +16,10 @@ import {
   removePageAccess,
   updatePageAccessRole,
   upsertPageAccess,
-} from "~/lib/page-access.server";
-import { wikiPagePath } from "~/lib/wiki-page-path";
-import { getWikiCanonicalSlugPath } from "~/lib/wiki-page-path.server";
+} from "~/features/pages/access.server";
+import { wikiPagePath } from "~/features/pages/wiki-page-path";
+import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server";
+import { getDb } from "~/lib/db.server";
 
 type PageRecord = {
   id: string;

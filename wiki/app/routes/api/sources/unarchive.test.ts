@@ -4,7 +4,7 @@ const getMock = vi.fn();
 const canAccessSourceMock = vi.fn();
 const unarchiveSourceMock = vi.fn();
 
-vi.mock("~/lib/auth-utils.server", () => ({
+vi.mock("~/features/auth/utils.server", () => ({
   getAccessIdentity: vi.fn().mockResolvedValue({ chapterIds: [] }),
   requireUser: vi.fn().mockResolvedValue({ id: "user-1", isAdmin: true }),
 }));
@@ -13,7 +13,7 @@ vi.mock("~/lib/db.server", () => ({
     select: () => ({ from: () => ({ where: () => ({ get: getMock }) }) }),
   })),
 }));
-vi.mock("~/lib/sources.server", () => ({
+vi.mock("~/features/sources/sources.server", () => ({
   canAccessSource: (...args: unknown[]) => canAccessSourceMock(...args),
   unarchiveSource: (...args: unknown[]) => unarchiveSourceMock(...args),
 }));

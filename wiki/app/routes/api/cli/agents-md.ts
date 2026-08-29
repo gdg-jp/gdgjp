@@ -1,6 +1,6 @@
 import { getBearerIdentity } from "@gdgjp/gdg-lib";
 import type { LoaderFunctionArgs } from "react-router";
-import { getAgentInstructions } from "~/lib/agents-md.server";
+import { getAgentInstructions } from "~/features/agent-api/agents-md.server";
 import { getDb } from "~/lib/db.server";
 
 /** GET /api/cli/wiki/agents-md — centrally managed AGENTS.md for wiki clones. */

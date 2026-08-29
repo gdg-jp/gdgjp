@@ -1,7 +1,7 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { TipTapRenderer } from "~/components/TipTapRenderer";
-import type { TipTapDoc } from "~/components/TipTapRenderer";
+import { TipTapRenderer } from "~/features/editor/components/TipTapRenderer";
+import type { TipTapDoc } from "~/features/editor/components/TipTapRenderer";
 
 function render(doc: TipTapDoc): string {
   return renderToString(<TipTapRenderer doc={doc} />);
