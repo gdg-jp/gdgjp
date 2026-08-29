@@ -10,7 +10,7 @@ import { KNOWLEDGE_RETRIEVAL_LIMITS } from "~/features/ai-search/knowledge-retri
 describe("search excludes raw sources", () => {
   it("AI knowledge retriever FTS only queries pages_fts", () => {
     const source = readFileSync(
-      new URL("./knowledge-retriever.server.ts", import.meta.url),
+      new URL("../../app/features/ai-search/knowledge-retriever.server.ts", import.meta.url),
       "utf8",
     );
     expect(source).toMatch(/FROM pages_fts/);
@@ -19,7 +19,7 @@ describe("search excludes raw sources", () => {
   });
 
   it("keyword /search loader only queries pages_fts_trigram and pages", () => {
-    const source = readFileSync(new URL("../../routes/search.tsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL("../../app/routes/search.tsx", import.meta.url), "utf8");
     expect(source).toMatch(/FROM pages_fts_trigram/);
     expect(source).toMatch(/schema\.pages/);
     expect(source).not.toMatch(/source_documents|schema\.sources/);

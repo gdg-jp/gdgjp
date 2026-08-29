@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 function routeSource(name: string): string {
-  return readFileSync(new URL(`./${name}`, import.meta.url), "utf8");
+  return readFileSync(new URL(`../../app/routes/${name}`, import.meta.url), "utf8");
 }
 
 describe("conversation source surface exclusions", () => {

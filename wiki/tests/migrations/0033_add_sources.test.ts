@@ -11,7 +11,7 @@ describe("0033_add_sources migration", () => {
       INSERT INTO "user" ("id") VALUES ('user-1');
     `);
     db.exec(
-      readFileSync(new URL("../../../migrations/0033_add_sources.sql", import.meta.url), "utf8"),
+      readFileSync(new URL("../../migrations/0033_add_sources.sql", import.meta.url), "utf8"),
     );
     return db;
   }
@@ -22,18 +22,18 @@ describe("0033_add_sources migration", () => {
     db.exec('ALTER TABLE "source_documents" ADD COLUMN "metadata" TEXT;');
     db.exec(
       readFileSync(
-        new URL("../../../migrations/0035_source_fetch_attempt.sql", import.meta.url),
+        new URL("../../migrations/0035_source_fetch_attempt.sql", import.meta.url),
         "utf8",
       ),
     );
     db.exec(
       readFileSync(
-        new URL("../../../migrations/0046_source_document_media_type.sql", import.meta.url),
+        new URL("../../migrations/0046_source_document_media_type.sql", import.meta.url),
         "utf8",
       ),
     );
     db.exec(
-      readFileSync(new URL("../../../migrations/0047_source_kinds.sql", import.meta.url), "utf8"),
+      readFileSync(new URL("../../migrations/0047_source_kinds.sql", import.meta.url), "utf8"),
     );
   }
 
@@ -190,7 +190,7 @@ describe("0033_add_sources migration", () => {
     applySourceMediaAndKindMigrations(db);
     db.exec(
       readFileSync(
-        new URL("../../../migrations/0048_reimport_google_chat_weekly.sql", import.meta.url),
+        new URL("../../migrations/0048_reimport_google_chat_weekly.sql", import.meta.url),
         "utf8",
       ),
     );
@@ -218,25 +218,25 @@ describe("0033_add_sources migration", () => {
     applySourceMediaAndKindMigrations(db);
     db.exec(
       readFileSync(
-        new URL("../../../migrations/0054_add_source_visibility.sql", import.meta.url),
+        new URL("../../migrations/0054_add_source_visibility.sql", import.meta.url),
         "utf8",
       ),
     );
     db.exec(
       readFileSync(
-        new URL("../../../migrations/0056_drop_sources_chapter_fk.sql", import.meta.url),
+        new URL("../../migrations/0056_drop_sources_chapter_fk.sql", import.meta.url),
         "utf8",
       ),
     );
     db.exec(
       readFileSync(
-        new URL("../../../migrations/0057_discord_channel_source.sql", import.meta.url),
+        new URL("../../migrations/0057_discord_channel_source.sql", import.meta.url),
         "utf8",
       ),
     );
     db.exec(
       readFileSync(
-        new URL("../../../migrations/0059_conversation_source_kind.sql", import.meta.url),
+        new URL("../../migrations/0059_conversation_source_kind.sql", import.meta.url),
         "utf8",
       ),
     );
@@ -278,7 +278,7 @@ describe("0033_add_sources migration", () => {
     expect(() =>
       db.exec(
         readFileSync(
-          new URL("../../../migrations/0059_conversation_source_kind.sql", import.meta.url),
+          new URL("../../migrations/0059_conversation_source_kind.sql", import.meta.url),
           "utf8",
         ),
       ),

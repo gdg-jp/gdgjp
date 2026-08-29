@@ -104,6 +104,7 @@ Details in `ARCHITECTURE.md`. Scan this table to narrow the location before you 
 | CLI / エージェント読み取り API | `app/routes/api.cli.wiki.*`, `app/routes/api.agent.*` |
 | リアルタイム共同編集 | `workers/collab-durable-object.ts`, `app/hooks/useCollabEditor.ts` |
 | DB スキーマ | `app/db/schema.ts` |
+| テストの置き場 | ユニットは被験対象の隣（`<subject>.test.ts`）。マイグレーションは `tests/migrations/`、アーキ規約は `tests/architecture/`（`ARCHITECTURE.md` 参照） |
 
 **読まないファイル**（生成物、grep のノイズ）: `worker-configuration.d.ts`（14,750 行、正本は
 `wrangler.toml` の表）・`schema.sql`（599、正本 `app/db/schema.ts`）・`openapi/types.generated.ts`

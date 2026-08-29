@@ -19,16 +19,16 @@ describe("0054_add_source_visibility migration", () => {
       INSERT INTO "chapters" ("id") VALUES ('chapter-osaka');
     `);
     db.exec(
-      readFileSync(new URL("../../../migrations/0033_add_sources.sql", import.meta.url), "utf8"),
+      readFileSync(new URL("../../migrations/0033_add_sources.sql", import.meta.url), "utf8"),
     );
     db.exec(
       readFileSync(
-        new URL("../../../migrations/0035_source_fetch_attempt.sql", import.meta.url),
+        new URL("../../migrations/0035_source_fetch_attempt.sql", import.meta.url),
         "utf8",
       ),
     );
     db.exec(
-      readFileSync(new URL("../../../migrations/0047_source_kinds.sql", import.meta.url), "utf8"),
+      readFileSync(new URL("../../migrations/0047_source_kinds.sql", import.meta.url), "utf8"),
     );
     return db;
   }
@@ -44,7 +44,7 @@ describe("0054_add_source_visibility migration", () => {
 
     db.exec(
       readFileSync(
-        new URL("../../../migrations/0054_add_source_visibility.sql", import.meta.url),
+        new URL("../../migrations/0054_add_source_visibility.sql", import.meta.url),
         "utf8",
       ),
     );

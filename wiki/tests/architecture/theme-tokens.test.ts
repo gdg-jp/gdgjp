@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const appDirectory = fileURLToPath(new URL(".", import.meta.url));
+const appDirectory = fileURLToPath(new URL("../../app/", import.meta.url));
 
 async function source(relativePath: string): Promise<string> {
   return readFile(new URL(relativePath, `file://${appDirectory}/`), "utf8");

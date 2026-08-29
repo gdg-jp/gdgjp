@@ -9,6 +9,8 @@ export default defineConfig({
     include: [
       "app/**/*.test.{ts,tsx}",
       "shared/**/*.test.{ts,tsx}",
+      "tests/architecture/**/*.test.{ts,tsx}",
+      "tests/migrations/**/*.test.{ts,tsx}",
       "tests/unit/**/*.test.{ts,tsx}",
       "tests/golden/**/*.test.{ts,tsx}",
       "workers/**/*.test.{ts,tsx}",
@@ -22,6 +24,8 @@ export default defineConfig({
         "shared/**/*.test.ts",
         "workers/**/*.test.{ts,tsx}",
         "app/routes/**",
+        "tests/architecture/**",
+        "tests/migrations/**",
         "tests/golden/**",
       ],
     },

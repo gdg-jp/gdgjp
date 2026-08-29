@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const APP_DIRECTORY = fileURLToPath(new URL(".", import.meta.url));
+const APP_DIRECTORY = fileURLToPath(new URL("../../app/", import.meta.url));
 const UI_DIRECTORIES = ["components", "routes"];
 const UI_ROOT_FILES = ["root.tsx"];
 const EXCEPTION = "design-token-policy: allow-dynamic-color";

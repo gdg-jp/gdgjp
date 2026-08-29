@@ -78,6 +78,22 @@
 | `schema.sql` | 599 | `app/db/schema.ts` |
 | `openapi/types.generated.ts` | 1,157 | `openapi/openapi.yaml` |
 
+## テストの置き場
+
+| 種類 | 置き場 | 命名 |
+|---|---|---|
+| ユニット | 被験対象の隣 | `<subject>.test.ts` / `<subject>.<aspect>.test.ts` |
+| マイグレーション | `tests/migrations/` | `<migration-number>_<name>.test.ts` |
+| アーキテクチャ規約 | `tests/architecture/` | 検査する規約の名前 |
+| ゴールデン | `tests/golden/` | 既存のまま |
+| E2E | `tests/e2e/` | `*.spec.ts` |
+
+`app/**` `workers/**` `shared/**` のユニットテストは被験対象と同じディレクトリに置き、
+ファイル名の先頭は被験ソースの basename に一致させる（`test-colocation.test.ts` が強制）。
+ソースツリーを走査する検査テストは `tests/architecture/` へ。ただし
+`architecture.test.ts` で終わる 2 本（`workers/features/ingestion/`,
+`app/routes/api.agent.`）は多数の相対パスを持つため現在地に留める。
+
 ## 規約を強制しているテスト
 
 後続ステージで `tests/architecture/` が増えたらここに追記する。
@@ -86,5 +102,9 @@
 |---|---|
 | `workers/features/ingestion/architecture.test.ts` | ingestion 4 層（orchestration / model / tools / persistence）の import 境界 |
 | `app/routes/api.agent.architecture.test.ts` | エージェント読み取り API が Vectorize / embedding を使わない |
-| `app/design-token-policy.test.ts` | セマンティックトークンのみ使用（`DESIGN.md`）。パレット直値・色リテラル禁止 |
-| `app/theme-tokens.test.ts` | ライト / ダークのトークン定義が揃っている |
+| `tests/architecture/test-colocation.test.ts` | ユニットテストが被験ソースの隣に `<subject>.test.ts` で置かれている |
+| `tests/architecture/design-token-policy.test.ts` | セマンティックトークンのみ使用（`DESIGN.md`）。パレット直値・色リテラル禁止 |
+| `tests/architecture/theme-tokens.test.ts` | ライト / ダークのトークン定義が揃っている |
+| `tests/architecture/source-surface-exclusions.test.ts` | conversation ソースが 3 サーフェスで DB クエリ時に除外される |
+| `tests/architecture/search-source-exclusions.test.ts` | 生ソースが Vectorize / pages FTS に入らない |
+| `tests/architecture/agent-workspace-routes.test.ts` | エージェント API のパス解決契約（contracts / paths / wiki-adapter 横断） |
