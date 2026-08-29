@@ -7,4 +7,4 @@ Client wiring for wiki generation. The logic runs in the Worker under
 - `live-activity.ts` — display-safe realtime event projection.
 - `slug.ts` — `generateSlug`, also reused by `zip-import/` and `google-documents/`.
 
-Consumed by `app/routes/ingest*.tsx` and `app/routes/api.ingest.*`.
+Consumed by `app/routes/ingest/` and `app/routes/api/ingest/`.

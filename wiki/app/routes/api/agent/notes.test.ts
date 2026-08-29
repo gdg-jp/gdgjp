@@ -32,7 +32,7 @@ vi.mock("~/lib/agent-notes.server", async () => {
   };
 });
 
-import { action } from "./api.agent.notes";
+import { action } from "./notes";
 
 function identity(): BearerIdentity {
   return {

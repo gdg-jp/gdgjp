@@ -41,7 +41,7 @@ vi.mock("~/lib/db.server", () => ({
 }));
 
 import { getBearerIdentity } from "@gdgjp/gdg-lib";
-import { action } from "./api.cli.wiki.validate-acl";
+import { action } from "./validate-acl";
 
 function makeContext() {
   return {

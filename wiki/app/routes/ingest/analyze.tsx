@@ -8,8 +8,8 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { isGoogleFormUrl } from "~/lib/google-forms-utils";
-import { createAccessContext } from "../../shared/ingestion/domain";
-import { createAndStartIngestion } from "../../workers/features/ingestion/start-ingestion.server";
+import { createAccessContext } from "../../../shared/ingestion/domain";
+import { createAndStartIngestion } from "../../../workers/features/ingestion/start-ingestion.server";
 
 export const meta: MetaFunction = () => [{ title: "Analyze with AI (Beta) — GDG Japan Wiki" }];
 

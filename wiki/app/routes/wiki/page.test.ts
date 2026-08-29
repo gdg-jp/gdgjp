@@ -25,7 +25,7 @@ import { getAccessIdentity } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
 import { getWikiCanonicalSlugPath } from "~/lib/wiki-page-path.server";
-import { loader } from "./wiki.$";
+import { loader } from "./page";
 
 const mockContext = {
   cloudflare: {

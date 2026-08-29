@@ -20,7 +20,7 @@ vi.mock("~/lib/sources.server", () => ({
   enqueueSourceRefresh: (...args: unknown[]) => enqueueSourceRefreshMock(...args),
 }));
 
-import { action } from "./sources";
+import { action } from "./page";
 
 function requestArgs() {
   const form = new FormData();

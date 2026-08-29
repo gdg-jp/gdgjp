@@ -19,7 +19,10 @@ describe("search excludes raw sources", () => {
   });
 
   it("keyword /search loader only queries pages_fts_trigram and pages", () => {
-    const source = readFileSync(new URL("../../app/routes/search.tsx", import.meta.url), "utf8");
+    const source = readFileSync(
+      new URL("../../app/routes/wiki/search.tsx", import.meta.url),
+      "utf8",
+    );
     expect(source).toMatch(/FROM pages_fts_trigram/);
     expect(source).toMatch(/schema\.pages/);
     expect(source).not.toMatch(/source_documents|schema\.sources/);

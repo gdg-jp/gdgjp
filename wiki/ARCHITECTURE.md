@@ -15,24 +15,60 @@
 |---|---|
 | ページ本体 / アーカイブ / メタ / ツリー / パス | `app/lib/page-*.ts`, `app/lib/page-*.server.ts`, `app/lib/wiki-page-path*.ts` |
 | ページ ACL / 可視性 | `app/lib/acl-spans*.ts`, `app/lib/page-access.server.ts`, `app/lib/page-visibility.server.ts` |
-| ソース取り込み（UI / API / loader・action 側） | `app/lib/sources.server.ts`, `app/lib/sources-shared.ts`, `app/routes/sources.tsx`, `app/routes/api.sources.*` |
+| ソース取り込み（UI / API / loader・action 側） | `app/lib/sources.server.ts`, `app/lib/sources-shared.ts`, `app/routes/sources/`, `app/routes/api/sources/` |
 | ソース取り込み（Worker 実行 / DO alarm / refresh cron） | `workers/features/sources/` — README あり |
 | wiki 生成 AI（Agents SDK / Workflow / model・tools） | `workers/features/ingestion/` — README あり |
-| 生成 AI のクライアント配線・slug | `app/features/ingestion/`, `app/routes/ingest*.tsx`, `app/routes/api.ingest.*` |
+| 生成 AI のクライアント配線・slug | `app/features/ingestion/`, `app/routes/ingest/`, `app/routes/api/ingest/` |
 | AI 検索（Workers AI + Vectorize） | `app/features/ai-search/` — README あり |
 | AI モデル共通ラッパ（Vercel AI SDK / structured output） | `app/features/ai/model/` — README あり |
 | 翻訳（JA→EN、`TRANSLATION_QUEUE`） | `app/features/translation/` — README あり。振り分けは `app/lib/queue-processors.server.ts` |
-| ZIP インポート | `app/features/zip-import/` — README あり。ルートは `app/routes/api.wiki.import-zip*.ts` |
-| Google Docs インポート（プレビュー / ジョブ / 反映） | `app/features/google-documents/` — README あり。ルートは `app/routes/api.google-documents.*` |
+| ZIP インポート | `app/features/zip-import/` — README あり。ルートは `app/routes/api/pages/import-zip*.ts` |
+| Google Docs インポート（プレビュー / ジョブ / 反映） | `app/features/google-documents/` — README あり。ルートは `app/routes/api/google/documents-*.ts` |
 | Google 連携（Drive / Docs / Forms / Chat / Picker） | `app/lib/google-*.ts`, `app/lib/google-*.server.ts` |
 | Discord 連携（OAuth / API / トークン / リマインダ） | `app/lib/discord-*.server.ts` |
-| CLI 読み取り API（`gdg wiki`） | `app/routes/api.cli.wiki.*`（正本は `openapi/openapi.yaml`） |
-| エージェント読み取り API（ls / cat / search、Vectorize 不使用） | `app/routes/api.agent.*` |
+| CLI 読み取り API（`gdg wiki`） | `app/routes/api/cli/*`（URL は `/api/cli/wiki/*`、正本は `openapi/openapi.yaml`） |
+| エージェント読み取り API（ls / cat / search、Vectorize 不使用） | `app/routes/api/agent/*` |
 | リアルタイム共同編集 | `workers/collab-durable-object.ts`, `app/hooks/useCollabEditor.ts`, `app/lib/remote-cursors-*.ts`, `app/lib/tiptap-convert.ts` |
 | 通知（メール / FCM / Discord） | `app/lib/notify.server.ts`, `app/lib/email.server.ts`, `app/lib/fcm.server.ts` |
-| タスク | `app/routes/tasks.*`, `app/routes/api.tasks.*`（Discord リマインダ cron は `workers/features/sources/fetch-source.ts`） |
+| タスク | `app/routes/tasks/`, `app/routes/api/tasks/`（Discord リマインダ cron は `workers/features/sources/fetch-source.ts`） |
 | DB スキーマ | `app/db/schema/`（ドメイン別モジュール。テーブル割り当ては下の「DB スキーマ」節） |
 | 横断プリミティブ（DB / 時刻 / 色 / URL / キュー振り分け / 章ディレクトリ / OG 画像） | `app/lib/db.server.ts`, `utils.ts`, `time.ts`, `color-utils.ts`, `url-extract.ts`, `queue-processors.server.ts`, `chapter-directory.server.ts`, `og-image.server.tsx` |
+
+## ルート構成
+
+`app/routes/` はサブディレクトリで意味を分ける。ドット接頭辞（`api.agent.cat.ts`）と
+URL パラメータ（`$slug` / `$id`）はファイル名から落とし、ディレクトリが接頭辞を担う。
+**URL は `app/routes.ts` の `route()` 第 1 引数が持つ。ファイル名は「何をするか」だけ。**
+一覧系 API は `list.ts`（`index.ts` は barrel と紛らわしいので使わない）。
+アンダースコア接頭辞（`api/cli/_sync-helpers.ts`）はルートではないモジュール。
+
+```
+app/routes/
+  _app.tsx          アプリシェルの layout（routes.ts の layout() 起点。動かさない）
+  _index.tsx        シェル配下のホーム
+  $.tsx / $.test.ts catch-all 404
+  settings.tsx
+  public/           シェルを持たない公開ページ（about/privacy/terms/signin/logout/api-auth）
+  wiki/             /wiki/*・閲覧系（page/edit/history/new/recent/archived/search/og-image）
+  sources/          /sources（page.tsx + テスト）
+  tasks/            /tasks/*（detail/settings/history/new）
+  ingest/           /ingest/*・/analyze（start/session/analyze）
+  admin/            /admin/*（layout/index/pages/tags/stats）
+  api/
+    agent/          /api/agent/*        — architecture.test.ts はここに留める
+    cli/            /api/cli/wiki/*     — _sync-helpers.ts は Stage 05 で features/agent-api/ へ
+    pages/          コメント / お気に入り / アクセス / 画像 / ZIP / reorder / recent / archived
+    google/         Drive auth・Chat spaces・Documents インポート
+    sources/        /api/sources/*（list/archive/unarchive/refresh/visibility）
+    user/           言語切替 / 通知 / FCM / ユーザ検索
+    ingest/         /api/ingest/:sessionId/*（status/commit/clarify/select-urls/regenerate）
+    discord/        /api/discord/*（auth/callback/guilds/guild-channels）
+    tasks/          /api/tasks/*（list/task/teams/reorder）
+    admin/          /api/admin/backfill-embeddings
+```
+
+どのディレクトリも 25 ファイル以下。`route-urls.test.ts` が公開 URL 全集合を
+スナップショットで固定しているので、URL 変更は差分としてレビューに現れる。
 
 ## DB スキーマ
 
@@ -115,7 +151,7 @@
 ファイル名の先頭は被験ソースの basename に一致させる（`test-colocation.test.ts` が強制）。
 ソースツリーを走査する検査テストは `tests/architecture/` へ。ただし
 `architecture.test.ts` で終わる 2 本（`workers/features/ingestion/`,
-`app/routes/api.agent.`）は多数の相対パスを持つため現在地に留める。
+`app/routes/api/agent/`）は多数の相対パスを持つため現在地に留める。
 
 ## 規約を強制しているテスト
 
@@ -124,8 +160,9 @@
 | テスト | 強制する規約 |
 |---|---|
 | `workers/features/ingestion/architecture.test.ts` | ingestion 4 層（orchestration / model / tools / persistence）の import 境界 |
-| `app/routes/api.agent.architecture.test.ts` | エージェント読み取り API が Vectorize / embedding を使わない |
+| `app/routes/api/agent/architecture.test.ts` | エージェント読み取り API が Vectorize / embedding を使わない |
 | `tests/architecture/test-colocation.test.ts` | ユニットテストが被験ソースの隣に `<subject>.test.ts` で置かれている |
+| `tests/architecture/route-urls.test.ts` | `app/routes.ts` が公開する URL 全集合（スナップショット固定） |
 | `tests/architecture/design-token-policy.test.ts` | セマンティックトークンのみ使用（`DESIGN.md`）。パレット直値・色リテラル禁止 |
 | `tests/architecture/theme-tokens.test.ts` | ライト / ダークのトークン定義が揃っている |
 | `tests/architecture/source-surface-exclusions.test.ts` | conversation ソースが 3 サーフェスで DB クエリ時に除外される |

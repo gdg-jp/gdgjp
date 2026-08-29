@@ -7,9 +7,9 @@ function routeSource(name: string): string {
 
 describe("conversation source surface exclusions", () => {
   it("filters conversation sources at database query time in all three surfaces", () => {
-    const page = routeSource("sources.tsx");
-    const json = routeSource("api.sources.ts");
-    const manifest = routeSource("api.cli.wiki.sources.ts");
+    const page = routeSource("sources/page.tsx");
+    const json = routeSource("api/sources/list.ts");
+    const manifest = routeSource("api/cli/sources.ts");
 
     expect(page).toMatch(/\.where\(ne\(schema\.sources\.kind, "conversation"\)\)/);
     expect(json).toMatch(/\.where\(ne\(schema\.sources\.kind, "conversation"\)\)/);
@@ -17,7 +17,7 @@ describe("conversation source surface exclusions", () => {
   });
 
   it("emits chapterId for source and wiki-human manifest entries", () => {
-    const manifest = routeSource("api.cli.wiki.sources.ts");
+    const manifest = routeSource("api/cli/sources.ts");
     expect(manifest).toMatch(/chapterId: source\.chapterId/);
     expect(manifest).toMatch(/chapterId: null/);
   });

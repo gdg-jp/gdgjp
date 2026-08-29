@@ -18,7 +18,7 @@ vi.mock("~/lib/sources.server", () => ({
   unarchiveSource: (...args: unknown[]) => unarchiveSourceMock(...args),
 }));
 
-import { action } from "./api.sources.$id.unarchive";
+import { action } from "./unarchive";
 
 function args(method = "POST", id = "source-1") {
   const request = new Request(`http://localhost/api/sources/${id}/unarchive`, { method });

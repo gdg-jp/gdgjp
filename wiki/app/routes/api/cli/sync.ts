@@ -12,7 +12,7 @@ import { D1_MAX_BOUND_PARAMETERS, mapInChunks } from "~/lib/d1-chunk.server";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions, isGeneralAccess, isPageRole } from "~/lib/page-access.server";
 import { sendOrRunTranslation } from "~/lib/queue-processors.server";
-import type { components } from "../../openapi/types.generated";
+import type { components } from "../../../../openapi/types.generated";
 import {
   buildNewPageLocaleValues,
   buildPartialLocaleUpdate,
@@ -21,7 +21,7 @@ import {
   jaContentChanged,
   resolveExistingPageSharing,
   sourceHasReference,
-} from "./api.cli.wiki.sync.helpers";
+} from "./_sync-helpers";
 
 type WikiSyncResult = components["schemas"]["SyncResult"];
 

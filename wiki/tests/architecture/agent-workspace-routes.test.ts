@@ -28,9 +28,9 @@ vi.mock("../../workers/features/ingestion/persistence/d1/wiki-read-repository", 
   createD1WikiWorkspaceStore: (...args: unknown[]) => createStoreMock(...args),
 }));
 
-import { loader as catLoader } from "../../app/routes/api.agent.cat";
-import { loader as lsLoader } from "../../app/routes/api.agent.ls";
-import { loader as searchLoader } from "../../app/routes/api.agent.search";
+import { loader as catLoader } from "../../app/routes/api/agent/cat";
+import { loader as lsLoader } from "../../app/routes/api/agent/ls";
+import { loader as searchLoader } from "../../app/routes/api/agent/search";
 
 function identity(overrides?: Partial<BearerIdentity["user"]> & { id?: string }): BearerIdentity {
   return {

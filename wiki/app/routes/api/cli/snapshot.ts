@@ -8,7 +8,7 @@ import { getAgentInstructions } from "~/lib/agents-md.server";
 import { canonicalMarkdown } from "~/lib/content-format";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
-import type { components } from "../../openapi/types.generated";
+import type { components } from "../../../../openapi/types.generated";
 
 type WikiSnapshot = components["schemas"]["Snapshot"];
 type WikiSnapshotPage = components["schemas"]["SnapshotPage"];

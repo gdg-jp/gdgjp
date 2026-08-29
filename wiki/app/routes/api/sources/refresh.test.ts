@@ -19,7 +19,7 @@ vi.mock("~/lib/sources.server", () => ({
   enqueueSourceRefresh: (...args: unknown[]) => enqueueSourceRefreshMock(...args),
 }));
 
-import { action } from "./api.sources.$id.refresh";
+import { action } from "./refresh";
 
 const source = { id: "source-1", kind: "website", status: "ready" };
 

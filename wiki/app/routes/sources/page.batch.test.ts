@@ -18,7 +18,7 @@ vi.mock("~/lib/sources.server", () => ({
   updateSourceVisibility: vi.fn(),
 }));
 
-import { action } from "./sources";
+import { action } from "./page";
 
 function requestArgs(
   candidates: unknown,

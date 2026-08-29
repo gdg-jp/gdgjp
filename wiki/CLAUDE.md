@@ -94,14 +94,14 @@ Details in `ARCHITECTURE.md`. Scan this table to narrow the location before you 
 | 探しもの | 場所 |
 |---|---|
 | ページ本体 / ACL / 可視性 / ツリー / バージョン | `app/lib/page-*.server.ts`, `app/lib/acl-spans*` |
-| ソース取り込み（UI・API 側） | `app/lib/sources.server.ts`, `app/routes/sources.tsx`, `app/routes/api.sources.*` |
+| ソース取り込み（UI・API 側） | `app/lib/sources.server.ts`, `app/routes/sources/`, `app/routes/api/sources/` |
 | ソース取り込み（Worker 実行・DO alarm・refresh cron） | `workers/features/sources/` |
 | wiki 生成 AI（Agents SDK / Workflow） | `workers/features/ingestion/` — README あり |
-| wiki 生成 AI（クライアント配線 / ingest 画面） | `app/features/ingestion/`, `app/routes/ingest*.tsx` |
+| wiki 生成 AI（クライアント配線 / ingest 画面） | `app/features/ingestion/`, `app/routes/ingest/` |
 | AI 検索（Workers AI + Vectorize） | `app/features/ai-search/` |
 | Google 連携（Drive / Docs / Forms / Chat） | `app/lib/google-*.server.ts`, `app/features/google-documents/` |
 | Discord 連携 | `app/lib/discord-*.server.ts` |
-| CLI / エージェント読み取り API | `app/routes/api.cli.wiki.*`, `app/routes/api.agent.*` |
+| CLI / エージェント読み取り API | `app/routes/api/cli/*`, `app/routes/api/agent/*` |
 | リアルタイム共同編集 | `workers/collab-durable-object.ts`, `app/hooks/useCollabEditor.ts` |
 | DB スキーマ | `app/db/schema/`（ドメイン別モジュール + `index.ts`。割り当て表は `ARCHITECTURE.md`） |
 | テストの置き場 | ユニットは被験対象の隣（`<subject>.test.ts`）。マイグレーションは `tests/migrations/`、アーキ規約は `tests/architecture/`（`ARCHITECTURE.md` 参照） |

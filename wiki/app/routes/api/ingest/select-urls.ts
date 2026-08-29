@@ -2,7 +2,7 @@ import { getAgentByName } from "agents";
 import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 import { requireUser } from "~/lib/auth-utils.server";
-import type { WikiGenerationAgent } from "../../workers/generation-agent";
+import type { WikiGenerationAgent } from "../../../../workers/generation-agent";
 
 const Body = z.object({ selectedUrls: z.array(z.string().url()).max(5) });
 

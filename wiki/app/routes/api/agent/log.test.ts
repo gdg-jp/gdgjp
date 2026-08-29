@@ -26,7 +26,7 @@ vi.mock("~/lib/wiki-catalog.server", () => ({
   appendLogEntry: (...args: unknown[]) => appendLogEntryMock(...args),
 }));
 
-import { action } from "./api.agent.log";
+import { action } from "./log";
 
 function identity(
   chapters: BearerIdentity["chapters"] = [{ chapterId: 1, chapterSlug: "osaka", role: "member" }],

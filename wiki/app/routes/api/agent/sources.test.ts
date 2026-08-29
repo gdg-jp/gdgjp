@@ -26,7 +26,7 @@ vi.mock("~/lib/sources.server", () => ({
   createSource: (...args: unknown[]) => createSourceMock(...args),
 }));
 
-import { action } from "./api.agent.sources";
+import { action } from "./sources";
 
 function identity(): BearerIdentity {
   return {

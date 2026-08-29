@@ -12,7 +12,7 @@ import { getDb } from "~/lib/db.server";
 import { buildVisibilityFilter } from "~/lib/page-visibility.server";
 import { wikiPagePath } from "~/lib/wiki-page-path";
 import { getWikiCanonicalSlugPaths } from "~/lib/wiki-page-path.server";
-import { createAccessContext } from "../../shared/ingestion/domain";
+import { createAccessContext } from "../../../shared/ingestion/domain";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   { title: data?.q ? `"${data.q}" — Search — GDG Japan Wiki` : "Search — GDG Japan Wiki" },

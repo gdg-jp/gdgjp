@@ -52,7 +52,7 @@ vi.mock("~/lib/queue-processors.server", () => ({
 }));
 
 import { agentsHash, getAgentInstructions } from "~/lib/agents-md.server";
-import { action, scheduleSyncPostCommit } from "./api.cli.wiki.sync";
+import { action, scheduleSyncPostCommit } from "./sync";
 
 type Prepared = { sql: string; values: unknown[]; bind: (...values: unknown[]) => Prepared };
 

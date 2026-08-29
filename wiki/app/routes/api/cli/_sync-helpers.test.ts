@@ -7,7 +7,7 @@ import {
   jaContentChanged,
   resolveExistingPageSharing,
   sourceHasReference,
-} from "./api.cli.wiki.sync.helpers";
+} from "./_sync-helpers";
 
 const baseRow = {
   titleJa: "旧タイトル",

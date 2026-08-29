@@ -4,7 +4,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import * as schema from "~/db/schema";
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
-import type { components } from "../../openapi/types.generated";
+import type { components } from "../../../../openapi/types.generated";
 
 type OkResponse = components["schemas"]["SyncResult"] extends { ok: infer TOk }
   ? { ok: TOk }

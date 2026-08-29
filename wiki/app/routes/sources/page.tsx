@@ -47,7 +47,7 @@ import {
 import {
   isChatSenderResourceName,
   saveChatSenderName,
-} from "../../workers/features/sources/chat-sender-registry";
+} from "../../../workers/features/sources/chat-sender-registry";
 
 export const meta: MetaFunction = () => [{ title: "Sources — GDG Japan Wiki" }];
 

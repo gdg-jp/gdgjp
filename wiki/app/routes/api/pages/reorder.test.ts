@@ -7,7 +7,7 @@ vi.mock("~/lib/auth-utils.server", () => ({
   requireUser: vi.fn().mockResolvedValue({ id: "user-1", isAdmin: true }),
 }));
 
-import { action } from "./api.pages.reorder";
+import { action } from "./reorder";
 
 function requestArgs(pageType: string | null) {
   prepareMock.mockImplementation((sql: string) => {

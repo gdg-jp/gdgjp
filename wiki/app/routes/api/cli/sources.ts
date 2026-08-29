@@ -18,7 +18,7 @@ import {
 import { getDb } from "~/lib/db.server";
 import { getEffectivePagePermissions } from "~/lib/page-access.server";
 import { canAccessSource } from "~/lib/sources.server";
-import type { components } from "../../openapi/types.generated";
+import type { components } from "../../../../openapi/types.generated";
 
 type SourcesManifest = components["schemas"]["SourcesManifest"];
 type SourcesManifestEntry = components["schemas"]["SourcesManifestEntry"];

@@ -18,13 +18,13 @@ import {
 import { useIngestionAgent } from "~/features/ingestion/use-ingestion-agent";
 import { requireUser } from "~/lib/auth-utils.server";
 import type { ExtractedUrl } from "~/lib/url-extract";
-import type { IngestionStatus } from "../../shared/ingestion/agent-state";
+import type { IngestionStatus } from "../../../shared/ingestion/agent-state";
 import type {
   AiDraftJson,
   ChangesetOperation,
   ClarificationQuestion,
-} from "../../shared/ingestion/domain";
-import type { IngestionRealtimeEvent } from "../../shared/ingestion/realtime-events";
+} from "../../../shared/ingestion/domain";
+import type { IngestionRealtimeEvent } from "../../../shared/ingestion/realtime-events";
 
 // ---------------------------------------------------------------------------
 // Loader

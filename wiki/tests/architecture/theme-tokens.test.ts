@@ -24,7 +24,7 @@ describe("Wiki semantic color theme", () => {
   });
 
   it("uses explicit warning tokens for the Google Chat reauthorization card", async () => {
-    const sourcesRoute = await source("routes/sources.tsx");
+    const sourcesRoute = await source("routes/sources/page.tsx");
 
     expect(sourcesRoute).toContain("border-feedback-warning-border");
     expect(sourcesRoute).toContain("bg-feedback-warning-surface");

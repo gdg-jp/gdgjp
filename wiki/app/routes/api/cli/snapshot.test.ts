@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { snapshotContentAsMarkdown } from "./api.cli.wiki.snapshot";
+import { snapshotContentAsMarkdown } from "./snapshot";
 
 describe("snapshotContentAsMarkdown", () => {
   it("does not expose legacy TipTap JSON to CLI clients", () => {

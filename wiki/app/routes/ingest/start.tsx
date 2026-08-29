@@ -8,8 +8,8 @@ import InputPanel from "~/components/ingest/InputPanel";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/lib/auth-utils.server";
 import { isGoogleDriveUrl } from "~/lib/google-drive-utils";
-import { createAccessContext } from "../../shared/ingestion/domain";
-import { createAndStartIngestion } from "../../workers/features/ingestion/start-ingestion.server";
+import { createAccessContext } from "../../../shared/ingestion/domain";
+import { createAndStartIngestion } from "../../../workers/features/ingestion/start-ingestion.server";
 
 export const meta: MetaFunction = () => [{ title: "Add Content — GDG Japan Wiki" }];
 

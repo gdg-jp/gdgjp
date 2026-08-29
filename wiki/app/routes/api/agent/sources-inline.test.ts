@@ -11,7 +11,7 @@ vi.mock("~/lib/sources.server", () => ({
   createInlineSource: (...args: unknown[]) => createInlineSourceMock(...args),
 }));
 
-import { action } from "./api.agent.sources.inline";
+import { action } from "./sources-inline";
 
 const identity = {
   user: { id: "user-a", isAdmin: false },

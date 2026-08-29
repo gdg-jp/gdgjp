@@ -17,7 +17,7 @@ vi.mock("~/lib/db.server", () => ({
 
 vi.mock("~/lib/sources.server", () => ({ canAccessSource: vi.fn().mockReturnValue(true) }));
 
-import { action } from "./api.sources.$id.archive";
+import { action } from "./archive";
 
 const source = { id: "source-1", status: "ready" };
 

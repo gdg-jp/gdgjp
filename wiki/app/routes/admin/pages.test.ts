@@ -23,7 +23,7 @@ vi.mock("~/lib/wiki-page-path.server", () => ({
 import { requireAdmin } from "~/lib/auth-utils.server";
 import { getDb } from "~/lib/db.server";
 import { archivePageAndDescendants } from "~/lib/page-archive.server";
-import { action, loader } from "./admin.pages";
+import { action, loader } from "./pages";
 
 const mockContext = { cloudflare: { env: {} as Env } } as Parameters<typeof loader>[0]["context"];
 
