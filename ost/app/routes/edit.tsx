@@ -1,9 +1,16 @@
-import { motion } from "motion/react";
+import { motion, useDragControls, useMotionValue } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { Header } from "~/components/header";
 import { requireEventAccess } from "~/lib/auth-redirect.server";
-import { boundingBox, fitTransform } from "~/lib/layout";
+import {
+  type Transform,
+  angleFromCenter,
+  boundingBox,
+  fitTransform,
+  normalizeAngle,
+  resizeDesk,
+} from "~/lib/layout";
 import type { Desk } from "~/lib/topics";
 import { useLiveBoard } from "~/lib/useLiveBoard";
 import type { Route } from "./+types/edit";
@@ -69,6 +76,93 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 
 const DEFAULT_WORLD = { x: 0, y: 0, width: 1200, height: 800 };
 
+/**
+ * One desk on the canvas: Motion handles translation drag, raw pointer math
+ * (in the parent, via `onHandleStart`) handles resize/rotate. Extracted into
+ * its own component because each desk needs its own `useDragControls`.
+ */
+function DeskNode({
+  desk,
+  t,
+  onBeginGesture,
+  onEndGesture,
+  onDragCommit,
+  onHandleStart,
+  onRemove,
+}: {
+  desk: Desk;
+  t: Transform;
+  onBeginGesture: (frozen: Transform) => void;
+  onEndGesture: () => void;
+  onDragCommit: (desk: Desk) => void;
+  onHandleStart: (e: React.PointerEvent, desk: Desk, mode: "resize" | "rotate") => void;
+  onRemove: (id: string) => void;
+}) {
+  const controls = useDragControls();
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  return (
+    <motion.div
+      drag
+      dragListener={false}
+      dragControls={controls}
+      dragMomentum={false}
+      onPointerDown={(e) => {
+        onBeginGesture(t);
+        controls.start(e);
+      }}
+      onDragEnd={(_e, info) => {
+        // Reset the drag transform immediately so it doesn't fight the
+        // committed left/top once `onDragCommit` lands in state.
+        x.set(0);
+        y.set(0);
+        onEndGesture();
+        onDragCommit({
+          ...desk,
+          x: desk.x + info.offset.x / t.scale,
+          y: desk.y + info.offset.y / t.scale,
+        });
+      }}
+      className="absolute cursor-grab touch-none rounded-2xl border-2 border-black bg-surface active:cursor-grabbing"
+      style={{
+        x,
+        y,
+        width: desk.width * t.scale,
+        height: desk.height * t.scale,
+        left: desk.x * t.scale + t.offsetX,
+        top: desk.y * t.scale + t.offsetY,
+        rotate: desk.rotation,
+      }}
+    >
+      <div className="grid h-full place-items-center p-1 text-center text-xs font-bold text-neutral-600">
+        {desk.label || "机"}
+      </div>
+      <button
+        type="button"
+        aria-label="机を削除"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => onRemove(desk.id)}
+        className="absolute -right-2 -top-2 grid size-6 touch-none place-items-center rounded-full border-2 border-black bg-white text-xs leading-none hover:bg-gdg-red hover:text-white"
+      >
+        ×
+      </button>
+      <button
+        type="button"
+        aria-label="回転"
+        onPointerDown={(e) => onHandleStart(e, desk, "rotate")}
+        className="absolute -top-6 left-1/2 size-4 -translate-x-1/2 touch-none cursor-alias rounded-full border-2 border-black bg-gdg-yellow"
+      />
+      <button
+        type="button"
+        aria-label="サイズ変更"
+        onPointerDown={(e) => onHandleStart(e, desk, "resize")}
+        className="absolute -bottom-2 -right-2 size-4 touch-none cursor-nwse-resize rounded-full border-2 border-black bg-gdg-green"
+      />
+    </motion.div>
+  );
+}
+
 export default function Edit({ loaderData }: Route.ComponentProps) {
   const { slug, state: initial, user, accountsUrl } = loaderData;
   const { state } = useLiveBoard(slug, initial);
@@ -92,8 +186,23 @@ export default function Edit({ loaderData }: Route.ComponentProps) {
     return () => ro.disconnect();
   }, []);
 
-  const world = desks.length > 0 ? boundingBox(desks) : DEFAULT_WORLD;
-  const t = useMemo(() => fitTransform(world, viewport), [world, viewport]);
+  const world = useMemo(() => (desks.length > 0 ? boundingBox(desks) : DEFAULT_WORLD), [desks]);
+  const liveT = useMemo(() => fitTransform(world, viewport), [world, viewport]);
+  // While a desk is being dragged/resized/rotated, the transform is frozen at
+  // its pre-gesture value — otherwise every in-flight size/rotation change
+  // reshapes the bounding box, which rescales and re-centers every desk
+  // (including the one under the pointer) mid-gesture.
+  const [frozenT, setFrozenT] = useState<Transform | null>(null);
+  const t = frozenT ?? liveT;
+
+  const beginGesture = useCallback((frozen: Transform) => {
+    draggingRef.current = true;
+    setFrozenT(frozen);
+  }, []);
+  const endGesture = useCallback(() => {
+    draggingRef.current = false;
+    setFrozenT(null);
+  }, []);
 
   const commit = useCallback(
     (desk: Desk) => {
@@ -113,8 +222,24 @@ export default function Edit({ loaderData }: Route.ComponentProps) {
     [fetcher],
   );
 
-  const patchLocal = (id: string, patch: Partial<Desk>) =>
-    setDesks((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)));
+  const patchLocal = useCallback(
+    (id: string, patch: Partial<Desk>) =>
+      setDesks((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d))),
+    [],
+  );
+
+  const handleDragCommit = useCallback(
+    (moved: Desk) => {
+      patchLocal(moved.id, { x: moved.x, y: moved.y });
+      commit(moved);
+    },
+    [patchLocal, commit],
+  );
+
+  const handleRemove = useCallback(
+    (id: string) => fetcher.submit({ intent: "removeDesk", id }, { method: "post" }),
+    [fetcher],
+  );
 
   function addDesk() {
     const cx = world.x + world.width / 2 - 80;
@@ -129,36 +254,51 @@ export default function Edit({ loaderData }: Route.ComponentProps) {
   function startHandle(e: React.PointerEvent, desk: Desk, mode: "resize" | "rotate") {
     e.preventDefault();
     e.stopPropagation();
-    draggingRef.current = true;
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const tr = t;
+    beginGesture(tr);
+
+    const start = { ...desk };
     const startX = e.clientX;
     const startY = e.clientY;
-    const start = { ...desk };
-    const centerScreenX = (desk.x + desk.width / 2) * t.scale + t.offsetX;
-    const centerScreenY = (desk.y + desk.height / 2) * t.scale + t.offsetY;
+    // Pointer coords arrive in viewport space; the canvas transform is
+    // relative to the wrapper's own box, so subtract its offset first.
+    const toLocal = (ev: { clientX: number; clientY: number }) => ({
+      x: ev.clientX - rect.left,
+      y: ev.clientY - rect.top,
+    });
+    const center = {
+      x: (start.x + start.width / 2) * tr.scale + tr.offsetX,
+      y: (start.y + start.height / 2) * tr.scale + tr.offsetY,
+    };
+    // Rotate relative to the angle at grab time, so the handle doesn't jump
+    // to an absolute angle and stays under the cursor.
+    const startAngle = angleFromCenter(center, toLocal(e));
+    const latest = { ...start };
 
     function move(ev: PointerEvent) {
-      if (mode === "resize") {
-        const w = Math.max(60, start.width + (ev.clientX - startX) / t.scale);
-        const h = Math.max(40, start.height + (ev.clientY - startY) / t.scale);
-        patchLocal(desk.id, { width: w, height: h });
-      } else {
-        const ang =
-          (Math.atan2(ev.clientY - centerScreenY, ev.clientX - centerScreenX) * 180) / Math.PI + 90;
-        patchLocal(desk.id, { rotation: Math.round(ang) });
-      }
+      const patch =
+        mode === "resize"
+          ? resizeDesk(start, ev.clientX - startX, ev.clientY - startY, tr)
+          : {
+              rotation: normalizeAngle(
+                start.rotation + (angleFromCenter(center, toLocal(ev)) - startAngle),
+              ),
+            };
+      Object.assign(latest, patch);
+      patchLocal(desk.id, patch);
     }
     function up() {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
-      draggingRef.current = false;
-      setDesks((prev) => {
-        const d = prev.find((x) => x.id === desk.id);
-        if (d) commit(d);
-        return prev;
-      });
+      window.removeEventListener("pointercancel", up);
+      endGesture();
+      commit(latest);
     }
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
   }
 
   return (
@@ -200,60 +340,16 @@ export default function Edit({ loaderData }: Route.ComponentProps) {
         className="relative h-[60vh] overflow-hidden rounded-[1.5rem] border-2 border-black bg-white"
       >
         {desks.map((desk) => (
-          <motion.div
+          <DeskNode
             key={desk.id}
-            drag
-            dragSnapToOrigin
-            dragMomentum={false}
-            onDragStart={() => {
-              draggingRef.current = true;
-            }}
-            onDragEnd={(_e, info) => {
-              const moved = {
-                ...desk,
-                x: desk.x + info.offset.x / t.scale,
-                y: desk.y + info.offset.y / t.scale,
-              };
-              patchLocal(desk.id, { x: moved.x, y: moved.y });
-              commit(moved);
-              draggingRef.current = false;
-            }}
-            className="absolute cursor-grab rounded-2xl border-2 border-black bg-surface active:cursor-grabbing"
-            style={{
-              width: desk.width * t.scale,
-              height: desk.height * t.scale,
-              left: desk.x * t.scale + t.offsetX,
-              top: desk.y * t.scale + t.offsetY,
-              rotate: desk.rotation,
-            }}
-          >
-            <div className="grid h-full place-items-center p-1 text-center text-xs font-bold text-neutral-600">
-              {desk.label || "机"}
-            </div>
-            <button
-              type="button"
-              aria-label="机を削除"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() =>
-                fetcher.submit({ intent: "removeDesk", id: desk.id }, { method: "post" })
-              }
-              className="absolute -right-2 -top-2 grid size-6 place-items-center rounded-full border-2 border-black bg-white text-xs leading-none hover:bg-gdg-red hover:text-white"
-            >
-              ×
-            </button>
-            <button
-              type="button"
-              aria-label="回転"
-              onPointerDown={(e) => startHandle(e, desk, "rotate")}
-              className="absolute -top-6 left-1/2 size-4 -translate-x-1/2 cursor-alias rounded-full border-2 border-black bg-gdg-yellow"
-            />
-            <button
-              type="button"
-              aria-label="サイズ変更"
-              onPointerDown={(e) => startHandle(e, desk, "resize")}
-              className="absolute -bottom-2 -right-2 size-4 cursor-nwse-resize rounded-full border-2 border-black bg-gdg-green"
-            />
-          </motion.div>
+            desk={desk}
+            t={t}
+            onBeginGesture={beginGesture}
+            onEndGesture={endGesture}
+            onDragCommit={handleDragCommit}
+            onHandleStart={startHandle}
+            onRemove={handleRemove}
+          />
         ))}
         {desks.length === 0 ? (
           <div className="grid h-full place-items-center text-neutral-400">
