@@ -87,6 +87,30 @@ UI strings: `app/locales/{ja,en}/*.json` via `remix-i18next` (`i18n.server.ts` /
 
 `tests/e2e/fixtures.ts` exposes `adminPage` / `authorPage` / `memberPage`. When changing cookie format or session-secret env var, both files MUST move together.
 
+## Code map — 「X はどこ？」
+
+Details in `ARCHITECTURE.md`. Scan this table to narrow the location before you grep.
+
+| 探しもの | 場所 |
+|---|---|
+| ページ本体 / ACL / 可視性 / ツリー / バージョン | `app/lib/page-*.server.ts`, `app/lib/acl-spans*` |
+| ソース取り込み（UI・API 側） | `app/lib/sources.server.ts`, `app/routes/sources.tsx`, `app/routes/api.sources.*` |
+| ソース取り込み（Worker 実行・DO alarm・refresh cron） | `workers/features/sources/` |
+| wiki 生成 AI（Agents SDK / Workflow） | `workers/features/ingestion/` — README あり |
+| wiki 生成 AI（クライアント配線 / ingest 画面） | `app/features/ingestion/`, `app/routes/ingest*.tsx` |
+| AI 検索（Workers AI + Vectorize） | `app/features/ai-search/` |
+| Google 連携（Drive / Docs / Forms / Chat） | `app/lib/google-*.server.ts`, `app/features/google-documents/` |
+| Discord 連携 | `app/lib/discord-*.server.ts` |
+| CLI / エージェント読み取り API | `app/routes/api.cli.wiki.*`, `app/routes/api.agent.*` |
+| リアルタイム共同編集 | `workers/collab-durable-object.ts`, `app/hooks/useCollabEditor.ts` |
+| DB スキーマ | `app/db/schema.ts` |
+
+**読まないファイル**（生成物、grep のノイズ）: `worker-configuration.d.ts`（14,750 行、正本は
+`wrangler.toml` の表）・`schema.sql`（599、正本 `app/db/schema.ts`）・`openapi/types.generated.ts`
+（1,157、正本 `openapi/openapi.yaml`）。
+
+このマップはファイルを移動したら同じ変更内で更新する契約。全ドメイン分は `ARCHITECTURE.md`。
+
 ## App conventions
 
 - `~/*` → `./app/*`.

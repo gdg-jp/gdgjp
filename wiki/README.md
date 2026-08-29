@@ -45,30 +45,7 @@ all three producers above).
 
 ## Directory structure
 
-- `app/routes.ts`, `app/routes/` — React Router route tree: public API routes (no app shell), an
-  admin layout (`/admin/*`), the CLI/agent read API (`/api/cli/wiki/*`, `/api/agent/*`), and the
-  main app shell (`/wiki/*`, `/search`, `/recent`, `/ingest/*`, `/sources`, `/tasks/*`).
-- `app/db/schema.ts` — Drizzle schema; source of truth for `migrations/`.
-- `app/lib/`, `app/features/` — server logic, including `auth.server.ts` (RP auth), `db.server.ts`,
-  `queue-processors.server.ts`, `acl-spans.server.ts`, `page-access.server.ts`, and the
-  independent AI-search feature (`app/features/ai-search/`, Workers AI + Vectorize).
-- `workers/app.ts` — the Worker entry with all three handlers.
-- `workers/collab-durable-object.ts`, `workers/source-import-durable-object.ts` — the two
-  request/alarm-driven Durable Objects.
-- `workers/agents/wiki-generation-agent.ts`, `workers/workflows/` — the Agents SDK adapter and
-  `WikiGenerationPhaseWorkflow`; business logic for ingestion lives under
-  `workers/features/ingestion/` (orchestration, model, tools, persistence), exposing a bounded
-  `ls`/`cat`/`search` workspace — generation never touches Vectorize.
-- `workers/features/sources/` — source-refresh cron and fetch logic shared by the queue and DO
-  alarms.
-- `migrations/` — hand-written SQL migrations (63 as of writing); `schema.sql` is the generated
-  post-migration dump — edit migrations, never the dump.
-- `openapi/` — OpenAPI spec for the `/api/cli/*` surface consumed by the `gdg` CLI, with generated
-  TypeScript types.
-- `tests/unit/`, `tests/golden/`, `tests/e2e/` — Vitest unit tests, golden snapshot tests
-  (TipTap↔Markdown conversion and rendering), and Playwright end-to-end tests.
-- `shared/` — types shared between the client, server, and Durable Objects (`domain.ts`,
-  `realtime-events.ts`, `agent-state.ts`, `commands.ts`).
+See `ARCHITECTURE.md`. Code locations and placement rules live there as the source of truth.
 
 ## Local dev setup
 
