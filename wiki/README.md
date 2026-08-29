@@ -21,7 +21,7 @@ multi-phase wiki-generation workflow.
 
 | Binding | Type | Purpose |
 |---|---|---|
-| `DB` | D1 | Primary store, via Drizzle (`getDb(env)` in `app/lib/db.server.ts`). Schema in `app/db/schema.ts`. |
+| `DB` | D1 | Primary store, via Drizzle (`getDb(env)` in `app/lib/db.server.ts`). Schema in `app/db/schema/`. |
 | `BUCKET` | R2 | Page attachments and ingestion uploads (bucket `gdgjp-wiki-storage`). |
 | `TRANSLATION_QUEUE` | Queue | JA→EN auto-translation jobs (producer + consumer). |
 | `GOOGLE_DOCUMENT_IMPORT_QUEUE` | Queue | Google Docs import jobs (long-running; outlives the browser request). |

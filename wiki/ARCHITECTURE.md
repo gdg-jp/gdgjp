@@ -31,8 +31,31 @@
 | リアルタイム共同編集 | `workers/collab-durable-object.ts`, `app/hooks/useCollabEditor.ts`, `app/lib/remote-cursors-*.ts`, `app/lib/tiptap-convert.ts` |
 | 通知（メール / FCM / Discord） | `app/lib/notify.server.ts`, `app/lib/email.server.ts`, `app/lib/fcm.server.ts` |
 | タスク | `app/routes/tasks.*`, `app/routes/api.tasks.*`（Discord リマインダ cron は `workers/features/sources/fetch-source.ts`） |
-| DB スキーマ | `app/db/schema.ts` |
+| DB スキーマ | `app/db/schema/`（ドメイン別モジュール。テーブル割り当ては下の「DB スキーマ」節） |
 | 横断プリミティブ（DB / 時刻 / 色 / URL / キュー振り分け / 章ディレクトリ / OG 画像） | `app/lib/db.server.ts`, `utils.ts`, `time.ts`, `color-utils.ts`, `url-extract.ts`, `queue-processors.server.ts`, `chapter-directory.server.ts`, `og-image.server.tsx` |
+
+## DB スキーマ
+
+`app/db/schema.ts`（35 テーブル）を `app/db/schema/` にドメイン別分割。`index.ts` が全モジュールを
+`export *` で再エクスポートするため、`~/db/schema` という import 指定子は不変（呼び出し側の変更ゼロ）。
+`index.ts` に定義は書かない。依存順は `user` / `chapters` / `tags` / `ingestion` → `sources` →
+`pages` → `google` / `discord` / `notifications` / `tasks`（循環なし）。
+
+| モジュール | テーブル |
+|---|---|
+| `user.ts` | `user`, `userPreferences` |
+| `chapters.ts` | `chapters` |
+| `tags.ts` | `tags` |
+| `ingestion.ts` | `ingestionSessions` |
+| `sources.ts` | `sources`, `sourceDocuments`, `sourceAssets`, `sourceImportRuns`, `googleChatSenderProfiles`, `googleChatSenderSamples` |
+| `pages.ts` | `pages`, `wikiAgentInstructions`, `pageTags`, `pageAttachments`, `pageVersions`, `pageFavorites`, `pageSources`, `pageComments`, `commentReactions`, `pageEmbeddingStatus`, `pageViews`, `pageAccess` |
+| `google.ts` | `googleDriveTokens`, `googleDocumentImports`, `googleDocumentImportNodes`, `googleDocumentImportJobs` |
+| `discord.ts` | `discordOauthTokens`, `discordGuildSettings` |
+| `notifications.ts` | `notifications`, `fcmTokens` |
+| `tasks.ts` | `taskLists`, `taskListTeams`, `tasks`, `taskDependencies` |
+
+`googleChatSenderProfiles` / `googleChatSenderSamples` は名前に google が付くが、`sources` を参照する
+取り込み側のテーブルなので `sources.ts`（`google.ts` は OAuth トークンと Docs インポートの管理）。
 
 ## 配置ルール
 
@@ -75,7 +98,7 @@
 | ファイル | 行数 | 正本 |
 |---|---|---|
 | `worker-configuration.d.ts` | 14,750 | `wrangler.toml` のバインディング表（`CLAUDE.md` 内） |
-| `schema.sql` | 599 | `app/db/schema.ts` |
+| `schema.sql` | 599 | `app/db/schema/` |
 | `openapi/types.generated.ts` | 1,157 | `openapi/openapi.yaml` |
 
 ## テストの置き場

@@ -53,7 +53,7 @@ OAuth **client** of accounts.gdgs.jp. No local password / better-auth (migration
 
 ## Drizzle (not Kysely)
 
-Wiki is the only app on Drizzle. Schema in `app/db/schema.ts`, `drizzle.config.ts` writes to `migrations/`. Migrations are **hand-written SQL** (not generated). `schema.sql` is the generated post-migration dump — edit migrations, not the dump.
+Wiki is the only app on Drizzle. Schema in `app/db/schema/` (domain modules + `index.ts` re-export; `~/db/schema` resolves to the directory), `drizzle.config.ts` writes to `migrations/`. Migrations are **hand-written SQL** (not generated). `schema.sql` is the generated post-migration dump — edit migrations, not the dump.
 
 ## Wiki generation
 
@@ -103,11 +103,11 @@ Details in `ARCHITECTURE.md`. Scan this table to narrow the location before you 
 | Discord 連携 | `app/lib/discord-*.server.ts` |
 | CLI / エージェント読み取り API | `app/routes/api.cli.wiki.*`, `app/routes/api.agent.*` |
 | リアルタイム共同編集 | `workers/collab-durable-object.ts`, `app/hooks/useCollabEditor.ts` |
-| DB スキーマ | `app/db/schema.ts` |
+| DB スキーマ | `app/db/schema/`（ドメイン別モジュール + `index.ts`。割り当て表は `ARCHITECTURE.md`） |
 | テストの置き場 | ユニットは被験対象の隣（`<subject>.test.ts`）。マイグレーションは `tests/migrations/`、アーキ規約は `tests/architecture/`（`ARCHITECTURE.md` 参照） |
 
 **読まないファイル**（生成物、grep のノイズ）: `worker-configuration.d.ts`（14,750 行、正本は
-`wrangler.toml` の表）・`schema.sql`（599、正本 `app/db/schema.ts`）・`openapi/types.generated.ts`
+`wrangler.toml` の表）・`schema.sql`（599、正本 `app/db/schema/`）・`openapi/types.generated.ts`
 （1,157、正本 `openapi/openapi.yaml`）。
 
 このマップはファイルを移動したら同じ変更内で更新する契約。全ドメイン分は `ARCHITECTURE.md`。
