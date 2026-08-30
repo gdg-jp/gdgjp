@@ -381,6 +381,9 @@ jobs:
           EOF
       - name: Migrate Accounts local database
         run: pnpm --filter @gdgjp/accounts migrate:local
+      - name: Migrate img local database
+        if: matrix.app == 'img'
+        run: pnpm --filter @gdgjp/img migrate:local
       - name: Install Playwright browsers
         run: pnpm --filter @gdgjp/${{ matrix.app }} exec playwright install --with-deps chromium
       - name: Run E2E testing

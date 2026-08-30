@@ -39,10 +39,12 @@ const (
 
 // Defines values for GetPublicImageParamsF.
 const (
-	Avif GetPublicImageParamsF = "avif"
-	Jpeg GetPublicImageParamsF = "jpeg"
-	Png  GetPublicImageParamsF = "png"
-	Webp GetPublicImageParamsF = "webp"
+	Auto     GetPublicImageParamsF = "auto"
+	Avif     GetPublicImageParamsF = "avif"
+	Jpeg     GetPublicImageParamsF = "jpeg"
+	Original GetPublicImageParamsF = "original"
+	Png      GetPublicImageParamsF = "png"
+	Webp     GetPublicImageParamsF = "webp"
 )
 
 // Defines values for GetPublicImageParamsVariant.
@@ -283,10 +285,14 @@ type UploadImageMultipartBody struct {
 
 // GetPublicImageParams defines parameters for GetPublicImage.
 type GetPublicImageParams struct {
-	W       *int                         `form:"w,omitempty" json:"w,omitempty"`
-	H       *int                         `form:"h,omitempty" json:"h,omitempty"`
-	Q       *int                         `form:"q,omitempty" json:"q,omitempty"`
-	Fit     *string                      `form:"fit,omitempty" json:"fit,omitempty"`
+	W   *int     `form:"w,omitempty" json:"w,omitempty"`
+	H   *int     `form:"h,omitempty" json:"h,omitempty"`
+	Dpr *float32 `form:"dpr,omitempty" json:"dpr,omitempty"`
+	Q   *int     `form:"q,omitempty" json:"q,omitempty"`
+	Fit *string  `form:"fit,omitempty" json:"fit,omitempty"`
+
+	// Radius Corner radius in pixels. JPEG output is changed to PNG to preserve transparent corners.
+	Radius  *int                         `form:"radius,omitempty" json:"radius,omitempty"`
 	F       *GetPublicImageParamsF       `form:"f,omitempty" json:"f,omitempty"`
 	Variant *GetPublicImageParamsVariant `form:"variant,omitempty" json:"variant,omitempty"`
 }
@@ -1618,6 +1624,22 @@ func NewGetPublicImageRequest(server string, id ImageIdPath, params *GetPublicIm
 
 		}
 
+		if params.Dpr != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "dpr", runtime.ParamLocationQuery, *params.Dpr); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		if params.Q != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "q", runtime.ParamLocationQuery, *params.Q); err != nil {
@@ -1637,6 +1659,22 @@ func NewGetPublicImageRequest(server string, id ImageIdPath, params *GetPublicIm
 		if params.Fit != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "fit", runtime.ParamLocationQuery, *params.Fit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Radius != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "radius", runtime.ParamLocationQuery, *params.Radius); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
