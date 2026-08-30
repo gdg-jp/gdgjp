@@ -94,8 +94,9 @@ openapi/                     # OpenAPI contract for the image/folder/public-imag
   hatch. Canonical width-ladder renditions persist in `DERIVED`, with Cache API in front. Images
   failures never turn an existing public URL into a 500; the original is served instead.
 - Transform params (`lib/img-url.ts`): `w`/`h` (1–4096), `dpr` (1–3), `fit` (`scale-down` |
-  `contain` | `cover` | `crop` | `pad`), `q` (1–100), `f` (`auto` | `avif` | `webp` | `jpeg` |
-  `png` | `original`), `variant=mobile`.
+  `contain` | `cover` | `crop` | `pad`), `radius` (1–2048 px), `q` (1–100), `f` (`auto` |
+  `avif` | `webp` | `jpeg` | `png` | `original`), `variant=mobile`. `radius` makes the four
+  corners transparent; a requested JPEG is returned as PNG so that transparency is preserved.
 - Mutations (`api.replace.$id.ts`, `api.delete.$id.ts`, `api.move.$id.ts`, `api.share.$id.ts`, …)
   are gated by `canAccessImage` (`features/images/policy.ts`) — the owner, a super admin per
   `gdg-lib`'s `isSuperAdmin`, or any member of the image's chapter. There is no separate

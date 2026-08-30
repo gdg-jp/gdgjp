@@ -8,6 +8,7 @@ describe("image delivery URLs", () => {
       h: 450,
       dpr: 2.5,
       fit: "cover",
+      radius: 24,
       q: 75,
       f: "webp",
       variant: "mobile",
@@ -25,5 +26,13 @@ describe("image delivery URLs", () => {
 
   it("does not treat dpr alone as an explicit transform", () => {
     expect(hasTransform({ dpr: 3 })).toBe(false);
+  });
+
+  it("normalizes a positive radius and ignores zero", () => {
+    expect(parseTransformOpts(new URL("https://img.gdgs.jp/x?radius=9999"))).toEqual({
+      radius: 2048,
+    });
+    expect(parseTransformOpts(new URL("https://img.gdgs.jp/x?radius=0"))).toEqual({});
+    expect(hasTransform({ radius: 24 })).toBe(true);
   });
 });

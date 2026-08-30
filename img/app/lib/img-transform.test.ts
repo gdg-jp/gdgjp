@@ -59,6 +59,23 @@ describe("image transform resolution", () => {
     ).toEqual({ kind: "passthrough", reason: "animated" });
   });
 
+  it("uses an alpha-capable format for rounded corners", () => {
+    const automatic = resolveDelivery({
+      params: { radius: 24 },
+      accept: "*/*",
+      autoMaxWidth: 0,
+      source,
+    });
+    const explicitJpeg = resolveDelivery({
+      params: { radius: 24, f: "jpeg" },
+      accept: "*/*",
+      autoMaxWidth: 0,
+      source,
+    });
+    expect(automatic.kind === "derive" ? automatic.transform.format : null).toBe("png");
+    expect(explicitJpeg.kind === "derive" ? explicitJpeg.transform.format : null).toBe("png");
+  });
+
   it.each([
     [{ f: "original" }, "image/jpeg", 20_000, "explicit-original"],
     [{}, "image/svg+xml", 20_000, "svg"],
@@ -100,6 +117,15 @@ describe("image transform resolution", () => {
     ).toBe(false);
     expect(
       isCanonical({ width: 1600, fit: "cover", quality: DEFAULT_QUALITY, format: "avif" }),
+    ).toBe(false);
+    expect(
+      isCanonical({
+        width: 1600,
+        fit: DEFAULT_FIT,
+        quality: DEFAULT_QUALITY,
+        radius: 24,
+        format: "avif",
+      }),
     ).toBe(false);
   });
 });

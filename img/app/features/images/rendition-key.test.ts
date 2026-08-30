@@ -62,6 +62,17 @@ describe("rendition identity", () => {
     expect(deliveryEtag("Ab3dEf9h", source, avif)).not.toBe(deliveryEtag("Ab3dEf9h", source, jpeg));
   });
 
+  it("separates rounded renditions", () => {
+    const small = derive("w=1600&radius=16");
+    const large = derive("radius=24&w=1600");
+    expect(renditionKey("Ab3dEf9h", source, small)).not.toBe(
+      renditionKey("Ab3dEf9h", source, large),
+    );
+    expect(deliveryEtag("Ab3dEf9h", source, small)).not.toBe(
+      deliveryEtag("Ab3dEf9h", source, large),
+    );
+  });
+
   it("separates variants and source versions", () => {
     const delivery = derive("w=1600");
     expect(renditionKey("Ab3dEf9h", source, delivery)).not.toBe(

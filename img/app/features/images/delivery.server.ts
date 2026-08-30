@@ -38,12 +38,25 @@ export async function deliverImage(input: {
 
     const original = await input.env.ORIGINALS.get(input.source.r2Key);
     if (!original) throw new Response("Not found", { status: 404 });
-    const transformed = await input.env.IMAGES.input(original.body)
-      .transform(toImageTransform(input.delivery.transform))
-      .output({
-        format: `image/${input.delivery.transform.format}` as ImageOutputOptions["format"],
-        quality: input.delivery.transform.quality,
-      });
+    const roundedSource =
+      input.delivery.transform.radius === undefined
+        ? { body: original.body, source: input.source }
+        : await sourceForRoundedCorners(input.env.IMAGES, original.body, input.source);
+    let transformer = input.env.IMAGES.input(roundedSource.body).transform(
+      toImageTransform(input.delivery.transform),
+    );
+    if (input.delivery.transform.radius !== undefined) {
+      const radius = safeCornerRadius(
+        input.delivery.transform.radius,
+        input.delivery.transform,
+        roundedSource.source,
+      );
+      if (radius > 0) transformer = drawRoundedCorners(input.env.IMAGES, transformer, radius);
+    }
+    const transformed = await transformer.output({
+      format: `image/${input.delivery.transform.format}` as ImageOutputOptions["format"],
+      quality: input.delivery.transform.quality,
+    });
     const transformedResponse = transformed.response();
     if (!transformedResponse.ok) throw new Error(`Images returned ${transformedResponse.status}`);
     const bytes = await transformedResponse.arrayBuffer();
@@ -122,6 +135,106 @@ function toImageTransform(transform: {
     ...(transform.height === undefined ? {} : { height: transform.height }),
     fit: transform.fit,
   };
+}
+
+function drawRoundedCorners(images: ImagesBinding, image: ImageTransformer, radius: number) {
+  const mask = cornerMask(radius);
+  const [firstPair, topRight] = mask.tee();
+  const [secondPair, bottomLeft] = firstPair.tee();
+  const [topLeft, bottomRight] = secondPair.tee();
+
+  return image
+    .draw(images.input(topLeft), { left: 0, top: 0, composite: "xor" })
+    .draw(images.input(topRight).transform({ rotate: 90 }), {
+      right: 0,
+      top: 0,
+      composite: "xor",
+    })
+    .draw(images.input(bottomRight).transform({ rotate: 180 }), {
+      bottom: 0,
+      right: 0,
+      composite: "xor",
+    })
+    .draw(images.input(bottomLeft).transform({ rotate: 270 }), {
+      bottom: 0,
+      left: 0,
+      composite: "xor",
+    });
+}
+
+function cornerMask(radius: number): ReadableStream<Uint8Array> {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${radius}" height="${radius}" viewBox="0 0 ${radius} ${radius}"><path d="M0 0H${radius}A${radius} ${radius} 0 0 0 0 ${radius}Z"/></svg>`;
+  return new Blob([svg], { type: "image/svg+xml" }).stream();
+}
+
+function safeCornerRadius(
+  requested: number,
+  transform: { width?: number; height?: number; fit: ImageTransform["fit"] },
+  source: Pick<SourceVariant, "width" | "height">,
+): number {
+  const dimensions = outputDimensions(transform, source);
+  return dimensions === null
+    ? requested
+    : Math.min(requested, Math.floor(Math.min(dimensions.width, dimensions.height) / 2));
+}
+
+function outputDimensions(
+  transform: { width?: number; height?: number; fit: ImageTransform["fit"] },
+  source: Pick<SourceVariant, "width" | "height">,
+): { width: number; height: number } | null {
+  if (source.width === null || source.height === null) return null;
+  const { width: sourceWidth, height: sourceHeight } = source;
+  const { width, height } = transform;
+  if (width === undefined && height === undefined)
+    return { width: sourceWidth, height: sourceHeight };
+
+  if (width !== undefined && height !== undefined) {
+    if (transform.fit === "cover" || transform.fit === "pad") return { width, height };
+    if (transform.fit === "crop") {
+      return { width: Math.min(width, sourceWidth), height: Math.min(height, sourceHeight) };
+    }
+    const scale = Math.min(width / sourceWidth, height / sourceHeight);
+    const boundedScale = transform.fit === "scale-down" ? Math.min(1, scale) : scale;
+    return {
+      width: Math.max(1, Math.round(sourceWidth * boundedScale)),
+      height: Math.max(1, Math.round(sourceHeight * boundedScale)),
+    };
+  }
+
+  if (width !== undefined) {
+    const scale =
+      transform.fit === "scale-down" ? Math.min(1, width / sourceWidth) : width / sourceWidth;
+    return {
+      width: Math.max(1, Math.round(sourceWidth * scale)),
+      height: Math.max(1, Math.round(sourceHeight * scale)),
+    };
+  }
+
+  if (height === undefined) return { width: sourceWidth, height: sourceHeight };
+  const scale =
+    transform.fit === "scale-down" ? Math.min(1, height / sourceHeight) : height / sourceHeight;
+  return {
+    width: Math.max(1, Math.round(sourceWidth * scale)),
+    height: Math.max(1, Math.round(sourceHeight * scale)),
+  };
+}
+
+async function sourceForRoundedCorners(
+  images: ImagesBinding,
+  body: ReadableStream<Uint8Array>,
+  source: SourceVariant,
+): Promise<{ body: ReadableStream<Uint8Array>; source: SourceVariant }> {
+  if (source.width !== null && source.height !== null) return { body, source };
+  const [infoBody, imageBody] = body.tee();
+  try {
+    const info = await images.info(infoBody);
+    if ("width" in info) {
+      return { body: imageBody, source: { ...source, width: info.width, height: info.height } };
+    }
+  } catch (error) {
+    console.warn("Could not inspect image dimensions for rounded corners", error);
+  }
+  return { body: imageBody, source };
 }
 
 function isPermanentImagesError(error: unknown): boolean {

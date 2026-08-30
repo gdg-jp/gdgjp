@@ -11,6 +11,7 @@ get:
     - { name: dpr, in: query, schema: { type: number, minimum: 1, maximum: 3 } }
     - { name: q, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
     - { name: fit, in: query, schema: { type: string } }
+    - { name: radius, in: query, schema: { type: integer, minimum: 1, maximum: 2048 }, description: Corner radius in pixels. JPEG output is changed to PNG to preserve transparent corners. }
     - { name: f, in: query, schema: { type: string, enum: [auto, avif, webp, jpeg, png, original] } }
     - { name: variant, in: query, schema: { type: string, enum: [mobile] } }
   responses:

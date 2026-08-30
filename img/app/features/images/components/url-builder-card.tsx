@@ -27,6 +27,7 @@ type BuilderImage = {
 export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl: string }) {
   const [width, setWidth] = useState("auto");
   const [height, setHeight] = useState("");
+  const [radius, setRadius] = useState("");
   const [fit, setFit] = useState<NonNullable<TransformOpts["fit"]>>("scale-down");
   const [quality, setQuality] = useState("auto");
   const [format, setFormat] = useState<NonNullable<TransformOpts["f"]>>("auto");
@@ -43,12 +44,13 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
       ...(width === "auto" ? {} : { w: Number(width) }),
       ...(height ? { h: Number(height) } : {}),
       fit,
+      ...(radius ? { radius: Number(radius) } : {}),
       ...(quality === "auto" ? {} : { q: Number(quality) }),
       f: format,
       ...(dpr === "1" ? {} : { dpr: Number(dpr) }),
       ...(variant === "mobile" ? { variant: "mobile" as const } : {}),
     };
-  }, [dpr, fit, format, height, quality, variant, width]);
+  }, [dpr, fit, format, height, quality, radius, variant, width]);
   const builtUrl = `${appUrl}${deliveryUrl(image.id, opts)}`;
   const selectedSource =
     variant === "mobile" && image.mobile
@@ -154,6 +156,14 @@ export function UrlBuilderCard({ image, appUrl }: { image: BuilderImage; appUrl:
                 ))}
               </SelectContent>
             </Select>
+          </Control>
+          <Control label="Corner radius">
+            <Input
+              value={radius}
+              onChange={(event) => setRadius(event.target.value.replace(/\D/g, "").slice(0, 4))}
+              inputMode="numeric"
+              placeholder="None"
+            />
           </Control>
           <Control label="Quality">
             <Select value={quality} onValueChange={setQuality}>

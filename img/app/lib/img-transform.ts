@@ -12,6 +12,7 @@ export type DeriveTransform = {
   width?: number;
   height?: number;
   fit: Fit;
+  radius?: number;
   quality: number;
   format: "avif" | "webp" | "jpeg" | "png";
 };
@@ -27,9 +28,11 @@ export type ResolvedDelivery =
 export function negotiateFormat(
   accept: string,
   sourceContentType: string,
+  requiresAlpha = false,
 ): DeriveTransform["format"] {
   if (sourceContentType !== "image/gif" && accept.includes("image/avif")) return "avif";
   if (accept.includes("image/webp")) return "webp";
+  if (requiresAlpha) return "png";
   return sourceContentType === "image/png" ? "png" : "jpeg";
 }
 
@@ -39,13 +42,15 @@ export function snapWidth(requested: number): number {
 
 export function renditionParamSlug(transform: DeriveTransform): string {
   const height = transform.height === undefined ? "" : `_h${transform.height}`;
-  return `w${transform.width ?? 0}${height}_${transform.fit}_q${transform.quality}`;
+  const radius = transform.radius === undefined ? "" : `_r${transform.radius}`;
+  return `w${transform.width ?? 0}${height}_${transform.fit}${radius}_q${transform.quality}`;
 }
 
 export function isCanonical(transform: DeriveTransform): boolean {
   return (
     transform.fit === DEFAULT_FIT &&
     transform.quality === DEFAULT_QUALITY &&
+    transform.radius === undefined &&
     transform.height === undefined &&
     transform.width !== undefined &&
     WIDTH_LADDER.includes(transform.width)
@@ -67,7 +72,9 @@ export function resolveDelivery(input: {
   if (params.f === "original") return { kind: "passthrough", reason: "explicit-original" };
   if (source.contentType === "image/svg+xml") return { kind: "passthrough", reason: "svg" };
 
-  const explicit = Boolean(params.w || params.h || params.fit || params.q || params.f);
+  const explicit = Boolean(
+    params.w || params.h || params.fit || params.radius || params.q || params.f,
+  );
   if (source.contentType === "image/gif" && (!isConcreteFormat(params.f) || params.f === "avif")) {
     return { kind: "passthrough", reason: "animated" };
   }
@@ -92,10 +99,14 @@ export function resolveDelivery(input: {
     ...(width === undefined ? {} : { width }),
     ...(height === undefined ? {} : { height }),
     fit: params.fit ?? DEFAULT_FIT,
+    ...(params.radius === undefined ? {} : { radius: params.radius }),
     quality: params.q ?? DEFAULT_QUALITY,
-    format: isConcreteFormat(params.f)
-      ? params.f
-      : negotiateFormat(input.accept, source.contentType),
+    format:
+      params.radius !== undefined && params.f === "jpeg"
+        ? "png"
+        : isConcreteFormat(params.f)
+          ? params.f
+          : negotiateFormat(input.accept, source.contentType, params.radius !== undefined),
   };
   return { kind: "derive", transform, canonical: isCanonical(transform), formatNegotiated };
 }

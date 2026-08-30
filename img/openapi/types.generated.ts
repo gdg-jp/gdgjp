@@ -395,6 +395,8 @@ export interface operations {
                 dpr?: number;
                 q?: number;
                 fit?: string;
+                /** @description Corner radius in pixels. JPEG output is changed to PNG to preserve transparent corners. */
+                radius?: number;
                 f?: "auto" | "avif" | "webp" | "jpeg" | "png" | "original";
                 variant?: "mobile";
             };

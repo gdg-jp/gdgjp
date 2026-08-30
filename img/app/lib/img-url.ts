@@ -3,6 +3,7 @@ export type TransformOpts = {
   h?: number;
   dpr?: number;
   fit?: "scale-down" | "contain" | "cover" | "crop" | "pad";
+  radius?: number;
   q?: number;
   f?: "auto" | "avif" | "webp" | "jpeg" | "png" | "original";
   variant?: "mobile";
@@ -14,6 +15,7 @@ export function deliveryUrl(id: string, opts: TransformOpts = {}): string {
   if (opts.h) params.set("h", String(opts.h));
   if (opts.dpr) params.set("dpr", String(opts.dpr));
   if (opts.fit) params.set("fit", opts.fit);
+  if (opts.radius) params.set("radius", String(opts.radius));
   if (opts.q) params.set("q", String(opts.q));
   if (opts.f) params.set("f", opts.f);
   if (opts.variant) params.set("variant", opts.variant);
@@ -39,6 +41,8 @@ export function parseTransformOpts(url: URL): TransformOpts {
   ) {
     opts.fit = fit;
   }
+  const radius = Number(url.searchParams.get("radius"));
+  if (Number.isFinite(radius) && radius > 0) opts.radius = Math.min(2048, Math.floor(radius));
   const q = Number(url.searchParams.get("q"));
   if (Number.isFinite(q) && q >= 1 && q <= 100) opts.q = Math.floor(q);
   const f = url.searchParams.get("f");
@@ -58,5 +62,5 @@ export function parseTransformOpts(url: URL): TransformOpts {
 
 export function hasTransform(opts: TransformOpts): boolean {
   // DPR is folded into explicit dimensions and has no effect by itself.
-  return Boolean(opts.w || opts.h || opts.fit || opts.q || opts.f);
+  return Boolean(opts.w || opts.h || opts.fit || opts.radius || opts.q || opts.f);
 }

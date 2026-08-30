@@ -35,6 +35,7 @@ function harness(
   const puts: string[] = [];
   const input = vi.fn(() => ({
     transform: vi.fn().mockReturnThis(),
+    draw: vi.fn().mockReturnThis(),
     output: vi.fn(() => {
       if (options.error) throw options.error;
       const bytes = options.transformed ?? new Uint8Array(50);
@@ -45,6 +46,12 @@ function harness(
           }),
       };
     }),
+  }));
+  const info = vi.fn(async () => ({
+    format: "image/jpeg",
+    fileSize: 20_000,
+    width: 2000,
+    height: 1000,
   }));
   const env = {
     ORIGINALS: {
@@ -68,7 +75,7 @@ function harness(
         });
       }),
     },
-    IMAGES: { input },
+    IMAGES: { input, info },
   } as unknown as Env;
   const pending: Promise<unknown>[] = [];
   const ctx = {
@@ -76,20 +83,21 @@ function harness(
       pending.push(promise);
     },
   } as unknown as ExecutionContext;
-  return { env, ctx, input, puts, flush: () => Promise.all(pending) };
+  return { env, ctx, info, input, puts, flush: () => Promise.all(pending) };
 }
 
 async function run(
   testHarness: ReturnType<typeof harness>,
   resolved: ResolvedDelivery,
   automatic = false,
+  sourceForRequest = source,
 ) {
   return deliverImage({
     env: testHarness.env,
     ctx: testHarness.ctx,
     id: "Ab3dEf9h",
     origin: "https://img.gdgs.jp",
-    source,
+    source: sourceForRequest,
     delivery: resolved,
     etag: '"etag"',
     automatic,
@@ -122,6 +130,26 @@ describe("deliverImage", () => {
     await h.flush();
     expect(h.input).toHaveBeenCalledTimes(1);
     expect(h.puts).toHaveLength(0);
+  });
+
+  it("draws four masks for rounded corners", async () => {
+    const h = harness();
+    await run(h, delivery({ w: 1600, radius: 24 }));
+    const baseTransformer = h.input.mock.results[0]?.value;
+    expect(baseTransformer.draw).toHaveBeenCalledTimes(4);
+  });
+
+  it("inspects an unknown source before rounding its corners", async () => {
+    const unknownDimensions = { ...source, width: null, height: null };
+    const resolved = resolveDelivery({
+      params: { w: 1600, radius: 24 },
+      accept: "image/avif",
+      autoMaxWidth: 0,
+      source: unknownDimensions,
+    });
+    const h = harness();
+    await run(h, resolved, false, unknownDimensions);
+    expect(h.info).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to the original and marks permanent Images failures", async () => {
