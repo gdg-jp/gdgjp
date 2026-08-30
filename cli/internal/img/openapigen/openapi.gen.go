@@ -27,9 +27,14 @@ const (
 	CliDeleteResultDeletedTrue CliDeleteResultDeleted = true
 )
 
+// Defines values for FolderDeleteResultDeleted.
+const (
+	FolderDeleteResultDeletedTrue FolderDeleteResultDeleted = true
+)
+
 // Defines values for SuccessOk.
 const (
-	SuccessOkTrue SuccessOk = true
+	True SuccessOk = true
 )
 
 // Defines values for GetPublicImageParamsF.
@@ -62,6 +67,7 @@ type CliImage struct {
 	ContentType       string  `json:"contentType"`
 	CreatedAt         int     `json:"createdAt"`
 	Filename          *string `json:"filename"`
+	FolderId          *int    `json:"folderId"`
 	Height            *int    `json:"height"`
 	Id                string  `json:"id"`
 	MobileByteSize    *int    `json:"mobileByteSize"`
@@ -105,6 +111,37 @@ type Error struct {
 	Error string `json:"error"`
 }
 
+// Folder defines model for Folder.
+type Folder struct {
+	ChapterId       int    `json:"chapterId"`
+	CreatedAt       int    `json:"createdAt"`
+	CreatedByUserId string `json:"createdByUserId"`
+	Id              int    `json:"id"`
+	ImageCount      int    `json:"imageCount"`
+	Name            string `json:"name"`
+	UpdatedAt       int    `json:"updatedAt"`
+}
+
+// FolderDeleteResult defines model for FolderDeleteResult.
+type FolderDeleteResult struct {
+	Deleted FolderDeleteResultDeleted `json:"deleted"`
+	Id      int                       `json:"id"`
+}
+
+// FolderDeleteResultDeleted defines model for FolderDeleteResult.Deleted.
+type FolderDeleteResultDeleted bool
+
+// FolderList defines model for FolderList.
+type FolderList struct {
+	Folders    []Folder `json:"folders"`
+	NextCursor *string  `json:"nextCursor"`
+}
+
+// FolderResponse defines model for FolderResponse.
+type FolderResponse struct {
+	Folder Folder `json:"folder"`
+}
+
 // ImageId defines model for ImageId.
 type ImageId struct {
 	Id string `json:"id"`
@@ -123,6 +160,9 @@ type UploadResult struct {
 	Id  string `json:"id"`
 	Url string `json:"url"`
 }
+
+// FolderIdPath defines model for FolderIdPath.
+type FolderIdPath = int
 
 // ImageIdPath defines model for ImageIdPath.
 type ImageIdPath = string
@@ -145,11 +185,33 @@ type CliTooLarge = Error
 // CliUnauthorized defines model for CliUnauthorized.
 type CliUnauthorized = Error
 
-// ListCliImagesParams defines parameters for ListCliImages.
-type ListCliImagesParams struct {
+// ListCliFoldersParams defines parameters for ListCliFolders.
+type ListCliFoldersParams struct {
 	ChapterId *int    `form:"chapterId,omitempty" json:"chapterId,omitempty"`
 	Limit     *int    `form:"limit,omitempty" json:"limit,omitempty"`
 	Cursor    *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// CreateCliFolderJSONBody defines parameters for CreateCliFolder.
+type CreateCliFolderJSONBody struct {
+	// ChapterId Required when the caller has more than one chapter membership.
+	ChapterId *int   `json:"chapterId,omitempty"`
+	Name      string `json:"name"`
+}
+
+// UpdateCliFolderJSONBody defines parameters for UpdateCliFolder.
+type UpdateCliFolderJSONBody struct {
+	Name string `json:"name"`
+}
+
+// ListCliImagesParams defines parameters for ListCliImages.
+type ListCliImagesParams struct {
+	ChapterId *int `form:"chapterId,omitempty" json:"chapterId,omitempty"`
+
+	// FolderId A folder id to filter by, or the literal "unfiled" for images with no folder.
+	FolderId *string `form:"folderId,omitempty" json:"folderId,omitempty"`
+	Limit    *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor   *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // CreateCliImageMultipartBody defines parameters for CreateCliImage.
@@ -161,8 +223,14 @@ type CreateCliImageMultipartBody struct {
 	File openapi_types.File `json:"file"`
 }
 
-// UpdateCliImageSlugJSONBody defines parameters for UpdateCliImageSlug.
-type UpdateCliImageSlugJSONBody struct {
+// UpdateCliImageJSONBody defines parameters for UpdateCliImage.
+type UpdateCliImageJSONBody struct {
+	// ChapterId Chapter to re-share the image with. Clears folderId as a side effect.
+	ChapterId *int `json:"chapterId,omitempty"`
+
+	// FolderId Folder to file the image into, or null to unfile it. Must belong to the image's chapter.
+	FolderId *int `json:"folderId"`
+
 	// Slug New slug, or null / empty string to clear it.
 	Slug *string `json:"slug"`
 }
@@ -229,11 +297,17 @@ type GetPublicImageParamsF string
 // GetPublicImageParamsVariant defines parameters for GetPublicImage.
 type GetPublicImageParamsVariant string
 
+// CreateCliFolderJSONRequestBody defines body for CreateCliFolder for application/json ContentType.
+type CreateCliFolderJSONRequestBody CreateCliFolderJSONBody
+
+// UpdateCliFolderJSONRequestBody defines body for UpdateCliFolder for application/json ContentType.
+type UpdateCliFolderJSONRequestBody UpdateCliFolderJSONBody
+
 // CreateCliImageMultipartRequestBody defines body for CreateCliImage for multipart/form-data ContentType.
 type CreateCliImageMultipartRequestBody CreateCliImageMultipartBody
 
-// UpdateCliImageSlugJSONRequestBody defines body for UpdateCliImageSlug for application/json ContentType.
-type UpdateCliImageSlugJSONRequestBody UpdateCliImageSlugJSONBody
+// UpdateCliImageJSONRequestBody defines body for UpdateCliImage for application/json ContentType.
+type UpdateCliImageJSONRequestBody UpdateCliImageJSONBody
 
 // ReplaceCliImageMultipartRequestBody defines body for ReplaceCliImage for multipart/form-data ContentType.
 type ReplaceCliImageMultipartRequestBody ReplaceCliImageMultipartBody
@@ -332,6 +406,25 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// ListCliFolders request
+	ListCliFolders(ctx context.Context, params *ListCliFoldersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateCliFolderWithBody request with any body
+	CreateCliFolderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateCliFolder(ctx context.Context, body CreateCliFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteCliFolder request
+	DeleteCliFolder(ctx context.Context, id FolderIdPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCliFolder request
+	GetCliFolder(ctx context.Context, id FolderIdPath, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateCliFolderWithBody request with any body
+	UpdateCliFolderWithBody(ctx context.Context, id FolderIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateCliFolder(ctx context.Context, id FolderIdPath, body UpdateCliFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListCliImages request
 	ListCliImages(ctx context.Context, params *ListCliImagesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -344,10 +437,10 @@ type ClientInterface interface {
 	// GetCliImage request
 	GetCliImage(ctx context.Context, id ImageIdPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateCliImageSlugWithBody request with any body
-	UpdateCliImageSlugWithBody(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdateCliImageWithBody request with any body
+	UpdateCliImageWithBody(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateCliImageSlug(ctx context.Context, id ImageIdPath, body UpdateCliImageSlugJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateCliImage(ctx context.Context, id ImageIdPath, body UpdateCliImageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ReplaceCliImageWithBody request with any body
 	ReplaceCliImageWithBody(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -380,6 +473,90 @@ type ClientInterface interface {
 
 	// GetPublicImage request
 	GetPublicImage(ctx context.Context, id ImageIdPath, params *GetPublicImageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) ListCliFolders(ctx context.Context, params *ListCliFoldersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListCliFoldersRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateCliFolderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCliFolderRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateCliFolder(ctx context.Context, body CreateCliFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCliFolderRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteCliFolder(ctx context.Context, id FolderIdPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteCliFolderRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetCliFolder(ctx context.Context, id FolderIdPath, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCliFolderRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateCliFolderWithBody(ctx context.Context, id FolderIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCliFolderRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateCliFolder(ctx context.Context, id FolderIdPath, body UpdateCliFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCliFolderRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) ListCliImages(ctx context.Context, params *ListCliImagesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -430,8 +607,8 @@ func (c *Client) GetCliImage(ctx context.Context, id ImageIdPath, reqEditors ...
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateCliImageSlugWithBody(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateCliImageSlugRequestWithBody(c.Server, id, contentType, body)
+func (c *Client) UpdateCliImageWithBody(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCliImageRequestWithBody(c.Server, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -442,8 +619,8 @@ func (c *Client) UpdateCliImageSlugWithBody(ctx context.Context, id ImageIdPath,
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateCliImageSlug(ctx context.Context, id ImageIdPath, body UpdateCliImageSlugJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateCliImageSlugRequest(c.Server, id, body)
+func (c *Client) UpdateCliImage(ctx context.Context, id ImageIdPath, body UpdateCliImageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCliImageRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -586,6 +763,242 @@ func (c *Client) GetPublicImage(ctx context.Context, id ImageIdPath, params *Get
 	return c.Client.Do(req)
 }
 
+// NewListCliFoldersRequest generates requests for ListCliFolders
+func NewListCliFoldersRequest(server string, params *ListCliFoldersParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/cli/v1/folders")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.ChapterId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "chapterId", runtime.ParamLocationQuery, *params.ChapterId); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateCliFolderRequest calls the generic CreateCliFolder builder with application/json body
+func NewCreateCliFolderRequest(server string, body CreateCliFolderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateCliFolderRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateCliFolderRequestWithBody generates requests for CreateCliFolder with any type of body
+func NewCreateCliFolderRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/cli/v1/folders")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteCliFolderRequest generates requests for DeleteCliFolder
+func NewDeleteCliFolderRequest(server string, id FolderIdPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/cli/v1/folders/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetCliFolderRequest generates requests for GetCliFolder
+func NewGetCliFolderRequest(server string, id FolderIdPath) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/cli/v1/folders/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateCliFolderRequest calls the generic UpdateCliFolder builder with application/json body
+func NewUpdateCliFolderRequest(server string, id FolderIdPath, body UpdateCliFolderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateCliFolderRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateCliFolderRequestWithBody generates requests for UpdateCliFolder with any type of body
+func NewUpdateCliFolderRequestWithBody(server string, id FolderIdPath, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/cli/v1/folders/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListCliImagesRequest generates requests for ListCliImages
 func NewListCliImagesRequest(server string, params *ListCliImagesParams) (*http.Request, error) {
 	var err error
@@ -611,6 +1024,22 @@ func NewListCliImagesRequest(server string, params *ListCliImagesParams) (*http.
 		if params.ChapterId != nil {
 
 			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "chapterId", runtime.ParamLocationQuery, *params.ChapterId); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.FolderId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "folderId", runtime.ParamLocationQuery, *params.FolderId); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -764,19 +1193,19 @@ func NewGetCliImageRequest(server string, id ImageIdPath) (*http.Request, error)
 	return req, nil
 }
 
-// NewUpdateCliImageSlugRequest calls the generic UpdateCliImageSlug builder with application/json body
-func NewUpdateCliImageSlugRequest(server string, id ImageIdPath, body UpdateCliImageSlugJSONRequestBody) (*http.Request, error) {
+// NewUpdateCliImageRequest calls the generic UpdateCliImage builder with application/json body
+func NewUpdateCliImageRequest(server string, id ImageIdPath, body UpdateCliImageJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpdateCliImageSlugRequestWithBody(server, id, "application/json", bodyReader)
+	return NewUpdateCliImageRequestWithBody(server, id, "application/json", bodyReader)
 }
 
-// NewUpdateCliImageSlugRequestWithBody generates requests for UpdateCliImageSlug with any type of body
-func NewUpdateCliImageSlugRequestWithBody(server string, id ImageIdPath, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdateCliImageRequestWithBody generates requests for UpdateCliImage with any type of body
+func NewUpdateCliImageRequestWithBody(server string, id ImageIdPath, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1307,6 +1736,25 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// ListCliFoldersWithResponse request
+	ListCliFoldersWithResponse(ctx context.Context, params *ListCliFoldersParams, reqEditors ...RequestEditorFn) (*ListCliFoldersResponse, error)
+
+	// CreateCliFolderWithBodyWithResponse request with any body
+	CreateCliFolderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCliFolderResponse, error)
+
+	CreateCliFolderWithResponse(ctx context.Context, body CreateCliFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCliFolderResponse, error)
+
+	// DeleteCliFolderWithResponse request
+	DeleteCliFolderWithResponse(ctx context.Context, id FolderIdPath, reqEditors ...RequestEditorFn) (*DeleteCliFolderResponse, error)
+
+	// GetCliFolderWithResponse request
+	GetCliFolderWithResponse(ctx context.Context, id FolderIdPath, reqEditors ...RequestEditorFn) (*GetCliFolderResponse, error)
+
+	// UpdateCliFolderWithBodyWithResponse request with any body
+	UpdateCliFolderWithBodyWithResponse(ctx context.Context, id FolderIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCliFolderResponse, error)
+
+	UpdateCliFolderWithResponse(ctx context.Context, id FolderIdPath, body UpdateCliFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCliFolderResponse, error)
+
 	// ListCliImagesWithResponse request
 	ListCliImagesWithResponse(ctx context.Context, params *ListCliImagesParams, reqEditors ...RequestEditorFn) (*ListCliImagesResponse, error)
 
@@ -1319,10 +1767,10 @@ type ClientWithResponsesInterface interface {
 	// GetCliImageWithResponse request
 	GetCliImageWithResponse(ctx context.Context, id ImageIdPath, reqEditors ...RequestEditorFn) (*GetCliImageResponse, error)
 
-	// UpdateCliImageSlugWithBodyWithResponse request with any body
-	UpdateCliImageSlugWithBodyWithResponse(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCliImageSlugResponse, error)
+	// UpdateCliImageWithBodyWithResponse request with any body
+	UpdateCliImageWithBodyWithResponse(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCliImageResponse, error)
 
-	UpdateCliImageSlugWithResponse(ctx context.Context, id ImageIdPath, body UpdateCliImageSlugJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCliImageSlugResponse, error)
+	UpdateCliImageWithResponse(ctx context.Context, id ImageIdPath, body UpdateCliImageJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCliImageResponse, error)
 
 	// ReplaceCliImageWithBodyWithResponse request with any body
 	ReplaceCliImageWithBodyWithResponse(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceCliImageResponse, error)
@@ -1355,6 +1803,133 @@ type ClientWithResponsesInterface interface {
 
 	// GetPublicImageWithResponse request
 	GetPublicImageWithResponse(ctx context.Context, id ImageIdPath, params *GetPublicImageParams, reqEditors ...RequestEditorFn) (*GetPublicImageResponse, error)
+}
+
+type ListCliFoldersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FolderList
+	JSON400      *CliBadRequest
+	JSON401      *CliUnauthorized
+}
+
+// Status returns HTTPResponse.Status
+func (r ListCliFoldersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListCliFoldersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateCliFolderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *FolderResponse
+	JSON400      *CliBadRequest
+	JSON401      *CliUnauthorized
+	JSON403      *CliForbidden
+	JSON409      *CliConflict
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateCliFolderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateCliFolderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteCliFolderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FolderDeleteResult
+	JSON401      *CliUnauthorized
+	JSON403      *CliForbidden
+	JSON404      *CliNotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteCliFolderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteCliFolderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetCliFolderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FolderResponse
+	JSON401      *CliUnauthorized
+	JSON403      *CliForbidden
+	JSON404      *CliNotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCliFolderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCliFolderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateCliFolderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FolderResponse
+	JSON400      *CliBadRequest
+	JSON401      *CliUnauthorized
+	JSON403      *CliForbidden
+	JSON404      *CliNotFound
+	JSON409      *CliConflict
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateCliFolderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateCliFolderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type ListCliImagesResponse struct {
@@ -1458,7 +2033,7 @@ func (r GetCliImageResponse) StatusCode() int {
 	return 0
 }
 
-type UpdateCliImageSlugResponse struct {
+type UpdateCliImageResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *CliImageResponse
@@ -1470,7 +2045,7 @@ type UpdateCliImageSlugResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r UpdateCliImageSlugResponse) Status() string {
+func (r UpdateCliImageResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1478,7 +2053,7 @@ func (r UpdateCliImageSlugResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UpdateCliImageSlugResponse) StatusCode() int {
+func (r UpdateCliImageResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1714,6 +2289,67 @@ func (r GetPublicImageResponse) StatusCode() int {
 	return 0
 }
 
+// ListCliFoldersWithResponse request returning *ListCliFoldersResponse
+func (c *ClientWithResponses) ListCliFoldersWithResponse(ctx context.Context, params *ListCliFoldersParams, reqEditors ...RequestEditorFn) (*ListCliFoldersResponse, error) {
+	rsp, err := c.ListCliFolders(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListCliFoldersResponse(rsp)
+}
+
+// CreateCliFolderWithBodyWithResponse request with arbitrary body returning *CreateCliFolderResponse
+func (c *ClientWithResponses) CreateCliFolderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCliFolderResponse, error) {
+	rsp, err := c.CreateCliFolderWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateCliFolderResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateCliFolderWithResponse(ctx context.Context, body CreateCliFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCliFolderResponse, error) {
+	rsp, err := c.CreateCliFolder(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateCliFolderResponse(rsp)
+}
+
+// DeleteCliFolderWithResponse request returning *DeleteCliFolderResponse
+func (c *ClientWithResponses) DeleteCliFolderWithResponse(ctx context.Context, id FolderIdPath, reqEditors ...RequestEditorFn) (*DeleteCliFolderResponse, error) {
+	rsp, err := c.DeleteCliFolder(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteCliFolderResponse(rsp)
+}
+
+// GetCliFolderWithResponse request returning *GetCliFolderResponse
+func (c *ClientWithResponses) GetCliFolderWithResponse(ctx context.Context, id FolderIdPath, reqEditors ...RequestEditorFn) (*GetCliFolderResponse, error) {
+	rsp, err := c.GetCliFolder(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCliFolderResponse(rsp)
+}
+
+// UpdateCliFolderWithBodyWithResponse request with arbitrary body returning *UpdateCliFolderResponse
+func (c *ClientWithResponses) UpdateCliFolderWithBodyWithResponse(ctx context.Context, id FolderIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCliFolderResponse, error) {
+	rsp, err := c.UpdateCliFolderWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateCliFolderResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateCliFolderWithResponse(ctx context.Context, id FolderIdPath, body UpdateCliFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCliFolderResponse, error) {
+	rsp, err := c.UpdateCliFolder(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateCliFolderResponse(rsp)
+}
+
 // ListCliImagesWithResponse request returning *ListCliImagesResponse
 func (c *ClientWithResponses) ListCliImagesWithResponse(ctx context.Context, params *ListCliImagesParams, reqEditors ...RequestEditorFn) (*ListCliImagesResponse, error) {
 	rsp, err := c.ListCliImages(ctx, params, reqEditors...)
@@ -1750,21 +2386,21 @@ func (c *ClientWithResponses) GetCliImageWithResponse(ctx context.Context, id Im
 	return ParseGetCliImageResponse(rsp)
 }
 
-// UpdateCliImageSlugWithBodyWithResponse request with arbitrary body returning *UpdateCliImageSlugResponse
-func (c *ClientWithResponses) UpdateCliImageSlugWithBodyWithResponse(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCliImageSlugResponse, error) {
-	rsp, err := c.UpdateCliImageSlugWithBody(ctx, id, contentType, body, reqEditors...)
+// UpdateCliImageWithBodyWithResponse request with arbitrary body returning *UpdateCliImageResponse
+func (c *ClientWithResponses) UpdateCliImageWithBodyWithResponse(ctx context.Context, id ImageIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCliImageResponse, error) {
+	rsp, err := c.UpdateCliImageWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateCliImageSlugResponse(rsp)
+	return ParseUpdateCliImageResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateCliImageSlugWithResponse(ctx context.Context, id ImageIdPath, body UpdateCliImageSlugJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCliImageSlugResponse, error) {
-	rsp, err := c.UpdateCliImageSlug(ctx, id, body, reqEditors...)
+func (c *ClientWithResponses) UpdateCliImageWithResponse(ctx context.Context, id ImageIdPath, body UpdateCliImageJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCliImageResponse, error) {
+	rsp, err := c.UpdateCliImage(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateCliImageSlugResponse(rsp)
+	return ParseUpdateCliImageResponse(rsp)
 }
 
 // ReplaceCliImageWithBodyWithResponse request with arbitrary body returning *ReplaceCliImageResponse
@@ -1863,6 +2499,255 @@ func (c *ClientWithResponses) GetPublicImageWithResponse(ctx context.Context, id
 		return nil, err
 	}
 	return ParseGetPublicImageResponse(rsp)
+}
+
+// ParseListCliFoldersResponse parses an HTTP response from a ListCliFoldersWithResponse call
+func ParseListCliFoldersResponse(rsp *http.Response) (*ListCliFoldersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListCliFoldersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FolderList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest CliBadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest CliUnauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateCliFolderResponse parses an HTTP response from a CreateCliFolderWithResponse call
+func ParseCreateCliFolderResponse(rsp *http.Response) (*CreateCliFolderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateCliFolderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest FolderResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest CliBadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest CliUnauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest CliForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest CliConflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteCliFolderResponse parses an HTTP response from a DeleteCliFolderWithResponse call
+func ParseDeleteCliFolderResponse(rsp *http.Response) (*DeleteCliFolderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteCliFolderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FolderDeleteResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest CliUnauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest CliForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest CliNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCliFolderResponse parses an HTTP response from a GetCliFolderWithResponse call
+func ParseGetCliFolderResponse(rsp *http.Response) (*GetCliFolderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCliFolderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FolderResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest CliUnauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest CliForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest CliNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateCliFolderResponse parses an HTTP response from a UpdateCliFolderWithResponse call
+func ParseUpdateCliFolderResponse(rsp *http.Response) (*UpdateCliFolderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateCliFolderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FolderResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest CliBadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest CliUnauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest CliForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest CliNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest CliConflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseListCliImagesResponse parses an HTTP response from a ListCliImagesWithResponse call
@@ -2060,15 +2945,15 @@ func ParseGetCliImageResponse(rsp *http.Response) (*GetCliImageResponse, error) 
 	return response, nil
 }
 
-// ParseUpdateCliImageSlugResponse parses an HTTP response from a UpdateCliImageSlugWithResponse call
-func ParseUpdateCliImageSlugResponse(rsp *http.Response) (*UpdateCliImageSlugResponse, error) {
+// ParseUpdateCliImageResponse parses an HTTP response from a UpdateCliImageWithResponse call
+func ParseUpdateCliImageResponse(rsp *http.Response) (*UpdateCliImageResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &UpdateCliImageSlugResponse{
+	response := &UpdateCliImageResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

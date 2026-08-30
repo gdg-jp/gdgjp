@@ -1,7 +1,7 @@
 import { type AuthUser, ClaimsUnavailableError } from "@gdgjp/gdg-lib";
 import { redirect } from "react-router";
 import { getAuth } from "~/lib/auth.server";
-import { type UserChapter, fetchChapterForUser } from "~/lib/chapter.server";
+import { type UserChapter, fetchChaptersForUser } from "~/lib/chapter.server";
 
 export { safeReturnTo } from "~/lib/return-to";
 
@@ -14,7 +14,7 @@ export function buildSignInRedirect(request: Request): Response {
 export async function requireUserWithChapter(
   env: Env,
   request: Request,
-): Promise<{ user: AuthUser; chapter: UserChapter; accountId: string }> {
+): Promise<{ user: AuthUser; chapter: UserChapter; chapters: UserChapter[]; accountId: string }> {
   let user: AuthUser;
   try {
     user = await getAuth(env).requireUser(request);
@@ -22,17 +22,17 @@ export async function requireUserWithChapter(
     if (e instanceof Response && e.status === 401) throw buildSignInRedirect(request);
     throw e;
   }
-  let chapter: UserChapter | null;
+  let resolved: Awaited<ReturnType<typeof fetchChaptersForUser>>;
   try {
-    chapter = await fetchChapterForUser(env, request);
+    resolved = await fetchChaptersForUser(env, request);
   } catch (err) {
     if (err instanceof ClaimsUnavailableError) throw buildSignInRedirect(request);
     throw err;
   }
-  if (!chapter) throw redirect("/no-chapter");
+  if (!resolved.primary) throw redirect("/no-chapter");
   // Post-migration there is no separate accountId — user.id is our stable
   // internal identifier (a UUID minted at first sign-in). New image rows store
   // the same value in both user_id and account_id; existing rows keep their
   // historical account_id (Google sub) for backward-compat reads.
-  return { user, chapter, accountId: user.id };
+  return { user, chapter: resolved.primary, chapters: resolved.all, accountId: user.id };
 }

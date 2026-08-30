@@ -5,19 +5,24 @@ import {
   MAX_IMAGE_UPLOAD_BYTES,
   type UserChapter,
 } from "@gdgjp/gdg-lib";
+import { canAccessFolder } from "~/features/folders/policy";
+import { getFolder } from "~/features/folders/repository";
 import { generateUniqueImageId } from "./id";
-import { canMutateImage, resolveActorChapter } from "./policy";
+import { canAccessImage, canShareImageWithChapter, resolveActorChapter } from "./policy";
 import {
   type ImageRow,
   type ListImagesResult,
   createImage,
   deleteImage,
   getImage,
-  listImagesByUser,
+  listVisibleImages,
   parseImageListCursor,
   removeMobileImage,
+  setImageChapter,
+  setImageFolder,
   setImageSlug,
   setMobileImage,
+  updateImageAttributes,
   updateImageBytes,
 } from "./repository";
 import { validateSlug } from "./slug";
@@ -34,7 +39,10 @@ export type ImageServiceErrorCode =
   | "chapter_required"
   | "invalid_cursor"
   | "invalid_slug"
-  | "slug_taken";
+  | "slug_taken"
+  | "folder_not_found"
+  | "folder_chapter_mismatch"
+  | "invalid_request";
 
 export type ImageServiceResult<T> =
   | { ok: true; value: T }
@@ -181,21 +189,31 @@ export async function uploadImageForActor(
 export async function listImagesForActor(
   env: Env,
   actor: ImageActor,
-  opts: { chapterId?: number; limit?: number; cursor?: string | null } = {},
+  opts: {
+    chapterId?: number;
+    folderId?: number | null;
+    limit?: number;
+    cursor?: string | null;
+  } = {},
 ): Promise<ImageServiceResult<ListImagesResult>> {
   if (opts.chapterId !== undefined && !actor.chapters.some((c) => c.chapterId === opts.chapterId)) {
     return fail("forbidden");
+  }
+  if (opts.folderId !== undefined && opts.folderId !== null) {
+    const folder = await getFolder(env.DB, opts.folderId);
+    if (!folder) return fail("folder_not_found");
+    if (!canAccessFolder(actor, folder)) return fail("forbidden");
   }
   let cursor: ReturnType<typeof parseImageListCursor> | null = null;
   if (opts.cursor) {
     cursor = parseImageListCursor(opts.cursor);
     if (!cursor) return fail("invalid_cursor");
   }
-  const result = await listImagesByUser(env.DB, actor.user.id, {
-    chapterId: opts.chapterId,
-    limit: opts.limit,
-    cursor,
-  });
+  const result = await listVisibleImages(
+    env.DB,
+    { userId: actor.user.id, chapterIds: actor.chapters.map((c) => c.chapterId) },
+    { chapterId: opts.chapterId, folderId: opts.folderId, limit: opts.limit, cursor },
+  );
   return ok(result);
 }
 
@@ -206,7 +224,7 @@ export async function getImageForActor(
 ): Promise<ImageServiceResult<ImageRow>> {
   const image = await getImage(env.DB, id);
   if (!image) return fail("not_found");
-  if (!canMutateImage(actor.user, image)) return fail("forbidden");
+  if (!canAccessImage(actor, image)) return fail("forbidden");
   return ok(image);
 }
 
@@ -224,7 +242,7 @@ export async function setImageSlugForActor(
 ): Promise<ImageServiceResult<ImageRow>> {
   const image = await getImage(env.DB, id);
   if (!image) return fail("not_found");
-  if (!canMutateImage(actor.user, image)) return fail("forbidden");
+  if (!canAccessImage(actor, image)) return fail("forbidden");
 
   const trimmed = (rawSlug ?? "").trim();
   const next = trimmed === "" ? null : trimmed;
@@ -232,6 +250,131 @@ export async function setImageSlugForActor(
   if (image.slug === next) return ok(image);
 
   const result = await setImageSlug(env.DB, id, next);
+  if (!result.ok) return fail(result.reason);
+  return ok(result.image);
+}
+
+/**
+ * Assigns or clears (folderId === null) an image's folder. The folder must
+ * belong to the image's current chapter — a folder is scoped to one chapter,
+ * so cross-chapter assignment is rejected rather than silently reattributing
+ * either side.
+ */
+export async function setImageFolderForActor(
+  env: Env,
+  actor: ImageActor,
+  id: string,
+  folderId: number | null,
+): Promise<ImageServiceResult<ImageRow>> {
+  const image = await getImage(env.DB, id);
+  if (!image) return fail("not_found");
+  if (!canAccessImage(actor, image)) return fail("forbidden");
+
+  if (folderId === null) {
+    if (image.folderId === null) return ok(image);
+    return ok(await setImageFolder(env.DB, id, null));
+  }
+
+  const folder = await getFolder(env.DB, folderId);
+  if (!folder) return fail("folder_not_found");
+  if (!canAccessFolder(actor, folder)) return fail("forbidden");
+  if (folder.chapterId !== image.chapterId) return fail("folder_chapter_mismatch");
+  if (image.folderId === folderId) return ok(image);
+
+  return ok(await setImageFolder(env.DB, id, folderId));
+}
+
+/**
+ * Re-shares an image with a different chapter the actor belongs to. Clears
+ * the image's folder as a side effect, since a folder belongs to exactly one
+ * chapter (see setImageChapter).
+ */
+export async function setImageChapterForActor(
+  env: Env,
+  actor: ImageActor,
+  id: string,
+  chapterId: number,
+): Promise<ImageServiceResult<ImageRow>> {
+  const image = await getImage(env.DB, id);
+  if (!image) return fail("not_found");
+  if (!canAccessImage(actor, image)) return fail("forbidden");
+  if (image.chapterId === chapterId) return ok(image);
+  if (!canShareImageWithChapter(actor, chapterId)) return fail("forbidden");
+
+  return ok(await setImageChapter(env.DB, id, chapterId));
+}
+
+export type UpdateImagePatch = {
+  slug?: string | null;
+  folderId?: number | null;
+  chapterId?: number;
+};
+
+/**
+ * Applies any combination of slug/folderId/chapterId to an image as a single
+ * atomic change: every field is checked against the prospective final state
+ * — including cross-field interactions like "does this folder belong to the
+ * chapter we're moving to?" — before anything is written, and the write
+ * itself is one UPDATE statement (updateImageAttributes). This guarantees a
+ * later field failing (e.g. an unknown folderId) can never leave an earlier
+ * field's change (e.g. a chapter reassignment) already committed.
+ *
+ * A chapterId change without an explicit folderId in the same patch clears
+ * the folder, since a folder belongs to exactly one chapter. When both are
+ * given together, the client's folderId is validated against the *new*
+ * chapter, so moving an image and its folder to a new chapter in one call
+ * works as expected.
+ */
+export async function updateImageForActor(
+  env: Env,
+  actor: ImageActor,
+  id: string,
+  patch: UpdateImagePatch,
+): Promise<ImageServiceResult<ImageRow>> {
+  const image = await getImage(env.DB, id);
+  if (!image) return fail("not_found");
+  if (!canAccessImage(actor, image)) return fail("forbidden");
+
+  const hasChapterId = "chapterId" in patch;
+  const hasFolderId = "folderId" in patch;
+  const hasSlug = "slug" in patch;
+
+  let chapterId = image.chapterId;
+  if (hasChapterId) {
+    chapterId = patch.chapterId as number;
+    if (chapterId !== image.chapterId && !canShareImageWithChapter(actor, chapterId)) {
+      return fail("forbidden");
+    }
+  }
+
+  let folderId = image.folderId;
+  if (hasFolderId) {
+    folderId = patch.folderId ?? null;
+    if (folderId !== null) {
+      const folder = await getFolder(env.DB, folderId);
+      if (!folder) return fail("folder_not_found");
+      if (!canAccessFolder(actor, folder)) return fail("forbidden");
+      if (folder.chapterId !== chapterId) return fail("folder_chapter_mismatch");
+    }
+  } else if (chapterId !== image.chapterId) {
+    // The chapter is changing and the caller didn't say where the folder
+    // should land — clear it, since the old folder cannot belong to the new
+    // chapter.
+    folderId = null;
+  }
+
+  let slug = image.slug;
+  if (hasSlug) {
+    const trimmed = (patch.slug ?? "").trim();
+    slug = trimmed === "" ? null : trimmed;
+    if (slug !== null && !validateSlug(slug).ok) return fail("invalid_slug");
+  }
+
+  if (chapterId === image.chapterId && folderId === image.folderId && slug === image.slug) {
+    return ok(image);
+  }
+
+  const result = await updateImageAttributes(env.DB, id, { chapterId, folderId, slug });
   if (!result.ok) return fail(result.reason);
   return ok(result.image);
 }
@@ -249,7 +392,7 @@ export async function replaceImageForActor(
 ): Promise<ImageServiceResult<ImageRow>> {
   const image = await getImage(env.DB, id);
   if (!image) return fail("not_found");
-  if (!canMutateImage(actor.user, image)) return fail("forbidden");
+  if (!canAccessImage(actor, image)) return fail("forbidden");
   const validated = validateImageFile(fileValue);
   if (!validated.ok) return fail(validated.error);
 
@@ -291,7 +434,7 @@ export async function setMobileImageForActor(
 ): Promise<ImageServiceResult<ImageRow>> {
   const image = await getImage(env.DB, id);
   if (!image) return fail("not_found");
-  if (!canMutateImage(actor.user, image)) return fail("forbidden");
+  if (!canAccessImage(actor, image)) return fail("forbidden");
   const validated = validateImageFile(fileValue);
   if (!validated.ok) return fail(validated.error);
 
@@ -344,7 +487,7 @@ export async function removeMobileImageForActor(
 ): Promise<ImageServiceResult<ImageRow>> {
   const image = await getImage(env.DB, id);
   if (!image) return fail("not_found");
-  if (!canMutateImage(actor.user, image)) return fail("forbidden");
+  if (!canAccessImage(actor, image)) return fail("forbidden");
   if (!image.mobileR2Key) return ok(image);
 
   const updated = await removeMobileImage(env.DB, id);
@@ -360,7 +503,7 @@ export async function deleteImageForActor(
 ): Promise<ImageServiceResult<{ id: string }>> {
   const image = await getImage(env.DB, id);
   if (!image) return fail("not_found");
-  if (!canMutateImage(actor.user, image)) return fail("forbidden");
+  if (!canAccessImage(actor, image)) return fail("forbidden");
 
   await deleteImage(env.DB, id);
   ctx.waitUntil(deleteOriginal(env, image.r2Key));

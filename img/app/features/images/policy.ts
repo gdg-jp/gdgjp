@@ -1,8 +1,36 @@
 import { type AuthUser, type UserChapter, isSuperAdmin } from "@gdgjp/gdg-lib";
 import type { ImageRow } from "./repository";
 
-export function canMutateImage(user: AuthUser, image: ImageRow): boolean {
-  return image.userId === user.id || isSuperAdmin(user);
+/**
+ * An image is accessible (view AND mutate — this app does not distinguish
+ * editor/viewer roles) to its uploader, a super admin, or any member of the
+ * chapter it is shared with.
+ */
+export function canAccessImage(
+  actor: { user: AuthUser; chapters: UserChapter[] },
+  image: ImageRow,
+): boolean {
+  return (
+    image.userId === actor.user.id ||
+    isSuperAdmin(actor.user) ||
+    actor.chapters.some((chapter) => chapter.chapterId === image.chapterId)
+  );
+}
+
+/**
+ * Whether the actor may re-share an image into the given chapter: a super
+ * admin may target any chapter, everyone else must already belong to it.
+ * Callers should skip this check when chapterId is unchanged (a no-op
+ * "reassignment" back to the image's current chapter is always fine and
+ * doesn't require membership in it).
+ */
+export function canShareImageWithChapter(
+  actor: { user: AuthUser; chapters: UserChapter[] },
+  chapterId: number,
+): boolean {
+  return (
+    isSuperAdmin(actor.user) || actor.chapters.some((chapter) => chapter.chapterId === chapterId)
+  );
 }
 
 export type ResolvedChapter =

@@ -13,8 +13,8 @@ export async function action(args: Route.ActionArgs) {
   if (!isValidImageId(id)) return new Response("Not found", { status: 404 });
 
   const env = args.context.cloudflare.env;
-  const { user, chapter } = await requireUserWithChapter(env, args.request);
-  const actor = { user, chapters: [chapter] };
+  const { user, chapters } = await requireUserWithChapter(env, args.request);
+  const actor = { user, chapters };
 
   if (args.request.method === "DELETE") {
     const result = await removeMobileImageForActor(env, args.context.cloudflare.ctx, actor, id);

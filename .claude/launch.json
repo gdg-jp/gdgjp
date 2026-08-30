@@ -14,6 +14,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@gdgjp/ost", "dev"],
       "port": 5185
+    },
+    {
+      "name": "img-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@gdgjp/img", "dev"],
+      "port": 5175
     }
   ]
 }

@@ -24,5 +24,11 @@ export function dashboardImageErrorResponse(code: ImageServiceErrorCode): Respon
       );
     case "slug_taken":
       return new Response("That custom URL is already in use.", { status: 409 });
+    case "folder_not_found":
+      return new Response("Folder not found", { status: 404 });
+    case "folder_chapter_mismatch":
+      return new Response("That folder belongs to a different chapter.", { status: 400 });
+    case "invalid_request":
+      return new Response("invalid request", { status: 400 });
   }
 }

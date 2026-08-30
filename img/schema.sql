@@ -20,7 +20,7 @@ CREATE TABLE images (
   filename      TEXT,
   created_at    INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at    INTEGER NOT NULL DEFAULT (unixepoch())
-, mobile_r2_key TEXT, mobile_content_type TEXT, mobile_byte_size INTEGER, mobile_filename TEXT, mobile_updated_at INTEGER, slug TEXT);
+, mobile_r2_key TEXT, mobile_content_type TEXT, mobile_byte_size INTEGER, mobile_filename TEXT, mobile_updated_at INTEGER, slug TEXT, folder_id INTEGER REFERENCES folders(id) ON DELETE SET NULL);
 CREATE INDEX idx_images_user ON images(user_id, created_at DESC);
 CREATE INDEX idx_images_chapter ON images(chapter_id, created_at DESC);
 CREATE UNIQUE INDEX user_oidc_identity_idx ON "user" (oidc_issuer, oidc_subject);
@@ -39,3 +39,13 @@ CREATE TABLE oidc_session (
 );
 CREATE INDEX oidc_session_user_idx ON oidc_session (user_id);
 CREATE UNIQUE INDEX idx_images_slug ON images(slug) WHERE slug IS NOT NULL;
+CREATE TABLE folders (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  chapter_id         INTEGER NOT NULL,
+  name               TEXT NOT NULL COLLATE NOCASE,
+  created_by_user_id TEXT NOT NULL,
+  created_at         INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at         INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE UNIQUE INDEX idx_folders_chapter_name ON folders(chapter_id, name);
+CREATE INDEX idx_images_folder ON images(folder_id, created_at DESC);

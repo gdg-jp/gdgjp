@@ -148,8 +148,8 @@ export interface paths {
         delete: operations["deleteCliImage"];
         options?: never;
         head?: never;
-        /** Set or clear an image's custom slug */
-        patch: operations["updateCliImageSlug"];
+        /** Update an image's slug, folder, and/or chapter (any subset of the three) */
+        patch: operations["updateCliImage"];
         trace?: never;
     };
     "/api/cli/v1/images/{id}/mobile": {
@@ -166,6 +166,42 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the caller's folders, optionally narrowed to one chapter */
+        get: operations["listCliFolders"];
+        put?: never;
+        /** Create a folder in one of the caller's chapters */
+        post: operations["createCliFolder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cli/v1/folders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCliFolder"];
+        put?: never;
+        post?: never;
+        /** Delete a folder; its images fall back to unfiled */
+        delete: operations["deleteCliFolder"];
+        options?: never;
+        head?: never;
+        /** Rename a folder */
+        patch: operations["updateCliFolder"];
         trace?: never;
     };
 }
@@ -189,6 +225,7 @@ export interface components {
             userId: string;
             accountId: string;
             chapterId: number;
+            folderId: number | null;
             slug: string | null;
             r2Key: string;
             contentType: string;
@@ -228,6 +265,27 @@ export interface components {
         CliMobileResult: {
             id: string;
             updatedAt: number;
+        };
+        Folder: {
+            id: number;
+            chapterId: number;
+            name: string;
+            createdByUserId: string;
+            imageCount: number;
+            createdAt: number;
+            updatedAt: number;
+        };
+        FolderList: {
+            folders: components["schemas"]["Folder"][];
+            nextCursor: string | null;
+        };
+        FolderResponse: {
+            folder: components["schemas"]["Folder"];
+        };
+        FolderDeleteResult: {
+            id: number;
+            /** @enum {boolean} */
+            deleted: true;
         };
         InternalUploadUser: {
             id: string;
@@ -299,7 +357,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description The requested slug is already in use by another image. */
+        /** @description The requested slug or folder name is already in use. */
         CliConflict: {
             headers: {
                 [name: string]: unknown;
@@ -318,6 +376,7 @@ export interface components {
     };
     parameters: {
         ImageIdPath: string;
+        FolderIdPath: number;
     };
     requestBodies: never;
     headers: never;
@@ -616,6 +675,8 @@ export interface operations {
         parameters: {
             query?: {
                 chapterId?: number;
+                /** @description A folder id to filter by, or the literal "unfiled" for images with no folder. */
+                folderId?: string;
                 limit?: number;
                 cursor?: string;
             };
@@ -759,7 +820,7 @@ export interface operations {
             404: components["responses"]["CliNotFound"];
         };
     };
-    updateCliImageSlug: {
+    updateCliImage: {
         parameters: {
             query?: never;
             header?: never;
@@ -772,12 +833,16 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @description New slug, or null / empty string to clear it. */
-                    slug: string | null;
+                    slug?: string | null;
+                    /** @description Folder to file the image into, or null to unfile it. Must belong to the image's chapter. */
+                    folderId?: number | null;
+                    /** @description Chapter to re-share the image with. Clears folderId as a side effect. */
+                    chapterId?: number;
                 };
             };
         };
         responses: {
-            /** @description Slug updated */
+            /** @description Image updated */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -825,6 +890,147 @@ export interface operations {
             403: components["responses"]["CliForbidden"];
             404: components["responses"]["CliNotFound"];
             413: components["responses"]["CliTooLarge"];
+        };
+    };
+    listCliFolders: {
+        parameters: {
+            query?: {
+                chapterId?: number;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's folders */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderList"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+        };
+    };
+    createCliFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @description Required when the caller has more than one chapter membership. */
+                    chapterId?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Created folder */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderResponse"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            409: components["responses"]["CliConflict"];
+        };
+    };
+    getCliFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["FolderIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Folder metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderResponse"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    deleteCliFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["FolderIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Folder deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderDeleteResult"];
+                };
+            };
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+        };
+    };
+    updateCliFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["FolderIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Renamed folder */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderResponse"];
+                };
+            };
+            400: components["responses"]["CliBadRequest"];
+            401: components["responses"]["CliUnauthorized"];
+            403: components["responses"]["CliForbidden"];
+            404: components["responses"]["CliNotFound"];
+            409: components["responses"]["CliConflict"];
         };
     };
 }

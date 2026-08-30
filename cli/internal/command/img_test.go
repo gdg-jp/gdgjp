@@ -242,6 +242,230 @@ func TestImgSlugClear(t *testing.T) {
 	}
 }
 
+func TestImgMove(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch || r.URL.Path != "/api/cli/v1/images/abcd1234" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		var body struct {
+			FolderID  *int    `json:"folderId"`
+			ChapterID *int    `json:"chapterId"`
+			Slug      *string `json:"slug"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body.FolderID == nil || *body.FolderID != 7 {
+			t.Fatalf("folderId = %#v, want 7", body.FolderID)
+		}
+		if body.ChapterID != nil || body.Slug != nil {
+			t.Fatalf("unrelated fields leaked into move: chapterId=%#v slug=%#v", body.ChapterID, body.Slug)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"image": map[string]any{
+				"id": "abcd1234", "userId": "u", "accountId": "a", "chapterId": 1,
+				"folderId": 7, "slug": nil, "r2Key": "k", "contentType": "image/jpeg", "byteSize": 1,
+				"width": nil, "height": nil, "filename": nil,
+				"mobileR2Key": nil, "mobileContentType": nil, "mobileByteSize": nil,
+				"mobileFilename": nil, "mobileUpdatedAt": nil,
+				"createdAt": 0, "updatedAt": 0,
+			},
+		})
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("GDG_IMG_URL", server.URL)
+
+	out, err := executeImg(t, defaultImgCredentialStore(), "move", "abcd1234", "--folder-id", "7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"folderId": 7`) {
+		t.Fatalf("output = %s", out)
+	}
+}
+
+func TestImgMoveClear(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			FolderID *int `json:"folderId"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body.FolderID != nil {
+			t.Fatalf("folderId = %#v, want null", body.FolderID)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"image": map[string]any{
+				"id": "abcd1234", "userId": "u", "accountId": "a", "chapterId": 1,
+				"folderId": nil, "slug": nil, "r2Key": "k", "contentType": "image/jpeg", "byteSize": 1,
+				"width": nil, "height": nil, "filename": nil,
+				"mobileR2Key": nil, "mobileContentType": nil, "mobileByteSize": nil,
+				"mobileFilename": nil, "mobileUpdatedAt": nil,
+				"createdAt": 0, "updatedAt": 0,
+			},
+		})
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("GDG_IMG_URL", server.URL)
+
+	out, err := executeImg(t, defaultImgCredentialStore(), "move", "abcd1234", "--clear")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"id": "abcd1234"`) {
+		t.Fatalf("output = %s", out)
+	}
+}
+
+func TestImgMoveRejectsFolderIDAndClearTogether(t *testing.T) {
+	out, err := executeImg(t, defaultImgCredentialStore(), "move", "abcd1234", "--folder-id", "7", "--clear")
+	if err == nil {
+		t.Fatalf("expected error, output = %s", out)
+	}
+}
+
+func TestImgShare(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch || r.URL.Path != "/api/cli/v1/images/abcd1234" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		var body struct {
+			ChapterID *int `json:"chapterId"`
+			FolderID  *int `json:"folderId"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body.ChapterID == nil || *body.ChapterID != 9 {
+			t.Fatalf("chapterId = %#v, want 9", body.ChapterID)
+		}
+		if body.FolderID != nil {
+			t.Fatalf("folderId leaked into share: %#v", body.FolderID)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"image": map[string]any{
+				"id": "abcd1234", "userId": "u", "accountId": "a", "chapterId": 9,
+				"folderId": nil, "slug": nil, "r2Key": "k", "contentType": "image/jpeg", "byteSize": 1,
+				"width": nil, "height": nil, "filename": nil,
+				"mobileR2Key": nil, "mobileContentType": nil, "mobileByteSize": nil,
+				"mobileFilename": nil, "mobileUpdatedAt": nil,
+				"createdAt": 0, "updatedAt": 0,
+			},
+		})
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("GDG_IMG_URL", server.URL)
+
+	out, err := executeImg(t, defaultImgCredentialStore(), "share", "abcd1234", "--chapter-id", "9")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"chapterId": 9`) {
+		t.Fatalf("output = %s", out)
+	}
+}
+
+func TestImgFoldersList(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/cli/v1/folders" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"folders": []any{}, "nextCursor": nil})
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("GDG_IMG_URL", server.URL)
+
+	out, err := executeImg(t, defaultImgCredentialStore(), "folders", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"folders": []`) {
+		t.Fatalf("output = %s", out)
+	}
+}
+
+func TestImgFoldersListWithFilters(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/cli/v1/folders" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		q := r.URL.Query()
+		if q.Get("chapterId") != "5" || q.Get("limit") != "10" || q.Get("cursor") != "abc" {
+			t.Fatalf("query = %s", r.URL.RawQuery)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"folders":    []any{},
+			"nextCursor": "next-page",
+		})
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("GDG_IMG_URL", server.URL)
+
+	out, err := executeImg(t, defaultImgCredentialStore(), "folders", "list",
+		"--chapter-id", "5", "--limit", "10", "--cursor", "abc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"nextCursor": "next-page"`) {
+		t.Fatalf("output = %s", out)
+	}
+}
+
+func TestImgFoldersCreate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/cli/v1/folders" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		var body struct {
+			Name      string `json:"name"`
+			ChapterID *int   `json:"chapterId"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Name != "logos" || body.ChapterID == nil || *body.ChapterID != 5 {
+			t.Fatalf("body = %#v", body)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"folder": map[string]any{
+				"id": 1, "chapterId": 5, "name": "logos", "createdByUserId": "u",
+				"imageCount": 0, "createdAt": 0, "updatedAt": 0,
+			},
+		})
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("GDG_IMG_URL", server.URL)
+
+	out, err := executeImg(t, defaultImgCredentialStore(), "folders", "create", "--name", "logos", "--chapter-id", "5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"name": "logos"`) {
+		t.Fatalf("output = %s", out)
+	}
+}
+
+func TestImgFoldersDelete(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete || r.URL.Path != "/api/cli/v1/folders/3" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": 3, "deleted": true})
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("GDG_IMG_URL", server.URL)
+
+	out, err := executeImg(t, defaultImgCredentialStore(), "folders", "delete", "3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"deleted": true`) {
+		t.Fatalf("output = %s", out)
+	}
+}
+
 func TestImgDelete(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete || r.URL.Path != "/api/cli/v1/images/abcd1234" {

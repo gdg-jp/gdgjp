@@ -8,6 +8,62 @@ import (
 	"testing"
 )
 
+func TestImagePatchToJSON(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no fields set produces an empty object", func(t *testing.T) {
+		t.Parallel()
+		body, err := ImagePatch{}.toJSON()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(body) != "{}" {
+			t.Fatalf("toJSON() = %s, want {}", body)
+		}
+	})
+
+	t.Run("only the flagged fields are included", func(t *testing.T) {
+		t.Parallel()
+		folderID := 7
+		body, err := ImagePatch{SetFolderID: true, FolderID: &folderID}.toJSON()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var decoded map[string]json.RawMessage
+		if err := json.Unmarshal(body, &decoded); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := decoded["slug"]; ok {
+			t.Fatalf("unset slug leaked into body: %s", body)
+		}
+		if _, ok := decoded["chapterId"]; ok {
+			t.Fatalf("unset chapterId leaked into body: %s", body)
+		}
+		if got := string(decoded["folderId"]); got != "7" {
+			t.Fatalf("folderId = %s, want 7", got)
+		}
+	})
+
+	t.Run("a flagged nil value serializes as null, not omitted", func(t *testing.T) {
+		t.Parallel()
+		body, err := ImagePatch{SetSlug: true, Slug: nil}.toJSON()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var decoded map[string]json.RawMessage
+		if err := json.Unmarshal(body, &decoded); err != nil {
+			t.Fatal(err)
+		}
+		raw, ok := decoded["slug"]
+		if !ok {
+			t.Fatalf("slug key missing from body: %s", body)
+		}
+		if string(raw) != "null" {
+			t.Fatalf("slug = %s, want null", raw)
+		}
+	})
+}
+
 func TestGetErrorEnvelope(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -14,6 +14,8 @@ export async function loader(args: Route.LoaderArgs) {
   const url = new URL(args.request.url);
   const chapterId = parseIntParam(url.searchParams.get("chapterId"));
   if (chapterId === INVALID) return invalidRequest();
+  const folderId = parseFolderIdParam(url.searchParams.get("folderId"));
+  if (folderId === INVALID) return invalidRequest();
   const limit = parseIntParam(url.searchParams.get("limit"));
   if (limit === INVALID || (limit !== undefined && (limit < 1 || limit > 100))) {
     return invalidRequest();
@@ -21,6 +23,7 @@ export async function loader(args: Route.LoaderArgs) {
 
   const result = await listImagesForActor(env, auth.actor, {
     chapterId,
+    folderId,
     limit,
     cursor: url.searchParams.get("cursor"),
   });
@@ -66,6 +69,14 @@ function asString(value: FormDataEntryValue | null): string | null {
 
 function parseIntParam(raw: string | null): number | undefined | typeof INVALID {
   if (raw === null || raw === "") return undefined;
+  const value = Number(raw);
+  return Number.isInteger(value) ? value : INVALID;
+}
+
+/** "unfiled" is the sentinel for "no folder"; anything else must be a folder id. */
+function parseFolderIdParam(raw: string | null): number | null | undefined | typeof INVALID {
+  if (raw === null || raw === "") return undefined;
+  if (raw === "unfiled") return null;
   const value = Number(raw);
   return Number.isInteger(value) ? value : INVALID;
 }

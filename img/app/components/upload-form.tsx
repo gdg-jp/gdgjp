@@ -4,7 +4,7 @@ import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 
-export function UploadForm() {
+export function UploadForm({ folderId }: { folderId?: number | null } = {}) {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -25,6 +25,7 @@ export function UploadForm() {
     try {
       const form = new FormData();
       form.append("file", file);
+      if (folderId != null) form.append("folderId", String(folderId));
       const res = await fetch("/api/upload", { method: "POST", body: form });
       if (!res.ok) {
         const text = await res.text();

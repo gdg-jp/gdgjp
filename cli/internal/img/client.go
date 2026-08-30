@@ -38,20 +38,64 @@ func (e *HTTPError) Error() string {
 func (e *HTTPError) HTTPStatus() int { return e.StatusCode }
 
 type (
-	CliImage         = openapigen.CliImage
-	CliImageList     = openapigen.CliImageList
-	CliImageResponse = openapigen.CliImageResponse
-	CliReplaceResult = openapigen.CliReplaceResult
-	CliMobileResult  = openapigen.CliMobileResult
-	CliDeleteResult  = openapigen.CliDeleteResult
-	UploadResult     = openapigen.UploadResult
+	CliImage           = openapigen.CliImage
+	CliImageList       = openapigen.CliImageList
+	CliImageResponse   = openapigen.CliImageResponse
+	CliReplaceResult   = openapigen.CliReplaceResult
+	CliMobileResult    = openapigen.CliMobileResult
+	CliDeleteResult    = openapigen.CliDeleteResult
+	UploadResult       = openapigen.UploadResult
+	Folder             = openapigen.Folder
+	FolderResponse     = openapigen.FolderResponse
+	FolderList         = openapigen.FolderList
+	FolderDeleteResult = openapigen.FolderDeleteResult
 )
 
 // ListOptions narrows a List call. Zero-value fields are omitted from the request.
 type ListOptions struct {
 	ChapterID *int
-	Limit     *int
-	Cursor    *string
+	// FolderID is a folder id (as a string) to filter by, or the literal
+	// "unfiled" for images with no folder.
+	FolderID *string
+	Limit    *int
+	Cursor   *string
+}
+
+// ImagePatch describes a partial update to an image (PATCH
+// /api/cli/v1/images/:id): only fields whose Set* flag is true are sent, so
+// omitted fields are left untouched server-side. Built as a raw JSON map
+// rather than the generated request struct, because the generated struct
+// serializes its nullable fields (slug, folderId) unconditionally — using it
+// directly would silently clear whichever of those two the caller didn't
+// intend to touch.
+type ImagePatch struct {
+	SetSlug bool
+	// Slug is the new slug, or nil to clear it. Only sent when SetSlug is true.
+	Slug *string
+
+	SetFolderID bool
+	// FolderID is the folder to file the image into, or nil to unfile it.
+	// Only sent when SetFolderID is true.
+	FolderID *int
+
+	SetChapterID bool
+	// ChapterID re-shares the image with a different chapter. Only sent when
+	// SetChapterID is true; the server clears FolderID as a side effect.
+	ChapterID int
+}
+
+func (p ImagePatch) toJSON() ([]byte, error) {
+	body := map[string]any{}
+	if p.SetSlug {
+		body["slug"] = p.Slug
+	}
+	if p.SetFolderID {
+		body["folderId"] = p.FolderID
+	}
+	if p.SetChapterID {
+		body["chapterId"] = p.ChapterID
+	}
+	return json.Marshal(body)
 }
 
 func NewClient() *Client {
@@ -145,6 +189,7 @@ func multipartFile(filePath, fieldName string, fields map[string]string) (io.Rea
 func (c *Client) List(ctx context.Context, token string, options ListOptions) (CliImageList, error) {
 	params := &openapigen.ListCliImagesParams{
 		ChapterId: options.ChapterID,
+		FolderId:  options.FolderID,
 		Limit:     options.Limit,
 		Cursor:    options.Cursor,
 	}
@@ -213,10 +258,15 @@ func (c *Client) UploadMobile(ctx context.Context, token, id, filePath string) (
 	return out, err
 }
 
-// SetSlug sets an image's custom slug, or clears it when slug is nil.
-func (c *Client) SetSlug(ctx context.Context, token, id string, slug *string) (CliImageResponse, error) {
-	body := openapigen.UpdateCliImageSlugJSONRequestBody{Slug: slug}
-	res, err := c.generatedClient().UpdateCliImageSlugWithResponse(ctx, id, body, bearer(token))
+// UpdateImage applies a partial update (slug, folder, and/or chapter) to an
+// image. See ImagePatch for how omitted fields are distinguished from
+// fields explicitly cleared.
+func (c *Client) UpdateImage(ctx context.Context, token, id string, patch ImagePatch) (CliImageResponse, error) {
+	body, err := patch.toJSON()
+	if err != nil {
+		return CliImageResponse{}, err
+	}
+	res, err := c.generatedClient().UpdateCliImageWithBodyWithResponse(ctx, id, "application/json", bytes.NewReader(body), bearer(token))
 	if err != nil {
 		return CliImageResponse{}, err
 	}
@@ -225,12 +275,91 @@ func (c *Client) SetSlug(ctx context.Context, token, id string, slug *string) (C
 	return out, err
 }
 
+// SetSlug sets an image's custom slug, or clears it when slug is nil.
+func (c *Client) SetSlug(ctx context.Context, token, id string, slug *string) (CliImageResponse, error) {
+	return c.UpdateImage(ctx, token, id, ImagePatch{SetSlug: true, Slug: slug})
+}
+
+// Move assigns an image to a folder, or unfiles it when folderID is nil.
+func (c *Client) Move(ctx context.Context, token, id string, folderID *int) (CliImageResponse, error) {
+	return c.UpdateImage(ctx, token, id, ImagePatch{SetFolderID: true, FolderID: folderID})
+}
+
+// Share re-attributes an image to a different chapter the caller belongs to.
+func (c *Client) Share(ctx context.Context, token, id string, chapterID int) (CliImageResponse, error) {
+	return c.UpdateImage(ctx, token, id, ImagePatch{SetChapterID: true, ChapterID: chapterID})
+}
+
 func (c *Client) Delete(ctx context.Context, token, id string) (CliDeleteResult, error) {
 	res, err := c.generatedClient().DeleteCliImageWithResponse(ctx, id, bearer(token))
 	if err != nil {
 		return CliDeleteResult{}, err
 	}
 	var out CliDeleteResult
+	err = decodeResponse(res.StatusCode(), res.Body, &out)
+	return out, err
+}
+
+// ListFoldersOptions narrows a ListFolders call. Zero-value fields are omitted from the request.
+type ListFoldersOptions struct {
+	ChapterID *int
+	Limit     *int
+	Cursor    *string
+}
+
+func (c *Client) ListFolders(ctx context.Context, token string, options ListFoldersOptions) (FolderList, error) {
+	params := &openapigen.ListCliFoldersParams{
+		ChapterId: options.ChapterID,
+		Limit:     options.Limit,
+		Cursor:    options.Cursor,
+	}
+	res, err := c.generatedClient().ListCliFoldersWithResponse(ctx, params, bearer(token))
+	if err != nil {
+		return FolderList{}, err
+	}
+	var out FolderList
+	err = decodeResponse(res.StatusCode(), res.Body, &out)
+	return out, err
+}
+
+func (c *Client) GetFolder(ctx context.Context, token string, id int) (FolderResponse, error) {
+	res, err := c.generatedClient().GetCliFolderWithResponse(ctx, id, bearer(token))
+	if err != nil {
+		return FolderResponse{}, err
+	}
+	var out FolderResponse
+	err = decodeResponse(res.StatusCode(), res.Body, &out)
+	return out, err
+}
+
+func (c *Client) CreateFolder(ctx context.Context, token, name string, chapterID *int) (FolderResponse, error) {
+	body := openapigen.CreateCliFolderJSONRequestBody{Name: name, ChapterId: chapterID}
+	res, err := c.generatedClient().CreateCliFolderWithResponse(ctx, body, bearer(token))
+	if err != nil {
+		return FolderResponse{}, err
+	}
+	var out FolderResponse
+	err = decodeResponse(res.StatusCode(), res.Body, &out)
+	return out, err
+}
+
+func (c *Client) UpdateFolder(ctx context.Context, token string, id int, name string) (FolderResponse, error) {
+	body := openapigen.UpdateCliFolderJSONRequestBody{Name: name}
+	res, err := c.generatedClient().UpdateCliFolderWithResponse(ctx, id, body, bearer(token))
+	if err != nil {
+		return FolderResponse{}, err
+	}
+	var out FolderResponse
+	err = decodeResponse(res.StatusCode(), res.Body, &out)
+	return out, err
+}
+
+func (c *Client) DeleteFolder(ctx context.Context, token string, id int) (FolderDeleteResult, error) {
+	res, err := c.generatedClient().DeleteCliFolderWithResponse(ctx, id, bearer(token))
+	if err != nil {
+		return FolderDeleteResult{}, err
+	}
+	var out FolderDeleteResult
 	err = decodeResponse(res.StatusCode(), res.Body, &out)
 	return out, err
 }

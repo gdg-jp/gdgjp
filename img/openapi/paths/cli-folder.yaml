@@ -1,0 +1,40 @@
+get:
+  operationId: getCliFolder
+  security: [{ BearerAuth: [] }]
+  parameters: [{ $ref: ../components/parameters/index.yaml#/FolderIdPath }]
+  responses:
+    '200': { description: Folder metadata, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/FolderResponse } } } }
+    '401': { $ref: ../components/responses/index.yaml#/CliUnauthorized }
+    '403': { $ref: ../components/responses/index.yaml#/CliForbidden }
+    '404': { $ref: ../components/responses/index.yaml#/CliNotFound }
+patch:
+  operationId: updateCliFolder
+  summary: Rename a folder
+  security: [{ BearerAuth: [] }]
+  parameters: [{ $ref: ../components/parameters/index.yaml#/FolderIdPath }]
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [name]
+          properties:
+            name: { type: string, minLength: 1, maxLength: 48 }
+  responses:
+    '200': { description: Renamed folder, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/FolderResponse } } } }
+    '400': { $ref: ../components/responses/index.yaml#/CliBadRequest }
+    '401': { $ref: ../components/responses/index.yaml#/CliUnauthorized }
+    '403': { $ref: ../components/responses/index.yaml#/CliForbidden }
+    '404': { $ref: ../components/responses/index.yaml#/CliNotFound }
+    '409': { $ref: ../components/responses/index.yaml#/CliConflict }
+delete:
+  operationId: deleteCliFolder
+  summary: Delete a folder; its images fall back to unfiled
+  security: [{ BearerAuth: [] }]
+  parameters: [{ $ref: ../components/parameters/index.yaml#/FolderIdPath }]
+  responses:
+    '200': { description: Folder deleted, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/FolderDeleteResult } } } }
+    '401': { $ref: ../components/responses/index.yaml#/CliUnauthorized }
+    '403': { $ref: ../components/responses/index.yaml#/CliForbidden }
+    '404': { $ref: ../components/responses/index.yaml#/CliNotFound }

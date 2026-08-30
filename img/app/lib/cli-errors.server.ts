@@ -10,6 +10,9 @@ const STATUS_BY_CODE: Record<ImageServiceErrorCode, number> = {
   invalid_cursor: 400,
   invalid_slug: 400,
   slug_taken: 409,
+  folder_not_found: 404,
+  folder_chapter_mismatch: 400,
+  invalid_request: 400,
 };
 
 export function imageServiceErrorResponse(code: ImageServiceErrorCode): Response {

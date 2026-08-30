@@ -13,15 +13,10 @@ export async function action(args: Route.ActionArgs) {
   if (!isValidImageId(id)) return new Response("Not found", { status: 404 });
 
   const env = args.context.cloudflare.env;
-  const { user, chapter } = await requireUserWithChapter(env, args.request);
+  const { user, chapters } = await requireUserWithChapter(env, args.request);
 
   const form = await args.request.formData();
-  const result = await replaceImageForActor(
-    env,
-    { user, chapters: [chapter] },
-    id,
-    form.get("file"),
-  );
+  const result = await replaceImageForActor(env, { user, chapters }, id, form.get("file"));
   if (!result.ok) return dashboardImageErrorResponse(result.error);
 
   const body: components["schemas"]["ImageId"] = { id: result.value.id };

@@ -1,4 +1,4 @@
-import { Check, Copy, Link2, Smartphone, Trash2, Upload } from "lucide-react";
+import { Check, Copy, FolderOpen, Link2, Smartphone, Trash2, Upload, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { PageShell } from "~/components/page-shell";
@@ -6,6 +6,14 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
+import { listFoldersForActor } from "~/features/folders/service";
 import { isValidImageId } from "~/features/images/id";
 import { getImageForActor } from "~/features/images/service";
 import { requireUserWithChapter } from "~/lib/auth-redirect";
@@ -20,8 +28,9 @@ export async function loader(args: Route.LoaderArgs) {
   const id = args.params.id;
   if (!isValidImageId(id)) throw new Response("Not found", { status: 404 });
   const env = args.context.cloudflare.env;
-  const { user, chapter } = await requireUserWithChapter(env, args.request);
-  const result = await getImageForActor(env, { user, chapters: [chapter] }, id);
+  const { user, chapters } = await requireUserWithChapter(env, args.request);
+  const actor = { user, chapters };
+  const result = await getImageForActor(env, actor, id);
   if (!result.ok) {
     throw new Response(result.error === "not_found" ? "Not found" : "Forbidden", {
       status: result.error === "not_found" ? 404 : 403,
@@ -29,6 +38,13 @@ export async function loader(args: Route.LoaderArgs) {
   }
   const image = result.value;
   const appUrl = env.APP_URL.replace(/\/$/, "");
+
+  const foldersResult = await listFoldersForActor(env, actor, { chapterId: image.chapterId });
+  const foldersInChapter = foldersResult.ok
+    ? foldersResult.value.folders.map((f) => ({ id: f.id, name: f.name }))
+    : [];
+  const chapterSlugById = new Map(chapters.map((c) => [c.chapterId, c.chapterSlug]));
+
   return {
     user: { email: user.email, image: user.image, name: user.name },
     image: {
@@ -39,6 +55,8 @@ export async function loader(args: Route.LoaderArgs) {
       contentType: image.contentType,
       byteSize: image.byteSize,
       updatedAt: image.updatedAt,
+      chapterId: image.chapterId,
+      folderId: image.folderId,
       mobile: image.mobileR2Key
         ? {
             filename: image.mobileFilename,
@@ -49,13 +67,17 @@ export async function loader(args: Route.LoaderArgs) {
           }
         : null,
     },
+    chapters,
+    currentChapterSlug: chapterSlugById.get(image.chapterId) ?? `#${image.chapterId}`,
+    foldersInChapter,
     publicUrl: image.slug ? `${appUrl}/${image.slug}` : `${appUrl}/${image.id}`,
     idUrl: `${appUrl}/${image.id}`,
   };
 }
 
 export default function ImageDetail({ loaderData }: Route.ComponentProps) {
-  const { user, image, publicUrl, idUrl } = loaderData;
+  const { user, image, chapters, currentChapterSlug, foldersInChapter, publicUrl, idUrl } =
+    loaderData;
   const navigate = useNavigate();
   const replaceRef = useRef<HTMLInputElement>(null);
   const mobileRef = useRef<HTMLInputElement>(null);
@@ -67,6 +89,10 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
   const [slug, setSlug] = useState(image.slug ?? "");
   const [slugBusy, setSlugBusy] = useState(false);
   const [slugErr, setSlugErr] = useState<string | null>(null);
+  const [folderBusy, setFolderBusy] = useState(false);
+  const [folderErr, setFolderErr] = useState<string | null>(null);
+  const [chapterBusy, setChapterBusy] = useState(false);
+  const [chapterErr, setChapterErr] = useState<string | null>(null);
 
   useEffect(
     () => () => {
@@ -180,6 +206,47 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
     await submitSlug("");
   }
 
+  async function onFolderChange(value: string) {
+    setFolderBusy(true);
+    setFolderErr(null);
+    try {
+      const form = new FormData();
+      form.append("folderId", value === "none" ? "" : value);
+      const res = await fetch(`/api/move/${image.id}`, { method: "POST", body: form });
+      if (!res.ok) throw new Error((await res.text()) || "Could not move the image.");
+      navigate(".", { replace: true });
+    } catch (e) {
+      setFolderErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setFolderBusy(false);
+    }
+  }
+
+  async function onChapterChange(value: string) {
+    if (image.folderId !== null) {
+      if (
+        !confirm(
+          "Sharing with a different chapter will remove this image from its folder. Continue?",
+        )
+      ) {
+        return;
+      }
+    }
+    setChapterBusy(true);
+    setChapterErr(null);
+    try {
+      const form = new FormData();
+      form.append("chapterId", value);
+      const res = await fetch(`/api/share/${image.id}`, { method: "POST", body: form });
+      if (!res.ok) throw new Error((await res.text()) || "Could not update the chapter.");
+      navigate(".", { replace: true });
+    } catch (e) {
+      setChapterErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setChapterBusy(false);
+    }
+  }
+
   return (
     <PageShell user={user} size="md">
       <div className="flex flex-col gap-6">
@@ -282,6 +349,78 @@ export default function ImageDetail({ loaderData }: Route.ComponentProps) {
               </Button>
             ) : null}
           </CardContent>
+        </Card>
+
+        <Card
+          className="motion-stagger transition-shadow duration-300 hover:shadow-md"
+          style={{ "--motion-index": 4 } as React.CSSProperties}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FolderOpen className="size-4" /> Folder
+            </CardTitle>
+            <CardDescription>
+              Organize this image within its chapter. Folders are shared with everyone in the
+              chapter.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            <Select
+              value={image.folderId !== null ? String(image.folderId) : "none"}
+              onValueChange={onFolderChange}
+              disabled={folderBusy}
+            >
+              <SelectTrigger className="w-56">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No folder</SelectItem>
+                {foldersInChapter.map((folder) => (
+                  <SelectItem key={folder.id} value={String(folder.id)}>
+                    {folder.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {folderErr ? <p className="text-sm text-destructive">{folderErr}</p> : null}
+          </CardContent>
+        </Card>
+
+        <Card
+          className="motion-stagger transition-shadow duration-300 hover:shadow-md"
+          style={{ "--motion-index": 5 } as React.CSSProperties}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="size-4" /> Chapter
+            </CardTitle>
+            <CardDescription>
+              {chapters.length > 1
+                ? "Members of the selected chapter can view, replace, and delete this image."
+                : `Members of ${currentChapterSlug} can view, replace, and delete this image.`}
+            </CardDescription>
+          </CardHeader>
+          {chapters.length > 1 ? (
+            <CardContent className="flex flex-col gap-2">
+              <Select
+                value={String(image.chapterId)}
+                onValueChange={onChapterChange}
+                disabled={chapterBusy}
+              >
+                <SelectTrigger className="w-56">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {chapters.map((chapter) => (
+                    <SelectItem key={chapter.chapterId} value={String(chapter.chapterId)}>
+                      {chapter.chapterSlug}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {chapterErr ? <p className="text-sm text-destructive">{chapterErr}</p> : null}
+            </CardContent>
+          ) : null}
         </Card>
 
         <Card

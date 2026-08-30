@@ -2,7 +2,9 @@
 
 Image hosting for GDG Japan, deployed at `img.gdgs.jp`. Authenticated chapter members upload
 originals; `img.gdgs.jp/<id>` serves them publicly with on-the-fly resize/format transforms, no
-auth required on the GET path.
+auth required on the GET path. Every image is shared with the chapter it was uploaded to — any
+member of that chapter can view, replace, move, or delete it — and can optionally sit in a flat
+(non-hierarchical), chapter-owned folder.
 
 ## Tech stack
 
@@ -30,28 +32,44 @@ app/
     $id.tsx              # public GET, no auth, serves/transforms from R2 via IMAGES
     api.upload.ts         # authenticated upload
     api.internal-upload.ts
-    api.replace.$id.ts    # owner/admin only, reuses r2_key so the public URL is stable
-    api.delete.$id.ts     # owner/admin only
+    api.replace.$id.ts    # canAccessImage (owner/chapter member/admin), reuses r2_key
+    api.delete.$id.ts     # canAccessImage
     api.mobile.$id.ts     # mobile image variant
+    api.slug.$id.ts       # custom public-URL slug
+    api.move.$id.ts       # assign/clear an image's folder
+    api.share.$id.ts      # re-attribute an image to a different chapter
+    api.folders.ts        # list/create folders (dashboard session)
+    api.folders.$id.ts    # rename/delete a folder (dashboard session)
+    api.cli.v1.images*.ts       # bearer-token CLI image API
+    api.cli.v1.folders*.ts      # bearer-token CLI folder API
     api.auth.$.ts          # /api/auth/* — delegates to gdg-lib's RP auth instance
     auth.signout.ts
     signin.tsx
     no-chapter.tsx
-    home.tsx              # authenticated gallery
+    home.tsx              # authenticated gallery, folder-filterable
     i.$id.tsx             # detail page
+  features/
+    images/
+      repository.ts          # D1 access for the images table
+      service.ts              # *ForActor entry points, upload flow (R2 first, D1 second, rollback on error)
+      policy.ts                 # canAccessImage — owner OR chapter member OR super admin
+      storage.ts                  # putOriginal / deleteOriginal
+      slug.ts, id.ts                # slug validation + RESERVED_SLUGS, image id generation/validation
+    folders/
+      repository.ts          # D1 access for the folders table
+      service.ts               # *ForActor entry points
+      policy.ts                  # canAccessFolder — any member of the folder's chapter
+      name.ts                      # folder name validation
   lib/
     auth.server.ts         # caches one RpAuthInstance per env
     auth-redirect.ts        # requireUserWithChapter — the standard route gate
-    chapter.server.ts        # chapter membership via /userinfo, in-memory cached 30s/user
-    id.ts                   # 8-char nanoid image ids + validation
-    images.ts                # D1 access for the images table
-    r2.ts                     # putOriginal / deleteOriginal
+    chapter.server.ts        # chapter memberships via /userinfo, in-memory cached 30s/user
     img-url.ts                 # transform query param parsing/building (w, h, fit, q, f, variant)
-    upload.ts                   # upload flow: R2 first, D1 insert second, rollback R2 on D1 error
+    image-errors.server.ts, cli-errors.server.ts, folder-errors.server.ts  # error → HTTP mapping
     device.ts                    # mobile-variant negotiation from request headers
 migrations/                # D1 migrations — edit these, not schema.sql
 workers/app.ts              # Worker entrypoint
-openapi/                     # OpenAPI contract for the upload/delete/replace/public-image API
+openapi/                     # OpenAPI contract for the image/folder/public-image API
 ```
 
 ## Image flow
@@ -59,10 +77,10 @@ openapi/                     # OpenAPI contract for the upload/delete/replace/pu
 - IDs are 8-char nanoids from `[0-9A-Za-z]`, generated with collision retry
   (`generateUniqueImageId`). Inbound `:id` params are validated with `isValidImageId` before any
   D1/R2 access.
-- Upload (`api.upload.ts`, `lib/upload.ts`): write to R2 first, then insert the D1 row. If the D1
-  insert fails, the R2 object is best-effort deleted via `ctx.waitUntil`. This ordering is
-  load-bearing — an orphaned R2 object is recoverable, an orphaned D1 row pointing at nothing is
-  not.
+- Upload (`api.upload.ts`, `features/images/service.ts`): write to R2 first, then insert the D1
+  row. If the D1 insert fails, the R2 object is best-effort deleted via `ctx.waitUntil`. This
+  ordering is load-bearing — an orphaned R2 object is recoverable, an orphaned D1 row pointing at
+  nothing is not.
 - Public GET (`routes/$id.tsx`): no auth. Honors `If-None-Match` (etag encodes id, variant, and
   `updated_at`). With no transform params it streams the R2 object directly; otherwise it pipes
   the R2 stream through `env.IMAGES`. Response is `Cache-Control: public, max-age=300,
@@ -71,9 +89,15 @@ openapi/                     # OpenAPI contract for the upload/delete/replace/pu
   CF-Device-Type, User-Agent`) when the image has one.
 - Transform params (`lib/img-url.ts`): `w`/`h` (1–4096), `fit` (`scale-down` | `contain` | `cover`
   | `crop` | `pad`), `q` (1–100), `f` (`auto` | `avif` | `webp` | `jpeg` | `png`), `variant=mobile`.
-- Mutations (`api.replace.$id.ts`, `api.delete.$id.ts`) are gated by `canMutateImage` — the
-  owner, or a super admin per `gdg-lib`'s `isSuperAdmin`. Replace reuses the existing `r2_key` so
-  the public URL never changes; callers cache-bust with `?v=<updatedAt>`.
+- Mutations (`api.replace.$id.ts`, `api.delete.$id.ts`, `api.move.$id.ts`, `api.share.$id.ts`, …)
+  are gated by `canAccessImage` (`features/images/policy.ts`) — the owner, a super admin per
+  `gdg-lib`'s `isSuperAdmin`, or any member of the image's chapter. There is no separate
+  editor/viewer split: any chapter member can also replace or delete. Replace reuses the existing
+  `r2_key` so the public URL never changes; callers cache-bust with `?v=<updatedAt>`.
+- Folders (`features/folders/`) are flat and chapter-owned; an image can only sit in a folder that
+  belongs to its own chapter. Re-sharing an image to a different chapter (`api.share.$id.ts`)
+  clears its folder as a side effect. Folder/slug-only updates deliberately don't bump
+  `images.updated_at`, so they don't invalidate the public ETag.
 - Max upload size is 10 MiB (`MAX_IMAGE_UPLOAD_BYTES` from `@gdgjp/gdg-lib`); content type must
   start with `image/`.
 - Post-SSO-migration there is no `account` table — `user.id` is the stable internal UUID and new
@@ -129,11 +153,16 @@ listed last so explicit routes (`signin`, `no-chapter`, `i/:id`, `api/*`, `auth/
 
 ## API contract
 
-`openapi/openapi.yaml` (with `paths/` and `components/`) documents the public image GET and the
-authenticated upload/replace/delete/mobile endpoints.
+`openapi/openapi.yaml` (with `paths/` and `components/`) documents the public image GET, the
+cookie-session dashboard endpoints, and the bearer-token `api/cli/v1/*` image and folder API.
 
 ```sh
 pnpm --filter @gdgjp/img openapi:lint
 pnpm --filter @gdgjp/img openapi:bundle
 pnpm --filter @gdgjp/img openapi:generate  # bundle + generate openapi/types.generated.ts
 ```
+
+The Go CLI client (`cli/internal/img/`) is generated from the bundled spec — after any `openapi/`
+change, also run `(cd cli/internal/img && go generate ./...)` to refresh
+`openapigen/openapi.gen.go`, and update `client.go`/`internal/command/img.go` for any new/changed
+operation.

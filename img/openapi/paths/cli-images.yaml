@@ -5,6 +5,10 @@ get:
     - name: chapterId
       in: query
       schema: { type: integer }
+    - name: folderId
+      in: query
+      description: A folder id to filter by, or the literal "unfiled" for images with no folder.
+      schema: { type: string }
     - name: limit
       in: query
       schema: { type: integer, minimum: 1, maximum: 100, default: 50 }

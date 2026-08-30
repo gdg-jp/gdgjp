@@ -3,6 +3,7 @@ export type ImageRow = {
   userId: string;
   accountId: string;
   chapterId: number;
+  folderId: number | null;
   slug: string | null;
   r2Key: string;
   contentType: string;
@@ -24,6 +25,7 @@ type ImageDbRow = {
   user_id: string;
   account_id: string;
   chapter_id: number;
+  folder_id: number | null;
   slug: string | null;
   r2_key: string;
   content_type: string;
@@ -46,6 +48,7 @@ function toImageRow(row: ImageDbRow): ImageRow {
     userId: row.user_id,
     accountId: row.account_id,
     chapterId: row.chapter_id,
+    folderId: row.folder_id,
     slug: row.slug,
     r2Key: row.r2_key,
     contentType: row.content_type,
@@ -64,7 +67,7 @@ function toImageRow(row: ImageDbRow): ImageRow {
 }
 
 const SELECT_COLS =
-  "id, user_id, account_id, chapter_id, slug, r2_key, content_type, byte_size, width, height, filename, mobile_r2_key, mobile_content_type, mobile_byte_size, mobile_filename, mobile_updated_at, created_at, updated_at";
+  "id, user_id, account_id, chapter_id, folder_id, slug, r2_key, content_type, byte_size, width, height, filename, mobile_r2_key, mobile_content_type, mobile_byte_size, mobile_filename, mobile_updated_at, created_at, updated_at";
 
 export async function getImage(db: D1Database, id: string): Promise<ImageRow | null> {
   const row = await db
@@ -84,8 +87,13 @@ export async function getImageBySlug(db: D1Database, slug: string): Promise<Imag
 
 export type ImageListCursor = { createdAt: number; id: string };
 
+export type ImageViewer = { userId: string; chapterIds: number[] };
+
 export type ListImagesOptions = {
+  /** Narrows to one explicit chapter (still subject to the viewer's access). */
   chapterId?: number;
+  /** number = only that folder; null = only unfiled images; undefined = no folder filter. */
+  folderId?: number | null;
   limit?: number;
   cursor?: ImageListCursor | null;
 };
@@ -111,19 +119,33 @@ export function parseImageListCursor(cursor: string): ImageListCursor | undefine
   }
 }
 
-export async function listImagesByUser(
+/**
+ * Lists images the viewer can see: their own uploads, plus anything shared to
+ * one of their chapters. Superadmin does NOT bypass this — a superadmin still
+ * only browses their own + their chapters' images here; canAccessImage is the
+ * per-image bypass used once an id is already known (e.g. /i/:id).
+ */
+export async function listVisibleImages(
   db: D1Database,
-  userId: string,
+  viewer: ImageViewer,
   options: ListImagesOptions = {},
 ): Promise<ListImagesResult> {
   const limit = options.limit ?? 60;
   const cursor = options.cursor ?? null;
 
-  const conditions = ["user_id = ?"];
-  const params: unknown[] = [userId];
+  const conditions = ["(user_id = ? OR chapter_id IN (SELECT value FROM json_each(?)))"];
+  const params: unknown[] = [viewer.userId, JSON.stringify(viewer.chapterIds)];
   if (options.chapterId !== undefined) {
     conditions.push("chapter_id = ?");
     params.push(options.chapterId);
+  }
+  if (options.folderId !== undefined) {
+    if (options.folderId === null) {
+      conditions.push("folder_id IS NULL");
+    } else {
+      conditions.push("folder_id = ?");
+      params.push(options.folderId);
+    }
   }
   if (cursor) {
     conditions.push("(created_at < ? OR (created_at = ? AND id < ?))");
@@ -227,6 +249,83 @@ export async function setImageSlug(
     const row = await db
       .prepare(`UPDATE images SET slug = ? WHERE id = ? RETURNING ${SELECT_COLS}`)
       .bind(slug, id)
+      .first<ImageDbRow>();
+    if (!row) return { ok: false, reason: "not_found" };
+    return { ok: true, image: toImageRow(row) };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("UNIQUE")) return { ok: false, reason: "slug_taken" };
+    throw err;
+  }
+}
+
+/**
+ * Assigns (or clears, folderId === null) an image's folder. Like setImageSlug,
+ * does NOT bump updated_at — the public ETag should not change because of
+ * where an image is filed.
+ */
+export async function setImageFolder(
+  db: D1Database,
+  id: string,
+  folderId: number | null,
+): Promise<ImageRow> {
+  const row = await db
+    .prepare(`UPDATE images SET folder_id = ? WHERE id = ? RETURNING ${SELECT_COLS}`)
+    .bind(folderId, id)
+    .first<ImageDbRow>();
+  if (!row) throw new Error(`image not found: ${id}`);
+  return toImageRow(row);
+}
+
+/**
+ * Re-attributes an image to a different chapter, clearing its folder in the
+ * same statement — a folder belongs to exactly one chapter, so an image
+ * moved to a new chapter cannot stay in its old chapter's folder. Does NOT
+ * bump updated_at, matching setImageSlug/setImageFolder.
+ */
+export async function setImageChapter(
+  db: D1Database,
+  id: string,
+  chapterId: number,
+): Promise<ImageRow> {
+  const row = await db
+    .prepare(
+      `UPDATE images SET chapter_id = ?, folder_id = NULL WHERE id = ? RETURNING ${SELECT_COLS}`,
+    )
+    .bind(chapterId, id)
+    .first<ImageDbRow>();
+  if (!row) throw new Error(`image not found: ${id}`);
+  return toImageRow(row);
+}
+
+export type UpdateImageAttributesPatch = {
+  chapterId: number;
+  folderId: number | null;
+  slug: string | null;
+};
+
+export type UpdateImageAttributesResult =
+  | { ok: true; image: ImageRow }
+  | { ok: false; reason: "not_found" | "slug_taken" };
+
+/**
+ * Sets chapter_id, folder_id, and slug together in a single UPDATE statement
+ * so the three can never partially commit — see updateImageForActor, which
+ * validates every field (including cross-field constraints like the folder
+ * belonging to the target chapter) before calling this. Like
+ * setImageSlug/setImageFolder/setImageChapter, does NOT bump updated_at.
+ */
+export async function updateImageAttributes(
+  db: D1Database,
+  id: string,
+  patch: UpdateImageAttributesPatch,
+): Promise<UpdateImageAttributesResult> {
+  try {
+    const row = await db
+      .prepare(
+        `UPDATE images SET chapter_id = ?, folder_id = ?, slug = ? WHERE id = ? RETURNING ${SELECT_COLS}`,
+      )
+      .bind(patch.chapterId, patch.folderId, patch.slug, id)
       .first<ImageDbRow>();
     if (!row) return { ok: false, reason: "not_found" };
     return { ok: true, image: toImageRow(row) };

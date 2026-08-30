@@ -26,6 +26,10 @@ paths:
     $ref: ./paths/cli-image.yaml
   /api/cli/v1/images/{id}/mobile:
     $ref: ./paths/cli-image-mobile.yaml
+  /api/cli/v1/folders:
+    $ref: ./paths/cli-folders.yaml
+  /api/cli/v1/folders/{id}:
+    $ref: ./paths/cli-folder.yaml
 components:
   schemas:
     $ref: ./components/schemas/index.yaml

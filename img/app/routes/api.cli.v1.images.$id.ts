@@ -1,10 +1,11 @@
 import { isValidImageId } from "~/features/images/id";
 import {
+  type UpdateImagePatch,
   deleteImageForActor,
   getImageForActor,
   imageUrl,
   replaceImageForActor,
-  setImageSlugForActor,
+  updateImageForActor,
 } from "~/features/images/service";
 import { requireCliActor } from "~/lib/cli-auth.server";
 import { imageServiceErrorResponse } from "~/lib/cli-errors.server";
@@ -58,17 +59,39 @@ export async function action(args: Route.ActionArgs) {
   }
 
   if (args.request.method === "PATCH") {
-    const payload = (await args.request.json().catch(() => null)) as { slug?: unknown } | null;
-    if (!payload || !("slug" in payload)) {
+    const payload = (await args.request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!payload || typeof payload !== "object") {
       return Response.json({ error: "invalid_request" }, { status: 400 });
     }
-    const slug =
-      payload.slug === null || typeof payload.slug === "string"
-        ? (payload.slug as string | null)
-        : undefined;
-    if (slug === undefined) return Response.json({ error: "invalid_request" }, { status: 400 });
 
-    const result = await setImageSlugForActor(env, auth.actor, id, slug);
+    // Collect every provided field into one patch object before touching the
+    // service layer, so validation of later fields (below, and inside
+    // updateImageForActor) can never run after an earlier field has already
+    // been written — the whole patch is applied atomically or not at all.
+    const patch: UpdateImagePatch = {};
+    if ("chapterId" in payload) {
+      if (typeof payload.chapterId !== "number" || !Number.isInteger(payload.chapterId)) {
+        return Response.json({ error: "invalid_request" }, { status: 400 });
+      }
+      patch.chapterId = payload.chapterId;
+    }
+    if ("folderId" in payload) {
+      if (payload.folderId !== null && typeof payload.folderId !== "number") {
+        return Response.json({ error: "invalid_request" }, { status: 400 });
+      }
+      patch.folderId = payload.folderId as number | null;
+    }
+    if ("slug" in payload) {
+      if (payload.slug !== null && typeof payload.slug !== "string") {
+        return Response.json({ error: "invalid_request" }, { status: 400 });
+      }
+      patch.slug = payload.slug as string | null;
+    }
+    if (Object.keys(patch).length === 0) {
+      return Response.json({ error: "invalid_request" }, { status: 400 });
+    }
+
+    const result = await updateImageForActor(env, auth.actor, id, patch);
     if (!result.ok) return imageServiceErrorResponse(result.error);
 
     const body: components["schemas"]["CliImageResponse"] = { image: result.value };

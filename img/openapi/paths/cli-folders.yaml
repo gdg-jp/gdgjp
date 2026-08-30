@@ -1,0 +1,40 @@
+get:
+  operationId: listCliFolders
+  summary: List the caller's folders, optionally narrowed to one chapter
+  security: [{ BearerAuth: [] }]
+  parameters:
+    - name: chapterId
+      in: query
+      schema: { type: integer }
+    - name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 100 }
+    - name: cursor
+      in: query
+      schema: { type: string }
+  responses:
+    '200': { description: The caller's folders, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/FolderList } } } }
+    '400': { $ref: ../components/responses/index.yaml#/CliBadRequest }
+    '401': { $ref: ../components/responses/index.yaml#/CliUnauthorized }
+post:
+  operationId: createCliFolder
+  summary: Create a folder in one of the caller's chapters
+  security: [{ BearerAuth: [] }]
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [name]
+          properties:
+            name: { type: string, minLength: 1, maxLength: 48 }
+            chapterId:
+              type: integer
+              description: Required when the caller has more than one chapter membership.
+  responses:
+    '201': { description: Created folder, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/FolderResponse } } } }
+    '400': { $ref: ../components/responses/index.yaml#/CliBadRequest }
+    '401': { $ref: ../components/responses/index.yaml#/CliUnauthorized }
+    '403': { $ref: ../components/responses/index.yaml#/CliForbidden }
+    '409': { $ref: ../components/responses/index.yaml#/CliConflict }

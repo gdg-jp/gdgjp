@@ -13,12 +13,12 @@ export async function action(args: Route.ActionArgs) {
   if (!isValidImageId(id)) return new Response("Not found", { status: 404 });
 
   const env = args.context.cloudflare.env;
-  const { user, chapter } = await requireUserWithChapter(env, args.request);
+  const { user, chapters } = await requireUserWithChapter(env, args.request);
 
   const result = await deleteImageForActor(
     env,
     args.context.cloudflare.ctx,
-    { user, chapters: [chapter] },
+    { user, chapters },
     id,
   );
   if (!result.ok) return dashboardImageErrorResponse(result.error);

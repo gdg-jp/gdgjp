@@ -22,8 +22,8 @@ put:
     '403': { $ref: ../components/responses/index.yaml#/CliForbidden }
     '404': { $ref: ../components/responses/index.yaml#/CliNotFound }
 patch:
-  operationId: updateCliImageSlug
-  summary: Set or clear an image's custom slug
+  operationId: updateCliImage
+  summary: Update an image's slug, folder, and/or chapter (any subset of the three)
   security: [{ BearerAuth: [] }]
   parameters: [{ $ref: ../components/parameters/index.yaml#/ImageIdPath }]
   requestBody:
@@ -32,15 +32,22 @@ patch:
       application/json:
         schema:
           type: object
-          required: [slug]
+          minProperties: 1
           properties:
             slug:
               type: string
               nullable: true
               maxLength: 64
               description: New slug, or null / empty string to clear it.
+            folderId:
+              type: integer
+              nullable: true
+              description: Folder to file the image into, or null to unfile it. Must belong to the image's chapter.
+            chapterId:
+              type: integer
+              description: Chapter to re-share the image with. Clears folderId as a side effect.
   responses:
-    '200': { description: Slug updated, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/CliImageResponse } } } }
+    '200': { description: Image updated, content: { application/json: { schema: { $ref: ../components/schemas/index.yaml#/CliImageResponse } } } }
     '400': { $ref: ../components/responses/index.yaml#/CliBadRequest }
     '409': { $ref: ../components/responses/index.yaml#/CliConflict }
     '401': { $ref: ../components/responses/index.yaml#/CliUnauthorized }
