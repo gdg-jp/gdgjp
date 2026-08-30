@@ -6,6 +6,12 @@ import type { SourceVariant } from "./variant";
 
 type DeliveryCache = Pick<Cache, "match" | "put">;
 
+// Cloudflare Images supports raster overlay inputs. This transparent PNG is an
+// opaque quarter-circle exterior; with `xor`, it removes one image corner.
+// Keeping it in source avoids another public asset or an R2 read per request.
+const CORNER_MASK_PNG =
+  "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";
+
 export async function deliverImage(input: {
   env: Env;
   ctx: ExecutionContext;
@@ -138,33 +144,39 @@ function toImageTransform(transform: {
 }
 
 function drawRoundedCorners(images: ImagesBinding, image: ImageTransformer, radius: number) {
-  const mask = cornerMask(radius);
+  const mask = cornerMask();
   const [firstPair, topRight] = mask.tee();
   const [secondPair, bottomLeft] = firstPair.tee();
   const [topLeft, bottomRight] = secondPair.tee();
 
   return image
-    .draw(images.input(topLeft), { left: 0, top: 0, composite: "xor" })
-    .draw(images.input(topRight).transform({ rotate: 90 }), {
+    .draw(images.input(topLeft).transform({ width: radius }), {
+      left: 0,
+      top: 0,
+      composite: "xor",
+    })
+    .draw(images.input(topRight).transform({ width: radius, rotate: 90 }), {
       right: 0,
       top: 0,
       composite: "xor",
     })
-    .draw(images.input(bottomRight).transform({ rotate: 180 }), {
+    .draw(images.input(bottomRight).transform({ width: radius, rotate: 180 }), {
       bottom: 0,
       right: 0,
       composite: "xor",
     })
-    .draw(images.input(bottomLeft).transform({ rotate: 270 }), {
+    .draw(images.input(bottomLeft).transform({ width: radius, rotate: 270 }), {
       bottom: 0,
       left: 0,
       composite: "xor",
     });
 }
 
-function cornerMask(radius: number): ReadableStream<Uint8Array> {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${radius}" height="${radius}" viewBox="0 0 ${radius} ${radius}"><path d="M0 0H${radius}A${radius} ${radius} 0 0 0 0 ${radius}Z"/></svg>`;
-  return new Blob([svg], { type: "image/svg+xml" }).stream();
+function cornerMask(): ReadableStream<Uint8Array> {
+  const binary = atob(CORNER_MASK_PNG);
+  return new Blob([Uint8Array.from(binary, (char) => char.charCodeAt(0))], {
+    type: "image/png",
+  }).stream();
 }
 
 function safeCornerRadius(

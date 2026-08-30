@@ -137,6 +137,14 @@ describe("deliverImage", () => {
     await run(h, delivery({ w: 1600, radius: 24 }));
     const baseTransformer = h.input.mock.results[0]?.value;
     expect(baseTransformer.draw).toHaveBeenCalledTimes(4);
+    expect(h.input).toHaveBeenCalledTimes(5);
+    const maskInput = h.input.mock.calls.at(1) as unknown as
+      | [ReadableStream<Uint8Array>]
+      | undefined;
+    if (!maskInput) throw new Error("Expected the first corner mask input");
+    expect(
+      Array.from(new Uint8Array(await new Response(maskInput[0]).arrayBuffer()).slice(0, 8)),
+    ).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
   });
 
   it("inspects an unknown source before rounding its corners", async () => {
