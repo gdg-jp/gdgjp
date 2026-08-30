@@ -52,10 +52,11 @@ describe("prepareMarkdownTranslation", () => {
       "<div>",
       "本文です",
       "</div>",
+      "本文です<!-- 固定コメント -->本文です",
     ].join("\n");
     const prepared = prepareMarkdownTranslation(source);
     const result = prepared.render(
-      prepared.segments.map((segment) => deterministicTranslation(segment.maskedText)),
+      prepared.segments.map((segment) => deterministicTranslation(segment.text)),
     );
 
     expect(result).toContain("title: 日本語のまま");
@@ -67,13 +68,24 @@ describe("prepareMarkdownTranslation", () => {
     expect(result).toContain('<acl src="source-1">Body text</acl>');
     expect(result).toContain('const message = "日本語のコード";');
     expect(result).toContain("<div>\nBody text\n</div>");
+    expect(result).toContain("Body text<!-- 固定コメント -->Body text");
   });
 
-  it("rejects a translation that changes a protected marker", () => {
-    const prepared = prepareMarkdownTranslation("[公式サイト](https://example.com)");
-    expect(() => prepared.render(["official website ZXQPH999QXZ"])).toThrow(
-      /protected Markdown marker|unexpected Markdown marker/,
+  it("never exposes Markdown syntax to the translator", async () => {
+    const translator = vi.fn(async (text: string) => deterministicTranslation(text));
+    await translatePage(
+      {
+        titleJa: "イベントレポート",
+        summaryJa: "短い概要",
+        contentJa:
+          '# セットアップ\n\n[公式サイト](https://example.com) と `コード` と <acl src="s">本文です</acl>',
+      },
+      { modelId: "test-model", translator },
     );
+
+    for (const [text] of translator.mock.calls) {
+      expect(text).not.toMatch(/https?:\/\/|<\/?acl|`|\]\(|^#\s/u);
+    }
   });
 });
 

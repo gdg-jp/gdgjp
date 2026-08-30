@@ -157,9 +157,9 @@ describe("daily translation queue", () => {
   it("returns an already queued job to pending when the kill switch changes", async () => {
     insertPage();
     await enqueuePendingTranslations(env);
-    env.AUTO_TRANSLATE = "false";
+    const disabledEnv = { ...env, AUTO_TRANSLATE: "false" } as unknown as Env;
 
-    await processTranslationMessage(env, { pageId: "p1" });
+    await processTranslationMessage(disabledEnv, { pageId: "p1" });
 
     expect(
       sqlite.prepare("SELECT status FROM translation_jobs WHERE page_id = 'p1'").get(),

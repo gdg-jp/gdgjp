@@ -24,20 +24,20 @@ export interface TranslationSegmentStore {
 
 export type TranslationSegmentTranslator = (text: string, cacheKey: string) => Promise<string>;
 
-interface ProtectedSegment {
+interface TranslationSegment {
   cacheSource: string;
-  maskedText: string;
-  restore(translatedText: string): string;
+  text: string;
 }
 
 interface PreparedText {
-  segments: ProtectedSegment[];
+  segments: TranslationSegment[];
   render(translations: string[]): string;
 }
 
+type RenderPart = { literal: string } | { segmentIndex: number };
+
 const JAPANESE_TEXT = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/u;
-const PLACEHOLDER_PATTERN = /ZXQPH\d+QXZ/g;
-const FORMAT_VERSION = "2026-08-30.markdown.v1";
+const FORMAT_VERSION = "2026-08-30.markdown.v2";
 const TRANSLATION_PROMPT_VERSION = FORMAT_VERSION;
 
 function sha256(value: string): Promise<string> {
@@ -48,29 +48,23 @@ function sha256(value: string): Promise<string> {
     );
 }
 
-function countOccurrences(value: string, search: string): number {
-  let count = 0;
-  let offset = 0;
-  let found = value.indexOf(search, offset);
-  while (found !== -1) {
-    count += 1;
-    offset = found + search.length;
-    found = value.indexOf(search, offset);
-  }
-  return count;
-}
-
-function protectLinkDestinations(
-  value: string,
-  protect: (protectedValue: string) => string,
-): string {
-  let output = "";
-  let cursor = 0;
-  while (cursor < value.length) {
-    const start = value.indexOf("](", cursor);
-    if (start === -1) return output + value.slice(cursor);
+function linkEnd(value: string, start: number): { labelEnd: number; linkEnd: number } | undefined {
+  const labelStart = value.startsWith("![", start) ? start + 2 : start + 1;
+  let bracketDepth = 0;
+  for (let labelEnd = labelStart; labelEnd < value.length; labelEnd += 1) {
+    if (value[labelEnd] === "\\") {
+      labelEnd += 1;
+      continue;
+    }
+    if (value[labelEnd] === "[") bracketDepth += 1;
+    if (value[labelEnd] !== "]") continue;
+    if (bracketDepth > 0) {
+      bracketDepth -= 1;
+      continue;
+    }
+    if (value[labelEnd + 1] !== "(") return undefined;
     let depth = 1;
-    let end = start + 2;
+    let end = labelEnd + 2;
     for (; end < value.length; end += 1) {
       if (value[end] === "\\") {
         end += 1;
@@ -81,78 +75,133 @@ function protectLinkDestinations(
         depth -= 1;
         if (depth === 0) {
           end += 1;
-          break;
+          return { labelEnd, linkEnd: end };
         }
       }
     }
-    if (depth !== 0) return output + value.slice(cursor);
-    output += value.slice(cursor, start) + protect(value.slice(start, end));
-    cursor = end;
   }
-  return output;
+  return undefined;
 }
 
-/** Protects non-prose Markdown tokens while leaving labels and visible prose translatable. */
-function protectMarkdownLine(line: string): ProtectedSegment | undefined {
-  if (!JAPANESE_TEXT.test(line)) return undefined;
-
-  const protectedValues: string[] = [];
-  const protect = (value: string): string => {
-    const marker = `ZXQPH${protectedValues.length}QXZ`;
-    protectedValues.push(value);
-    return marker;
+function tokenizeInline(value: string, segments: TranslationSegment[]): RenderPart[] {
+  const parts: RenderPart[] = [];
+  const literal = (text: string) => {
+    if (!text) return;
+    const previous = parts.at(-1);
+    if (previous && "literal" in previous) previous.literal += text;
+    else parts.push({ literal: text });
+  };
+  const text = (source: string) => {
+    if (!source) return;
+    if (!JAPANESE_TEXT.test(source)) {
+      literal(source);
+      return;
+    }
+    parts.push({ segmentIndex: segments.length });
+    segments.push({ cacheSource: source, text: source });
   };
 
+  let cursor = 0;
+  let proseStart = 0;
+  const flushProse = () => {
+    text(value.slice(proseStart, cursor));
+  };
+
+  while (cursor < value.length) {
+    if (value[cursor] === "`") {
+      const delimiter = /^`+/u.exec(value.slice(cursor))?.[0] ?? "`";
+      const end = value.indexOf(delimiter, cursor + delimiter.length);
+      if (end !== -1) {
+        flushProse();
+        const tokenEnd = end + delimiter.length;
+        literal(value.slice(cursor, tokenEnd));
+        cursor = tokenEnd;
+        proseStart = cursor;
+        continue;
+      }
+    }
+    if (value.startsWith("<!--", cursor)) {
+      const commentStart = cursor;
+      const end = value.indexOf("-->", cursor + 4);
+      if (end !== -1) {
+        flushProse();
+        cursor = end + 3;
+        literal(value.slice(commentStart, cursor));
+        proseStart = cursor;
+        continue;
+      }
+    }
+    if (value[cursor] === "<") {
+      const tag = /^<\/?[A-Za-z][^>]*>/u.exec(value.slice(cursor))?.[0];
+      if (tag) {
+        flushProse();
+        literal(tag);
+        cursor += tag.length;
+        proseStart = cursor;
+        continue;
+      }
+    }
+    if (value[cursor] === "[" || value.startsWith("![", cursor)) {
+      const match = linkEnd(value, cursor);
+      if (match) {
+        flushProse();
+        const openerLength = value.startsWith("![", cursor) ? 2 : 1;
+        literal(value.slice(cursor, cursor + openerLength));
+        parts.push(...tokenizeInline(value.slice(cursor + openerLength, match.labelEnd), segments));
+        literal(value.slice(match.labelEnd, match.linkEnd));
+        cursor = match.linkEnd;
+        proseStart = cursor;
+        continue;
+      }
+    }
+    if (value.startsWith("https://", cursor) || value.startsWith("http://", cursor)) {
+      flushProse();
+      const match = /^https?:\/\/[^\s<]+/u.exec(value.slice(cursor))?.[0] ?? "";
+      literal(match);
+      cursor += match.length;
+      proseStart = cursor;
+      continue;
+    }
+    if (value[cursor] === "\\") {
+      flushProse();
+      literal(value.slice(cursor, cursor + 2));
+      cursor += 2;
+      proseStart = cursor;
+      continue;
+    }
+    if ("*_~|[]".includes(value[cursor])) {
+      flushProse();
+      const marker = /^[*_~|\[\]]+/u.exec(value.slice(cursor))?.[0] ?? value[cursor];
+      literal(marker);
+      cursor += marker.length;
+      proseStart = cursor;
+      continue;
+    }
+    cursor += 1;
+  }
+  flushProse();
+  return parts;
+}
+
+/** Keeps Markdown syntax local and exposes only visible plain text to the translator. */
+function prepareMarkdownLine(
+  line: string,
+  segments: TranslationSegment[],
+): RenderPart[] | undefined {
+  if (!JAPANESE_TEXT.test(line)) return undefined;
   const prefixMatch = /^(\s{0,3}(?:#{1,6}\s+|>\s*|[-+*]\s+|\d+[.)]\s+))/u.exec(line);
   const prefix = prefixMatch?.[1] ?? "";
-  let prose = line.slice(prefix.length);
-
-  // Order matters: protect large opaque constructs before their punctuation.
-  prose = prose.replace(/`+[^`\n]*?`+/g, protect);
-  prose = prose.replace(/<\/?acl\b[^>]*>/gi, protect);
-  prose = prose.replace(/<!--[\s\S]*?-->/g, protect);
-  prose = prose.replace(/<\/?[A-Za-z][^>]*>/g, protect);
-  prose = protectLinkDestinations(prose, protect);
-  prose = prose.replace(/https?:\/\/[^\s<]+/g, protect);
-  prose = prose.replace(/!\[|\[|\]|[*_~]{1,3}|\\./g, protect);
-  prose = prose.replace(/\|/g, protect);
-
-  if (!JAPANESE_TEXT.test(prose)) return undefined;
-  const expectedMarkers = prose.match(PLACEHOLDER_PATTERN) ?? [];
-
-  return {
-    cacheSource: `${prefix}\n${prose}`,
-    maskedText: prose,
-    restore(translatedText: string): string {
-      let previousMarkerOffset = -1;
-      for (const marker of expectedMarkers) {
-        if (countOccurrences(translatedText, marker) !== 1) {
-          throw new Error(`Translation changed protected Markdown marker ${marker}.`);
-        }
-        const markerOffset = translatedText.indexOf(marker);
-        if (markerOffset <= previousMarkerOffset) {
-          throw new Error("Translation reordered protected Markdown markers.");
-        }
-        previousMarkerOffset = markerOffset;
-      }
-      const unexpected = translatedText.match(PLACEHOLDER_PATTERN) ?? [];
-      if (unexpected.length !== expectedMarkers.length) {
-        throw new Error("Translation introduced an unexpected Markdown marker.");
-      }
-      let restored = translatedText;
-      for (let index = 0; index < protectedValues.length; index += 1) {
-        restored = restored.replace(`ZXQPH${index}QXZ`, protectedValues[index]);
-      }
-      return `${prefix}${restored}`;
-    },
-  };
+  const parts: RenderPart[] = [];
+  if (prefix) parts.push({ literal: prefix });
+  parts.push(...tokenizeInline(line.slice(prefix.length), segments));
+  return parts.some((part) => "segmentIndex" in part) ? parts : undefined;
 }
 
 export function prepareMarkdownTranslation(markdown: string): PreparedText {
   const canonical = canonicalMarkdown(markdown);
   const lines = canonical.split("\n");
-  const segmentByLine = new Map<number, number>();
-  const segments: ProtectedSegment[] = [];
+  const partsByLine = new Map<number, RenderPart[]>();
+  const segments: TranslationSegment[] = [];
   let fence: "```" | "~~~" | undefined;
   let frontMatter = lines[0]?.trim() === "---";
 
@@ -171,10 +220,8 @@ export function prepareMarkdownTranslation(markdown: string): PreparedText {
     }
     if (fence || /^\s*<[^>]+>\s*$/u.test(line)) continue;
 
-    const segment = protectMarkdownLine(line);
-    if (!segment) continue;
-    segmentByLine.set(index, segments.length);
-    segments.push(segment);
+    const parts = prepareMarkdownLine(line, segments);
+    if (parts) partsByLine.set(index, parts);
   }
 
   return {
@@ -185,10 +232,11 @@ export function prepareMarkdownTranslation(markdown: string): PreparedText {
       }
       return lines
         .map((line, index) => {
-          const segmentIndex = segmentByLine.get(index);
-          return segmentIndex === undefined
-            ? line
-            : segments[segmentIndex].restore(translations[segmentIndex]);
+          const parts = partsByLine.get(index);
+          if (!parts) return line;
+          return parts
+            .map((part) => ("literal" in part ? part.literal : translations[part.segmentIndex]))
+            .join("");
         })
         .join("\n");
     },
@@ -228,8 +276,7 @@ async function translatePrepared(
       stats.cacheHits += 1;
       continue;
     }
-    const translated = await translator(segment.maskedText, cacheKey);
-    segment.restore(translated);
+    const translated = await translator(segment.text, cacheKey);
     await store?.put(cacheKey, translated);
     cachedSegments.set(cacheKey, translated);
     translations.push(translated);

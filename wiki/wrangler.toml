@@ -40,7 +40,7 @@ remote = true
 [vars]
 ENVIRONMENT = "production"
 # Kill switch for AI auto-translation (JA→EN). "true" enqueues/runs jobs; anything else skips.
-AUTO_TRANSLATE = "false"
+AUTO_TRANSLATE = "true"
 BASE_URL = "https://wiki.gdgs.jp"
 APP_URL = "https://wiki.gdgs.jp"
 ACCOUNTS_URL = "https://accounts.gdgs.jp"
