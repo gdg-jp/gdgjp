@@ -157,24 +157,30 @@ function drawRoundedCorners(images: ImagesBinding, image: ImageTransformer, radi
   const [firstPair, topRight] = mask.tee();
   const [secondPair, bottomLeft] = firstPair.tee();
   const [topLeft, bottomRight] = secondPair.tee();
+  const maskTransform = (rotate: NonNullable<ImageTransform["rotate"]>) => ({
+    width: radius,
+    height: radius,
+    fit: "cover" as const,
+    rotate,
+  });
 
   return image
-    .draw(images.input(topLeft).transform({ width: radius }), {
+    .draw(images.input(topLeft).transform(maskTransform(0)), {
       left: 0,
       top: 0,
       composite: "xor",
     })
-    .draw(images.input(topRight).transform({ width: radius, rotate: 90 }), {
+    .draw(images.input(topRight).transform(maskTransform(90)), {
       right: 0,
       top: 0,
       composite: "xor",
     })
-    .draw(images.input(bottomRight).transform({ width: radius, rotate: 180 }), {
+    .draw(images.input(bottomRight).transform(maskTransform(180)), {
       bottom: 0,
       right: 0,
       composite: "xor",
     })
-    .draw(images.input(bottomLeft).transform({ width: radius, rotate: 270 }), {
+    .draw(images.input(bottomLeft).transform(maskTransform(270)), {
       bottom: 0,
       left: 0,
       composite: "xor",

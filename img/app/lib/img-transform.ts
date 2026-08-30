@@ -6,7 +6,7 @@ export const DEFAULT_QUALITY = 82;
 export const DEFAULT_FIT = "scale-down";
 export const MIN_TRANSFORM_BYTES = 10 * 1024;
 export const MAX_DPR = 3;
-const RADIUS_RENDITION_VERSION = 3;
+const RADIUS_RENDITION_VERSION = 4;
 
 export type Fit = "scale-down" | "contain" | "cover" | "crop" | "pad";
 export type DeriveTransform = {

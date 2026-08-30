@@ -138,6 +138,13 @@ describe("deliverImage", () => {
     const baseTransformer = h.input.mock.results[0]?.value;
     expect(baseTransformer.draw).toHaveBeenCalledTimes(4);
     expect(h.input).toHaveBeenCalledTimes(5);
+    const firstMaskTransformer = h.input.mock.results[1]?.value;
+    expect(firstMaskTransformer.transform).toHaveBeenCalledWith({
+      width: 24,
+      height: 24,
+      fit: "cover",
+      rotate: 0,
+    });
     const maskInput = h.input.mock.calls.at(1) as unknown as
       | [ReadableStream<Uint8Array>]
       | undefined;
