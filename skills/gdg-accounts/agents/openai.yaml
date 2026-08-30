@@ -1,3 +1,0 @@
-interface:
-  display_name: "GDG Accounts CLI"
-  short_description: "Manage GDG Accounts OIDC clients"

@@ -1,3 +1,0 @@
-interface:
-  display_name: "GDG Wiki CLI"
-  short_description: "Edit and ingest GDG Wiki through Git"

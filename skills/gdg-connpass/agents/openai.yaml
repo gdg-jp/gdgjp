@@ -1,3 +1,0 @@
-interface:
-  display_name: "GDG connpass CLI"
-  short_description: "Administer connpass groups and events"

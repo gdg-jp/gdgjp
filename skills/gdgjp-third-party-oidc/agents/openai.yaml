@@ -1,4 +1,0 @@
-interface:
-  display_name: "GDG Japan Third-Party OIDC"
-  short_description: "GDG Japan OIDC client integration workflow"
-  default_prompt: "Use $gdgjp-third-party-oidc to add GDG Japan Accounts login to this application."
