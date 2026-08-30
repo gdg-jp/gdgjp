@@ -39,7 +39,13 @@ export async function action(args: Route.ActionArgs) {
 
   if (args.request.method === "PUT") {
     const form = await args.request.formData();
-    const result = await replaceImageForActor(env, auth.actor, id, form.get("file"));
+    const result = await replaceImageForActor(
+      env,
+      args.context.cloudflare.ctx,
+      auth.actor,
+      id,
+      form.get("file"),
+    );
     if (!result.ok) return imageServiceErrorResponse(result.error);
 
     const body: components["schemas"]["CliReplaceResult"] = {

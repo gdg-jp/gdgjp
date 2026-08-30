@@ -11,6 +11,7 @@ APP_URL = "https://img.gdgs.jp"
 ACCOUNTS_URL = "https://accounts.gdgs.jp"
 IDP_URL = "https://accounts.gdgs.jp"
 IDP_CLIENT_ID = "img"
+IMG_AUTO_MAX_WIDTH = "0"
 
 [assets]
 binding = "ASSETS"
@@ -25,6 +26,10 @@ migrations_dir = "./migrations"
 [[r2_buckets]]
 binding = "ORIGINALS"
 bucket_name = "gdgjp-img-originals"
+
+[[r2_buckets]]
+binding = "DERIVED"
+bucket_name = "gdgjp-img-derived"
 
 [images]
 binding = "IMAGES"

@@ -17,7 +17,13 @@ export async function action(args: Route.ActionArgs) {
   if (!isValidImageId(id)) return Response.json({ error: "not_found" }, { status: 404 });
 
   const form = await args.request.formData();
-  const result = await setMobileImageForActor(env, auth.actor, id, form.get("file"));
+  const result = await setMobileImageForActor(
+    env,
+    args.context.cloudflare.ctx,
+    auth.actor,
+    id,
+    form.get("file"),
+  );
   if (!result.ok) return imageServiceErrorResponse(result.error);
 
   const body: components["schemas"]["CliMobileResult"] = {

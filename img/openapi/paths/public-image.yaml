@@ -1,15 +1,29 @@
 get:
   operationId: getPublicImage
-  summary: Retrieve an original or transformed public image
+  summary: Retrieve an automatically optimized or explicitly transformed public image
+  description: >-
+    Without query parameters, negotiates AVIF/WebP when accepted and applies the configured
+    automatic maximum width. Use f=original to retrieve the uploaded bytes unchanged.
   parameters:
     - $ref: ../components/parameters/index.yaml#/ImageIdPath
     - { name: w, in: query, schema: { type: integer, minimum: 1 } }
     - { name: h, in: query, schema: { type: integer, minimum: 1 } }
+    - { name: dpr, in: query, schema: { type: number, minimum: 1, maximum: 3 } }
     - { name: q, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
     - { name: fit, in: query, schema: { type: string } }
-    - { name: f, in: query, schema: { type: string, enum: [avif, webp, jpeg, png] } }
+    - { name: f, in: query, schema: { type: string, enum: [auto, avif, webp, jpeg, png, original] } }
     - { name: variant, in: query, schema: { type: string, enum: [mobile] } }
   responses:
-    '200': { description: Image bytes }
-    '304': { description: Not modified }
+    '200':
+      description: Image bytes
+      headers:
+        ETag: { schema: { type: string }, description: Source-version and rendition-specific validator }
+        Vary: { schema: { type: string }, description: Negotiation headers used for this response }
+        Cache-Control: { schema: { type: string }, description: Browser and shared-cache policy }
+    '304':
+      description: Not modified
+      headers:
+        ETag: { schema: { type: string } }
+        Vary: { schema: { type: string } }
+        Cache-Control: { schema: { type: string } }
     '404': { $ref: ../components/responses/index.yaml#/NotFound }

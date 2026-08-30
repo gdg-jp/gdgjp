@@ -23,7 +23,13 @@ export async function action(args: Route.ActionArgs) {
   }
 
   const form = await args.request.formData();
-  const result = await setMobileImageForActor(env, actor, id, form.get("file"));
+  const result = await setMobileImageForActor(
+    env,
+    args.context.cloudflare.ctx,
+    actor,
+    id,
+    form.get("file"),
+  );
   if (!result.ok) return dashboardImageErrorResponse(result.error);
 
   const body: components["schemas"]["ImageId"] = { id: result.value.id };

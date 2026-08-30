@@ -1,8 +1,9 @@
 # @gdgjp/img
 
 Image hosting for GDG Japan, deployed at `img.gdgs.jp`. Authenticated chapter members upload
-originals; `img.gdgs.jp/<id>` serves them publicly with on-the-fly resize/format transforms, no
-auth required on the GET path. Every image is shared with the chapter it was uploaded to — any
+originals; `img.gdgs.jp/<id>` serves them publicly with automatic format/size optimization and
+on-the-fly explicit transforms, no auth required on the GET path. Add `?f=original` when the exact
+uploaded bytes are required. Every image is shared with the chapter it was uploaded to — any
 member of that chapter can view, replace, move, or delete it — and can optionally sit in a flat
 (non-hierarchical), chapter-owned folder.
 
@@ -17,10 +18,12 @@ is no separate "upload to Cloudflare Images" step.
 | ----------- | ----------------------- | --------------------------------------------------------------------- |
 | `DB`        | D1 (`gdgjp-img-db`)     | Image metadata (`images` table) and the RP's local `user` table.      |
 | `ORIGINALS` | R2 (`gdgjp-img-originals`) | Original uploaded bytes. Key = the 8-char image id.                |
+| `DERIVED`   | R2 (`gdgjp-img-derived`) | Canonical transformed renditions and passthrough markers.           |
 | `IMAGES`    | Cloudflare Images       | Request-time transform: `env.IMAGES.input(r2Stream).transform(...).output(...)`. |
 | `ASSETS`    | Workers Assets          | Static client build output.                                           |
 
-`wrangler.toml` vars: `APP_URL`, `ACCOUNTS_URL`, `IDP_URL`, `IDP_CLIENT_ID`. Secrets:
+`wrangler.toml` vars: `APP_URL`, `ACCOUNTS_URL`, `IDP_URL`, `IDP_CLIENT_ID`,
+`IMG_AUTO_MAX_WIDTH` (`0` initially; set to `1600` after the rollout soak). Secrets:
 `RP_SESSION_SECRET`, `IDP_CLIENT_SECRET`.
 
 ## Directory structure
@@ -54,6 +57,9 @@ app/
       service.ts              # *ForActor entry points, upload flow (R2 first, D1 second, rollback on error)
       policy.ts                 # canAccessImage — owner OR chapter member OR super admin
       storage.ts                  # putOriginal / deleteOriginal
+      delivery.server.ts          # resilient Cache API → DERIVED → IMAGES public delivery
+      rendition-{key,store}.ts    # deterministic identity and derived R2 persistence/cleanup
+      variant.ts, probe.ts        # source selection and upload-time dimensions
       slug.ts, id.ts                # slug validation + RESERVED_SLUGS, image id generation/validation
     folders/
       repository.ts          # D1 access for the folders table
@@ -64,7 +70,8 @@ app/
     auth.server.ts         # caches one RpAuthInstance per env
     auth-redirect.ts        # requireUserWithChapter — the standard route gate
     chapter.server.ts        # chapter memberships via /userinfo, in-memory cached 30s/user
-    img-url.ts                 # transform query param parsing/building (w, h, fit, q, f, variant)
+    img-url.ts                 # transform query parsing/building (w, h, dpr, fit, q, f, variant)
+    img-transform.ts           # pure policy, negotiation, width ladder, canonical gate
     image-errors.server.ts, cli-errors.server.ts, folder-errors.server.ts  # error → HTTP mapping
     device.ts                    # mobile-variant negotiation from request headers
 migrations/                # D1 migrations — edit these, not schema.sql
@@ -81,14 +88,14 @@ openapi/                     # OpenAPI contract for the image/folder/public-imag
   row. If the D1 insert fails, the R2 object is best-effort deleted via `ctx.waitUntil`. This
   ordering is load-bearing — an orphaned R2 object is recoverable, an orphaned D1 row pointing at
   nothing is not.
-- Public GET (`routes/$id.tsx`): no auth. Honors `If-None-Match` (etag encodes id, variant, and
-  `updated_at`). With no transform params it streams the R2 object directly; otherwise it pipes
-  the R2 stream through `env.IMAGES`. Response is `Cache-Control: public, max-age=300,
-  s-maxage=86400`. Format falls back to content negotiation via `Accept` when `f` isn't given
-  (`Vary: Accept`), and a device-aware mobile variant is negotiated separately (`Vary: Sec-CH-UA-Mobile,
-  CF-Device-Type, User-Agent`) when the image has one.
-- Transform params (`lib/img-url.ts`): `w`/`h` (1–4096), `fit` (`scale-down` | `contain` | `cover`
-  | `crop` | `pad`), `q` (1–100), `f` (`auto` | `avif` | `webp` | `jpeg` | `png`), `variant=mobile`.
+- Public GET (`routes/$id.tsx`): no auth. Honors `If-None-Match` before reading R2; the ETag encodes
+  id, variant, source version, normalized parameters, and negotiated format. Plain URLs negotiate
+  AVIF/WebP and use `IMG_AUTO_MAX_WIDTH` with `scale-down`; `?f=original` is the exact-byte escape
+  hatch. Canonical width-ladder renditions persist in `DERIVED`, with Cache API in front. Images
+  failures never turn an existing public URL into a 500; the original is served instead.
+- Transform params (`lib/img-url.ts`): `w`/`h` (1–4096), `dpr` (1–3), `fit` (`scale-down` |
+  `contain` | `cover` | `crop` | `pad`), `q` (1–100), `f` (`auto` | `avif` | `webp` | `jpeg` |
+  `png` | `original`), `variant=mobile`.
 - Mutations (`api.replace.$id.ts`, `api.delete.$id.ts`, `api.move.$id.ts`, `api.share.$id.ts`, …)
   are gated by `canAccessImage` (`features/images/policy.ts`) — the owner, a super admin per
   `gdg-lib`'s `isSuperAdmin`, or any member of the image's chapter. There is no separate
@@ -137,6 +144,16 @@ pnpm --filter @gdgjp/img test:e2e        # playwright; boots accounts on :5173 +
 
 `schema.sql` is generated from `migrations/` by `pnpm schema:dump` (run automatically after
 `migrate:local`/`migrate:remote`) — edit migrations, not the dump.
+
+Production setup for derived renditions is intentionally external to `wrangler.toml`:
+
+```sh
+wrangler r2 bucket create gdgjp-img-derived
+wrangler r2 bucket lifecycle add gdgjp-img-derived --name expire-renditions --expire-days 30
+```
+
+The 30-day expiry bounds storage, but means a continuously hot rendition is transformed roughly
+once per month after expiry. Also configure incomplete multipart-upload abortion for this bucket.
 
 ## Testing
 

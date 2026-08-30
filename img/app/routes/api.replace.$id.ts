@@ -16,7 +16,13 @@ export async function action(args: Route.ActionArgs) {
   const { user, chapters } = await requireUserWithChapter(env, args.request);
 
   const form = await args.request.formData();
-  const result = await replaceImageForActor(env, { user, chapters }, id, form.get("file"));
+  const result = await replaceImageForActor(
+    env,
+    args.context.cloudflare.ctx,
+    { user, chapters },
+    id,
+    form.get("file"),
+  );
   if (!result.ok) return dashboardImageErrorResponse(result.error);
 
   const body: components["schemas"]["ImageId"] = { id: result.value.id };

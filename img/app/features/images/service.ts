@@ -9,6 +9,8 @@ import { canAccessFolder } from "~/features/folders/policy";
 import { getFolder } from "~/features/folders/repository";
 import { generateUniqueImageId } from "./id";
 import { canAccessImage, canShareImageWithChapter, resolveActorChapter } from "./policy";
+import { probeImageDimensions } from "./probe";
+import { deleteRenditionsForImage, deleteRenditionsForSource } from "./rendition-store";
 import {
   type ImageRow,
   type ListImagesResult,
@@ -108,6 +110,8 @@ export async function uploadImage(
 
   const ownerId = await upsertImageOwner(env.DB, input.user);
   const id = await generateUniqueImageId(env.DB);
+  const dimensions =
+    input.contentType === "image/svg+xml" ? null : await probeImageDimensions(env, input.bytes);
   await putOriginal(env, id, input.bytes, {
     contentType: input.contentType,
     userId: ownerId,
@@ -124,8 +128,8 @@ export async function uploadImage(
       r2Key: id,
       contentType: input.contentType,
       byteSize: input.bytes.byteLength,
-      width: null,
-      height: null,
+      width: dimensions?.width ?? null,
+      height: dimensions?.height ?? null,
       filename: input.filename,
     });
   } catch (error) {
@@ -386,6 +390,7 @@ export async function updateImageForActor(
  */
 export async function replaceImageForActor(
   env: Env,
+  ctx: ExecutionContext,
   actor: ImageActor,
   id: string,
   fileValue: FormDataEntryValue | null,
@@ -398,11 +403,13 @@ export async function replaceImageForActor(
 
   const bytes = await validated.file.arrayBuffer();
   const filename = validated.file.name || image.filename;
+  const dimensions =
+    validated.file.type === "image/svg+xml" ? null : await probeImageDimensions(env, bytes);
   const updated = await updateImageBytes(env.DB, id, {
     contentType: validated.file.type,
     byteSize: bytes.byteLength,
-    width: null,
-    height: null,
+    width: dimensions?.width ?? null,
+    height: dimensions?.height ?? null,
     filename,
   });
   try {
@@ -422,12 +429,16 @@ export async function replaceImageForActor(
     }).catch(() => {});
     throw error;
   }
+  ctx.waitUntil(
+    deleteRenditionsForSource(env, id, { variant: "d", sourceVersion: image.updatedAt }),
+  );
   return ok(updated);
 }
 
 /** Same D1-first ordering as replaceImageForActor, see its docstring. */
 export async function setMobileImageForActor(
   env: Env,
+  ctx: ExecutionContext,
   actor: ImageActor,
   id: string,
   fileValue: FormDataEntryValue | null,
@@ -458,6 +469,17 @@ export async function setMobileImageForActor(
     await revertMobileImage(env.DB, id, image).catch(() => {});
     throw error;
   }
+  if (image.mobileUpdatedAt !== null) {
+    ctx.waitUntil(
+      deleteRenditionsForSource(env, id, {
+        variant: "m",
+        sourceVersion: image.mobileUpdatedAt,
+      }),
+    );
+  }
+  ctx.waitUntil(
+    deleteRenditionsForSource(env, id, { variant: "d", sourceVersion: image.updatedAt }),
+  );
   return ok(updated);
 }
 
@@ -492,6 +514,17 @@ export async function removeMobileImageForActor(
 
   const updated = await removeMobileImage(env.DB, id);
   ctx.waitUntil(deleteOriginal(env, image.mobileR2Key));
+  if (image.mobileUpdatedAt !== null) {
+    ctx.waitUntil(
+      deleteRenditionsForSource(env, id, {
+        variant: "m",
+        sourceVersion: image.mobileUpdatedAt,
+      }),
+    );
+  }
+  ctx.waitUntil(
+    deleteRenditionsForSource(env, id, { variant: "d", sourceVersion: image.updatedAt }),
+  );
   return ok(updated);
 }
 
@@ -508,5 +541,6 @@ export async function deleteImageForActor(
   await deleteImage(env.DB, id);
   ctx.waitUntil(deleteOriginal(env, image.r2Key));
   if (image.mobileR2Key) ctx.waitUntil(deleteOriginal(env, image.mobileR2Key));
+  ctx.waitUntil(deleteRenditionsForImage(env, id));
   return ok({ id });
 }

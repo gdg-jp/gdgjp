@@ -11,7 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Retrieve an original or transformed public image */
+        /**
+         * Retrieve an automatically optimized or explicitly transformed public image
+         * @description Without query parameters, negotiates AVIF/WebP when accepted and applies the configured automatic maximum width. Use f=original to retrieve the uploaded bytes unchanged.
+         */
         get: operations["getPublicImage"];
         put?: never;
         post?: never;
@@ -389,9 +392,10 @@ export interface operations {
             query?: {
                 w?: number;
                 h?: number;
+                dpr?: number;
                 q?: number;
                 fit?: string;
-                f?: "avif" | "webp" | "jpeg" | "png";
+                f?: "auto" | "avif" | "webp" | "jpeg" | "png" | "original";
                 variant?: "mobile";
             };
             header?: never;
@@ -405,6 +409,12 @@ export interface operations {
             /** @description Image bytes */
             200: {
                 headers: {
+                    /** @description Source-version and rendition-specific validator */
+                    ETag?: string;
+                    /** @description Negotiation headers used for this response */
+                    Vary?: string;
+                    /** @description Browser and shared-cache policy */
+                    "Cache-Control"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -412,6 +422,9 @@ export interface operations {
             /** @description Not modified */
             304: {
                 headers: {
+                    ETag?: string;
+                    Vary?: string;
+                    "Cache-Control"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
