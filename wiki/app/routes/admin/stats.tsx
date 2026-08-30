@@ -16,7 +16,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   await requireAdmin(request, env);
   const db = getDb(env);
 
-  const [userCount, pageStats, bilingualCount] = await Promise.all([
+  const [userCount, pageStats, bilingualCount, translationStats] = await Promise.all([
     db.select({ total: count() }).from(schema.user).get(),
     db
       .select({
@@ -35,17 +35,51 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         ),
       )
       .get(),
+    (env.DB as D1Database)
+      .prepare(
+        `SELECT
+         count(CASE WHEN status = 'pending' THEN 1 END) AS pending,
+         count(CASE WHEN status IN ('queued', 'processing') THEN 1 END) AS processing,
+         count(CASE WHEN status = 'failed' THEN 1 END) AS failed,
+         min(CASE WHEN status = 'pending' THEN requested_at END) AS oldestPendingAt,
+         count(CASE WHEN status = 'completed' AND completed_at >= unixepoch('now', 'start of day')
+                    THEN 1 END) AS completedToday,
+         coalesce(sum(cache_hits), 0) AS cacheHits,
+         coalesce(sum(cache_misses), 0) AS cacheMisses
+       FROM translation_jobs`,
+      )
+      .first<{
+        pending: number;
+        processing: number;
+        failed: number;
+        oldestPendingAt: number | null;
+        completedToday: number;
+        cacheHits: number;
+        cacheMisses: number;
+      }>(),
   ]);
 
   const totalPages = pageStats?.total ?? 0;
   const bilingualPages = bilingualCount?.total ?? 0;
   const bilingualPct = totalPages > 0 ? Math.round((bilingualPages / totalPages) * 100) : 0;
+  const cacheTotal = (translationStats?.cacheHits ?? 0) + (translationStats?.cacheMisses ?? 0);
 
   return {
     totalUsers: userCount?.total ?? 0,
     totalPages,
     publishedPages: pageStats?.published ?? 0,
     bilingualPct,
+    translation: {
+      pending: translationStats?.pending ?? 0,
+      processing: translationStats?.processing ?? 0,
+      failed: translationStats?.failed ?? 0,
+      completedToday: translationStats?.completedToday ?? 0,
+      oldestPendingAt: translationStats?.oldestPendingAt
+        ? new Date(translationStats.oldestPendingAt * 1_000).toISOString()
+        : null,
+      cacheHitPct:
+        cacheTotal > 0 ? Math.round(((translationStats?.cacheHits ?? 0) / cacheTotal) * 100) : 0,
+    },
   };
 }
 
@@ -72,7 +106,8 @@ function StatCard({
 }
 
 export default function AdminStats() {
-  const { totalUsers, totalPages, publishedPages, bilingualPct } = useLoaderData<typeof loader>();
+  const { totalUsers, totalPages, publishedPages, bilingualPct, translation } =
+    useLoaderData<typeof loader>();
   const { t } = useTranslation();
 
   return (
@@ -91,6 +126,36 @@ export default function AdminStats() {
           label={t("admin.stats.bilingual_coverage")}
           value={`${bilingualPct}%`}
           sub={t("admin.stats.bilingual_coverage_sub")}
+        />
+      </div>
+
+      <h2 className="mb-4 mt-10 text-xl font-bold text-content-primary">
+        {t("admin.stats.translation_heading")}
+      </h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label={t("admin.stats.translation_pending")}
+          value={translation.pending}
+          sub={
+            translation.oldestPendingAt
+              ? t("admin.stats.translation_oldest", {
+                  date: new Date(translation.oldestPendingAt).toLocaleString(),
+                })
+              : undefined
+          }
+        />
+        <StatCard
+          label={t("admin.stats.translation_processing")}
+          value={translation.processing}
+          sub={t("admin.stats.translation_failed", { count: translation.failed })}
+        />
+        <StatCard
+          label={t("admin.stats.translation_completed_today")}
+          value={translation.completedToday}
+        />
+        <StatCard
+          label={t("admin.stats.translation_cache_hit_rate")}
+          value={`${translation.cacheHitPct}%`}
         />
       </div>
     </div>

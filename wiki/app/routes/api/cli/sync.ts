@@ -23,7 +23,6 @@ import { computeAclSourceIdsJson } from "~/features/pages/acl-spans";
 import { pageAclClearance, validatePageAclForSync } from "~/features/pages/acl-spans.server";
 import { D1_MAX_BOUND_PARAMETERS, mapInChunks } from "~/features/pages/d1-chunk.server";
 import { getDb } from "~/lib/db.server";
-import { sendOrRunTranslation } from "~/lib/queue-processors.server";
 
 /** POST /api/cli/wiki/sync
  * Atomically applies page upserts/archives.  Every existing operation must
@@ -109,7 +108,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
       .where(inArray(schema.pageAttachments.pageId, chunk))
       .all(),
   );
-  const translatePageIds = new Set<string>();
 
   const preflight = await preflightSyncOperations(db, operations, byId, existingAccess, identity);
   if (preflight) return preflight;
@@ -280,7 +278,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
       identity,
       statements,
       objectsToDelete,
-      translatePageIds,
     });
     if (written instanceof Response) return written;
     returned.push({ id, slug: page.slug, attachmentIds: written.attachmentIds });
@@ -317,10 +314,10 @@ export async function action({ request, context }: ActionFunctionArgs) {
     );
   }
   const { ctx } = context.cloudflare;
-  scheduleSyncPostCommit(ctx, [
-    ...objectsToDelete.map((key) => env.BUCKET.delete(key)),
-    ...[...translatePageIds].map((pageId) => sendOrRunTranslation(env, ctx, pageId)),
-  ]);
+  scheduleSyncPostCommit(
+    ctx,
+    objectsToDelete.map((key) => env.BUCKET.delete(key)),
+  );
   const syncResult: WikiSyncResult = {
     ok: true,
     pages: returned.map((page) => ({

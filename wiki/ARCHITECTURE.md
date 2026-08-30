@@ -23,7 +23,7 @@
 | 生成 AI のクライアント配線・slug | `app/features/ingestion/` — README あり。ルートは `app/routes/ingest/`, `app/routes/api/ingest/`。UI は `app/features/ingestion/components/` |
 | AI 検索（Workers AI + Vectorize） | `app/features/ai-search/` — README あり |
 | AI モデル共通ラッパ（Vercel AI SDK / structured output） | `app/features/ai/model/` — README あり |
-| 翻訳（JA→EN、`TRANSLATION_QUEUE`） | `app/features/translation/` — README あり。振り分けは `app/lib/queue-processors.server.ts` |
+| 翻訳（JA→EN、Workers AI、`TRANSLATION_QUEUE`） | `app/features/translation/` — D1で日次集約・断片キャッシュ。振り分けは `app/lib/queue-processors.server.ts` |
 | ZIP インポート | `app/features/zip-import/` — README あり。ルートは `app/routes/api/pages/import-zip*.ts` |
 | Google 連携（Drive / Docs / Forms / Chat / Picker） | `app/features/google/` — README あり |
 | Google Docs インポート（プレビュー / ジョブ / 反映） | `app/features/google/documents/` — README あり。ルートは `app/routes/api/google/documents-*.ts` |

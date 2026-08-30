@@ -10,7 +10,6 @@ import {
   ingestionImageKeysFromMarkdown,
 } from "~/features/editor/content-format";
 import { generateSlug } from "~/features/ingestion/slug";
-import { sendOrRunTranslation } from "~/lib/queue-processors.server";
 
 // ---------------------------------------------------------------------------
 // Validation
@@ -67,7 +66,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   const body: CommitBody = parseResult.data;
 
   const pageIds: string[] = [];
-  const translationPageIds: string[] = [];
 
   // Pre-validate tag slugs against the canonical tags table to avoid FK constraint failures.
   // AI-suggested tags that don't exist in the taxonomy are silently dropped.
@@ -159,8 +157,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
           ),
         );
       }
-
-      translationPageIds.push(pageId);
     } else if (op.type === "update" && op.pageId) {
       pageIds.push(op.pageId);
 
@@ -211,8 +207,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
           op.pageId,
         ),
       );
-
-      translationPageIds.push(op.pageId);
     }
   }
 
@@ -310,11 +304,6 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
 
   // Run all statements atomically — send translation jobs only after success
   await env.DB.batch(statements);
-
-  const { ctx } = context.cloudflare;
-  for (const pid of translationPageIds) {
-    await sendOrRunTranslation(env, ctx, pid);
-  }
 
   return Response.json({ pageIds });
 }

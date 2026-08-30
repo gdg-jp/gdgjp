@@ -8,7 +8,6 @@ import { upsertCatalogEntry } from "~/features/pages/wiki-catalog.server";
 import { wikiPagePath } from "~/features/pages/wiki-page-path";
 import { canAssignChapter } from "~/features/sources/sources.server";
 import { getDb } from "~/lib/db.server";
-import { sendOrRunTranslation } from "~/lib/queue-processors.server";
 import { createD1WikiWorkspaceStore } from "../../../workers/features/ingestion/persistence/d1/wiki-read-repository";
 import { normaliseAbsoluteWorkspacePath } from "../../../workers/features/ingestion/tools/workspace/paths";
 import {
@@ -49,7 +48,6 @@ export type CreateAnswerNoteResult =
  */
 export async function createOrReplaceAnswerNote(
   env: Env,
-  ctx: ExecutionContext,
   workspaceCtx: AgentWorkspaceContext,
   rawBody: unknown,
 ): Promise<CreateAnswerNoteResult> {
@@ -166,7 +164,6 @@ export async function createOrReplaceAnswerNote(
       ),
     ]);
 
-    await sendOrRunTranslation(env, ctx, replaceId);
     await upsertCatalogEntry(db, env, {
       section: "Answers",
       slug: parsed.body.slug,
@@ -233,7 +230,6 @@ export async function createOrReplaceAnswerNote(
     };
   }
 
-  await sendOrRunTranslation(env, ctx, id);
   await upsertCatalogEntry(db, env, {
     section: "Answers",
     slug: parsed.body.slug,

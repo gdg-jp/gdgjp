@@ -5,17 +5,6 @@ export type LocalePayload = {
   content: string;
 };
 
-export type PageLocaleRow = {
-  titleJa: string;
-  summaryJa: string;
-  contentJa: string;
-  translationStatusJa: string;
-  titleEn: string;
-  summaryEn: string;
-  contentEn: string;
-  translationStatusEn: string;
-};
-
 export type PartialLocalePagePayload = {
   slug: string;
   parentId: string | null;
@@ -109,20 +98,6 @@ export function resolveExistingPageSharing(
     storedAccess.join("\n") !== nextAccess.join("\n");
 
   return { sharing, sharingChanged, preserved: wouldCollapseWikiSharing };
-}
-
-/** True when JA title, summary, or canonical content differs from the stored row. */
-export function jaContentChanged(
-  current: PageLocaleRow,
-  pageJa: LocalePayload | undefined,
-  contentJaCanonical: string | undefined,
-): boolean {
-  if (!pageJa || contentJaCanonical === undefined) return false;
-  return (
-    current.titleJa !== pageJa.title ||
-    current.summaryJa !== pageJa.summary ||
-    current.contentJa !== contentJaCanonical
-  );
 }
 
 /** Reject sync upserts against human-authored pages. */

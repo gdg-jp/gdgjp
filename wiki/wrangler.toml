@@ -48,6 +48,8 @@ IDP_URL = "https://accounts.gdgs.jp"
 IDP_CLIENT_ID = "wiki"
 GEMINI_MODEL_ID = "gemini-3.5-flash-lite"
 AI_GATEWAY_BASE_URL = "https://gateway.ai.cloudflare.com/v1/ca5917238ec18ca3365e7b05b11eee5e/gdgjp-wiki-generation/google-ai-studio/v1beta"
+TRANSLATION_MODEL_ID = "@cf/meta/m2m100-1.2b"
+TRANSLATION_AI_GATEWAY_ID = "gdgjp-wiki-translation"
 FIREBASE_API_KEY = "AIzaSyBDHVMd25wph9m8x4smxTvfGJ3C6OmfrDY"
 FIREBASE_AUTH_DOMAIN = "gdgsjp.firebaseapp.com"
 FIREBASE_PROJECT_ID = "gdgsjp"
@@ -173,8 +175,9 @@ class_name = "WikiGenerationPhaseWorkflow"
 # ---------------------------------------------------------------------------
 # 0 15 * * * — task due-date Discord reminders (00:00 JST)
 # 0 16 * * * — automatic source refresh for daily/weekly policies
+# 5 0 * * *  — coalesced JA→EN translation dispatch (09:05 JST)
 [triggers]
-crons = ["0 15 * * *", "0 16 * * *"]
+crons = ["0 15 * * *", "0 16 * * *", "5 0 * * *"]
 
 # ---------------------------------------------------------------------------
 # Secrets (set via `wrangler secret put`)

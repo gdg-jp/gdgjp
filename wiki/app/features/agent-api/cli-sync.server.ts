@@ -4,7 +4,6 @@ import * as schema from "~/db/schema";
 import {
   buildNewPageLocaleValues,
   buildPartialLocaleUpdate,
-  jaContentChanged,
   resolveExistingPageSharing,
 } from "~/features/agent-api/cli-sync-helpers";
 import { humanOriginSyncError } from "~/features/agent-api/cli-sync-helpers";
@@ -180,8 +179,8 @@ export function resolveSyncPageSharing(
 
 /**
  * Append every D1 statement for one upsert page (row / version / tags / access /
- * sources / attachments). Pushes into `statements`, `objectsToDelete`, and
- * `translatePageIds`; returns the attachment id map, or an error `Response`.
+ * sources / attachments). Pushes into `statements` and `objectsToDelete`;
+ * returns the attachment id map, or an error `Response`.
  */
 export async function buildSyncPageWriteStatements(args: {
   db: Db;
@@ -199,7 +198,6 @@ export async function buildSyncPageWriteStatements(args: {
   identity: BearerIdentity;
   statements: D1PreparedStatement[];
   objectsToDelete: string[];
-  translatePageIds: Set<string>;
 }): Promise<Response | { attachmentIds: Record<string, string> }> {
   const {
     db,
@@ -217,7 +215,6 @@ export async function buildSyncPageWriteStatements(args: {
     identity,
     statements,
     objectsToDelete,
-    translatePageIds,
   } = args;
 
   if (!current) {
@@ -254,7 +251,6 @@ export async function buildSyncPageWriteStatements(args: {
         aclSourceIdsJson,
       ),
     );
-    if (page.ja) translatePageIds.add(id);
   } else {
     statements.push(
       env.DB.prepare(
@@ -289,7 +285,6 @@ export async function buildSyncPageWriteStatements(args: {
         ),
       );
     }
-    if (jaContentChanged(current, page.ja, contentJa)) translatePageIds.add(id);
   }
   if (effectiveMeta.tags.length) {
     const known = await db

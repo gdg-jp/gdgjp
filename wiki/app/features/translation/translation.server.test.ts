@@ -1,64 +1,110 @@
 import { describe, expect, it, vi } from "vitest";
-import type { WikiModel } from "~/features/ai/model/index.server";
-import { translatePage } from "./translation.server";
+import {
+  type TranslationSegmentStore,
+  prepareMarkdownTranslation,
+  translatePage,
+  translationSourceHash,
+} from "./translation.server";
 
-describe("translatePage", () => {
-  it("uses a structured provider request and preserves the public result shape", async () => {
-    const generateObject = vi.fn().mockResolvedValue({
-      titleEn: "Event report",
-      summaryEn: "A short summary",
-      contentEn: "# Event report\n\nA short summary.",
-    });
+function deterministicTranslation(text: string): string {
+  return text
+    .replaceAll("イベントレポート", "Event report")
+    .replaceAll("短い概要", "A short summary")
+    .replaceAll("セットアップ", "Setup")
+    .replaceAll("公式サイト", "official website")
+    .replaceAll("ロゴ", "Logo")
+    .replaceAll("重要です", "is important")
+    .replaceAll("表の値", "Table value")
+    .replaceAll("本文です", "Body text");
+}
 
-    const result = await translatePage(
-      {
-        titleJa: "イベントレポート",
-        summaryJa: "概要",
-        contentJa: "# イベントレポート\n\n概要です。",
-      },
-      { id: "test", generateText: vi.fn(), generateObject } as WikiModel,
+function memoryStore(): TranslationSegmentStore & { values: Map<string, string> } {
+  const values = new Map<string, string>();
+  return {
+    values,
+    getMany: async (keys) =>
+      new Map(keys.flatMap((key) => (values.has(key) ? [[key, values.get(key) as string]] : []))),
+    put: async (key, value) => {
+      values.set(key, value);
+    },
+  };
+}
+
+describe("prepareMarkdownTranslation", () => {
+  it("preserves Markdown, URLs, code, front matter, HTML, and ACL tags", () => {
+    const source = [
+      "---",
+      "title: 日本語のまま",
+      "---",
+      "# セットアップ",
+      "",
+      "[公式サイト](https://example.com/a_(b)?q=1) と ![ロゴ](/img/logo.png) は**重要です**。",
+      "",
+      "| 列 | 値 |",
+      "| --- | --- |",
+      "| 名前 | 表の値 |",
+      "",
+      '<acl src="source-1">本文です</acl>',
+      "",
+      "```ts",
+      'const message = "日本語のコード";',
+      "```",
+      "<div>",
+      "本文です",
+      "</div>",
+    ].join("\n");
+    const prepared = prepareMarkdownTranslation(source);
+    const result = prepared.render(
+      prepared.segments.map((segment) => deterministicTranslation(segment.maskedText)),
     );
 
-    expect(result).toEqual({
-      titleEn: "Event report",
-      summaryEn: "A short summary",
-      contentEn: "# Event report\n\nA short summary.",
-    });
-    expect(generateObject).toHaveBeenCalledWith(
-      expect.objectContaining({
-        schemaName: "wiki_translation",
-        temperature: 0,
-        prompt: expect.stringContaining("イベントレポート"),
-      }),
-    );
-    expect(generateObject).toHaveBeenCalledWith(
-      expect.objectContaining({
-        prompt: expect.stringContaining("Content (Markdown):"),
-        schemaDescription: "The translated Wiki title, summary, and Markdown content.",
-      }),
-    );
+    expect(result).toContain("title: 日本語のまま");
+    expect(result).toContain("# Setup");
+    expect(result).toContain("[official website](https://example.com/a_(b)?q=1)");
+    expect(result).toContain("![Logo](/img/logo.png)");
+    expect(result).toContain("**is important**");
+    expect(result).toContain("| 名前 | Table value |");
+    expect(result).toContain('<acl src="source-1">Body text</acl>');
+    expect(result).toContain('const message = "日本語のコード";');
+    expect(result).toContain("<div>\nBody text\n</div>");
   });
 
-  it("instructs the model to preserve Markdown rather than return TipTap JSON", async () => {
-    const generateObject = vi.fn().mockResolvedValue({
-      titleEn: "Guide",
-      summaryEn: "Summary",
-      contentEn: "## Setup\n\n![Logo](/images/logo.png)\n\n`pnpm test`",
-    });
-
-    await translatePage(
-      {
-        titleJa: "ガイド",
-        summaryJa: "概要",
-        contentJa: "## セットアップ\n\n![ロゴ](/images/logo.png)\n\n`pnpm test`",
-      },
-      { id: "test", generateText: vi.fn(), generateObject } as WikiModel,
+  it("rejects a translation that changes a protected marker", () => {
+    const prepared = prepareMarkdownTranslation("[公式サイト](https://example.com)");
+    expect(() => prepared.render(["official website ZXQPH999QXZ"])).toThrow(
+      /protected Markdown marker|unexpected Markdown marker/,
     );
+  });
+});
 
-    expect(generateObject).toHaveBeenCalledWith(
-      expect.objectContaining({
-        prompt: expect.stringContaining("Return Markdown, never TipTap/ProseMirror JSON."),
-      }),
+describe("translatePage", () => {
+  it("reuses unchanged segments across page translations", async () => {
+    const store = memoryStore();
+    const translator = vi.fn(async (text: string) => deterministicTranslation(text));
+    const input = {
+      titleJa: "イベントレポート",
+      summaryJa: "短い概要",
+      contentJa: "# セットアップ\n\n本文です",
+    };
+
+    const first = await translatePage(input, { modelId: "test-model", translator, store });
+    const callsAfterFirst = translator.mock.calls.length;
+    const second = await translatePage(input, { modelId: "test-model", translator, store });
+
+    expect(first).toMatchObject({
+      titleEn: "Event report",
+      summaryEn: "A short summary",
+      contentEn: "# Setup\n\nBody text",
+      stats: { cacheHits: 0, cacheMisses: 4 },
+    });
+    expect(second.stats).toEqual({ cacheHits: 4, cacheMisses: 0 });
+    expect(translator).toHaveBeenCalledTimes(callsAfterFirst);
+  });
+
+  it("changes the source hash when any Japanese field changes", async () => {
+    const base = { titleJa: "題", summaryJa: "概要", contentJa: "本文" };
+    await expect(translationSourceHash(base)).resolves.not.toBe(
+      await translationSourceHash({ ...base, contentJa: "更新本文" }),
     );
   });
 });

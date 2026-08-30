@@ -2,7 +2,6 @@ import { nanoid } from "nanoid";
 import * as schema from "~/db/schema";
 import { generateSlug } from "~/features/ingestion/slug";
 import { getDb } from "~/lib/db.server";
-import { isAutoTranslateEnabled } from "~/lib/queue-processors.server";
 import { basename, rewriteLinks } from "./zip-helpers";
 import type { ImagePlan, ZipImportPreview } from "./zip-parse.server";
 import { parseImport } from "./zip-parse.server";
@@ -120,15 +119,6 @@ export async function importZip(
         mimeType: image.mimeType,
         createdAt: new Date(),
       });
-    }
-  }
-  if (isAutoTranslateEnabled(env)) {
-    for (const page of parsed.pages) {
-      try {
-        await env.TRANSLATION_QUEUE.send({ pageId: ids.get(page.key) as string });
-      } catch {
-        // Imported Japanese content remains usable when translation is temporarily unavailable.
-      }
     }
   }
   return {

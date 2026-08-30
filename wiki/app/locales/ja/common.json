@@ -252,7 +252,14 @@
       "pages_sub": "{{published}} 件公開",
       "published": "公開済み",
       "bilingual_coverage": "バイリンガル対応率",
-      "bilingual_coverage_sub": "日英両コンテンツあり"
+      "bilingual_coverage_sub": "日英両コンテンツあり",
+      "translation_heading": "自動翻訳",
+      "translation_pending": "翻訳待ち",
+      "translation_oldest": "最古: {{date}}",
+      "translation_processing": "処理中・送信済み",
+      "translation_failed": "失敗 {{count}} 件",
+      "translation_completed_today": "本日の完了",
+      "translation_cache_hit_rate": "キャッシュヒット率"
     }
   },
   "ingest": {

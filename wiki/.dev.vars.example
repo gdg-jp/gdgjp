@@ -17,6 +17,8 @@ IDP_URL=http://localhost:5173
 
 # Optional — only needed for AI ingestion/translation features
 GEMINI_API_KEY=
+TRANSLATION_MODEL_ID=@cf/meta/m2m100-1.2b
+TRANSLATION_AI_GATEWAY_ID=gdgjp-wiki-translation
 
 # Optional for local AI generation observability. Leave both values empty to use
 # the direct Gemini fallback in local development. In production, set

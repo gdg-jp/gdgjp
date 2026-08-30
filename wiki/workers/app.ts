@@ -10,6 +10,7 @@ import { getEffectivePagePermissions } from "../app/features/pages/access.server
 import { pageAclClearance } from "../app/features/pages/acl-spans.server";
 import { backfillMarkdownContent } from "../app/features/pages/content-backfill.server";
 import {
+  enqueuePendingTranslations,
   isGoogleDocumentImportQueueBody,
   isSourceFetchQueueBody,
   isTranslationQueueBody,
@@ -25,6 +26,8 @@ import {
 } from "./features/sources/fetch-source";
 import { SourceImportDurableObject } from "./source-import-durable-object";
 import { WikiGenerationPhaseWorkflow } from "./workflows/wiki-generation-phase-workflow";
+
+const TRANSLATION_CRON = "5 0 * * *";
 
 // The server build is a virtual module provided by @react-router/dev/vite at build time.
 const requestHandler = createRequestHandler(
@@ -139,6 +142,15 @@ export default {
       return;
     }
 
+    if (event.cron === TRANSLATION_CRON) {
+      ctx.waitUntil(
+        enqueuePendingTranslations(env).then((count) => {
+          console.log("[translation] dispatched daily jobs:", count);
+        }),
+      );
+      return;
+    }
+
     console.warn("[scheduled] unrecognized cron expression:", event.cron);
   },
 
@@ -152,7 +164,7 @@ export default {
       const body = message.body;
       try {
         if (isTranslationQueueBody(body)) {
-          await processTranslationMessage(env, db, body);
+          await processTranslationMessage(env, body);
           message.ack();
           continue;
         }

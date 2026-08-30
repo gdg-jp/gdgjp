@@ -23,7 +23,7 @@ multi-phase wiki-generation workflow.
 |---|---|---|
 | `DB` | D1 | Primary store, via Drizzle (`getDb(env)` in `app/lib/db.server.ts`). Schema in `app/db/schema/`. |
 | `BUCKET` | R2 | Page attachments and ingestion uploads (bucket `gdgjp-wiki-storage`). |
-| `TRANSLATION_QUEUE` | Queue | JA→EN auto-translation jobs (producer + consumer). |
+| `TRANSLATION_QUEUE` | Queue | Daily coalesced JA→EN Workers AI translation jobs. |
 | `GOOGLE_DOCUMENT_IMPORT_QUEUE` | Queue | Google Docs import jobs (long-running; outlives the browser request). |
 | `SOURCE_FETCH_QUEUE` | Queue | Source-fetch start messages; the import itself continues via DO alarms, not the queue. |
 | `BROWSER` | Browser Rendering | Headless Chromium for PDF export. |
@@ -63,7 +63,7 @@ Also set in `.dev.vars.example`, pre-filled to point local dev at a local `accou
 
 Optional, feature-gated:
 
-- `GEMINI_API_KEY` — AI ingestion/translation/generation features.
+- `GEMINI_API_KEY` — AI ingestion/generation features (translation uses Workers AI).
 - `AI_GATEWAY_BASE_URL` / `AI_GATEWAY_TOKEN` — AI generation observability via Cloudflare AI
   Gateway; leave both empty locally to fall back to direct Gemini calls.
 - `GOOGLE_DOCS_CLIENT_ID` / `GOOGLE_DOCS_CLIENT_SECRET` / `GOOGLE_PICKER_API_KEY` /

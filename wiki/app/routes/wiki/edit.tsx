@@ -58,6 +58,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
       id: schema.pages.id,
       titleJa: schema.pages.titleJa,
       titleEn: schema.pages.titleEn,
+      translationStatusEn: schema.pages.translationStatusEn,
       slug: schema.pages.slug,
       status: schema.pages.status,
       contentJa: schema.pages.contentJa,
@@ -136,6 +137,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
       contentEn: schema.pages.contentEn,
       titleJa: schema.pages.titleJa,
       titleEn: schema.pages.titleEn,
+      translationStatusEn: schema.pages.translationStatusEn,
       visibility: schema.pages.visibility,
       generalRole: schema.pages.generalRole,
       origin: schema.pages.origin,
@@ -219,6 +221,12 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
   const versionId = nanoid();
   const now = Math.floor(Date.now() / 1000);
   const aclSourceIdsJson = computeAclSourceIdsJson(contentJa, contentEn);
+  const englishChanged =
+    titleEn !== page.titleEn || contentEn !== canonicalMarkdown(page.contentEn);
+  let translationStatusEn = page.translationStatusEn;
+  if (englishChanged) {
+    translationStatusEn = titleEn.trim() || contentEn.trim() ? "human" : "missing";
+  }
 
   const statements = [
     // Snapshot current content before overwriting
@@ -239,9 +247,18 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     // Update page
     env.DB.prepare(
       `UPDATE pages SET title_ja = ?, title_en = ?, content_ja = ?, content_en = ?,
-        acl_source_ids = ?, last_edited_by = ?, updated_at = unixepoch()
+        translation_status_en = ?, acl_source_ids = ?, last_edited_by = ?, updated_at = unixepoch()
        WHERE id = ?`,
-    ).bind(titleJa, titleEn, contentJa, contentEn, aclSourceIdsJson, user.id, page.id),
+    ).bind(
+      titleJa,
+      titleEn,
+      contentJa,
+      contentEn,
+      translationStatusEn,
+      aclSourceIdsJson,
+      user.id,
+      page.id,
+    ),
 
     // Prune old versions — keep last 10
     env.DB.prepare(

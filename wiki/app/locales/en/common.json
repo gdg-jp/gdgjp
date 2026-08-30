@@ -252,7 +252,14 @@
       "pages_sub": "{{published}} published",
       "published": "Published",
       "bilingual_coverage": "Bilingual Coverage",
-      "bilingual_coverage_sub": "Both JA + EN content"
+      "bilingual_coverage_sub": "Both JA + EN content",
+      "translation_heading": "Automatic translation",
+      "translation_pending": "Pending translations",
+      "translation_oldest": "Oldest: {{date}}",
+      "translation_processing": "Queued and processing",
+      "translation_failed": "{{count}} failed",
+      "translation_completed_today": "Completed today",
+      "translation_cache_hit_rate": "Cache hit rate"
     }
   },
   "ingest": {

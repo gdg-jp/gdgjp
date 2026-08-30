@@ -12,7 +12,6 @@ import { requireUser } from "~/features/auth/utils.server";
 import { generateSlug } from "~/features/ingestion/slug";
 import { useThemeMode } from "~/hooks/useThemeMode";
 import { getDb } from "~/lib/db.server";
-import { sendOrRunTranslation } from "~/lib/queue-processors.server";
 
 // ---------------------------------------------------------------------------
 // Meta
@@ -25,7 +24,7 @@ export const meta: MetaFunction = () => [{ title: "New Page — GDG Japan Wiki" 
 // ---------------------------------------------------------------------------
 
 export async function action({ request, context }: ActionFunctionArgs) {
-  const { env, ctx } = context.cloudflare;
+  const { env } = context.cloudflare;
   const user = await requireUser(request, env);
   const db = getDb(env);
 
@@ -56,6 +55,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     slug,
     contentJa,
     contentEn,
+    translationStatusEn: titleEn.trim() || contentEn.trim() ? "human" : "missing",
     status: "published",
     visibility: "restricted",
     generalRole: "viewer",
@@ -65,7 +65,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
     lastEditedBy: user.id,
   });
 
-  await sendOrRunTranslation(env, ctx, pageId);
   return redirect(`/wiki/${slug}`);
 }
 

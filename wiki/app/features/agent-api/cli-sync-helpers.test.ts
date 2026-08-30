@@ -4,7 +4,6 @@ import {
   buildPartialLocaleUpdate,
   humanOriginSyncError,
   humanParentSyncError,
-  jaContentChanged,
   resolveExistingPageSharing,
   sourceHasReference,
 } from "./cli-sync-helpers";
@@ -27,42 +26,6 @@ const baseMeta = {
   generalRole: "viewer",
   chapterId: null,
 };
-
-describe("jaContentChanged", () => {
-  it("returns false when ja payload is omitted", () => {
-    expect(jaContentChanged(baseRow, undefined, "canonical")).toBe(false);
-  });
-
-  it("returns true when title changes", () => {
-    expect(
-      jaContentChanged(
-        baseRow,
-        { title: "新タイトル", summary: "旧要約", translationStatus: "human", content: "旧本文" },
-        "旧本文",
-      ),
-    ).toBe(true);
-  });
-
-  it("returns true when canonical content changes", () => {
-    expect(
-      jaContentChanged(
-        baseRow,
-        { title: "旧タイトル", summary: "旧要約", translationStatus: "human", content: "新本文" },
-        "新本文",
-      ),
-    ).toBe(true);
-  });
-
-  it("returns false when ja fields are unchanged", () => {
-    expect(
-      jaContentChanged(
-        baseRow,
-        { title: "旧タイトル", summary: "旧要約", translationStatus: "human", content: "旧本文" },
-        "旧本文",
-      ),
-    ).toBe(false);
-  });
-});
 
 describe("buildPartialLocaleUpdate", () => {
   const pageBase = {

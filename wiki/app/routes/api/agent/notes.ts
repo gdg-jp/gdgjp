@@ -15,12 +15,12 @@ export async function action({ request, context }: ActionFunctionArgs) {
     return Response.json({ error: "method_not_allowed" }, { status: 405 });
   }
 
-  const { env, ctx } = context.cloudflare;
+  const { env } = context.cloudflare;
   const resolved = await resolveAgentWorkspace(request, env);
   if (!resolved) return agentUnauthorized();
 
   const body = await request.json().catch(() => null);
-  const result = await createOrReplaceAnswerNote(env, ctx, resolved, body);
+  const result = await createOrReplaceAnswerNote(env, resolved, body);
   if (!result.ok) {
     return Response.json(
       result.path ? { error: result.error, path: result.path } : { error: result.error },

@@ -47,10 +47,6 @@ vi.mock("~/features/pages/access.server", async (importOriginal) => {
   };
 });
 
-vi.mock("~/lib/queue-processors.server", () => ({
-  sendOrRunTranslation: vi.fn().mockResolvedValue(undefined),
-}));
-
 import { agentsHash, getAgentInstructions } from "~/features/agent-api/agents-md.server";
 import { scheduleSyncPostCommit } from "~/features/agent-api/cli-sync.server";
 import { action } from "./sync";

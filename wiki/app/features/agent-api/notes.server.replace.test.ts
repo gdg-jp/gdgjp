@@ -4,7 +4,6 @@ import type { AgentWorkspaceContext } from "~/features/agent-api/workspace.serve
 const getPageAccessListMock = vi.fn<(...args: unknown[]) => unknown>();
 const getEffectivePagePermissionsMock = vi.fn<(...args: unknown[]) => unknown>();
 const upsertCatalogEntryMock = vi.fn<(...args: unknown[]) => unknown>();
-const sendOrRunTranslationMock = vi.fn<(...args: unknown[]) => unknown>();
 
 /** Rows keyed by page id, mutated per test to drive resolveReplaceTarget. */
 let pagesById: Record<string, Record<string, unknown>> = {};
@@ -42,10 +41,6 @@ vi.mock("~/db/schema", () => ({
 vi.mock("~/features/pages/access.server", () => ({
   getPageAccessList: (...args: unknown[]) => getPageAccessListMock(...args),
   getEffectivePagePermissions: (...args: unknown[]) => getEffectivePagePermissionsMock(...args),
-}));
-
-vi.mock("~/lib/queue-processors.server", () => ({
-  sendOrRunTranslation: (...args: unknown[]) => sendOrRunTranslationMock(...args),
 }));
 
 vi.mock("~/features/pages/wiki-catalog.server", () => ({
@@ -127,7 +122,6 @@ beforeEach(() => {
   getPageAccessListMock.mockReset().mockResolvedValue([]);
   getEffectivePagePermissionsMock.mockReset().mockResolvedValue({ canView: true, canEdit: false });
   upsertCatalogEntryMock.mockReset().mockResolvedValue(undefined);
-  sendOrRunTranslationMock.mockReset().mockResolvedValue(undefined);
 });
 
 describe("createOrReplaceAnswerNote — replacement never moves access scope", () => {
@@ -150,7 +144,7 @@ describe("createOrReplaceAnswerNote — replacement never moves access scope", (
     citedChapterId = "B";
     const { env: e, batch } = env({ changes: 1 });
 
-    const result = await createOrReplaceAnswerNote(e, {} as never, workspaceCtx(["A", "B"]), {
+    const result = await createOrReplaceAnswerNote(e, workspaceCtx(["A", "B"]), {
       ...body,
       replaceId: "ans-1",
       citedPaths: ["/wiki/venues/b1", "/wiki/venues/b2"],
@@ -180,7 +174,7 @@ describe("createOrReplaceAnswerNote — replacement never moves access scope", (
     );
     const { env: e, batch } = env({ changes: 1 });
 
-    const result = await createOrReplaceAnswerNote(e, {} as never, workspaceCtx(["A"]), {
+    const result = await createOrReplaceAnswerNote(e, workspaceCtx(["A"]), {
       ...body,
       replaceId: "ans-1",
     });
@@ -199,7 +193,7 @@ describe("createOrReplaceAnswerNote — slug collision is decided by the databas
     };
     const { env: e } = env({ changes: 0 });
 
-    const result = await createOrReplaceAnswerNote(e, {} as never, workspaceCtx(["A"]), body);
+    const result = await createOrReplaceAnswerNote(e, workspaceCtx(["A"]), body);
 
     expect(result).toMatchObject({
       ok: false,
@@ -208,14 +202,13 @@ describe("createOrReplaceAnswerNote — slug collision is decided by the databas
       path: "/wiki/answers/venue-picks",
     });
     expect(upsertCatalogEntryMock).not.toHaveBeenCalled();
-    expect(sendOrRunTranslationMock).not.toHaveBeenCalled();
   });
 
   it("omits the answers path when the conflicting slug is outside the namespace", async () => {
     pagesBySlug["venue-picks"] = { slug: "venue-picks", parentId: "ns-venues" };
     const { env: e } = env({ changes: 0 });
 
-    const result = await createOrReplaceAnswerNote(e, {} as never, workspaceCtx(["A"]), body);
+    const result = await createOrReplaceAnswerNote(e, workspaceCtx(["A"]), body);
 
     expect(result).toMatchObject({ ok: false, error: "slug_exists", status: 409 });
     expect(result).not.toHaveProperty("path");
