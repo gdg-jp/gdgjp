@@ -6,6 +6,7 @@ export const DEFAULT_QUALITY = 82;
 export const DEFAULT_FIT = "scale-down";
 export const MIN_TRANSFORM_BYTES = 10 * 1024;
 export const MAX_DPR = 3;
+const RADIUS_RENDITION_VERSION = 2;
 
 export type Fit = "scale-down" | "contain" | "cover" | "crop" | "pad";
 export type DeriveTransform = {
@@ -42,7 +43,8 @@ export function snapWidth(requested: number): number {
 
 export function renditionParamSlug(transform: DeriveTransform): string {
   const height = transform.height === undefined ? "" : `_h${transform.height}`;
-  const radius = transform.radius === undefined ? "" : `_r${transform.radius}`;
+  const radius =
+    transform.radius === undefined ? "" : `_r${RADIUS_RENDITION_VERSION}-${transform.radius}`;
   return `w${transform.width ?? 0}${height}_${transform.fit}${radius}_q${transform.quality}`;
 }
 

@@ -52,12 +52,21 @@ export async function deliverImage(input: {
       toImageTransform(input.delivery.transform),
     );
     if (input.delivery.transform.radius !== undefined) {
-      const radius = safeCornerRadius(
+      const rounding = resolveCornerRounding(
         input.delivery.transform.radius,
         input.delivery.transform,
         roundedSource.source,
       );
-      if (radius > 0) transformer = drawRoundedCorners(input.env.IMAGES, transformer, radius);
+      if (rounding.circleSize !== undefined) {
+        transformer = transformer.transform({
+          width: rounding.circleSize,
+          height: rounding.circleSize,
+          fit: "cover",
+        });
+      }
+      if (rounding.radius > 0) {
+        transformer = drawRoundedCorners(input.env.IMAGES, transformer, rounding.radius);
+      }
     }
     const transformed = await transformer.output({
       format: `image/${input.delivery.transform.format}` as ImageOutputOptions["format"],
@@ -179,15 +188,22 @@ function cornerMask(): ReadableStream<Uint8Array> {
   }).stream();
 }
 
-function safeCornerRadius(
+function resolveCornerRounding(
   requested: number,
   transform: { width?: number; height?: number; fit: ImageTransform["fit"] },
   source: Pick<SourceVariant, "width" | "height">,
-): number {
+): { radius: number; circleSize?: number } {
   const dimensions = outputDimensions(transform, source);
-  return dimensions === null
-    ? requested
-    : Math.min(requested, Math.floor(Math.min(dimensions.width, dimensions.height) / 2));
+  if (dimensions === null) return { radius: requested };
+
+  const circleSize = Math.min(dimensions.width, dimensions.height);
+  const radius = Math.min(requested, Math.floor(circleSize / 2));
+  return {
+    radius,
+    ...(requested >= circleSize / 2 && dimensions.width !== dimensions.height
+      ? { circleSize }
+      : {}),
+  };
 }
 
 function outputDimensions(

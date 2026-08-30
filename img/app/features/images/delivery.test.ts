@@ -147,6 +147,24 @@ describe("deliverImage", () => {
     ).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
   });
 
+  it("center-crops a rectangular image when the radius reaches a circle", async () => {
+    const rectangular = { ...source, width: 704, height: 788 };
+    const resolved = resolveDelivery({
+      params: { radius: 1000 },
+      accept: "image/avif",
+      autoMaxWidth: 0,
+      source: rectangular,
+    });
+    const h = harness();
+    await run(h, resolved, false, rectangular);
+    const baseTransformer = h.input.mock.results[0]?.value;
+    expect(baseTransformer.transform).toHaveBeenLastCalledWith({
+      width: 704,
+      height: 704,
+      fit: "cover",
+    });
+  });
+
   it("inspects an unknown source before rounding its corners", async () => {
     const unknownDimensions = { ...source, width: null, height: null };
     const resolved = resolveDelivery({
