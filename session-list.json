@@ -1,0 +1,128 @@
+{
+  "title": "DevFest 2026 in Kansai セッション一覧",
+  "speakers": {
+    "llion": {
+      "name": "Llion Jones",
+      "role": "Co-Founder & CTO, Sakana AI",
+      "image": "https://img.gdgs.jp/WdGkxjCR?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "takeuchi": {
+      "name": "竹内 郁雄",
+      "role": "東京大学名誉教授",
+      "image": "https://img.gdgs.jp/AtXLXNuP?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "ohta": {
+      "name": "太田 満久",
+      "role": "ユビー株式会社 Ubie Lab 所長",
+      "image": "https://img.gdgs.jp/6Z7dxrxU?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "asada": {
+      "name": "浅田 稔",
+      "role": "大阪国際工科専門職大学 副学長・教授",
+      "image": "https://img.gdgs.jp/RTbA8Lap?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "aditya": {
+      "name": "Aditya Joshi",
+      "role": "Senior Software Engineer, Walmart",
+      "image": "https://img.gdgs.jp/a88h9tvh?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "fujii": {
+      "name": "藤井先生"
+    }
+  },
+  "sections": [
+    {
+      "id": "talks",
+      "heading": "TALKS",
+      "color": "blue",
+      "desktopColumn": 1,
+      "sessions": [
+        {
+          "id": "keynote-llion",
+          "title": "I didn't need this attention",
+          "speakers": ["llion"],
+          "highlights": [{ "text": "attention", "color": "blue" }]
+        },
+        {
+          "id": "takeuchi",
+          "title": "ものづくりの本質",
+          "speakers": ["takeuchi"],
+          "highlights": [{ "text": "ものづくり", "color": "yellow" }]
+        },
+        {
+          "id": "ohta",
+          "title": "生成AIを「なんとなく改善」するのをやめる",
+          "speakers": ["ohta"],
+          "highlights": [{ "text": "生成AI", "color": "green" }, { "text": "改善", "color": "red" }]
+        },
+        {
+          "id": "asada",
+          "title": "認知発達ロボティクス",
+          "speakers": ["asada"],
+          "highlights": [{ "text": "認知発達ロボティクス", "color": "blue" }]
+        },
+        {
+          "id": "aditya",
+          "title": "Give Your AI Agents a Sandbox: Running Untrusted Agent Code Safely on Kubernetes",
+          "speakers": ["aditya"],
+          "highlights": [
+            { "text": "AI Agents", "color": "blue" },
+            { "text": "Sandbox", "color": "yellow" },
+            { "text": "Kubernetes", "color": "red" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hands-on",
+      "heading": "HANDS-ON",
+      "color": "red",
+      "desktopColumn": 2,
+      "sessions": [
+        {
+          "id": "fujii",
+          "title": "トーク・ファッションワークショップ",
+          "speakers": ["fujii"],
+          "highlights": [
+            { "text": "ファッション", "color": "red" },
+            { "text": "ワークショップ", "color": "blue" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "panel-discussion",
+      "heading": "PANEL DISCUSSION",
+      "color": "green",
+      "desktopColumn": 2,
+      "sessions": [
+        {
+          "id": "panel-swe",
+          "title": "パネルディスカッション（SWE）",
+          "speakers": [],
+          "highlights": [{ "text": "SWE", "color": "blue" }]
+        },
+        {
+          "id": "panel-recruiting",
+          "title": "パネルディスカッション（採用）",
+          "speakers": [],
+          "highlights": [{ "text": "採用", "color": "green" }]
+        }
+      ]
+    },
+    {
+      "id": "lt",
+      "heading": "LT",
+      "color": "yellow",
+      "desktopColumn": 2,
+      "sessions": [
+        {
+          "id": "lt-contest",
+          "title": "LT大会",
+          "speakers": [],
+          "highlights": [{ "text": "LT", "color": "yellow" }]
+        }
+      ]
+    }
+  ]
+}

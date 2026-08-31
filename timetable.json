@@ -1,0 +1,458 @@
+{
+  "title": "DevFest 2026 in Kansai",
+  "timezone": "Asia/Tokyo",
+  "tracks": [
+    { "id": "a", "label": "Track A", "color": "blue" },
+    { "id": "b", "label": "Track B", "color": "green" },
+    { "id": "c", "label": "Track C", "color": "yellow" },
+    { "id": "d", "label": "Track D", "color": "red" }
+  ],
+  "speakers": {
+    "sherry": { "name": "Sherry" },
+    "heiga": {
+      "name": "Heiga Zen",
+      "role": "Google DeepMind",
+      "image": "https://img.gdgs.jp/EVwB6Cuk?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "murakami-norio": {
+      "name": "村上 憲郎",
+      "role": "国際工科専門職大学（IPUT）学長",
+      "image": "https://img.gdgs.jp/0ABeKzvg?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "llion": {
+      "name": "Llion Jones",
+      "role": "Co-Founder & CTO, Sakana AI",
+      "image": "https://img.gdgs.jp/WdGkxjCR?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "takeuchi": {
+      "name": "竹内 郁雄",
+      "role": "東京大学名誉教授",
+      "image": "https://img.gdgs.jp/AtXLXNuP?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "inductor": { "name": "inductor", "role": "Google Developers Expert（AI）" },
+    "saku": {
+      "name": "Saku",
+      "role": "Google Developers Expert",
+      "image": "https://img.gdgs.jp/u5945MA8?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "fujii": { "name": "藤井先生" },
+    "ohta": {
+      "name": "太田 満久",
+      "role": "ユビー株式会社 Ubie Lab 所長",
+      "image": "https://img.gdgs.jp/6Z7dxrxU?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "lucas": { "name": "Lucas" },
+    "asada": {
+      "name": "浅田 稔",
+      "role": "大阪国際工科専門職大学 副学長・教授",
+      "image": "https://img.gdgs.jp/RTbA8Lap?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "matsuda": {
+      "name": "松田 実法",
+      "role": "Google Developers Expert",
+      "image": "https://img.gdgs.jp/bjm8oGyN?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "ando": {
+      "name": "安藤 幸央",
+      "role": "株式会社エクサ UXデザイナー",
+      "image": "https://img.gdgs.jp/NCYMjgXY?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "ishiguro": {
+      "name": "石黒 浩",
+      "role": "大阪大学大学院基礎工学研究科 教授（栄誉教授）",
+      "image": "https://img.gdgs.jp/fvsMb039?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "adamrocker": {
+      "name": "足立 昌彦（adamrocker）",
+      "role": "株式会社GENKEI CEO",
+      "image": "https://img.gdgs.jp/5VhDJtRd?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "hachisuka": {
+      "name": "蜂須賀 大貴",
+      "role": "Newbee株式会社 代表取締役",
+      "image": "https://img.gdgs.jp/8Pdw99do?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "haren": {
+      "name": "Haren Bhandari",
+      "role": "Google Developers Expert",
+      "image": "https://img.gdgs.jp/LxsE0uUT?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "aditya": {
+      "name": "Aditya Joshi",
+      "role": "Senior Software Engineer, Walmart",
+      "image": "https://img.gdgs.jp/a88h9tvh?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "murakami-dlg": { "name": "村上さん", "role": "データラーニングギルド" },
+    "ochiai": { "name": "落合 陽一" },
+    "fukushima": {
+      "name": "福島 ゆかり",
+      "role": "株式会社電通デジタル AIX部門マネージャー",
+      "image": "https://img.gdgs.jp/NLOcjcTP?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "yamazaki": {
+      "name": "山﨑 大介",
+      "role": "筑波大学 情報学郡 情報科学類",
+      "image": "https://img.gdgs.jp/B8nKX6Ju?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "naga": {
+      "name": "naga（Yukinaga Oishi）",
+      "role": "GDG Tokyo Organizer",
+      "image": "https://img.gdgs.jp/u3tglBlT?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    }
+  },
+  "entries": [
+    {
+      "id": "doors",
+      "kind": "logistics",
+      "title": "開場／受付",
+      "start": "09:30",
+      "end": "10:30",
+      "tracks": ["a", "b", "c", "d"]
+    },
+    {
+      "id": "opening",
+      "kind": "session",
+      "title": "Opening",
+      "start": "10:30",
+      "end": "10:40",
+      "tracks": ["a"],
+      "speakers": ["sherry"]
+    },
+    {
+      "id": "keynote-heiga",
+      "kind": "session",
+      "title": "Keynote",
+      "start": "10:40",
+      "end": "11:00",
+      "tracks": ["a"],
+      "speakers": ["heiga"]
+    },
+    {
+      "id": "greeting",
+      "kind": "session",
+      "title": "村上学長挨拶",
+      "start": "11:00",
+      "end": "11:10",
+      "tracks": ["a"],
+      "speakers": ["murakami-norio"]
+    },
+    {
+      "id": "findy",
+      "kind": "session",
+      "title": "Findy スポンサーセッション",
+      "start": "11:10",
+      "end": "11:20",
+      "tracks": ["a"],
+      "speakers": [],
+      "note": "Findy"
+    },
+    {
+      "id": "photo",
+      "kind": "logistics",
+      "title": "写真撮影",
+      "start": "11:20",
+      "end": "11:30",
+      "tracks": ["a", "b", "c", "d"]
+    },
+    {
+      "id": "keynote-llion",
+      "kind": "session",
+      "title": "I didn't need this attention",
+      "start": "11:30",
+      "end": "12:10",
+      "tracks": ["a"],
+      "speakers": ["llion"]
+    },
+    {
+      "id": "lunch",
+      "kind": "break",
+      "title": "昼休憩",
+      "start": "12:10",
+      "end": "13:10",
+      "tracks": ["a", "b", "c", "d"]
+    },
+    {
+      "id": "takeuchi",
+      "kind": "session",
+      "title": "ものづくりの本質",
+      "start": "13:10",
+      "end": "14:10",
+      "tracks": ["a"],
+      "speakers": ["takeuchi"],
+      "note": "Buffer 5min"
+    },
+    {
+      "id": "inductor",
+      "kind": "session",
+      "title": "TBA",
+      "start": "13:10",
+      "end": "13:35",
+      "tracks": ["b"],
+      "speakers": ["inductor"]
+    },
+    {
+      "id": "saku",
+      "kind": "session",
+      "title": "TBA",
+      "start": "13:10",
+      "end": "13:35",
+      "tracks": ["c"],
+      "speakers": ["saku"]
+    },
+    {
+      "id": "fujii",
+      "kind": "session",
+      "title": "トーク・ファッションワークショップ",
+      "start": "13:10",
+      "end": "14:45",
+      "tracks": ["d"],
+      "speakers": ["fujii"]
+    },
+    {
+      "id": "break-1335",
+      "kind": "break",
+      "title": "休憩",
+      "start": "13:35",
+      "end": "13:45",
+      "tracks": ["b", "c"]
+    },
+    {
+      "id": "ohta",
+      "kind": "session",
+      "title": "生成AIを「なんとなく改善」するのをやめる",
+      "start": "13:45",
+      "end": "14:10",
+      "tracks": ["b"],
+      "speakers": ["ohta"]
+    },
+    {
+      "id": "lucas",
+      "kind": "session",
+      "title": "TBA",
+      "start": "13:45",
+      "end": "14:10",
+      "tracks": ["c"],
+      "speakers": ["lucas"]
+    },
+    {
+      "id": "break-1410",
+      "kind": "break",
+      "title": "休憩",
+      "start": "14:10",
+      "end": "14:20",
+      "tracks": ["a", "b", "c"]
+    },
+    {
+      "id": "asada",
+      "kind": "session",
+      "title": "認知発達ロボティクス",
+      "start": "14:20",
+      "end": "14:45",
+      "tracks": ["a"],
+      "speakers": ["asada"]
+    },
+    {
+      "id": "matsuda",
+      "kind": "session",
+      "title": "TBA",
+      "start": "14:20",
+      "end": "14:45",
+      "tracks": ["b"],
+      "speakers": ["matsuda"]
+    },
+    {
+      "id": "ando",
+      "kind": "session",
+      "title": "TBA",
+      "start": "14:20",
+      "end": "14:45",
+      "tracks": ["c"],
+      "speakers": ["ando"]
+    },
+    {
+      "id": "break-1445",
+      "kind": "break",
+      "title": "休憩",
+      "start": "14:45",
+      "end": "15:00",
+      "tracks": ["a", "b", "c", "d"]
+    },
+    {
+      "id": "ishiguro",
+      "kind": "session",
+      "title": "TBA",
+      "start": "15:00",
+      "end": "16:00",
+      "tracks": ["a"],
+      "speakers": ["ishiguro"],
+      "note": "オンライン"
+    },
+    {
+      "id": "adamrocker",
+      "kind": "session",
+      "title": "TBA",
+      "start": "15:00",
+      "end": "15:25",
+      "tracks": ["b"],
+      "speakers": ["adamrocker"]
+    },
+    {
+      "id": "hachisuka",
+      "kind": "session",
+      "title": "TBA",
+      "start": "15:00",
+      "end": "15:25",
+      "tracks": ["c"],
+      "speakers": ["hachisuka"]
+    },
+    {
+      "id": "haren",
+      "kind": "session",
+      "title": "TBA",
+      "start": "15:00",
+      "end": "16:00",
+      "tracks": ["d"],
+      "speakers": ["haren"]
+    },
+    {
+      "id": "break-1525",
+      "kind": "break",
+      "title": "休憩",
+      "start": "15:25",
+      "end": "15:35",
+      "tracks": ["b", "c"]
+    },
+    {
+      "id": "aditya",
+      "kind": "session",
+      "title": "Give Your AI Agents a Sandbox: Running Untrusted Agent Code Safely on Kubernetes",
+      "start": "15:35",
+      "end": "16:00",
+      "tracks": ["b"],
+      "speakers": ["aditya"],
+      "note": "English"
+    },
+    {
+      "id": "murakami-dlg",
+      "kind": "session",
+      "title": "TBA",
+      "start": "15:35",
+      "end": "16:00",
+      "tracks": ["c"],
+      "speakers": ["murakami-dlg"]
+    },
+    {
+      "id": "break-1600",
+      "kind": "break",
+      "title": "休憩",
+      "start": "16:00",
+      "end": "16:10",
+      "tracks": ["a", "b", "c", "d"]
+    },
+    {
+      "id": "ochiai",
+      "kind": "session",
+      "title": "TBA",
+      "start": "16:10",
+      "end": "17:10",
+      "tracks": ["a"],
+      "speakers": ["ochiai"],
+      "note": "オンライン"
+    },
+    {
+      "id": "panel-swe",
+      "kind": "session",
+      "title": "パネルディスカッション（SWE）",
+      "start": "16:10",
+      "end": "17:10",
+      "tracks": ["b"],
+      "speakers": []
+    },
+    {
+      "id": "panel-recruiting",
+      "kind": "session",
+      "title": "パネルディスカッション（採用）",
+      "start": "16:10",
+      "end": "17:10",
+      "tracks": ["c"],
+      "speakers": []
+    },
+    {
+      "id": "fukushima",
+      "kind": "session",
+      "title": "TBA",
+      "start": "16:10",
+      "end": "17:10",
+      "tracks": ["d"],
+      "speakers": ["fukushima"]
+    },
+    {
+      "id": "break-1710",
+      "kind": "break",
+      "title": "休憩",
+      "start": "17:10",
+      "end": "17:20",
+      "tracks": ["a", "b", "c"]
+    },
+    {
+      "id": "yamazaki",
+      "kind": "session",
+      "title": "TBA",
+      "start": "17:20",
+      "end": "17:45",
+      "tracks": ["a"],
+      "speakers": ["yamazaki"]
+    },
+    {
+      "id": "naga",
+      "kind": "session",
+      "title": "TBA",
+      "start": "17:20",
+      "end": "17:45",
+      "tracks": ["b"],
+      "speakers": ["naga"]
+    },
+    {
+      "id": "lt",
+      "kind": "session",
+      "title": "LT大会",
+      "start": "17:20",
+      "end": "17:45",
+      "tracks": ["c"],
+      "speakers": []
+    },
+    {
+      "id": "break-1745",
+      "kind": "break",
+      "title": "休憩",
+      "start": "17:45",
+      "end": "17:55",
+      "tracks": ["a"]
+    },
+    {
+      "id": "closing",
+      "kind": "session",
+      "title": "Closing",
+      "start": "17:55",
+      "end": "18:10",
+      "tracks": ["a"],
+      "speakers": []
+    },
+    {
+      "id": "move",
+      "kind": "logistics",
+      "title": "懇親会会場へ移動",
+      "start": "18:10",
+      "end": "18:40",
+      "tracks": ["a", "b", "c", "d"]
+    },
+    {
+      "id": "networking",
+      "kind": "logistics",
+      "title": "懇親会",
+      "start": "18:40",
+      "end": "20:40",
+      "tracks": ["a", "b", "c", "d"]
+    }
+  ]
+}
