@@ -28,6 +28,21 @@
     },
     "fujii": {
       "name": "藤井先生"
+    },
+    "ishihara": {
+      "name": "石原 直樹",
+      "role": "GDG Greater Kwansai",
+      "image": "https://img.gdgs.jp/3Cl1Raoc?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "oikawa": {
+      "name": "及川 卓也",
+      "role": "Tably株式会社 代表取締役",
+      "image": "https://img.gdgs.jp/sN7Hutb8?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
+    },
+    "kawanaka": {
+      "name": "川中 真耶",
+      "role": "ソフトウェアエンジニアリング協会 代表理事／ナレッジワーク CTO",
+      "image": "https://img.gdgs.jp/0p7ufe5t?w=640&h=640&fit=cover&radius=640&q=60&f=avif"
     }
   },
   "sections": [
@@ -98,9 +113,9 @@
       "sessions": [
         {
           "id": "panel-swe",
-          "title": "パネルディスカッション（SWE）",
-          "speakers": [],
-          "highlights": [{ "text": "SWE", "color": "blue" }]
+          "title": "パネルディスカッション 〜ソフトウェアエンジニアリングについて〜",
+          "speakers": ["ishihara", "oikawa", "kawanaka"],
+          "highlights": [{ "text": "ソフトウェアエンジニアリング", "color": "blue" }]
         },
         {
           "id": "panel-recruiting",
