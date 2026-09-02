@@ -214,7 +214,10 @@
       "restore": "復元",
       "status_archived": "アーカイブ済み",
       "delete_archived_confirm": "「{{title}}」を完全に削除しますか？この操作は元に戻せません。",
-      "empty": "ページが見つかりません。"
+      "empty": "ページが見つかりません。",
+      "expand": "展開",
+      "collapse": "折りたたむ",
+      "child_count": "子ページ {{count}} 件"
     },
     "tags": {
       "heading": "タグ",

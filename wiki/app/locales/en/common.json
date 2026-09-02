@@ -214,7 +214,10 @@
       "restore": "Restore",
       "status_archived": "Archived",
       "delete_archived_confirm": "Permanently delete \"{{title}}\"? This cannot be undone.",
-      "empty": "No pages found."
+      "empty": "No pages found.",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "child_count": "{{count}} child pages"
     },
     "tags": {
       "heading": "Tags",
