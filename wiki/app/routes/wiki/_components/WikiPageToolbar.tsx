@@ -1,17 +1,96 @@
 import { Archive, History, MoreHorizontal, Pencil, Share2, Star } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Await, Link, useFetcher } from "react-router";
+import { Skeleton } from "~/components/Skeleton";
 import Tooltip from "~/components/Tooltip";
 
 const btnBase =
   "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-content-tertiary transition-colors hover:bg-surface-hover hover:text-content-primary";
 
 type PageSlice = {
+  id: string;
   slug: string;
   translationStatusJa: string;
   translationStatusEn: string;
 };
+
+function StarButton({ pageId, initialStarred }: { pageId: string; initialStarred: boolean }) {
+  const { t } = useTranslation("common");
+  const favFetcher = useFetcher<{ ok: boolean; starred: boolean }>();
+  const [currentStarred, setCurrentStarred] = useState(initialStarred);
+
+  useEffect(() => {
+    setCurrentStarred(initialStarred);
+  }, [initialStarred]);
+
+  const optimisticStarred = favFetcher.state !== "idle" ? !currentStarred : currentStarred;
+  const starStyle = optimisticStarred
+    ? { color: "var(--color-feedback-warning-solid)" }
+    : undefined;
+  const starIconStyle = optimisticStarred
+    ? {
+        fill: "var(--color-feedback-warning-solid)",
+        color: "var(--color-feedback-warning-solid)",
+      }
+    : undefined;
+
+  return (
+    <button
+      type="button"
+      onClick={() => favFetcher.submit({ intent: "toggleFavorite", pageId }, { method: "post" })}
+      className={btnBase}
+      style={starStyle}
+    >
+      <Star size={14} style={starIconStyle} />
+      {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
+    </button>
+  );
+}
+
+function MobileStarButton({
+  pageId,
+  initialStarred,
+  onSelect,
+}: {
+  pageId: string;
+  initialStarred: boolean;
+  onSelect: () => void;
+}) {
+  const { t } = useTranslation("common");
+  const favFetcher = useFetcher<{ ok: boolean; starred: boolean }>();
+  const [currentStarred, setCurrentStarred] = useState(initialStarred);
+
+  useEffect(() => {
+    setCurrentStarred(initialStarred);
+  }, [initialStarred]);
+
+  const optimisticStarred = favFetcher.state !== "idle" ? !currentStarred : currentStarred;
+  const starStyle = optimisticStarred
+    ? { color: "var(--color-feedback-warning-solid)" }
+    : undefined;
+  const starIconStyle = optimisticStarred
+    ? {
+        fill: "var(--color-feedback-warning-solid)",
+        color: "var(--color-feedback-warning-solid)",
+      }
+    : undefined;
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        favFetcher.submit({ intent: "toggleFavorite", pageId }, { method: "post" });
+        onSelect();
+      }}
+      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
+      style={starStyle}
+    >
+      <Star size={14} style={starIconStyle} />
+      {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
+    </button>
+  );
+}
 
 /** Mini-header for `/wiki/*` — JA/EN toggle + edit/history/star/share/archive. */
 export function WikiPageToolbar({
@@ -22,8 +101,7 @@ export function WikiPageToolbar({
   canEdit,
   isAuthenticated,
   canArchive,
-  optimisticStarred,
-  onToggleStar,
+  pageMeta,
   onShare,
   onArchive,
 }: {
@@ -34,8 +112,7 @@ export function WikiPageToolbar({
   canEdit: boolean;
   isAuthenticated: boolean;
   canArchive: boolean;
-  optimisticStarred: boolean;
-  onToggleStar: () => void;
+  pageMeta: Promise<{ isStarred: boolean }>;
   onShare: () => void;
   onArchive: () => void;
 }) {
@@ -51,16 +128,6 @@ export function WikiPageToolbar({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [moreOpen]);
-
-  const starStyle = optimisticStarred
-    ? { color: "var(--color-feedback-warning-solid)" }
-    : undefined;
-  const starIconStyle = optimisticStarred
-    ? {
-        fill: "var(--color-feedback-warning-solid)",
-        color: "var(--color-feedback-warning-solid)",
-      }
-    : undefined;
 
   return (
     <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-2 md:px-10">
@@ -112,10 +179,13 @@ export function WikiPageToolbar({
         </Link>
         {isAuthenticated && (
           <>
-            <button type="button" onClick={onToggleStar} className={btnBase} style={starStyle}>
-              <Star size={14} style={starIconStyle} />
-              {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
-            </button>
+            <Suspense fallback={<Skeleton className="h-7 w-16" />}>
+              <Await resolve={pageMeta} errorElement={null}>
+                {(meta) => (
+                  <StarButton pageId={page.id} initialStarred={meta?.isStarred ?? false} />
+                )}
+              </Await>
+            </Suspense>
             <button type="button" onClick={onShare} className={btnBase}>
               <Share2 size={14} />
               {t("wiki.share")}
@@ -166,18 +236,23 @@ export function WikiPageToolbar({
               {t("wiki.history")}
             </Link>
             {isAuthenticated && (
-              <button
-                type="button"
-                onClick={() => {
-                  onToggleStar();
-                  setMoreOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
-                style={starStyle}
+              <Suspense
+                fallback={
+                  <div className="px-3 py-2">
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                }
               >
-                <Star size={14} style={starIconStyle} />
-                {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
-              </button>
+                <Await resolve={pageMeta} errorElement={null}>
+                  {(meta) => (
+                    <MobileStarButton
+                      pageId={page.id}
+                      initialStarred={meta?.isStarred ?? false}
+                      onSelect={() => setMoreOpen(false)}
+                    />
+                  )}
+                </Await>
+              </Suspense>
             )}
             {isAuthenticated && (
               <button

@@ -1,8 +1,9 @@
 import { CalendarDays, Check, LayoutList, ListChecks, Pencil, X } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, Suspense, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useFetcher, useLoaderData, useRevalidator } from "react-router";
+import { Await, useFetcher, useLoaderData, useRevalidator } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
+import { TableSkeleton } from "~/components/Skeleton";
 import ShareDialog from "~/features/pages/components/ShareDialog";
 import TaskRemainingView from "~/features/tasks/components/TaskRemainingView";
 import TaskTableView from "~/features/tasks/components/TaskTableView";
@@ -22,22 +23,18 @@ async function ensureOkResponse(response: Response): Promise<void> {
 export function TaskListView() {
   const {
     page,
-    tasks,
-    teams,
-    members,
+    taskData,
     taskListId,
     canManage,
     canChangeVisibility,
     canManageAccess,
     isAuthenticated,
     nextTaskNumber,
-    isStarred,
     canArchive,
   } = useLoaderData() as TaskDetailData;
   const { t, i18n } = useTranslation();
   const revalidator = useRevalidator();
   const settingsFetcher = useFetcher<{ ok: boolean }>();
-  const favFetcher = useFetcher<{ ok: boolean; starred: boolean }>();
   const archiveFetcher = useFetcher();
   const [activeTab, setActiveTab] = useState<ViewTab>("table");
 
@@ -50,11 +47,9 @@ export function TaskListView() {
   const [editTitleJa, setEditTitleJa] = useState(page.titleJa);
   const [editTitleEn, setEditTitleEn] = useState(page.titleEn);
 
-  // Star / share / archive state
-  const [currentStarred, setCurrentStarred] = useState(isStarred);
+  // Share / archive state
   const [shareOpen, setShareOpen] = useState(false);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
-  const optimisticStarred = favFetcher.state !== "idle" ? !currentStarred : currentStarred;
 
   // Exit edit mode when save succeeds; revalidate to refresh page data
   useEffect(() => {
@@ -63,11 +58,6 @@ export function TaskListView() {
       revalidator.revalidate();
     }
   }, [settingsFetcher.data, revalidator]);
-
-  // Sync star state on navigation
-  useEffect(() => {
-    setCurrentStarred(isStarred);
-  }, [isStarred]);
 
   const title = displayLang === "en" ? page.titleEn || page.titleJa : page.titleJa || page.titleEn;
 
@@ -87,10 +77,6 @@ export function TaskListView() {
     fd.set("titleJa", editTitleJa);
     fd.set("titleEn", editTitleEn);
     settingsFetcher.submit(fd, { method: "post" });
-  }
-
-  function handleToggleStar() {
-    favFetcher.submit({ intent: "toggleFavorite", pageId: page.id }, { method: "post" });
   }
 
   function handleShare() {
@@ -157,10 +143,10 @@ export function TaskListView() {
       {/* Mini-header toolbar — mirrors wiki.$slug.tsx */}
       <TaskDetailToolbar
         slug={page.slug}
+        pageId={page.id}
         isAuthenticated={isAuthenticated}
         canArchive={canArchive}
-        optimisticStarred={optimisticStarred}
-        onToggleStar={handleToggleStar}
+        taskData={taskData}
         onShare={handleShare}
         onArchive={() => setArchiveDialogOpen(true)}
       />
@@ -261,27 +247,40 @@ export function TaskListView() {
       </div>
 
       {/* View content */}
-      {activeTab === "table" && (
-        <TaskTableView
-          tasks={tasks}
-          teams={teams}
-          members={members}
-          onUpdate={handleUpdate}
-          onTaskClick={handleTaskClick}
-          onCreate={handleCreate}
-          onDelete={handleDelete}
-          nextTaskNumber={nextTaskNumber}
-          canManage={canManage}
-          taskListId={taskListId}
-          onTeamsRefresh={() => revalidator.revalidate()}
-        />
-      )}
-      {activeTab === "timeline" && (
-        <TaskTimelineView tasks={tasks} members={members} onTaskClick={handleTaskClick} />
-      )}
-      {activeTab === "remaining" && (
-        <TaskRemainingView tasks={tasks} members={members} onTaskClick={handleTaskClick} />
-      )}
+      <Suspense fallback={<TableSkeleton rows={8} cols={6} />}>
+        <Await
+          resolve={taskData}
+          errorElement={
+            <div className="p-8 text-sm text-feedback-danger-foreground">Failed to load tasks.</div>
+          }
+        >
+          {({ tasks, teams, members }) => (
+            <>
+              {activeTab === "table" && (
+                <TaskTableView
+                  tasks={tasks}
+                  teams={teams}
+                  members={members}
+                  onUpdate={handleUpdate}
+                  onTaskClick={handleTaskClick}
+                  onCreate={handleCreate}
+                  onDelete={handleDelete}
+                  nextTaskNumber={nextTaskNumber}
+                  canManage={canManage}
+                  taskListId={taskListId}
+                  onTeamsRefresh={() => revalidator.revalidate()}
+                />
+              )}
+              {activeTab === "timeline" && (
+                <TaskTimelineView tasks={tasks} members={members} onTaskClick={handleTaskClick} />
+              )}
+              {activeTab === "remaining" && (
+                <TaskRemainingView tasks={tasks} members={members} onTaskClick={handleTaskClick} />
+              )}
+            </>
+          )}
+        </Await>
+      </Suspense>
 
       <ConfirmDialog
         open={archiveDialogOpen}

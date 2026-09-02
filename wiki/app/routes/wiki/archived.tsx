@@ -1,10 +1,11 @@
 import { and, desc, eq } from "drizzle-orm";
 import { RotateCcw, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useFetcher, useLoaderData } from "react-router";
+import { Await, useFetcher, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
+import { CardGridSkeleton } from "~/components/Skeleton";
 import Tooltip from "~/components/Tooltip";
 import * as schema from "~/db/schema";
 import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
@@ -27,7 +28,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   // Pre-SSO "lead" was a separate role; admins now subsume those capabilities.
   const isLead = isAdmin;
 
-  const pages = await db
+  const pages = db
     .select({
       id: schema.pages.id,
       slug: schema.pages.slug,
@@ -198,20 +199,33 @@ export default function ArchivedPage() {
         <p className="mb-6 text-sm text-content-tertiary">{t("archived.all_pages_note")}</p>
       )}
 
-      {pages.length === 0 ? (
-        <p className="text-sm text-content-disabled">{t("archived.empty")}</p>
-      ) : (
-        <ul className="divide-y divide-border-subtle rounded-lg border border-border-default bg-surface-raised">
-          {pages.map((page) => (
-            <ArchivedRow
-              key={page.id}
-              page={page}
-              canRestore={page.authorId === currentUserId || isLead}
-              canDelete={isAdmin}
-            />
-          ))}
-        </ul>
-      )}
+      <Suspense fallback={<CardGridSkeleton count={4} />}>
+        <Await
+          resolve={pages}
+          errorElement={
+            <p className="text-sm text-feedback-danger-foreground">
+              Failed to load archived pages.
+            </p>
+          }
+        >
+          {(resolvedPages) =>
+            resolvedPages.length === 0 ? (
+              <p className="text-sm text-content-disabled">{t("archived.empty")}</p>
+            ) : (
+              <ul className="divide-y divide-border-subtle rounded-lg border border-border-default bg-surface-raised">
+                {resolvedPages.map((page) => (
+                  <ArchivedRow
+                    key={page.id}
+                    page={page}
+                    canRestore={page.authorId === currentUserId || isLead}
+                    canDelete={isAdmin}
+                  />
+                ))}
+              </ul>
+            )
+          }
+        </Await>
+      </Suspense>
     </div>
   );
 }

@@ -24,129 +24,135 @@ export async function loadSourcesPageData(request: Request, env: Env) {
   const identity = await getAccessIdentity(request, env);
   const db = getDb(env);
 
-  const rows = await db
-    .select()
-    .from(schema.sources)
-    .where(ne(schema.sources.kind, "conversation"))
-    .orderBy(desc(schema.sources.createdAt))
-    .all();
+  const sourcesData = (async () => {
+    const rows = await db
+      .select()
+      .from(schema.sources)
+      .where(ne(schema.sources.kind, "conversation"))
+      .orderBy(desc(schema.sources.createdAt))
+      .all();
 
-  const visible = rows.filter((row) => canAccessSource(row, user, identity.chapters));
-  const sourceIds = visible.map((row) => row.id);
+    const visible = rows.filter((row) => canAccessSource(row, user, identity.chapters));
+    const sourceIds = visible.map((row) => row.id);
 
-  const documents =
-    sourceIds.length === 0
-      ? []
-      : await db
-          .select({
-            id: schema.sourceDocuments.id,
-            sourceId: schema.sourceDocuments.sourceId,
-            path: schema.sourceDocuments.path,
-            title: schema.sourceDocuments.title,
-            contentHash: schema.sourceDocuments.contentHash,
-            mediaType: schema.sourceDocuments.mediaType,
-            capturedAt: schema.sourceDocuments.capturedAt,
-            status: schema.sourceDocuments.status,
-          })
-          .from(schema.sourceDocuments)
-          .where(inArray(schema.sourceDocuments.sourceId, sourceIds))
-          .orderBy(schema.sourceDocuments.path)
-          .all();
+    const documents =
+      sourceIds.length === 0
+        ? []
+        : await db
+            .select({
+              id: schema.sourceDocuments.id,
+              sourceId: schema.sourceDocuments.sourceId,
+              path: schema.sourceDocuments.path,
+              title: schema.sourceDocuments.title,
+              contentHash: schema.sourceDocuments.contentHash,
+              mediaType: schema.sourceDocuments.mediaType,
+              capturedAt: schema.sourceDocuments.capturedAt,
+              status: schema.sourceDocuments.status,
+            })
+            .from(schema.sourceDocuments)
+            .where(inArray(schema.sourceDocuments.sourceId, sourceIds))
+            .orderBy(schema.sourceDocuments.path)
+            .all();
 
-  const documentsBySource = new Map<string, typeof documents>();
-  for (const doc of documents) {
-    const list = documentsBySource.get(doc.sourceId) ?? [];
-    list.push(doc);
-    documentsBySource.set(doc.sourceId, list);
-  }
+    const documentsBySource = new Map<string, typeof documents>();
+    for (const doc of documents) {
+      const list = documentsBySource.get(doc.sourceId) ?? [];
+      list.push(doc);
+      documentsBySource.set(doc.sourceId, list);
+    }
 
-  // Chapter labels come from Accounts (same directory ShareDialog uses). Wiki's
-  // local `chapters` table is not kept in sync with memberships, so reading it
-  // left the picker empty and Radix Select appeared not to open.
-  const directoryChapters = await loadChapterDirectory(env).catch((error) => {
-    console.error("[sources] unable to load chapter directory", error);
-    return [];
-  });
-  const localChapters = await db
-    .select({
-      id: schema.chapters.id,
-      nameJa: schema.chapters.nameJa,
-      nameEn: schema.chapters.nameEn,
-    })
-    .from(schema.chapters)
-    .orderBy(schema.chapters.nameJa)
-    .all();
-
-  const chapterById = new Map<string, { id: string; nameJa: string; nameEn: string }>();
-  for (const chapter of localChapters) {
-    chapterById.set(chapter.id, chapter);
-  }
-  for (const chapter of directoryChapters) {
-    chapterById.set(chapter.id, {
-      id: chapter.id,
-      nameJa: chapter.name,
-      nameEn: chapter.name,
+    // Chapter labels come from Accounts (same directory ShareDialog uses). Wiki's
+    // local `chapters` table is not kept in sync with memberships, so reading it
+    // left the picker empty and Radix Select appeared not to open.
+    const directoryChapters = await loadChapterDirectory(env).catch((error) => {
+      console.error("[sources] unable to load chapter directory", error);
+      return [];
     });
-  }
-  for (const membership of identity.chapters) {
-    const id = String(membership.chapterId);
-    if (chapterById.has(id)) continue;
-    const label = membership.chapterSlug || id;
-    chapterById.set(id, { id, nameJa: label, nameEn: label });
-  }
+    const localChapters = await db
+      .select({
+        id: schema.chapters.id,
+        nameJa: schema.chapters.nameJa,
+        nameEn: schema.chapters.nameEn,
+      })
+      .from(schema.chapters)
+      .orderBy(schema.chapters.nameJa)
+      .all();
 
-  const allChapters = [...chapterById.values()].sort((a, b) =>
-    a.nameJa.localeCompare(b.nameJa, "ja"),
-  );
-  // Only chapters the user may actually assign, so the picker cannot offer a scope
-  // the action would reject.
-  const assignableChapters = user.isAdmin
-    ? allChapters
-    : identity.chapterIds
-        .map((id) => chapterById.get(id))
-        .filter((chapter): chapter is { id: string; nameJa: string; nameEn: string } =>
-          Boolean(chapter),
-        )
-        .sort((a, b) => a.nameJa.localeCompare(b.nameJa, "ja"));
+    const chapterById = new Map<string, { id: string; nameJa: string; nameEn: string }>();
+    for (const chapter of localChapters) {
+      chapterById.set(chapter.id, chapter);
+    }
+    for (const chapter of directoryChapters) {
+      chapterById.set(chapter.id, {
+        id: chapter.id,
+        nameJa: chapter.name,
+        nameEn: chapter.name,
+      });
+    }
+    for (const membership of identity.chapters) {
+      const id = String(membership.chapterId);
+      if (chapterById.has(id)) continue;
+      const label = membership.chapterSlug || id;
+      chapterById.set(id, { id, nameJa: label, nameEn: label });
+    }
 
-  const senderSamples = await db
-    .select({
-      resourceName: schema.googleChatSenderSamples.resourceName,
-      messageText: schema.googleChatSenderSamples.messageText,
-      createdAt: schema.googleChatSenderSamples.createdAt,
-      sourceId: schema.googleChatSenderSamples.sourceId,
-      sourceTitle: schema.sources.title,
-    })
-    .from(schema.googleChatSenderSamples)
-    .innerJoin(schema.sources, eq(schema.googleChatSenderSamples.sourceId, schema.sources.id))
-    .orderBy(desc(schema.googleChatSenderSamples.createdAt))
-    .all();
-  const visibleSamples = senderSamples.filter((sample) => {
-    const source = visible.find((item) => item.id === sample.sourceId);
-    return source !== undefined;
-  });
-  // Profiles are one row per sender — select all instead of an unbounded inArray.
-  const profiles = await db
-    .select({
-      resourceName: schema.googleChatSenderProfiles.resourceName,
-      displayName: schema.googleChatSenderProfiles.displayName,
-    })
-    .from(schema.googleChatSenderProfiles)
-    .all();
+    const allChapters = [...chapterById.values()].sort((a, b) =>
+      a.nameJa.localeCompare(b.nameJa, "ja"),
+    );
+    // Only chapters the user may actually assign, so the picker cannot offer a scope
+    // the action would reject.
+    const assignableChapters = user.isAdmin
+      ? allChapters
+      : identity.chapterIds
+          .map((id) => chapterById.get(id))
+          .filter((chapter): chapter is { id: string; nameJa: string; nameEn: string } =>
+            Boolean(chapter),
+          )
+          .sort((a, b) => a.nameJa.localeCompare(b.nameJa, "ja"));
+
+    const senderSamples = await db
+      .select({
+        resourceName: schema.googleChatSenderSamples.resourceName,
+        messageText: schema.googleChatSenderSamples.messageText,
+        createdAt: schema.googleChatSenderSamples.createdAt,
+        sourceId: schema.googleChatSenderSamples.sourceId,
+        sourceTitle: schema.sources.title,
+      })
+      .from(schema.googleChatSenderSamples)
+      .innerJoin(schema.sources, eq(schema.googleChatSenderSamples.sourceId, schema.sources.id))
+      .orderBy(desc(schema.googleChatSenderSamples.createdAt))
+      .all();
+    const visibleSamples = senderSamples.filter((sample) => {
+      const source = visible.find((item) => item.id === sample.sourceId);
+      return source !== undefined;
+    });
+    // Profiles are one row per sender — select all instead of an unbounded inArray.
+    const profiles = await db
+      .select({
+        resourceName: schema.googleChatSenderProfiles.resourceName,
+        displayName: schema.googleChatSenderProfiles.displayName,
+      })
+      .from(schema.googleChatSenderProfiles)
+      .all();
+
+    return {
+      allChapters,
+      assignableChapters,
+      chatSenders: {
+        profiles,
+        samples: visibleSamples,
+      },
+      sources: visible.map((source) => ({
+        ...source,
+        documents: documentsBySource.get(source.id) ?? [],
+      })),
+    };
+  })();
 
   return {
-    allChapters,
-    assignableChapters,
-    chatSenders: {
-      profiles,
-      samples: visibleSamples,
-    },
     currentUserId: user.id,
     isAdmin: user.isAdmin,
-    sources: visible.map((source) => ({
-      ...source,
-      documents: documentsBySource.get(source.id) ?? [],
-    })),
+    sourcesData,
   };
 }
 

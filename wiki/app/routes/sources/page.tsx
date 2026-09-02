@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLoaderData, useRevalidator, useSearchParams } from "react-router";
+import { Await, useLoaderData, useRevalidator, useSearchParams } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import { TableSkeleton } from "~/components/Skeleton";
 import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import SourceList from "~/features/sources/components/SourceList";
 import SourcesToolbar from "~/features/sources/components/SourcesToolbar";
@@ -24,9 +25,19 @@ export async function action({ request, context }: ActionFunctionArgs) {
   return handleSourcesAction(env, form, user, identity);
 }
 
-export default function SourcesPage() {
-  const { allChapters, assignableChapters, chatSenders, currentUserId, isAdmin, sources } =
-    useLoaderData<typeof loader>();
+type SourcesResolvedData = Awaited<Awaited<ReturnType<typeof loadSourcesPageData>>["sourcesData"]>;
+
+function SourcesContent({
+  allChapters,
+  assignableChapters,
+  chatSenders,
+  currentUserId,
+  isAdmin,
+  sources,
+}: SourcesResolvedData & {
+  currentUserId: string;
+  isAdmin: boolean;
+}) {
   const { t, i18n } = useTranslation();
   const revalidator = useRevalidator();
   const [searchParams] = useSearchParams();
@@ -52,7 +63,7 @@ export default function SourcesPage() {
   }, [pendingCount, revalidator]);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+    <>
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-content-primary">{t("sources.title")}</h1>
@@ -100,6 +111,56 @@ export default function SourcesPage() {
         profiles={chatSenders.profiles}
         samples={chatSenders.samples}
       />
+    </>
+  );
+}
+
+export default function SourcesPage() {
+  const { currentUserId, isAdmin, sourcesData } = useLoaderData<typeof loader>();
+  const { t } = useTranslation();
+
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <Suspense
+        fallback={
+          <div>
+            <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h1 className="text-2xl font-semibold text-content-primary">
+                  {t("sources.title")}
+                </h1>
+                <p className="mt-1 text-sm text-content-secondary">{t("sources.subtitle")}</p>
+              </div>
+            </header>
+            <TableSkeleton rows={6} cols={4} />
+          </div>
+        }
+      >
+        <Await
+          resolve={sourcesData}
+          errorElement={
+            <div>
+              <header className="mb-6">
+                <h1 className="text-2xl font-semibold text-content-primary">
+                  {t("sources.title")}
+                </h1>
+              </header>
+              <p className="text-sm text-feedback-danger-foreground">Failed to load sources.</p>
+            </div>
+          }
+        >
+          {(data) => (
+            <SourcesContent
+              allChapters={data.allChapters}
+              assignableChapters={data.assignableChapters}
+              chatSenders={data.chatSenders}
+              sources={data.sources}
+              currentUserId={currentUserId}
+              isAdmin={isAdmin}
+            />
+          )}
+        </Await>
+      </Suspense>
     </div>
   );
 }

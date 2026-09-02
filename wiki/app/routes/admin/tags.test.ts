@@ -80,7 +80,7 @@ describe("admin.tags loader", () => {
     const result = await loader(makeArgs(request));
 
     expect(requireAdmin).toHaveBeenCalledWith(request, mockContext.cloudflare.env);
-    expect(result).toEqual({ tags: mockTags });
+    expect(await result.tags).toEqual(mockTags);
   });
 });
 

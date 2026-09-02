@@ -71,104 +71,104 @@ export async function loadPageHistory(request: Request, env: Env, slug: string |
     throw new Response("Not Found", { status: 404 });
   }
 
-  const versionsResult = (await env.DB.prepare(
-    `SELECT pv.id, pv.title_ja, pv.title_en, pv.edited_by, pv.saved_at,
-            u.name AS editor_name
-     FROM page_versions pv
-     LEFT JOIN user u ON pv.edited_by = u.id
-     WHERE pv.page_id = ?
-     ORDER BY pv.saved_at DESC
-     LIMIT 10`,
-  )
-    .bind(page.id)
-    .all()) as { results: VersionRaw[] };
-
-  const versions: VersionRow[] = (versionsResult.results ?? []).map((r) => ({
-    id: r.id,
-    titleJa: r.title_ja,
-    titleEn: r.title_en,
-    editedBy: r.edited_by,
-    savedAt: r.saved_at,
-    editorName: r.editor_name,
-  }));
-
+  const wikiPath = wikiPagePath(await getWikiCanonicalSlugPath(env, page.id));
   const url = new URL(request.url);
   const langParam = url.searchParams.get("lang");
   const lang: "ja" | "en" = langParam === "ja" || langParam === "en" ? langParam : "ja";
   const versionId = url.searchParams.get("v");
 
-  let selectedVersion: {
-    id: string;
-    titleJa: string;
-    titleEn: string;
-    contentJa: string;
-    contentEn: string;
-    savedAt: number;
-    editorName: string | null;
-  } | null = null;
-
-  if (versionId) {
-    const vRow = (await env.DB.prepare(
-      `SELECT pv.id, pv.title_ja, pv.title_en, pv.content_ja, pv.content_en, pv.saved_at,
+  const historyData = (async () => {
+    const versionsResult = (await env.DB.prepare(
+      `SELECT pv.id, pv.title_ja, pv.title_en, pv.edited_by, pv.saved_at,
               u.name AS editor_name
        FROM page_versions pv
        LEFT JOIN user u ON pv.edited_by = u.id
-       WHERE pv.id = ? AND pv.page_id = ?`,
+       WHERE pv.page_id = ?
+       ORDER BY pv.saved_at DESC
+       LIMIT 10`,
     )
-      .bind(versionId, page.id)
-      .first()) as VersionFullRaw | null;
+      .bind(page.id)
+      .all()) as { results: VersionRaw[] };
 
-    if (vRow) {
-      selectedVersion = {
-        id: vRow.id,
-        titleJa: vRow.title_ja,
-        titleEn: vRow.title_en,
-        contentJa: await redactPageMarkdown(
-          db,
-          canonicalMarkdown(vRow.content_ja ?? ""),
-          sessionUser,
-          identity.chapters,
-        ),
-        contentEn: await redactPageMarkdown(
-          db,
-          canonicalMarkdown(vRow.content_en ?? ""),
-          sessionUser,
-          identity.chapters,
-        ),
-        savedAt: vRow.saved_at,
-        editorName: vRow.editor_name,
-      };
+    const versions: VersionRow[] = (versionsResult.results ?? []).map((r) => ({
+      id: r.id,
+      titleJa: r.title_ja,
+      titleEn: r.title_en,
+      editedBy: r.edited_by,
+      savedAt: r.saved_at,
+      editorName: r.editor_name,
+    }));
+
+    let selectedVersion: {
+      id: string;
+      titleJa: string;
+      titleEn: string;
+      contentJa: string;
+      contentEn: string;
+      savedAt: number;
+      editorName: string | null;
+    } | null = null;
+
+    if (versionId) {
+      const vRow = (await env.DB.prepare(
+        `SELECT pv.id, pv.title_ja, pv.title_en, pv.content_ja, pv.content_en, pv.saved_at,
+                u.name AS editor_name
+         FROM page_versions pv
+         LEFT JOIN user u ON pv.edited_by = u.id
+         WHERE pv.id = ? AND pv.page_id = ?`,
+      )
+        .bind(versionId, page.id)
+        .first()) as VersionFullRaw | null;
+
+      if (vRow) {
+        selectedVersion = {
+          id: vRow.id,
+          titleJa: vRow.title_ja,
+          titleEn: vRow.title_en,
+          contentJa: await redactPageMarkdown(
+            db,
+            canonicalMarkdown(vRow.content_ja ?? ""),
+            sessionUser,
+            identity.chapters,
+          ),
+          contentEn: await redactPageMarkdown(
+            db,
+            canonicalMarkdown(vRow.content_en ?? ""),
+            sessionUser,
+            identity.chapters,
+          ),
+          savedAt: vRow.saved_at,
+          editorName: vRow.editor_name,
+        };
+      }
     }
-  }
 
-  const canRevert =
-    permissions.canEdit &&
-    (await pageAclClearance(db, [page.contentJa, page.contentEn], sessionUser, identity.chapters));
-  const wikiPath = wikiPagePath(await getWikiCanonicalSlugPath(env, page.id));
+    const [canRevert, currentContentJa, currentContentEn] = await Promise.all([
+      permissions.canEdit
+        ? pageAclClearance(db, [page.contentJa, page.contentEn], sessionUser, identity.chapters)
+        : Promise.resolve(false),
+      redactPageMarkdown(db, canonicalMarkdown(page.contentJa), sessionUser, identity.chapters),
+      redactPageMarkdown(db, canonicalMarkdown(page.contentEn), sessionUser, identity.chapters),
+    ]);
+
+    return {
+      versions,
+      selectedVersion,
+      canRevert,
+      currentContentJa,
+      currentContentEn,
+    };
+  })();
 
   return {
     page: {
       slug: page.slug,
       titleJa: page.titleJa,
       titleEn: page.titleEn,
-      currentContentJa: await redactPageMarkdown(
-        db,
-        canonicalMarkdown(page.contentJa),
-        sessionUser,
-        identity.chapters,
-      ),
-      currentContentEn: await redactPageMarkdown(
-        db,
-        canonicalMarkdown(page.contentEn),
-        sessionUser,
-        identity.chapters,
-      ),
       wikiPath,
     },
-    versions,
-    selectedVersion,
     lang,
-    canRevert,
+    historyData,
   };
 }
 

@@ -1,8 +1,9 @@
 import { desc, eq } from "drizzle-orm";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useActionData, useLoaderData } from "react-router";
+import { Await, useActionData, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import { TableSkeleton } from "~/components/Skeleton";
 import * as schema from "~/db/schema";
 import { requireAdmin } from "~/features/auth/utils.server";
 import { getDb } from "~/lib/db.server";
@@ -18,7 +19,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const { env } = context.cloudflare;
   await requireAdmin(request, env);
   const db = getDb(env);
-  const tags = await db.select().from(schema.tags).orderBy(desc(schema.tags.pageCount)).all();
+  const tags = db.select().from(schema.tags).orderBy(desc(schema.tags.pageCount)).all();
   return { tags };
 }
 
@@ -154,7 +155,16 @@ export default function AdminTags() {
         </div>
       )}
 
-      <TagTable tags={tags} onEditTag={handleEdit} />
+      <Suspense fallback={<TableSkeleton rows={6} cols={5} />}>
+        <Await
+          resolve={tags}
+          errorElement={
+            <p className="text-sm text-feedback-danger-foreground">Failed to load tags.</p>
+          }
+        >
+          {(resolvedTags) => <TagTable tags={resolvedTags} onEditTag={handleEdit} />}
+        </Await>
+      </Suspense>
 
       <TagDialog
         mode={dialogMode}

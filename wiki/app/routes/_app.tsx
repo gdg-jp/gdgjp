@@ -266,7 +266,9 @@ export default function AppLayout() {
             <Sidebar pages={[]} {...sidebarProps} treeFallback={<ListSkeleton rows={10} />} />
           }
         >
-          <Await resolve={pageTree}>{(pages) => <Sidebar pages={pages} {...sidebarProps} />}</Await>
+          <Await resolve={pageTree} errorElement={<Sidebar pages={[]} {...sidebarProps} />}>
+            {(pages) => <Sidebar pages={pages} {...sidebarProps} />}
+          </Await>
         </Suspense>
 
         {/* Main content */}

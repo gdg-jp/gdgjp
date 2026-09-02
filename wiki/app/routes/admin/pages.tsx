@@ -1,7 +1,9 @@
 import { eq } from "drizzle-orm";
+import { Suspense } from "react";
 import { useTranslation } from "react-i18next";
-import { useLoaderData } from "react-router";
+import { Await, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import { TableSkeleton } from "~/components/Skeleton";
 import * as schema from "~/db/schema";
 import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
 import { requireAdmin } from "~/features/auth/utils.server";
@@ -19,7 +21,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   await requireAdmin(request, env);
   const db = getDb(env);
 
-  const rows = await db
+  const pages = db
     .select({
       id: schema.pages.id,
       slug: schema.pages.slug,
@@ -37,11 +39,10 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     .from(schema.pages)
     .leftJoin(schema.user, eq(schema.pages.authorId, schema.user.id))
     .orderBy(schema.pages.sortOrder)
-    .all();
+    .all()
+    .then((rows) => buildAdminPageTree(rows));
 
-  return {
-    pages: buildAdminPageTree(rows),
-  };
+  return { pages };
 }
 
 // ---------------------------------------------------------------------------
@@ -103,7 +104,16 @@ export default function AdminPages() {
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold text-content-primary">{t("admin.pages.heading")}</h1>
-      <PageTreeTable pages={pages} />
+      <Suspense fallback={<TableSkeleton rows={8} cols={5} />}>
+        <Await
+          resolve={pages}
+          errorElement={
+            <p className="text-sm text-feedback-danger-foreground">Failed to load pages.</p>
+          }
+        >
+          {(resolvedPages) => <PageTreeTable pages={resolvedPages} />}
+        </Await>
+      </Suspense>
     </div>
   );
 }

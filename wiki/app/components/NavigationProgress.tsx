@@ -11,7 +11,7 @@ export default function NavigationProgress() {
 
   return (
     <div aria-hidden="true" className="fixed inset-x-0 top-0 z-[60] h-0.5 overflow-hidden">
-      <div className="h-full w-1/3 animate-pulse bg-action-primary motion-reduce:w-full" />
+      <div className="h-full w-full animate-indeterminate-travel bg-action-primary motion-reduce:animate-pulse" />
     </div>
   );
 }

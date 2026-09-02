@@ -1,27 +1,104 @@
 import { Archive, History, MoreHorizontal, Share2, Star } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Await, Link, useFetcher } from "react-router";
 import Tooltip from "~/components/Tooltip";
 
 const btnBase =
   "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-content-tertiary transition-colors hover:bg-surface-hover hover:text-content-primary";
 
+function TaskStarButton({ pageId, initialStarred }: { pageId: string; initialStarred: boolean }) {
+  const { t } = useTranslation();
+  const favFetcher = useFetcher<{ ok: boolean; starred: boolean }>();
+  const [currentStarred, setCurrentStarred] = useState(initialStarred);
+  const optimisticStarred = favFetcher.state !== "idle" ? !currentStarred : currentStarred;
+
+  useEffect(() => {
+    setCurrentStarred(initialStarred);
+  }, [initialStarred]);
+
+  const starStyle = optimisticStarred
+    ? { color: "var(--color-feedback-warning-solid)" }
+    : undefined;
+  const starIconStyle = optimisticStarred
+    ? {
+        fill: "var(--color-feedback-warning-solid)",
+        color: "var(--color-feedback-warning-solid)",
+      }
+    : undefined;
+
+  return (
+    <button
+      type="button"
+      onClick={() => favFetcher.submit({ intent: "toggleFavorite", pageId }, { method: "post" })}
+      className={btnBase}
+      style={starStyle}
+    >
+      <Star size={14} style={starIconStyle} />
+      {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
+    </button>
+  );
+}
+
+function MobileTaskStarButton({
+  pageId,
+  initialStarred,
+  onSelect,
+}: {
+  pageId: string;
+  initialStarred: boolean;
+  onSelect: () => void;
+}) {
+  const { t } = useTranslation();
+  const favFetcher = useFetcher<{ ok: boolean; starred: boolean }>();
+  const [currentStarred, setCurrentStarred] = useState(initialStarred);
+  const optimisticStarred = favFetcher.state !== "idle" ? !currentStarred : currentStarred;
+
+  useEffect(() => {
+    setCurrentStarred(initialStarred);
+  }, [initialStarred]);
+
+  const starStyle = optimisticStarred
+    ? { color: "var(--color-feedback-warning-solid)" }
+    : undefined;
+  const starIconStyle = optimisticStarred
+    ? {
+        fill: "var(--color-feedback-warning-solid)",
+        color: "var(--color-feedback-warning-solid)",
+      }
+    : undefined;
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        favFetcher.submit({ intent: "toggleFavorite", pageId }, { method: "post" });
+        onSelect();
+      }}
+      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
+      style={starStyle}
+    >
+      <Star size={14} style={starIconStyle} />
+      {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
+    </button>
+  );
+}
+
 /** Mini-header toolbar for `/tasks/:slug` — desktop buttons + mobile "more" menu. */
 export function TaskDetailToolbar({
   slug,
+  pageId,
   isAuthenticated,
   canArchive,
-  optimisticStarred,
-  onToggleStar,
+  taskData,
   onShare,
   onArchive,
 }: {
   slug: string;
+  pageId: string;
   isAuthenticated: boolean;
   canArchive: boolean;
-  optimisticStarred: boolean;
-  onToggleStar: () => void;
+  taskData: Promise<{ isStarred: boolean }>;
   onShare: () => void;
   onArchive: () => void;
 }) {
@@ -39,16 +116,6 @@ export function TaskDetailToolbar({
     return () => document.removeEventListener("mousedown", handler);
   }, [moreOpen]);
 
-  const starStyle = optimisticStarred
-    ? { color: "var(--color-feedback-warning-solid)" }
-    : undefined;
-  const starIconStyle = optimisticStarred
-    ? {
-        fill: "var(--color-feedback-warning-solid)",
-        color: "var(--color-feedback-warning-solid)",
-      }
-    : undefined;
-
   return (
     <div className="flex items-center justify-end gap-2 border-b border-border-subtle px-4 py-2 md:px-10">
       {/* Desktop action buttons (md+) */}
@@ -58,10 +125,15 @@ export function TaskDetailToolbar({
           {t("tasks.history")}
         </Link>
         {isAuthenticated && (
-          <button type="button" onClick={onToggleStar} className={btnBase} style={starStyle}>
-            <Star size={14} style={starIconStyle} />
-            {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
-          </button>
+          <Suspense
+            fallback={
+              <div className="h-7 w-16 rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
+            }
+          >
+            <Await resolve={taskData} errorElement={null}>
+              {({ isStarred }) => <TaskStarButton pageId={pageId} initialStarred={isStarred} />}
+            </Await>
+          </Suspense>
         )}
         {isAuthenticated && (
           <button type="button" onClick={onShare} className={btnBase}>
@@ -103,18 +175,21 @@ export function TaskDetailToolbar({
               {t("tasks.history")}
             </Link>
             {isAuthenticated && (
-              <button
-                type="button"
-                onClick={() => {
-                  onToggleStar();
-                  setMoreOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
-                style={starStyle}
+              <Suspense
+                fallback={
+                  <div className="h-8 w-full rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
+                }
               >
-                <Star size={14} style={starIconStyle} />
-                {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
-              </button>
+                <Await resolve={taskData} errorElement={null}>
+                  {({ isStarred }) => (
+                    <MobileTaskStarButton
+                      pageId={pageId}
+                      initialStarred={isStarred}
+                      onSelect={() => setMoreOpen(false)}
+                    />
+                  )}
+                </Await>
+              </Suspense>
             )}
             {isAuthenticated && (
               <button

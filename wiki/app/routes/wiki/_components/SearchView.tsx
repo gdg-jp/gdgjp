@@ -128,7 +128,10 @@ export function SearchView() {
               </div>
             }
           >
-            <Await resolve={ragResult ?? Promise.resolve(null)}>
+            <Await
+              resolve={ragResult ?? Promise.resolve(null)}
+              errorElement={<AiSearchResults q={q} ragResult={null} isJa={isJa} t={t} />}
+            >
               {(resolved) => <AiSearchResults q={q} ragResult={resolved} isJa={isJa} t={t} />}
             </Await>
           </Suspense>

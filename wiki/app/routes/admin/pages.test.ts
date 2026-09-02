@@ -97,7 +97,7 @@ describe("admin.pages loader", () => {
       unstable_url: new URL(request.url),
     });
 
-    expect(result.pages).toEqual([
+    expect(await result.pages).toEqual([
       {
         ...mockPages[0],
         depth: 0,
