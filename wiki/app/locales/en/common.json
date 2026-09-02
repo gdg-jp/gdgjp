@@ -7,7 +7,6 @@
     "home": "Home",
     "search": "Search",
     "new_page": "New Page",
-    "admin": "Admin",
     "github": "GitHub",
     "recent": "Recent",
     "starred": "Starred",
@@ -199,8 +198,7 @@
     "label": "Admin",
     "nav": {
       "pages": "Pages",
-      "tags": "Tags",
-      "stats": "Stats"
+      "tags": "Tags"
     },
     "pages": {
       "heading": "Pages",
@@ -244,22 +242,6 @@
         "submit": "Create Tag",
         "update": "Save Changes"
       }
-    },
-    "stats": {
-      "heading": "Stats",
-      "total_users": "Total Users",
-      "total_pages": "Total Pages",
-      "pages_sub": "{{published}} published",
-      "published": "Published",
-      "bilingual_coverage": "Bilingual Coverage",
-      "bilingual_coverage_sub": "Both JA + EN content",
-      "translation_heading": "Automatic translation",
-      "translation_pending": "Pending translations",
-      "translation_oldest": "Oldest: {{date}}",
-      "translation_processing": "Queued and processing",
-      "translation_failed": "{{count}} failed",
-      "translation_completed_today": "Completed today",
-      "translation_cache_hit_rate": "Cache hit rate"
     }
   },
   "ingest": {

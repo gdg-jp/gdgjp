@@ -13,6 +13,7 @@ import {
 import type { LoaderFunctionArgs, ShouldRevalidateFunctionArgs } from "react-router";
 import Footer from "~/components/Footer";
 import Navbar from "~/components/Navbar";
+import NavigationProgress from "~/components/NavigationProgress";
 import Sidebar from "~/components/Sidebar";
 import SidebarDialog from "~/components/SidebarDialog";
 import SidebarPopover from "~/components/SidebarPopover";
@@ -250,6 +251,7 @@ export default function AppLayout() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <NavigationProgress />
       <Navbar
         user={user}
         sidebarOpen={sidebarOpen}
