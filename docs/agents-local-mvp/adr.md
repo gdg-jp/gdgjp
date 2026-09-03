@@ -33,6 +33,7 @@
 | [022](#adr-022-ローカル実行物を-node-ネイティブ-typescript-に統一する) | ローカル実行物を Node ネイティブ TypeScript に統一する | Accepted |
 | [023](#adr-023-ローカル検証環境を-ubuntu-vm-に置きdocker-を採らない) | ローカル検証環境を Ubuntu VM に置き、Docker を採らない | Accepted |
 | [024](#adr-024-ci-の-script-tests-における-private-submodule-チェックアウトの失敗と暫定方針) | CI の script-tests における private submodule チェックアウトの失敗と暫定方針 | Accepted |
+| [025](#adr-025-公開前コンテンツレビューと-squash-import-による-public-化) | 公開前コンテンツレビューと squash import による public 化 | Accepted |
 
 ---
 
@@ -1935,4 +1936,54 @@ GitHub Actions の既定 `GITHUB_TOKEN` はパブリックリポジトリから�
 
 - GitHub Actions 上で `script-tests` ジョブが起動した場合、Stage 03 の submodule 統合が完了するまでは `actions/checkout@v4` の submodule clone 段階でジョブが失敗する（既知の制約）。
 - ローカル環境（submodule が手動でチェックアウトされている環境）では `node --test .github/scripts/*.test.mjs` により `gdg-agent-layout.test.mjs` を含むすべてのテストが正常にパスする。
+
+---
+
+## ADR-025: 公開前コンテンツレビューと squash import による public 化
+
+### Status
+
+Accepted
+
+### Date
+
+2026-09-03
+
+### Context
+
+`docs/agents-local-refactoring/index.md` の全体方針において、`agents-local` を `gdgjp` monorepo 内の `agent-host/` へ統合して完全に public 化することが決定された。
+しかし、統合元である `gdg-jp/agents` は PRIVATE リポジトリであり、統合先である `gdg-jp/gdgjp` は PUBLIC リポジトリである。一度公開された内容は検索インデックスやキャッシュに残るため、この操作は不可逆である。
+
+機構面（sudoers 生成スクリプト、フック、uid 分離設定など）の多くは既に monorepo 側（`scripts/gdg-agent/` や `docs/`）で公開済みであったが、`agents-local` 側の運用ドキュメントやデータには以下の非公開情報・内部情報が含まれていた。
+
+1. `agents-local/docs/devfest-2026-timetable-draft-v1.*`: 未公開の DevFest Kansai 2026 タイムテーブル草案、登壇交渉ステータス、private Google Sheets URL。
+2. `agents-local/docs/discord/gdgkwansai.md`: GDG Greater Kwansai Discord サーバーのサーバー ID、カテゴリ ID、チャンネル ID 一覧。
+3. `agents-local/ENVIRONMENT.md`: 本番ホスト名（`mincra-srv`）、operator アカウント名（`harineko`、uid 1000）、個人 git リモート、ホームディレクトリパス台帳。
+4. `agents-local/.agents/skills/gws-*/SKILL.md`: `googleworkspace/cli` 由来のスキル定義。
+5. `agents-local/AGENTS.md`: エージェントの人格・運用ルール。
+
+また、`gdg-jp/agents` のリポジトリ自体の visibility を public に切り替えると、コミット履歴（100 commit 超）に含まれる過去の機密情報や下書き情報まで全て不可逆的に公開される。
+
+### Decision
+
+**1. 棚卸し対象の処遇**
+- `devfest-2026-timetable-draft-v1.md` / `.csv`: **移設（作業ツリーから削除）**。未公開のイベント企画情報であり公開意図がないため。履歴は private な `gdg-jp/agents` に保持される。
+- `docs/discord/gdgkwansai.md`: **移設（作業ツリーから削除）**。内部運用データであり、エージェント実行に必要な場合はホスト側の設定や IAM 経由で渡すこととする。これに伴い `AGENTS.md` 内の参照リンクも削除。
+- `ENVIRONMENT.md`: **秘匿化**。systemd 構成、uid 分離、ソケット通信等の構成説明は Stage 03 以降も有用なため残すが、ホスト名（`<production-host>`）、operator 名（`<operator>`）、個人リモート URL 等をプレースホルダーに置換した。
+- `.agents/skills/gws-*/SKILL.md`: **そのまま公開**。`googleworkspace/cli`（Apache 2.0 ライセンス）由来の汎用スキル定義であり、組織固有データや認証情報を含まないことを確認した。
+- `AGENTS.md`: **そのまま公開**（軽微な参照削除のみ）。Stage 03 で `agent-host/workspace/` の正本となる。
+
+**2. 公開方式: squash import の採用と `gdg-jp/agents` のアーカイブ**
+- `gdg-jp/agents` の visibility は **public に切り替えない**。履歴アーカイブとして **private のまま archive** とする。
+- Stage 03 では、本レビューおよび整理が完了した **HEAD のみを monorepo 内 `agent-host/` へ squash import**（単一コミット）する。これにより過去のコミット履歴は公開されない。
+
+**3. Stage 10 以降の main ブランチ保護と root 相当権限の扱い**
+- Stage 10 の pull 型自動適用（Tier 2）が稼働すると、public リポジトリである本リポジトリの `main` への push が実質的に本番ホストの root 相当の権限行使となる。
+- したがって、Stage 10 以降は branch protection、コミット署名の強制、およびリリース署名鍵（Stage 09 で導入）の厳格な管理を前提条件とする。エージェント自身を含む非特権経路からリリース生成リポジトリへの push ができないことを不変条件としてテストで固定する。
+
+### Consequences
+
+- `agents-local` から未公開資料および Discord 内部 ID が除去され、Gitleaks および URL スキャンがクリーンな状態となった。
+- `gdg-jp/agents` の git 履歴は monorepo 側には持ち込まれないが、削除済みファイルの復活防止等の不変条件は monorepo 側のテスト（`.github/scripts/gdg-agent-layout.test.mjs`）で担保される。
+- Stage 03（`agent-host/` への統合）を開始する前提条件が満たされた。
 
