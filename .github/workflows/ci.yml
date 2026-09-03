@@ -76,8 +76,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -191,6 +189,9 @@ jobs:
           - name: Typecheck go extension
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/go-extension')
             run: pnpm --filter @gdgjp/go-extension typecheck
+          - name: Typecheck langfuse forwarder
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/langfuse-forwarder')
+            run: pnpm --filter @gdgjp/langfuse-forwarder typecheck
 
   test:
     name: Unit tests
@@ -245,6 +246,9 @@ jobs:
           - name: Test go extension
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/go-extension')
             run: pnpm --filter @gdgjp/go-extension test
+          - name: Test langfuse forwarder
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/langfuse-forwarder')
+            run: pnpm --filter @gdgjp/langfuse-forwarder test
 
   build:
     name: Build

@@ -16,7 +16,7 @@
 #   6. enable --now, unless GDG_SKIP_START=1
 #
 # Does not: create OS users, install index-proxy / slot mcp.json, or start xangi.
-# Those come from agents-local/install.sh (Stage 07). This script fails live if
+# Those come from agent-host/install.sh (Stage 07). This script fails live if
 # gdgagent-svc is missing.
 set -euo pipefail
 
@@ -154,11 +154,11 @@ require_layout() {
     return 0
   fi
   if ! id gdgagent-svc >/dev/null 2>&1; then
-    echo "gdgagent-svc does not exist. Run agents-local/install.sh first." >&2
+    echo "gdgagent-svc does not exist. Run agent-host/install.sh first." >&2
     exit 1
   fi
   if [[ ! -x /opt/gdg-agent/bin/index-proxy ]]; then
-    echo "missing /opt/gdg-agent/bin/index-proxy. Run agents-local/setup.sh first." >&2
+    echo "missing /opt/gdg-agent/bin/index-proxy. Run agent-host/setup.sh first." >&2
     exit 1
   fi
 }

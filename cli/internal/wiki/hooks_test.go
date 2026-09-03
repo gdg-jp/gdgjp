@@ -241,7 +241,7 @@ func TestCursorAbsolutePathRuleRejectsRelativeGlobShape(t *testing.T) {
 	}
 }
 
-func TestAgentsLocalSetupShFailsOffUbuntu(t *testing.T) {
+func TestAgentHostSetupShFailsOffUbuntu(t *testing.T) {
 	if runtime.GOOS == "linux" {
 		t.Skip("Linux may be Ubuntu; this guard is for macOS development hosts")
 	}
@@ -249,7 +249,7 @@ func TestAgentsLocalSetupShFailsOffUbuntu(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	script := filepath.Join(wd, "..", "..", "..", "scripts", "setup-gdg-agent.sh")
+	script := filepath.Join(wd, "..", "..", "..", "agent-host", "setup.sh")
 	cmd := exec.Command("bash", script)
 	out, runErr := cmd.CombinedOutput()
 	if runErr == nil {

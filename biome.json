@@ -29,7 +29,7 @@
       ".agents/**",
       ".claude/**",
       ".cursor/**",
-      "agents-local/.cursor/**",
+      "agent-host/**/.cursor/**",
       "learn/**"
     ]
   },

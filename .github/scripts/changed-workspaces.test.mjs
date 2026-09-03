@@ -51,7 +51,7 @@ test("propagates gdg-lib changes to every dependent application", () => {
 test("fans common configuration changes out to every target", () => {
   const result = classifyChanges(["pnpm-lock.yaml"]);
 
-  assert.equal(result.ci.length, 14);
+  assert.equal(result.ci.length, 15);
   assert.equal(result.build.length, 13);
   assert.equal(result.deploy.length, 12);
   assert.equal(result.openapi, true);
@@ -62,11 +62,11 @@ test("treats workflow and detector changes as global for their consumers", () =>
   const deploy = classifyChanges([".github/workflows/deploy.yml"]);
   const detector = classifyChanges([".github/scripts/changed-workspaces.mjs"]);
 
-  assert.equal(ci.ci.length, 14);
+  assert.equal(ci.ci.length, 15);
   assert.equal(ci.deploy.length, 0);
   assert.equal(deploy.ci.length, 0);
   assert.equal(deploy.deploy.length, 12);
-  assert.equal(detector.ci.length, 14);
+  assert.equal(detector.ci.length, 15);
   assert.equal(detector.deploy.length, 12);
 });
 
@@ -101,7 +101,7 @@ test("manual execution selects every CI and deploy target", () => {
   const result = classifyChanges([], { forceAll: true });
 
   assert.equal(result.full, true);
-  assert.equal(result.ci.length, 14);
+  assert.equal(result.ci.length, 15);
   assert.equal(result.deploy.length, 12);
   assert.equal(result.lint, true);
   assert.equal(result.cli, true);
@@ -115,12 +115,24 @@ test("gates the CLI Go job on cli/ changes", () => {
 
 test("gates script-tests on workflow scripts and agent-host components", () => {
   assert.equal(classifyChanges([".github/scripts/gdg-agent-layout.test.mjs"]).scriptTests, true);
-  assert.equal(classifyChanges(["scripts/gdg-agent/install-layout.sh"]).scriptTests, true);
-  assert.equal(classifyChanges(["scripts/gdg-agent/config/permissions.json"]).scriptTests, true);
+  assert.equal(classifyChanges(["agent-host/lib/install-layout.sh"]).scriptTests, true);
+  assert.equal(classifyChanges(["agent-host/config/permissions.json"]).scriptTests, true);
   assert.equal(classifyChanges(["agents-index/src/proxy.ts"]).scriptTests, true);
   assert.equal(classifyChanges(["cli/internal/wiki/hooks/acl-gate.ts"]).scriptTests, true);
-  assert.equal(classifyChanges(["agents-local"]).scriptTests, true);
   assert.equal(classifyChanges(["wiki/app/routes/home.tsx"]).scriptTests, false);
   assert.equal(classifyChanges(["docs/operations.md"]).scriptTests, false);
   assert.equal(classifyChanges(["accounts/src/index.ts"]).scriptTests, false);
+});
+
+test("selects nested workspace @gdgjp/langfuse-forwarder on agent-host/langfuse-forwarder changes", () => {
+  const result = classifyChanges(["agent-host/langfuse-forwarder/src/index.ts"]);
+  assert.deepEqual(result.ci, ["@gdgjp/langfuse-forwarder"]);
+  assert.deepEqual(result.build, []);
+  assert.deepEqual(result.e2e, []);
+});
+
+test("agent-host non-forwarder changes do not select @gdgjp/langfuse-forwarder", () => {
+  const result = classifyChanges(["agent-host/workspace/AGENTS.md"]);
+  assert.deepEqual(result.ci, []);
+  assert.equal(result.scriptTests, true);
 });

@@ -176,7 +176,7 @@ func InspectCursorUserHooks() []string {
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return []string{"~/.cursor/hooks.json is missing; run scripts/setup-gdg-agent.sh on Ubuntu"}
+		return []string{"~/.cursor/hooks.json is missing; run agent-host/setup.sh on Ubuntu"}
 	}
 	gatePath, warnings := inspectUserHooksJSON(raw)
 	warnings = append(warnings, inspectInstalledScripts(gatePath)...)

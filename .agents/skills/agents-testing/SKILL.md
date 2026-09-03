@@ -12,10 +12,10 @@ Use the disposable Lima VM. Never add a production `DISCORD_TOKEN` to it.
 Run from the gdgjp repository root:
 
 ```bash
-limactl start --name=gdg-agent agents-local/dev/lima-gdg-agent.yaml
-limactl shell --workdir / gdg-agent -- sudo /mnt/gdgjp-src/agents-local/dev/provision.sh
-limactl shell --workdir / gdg-agent -- sudo /opt/gdgjp/agents-local/dev/seed-iam.sh
-limactl shell --workdir / gdg-agent -- sudo /opt/gdgjp/agents-local/dev/activate.sh
+limactl start --name=gdg-agent agent-host/dev/lima-gdg-agent.yaml
+limactl shell --workdir / gdg-agent -- sudo /mnt/gdgjp-src/agent-host/dev/provision.sh
+limactl shell --workdir / gdg-agent -- sudo /opt/gdgjp/agent-host/dev/seed-iam.sh
+limactl shell --workdir / gdg-agent -- sudo /opt/gdgjp/agent-host/dev/activate.sh
 ```
 
 `activate.sh` needs a TTY for the dedicated test Accounts login. Provisioning copies the read-only host checkout into `/opt/gdgjp`; never install from `/mnt/gdgjp-src`. Reset with `limactl delete gdg-agent`; do not snapshot the VM.

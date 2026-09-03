@@ -1,18 +1,17 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { cp, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const layoutScript = join(repositoryRoot, "scripts/gdg-agent/install-layout.sh");
+const layoutScript = join(repositoryRoot, "agent-host/lib/install-layout.sh");
 const hooksSrc = join(repositoryRoot, "cli/internal/wiki/hooks");
-const submoduleLayout = join(repositoryRoot, "agents-local/lib/install-layout.sh");
-const ownershipScript = join(repositoryRoot, "agents-local/lib/apply-ownership.sh");
-const hostInstall = join(repositoryRoot, "agents-local/install.sh");
+const ownershipScript = join(repositoryRoot, "agent-host/lib/apply-ownership.sh");
+const hostInstall = join(repositoryRoot, "agent-host/install.sh");
 
 async function withLayoutFixture(run) {
   const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-layout-"));
@@ -37,13 +36,6 @@ async function withLayoutFixture(run) {
 }
 
 test("agent layout is idempotent, root-owned templates, and has no sudoers wildcards", async () => {
-  if (existsSync(submoduleLayout)) {
-    assert.equal(
-      await readFile(layoutScript, "utf8"),
-      await readFile(submoduleLayout, "utf8"),
-      "scripts/gdg-agent/install-layout.sh must match agents-local/lib/install-layout.sh",
-    );
-  }
   const ownership = await readFile(ownershipScript, "utf8");
   assert.match(ownership, /\.config\/cursor/);
   assert.doesNotMatch(ownership, /\.google_workspace_mcp/);
@@ -182,13 +174,16 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.equal(wk.mode & 0o111, 0o111);
 
     const wikiMcp = await readFile(join(prefix, "srv/gdg-agent/wiki/.cursor/mcp.json"), "utf8");
-    const sourceMcp = await readFile(join(repositoryRoot, "agents-local/.cursor/mcp.json"), "utf8");
+    const sourceMcp = await readFile(
+      join(repositoryRoot, "agent-host/config/extra-mcp.json"),
+      "utf8",
+    );
     assert.equal(wikiMcp, sourceMcp);
     const localMdc = await readFile(
       join(prefix, "srv/gdg-agent/wiki/.cursor/rules/local.mdc"),
       "utf8",
     );
-    const agentsMd = await readFile(join(repositoryRoot, "agents-local/AGENTS.md"), "utf8");
+    const agentsMd = await readFile(join(repositoryRoot, "agent-host/workspace/AGENTS.md"), "utf8");
     assert.equal(localMdc, `---\nalwaysApply: true\n---\n\n${agentsMd}`);
     assert.match(installSrc, /gdg wiki clone/);
     assert.match(installSrc, /\/usr\/local\/bin\/gdg/);
@@ -199,7 +194,7 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.match(installSrc, /gws did not install correctly/);
     assert.match(installSrc, /Environment=AGENT_MODEL=composer-2\.5/);
     const cliConfigSrc = await readFile(
-      join(repositoryRoot, "agents-local/config/cli-config.json"),
+      join(repositoryRoot, "agent-host/config/cli-config.json"),
       "utf8",
     );
     assert.doesNotMatch(cliConfigSrc, /google-workspace/);
@@ -213,17 +208,26 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.match(installSrc, /--activate/);
     assert.match(installSrc, /activate_live_host/);
     assert.match(installSrc, /place_live_host/);
-    const setupSrc = await readFile(join(repositoryRoot, "agents-local/setup.sh"), "utf8");
+    assert.match(installSrc, /cp -a "\$layout_dir\/langfuse-forwarder" \/opt\/langfuse-forwarder/);
+    assert.doesNotMatch(installSrc, /"\$layout_dir\/lib\/langfuse-forwarder"/);
+    assert.match(installSrc, /sudo \.\/agent-host\/install\.sh/);
+    assert.doesNotMatch(installSrc, /sudo \.\/agents-local\/install\.sh/);
+    assert.equal(
+      existsSync(join(repositoryRoot, "agent-host/langfuse-forwarder/package-lock.json")),
+      true,
+      "agent-host/langfuse-forwarder must retain package-lock.json for deterministic npm ci",
+    );
+    const setupSrc = await readFile(join(repositoryRoot, "agent-host/setup.sh"), "utf8");
     assert.doesNotMatch(setupSrc, /gdg wiki clone wiki/);
     const provisionSrc = await readFile(
-      join(repositoryRoot, "agents-local/dev/provision.sh"),
+      join(repositoryRoot, "agent-host/dev/provision.sh"),
       "utf8",
     );
-    assert.match(provisionSrc, /--exclude \/agents-local\/wiki/);
+    assert.match(provisionSrc, /--exclude \/agent-host\/wiki/);
     assert.match(provisionSrc, /readonly xangi_source=\/mnt\/xangi-src/);
     assert.match(provisionSrc, /rsync -a --delete --exclude node_modules "\$xangi_source\/"/);
     assert.doesNotMatch(provisionSrc, /systemctl --user start/);
-    const seedIam = join(repositoryRoot, "agents-local/dev/seed-iam.sh");
+    const seedIam = join(repositoryRoot, "agent-host/dev/seed-iam.sh");
     const seedIamStat = await stat(seedIam);
     assert.equal(seedIamStat.mode & 0o111, 0o111);
     const seedIamSrc = await readFile(seedIam, "utf8");
@@ -233,29 +237,29 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.match(seedIamSrc, /\.gdgwiki\/config\.json/);
     assert.match(seedIamSrc, /not a wiki clone yet/);
     assert.equal(
-      existsSync(join(repositoryRoot, "agents-local/dev/configure-google-workspace-mcp.sh")),
+      existsSync(join(repositoryRoot, "agent-host/dev/configure-google-workspace-mcp.sh")),
       false,
       "the device-local OAuth-tunnel dev script must not come back",
     );
     assert.equal(
-      existsSync(join(repositoryRoot, "agents-local/dev/open-google-workspace-oauth-tunnel.sh")),
+      existsSync(join(repositoryRoot, "agent-host/dev/open-google-workspace-oauth-tunnel.sh")),
       false,
       "the device-local OAuth-tunnel dev script must not come back",
     );
-    const seedGwsFakeToken = join(repositoryRoot, "agents-local/dev/seed-gws-fake-token.sh");
+    const seedGwsFakeToken = join(repositoryRoot, "agent-host/dev/seed-gws-fake-token.sh");
     const seedGwsFakeTokenStat = await stat(seedGwsFakeToken);
     assert.equal(seedGwsFakeTokenStat.mode & 0o111, 0o111);
     const seedGwsFakeTokenSrc = await readFile(seedGwsFakeToken, "utf8");
     assert.match(seedGwsFakeTokenSrc, /Run with sudo inside the VM/);
     assert.match(seedGwsFakeTokenSrc, /XANGI_AUTHZ_SOCKET/);
     assert.match(seedGwsFakeTokenSrc, /XANGI_AUTHZ_NONCE/);
-    const gwsFakeTokenStub = join(repositoryRoot, "agents-local/dev/gws-fake-token-stub.mjs");
+    const gwsFakeTokenStub = join(repositoryRoot, "agent-host/dev/gws-fake-token-stub.mjs");
     const gwsFakeTokenStubSrc = await readFile(gwsFakeTokenStub, "utf8");
     assert.match(gwsFakeTokenStubSrc, /\/resolve/);
     assert.match(gwsFakeTokenStubSrc, /\/workspace-token/);
     assert.match(gwsFakeTokenStubSrc, /fake/i);
     const iamFixture = await readFile(
-      join(repositoryRoot, "agents-local/dev/iam-fixture.json"),
+      join(repositoryRoot, "agent-host/dev/iam-fixture.json"),
       "utf8",
     );
     const fixture = JSON.parse(iamFixture);
@@ -271,7 +275,7 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.equal(new Date(guild.boundAt).toISOString(), guild.boundAt);
     assert.doesNotMatch(installSrc, /iam\.json/);
     const limaConfig = await readFile(
-      join(repositoryRoot, "agents-local/dev/lima-gdg-agent.yaml"),
+      join(repositoryRoot, "agent-host/dev/lima-gdg-agent.yaml"),
       "utf8",
     );
     assert.match(limaConfig, /mountPoint: \/mnt\/xangi-src/);
@@ -291,5 +295,45 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
   } finally {
     await rm(prefix, { recursive: true, force: true });
     await rm(hooksDir, { recursive: true, force: true });
+  }
+});
+
+test("agent-host/workspace/ contains no private Google Drive/Sheets URLs or Discord IDs", async () => {
+  const workspaceDir = join(repositoryRoot, "agent-host/workspace");
+  const entries = await readdir(workspaceDir, { recursive: true, withFileTypes: true });
+  assert.ok(entries.length > 0, "agent-host/workspace must not be empty");
+
+  const privateUrlPattern = /docs\.google\.com|drive\.google\.com|discord\.com\/channels/;
+  const discordSnowflakePattern = /\b[0-9]{17,20}\b/;
+  const violations = [];
+
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const parent = entry.parentPath ?? entry.path;
+    const fullPath = join(parent, entry.name);
+    const content = await readFile(fullPath, "utf8");
+    const lines = content.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (privateUrlPattern.test(line) || discordSnowflakePattern.test(line)) {
+        violations.push(`${fullPath}:${i + 1}: ${line}`);
+      }
+    }
+  }
+
+  assert.deepEqual(
+    violations,
+    [],
+    `Found private URLs or Discord IDs in agent-host/workspace:\n${violations.join("\n")}`,
+  );
+});
+
+test("monorepo .gitmodules contains no agents-local or nested wiki submodules", async () => {
+  const gitmodulesPath = join(repositoryRoot, ".gitmodules");
+  if (existsSync(gitmodulesPath)) {
+    const content = await readFile(gitmodulesPath, "utf8");
+    assert.doesNotMatch(content, /submodule\s+"agents-local"/);
+    assert.doesNotMatch(content, /submodule\s+"wiki"/);
+    assert.doesNotMatch(content, /gdg-wiki::/);
   }
 });
