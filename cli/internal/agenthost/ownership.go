@@ -162,7 +162,7 @@ func chownPath(path, userName, groupName string) error {
 	if err != nil {
 		return err
 	}
-	return os.Chown(path, uid, gid)
+	return os.Lchown(path, uid, gid)
 }
 
 func installDir(path string, unixMode uint32, userName, groupName string) error {
@@ -184,7 +184,7 @@ func chownRecursive(root, userName, groupName string) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		return os.Chown(path, uid, gid)
+		return os.Lchown(path, uid, gid)
 	})
 }
 
@@ -201,7 +201,7 @@ func chgrpRecursive(root, groupName string) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		return os.Chown(path, -1, gid)
+		return os.Lchown(path, -1, gid)
 	})
 }
 

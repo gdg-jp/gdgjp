@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -31,17 +32,82 @@ type layoutPaths struct {
 }
 
 func loadSpec(path string) (specFile, error) {
-	if path == "" {
+	return loadSpecWithOverlay(path, "")
+}
+
+func loadSpecWithOverlay(specPath, overlayPath string) (specFile, error) {
+	if specPath == "" && overlayPath == "" {
 		return parseSpecBytes(defaultSpecJSON, "embedded agent-host.json")
 	}
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return specFile{}, fmt.Errorf("spec file not found: %s", path)
+
+	baseOrigin := "embedded agent-host.json"
+	baseRaw := defaultSpecJSON
+
+	if specPath != "" {
+		if strings.HasSuffix(specPath, ".dev.json") && overlayPath == "" {
+			overlayPath = specPath
+			candBase := filepath.Join(filepath.Dir(specPath), "agent-host.json")
+			if _, err := os.Stat(candBase); err == nil {
+				specPath = candBase
+			} else {
+				specPath = ""
+			}
 		}
-		return specFile{}, err
 	}
-	return parseSpecBytes(raw, path)
+
+	if specPath != "" {
+		raw, err := os.ReadFile(specPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return specFile{}, fmt.Errorf("spec file not found: %s", specPath)
+			}
+			return specFile{}, err
+		}
+		baseRaw = raw
+		baseOrigin = specPath
+	}
+
+	if overlayPath != "" {
+		overlayRaw, err := os.ReadFile(overlayPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return specFile{}, fmt.Errorf("overlay spec file not found: %s", overlayPath)
+			}
+			return specFile{}, err
+		}
+		merged, err := mergeJSON(baseRaw, overlayRaw)
+		if err != nil {
+			return specFile{}, fmt.Errorf("Failed to parse spec overlay at %s: %w", overlayPath, err)
+		}
+		return parseSpecBytes(merged, fmt.Sprintf("%s (with overlay %s)", baseOrigin, overlayPath))
+	}
+
+	return parseSpecBytes(baseRaw, baseOrigin)
+}
+
+func mergeJSON(base, overlay []byte) ([]byte, error) {
+	var baseMap map[string]any
+	if err := json.Unmarshal(base, &baseMap); err != nil {
+		return nil, err
+	}
+	var overlayMap map[string]any
+	if err := json.Unmarshal(overlay, &overlayMap); err != nil {
+		return nil, err
+	}
+	deepMergeMaps(baseMap, overlayMap)
+	return json.Marshal(baseMap)
+}
+
+func deepMergeMaps(dst, src map[string]any) {
+	for k, v := range src {
+		srcMap, srcIsMap := v.(map[string]any)
+		dstMap, dstIsMap := dst[k].(map[string]any)
+		if srcIsMap && dstIsMap {
+			deepMergeMaps(dstMap, srcMap)
+		} else {
+			dst[k] = v
+		}
+	}
 }
 
 func parseSpecBytes(raw []byte, origin string) (specFile, error) {

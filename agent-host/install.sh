@@ -372,40 +372,22 @@ ensure_gws() {
 
 create_users() {
   [[ -z "$PREFIX" && "$(id -u)" -eq 0 ]] || return 0
-  echo "==> OS users"
-  # tmpfiles and private dirs use owner:group gdgagent-svc:gdgagent-svc.
-  # --gid gdgwiki would skip creating that group (systemd-tmpfiles then fails).
-  groupadd --system gdgwiki || true
-  groupadd --system gdgagent-svc || true
-  if ! id gdgagent-svc >/dev/null 2>&1; then
-    useradd --system --create-home --home-dir /home/gdgagent-svc --gid gdgagent-svc \
-      --groups gdgwiki --shell /usr/sbin/nologin gdgagent-svc
-  else
-    usermod -g gdgagent-svc gdgagent-svc || true
-    usermod -aG gdgwiki gdgagent-svc || true
-  fi
-  local slot
-  for slot in $(seq 0 $((SLOT_COUNT - 1))); do
-    groupadd --system "gdgagent-run-${slot}" || true
-    id "gdgagent-run-${slot}" >/dev/null 2>&1 ||
-      useradd --system --create-home --home-dir "/home/gdgagent-run-${slot}" \
-        --gid "gdgagent-run-${slot}" --groups gdgwiki --shell /usr/sbin/nologin \
-        "gdgagent-run-${slot}"
-    usermod -aG gdgwiki "gdgagent-run-${slot}" || true
-  done
-  local slot_groups=""
-  for slot in $(seq 0 $((SLOT_COUNT - 1))); do
-    slot_groups="${slot_groups},gdgagent-run-${slot}"
-  done
-  usermod -aG "${slot_groups#,}" gdgagent-svc || true
+  echo "==> OS users (gdg agent-host apply --only user)"
+  resolve_emit_layout_gdg
+  "$EMIT_LAYOUT_GDG" agent-host apply --spec "$SPEC" --slot-count "$SLOT_COUNT" --only user
 }
 
-# Prefer a gdg that already has emit-layout: GDG_BIN, a pinned /usr/local/bin/gdg
-# (once pins.gdgCli ships this subcommand), PATH, or a binary built from this
-# checkout. Fresh hosts therefore do not require a manually supplied GDG_BIN.
-gdg_supports_emit_layout() {
+# Prefer a gdg that already has both agent-host apply and emit-layout:
+# GDG_BIN, a pinned /usr/local/bin/gdg (once pins.gdgCli ships these subcommands),
+# PATH, or a binary built from this checkout. Fresh hosts therefore do not
+# require a manually supplied GDG_BIN.
+gdg_supports_converger() {
   local bin="$1"
-  [[ -x "$bin" ]] && "$bin" agent-host emit-layout --help >/dev/null 2>&1
+  [[ -x "$bin" ]] && "$bin" agent-host emit-layout --help >/dev/null 2>&1 && "$bin" agent-host apply --help >/dev/null 2>&1
+}
+
+gdg_supports_emit_layout() {
+  gdg_supports_converger "$@"
 }
 
 build_gdg_from_checkout() {
@@ -416,27 +398,27 @@ build_gdg_from_checkout() {
   fi
   if ! command -v go >/dev/null 2>&1; then
     if [[ -z "$PREFIX" && "$(id -u)" -eq 0 ]]; then
-      echo "==> golang-go (build emit-layout gdg from checkout)"
+      echo "==> golang-go (build agent-host converger gdg from checkout)"
       apt-get install -y -qq golang-go
     fi
   fi
   command -v go >/dev/null 2>&1 || {
-    echo "go is required to build gdg agent-host emit-layout from $gdgjp/cli" >&2
+    echo "go is required to build gdg agent-host converger from $gdgjp/cli" >&2
     exit 1
   }
   echo "==> go build gdg from $gdgjp/cli -> $dest"
   mkdir -p "$(dirname "$dest")"
   (cd "$gdgjp/cli" && go build -o "$dest" ./cmd/gdg)
-  gdg_supports_emit_layout "$dest" || {
-    echo "built $dest but it has no agent-host emit-layout" >&2
+  gdg_supports_converger "$dest" || {
+    echo "built $dest but it has no agent-host apply/emit-layout" >&2
     exit 1
   }
 }
 
 resolve_emit_layout_gdg() {
   if [[ -n "${GDG_BIN:-}" && -x "${GDG_BIN}" ]]; then
-    gdg_supports_emit_layout "$GDG_BIN" || {
-      echo "GDG_BIN=$GDG_BIN has no agent-host emit-layout" >&2
+    gdg_supports_converger "$GDG_BIN" || {
+      echo "GDG_BIN=$GDG_BIN has no agent-host apply/emit-layout" >&2
       exit 1
     }
     EMIT_LAYOUT_GDG="$GDG_BIN"
@@ -444,17 +426,17 @@ resolve_emit_layout_gdg() {
   fi
   if [[ -z "$PREFIX" ]]; then
     ensure_gdg_system
-    if gdg_supports_emit_layout /usr/local/bin/gdg; then
+    if gdg_supports_converger /usr/local/bin/gdg; then
       EMIT_LAYOUT_GDG=/usr/local/bin/gdg
       return
     fi
   fi
-  if command -v gdg >/dev/null 2>&1 && gdg_supports_emit_layout "$(command -v gdg)"; then
+  if command -v gdg >/dev/null 2>&1 && gdg_supports_converger "$(command -v gdg)"; then
     EMIT_LAYOUT_GDG="$(command -v gdg)"
     return
   fi
   local built="$gdgjp/.gdg-built/gdg"
-  if [[ -x "$built" ]] && gdg_supports_emit_layout "$built"; then
+  if [[ -x "$built" ]] && gdg_supports_converger "$built"; then
     EMIT_LAYOUT_GDG="$built"
     return
   fi
@@ -1099,9 +1081,9 @@ if [[ -z "$PREFIX" ]]; then
   install_node_if_needed
 fi
 
+resolve_emit_layout_gdg
 create_users
 
-resolve_emit_layout_gdg
 echo "==> layout (gdg agent-host emit-layout)"
 layout_args=(agent-host emit-layout --spec "$SPEC" --slot-count "$SLOT_COUNT" --apply-ownership)
 if [[ -n "$PREFIX" ]]; then

@@ -195,9 +195,13 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(result.stdout, /gdgjp checkout/);
     const installSrc = await readFile(hostInstall, "utf8");
-    assert.match(installSrc, /groupadd --system gdgagent-svc/);
-    assert.match(installSrc, /--gid gdgagent-svc/);
-    assert.doesNotMatch(installSrc, /useradd.*--gid gdgwiki.*gdgagent-svc/);
+    assert.match(installSrc, /agent-host apply.*--only user/);
+    const userSrc = await readFile(
+      join(repositoryRoot, "cli/internal/agenthost/resource_user.go"),
+      "utf8",
+    );
+    assert.match(userSrc, /groupadd/);
+    assert.match(userSrc, /--gid/);
     const wk = await stat(join(prefix, "opt/gdg-agent/bin/wk"));
     assert.equal(wk.mode & 0o111, 0o111);
 

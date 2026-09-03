@@ -58,6 +58,34 @@ func TestEmitLayoutMatchesGoldenTree(t *testing.T) {
 	}
 }
 
+func TestRenderLayoutMatchesGoldenTree(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("layout emit requires visudo")
+	}
+	outDir := t.TempDir()
+	if err := RenderLayout(defaultSpec(t), "", outDir, 4); err != nil {
+		t.Fatal(err)
+	}
+	got, err := snapshotLayout(outDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	goldenPath := filepath.Join("testdata", "golden", "tree.json")
+	raw, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want []goldenEntry
+	if err := json.Unmarshal(raw, &want); err != nil {
+		t.Fatal(err)
+	}
+	gotJSON, _ := json.MarshalIndent(got, "", "  ")
+	wantJSON, _ := json.MarshalIndent(want, "", "  ")
+	if string(gotJSON) != string(wantJSON) {
+		t.Fatalf("render layout tree drifted from testdata/golden/tree.json\ngot %d entries, want %d\n%s", len(got), len(want), firstGoldenDiff(want, got))
+	}
+}
+
 func snapshotLayout(prefix string) ([]goldenEntry, error) {
 	var entries []goldenEntry
 	err := filepath.WalkDir(prefix, func(path string, d fs.DirEntry, err error) error {
@@ -118,16 +146,6 @@ func unixModeOctal(info os.FileInfo) string {
 		unix |= 0o4000
 	}
 	return sprintf04o(unix)
-}
-
-func sprintf04o(unix uint32) string {
-	const digits = "01234567"
-	buf := [4]byte{'0', '0', '0', '0'}
-	for i := 3; i >= 0; i-- {
-		buf[i] = digits[unix&7]
-		unix >>= 3
-	}
-	return string(buf[:])
 }
 
 func firstGoldenDiff(want, got []goldenEntry) string {
