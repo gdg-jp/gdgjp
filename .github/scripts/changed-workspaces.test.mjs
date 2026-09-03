@@ -112,3 +112,15 @@ test("gates the CLI Go job on cli/ changes", () => {
   assert.equal(classifyChanges(["docs/operations.md"]).cli, false);
   assert.equal(classifyChanges(["pnpm-lock.yaml"]).cli, true);
 });
+
+test("gates script-tests on workflow scripts and agent-host components", () => {
+  assert.equal(classifyChanges([".github/scripts/gdg-agent-layout.test.mjs"]).scriptTests, true);
+  assert.equal(classifyChanges(["scripts/gdg-agent/install-layout.sh"]).scriptTests, true);
+  assert.equal(classifyChanges(["scripts/gdg-agent/config/permissions.json"]).scriptTests, true);
+  assert.equal(classifyChanges(["agents-index/src/proxy.ts"]).scriptTests, true);
+  assert.equal(classifyChanges(["cli/internal/wiki/hooks/acl-gate.ts"]).scriptTests, true);
+  assert.equal(classifyChanges(["agents-local"]).scriptTests, true);
+  assert.equal(classifyChanges(["wiki/app/routes/home.tsx"]).scriptTests, false);
+  assert.equal(classifyChanges(["docs/operations.md"]).scriptTests, false);
+  assert.equal(classifyChanges(["accounts/src/index.ts"]).scriptTests, false);
+});

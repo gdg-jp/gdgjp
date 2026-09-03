@@ -181,7 +181,14 @@ export function classifyChanges(files, { forceAll = false } = {}) {
     deploy: deployTargets,
     lint: normalizedFiles.some((file) => BIOME_FILE_PATTERN.test(file)),
     openapi,
-    scriptTests: normalizedFiles.some((file) => /^\.github\/scripts\/.*\.mjs$/.test(file)),
+    scriptTests: normalizedFiles.some(
+      (file) =>
+        /^\.github\/scripts\/.*\.mjs$/.test(file) ||
+        /^scripts\/gdg-agent\//.test(file) ||
+        /^agents-index\//.test(file) ||
+        /^cli\/internal\/wiki\/hooks\//.test(file) ||
+        file === "agents-local",
+    ),
     cli: ciGlobal || normalizedFiles.some((file) => file.startsWith("cli/")),
     full: false,
   };

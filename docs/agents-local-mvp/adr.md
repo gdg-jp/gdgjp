@@ -29,6 +29,10 @@
 | [018](#adr-018-ページ変更権限をクラス集合から直接判定する) | ページ変更権限は `canMutatePage` | Accepted |
 | [019](#adr-019-エージェントの-acl-判定はクラス集合のみを入力にする) | エージェントの判定入力はクラス集合のみ | Accepted |
 | [020](#adr-020-見出しとコードフェンスに落ちた機密派生行は拒否する) | 包めない機密派生行は拒否する | Accepted |
+| [021](#adr-021-ワークツリーの読み書きを-wk-に集約する) | ワークツリーの読み書きを `wk` に集約する | Accepted |
+| [022](#adr-022-ローカル実行物を-node-ネイティブ-typescript-に統一する) | ローカル実行物を Node ネイティブ TypeScript に統一する | Accepted |
+| [023](#adr-023-ローカル検証環境を-ubuntu-vm-に置きdocker-を採らない) | ローカル検証環境を Ubuntu VM に置き、Docker を採らない | Accepted |
+| [024](#adr-024-ci-の-script-tests-における-private-submodule-チェックアウトの失敗と暫定方針) | CI の script-tests における private submodule チェックアウトの失敗と暫定方針 | Accepted |
 
 ---
 
@@ -1899,3 +1903,36 @@ Docker は CI に向くが、Docker Desktop の LinuxKit では AppArmor と sys
 VM は使い捨てで `limactl delete` によりリセットする。固定 Cursor 版を事前配置するため、
 `install.sh` の latest Cursor 取得だけはこの検証対象から外れる。arm64 VM の結果は x86-64 本番の
 保証ではなく、差分を Stage 12 に記録する。
+
+## ADR-024: CI の script-tests における private submodule チェックアウトの失敗と暫定方針
+
+### Status
+
+Accepted
+
+### Date
+
+2026-09-03
+
+### Context
+
+`.github/workflows/ci.yml:72-84` の `script-tests` ジョブは `actions/checkout@v4` で `submodules: true` を指定している。
+しかし本リポジトリ `gdg-jp/gdgjp` は PUBLIC であり、submodule である `agents-local` のリモート `gdg-jp/agents` は PRIVATE である。
+GitHub Actions の既定 `GITHUB_TOKEN` はパブリックリポジトリからプライベートリポジトリへの読み取り権限を持たないため、`git submodule update` が `fatal: repository 'https://github.com/gdg-jp/agents.git/' not found` で失敗する（run 33026067379 / job 98367586019 で実証確認済み）。
+これまで `script-tests` の起動述語が `.github/scripts/*.mjs` に限定されていたためジョブがほとんど発火せず、この失敗が表面化していなかった。
+
+さらに、仮に checkout の submodule 失敗を無視して後続ステップへ進んだとしても、`.github/scripts/gdg-agent-layout.test.mjs` の submodule 依存箇所（`:14-15` の `agents-local/lib/apply-ownership.sh` と `agents-local/install.sh` をガード無しで読む箇所、および `:184` の `.cursor/mcp.json`、`:190` の `AGENTS.md`、`:200` の `config/cli-config.json`、`:214` の `setup.sh`、`:217` の `setup.sh` 検査）が `ENOENT` でテスト失敗を引き起こす。
+
+### Decision
+
+**Stage 01 では `ci.yml` の `submodules: true` を外すことや PAT 注入などの恒久対処・暫定対処を行わず、事実の記録に留める。**
+
+- Stage 03 (`03-consolidate-agent-host.md`) において `agents-local` submodule 自体を monorepo 内の `agent-host/` へ統合・ミラー解消し、submodule 依存そのものを撤廃する。
+- したがって、submodule チェックアウトに起因する問題は Stage 03 で自然に解消されるため、Stage 01 でワークアラウンドを重ねることは避ける。
+- `.github/scripts/gdg-agent-layout.test.mjs` に対しても、Stage 03 および Stage 05〜07 の担当であるためここでは中身を変更しない。
+
+### Consequences
+
+- GitHub Actions 上で `script-tests` ジョブが起動した場合、Stage 03 の submodule 統合が完了するまでは `actions/checkout@v4` の submodule clone 段階でジョブが失敗する（既知の制約）。
+- ローカル環境（submodule が手動でチェックアウトされている環境）では `node --test .github/scripts/*.test.mjs` により `gdg-agent-layout.test.mjs` を含むすべてのテストが正常にパスする。
+
