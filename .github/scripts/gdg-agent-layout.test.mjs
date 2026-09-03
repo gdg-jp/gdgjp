@@ -1,56 +1,90 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { cp, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const layoutScript = join(repositoryRoot, "agent-host/lib/install-layout.sh");
-const hooksSrc = join(repositoryRoot, "cli/internal/wiki/hooks");
-const ownershipScript = join(repositoryRoot, "agent-host/lib/apply-ownership.sh");
+const ownershipSource = join(repositoryRoot, "cli/internal/agenthost/ownership.go");
 const hostInstall = join(repositoryRoot, "agent-host/install.sh");
+const defaultSpec = join(repositoryRoot, "agent-host/agent-host.json");
+
+let compiledGdgBin = "";
+
+function ensureGdgBin() {
+  if (compiledGdgBin && existsSync(compiledGdgBin)) {
+    return compiledGdgBin;
+  }
+  if (process.env.GDG_BIN && existsSync(process.env.GDG_BIN)) {
+    compiledGdgBin = process.env.GDG_BIN;
+    return compiledGdgBin;
+  }
+  const bin = join(tmpdir(), `gdg-emit-layout-${process.pid}`);
+  const result = spawnSync("go", ["build", "-o", bin, "./cmd/gdg"], {
+    cwd: join(repositoryRoot, "cli"),
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    throw new Error(`go build failed: ${result.stderr || result.stdout}`);
+  }
+  compiledGdgBin = bin;
+  return compiledGdgBin;
+}
+
+function emitLayout(env, extraArgs = []) {
+  const bin = env.GDG_BIN || ensureGdgBin();
+  const args = ["agent-host", "emit-layout"];
+  if (env.GDG_SPEC) {
+    args.push("--spec", env.GDG_SPEC);
+  } else {
+    args.push("--spec", defaultSpec);
+  }
+  if (env.GDG_SETUP_PREFIX) {
+    args.push("--prefix", env.GDG_SETUP_PREFIX);
+  }
+  if (env.GDG_AGENT_SLOT_COUNT) {
+    args.push("--slot-count", env.GDG_AGENT_SLOT_COUNT);
+  }
+  args.push(...extraArgs);
+  return spawnSync(bin, args, { encoding: "utf8", env: { ...env, GDG_BIN: bin } });
+}
 
 async function withLayoutFixture(run) {
   const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-layout-"));
-  const hooksDir = await mkdtemp(join(tmpdir(), "gdg-agent-hooks-"));
   try {
-    await cp(hooksSrc, hooksDir, { recursive: true });
-    await writeFile(join(hooksDir, "acl.ts"), "export {};\n", "utf8");
     const env = {
       ...process.env,
       GDG_SETUP_PREFIX: prefix,
-      GDG_SETUP_HOOKS_SRC: hooksDir,
-      GDG_SETUP_INDEX_PROXY_SRC: join(repositoryRoot, "agents-index/src/proxy.ts"),
       GDG_AGENT_SLOT_COUNT: "4",
+      GDG_BIN: ensureGdgBin(),
     };
-    const result = spawnSync("bash", [layoutScript], { encoding: "utf8", env });
+    const result = emitLayout(env);
     assert.equal(result.status, 0, result.stderr || result.stdout);
     await run({ prefix, env });
   } finally {
     await rm(prefix, { recursive: true, force: true });
-    await rm(hooksDir, { recursive: true, force: true });
   }
 }
 
 test("agent layout is idempotent, root-owned templates, and has no sudoers wildcards", async () => {
-  const ownership = await readFile(ownershipScript, "utf8");
+  const ownership = await readFile(ownershipSource, "utf8");
   assert.match(ownership, /\.config\/cursor/);
   assert.doesNotMatch(ownership, /\.google_workspace_mcp/);
   assert.match(ownership, /\.cache/);
-  assert.match(ownership, /install -d -m 0700 -o "gdgagent-run-\$\{slot\}"/);
+  assert.match(ownership, /gdgagent-run-"/);
   await withLayoutFixture(async ({ prefix, env }) => {
     const staleWrapper = join(prefix, "opt/gdg-agent/bin/google-workspace-mcp");
     await writeFile(staleWrapper, "#!/bin/sh\necho stale\n", { mode: 0o755 });
 
-    const again = spawnSync("bash", [layoutScript], { encoding: "utf8", env });
+    const again = emitLayout(env);
     assert.equal(again.status, 0, again.stderr || again.stdout);
     assert.equal(
       existsSync(staleWrapper),
       false,
-      "install-layout.sh must remove wrappers left over from superseded designs",
+      "emit-layout must remove wrappers left over from superseded designs",
     );
 
     const sudoers = await readFile(join(prefix, "etc/sudoers.d/gdg-agent"), "utf8");
@@ -149,18 +183,12 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
 
 test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", async () => {
   const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-install-"));
-  const hooksDir = await mkdtemp(join(tmpdir(), "gdg-agent-install-hooks-"));
   try {
-    await cp(hooksSrc, hooksDir, { recursive: true });
-    await writeFile(join(hooksDir, "acl.ts"), "export {};\n", "utf8");
     const env = {
       ...process.env,
       GDG_SETUP_PREFIX: prefix,
       GDGJP_ROOT: repositoryRoot,
       GDG_SKIP_CLONE: "1",
-      GDG_SKIP_BUILD: "1",
-      GDG_SETUP_HOOKS_SRC: hooksDir,
-      GDG_SETUP_INDEX_PROXY_SRC: join(repositoryRoot, "agents-index/src/proxy.ts"),
       GDG_AGENT_SLOT_COUNT: "4",
     };
     const result = spawnSync("bash", [hostInstall], { encoding: "utf8", env });
@@ -185,12 +213,19 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     );
     const agentsMd = await readFile(join(repositoryRoot, "agent-host/workspace/AGENTS.md"), "utf8");
     assert.equal(localMdc, `---\nalwaysApply: true\n---\n\n${agentsMd}`);
+    assert.match(installSrc, /gdg agent-host emit-layout/);
+    assert.match(installSrc, /go build gdg from/);
+    assert.match(installSrc, /ensure_gdg_system/);
+    assert.doesNotMatch(installSrc, /ensure_pnpm/);
+    assert.doesNotMatch(installSrc, /GDG_SKIP_BUILD/);
+    assert.doesNotMatch(installSrc, /build_acl/);
+    assert.match(installSrc, /file:..\/gdgjp\/gdg-lib/);
+    assert.match(installSrc, /Stage 13/);
     assert.match(installSrc, /gdg wiki clone/);
     assert.match(installSrc, /\/usr\/local\/bin\/gdg/);
     assert.match(installSrc, /Harineko0\/xangi/);
     assert.match(installSrc, /ensure_gws/);
     assert.match(installSrc, /ensure_cursor_cli/);
-    assert.match(installSrc, /ensure_gdg_system/);
     assert.doesNotMatch(installSrc, /releases\/latest/);
     assert.doesNotMatch(installSrc, /setup-ai-tools\.sh/);
     assert.match(installSrc, /downloads\.cursor\.com/);
@@ -249,6 +284,16 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
       existsSync(join(repositoryRoot, "agent-host/lib/verify.sh")),
       true,
       "agent-host/lib/verify.sh must exist as the retreat home for the 13 verification checks",
+    );
+    assert.equal(
+      existsSync(join(repositoryRoot, "agent-host/lib/install-layout.sh")),
+      false,
+      "agent-host/lib/install-layout.sh must be removed; layout is gdg agent-host emit-layout",
+    );
+    assert.equal(
+      existsSync(join(repositoryRoot, "agent-host/lib/apply-ownership.sh")),
+      false,
+      "agent-host/lib/apply-ownership.sh must be removed; ownership is emit-layout --apply-ownership",
     );
     assert.equal(
       existsSync(join(repositoryRoot, "skills-lock.json")),
@@ -341,7 +386,6 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     }
   } finally {
     await rm(prefix, { recursive: true, force: true });
-    await rm(hooksDir, { recursive: true, force: true });
   }
 });
 
@@ -387,11 +431,8 @@ test("monorepo .gitmodules contains no agents-local or nested wiki submodules", 
 
 test("agent-host.json slotCount changes propagate to sudoers, tmpfiles, and per-slot configs", async () => {
   const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-slot-count-"));
-  const hooksDir = await mkdtemp(join(tmpdir(), "gdg-agent-hooks-"));
   const specDir = await mkdtemp(join(tmpdir(), "gdg-agent-spec-"));
   try {
-    await cp(hooksSrc, hooksDir, { recursive: true });
-    await writeFile(join(hooksDir, "acl.ts"), "export {};\n", "utf8");
     const baseSpec = JSON.parse(
       await readFile(join(repositoryRoot, "agent-host/agent-host.json"), "utf8"),
     );
@@ -404,11 +445,10 @@ test("agent-host.json slotCount changes propagate to sudoers, tmpfiles, and per-
       ...cleanEnv,
       GDG_SPEC: customSpecPath,
       GDG_SETUP_PREFIX: prefix,
-      GDG_SETUP_HOOKS_SRC: hooksDir,
-      GDG_SETUP_INDEX_PROXY_SRC: join(repositoryRoot, "agents-index/src/proxy.ts"),
+      GDG_BIN: ensureGdgBin(),
     };
 
-    const result = spawnSync("bash", [layoutScript], { encoding: "utf8", env });
+    const result = emitLayout(env);
     assert.equal(result.status, 0, result.stderr || result.stdout);
 
     const sudoers = await readFile(join(prefix, "etc/sudoers.d/gdg-agent"), "utf8");
@@ -424,18 +464,14 @@ test("agent-host.json slotCount changes propagate to sudoers, tmpfiles, and per-
     assert.equal(existsSync(join(prefix, "home/gdgagent-run-3/.cursor/sandbox.json")), false);
   } finally {
     await rm(prefix, { recursive: true, force: true });
-    await rm(hooksDir, { recursive: true, force: true });
     await rm(specDir, { recursive: true, force: true });
   }
 });
 
 test("validate-then-rename preserves existing sudoers if validation fails", async () => {
   const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-sudoers-fail-"));
-  const hooksDir = await mkdtemp(join(tmpdir(), "gdg-agent-hooks-"));
   const fakeBinDir = await mkdtemp(join(tmpdir(), "fake-bin-"));
   try {
-    await cp(hooksSrc, hooksDir, { recursive: true });
-    await writeFile(join(hooksDir, "acl.ts"), "export {};\n", "utf8");
     const sudoersDir = join(prefix, "etc/sudoers.d");
     const sudoersFile = join(sudoersDir, "gdg-agent");
     const { mkdir } = await import("node:fs/promises");
@@ -443,7 +479,6 @@ test("validate-then-rename preserves existing sudoers if validation fails", asyn
     const originalContent = "# ORIGINAL LIVE SUDOERS CONTENT\n";
     await writeFile(sudoersFile, originalContent, { mode: 0o440 });
 
-    // Mock visudo on PATH to simulate syntax failure
     const fakeVisudo = join(fakeBinDir, "visudo");
     await writeFile(fakeVisudo, "#!/bin/sh\necho 'simulated syntax error' >&2\nexit 1\n", {
       mode: 0o755,
@@ -453,13 +488,12 @@ test("validate-then-rename preserves existing sudoers if validation fails", asyn
       ...process.env,
       PATH: `${fakeBinDir}:${process.env.PATH}`,
       GDG_SETUP_PREFIX: prefix,
-      GDG_SETUP_HOOKS_SRC: hooksDir,
-      GDG_SETUP_INDEX_PROXY_SRC: join(repositoryRoot, "agents-index/src/proxy.ts"),
       GDG_AGENT_SLOT_COUNT: "4",
+      GDG_BIN: ensureGdgBin(),
     };
 
-    const result = spawnSync("bash", [layoutScript], { encoding: "utf8", env });
-    assert.notEqual(result.status, 0, "layout script must fail when visudo validation fails");
+    const result = emitLayout(env);
+    assert.notEqual(result.status, 0, "emit-layout must fail when visudo validation fails");
 
     const contentAfterFailure = await readFile(sudoersFile, "utf8");
     assert.equal(
@@ -469,7 +503,6 @@ test("validate-then-rename preserves existing sudoers if validation fails", asyn
     );
   } finally {
     await rm(prefix, { recursive: true, force: true });
-    await rm(hooksDir, { recursive: true, force: true });
     await rm(fakeBinDir, { recursive: true, force: true });
   }
 });
@@ -504,39 +537,33 @@ test("installer and layout fail closed on missing or malformed spec", async () =
   const badSpecDir = await mkdtemp(join(tmpdir(), "gdg-agent-bad-spec-"));
   try {
     const missingSpecPath = join(badSpecDir, "nonexistent.json");
-    const missingSpecResult = spawnSync("bash", [layoutScript], {
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        GDG_SPEC: missingSpecPath,
-        GDG_SETUP_PREFIX: prefix,
-      },
+    const missingSpecResult = emitLayout({
+      ...process.env,
+      GDG_SPEC: missingSpecPath,
+      GDG_SETUP_PREFIX: prefix,
+      GDG_BIN: ensureGdgBin(),
     });
     assert.notEqual(missingSpecResult.status, 0);
     assert.match(missingSpecResult.stderr, /spec file not found/);
 
     const malformedSpecPath = join(badSpecDir, "malformed.json");
     await writeFile(malformedSpecPath, "{ invalid json", "utf8");
-    const malformedResult = spawnSync("bash", [layoutScript], {
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        GDG_SPEC: malformedSpecPath,
-        GDG_SETUP_PREFIX: prefix,
-      },
+    const malformedResult = emitLayout({
+      ...process.env,
+      GDG_SPEC: malformedSpecPath,
+      GDG_SETUP_PREFIX: prefix,
+      GDG_BIN: ensureGdgBin(),
     });
     assert.notEqual(malformedResult.status, 0);
     assert.match(malformedResult.stderr, /Failed to parse spec/);
 
     const incompleteSpecPath = join(badSpecDir, "incomplete.json");
     await writeFile(incompleteSpecPath, JSON.stringify({ slotCount: 4 }), "utf8");
-    const incompleteResult = spawnSync("bash", [layoutScript], {
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        GDG_SPEC: incompleteSpecPath,
-        GDG_SETUP_PREFIX: prefix,
-      },
+    const incompleteResult = emitLayout({
+      ...process.env,
+      GDG_SPEC: incompleteSpecPath,
+      GDG_SETUP_PREFIX: prefix,
+      GDG_BIN: ensureGdgBin(),
     });
     assert.notEqual(incompleteResult.status, 0);
     assert.match(incompleteResult.stderr, /spec\.paths must be an object/);
@@ -548,49 +575,37 @@ test("installer and layout fail closed on missing or malformed spec", async () =
 
 test("slotCount reduction reconciles obsolete slots and artifacts", async () => {
   const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-reduction-"));
-  const hooksDir = await mkdtemp(join(tmpdir(), "gdg-agent-hooks-"));
   try {
-    await cp(hooksSrc, hooksDir, { recursive: true });
-    await writeFile(join(hooksDir, "acl.ts"), "export {};\n", "utf8");
-
-    // First run: 4 slots
     const env4 = {
       ...process.env,
       GDG_SETUP_PREFIX: prefix,
-      GDG_SETUP_HOOKS_SRC: hooksDir,
-      GDG_SETUP_INDEX_PROXY_SRC: join(repositoryRoot, "agents-index/src/proxy.ts"),
       GDG_AGENT_SLOT_COUNT: "4",
+      GDG_BIN: ensureGdgBin(),
     };
-    const res4 = spawnSync("bash", [layoutScript], { encoding: "utf8", env: env4 });
+    const res4 = emitLayout(env4);
     assert.equal(res4.status, 0, res4.stderr || res4.stdout);
 
-    // Verify slot 3 exists
     assert.ok(existsSync(join(prefix, "opt/gdg-agent/bin/spawn-slot-3")));
     assert.ok(existsSync(join(prefix, "run/gdg-agent/3")));
     assert.ok(existsSync(join(prefix, "home/gdgagent-run-3/.cursor/sandbox.json")));
 
-    // Second run: reduce to 3 slots
     const env3 = {
       ...process.env,
       GDG_SETUP_PREFIX: prefix,
-      GDG_SETUP_HOOKS_SRC: hooksDir,
-      GDG_SETUP_INDEX_PROXY_SRC: join(repositoryRoot, "agents-index/src/proxy.ts"),
       GDG_AGENT_SLOT_COUNT: "3",
+      GDG_BIN: ensureGdgBin(),
     };
-    const res3 = spawnSync("bash", [layoutScript], { encoding: "utf8", env: env3 });
+    const res3 = emitLayout(env3);
     assert.equal(res3.status, 0, res3.stderr || res3.stdout);
 
-    // Verify slot 3 is cleanly removed
     assert.ok(!existsSync(join(prefix, "opt/gdg-agent/bin/spawn-slot-3")));
     assert.ok(!existsSync(join(prefix, "run/gdg-agent/3")));
     assert.ok(!existsSync(join(prefix, "home/gdgagent-run-3/.cursor")));
 
-    // Verify slot 2 remains
     assert.ok(existsSync(join(prefix, "opt/gdg-agent/bin/spawn-slot-2")));
     assert.ok(existsSync(join(prefix, "run/gdg-agent/2")));
     assert.ok(existsSync(join(prefix, "home/gdgagent-run-2/.cursor/sandbox.json")));
 
-    // Verify sudoers and tmpfiles omit slot 3
     const sudoers = await readFile(join(prefix, "etc/sudoers.d/gdg-agent"), "utf8");
     assert.match(sudoers, /spawn-slot-2/);
     assert.doesNotMatch(sudoers, /spawn-slot-3/);
@@ -600,18 +615,13 @@ test("slotCount reduction reconciles obsolete slots and artifacts", async () => 
     assert.doesNotMatch(tmpfiles, /\/3 0750/);
   } finally {
     await rm(prefix, { recursive: true, force: true });
-    await rm(hooksDir, { recursive: true, force: true });
   }
 });
 
 test("spec paths govern all generated layout configurations", async () => {
   const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-custom-paths-"));
-  const hooksDir = await mkdtemp(join(tmpdir(), "gdg-agent-hooks-"));
   const customSpecDir = await mkdtemp(join(tmpdir(), "gdg-agent-custom-spec-"));
   try {
-    await cp(hooksSrc, hooksDir, { recursive: true });
-    await writeFile(join(hooksDir, "acl.ts"), "export {};\n", "utf8");
-
     const baseSpec = JSON.parse(
       await readFile(join(repositoryRoot, "agent-host/agent-host.json"), "utf8"),
     );
@@ -631,10 +641,9 @@ test("spec paths govern all generated layout configurations", async () => {
       ...process.env,
       GDG_SPEC: customSpecPath,
       GDG_SETUP_PREFIX: prefix,
-      GDG_SETUP_HOOKS_SRC: hooksDir,
-      GDG_SETUP_INDEX_PROXY_SRC: join(repositoryRoot, "agents-index/src/proxy.ts"),
+      GDG_BIN: ensureGdgBin(),
     };
-    const res = spawnSync("bash", [layoutScript], { encoding: "utf8", env });
+    const res = emitLayout(env);
     assert.equal(res.status, 0, res.stderr || res.stdout);
 
     // Sudoers
@@ -687,7 +696,6 @@ test("spec paths govern all generated layout configurations", async () => {
     assert.ok(cliConfig.permissions.allow.includes("Shell(/opt/custom-agent/bin/gws)"));
   } finally {
     await rm(prefix, { recursive: true, force: true });
-    await rm(hooksDir, { recursive: true, force: true });
     await rm(customSpecDir, { recursive: true, force: true });
   }
 });

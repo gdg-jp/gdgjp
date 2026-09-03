@@ -62,13 +62,13 @@ turn is told in Discord; it is not run without the lock.
 - `workspace/` (`.agents/`, `.claude/`, `.codex/`, `AGENTS.md`) — hand-curated skills and guidelines
   (`wiki-ingest`, `wiki-lint`, `wiki-query`) that teach the coding agent how to work with the wiki
   content in the target worktree.
-- `install.sh` — Ubuntu host bootstrap: clone gdgjp, `build:acl`, OS users,
-  layout, permissions, and systemd units.
+- `install.sh` — Ubuntu host bootstrap: clone gdgjp (xangi `gdg-lib` only), OS users,
+  `gdg agent-host emit-layout`, and systemd units.
 - `lib/verify.sh` — host verification checks (13 inspections for live paths and uid boundaries).
 - `config/` — templates for `hooks.json`, `cli-config.json`, `sandbox.json`,
   `mcp.json`, and the argument-less `spawn-slot-<N>` launchers.
-- `lib/install-layout.sh` — idempotent file placement (prefixable for tests).
-- `lib/apply-ownership.sh` — apply permissions to slot and service directories.
+- `gdg agent-host emit-layout` — idempotent file placement (prefixable for tests)
+  plus `--apply-ownership` for live chown/chmod/apparmor/linger.
 - `langfuse-forwarder/` — standalone Node tool that reads xangi's
   `logs/observability/*.jsonl` and forwards it to Langfuse Cloud JP as sessions/traces/typed observations.
   Deployed to `/opt/langfuse-forwarder`, run by `langfuse-forwarder.timer` (every 5 min).
@@ -77,7 +77,8 @@ turn is told in Discord; it is not run without the lock.
 
 ## Setup (on the Ubuntu server)
 
-Hooks and `acl.ts` live in the **gdgjp** monorepo.
+Hooks are embedded in the `gdg` binary (`gdg agent-host emit-layout`).
+`/opt/gdgjp` remains for xangi's `file:` `gdg-lib` until Stage 13.
 The bootstrap URL (`curl -fsSL ... | sudo bash`) will return in Stage 08 once host provisioning is extracted.
 
 Currently, install from a gdgjp checkout:
@@ -86,8 +87,9 @@ Currently, install from a gdgjp checkout:
 sudo ./agent-host/install.sh
 ```
 
-`install.sh` is Ubuntu-only for live paths. Stage 1 clones gdgjp to `/opt/gdgjp` when needed,
-runs `pnpm --filter @gdgjp/gdg-lib build:acl`, creates the uid-isolation users, writes
+`install.sh` is Ubuntu-only for live paths. Stage 1 clones gdgjp to `/opt/gdgjp` when needed
+(xangi's `file:` `gdg-lib` only; hooks come from `gdg agent-host emit-layout`),
+creates the uid-isolation users, writes
 `/opt/gdg-agent`, installs `gdg` to `/usr/local/bin` (plus `git-remote-gdg-wiki`), installs
 Cursor CLI and [Harineko0/xangi](https://github.com/Harineko0/xangi) at `/opt/xangi`, and enables
 the systemd `--user` unit. If credentials are available (or it has a TTY), it automatically chains

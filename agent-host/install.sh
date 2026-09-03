@@ -8,14 +8,13 @@
 #   sudo ./agent-host/install.sh
 #
 # Does:
-#   1. Clone or reuse the gdgjp monorepo (hooks live there, not in agents.git)
-#   2. Ensure Node 22.18+, pnpm, git
-#   3. pnpm --filter @gdgjp/gdg-lib build:acl
-#   4. Create gdgwiki / gdgagent-svc / gdgagent-run-* (live root only)
-#   5. Generate /opt/gdg-agent layout via lib/install-layout.sh
-#   6. chown / linger / tmpfiles
-#   7. Place gdg, Cursor CLI, Harineko0/xangi, runtime secrets, and systemd user unit
-#   8. Activate when credentials are available (or on a TTY): login as svc, clone and seed wiki,
+#   1. Clone or reuse the gdgjp monorepo (xangi's file: gdg-lib lives there; Stage 13 removes this)
+#   2. Ensure Node 22.18+ (xangi runtime + spec parsing — not hook builds) and git
+#   3. Create gdgwiki / gdgagent-svc / gdgagent-run-* (live root only)
+#   4. Generate /opt/gdg-agent layout via `gdg agent-host emit-layout` (embedded hooks)
+#   5. chown / linger / tmpfiles (`emit-layout --apply-ownership`)
+#   6. Place gdg, Cursor CLI, Harineko0/xangi, runtime secrets, and systemd user unit
+#   7. Activate when credentials are available (or on a TTY): login as svc, clone and seed wiki,
 #      apply xangi configuration, and conditionally start the service
 #
 # Interactive only when secrets are missing (gdg device login, Discord token,
@@ -90,9 +89,9 @@ node_ok() {
 }
 
 resolve_layout_dir() {
-  if [[ -f "$here/lib/install-layout.sh" ]]; then
+  if [[ -f "$here/lib/verify.sh" && -f "$here/agent-host.json" ]]; then
     printf '%s\n' "$here"
-  elif [[ -f "$here/../agent-host/lib/install-layout.sh" ]]; then
+  elif [[ -f "$here/../agent-host/lib/verify.sh" ]]; then
     cd "$here/../agent-host" && pwd
   else
     printf '%s\n' ""
@@ -111,6 +110,9 @@ resolve_gdgjp() {
   printf '%s\n' ""
 }
 
+# Clone is retained solely so xangi can resolve @gdgjp/gdg-lib via
+# file:../gdgjp/gdg-lib → /opt/gdgjp/gdg-lib. Hook layout no longer reads this
+# tree. Remove ensure_gdgjp in Stage 13 once xangi consumes a published package.
 ensure_gdgjp() {
   local detected
   detected="$(resolve_gdgjp)"
@@ -119,7 +121,7 @@ ensure_gdgjp() {
     return
   fi
   if [[ "${GDG_SKIP_CLONE:-}" == 1 ]]; then
-    echo "GDGJP_ROOT must point at a gdgjp checkout (cli/internal/wiki/hooks)." >&2
+    echo "GDGJP_ROOT must point at a gdgjp checkout (xangi's file: gdg-lib)." >&2
     exit 1
   fi
   if [[ -n "$PREFIX" ]]; then
@@ -147,6 +149,9 @@ install_apt_packages() {
   apt-get install -y -qq git ca-certificates curl unzip sudo
 }
 
+# Node remains for xangi and for parsing agent-host.json in this script.
+# Hook placement (acl.ts / emit-layout) does not use host node. Stage 13 can
+# drop this once xangi no longer needs a Node runtime on the host.
 install_node_if_needed() {
   if node_ok; then
     echo "    node $(node -v)"
@@ -168,19 +173,6 @@ install_node_if_needed() {
   apt-get install -y -qq nodejs
   node_ok || {
     echo "Node ${bootstrap_major} is still missing after install." >&2
-    exit 1
-  }
-}
-
-ensure_pnpm() {
-  if command -v pnpm >/dev/null 2>&1; then
-    echo "    pnpm $(pnpm --version)"
-    return
-  fi
-  corepack enable
-  corepack prepare pnpm@9.15.0 --activate
-  command -v pnpm >/dev/null 2>&1 || {
-    echo "pnpm is not on PATH after corepack prepare." >&2
     exit 1
   }
 }
@@ -378,25 +370,6 @@ ensure_gws() {
   }
 }
 
-build_acl() {
-  local root="$1"
-  if [[ "${GDG_SKIP_BUILD:-}" == 1 ]]; then
-    echo "    skip build:acl"
-    return
-  fi
-  echo "==> pnpm build:acl"
-  (
-    cd "$root"
-    ensure_pnpm
-    pnpm install --frozen-lockfile --filter @gdgjp/gdg-lib...
-    pnpm --filter @gdgjp/gdg-lib build:acl
-  )
-  if [[ ! -f "$root/cli/internal/wiki/hooks/acl.ts" ]]; then
-    echo "build:acl did not write cli/internal/wiki/hooks/acl.ts" >&2
-    exit 1
-  fi
-}
-
 create_users() {
   [[ -z "$PREFIX" && "$(id -u)" -eq 0 ]] || return 0
   echo "==> OS users"
@@ -427,15 +400,66 @@ create_users() {
   usermod -aG "${slot_groups#,}" gdgagent-svc || true
 }
 
-apply_ownership() {
-  local src="$layout_dir/lib/apply-ownership.sh"
-  if [[ ! -f "$src" ]]; then
-    echo "missing $src" >&2
-    return 1
+# Prefer a gdg that already has emit-layout: GDG_BIN, a pinned /usr/local/bin/gdg
+# (once pins.gdgCli ships this subcommand), PATH, or a binary built from this
+# checkout. Fresh hosts therefore do not require a manually supplied GDG_BIN.
+gdg_supports_emit_layout() {
+  local bin="$1"
+  [[ -x "$bin" ]] && "$bin" agent-host emit-layout --help >/dev/null 2>&1
+}
+
+build_gdg_from_checkout() {
+  local dest="$1"
+  if [[ ! -f "$gdgjp/cli/cmd/gdg/main.go" ]]; then
+    echo "cannot build gdg: missing $gdgjp/cli/cmd/gdg" >&2
+    exit 1
   fi
-  # shellcheck source=lib/apply-ownership.sh
-  . "$src"
-  gdg_agent_apply_ownership "$SLOT_COUNT"
+  if ! command -v go >/dev/null 2>&1; then
+    if [[ -z "$PREFIX" && "$(id -u)" -eq 0 ]]; then
+      echo "==> golang-go (build emit-layout gdg from checkout)"
+      apt-get install -y -qq golang-go
+    fi
+  fi
+  command -v go >/dev/null 2>&1 || {
+    echo "go is required to build gdg agent-host emit-layout from $gdgjp/cli" >&2
+    exit 1
+  }
+  echo "==> go build gdg from $gdgjp/cli -> $dest"
+  mkdir -p "$(dirname "$dest")"
+  (cd "$gdgjp/cli" && go build -o "$dest" ./cmd/gdg)
+  gdg_supports_emit_layout "$dest" || {
+    echo "built $dest but it has no agent-host emit-layout" >&2
+    exit 1
+  }
+}
+
+resolve_emit_layout_gdg() {
+  if [[ -n "${GDG_BIN:-}" && -x "${GDG_BIN}" ]]; then
+    gdg_supports_emit_layout "$GDG_BIN" || {
+      echo "GDG_BIN=$GDG_BIN has no agent-host emit-layout" >&2
+      exit 1
+    }
+    EMIT_LAYOUT_GDG="$GDG_BIN"
+    return
+  fi
+  if [[ -z "$PREFIX" ]]; then
+    ensure_gdg_system
+    if gdg_supports_emit_layout /usr/local/bin/gdg; then
+      EMIT_LAYOUT_GDG=/usr/local/bin/gdg
+      return
+    fi
+  fi
+  if command -v gdg >/dev/null 2>&1 && gdg_supports_emit_layout "$(command -v gdg)"; then
+    EMIT_LAYOUT_GDG="$(command -v gdg)"
+    return
+  fi
+  local built="$gdgjp/.gdg-built/gdg"
+  if [[ -x "$built" ]] && gdg_supports_emit_layout "$built"; then
+    EMIT_LAYOUT_GDG="$built"
+    return
+  fi
+  build_gdg_from_checkout "$built"
+  EMIT_LAYOUT_GDG="$built"
 }
 
 maybe_reexec_root() {
@@ -443,7 +467,7 @@ maybe_reexec_root() {
     return 0
   fi
   echo "==> re-exec as root"
-  exec sudo --preserve-env=GDGJP_ROOT,GDGJP_REPO,GDGJP_REF,GDG_AGENT_SLOT_COUNT,GDG_SETUP_PREFIX,GDG_SETUP_HOOKS_SRC,GDG_SETUP_INDEX_PROXY_SRC,GDG_SKIP_BUILD,GDG_SKIP_CLONE,GDG_SKIP_XANGI_INSTALL,GDG_SKIP_NODE_INSTALL,GDG_SKIP_GDG_INSTALL,XANGI_REPO,PATH \
+  exec sudo --preserve-env=GDGJP_ROOT,GDGJP_REPO,GDGJP_REF,GDG_AGENT_SLOT_COUNT,GDG_SETUP_PREFIX,GDG_BIN,GDG_SPEC,GDG_SKIP_CLONE,GDG_SKIP_XANGI_INSTALL,GDG_SKIP_NODE_INSTALL,GDG_SKIP_GDG_INSTALL,XANGI_REPO,PATH \
     "$0" "$@"
 }
 
@@ -1044,11 +1068,11 @@ ensure_node_and_load_spec
 
 layout_dir="$(resolve_layout_dir)"
 gdgjp="$(ensure_gdgjp)"
-if [[ -z "$layout_dir" && -f "$gdgjp/agent-host/lib/install-layout.sh" ]]; then
+if [[ -z "$layout_dir" && -f "$gdgjp/agent-host/lib/verify.sh" ]]; then
   layout_dir="$gdgjp/agent-host"
 fi
-if [[ -z "$layout_dir" || ! -f "$layout_dir/lib/install-layout.sh" ]]; then
-  echo "cannot find agent-host/lib/install-layout.sh next to $here or under $gdgjp" >&2
+if [[ -z "$layout_dir" || ! -f "$layout_dir/lib/verify.sh" ]]; then
+  echo "cannot find agent-host next to $here or under $gdgjp" >&2
   exit 1
 fi
 
@@ -1067,9 +1091,6 @@ if [[ "$RELOAD_CONFIG_ONLY" -eq 1 ]]; then
   exit 0
 fi
 
-hooks_src="${GDG_SETUP_HOOKS_SRC:-$gdgjp/cli/internal/wiki/hooks}"
-index_proxy="${GDG_SETUP_INDEX_PROXY_SRC:-$gdgjp/agents-index/src/proxy.ts}"
-
 echo "==> gdgjp checkout: $gdgjp"
 echo "==> agent-host: $layout_dir"
 
@@ -1077,31 +1098,16 @@ if [[ -z "$PREFIX" ]]; then
   install_apt_packages
   install_node_if_needed
 fi
-build_acl "$gdgjp"
-
-if [[ ! -f "$hooks_src/acl-gate.ts" || ! -f "$hooks_src/wk.ts" || ! -f "$hooks_src/gws.ts" ]]; then
-  echo "GDG_SETUP_HOOKS_SRC must point at cli/internal/wiki/hooks ($hooks_src)" >&2
-  exit 1
-fi
-if [[ ! -f "$hooks_src/acl.ts" ]]; then
-  echo "missing $hooks_src/acl.ts; build:acl failed or GDG_SKIP_BUILD=1 without a bundle." >&2
-  exit 1
-fi
-if [[ ! -f "$index_proxy" ]]; then
-  echo "GDG_SETUP_INDEX_PROXY_SRC must point at agents-index/src/proxy.ts ($index_proxy)" >&2
-  exit 1
-fi
 
 create_users
 
-echo "==> layout (lib/install-layout.sh)"
-GDG_AGENT_SLOT_COUNT="$SLOT_COUNT" \
-  GDG_SETUP_PREFIX="$PREFIX" \
-  GDG_SETUP_HOOKS_SRC="$hooks_src" \
-  GDG_SETUP_INDEX_PROXY_SRC="$index_proxy" \
-  "$layout_dir/lib/install-layout.sh"
-
-apply_ownership
+resolve_emit_layout_gdg
+echo "==> layout (gdg agent-host emit-layout)"
+layout_args=(agent-host emit-layout --spec "$SPEC" --slot-count "$SLOT_COUNT" --apply-ownership)
+if [[ -n "$PREFIX" ]]; then
+  layout_args+=(--prefix "$PREFIX")
+fi
+"$EMIT_LAYOUT_GDG" "${layout_args[@]}"
 if [[ -n "$PREFIX" ]]; then
   ensure_wiki_clone_and_seed
 else

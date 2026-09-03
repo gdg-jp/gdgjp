@@ -31,7 +31,9 @@ func installInspectableAgentRoot(t *testing.T) (home, agentRoot string) {
 		filepath.Join(lib, "shell-allowlist.ts"):  shellAllowlistScript,
 		filepath.Join(lib, "commit-tripwire.ts"):  commitTripwireScript,
 		filepath.Join(lib, "acl-insert-core.ts"):  aclInsertCoreScript,
-		filepath.Join(lib, aclBundleFileName):     []byte("export {}\n"),
+		filepath.Join(lib, aclBundleFileName):     aclBundleScript,
+		filepath.Join(lib, "gws.ts"):              gwsScript,
+		filepath.Join(lib, "exec-spawn.ts"):       execSpawnScript,
 		filepath.Join(agentRoot, packageJSONName): hooksPackageJSON,
 		filepath.Join(bin, wkLauncherName):        []byte("#!/bin/sh\nexec node \"$(dirname \"$0\")/../lib/wk.ts\" \"$@\"\n"),
 	}

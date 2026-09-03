@@ -28,6 +28,15 @@ var commitTripwireScript []byte
 //go:embed hooks/acl-insert-core.ts
 var aclInsertCoreScript []byte
 
+//go:embed hooks/gws.ts
+var gwsScript []byte
+
+//go:embed hooks/exec-spawn.ts
+var execSpawnScript []byte
+
+//go:embed hooks/acl.ts
+var aclBundleScript []byte
+
 //go:embed hooks/package.json
 var hooksPackageJSON []byte
 
@@ -146,10 +155,17 @@ func inspectInstalledScripts(gatePath string) []string {
 		{filepath.Join(libDir, "shell-allowlist.ts"), shellAllowlistScript, "shell-allowlist.ts"},
 		{filepath.Join(libDir, "commit-tripwire.ts"), commitTripwireScript, "commit-tripwire.ts"},
 		{filepath.Join(libDir, "acl-insert-core.ts"), aclInsertCoreScript, "acl-insert-core.ts"},
+		{filepath.Join(libDir, "gws.ts"), gwsScript, "gws.ts"},
+		{filepath.Join(libDir, "exec-spawn.ts"), execSpawnScript, "exec-spawn.ts"},
+		{filepath.Join(libDir, aclBundleFileName), aclBundleScript, aclBundleFileName},
 		{filepath.Join(agentRoot, packageJSONName), hooksPackageJSON, packageJSONName},
 	}
 	for _, check := range checks {
 		if _, err := os.Stat(check.path); err != nil {
+			if check.name == aclBundleFileName {
+				warnings = append(warnings, fmt.Sprintf("missing %s at %s (re-run gdg agent-host emit-layout)", check.name, check.path))
+				continue
+			}
 			warnings = append(warnings, fmt.Sprintf("missing %s at %s", check.name, check.path))
 			continue
 		}
@@ -157,14 +173,31 @@ func inspectInstalledScripts(gatePath string) []string {
 			warnings = append(warnings, fmt.Sprintf("stale %s at %s", check.name, check.path))
 		}
 	}
-	if _, err := os.Stat(filepath.Join(libDir, aclBundleFileName)); err != nil {
-		warnings = append(warnings, fmt.Sprintf("missing %s at %s (run pnpm build:acl before install.sh)", aclBundleFileName, filepath.Join(libDir, aclBundleFileName)))
-	}
 	wkBin := filepath.Join(agentRoot, "bin", wkLauncherName)
 	if _, err := os.Stat(wkBin); err != nil {
 		warnings = append(warnings, fmt.Sprintf("missing wk launcher at %s", wkBin))
 	}
 	return warnings
+}
+
+// AgentLibFiles is the hook tree placed at /opt/gdg-agent/lib by emit-layout.
+func AgentLibFiles() map[string][]byte {
+	return map[string][]byte{
+		aclGateFileName:      aclGateScript,
+		wkFileName:           wkScript,
+		aclCoreFileName:      aclCoreScript,
+		"shell-allowlist.ts": shellAllowlistScript,
+		"commit-tripwire.ts": commitTripwireScript,
+		"acl-insert-core.ts": aclInsertCoreScript,
+		"gws.ts":             gwsScript,
+		"exec-spawn.ts":      execSpawnScript,
+		aclBundleFileName:    aclBundleScript,
+	}
+}
+
+// HooksPackageJSON is the package.json installed next to /opt/gdg-agent/lib.
+func HooksPackageJSON() []byte {
+	return hooksPackageJSON
 }
 
 // InspectCursorUserHooks checks ~/.cursor/hooks.json and the scripts it points at.

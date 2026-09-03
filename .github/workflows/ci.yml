@@ -76,10 +76,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:acl
+      - run: pnpm sync:agent-host-assets
+      - run: go build -C cli -o /tmp/gdg-ci ./cmd/gdg
       - run: node --test .github/scripts/*.test.mjs
+        env:
+          GDG_BIN: /tmp/gdg-ci
 
   openapi:
     name: OpenAPI contracts
@@ -117,6 +128,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # The Wiki CLI tests import this ignored generated module.
       - run: pnpm build:acl
+      - run: pnpm sync:agent-host-assets
+      - run: pnpm sync:agent-host-assets --check
       - name: gofmt, vet, test, and build
         working-directory: cli
         run: |
