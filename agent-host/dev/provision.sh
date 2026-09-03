@@ -6,8 +6,6 @@ readonly source_root=/mnt/gdgjp-src
 readonly target_root=/opt/gdgjp
 readonly xangi_source=/mnt/xangi-src
 readonly xangi_target=/opt/xangi
-readonly cursor_version=2026.08.11-e8db854
-readonly cursor_url="https://downloads.cursor.com/lab/${cursor_version}/linux/arm64/agent-cli-package.tar.gz"
 
 [[ $EUID -eq 0 ]] || { echo "Run with sudo inside the VM." >&2; exit 1; }
 [[ -f "$source_root/agent-host/install.sh" ]] || { echo "Missing read-only gdgjp mount: $source_root" >&2; exit 1; }
@@ -25,17 +23,13 @@ rm -f "$write_probe"
 rsync -a --delete --exclude .git --exclude node_modules --exclude /agent-host/wiki "$source_root/" "$target_root/"
 rsync -a --delete --exclude node_modules "$xangi_source/" "$xangi_target/"
 
-tmp_archive=$(mktemp)
-trap 'rm -f "$tmp_archive"' EXIT
-curl -fsSL "$cursor_url" -o "$tmp_archive"
-rm -rf /opt/cursor-agent
-mkdir -p /opt/cursor-agent
-tar -xzf "$tmp_archive" -C /opt/cursor-agent --strip-components=1
-ln -sfn /opt/cursor-agent/cursor-agent /usr/bin/cursor-agent
-[[ "$(cursor-agent --version)" == *"$cursor_version"* ]] || { echo "Pinned cursor-agent version check failed." >&2; exit 1; }
-
-slot_count="${GDG_AGENT_SLOT_COUNT:-2}"
-[[ "$slot_count" =~ ^[1-9][0-9]*$ ]] || { echo "GDG_AGENT_SLOT_COUNT must be a positive integer." >&2; exit 1; }
+readonly overlay="$target_root/agent-host/agent-host.dev.json"
+slot_count="${GDG_AGENT_SLOT_COUNT:-}"
+if [[ -z "$slot_count" && -f "$overlay" ]] && command -v node >/dev/null 2>&1; then
+  slot_count="$(node -e 'const fs=require("fs");try{const o=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.stdout.write(String(o.slotCount||2));}catch{process.stdout.write("2");}' "$overlay")"
+fi
+slot_count="${slot_count:-2}"
+[[ "$slot_count" =~ ^[1-9][0-9]*$ ]] || { echo "slot_count must be a positive integer." >&2; exit 1; }
 # Deliberately suppress operator-secret copying: this VM must never log in as the production bot.
 SUDO_USER=root GDG_AGENT_SLOT_COUNT="$slot_count" "$target_root/agent-host/install.sh"
 if [[ -s /home/gdgagent-svc/.config/xangi/secrets.json ]] &&

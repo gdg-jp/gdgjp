@@ -63,9 +63,8 @@ turn is told in Discord; it is not run without the lock.
   (`wiki-ingest`, `wiki-lint`, `wiki-query`) that teach the coding agent how to work with the wiki
   content in the target worktree.
 - `install.sh` — Ubuntu host bootstrap: clone gdgjp, `build:acl`, OS users,
-  then `setup.sh`.
-- `setup.sh` — Ubuntu-only layout step (gdg optional; uid-isolation files).
-  Prefer `install.sh` on a new machine.
+  layout, permissions, and systemd units.
+- `lib/verify.sh` — host verification checks (13 inspections for live paths and uid boundaries).
 - `config/` — templates for `hooks.json`, `cli-config.json`, `sandbox.json`,
   `mcp.json`, and the argument-less `spawn-slot-<N>` launchers.
 - `lib/install-layout.sh` — idempotent file placement (prefixable for tests).

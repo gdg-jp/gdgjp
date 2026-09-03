@@ -1,0 +1,187 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://gdgs.jp/schemas/agent-host.schema.json",
+  "title": "AgentHostSpec",
+  "description": "Configuration specification and dependency pins for the self-hosted GDG agent host",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "slotCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "backend": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["cursor"]
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["name", "model"],
+      "additionalProperties": false
+    },
+    "discord": {
+      "type": "object",
+      "properties": {
+        "showThinking": {
+          "type": "boolean"
+        },
+        "streaming": {
+          "type": "boolean"
+        },
+        "completionNotify": {
+          "type": "string",
+          "enum": ["off", "always", "failure"]
+        }
+      },
+      "required": ["showThinking", "streaming", "completionNotify"],
+      "additionalProperties": false
+    },
+    "pins": {
+      "type": "object",
+      "properties": {
+        "cursorAgent": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "object",
+              "properties": {
+                "x86_64": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "aarch64": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": ["x86_64", "aarch64"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["version", "sha256"],
+          "additionalProperties": false
+        },
+        "xangi": {
+          "type": "object",
+          "properties": {
+            "repo": {
+              "type": "string"
+            },
+            "ref": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            }
+          },
+          "required": ["repo", "ref"],
+          "additionalProperties": false
+        },
+        "gws": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "object",
+              "properties": {
+                "x86_64": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "aarch64": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": ["x86_64", "aarch64"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["version", "sha256"],
+          "additionalProperties": false
+        },
+        "gdgCli": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "assetTemplate": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "object",
+              "properties": {
+                "x86_64": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "aarch64": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": ["x86_64", "aarch64"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["version", "assetTemplate", "sha256"],
+          "additionalProperties": false
+        },
+        "node": {
+          "type": "object",
+          "properties": {
+            "major": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minMinor": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": ["major", "minMinor"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["cursorAgent", "xangi", "gws", "gdgCli", "node"],
+      "additionalProperties": false
+    },
+    "paths": {
+      "type": "object",
+      "properties": {
+        "agentRoot": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "workspace": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "runRoot": {
+          "type": "string",
+          "pattern": "^/"
+        }
+      },
+      "required": ["agentRoot", "workspace", "runRoot"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["slotCount", "backend", "discord", "pins", "paths"],
+  "additionalProperties": false
+}

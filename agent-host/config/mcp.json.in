@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "gdg-index": {
-      "command": "/opt/gdg-agent/bin/index-proxy",
+      "command": "__AGENT_ROOT__/bin/index-proxy",
       "args": [],
       "env": {
         "AGENTS_INDEX_SOCKET": "__INDEX_SOCKET__"

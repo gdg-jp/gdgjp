@@ -1,7 +1,7 @@
 {
   "additionalReadonlyPaths": [
-    "/opt/gdg-agent/lib",
-    "/opt/gdg-agent/bin",
+    "__AGENT_ROOT__/lib",
+    "__AGENT_ROOT__/bin",
     "/usr/bin",
     "/usr/lib",
     "__RUN_SLOT_DIR__"

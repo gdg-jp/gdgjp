@@ -9,8 +9,8 @@ if [ "$#" -ne 0 ]; then
 fi
 export GDG_AGENT_SLOT="$SLOT"
 export HOME="/home/gdgagent-run-${SLOT}"
-export PATH="/opt/gdg-agent/bin:/usr/bin:/bin"
+export PATH="__AGENT_ROOT__/bin:/usr/bin:/bin"
 # Cursor always rewrite-saves cli-config.json (caches / --trust). Keep the
 # live file slot-owned, and restore sandbox policy from the root template.
-cp /opt/gdg-agent/lib/cli-config.json "$HOME/.cursor/cli-config.json"
-exec /usr/bin/node /opt/gdg-agent/lib/exec-spawn.ts
+cp __AGENT_ROOT__/lib/cli-config.json "$HOME/.cursor/cli-config.json"
+exec /usr/bin/node __AGENT_ROOT__/lib/exec-spawn.ts

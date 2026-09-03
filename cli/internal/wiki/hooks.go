@@ -158,7 +158,7 @@ func inspectInstalledScripts(gatePath string) []string {
 		}
 	}
 	if _, err := os.Stat(filepath.Join(libDir, aclBundleFileName)); err != nil {
-		warnings = append(warnings, fmt.Sprintf("missing %s at %s (run pnpm build:acl before setup.sh)", aclBundleFileName, filepath.Join(libDir, aclBundleFileName)))
+		warnings = append(warnings, fmt.Sprintf("missing %s at %s (run pnpm build:acl before install.sh)", aclBundleFileName, filepath.Join(libDir, aclBundleFileName)))
 	}
 	wkBin := filepath.Join(agentRoot, "bin", wkLauncherName)
 	if _, err := os.Stat(wkBin); err != nil {
@@ -176,7 +176,7 @@ func InspectCursorUserHooks() []string {
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return []string{"~/.cursor/hooks.json is missing; run agent-host/setup.sh on Ubuntu"}
+		return []string{"~/.cursor/hooks.json is missing; run agent-host/install.sh on Ubuntu"}
 	}
 	gatePath, warnings := inspectUserHooksJSON(raw)
 	warnings = append(warnings, inspectInstalledScripts(gatePath)...)

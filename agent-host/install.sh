@@ -12,7 +12,7 @@
 #   2. Ensure Node 22.18+, pnpm, git
 #   3. pnpm --filter @gdgjp/gdg-lib build:acl
 #   4. Create gdgwiki / gdgagent-svc / gdgagent-run-* (live root only)
-#   5. Run setup.sh for /opt/gdg-agent layout
+#   5. Generate /opt/gdg-agent layout via lib/install-layout.sh
 #   6. chown / linger / tmpfiles
 #   7. Place gdg, Cursor CLI, Harineko0/xangi, runtime secrets, and systemd user unit
 #   8. Activate when credentials are available (or on a TTY): login as svc, clone and seed wiki,
@@ -22,16 +22,14 @@
 # Cursor auth). Discord Developer Portal intents cannot be set from this host.
 set -euo pipefail
 
-SLOT_COUNT="${GDG_AGENT_SLOT_COUNT:-4}"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SPEC="${GDG_SPEC:-$here/agent-host.json}"
 PREFIX="${GDG_SETUP_PREFIX:-}"
 GDGJP_REPO="${GDGJP_REPO:-https://github.com/gdg-jp/gdgjp.git}"
 GDGJP_REF="${GDGJP_REF:-main}"
-NODE_MAJOR_MIN=22
-NODE_MINOR_MIN=18
 ACTIVATE_ONLY=0
 RELOAD_CONFIG_ONLY=0
-
-here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VERIFY_ONLY=0
 
 require_ubuntu() {
   if [[ -n "$PREFIX" ]]; then
@@ -49,6 +47,29 @@ require_ubuntu() {
   fi
 }
 
+bootstrap_node_version() {
+  local ver=""
+  if command -v node >/dev/null 2>&1; then
+    ver="$(node -e 'const p=require(process.argv[1]).pins.node;process.stdout.write(p.major+"."+p.minMinor)' "$SPEC" 2>/dev/null || true)"
+  fi
+  if [[ -z "$ver" ]] && command -v python3 >/dev/null 2>&1; then
+    ver="$(python3 -c 'import json, sys; p=json.load(open(sys.argv[1]))["pins"]["node"]; print(f"{p[\"major\"]}.{p[\"minMinor\"]}")' "$SPEC" 2>/dev/null || true)"
+  fi
+  if [[ -z "$ver" ]]; then
+    local major minor
+    major="$(sed -n '/"node"/,/}/p' "$SPEC" | grep -o '"major"[[:space:]]*:[[:space:]]*[0-9]*' | grep -o '[0-9]*' || true)"
+    minor="$(sed -n '/"node"/,/}/p' "$SPEC" | grep -o '"minMinor"[[:space:]]*:[[:space:]]*[0-9]*' | grep -o '[0-9]*' || true)"
+    if [[ -n "$major" && -n "$minor" ]]; then
+      ver="${major}.${minor}"
+    fi
+  fi
+  if [[ -z "$ver" ]]; then
+    echo "Cannot determine pins.node version from $SPEC to bootstrap Node" >&2
+    exit 1
+  fi
+  echo "$ver"
+}
+
 node_ok() {
   command -v node >/dev/null 2>&1 || return 1
   local ver major minor
@@ -57,13 +78,21 @@ node_ok() {
   minor="${ver#*.}"
   minor="${minor%%.*}"
   [[ "$major" =~ ^[0-9]+$ && "$minor" =~ ^[0-9]+$ ]] || return 1
-  ((major > NODE_MAJOR_MIN || (major == NODE_MAJOR_MIN && minor >= NODE_MINOR_MIN)))
+  local want_major="${NODE_MAJOR_MIN:-}"
+  local want_minor="${NODE_MINOR_MIN:-}"
+  if [[ -z "$want_major" || -z "$want_minor" ]]; then
+    local boot_ver
+    boot_ver="$(bootstrap_node_version)"
+    want_major="${boot_ver%%.*}"
+    want_minor="${boot_ver#*.}"
+  fi
+  ((major > want_major || (major == want_major && minor >= want_minor)))
 }
 
 resolve_layout_dir() {
-  if [[ -x "$here/setup.sh" && -f "$here/lib/install-layout.sh" ]]; then
+  if [[ -f "$here/lib/install-layout.sh" ]]; then
     printf '%s\n' "$here"
-  elif [[ -x "$here/../agent-host/setup.sh" ]]; then
+  elif [[ -f "$here/../agent-host/lib/install-layout.sh" ]]; then
     cd "$here/../agent-host" && pwd
   else
     printf '%s\n' ""
@@ -115,7 +144,7 @@ install_apt_packages() {
   [[ -z "$PREFIX" && "$(id -u)" -eq 0 ]] || return 0
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
-  apt-get install -y -qq git ca-certificates curl unzip
+  apt-get install -y -qq git ca-certificates curl unzip sudo
 }
 
 install_node_if_needed() {
@@ -123,15 +152,22 @@ install_node_if_needed() {
     echo "    node $(node -v)"
     return
   fi
+  local boot_ver bootstrap_major
+  if [[ -n "${NODE_MAJOR_MIN:-}" ]]; then
+    bootstrap_major="$NODE_MAJOR_MIN"
+  else
+    boot_ver="$(bootstrap_node_version)"
+    bootstrap_major="${boot_ver%%.*}"
+  fi
   if [[ "${GDG_SKIP_NODE_INSTALL:-}" == 1 || -n "$PREFIX" || "$(id -u)" -ne 0 ]]; then
-    echo "Node ${NODE_MAJOR_MIN}.${NODE_MINOR_MIN}.0+ is required (found: $(command -v node >/dev/null && node -v || echo none))." >&2
+    echo "Node ${bootstrap_major}.0+ is required (found: $(command -v node >/dev/null && node -v || echo none))." >&2
     exit 1
   fi
-  echo "==> install Node.js 22.x"
-  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  echo "==> Node.js (nodesource ${bootstrap_major}.x)"
+  curl -fsSL "https://deb.nodesource.com/setup_${bootstrap_major}.x" | bash -
   apt-get install -y -qq nodejs
   node_ok || {
-    echo "Node ${NODE_MAJOR_MIN}.${NODE_MINOR_MIN}.0+ is still missing after install." >&2
+    echo "Node ${bootstrap_major} is still missing after install." >&2
     exit 1
   }
 }
@@ -149,12 +185,147 @@ ensure_pnpm() {
   }
 }
 
-GWS_VERSION="v0.22.5"
-GWS_SHA256_X86_64_LINUX="de78ecdbd2f1a84cca0063a7ecbc440240fc14b6ebccbb17f4646b792a8c5c1f"
-GWS_SHA256_AARCH64_LINUX="94490295d9580e1e88574e715a0a162991747d12d62f8c7b8dcc8268b6c1cea0"
+load_spec() {
+  [[ -f "$SPEC" ]] || {
+    echo "spec file not found: $SPEC" >&2
+    exit 1
+  }
+  node -e '
+    const fs = require("fs");
+    const specPath = process.argv[1];
+    let spec;
+    try {
+      spec = JSON.parse(fs.readFileSync(specPath, "utf8"));
+    } catch (e) {
+      console.error("Failed to parse spec at " + specPath + ": " + e.message);
+      process.exit(1);
+    }
+
+    function requireType(val, path, expectedType) {
+      if (typeof val !== expectedType) {
+        console.error(`Invalid or missing spec field: ${path} (expected ${expectedType}, got ${typeof val})`);
+        process.exit(1);
+      }
+    }
+
+    function requireNonEmptyString(val, path) {
+      requireType(val, path, "string");
+      if (val.trim().length === 0) {
+        console.error(`Spec field ${path} must not be empty`);
+        process.exit(1);
+      }
+    }
+
+    function requireRegex(val, path, regex) {
+      requireNonEmptyString(val, path);
+      if (!regex.test(val)) {
+        console.error(`Spec field ${path} ("${val}") does not match pattern ${regex}`);
+        process.exit(1);
+      }
+    }
+
+    requireType(spec.slotCount, "slotCount", "number");
+    if (spec.slotCount < 1 || !Number.isInteger(spec.slotCount)) {
+      console.error("spec.slotCount must be a positive integer");
+      process.exit(1);
+    }
+
+    requireType(spec.backend, "backend", "object");
+    requireNonEmptyString(spec.backend.name, "backend.name");
+    if (spec.backend.name !== "cursor") {
+      console.error(`Unsupported backend: "${spec.backend.name}". Only "cursor" is supported at this stage.`);
+      process.exit(1);
+    }
+    requireNonEmptyString(spec.backend.model, "backend.model");
+
+    requireType(spec.discord, "discord", "object");
+    requireType(spec.discord.showThinking, "discord.showThinking", "boolean");
+    requireType(spec.discord.streaming, "discord.streaming", "boolean");
+    if (!["off", "always", "failure"].includes(spec.discord.completionNotify)) {
+      console.error("spec.discord.completionNotify must be off, always, or failure");
+      process.exit(1);
+    }
+
+    requireType(spec.pins, "pins", "object");
+    requireType(spec.pins.cursorAgent, "pins.cursorAgent", "object");
+    requireNonEmptyString(spec.pins.cursorAgent.version, "pins.cursorAgent.version");
+    requireRegex(spec.pins.cursorAgent.sha256?.x86_64, "pins.cursorAgent.sha256.x86_64", /^[0-9a-f]{64}$/);
+    requireRegex(spec.pins.cursorAgent.sha256?.aarch64, "pins.cursorAgent.sha256.aarch64", /^[0-9a-f]{64}$/);
+
+    requireType(spec.pins.xangi, "pins.xangi", "object");
+    requireNonEmptyString(spec.pins.xangi.repo, "pins.xangi.repo");
+    requireRegex(spec.pins.xangi.ref, "pins.xangi.ref", /^[0-9a-f]{40}$/);
+
+    requireType(spec.pins.gws, "pins.gws", "object");
+    requireNonEmptyString(spec.pins.gws.version, "pins.gws.version");
+    requireRegex(spec.pins.gws.sha256?.x86_64, "pins.gws.sha256.x86_64", /^[0-9a-f]{64}$/);
+    requireRegex(spec.pins.gws.sha256?.aarch64, "pins.gws.sha256.aarch64", /^[0-9a-f]{64}$/);
+
+    requireType(spec.pins.gdgCli, "pins.gdgCli", "object");
+    requireNonEmptyString(spec.pins.gdgCli.version, "pins.gdgCli.version");
+    requireNonEmptyString(spec.pins.gdgCli.assetTemplate, "pins.gdgCli.assetTemplate");
+    requireRegex(spec.pins.gdgCli.sha256?.x86_64, "pins.gdgCli.sha256.x86_64", /^[0-9a-f]{64}$/);
+    requireRegex(spec.pins.gdgCli.sha256?.aarch64, "pins.gdgCli.sha256.aarch64", /^[0-9a-f]{64}$/);
+
+    requireType(spec.pins.node, "pins.node", "object");
+    requireType(spec.pins.node.major, "pins.node.major", "number");
+    requireType(spec.pins.node.minMinor, "pins.node.minMinor", "number");
+
+    requireType(spec.paths, "paths", "object");
+    requireNonEmptyString(spec.paths.agentRoot, "paths.agentRoot");
+    requireNonEmptyString(spec.paths.workspace, "paths.workspace");
+    requireNonEmptyString(spec.paths.runRoot, "paths.runRoot");
+
+    const out = [
+      `SPEC_SLOT_COUNT=${spec.slotCount}`,
+      `BACKEND_NAME=${JSON.stringify(spec.backend.name)}`,
+      `AGENT_MODEL=${JSON.stringify(spec.backend.model)}`,
+      `DISCORD_SHOW_THINKING=${spec.discord.showThinking}`,
+      `DISCORD_STREAMING=${spec.discord.streaming}`,
+      `DISCORD_COMPLETION_NOTIFY=${JSON.stringify(spec.discord.completionNotify)}`,
+      `CURSOR_VERSION=${JSON.stringify(spec.pins.cursorAgent.version)}`,
+      `CURSOR_SHA256_X86_64_LINUX=${JSON.stringify(spec.pins.cursorAgent.sha256.x86_64)}`,
+      `CURSOR_SHA256_AARCH64_LINUX=${JSON.stringify(spec.pins.cursorAgent.sha256.aarch64)}`,
+      `XANGI_PIN_REPO=${JSON.stringify(spec.pins.xangi.repo)}`,
+      `XANGI_PIN_REF=${JSON.stringify(spec.pins.xangi.ref)}`,
+      `GWS_VERSION=${JSON.stringify(spec.pins.gws.version)}`,
+      `GWS_SHA256_X86_64_LINUX=${JSON.stringify(spec.pins.gws.sha256.x86_64)}`,
+      `GWS_SHA256_AARCH64_LINUX=${JSON.stringify(spec.pins.gws.sha256.aarch64)}`,
+      `GDG_CLI_VERSION=${JSON.stringify(spec.pins.gdgCli.version)}`,
+      `GDG_CLI_ASSET_TEMPLATE=${JSON.stringify(spec.pins.gdgCli.assetTemplate)}`,
+      `GDG_CLI_SHA256_X86_64_LINUX=${JSON.stringify(spec.pins.gdgCli.sha256.x86_64)}`,
+      `GDG_CLI_SHA256_AARCH64_LINUX=${JSON.stringify(spec.pins.gdgCli.sha256.aarch64)}`,
+      `NODE_MAJOR_MIN=${spec.pins.node.major}`,
+      `NODE_MINOR_MIN=${spec.pins.node.minMinor}`,
+      `SPEC_AGENT_ROOT=${JSON.stringify(spec.paths.agentRoot)}`,
+      `SPEC_WORKSPACE=${JSON.stringify(spec.paths.workspace)}`,
+      `SPEC_RUN_ROOT=${JSON.stringify(spec.paths.runRoot)}`,
+    ];
+    process.stdout.write(out.join("\n") + "\n");
+  ' "$SPEC"
+}
+
+ensure_node_and_load_spec() {
+  if ! node_ok; then
+    if [[ -z "$PREFIX" ]]; then
+      install_apt_packages
+      install_node_if_needed
+    else
+      echo "Node is required to read spec at $SPEC" >&2
+      exit 1
+    fi
+  fi
+  eval "$(load_spec)"
+  SLOT_COUNT="${GDG_AGENT_SLOT_COUNT:-$SPEC_SLOT_COUNT}"
+  node_ok || {
+    echo "Node ${NODE_MAJOR_MIN}.${NODE_MINOR_MIN}.0+ is required by $SPEC (found: $(node -v))." >&2
+    exit 1
+  }
+}
+
 
 ensure_gws() {
-  local dest="/opt/gdg-agent/bin/gws-bin"
+  local dest="${SPEC_AGENT_ROOT}/bin/gws-bin"
   # gws prints exactly "gws <CARGO_PKG_VERSION>" for --version (no "v" prefix,
   # unlike the release tag): verified against crates/google-workspace-cli/src/main.rs.
   local want="gws ${GWS_VERSION#v}"
@@ -277,7 +448,7 @@ maybe_reexec_root() {
 }
 
 wiki_root() {
-  printf '%s\n' "${PREFIX}/srv/gdg-agent/wiki"
+  printf '%s\n' "${PREFIX}${SPEC_WORKSPACE}"
 }
 
 operator_home() {
@@ -374,30 +545,57 @@ seed_wiki_cursor_files() {
 
 ensure_gdg_system() {
   echo "==> gdg CLI (/usr/local/bin)"
-  local src=""
-  if [[ -x /usr/local/bin/gdg ]]; then
-    echo "    already /usr/local/bin/gdg; updating to latest stable release"
-    if ! /usr/local/bin/gdg update -y; then
-      echo "    gdg update failed; continuing with the existing binary" >&2
+  local dest="/usr/local/bin/gdg"
+  local want="gdg version $GDG_CLI_VERSION"
+  if [[ -x "$dest" ]]; then
+    local have
+    have="$("$dest" --version 2>/dev/null | head -n1 || true)"
+    if [[ "$have" == "$want" ]]; then
+      echo "    gdg already installed: $have"
+      ln -sfn /usr/local/bin/gdg /usr/local/bin/git-remote-gdg-wiki
+      return
     fi
-  else
-    if command -v gdg >/dev/null 2>&1; then
-      src="$(command -v gdg)"
-    else
-      echo "    installing gdg CLI from url.gdgs.jp/cli/install.sh"
-      curl -fsSL https://url.gdgs.jp/cli/install.sh | sh
-      if [[ -x "${HOME}/.local/bin/gdg" ]]; then
-        src="${HOME}/.local/bin/gdg"
-      elif command -v gdg >/dev/null 2>&1; then
-        src="$(command -v gdg)"
-      fi
-    fi
-    if [[ -z "$src" || ! -x "$src" ]]; then
-      echo "gdg CLI install did not produce a binary to copy to /usr/local/bin" >&2
-      exit 1
-    fi
-    install -m 0755 "$src" /usr/local/bin/gdg
+    echo "    gdg at $dest reports '$have', not the pinned '$want'; reinstalling"
   fi
+  if [[ -n "$PREFIX" || "$(id -u)" -ne 0 ]]; then
+    echo "gdg $want is required at $dest; install it or unset GDG_SETUP_PREFIX to let install.sh fetch it." >&2
+    exit 1
+  fi
+  local arch arch_name sha256
+  arch="$(uname -m)"
+  case "$arch" in
+    x86_64|amd64)
+      arch_name="amd64"
+      sha256="$GDG_CLI_SHA256_X86_64_LINUX"
+      ;;
+    aarch64|arm64)
+      arch_name="arm64"
+      sha256="$GDG_CLI_SHA256_AARCH64_LINUX"
+      ;;
+    *)
+      echo "unsupported architecture for gdg: $arch" >&2
+      exit 1
+      ;;
+  esac
+  local asset
+  asset="${GDG_CLI_ASSET_TEMPLATE//\{version\}/$GDG_CLI_VERSION}"
+  asset="${asset//\{arch\}/$arch_name}"
+  echo "==> install gdg $GDG_CLI_VERSION ($arch) from GitHub Releases ($asset)"
+  local tmp
+  tmp="$(mktemp -d)"
+  curl -fsSL -o "$tmp/$asset" \
+    "https://github.com/gdg-jp/gdgjp/releases/download/cli/v${GDG_CLI_VERSION}/${asset}"
+  echo "$sha256  $tmp/$asset" | sha256sum -c -
+  unzip -q -o "$tmp/$asset" -d "$tmp"
+  install -d -m 0755 "$(dirname "$dest")"
+  install -m 0755 "$tmp/gdg" "$dest"
+  rm -rf "$tmp"
+  local installed
+  installed="$("$dest" --version 2>/dev/null | head -n1 || true)"
+  [[ "$installed" == "$want" ]] || {
+    echo "gdg did not install correctly at $dest (got '$installed', want '$want')" >&2
+    exit 1
+  }
   ln -sfn /usr/local/bin/gdg /usr/local/bin/git-remote-gdg-wiki
 }
 
@@ -451,41 +649,85 @@ ensure_wiki_clone_and_seed() {
 }
 
 ensure_cursor_cli() {
-  if command -v cursor-agent >/dev/null 2>&1 || [[ -x /usr/bin/cursor-agent ]]; then
-    echo "==> cursor-agent already installed"
-    return 0
+  local dest="/opt/cursor-agent/cursor-agent"
+  local symlink="/usr/bin/cursor-agent"
+  local want="$CURSOR_VERSION"
+  if [[ -x "$dest" || -x "$symlink" ]]; then
+    local have
+    have="$("$symlink" --version 2>/dev/null | head -n1 || true)"
+    if [[ "$have" == *"$want"* ]]; then
+      echo "    cursor-agent already installed: $have"
+      return 0
+    fi
+    echo "    cursor-agent reports '$have', not the pinned '$want'; reinstalling"
   fi
-  echo "==> install Cursor CLI"
-  curl -fsSL https://github.com/karaage0703/xangi/releases/latest/download/setup-ai-tools.sh | bash -s -- cursor
-  command -v cursor-agent >/dev/null 2>&1 || [[ -x /usr/bin/cursor-agent ]] || {
-    echo "cursor-agent is still missing after setup-ai-tools.sh" >&2
+  if [[ -n "$PREFIX" || "$(id -u)" -ne 0 ]]; then
+    echo "cursor-agent $want is required at $symlink; install it or unset GDG_SETUP_PREFIX to let install.sh fetch it." >&2
+    exit 1
+  fi
+  local arch cursor_arch sha256
+  arch="$(uname -m)"
+  case "$arch" in
+    x86_64|amd64)
+      cursor_arch="x64"
+      sha256="$CURSOR_SHA256_X86_64_LINUX"
+      ;;
+    aarch64|arm64)
+      cursor_arch="arm64"
+      sha256="$CURSOR_SHA256_AARCH64_LINUX"
+      ;;
+    *)
+      echo "unsupported architecture for cursor-agent: $arch" >&2
+      exit 1
+      ;;
+  esac
+  echo "==> install cursor-agent $CURSOR_VERSION ($arch) from downloads.cursor.com"
+  local tmp
+  tmp="$(mktemp -d)"
+  curl -fsSL -o "$tmp/agent-cli-package.tar.gz" \
+    "https://downloads.cursor.com/lab/${CURSOR_VERSION}/linux/${cursor_arch}/agent-cli-package.tar.gz"
+  echo "$sha256  $tmp/agent-cli-package.tar.gz" | sha256sum -c -
+  rm -rf /opt/cursor-agent
+  mkdir -p /opt/cursor-agent
+  tar -xzf "$tmp/agent-cli-package.tar.gz" -C /opt/cursor-agent --strip-components=1
+  install -d -m 0755 "$(dirname "$symlink")"
+  ln -sfn /opt/cursor-agent/cursor-agent "$symlink"
+  rm -rf "$tmp"
+  local installed
+  installed="$("$symlink" --version 2>/dev/null | head -n1 || true)"
+  [[ "$installed" == *"$want"* ]] || {
+    echo "cursor-agent did not install correctly at $symlink (got '$installed', want '$want')" >&2
     exit 1
   }
 }
 
 ensure_xangi_fork() {
-  local repo="${XANGI_REPO:-https://github.com/Harineko0/xangi.git}"
-  echo "==> Harineko0/xangi -> /opt/xangi"
+  local repo="${XANGI_REPO:-$XANGI_PIN_REPO}"
+  local want_ref="${XANGI_REF:-$XANGI_PIN_REF}"
+  echo "==> xangi ($want_ref) -> /opt/xangi"
   if [[ ! -d /opt/xangi/.git ]]; then
     git clone "$repo" /opt/xangi
   else
-    # /opt/xangi is owned by the operator, not root; this script always runs
-    # as root by the time it gets here (maybe_reexec_root), so scope
-    # safe.directory to this invocation instead of touching global git config.
     echo "==> updating existing /opt/xangi checkout"
     git -c safe.directory=/opt/xangi -C /opt/xangi fetch origin
-    git -c safe.directory=/opt/xangi -C /opt/xangi pull --ff-only
   fi
+  git -c safe.directory=/opt/xangi -C /opt/xangi checkout --detach "$want_ref"
+  local head
+  head="$(git -c safe.directory=/opt/xangi -C /opt/xangi rev-parse HEAD)"
+  [[ "$head" == "$want_ref" ]] || {
+    echo "xangi HEAD ($head) does not match pinned ref ($want_ref)" >&2
+    exit 1
+  }
   (
     cd /opt/xangi
-    if [[ -f package-lock.json ]]; then
-      if ! npm ci; then
-        echo "npm ci failed; retrying once with a clean node_modules directory." >&2
-        rm -rf /opt/xangi/node_modules
-        npm ci
-      fi
-    else
-      npm install
+    if [[ ! -f package-lock.json ]]; then
+      echo "missing package-lock.json in /opt/xangi; lockfile is required for deterministic install" >&2
+      exit 1
+    fi
+    if ! npm ci; then
+      echo "npm ci failed; retrying once with a clean node_modules directory." >&2
+      rm -rf /opt/xangi/node_modules
+      npm ci
     fi
     chmod -R a+rX node_modules
   )
@@ -619,8 +861,8 @@ ensure_xangi_setup() {
   install -d -m 0700 -o gdgagent-svc -g gdgagent-svc /home/gdgagent-svc/.local/share/xangi
   echo "==> xangi setup --apply"
   as_svc /usr/local/bin/xangi setup --apply \
-    --backend cursor \
-    --workspace /srv/gdg-agent/wiki \
+    --backend "$BACKEND_NAME" \
+    --workspace "$SPEC_WORKSPACE" \
     --workspace-mode existing \
     --web-chat-access local
 }
@@ -673,12 +915,12 @@ RestartSec=5
 [Install]
 WantedBy=default.target
 EOF
-  cat > "$drop_in/model.conf" <<'EOF'
+  cat > "$drop_in/model.conf" <<EOF
 [Service]
-Environment=AGENT_MODEL=composer-2.5
-Environment=DISCORD_SHOW_THINKING=false
-Environment=DISCORD_STREAMING=false
-Environment=DISCORD_COMPLETION_NOTIFY=off
+Environment=AGENT_MODEL=${AGENT_MODEL}
+Environment=DISCORD_SHOW_THINKING=${DISCORD_SHOW_THINKING}
+Environment=DISCORD_STREAMING=${DISCORD_STREAMING}
+Environment=DISCORD_COMPLETION_NOTIFY=${DISCORD_COMPLETION_NOTIFY}
 EOF
   chown gdgagent-svc:gdgagent-svc "$unit_dir/xangi.service" "$drop_in/model.conf"
   loginctl enable-linger gdgagent-svc
@@ -789,6 +1031,7 @@ for arg in "$@"; do
   case "$arg" in
     --activate) ACTIVATE_ONLY=1 ;;
     --reload-config) RELOAD_CONFIG_ONLY=1 ;;
+    --verify) VERIFY_ONLY=1 ;;
     *)
       echo "Unknown argument: $arg" >&2
       exit 1
@@ -797,14 +1040,21 @@ for arg in "$@"; do
 done
 maybe_reexec_root "$@"
 
+ensure_node_and_load_spec
+
 layout_dir="$(resolve_layout_dir)"
 gdgjp="$(ensure_gdgjp)"
-if [[ -z "$layout_dir" && -x "$gdgjp/agent-host/setup.sh" ]]; then
+if [[ -z "$layout_dir" && -f "$gdgjp/agent-host/lib/install-layout.sh" ]]; then
   layout_dir="$gdgjp/agent-host"
 fi
-if [[ -z "$layout_dir" || ! -x "$layout_dir/setup.sh" ]]; then
-  echo "cannot find agent-host/setup.sh next to $here or under $gdgjp" >&2
+if [[ -z "$layout_dir" || ! -f "$layout_dir/lib/install-layout.sh" ]]; then
+  echo "cannot find agent-host/lib/install-layout.sh next to $here or under $gdgjp" >&2
   exit 1
+fi
+
+if [[ "$VERIFY_ONLY" -eq 1 ]]; then
+  "$layout_dir/lib/verify.sh"
+  exit 0
 fi
 
 if [[ "$ACTIVATE_ONLY" -eq 1 ]]; then
@@ -844,15 +1094,12 @@ fi
 
 create_users
 
-echo "==> setup.sh (layout)"
+echo "==> layout (lib/install-layout.sh)"
 GDG_AGENT_SLOT_COUNT="$SLOT_COUNT" \
   GDG_SETUP_PREFIX="$PREFIX" \
   GDG_SETUP_HOOKS_SRC="$hooks_src" \
   GDG_SETUP_INDEX_PROXY_SRC="$index_proxy" \
-  GDG_SKIP_XANGI_INSTALL="${GDG_SKIP_XANGI_INSTALL:-1}" \
-  GDG_SKIP_GDG_INSTALL="${GDG_SKIP_GDG_INSTALL:-}" \
-  GDG_SETUP_SKIP_REMAINING=1 \
-  "$layout_dir/setup.sh"
+  "$layout_dir/lib/install-layout.sh"
 
 apply_ownership
 if [[ -n "$PREFIX" ]]; then

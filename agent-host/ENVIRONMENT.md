@@ -199,7 +199,7 @@ These are real on `<production-host>`; they are not all in the scripts.
 
 | Change | Edit | Then |
 | --- | --- | --- |
-| Hooks, `wk`, ACL, spawn | `/home/<operator>/gdgjp` (`cli/internal/wiki/hooks`, `gdg-lib`) | `pnpm --filter @gdgjp/gdg-lib build:acl`, re-run `agent-host/setup.sh` / `install.sh` so `/opt/gdg-agent` matches |
+| Hooks, `wk`, ACL, spawn | `/home/<operator>/gdgjp` (`cli/internal/wiki/hooks`, `gdg-lib`) | `pnpm --filter @gdgjp/gdg-lib build:acl`, re-run `agent-host/install.sh` so `/opt/gdg-agent` matches |
 | Skills, `AGENTS.md`, Discord channel list | this repo, then copy skills onto `/srv/gdg-agent/wiki` if needed | worktree is not updated by git pull of agents.git |
 | Discord / spawn / sleep in xangi | `/opt/xangi` (or merge from `~/<operator>/xangi` then restart svc unit) | `systemctl --user restart xangi.service` as svc |
 | Wiki pages | `/srv/gdg-agent/wiki` via `wk` / `gdg wiki *` as svc | never treat `~/<operator>/agents` or `agents-local/wiki` as live |
