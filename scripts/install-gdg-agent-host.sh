@@ -15,10 +15,10 @@ apt-get update -qq
 apt-get install -y -qq curl ca-certificates unzip
 
 # (c) Pinned gdg CLI from GitHub Releases
-GDG_VERSION="0.3.0"
+GDG_VERSION="0.3.1"
 GDG_ASSET_TEMPLATE="gdg_{version}_linux_{arch}.zip"
-GDG_SHA256_X86_64="88a073fe18ff3351645d508e53bb0187640c5153c659c96d13918bd2c3e2791a"
-GDG_SHA256_AARCH64="15a29a28cf485e3493030ad8756a10f8022137bd4e243f89ae208a050b004517"
+GDG_SHA256_X86_64="521302e1837bb5023b2574c03e59db4f9a7e6cb9a28f55fc70b42660768fdc53"
+GDG_SHA256_AARCH64="87b641f470f74d1ac3c6324500197ceb51f2807e5773723a47a38ca76444030b"
 
 arch="$(uname -m)"
 case "$arch" in

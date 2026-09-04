@@ -287,7 +287,7 @@ test("gdg agent-host apply prefix mode writes layout", async () => {
     assert.equal(spec.pins.cursorAgent.version, "2026.08.11-e8db854");
     assert.ok(spec.pins.cursorAgent.sha256.x86_64);
     assert.ok(spec.pins.cursorAgent.sha256.aarch64);
-    assert.equal(spec.pins.gdgCli.version, "0.3.0");
+    assert.equal(spec.pins.gdgCli.version, "0.3.1");
     assert.equal(spec.pins.gdgCli.assetTemplate, "gdg_{version}_linux_{arch}.zip");
     assert.ok(spec.pins.gdgCli.sha256.x86_64);
     assert.ok(spec.pins.gdgCli.sha256.aarch64);
