@@ -1,3 +1,13 @@
 {
-  "slotCount": 2
+  "slotCount": 2,
+  "systemd": {
+    "dropIns": {
+      "harness.conf": {
+        "GDG_AGENT_HARNESS": "true",
+        "SCHEDULER_ENABLED": "false",
+        "XANGI_AGENT_SLOT_COUNT": "2",
+        "GDG_WIKI_LOCK_OWNER": "lima-gdg-agent"
+      }
+    }
+  }
 }

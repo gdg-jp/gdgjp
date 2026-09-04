@@ -115,7 +115,7 @@ test("gates the CLI Go job on cli/ changes", () => {
 
 test("gates script-tests on workflow scripts and agent-host components", () => {
   assert.equal(classifyChanges([".github/scripts/gdg-agent-layout.test.mjs"]).scriptTests, true);
-  assert.equal(classifyChanges(["agent-host/lib/verify.sh"]).scriptTests, true);
+  assert.equal(classifyChanges(["scripts/install-gdg-agent-host.sh"]).scriptTests, true);
   assert.equal(classifyChanges(["agent-host/config/permissions.json"]).scriptTests, true);
   assert.equal(classifyChanges(["agents-index/src/proxy.ts"]).scriptTests, true);
   assert.equal(classifyChanges(["cli/internal/wiki/hooks/acl-gate.ts"]).scriptTests, true);

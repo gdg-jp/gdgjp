@@ -251,11 +251,11 @@ func TestAgentHostInstallShFailsOffUbuntu(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	script := filepath.Join(wd, "..", "..", "..", "agent-host", "install.sh")
+	script := filepath.Join(wd, "..", "..", "..", "scripts", "install-gdg-agent-host.sh")
 	cmd := exec.Command("bash", script)
 	out, runErr := cmd.CombinedOutput()
 	if runErr == nil {
-		t.Fatalf("install.sh must fail off Ubuntu:\n%s", out)
+		t.Fatalf("install-gdg-agent-host.sh must fail off Ubuntu:\n%s", out)
 	}
 	if !bytes.Contains(out, []byte("Ubuntu")) {
 		t.Fatalf("expected Ubuntu-only message, got:\n%s", out)

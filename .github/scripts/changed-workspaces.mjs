@@ -196,7 +196,8 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         /^\.github\/scripts\/.*\.mjs$/.test(file) ||
         /^agent-host\//.test(file) ||
         /^agents-index\//.test(file) ||
-        /^cli\/internal\/wiki\/hooks\//.test(file),
+        /^cli\/internal\/wiki\/hooks\//.test(file) ||
+        /^scripts\/install-gdg-agent-host\.sh$/.test(file),
     ),
     cli: ciGlobal || normalizedFiles.some((file) => file.startsWith("cli/")),
     full: false,

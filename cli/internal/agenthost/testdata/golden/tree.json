@@ -5,6 +5,17 @@
     "mode": "0755"
   },
   {
+    "path": "etc/apparmor.d",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "etc/apparmor.d/cursor-agent-cursorsandbox",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "b64f780c011c3d123776175e7341816f9e86beef11c98f80a2dde6086fa0ecb1"
+  },
+  {
     "path": "etc/sudoers.d",
     "type": "dir",
     "mode": "0755"
@@ -210,6 +221,55 @@
     "type": "file",
     "mode": "0444",
     "sha256": "12ce3981e52d14c94b88eaf53816f38f15f01a0a6712fa65634c3997ab8f908a"
+  },
+  {
+    "path": "home/gdgagent-svc",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-svc/.config",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd/user",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd/user/langfuse-forwarder.service",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "49a43bbcdd405471daebe335051a27772cbfe778d8d9b10131920570d05fe9a9"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd/user/langfuse-forwarder.timer",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "6a4334806da9a19bc82d9859de9fce013fb42b2d0c7ab1a06a59bfe930a066af"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd/user/xangi.service",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "af84b5e5624cdb5c6bb40198d8d12389e5afe773f13904316fbbdd64d77a76d6"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd/user/xangi.service.d",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd/user/xangi.service.d/model.conf",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "9b80a3d3f51b0efe69ec5ba7a7c73a4af50d31941cbb77efe551aa16d7fce316"
   },
   {
     "path": "opt",

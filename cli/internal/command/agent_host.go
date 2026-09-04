@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gdg-jp/gdgjp/cli/internal/agenthost"
 	"github.com/spf13/cobra"
@@ -18,6 +19,8 @@ func newAgentHostCommand() *cobra.Command {
 	command.AddCommand(newEmitLayoutCommand())
 	command.AddCommand(newAgentHostApplyCommand())
 	command.AddCommand(newAgentHostRenderCommand())
+	command.AddCommand(newAgentHostVerifyCommand())
+	command.AddCommand(newAgentHostSecretsCommand())
 	return command
 }
 
@@ -47,6 +50,17 @@ func newAgentHostApplyCommand() *cobra.Command {
 			if prefix == "" {
 				prefix = os.Getenv("GDG_SETUP_PREFIX")
 			}
+
+			// Self re-exec check on live paths
+			if prefix == "" {
+				spec, err := agenthost.LoadSpecWithOverlay(specPath, overlayPath)
+				if err == nil && spec.Pins.GdgCli.Version != "" {
+					if err := agenthost.CheckAndReexecSelf(context.Background(), cmd.Root().Version, spec.Pins.GdgCli, os.Args, nil); err != nil {
+						return fmt.Errorf("self re-exec failed: %w", err)
+					}
+				}
+			}
+
 			if slotCount == 0 {
 				if env := os.Getenv("GDG_AGENT_SLOT_COUNT"); env != "" {
 					n, err := strconv.Atoi(env)
@@ -173,5 +187,106 @@ func newEmitLayoutCommand() *cobra.Command {
 	command.Flags().StringVar(&overlayPath, "overlay", "", "Path to overlay spec file (e.g. agent-host.dev.json)")
 	command.Flags().IntVar(&slotCount, "slot-count", 0, "Override spec.slotCount")
 	command.Flags().BoolVar(&applyOwnership, "apply-ownership", false, "Apply live chown/chmod/apparmor/linger (no-op with --prefix)")
+	return command
+}
+
+func newAgentHostVerifyCommand() *cobra.Command {
+	var specPath string
+	var overlayPath string
+	var prefix string
+
+	command := &cobra.Command{
+		Use:   "verify",
+		Short: "Run verification checks on agent host isolation boundary",
+		Long: "Verifies the 13 agent-host security boundaries (credential access, wiki permissions,\n" +
+			"slot separation, binary/script write protections, and worktree isolation).\n" +
+			"Exits 0 if all checks pass, or non-zero if any expectation fails.",
+		SilenceUsage: true,
+		Args:         cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if specPath == "" {
+				specPath = os.Getenv("GDG_SPEC")
+			}
+			if prefix == "" {
+				prefix = os.Getenv("GDG_SETUP_PREFIX")
+			}
+			return agenthost.VerifyHost(context.Background(), agenthost.VerifyOptions{
+				SpecPath:    specPath,
+				OverlayPath: overlayPath,
+				Prefix:      prefix,
+			})
+		},
+	}
+	command.Flags().StringVar(&specPath, "spec", "", "Path to agent-host.json")
+	command.Flags().StringVar(&overlayPath, "overlay", "", "Path to overlay spec file (e.g. agent-host.dev.json)")
+	command.Flags().StringVar(&prefix, "prefix", "", "Skip live host checks under prefix mode")
+	return command
+}
+
+func newAgentHostSecretsCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "secrets",
+		Short: "Manage operator and service secrets for agent host",
+	}
+
+	var slotCount int
+
+	statusCmd := &cobra.Command{
+		Use:   "status",
+		Short: "Show status of required host credentials and tokens",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if slotCount == 0 {
+				if env := os.Getenv("GDG_AGENT_SLOT_COUNT"); env != "" {
+					slotCount, _ = strconv.Atoi(env)
+				}
+			}
+			return agenthost.SecretsStatus(slotCount)
+		},
+	}
+	statusCmd.Flags().IntVar(&slotCount, "slot-count", 0, "Number of slot accounts to verify")
+
+	importCmd := &cobra.Command{
+		Use:   "import",
+		Short: "Import operator secrets from $SUDO_USER into service accounts",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if slotCount == 0 {
+				if env := os.Getenv("GDG_AGENT_SLOT_COUNT"); env != "" {
+					slotCount, _ = strconv.Atoi(env)
+				}
+			}
+			return agenthost.SecretsImportFromOperator(slotCount)
+		},
+	}
+	importCmd.Flags().IntVar(&slotCount, "slot-count", 0, "Number of slot accounts to populate")
+	importCmd.Flags().Bool("from-operator", true, "Import from $SUDO_USER home directory")
+
+	setCmd := &cobra.Command{
+		Use:   "set [target]",
+		Short: "Interactively set a secret (discord, langfuse)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			switch strings.ToLower(args[0]) {
+			case "discord":
+				return agenthost.SecretsSetDiscord()
+			case "langfuse":
+				return agenthost.SecretsSetLangfuse()
+			default:
+				return fmt.Errorf("unknown secret target %q (valid: discord, langfuse)", args[0])
+			}
+		},
+	}
+
+	loginCmd := &cobra.Command{
+		Use:   "login",
+		Short: "Execute gdg login --device as gdgagent-svc user",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return agenthost.SecretsLogin()
+		},
+	}
+
+	command.AddCommand(statusCmd, importCmd, setCmd, loginCmd)
 	return command
 }

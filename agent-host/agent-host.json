@@ -30,11 +30,11 @@
       }
     },
     "gdgCli": {
-      "version": "0.1.4",
+      "version": "0.3.0",
       "assetTemplate": "gdg_{version}_linux_{arch}.zip",
       "sha256": {
-        "x86_64": "0d8affab878ab1ba9c7f8df9efae1a47964db9bfb356592d7ee43a23ec14be3b",
-        "aarch64": "5dbf544d0cf9ed34cce688fbb6e40fc1e5cbc3719ff50a2a1e62438729bb07a0"
+        "x86_64": "88a073fe18ff3351645d508e53bb0187640c5153c659c96d13918bd2c3e2791a",
+        "aarch64": "15a29a28cf485e3493030ad8756a10f8022137bd4e243f89ae208a050b004517"
       }
     },
     "node": {

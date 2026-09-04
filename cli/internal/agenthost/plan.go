@@ -3,6 +3,7 @@ package agenthost
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -138,8 +139,22 @@ func parseOnlyFilter(only string) (map[string]bool, error) {
 			set["tmpfiles"] = true
 		case "symlink", "symlinks":
 			set["symlink"] = true
+		case "systemd":
+			set["systemd"] = true
+		case "apparmor":
+			set["apparmor"] = true
+		case "apt":
+			set["apt"] = true
+		case "tarball", "tarballs":
+			set["tarball"] = true
+		case "git":
+			set["git"] = true
+		case "wiki":
+			set["wiki"] = true
+		case "exec":
+			set["exec"] = true
 		default:
-			return nil, fmt.Errorf("invalid resource type %q in --only (valid types: user, group, dir, file, sudoers, tmpfiles, symlink)", item)
+			return nil, fmt.Errorf("invalid resource type %q in --only (valid types: user, group, dir, file, sudoers, tmpfiles, symlink, systemd, apparmor, apt, tarball, git, wiki, exec)", item)
 		}
 	}
 	return set, nil
@@ -204,6 +219,11 @@ func buildDesiredResources(paths layoutPaths, prune bool) ([]Resource, error) {
 		RecursiveChown: true,
 		RecursiveChmod: true,
 	})
+	res = append(res, &WikiCloneResource{
+		WikiRoot: paths.WikiRoot,
+		Prefix:   paths.Prefix,
+		User:     "gdgagent-svc",
+	})
 	res = append(res, &DirResource{
 		Path:  paths.RunRoot,
 		Mode:  0o755,
@@ -221,6 +241,36 @@ func buildDesiredResources(paths layoutPaths, prune bool) ([]Resource, error) {
 		Mode:  0o755,
 		Owner: "root",
 		Group: "root",
+	})
+	res = append(res, &DirResource{
+		Path:  filepath.Join(paths.EtcRoot, "apparmor.d"),
+		Mode:  0o755,
+		Owner: "root",
+		Group: "root",
+	})
+	res = append(res, &DirResource{
+		Path:  filepath.Join(paths.HomeRoot, "gdgagent-svc", ".config"),
+		Mode:  0o755,
+		Owner: "gdgagent-svc",
+		Group: "gdgagent-svc",
+	})
+	res = append(res, &DirResource{
+		Path:  filepath.Join(paths.HomeRoot, "gdgagent-svc", ".config", "systemd"),
+		Mode:  0o755,
+		Owner: "gdgagent-svc",
+		Group: "gdgagent-svc",
+	})
+	res = append(res, &DirResource{
+		Path:  filepath.Join(paths.HomeRoot, "gdgagent-svc", ".config", "systemd", "user"),
+		Mode:  0o755,
+		Owner: "gdgagent-svc",
+		Group: "gdgagent-svc",
+	})
+	res = append(res, &DirResource{
+		Path:  filepath.Join(paths.HomeRoot, "gdgagent-svc", ".config", "systemd", "user", "xangi.service.d"),
+		Mode:  0o755,
+		Owner: "gdgagent-svc",
+		Group: "gdgagent-svc",
 	})
 
 	// Slot directories
@@ -412,6 +462,248 @@ func buildDesiredResources(paths layoutPaths, prune bool) ([]Resource, error) {
 		Prefix: paths.Prefix,
 	})
 
+	// 6. AppArmor
+	apparmorData, err := configBytes("apparmor.d-cursor-agent-cursorsandbox")
+	if err != nil {
+		return nil, err
+	}
+	res = append(res, &AppArmorResource{
+		Path:   filepath.Join(paths.EtcRoot, "apparmor.d", "cursor-agent-cursorsandbox"),
+		Data:   apparmorData,
+		Prefix: paths.Prefix,
+	})
+
+	// 7. Systemd units
+	userUnitDir := filepath.Join(paths.HomeRoot, "gdgagent-svc", ".config", "systemd", "user")
+
+	xangiUnit := `[Unit]
+Description=xangi (GDG agent)
+After=network-online.target
+
+[Service]
+WorkingDirectory=/opt/xangi
+ExecStart=/usr/bin/node /opt/xangi/node_modules/tsx/dist/cli.mjs /opt/xangi/src/index.ts
+Environment=XANGI_SETUP_CONFIG_PATH=/home/gdgagent-svc/.config/xangi/xangi.json
+Environment=XANGI_SETUP_STATE_DIR=/home/gdgagent-svc/.local/share/xangi
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+`
+	res = append(res, &SystemdUnitResource{
+		UnitName: "xangi.service",
+		Path:     filepath.Join(userUnitDir, "xangi.service"),
+		Data:     []byte(xangiUnit),
+		Mode:     0o644,
+		Owner:    "gdgagent-svc",
+		Group:    "gdgagent-svc",
+		Scope:    "user",
+		User:     "gdgagent-svc",
+		Enable:   true,
+		ConditionStart: func() bool {
+			sec, err := os.ReadFile("/home/gdgagent-svc/.config/xangi/secrets.json")
+			return err == nil && strings.Contains(string(sec), "DISCORD_TOKEN")
+		},
+		Prefix: paths.Prefix,
+	})
+
+	backendModel := paths.Spec.Backend.Model
+	if backendModel == "" {
+		backendModel = "composer-2.5"
+	}
+	notify := paths.Spec.Discord.CompletionNotify
+	if notify == "" {
+		notify = "off"
+	}
+	modelConf := fmt.Sprintf("[Service]\nEnvironment=AGENT_MODEL=%s\nEnvironment=DISCORD_SHOW_THINKING=%t\nEnvironment=DISCORD_STREAMING=%t\nEnvironment=DISCORD_COMPLETION_NOTIFY=%s\n",
+		backendModel, paths.Spec.Discord.ShowThinking, paths.Spec.Discord.Streaming, notify)
+
+	res = append(res, &SystemdUnitResource{
+		UnitName: "model.conf",
+		Path:     filepath.Join(userUnitDir, "xangi.service.d", "model.conf"),
+		Data:     []byte(modelConf),
+		Mode:     0o644,
+		Owner:    "gdgagent-svc",
+		Group:    "gdgagent-svc",
+		Scope:    "user",
+		User:     "gdgagent-svc",
+		Prefix:   paths.Prefix,
+	})
+
+	if dropIn, ok := paths.Spec.Systemd.DropIns["harness.conf"]; ok {
+		var b strings.Builder
+		b.WriteString("[Service]\n")
+		var keys []string
+		for k := range dropIn {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			val := dropIn[k]
+			if k == "XANGI_AGENT_SLOT_COUNT" && val == "" {
+				val = strconv.Itoa(paths.SlotCount)
+			}
+			fmt.Fprintf(&b, "Environment=%s=%s\n", k, val)
+		}
+		res = append(res, &SystemdUnitResource{
+			UnitName: "harness.conf",
+			Path:     filepath.Join(userUnitDir, "xangi.service.d", "harness.conf"),
+			Data:     []byte(b.String()),
+			Mode:     0o644,
+			Owner:    "gdgagent-svc",
+			Group:    "gdgagent-svc",
+			Scope:    "user",
+			User:     "gdgagent-svc",
+			Prefix:   paths.Prefix,
+		})
+	}
+
+	lfService := `[Unit]
+Description=langfuse-forwarder (GDG agent observability)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/langfuse-forwarder
+ExecStart=/usr/bin/node /opt/langfuse-forwarder/node_modules/tsx/dist/cli.mjs /opt/langfuse-forwarder/src/index.ts
+Environment=DATA_DIR=/home/gdgagent-svc/.local/share/xangi
+Environment=LANGFUSE_CREDENTIALS_PATH=/home/gdgagent-svc/.config/langfuse/credentials.json
+Environment=LANGFUSE_FORWARDER_STATE_DIR=/home/gdgagent-svc/.local/share/langfuse-forwarder
+`
+	res = append(res, &SystemdUnitResource{
+		UnitName: "langfuse-forwarder.service",
+		Path:     filepath.Join(userUnitDir, "langfuse-forwarder.service"),
+		Data:     []byte(lfService),
+		Mode:     0o644,
+		Owner:    "gdgagent-svc",
+		Group:    "gdgagent-svc",
+		Scope:    "user",
+		User:     "gdgagent-svc",
+		Prefix:   paths.Prefix,
+	})
+
+	lfTimer := `[Unit]
+Description=Run langfuse-forwarder every 5 minutes
+
+[Timer]
+OnUnitActiveSec=5min
+OnBootSec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+`
+	res = append(res, &SystemdUnitResource{
+		UnitName: "langfuse-forwarder.timer",
+		Path:     filepath.Join(userUnitDir, "langfuse-forwarder.timer"),
+		Data:     []byte(lfTimer),
+		Mode:     0o644,
+		Owner:    "gdgagent-svc",
+		Group:    "gdgagent-svc",
+		Scope:    "user",
+		User:     "gdgagent-svc",
+		Enable:   true,
+		ConditionStart: func() bool {
+			fi, err := os.Stat("/home/gdgagent-svc/.config/langfuse/credentials.json")
+			return err == nil && fi.Size() > 0
+		},
+		Prefix: paths.Prefix,
+	})
+
+	// 8. Runtime Packages & Binaries
+	nodeMajor := paths.Spec.Pins.Node.Major
+	if nodeMajor == 0 {
+		nodeMajor = 22
+	}
+	nodeMinor := paths.Spec.Pins.Node.MinMinor
+	if nodeMinor == 0 {
+		nodeMinor = 18
+	}
+	res = append(res, &AptResource{
+		Packages:     []string{"git", "ca-certificates", "curl", "unzip", "sudo"},
+		EnsureNode:   true,
+		NodeMajor:    nodeMajor,
+		NodeMinMinor: nodeMinor,
+		Prefix:       paths.Prefix,
+	})
+
+	gwsVer := paths.Spec.Pins.GWS.Version
+	if gwsVer == "" {
+		gwsVer = "v0.22.5"
+	}
+	res = append(res, &TarballResource{
+		Name:          "gws",
+		Destination:   filepath.Join(paths.AgentRoot, "bin", "gws-bin"),
+		Version:       gwsVer,
+		SHA256:        paths.Spec.Pins.GWS.SHA256,
+		URLTemplate:   "https://github.com/googleworkspace/cli/releases/download/{version}/google-workspace-cli-{arch}-unknown-linux-gnu.tar.gz",
+		VerifyCmd:     []string{filepath.Join(paths.AgentRoot, "bin", "gws-bin"), "--version"},
+		VerifyPattern: "gws " + strings.TrimPrefix(gwsVer, "v"),
+		Prefix:        paths.Prefix,
+	})
+
+	cursorVer := paths.Spec.Pins.CursorAgent.Version
+	if cursorVer == "" {
+		cursorVer = "2026.08.11-e8db854"
+	}
+	res = append(res, &TarballResource{
+		Name:          "cursor-agent",
+		Destination:   "/opt/cursor-agent/cursor-agent",
+		Symlink:       "/usr/bin/cursor-agent",
+		Version:       cursorVer,
+		SHA256:        paths.Spec.Pins.CursorAgent.SHA256,
+		URLTemplate:   "https://downloads.cursor.com/lab/{version}/linux/{cursor_arch}/agent-cli-package.tar.gz",
+		ExtractMode:   "dir",
+		TargetDir:     "/opt/cursor-agent",
+		VerifyCmd:     []string{"/usr/bin/cursor-agent", "--version"},
+		VerifyPattern: cursorVer,
+		Prefix:        paths.Prefix,
+	})
+
+	xangiRepo := paths.Spec.Pins.Xangi.Repo
+	if xangiRepo == "" {
+		xangiRepo = "https://github.com/Harineko0/xangi.git"
+	}
+	xangiRef := paths.Spec.Pins.Xangi.Ref
+	if xangiRef == "" {
+		xangiRef = "b3db5919a5e33769ef8d7bcef245aa6b76974948"
+	}
+	res = append(res, &GitResource{
+		Destination: "/opt/xangi",
+		Repo:        xangiRepo,
+		Ref:         xangiRef,
+		Symlink:     "/usr/local/bin/xangi",
+		Prefix:      paths.Prefix,
+	})
+	res = append(res, &ExecResource{
+		Name:           "npm-ci:/opt/xangi",
+		Command:        []string{"npm", "ci"},
+		Dir:            "/opt/xangi",
+		WatchFile:      "/opt/xangi/package-lock.json",
+		StateFile:      "/opt/xangi/node_modules/.package-lock.sha256",
+		CheckDir:       "/opt/xangi/node_modules",
+		ChmodRecursive: "/opt/xangi/node_modules",
+		Prefix:         paths.Prefix,
+	})
+
+	if paths.Prefix == "" {
+		lfRes, err := buildLangfuseForwarderResources(paths.Prefix)
+		if err == nil {
+			res = append(res, lfRes...)
+		}
+		res = append(res, &ExecResource{
+			Name:           "npm-ci:/opt/langfuse-forwarder",
+			Command:        []string{"npm", "ci"},
+			Dir:            "/opt/langfuse-forwarder",
+			WatchFile:      "/opt/langfuse-forwarder/package-lock.json",
+			StateFile:      "/opt/langfuse-forwarder/node_modules/.package-lock.sha256",
+			CheckDir:       "/opt/langfuse-forwarder/node_modules",
+			ChmodRecursive: "/opt/langfuse-forwarder/node_modules",
+			Prefix:         paths.Prefix,
+		})
+	}
+
 	// 6. Cleanup of obsolete/decommissioned resources gated by prune
 	if prune {
 		// 6a. Undeclared bin files (ResourceType: "file")
@@ -537,4 +829,50 @@ func generateTmpfilesContent(paths layoutPaths) string {
 		fmt.Fprintf(&b, "d %s/%d 0750 gdgagent-svc gdgagent-run-%d -\n", paths.SpecRunRoot, slot, slot)
 	}
 	return b.String()
+}
+
+func buildLangfuseForwarderResources(prefix string) ([]Resource, error) {
+	var res []Resource
+	destDir := filepath.Join(prefix, "opt", "langfuse-forwarder")
+	res = append(res, &DirResource{
+		Path:  destDir,
+		Mode:  0o755,
+		Owner: "root",
+		Group: "root",
+	})
+	res = append(res, &DirResource{
+		Path:  filepath.Join(destDir, "src"),
+		Mode:  0o755,
+		Owner: "root",
+		Group: "root",
+	})
+
+	err := fs.WalkDir(langfuseForwarderFS, "assets/langfuse-forwarder", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel("assets/langfuse-forwarder", path)
+		if err != nil {
+			return err
+		}
+		data, err := langfuseForwarderFS.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		res = append(res, &FileResource{
+			Path:  filepath.Join(destDir, rel),
+			Data:  data,
+			Mode:  0o644,
+			Owner: "root",
+			Group: "root",
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to read embedded langfuse-forwarder: %w", err)
+	}
+	return res, nil
 }

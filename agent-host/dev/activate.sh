@@ -11,7 +11,7 @@ if [[ -s "$secrets" ]] && grep -q 'DISCORD_TOKEN' "$secrets"; then
   exit 1
 fi
 
-SUDO_USER=root /opt/gdgjp/agent-host/install.sh --activate
+gdg agent-host secrets login
 
 svc_uid=$(id -u gdgagent-svc)
 sudo -u gdgagent-svc XDG_RUNTIME_DIR="/run/user/$svc_uid" systemctl --user daemon-reload

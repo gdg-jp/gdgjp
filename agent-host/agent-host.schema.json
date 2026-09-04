@@ -180,6 +180,21 @@
       },
       "required": ["agentRoot", "workspace", "runRoot"],
       "additionalProperties": false
+    },
+    "systemd": {
+      "type": "object",
+      "properties": {
+        "dropIns": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": ["slotCount", "backend", "discord", "pins", "paths"],

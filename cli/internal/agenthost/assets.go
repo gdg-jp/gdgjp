@@ -17,6 +17,9 @@ var defaultSpecJSON []byte
 //go:embed assets/config/*
 var configTemplates embed.FS
 
+//go:embed assets/langfuse-forwarder/* assets/langfuse-forwarder/src/*
+var langfuseForwarderFS embed.FS
+
 func configBytes(name string) ([]byte, error) {
 	data, err := configTemplates.ReadFile("assets/config/" + name)
 	if err != nil {

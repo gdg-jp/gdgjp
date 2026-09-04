@@ -8,8 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const ownershipSource = join(repositoryRoot, "cli/internal/agenthost/ownership.go");
-const hostInstall = join(repositoryRoot, "agent-host/install.sh");
+const bootstrapScript = join(repositoryRoot, "scripts/install-gdg-agent-host.sh");
 const defaultSpec = join(repositoryRoot, "agent-host/agent-host.json");
 
 let compiledGdgBin = "";
@@ -52,6 +51,39 @@ function emitLayout(env, extraArgs = []) {
   return spawnSync(bin, args, { encoding: "utf8", env: { ...env, GDG_BIN: bin } });
 }
 
+function applyLayout(env, extraArgs = []) {
+  const bin = env.GDG_BIN || ensureGdgBin();
+  const args = ["agent-host", "apply"];
+  if (env.GDG_SPEC) {
+    args.push("--spec", env.GDG_SPEC);
+  } else {
+    args.push("--spec", defaultSpec);
+  }
+  if (env.GDG_SETUP_PREFIX) {
+    args.push("--prefix", env.GDG_SETUP_PREFIX);
+  }
+  if (env.GDG_AGENT_SLOT_COUNT) {
+    args.push("--slot-count", env.GDG_AGENT_SLOT_COUNT);
+  }
+  args.push(...extraArgs);
+  return spawnSync(bin, args, { encoding: "utf8", env: { ...env, GDG_BIN: bin } });
+}
+
+function verifyHost(env, extraArgs = []) {
+  const bin = env.GDG_BIN || ensureGdgBin();
+  const args = ["agent-host", "verify"];
+  if (env.GDG_SPEC) {
+    args.push("--spec", env.GDG_SPEC);
+  } else {
+    args.push("--spec", defaultSpec);
+  }
+  if (env.GDG_SETUP_PREFIX) {
+    args.push("--prefix", env.GDG_SETUP_PREFIX);
+  }
+  args.push(...extraArgs);
+  return spawnSync(bin, args, { encoding: "utf8", env: { ...env, GDG_BIN: bin } });
+}
+
 async function withLayoutFixture(run) {
   const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-layout-"));
   try {
@@ -70,11 +102,6 @@ async function withLayoutFixture(run) {
 }
 
 test("agent layout is idempotent, root-owned templates, and has no sudoers wildcards", async () => {
-  const ownership = await readFile(ownershipSource, "utf8");
-  assert.match(ownership, /\.config\/cursor/);
-  assert.doesNotMatch(ownership, /\.google_workspace_mcp/);
-  assert.match(ownership, /\.cache/);
-  assert.match(ownership, /gdgagent-run-"/);
   await withLayoutFixture(async ({ prefix, env }) => {
     const staleWrapper = join(prefix, "opt/gdg-agent/bin/google-workspace-mcp");
     await writeFile(staleWrapper, "#!/bin/sh\necho stale\n", { mode: 0o755 });
@@ -181,62 +208,76 @@ test("agent layout is idempotent, root-owned templates, and has no sudoers wildc
   });
 });
 
-test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", async () => {
+test("bootstrap scripts/install-gdg-agent-host.sh is <= 60 lines and matches spec pins", async () => {
+  assert.equal(existsSync(bootstrapScript), true, "bootstrap script must exist");
+  const st = await stat(bootstrapScript);
+  assert.equal(st.mode & 0o111, 0o111, "bootstrap script must be executable");
+  const content = await readFile(bootstrapScript, "utf8");
+  const lines = content.trim().split("\n").length;
+  assert.ok(lines <= 60, `bootstrap script must be <= 60 lines, got ${lines}`);
+  assert.match(content, /UBUNTU_CODENAME/);
+  assert.match(content, /exec \/usr\/local\/bin\/gdg agent-host apply/);
+
+  const spec = JSON.parse(await readFile(defaultSpec, "utf8"));
+  const versionMatch = content.match(/GDG_VERSION="([^"]+)"/);
+  const templateMatch = content.match(/GDG_ASSET_TEMPLATE="([^"]+)"/);
+  const x86Match = content.match(/GDG_SHA256_X86_64="([^"]+)"/);
+  const aarchMatch = content.match(/GDG_SHA256_AARCH64="([^"]+)"/);
+
+  assert.ok(versionMatch, "GDG_VERSION must be defined");
+  assert.ok(templateMatch, "GDG_ASSET_TEMPLATE must be defined");
+  assert.ok(x86Match, "GDG_SHA256_X86_64 must be defined");
+  assert.ok(aarchMatch, "GDG_SHA256_AARCH64 must be defined");
+
+  assert.equal(versionMatch[1], spec.pins.gdgCli.version);
+  assert.equal(templateMatch[1], spec.pins.gdgCli.assetTemplate);
+  assert.equal(x86Match[1], spec.pins.gdgCli.sha256.x86_64);
+  assert.equal(aarchMatch[1], spec.pins.gdgCli.sha256.aarch64);
+});
+
+test("legacy bash installer and verify scripts are deleted", () => {
+  assert.equal(
+    existsSync(join(repositoryRoot, "agent-host/install.sh")),
+    false,
+    "agent-host/install.sh must be removed; replaced by Go converger",
+  );
+  assert.equal(
+    existsSync(join(repositoryRoot, "agent-host/lib/verify.sh")),
+    false,
+    "agent-host/lib/verify.sh must be removed; replaced by gdg agent-host verify",
+  );
+});
+
+test("gdg agent-host apply prefix mode writes layout", async () => {
   const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-install-"));
   try {
     const env = {
       ...process.env,
       GDG_SETUP_PREFIX: prefix,
       GDGJP_ROOT: repositoryRoot,
-      GDG_SKIP_CLONE: "1",
       GDG_AGENT_SLOT_COUNT: "4",
     };
-    const result = spawnSync("bash", [hostInstall], { encoding: "utf8", env });
+    const result = applyLayout(env);
     assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.match(result.stdout, /gdgjp checkout/);
-    const installSrc = await readFile(hostInstall, "utf8");
-    assert.match(installSrc, /agent-host apply.*--only user/);
-    const userSrc = await readFile(
-      join(repositoryRoot, "cli/internal/agenthost/resource_user.go"),
-      "utf8",
-    );
-    assert.match(userSrc, /groupadd/);
-    assert.match(userSrc, /--gid/);
+
     const wk = await stat(join(prefix, "opt/gdg-agent/bin/wk"));
     assert.equal(wk.mode & 0o111, 0o111);
 
-    const wikiMcp = await readFile(join(prefix, "srv/gdg-agent/wiki/.cursor/mcp.json"), "utf8");
-    const sourceMcp = await readFile(
-      join(repositoryRoot, "agent-host/config/extra-mcp.json"),
+    const slotMcp = await readFile(join(prefix, "home/gdgagent-run-0/.cursor/mcp.json"), "utf8");
+    assert.match(slotMcp, /gdg-index/);
+
+    // Systemd units written under prefix
+    const modelConf = await readFile(
+      join(prefix, "home/gdgagent-svc/.config/systemd/user/xangi.service.d/model.conf"),
       "utf8",
     );
-    assert.equal(wikiMcp, sourceMcp);
-    const localMdc = await readFile(
-      join(prefix, "srv/gdg-agent/wiki/.cursor/rules/local.mdc"),
+    assert.match(modelConf, /AGENT_MODEL=composer-2.5/);
+
+    const apparmor = await readFile(
+      join(prefix, "etc/apparmor.d/cursor-agent-cursorsandbox"),
       "utf8",
     );
-    const agentsMd = await readFile(join(repositoryRoot, "agent-host/workspace/AGENTS.md"), "utf8");
-    assert.equal(localMdc, `---\nalwaysApply: true\n---\n\n${agentsMd}`);
-    assert.match(installSrc, /gdg agent-host emit-layout/);
-    assert.match(installSrc, /go build gdg from/);
-    assert.match(installSrc, /ensure_gdg_system/);
-    assert.doesNotMatch(installSrc, /ensure_pnpm/);
-    assert.doesNotMatch(installSrc, /GDG_SKIP_BUILD/);
-    assert.doesNotMatch(installSrc, /build_acl/);
-    assert.match(installSrc, /file:..\/gdgjp\/gdg-lib/);
-    assert.match(installSrc, /Stage 13/);
-    assert.match(installSrc, /gdg wiki clone/);
-    assert.match(installSrc, /\/usr\/local\/bin\/gdg/);
-    assert.match(installSrc, /Harineko0\/xangi/);
-    assert.match(installSrc, /ensure_gws/);
-    assert.match(installSrc, /ensure_cursor_cli/);
-    assert.doesNotMatch(installSrc, /releases\/latest/);
-    assert.doesNotMatch(installSrc, /setup-ai-tools\.sh/);
-    assert.match(installSrc, /downloads\.cursor\.com/);
-    assert.doesNotMatch(installSrc, /ensure_uv\b/);
-    assert.doesNotMatch(installSrc, /uvx/);
-    assert.match(installSrc, /gws did not install correctly/);
-    assert.match(installSrc, /Environment=AGENT_MODEL=\$\{AGENT_MODEL\}/);
+    assert.match(apparmor, /profile cursor-agent-cursorsandbox/);
 
     const spec = JSON.parse(
       await readFile(join(repositoryRoot, "agent-host/agent-host.json"), "utf8"),
@@ -246,14 +287,12 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.equal(spec.pins.cursorAgent.version, "2026.08.11-e8db854");
     assert.ok(spec.pins.cursorAgent.sha256.x86_64);
     assert.ok(spec.pins.cursorAgent.sha256.aarch64);
-    assert.equal(spec.pins.gdgCli.version, "0.1.4");
+    assert.equal(spec.pins.gdgCli.version, "0.3.0");
     assert.equal(spec.pins.gdgCli.assetTemplate, "gdg_{version}_linux_{arch}.zip");
     assert.ok(spec.pins.gdgCli.sha256.x86_64);
     assert.ok(spec.pins.gdgCli.sha256.aarch64);
     assert.equal(spec.pins.xangi.ref, "b3db5919a5e33769ef8d7bcef245aa6b76974948");
     assert.equal(spec.pins.gws.version, "v0.22.5");
-    assert.match(installSrc, /nodesource \$\{bootstrap_major\}\.x/);
-    assert.match(installSrc, /GDG_CLI_ASSET_TEMPLATE/);
 
     const cliConfigSrc = await readFile(
       join(repositoryRoot, "agent-host/config/cli-config.json"),
@@ -262,18 +301,7 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.doesNotMatch(cliConfigSrc, /google-workspace/);
     assert.match(cliConfigSrc, /Shell\(gws\)/);
     assert.match(cliConfigSrc, /Shell\(\/opt\/gdg-agent\/bin\/gws\)/);
-    assert.match(installSrc, /npm ci failed; retrying once/);
-    assert.match(installSrc, /\.local\/share\n/);
-    assert.match(installSrc, /setup --apply/);
-    assert.match(installSrc, /cd "\$HOME" && exec/);
-    assert.match(installSrc, /chmod -R a\+rX node_modules/);
-    assert.match(installSrc, /--activate/);
-    assert.match(installSrc, /activate_live_host/);
-    assert.match(installSrc, /place_live_host/);
-    assert.match(installSrc, /cp -a "\$layout_dir\/langfuse-forwarder" \/opt\/langfuse-forwarder/);
-    assert.doesNotMatch(installSrc, /"\$layout_dir\/lib\/langfuse-forwarder"/);
-    assert.match(installSrc, /sudo \.\/agent-host\/install\.sh/);
-    assert.doesNotMatch(installSrc, /sudo \.\/agents-local\/install\.sh/);
+
     assert.equal(
       existsSync(join(repositoryRoot, "agent-host/langfuse-forwarder/package-lock.json")),
       true,
@@ -282,22 +310,17 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.equal(
       existsSync(join(repositoryRoot, "agent-host/setup.sh")),
       false,
-      "agent-host/setup.sh must be removed; 13 checks are in lib/verify.sh",
-    );
-    assert.equal(
-      existsSync(join(repositoryRoot, "agent-host/lib/verify.sh")),
-      true,
-      "agent-host/lib/verify.sh must exist as the retreat home for the 13 verification checks",
+      "agent-host/setup.sh must be removed; 13 checks are in verify",
     );
     assert.equal(
       existsSync(join(repositoryRoot, "agent-host/lib/install-layout.sh")),
       false,
-      "agent-host/lib/install-layout.sh must be removed; layout is gdg agent-host emit-layout",
+      "agent-host/lib/install-layout.sh must be removed; layout is gdg agent-host apply",
     );
     assert.equal(
       existsSync(join(repositoryRoot, "agent-host/lib/apply-ownership.sh")),
       false,
-      "agent-host/lib/apply-ownership.sh must be removed; ownership is emit-layout --apply-ownership",
+      "agent-host/lib/apply-ownership.sh must be removed",
     );
     assert.equal(
       existsSync(join(repositoryRoot, "skills-lock.json")),
@@ -369,25 +392,15 @@ test("host install.sh prefix mode writes layout; live mode is Ubuntu-only", asyn
     assert.equal(guild.roles["role-organizer"].role, "organizer");
     assert.notEqual(guild.chapterId, guild.channels["ch-other"].chapterId);
     assert.equal(new Date(guild.boundAt).toISOString(), guild.boundAt);
-    assert.doesNotMatch(installSrc, /iam\.json/);
     const limaConfig = await readFile(
       join(repositoryRoot, "agent-host/dev/lima-gdg-agent.yaml"),
       "utf8",
     );
     assert.match(limaConfig, /mountPoint: \/mnt\/xangi-src/);
     assert.equal(
-      existsSync(join(prefix, "srv/gdg-agent/wiki/.agents/skills/wiki-ingest/SKILL.md")),
+      existsSync(join(repositoryRoot, "agent-host/workspace/.agents/skills/wiki-ingest/SKILL.md")),
       true,
     );
-
-    const liveEnv = Object.fromEntries(
-      Object.entries(process.env).filter(([key]) => key !== "GDG_SETUP_PREFIX"),
-    );
-    const live = spawnSync("bash", [hostInstall], { encoding: "utf8", env: liveEnv });
-    if (process.platform !== "linux") {
-      assert.notEqual(live.status, 0);
-      assert.match(`${live.stderr}${live.stdout}`, /Ubuntu only/);
-    }
   } finally {
     await rm(prefix, { recursive: true, force: true });
   }
@@ -511,29 +524,13 @@ test("validate-then-rename preserves existing sudoers if validation fails", asyn
   }
 });
 
-test("agent-host/lib/verify.sh exits 0 in prefix mode and contains 13 check assertions", async () => {
-  const verifyScript = join(repositoryRoot, "agent-host/lib/verify.sh");
-  const result = spawnSync("bash", [verifyScript], {
-    encoding: "utf8",
-    env: { ...process.env, GDG_SETUP_PREFIX: "/tmp/fake-prefix" },
+test("gdg agent-host verify exits 0 in prefix mode", async () => {
+  const result = verifyHost({
+    ...process.env,
+    GDG_SETUP_PREFIX: "/tmp/fake-prefix",
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /prefix mode active/);
-
-  const verifySrc = await readFile(verifyScript, "utf8");
-  assert.match(verifySrc, /credentials\.json/);
-  assert.match(verifySrc, /\/srv\/gdg-agent\/wiki/);
-  assert.match(verifySrc, /authz\.sock/);
-  assert.match(verifySrc, /bin\/wk/);
-  assert.match(verifySrc, /lib\/wk\.ts/);
-  assert.match(verifySrc, /package\.json/);
-  assert.match(verifySrc, /\.cursor\/projects/);
-  assert.match(verifySrc, /\.cursor\/mcp\.json/);
-  assert.match(verifySrc, /\.cursor\/cli-config\.json/);
-  assert.match(verifySrc, /\.cursor\/sandbox\.json/);
-  assert.match(verifySrc, /\.cursor\/hooks\.json/);
-  assert.match(verifySrc, /dataDir must not live under the wiki worktree/);
-  assert.match(verifySrc, /conversation logs must not live under the wiki worktree/);
 });
 
 test("installer and layout fail closed on missing or malformed spec", async () => {
@@ -704,7 +701,7 @@ test("spec paths govern all generated layout configurations", async () => {
   }
 });
 
-test("rejects unsupported backend values in schema and install.sh", async () => {
+test("rejects unsupported backend values in schema and agent-host apply", async () => {
   const customSpecDir = await mkdtemp(join(tmpdir(), "gdg-agent-bad-backend-"));
   try {
     const baseSpec = JSON.parse(
@@ -735,23 +732,23 @@ test("rejects unsupported backend values in schema and install.sh", async () => 
     );
     assert.notEqual(ajvCheck.status, 0);
 
-    // install.sh must fail closed on unsupported backend
-    const installCheck = spawnSync("bash", [hostInstall, "--verify"], {
-      encoding: "utf8",
-      env: {
+    // agent-host apply must fail closed on unsupported backend
+    const applyCheck = applyLayout(
+      {
         ...process.env,
         GDG_SPEC: badSpecPath,
         GDG_SETUP_PREFIX: "/tmp/fake-prefix",
       },
-    });
-    assert.notEqual(installCheck.status, 0);
-    assert.match(installCheck.stderr, /Unsupported backend/);
+      ["--dry-run"],
+    );
+    assert.notEqual(applyCheck.status, 0);
+    assert.match(applyCheck.stderr, /Unsupported backend/);
   } finally {
     await rm(customSpecDir, { recursive: true, force: true });
   }
 });
 
-test("node_ok strictly enforces pinned Node minor version in alternate modes", async () => {
+test("spec node pin strictly enforces pinned Node minor version", async () => {
   const customSpecDir = await mkdtemp(join(tmpdir(), "gdg-agent-node-pin-"));
   try {
     const baseSpec = JSON.parse(
@@ -771,15 +768,14 @@ test("node_ok strictly enforces pinned Node minor version in alternate modes", a
     const highMinorSpecPath = join(customSpecDir, "agent-host.json");
     await writeFile(highMinorSpecPath, JSON.stringify(highMinorSpec, null, 2), "utf8");
 
-    // install.sh --verify must fail because current Node is < currentMajor.999
-    const check = spawnSync("bash", [hostInstall, "--verify"], {
-      encoding: "utf8",
-      env: {
+    const check = applyLayout(
+      {
         ...process.env,
         GDG_SPEC: highMinorSpecPath,
-        GDG_SETUP_PREFIX: "/tmp/fake-prefix",
+        GDG_SETUP_PREFIX: "",
       },
-    });
+      ["--dry-run"],
+    );
     assert.notEqual(check.status, 0);
   } finally {
     await rm(customSpecDir, { recursive: true, force: true });

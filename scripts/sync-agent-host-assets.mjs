@@ -48,6 +48,50 @@ const copies = [
     src: join(repositoryRoot, "agent-host/agent-host.json"),
     dest: join(destDir, "agent-host.json"),
   },
+  {
+    src: join(repositoryRoot, "agent-host/langfuse-forwarder/package.json"),
+    dest: join(destDir, "langfuse-forwarder/package.json"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/langfuse-forwarder/package-lock.json"),
+    dest: join(destDir, "langfuse-forwarder/package-lock.json"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/langfuse-forwarder/tsconfig.json"),
+    dest: join(destDir, "langfuse-forwarder/tsconfig.json"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/langfuse-forwarder/src/classify.ts"),
+    dest: join(destDir, "langfuse-forwarder/src/classify.ts"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/langfuse-forwarder/src/config.ts"),
+    dest: join(destDir, "langfuse-forwarder/src/config.ts"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/langfuse-forwarder/src/deterministic-ids.ts"),
+    dest: join(destDir, "langfuse-forwarder/src/deterministic-ids.ts"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/langfuse-forwarder/src/events.ts"),
+    dest: join(destDir, "langfuse-forwarder/src/events.ts"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/langfuse-forwarder/src/index.ts"),
+    dest: join(destDir, "langfuse-forwarder/src/index.ts"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/langfuse-forwarder/src/mask.ts"),
+    dest: join(destDir, "langfuse-forwarder/src/mask.ts"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/langfuse-forwarder/src/parse.ts"),
+    dest: join(destDir, "langfuse-forwarder/src/parse.ts"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/langfuse-forwarder/src/state.ts"),
+    dest: join(destDir, "langfuse-forwarder/src/state.ts"),
+  },
 ];
 
 const checkOnly = process.argv.includes("--check");
