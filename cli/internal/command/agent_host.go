@@ -95,7 +95,7 @@ func newAgentHostApplyCommand() *cobra.Command {
 	command.Flags().IntVar(&slotCount, "slot-count", 0, "Override spec.slotCount")
 	command.Flags().BoolVar(&dryRun, "dry-run", false, "Plan changes only and exit non-zero on drift")
 	command.Flags().BoolVar(&diff, "diff", false, "Print detailed diffs of planned changes")
-	command.Flags().StringVar(&only, "only", "", "Filter resource types to apply (file, dir, user, sudoers, tmpfiles)")
+	command.Flags().StringVar(&only, "only", "", "Filter resource types to apply (user, group, dir, file, sudoers, tmpfiles, symlink, systemd, apparmor, apt, tarball, git, wiki, exec)")
 	command.Flags().BoolVar(&prune, "prune", false, "Remove decommissioned slot users, home directories, and run directories")
 	return command
 }

@@ -56,8 +56,18 @@ snippet or source text.
 
 ## Running the daemon
 
-From the repository root, start the long-lived indexer with a wiki worktree and the authorization
-server socket:
+On the agent host the daemon is deployed and managed entirely by `gdg agent-host apply` (there is
+no standalone installer). It writes a self-contained copy of `src/**` to `/opt/agents-index` — the
+`@gdgjp/gdg-lib/acl/agent` import is rewritten to a vendored esbuild bundle so no workspace
+resolution is needed — runs `npm ci` there, and manages `agents-index.service` as a **system**
+unit (`/etc/systemd/system/`) running as `gdgagent-svc` with `SupplementaryGroups=` for the slot
+socket groups. Its `--slots`, `--run-root`, and `--db` are derived from
+`agent-host/agent-host.json` (`slotCount`, `paths.runRoot`, `agentsIndex.dbPath`); nothing is
+configured twice. Set `agentsIndex.enabled` to `false` to turn it off: the next
+`gdg agent-host apply` stops and disables `agents-index.service`, removes the unit and
+`/opt/agents-index`, and leaves the persistent `/var/lib/agents-index` data in place.
+
+For local development, run the long-lived indexer directly against a wiki worktree:
 
 ```sh
 pnpm --filter @gdgjp/agents-index exec agents-index watch \
@@ -93,9 +103,10 @@ XANGI_AUTHZ_NONCE="${XANGI_AUTHZ_NONCE}" \
 pnpm --filter @gdgjp/agents-index exec node src/proxy.ts
 ```
 
-The host installer normally creates the static MCP configuration and launches this proxy for each
-agent slot. The production daemon runs under the service identity, which can read the index
-database; the proxy runs as the agent identity and must not be granted database access.
+`gdg agent-host apply` writes the static per-slot MCP configuration and the proxy shim
+(`/opt/gdg-agent/lib/index-proxy.ts`) that each agent slot launches. The production daemon runs
+under the service identity, which can read the index database; the proxy runs as the agent
+identity and must not be granted database access.
 
 For a manual protocol check, send one JSON object per line to the proxy:
 

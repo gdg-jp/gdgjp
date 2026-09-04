@@ -60,6 +60,12 @@ type SystemdSpec struct {
 	DropIns map[string]map[string]string `json:"dropIns"`
 }
 
+type AgentsIndexSpec struct {
+	Enabled bool   `json:"enabled"`
+	DataDir string `json:"dataDir"`
+	DBPath  string `json:"dbPath"`
+}
+
 type layoutPaths struct {
 	SlotCount     int
 	SpecAgentRoot string
@@ -169,13 +175,14 @@ type PathsSpec struct {
 }
 
 type SpecFile struct {
-	Schema    string      `json:"$schema,omitempty"`
-	SlotCount int         `json:"slotCount"`
-	Backend   BackendSpec `json:"backend"`
-	Discord   DiscordSpec `json:"discord"`
-	Pins      PinsSpec    `json:"pins"`
-	Paths     PathsSpec   `json:"paths"`
-	Systemd   SystemdSpec `json:"systemd,omitempty"`
+	Schema      string          `json:"$schema,omitempty"`
+	SlotCount   int             `json:"slotCount"`
+	Backend     BackendSpec     `json:"backend"`
+	Discord     DiscordSpec     `json:"discord"`
+	Pins        PinsSpec        `json:"pins"`
+	Paths       PathsSpec       `json:"paths"`
+	Systemd     SystemdSpec     `json:"systemd,omitempty"`
+	AgentsIndex AgentsIndexSpec `json:"agentsIndex,omitempty"`
 }
 
 func parseSpecBytes(raw []byte, origin string) (SpecFile, error) {
@@ -259,6 +266,22 @@ func parseSpecBytes(raw []byte, origin string) (SpecFile, error) {
 	}
 	if spec.Pins.Node.MinMinor < 0 {
 		return spec, fmt.Errorf("spec.pins.node.minMinor must be a non-negative integer in %s", origin)
+	}
+
+	// agentsIndex is optional; default the paths when enabled and unset.
+	if spec.AgentsIndex.Enabled {
+		if strings.TrimSpace(spec.AgentsIndex.DataDir) == "" {
+			spec.AgentsIndex.DataDir = "/var/lib/agents-index"
+		}
+		if !strings.HasPrefix(spec.AgentsIndex.DataDir, "/") {
+			return spec, fmt.Errorf("spec.agentsIndex.dataDir must be an absolute path in %s", origin)
+		}
+		if strings.TrimSpace(spec.AgentsIndex.DBPath) == "" {
+			spec.AgentsIndex.DBPath = filepath.Join(spec.AgentsIndex.DataDir, "index.db")
+		}
+		if !strings.HasPrefix(spec.AgentsIndex.DBPath, "/") {
+			return spec, fmt.Errorf("spec.agentsIndex.dbPath must be an absolute path in %s", origin)
+		}
 	}
 
 	return spec, nil

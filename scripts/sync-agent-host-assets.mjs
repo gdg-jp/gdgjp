@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -92,13 +92,65 @@ const copies = [
     src: join(repositoryRoot, "agent-host/langfuse-forwarder/src/state.ts"),
     dest: join(destDir, "langfuse-forwarder/src/state.ts"),
   },
+  // agents-index daemon: standalone runtime manifest (source of truth is
+  // agent-host/agents-index/). The daemon sources themselves are mirrored
+  // recursively from the @gdgjp/agents-index workspace package below, so that
+  // directory stays the single source of truth. The ACL import rewrite and the
+  // vendored acl bundle are applied by gdg agent-host apply at emit time, not
+  // here, so the copied sources stay byte-identical to the workspace package.
+  {
+    src: join(repositoryRoot, "agent-host/agents-index/package.json"),
+    dest: join(destDir, "agents-index/package.json"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/agents-index/package-lock.json"),
+    dest: join(destDir, "agents-index/package-lock.json"),
+  },
+];
+
+// Whole subtrees mirrored file-for-file, including deletions, so a newly added
+// or removed source cannot silently pass `--check` and then break the deployed
+// daemon with a missing module.
+const mirrors = [
+  {
+    srcDir: join(repositoryRoot, "agents-index/src"),
+    destDir: join(destDir, "agents-index/src"),
+    match: (name) => name.endsWith(".ts"),
+  },
 ];
 
 const checkOnly = process.argv.includes("--check");
 
+async function walkFiles(root, match, prefix = "") {
+  const out = [];
+  let entries;
+  try {
+    entries = await readdir(join(root, prefix), { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const entry of entries) {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      out.push(...(await walkFiles(root, match, rel)));
+    } else if (entry.isFile() && match(entry.name)) {
+      out.push(rel);
+    }
+  }
+  return out;
+}
+
 async function main() {
   let mismatched = 0;
-  for (const { src, dest } of copies) {
+
+  const pairs = [...copies];
+  for (const mirror of mirrors) {
+    for (const rel of await walkFiles(mirror.srcDir, mirror.match)) {
+      pairs.push({ src: join(mirror.srcDir, rel), dest: join(mirror.destDir, rel) });
+    }
+  }
+
+  for (const { src, dest } of pairs) {
     const want = await readFile(src);
     if (checkOnly) {
       let have;
@@ -118,6 +170,24 @@ async function main() {
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, want);
   }
+
+  // Reconcile deletions: any mirrored file whose source is gone must not linger.
+  for (const mirror of mirrors) {
+    const wanted = new Set(await walkFiles(mirror.srcDir, mirror.match));
+    for (const rel of await walkFiles(mirror.destDir, () => true)) {
+      if (wanted.has(rel)) continue;
+      const stale = join(mirror.destDir, rel);
+      if (checkOnly) {
+        console.error(
+          `stale mirrored asset: ${stale} has no counterpart in ${relative(repositoryRoot, mirror.srcDir)}`,
+        );
+        mismatched += 1;
+      } else {
+        await rm(stale);
+      }
+    }
+  }
+
   if (checkOnly && mismatched > 0) {
     process.exit(1);
   }

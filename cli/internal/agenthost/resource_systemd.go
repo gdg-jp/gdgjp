@@ -110,6 +110,19 @@ func (s *SystemdUnitResource) Plan(ctx context.Context) (Change, error) {
 		}
 	}
 
+	if s.Prefix == "" && os.Getuid() == 0 && s.Scope == "system" {
+		if s.Enable && !isSystemUnitEnabled(s.UnitName) {
+			ch.Action = ActionUpdate
+			ch.Diff = fmt.Sprintf("~ enable unit %s", s.UnitName)
+			return ch, nil
+		}
+		if s.ConditionStart != nil && s.ConditionStart() && !isSystemUnitActive(s.UnitName) {
+			ch.Action = ActionUpdate
+			ch.Diff = fmt.Sprintf("~ start unit %s", s.UnitName)
+			return ch, nil
+		}
+	}
+
 	return ch, nil
 }
 
@@ -167,8 +180,14 @@ func (s *SystemdUnitResource) Apply(ctx context.Context, c Change) error {
 			}
 		}
 		if reloaded && isSystemdRunning() {
-			if err := runAsUser(s.User, "systemctl", "--user", "daemon-reload"); err != nil {
-				rbErrs = append(rbErrs, fmt.Sprintf("systemctl --user daemon-reload during rollback failed: %v", err))
+			var rlErr error
+			if s.Scope == "system" {
+				rlErr = runSystemctl(context.Background(), "daemon-reload")
+			} else {
+				rlErr = runAsUser(s.User, "systemctl", "--user", "daemon-reload")
+			}
+			if rlErr != nil {
+				rbErrs = append(rbErrs, fmt.Sprintf("systemctl daemon-reload during rollback failed: %v", rlErr))
 			}
 		}
 		if len(rbErrs) > 0 {
@@ -220,7 +239,155 @@ func (s *SystemdUnitResource) Apply(ctx context.Context, c Change) error {
 		}
 	}
 
+	if s.Prefix == "" && os.Getuid() == 0 && s.Scope == "system" && isSystemdRunning() {
+		if err := runSystemctl(ctx, "daemon-reload"); err != nil {
+			if rbErr := rollback(); rbErr != nil {
+				return fmt.Errorf("%w; %v", err, rbErr)
+			}
+			return err
+		}
+		reloaded = true
+
+		if s.Enable {
+			if err := runSystemctl(ctx, "enable", s.UnitName); err != nil {
+				if rbErr := rollback(); rbErr != nil {
+					return fmt.Errorf("%w; %v", err, rbErr)
+				}
+				return err
+			}
+		}
+
+		if s.ConditionStart != nil {
+			if s.ConditionStart() {
+				action := "start"
+				if isSystemUnitActive(s.UnitName) {
+					action = "restart"
+				}
+				if err := runSystemctl(ctx, action, s.UnitName); err != nil {
+					if rbErr := rollback(); rbErr != nil {
+						return fmt.Errorf("%w; %v", err, rbErr)
+					}
+					return err
+				}
+			} else {
+				fmt.Printf("notice: skipping %s start (dependencies not yet installed)\n", s.UnitName)
+			}
+		}
+	}
+
 	return nil
+}
+
+// runSystemctl runs the system (PID 1) systemctl, surfacing its output on failure.
+func runSystemctl(ctx context.Context, args ...string) error {
+	out, err := exec.CommandContext(ctx, "systemctl", args...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("systemctl %s failed: %w (%s)", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+func isSystemUnitEnabled(unit string) bool {
+	return exec.Command("systemctl", "is-enabled", "--quiet", unit).Run() == nil
+}
+
+func isSystemUnitActive(unit string) bool {
+	return exec.Command("systemctl", "is-active", "--quiet", unit).Run() == nil
+}
+
+// SystemdUnitDeleteResource stops, disables, and removes a managed unit. It is
+// the systemd sibling of FileDeleteResource: used when a spec section that owned
+// a unit is turned off.
+type SystemdUnitDeleteResource struct {
+	UnitName string
+	Path     string
+	Scope    string // "user" or "system"
+	User     string
+	Prefix   string
+}
+
+func (s *SystemdUnitDeleteResource) ID() string { return s.UnitName }
+
+func (s *SystemdUnitDeleteResource) ResourceType() string { return "systemd" }
+
+func (s *SystemdUnitDeleteResource) live() bool {
+	if s.Prefix != "" || os.Getuid() != 0 {
+		return false
+	}
+	return s.Scope == "system" || (s.Scope == "user" && s.User != "")
+}
+
+func (s *SystemdUnitDeleteResource) isActiveOrEnabled() bool {
+	if s.Scope == "system" {
+		return isSystemUnitActive(s.UnitName) || isSystemUnitEnabled(s.UnitName)
+	}
+	return isUserUnitActive(s.User, s.UnitName) || isUserUnitEnabled(s.User, s.UnitName)
+}
+
+func (s *SystemdUnitDeleteResource) systemctl(ctx context.Context, args ...string) error {
+	if s.Scope == "system" {
+		return runSystemctl(ctx, args...)
+	}
+	return runAsUser(s.User, "systemctl", append([]string{"--user"}, args...)...)
+}
+
+func (s *SystemdUnitDeleteResource) Plan(_ context.Context) (Change, error) {
+	ch := Change{ResourceID: s.ID(), ResourceType: s.ResourceType(), Action: ActionNone}
+
+	if _, err := os.Stat(s.Path); err == nil {
+		ch.Action = ActionDelete
+		ch.Diff = fmt.Sprintf("- disable and remove unit %s (%s)", s.UnitName, s.Path)
+		return ch, nil
+	} else if !os.IsNotExist(err) {
+		return ch, err
+	}
+
+	// Unit file already gone; still reconcile a lingering enabled/active state.
+	if s.live() && s.isActiveOrEnabled() {
+		ch.Action = ActionDelete
+		ch.Diff = fmt.Sprintf("- stop and disable unit %s", s.UnitName)
+	}
+	return ch, nil
+}
+
+func (s *SystemdUnitDeleteResource) Apply(ctx context.Context, c Change) error {
+	if c.Action == ActionNone {
+		return nil
+	}
+	if s.live() && isSystemdRunning() {
+		if err := s.systemctl(ctx, "disable", "--now", s.UnitName); err != nil && !isMissingUnitError(err) {
+			return fmt.Errorf("disabling %s failed: %w", s.UnitName, err)
+		}
+	}
+	if err := os.Remove(s.Path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if s.live() && isSystemdRunning() {
+		if err := s.systemctl(ctx, "daemon-reload"); err != nil {
+			return fmt.Errorf("systemctl daemon-reload after removing %s failed: %w", s.UnitName, err)
+		}
+	}
+	return nil
+}
+
+// isMissingUnitError reports whether a systemctl failure is only "the unit is
+// already gone" (safe to ignore during teardown) rather than a real failure.
+func isMissingUnitError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	for _, marker := range []string{
+		"does not exist",
+		"not loaded",
+		"No such file",
+		"not found",
+	} {
+		if strings.Contains(msg, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func runAsUser(username string, command string, args ...string) error {

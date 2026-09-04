@@ -20,6 +20,10 @@ var configTemplates embed.FS
 //go:embed assets/langfuse-forwarder/* assets/langfuse-forwarder/src/*
 var langfuseForwarderFS embed.FS
 
+//go:embed assets/agents-index/package.json assets/agents-index/package-lock.json
+//go:embed assets/agents-index/src/* assets/agents-index/src/acl/* assets/agents-index/src/indexer/*
+var agentsIndexFS embed.FS
+
 func configBytes(name string) ([]byte, error) {
 	data, err := configTemplates.ReadFile("assets/config/" + name)
 	if err != nil {

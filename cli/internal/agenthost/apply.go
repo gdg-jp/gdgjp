@@ -81,19 +81,21 @@ func ApplyPlan(ctx context.Context, plan *Plan, opts ApplyOptions) error {
 		applied++
 	}
 
-	// Phase 3: Systemd unit resources and handlers
+	// Phase 3: Systemd unit resources and handlers.
+	// Re-plan against live state first, exactly as Phase 2 does for exec
+	// resources: a unit may have gone from ActionNone to needing a start once
+	// Phase 2 installed its dependencies (e.g. npm ci populated node_modules that
+	// a ConditionStart checks), so a stale pre-exec plan would skip it and
+	// convergence would need another apply.
 	for _, r := range systemdResources {
-		var targetChange Change
-		for i, orig := range plan.Resources {
-			if orig == r {
-				targetChange = plan.Changes[i]
-				break
-			}
+		freshChange, err := r.Plan(ctx)
+		if err != nil {
+			return fmt.Errorf("planning %s failed: %w", r.ID(), err)
 		}
-		if targetChange.Action == ActionNone {
+		if freshChange.Action == ActionNone {
 			continue
 		}
-		if err := r.Apply(ctx, targetChange); err != nil {
+		if err := r.Apply(ctx, freshChange); err != nil {
 			return fmt.Errorf("failed to apply %s (%s): %w", r.ID(), r.ResourceType(), err)
 		}
 		applied++

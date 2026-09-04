@@ -2057,4 +2057,62 @@ Accepted
 - sudoers 生成時の実バグが解消され、不正な設定による sudo 破損が構造的に防止された。
 - プロビジョニング用シェル本数 5 本が維持され、Stage 05（レイアウト Go 生成への移行）および Stage 06-07（Go 収束エンジン導入）への前提条件が整った。
 
+---
+
+## ADR-027: agents-index を spec と収束エンジンへ吸収し、プロビジョニング用シェルを bootstrap 1 本に一本化する
+
+### Status
+
+Accepted
+
+### Date
+
+2026-09-04
+
+### Context
+
+`docs/agents-local-refactoring/index.md` の Stage 08。同一ホスト上に 3 本目のインストーラ（`agents-index/install.sh`・252 行）が残っており、`agents-local/install.sh`（Stage 07 で撤去済み）との間に「先にこちらを走らせろ」という暗黙の実行順序と hard-fail があった。加えて `--slots 4` が spec の `slotCount` と二重管理になっていた。daemon は monorepo チェックアウト（`/opt/gdgjp/agents-index`）から `node src/cli.ts` で起動しており、Stage 13 の `/opt/gdgjp` 撤去をブロックしていた。
+
+### Decision
+
+**1. agents-index を宣言的 spec に載せる**
+
+- `agent-host/agent-host.json` に `agentsIndex`（`enabled` / `dataDir` / `dbPath`）を追加し、`agent-host.schema.json` で検証する。
+- `agents-index.service` の `--slots` と `SupplementaryGroups` は `spec.slotCount` から、`--run-root` は `spec.paths.runRoot` から導出する。リテラルで持たない。
+- `agents-index.service` は **system unit**（`/etc/systemd/system/`、`User=gdgagent-svc`、`WantedBy=multi-user.target`）とする。xangi/langfuse は `systemctl --user` だが、agents-index は per-slot ソケットを `gdgagent-run-<N>` グループへ `chgrp` するため `SupplementaryGroups=` が必須で、非特権の `--user` マネージャはグループ資格情報を設定できない（`GROUP` ステップで失敗する）。収束エンジンに system scope の `SystemdUnitResource` 対応を追加した。
+
+**2. 収束エンジンへ吸収する（新しいリソース型は足さない）**
+
+- `cli/internal/agenthost/agentsindex.go` が既存の `dir` / `file` / `systemd` / `exec` リソースだけで agents-index を展開する。全リソースが 1 つの `plan` に入るため、旧 hard-fail（順序依存）は不要になった。
+- `agents-index.service` の `[Unit]` にデプロイ成果物全体のダイジェスト（`# gdg-artifacts-rev:`）を埋め込む。ソース・ACL バンドル・lockfile のいずれかが変わると unit の内容が変わり、`SystemdUnitResource` が daemon-reload + restart を行う。新しい `gdg` バイナリを配っても古い Node プロセスが動き続けることはない。
+- `agentsIndex.enabled` が `false` のときは撤去を宣言する。`SystemdUnitDeleteResource`（`FileDeleteResource` の systemd 版）で unit を停止・無効化・削除し、`/opt/agents-index` も消す。永続データ `/var/lib/agents-index` は残す。
+- 収束エンジンへ渡す daemon ソースは、`agents-index/src` を再帰ミラー（削除も反映）した成果物にする。手書きのファイル一覧を持たない。
+- `agents-index/install.sh` と `.github/scripts/agents-index-install.test.mjs` を削除し、アサーションを golden ツリーと `agentsindex_test.go` へ移した。
+
+**3. 自己完結した成果物から起動する**
+
+- `gdg agent-host apply` が `/opt/agents-index` へ daemon ソースを配置する。`@gdgjp/agents-index` workspace パッケージの `src/**` を verbatim でコピーし、`@gdgjp/gdg-lib/acl/agent` の import だけを、隣に置く esbuild バンドル（Stage 05 で `/opt/gdg-agent/lib/acl.ts` に配置しているものと同一）へ書き換える。
+- 標準の `package.json` + `package-lock.json`（`workspace:*` 依存なし）を `agent-host/agents-index/` に置き、`npm ci` を `exec` リソースで回す（`/opt/xangi`・`/opt/langfuse-forwarder` と同じ方式）。
+- `agents-index.service` の `ExecStart` に `/opt/gdgjp` は現れない。これが Stage 13 の `/opt/gdgjp` 撤去の前提を満たす。
+
+**4. シェル一本化の到達点**
+
+- agent-host のプロビジョニング用シェルは `scripts/install-gdg-agent-host.sh`（bootstrap・約 40 行）1 本のみ。
+- CI の不変条件は `find` の総数ではなく、`.github/scripts/shell-allowlist.txt` との完全一致で表現する（`git ls-files '*.sh'` と照合）。新しいシェルを足すには allowlist の変更が PR の diff に現れる。
+
+### Alternatives Considered
+
+- **esbuild で agents-index を単一ファイルへバンドル**: ビルドツールの追加が必要。native 依存（`better-sqlite3` 等）は結局 `npm ci` になるため、import 書き換え方式の方が既存パターンに収まる。
+- **`/opt/agents-index` へ専用 git clone**: チェックアウト依存が残り、Stage 13 の `/opt/gdgjp` 撤去と本質的に同じ問題を先送りするだけ。
+- **`systemctl --user` unit（xangi と同じ）+ `SupplementaryGroups=` を落として親マネージャのグループ継承に頼る**: slot 追加時にユーザーマネージャの再起動（xangi も巻き添えで停止）が必要になり、収束が壊れる。system unit なら PID 1 が明示的にグループを設定できる。
+
+### Consequences
+
+- 1 コマンド（`gdg agent-host apply`）で agents-index を含むホスト全体が収束する。
+- `slotCount` を変えると `agents-index.service` の `--slots` と `SupplementaryGroups` が追随する。二重管理の余地が消えた。
+- agents-index が `/opt/gdgjp` を参照しなくなり、Stage 13 の clone 撤去の前提が整った。
+- `ApplyPlan` の Phase 3（systemd）が Phase 2（exec）と同様にライブ状態で再 plan するようになった。`npm ci` が `node_modules` を作った直後の同一 apply で unit が起動するようになり、収束に追加の apply が要らなくなった。
+- `SystemdUnitDeleteResource` の `systemctl` 失敗（`disable --now` / `daemon-reload`）を握り潰さず伝播する。unit が本当に存在しない場合のみ許容する。
+- agent-host のプロビジョニング用シェルが 2 本 → 1 本（開始時点の 7 本からの到達点）。一本化が完了した。
+
 

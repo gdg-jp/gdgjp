@@ -704,6 +704,13 @@ WantedBy=timers.target
 		})
 	}
 
+	// 9. agents-index daemon (folded in from agents-index/install.sh at Stage 08).
+	aiRes, err := buildAgentsIndexResources(paths)
+	if err != nil {
+		return nil, err
+	}
+	res = append(res, aiRes...)
+
 	// 6. Cleanup of obsolete/decommissioned resources gated by prune
 	if prune {
 		// 6a. Undeclared bin files (ResourceType: "file")
@@ -713,6 +720,9 @@ WantedBy=timers.target
 				"wk":          true,
 				"gws":         true,
 				"index-proxy": true,
+			}
+			if paths.Spec.AgentsIndex.Enabled {
+				knownBin["agents-index"] = true
 			}
 			for slot := 0; slot < paths.SlotCount; slot++ {
 				knownBin["spawn-slot-"+strconv.Itoa(slot)] = true

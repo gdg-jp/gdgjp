@@ -1,0 +1,14 @@
+{
+  "name": "@gdgjp/agents-index-host",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Standalone runtime manifest for the agents-index daemon deployed at /opt/agents-index by gdg agent-host apply. Source of truth for src/** is the @gdgjp/agents-index workspace package.",
+  "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
+    "better-sqlite3": "^12.10.0",
+    "chokidar": "^4.0.3",
+    "sqlite-vec": "^0.1.7-alpha.2",
+    "yaml": "^2.9.0"
+  }
+}

@@ -195,6 +195,24 @@
         }
       },
       "additionalProperties": false
+    },
+    "agentsIndex": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "dataDir": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "dbPath": {
+          "type": "string",
+          "pattern": "^/"
+        }
+      },
+      "required": ["enabled"],
+      "additionalProperties": false
     }
   },
   "required": ["slotCount", "backend", "discord", "pins", "paths"],

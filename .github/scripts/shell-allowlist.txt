@@ -1,0 +1,12 @@
+agent-host/config/spawn-slot.sh
+agent-host/dev/activate.sh
+agent-host/dev/provision.sh
+agent-host/dev/seed-gws-fake-token.sh
+agent-host/dev/seed-iam.sh
+scripts/dump-schema.sh
+scripts/install-gdg-agent-host.sh
+scripts/migrate-cf-1-export.sh
+scripts/migrate-cf-2-import.sh
+scripts/migrate-wiki-1-export.sh
+scripts/migrate-wiki-2-import.sh
+tinyurl/public/cli/install.sh

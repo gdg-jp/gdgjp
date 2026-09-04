@@ -246,6 +246,49 @@ test("legacy bash installer and verify scripts are deleted", () => {
     false,
     "agent-host/lib/verify.sh must be removed; replaced by gdg agent-host verify",
   );
+  assert.equal(
+    existsSync(join(repositoryRoot, "agents-index/install.sh")),
+    false,
+    "agents-index/install.sh must be removed; folded into gdg agent-host apply (Stage 08)",
+  );
+  assert.equal(
+    existsSync(join(repositoryRoot, ".github/scripts/agents-index-install.test.mjs")),
+    false,
+    "agents-index-install.test.mjs must be removed; assertions moved to the golden tree and agentsindex_test.go",
+  );
+});
+
+test("tracked *.sh files match the checked-in shell allowlist", async () => {
+  const ls = spawnSync("git", ["ls-files", "*.sh"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  });
+  assert.equal(ls.status, 0, ls.stderr);
+  const tracked = ls.stdout.trim().split("\n").filter(Boolean).sort();
+
+  const allowlistRaw = await readFile(
+    join(repositoryRoot, ".github/scripts/shell-allowlist.txt"),
+    "utf8",
+  );
+  const allowlist = allowlistRaw.trim().split("\n").filter(Boolean).sort();
+
+  assert.deepEqual(
+    tracked,
+    allowlist,
+    "git ls-files '*.sh' drifted from .github/scripts/shell-allowlist.txt. " +
+      "Adding a shell script must show up as an allowlist change in the PR diff.",
+  );
+
+  // The agent-host provisioning path is a single shell (the bootstrap). The only
+  // *.sh allowed under agent-host/ are the Lima dev helpers and the spawn-slot
+  // template, never a provisioning installer.
+  const agentHostShells = allowlist.filter((p) => p.startsWith("agent-host/"));
+  for (const path of agentHostShells) {
+    assert.ok(
+      path.startsWith("agent-host/dev/") || path === "agent-host/config/spawn-slot.sh",
+      `unexpected shell under agent-host/: ${path} (provisioning must be bootstrap-only)`,
+    );
+  }
 });
 
 test("gdg agent-host apply prefix mode writes layout", async () => {
@@ -406,6 +449,48 @@ test("gdg agent-host apply prefix mode writes layout", async () => {
   }
 });
 
+// agents-index.service runs `node /opt/agents-index/src/cli.ts` through Node's
+// strip-only TypeScript loader. Non-erasable syntax (parameter properties, enums,
+// namespaces) makes that a restart loop with ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX.
+// Load every rendered daemon source and assert the loader accepts it. Missing
+// npm deps surface as ERR_MODULE_NOT_FOUND, which is fine here — the loader ran.
+test("rendered agents-index daemon sources load under Node's strip-only loader", async () => {
+  const prefix = await mkdtemp(join(tmpdir(), "gdg-agent-ai-smoke-"));
+  try {
+    const result = emitLayout({
+      ...process.env,
+      GDG_SETUP_PREFIX: prefix,
+      GDG_AGENT_SLOT_COUNT: "4",
+      GDG_BIN: ensureGdgBin(),
+    });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+
+    const srcRoot = join(prefix, "opt/agents-index/src");
+    const walk = async (dir) => {
+      const out = [];
+      for (const e of await readdir(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) out.push(...(await walk(p)));
+        else if (e.name.endsWith(".ts")) out.push(p);
+      }
+      return out;
+    };
+    const files = await walk(srcRoot);
+    assert.ok(files.length >= 10, `expected the daemon tree, found ${files.length} files`);
+
+    for (const file of files) {
+      const run = spawnSync(process.execPath, [file], { encoding: "utf8" });
+      assert.doesNotMatch(
+        run.stderr ?? "",
+        /ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX/,
+        `${file} contains non-erasable TypeScript; the deployed daemon cannot load it:\n${run.stderr}`,
+      );
+    }
+  } finally {
+    await rm(prefix, { recursive: true, force: true });
+  }
+});
+
 test("agent-host/workspace/ contains no private Google Drive/Sheets URLs or Discord IDs", async () => {
   const workspaceDir = join(repositoryRoot, "agent-host/workspace");
   const entries = await readdir(workspaceDir, { recursive: true, withFileTypes: true });
@@ -479,6 +564,31 @@ test("agent-host.json slotCount changes propagate to sudoers, tmpfiles, and per-
 
     assert.equal(existsSync(join(prefix, "home/gdgagent-run-2/.cursor/sandbox.json")), true);
     assert.equal(existsSync(join(prefix, "home/gdgagent-run-3/.cursor/sandbox.json")), false);
+
+    // agents-index is folded into the same spec: --slots and SupplementaryGroups
+    // follow slotCount, with no /opt/gdgjp checkout dependency. It is a system
+    // unit (User=/Group=) because a --user manager cannot set the slot groups
+    // the daemon needs to chgrp the per-slot index sockets.
+    const unit = await readFile(join(prefix, "etc/systemd/system/agents-index.service"), "utf8");
+    assert.match(unit, /^User=gdgagent-svc$/m);
+    assert.match(unit, /^Group=gdgagent-svc$/m);
+    assert.match(unit, /^WantedBy=multi-user\.target$/m);
+    assert.match(unit, /--slots 3 /);
+    assert.match(
+      unit,
+      /SupplementaryGroups=gdgwiki gdgagent-run-0 gdgagent-run-1 gdgagent-run-2$/m,
+    );
+    assert.doesNotMatch(unit, /gdgagent-run-3/);
+    assert.doesNotMatch(unit, /\/opt\/gdgjp/);
+    assert.match(unit, /# gdg-artifacts-rev: [0-9a-f]{16}/);
+    assert.match(unit, /ExecStart=\/usr\/bin\/node \/opt\/agents-index\/src\/cli\.ts watch/);
+
+    // The daemon deploys self-contained; the ACL import is rewritten off @gdgjp/gdg-lib.
+    const filter = await readFile(join(prefix, "opt/agents-index/src/acl/filter.ts"), "utf8");
+    assert.doesNotMatch(filter, /@gdgjp\/gdg-lib/);
+    assert.match(filter, /from "\.\/agent\.ts"/);
+    assert.equal(existsSync(join(prefix, "opt/agents-index/src/acl/agent.ts")), true);
+    assert.equal(existsSync(join(prefix, "opt/agents-index/package-lock.json")), true);
   } finally {
     await rm(prefix, { recursive: true, force: true });
     await rm(specDir, { recursive: true, force: true });

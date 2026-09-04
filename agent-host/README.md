@@ -62,13 +62,21 @@ turn is told in Discord; it is not run without the lock.
 - `workspace/` (`.agents/`, `.claude/`, `.codex/`, `AGENTS.md`) — hand-curated skills and guidelines
   (`wiki-ingest`, `wiki-lint`, `wiki-query`) that teach the coding agent how to work with the wiki
   content in the target worktree.
-- `install.sh` — Ubuntu host bootstrap: clone gdgjp (xangi `gdg-lib` only), OS users,
-  `gdg agent-host emit-layout`, and systemd units.
-- `lib/verify.sh` — host verification checks (13 inspections for live paths and uid boundaries).
+- `../scripts/install-gdg-agent-host.sh` — the only provisioning shell (~40 lines): Ubuntu check,
+  minimal apt prerequisites, pinned `gdg` fetch, then `exec gdg agent-host apply`. Everything else
+  is the Go converger.
 - `config/` — templates for `hooks.json`, `cli-config.json`, `sandbox.json`,
   `mcp.json`, and the argument-less `spawn-slot-<N>` launchers.
-- `gdg agent-host emit-layout` — idempotent file placement (prefixable for tests)
-  plus `--apply-ownership` for live chown/chmod/apparmor/linger.
+- `gdg agent-host apply` — declarative convergence (idempotent, `--prefix` for tests,
+  `--dry-run --diff` to review, `--only <type>` to scope). `gdg agent-host verify` runs the 13
+  live-path and uid-boundary inspections.
+- `agents-index/` — standalone runtime manifest (`package.json` + `package-lock.json`) for the
+  ACL-filtered wiki search daemon. `gdg agent-host apply` deploys it to `/opt/agents-index`
+  (daemon sources from the `@gdgjp/agents-index` workspace package, ACL import rewritten off
+  `@gdgjp/gdg-lib`), runs `npm ci`, and manages `agents-index.service` — a **system** unit
+  running as `gdgagent-svc` with `SupplementaryGroups=` for the slot socket groups — whose
+  `--slots` follow `spec.slotCount`. It starts once `npm ci` has populated
+  `/opt/agents-index/node_modules`; it needs no credential file. There is no separate installer.
 - `langfuse-forwarder/` — standalone Node tool that reads xangi's
   `logs/observability/*.jsonl` and forwards it to Langfuse Cloud JP as sessions/traces/typed observations.
   Deployed to `/opt/langfuse-forwarder`, run by `langfuse-forwarder.timer` (every 5 min).
@@ -77,25 +85,42 @@ turn is told in Discord; it is not run without the lock.
 
 ## Setup (on the Ubuntu server)
 
-Hooks are embedded in the `gdg` binary (`gdg agent-host emit-layout`).
-`/opt/gdgjp` remains for xangi's `file:` `gdg-lib` until Stage 13.
-The bootstrap URL (`curl -fsSL ... | sudo bash`) will return in Stage 08 once host provisioning is extracted.
+Everything below is embedded in the `gdg` binary and driven by `gdg agent-host apply`.
+`/opt/gdgjp` remains only for xangi's `file:` `gdg-lib` until Stage 13; agents-index no longer
+depends on it.
 
-Currently, install from a gdgjp checkout:
+Bootstrap a bare Ubuntu host with the single provisioning shell
+(`scripts/install-gdg-agent-host.sh`, ~40 lines). It installs the apt prerequisites, fetches the
+`gdg` CLI pinned by version + sha256 from `agent-host.json` to `/usr/local/bin/gdg` (plus the
+`git-remote-gdg-wiki` symlink), and `exec`s `gdg agent-host apply`:
 
 ```bash
-sudo ./agent-host/install.sh
+# from a checkout
+sudo ./scripts/install-gdg-agent-host.sh
+
+# or piped from the public repo (equivalent, no checkout needed)
+curl -fsSL https://raw.githubusercontent.com/gdg-jp/gdgjp/main/scripts/install-gdg-agent-host.sh | sudo bash
 ```
 
-`install.sh` is Ubuntu-only for live paths. Stage 1 clones gdgjp to `/opt/gdgjp` when needed
-(xangi's `file:` `gdg-lib` only; hooks come from `gdg agent-host emit-layout`),
-creates the uid-isolation users, writes
-`/opt/gdg-agent`, installs `gdg` to `/usr/local/bin` (plus `git-remote-gdg-wiki`), installs
-Cursor CLI and [Harineko0/xangi](https://github.com/Harineko0/xangi) at `/opt/xangi`, and enables
-the systemd `--user` unit. If credentials are available (or it has a TTY), it automatically chains
-to stage 2: service-user login, cloning `/srv/gdg-agent/wiki` when empty, seeding gitignored Cursor
-files and skills from `agent-host/workspace/`, applying `xangi setup --apply`, and conditionally starting
-the service. To explicitly run stage 2, use `sudo ./agent-host/install.sh --activate`.
+Do **not** use `url.gdgs.jp/cli/install.sh` here: that installer places `gdg` under
+`~/.local/bin`, tracks the latest release rather than the spec pin, and does not run the
+converger.
+
+`gdg agent-host apply` is Ubuntu-only for live paths. It installs the apt prerequisites and the
+pinned Node, creates the uid-isolation users, writes `/opt/gdg-agent`, installs Cursor CLI and
+[Harineko0/xangi](https://github.com/Harineko0/xangi) at `/opt/xangi`, deploys the agents-index
+daemon to `/opt/agents-index`, and manages the systemd units — `xangi.service` /
+`langfuse-forwarder.*` as `gdgagent-svc` `--user` units, `agents-index.service` as a system unit.
+Re-running it converges only the differences; review first with
+`sudo gdg agent-host apply --dry-run --diff`.
+
+| Old `install.sh` invocation | Now |
+| --- | --- |
+| `sudo ./agent-host/install.sh` | `sudo gdg agent-host apply` |
+| `sudo ./agent-host/install.sh --activate` | `sudo gdg agent-host secrets import` then `sudo gdg agent-host secrets login` |
+| `sudo ./agent-host/install.sh --reload-config` | `sudo gdg agent-host apply` (or `--only systemd,git,exec` to scope) |
+| `sudo ./agents-index/install.sh` | (folded in — `gdg agent-host apply` deploys and manages agents-index) |
+| `sudo ./agent-host/lib/verify.sh` | `sudo gdg agent-host verify` |
 
 After activation, only secrets that cannot be invented on the host remain:
 
@@ -111,15 +136,17 @@ After activation, only secrets that cannot be invented on the host remain:
    account or is already present; `langfuse-forwarder.timer` starts automatically once it exists.
    Observability is optional — the bot works without it
 
-If an unattended stage 1 has no credentials to copy, it finishes successfully and prints the
-activation command. `install.sh --activate` runs `gdg login --device` as `gdgagent-svc` (needs a
-TTY) before cloning the wiki.
+`gdg agent-host apply` finishes successfully with no secrets present. `agents-index.service`
+starts as soon as `npm ci` has run (no credential needed); `xangi.service` and
+`langfuse-forwarder.timer` each stay stopped until their credential file
+exists. `sudo gdg agent-host secrets login` runs `gdg login --device` as `gdgagent-svc` (needs a
+TTY) before cloning the wiki; `sudo gdg agent-host secrets import` copies operator credentials
+into the service and slot accounts.
 
-After a config-only change (e.g. `AGENT_MODEL` in `write_xangi_user_unit`) or a code change
-pushed to `Harineko0/xangi`, run `sudo ./agent-host/install.sh --reload-config` to pull the
-latest `/opt/xangi` checkout (`git pull --ff-only` + `npm ci`), regenerate the `xangi.service`
-and `langfuse-forwarder.timer` unit/drop-in files, and restart whichever of them is currently
-active. Unlike `--activate`, it does not run login, wiki cloning, or `xangi setup`.
+After a config-only change (e.g. `backend.model` in `agent-host.json`) or a new `pins.xangi.ref`,
+re-run `sudo gdg agent-host apply` — it re-pins `/opt/xangi`, regenerates the unit/drop-in files,
+and restarts whichever units changed. Scope it with `--only systemd,git,exec` to skip the layout
+pass.
 
 Do not put the worktree under a slot home directory. `gdg wiki *` and `git push`
 run as `gdgagent-svc` and need group write via `gdgwiki` + setgid `2770`.

@@ -46,5 +46,10 @@
     "agentRoot": "/opt/gdg-agent",
     "workspace": "/srv/gdg-agent/wiki",
     "runRoot": "/run/gdg-agent"
+  },
+  "agentsIndex": {
+    "enabled": true,
+    "dataDir": "/var/lib/agents-index",
+    "dbPath": "/var/lib/agents-index/index.db"
   }
 }
