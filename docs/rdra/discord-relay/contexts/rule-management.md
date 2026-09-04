@@ -48,7 +48,7 @@ boundary:
       actors: ["ACTOR-001"]
       screens: ["SCR-301"]
       traces_to: ["BUC-301"]
-      description: "既存ルールの構成を変更する。変更は設定バージョンを進め Data Plane に伝播する"
+      description: "既存ルールの構成を変更する。変更は設定バージョンを進める。Data Plane に伝わるのは対象イベント種別とギルドだけで、フィルタと配信先は Control Plane に留まる"
     - id: "UC-303"
       name: "ルールを有効化・無効化する"
       actors: ["ACTOR-001"]
@@ -106,7 +106,7 @@ boundary:
   screens:
     - id: "SCR-301"
       name: "ルール編集画面"
-      description: "名前・対象イベント・フィルタ・配信先の指定"
+      description: "名前・対象イベント・フィルタ・配信先の指定。対象イベントの変更が Data Plane の購読仕様に反映されるまでの待ち状態を表示する"
       information: ["INFO-004", "INFO-002"]
     - id: "SCR-302"
       name: "イベント選択画面"
@@ -122,7 +122,7 @@ boundary:
       information: ["INFO-004", "INFO-007", "INFO-008"]
     - id: "SCR-305"
       name: "ルール一覧画面"
-      description: "ルールと状態の一覧。有効化・無効化・削除の起点"
+      description: "ルールと状態の一覧。有効化・無効化・削除の起点。Data Plane への購読仕様の反映が保留中であることを併記する"
       information: ["INFO-004"]
 
 system:
@@ -135,7 +135,7 @@ system:
       traces_to: ["UC-301", "UC-302", "UC-303", "UC-304", "UC-307", "UC-308"]
     - id: "COND-302"
       name: "配信先 URL が SSRF ガードを通過すること"
-      description: "プライベート・リンクローカル・ループバック宛を拒否する。OCI のメタデータ 169.254.169.254 は特に重要"
+      description: "プライベート・リンクローカル・ループバック宛を拒否する。配信は Control Plane から出るため多層防御の 1 枚目という位置づけ (ADR-001)"
       traces_to: ["UC-307"]
     - id: "COND-303"
       name: "選択イベントに必要な Intent が有効であること"
@@ -235,21 +235,20 @@ sequenceDiagram
     Note over ORG,CP: ここまで状態は Draft (未配信)
 
     ORG->>CP: UC-310 ドライラン
-    CP->>DP: 直近 N 件に対する評価を依頼
-    DP-->>CP: マッチ件数と内訳
+    CP->>CP: D1 に溜まった直近 N 件を評価
     CP-->>ORG: SCR-304 何件マッチしたか
 
     ORG->>CP: UC-309 テスト配信
-    CP->>DP: サンプルペイロードで即時配信
-    DP->>EP: HTTP POST (署名付き)
-    EP-->>DP: レスポンス
-    DP-->>CP: ステータス・所要時間・本文
-    CP-->>ORG: 応答を表示
+    CP->>EP: HTTP POST (署名付き)
+    EP-->>CP: レスポンス
+    CP-->>ORG: 応答を即時表示
+    Note over CP,EP: ADR-006 により Control Plane で完結する。<br/>Data Plane への往復が無いので待たされない
 
     ORG->>CP: UC-303 有効化
     CP->>CP: 状態を Enabled へ、設定バージョンを進める
-    CP->>DP: 設定を伝播
-    Note over DP: 以降 BIZ-004 が実イベントを配信する
+    DP->>CP: 次の tick
+    CP-->>DP: 新しい設定バージョンを通知
+    Note over DP: 対象イベント種別が増えていれば<br/>DP が GET /config で購読仕様を取り直す。<br/>フィルタと配信先は DP に渡らない
 ```
 
 ## ロバストネス図: UC-307 配信先を登録する
@@ -286,7 +285,15 @@ flowchart LR
 ## SSRF ガードの要件 (COND-302)
 
 配信先 URL は外部から自由に指定できるため、内部ネットワークへの踏み台になり得る。
-**OCI 上ではインスタンスメタデータサービス `169.254.169.254` が到達可能**なので、これは必須要件。
+
+[ADR-001](../../../discord-relay/adr.md#adr-001-data-plane-を-gateway-転送専用に絞り配信を-control-plane-に寄せる)
+により配信は Control Plane から出るようになった。Cloudflare のネットワークからは
+インスタンスメタデータ `169.254.169.254` のようなリンクローカル宛が**そもそも経路上に存在しない**ため、
+この要件は「実装が正しくないと危険」から **「多層防御の 1 枚目」** に位置づけが変わった。
+
+**ただし要件自体は残す。** Cloudflare がプライベート宛先への到達不能を
+セキュリティ保証として文書化しているわけではなく、将来 fat DP へ戻す判断が
+あり得る以上、ガードを外す理由がない。
 
 | チェック | 内容 |
 |---|---|

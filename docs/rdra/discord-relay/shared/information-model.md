@@ -247,7 +247,11 @@ entities:
       - name: "id"
         type: "string (ULID)"
         required: true
-        description: "主キー。配信の Idempotency-Key になる"
+        description: "主キー。Data Plane が受信時に採番する。転送リトライの冪等キーと ack の基準になる"
+      - name: "dedupeKey"
+        type: "string (sha256 hex)"
+        required: true
+        description: "sha256(type ‖ canonical_json(payload))。RESUME による再配送を同一イベントと判定する。Idempotency-Key の素材
       - name: "type"
         type: "string"
         required: true
@@ -281,9 +285,9 @@ entities:
         required: true
         description: "マッチしたルール。ライブビューアのデバッグ表示に使う"
       - name: "payload"
-        type: "json"
+        type: "R2 オブジェクトキー"
         required: false
-        description: "Discord の d フィールド。storePayload=false のルールのみに紐づく場合は保存しない"
+        description: "Discord の d フィールドを R2 に置いた参照。storePayload=false のルールのみに紐づく場合は保存しない
     relations:
       - target: "INFO-002"
         type: "N:1"
@@ -300,7 +304,11 @@ entities:
       - name: "id"
         type: "string"
         required: true
-        description: "主キー。X-Discord-Relay-Delivery-Id になる"
+        description: "主キー。X-Discord-Relay-Delivery-Id になる。試行ごとに変わる"
+      - name: "idempotencyKey"
+        type: "string"
+        required: true
+        description: "sha256(ReceivedEvent.dedupeKey ‖ ruleId)。同一イベント × 同一ルールで常に同じ値になり、リトライでも RESUME 再配送でも変わらない。Idempotency-Key ヘッダの値
       - name: "eventId"
         type: "string"
         required: true
@@ -322,9 +330,9 @@ entities:
         required: false
         description: "HTTP ステータス"
       - name: "responseBody"
-        type: "string"
+        type: "R2 オブジェクトキー"
         required: false
-        description: "レスポンス本文（長さ上限あり）"
+        description: "リクエスト/レスポンス本文を R2 に置いた参照。1 件詳細を開いたときにだけ読む
       - name: "durationMs"
         type: "number"
         required: false
@@ -385,7 +393,7 @@ entities:
 
   - id: "INFO-010"
     name: "GatewaySession"
-    description: "Gateway 接続の現在状態。全チャプターで 1 レコード（将来のシャード化で N になる）"
+    description: "Gateway 接続の現在状態。全チャプターで 1 レコード（将来のシャード化で N になる）。実体は Data Plane のディスクにあり（プロセス再起動をまたいで RESUME するため）、tick の heartbeat で Control Plane に複製される。画面が読むのは複製のほう
     attributes:
       - name: "shardId"
         type: "number"
@@ -495,10 +503,17 @@ entities:
 |---|---|---|
 | チャプターと所属 | **GDG Accounts** | INFO-001 の実体。本アプリは表示用キャッシュのみ持つ |
 | 設定 | **Control Plane (D1)** | INFO-002 〜 INFO-006、INFO-011、INFO-012 |
-| 実行時データ | **Data Plane (OCI)** | INFO-007 〜 INFO-010 |
+| 実行時データのメタ | **Control Plane (D1)** | INFO-007 〜 INFO-009 の索引・集計対象の属性 |
+| 実行時データの本文 | **Control Plane (R2)** | INFO-007 の `payload`、INFO-008 の `responseBody` |
+| Gateway セッション状態 | **Data Plane (OCI のディスク)** | INFO-010。再起動をまたいで RESUME するため永続する。heartbeat で CP に複製される |
 
-設定は低頻度・整合性重視で画面から編集するため Workers 側に、
-配信ログは高頻度・大量で OCI 側に置く。画面は Data Plane の read API 経由で履歴を表示する。
+[ADR-001](../../../discord-relay/adr.md#adr-001-data-plane-を-gateway-転送専用に絞り配信を-control-plane-に寄せる)
+により、配信は Control Plane が行う。したがって配信ログの SSoT も Control Plane にある。
+
+**SCR-502（配信履歴）と SCR-503（DLQ 一覧）は「Data Plane が落ちている」という最も見たい障害のときに開かれる画面である。**
+参照先を Data Plane に置くと、その瞬間に何も見えなくなる。これがメタを D1 に置く決定的な理由であり、
+[ADR-006](../../../discord-relay/adr.md#adr-006-配信基盤に-cloudflare-queues-を採りメタデータは-d1本文は-r2-に置く)
+で本文だけを R2 に分けたのは、一覧クエリを本文の重さに引きずらせないためである。
 
 ## ER 図
 

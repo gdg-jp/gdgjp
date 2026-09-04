@@ -136,6 +136,7 @@ wiki/agents の Application も xangi のトークンも再利用しない。
 | SETUP-2 | 特権 Intent（`MESSAGE_CONTENT` ほか必要分）を有効化 | wiki/agents の Application とは別に申請が要る |
 | SETUP-3 | 各チャプターの Discord サーバーへ招待 | BIZ-002 の招待フローで吸収する。追加実装は不要 |
 | SETUP-4 | 100 サーバー到達前に Bot verification を申請 | GDG + GDGoC のチャプター数次第で射程に入る |
+| SETUP-5 | Plane 間共有シークレットの発行とローテーション手順の整備 | 新旧 2 鍵を常に受け付ける（[ADR-005](../../discord-relay/adr.md#adr-005-plane-間認証を-2-鍵ローテーション可能な-bearer-共有シークレットにする)）。CP は `wrangler secret put`、DP は systemd の `EnvironmentFile` |
 
 ## システムコンテキスト図
 
@@ -162,10 +163,16 @@ graph TB
     ADM -->|Intent 管理・横断介入| CP
     CP -->|OIDC 認証| IDP
     CP -->|Bot 招待の code 交換| API
-    CP <-->|設定の配布 / 状態とログの取得| DP
+    DP -->|tick: イベント転送 / heartbeat<br/>接続は常に DP 発| CP
+    CP -.->|tick 応答: 購読仕様の版 / コマンド| DP
     GW -->|イベント push| DP
-    DP -->|HTTP POST| EP
+    CP -->|HTTP POST| EP
 ```
+
+**矢印の向きが設計判断そのものである。** Plane 間の TCP は常に DP から CP へ張られ、
+CP → DP の情報はすべて tick の応答に相乗りする（[ADR-002](../../discord-relay/adr.md#adr-002-plane-間通信をアウトバウンド片方向に限定しoci-にインバウンド経路を作らない)、
+[ADR-004](../../discord-relay/adr.md#adr-004-tick-エンドポイント-1-本に-heartbeatコマンドconfig-バージョンを相乗りさせる)）。
+配信先への HTTP POST は Control Plane から出る（[ADR-001](../../discord-relay/adr.md#adr-001-data-plane-を-gateway-転送専用に絞り配信を-control-plane-に寄せる)）。
 
 ## コンテキスト間関係図
 
@@ -192,13 +199,29 @@ graph LR
 
 ## Plane 分割
 
+境界は「Gateway セッションを保持できるか」の一点だけで引く
+（[ADR-001](../../discord-relay/adr.md#adr-001-data-plane-を-gateway-転送専用に絞り配信を-control-plane-に寄せる)）。
+
 | Plane | パッケージ | 実行環境 | 責務 |
 |---|---|---|---|
-| Control Plane | `discord-relay/` | Cloudflare Workers (React Router v7) | ダッシュボード、OIDC RP、設定の SSoT (D1)、Bot 招待コールバック |
-| Data Plane | `discord-relay-gateway/` | OCI 無料枠 VM（常時稼働） | Gateway 接続、ルール評価、永続キュー、配信、リトライ、DLQ、配信ログの SSoT |
+| Control Plane | `discord-relay/` | Cloudflare Workers (React Router v7) | ダッシュボード、OIDC RP、設定の SSoT (D1)、Bot 招待コールバック、**ルール評価・正規化・キュー・配信・リトライ・DLQ・配信ログの SSoT** |
+| Data Plane | `discord-relay-gateway/` | OCI `VM.Standard.A1.Flex`（arm64）1 台・常時稼働 | Gateway 接続、RESUME、**粗いフィルタ（ギルド + イベント種別）**、転送バッファ、Control Plane への転送 |
 
 Workers は常時 WebSocket クライアントを保持できないため Gateway は OCI に置く。
 一方 `gdg-lib` の `initializeRpAuth` は Workers + D1 前提なので、認証は Control Plane 側に置いて再利用する。
+それ以外の責務は Control Plane に寄せた。
+
+**Data Plane に渡す設定は秘匿値を含まない。** 配信先 URL・署名シークレット・カスタムヘッダ・
+細かいフィルタ（チャンネル / 投稿者 / キーワード）はすべて Control Plane に留まる。
+DP が持つ秘密は **Discord Bot トークン 1 つだけ**であり、**DP は GDG のチャプターという概念を知らない**。
+
+**Plane 間の TCP 接続は常に DP から CP へ張る**
+（[ADR-002](../../discord-relay/adr.md#adr-002-plane-間通信をアウトバウンド片方向に限定しoci-にインバウンド経路を作らない)）。
+OCI にインバウンド経路を作らないため、REQ-602 は「露出しない設定にする」ではなく
+「露出する経路が存在しない」で満たされる。
+
+代償として **Control Plane が落ちると配信が止まる**（Gateway 接続と受信バッファは継続する）。
+Cloudflare の可用性を無料枠 VM のそれより高いと見なす賭けを、明示的に受け入れている。
 
 ## カバレッジサマリ
 

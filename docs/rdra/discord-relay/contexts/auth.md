@@ -11,7 +11,7 @@ value:
       description: "GDG Accounts のチャプタークレームに基づいてアクセスが制御され、所属喪失が即時に反映されること"
       traces_to: ["GOAL-003"]
     - id: "REQ-602"
-      description: "Control Plane と Data Plane の間の通信が相互に認証され、インターネットに直接露出しないこと"
+      description: "Control Plane と Data Plane の間の通信が認証され、Data Plane にインターネットからの到達経路が存在しないこと"
       traces_to: ["GOAL-003"]
     - id: "REQ-603"
       description: "複数チャプターに所属するユーザーが、操作対象のチャプターを明示的に選べること"
@@ -64,7 +64,7 @@ boundary:
       name: "Data Plane からの要求を認証する"
       actors: []
       traces_to: ["BUC-603"]
-      description: "サービス間認証で設定取得とログ提供の経路を保護する"
+      description: "DP からの tick と設定取得を Bearer 共有シークレットで認証する。CP から DP への経路は存在しない"
   screens:
     - id: "SCR-601"
       name: "サインイン画面"
@@ -239,14 +239,32 @@ flowchart LR
 Data Plane は OCI 上の常時稼働プロセスで、Control Plane (Cloudflare Workers) と
 双方向にやりとりする。
 
-| 方向 | 内容 | 認証 |
-|---|---|---|
-| CP → DP | 設定（ルール・紐付け・Intent）の伝播 | サービス間認証 |
-| DP → CP | 接続状態・配信履歴・メトリクスの提供 | サービス間認証 |
+**TCP 接続は常に DP から CP へ張る。CP から DP への経路を作らない**
+（[ADR-002](../../../discord-relay/adr.md#adr-002-plane-間通信をアウトバウンド片方向に限定しoci-にインバウンド経路を作らない)）。
 
-**OCI 側のエンドポイントはインターネットに直接露出しない**（REQ-602）。
-Cloudflare Tunnel 経由で公開し、Cloudflare Access のサービストークンまたは
-共有シークレット / mTLS で認証する。具体方式は技術スタック検討時に決定する。
+| エンドポイント | 呼び出し元 | 内容 |
+|---|---|---|
+| `POST /api/dp/tick` | DP | イベント転送・heartbeat・コマンド結果を送り、購読仕様の版・コマンド・次回間隔を受け取る |
+| `GET /api/dp/config` | DP | 購読仕様（ギルド + イベント種別 + Intent）を ETag 付きで取得する |
+
+**REQ-602 は「露出しない設定にする」ではなく「露出する経路が存在しない」で満たす。**
+Cloudflare Tunnel を張らない。OCI のセキュリティリストは SSH を除く全 ingress を閉じる。
+
+認証は **`Authorization: Bearer <secret>` の共有シークレット**とする
+（[ADR-005](../../../discord-relay/adr.md#adr-005-plane-間認証を-2-鍵ローテーション可能な-bearer-共有シークレットにする)）。
+
+- **常に新旧 2 鍵を受け付ける**（`DP_SHARED_SECRET_CURRENT` / `_PREVIOUS`）。DP を止めずに交換できる。
+- 比較は定時比較。`/api/dp/*` 以外にこの認証を掛けない（OIDC とは完全に別系統）。
+- Cloudflare 側でこのパスにレート制限を掛ける。
+
+mTLS と Cloudflare Access サービストークンは、主体が 1 プロセスしかない現時点では利得が出ないため
+採らない。**昇格条件**は「DP が 2 台目になる」または「DP を GDG 以外が運用する」。
+
+**DP のホストが侵害された場合に読めるもの**は購読仕様（ギルド ID とイベント種別）だけである。
+配信先 URL・署名シークレット・カスタムヘッダは Control Plane を出ないため読めない
+（[ADR-001](../../../discord-relay/adr.md#adr-001-data-plane-を-gateway-転送専用に絞り配信を-control-plane-に寄せる)）。
+偽テレメトリの投入は可能なので、CP は tick の `events` を無条件に信用せず、
+購読仕様に載っていない `guild_id` のイベントを捨てる。
 
 ## 設計上の注意
 

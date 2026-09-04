@@ -49,7 +49,7 @@ boundary:
       actors: ["ACTOR-005"]
       events: ["EVT-103"]
       traces_to: ["BUC-101"]
-      description: "resume_gateway_url に session_id と最終 seq で RESUME。失敗時は再 IDENTIFY にフォールバック"
+      description: "resume_gateway_url に session_id と最終 seq で RESUME。失敗時は再 IDENTIFY にフォールバック。セッションはディスクに永続され、プロセス再起動も RESUME の対象になる"
     - id: "UC-104"
       name: "指数バックオフで再接続する"
       actors: ["ACTOR-005"]
