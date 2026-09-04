@@ -23,7 +23,7 @@ jobs:
       lint: ${{ steps.changes.outputs.lint }}
       openapi: ${{ steps.changes.outputs.openapi }}
       script-tests: ${{ steps.changes.outputs.script-tests }}
-      cli: ${{ steps.changes.outputs.cli }}
+      go: ${{ steps.changes.outputs.go }}
       full: ${{ steps.changes.outputs.full }}
       base: ${{ steps.changes.outputs.base }}
       head: ${{ steps.changes.outputs.head }}
@@ -110,28 +110,47 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm openapi:check
 
-  cli:
-    name: CLI (Go)
+  go:
+    name: Go (${{ matrix.module.name }})
     needs: changes
-    if: needs.changes.outputs.cli == 'true'
+    if: needs.changes.outputs.go != '[]'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      # Entries come from GO_MODULES in .github/scripts/changed-workspaces.mjs.
+      matrix:
+        module: ${{ fromJSON(needs.changes.outputs.go) }}
     steps:
       - uses: actions/checkout@v4
+      # Only modules that declare generated inputs need the pnpm workspace.
       - uses: pnpm/action-setup@v4
+        if: matrix.module.prepare != ''
       - uses: actions/setup-node@v4
+        if: matrix.module.prepare != ''
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
-      - run: pnpm install --frozen-lockfile
-      # The Wiki CLI tests import this ignored generated module.
-      - run: pnpm build:acl
-      - run: pnpm sync:agent-host-assets
-      - run: pnpm sync:agent-host-assets --check
+          go-version-file: ${{ matrix.module.directory }}/go.mod
+          cache-dependency-path: ${{ matrix.module.directory }}/go.sum
+      - name: Materialise generated inputs
+        if: matrix.module.prepare != ''
+        env:
+          PREPARE: ${{ matrix.module.prepare }}
+        run: |
+          pnpm install --frozen-lockfile
+          for script in $PREPARE; do
+            pnpm "$script"
+          done
+          # Some generated inputs are copies of tracked sources. Regenerating
+          # them must not change the tree, or the committed copy has drifted.
+          git diff --exit-code
       - name: gofmt, vet, test, and build
-        working-directory: cli
+        working-directory: ${{ matrix.module.directory }}
+        env:
+          PACKAGES: ${{ matrix.module.packages }}
+          TARGETS: ${{ matrix.module.targets }}
         run: |
           unformatted=$(gofmt -l .)
           if [ -n "$unformatted" ]; then
@@ -141,10 +160,12 @@ jobs:
           go vet ./...
           go test ./...
           go build ./...
-          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+          for target in $TARGETS; do
             OS="${target%/*}"
             ARCH="${target#*/}"
-            GOOS="$OS" GOARCH="$ARCH" go build -o /dev/null ./cmd/gdg
+            for package in $PACKAGES; do
+              GOOS="$OS" GOARCH="$ARCH" go build -o /dev/null "$package"
+            done
           done
 
   typecheck:

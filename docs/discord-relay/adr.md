@@ -853,11 +853,14 @@ op 0 / 1 / 7 / 9 / 10 / 11 と再接続だけを自前で書く。
 
 ### Consequences
 
-- **CI の Go レーンが `cli/` 決め打ちである。** 一般化が要る。具体的には次の 4 か所。
-  - `scripts/run-ci.mjs` の `go` ステップ（`cd cli` と `./cmd/gdg`）
-  - `.github/scripts/changed-workspaces.mjs` の `file.startsWith("cli/")`
-  - `.github/workflows/ci.yml` の "CLI (Go)" ジョブ
-  - `.github/workflows/deploy.yml` に `relay-gateway/v*` タグのリリースジョブ
+- **CI の Go レーンは一般化済み（検査系のみ）。** `.github/scripts/changed-workspaces.mjs` の
+  `GO_MODULES` が唯一の登録簿になり、そこから CI のジョブ行列（`ci.yml` の `go` ジョブ）と
+  pre-commit の Go ステップ（`scripts/run-ci.mjs`）の両方が導出される。
+  `discord-relay-gateway/` の登録は go.mod が生えた時点で **エントリ 1 個の追加**で済む。
+  - **リリースジョブは意図的に一般化していない。** `deploy.yml` の `release-cli` は
+    6 プラットフォームの zip を利用者に配るものであり、ADR-011 が要求するのは
+    `linux/{arm64,amd64}` の tar.gz + SHA256 を収束機構に向けて置くことである。
+    成果物の形が違うので、`relay-gateway/v*` は共通化ではなく別ジョブとして足す。
 - **canonical JSON を Go 側で明示的に実装する必要がある。**
   `encoding/json` は map のキーをソートするが、`any` を経由した往復は数値の表現を変えうる。
   `dedupe_key` の安定性はここに乗っているので、キー順と数値レキシムの扱いを自前で定義し、
