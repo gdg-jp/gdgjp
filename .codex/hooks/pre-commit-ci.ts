@@ -44,10 +44,13 @@ function readHookInput(): void {
     }
 
     try {
-      execFileSync("pnpm", ["ci:full", "--changed"], {
+      // Run through a shell so Windows resolves pnpm to pnpm.CMD, which Node
+      // refuses to execute directly. scripts/run-pre-commit-ci.mjs does the same.
+      execFileSync("pnpm ci:full --changed", {
         cwd: process.cwd(),
         encoding: "utf8",
         stdio: "pipe",
+        shell: true,
       });
       process.stdout.write(
         JSON.stringify({ systemMessage: "Relevant ci:full checks passed before git commit." }),
