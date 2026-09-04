@@ -1,0 +1,5 @@
+# Biome formats with LF and .github/scripts/*.test.mjs matches workflow files
+# with \n anchors, so the working tree must use LF regardless of the developer's
+# core.autocrlf setting. Every committed text blob is already LF, so this only
+# changes how files are checked out.
+* text=auto eol=lf
