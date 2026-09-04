@@ -359,7 +359,27 @@
   animation-duration: var(--motion-duration-exit);
 }
 
+@keyframes indeterminate-travel {
+  0% {
+    transform: translateX(-100%) scaleX(0.2);
+  }
+  50% {
+    transform: translateX(0%) scaleX(0.6);
+  }
+  100% {
+    transform: translateX(100%) scaleX(0.2);
+  }
+}
+
+.animate-indeterminate-travel {
+  animation: indeterminate-travel 1.4s infinite ease-in-out;
+  transform-origin: 0% 50%;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .animate-indeterminate-travel {
+    animation: none;
+  }
   .desktop-sidebar {
     transition-duration: 0ms !important;
   }

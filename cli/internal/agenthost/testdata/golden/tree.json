@@ -1,0 +1,453 @@
+[
+  {
+    "path": "etc",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "etc/apparmor.d",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "etc/apparmor.d/cursor-agent-cursorsandbox",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "b64f780c011c3d123776175e7341816f9e86beef11c98f80a2dde6086fa0ecb1"
+  },
+  {
+    "path": "etc/sudoers.d",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "etc/sudoers.d/gdg-agent",
+    "type": "file",
+    "mode": "0440",
+    "sha256": "0a2b13453cc1b90efdfacdf6b2fc203767b858dc7a32a8974eb87064816c0d45"
+  },
+  {
+    "path": "etc/tmpfiles.d",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "etc/tmpfiles.d/gdg-agent.conf",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "e51d799bde677d5c79f826d76ea6dbb7ed8503f73e2daddfd2dfb9d0c838fb08"
+  },
+  {
+    "path": "home",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-run-0",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-run-0/.cursor",
+    "type": "dir",
+    "mode": "1775"
+  },
+  {
+    "path": "home/gdgagent-run-0/.cursor/cli-config.json",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "21cb147796b76906903ea69407b2ef85670ce026a8ba176420afcdae9fb86bb8"
+  },
+  {
+    "path": "home/gdgagent-run-0/.cursor/hooks.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "b5c191e5afc165edebfa1ab0259a1d71118aaf5fcf309bf916067c0e6ffb7975"
+  },
+  {
+    "path": "home/gdgagent-run-0/.cursor/mcp.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "a232bac635e829a929e1ef1c44f5df36e7ae57db7f9cbc00bea36e79fa2abc64"
+  },
+  {
+    "path": "home/gdgagent-run-0/.cursor/permissions.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "04334a61ddfd97507e7c41d95e4621b83fb5a758adf810c03c669047abde9d37"
+  },
+  {
+    "path": "home/gdgagent-run-0/.cursor/projects",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-run-0/.cursor/sandbox.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "be534d74faf92e29a3a4dfa4dd12af4982ca16e053c3730e46b2c6764ce70e1a"
+  },
+  {
+    "path": "home/gdgagent-run-1",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-run-1/.cursor",
+    "type": "dir",
+    "mode": "1775"
+  },
+  {
+    "path": "home/gdgagent-run-1/.cursor/cli-config.json",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "21cb147796b76906903ea69407b2ef85670ce026a8ba176420afcdae9fb86bb8"
+  },
+  {
+    "path": "home/gdgagent-run-1/.cursor/hooks.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "b5c191e5afc165edebfa1ab0259a1d71118aaf5fcf309bf916067c0e6ffb7975"
+  },
+  {
+    "path": "home/gdgagent-run-1/.cursor/mcp.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "12f85e431bb3ebc61da360fd9284d2f1cf61fddd602d1fbba0204cf7f2f66ff9"
+  },
+  {
+    "path": "home/gdgagent-run-1/.cursor/permissions.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "04334a61ddfd97507e7c41d95e4621b83fb5a758adf810c03c669047abde9d37"
+  },
+  {
+    "path": "home/gdgagent-run-1/.cursor/projects",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-run-1/.cursor/sandbox.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "68545c908c67606c5a6c2cf7f56e942278b5c92ed15fc3cc80f5c51f911d56ad"
+  },
+  {
+    "path": "home/gdgagent-run-2",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-run-2/.cursor",
+    "type": "dir",
+    "mode": "1775"
+  },
+  {
+    "path": "home/gdgagent-run-2/.cursor/cli-config.json",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "21cb147796b76906903ea69407b2ef85670ce026a8ba176420afcdae9fb86bb8"
+  },
+  {
+    "path": "home/gdgagent-run-2/.cursor/hooks.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "b5c191e5afc165edebfa1ab0259a1d71118aaf5fcf309bf916067c0e6ffb7975"
+  },
+  {
+    "path": "home/gdgagent-run-2/.cursor/mcp.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "a218d6cbbfbfc46aed5804005a9b1e1b3d8e3dd97694140d11f4a0ab20635492"
+  },
+  {
+    "path": "home/gdgagent-run-2/.cursor/permissions.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "04334a61ddfd97507e7c41d95e4621b83fb5a758adf810c03c669047abde9d37"
+  },
+  {
+    "path": "home/gdgagent-run-2/.cursor/projects",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-run-2/.cursor/sandbox.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "11f791484d55a50a2a1fec6e0de88648e987405c22fc56589b6d05381aceabcf"
+  },
+  {
+    "path": "home/gdgagent-run-3",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-run-3/.cursor",
+    "type": "dir",
+    "mode": "1775"
+  },
+  {
+    "path": "home/gdgagent-run-3/.cursor/cli-config.json",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "21cb147796b76906903ea69407b2ef85670ce026a8ba176420afcdae9fb86bb8"
+  },
+  {
+    "path": "home/gdgagent-run-3/.cursor/hooks.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "b5c191e5afc165edebfa1ab0259a1d71118aaf5fcf309bf916067c0e6ffb7975"
+  },
+  {
+    "path": "home/gdgagent-run-3/.cursor/mcp.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "70355494b3088d66e63a1aee1d0b50d8c0f6314151a5c20f8c4bacdbc175e7d0"
+  },
+  {
+    "path": "home/gdgagent-run-3/.cursor/permissions.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "04334a61ddfd97507e7c41d95e4621b83fb5a758adf810c03c669047abde9d37"
+  },
+  {
+    "path": "home/gdgagent-run-3/.cursor/projects",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-run-3/.cursor/sandbox.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "12ce3981e52d14c94b88eaf53816f38f15f01a0a6712fa65634c3997ab8f908a"
+  },
+  {
+    "path": "home/gdgagent-svc",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-svc/.config",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd/user",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd/user/langfuse-forwarder.service",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "49a43bbcdd405471daebe335051a27772cbfe778d8d9b10131920570d05fe9a9"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd/user/langfuse-forwarder.timer",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "6a4334806da9a19bc82d9859de9fce013fb42b2d0c7ab1a06a59bfe930a066af"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd/user/xangi.service",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "af84b5e5624cdb5c6bb40198d8d12389e5afe773f13904316fbbdd64d77a76d6"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd/user/xangi.service.d",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd/user/xangi.service.d/model.conf",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "9b80a3d3f51b0efe69ec5ba7a7c73a4af50d31941cbb77efe551aa16d7fce316"
+  },
+  {
+    "path": "opt",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "opt/gdg-agent",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "opt/gdg-agent/bin",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "opt/gdg-agent/bin/gws",
+    "type": "file",
+    "mode": "0755",
+    "sha256": "c47b062576f42df26c1c81356023ec78073f883c08e26cc5ca55e31427bfabfd"
+  },
+  {
+    "path": "opt/gdg-agent/bin/index-proxy",
+    "type": "file",
+    "mode": "0755",
+    "sha256": "09e61a35bc2e39c6004987bc924e3cc7ab0a5eb5c8e05050dde11f73d22df11d"
+  },
+  {
+    "path": "opt/gdg-agent/bin/spawn-slot-0",
+    "type": "file",
+    "mode": "0755",
+    "sha256": "4b9ffe791b94530d9303b074b5cbe966d3535fcdfb15d7ba59f0f9f4785cd08c"
+  },
+  {
+    "path": "opt/gdg-agent/bin/spawn-slot-1",
+    "type": "file",
+    "mode": "0755",
+    "sha256": "e185683cb27181b490cf6d0624c6a9cc8f245704e91bcbe81f7a3706af7583d3"
+  },
+  {
+    "path": "opt/gdg-agent/bin/spawn-slot-2",
+    "type": "file",
+    "mode": "0755",
+    "sha256": "eee7a5555e21e9222174ece78b89e7649a9c8fd3186b27e220f6dbe90c51b11f"
+  },
+  {
+    "path": "opt/gdg-agent/bin/spawn-slot-3",
+    "type": "file",
+    "mode": "0755",
+    "sha256": "4b23182c67eae15a97c6f84f4bc991fb55439f589d70b8ed51ac7919a1698ffd"
+  },
+  {
+    "path": "opt/gdg-agent/bin/wk",
+    "type": "file",
+    "mode": "0755",
+    "sha256": "8f251e8220a26f1aad70f295f795c7c2137a44addd6e31ca6927258899f77c7d"
+  },
+  {
+    "path": "opt/gdg-agent/lib",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "opt/gdg-agent/lib/acl-core.ts",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "2da9fd02135a420002ccc00b3096ede33998887c63c5fbcc4785e8d5bd147fca"
+  },
+  {
+    "path": "opt/gdg-agent/lib/acl-gate.ts",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "5f46099da609860e4fa598ab4466444f972b8c0f4e8eb8d7410819dda35d7f39"
+  },
+  {
+    "path": "opt/gdg-agent/lib/acl-insert-core.ts",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "d1a7d8311f5789b2fe099083c4588e8f262079e9224ade00d0961df13367403a"
+  },
+  {
+    "path": "opt/gdg-agent/lib/acl.ts",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "502c33ea67e2500feeeef96178a923a7f9e3b48521bf89d2578099bf1972a0f5"
+  },
+  {
+    "path": "opt/gdg-agent/lib/cli-config.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "21cb147796b76906903ea69407b2ef85670ce026a8ba176420afcdae9fb86bb8"
+  },
+  {
+    "path": "opt/gdg-agent/lib/commit-tripwire.ts",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "54157ba76f3b7bf83bb776c803edf99b021590b278ceff2441e86f57b6d5285d"
+  },
+  {
+    "path": "opt/gdg-agent/lib/exec-spawn.ts",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "588fc7ea3c56dd58d2a9b55bb1717786fc52dec2b92c64f53f399e9d252fddb4"
+  },
+  {
+    "path": "opt/gdg-agent/lib/gws.ts",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "1fae7ac3f1b6337ec75562b09ab749a15f4fdc75f7fec45af754d8e1b946d539"
+  },
+  {
+    "path": "opt/gdg-agent/lib/index-proxy.ts",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "1210eab0cb6d7b38f75eef45df747dea6d49652b0482b15b9519ad73f85f02d2"
+  },
+  {
+    "path": "opt/gdg-agent/lib/shell-allowlist.ts",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "092627e8a5c2b8ee8b4b69d4a81dd28d0c371a3ed80f299d277ac8533528ce17"
+  },
+  {
+    "path": "opt/gdg-agent/lib/wk.ts",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "8cf12a2a4470b5824a9359ab158c12f5084f7862ebe255b6f6fb1227526c65c6"
+  },
+  {
+    "path": "opt/gdg-agent/package.json",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "609158e6c5fbc237939fa3ddf7faab80ab690bdc0c8d584414a885130103c4e8"
+  },
+  {
+    "path": "run",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "run/gdg-agent",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "run/gdg-agent/0",
+    "type": "dir",
+    "mode": "0750"
+  },
+  {
+    "path": "run/gdg-agent/1",
+    "type": "dir",
+    "mode": "0750"
+  },
+  {
+    "path": "run/gdg-agent/2",
+    "type": "dir",
+    "mode": "0750"
+  },
+  {
+    "path": "run/gdg-agent/3",
+    "type": "dir",
+    "mode": "0750"
+  },
+  {
+    "path": "srv",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "srv/gdg-agent",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "srv/gdg-agent/wiki",
+    "type": "dir",
+    "mode": "2770"
+  }
+]

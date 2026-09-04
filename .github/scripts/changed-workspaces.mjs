@@ -22,6 +22,12 @@ const CI_WORKSPACES = [
   },
   { directory: "agents", workspace: "@gdgjp/agents", build: true, e2e: false },
   { directory: "go-extension", workspace: "@gdgjp/go-extension", build: true, e2e: false },
+  {
+    directory: "agent-host/langfuse-forwarder",
+    workspace: "@gdgjp/langfuse-forwarder",
+    build: false,
+    e2e: false,
+  },
 ];
 
 const DEPLOY_TARGETS = [
@@ -157,7 +163,11 @@ export function classifyChanges(files, { forceAll = false } = {}) {
 
   const ciTargets = ciGlobal
     ? CI_WORKSPACES
-    : CI_WORKSPACES.filter(({ directory }) => affectedDirectories.has(directory));
+    : CI_WORKSPACES.filter(
+        ({ directory }) =>
+          affectedDirectories.has(directory) ||
+          normalizedFiles.some((file) => file === directory || file.startsWith(`${directory}/`)),
+      );
   const deployTargets = deployGlobal
     ? DEPLOY_TARGETS
     : DEPLOY_TARGETS.filter(({ app }) => affectedDirectories.has(app));
@@ -181,7 +191,14 @@ export function classifyChanges(files, { forceAll = false } = {}) {
     deploy: deployTargets,
     lint: normalizedFiles.some((file) => BIOME_FILE_PATTERN.test(file)),
     openapi,
-    scriptTests: normalizedFiles.some((file) => /^\.github\/scripts\/.*\.mjs$/.test(file)),
+    scriptTests: normalizedFiles.some(
+      (file) =>
+        /^\.github\/scripts\/.*\.mjs$/.test(file) ||
+        /^agent-host\//.test(file) ||
+        /^agents-index\//.test(file) ||
+        /^cli\/internal\/wiki\/hooks\//.test(file) ||
+        /^scripts\/install-gdg-agent-host\.sh$/.test(file),
+    ),
     cli: ciGlobal || normalizedFiles.some((file) => file.startsWith("cli/")),
     full: false,
   };

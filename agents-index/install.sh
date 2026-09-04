@@ -16,16 +16,79 @@
 #   6. enable --now, unless GDG_SKIP_START=1
 #
 # Does not: create OS users, install index-proxy / slot mcp.json, or start xangi.
-# Those come from agents-local/install.sh (Stage 07). This script fails live if
+# Those come from agent-host/install.sh (Stage 07). This script fails live if
 # gdgagent-svc is missing.
 set -euo pipefail
 
-SLOT_COUNT="${GDG_AGENT_SLOT_COUNT:-4}"
-PREFIX="${GDG_SETUP_PREFIX:-}"
-NODE_MAJOR_MIN=22
-NODE_MINOR_MIN=18
-
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SPEC="${GDG_SPEC:-}"
+
+resolve_spec() {
+  if [[ -n "$SPEC" ]]; then
+    printf '%s\n' "$SPEC"
+    return
+  fi
+  if [[ -f "$here/../agent-host/agent-host.json" ]]; then
+    printf '%s\n' "$here/../agent-host/agent-host.json"
+    return
+  fi
+  if [[ -n "${GDGJP_ROOT:-}" && -f "${GDGJP_ROOT}/agent-host/agent-host.json" ]]; then
+    printf '%s\n' "${GDGJP_ROOT}/agent-host/agent-host.json"
+    return
+  fi
+  printf '%s\n' ""
+}
+
+SPEC="$(resolve_spec)"
+
+load_spec_for_index() {
+  [[ -f "$SPEC" ]] || {
+    echo "spec file not found: $SPEC" >&2
+    exit 1
+  }
+  node -e '
+    const fs = require("fs");
+    const specPath = process.argv[1];
+    let spec;
+    try {
+      spec = JSON.parse(fs.readFileSync(specPath, "utf8"));
+    } catch (e) {
+      console.error("Failed to parse spec at " + specPath + ": " + e.message);
+      process.exit(1);
+    }
+    if (typeof spec.slotCount !== "number" || spec.slotCount < 1) {
+      console.error("spec.slotCount must be a positive number in " + specPath);
+      process.exit(1);
+    }
+    if (!spec.pins?.node?.major || typeof spec.pins.node.minMinor !== "number") {
+      console.error("spec.pins.node must have major and minMinor in " + specPath);
+      process.exit(1);
+    }
+    if (!spec.paths?.agentRoot || !spec.paths?.workspace || !spec.paths?.runRoot) {
+      console.error("spec.paths must specify agentRoot, workspace, and runRoot in " + specPath);
+      process.exit(1);
+    }
+    process.stdout.write(`SPEC_SLOT_COUNT=${spec.slotCount}\n`);
+    process.stdout.write(`NODE_MAJOR_MIN=${spec.pins.node.major}\n`);
+    process.stdout.write(`NODE_MINOR_MIN=${spec.pins.node.minMinor}\n`);
+    process.stdout.write(`SPEC_AGENT_ROOT=${JSON.stringify(spec.paths.agentRoot)}\n`);
+    process.stdout.write(`SPEC_WORKSPACE=${JSON.stringify(spec.paths.workspace)}\n`);
+    process.stdout.write(`SPEC_RUN_ROOT=${JSON.stringify(spec.paths.runRoot)}\n`);
+  ' "$SPEC"
+}
+
+if [[ -n "$SPEC" && -f "$SPEC" ]]; then
+  eval "$(load_spec_for_index)"
+fi
+
+SLOT_COUNT="${GDG_AGENT_SLOT_COUNT:-${SPEC_SLOT_COUNT:-}}"
+if [[ -z "$SLOT_COUNT" ]]; then
+  echo "slotCount could not be resolved from $SPEC or GDG_AGENT_SLOT_COUNT" >&2
+  exit 1
+fi
+PREFIX="${GDG_SETUP_PREFIX:-}"
+NODE_MAJOR_MIN="${NODE_MAJOR_MIN:-22}"
+NODE_MINOR_MIN="${NODE_MINOR_MIN:-18}"
 
 require_ubuntu() {
   if [[ -n "$PREFIX" ]]; then
@@ -59,7 +122,7 @@ maybe_reexec_root() {
     return 0
   fi
   echo "==> re-exec as root"
-  exec sudo --preserve-env=GDGJP_ROOT,GDG_AGENT_SLOT_COUNT,GDG_SETUP_PREFIX,GDG_SKIP_BUILD,GDG_SKIP_START,GDG_INDEX_WIKI_ROOT,GDG_INDEX_RUN_ROOT,PATH \
+  exec sudo --preserve-env=GDGJP_ROOT,GDG_SPEC,GDG_AGENT_SLOT_COUNT,GDG_SETUP_PREFIX,GDG_SKIP_BUILD,GDG_SKIP_START,GDG_INDEX_WIKI_ROOT,GDG_INDEX_RUN_ROOT,PATH \
     "$0" "$@"
 }
 
@@ -154,11 +217,12 @@ require_layout() {
     return 0
   fi
   if ! id gdgagent-svc >/dev/null 2>&1; then
-    echo "gdgagent-svc does not exist. Run agents-local/install.sh first." >&2
+    echo "gdgagent-svc does not exist. Run agent-host/install.sh first." >&2
     exit 1
   fi
-  if [[ ! -x /opt/gdg-agent/bin/index-proxy ]]; then
-    echo "missing /opt/gdg-agent/bin/index-proxy. Run agents-local/setup.sh first." >&2
+  local agent_root="${SPEC_AGENT_ROOT:-/opt/gdg-agent}"
+  if [[ ! -x "${agent_root}/bin/index-proxy" ]]; then
+    echo "missing ${agent_root}/bin/index-proxy. Run agent-host/install.sh first." >&2
     exit 1
   fi
 }
@@ -212,14 +276,17 @@ main() {
     exit 1
   fi
 
-  local gdgjp pkg wiki run_root db_dir hf_dir launcher unit
+  local gdgjp pkg wiki run_root db_dir hf_dir launcher unit agent_root workspace run_root_path
   gdgjp="$(resolve_gdgjp)"
   pkg="$gdgjp/agents-index"
-  wiki="${GDG_INDEX_WIKI_ROOT:-${PREFIX}/srv/gdg-agent/wiki}"
-  run_root="${GDG_INDEX_RUN_ROOT:-${PREFIX}/run/gdg-agent}"
+  agent_root="${SPEC_AGENT_ROOT:-/opt/gdg-agent}"
+  workspace="${SPEC_WORKSPACE:-/srv/gdg-agent/wiki}"
+  run_root_path="${SPEC_RUN_ROOT:-/run/gdg-agent}"
+  wiki="${GDG_INDEX_WIKI_ROOT:-${PREFIX}${workspace}}"
+  run_root="${GDG_INDEX_RUN_ROOT:-${PREFIX}${run_root_path}}"
   db_dir="${PREFIX}/var/lib/agents-index"
   hf_dir="$db_dir/hf"
-  launcher="${PREFIX}/opt/gdg-agent/bin/agents-index"
+  launcher="${PREFIX}${agent_root}/bin/agents-index"
   unit="${PREFIX}/etc/systemd/system/agents-index.service"
 
   echo "==> gdgjp checkout $gdgjp"

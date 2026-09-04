@@ -1,9 +1,6 @@
 [submodule "learn"]
 	path = learn
 	url = https://github.com/gdg-jp/learn.git
-[submodule "agents-local"]
-	path = agents-local
-	url = https://github.com/gdg-jp/agents.git
 [submodule "skills"]
 	path = skills
 	url = https://github.com/gdg-jp/skills.git

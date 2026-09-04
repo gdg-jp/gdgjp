@@ -8,7 +8,6 @@ exports[`routes.ts URL surface > exposes a stable set of URLs 1`] = `
   "/admin",
   "/admin (index)",
   "/admin/pages",
-  "/admin/stats",
   "/admin/tags",
   "/analyze",
   "/api/admin/backfill-embeddings",

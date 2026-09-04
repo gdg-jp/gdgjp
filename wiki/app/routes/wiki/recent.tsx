@@ -1,7 +1,9 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
+import { Suspense } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useLoaderData } from "react-router";
+import { Await, Link, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
+import { CardGridSkeleton } from "~/components/Skeleton";
 import * as schema from "~/db/schema";
 import { getAccessIdentity, requireUser } from "~/features/auth/utils.server";
 import { buildVisibilityFilter } from "~/features/pages/visibility.server";
@@ -24,7 +26,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
   const visFilter = buildVisibilityFilter(user, identity.chapters);
 
-  const [recentUpdated, recentViewed] = await Promise.all([
+  const recentData = Promise.all([
     db
       .select({
         id: schema.pages.id,
@@ -60,55 +62,57 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       .orderBy(desc(schema.pageViews.viewedAt))
       .limit(12)
       .all(),
-  ]);
+  ]).then(async ([recentUpdated, recentViewed]) => {
+    // Batch-fetch tags for all pages in both lists
+    type PageTag = {
+      pageId: string;
+      tagSlug: string;
+      labelJa: string;
+      labelEn: string;
+      color: string;
+    };
+    let pageTags: PageTag[] = [];
+    const allIds = [
+      ...new Set([...recentUpdated.map((p) => p.id), ...recentViewed.map((p) => p.id)]),
+    ];
+    if (allIds.length > 0) {
+      pageTags = await db
+        .select({
+          pageId: schema.pageTags.pageId,
+          tagSlug: schema.pageTags.tagSlug,
+          labelJa: schema.tags.labelJa,
+          labelEn: schema.tags.labelEn,
+          color: schema.tags.color,
+        })
+        .from(schema.pageTags)
+        .innerJoin(schema.tags, eq(schema.pageTags.tagSlug, schema.tags.slug))
+        .where(inArray(schema.pageTags.pageId, allIds))
+        .all();
+    }
 
-  // Batch-fetch tags for all pages in both lists
-  type PageTag = {
-    pageId: string;
-    tagSlug: string;
-    labelJa: string;
-    labelEn: string;
-    color: string;
-  };
-  let pageTags: PageTag[] = [];
-  const allIds = [
-    ...new Set([...recentUpdated.map((p) => p.id), ...recentViewed.map((p) => p.id)]),
-  ];
-  if (allIds.length > 0) {
-    pageTags = await db
-      .select({
-        pageId: schema.pageTags.pageId,
-        tagSlug: schema.pageTags.tagSlug,
-        labelJa: schema.tags.labelJa,
-        labelEn: schema.tags.labelEn,
-        color: schema.tags.color,
-      })
-      .from(schema.pageTags)
-      .innerJoin(schema.tags, eq(schema.pageTags.tagSlug, schema.tags.slug))
-      .where(inArray(schema.pageTags.pageId, allIds))
-      .all();
-  }
+    const tagsByPage = new Map<string, PageTag[]>();
+    for (const pt of pageTags) {
+      const arr = tagsByPage.get(pt.pageId) ?? [];
+      arr.push(pt);
+      tagsByPage.set(pt.pageId, arr);
+    }
 
-  const tagsByPage = new Map<string, PageTag[]>();
-  for (const pt of pageTags) {
-    const arr = tagsByPage.get(pt.pageId) ?? [];
-    arr.push(pt);
-    tagsByPage.set(pt.pageId, arr);
-  }
+    const slugPaths = await getWikiCanonicalSlugPaths(env, allIds);
+    return {
+      recentUpdated: recentUpdated.map((p) => ({
+        ...p,
+        tags: tagsByPage.get(p.id) ?? [],
+        wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+      })),
+      recentViewed: recentViewed.map((p) => ({
+        ...p,
+        tags: tagsByPage.get(p.id) ?? [],
+        wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
+      })),
+    };
+  });
 
-  const slugPaths = await getWikiCanonicalSlugPaths(env, allIds);
-  return {
-    recentUpdated: recentUpdated.map((p) => ({
-      ...p,
-      tags: tagsByPage.get(p.id) ?? [],
-      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
-    })),
-    recentViewed: recentViewed.map((p) => ({
-      ...p,
-      tags: tagsByPage.get(p.id) ?? [],
-      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
-    })),
-  };
+  return { recentData };
 }
 
 // ---------------------------------------------------------------------------
@@ -177,36 +181,64 @@ function PageGrid({ pages, emptyKey }: { pages: PageCard[]; emptyKey: string }) 
 }
 
 export default function RecentPage() {
-  const { recentUpdated, recentViewed } = useLoaderData<typeof loader>();
+  const { recentData } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
-
-  const updatedCards: PageCard[] = recentUpdated.map((p) => ({
-    ...p,
-    timeLabel: p.updatedAt ? timeAgo(new Date(p.updatedAt), t) : null,
-  }));
-
-  const viewedCards: PageCard[] = recentViewed.map((p) => ({
-    ...p,
-    timeLabel: p.viewedAt ? timeAgo(new Date(p.viewedAt), t) : null,
-  }));
 
   return (
     <div className="px-4 py-6 md:px-8 md:py-8">
       <h1 className="mb-8 text-2xl font-bold text-content-primary">{t("recent.title")}</h1>
 
-      <section className="mb-10">
-        <h2 className="mb-4 text-lg font-semibold text-content-primary">
-          {t("recent.recently_viewed")}
-        </h2>
-        <PageGrid pages={viewedCards} emptyKey="recent.no_viewed" />
-      </section>
+      <Suspense
+        fallback={
+          <div className="space-y-10">
+            <div>
+              <div className="mb-4 h-6 w-36 rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
+              <CardGridSkeleton count={4} />
+            </div>
+            <div>
+              <div className="mb-4 h-6 w-36 rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
+              <CardGridSkeleton count={4} />
+            </div>
+          </div>
+        }
+      >
+        <Await
+          resolve={recentData}
+          errorElement={
+            <p className="text-sm text-feedback-danger-foreground">Failed to load recent pages.</p>
+          }
+        >
+          {({ recentUpdated, recentViewed }) => {
+            const updatedCards: PageCard[] = recentUpdated.map((p) => ({
+              ...p,
+              timeLabel: p.updatedAt ? timeAgo(new Date(p.updatedAt), t) : null,
+            }));
 
-      <section>
-        <h2 className="mb-4 text-lg font-semibold text-content-primary">
-          {t("recent.recently_updated")}
-        </h2>
-        <PageGrid pages={updatedCards} emptyKey="recent.no_updated" />
-      </section>
+            const viewedCards: PageCard[] = recentViewed.map((p) => ({
+              ...p,
+              timeLabel: p.viewedAt ? timeAgo(new Date(p.viewedAt), t) : null,
+            }));
+
+            return (
+              <>
+                <section className="mb-10">
+                  <h2 className="mb-4 text-lg font-semibold text-content-primary">
+                    {t("recent.recently_viewed")}
+                  </h2>
+                  <PageGrid pages={viewedCards} emptyKey="recent.no_viewed" />
+                </section>
+
+                <section>
+                  <h2 className="mb-4 text-lg font-semibold text-content-primary">
+                    {t("recent.recently_updated")}
+                  </h2>
+                  <PageGrid pages={updatedCards} emptyKey="recent.no_updated" />
+                </section>
+              </>
+            );
+          }}
+        </Await>
+      </Suspense>
     </div>
   );
 }

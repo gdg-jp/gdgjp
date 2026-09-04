@@ -41,69 +41,77 @@ export async function loadTaskDetail(request: Request, env: Env, slug: string | 
 
   if (!taskListMeta) throw new Response("Not found", { status: 404 });
 
-  const tasks = await db
-    .select()
-    .from(schema.tasks)
-    .where(eq(schema.tasks.taskListId, page.id))
-    .orderBy(schema.tasks.sortOrder)
-    .all();
+  const canManage = permissions.canEdit;
+  const canArchive = !!user && (user.isAdmin || user.id === page.authorId);
 
-  const teams = await db
-    .select()
-    .from(schema.taskListTeams)
-    .where(eq(schema.taskListTeams.taskListId, page.id))
-    .orderBy(schema.taskListTeams.sortOrder)
-    .all();
+  const taskData = (async () => {
+    const [tasks, teams, fav] = await Promise.all([
+      db
+        .select()
+        .from(schema.tasks)
+        .where(eq(schema.tasks.taskListId, page.id))
+        .orderBy(schema.tasks.sortOrder)
+        .all(),
+      db
+        .select()
+        .from(schema.taskListTeams)
+        .where(eq(schema.taskListTeams.taskListId, page.id))
+        .orderBy(schema.taskListTeams.sortOrder)
+        .all(),
+      user
+        ? db
+            .select()
+            .from(schema.pageFavorites)
+            .where(
+              and(
+                eq(schema.pageFavorites.userId, user.id),
+                eq(schema.pageFavorites.pageId, page.id),
+              ),
+            )
+            .get()
+        : Promise.resolve(undefined),
+    ]);
 
-  // Get dependencies for all tasks in this list
-  const taskIds = tasks.map((t) => t.id);
-  const deps =
-    taskIds.length > 0
+    // Get dependencies for all tasks in this list
+    const taskIds = tasks.map((t) => t.id);
+    const deps =
+      taskIds.length > 0
+        ? await db
+            .select()
+            .from(schema.taskDependencies)
+            .where(inArray(schema.taskDependencies.taskId, taskIds))
+            .all()
+        : [];
+
+    // Build dependency map
+    const depMap = new Map<string, string[]>();
+    for (const d of deps) {
+      const list = depMap.get(d.taskId) || [];
+      list.push(d.dependsOnTaskId);
+      depMap.set(d.taskId, list);
+    }
+
+    const members = permissions.canEdit
       ? await db
-          .select()
-          .from(schema.taskDependencies)
-          .where(inArray(schema.taskDependencies.taskId, taskIds))
+          .select({ id: schema.user.id, name: schema.user.name, image: schema.user.image })
+          .from(schema.user)
           .all()
       : [];
 
-  // Build dependency map
-  const depMap = new Map<string, string[]>();
-  for (const d of deps) {
-    const list = depMap.get(d.taskId) || [];
-    list.push(d.dependsOnTaskId);
-    depMap.set(d.taskId, list);
-  }
-
-  // Assignee list: pre-SSO this scoped to the task list's chapter members.
-  // Wiki no longer stores per-user chapter, so all users are candidates;
-  // re-scope once chapter membership is read from IdP claims.
-  const members = permissions.canEdit
-    ? await db
-        .select({ id: schema.user.id, name: schema.user.name, image: schema.user.image })
-        .from(schema.user)
-        .all()
-    : [];
-
-  const canManage = permissions.canEdit;
-
-  const fav = user
-    ? await db
-        .select()
-        .from(schema.pageFavorites)
-        .where(
-          and(eq(schema.pageFavorites.userId, user.id), eq(schema.pageFavorites.pageId, page.id)),
-        )
-        .get()
-    : undefined;
+    return {
+      tasks: tasks.map((t) => ({
+        ...t,
+        dependencies: depMap.get(t.id) || [],
+      })),
+      teams,
+      members,
+      isStarred: !!fav,
+    };
+  })();
 
   return {
     page,
-    tasks: tasks.map((t) => ({
-      ...t,
-      dependencies: depMap.get(t.id) || [],
-    })),
-    teams,
-    members,
+    taskData,
     taskListId: page.id,
     canManage,
     canChangeVisibility: permissions.canManageSharing,
@@ -111,8 +119,7 @@ export async function loadTaskDetail(request: Request, env: Env, slug: string | 
     userId: user?.id ?? null,
     isAuthenticated: !!user,
     nextTaskNumber: taskListMeta.nextTaskNumber,
-    isStarred: !!fav,
-    canArchive: !!user && (user.isAdmin || user.id === page.authorId),
+    canArchive,
   };
 }
 

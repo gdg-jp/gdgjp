@@ -49,3 +49,6 @@ yarn-debug.log*
 # Wrangler-generated types
 worker-configuration.d.ts
 .vercel
+
+# Built by agent-host/install.sh when the pinned CLI lacks emit-layout.
+.gdg-built/

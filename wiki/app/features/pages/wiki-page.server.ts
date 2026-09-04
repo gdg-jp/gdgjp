@@ -139,7 +139,7 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
 
   const comments = loadPageComments(db, page.id, sessionUser?.id);
 
-  const [pageTags, authorRow, editorRow, fav, sources, attachments] = await Promise.all([
+  const pageMeta = Promise.all([
     db
       .select({
         tagSlug: schema.pageTags.tagSlug,
@@ -187,13 +187,18 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
       .from(schema.pageAttachments)
       .where(eq(schema.pageAttachments.pageId, page.id))
       .all(),
-  ]);
+  ]).then(([tags, authorRow, editorRow, fav, sources, attachments]) => ({
+    tags,
+    author: authorRow ?? null,
+    editor: editorRow ?? null,
+    isStarred: !!fav,
+    sources,
+    attachments,
+  }));
 
   const url = new URL(request.url);
   const langParam = url.searchParams.get("lang");
   const lang: "ja" | "en" = langParam === "ja" || langParam === "en" ? langParam : "ja";
-
-  // comments already started above — streamed via <Await> so the page body isn't blocked.
 
   // Fire-and-forget view tracking
   if (sessionUser) {
@@ -209,20 +214,20 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
     );
   }
 
-  const [contentJa, contentEn] = await Promise.all([
+  const content = Promise.all([
     redactPageMarkdown(db, canonicalMarkdown(page.contentJa), sessionUser, identity.chapters),
     redactPageMarkdown(db, canonicalMarkdown(page.contentEn), sessionUser, identity.chapters),
-  ]);
+  ]).then(([contentJa, contentEn]) => ({
+    contentJa,
+    contentEn,
+  }));
+
+  const { contentJa: _ja, contentEn: _en, ...pageMetadata } = page;
 
   return {
-    page: {
-      ...page,
-      contentJa,
-      contentEn,
-    },
-    tags: pageTags,
-    author: authorRow ?? null,
-    editor: editorRow ?? null,
+    page: pageMetadata,
+    content,
+    pageMeta,
     lang,
     isAdmin: sessionUser?.isAdmin ?? false,
     isAuthor: sessionUser?.id === page.authorId,
@@ -238,9 +243,6 @@ export async function loadWikiPage({ request, context, params }: LoaderFunctionA
     visibility: page.visibility,
     canChangeVisibility: permissions.canManageSharing,
     canManageAccess: permissions.canManageSharing,
-    isStarred: !!fav,
-    sources,
-    attachments,
     comments,
   };
 }

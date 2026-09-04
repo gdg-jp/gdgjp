@@ -31,7 +31,9 @@ func installInspectableAgentRoot(t *testing.T) (home, agentRoot string) {
 		filepath.Join(lib, "shell-allowlist.ts"):  shellAllowlistScript,
 		filepath.Join(lib, "commit-tripwire.ts"):  commitTripwireScript,
 		filepath.Join(lib, "acl-insert-core.ts"):  aclInsertCoreScript,
-		filepath.Join(lib, aclBundleFileName):     []byte("export {}\n"),
+		filepath.Join(lib, aclBundleFileName):     aclBundleScript,
+		filepath.Join(lib, "gws.ts"):              gwsScript,
+		filepath.Join(lib, "exec-spawn.ts"):       execSpawnScript,
 		filepath.Join(agentRoot, packageJSONName): hooksPackageJSON,
 		filepath.Join(bin, wkLauncherName):        []byte("#!/bin/sh\nexec node \"$(dirname \"$0\")/../lib/wk.ts\" \"$@\"\n"),
 	}
@@ -241,7 +243,7 @@ func TestCursorAbsolutePathRuleRejectsRelativeGlobShape(t *testing.T) {
 	}
 }
 
-func TestAgentsLocalSetupShFailsOffUbuntu(t *testing.T) {
+func TestAgentHostInstallShFailsOffUbuntu(t *testing.T) {
 	if runtime.GOOS == "linux" {
 		t.Skip("Linux may be Ubuntu; this guard is for macOS development hosts")
 	}
@@ -249,11 +251,11 @@ func TestAgentsLocalSetupShFailsOffUbuntu(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	script := filepath.Join(wd, "..", "..", "..", "scripts", "setup-gdg-agent.sh")
+	script := filepath.Join(wd, "..", "..", "..", "scripts", "install-gdg-agent-host.sh")
 	cmd := exec.Command("bash", script)
 	out, runErr := cmd.CombinedOutput()
 	if runErr == nil {
-		t.Fatalf("setup.sh must fail off Ubuntu:\n%s", out)
+		t.Fatalf("install-gdg-agent-host.sh must fail off Ubuntu:\n%s", out)
 	}
 	if !bytes.Contains(out, []byte("Ubuntu")) {
 		t.Fatalf("expected Ubuntu-only message, got:\n%s", out)

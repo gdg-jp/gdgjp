@@ -7,7 +7,6 @@
     "home": "ホーム",
     "search": "検索",
     "new_page": "新規ページ",
-    "admin": "管理",
     "github": "GitHub",
     "recent": "最近の更新",
     "starred": "スター付き",
@@ -199,8 +198,7 @@
     "label": "管理",
     "nav": {
       "pages": "ページ",
-      "tags": "タグ",
-      "stats": "統計"
+      "tags": "タグ"
     },
     "pages": {
       "heading": "ページ",
@@ -216,19 +214,25 @@
       "restore": "復元",
       "status_archived": "アーカイブ済み",
       "delete_archived_confirm": "「{{title}}」を完全に削除しますか？この操作は元に戻せません。",
-      "empty": "ページが見つかりません。"
+      "empty": "ページが見つかりません。",
+      "expand": "展開",
+      "collapse": "折りたたむ",
+      "child_count": "子ページ {{count}} 件"
     },
     "tags": {
       "heading": "タグ",
       "col_color": "カラー",
       "col_slug": "スラッグ",
+      "col_label": "ラベル",
       "col_label_ja": "ラベル（日本語）",
       "col_label_en": "ラベル（英語）",
       "col_pages": "ページ数",
       "col_actions": "操作",
       "empty": "タグが見つかりません。",
       "new_tag": "新規タグ",
+      "new_tag_dialog_title": "タグを作成",
       "edit": "編集",
+      "edit_tag_dialog_title": "タグを編集",
       "delete": "削除",
       "delete_confirm": "タグ「{{slug}}」を削除しますか？すべてのページから削除され、元に戻せません。",
       "created": "タグ「{{slug}}」を作成しました。",
@@ -236,6 +240,8 @@
       "deleted": "タグを削除しました。",
       "error_slug_taken": "スラッグ「{{slug}}」のタグはすでに存在します。",
       "error_slug_invalid": "スラッグは小文字・数字・ハイフンのみ使用できます。",
+      "error_required": "すべての項目を入力してください。",
+      "error_color_invalid": "カラーの形式が正しくありません。",
       "form": {
         "slug": "スラッグ",
         "label_ja": "ラベル（日本語）",
@@ -244,22 +250,6 @@
         "submit": "タグを作成",
         "update": "変更を保存"
       }
-    },
-    "stats": {
-      "heading": "統計",
-      "total_users": "総ユーザー数",
-      "total_pages": "総ページ数",
-      "pages_sub": "{{published}} 件公開",
-      "published": "公開済み",
-      "bilingual_coverage": "バイリンガル対応率",
-      "bilingual_coverage_sub": "日英両コンテンツあり",
-      "translation_heading": "自動翻訳",
-      "translation_pending": "翻訳待ち",
-      "translation_oldest": "最古: {{date}}",
-      "translation_processing": "処理中・送信済み",
-      "translation_failed": "失敗 {{count}} 件",
-      "translation_completed_today": "本日の完了",
-      "translation_cache_hit_rate": "キャッシュヒット率"
     }
   },
   "ingest": {

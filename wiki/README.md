@@ -7,7 +7,7 @@ uploaded documents/URLs/Google Drive, semantic search, and multi-source ingestio
 Google Chat, Discord, websites). It is an OAuth relying party of `accounts/` and the only app in
 the repo with a Git-based CLI workflow (`gdg wiki clone`; see the root README's "Wiki through
 Git" section) and a bounded `/api/agent/*` read surface consumed by the separate `agents-index/`
-local MCP service and by `agents/` / `agents-local/` for LLM-driven wiki editing.
+local MCP service and by `agents/` / `agent-host/` for LLM-driven wiki editing.
 
 Full package conventions and architecture notes live in `CLAUDE.md`; this file is the onboarding
 summary.

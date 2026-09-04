@@ -109,7 +109,7 @@ because that grant has no single-column id.
 |---|---|---|---|
 | `accounts/` | `@gdgjp/accounts` | accounts.gdgs.jp | Auth IdP — built on `@cloudflare/workers-oauth-provider` over D1 + KV, issues OAuth credentials to the other apps. |
 | `accounts-oidc-client-demo/` | `@gdgjp/accounts-oidc-client-demo` | Cloudflare Workers demo | Independent OpenID Connect relying-party example for GDG Accounts; uses encrypted cookies and no D1, KV, or service binding. |
-| `agents-local/` | Git submodule ([`gdg-jp/agents`](https://github.com/gdg-jp/agents)) | — | Self-hosted counterpart to `agents/`: xangi + Cursor CLI (Composer 2.5) driving the LLM Wiki from a home Ubuntu server. |
+| `agent-host/` | — | — | Self-hosted counterpart to `agents/`: xangi + Cursor CLI (Composer 2.5) driving the LLM Wiki from a home Ubuntu server. |
 | `cli/` | `github.com/gdg-jp/gdgjp/cli` | — | Go-based `gdg` command-line tool for authenticating with GDG Accounts, managing OAuth clients, and installing updates. |
 | `gdg-lib/` | `@gdgjp/gdg-lib` | — | Shared RP factory (`initializeRpAuth`) + signed-cookie HMAC helpers, consumed via `workspace:*`. Source-only (no build step). |
 | `go-extension/` | `@gdgjp/go-extension` | Chrome extension | Manifest V3 extension for GDG Japan Go Links. Redirects `go/<slug>` URLs, supports the `go` omnibox keyword, and recognizes exact searches. |

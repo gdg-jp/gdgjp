@@ -1,0 +1,10 @@
+{"schemaVersion":1,"type":"turn_start","turnId":"turn-aaa111","appSessionId":"fixture-session","createdAt":"2026-08-24T09:00:00.000Z","backend":"cursor","model":"auto","prompt":"Summarize the venue-cost policy."}
+{"schemaVersion":1,"type":"tool_call_start","turnId":"turn-aaa111","appSessionId":"fixture-session","createdAt":"2026-08-24T09:00:01.000Z","toolCallId":"call-1","name":"wk_search","input":{"query":"venue cost policy"}}
+{"schemaVersion":1,"type":"tool_call_start","turnId":"turn-aaa111","appSessionId":"fixture-session","createdAt":"2026-08-24T09:00:02.000Z","toolCallId":"call-2","name":"wk_cat","input":{"path":"/wiki/finance/venue-cost"}}
+{"schemaVersion":1,"type":"turn_end","turnId":"turn-aaa111","appSessionId":"fixture-session","createdAt":"2026-08-24T09:00:05.000Z","outcome":"complete","output":"The venue-cost policy caps reimbursable venue spend at ...","latencyMs":5000}
+{"schemaVersion":1,"type":"turn_start","turnId":"turn-bbb222","appSessionId":"fixture-session","createdAt":"2026-08-24T09:05:00.000Z","backend":"cursor","model":"auto","prompt":"What is the deadline for the Q3 report?"}
+{"schemaVersion":1,"type":"turn_end","turnId":"turn-bbb222","appSessionId":"fixture-session","createdAt":"2026-08-24T09:05:03.000Z","outcome":"error","error":"Request timed out after 60000ms","latencyMs":60000}
+{"schemaVersion":1,"type":"turn_start","turnId":"turn-ccc333","appSessionId":"fixture-session","createdAt":"2026-08-24T09:10:00.000Z","backend":"cursor","model":"auto","prompt":"Still-running turn with no turn_end yet."}
+{"schemaVersion":3,"type":"turn_start","turnId":"turn-future-schema","appSessionId":"fixture-session","createdAt":"2026-08-24T09:15:00.000Z","backend":"cursor","prompt":"a future xangi schema change should quarantine, not crash"}
+this is not json at all
+{"schemaVersion":1,"type":"turn_end","turnId":"turn-aaa111","appSessionId":"fixture-session","createdAt":"2026-08-24T09:00:05.000Z"}

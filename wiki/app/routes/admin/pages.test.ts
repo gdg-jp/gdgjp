@@ -12,14 +12,6 @@ vi.mock("~/features/pages/archive.server", () => ({
   archivePageAndDescendants: vi.fn(),
 }));
 
-vi.mock("~/features/pages/wiki-page-path.server", () => ({
-  getWikiCanonicalSlugPaths: vi.fn(async (_env: Env, pageIds: readonly string[]) => {
-    const map = new Map<string, string[]>();
-    for (const id of pageIds) map.set(id, [id]);
-    return map;
-  }),
-}));
-
 import { requireAdmin } from "~/features/auth/utils.server";
 import { archivePageAndDescendants } from "~/features/pages/archive.server";
 import { getDb } from "~/lib/db.server";
@@ -56,18 +48,37 @@ function fluentDb(result: unknown): ReturnType<typeof getDb> {
 // ---------------------------------------------------------------------------
 
 describe("admin.pages loader", () => {
-  it("returns pages list", async () => {
+  it("returns hierarchical pages list with computed depth, wikiPath, and childCount", async () => {
+    const createdAt = new Date();
+    const updatedAt = new Date();
     const mockPages = [
       {
         id: "p1",
-        slug: "hello-world",
-        titleJa: "ハローワールド",
-        titleEn: "Hello World",
+        slug: "parent",
+        titleJa: "親ページ",
+        titleEn: "Parent Page",
         status: "published",
+        visibility: "public",
         authorId: "u1",
         authorName: "Alice",
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt,
+        updatedAt,
+        parentId: null,
+        sortOrder: 0,
+      },
+      {
+        id: "p2",
+        slug: "child",
+        titleJa: "子ページ",
+        titleEn: "Child Page",
+        status: "published",
+        visibility: "public",
+        authorId: "u1",
+        authorName: "Alice",
+        createdAt,
+        updatedAt,
+        parentId: "p1",
+        sortOrder: 0,
       },
     ];
     vi.mocked(requireAdmin).mockResolvedValueOnce({ id: "admin1" } as ReturnType<
@@ -86,7 +97,20 @@ describe("admin.pages loader", () => {
       unstable_url: new URL(request.url),
     });
 
-    expect(result.pages).toEqual([{ ...mockPages[0], wikiPath: "/wiki/p1" }]);
+    expect(await result.pages).toEqual([
+      {
+        ...mockPages[0],
+        depth: 0,
+        wikiPath: "/wiki/parent",
+        childCount: 1,
+      },
+      {
+        ...mockPages[1],
+        depth: 1,
+        wikiPath: "/wiki/parent/child",
+        childCount: 0,
+      },
+    ]);
   });
 });
 

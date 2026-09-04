@@ -58,6 +58,7 @@ jobs:
       # The Wiki CLI tests import this ignored generated module. Build it in a
       # clean release checkout rather than relying on a developer worktree.
       - run: pnpm build:acl
+      - run: pnpm sync:agent-host-assets
       - uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod

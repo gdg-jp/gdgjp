@@ -1,0 +1,11 @@
+# Allow Cursor CLI's sandbox helper to create user namespaces on Ubuntu 24.04+.
+# Unconfined processes that create a userns are transitioned to unprivileged_userns,
+# which audit-denies capability sys_admin and makes sandbox.mode=enabled exit 1.
+abi <abi/4.0>,
+include <tunables/global>
+
+profile cursor-agent-cursorsandbox /opt/cursor-agent/cursorsandbox flags=(unconfined) {
+  userns,
+
+  include if exists <local/cursor-agent-cursorsandbox>
+}

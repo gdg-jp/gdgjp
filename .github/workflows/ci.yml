@@ -76,12 +76,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:acl
+      - run: pnpm sync:agent-host-assets
+      - run: go build -C cli -o /tmp/gdg-ci ./cmd/gdg
       - run: node --test .github/scripts/*.test.mjs
+        env:
+          GDG_BIN: /tmp/gdg-ci
 
   openapi:
     name: OpenAPI contracts
@@ -119,6 +128,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # The Wiki CLI tests import this ignored generated module.
       - run: pnpm build:acl
+      - run: pnpm sync:agent-host-assets
+      - run: pnpm sync:agent-host-assets --check
       - name: gofmt, vet, test, and build
         working-directory: cli
         run: |
@@ -191,6 +202,9 @@ jobs:
           - name: Typecheck go extension
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/go-extension')
             run: pnpm --filter @gdgjp/go-extension typecheck
+          - name: Typecheck langfuse forwarder
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/langfuse-forwarder')
+            run: pnpm --filter @gdgjp/langfuse-forwarder typecheck
 
   test:
     name: Unit tests
@@ -245,6 +259,9 @@ jobs:
           - name: Test go extension
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/go-extension')
             run: pnpm --filter @gdgjp/go-extension test
+          - name: Test langfuse forwarder
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/langfuse-forwarder')
+            run: pnpm --filter @gdgjp/langfuse-forwarder test
 
   build:
     name: Build

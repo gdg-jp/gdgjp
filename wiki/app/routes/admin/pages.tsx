@@ -1,14 +1,16 @@
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { Suspense } from "react";
 import { useTranslation } from "react-i18next";
-import { Form, Link, useLoaderData } from "react-router";
+import { Await, useLoaderData } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+import { TableSkeleton } from "~/components/Skeleton";
 import * as schema from "~/db/schema";
 import { deletePageEmbeddings } from "~/features/ai-search/embedding.server";
 import { requireAdmin } from "~/features/auth/utils.server";
 import { archivePageAndDescendants } from "~/features/pages/archive.server";
-import { wikiPagePath } from "~/features/pages/wiki-page-path";
-import { getWikiCanonicalSlugPaths } from "~/features/pages/wiki-page-path.server";
 import { getDb } from "~/lib/db.server";
+import { PageTreeTable } from "./_components/PageTreeTable";
+import { buildAdminPageTree } from "./_components/admin-page-tree";
 
 // ---------------------------------------------------------------------------
 // Loader
@@ -19,7 +21,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   await requireAdmin(request, env);
   const db = getDb(env);
 
-  const pages = await db
+  const pages = db
     .select({
       id: schema.pages.id,
       slug: schema.pages.slug,
@@ -31,23 +33,16 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
       authorName: schema.user.name,
       createdAt: schema.pages.createdAt,
       updatedAt: schema.pages.updatedAt,
+      parentId: schema.pages.parentId,
+      sortOrder: schema.pages.sortOrder,
     })
     .from(schema.pages)
     .leftJoin(schema.user, eq(schema.pages.authorId, schema.user.id))
-    .orderBy(desc(schema.pages.updatedAt))
-    .all();
+    .orderBy(schema.pages.sortOrder)
+    .all()
+    .then((rows) => buildAdminPageTree(rows));
 
-  const slugPaths = await getWikiCanonicalSlugPaths(
-    env,
-    pages.map((p) => p.id),
-  );
-
-  return {
-    pages: pages.map((p) => ({
-      ...p,
-      wikiPath: wikiPagePath(slugPaths.get(p.id) ?? [p.slug]),
-    })),
-  };
+  return { pages };
 }
 
 // ---------------------------------------------------------------------------
@@ -102,37 +97,6 @@ export async function action({ request, context }: ActionFunctionArgs) {
 // UI
 // ---------------------------------------------------------------------------
 
-function StatusBadge({ status }: { status: string }) {
-  const { t } = useTranslation();
-  const cls =
-    status === "published"
-      ? "bg-feedback-success-surface text-feedback-success-foreground"
-      : status === "archived"
-        ? "bg-surface-hover text-content-tertiary"
-        : "bg-surface-hover text-content-tertiary";
-  const label = status === "archived" ? t("admin.pages.status_archived") : status;
-  return (
-    <span
-      className={[
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-        cls,
-      ].join(" ")}
-    >
-      {label}
-    </span>
-  );
-}
-
-function VisibilityBadge({ visibility }: { visibility: string }) {
-  if (visibility === "public") return null;
-  const label = visibility === "unlisted" ? "unlisted" : "restricted";
-  return (
-    <span className="inline-flex items-center rounded-full bg-feedback-info-surface px-2 py-0.5 text-xs font-medium text-feedback-info-foreground">
-      {label}
-    </span>
-  );
-}
-
 export default function AdminPages() {
   const { pages } = useLoaderData<typeof loader>();
   const { t } = useTranslation();
@@ -140,127 +104,16 @@ export default function AdminPages() {
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold text-content-primary">{t("admin.pages.heading")}</h1>
-
-      <div className="overflow-hidden rounded-lg border border-border-default bg-surface-raised">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border-default bg-surface-sunken">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-content-tertiary">
-                {t("admin.pages.col_title")}
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-content-tertiary">
-                {t("admin.pages.col_status")}
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-content-tertiary">
-                {t("admin.pages.col_author")}
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-content-tertiary">
-                {t("admin.pages.col_updated")}
-              </th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border-subtle">
-            {pages.map((p) => (
-              <tr key={p.id} className="hover:bg-surface-hover">
-                <td className="px-4 py-3">
-                  <Link to={p.wikiPath} className="group">
-                    <p className="font-medium text-content-primary group-hover:text-action-primary">
-                      {p.titleJa}
-                    </p>
-                    {p.titleEn && <p className="text-xs text-content-disabled">{p.titleEn}</p>}
-                  </Link>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-1">
-                    <StatusBadge status={p.status} />
-                    <VisibilityBadge visibility={p.visibility} />
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-content-secondary">{p.authorName ?? "—"}</td>
-                <td className="px-4 py-3 text-content-tertiary">
-                  {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : "—"}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    {p.status !== "archived" ? (
-                      <>
-                        <Link
-                          to={`/wiki/${p.slug}/edit`}
-                          className="rounded px-2 py-1 text-xs text-action-primary hover:bg-surface-selected"
-                        >
-                          {t("admin.pages.edit")}
-                        </Link>
-                        <Form
-                          method="post"
-                          onSubmit={(e) => {
-                            if (
-                              !window.confirm(
-                                t("admin.pages.archive_confirm", { title: p.titleJa }),
-                              )
-                            ) {
-                              e.preventDefault();
-                            }
-                          }}
-                        >
-                          <input type="hidden" name="intent" value="archivePage" />
-                          <input type="hidden" name="pageId" value={p.id} />
-                          <button
-                            type="submit"
-                            className="rounded px-2 py-1 text-xs text-content-secondary hover:bg-surface-hover"
-                          >
-                            {t("admin.pages.archive")}
-                          </button>
-                        </Form>
-                      </>
-                    ) : (
-                      <>
-                        <Form method="post">
-                          <input type="hidden" name="intent" value="restorePage" />
-                          <input type="hidden" name="pageId" value={p.id} />
-                          <button
-                            type="submit"
-                            className="rounded px-2 py-1 text-xs text-action-primary hover:bg-surface-selected"
-                          >
-                            {t("admin.pages.restore")}
-                          </button>
-                        </Form>
-                        <Form
-                          method="post"
-                          onSubmit={(e) => {
-                            if (
-                              !window.confirm(
-                                t("admin.pages.delete_archived_confirm", { title: p.titleJa }),
-                              )
-                            ) {
-                              e.preventDefault();
-                            }
-                          }}
-                        >
-                          <input type="hidden" name="intent" value="deletePage" />
-                          <input type="hidden" name="pageId" value={p.id} />
-                          <button
-                            type="submit"
-                            className="rounded px-2 py-1 text-xs text-feedback-danger-foreground hover:bg-feedback-danger-surface"
-                          >
-                            {t("admin.pages.delete")}
-                          </button>
-                        </Form>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {pages.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-content-disabled">
-            {t("admin.pages.empty")}
-          </p>
-        )}
-      </div>
+      <Suspense fallback={<TableSkeleton rows={8} cols={5} />}>
+        <Await
+          resolve={pages}
+          errorElement={
+            <p className="text-sm text-feedback-danger-foreground">Failed to load pages.</p>
+          }
+        >
+          {(resolvedPages) => <PageTreeTable pages={resolvedPages} />}
+        </Await>
+      </Suspense>
     </div>
   );
 }

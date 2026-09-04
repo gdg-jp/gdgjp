@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "guilds": {
+    "test-guild": {
+      "chapterId": "test-chapter",
+      "boundBy": "test-operator",
+      "boundAt": "2026-01-01T00:00:00.000Z",
+      "roles": {
+        "role-organizer": { "chapterId": "test-chapter", "role": "organizer" }
+      },
+      "channels": {
+        "ch-chapter": { "visibility": "chapter-organizer", "chapterId": "test-chapter" },
+        "ch-other": { "visibility": "chapter-organizer", "chapterId": "test-chapter-other" },
+        "ch-national": { "visibility": "member" }
+      }
+    }
+  }
+}

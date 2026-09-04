@@ -1,0 +1,50 @@
+{
+  "$schema": "./agent-host.schema.json",
+  "slotCount": 4,
+  "backend": {
+    "name": "cursor",
+    "model": "composer-2.5"
+  },
+  "discord": {
+    "showThinking": false,
+    "streaming": false,
+    "completionNotify": "off"
+  },
+  "pins": {
+    "cursorAgent": {
+      "version": "2026.08.11-e8db854",
+      "sha256": {
+        "x86_64": "bfff4bf6f4e9dd30c1d0ef0a70b6077b074015dd2948e4c50685d53afdcfce5a",
+        "aarch64": "ea13f92e295f523a99ce8d8f57d6894d21e5d1e2d030ffad718ccd5955ca2eed"
+      }
+    },
+    "xangi": {
+      "repo": "https://github.com/Harineko0/xangi.git",
+      "ref": "b3db5919a5e33769ef8d7bcef245aa6b76974948"
+    },
+    "gws": {
+      "version": "v0.22.5",
+      "sha256": {
+        "x86_64": "de78ecdbd2f1a84cca0063a7ecbc440240fc14b6ebccbb17f4646b792a8c5c1f",
+        "aarch64": "94490295d9580e1e88574e715a0a162991747d12d62f8c7b8dcc8268b6c1cea0"
+      }
+    },
+    "gdgCli": {
+      "version": "0.3.1",
+      "assetTemplate": "gdg_{version}_linux_{arch}.zip",
+      "sha256": {
+        "x86_64": "521302e1837bb5023b2574c03e59db4f9a7e6cb9a28f55fc70b42660768fdc53",
+        "aarch64": "87b641f470f74d1ac3c6324500197ceb51f2807e5773723a47a38ca76444030b"
+      }
+    },
+    "node": {
+      "major": 22,
+      "minMinor": 18
+    }
+  },
+  "paths": {
+    "agentRoot": "/opt/gdg-agent",
+    "workspace": "/srv/gdg-agent/wiki",
+    "runRoot": "/run/gdg-agent"
+  }
+}

@@ -15,3 +15,4 @@ packages:
   - "gdg-lib"
   - "accounts-oidc-client-demo"
   - "agents-index"
+  - "agent-host/langfuse-forwarder"

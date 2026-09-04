@@ -112,6 +112,15 @@ describe("wiki.$ loader path handling", () => {
 
     const result = await runLoader("/wiki/parent/child", "parent/child");
     expect(result.page.slug).toBe("child");
+    expect(result.content).toBeInstanceOf(Promise);
+    expect(result.pageMeta).toBeInstanceOf(Promise);
+    expect(result.comments).toBeInstanceOf(Promise);
+    const content = await result.content;
+    expect(content.contentJa).toBe("# hi");
+    const pageMeta = await result.pageMeta;
+    expect(pageMeta.tags).toEqual([]);
+    const comments = await result.comments;
+    expect(Array.isArray(comments)).toBe(true);
   });
 
   it("301-redirects a flat slug to the canonical path, preserving ?lang=", async () => {

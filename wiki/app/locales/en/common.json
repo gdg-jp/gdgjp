@@ -7,7 +7,6 @@
     "home": "Home",
     "search": "Search",
     "new_page": "New Page",
-    "admin": "Admin",
     "github": "GitHub",
     "recent": "Recent",
     "starred": "Starred",
@@ -199,8 +198,7 @@
     "label": "Admin",
     "nav": {
       "pages": "Pages",
-      "tags": "Tags",
-      "stats": "Stats"
+      "tags": "Tags"
     },
     "pages": {
       "heading": "Pages",
@@ -216,19 +214,25 @@
       "restore": "Restore",
       "status_archived": "Archived",
       "delete_archived_confirm": "Permanently delete \"{{title}}\"? This cannot be undone.",
-      "empty": "No pages found."
+      "empty": "No pages found.",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "child_count": "{{count}} child pages"
     },
     "tags": {
       "heading": "Tags",
       "col_color": "Color",
       "col_slug": "Slug",
+      "col_label": "Label",
       "col_label_ja": "Label (JA)",
       "col_label_en": "Label (EN)",
       "col_pages": "Pages",
       "col_actions": "Actions",
       "empty": "No tags found.",
       "new_tag": "New Tag",
+      "new_tag_dialog_title": "Create tag",
       "edit": "Edit",
+      "edit_tag_dialog_title": "Edit tag",
       "delete": "Delete",
       "delete_confirm": "Delete tag \"{{slug}}\"? This will remove it from all pages and cannot be undone.",
       "created": "Tag \"{{slug}}\" created.",
@@ -236,6 +240,8 @@
       "deleted": "Tag deleted.",
       "error_slug_taken": "A tag with slug \"{{slug}}\" already exists.",
       "error_slug_invalid": "Slug must contain only lowercase letters, numbers, and hyphens.",
+      "error_required": "All fields are required.",
+      "error_color_invalid": "Invalid color format.",
       "form": {
         "slug": "Slug",
         "label_ja": "Label (Japanese)",
@@ -244,22 +250,6 @@
         "submit": "Create Tag",
         "update": "Save Changes"
       }
-    },
-    "stats": {
-      "heading": "Stats",
-      "total_users": "Total Users",
-      "total_pages": "Total Pages",
-      "pages_sub": "{{published}} published",
-      "published": "Published",
-      "bilingual_coverage": "Bilingual Coverage",
-      "bilingual_coverage_sub": "Both JA + EN content",
-      "translation_heading": "Automatic translation",
-      "translation_pending": "Pending translations",
-      "translation_oldest": "Oldest: {{date}}",
-      "translation_processing": "Queued and processing",
-      "translation_failed": "{{count}} failed",
-      "translation_completed_today": "Completed today",
-      "translation_cache_hit_rate": "Cache hit rate"
     }
   },
   "ingest": {

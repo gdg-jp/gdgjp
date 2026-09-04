@@ -1,0 +1,21 @@
+arch: aarch64
+vmType: vz
+cpus: 4
+memory: 8GiB
+disk: 40GiB
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+mounts:
+  - location: "~/proj/gdgjp"
+    mountPoint: /mnt/gdgjp-src
+    writable: false
+  - location: "~/proj/xangi"
+    mountPoint: /mnt/xangi-src
+    writable: false
+provision:
+  - mode: system
+    script: |
+      #!/bin/sh
+      set -eu
+      apt-get update
+      apt-get install -y rsync apparmor apparmor-utils

@@ -29,6 +29,12 @@
 | [018](#adr-018-ページ変更権限をクラス集合から直接判定する) | ページ変更権限は `canMutatePage` | Accepted |
 | [019](#adr-019-エージェントの-acl-判定はクラス集合のみを入力にする) | エージェントの判定入力はクラス集合のみ | Accepted |
 | [020](#adr-020-見出しとコードフェンスに落ちた機密派生行は拒否する) | 包めない機密派生行は拒否する | Accepted |
+| [021](#adr-021-ワークツリーの読み書きを-wk-に集約する) | ワークツリーの読み書きを `wk` に集約する | Accepted |
+| [022](#adr-022-ローカル実行物を-node-ネイティブ-typescript-に統一する) | ローカル実行物を Node ネイティブ TypeScript に統一する | Accepted |
+| [023](#adr-023-ローカル検証環境を-ubuntu-vm-に置きdocker-を採らない) | ローカル検証環境を Ubuntu VM に置き、Docker を採らない | Accepted |
+| [024](#adr-024-ci-の-script-tests-における-private-submodule-チェックアウトの失敗と暫定方針) | CI の script-tests における private submodule チェックアウトの失敗と暫定方針 | Accepted |
+| [025](#adr-025-公開前コンテンツレビューと-squash-import-による-public-化) | 公開前コンテンツレビューと squash import による public 化 | Accepted |
+| [026](#adr-026-収束エンジンを-go-gdg-cli-とし宣言的-specピン留めpull-型配信を採用する) | 収束エンジンを Go (gdg CLI) とし宣言的 spec・ピン留め・pull 型配信を採用する | Accepted |
 
 ---
 
@@ -1899,3 +1905,156 @@ Docker は CI に向くが、Docker Desktop の LinuxKit では AppArmor と sys
 VM は使い捨てで `limactl delete` によりリセットする。固定 Cursor 版を事前配置するため、
 `install.sh` の latest Cursor 取得だけはこの検証対象から外れる。arm64 VM の結果は x86-64 本番の
 保証ではなく、差分を Stage 12 に記録する。
+
+## ADR-024: CI の script-tests における private submodule チェックアウトの失敗と暫定方針
+
+### Status
+
+Accepted
+
+### Date
+
+2026-09-03
+
+### Context
+
+`.github/workflows/ci.yml:72-84` の `script-tests` ジョブは `actions/checkout@v4` で `submodules: true` を指定している。
+しかし本リポジトリ `gdg-jp/gdgjp` は PUBLIC であり、submodule である `agents-local` のリモート `gdg-jp/agents` は PRIVATE である。
+GitHub Actions の既定 `GITHUB_TOKEN` はパブリックリポジトリからプライベートリポジトリへの読み取り権限を持たないため、`git submodule update` が `fatal: repository 'https://github.com/gdg-jp/agents.git/' not found` で失敗する（run 33026067379 / job 98367586019 で実証確認済み）。
+これまで `script-tests` の起動述語が `.github/scripts/*.mjs` に限定されていたためジョブがほとんど発火せず、この失敗が表面化していなかった。
+
+さらに、仮に checkout の submodule 失敗を無視して後続ステップへ進んだとしても、`.github/scripts/gdg-agent-layout.test.mjs` の submodule 依存箇所（`:14-15` の `agents-local/lib/apply-ownership.sh` と `agents-local/install.sh` をガード無しで読む箇所、および `:184` の `.cursor/mcp.json`、`:190` の `AGENTS.md`、`:200` の `config/cli-config.json`、`:214` の `setup.sh`、`:217` の `setup.sh` 検査）が `ENOENT` でテスト失敗を引き起こす。
+
+### Decision
+
+**Stage 01 では `ci.yml` の `submodules: true` を外すことや PAT 注入などの恒久対処・暫定対処を行わず、事実の記録に留める。**
+
+- Stage 03 (`03-consolidate-agent-host.md`) において `agents-local` submodule 自体を monorepo 内の `agent-host/` へ統合・ミラー解消し、submodule 依存そのものを撤廃する。
+- したがって、submodule チェックアウトに起因する問題は Stage 03 で自然に解消されるため、Stage 01 でワークアラウンドを重ねることは避ける。
+- `.github/scripts/gdg-agent-layout.test.mjs` に対しても、Stage 03 および Stage 05〜07 の担当であるためここでは中身を変更しない。
+
+### Consequences
+
+- GitHub Actions 上で `script-tests` ジョブが起動した場合、Stage 03 の submodule 統合が完了するまでは `actions/checkout@v4` の submodule clone 段階でジョブが失敗する（既知の制約）。
+- ローカル環境（submodule が手動でチェックアウトされている環境）では `node --test .github/scripts/*.test.mjs` により `gdg-agent-layout.test.mjs` を含むすべてのテストが正常にパスする。
+
+---
+
+## ADR-025: 公開前コンテンツレビューと squash import による public 化
+
+### Status
+
+Accepted
+
+### Date
+
+2026-09-03
+
+### Context
+
+`docs/agents-local-refactoring/index.md` の全体方針において、`agents-local` を `gdgjp` monorepo 内の `agent-host/` へ統合して完全に public 化することが決定された。
+しかし、統合元である `gdg-jp/agents` は PRIVATE リポジトリであり、統合先である `gdg-jp/gdgjp` は PUBLIC リポジトリである。一度公開された内容は検索インデックスやキャッシュに残るため、この操作は不可逆である。
+
+機構面（sudoers 生成スクリプト、フック、uid 分離設定など）の多くは既に monorepo 側（`scripts/gdg-agent/` や `docs/`）で公開済みであったが、`agents-local` 側の運用ドキュメントやデータには以下の非公開情報・内部情報が含まれていた。
+
+1. `agents-local/docs/devfest-2026-timetable-draft-v1.*`: 未公開の DevFest Kansai 2026 タイムテーブル草案、登壇交渉ステータス、private Google Sheets URL。
+2. `agents-local/docs/discord/gdgkwansai.md`: GDG Greater Kwansai Discord サーバーのサーバー ID、カテゴリ ID、チャンネル ID 一覧。
+3. `agents-local/ENVIRONMENT.md`: 本番ホスト名（`mincra-srv`）、operator アカウント名（`harineko`、uid 1000）、個人 git リモート、ホームディレクトリパス台帳。
+4. `agents-local/.agents/skills/gws-*/SKILL.md`: `googleworkspace/cli` 由来のスキル定義。
+5. `agents-local/AGENTS.md`: エージェントの人格・運用ルール。
+
+また、`gdg-jp/agents` のリポジトリ自体の visibility を public に切り替えると、コミット履歴（100 commit 超）に含まれる過去の機密情報や下書き情報まで全て不可逆的に公開される。
+
+### Decision
+
+**1. 棚卸し対象の処遇**
+- `devfest-2026-timetable-draft-v1.md` / `.csv`: **移設（作業ツリーから削除）**。未公開のイベント企画情報であり公開意図がないため。履歴は private な `gdg-jp/agents` に保持される。
+- `docs/discord/gdgkwansai.md`: **移設（作業ツリーから削除）**。内部運用データであり、エージェント実行に必要な場合はホスト側の設定や IAM 経由で渡すこととする。これに伴い `AGENTS.md` 内の参照リンクも削除。
+- `ENVIRONMENT.md`: **秘匿化**。systemd 構成、uid 分離、ソケット通信等の構成説明は Stage 03 以降も有用なため残すが、ホスト名（`<production-host>`）、operator 名（`<operator>`）、個人リモート URL 等をプレースホルダーに置換した。
+- `.agents/skills/gws-*/SKILL.md`: **そのまま公開**。`googleworkspace/cli`（Apache 2.0 ライセンス）由来の汎用スキル定義であり、組織固有データや認証情報を含まないことを確認した。
+- `AGENTS.md`: **そのまま公開**（軽微な参照削除のみ）。Stage 03 で `agent-host/workspace/` の正本となる。
+
+**2. 公開方式: squash import の採用と `gdg-jp/agents` のアーカイブ**
+- `gdg-jp/agents` の visibility は **public に切り替えない**。履歴アーカイブとして **private のまま archive** とする。
+- Stage 03 では、本レビューおよび整理が完了した **HEAD のみを monorepo 内 `agent-host/` へ squash import**（単一コミット）する。これにより過去のコミット履歴は公開されない。
+
+**3. Stage 10 以降の main ブランチ保護と root 相当権限の扱い**
+- Stage 10 の pull 型自動適用（Tier 2）が稼働すると、public リポジトリである本リポジトリの `main` への push が実質的に本番ホストの root 相当の権限行使となる。
+- したがって、Stage 10 以降は branch protection、コミット署名の強制、およびリリース署名鍵（Stage 09 で導入）の厳格な管理を前提条件とする。エージェント自身を含む非特権経路からリリース生成リポジトリへの push ができないことを不変条件としてテストで固定する。
+
+### Consequences
+
+- `agents-local` から未公開資料および Discord 内部 ID が除去され、Gitleaks および URL スキャンがクリーンな状態となった。
+- `gdg-jp/agents` の git 履歴は monorepo 側には持ち込まれないが、削除済みファイルの復活防止等の不変条件は monorepo 側のテスト（`.github/scripts/gdg-agent-layout.test.mjs`）で担保される。
+- Stage 03（`agent-host/` への統合）を開始する前提条件が満たされた。
+
+---
+
+## ADR-026: 収束エンジンを Go (gdg CLI) とし宣言的 spec・ピン留め・pull 型配信を採用する
+
+### Status
+
+Accepted
+
+### Date
+
+2026-09-04
+
+### Context
+
+`docs/agents-local-refactoring/index.md` の Stage 04 において、命令的なプロビジョニング用シェルスクリプト群（7 本・約 1,755 行）から GitOps が乗る宣言的な状態管理へと移行するための設計判断を記録する。
+
+当時抱えていた問題は以下の通りであった:
+
+1. **設定が命令的**: `AGENT_MODEL=composer-2.5` や Discord UX フラグが `install.sh` 内の quoted heredoc にハードコードされており、モデル変更や slot 変更にシェル編集が必要であった。
+2. **ピン留めの不統一**: `cursor-agent` が第三者（`karaage0703/xangi`）の `releases/latest` を root パイプ実行（`| bash`）し、`xangi` は ref ピン無しで `git pull --ff-only`、`gdg` は無条件 `gdg update -y`、lockfile 不在時は `npm install` にフォールバックしていた。
+3. **`setup.sh` の空洞化と重複**: `setup.sh` の大部分は `install.sh` や `lib/install-layout.sh` と重複しており、固有のロジックは 13 検査のみであった。また出力 heredoc も本体と drift していた。
+4. **sudoers 書き込みの実バグ**: 稼働中の `/etc/sudoers.d/gdg-agent` を直接 truncate して書き込み、`visudo -c` の検証が事後に別スクリプトで走る構造であったため、書き込み途中の破損でホスト全体の `sudo` が死ぬ危険があった。
+5. **一時診断コードの残存**: `cli/internal/wiki/hooks/acl-gate.ts` の `debugGwsSnapshot` が `gws` 呼び出しごとに `/tmp/gws-acl-debug-*` (mode 0o644) を生成していた。
+6. **未検証 lockfile の存在**: root と `agent-host/` に `skills-lock.json` が存在するが、照合コードが存在せず放置されていた。
+
+### Decision
+
+**1. 収束エンジンの選定: `gdg` CLI の Go サブコマンド（Stage 06-07）**
+- 収束エンジンはシェルではなく `gdg` CLI の Go サブコマンド（`gdg agent-host`）として実装する。
+- 理由: 読み取り側（`cli/internal/wiki/hooks.go:131` の `inspectInstalledScripts`）が既に `gdg` の中に存在し、単一バイナリで TS+Go の既存スタックに収まるため。
+- Ansible および NixOS は不採用とする。NixOS は cursor-agent の AppArmor がパス固定・sudoers/sandbox allowlist が安定パス前提・xangi が packaging 未解決で破綻する。Ansible は 1 台の自前ホストに対して過剰な抽象化とランタイム依存を持ち込む。
+- Ansible への切替基準: 2 台目のホストが必要になる / inventory 管理が必要になる / Go 収束エンジンが約 2,000 行を超えた時点で再検討する。
+
+**2. 配信方式: pull 型配信（Stage 09-10）**
+- ホストが定期的にリポジトリのリリースまたは署名付きマニフェストを pull して収束する方式を採用する。
+- 理由: public リポジトリにおいて self-hosted runner は fork PR からのコード実行経路となり極めて危険であり、ssh デプロイは CI に root 相当の秘密鍵を持たせる必要があるため。
+
+**3. 宣言的 spec の導入**
+- `agent-host/agent-host.json` を単一の真実（Single Source of Truth）とし、JSON Schema（`agent-host.schema.json`）で厳格に検証する。
+- モデル名、slotCount、ピン留め（`cursorAgent`, `xangi`, `gws`, `gdgCli`, `node`）、パス（`agentRoot`, `workspace`, `runRoot`）を spec に外出しする。
+- Lima 開発 VM 用の差分を overlay `agent-host.dev.json` に閉じ込める。
+- Stage 04 では Go は書かず、シェル側から `node -e`（`spec_get`）経由で spec を読み取る。
+
+**4. ピン留めとダイジェスト入手手順**
+- **`cursor-agent`**: `downloads.cursor.com/lab/${version}/linux/${arch}/agent-cli-package.tar.gz` から取得し、per-arch（x86_64, aarch64）の SHA256 を検証した上で `/opt/cursor-agent` に展開・配置する。ダイジェストの入手手順は、公式 URL より対象アーカイブをダウンロードし、`sha256sum` で計算した値を spec に固定する。
+- **`xangi`**: 指定コミット SHA (`pins.xangi.ref`) を `git checkout --detach` でチェックアウトし、`git rev-parse HEAD` で照合する。`package-lock.json` を必須とし、不在時の `npm install` フォールバックは廃止する。
+- **`gws`**: spec の `pins.gws`（バージョン + per-arch SHA256）で照合・インストールする。
+- **`gdgCli`**: spec の `pins.gdgCli`（バージョン + per-arch SHA256）で照合し、不一致時のみ GitHub Releases からダウンロード・検証・配置する。
+
+**5. `setup.sh` の削除と `lib/verify.sh` への退避**
+- `setup.sh` を削除し、固有の 13 検査を `agent-host/lib/verify.sh` に退避する（Stage 07 で Go の `verify` に移送するまでの一時退避）。
+- プロビジョニング用シェルスクリプト本数は 5 本（`install.sh`, `lib/install-layout.sh`, `lib/apply-ownership.sh`, `lib/verify.sh`, `agents-index/install.sh`）を維持する。
+
+**6. sudoers / tmpfiles の validate-then-rename**
+- `/etc/sudoers.d/gdg-agent` の直接 truncate を廃止し、同一ファイルシステム上の一時ファイルに書き出した後、`visudo -cf "$tmp"` で構文検証を通してから `chmod 0440` して `mv -f` でアトミックに置換する。
+- 一時ファイル検証が失敗した場合は稼働中の sudoers に触れず即座にエラー終了する。
+- tmpfiles についても同様の方式とする。
+
+**7. 不要コード・未検証ファイルの削除**
+- `cli/internal/wiki/hooks/acl-gate.ts` の `debugGwsSnapshot` を削除し、`/tmp/gws-acl-debug-*` の生成を根絶する。
+- 照合コードが存在せず実体ファイルもない `skills-lock.json`（root および `agent-host/`）を削除する（「検証しない lockfile は残さない」）。
+
+### Consequences
+
+- `agent-host` のモデル、slot 数、外部依存ピン留めがすべて宣言的 spec に一元化された。
+- 第三者インストーラのパイプ実行が排除され、すべての依存の完全性と真正性が機械的に検証されるようになった。
+- sudoers 生成時の実バグが解消され、不正な設定による sudo 破損が構造的に防止された。
+- プロビジョニング用シェル本数 5 本が維持され、Stage 05（レイアウト Go 生成への移行）および Stage 06-07（Go 収束エンジン導入）への前提条件が整った。
+
+

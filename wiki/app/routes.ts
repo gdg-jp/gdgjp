@@ -74,16 +74,6 @@ export default [
   // Public OGP image for public and unlisted wiki pages.
   route("/og/wiki/:slug", "routes/wiki/og-image.tsx"),
 
-  // Admin routes — separate layout with admin sidebar.
-  // User and chapter management are owned by the accounts IdP and no longer
-  // live here; admins land on /admin/pages.
-  route("admin", "routes/admin/layout.tsx", [
-    index("routes/admin/index.tsx"),
-    route("pages", "routes/admin/pages.tsx"),
-    route("tags", "routes/admin/tags.tsx"),
-    route("stats", "routes/admin/stats.tsx"),
-  ]),
-
   // About / landing for logged-in users — no app shell
   route("/about", "routes/public/about.tsx"),
 
@@ -113,5 +103,14 @@ export default [
     route("/tasks/:slug", "routes/tasks/detail.tsx"),
     route("/tasks/:slug/settings", "routes/tasks/settings.tsx"),
     route("/tasks/:slug/history", "routes/tasks/history.tsx"),
+
+    // Admin screens. Share the app shell (Navbar + Sidebar) with the rest of
+    // the app. User and chapter management are owned by the accounts IdP;
+    // admins land on /admin/pages.
+    route("admin", "routes/admin/layout.tsx", [
+      index("routes/admin/index.tsx"),
+      route("pages", "routes/admin/pages.tsx"),
+      route("tags", "routes/admin/tags.tsx"),
+    ]),
   ]),
 ] satisfies RouteConfig;

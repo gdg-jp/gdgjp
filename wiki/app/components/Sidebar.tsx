@@ -1,35 +1,11 @@
-import { Archive, ChevronRight, Clock, FileInput, Home, Settings, Star } from "lucide-react";
+import { Archive, ChevronRight, Clock, FileInput, Home, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link, useLocation } from "react-router";
+import { useLocation } from "react-router";
+import AdminNavSection from "~/components/AdminNavSection";
 import BaseSidebar from "~/components/BaseSidebar";
+import { NavItem } from "~/components/NavItem";
 import PageTree from "~/features/pages/components/PageTree";
 import type { PageNode } from "~/features/pages/tree";
-
-interface NavItemProps {
-  to: string;
-  icon: React.ReactNode;
-  label: string;
-  isCollapsed: boolean;
-  isActive: boolean;
-}
-
-export function NavItem({ to, icon, label, isCollapsed, isActive }: NavItemProps) {
-  return (
-    <Link
-      to={to}
-      prefetch="intent"
-      title={isCollapsed ? label : undefined}
-      className={`flex min-h-8 items-center gap-2 rounded px-2 py-1.5 text-sm ${
-        isActive
-          ? "bg-surface-selected font-medium text-action-primary"
-          : "text-content-secondary hover:bg-surface-sunken"
-      }`}
-    >
-      <span className="flex-shrink-0">{icon}</span>
-      {!isCollapsed && <span className="truncate">{label}</span>}
-    </Link>
-  );
-}
 
 interface SidebarProps {
   pages: PageNode[];
@@ -172,15 +148,7 @@ export default function Sidebar({
                   isActive={location.pathname === "/archived"}
                 />
               ))}
-            {isAuthenticated && isAdmin && (
-              <NavItem
-                to="/admin"
-                icon={<Settings size={16} />}
-                label={t("nav.admin")}
-                isCollapsed={isCollapsed}
-                isActive={location.pathname.startsWith("/admin")}
-              />
-            )}
+            {isAuthenticated && isAdmin && <AdminNavSection isCollapsed={isCollapsed} />}
           </nav>
 
           {/* Divider */}
