@@ -430,15 +430,20 @@ RDRA が候補に挙げた mTLS と Cloudflare Access サービストークン�
 
 **`Authorization: Bearer <secret>` で認証し、Worker 側で定時比較する。**
 
-1. **鍵は常に 2 つ受け付ける。** `DP_SHARED_SECRET_CURRENT` と `DP_SHARED_SECRET_PREVIOUS`。
+1. **鍵を 2 つ持つのは CP だけである。** CP は `DP_SHARED_SECRET_CURRENT` と
+   `DP_SHARED_SECRET_PREVIOUS` の両方を受け付ける。**DP が持つのは常に 1 つ**で、
+   その時点の現行鍵を送る。
    ローテーション手順は「CP に新旧両方を置く → DP を新に切り替える → CP から旧を消す」。
    DP を止めずに交換できる形にしておく。
 2. **比較は定時比較にする。** 長さの差で早期 return しない。
 3. `/api/dp/*` 以外にこの認証を掛けない。ダッシュボードの認証（OIDC）とは完全に別系統。
 4. Cloudflare 側でこのパスにレート制限を掛ける。
-5. **秘密は環境変数として渡す。** CP は `wrangler secret put`、DP は systemd の
-   `EnvironmentFile`（mode 0600、`root:root`）。リポジトリには `.dev.vars.example` と
-   `.env.example` にキー名だけを置く。
+5. **秘密の渡し方は Plane ごとに違う。** CP は `wrangler secret put`。
+   DP は systemd の `LoadCredential=` で渡し、**環境変数には置かない**
+   （[ADR-010](#adr-010-systemd-の-system-unit-で常駐させ状態は-statedirectory秘密は-loadcredential-に置く) Decision 2）。`/proc/<pid>/environ` と journal に漏れるためである。
+   リポジトリに置くのは CP の `.dev.vars.example` のキー名だけで、
+   DP 側は `/etc/discord-relay-gateway/` に置く資格情報ファイルの一覧を
+   運用ドキュメントに書く（`.env.example` は作らない）。
 
 ### Alternatives Considered
 
@@ -468,6 +473,14 @@ RDRA が候補に挙げた mTLS と Cloudflare Access サービストークン�
 - 偽テレメトリの影響を限定するため、CP は tick の `events` を無条件に信用しない:
   `guild_id` が購読仕様に載っていないイベントは捨てる。
 - 鍵の交換手順を運用ドキュメントに残す必要がある（SETUP タスクに追加）。
+- **DP 側の鍵は 1 つなので、DP には「認証に失敗したら別の鍵で再試行する」経路が無い。**
+  順序を誤って CP から旧鍵を先に消すと、DP の tick が全滅する。手順書はこの順序を守らせるためにある。
+
+> **訂正（2026-09-05）**: 採択当初の Decision 5 は「秘密は環境変数として渡す。DP は systemd の
+> `EnvironmentFile`」と書いていた。同日採択の [ADR-010](#adr-010-systemd-の-system-unit-で常駐させ状態は-statedirectory秘密は-loadcredential-に置く) Decision 2 が `LoadCredential=` を選び
+> 「環境変数には置かない」と明記しているため、DP の常駐方式に固有な ADR-010 側へ一本化した。
+> あわせて Decision 1 の「鍵は常に 2 つ受け付ける」がどちらの Plane の話か曖昧だった点を明示した。
+> いずれも決定の変更ではなく、同一論点についての記述の不整合の解消である。
 
 ---
 
@@ -899,7 +912,9 @@ DP には同じ要求が無い。
 `$CREDENTIALS_DIRECTORY` 経由でこのサービスにだけ見せる。
 
 - `bot-token` — Discord Bot トークン
-- `cp-shared-secret` — ADR-005 の 2 鍵（現行と次期）
+- `cp-shared-secret` — CP へ送る Bearer シークレット。**1 つだけ**である。
+  新旧 2 鍵を同時に受け付けるのは CP 側であり、DP は常に現行鍵だけを送る
+  （[ADR-005](#adr-005-plane-間認証を-2-鍵ローテーション可能な-bearer-共有シークレットにする) Decision 1）
 
 **環境変数には置かない。** `/proc/<pid>/environ` と journal に漏れる。
 
@@ -1067,6 +1082,7 @@ ADR-008〜011 の採用にともない、さらに以下を更新した（適用
 | UC-103（セッション再開） | RESUME の対象に**プロセス再起動**を明記（ADR-010-7） | `contexts/connection-platform.md` |
 | INFO-010 GatewaySession | 実体が DP の**ディスク**にあることを明記 | `shared/information-model.md` |
 | SSoT 分担表 | Gateway セッション状態の保持先を「OCI のディスク」に | `shared/information-model.md` |
+| SETUP-5（Plane 間シークレット） | DP の秘密を `EnvironmentFile` → `LoadCredential=` に。2 鍵を持つのは CP 側だと明示（ADR-010-2） | `overview.md` |
 
 **`docs/agents-local-mvp/adr.md` への影響**: ADR-008 は同文書 ADR-026 の
 「Ansible への切替基準: 2 台目のホストが必要になる」に抵触する。抵触したうえで

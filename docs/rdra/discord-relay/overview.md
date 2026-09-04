@@ -136,7 +136,7 @@ wiki/agents の Application も xangi のトークンも再利用しない。
 | SETUP-2 | 特権 Intent（`MESSAGE_CONTENT` ほか必要分）を有効化 | wiki/agents の Application とは別に申請が要る |
 | SETUP-3 | 各チャプターの Discord サーバーへ招待 | BIZ-002 の招待フローで吸収する。追加実装は不要 |
 | SETUP-4 | 100 サーバー到達前に Bot verification を申請 | GDG + GDGoC のチャプター数次第で射程に入る |
-| SETUP-5 | Plane 間共有シークレットの発行とローテーション手順の整備 | 新旧 2 鍵を常に受け付ける（[ADR-005](../../discord-relay/adr.md#adr-005-plane-間認証を-2-鍵ローテーション可能な-bearer-共有シークレットにする)）。CP は `wrangler secret put`、DP は systemd の `EnvironmentFile` |
+| SETUP-5 | Plane 間共有シークレットの発行とローテーション手順の整備 | **CP が**新旧 2 鍵を常に受け付け、DP は現行 1 鍵だけを持つ（[ADR-005](../../discord-relay/adr.md#adr-005-plane-間認証を-2-鍵ローテーション可能な-bearer-共有シークレットにする)）。CP は `wrangler secret put`、DP は systemd の `LoadCredential=`（[ADR-010](../../discord-relay/adr.md#adr-010-systemd-の-system-unit-で常駐させ状態は-statedirectory秘密は-loadcredential-に置く)）。環境変数には置かない |
 
 ## システムコンテキスト図
 
