@@ -1,0 +1,223 @@
+version: "1.0"
+project: "discord-relay"
+generated_at: "2026-09-03T00:00:00Z"
+
+# traces_to のみを保持する単方向の Why 依存チェーン。
+# 逆引き（影響分析）は traces_to を走査して動的に算出する。
+#   GOAL <- REQ <- BUC <- UC
+#   UC   <- SCR / EVT / COND / VAR / INFO / STATE
+
+elements:
+  # ---------------------------------------------------------------- GOAL
+  - { id: "GOAL-001", type: goal, name: "Discord イベントの外部転送", defined_in: "docs/rdra/discord-relay/overview.md", traces_to: [] }
+  - { id: "GOAL-002", type: goal, name: "ノーコードでの転送設定", defined_in: "docs/rdra/discord-relay/overview.md", traces_to: [] }
+  - { id: "GOAL-003", type: goal, name: "チャプター単位の分離", defined_in: "docs/rdra/discord-relay/overview.md", traces_to: [] }
+  - { id: "GOAL-004", type: goal, name: "配信の追跡と回復", defined_in: "docs/rdra/discord-relay/overview.md", traces_to: [] }
+  - { id: "GOAL-005", type: goal, name: "無停止運用と自己復旧", defined_in: "docs/rdra/discord-relay/overview.md", traces_to: [] }
+
+  # ---------------------------------------------------------------- REQ
+  - { id: "REQ-101", type: requirement, name: "Gateway 常時接続とイベント受信", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["GOAL-001"] }
+  - { id: "REQ-102", type: requirement, name: "切断・再起動からの自己復旧", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["GOAL-005"] }
+  - { id: "REQ-103", type: requirement, name: "Intent の中央管理と開示", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["GOAL-005"] }
+  - { id: "REQ-201", type: requirement, name: "詐称できないギルド紐付け", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["GOAL-003"] }
+  - { id: "REQ-202", type: requirement, name: "Bot 退出の検知とルール停止", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["GOAL-004"] }
+  - { id: "REQ-301", type: requirement, name: "画面からのルール管理", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["GOAL-002"] }
+  - { id: "REQ-302", type: requirement, name: "有効化前の動作検証", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["GOAL-002"] }
+  - { id: "REQ-303", type: requirement, name: "秘匿情報の権限別保護", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["GOAL-003"] }
+  - { id: "REQ-401", type: requirement, name: "改ざん検知可能な HTTP 配信", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["GOAL-001"] }
+  - { id: "REQ-402", type: requirement, name: "再試行・隔離・過負荷耐性", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["GOAL-004"] }
+  - { id: "REQ-501", type: requirement, name: "配信成否の追跡と再送", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["GOAL-004"] }
+  - { id: "REQ-502", type: requirement, name: "異常の自動検知", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["GOAL-005"] }
+  - { id: "REQ-503", type: requirement, name: "非マッチ理由の自力特定", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["GOAL-004"] }
+  - { id: "REQ-601", type: requirement, name: "チャプタークレームによる認可", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["GOAL-003"] }
+  - { id: "REQ-602", type: requirement, name: "Plane 間の相互認証と非露出", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["GOAL-003"] }
+  - { id: "REQ-603", type: requirement, name: "複数所属時のチャプター選択", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["GOAL-003"] }
+
+  # ---------------------------------------------------------------- BUC
+  - { id: "BUC-101", type: business_usecase, name: "Gateway 接続を維持する", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["REQ-101", "REQ-102"] }
+  - { id: "BUC-102", type: business_usecase, name: "Intent を管理する", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["REQ-103"] }
+  - { id: "BUC-201", type: business_usecase, name: "Discord サーバーをチャプターに登録する", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["REQ-201"] }
+  - { id: "BUC-202", type: business_usecase, name: "Bot 退出を検知して設定を停止する", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["REQ-202"] }
+  - { id: "BUC-203", type: business_usecase, name: "紐付けを移管・解除する", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["REQ-201"] }
+  - { id: "BUC-301", type: business_usecase, name: "転送ルールを作成・変更する", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["REQ-301", "REQ-303"] }
+  - { id: "BUC-302", type: business_usecase, name: "ルールの動作を検証する", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["REQ-302"] }
+  - { id: "BUC-303", type: business_usecase, name: "ルールを閲覧する", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["REQ-301", "REQ-303"] }
+  - { id: "BUC-401", type: business_usecase, name: "受信イベントを配信先へ届ける", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["REQ-401"] }
+  - { id: "BUC-402", type: business_usecase, name: "失敗した配信を再試行し隔離する", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["REQ-402"] }
+  - { id: "BUC-501", type: business_usecase, name: "配信状況を確認する", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["REQ-501"] }
+  - { id: "BUC-502", type: business_usecase, name: "障害を検知して対処する", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["REQ-502"] }
+  - { id: "BUC-503", type: business_usecase, name: "ルールの挙動をデバッグする", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["REQ-503"] }
+  - { id: "BUC-601", type: business_usecase, name: "GDG Accounts でログインする", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["REQ-601"] }
+  - { id: "BUC-602", type: business_usecase, name: "操作するチャプターを切り替える", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["REQ-603"] }
+  - { id: "BUC-603", type: business_usecase, name: "Plane 間で相互認証する", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["REQ-602"] }
+
+  # ---------------------------------------------------------------- UC (BIZ-001)
+  - { id: "UC-101", type: usecase, name: "Gateway に接続する", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["BUC-101"] }
+  - { id: "UC-102", type: usecase, name: "ハートビートを送出し ACK を監視する", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["BUC-101"] }
+  - { id: "UC-103", type: usecase, name: "セッションを再開する", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["BUC-101"] }
+  - { id: "UC-104", type: usecase, name: "指数バックオフで再接続する", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["BUC-101"] }
+  - { id: "UC-105", type: usecase, name: "接続状態を照会する", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["BUC-101"] }
+  - { id: "UC-106", type: usecase, name: "Intent 設定を変更する", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["BUC-102"] }
+  - { id: "UC-107", type: usecase, name: "必要 Intent の差分を算出する", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["BUC-102"] }
+  - { id: "UC-108", type: usecase, name: "ギルド/チャンネルのキャッシュを更新する", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["BUC-101"] }
+
+  # ---------------------------------------------------------------- UC (BIZ-002)
+  - { id: "UC-201", type: usecase, name: "招待リンクを発行する", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["BUC-201"] }
+  - { id: "UC-202", type: usecase, name: "招待コールバックを検証して紐付けを確定する", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["BUC-201"] }
+  - { id: "UC-203", type: usecase, name: "紐付け済みサーバーを一覧する", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["BUC-201", "BUC-202"] }
+  - { id: "UC-204", type: usecase, name: "紐付けを解除する", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["BUC-203"] }
+  - { id: "UC-205", type: usecase, name: "Bot 退出を検知してルールを自動停止する", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["BUC-202"] }
+  - { id: "UC-206", type: usecase, name: "紐付けを他チャプターへ移管する", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["BUC-203"] }
+  - { id: "UC-207", type: usecase, name: "Bot 再参加を検知する", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["BUC-202"] }
+
+  # ---------------------------------------------------------------- UC (BIZ-003)
+  - { id: "UC-301", type: usecase, name: "ルールを作成する", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["BUC-301"] }
+  - { id: "UC-302", type: usecase, name: "ルールを編集する", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["BUC-301"] }
+  - { id: "UC-303", type: usecase, name: "ルールを有効化・無効化する", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["BUC-301"] }
+  - { id: "UC-304", type: usecase, name: "ルールを削除する", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["BUC-301"] }
+  - { id: "UC-305", type: usecase, name: "対象イベントを選ぶ", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["BUC-301"] }
+  - { id: "UC-306", type: usecase, name: "フィルタを設定する", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["BUC-301"] }
+  - { id: "UC-307", type: usecase, name: "配信先を登録する", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["BUC-301"] }
+  - { id: "UC-308", type: usecase, name: "署名シークレットをローテーションする", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["BUC-301"] }
+  - { id: "UC-309", type: usecase, name: "テスト配信する", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["BUC-302"] }
+  - { id: "UC-310", type: usecase, name: "ドライランする", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["BUC-302"] }
+  - { id: "UC-311", type: usecase, name: "ルール一覧を閲覧する", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["BUC-303"] }
+
+  # ---------------------------------------------------------------- UC (BIZ-004)
+  - { id: "UC-401", type: usecase, name: "ルールを評価する", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["BUC-401"] }
+  - { id: "UC-402", type: usecase, name: "正規化エンベロープに変換する", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["BUC-401"] }
+  - { id: "UC-403", type: usecase, name: "永続キューに投入する", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["BUC-401", "BUC-402"] }
+  - { id: "UC-404", type: usecase, name: "HTTP POST で配信する", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["BUC-401"] }
+  - { id: "UC-405", type: usecase, name: "署名を生成する", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["BUC-401"] }
+  - { id: "UC-406", type: usecase, name: "リトライをスケジュールする", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["BUC-402"] }
+  - { id: "UC-407", type: usecase, name: "DLQ に隔離する", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["BUC-402"] }
+  - { id: "UC-408", type: usecase, name: "バックプレッシャでドロップする", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["BUC-402"] }
+
+  # ---------------------------------------------------------------- UC (BIZ-005)
+  - { id: "UC-501", type: usecase, name: "ライブイベントを閲覧する", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["BUC-503"] }
+  - { id: "UC-502", type: usecase, name: "配信履歴を検索する", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["BUC-501"] }
+  - { id: "UC-503", type: usecase, name: "失敗と DLQ を一覧する", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["BUC-501"] }
+  - { id: "UC-504", type: usecase, name: "手動で再送する", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["BUC-501"] }
+  - { id: "UC-505", type: usecase, name: "メトリクスを閲覧する", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["BUC-501", "BUC-502"] }
+  - { id: "UC-506", type: usecase, name: "アラートを受け取る", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["BUC-502"] }
+  - { id: "UC-507", type: usecase, name: "監査ログを閲覧する", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["BUC-502"] }
+  - { id: "UC-508", type: usecase, name: "保持期間を過ぎたログを削除する", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["BUC-501"] }
+
+  # ---------------------------------------------------------------- UC (BIZ-006)
+  - { id: "UC-601", type: usecase, name: "OIDC でサインインする", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["BUC-601"] }
+  - { id: "UC-602", type: usecase, name: "チャプターを切り替える", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["BUC-602"] }
+  - { id: "UC-603", type: usecase, name: "認可判定する", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["BUC-601"] }
+  - { id: "UC-604", type: usecase, name: "サインアウトする", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["BUC-601"] }
+  - { id: "UC-605", type: usecase, name: "Data Plane からの要求を認証する", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["BUC-603"] }
+
+  # ---------------------------------------------------------------- SCR
+  - { id: "SCR-101", type: screen, name: "接続ステータス画面", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["UC-105"] }
+  - { id: "SCR-102", type: screen, name: "Intent 管理画面 (admin)", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["UC-106", "UC-107"] }
+  - { id: "SCR-201", type: screen, name: "サーバー追加画面", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["UC-201"] }
+  - { id: "SCR-202", type: screen, name: "サーバー一覧画面", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["UC-203", "UC-204"] }
+  - { id: "SCR-203", type: screen, name: "紐付け移管画面 (admin)", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["UC-206"] }
+  - { id: "SCR-301", type: screen, name: "ルール編集画面", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["UC-301", "UC-302", "UC-306"] }
+  - { id: "SCR-302", type: screen, name: "イベント選択画面", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["UC-305"] }
+  - { id: "SCR-303", type: screen, name: "配信先編集画面", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["UC-307", "UC-308"] }
+  - { id: "SCR-304", type: screen, name: "テスト配信・ドライラン画面", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["UC-309", "UC-310"] }
+  - { id: "SCR-305", type: screen, name: "ルール一覧画面", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["UC-303", "UC-304", "UC-311"] }
+  - { id: "SCR-501", type: screen, name: "ライブイベントビューア", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["UC-501"] }
+  - { id: "SCR-502", type: screen, name: "配信履歴画面", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["UC-502"] }
+  - { id: "SCR-503", type: screen, name: "DLQ 一覧画面", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["UC-503", "UC-504"] }
+  - { id: "SCR-504", type: screen, name: "メトリクスダッシュボード", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["UC-505"] }
+  - { id: "SCR-505", type: screen, name: "監査ログ画面", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["UC-507"] }
+  - { id: "SCR-601", type: screen, name: "サインイン画面", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["UC-601"] }
+  - { id: "SCR-602", type: screen, name: "チャプター切替 UI", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["UC-602"] }
+
+  # ---------------------------------------------------------------- EVT
+  - { id: "EVT-101", type: event, name: "Gateway HELLO 受信", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["UC-101"] }
+  - { id: "EVT-102", type: event, name: "Gateway Dispatch 受信", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["UC-108", "UC-401"] }
+  - { id: "EVT-103", type: event, name: "切断 / Reconnect / Invalid Session", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["UC-103", "UC-104"] }
+  - { id: "EVT-104", type: event, name: "ハートビート周期タイマー", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["UC-102"] }
+  - { id: "EVT-105", type: event, name: "READY 受信", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["UC-101", "UC-108"] }
+  - { id: "EVT-201", type: event, name: "Discord OAuth2 コールバック受信", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["UC-202"] }
+  - { id: "EVT-202", type: event, name: "GUILD_DELETE 受信", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["UC-205"] }
+  - { id: "EVT-203", type: event, name: "GUILD_CREATE 受信", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["UC-207"] }
+  - { id: "EVT-401", type: event, name: "Dispatch イベント受信", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["UC-401"] }
+  - { id: "EVT-402", type: event, name: "リトライ時刻到来", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["UC-406"] }
+  - { id: "EVT-501", type: event, name: "アラート閾値超過", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["UC-506"] }
+  - { id: "EVT-502", type: event, name: "保持期間経過", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["UC-508"] }
+  - { id: "EVT-601", type: event, name: "OIDC コールバック受信", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["UC-601"] }
+
+  # ---------------------------------------------------------------- COND
+  - { id: "COND-101", type: condition, name: "紐付け済みギルドのイベントのみ処理する", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["UC-108"] }
+  - { id: "COND-102", type: condition, name: "Intent 変更は再接続を要する", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["UC-106"] }
+  - { id: "COND-103", type: condition, name: "特権 Intent は Developer Portal 側の有効化が前提", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["UC-106", "UC-107"] }
+  - { id: "COND-201", type: condition, name: "claim token が有効期限内かつ未使用", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["UC-202"] }
+  - { id: "COND-202", type: condition, name: "guild_id が他チャプターに未 claim", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["UC-202"] }
+  - { id: "COND-203", type: condition, name: "操作者が対象チャプターの organizer", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["UC-201", "UC-204"] }
+  - { id: "COND-204", type: condition, name: "Discord 側の権限は Discord に委譲する", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["UC-202"] }
+  - { id: "COND-301", type: condition, name: "編集系の操作は organizer のみ", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["UC-301", "UC-302", "UC-303", "UC-304", "UC-307", "UC-308"] }
+  - { id: "COND-302", type: condition, name: "配信先 URL が SSRF ガードを通過すること", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["UC-307"] }
+  - { id: "COND-303", type: condition, name: "選択イベントに必要な Intent が有効であること", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["UC-303", "UC-305"] }
+  - { id: "COND-304", type: condition, name: "選択できるギルドは自チャプター紐付け分のみ", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["UC-306"] }
+  - { id: "COND-401", type: condition, name: "いずれかの有効ルールにマッチすること", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["UC-401"] }
+  - { id: "COND-402", type: condition, name: "再試行可能な失敗であること", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["UC-406", "UC-407"] }
+  - { id: "COND-403", type: condition, name: "キュー残量が上限未満であること", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["UC-403", "UC-408"] }
+  - { id: "COND-404", type: condition, name: "配信時にも SSRF ガードを再評価すること", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["UC-404"] }
+  - { id: "COND-501", type: condition, name: "手動再送は organizer のみ", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["UC-504"] }
+  - { id: "COND-502", type: condition, name: "閲覧は自チャプター分に限る", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["UC-501", "UC-502", "UC-503", "UC-505"] }
+  - { id: "COND-503", type: condition, name: "ペイロード非保存ルールでは本文を残さない", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["UC-502", "UC-508"] }
+  - { id: "COND-601", type: condition, name: "chapters クレームに対象チャプターが含まれること", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["UC-602", "UC-603"] }
+  - { id: "COND-602", type: condition, name: "編集系は role=organizer であること", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["UC-603"] }
+  - { id: "COND-603", type: condition, name: "is_admin の横断アクセスは必ず監査に残すこと", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["UC-603"] }
+  - { id: "COND-604", type: condition, name: "認可判定でクレームをキャッシュしないこと", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["UC-603"] }
+
+  # ---------------------------------------------------------------- VAR
+  - { id: "VAR-101", type: variation, name: "Gateway Intent", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["UC-106", "UC-107"] }
+  - { id: "VAR-201", type: variation, name: "紐付け解除の理由", defined_in: "docs/rdra/discord-relay/contexts/server-registration.md", traces_to: ["UC-204", "UC-205", "UC-206"] }
+  - { id: "VAR-301", type: variation, name: "対象イベント種別", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["UC-305"] }
+  - { id: "VAR-302", type: variation, name: "フィルタ種別", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["UC-306"] }
+  - { id: "VAR-303", type: variation, name: "秘匿情報の可視レベル", defined_in: "docs/rdra/discord-relay/contexts/rule-management.md", traces_to: ["UC-307", "UC-308", "UC-311"] }
+  - { id: "VAR-401", type: variation, name: "配信結果種別", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["UC-404", "UC-406", "UC-407", "UC-408"] }
+  - { id: "VAR-402", type: variation, name: "バックオフ間隔", defined_in: "docs/rdra/discord-relay/contexts/event-delivery.md", traces_to: ["UC-406"] }
+  - { id: "VAR-501", type: variation, name: "アラート種別", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["UC-506"] }
+  - { id: "VAR-502", type: variation, name: "ログ保持期間", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["UC-508"] }
+  - { id: "VAR-601", type: variation, name: "ロール", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["UC-603"] }
+
+  # ---------------------------------------------------------------- INFO
+  - { id: "INFO-001", type: information, name: "Chapter", defined_in: "docs/rdra/discord-relay/shared/information-model.md", traces_to: ["UC-602", "UC-603", "SCR-602"] }
+  - { id: "INFO-002", type: information, name: "Guild", defined_in: "docs/rdra/discord-relay/shared/information-model.md", traces_to: ["UC-202", "UC-203", "UC-204", "UC-205", "UC-206", "UC-207", "SCR-202"] }
+  - { id: "INFO-003", type: information, name: "GuildClaim", defined_in: "docs/rdra/discord-relay/shared/information-model.md", traces_to: ["UC-201", "UC-202", "SCR-201"] }
+  - { id: "INFO-004", type: information, name: "Rule", defined_in: "docs/rdra/discord-relay/shared/information-model.md", traces_to: ["UC-301", "UC-302", "UC-303", "UC-304", "UC-311", "UC-401", "SCR-301", "SCR-305"] }
+  - { id: "INFO-005", type: information, name: "Destination", defined_in: "docs/rdra/discord-relay/shared/information-model.md", traces_to: ["UC-307", "UC-308", "UC-405", "SCR-303"] }
+  - { id: "INFO-006", type: information, name: "Filter", defined_in: "docs/rdra/discord-relay/shared/information-model.md", traces_to: ["UC-306", "UC-401"] }
+  - { id: "INFO-007", type: information, name: "ReceivedEvent", defined_in: "docs/rdra/discord-relay/shared/information-model.md", traces_to: ["UC-401", "UC-402", "UC-501", "SCR-501"] }
+  - { id: "INFO-008", type: information, name: "DeliveryAttempt", defined_in: "docs/rdra/discord-relay/shared/information-model.md", traces_to: ["UC-403", "UC-404", "UC-406", "UC-502", "UC-505", "SCR-502", "SCR-504"] }
+  - { id: "INFO-009", type: information, name: "DeadLetter", defined_in: "docs/rdra/discord-relay/shared/information-model.md", traces_to: ["UC-407", "UC-503", "UC-504", "SCR-503"] }
+  - { id: "INFO-010", type: information, name: "GatewaySession", defined_in: "docs/rdra/discord-relay/shared/information-model.md", traces_to: ["UC-101", "UC-102", "UC-103", "UC-104", "UC-105", "SCR-101", "SCR-504"] }
+  - { id: "INFO-011", type: information, name: "IntentConfig", defined_in: "docs/rdra/discord-relay/shared/information-model.md", traces_to: ["UC-106", "UC-107", "UC-305", "SCR-102", "SCR-302"] }
+  - { id: "INFO-012", type: information, name: "AuditLog", defined_in: "docs/rdra/discord-relay/shared/information-model.md", traces_to: ["UC-206", "UC-307", "UC-308", "UC-504", "UC-507", "UC-603", "SCR-505"] }
+
+  # ---------------------------------------------------------------- STATE
+  - { id: "STATE-001", type: state_model, name: "Gateway 接続状態", defined_in: "docs/rdra/discord-relay/shared/state-models.md", traces_to: ["UC-101", "UC-102", "UC-103", "UC-104", "UC-105", "UC-106"] }
+  - { id: "STATE-002", type: state_model, name: "ギルド紐付け状態", defined_in: "docs/rdra/discord-relay/shared/state-models.md", traces_to: ["UC-201", "UC-202", "UC-204", "UC-205", "UC-206", "UC-207"] }
+  - { id: "STATE-003", type: state_model, name: "配信状態", defined_in: "docs/rdra/discord-relay/shared/state-models.md", traces_to: ["UC-403", "UC-404", "UC-406", "UC-407", "UC-408", "UC-504"] }
+  - { id: "STATE-004", type: state_model, name: "ルール状態", defined_in: "docs/rdra/discord-relay/shared/state-models.md", traces_to: ["UC-204", "UC-205", "UC-301", "UC-303"] }
+
+coverage:
+  total_goals: 5
+  goals_with_requirements: 5
+  total_requirements: 16
+  requirements_with_bucs: 16
+  total_bucs: 16
+  bucs_with_ucs: 16
+  total_ucs: 47
+  total_screens: 17
+  total_events: 13
+  total_conditions: 22
+  total_variations: 10
+  total_information: 12
+  total_state_models: 4
+  total_elements: 162
+  orphaned_elements: []
+
+# 実装フェーズで追加される要素の型（未着手）:
+#   functional_requirement (FR-*)  <- UC-*
+#   specification (SPEC-*)         <- FR-*
+#   task (TASK-*)                  <- SPEC-*, UC-*
