@@ -260,6 +260,11 @@ flowchart LR
 
 ## 設計上の注意
 
+- **ライフサイクルイベントは Data Plane の粗いフィルタを通さない**: EVT-202 / EVT-203 は
+  購読仕様（`subscriptions`）によらず常に Control Plane へ転送される
+  （[ADR-001](../../../discord-relay/adr.md#adr-001-data-plane-を-gateway-転送専用に絞り配信を-control-plane-に寄せる)）。
+  新しく招待されたギルドはその時点の購読仕様に存在しないため、フィルタを通すと
+  UC-201 / UC-207 が成立しない。**在籍追跡は購読の有無から独立している。**
 - **`GUILD_DELETE` の `unavailable`**: Discord 側の一時障害では `unavailable: true` が来る。
   これを退出と誤認すると、障害のたびにルールが止まる。必ず区別する。
 - **再参加でルールを自動再開しない**: 一度停止したルールを黙って再開すると、

@@ -79,7 +79,7 @@ boundary:
       actors: ["ACTOR-005"]
       events: ["EVT-102", "EVT-105"]
       traces_to: ["BUC-101"]
-      description: "READY / GUILD_CREATE / CHANNEL_* からギルドとチャンネルの一覧を保持し、ルール編集のセレクタに供給する"
+      description: "READY / GUILD_CREATE / CHANNEL_* を受けてギルドとチャンネルのキャッシュを追随させる。ルール編集セレクタの供給元は Discord HTTP API (ACTOR-006) であり UC-108 ではない (ADR-001)"
   screens:
     - id: "SCR-101"
       name: "接続ステータス画面"
@@ -121,7 +121,7 @@ system:
       traces_to: ["UC-108"]
     - id: "COND-102"
       name: "Intent 変更は再接続を要する"
-      description: "Intent は IDENTIFY 時にのみ宣言できる。変更は必ずセッション再確立を伴う"
+      description: "Intent は IDENTIFY 時にのみ宣言できる。変更は必ずセッション再確立を伴う。RESUME (op 6) は intents を運べないため、Intent 変更起因の再起動では session を破棄して IDENTIFY からやり直す (ADR-010-7 の例外)"
       traces_to: ["UC-106"]
     - id: "COND-103"
       name: "特権 Intent は Developer Portal 側の有効化が前提"

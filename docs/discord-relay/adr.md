@@ -96,9 +96,21 @@ RDRA 側で配信まで DP に寄せたのは分析時の暫定であり、こ�
 ```
 
 - 登録済みギルド **かつ** 誰かが購読しているイベント種別だけを転送する。それ以外は DP で捨てる。
+- **例外: `GUILD_CREATE` と `GUILD_DELETE` は購読仕様によらず常に転送する。**
+  新しく招待されたギルドは、その時点の `subscriptions` にまだ存在しない。上の規則を字義どおりに
+  適用すると、[server-registration.md](../rdra/discord-relay/contexts/server-registration.md) の
+  EVT-203 → UC-207（再参加の検知）と EVT-202 → UC-205（退出の検知）が DP で捨てられ、
+  **在籍追跡（BIZ-002）が一切動かない。** 在籍は購読の有無から独立している。
 - チャンネル・投稿者・キーワードといった細かいフィルタ、配信先 URL、署名シークレット、
   カスタムヘッダは **DP に一切渡さない**。すべて Control Plane で評価・保持する。
 - 結果として **DP は GDG のチャプターという概念を知らない。**
+
+**チャンネル一覧の供給元は Discord HTTP API であり、Gateway ではない。**
+RDRA の UC-108 は当初「READY / `GUILD_CREATE` / `CHANNEL_*` からギルドとチャンネルの一覧を保持し、
+**ルール編集のセレクタに供給する**」と書いていた。これを採ると上の決定と噛み合わない —
+DP がチャンネル一覧を保持し、tick でそれを CP へ運ぶ経路が要る。
+**CP が ACTOR-006（Discord HTTP API）から直接引く。** UC-108 は
+「Gateway イベントによるキャッシュの追随」に格下げし、セレクタの正となる供給元から外す。
 
 RDRA が BIZ-004 の設計注意として挙げた「購読者のいないイベントをキューに入れない」という
 負荷対策は失われない。キューに入るのは依然としてマッチしたものだけで、
@@ -141,6 +153,15 @@ RDRA が BIZ-004 の設計注意として挙げた「購読者のいないイベ
   ため、宛先スキーム・ポート・解決結果の検査は引き続き実装する。
 - **DP が保持する秘密が Discord Bot トークン 1 つになる。** OCI VM の侵害時に
   外部連携資格情報が漏れない。
+- **Bot トークンは CP にも置く。** この ADR が減らすのは *DP が持つ秘密* であって、
+  「CP に置かない」ではない。上で決めたチャンネル一覧の取得
+  （`GET /guilds/{guild.id}/channels`）は **Bot 認証を要求する**ため、CP も同じトークンを持つ。
+  既存の `wiki/app/routes/api/discord/guild-channels.ts` が `env.DISCORD_BOT_TOKEN` で
+  同じことをしている。CP 側は `wrangler secret put` で保持する。
+  引いた境界は「ボランティア運用の無料枠 VM を全チャプターの資格情報の保管庫にしない」であり、
+  Cloudflare 側に置くことはこれを損なわない。ただし
+  [ADR-011](#adr-011-デプロイをピン留めした静的バイナリの-pull-型収束としtick-経路をコード配布に使わない) が挙げる「CP 侵害 = Bot トークン奪取」は、
+  DP の RCE を経由しない直接の経路としても成立する。CP の秘密の扱いはそれ込みで見る。
 - **Control Plane が落ちると配信が止まる。** fat DP に対する明確な後退。
   ADR-003 の「最後の設定をディスクに残す」は Gateway 接続の維持には効くが、配信は止まる。
   Cloudflare の可用性を無料枠 VM のそれより高いと見なす、という賭けを明示的に受け入れる。
@@ -341,6 +362,9 @@ CP 側は `event_id` で冪等に取り込む（`INSERT ... ON CONFLICT DO NOTHI
 
 **3. `next_tick_ms` を CP が返し、DP の間隔を CP 側から制御する。**
 既定 5000 ms。イベントが溜まっているときは DP が待たずに即座に次を投げてよい。
+**ただし DP 側に最小間隔（下限 500 ms）を置く。** これが無いと、RESUME 後の一括再配送や
+賑やかなギルドのスパイクで、DP が [ADR-005](#adr-005-plane-間認証を-2-鍵ローテーション可能な-bearer-共有シークレットにする) Decision 4 の
+Cloudflare レート制限を**自分で踏み抜く**。閾値はこの下限から逆算する。
 ライブビューアが開いていないときは `live_subscribers` が空になり、DP はライブ用の
 イベント複製を送らない。
 
@@ -363,7 +387,11 @@ Gateway の RESUME で同じ Discord イベントが再配送されたとき、
 |---|---|---|
 | `event_id` | DP が受信時に ULID を採番 | 転送リトライの冪等キー、順序、`ack_through` |
 | `dedupe_key` | `sha256(event_type ‖ canonical_json(d))` | RESUME 再配送の同一性判定 |
-| エンベロープ `id` | `sha256(dedupe_key ‖ rule_id)` を ULID 形式に整形 | `Idempotency-Key`。**同一イベント×同一ルールで常に同じ値** |
+| エンベロープ `id` | `sha256(dedupe_key ‖ rule_id)` の先頭 128 bit を Crockford Base32 で 26 文字に符号化 | `Idempotency-Key`。**同一イベント×同一ルールで常に同じ値** |
+
+**エンベロープ `id` を ULID と呼ばない。** ULID は先頭 48 bit がミリ秒タイムスタンプであり、
+そこにハッシュを詰めたものは標準の ULID パーサに通すと不正な時刻になる。
+見た目（26 文字の Crockford Base32）が同じなだけである。`event_id` の側は本物の ULID である。
 
 `canonical_json` はキーを再帰的にソートし空白を除いたもの。
 Discord が再配送時にフィールドを変えないことに依存する best-effort であり、
@@ -437,7 +465,9 @@ RDRA が候補に挙げた mTLS と Cloudflare Access サービストークン�
    DP を止めずに交換できる形にしておく。
 2. **比較は定時比較にする。** 長さの差で早期 return しない。
 3. `/api/dp/*` 以外にこの認証を掛けない。ダッシュボードの認証（OIDC）とは完全に別系統。
-4. Cloudflare 側でこのパスにレート制限を掛ける。
+4. Cloudflare 側でこのパスにレート制限を掛ける。**閾値は DP の tick 最小間隔から逆算する**
+   （[ADR-004](#adr-004-tick-エンドポイント-1-本に-heartbeatコマンドconfig-バージョンを相乗りさせる) Decision 3）。
+   正常な DP がバースト時に自分で踏み抜く値にしない。
 5. **秘密の渡し方は Plane ごとに違う。** CP は `wrangler secret put`。
    DP は systemd の `LoadCredential=` で渡し、**環境変数には置かない**
    （[ADR-010](#adr-010-systemd-の-system-unit-で常駐させ状態は-statedirectory秘密は-loadcredential-に置く) Decision 2）。`/proc/<pid>/environ` と journal に漏れるためである。
@@ -546,6 +576,16 @@ dead_letter_queue = "gdgjp-discord-relay-dlq"
 - COND-503（ペイロード非保存ルール）では R2 に書かない。D1 のメタだけ残す。
 - VAR-502 の保持期間は **R2 のライフサイクルルール** と **Cron Trigger による D1 の削除**の
   2 系統で実施する。片方だけだと孤児が残る。
+- **R2 のライフサイクルルールはプレフィックスと経過日数しか見ない。保持期間をキーに埋める。**
+  VAR-502 はチャプターまたはルール単位で 7 / 30 / 90 日を選べる。オブジェクト個別のメタデータで
+  ライフサイクルを制御することはできないので、キーを
+  `payloads/ret{7,30,90}/<rule_id>/<event_ref>` の形にし、保持クラスごとに 1 本ずつルールを置く。
+  **単一のライフサイクルルールに寄せてはならない。** 最大値（90 日）に寄せると 7 日を選んだ
+  ルールの本文が 90 日残り、COND-503 と保持期間の意図に反する。最小値に寄せると 90 日を選んだ
+  ルールの本文が先に消え、D1 に残った記録が本文を失う。
+- **保持期間の変更は以後の書き込みにしか効かない。** 既存オブジェクトはキーが変わらないので
+  古い保持クラスのまま残る。短くする変更を即時に効かせたいときは、D1 側の Cron が
+  該当キーを明示的に削除する。
 
 **4. Queues のメッセージにはポインタだけを載せ、本文は載せない。**
 Queues の 1 メッセージ上限は 128 KB で、embed の多い Discord イベントは近づきうる。
@@ -761,12 +801,21 @@ ADR-026 が「1 台の自前ホストに対して過剰な抽象化」として�
 - **ホストが arm64 になる。** リリースは `GOOS=linux GOARCH=arm64`。
   `deploy.yml` は既に `gdg` を `linux/arm64` 向けにクロスコンパイルしているので、経路は実証済みである。
 - **Pay-as-you-go には Always Free の上限で止まるガードレールが無い。**
-  A1 は合計 4 OCPU / 24 GB、ブロックストレージは合計 200 GB を超えた分が課金される。
-  1 OCPU / 6 GB で始めるのは、上限に対して意図的に余白を残すためでもある。
+  A1 の Always Free 枠は **2026-06-15 に半減し、月 1,500 OCPU 時間 / 9,000 GB 時間
+  （常時 2 OCPU / 12 GB 相当）**になった。ブロックストレージは合計 200 GB のままである。
+  Decision 2 の 1 OCPU / 6 GB は改定後も枠内だが、**残る余白は 1 OCPU / 6 GB 分しかない。**
   **予算アラートを設定すること。**
+- **agent-host のシェイプがどこにも記録されていない。** agent-host も A1 なら、
+  同一テナンシでこの枠を食い合う。DP を建てる前に確認し、次の `ENVIRONMENT.md` 相当に書く。
 - agent-host の `ENVIRONMENT.md` に相当する「実際にどこに何があるか」を relay 用にも書く必要がある。
   README が語る *あるべき配置* と、実機の配置は必ずずれる。
 - 2 台目が増えたことを ADR-026 側にも追記する（この ADR への相互リンク）。
+
+> **訂正（2026-09-05）**: 採択時は「A1 は合計 4 OCPU / 24 GB、ブロックストレージは合計 200 GB」と
+> 書いていた。OCPU とメモリの数値は **2026-06-15 の無料枠改定**（3,000 → 1,500 OCPU 時間、
+> 18,000 → 9,000 GB 時間）以前のものである。Decision 2 は改定後も枠内に収まるので
+> **決定は変わらない**が、「上限に対して意図的に余白を残す」という理由づけの重みは半分になった。
+> ブロックストレージ 200 GB は据え置きである。
 
 ---
 
@@ -825,14 +874,17 @@ Node を選ぶと、その経路の外側にもう 1 本（Node のピン留め�
 [ADR-011](#adr-011-デプロイをピン留めした静的バイナリの-pull-型収束としtick-経路をコード配布に使わない) がそれを前提にしている。
 
 **2. Discord ライブラリを使わない。** `github.com/coder/websocket` の上に、
-op 0 / 1 / 7 / 9 / 10 / 11 と再接続だけを自前で書く。
+op 2（IDENTIFY）/ op 6（RESUME）の送出と、op 0 / 1 / 7 / 9 / 10 / 11 の処理、
+それに再接続だけを自前で書く。
 
 - `discordgo` も `discord.js` も、イベントを構造体に整形し guild / member をキャッシュする。
   DP が要るのは **生の `d` バイト列** である（ADR-004-5 の `dedupe_key` と、
   エンベロープの raw 同梱がそれを要求する）。得られる抽象の大半を捨てることになる。
 - **RESUME の意味論は `dedupe_key` の正しさに直結する。** ここは他人のライブラリの
   再接続方針に委ねてよい場所ではない。
-- 実装量は op の処理と再接続で 300〜500 行程度。`coder/websocket` は推移的依存を持たない。
+- 実装量は **op の処理と再接続だけで** 300〜500 行程度。`coder/websocket` は推移的依存を持たない。
+  転送バッファ・`session.json` の永続化・tick クライアント・`sd_notify`・`canonical_json` は
+  **この数字の外側である**。ライブラリを捨てる判断の材料であって、`06` の見積もりではない。
 
 **3. Rust は採らない。**
 
@@ -922,6 +974,13 @@ DP には同じ要求が無い。
 `sd_notify` で `WATCHDOG=1` を打つ。**「イベントが来ない」と「ループが固まった」を区別する。**
 Go では `NOTIFY_SOCKET` に書くだけで、依存は要らない。
 
+**`READY=1` を Gateway の READY 受信直後に 1 回打つ。** `Type=notify` は起動完了の通知を
+プロトコル上必須としており、これが無いと `TimeoutStartSec`（既定 90 秒）で**起動失敗**と判定される。
+`WATCHDOG=1` だけを打っていても同じである。Decision 4 の `Restart=always` と噛み合うと
+90 秒ごとの再起動ループになり、**その Decision 4 が防ごうとしている IDENTIFY の枯渇を
+自分で引き起こす**。プロセス起動直後ではなく Gateway 接続確立後に打つのは、
+「起動した」と「中継できる状態になった」を systemd から見て一致させるためである。
+
 **4. `Restart=always` / `RestartSec=5s`、加えて `StartLimitIntervalSec` と `StartLimitBurst` を置く。**
 クラッシュループで IDENTIFY を焼き切らないための上限である。
 
@@ -944,6 +1003,19 @@ RESUME に失敗したら（op 9）通常どおり IDENTIFY にフォールバ�
 
 これは RDRA の UC-103 が既に要求している RESUME を、
 **プロセス再起動という切断理由にも適用する**という追加である。
+
+**例外: Intent 変更を反映するための再起動では RESUME してはならない。**
+RESUME（op 6）が運ぶのは `token` / `session_id` / `seq` だけで、**intents を運ぶ欄が無い**。
+再開したセッションは切断前の Intent をそのまま引き継ぐ。
+[ADR-003](#adr-003-設定は-etag-付き-pull-で配り最後に成功した設定をディスクに残す) Decision 3 と COND-102（「Intent は
+IDENTIFY 時にのみ宣言できる」）は Intent 変更をプロセス再起動で反映すると決めているので、
+この Decision 7 を無条件に重ねると **Intent 変更が永久に反映されない**。しかも再起動自体は
+成功するため、管理画面は「反映済み」と表示する。**サイレントに壊れる。**
+
+したがって CP が送る再起動コマンド（[ADR-004](#adr-004-tick-エンドポイント-1-本に-heartbeatコマンドconfig-バージョンを相乗りさせる) の経路）は
+**理由を持つ**。理由が `intents_changed` のとき、DP は起動時に `session.json` を
+**読まずに消し**、IDENTIFY からやり直す。デプロイやクラッシュによる再起動は
+従来どおり RESUME を試みる。IDENTIFY を 1 消費するが、Intent 変更は日常操作ではない。
 
 **8. `pending.jsonl` は graceful shutdown（SIGTERM）でのみ書く。クラッシュでは失う。**
 
@@ -1083,6 +1155,19 @@ ADR-008〜011 の採用にともない、さらに以下を更新した（適用
 | INFO-010 GatewaySession | 実体が DP の**ディスク**にあることを明記 | `shared/information-model.md` |
 | SSoT 分担表 | Gateway セッション状態の保持先を「OCI のディスク」に | `shared/information-model.md` |
 | SETUP-5（Plane 間シークレット） | DP の秘密を `EnvironmentFile` → `LoadCredential=` に。2 鍵を持つのは CP 側だと明示（ADR-010-2） | `overview.md` |
+
+Antigravity（Gemini）によるクロスレビューを受けて、さらに以下を更新した（適用済み）。
+
+| RDRA 要素 | 変更 | 対象ファイル |
+|---|---|---|
+| 粗いフィルタ / EVT-202・203 | `GUILD_CREATE` / `GUILD_DELETE` は購読仕様によらず常に転送すると明示（ADR-001） | `contexts/server-registration.md` |
+| UC-108（ギルド/チャンネルのキャッシュ） | セレクタの供給元を ACTOR-006 に移し、UC-108 は Gateway 由来の追随に格下げ（ADR-001） | `contexts/connection-platform.md` |
+| COND-102（Intent 変更は再接続を要する） | Intent 変更起因の再起動を RESUME の対象外にすると明記（ADR-010-7 の例外） | `contexts/connection-platform.md` |
+| エンベロープ `id` の表記 | 「ULID 形式に整形」→ Crockford Base32 26 文字。**ULID とは呼ばない**（ADR-004-5） | `contexts/event-delivery.md` |
+| BUC-502 の業務フロー | DLQ・失敗率・再送を DP → CP に。`CP->>DP: 再投入` を削除（ADR-001 / 006） | `contexts/observability.md` |
+| REQ-602 / BUC-603 の名称 | 「相互認証」→ 一方向の Bearer による経路認証（ADR-005） | `contexts/auth.md` |
+| SETUP-1 | Bot トークンの置き場に CP を追加（ADR-001） | `overview.md` |
+| SETUP-2 | 特権 Intent の審査閾値が「100 サーバー」→「10,000 ユニークユーザー」（2026-06-10 改定） | `overview.md` |
 
 **`docs/agents-local-mvp/adr.md` への影響**: ADR-008 は同文書 ADR-026 の
 「Ansible への切替基準: 2 台目のホストが必要になる」に抵触する。抵触したうえで

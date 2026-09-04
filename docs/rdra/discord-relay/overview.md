@@ -132,8 +132,8 @@ wiki/agents の Application も xangi のトークンも再利用しない。
 **代償として発生する運用タスク**
 | ID | タスク | 備考 |
 |---|---|---|
-| SETUP-1 | 専用 Application と Bot ユーザーを Developer Portal で作成 | `DISCORD_RELAY_CLIENT_ID` / `_CLIENT_SECRET` / `_BOT_TOKEN` |
-| SETUP-2 | 特権 Intent（`MESSAGE_CONTENT` ほか必要分）を有効化 | wiki/agents の Application とは別に申請が要る |
+| SETUP-1 | 専用 Application と Bot ユーザーを Developer Portal で作成 | `DISCORD_RELAY_CLIENT_ID` / `_CLIENT_SECRET` / `_BOT_TOKEN`。`_BOT_TOKEN` は **DP と CP の両方**に置く（DP は `LoadCredential=`、CP は `wrangler secret put`）。CP 側はルール編集のチャンネル一覧取得に要る（[ADR-001](../../discord-relay/adr.md#adr-001-data-plane-を-gateway-転送専用に絞り配信を-control-plane-に寄せる)） |
+| SETUP-2 | 特権 Intent（`MESSAGE_CONTENT` ほか必要分）を有効化 | wiki/agents の Application とは別に有効化が要る。**審査の閾値は 2026-06-10 に「100 サーバー」から「アプリが到達するユニークユーザー 10,000 人」へ変わった。** 10,000 未満なら Developer Portal のトグルのみで、申請は不要。SETUP-4 の Bot verification（100 サーバー）は別枠として存続する |
 | SETUP-3 | 各チャプターの Discord サーバーへ招待 | BIZ-002 の招待フローで吸収する。追加実装は不要 |
 | SETUP-4 | 100 サーバー到達前に Bot verification を申請 | GDG + GDGoC のチャプター数次第で射程に入る |
 | SETUP-5 | Plane 間共有シークレットの発行とローテーション手順の整備 | **CP が**新旧 2 鍵を常に受け付け、DP は現行 1 鍵だけを持つ（[ADR-005](../../discord-relay/adr.md#adr-005-plane-間認証を-2-鍵ローテーション可能な-bearer-共有シークレットにする)）。CP は `wrangler secret put`、DP は systemd の `LoadCredential=`（[ADR-010](../../discord-relay/adr.md#adr-010-systemd-の-system-unit-で常駐させ状態は-statedirectory秘密は-loadcredential-に置く)）。環境変数には置かない |

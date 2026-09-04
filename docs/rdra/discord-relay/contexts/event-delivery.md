@@ -181,7 +181,7 @@ Data Plane は配信先 URL・署名シークレット・カスタムヘッダ�
 |---|---|---|
 | `event_id` | Data Plane が受信時に ULID を採番 | 転送リトライの冪等キー、順序、tick の `ack_through` |
 | `dedupe_key` | `sha256(event_type ‖ canonical_json(d))` | RESUME 再配送の同一性判定 |
-| エンベロープ `id` | `sha256(dedupe_key ‖ rule_id)` を ULID 形式に整形 | `Idempotency-Key` |
+| エンベロープ `id` | `sha256(dedupe_key ‖ rule_id)` の先頭 128 bit を Crockford Base32 で 26 文字に符号化（**ULID ではない**） | `Idempotency-Key` |
 
 `canonical_json` はキーを再帰的にソートし空白を除いたもの。Discord が再配送時にフィールドを
 変えないことに依存する best-effort であり、**完全な重複排除を保証するものではない**。

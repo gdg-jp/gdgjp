@@ -198,15 +198,15 @@ sequenceDiagram
         ADM->>CP: SCR-101 接続状態を確認
         Note over ADM: 単一障害点のため<br/>admin が一次対応
     else DLQ が増加
-        DP->>CP: DLQ 件数を報告
+        CP->>CP: DLQ の滞留を検知 (Queues DLQ + D1)
         CP->>ORG: EVT-501 UC-506 アラート (該当チャプター)
         ORG->>CP: SCR-503 DLQ を確認
         ORG->>CP: 原因を特定 (4xx なら設定ミス)
         ORG->>CP: BIZ-003 で配信先を修正
         ORG->>CP: UC-504 手動再送 (COND-501)
-        CP->>DP: 再投入
+        CP->>CP: D1 の記録から再 enqueue (DP を経由しない)
     else 特定ルールが連続失敗
-        DP->>CP: ルール単位の失敗率を報告
+        CP->>CP: ルール単位の失敗率を集計
         CP->>ORG: EVT-501 UC-506 アラート
         ORG->>CP: SCR-502 履歴でレスポンス本文を確認
     end

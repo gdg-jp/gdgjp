@@ -30,7 +30,7 @@ elements:
   - { id: "REQ-502", type: requirement, name: "異常の自動検知", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["GOAL-005"] }
   - { id: "REQ-503", type: requirement, name: "非マッチ理由の自力特定", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["GOAL-004"] }
   - { id: "REQ-601", type: requirement, name: "チャプタークレームによる認可", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["GOAL-003"] }
-  - { id: "REQ-602", type: requirement, name: "Plane 間の相互認証と非露出", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["GOAL-003"] }
+  - { id: "REQ-602", type: requirement, name: "Plane 間の経路認証と非露出", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["GOAL-003"] }
   - { id: "REQ-603", type: requirement, name: "複数所属時のチャプター選択", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["GOAL-003"] }
 
   # ---------------------------------------------------------------- BUC
@@ -49,7 +49,7 @@ elements:
   - { id: "BUC-503", type: business_usecase, name: "ルールの挙動をデバッグする", defined_in: "docs/rdra/discord-relay/contexts/observability.md", traces_to: ["REQ-503"] }
   - { id: "BUC-601", type: business_usecase, name: "GDG Accounts でログインする", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["REQ-601"] }
   - { id: "BUC-602", type: business_usecase, name: "操作するチャプターを切り替える", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["REQ-603"] }
-  - { id: "BUC-603", type: business_usecase, name: "Plane 間で相互認証する", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["REQ-602"] }
+  - { id: "BUC-603", type: business_usecase, name: "Plane 間の経路を認証する", defined_in: "docs/rdra/discord-relay/contexts/auth.md", traces_to: ["REQ-602"] }
 
   # ---------------------------------------------------------------- UC (BIZ-001)
   - { id: "UC-101", type: usecase, name: "Gateway に接続する", defined_in: "docs/rdra/discord-relay/contexts/connection-platform.md", traces_to: ["BUC-101"] }

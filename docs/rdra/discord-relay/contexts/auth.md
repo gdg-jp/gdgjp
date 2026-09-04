@@ -30,9 +30,9 @@ environment:
       description: "複数チャプター所属者が現在のチャプターを選ぶ。以降の画面はその境界で絞られる"
       traces_to: ["REQ-603"]
     - id: "BUC-603"
-      name: "Plane 間で相互認証する"
+      name: "Plane 間の経路を認証する"
       actors: []
-      description: "Data Plane が設定を取得し、状態とログを返す経路を認証する"
+      description: "Data Plane が設定を取得し、状態とログを返す経路を認証する。ADR-005 で一方向の Bearer 共有シークレットに確定しており、相互認証 (mTLS) ではない"
       traces_to: ["REQ-602"]
 
 boundary:
