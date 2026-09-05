@@ -4,12 +4,12 @@ IDP_CLIENT_SECRET=""
 TOKEN_ENCRYPTION_KEY=""
 GEMINI_API_KEY=""
 # OAuth client secret for the "pay" Google OAuth client (drive.file + spreadsheets scopes).
-# Redirect URI must include http://localhost:5179/google/callback for local dev.
+# Redirect URI must include http://localhost:5180/google/callback for local dev.
 GOOGLE_OAUTH_CLIENT_SECRET=""
 RESEND_API_KEY=""
 
 # Override prod URLs from wrangler.toml so dev points at the local accounts IdP.
-APP_URL=http://localhost:5179
+APP_URL=http://localhost:5180
 ACCOUNTS_URL=http://localhost:5173
 IDP_URL=http://localhost:5173
 

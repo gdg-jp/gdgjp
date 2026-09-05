@@ -12,6 +12,7 @@ const CI_WORKSPACES = [
   { directory: "connpass", workspace: "@gdgjp/connpass", build: true, e2e: false },
   { directory: "pay", workspace: "@gdgjp/pay", build: true, e2e: false },
   { directory: "ost", workspace: "@gdgjp/ost", build: true, e2e: false },
+  { directory: "discord-relay", workspace: "@gdgjp/discord-relay", build: true, e2e: true },
   { directory: "website", workspace: "@gdgjp/website", build: true, e2e: false },
   { directory: "gdg-lib", workspace: "@gdgjp/gdg-lib", build: false, e2e: false },
   {
@@ -30,7 +31,7 @@ const CI_WORKSPACES = [
   },
 ];
 
-const DEPLOY_TARGETS = [
+export const DEPLOY_TARGETS = [
   {
     app: "accounts",
     workspace: "@gdgjp/accounts",
@@ -69,6 +70,12 @@ const DEPLOY_TARGETS = [
     workspace: "@gdgjp/ost",
     provider: "cloudflare",
     migrate: false,
+  },
+  {
+    app: "discord-relay",
+    workspace: "@gdgjp/discord-relay",
+    provider: "cloudflare",
+    migrate: true,
   },
   {
     app: "website",
@@ -128,6 +135,7 @@ const GDG_LIB_DEPENDENTS = new Set([
   "sns",
   "connpass",
   "pay",
+  "discord-relay",
   "website",
   "agents",
 ]);

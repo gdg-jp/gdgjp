@@ -1,20 +1,14 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { DEPLOY_TARGETS } from "./changed-workspaces.mjs";
 
 const deployWorkflow = await readFile(new URL("../workflows/deploy.yml", import.meta.url), "utf8");
 
 test("Cloudflare pipelines invoke the package deploy script unambiguously", () => {
-  const cloudflareWorkspaces = [
-    "accounts",
-    "tinyurl",
-    "wiki",
-    "img",
-    "scheduler",
-    "sns",
-    "ost",
-    "website",
-  ];
+  const cloudflareWorkspaces = DEPLOY_TARGETS.filter(
+    ({ provider }) => provider === "cloudflare",
+  ).map(({ app }) => app);
 
   for (const workspace of cloudflareWorkspaces) {
     assert.match(deployWorkflow, new RegExp(`pnpm --filter @gdgjp/${workspace} run deploy`));

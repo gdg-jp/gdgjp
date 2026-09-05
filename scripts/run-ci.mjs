@@ -63,17 +63,20 @@ const globalNodeInputs = new Set([
 const workspaces = new Map([
   ["accounts", "@gdgjp/accounts"],
   ["accounts-oidc-client-demo", "@gdgjp/accounts-oidc-client-demo"],
+  ["agents", "@gdgjp/agents"],
+  ["connpass", "@gdgjp/connpass"],
+  ["discord-relay", "@gdgjp/discord-relay"],
   ["gdg-lib", "@gdgjp/gdg-lib"],
   ["go-extension", "@gdgjp/go-extension"],
   ["img", "@gdgjp/img"],
   ["ost", "@gdgjp/ost"],
+  ["pay", "@gdgjp/pay"],
   ["scheduler", "@gdgjp/scheduler"],
   ["sns", "@gdgjp/sns"],
   ["tinyurl", "@gdgjp/tinyurl"],
   ["tinyurl-gateway", "@gdgjp/tinyurl-gateway"],
   ["website", "@gdgjp/website"],
   ["wiki", "@gdgjp/wiki"],
-  ["connpass", "@gdgjp/connpass"],
 ]);
 
 function changedFiles() {

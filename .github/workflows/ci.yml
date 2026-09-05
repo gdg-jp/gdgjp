@@ -208,6 +208,9 @@ jobs:
           - name: Typecheck ost
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/ost')
             run: pnpm --filter @gdgjp/ost typecheck
+          - name: Typecheck discord-relay
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/discord-relay')
+            run: pnpm --filter @gdgjp/discord-relay typecheck
           - name: Typecheck website
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website typecheck
@@ -265,6 +268,9 @@ jobs:
           - name: Test ost
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/ost')
             run: pnpm --filter @gdgjp/ost test
+          - name: Test discord-relay
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/discord-relay')
+            run: pnpm --filter @gdgjp/discord-relay test
           - name: Test website
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website test
@@ -322,6 +328,9 @@ jobs:
           - name: Build ost
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/ost')
             run: pnpm --filter @gdgjp/ost build
+          - name: Build discord-relay
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/discord-relay')
+            run: pnpm --filter @gdgjp/discord-relay build
           - name: Build website
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website build
@@ -416,6 +425,18 @@ jobs:
           APP_URL=http://localhost:5176
           ACCOUNTS_URL=http://localhost:5173
           IDP_URL=http://localhost:5173
+          EOF
+
+          # discord-relay's suite never reaches the IdP: it signs in through
+          # /dev/login, which needs ENVIRONMENT to be anything but "production".
+          cat > discord-relay/.dev.vars <<EOF
+          RP_SESSION_SECRET=ci-rp-session-secret
+          IDP_CLIENT_SECRET=ci-idp-client-secret
+          APP_URL=http://localhost:5181
+          ACCOUNTS_URL=http://localhost:5173
+          IDP_URL=http://localhost:5173
+          IDP_CLIENT_ID=discord-relay
+          ENVIRONMENT=development
           EOF
       - name: Migrate Accounts local database
         run: pnpm --filter @gdgjp/accounts migrate:local
