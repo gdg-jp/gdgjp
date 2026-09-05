@@ -81,6 +81,53 @@ describe("seedClients agents client", () => {
   });
 });
 
+describe("collectSpecs discord-relay client", () => {
+  function discordRelayEnv(
+    overrides: Partial<{
+      DISCORD_RELAY_CLIENT_ID: string;
+      DISCORD_RELAY_CLIENT_SECRET: string;
+      DISCORD_RELAY_REDIRECT_URLS: string;
+    }> = {},
+  ): Env {
+    return {
+      TINYURL_CLIENT_ID: "",
+      WIKI_CLIENT_ID: "",
+      IMG_CLIENT_ID: "",
+      SCHEDULER_CLIENT_ID: "",
+      SNS_CLIENT_ID: "",
+      AGENTS_CLIENT_ID: "",
+      PAY_CLIENT_ID: "",
+      OST_CLIENT_ID: "",
+      DISCORD_RELAY_CLIENT_ID: "discord-relay",
+      DISCORD_RELAY_CLIENT_SECRET: "discord-relay-secret",
+      DISCORD_RELAY_REDIRECT_URLS:
+        "https://relay.gdgs.jp/api/auth/callback/gdgjp, http://localhost:5181/api/auth/callback/gdgjp",
+      ...overrides,
+    } as unknown as Env;
+  }
+
+  it("returns a confidential PKCE client with offline_access and chapters scope", () => {
+    const [spec] = collectSpecs(discordRelayEnv());
+    expect(spec).toEqual({
+      clientId: "discord-relay",
+      clientSecret: "discord-relay-secret",
+      clientName: "Discord Relay",
+      redirectUris: [
+        "https://relay.gdgs.jp/api/auth/callback/gdgjp",
+        "http://localhost:5181/api/auth/callback/gdgjp",
+      ],
+      requirePKCE: true,
+      public: false,
+      scopes: ["openid", "email", "profile", "offline_access", CHAPTERS_SCOPE],
+    });
+  });
+
+  it("omits the discord-relay spec when the secret is missing", () => {
+    const specs = collectSpecs(discordRelayEnv({ DISCORD_RELAY_CLIENT_SECRET: "" }));
+    expect(specs).toEqual([]);
+  });
+});
+
 describe("trustedOAuthClientIds", () => {
   it("includes agents among the consent-skip trusted clients", () => {
     expect(trustedOAuthClientIds(agentsEnv())).toContain("agents");
@@ -93,5 +140,23 @@ describe("trustedOAuthClientIds", () => {
         PAY_CLIENT_ID: "pay",
       } as unknown as Env),
     ).toContain("pay");
+  });
+
+  it("includes ost among the consent-skip trusted clients", () => {
+    expect(
+      trustedOAuthClientIds({
+        ...agentsEnv(),
+        OST_CLIENT_ID: "ost",
+      } as unknown as Env),
+    ).toContain("ost");
+  });
+
+  it("includes discord-relay among the consent-skip trusted clients", () => {
+    expect(
+      trustedOAuthClientIds({
+        ...agentsEnv(),
+        DISCORD_RELAY_CLIENT_ID: "discord-relay",
+      } as unknown as Env),
+    ).toContain("discord-relay");
   });
 });
