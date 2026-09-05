@@ -235,9 +235,9 @@ agent-host が A1 で枠を食っていると、DP を建てた瞬間から課�
 | ポート | アプリ | `strictPort` |
 |---|---|---|
 | 5173 | accounts | ○ |
-| 5174 | tinyurl | ○ |
-| 5175 | img | ○ |
-| 5176 | scheduler | ○ |
+| 5174 | tinyurl | — |
+| 5175 | img | — |
+| 5176 | scheduler | — |
 | 5177 | wiki | ○ |
 | 5178 | sns | ○ |
 | 5179 | connpass | ○ |
@@ -254,8 +254,21 @@ agent-host が A1 で枠を食っていると、DP を建てた瞬間から課�
 3. `CONTRIBUTING.md:39-41` の一覧に **pay が無く**、5180 を website のものとしている
 
 このステージでは 5181 を予約し、上の 3 点を突き合わせて 1 つの表に直す。
-**どのアプリのポートを動かすかは実測に合わせる**（`.dev.vars.example` を書き換えるほうが、
-稼働中の dev サーバーのポートを動かすより影響が小さい）。
+
+**解消の方針（このステージで決める）:**
+
+- **website を 5182 へ動かし、`strictPort: true` を付ける。** 動かすのは pay ではなく
+  website である。pay の 5180 は `.dev.vars.example` の `APP_URL` と Google の
+  redirect URI に紐づいており、website には外部登録された URI が無いためこちらのほうが安い
+- **`strictPort` の無い tinyurl / img / scheduler / website に `strictPort: true` を足す。**
+  これは「他アプリのポートを動かさない」に反しない — 採番を動かさず、**沈黙して隣を奪う経路を塞ぐ**。
+  これをやらないと 5181 は守れない。vite は塞がっているポートを黙って +1 するので、
+  pay が 5180 で走っているときに website を起動すると website が **5181 を取る**。
+  そのあと `strictPort: true` の discord-relay は起動に失敗する。
+  **原因が「website が犯人」だと分かるまでに時間を溶かす類の失敗である**
+- `pay/.dev.vars.example` の 5179 を 5180 に直す（pay のポートは動かさない）
+- `CONTRIBUTING.md` の一覧を実測に合わせて作り直す（pay の追加、website の 5182、
+  discord-relay の 5181）
 
 ### 8. 新規パッケージの名前を確定する
 
@@ -307,8 +320,12 @@ agent-host が A1 で枠を食っていると、DP を建てた瞬間から課�
 - `accounts/wrangler.toml`（`[vars]` の `DISCORD_RELAY_CLIENT_ID`）
 - `accounts/.dev.vars.example`（`DISCORD_RELAY_CLIENT_SECRET` / `_CLIENT_ID` / `_REDIRECT_URLS`、
   および `PAY_REDIRECT_URLS` のポート不整合）
-- `pay/.dev.vars.example` または `pay/vite.config.ts` / `website/vite.config.ts`（5180 の衝突解消）
-- `CONTRIBUTING.md:39-41`（dev ポート一覧に pay と discord-relay を反映）
+- `website/vite.config.ts`（5180 → 5182、`strictPort: true`）
+- `tinyurl/vite.config.ts` / `img/vite.config.ts` / `scheduler/vite.config.ts`
+  （`strictPort: true` を足すだけ。ポート番号は動かさない）
+- `pay/.dev.vars.example`（`APP_URL` と Google redirect URI の 5179 → 5180）
+- `CONTRIBUTING.md:39-41`（dev ポート一覧を実測で作り直す。pay の追加、website の 5182、
+  discord-relay の 5181）
 - `docs/discord-relay/adr.md`（[§未決事項](adr.md#未決事項) から「初期に有効化する特権 Intent」の行を落とし、
   決定を `setup.md` へのリンクに置き換える）
 - `docs/discord-relay/index.md`（[§未決事項の行き先](index.md#未決事項の行き先) の該当 2 行を決着済みにする）
@@ -331,7 +348,8 @@ agent-host が A1 で枠を食っていると、DP を建てた瞬間から課�
 - [ ] `agent-host` のシェイプが確認され、A1 の残枠が 1 OCPU / 6 GB 以上あることが `setup.md` にある
 - [ ] OCI に予算アラートが設定されている
 - [ ] dev ポート 5181 が予約され、`CONTRIBUTING.md` の一覧・各 `vite.config.ts`・
-      各 `.dev.vars.example` の 3 者が一致している
+      各 `.dev.vars.example` の 3 者が一致している。全ワークスペースの `vite.config.ts` が
+      `strictPort: true` を持つ
 - [ ] `docs/discord-relay/adr.md` の未決事項から `00` 担当の 2 行が消えている
 
 ### コマンド
@@ -362,8 +380,9 @@ grep -rn "server: *{ *port" --include=vite.config.ts .
 - **`DISCORD_RELAY_CLIENT_SECRET` が空のとき spec を返さない**（未設定環境で壊れないこと）
 - **`trustedOAuthClientIds()` が `discord-relay` と `ost` を含む**
   （ost は現に欠けている。回帰として固定しないと同じ穴がまた空く）
-- **各 `vite.config.ts` の `server.port` が全ワークスペースで一意である**
-  （現状 pay と website が衝突している。ここを固定しないと 5181 も同じ経路でドリフトする）
+- **各 `vite.config.ts` の `server.port` が全ワークスペースで一意で、かつ全部が
+  `strictPort: true` を持つ**（現状 pay と website が衝突しており、`strictPort` の無い
+  4 本は塞がっていると黙って隣のポートを取る。ここを固定しないと 5181 も同じ経路で奪われる）
 
 ### 手動 E2E
 

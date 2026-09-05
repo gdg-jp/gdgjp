@@ -366,8 +366,12 @@ gdgs.jp が一時的に死んだリンクと壊れた画像を出す。
 - `.github/scripts/changed-workspaces.mjs`（`CI_WORKSPACES` / `DEPLOY_TARGETS` / `GDG_LIB_DEPENDENTS`）
 - `.github/workflows/deploy.yml`（`deploy` ジョブに build / deploy / `migrate:remote`）
 - `.github/workflows/ci.yml`（`typecheck` / `build` / `test` / `e2e` の `parallel` に 1 ステップずつ）
+- `.github/scripts/workflows.test.mjs`（`cloudflareWorkspaces` に `discord-relay`。
+  **`connpass` と `pay` の欠落も併せて埋める** — この配列は `deploy.yml` の実態から既に遅れており、
+  登録漏れを捕まえる役を果たしていない）
 - `scripts/run-ci.mjs`（`workspaces` Map。**`pay` の欠落も併せて埋める**）
-- `CLAUDE.md` / `AGENTS.md` / `CONTRIBUTING.md`（パッケージ一覧と dev ポート）
+- `CLAUDE.md` / `AGENTS.md` / `CONTRIBUTING.md`（パッケージ一覧と dev ポート。
+  **この 2 ファイルは byte 単位で同一である。** 片方だけ直さない）
 - `gdg-lib/src/ui/app-links.ts`（`GDG_APP_LINKS` に 1 エントリ。§9。
   **これ 1 箇所でランチャと gdgs.jp トップの両方に出る。** `relay.gdgs.jp` の稼働後に出すこと）
 
@@ -439,6 +443,11 @@ pnpm ci:quick
 - **`changed-workspaces.mjs` が `discord-relay/**` と `gdg-lib/**` の両方で
   `@gdgjp/discord-relay` を返す**（`.github/scripts/changed-workspaces.test.mjs` に追記。
   `GDG_LIB_DEPENDENTS` の登録漏れは CI を赤くしないので、テストでしか捕まらない）
+- **`workflows.test.mjs` の `cloudflareWorkspaces` を `DEPLOY_TARGETS` から導出する**
+  （ハードコードした配列を 2 つ並べれば必ずドリフトする。現に `connpass` と `pay` が落ちていて、
+  「デプロイ手順の登録漏れを捕まえる」というこのテストの目的が既に果たされていない。
+  `changed-workspaces.mjs` から `DEPLOY_TARGETS` を import し、
+  `provider === "cloudflare"` を絞って回す形に変える）
 - **`GDG_APP_LINKS` の各 `iconUrl` が、その `url` と同一オリジンの `/app-icon.png` である**
   （`gdg-lib/src/ui/` に新規テスト。gdgs.jp のトップは他アプリの本番オリジンから画像を引くので、
   オリジンを取り違えると**別アプリのアイコン**が出て気づけない。
