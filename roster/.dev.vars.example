@@ -1,0 +1,19 @@
+# Secrets — set as production secrets with `wrangler secret put <NAME>`.
+# HMAC key for the RP's signed session + OIDC transaction cookies.
+# Generate with `openssl rand -base64 48`.
+RP_SESSION_SECRET=""
+# Client secret issued by the accounts IdP for this RP. Must equal the value set
+# as ROSTER_CLIENT_SECRET on the accounts worker.
+IDP_CLIENT_SECRET=""
+
+# Override prod URLs from wrangler.toml so dev points at the local accounts IdP.
+# APP_URL must be http://localhost:5186 in dev or gdg-lib marks cookies Secure
+# and sign-in breaks over plain HTTP.
+APP_URL=http://localhost:5186
+ACCOUNTS_URL=http://localhost:5173
+IDP_URL=http://localhost:5173
+IDP_CLIENT_ID=roster
+# wrangler.toml's [vars] hardcodes ENVIRONMENT="production" (it has no per-env
+# section); without this override /dev/login and /dev/seed 404 locally too,
+# since they gate on `env.ENVIRONMENT === "production"`.
+ENVIRONMENT=development
