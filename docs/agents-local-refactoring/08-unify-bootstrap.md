@@ -143,7 +143,8 @@ pnpm build:acl && (cd cli && go test ./internal/agenthost/...)
 ```
 
 ```bash
-gdg agent-host render --spec agent-host/agent-host.json --out /tmp/golden && diff -r cli/internal/agenthost/testdata/golden /tmp/golden
+(cd cli && go test ./internal/agenthost/... -run GoldenTree -v)
+# 差分は testdata/golden/tree.json との比較(UPDATE_GOLDEN=1 go test ... で更新)
 ```
 
 ```bash

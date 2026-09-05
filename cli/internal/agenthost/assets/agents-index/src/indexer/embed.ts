@@ -8,7 +8,7 @@ export type Embedder = { embed(text: string, query: boolean): Promise<Float32Arr
 let shared: Promise<Embedder> | undefined;
 
 export async function createEmbedder(): Promise<Embedder> {
-  const extractor = await pipeline("feature-extraction", MODEL, { dtype: "q8" });
+  const extractor = await pipeline("feature-extraction", MODEL, { dtype: "fp32" });
   return {
     async embed(text, query) {
       const result = await extractor(`${query ? "query" : "passage"}: ${text}`, {

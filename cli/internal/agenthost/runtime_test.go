@@ -67,6 +67,33 @@ func TestSystemdUnitResourceRendering(t *testing.T) {
 	}
 }
 
+// buildLangfuseForwarderResources only ever runs live (prefix == ""). A
+// filepath.Join("", "opt", ...) there yields a *relative* path, so a sudo apply
+// writes the whole source tree under the operator's cwd instead of /opt. Every
+// resource path must be absolute under /opt/langfuse-forwarder.
+func TestLangfuseForwarderResourcePathsAreAbsolute(t *testing.T) {
+	res, err := buildLangfuseForwarderResources("")
+	if err != nil {
+		t.Fatalf("buildLangfuseForwarderResources: %v", err)
+	}
+	if len(res) == 0 {
+		t.Fatal("expected embedded langfuse-forwarder resources, got none")
+	}
+	var sawFile bool
+	for _, r := range res {
+		id := r.ID()
+		if !strings.HasPrefix(id, "/opt/langfuse-forwarder") {
+			t.Errorf("resource path %q is not absolute under /opt/langfuse-forwarder", id)
+		}
+		if r.ResourceType() == "file" {
+			sawFile = true
+		}
+	}
+	if !sawFile {
+		t.Error("expected at least one embedded file resource")
+	}
+}
+
 func TestOverlayHarnessConfRendering(t *testing.T) {
 	tmpDir := t.TempDir()
 

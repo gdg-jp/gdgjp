@@ -1002,7 +1002,11 @@ func generateTmpfilesContent(paths layoutPaths) string {
 
 func buildLangfuseForwarderResources(prefix string) ([]Resource, error) {
 	var res []Resource
-	destDir := filepath.Join(prefix, "opt", "langfuse-forwarder")
+	// Match the string-concatenation idiom used for every other /opt path in
+	// this file: filepath.Join("", "opt", ...) drops the leading separator and
+	// yields a relative path, so a live (prefix == "") apply would write the
+	// tree under the caller's cwd instead of /opt.
+	destDir := prefix + "/opt/langfuse-forwarder"
 	res = append(res, &DirResource{
 		Path:  destDir,
 		Mode:  0o755,

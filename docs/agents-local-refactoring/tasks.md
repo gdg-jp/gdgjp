@@ -23,9 +23,24 @@ ADR-031 の残タスク 1〜6 は本セッションで完了（`gdg-jp/xangi` �
 publish、xangi の依存切替、CI 修正、ホスト側 GitHub Packages 認証、pin 更新）。
 
 - [ ] **残タスク 7: `/opt/gdgjp` の完全撤去。** コード上の前提（xangi・agents-index・
-      langfuse-forwarder の自己完結化）はすべて揃った。`mincra-srv` に旧 `install.sh` が
-      作った `/opt/gdgjp` の実体が残っている可能性があるため、`gdg agent-host apply
-      --dry-run --diff` でレビューしたうえで operator が物理削除を確認する。
+      langfuse-forwarder の自己完結化）はすべて揃った。2026-09-05 に `mincra-srv` で
+      実施した `gdg agent-host apply --dry-run --diff`（57 件差分）に `/opt/gdgjp` への
+      参照は一切無いことを確認済み — 現行 spec/converger はこの旧チェックアウトに依存
+      しない。実体の物理削除のみ残っており、operator の最終確認待ち。
+- [x] `agents-index/src/indexer/embed.ts` の埋め込みモデル dtype 誤り
+      （`dtype: "q8"` → `onnx/model_quantized.onnx` を要求するが
+      `intfloat/multilingual-e5-small` に存在しない）を `dtype: "fp32"`
+      （`onnx/model.onnx` に一致）へ修正。`pnpm sync:agent-host-assets` で
+      `cli/internal/agenthost/assets/` へ同期済み。`agents-index.service` は
+      artifacts-rev 方式で再起動する。**反映には `cli` の新リリース + 実機再インストール
+      + `apply` 再実行が必要。**
+- [x] `cli/internal/agenthost/plan.go` の `buildLangfuseForwarderResources` が
+      `filepath.Join(prefix, "opt", ...)` を使っており、ライブモード（`prefix == ""`）で
+      相対パスを生成 → `sudo` 実行時の cwd 配下にソースツリーを書き出していた。
+      他の `/opt/*` と同じ文字列結合（`prefix + "/opt/langfuse-forwarder"`）へ統一し、
+      `TestLangfuseForwarderResourcePathsAreAbsolute` で固定。**反映には同上のリリース
+      サイクルが必要。** 実機の `/opt/langfuse-forwarder` が最新ソースに更新されているかは
+      正しいパスでの `apply` 再実行後に要確認。
 - [ ] xangi のローカル git remote（`~/proj/xangi` 由来の環境に残っていれば）を
       `gdg-jp/xangi` に向け直す。GitHub のリダイレクトで動作はするが、恒久対応ではない。
 - [ ] `gdg-lib` パッケージの消費者が増えた場合、Package settings の
@@ -52,10 +67,3 @@ publish、xangi の依存切替、CI 修正、ホスト側 GitHub Packages 認�
       `OSSandbox: "none"` / `ToolGate: "none"` のままにする
       （`productionMinimum` を満たさないため `backend.name: antigravity` の spec は
       現状 apply されない — 意図した安全側動作）。
-
-## 並行実施可能な軽微な指摘
-
-- Stage 06〜08 の `## Verification` 節に書かれた `diff -r testdata/golden /tmp/golden`
-  という検証コマンドが、実装が採用した単一 `tree.json` マニフェスト方式と噛み合わない。
-  機能的な実害は無い（`golden_test.go` が同等の検証を担保）が、ドキュメント表記を
-  実装に合わせて直す価値はある。
