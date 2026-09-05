@@ -37,8 +37,8 @@ After changing a client secret, ID, or redirect URI, open `/admin/seed-clients` 
 `OAUTH_KV`.
 
 Development ports are `5173` (accounts), `5174` (tinyurl), `5175` (img), `5176`
-(scheduler), `5177` (wiki), `5178` (sns), `5179` (connpass), `5180` (website), and
-`5185` (ost).
+(scheduler), `5177` (wiki), `5178` (sns), `5179` (connpass), `5180` (website),
+`5185` (ost), and `5186` (roster).
 
 `sns/.dev.vars.example` lists its additional X and Google Photos credentials. The public
 `website/` does not require a `.dev.vars` file for local development.
