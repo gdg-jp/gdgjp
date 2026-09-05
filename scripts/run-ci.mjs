@@ -1,4 +1,31 @@
 import { spawn } from "node:child_process";
+import { GO_MODULES } from "../.github/scripts/changed-workspaces.mjs";
+
+// Mirrors the Go job in .github/workflows/ci.yml, from the same registry, so a
+// module cannot pass locally on checks CI does not run, or the reverse.
+function goStep({ name, directory, prepare = [], packages, targets }) {
+  // Only the generators that write gitignored output may run here: a
+  // pre-commit hook must not rewrite tracked files mid-commit. The rest are
+  // CI-only, and their committed copies are what this checkout already builds.
+  const generate = prepare
+    .filter((entry) => entry.local)
+    .map(({ script }) => `pnpm ${script} && `)
+    .join("");
+  // Match the release targets in .github/workflows/deploy.yml so host-only
+  // builds cannot hide GOOS/GOARCH breakage (for example Windows syscall gaps).
+  const crossCompile = packages
+    .map(
+      (packagePath) =>
+        `GOOS="\${target%/*}" GOARCH="\${target#*/}" go build -o /dev/null ${packagePath} || exit 1;`,
+    )
+    .join(" ");
+  return [
+    `go:${name}`,
+    `${generate}cd ${directory} && unformatted=$(gofmt -l .) && if [ -n "$unformatted" ]; then printf 'Files requiring gofmt:\\n%s\\n' "$unformatted" >&2; exit 1; fi && go vet ./... && go test ./... && go build ./... && for target in ${targets.join(" ")}; do ${crossCompile} done`,
+  ];
+}
+
+const goSteps = GO_MODULES.map(goStep);
 
 const quickSteps = [
   ["lint", "pnpm exec biome check . --reporter=github"],
@@ -8,15 +35,8 @@ const quickSteps = [
     "node --test --test-reporter=dot .github/scripts/*.test.mjs && pnpm exec turbo test --output-logs=errors-only -- --reporter=minimal",
   ],
   ["build", "pnpm exec turbo build --output-logs=errors-only"],
-  [
-    "go",
-    // Match release targets in .github/workflows/deploy.yml so host-only builds
-    // cannot hide GOOS/GOARCH breakage (for example Windows syscall gaps).
-    'pnpm build:acl && cd cli && unformatted=$(gofmt -l .) && if [ -n "$unformatted" ]; then printf \'Files requiring gofmt:\\n%s\\n\' "$unformatted" >&2; exit 1; fi && go vet ./... && go test ./... && go build ./... && for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do GOOS="${target%/*}" GOARCH="${target#*/}" go build -o /dev/null ./cmd/gdg || exit 1; done',
-  ],
+  ...goSteps,
 ];
-
-const goSteps = quickSteps.filter(([name]) => name === "go");
 
 const fullSteps = [
   ...quickSteps,
@@ -43,17 +63,20 @@ const globalNodeInputs = new Set([
 const workspaces = new Map([
   ["accounts", "@gdgjp/accounts"],
   ["accounts-oidc-client-demo", "@gdgjp/accounts-oidc-client-demo"],
+  ["agents", "@gdgjp/agents"],
+  ["connpass", "@gdgjp/connpass"],
+  ["discord-relay", "@gdgjp/discord-relay"],
   ["gdg-lib", "@gdgjp/gdg-lib"],
   ["go-extension", "@gdgjp/go-extension"],
   ["img", "@gdgjp/img"],
   ["ost", "@gdgjp/ost"],
+  ["pay", "@gdgjp/pay"],
   ["scheduler", "@gdgjp/scheduler"],
   ["sns", "@gdgjp/sns"],
   ["tinyurl", "@gdgjp/tinyurl"],
   ["tinyurl-gateway", "@gdgjp/tinyurl-gateway"],
   ["website", "@gdgjp/website"],
   ["wiki", "@gdgjp/wiki"],
-  ["connpass", "@gdgjp/connpass"],
 ]);
 
 function changedFiles() {
@@ -92,12 +115,19 @@ function changedFiles() {
 
 function isNodeFile(file) {
   return (
-    !file.startsWith("cli/") &&
+    !GO_MODULES.some(({ directory }) => file.startsWith(`${directory}/`)) &&
     (codeFilePattern.test(file) || nodeConfigurationFilePattern.test(file))
   );
 }
 
 function shellQuote(value) {
+  // runStep spawns with shell: true, which on Windows is ComSpec (cmd.exe), not
+  // the shell the developer typed `git commit` into. cmd.exe does not strip
+  // single quotes, so a POSIX-quoted path reaches the command with the quotes
+  // still attached and every path lookup fails.
+  if (process.platform === "win32") {
+    return `"${value.replaceAll('"', '""')}"`;
+  }
   return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
@@ -190,18 +220,17 @@ function changedSteps(mode, files) {
     }
   }
 
-  if (
+  // Each Go step cross-compiles the whole release matrix, so this trigger stays
+  // narrower than CI's directory-wide one: only inputs the Go build consumes.
+  const changedGoModules = GO_MODULES.filter(({ directory, inputs = [] }) =>
     relevantFiles.some(
       (file) =>
-        (file.startsWith("cli/") &&
-          (file.endsWith(".go") ||
-            file.startsWith("cli/internal/wiki/hooks/") ||
-            /\/go\.(?:mod|sum)$/.test(file))) ||
-        file.startsWith("gdg-lib/src/acl/"),
-    )
-  ) {
-    steps.push(...goSteps);
-  }
+        (file.startsWith(`${directory}/`) &&
+          (file.endsWith(".go") || /\/go\.(?:mod|sum)$/.test(file))) ||
+        inputs.some((input) => file.startsWith(input)),
+    ),
+  );
+  steps.push(...changedGoModules.map(goStep));
 
   return steps;
 }

@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { classifyChanges } from "./changed-workspaces.mjs";
+import { GO_MODULES, classifyChanges } from "./changed-workspaces.mjs";
+
+// A second registered module must be selected on its own, without any of the
+// CLI's pnpm-generated inputs. Registering one for real is a data change, so
+// this fixture keeps that path covered while `cli` is the only live entry.
+const TWO_GO_MODULES = [
+  ...GO_MODULES,
+  {
+    name: "example-daemon",
+    directory: "example-daemon",
+    packages: ["./cmd/exampled"],
+    targets: ["linux/arm64"],
+  },
+];
 
 test("selects only the directly changed application", () => {
   const result = classifyChanges(["scheduler/migrations/0001_example.sql"]);
@@ -27,6 +40,7 @@ test("propagates gdg-lib changes to every dependent application", () => {
     "@gdgjp/sns",
     "@gdgjp/connpass",
     "@gdgjp/pay",
+    "@gdgjp/discord-relay",
     "@gdgjp/website",
     "@gdgjp/gdg-lib",
     "@gdgjp/agents",
@@ -42,18 +56,31 @@ test("propagates gdg-lib changes to every dependent application", () => {
       "sns",
       "connpass",
       "pay",
+      "discord-relay",
       "website",
       "agents",
     ],
   );
 });
 
+test("selects discord-relay on application changes", () => {
+  const result = classifyChanges(["discord-relay/app/routes.ts"]);
+
+  assert.deepEqual(result.ci, ["@gdgjp/discord-relay"]);
+  assert.deepEqual(result.build, ["@gdgjp/discord-relay"]);
+  assert.deepEqual(result.e2e, ["discord-relay"]);
+  assert.deepEqual(
+    result.deploy.map(({ app }) => app),
+    ["discord-relay"],
+  );
+});
+
 test("fans common configuration changes out to every target", () => {
   const result = classifyChanges(["pnpm-lock.yaml"]);
 
-  assert.equal(result.ci.length, 15);
-  assert.equal(result.build.length, 13);
-  assert.equal(result.deploy.length, 12);
+  assert.equal(result.ci.length, 16);
+  assert.equal(result.build.length, 14);
+  assert.equal(result.deploy.length, 13);
   assert.equal(result.openapi, true);
 });
 
@@ -62,12 +89,12 @@ test("treats workflow and detector changes as global for their consumers", () =>
   const deploy = classifyChanges([".github/workflows/deploy.yml"]);
   const detector = classifyChanges([".github/scripts/changed-workspaces.mjs"]);
 
-  assert.equal(ci.ci.length, 15);
+  assert.equal(ci.ci.length, 16);
   assert.equal(ci.deploy.length, 0);
   assert.equal(deploy.ci.length, 0);
-  assert.equal(deploy.deploy.length, 12);
-  assert.equal(detector.ci.length, 15);
-  assert.equal(detector.deploy.length, 12);
+  assert.equal(deploy.deploy.length, 13);
+  assert.equal(detector.ci.length, 16);
+  assert.equal(detector.deploy.length, 13);
 });
 
 test("ignores unrelated documentation changes", () => {
@@ -101,16 +128,37 @@ test("manual execution selects every CI and deploy target", () => {
   const result = classifyChanges([], { forceAll: true });
 
   assert.equal(result.full, true);
-  assert.equal(result.ci.length, 15);
-  assert.equal(result.deploy.length, 12);
+  assert.equal(result.ci.length, 16);
+  assert.equal(result.deploy.length, 13);
   assert.equal(result.lint, true);
-  assert.equal(result.cli, true);
+  assert.deepEqual(
+    result.go.map(({ name }) => name),
+    GO_MODULES.map(({ name }) => name),
+  );
 });
 
-test("gates the CLI Go job on cli/ changes", () => {
-  assert.equal(classifyChanges(["cli/internal/command/wiki.go"]).cli, true);
-  assert.equal(classifyChanges(["docs/operations.md"]).cli, false);
-  assert.equal(classifyChanges(["pnpm-lock.yaml"]).cli, true);
+test("gates each Go module on its own directory and declared build inputs", () => {
+  const names = (files, goModules) =>
+    classifyChanges(files, { goModules }).go.map(({ name }) => name);
+
+  assert.deepEqual(names(["cli/internal/command/wiki.go"], TWO_GO_MODULES), ["cli"]);
+  assert.deepEqual(names(["cli/README.md"], TWO_GO_MODULES), ["cli"]);
+  assert.deepEqual(names(["gdg-lib/src/acl/evaluate.ts"], TWO_GO_MODULES), ["cli"]);
+  assert.deepEqual(names(["example-daemon/main.go"], TWO_GO_MODULES), ["example-daemon"]);
+  assert.deepEqual(names(["docs/operations.md"], TWO_GO_MODULES), []);
+  assert.deepEqual(names(["pnpm-lock.yaml"], TWO_GO_MODULES), ["cli", "example-daemon"]);
+});
+
+test("collapses Go matrix entries to shell-iterable scalars", () => {
+  const [cli, daemon] = classifyChanges([], { forceAll: true, goModules: TWO_GO_MODULES }).go;
+
+  assert.equal(cli.directory, "cli");
+  assert.equal(cli.prepare, "build:acl sync:agent-host-assets");
+  assert.equal(cli.packages, "./cmd/gdg");
+  assert.match(cli.targets, /^darwin\/amd64 .* windows\/arm64$/);
+  // An empty `prepare` is what makes the workflow skip the pnpm setup steps.
+  assert.equal(daemon.prepare, "");
+  assert.equal(daemon.targets, "linux/arm64");
 });
 
 test("gates script-tests on workflow scripts and agent-host components", () => {

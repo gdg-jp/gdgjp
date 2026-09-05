@@ -17,6 +17,7 @@ SNS_CLIENT_SECRET=""
 AGENTS_CLIENT_SECRET=""
 PAY_CLIENT_SECRET=""
 OST_CLIENT_SECRET=""
+DISCORD_RELAY_CLIENT_SECRET=""
 
 # Override prod URLs from wrangler.toml so dev runs the IdP at localhost.
 APP_URL=http://localhost:5173
@@ -34,8 +35,10 @@ WIKI_REDIRECT_URLS=http://localhost:5177/api/auth/callback/gdgjp
 SNS_CLIENT_ID=sns
 SNS_REDIRECT_URLS=http://localhost:5178/api/auth/callback/gdgjp
 PAY_CLIENT_ID=pay
-PAY_REDIRECT_URLS=http://localhost:5179/api/auth/callback/gdgjp
+PAY_REDIRECT_URLS=http://localhost:5180/api/auth/callback/gdgjp
 OST_CLIENT_ID=ost
 OST_REDIRECT_URLS=http://localhost:5185/api/auth/callback/gdgjp
+DISCORD_RELAY_CLIENT_ID=discord-relay
+DISCORD_RELAY_REDIRECT_URLS=http://localhost:5181/api/auth/callback/gdgjp
 
 RESEND_API_KEY=""

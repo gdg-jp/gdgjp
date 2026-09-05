@@ -189,6 +189,12 @@ jobs:
               pnpm --filter @gdgjp/ost build
               pnpm --filter @gdgjp/ost run deploy
               pnpm --filter @gdgjp/ost migrate:remote
+          - name: Build, deploy, and migrate discord-relay
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'discord-relay')
+            run: |
+              pnpm --filter @gdgjp/discord-relay build
+              pnpm --filter @gdgjp/discord-relay run deploy
+              pnpm --filter @gdgjp/discord-relay migrate:remote
           - name: Build and deploy website
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'website')
             run: |

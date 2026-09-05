@@ -6,7 +6,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import { CloudflareContext } from "./workers/context";
 
 export default defineConfig({
-  server: { port: 5176 },
+  server: { port: 5176, strictPort: true },
   plugins: [
     cloudflareDevProxy({
       getLoadContext: ({ context }) =>

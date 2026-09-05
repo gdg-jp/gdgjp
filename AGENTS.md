@@ -25,6 +25,10 @@ This is a flat pnpm/Turborepo monorepo. The workspace packages are listed in
   routes gated by GDG chapter membership. D1 (`DB`) holds only auth tables + an `events` registry;
   each event's live state (topics, votes, merge groups, desks) is one per-slug Durable Object
   (`OstBoard`, SQLite storage + hibernatable WebSockets, `getByName(slug)`).
+- `discord-relay/` is the Discord event relay control plane (`relay.gdgs.jp`): bot invitation,
+  event filtering and webhook forwarding rules, delivery tracking, and dead-letter queue management.
+  React Router v7 SSR on Cloudflare Workers and a relying party of `accounts/`. D1 (`DB`) holds
+  auth tables, chapter caches, and audit logs.
 - `gdg-lib/` is the source-only shared TypeScript package (`@gdgjp/gdg-lib`) for relying-party
   auth and signed-cookie helpers. Keep code app-local unless it is genuinely shared here.
 - `agents-index/` is the local, ACL-filtered semantic navigation MCP service for the shared wiki

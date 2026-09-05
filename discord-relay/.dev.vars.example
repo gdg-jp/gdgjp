@@ -1,0 +1,30 @@
+# Override the production values from wrangler.toml so dev points at the local
+# accounts IdP. APP_URL must be http://localhost:5181 in dev or gdg-lib marks
+# cookies Secure and sign-in breaks over plain HTTP.
+APP_URL=http://localhost:5181
+ACCOUNTS_URL=http://localhost:5173
+IDP_URL=http://localhost:5173
+IDP_CLIENT_ID=discord-relay
+
+# `/dev/login` hard-404s and the dev chapter override is ignored unless this is
+# something other than "production" (see app/routes/dev.login.tsx and
+# app/lib/access.server.ts). wrangler.toml pins it to "production" for the
+# deployed Worker, so dev has to override it here.
+ENVIRONMENT=development
+
+# Stage 01: Relying-party auth
+# RP_SESSION_SECRET is the HMAC key for the session + OIDC transaction cookies.
+# Generate with `openssl rand -base64 48`. IDP_CLIENT_SECRET must equal the
+# value set as DISCORD_RELAY_CLIENT_SECRET on the accounts worker.
+RP_SESSION_SECRET=""
+IDP_CLIENT_SECRET=""
+
+# Stage 02: Discord bot OAuth2 invite
+DISCORD_RELAY_CLIENT_SECRET=""
+
+# Stage 03: Discord HTTP API bot token
+DISCORD_RELAY_BOT_TOKEN=""
+
+# Stage 04: Data Plane to Control Plane shared secret rotation
+DP_SHARED_SECRET_CURRENT=""
+DP_SHARED_SECRET_PREVIOUS=""

@@ -12,6 +12,7 @@ const CI_WORKSPACES = [
   { directory: "connpass", workspace: "@gdgjp/connpass", build: true, e2e: false },
   { directory: "pay", workspace: "@gdgjp/pay", build: true, e2e: false },
   { directory: "ost", workspace: "@gdgjp/ost", build: true, e2e: false },
+  { directory: "discord-relay", workspace: "@gdgjp/discord-relay", build: true, e2e: true },
   { directory: "website", workspace: "@gdgjp/website", build: true, e2e: false },
   { directory: "gdg-lib", workspace: "@gdgjp/gdg-lib", build: false, e2e: false },
   {
@@ -30,7 +31,7 @@ const CI_WORKSPACES = [
   },
 ];
 
-const DEPLOY_TARGETS = [
+export const DEPLOY_TARGETS = [
   {
     app: "accounts",
     workspace: "@gdgjp/accounts",
@@ -71,6 +72,12 @@ const DEPLOY_TARGETS = [
     migrate: false,
   },
   {
+    app: "discord-relay",
+    workspace: "@gdgjp/discord-relay",
+    provider: "cloudflare",
+    migrate: true,
+  },
+  {
     app: "website",
     workspace: "@gdgjp/website",
     provider: "cloudflare",
@@ -90,6 +97,35 @@ const DEPLOY_TARGETS = [
   },
 ];
 
+// Go modules are independent of the pnpm workspace: each owns a go.mod, a
+// release tag, and a cross-compilation matrix. The CI job matrix and
+// scripts/run-ci.mjs both derive from this list, so registering a second module
+// is one entry here instead of an edit in every CI file.
+export const GO_MODULES = [
+  {
+    name: "cli",
+    directory: "cli",
+    // Build inputs outside `directory`, plus files inside it that the Go build
+    // consumes without being Go source. Changing one has to re-run the checks.
+    inputs: ["cli/internal/wiki/hooks/", "gdg-lib/src/acl/"],
+    // pnpm scripts that materialise generated inputs before the Go checks.
+    // `local` entries write only gitignored output, so the pre-commit hook may
+    // run them; the rest also rewrite tracked files and belong to CI alone.
+    prepare: [{ script: "build:acl", local: true }, { script: "sync:agent-host-assets" }],
+    // Main packages that must cross-compile for every release target, so a
+    // host-only build cannot hide GOOS/GOARCH breakage such as syscall gaps.
+    packages: ["./cmd/gdg"],
+    targets: [
+      "darwin/amd64",
+      "darwin/arm64",
+      "linux/amd64",
+      "linux/arm64",
+      "windows/amd64",
+      "windows/arm64",
+    ],
+  },
+];
+
 const GDG_LIB_DEPENDENTS = new Set([
   "accounts",
   "tinyurl",
@@ -99,6 +135,7 @@ const GDG_LIB_DEPENDENTS = new Set([
   "sns",
   "connpass",
   "pay",
+  "discord-relay",
   "website",
   "agents",
 ]);
@@ -120,7 +157,34 @@ function unique(values) {
   return [...new Set(values)];
 }
 
-function allResults() {
+// A workflow matrix entry has to be plain scalars, so the list fields collapse
+// to space-separated strings. Names never contain spaces, which lets the job
+// iterate them with a shell `for` loop instead of parsing JSON on the runner.
+function goMatrixEntry({ name, directory, prepare = [], packages = [], targets = [] }) {
+  return {
+    name,
+    directory,
+    prepare: prepare.map(({ script }) => script).join(" "),
+    packages: packages.join(" "),
+    targets: targets.join(" "),
+  };
+}
+
+// A module is affected by anything under its own directory — the Go job runs
+// `go test ./...`, so a testdata fixture matters as much as a .go file — and by
+// the build inputs it declares outside that directory.
+export function goModulesFor(files, modules = GO_MODULES) {
+  return modules.filter(({ directory, inputs = [] }) =>
+    files.some(
+      (file) =>
+        file === directory ||
+        file.startsWith(`${directory}/`) ||
+        inputs.some((input) => file.startsWith(input)),
+    ),
+  );
+}
+
+function allResults(goModules) {
   return {
     ci: CI_WORKSPACES.map(({ workspace }) => workspace),
     build: CI_WORKSPACES.filter(({ build }) => build).map(({ workspace }) => workspace),
@@ -129,14 +193,14 @@ function allResults() {
     lint: true,
     openapi: true,
     scriptTests: true,
-    cli: true,
+    go: goModules.map(goMatrixEntry),
     full: true,
   };
 }
 
-export function classifyChanges(files, { forceAll = false } = {}) {
+export function classifyChanges(files, { forceAll = false, goModules = GO_MODULES } = {}) {
   if (forceAll) {
-    return allResults();
+    return allResults(goModules);
   }
 
   const normalizedFiles = unique(files.filter(Boolean).map((file) => file.replaceAll("\\", "/")));
@@ -199,7 +263,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         /^cli\/internal\/wiki\/hooks\//.test(file) ||
         /^scripts\/install-gdg-agent-host\.sh$/.test(file),
     ),
-    cli: ciGlobal || normalizedFiles.some((file) => file.startsWith("cli/")),
+    go: (ciGlobal ? goModules : goModulesFor(normalizedFiles, goModules)).map(goMatrixEntry),
     full: false,
   };
 }
@@ -252,7 +316,7 @@ function workflowOutputs(result, base, head) {
     lint: String(result.lint),
     openapi: String(result.openapi),
     "script-tests": String(result.scriptTests),
-    cli: String(result.cli),
+    go: JSON.stringify(result.go),
     full: String(result.full),
     base: base ?? "",
     head: head ?? "",
