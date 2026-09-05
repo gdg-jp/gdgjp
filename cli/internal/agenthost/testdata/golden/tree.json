@@ -57,7 +57,7 @@
     "path": "etc/systemd/system/agents-index.service",
     "type": "file",
     "mode": "0644",
-    "sha256": "0840228142c7c392a40118e59250e8f7c9f77b6ce8220f53d9457834b58f46a7"
+    "sha256": "a11a8150aa6c957616a4779324eb57658f96dfea1ae4dd7e8205d9e297ee880c"
   },
   {
     "path": "etc/tmpfiles.d",
@@ -399,7 +399,7 @@
     "path": "opt/agents-index/src/indexer/embed.ts",
     "type": "file",
     "mode": "0444",
-    "sha256": "7c8679b35f42324fadf4d597f4e4f2c555741861f018654f91e28fbfa3d2ff18"
+    "sha256": "82cc83ae64bcf2b97dd6d337dd85924a542afb1f8bf59c8d6968d72a1cda0bb7"
   },
   {
     "path": "opt/agents-index/src/indexer/store.ts",
