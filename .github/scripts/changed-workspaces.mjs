@@ -12,6 +12,7 @@ const CI_WORKSPACES = [
   { directory: "connpass", workspace: "@gdgjp/connpass", build: true, e2e: false },
   { directory: "pay", workspace: "@gdgjp/pay", build: true, e2e: false },
   { directory: "ost", workspace: "@gdgjp/ost", build: true, e2e: false },
+  { directory: "roster", workspace: "@gdgjp/roster", build: true, e2e: true },
   { directory: "website", workspace: "@gdgjp/website", build: true, e2e: false },
   { directory: "gdg-lib", workspace: "@gdgjp/gdg-lib", build: false, e2e: false },
   {
@@ -71,6 +72,12 @@ const DEPLOY_TARGETS = [
     migrate: false,
   },
   {
+    app: "roster",
+    workspace: "@gdgjp/roster",
+    provider: "cloudflare",
+    migrate: true,
+  },
+  {
     app: "website",
     workspace: "@gdgjp/website",
     provider: "cloudflare",
@@ -101,6 +108,7 @@ const GDG_LIB_DEPENDENTS = new Set([
   "pay",
   "website",
   "agents",
+  "roster",
 ]);
 
 const GLOBAL_INPUTS = new Set([

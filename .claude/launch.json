@@ -16,6 +16,12 @@
       "port": 5185
     },
     {
+      "name": "roster-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@gdgjp/roster", "dev"],
+      "port": 5186
+    },
+    {
       "name": "img-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@gdgjp/img", "dev"],

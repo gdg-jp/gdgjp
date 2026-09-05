@@ -27,6 +27,7 @@ test("propagates gdg-lib changes to every dependent application", () => {
     "@gdgjp/sns",
     "@gdgjp/connpass",
     "@gdgjp/pay",
+    "@gdgjp/roster",
     "@gdgjp/website",
     "@gdgjp/gdg-lib",
     "@gdgjp/agents",
@@ -42,6 +43,7 @@ test("propagates gdg-lib changes to every dependent application", () => {
       "sns",
       "connpass",
       "pay",
+      "roster",
       "website",
       "agents",
     ],
@@ -51,9 +53,9 @@ test("propagates gdg-lib changes to every dependent application", () => {
 test("fans common configuration changes out to every target", () => {
   const result = classifyChanges(["pnpm-lock.yaml"]);
 
-  assert.equal(result.ci.length, 15);
-  assert.equal(result.build.length, 13);
-  assert.equal(result.deploy.length, 12);
+  assert.equal(result.ci.length, 16);
+  assert.equal(result.build.length, 14);
+  assert.equal(result.deploy.length, 13);
   assert.equal(result.openapi, true);
 });
 
@@ -62,12 +64,12 @@ test("treats workflow and detector changes as global for their consumers", () =>
   const deploy = classifyChanges([".github/workflows/deploy.yml"]);
   const detector = classifyChanges([".github/scripts/changed-workspaces.mjs"]);
 
-  assert.equal(ci.ci.length, 15);
+  assert.equal(ci.ci.length, 16);
   assert.equal(ci.deploy.length, 0);
   assert.equal(deploy.ci.length, 0);
-  assert.equal(deploy.deploy.length, 12);
-  assert.equal(detector.ci.length, 15);
-  assert.equal(detector.deploy.length, 12);
+  assert.equal(deploy.deploy.length, 13);
+  assert.equal(detector.ci.length, 16);
+  assert.equal(detector.deploy.length, 13);
 });
 
 test("ignores unrelated documentation changes", () => {
@@ -101,8 +103,8 @@ test("manual execution selects every CI and deploy target", () => {
   const result = classifyChanges([], { forceAll: true });
 
   assert.equal(result.full, true);
-  assert.equal(result.ci.length, 15);
-  assert.equal(result.deploy.length, 12);
+  assert.equal(result.ci.length, 16);
+  assert.equal(result.deploy.length, 13);
   assert.equal(result.lint, true);
   assert.equal(result.cli, true);
 });

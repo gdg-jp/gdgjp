@@ -189,6 +189,12 @@ jobs:
               pnpm --filter @gdgjp/ost build
               pnpm --filter @gdgjp/ost run deploy
               pnpm --filter @gdgjp/ost migrate:remote
+          - name: Build, deploy, and migrate roster
+            if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'roster')
+            run: |
+              pnpm --filter @gdgjp/roster build
+              pnpm --filter @gdgjp/roster run deploy
+              pnpm --filter @gdgjp/roster migrate:remote
           - name: Build and deploy website
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'website')
             run: |

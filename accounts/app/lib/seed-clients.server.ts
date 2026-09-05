@@ -90,6 +90,12 @@ export function collectSpecs(env: Env): ClientSpec[] {
     ["GDG Japan Agents", env.AGENTS_CLIENT_ID, env.AGENTS_CLIENT_SECRET, env.AGENTS_REDIRECT_URLS],
     ["GDG Japan Pay", env.PAY_CLIENT_ID, env.PAY_CLIENT_SECRET, env.PAY_REDIRECT_URLS],
     ["GDG Japan OST", env.OST_CLIENT_ID, env.OST_CLIENT_SECRET, env.OST_REDIRECT_URLS],
+    [
+      "GDG Japan Roster",
+      env.ROSTER_CLIENT_ID,
+      env.ROSTER_CLIENT_SECRET,
+      env.ROSTER_REDIRECT_URLS,
+    ],
   ] as const;
   return apps.flatMap(([clientName, clientId, clientSecret, redirectUrls]) =>
     clientId && clientSecret
