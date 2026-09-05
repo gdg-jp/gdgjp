@@ -161,6 +161,11 @@ func parseOnlyFilter(only string) (map[string]bool, error) {
 }
 
 func buildDesiredResources(paths layoutPaths, prune bool) ([]Resource, error) {
+	backendPolicy, err := GetBackendPolicy(paths.Spec.Backend.Name)
+	if err != nil {
+		return nil, err
+	}
+
 	var res []Resource
 
 	// 1. Users and Groups
@@ -300,19 +305,11 @@ func buildDesiredResources(paths layoutPaths, prune bool) ([]Resource, error) {
 	// Slot directories
 	for slot := 0; slot < paths.SlotCount; slot++ {
 		slotUser := fmt.Sprintf("gdgagent-run-%d", slot)
-		slotHome := filepath.Join(paths.HomeRoot, slotUser)
-		res = append(res, &DirResource{
-			Path:  filepath.Join(slotHome, ".cursor"),
-			Mode:  unixFileMode(0o1775),
-			Owner: "root",
-			Group: slotUser,
-		})
-		res = append(res, &DirResource{
-			Path:  filepath.Join(slotHome, ".cursor", "projects"),
-			Mode:  0o755,
-			Owner: slotUser,
-			Group: slotUser,
-		})
+		slotDirs, err := backendPolicy.BuildSlotDirectories(paths, slot)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, slotDirs...)
 		res = append(res, &DirResource{
 			Path:  filepath.Join(paths.RunRoot, strconv.Itoa(slot)),
 			Mode:  0o750,
@@ -351,18 +348,11 @@ func buildDesiredResources(paths layoutPaths, prune bool) ([]Resource, error) {
 		Group: "root",
 	})
 
-	cliConfigTemplate, err := configBytes("cli-config.json")
+	backendHostRes, err := backendPolicy.BuildHostResources(paths)
 	if err != nil {
 		return nil, err
 	}
-	cliConfigCanonical := []byte(subst(string(cliConfigTemplate), paths.SpecAgentRoot, "", ""))
-	res = append(res, &FileResource{
-		Path:  filepath.Join(paths.AgentRoot, "lib", "cli-config.json"),
-		Data:  cliConfigCanonical,
-		Mode:  0o444,
-		Owner: "root",
-		Group: "root",
-	})
+	res = append(res, backendHostRes...)
 
 	releaseKeyBytes, err := configBytes("release-key.pub")
 	if err == nil && len(releaseKeyBytes) > 0 {
@@ -399,91 +389,41 @@ func buildDesiredResources(paths layoutPaths, prune bool) ([]Resource, error) {
 	})
 
 	// Slot configs and launchers
-	hooksTemplate, err := configBytes("hooks.json")
-	if err != nil {
-		return nil, err
-	}
-	sandboxTemplate, err := configBytes("sandbox.json.in")
-	if err != nil {
-		return nil, err
-	}
-	mcpTemplate, err := configBytes("mcp.json.in")
-	if err != nil {
-		return nil, err
-	}
-	extraMCP, err := configBytes("extra-mcp.json")
-	if err != nil {
-		return nil, err
-	}
-	permissions, err := configBytes("permissions.json")
-	if err != nil {
-		return nil, err
-	}
 	spawnTemplate, err := configBytes("spawn-slot.sh")
 	if err != nil {
 		return nil, err
 	}
 
 	for slot := 0; slot < paths.SlotCount; slot++ {
-		slotUser := fmt.Sprintf("gdgagent-run-%d", slot)
-		slotHome := filepath.Join(paths.HomeRoot, slotUser)
-		cursorDir := filepath.Join(slotHome, ".cursor")
 		specSlotRun := filepath.Join(paths.SpecRunRoot, strconv.Itoa(slot))
 		indexSocket := filepath.Join(paths.SpecRunRoot, strconv.Itoa(slot), "index.sock")
 
-		res = append(res, &FileResource{
-			Path:  filepath.Join(cursorDir, "hooks.json"),
-			Data:  []byte(subst(string(hooksTemplate), paths.SpecAgentRoot, "", "")),
-			Mode:  0o444,
-			Owner: "root",
-			Group: "root",
-		})
-		res = append(res, &FileResource{
-			Path:  filepath.Join(cursorDir, "cli-config.json"),
-			Data:  []byte(subst(string(cliConfigTemplate), paths.SpecAgentRoot, "", "")),
-			Mode:  0o644,
-			Owner: slotUser,
-			Group: slotUser,
-		})
-		res = append(res, &FileResource{
-			Path:  filepath.Join(cursorDir, "sandbox.json"),
-			Data:  []byte(subst(string(sandboxTemplate), paths.SpecAgentRoot, specSlotRun, "")),
-			Mode:  0o444,
-			Owner: "root",
-			Group: "root",
-		})
-		mergedMCP, mcpErr := mergeSlotMCP([]byte(subst(string(mcpTemplate), paths.SpecAgentRoot, "", indexSocket)), extraMCP)
-		if mcpErr != nil {
-			return nil, mcpErr
+		slotBackendRes, err := backendPolicy.BuildSlotResources(paths, slot, specSlotRun, indexSocket)
+		if err != nil {
+			return nil, err
 		}
-		res = append(res, &FileResource{
-			Path:  filepath.Join(cursorDir, "mcp.json"),
-			Data:  mergedMCP,
-			Mode:  0o444,
-			Owner: "root",
-			Group: "root",
-		})
-		res = append(res, &FileResource{
-			Path:  filepath.Join(cursorDir, "permissions.json"),
-			Data:  permissions,
-			Mode:  0o444,
-			Owner: "root",
-			Group: "root",
-		})
+		res = append(res, slotBackendRes...)
 
-		spawn := subst(string(spawnTemplate), paths.SpecAgentRoot, "", "")
-		spawn = strings.ReplaceAll(spawn, "__SLOT__", strconv.Itoa(slot))
-		res = append(res, &FileResource{
-			Path:  filepath.Join(paths.AgentRoot, "bin", fmt.Sprintf("spawn-slot-%d", slot)),
-			Data:  []byte(spawn),
-			Mode:  0o755,
-			Owner: "root",
-			Group: "root",
-		})
+		if paths.Spec.Backend.Isolation.SlotLauncher {
+			spawn := subst(string(spawnTemplate), paths.SpecAgentRoot, "", "")
+			spawn = strings.ReplaceAll(spawn, "__SLOT__", strconv.Itoa(slot))
+			res = append(res, &FileResource{
+				Path:  filepath.Join(paths.AgentRoot, "bin", fmt.Sprintf("spawn-slot-%d", slot)),
+				Data:  []byte(spawn),
+				Mode:  0o755,
+				Owner: "root",
+				Group: "root",
+			})
+		}
 	}
 
 	// 4. Sudoers
 	sudoersContent := generateSudoersContent(paths)
+	if paths.Spec.Backend.Isolation.SlotLauncher {
+		if err := ValidateSudoersSlotLauncher(sudoersContent, paths.SlotCount); err != nil {
+			return nil, err
+		}
+	}
 	res = append(res, &SudoersResource{
 		Path: filepath.Join(paths.EtcRoot, "sudoers.d", "gdg-agent"),
 		Data: []byte(sudoersContent),
@@ -497,18 +437,7 @@ func buildDesiredResources(paths layoutPaths, prune bool) ([]Resource, error) {
 		Prefix: paths.Prefix,
 	})
 
-	// 6. AppArmor
-	apparmorData, err := configBytes("apparmor.d-cursor-agent-cursorsandbox")
-	if err != nil {
-		return nil, err
-	}
-	res = append(res, &AppArmorResource{
-		Path:   filepath.Join(paths.EtcRoot, "apparmor.d", "cursor-agent-cursorsandbox"),
-		Data:   apparmorData,
-		Prefix: paths.Prefix,
-	})
-
-	// 7. Systemd units
+	// 6. Systemd units
 	userUnitDir := filepath.Join(paths.HomeRoot, "gdgagent-svc", ".config", "systemd", "user")
 
 	xangiUnit := `[Unit]

@@ -1,0 +1,71 @@
+name: Agent Host Control Plane Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agent-host/**'
+      - '.github/workflows/agent-host-release.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  validate-and-publish:
+    name: Validate & Publish Control Plane Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Build gdg CLI
+        run: |
+          pnpm build:acl
+          pnpm sync:agent-host-assets
+          go build -C cli -o /tmp/gdg ./cmd/gdg
+
+      - name: Validate spec for release (environment & capability gate)
+        run: /tmp/gdg agent-host validate-spec --for-release --spec agent-host/agent-host.json
+
+      - name: Build and Sign Release Bundle
+        env:
+          AGENT_HOST_SIGNING_KEY: ${{ secrets.AGENT_HOST_SIGNING_KEY }}
+        run: |
+          if [ -z "$AGENT_HOST_SIGNING_KEY" ]; then
+            echo "::error::AGENT_HOST_SIGNING_KEY secret is required to sign production release bundles"
+            exit 1
+          fi
+          node scripts/build-agent-host-release.mjs \
+            --spec agent-host/agent-host.json \
+            --out dist/agent-host-release \
+            --version "${{ github.sha }}" \
+            --gdg-bin /tmp/gdg
+
+      - name: Upload Release Bundle Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-host-release-bundle
+          path: dist/agent-host-release/
+          if-no-files-found: error
+
+      - name: Publish to GitHub Releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view agent-host-release-latest >/dev/null 2>&1 || \
+          gh release create agent-host-release-latest \
+            --title "Agent Host Release (Latest)" \
+            --notes "Automated Tier 2 control plane release from ${{ github.sha }}"
+          gh release upload agent-host-release-latest dist/agent-host-release/* --clobber

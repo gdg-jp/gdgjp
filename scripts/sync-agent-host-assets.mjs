@@ -13,24 +13,28 @@ const copies = [
     dest: join(destDir, "index-proxy.ts"),
   },
   {
-    src: join(repositoryRoot, "agent-host/config/hooks.json"),
-    dest: join(configDest, "hooks.json"),
+    src: join(repositoryRoot, "agent-host/config/backends/cursor/hooks.json"),
+    dest: join(configDest, "backends/cursor/hooks.json"),
   },
   {
-    src: join(repositoryRoot, "agent-host/config/cli-config.json"),
-    dest: join(configDest, "cli-config.json"),
+    src: join(repositoryRoot, "agent-host/config/backends/cursor/cli-config.json"),
+    dest: join(configDest, "backends/cursor/cli-config.json"),
   },
   {
-    src: join(repositoryRoot, "agent-host/config/sandbox.json.in"),
-    dest: join(configDest, "sandbox.json.in"),
+    src: join(repositoryRoot, "agent-host/config/backends/cursor/sandbox.json.in"),
+    dest: join(configDest, "backends/cursor/sandbox.json.in"),
   },
   {
-    src: join(repositoryRoot, "agent-host/config/mcp.json.in"),
-    dest: join(configDest, "mcp.json.in"),
+    src: join(repositoryRoot, "agent-host/config/backends/cursor/mcp.json.in"),
+    dest: join(configDest, "backends/cursor/mcp.json.in"),
   },
   {
-    src: join(repositoryRoot, "agent-host/config/permissions.json"),
-    dest: join(configDest, "permissions.json"),
+    src: join(repositoryRoot, "agent-host/config/backends/cursor/permissions.json"),
+    dest: join(configDest, "backends/cursor/permissions.json"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/config/backends/antigravity/README.md"),
+    dest: join(configDest, "backends/antigravity/README.md"),
   },
   {
     src: join(repositoryRoot, "agent-host/config/extra-mcp.json"),

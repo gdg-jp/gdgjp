@@ -22,6 +22,7 @@ func newAgentHostCommand() *cobra.Command {
 	command.AddCommand(newAgentHostVerifyCommand())
 	command.AddCommand(newAgentHostSecretsCommand())
 	command.AddCommand(newAgentHostSyncWorkspaceCommand())
+	command.AddCommand(newAgentHostValidateSpecCommand())
 	return command
 }
 
@@ -56,7 +57,7 @@ func newAgentHostApplyCommand() *cobra.Command {
 			if prefix == "" {
 				spec, err := agenthost.LoadSpecWithOverlay(specPath, overlayPath)
 				if err == nil && spec.Pins.GdgCli.Version != "" {
-					if err := agenthost.CheckAndReexecSelf(context.Background(), cmd.Root().Version, spec.Pins.GdgCli, os.Args, nil); err != nil {
+					if err := agenthost.CheckAndReexecSelf(context.Background(), cmd.Root().Version, spec, os.Args, nil); err != nil {
 						return fmt.Errorf("self re-exec failed: %w", err)
 					}
 				}
@@ -338,5 +339,38 @@ func newAgentHostSyncWorkspaceCommand() *cobra.Command {
 	command.Flags().BoolVar(&dryRun, "dry-run", false, "Check for drift without modifying live worktree")
 	command.Flags().BoolVar(&diff, "diff", false, "Print planned additions, modifications, and deletions")
 	command.Flags().BoolVar(&force, "force", false, "Allow overwriting managed files when local modifications are detected")
+	return command
+}
+
+func newAgentHostValidateSpecCommand() *cobra.Command {
+	var specPath string
+	var overlayPath string
+	var forRelease bool
+
+	command := &cobra.Command{
+		Use:   "validate-spec",
+		Short: "Validate agent-host specification against schema and capability contracts",
+		Long: "Validates agent-host.json against schema, backend capability contracts, and\n" +
+			"production minimum requirements. When --for-release is passed, additionally\n" +
+			"ensures the spec has environment: \"production\" and is suitable for publication.",
+		SilenceUsage: true,
+		Args:         cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if specPath == "" {
+				specPath = os.Getenv("GDG_SPEC")
+			}
+			spec, err := agenthost.LoadSpecWithOverlay(specPath, overlayPath)
+			if err != nil {
+				return err
+			}
+			if forRelease {
+				return agenthost.ValidateSpecForRelease(spec)
+			}
+			return agenthost.ValidateBackendContract(spec)
+		},
+	}
+	command.Flags().StringVar(&specPath, "spec", "", "Path to agent-host.json")
+	command.Flags().StringVar(&overlayPath, "overlay", "", "Path to overlay spec file (e.g. agent-host.dev.json)")
+	command.Flags().BoolVar(&forRelease, "for-release", false, "Validate that the spec satisfies release gating requirements")
 	return command
 }

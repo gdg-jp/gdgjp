@@ -63,36 +63,38 @@ func ApplyOwnership(paths layoutPaths) error {
 		if err := installDir(home, 0o750, "root", runUser); err != nil {
 			return err
 		}
-		if err := installDir(filepath.Join(home, ".config/cursor"), 0o700, runUser, runUser); err != nil {
-			return err
-		}
 		if err := installDir(filepath.Join(home, ".cache"), 0o700, runUser, runUser); err != nil {
 			return err
 		}
 		if err := installDir(filepath.Join(home, ".local/share"), 0o700, runUser, runUser); err != nil {
 			return err
 		}
-		if err := installDir(filepath.Join(home, ".cursor"), 0o1775, "root", runUser); err != nil {
-			return err
-		}
-		if err := installDir(filepath.Join(home, ".cursor/projects"), 0o755, runUser, runUser); err != nil {
-			return err
-		}
-		for _, name := range []string{"hooks.json", "sandbox.json", "mcp.json", "permissions.json"} {
-			p := filepath.Join(home, ".cursor", name)
-			if err := chownPath(p, "root", "root"); err != nil {
+		if paths.Spec.Backend.Name == "cursor" {
+			if err := installDir(filepath.Join(home, ".config/cursor"), 0o700, runUser, runUser); err != nil {
 				return err
 			}
-			if err := os.Chmod(p, 0o444); err != nil {
+			if err := installDir(filepath.Join(home, ".cursor"), 0o1775, "root", runUser); err != nil {
 				return err
 			}
-		}
-		cliConfig := filepath.Join(home, ".cursor/cli-config.json")
-		if err := chownPath(cliConfig, runUser, runUser); err != nil {
-			return err
-		}
-		if err := os.Chmod(cliConfig, 0o644); err != nil {
-			return err
+			if err := installDir(filepath.Join(home, ".cursor/projects"), 0o755, runUser, runUser); err != nil {
+				return err
+			}
+			for _, name := range []string{"hooks.json", "sandbox.json", "mcp.json", "permissions.json"} {
+				p := filepath.Join(home, ".cursor", name)
+				if err := chownPath(p, "root", "root"); err != nil {
+					return err
+				}
+				if err := os.Chmod(p, 0o444); err != nil {
+					return err
+				}
+			}
+			cliConfig := filepath.Join(home, ".cursor/cli-config.json")
+			if err := chownPath(cliConfig, runUser, runUser); err != nil {
+				return err
+			}
+			if err := os.Chmod(cliConfig, 0o644); err != nil {
+				return err
+			}
 		}
 		if err := installDir(filepath.Join(paths.RunRoot, strconv.Itoa(slot)), 0o750, "gdgagent-svc", runUser); err != nil {
 			return err
@@ -121,15 +123,17 @@ func ApplyOwnership(paths layoutPaths) error {
 		return fmt.Errorf("systemd-tmpfiles: %w", err)
 	}
 
-	apparmor, err := configBytes("apparmor.d-cursor-agent-cursorsandbox")
-	if err == nil && len(apparmor) > 0 {
-		dst := "/etc/apparmor.d/cursor-agent-cursorsandbox"
-		if writeErr := writeFile(dst, apparmor, 0o444); writeErr != nil {
-			return writeErr
-		}
-		if path, lookErr := exec.LookPath("apparmor_parser"); lookErr == nil {
-			if out, runErr := exec.Command(path, "-r", dst).CombinedOutput(); runErr != nil {
-				return fmt.Errorf("apparmor_parser: %s", out)
+	if paths.Spec.Backend.Name == "cursor" && paths.Spec.Backend.Isolation.OSSandbox == "workspace" {
+		apparmor, err := configBytes("apparmor.d-cursor-agent-cursorsandbox")
+		if err == nil && len(apparmor) > 0 {
+			dst := "/etc/apparmor.d/cursor-agent-cursorsandbox"
+			if writeErr := writeFile(dst, apparmor, 0o444); writeErr != nil {
+				return writeErr
+			}
+			if path, lookErr := exec.LookPath("apparmor_parser"); lookErr == nil {
+				if out, runErr := exec.Command(path, "-r", dst).CombinedOutput(); runErr != nil {
+					return fmt.Errorf("apparmor_parser: %s", out)
+				}
 			}
 		}
 	}

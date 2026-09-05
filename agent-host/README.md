@@ -19,13 +19,35 @@ the main monorepo for the Vercel deployment's setup, for background on what the 
 
 Three layers, none of which is optional in production:
 
-1. **preToolUse gate** — the only in-workdir ACL boundary (`wk` vs everything else).
-2. **uid isolation** — `cursor-agent` runs as `gdgagent-run-<N>`, not as the
+1. **preToolUse gate** (`toolGate: "preToolUse-failClosed"`) — the only in-workdir ACL boundary (`wk` vs everything else).
+2. **uid isolation** (`slotLauncher: true`) — `cursor-agent` runs as `gdgagent-run-<N>`, not as the
    operator. `~/.config/gdg/credentials.json`, IAM files, hooks, and conversation
    logs are owned by `gdgagent-svc` and are not readable from a slot uid.
-3. **OS sandbox** — `sandbox.mode: "enabled"` and `readBoundary: "workspace"`
+3. **OS sandbox** (`osSandbox: "workspace"`) — `sandbox.mode: "enabled"` and `readBoundary: "workspace"`
    stop shell reads of paths outside the worktree. This is a workspace-sized
    fence, not a per-file policy. **It does not replace the gate.**
+
+### Backend capability contract (fail closed)
+
+The 3 layers are governed by the **Backend Capability Contract** in `spec.backend.isolation`:
+```jsonc
+"backend": {
+  "name": "cursor",
+  "model": "composer-2.5",
+  "isolation": {
+    "slotLauncher": true,
+    "osSandbox": "workspace",
+    "toolGate": "preToolUse-failClosed"
+  }
+}
+```
+
+The Go converger (`gdg agent-host apply`) enforces this contract against a backend capabilities registry:
+- Switching `backend.name` to `antigravity` fails closed with explicit error messages for each missing layer (`slotLauncher`, `osSandbox`, `toolGate`).
+- Relaxing `backend.isolation` in `environment: "production"` is rejected against an immutable `productionMinimum` compiled into the `gdg` binary.
+- Self re-exec (`pins.gdgCli`) verifies the current binary's `productionMinimum` before re-exec and requires SHA-256 digests to match an approved release allowlist, preventing downgrade bypasses.
+- Backend configuration bundles are organized under `config/backends/<name>/` (e.g. `cursor/`), with the converger placing only the active backend's templates.
+- No `--force` or bypass flags are permitted.
 
 `readBoundary` and `~/.cursor/sandbox.json` are undocumented Cursor features.
 Pin `cursor-agent` and re-run ingest after upgrades.

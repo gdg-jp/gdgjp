@@ -36,6 +36,7 @@
 | [026](#adr-026-収束エンジンを-go-gdg-cli-とし宣言的-specピン留めpull-型配信を採用する) | 収束エンジンを Go (gdg CLI) とし宣言的 spec・ピン留め・pull 型配信を採用する | Accepted |
 | [027](#adr-027-agents-index-を-spec-と収束エンジンへ吸収しプロビジョニング用シェルを-bootstrap-1-本に一本化する) | agents-index を spec と収束エンジンへ吸収し、プロビジョニング用シェルを bootstrap 1 本に一本化する | Accepted |
 | [028](#adr-028-署名基盤アーカイブ防御mode-b-によるワークスペース同期tier-1を採用する) | 署名基盤・アーカイブ防御・Mode B によるワークスペース同期（Tier 1）を採用する | Accepted |
+| [029](#adr-029-バックエンド能力契約fail-closedと二重化された本番防御下限を採用する) | バックエンド能力契約（fail-closed）と二重化された本番防御下限 | Accepted |
 
 ---
 
@@ -2186,3 +2187,63 @@ Accepted
 - `AGENTS.md` の更新に伴い、`.cursor/rules/local.mdc` が常に `---\nalwaysApply: true\n---\n\n` を前置して自動生成・追随する。
 - 署名基盤・アーカイブ防御・マニフェストエンベロープ形式が確立され、Stage 10 の Tier 2 リリース管理に再利用可能となった。
 
+---
+
+## ADR-029: バックエンド能力契約（fail-closed）と二重化された本番防御下限を採用する
+
+### Status
+
+Accepted
+
+### Date
+
+2026-09-05
+
+### Context
+
+全体方針の第 2 要求は「spec の `backend.name` を `cursor` → `antigravity` に変えて push したら本番のバックエンドが入れ替わる」である。しかし現状のままバックエンドを切り替えると、本番運用において非オプション（"none of which is optional in production"）と定義されている 3 層の信頼境界（preToolUse ゲート、uid/slot 分離、OS サンドボックス）がすべて暗黙のうちに外れてしまう。
+
+1. **preToolUse ゲート**: Cursor CLI の `~/.cursor/hooks.json`（`failClosed: true`）に依存しており、Antigravity（`agy` CLI）には同等のプログラム的 pre-tool フックが存在しない。
+2. **uid/slot 分離**: `cursor-cli.ts` のみ `assertSlotLauncher` / `sudoLauncherArgs` 経由で slot ユーザーとして起動している。`antigravity-cli.ts` は素の `spawn()` であり分離がない。
+3. **OS サンドボックス**: Cursor の `sandbox.mode: "enabled"` + `readBoundary: "workspace"` に依存している。`antigravity-cli.ts` はむしろ `--dangerously-skip-permissions` を渡す経路を持つ。
+
+さらに、spec 内の `isolation` 定義だけでは、spec 側の要求レベルを下げることによって防御が外れてしまう。また、自己更新（re-exec）機能が悪意のある、あるいは下限の緩いバイナリへ re-exec してしまうと、バイナリ内にコンパイルされた下限すら無効化される危険（re-exec の穴）があった。
+
+### Decision
+
+**1. spec への `backend.isolation` の必須化**
+- `agent-host.schema.json` および `agent-host.json` において、`backend.isolation` を必須フィールドとして定義した。
+- `slotLauncher`（boolean）、`osSandbox`（`"workspace"` | `"none"`）、`toolGate`（`"preToolUse-failClosed"` | `"none"`）の 3 項目をすべて明示することを強制し、省略を禁止した。
+
+**2. Go 収束エンジン内のバックエンド能力レジストリによる契約検証**
+- `cli/internal/agenthost/backend.go` に、各バックエンドが実際に提供可能な能力を記述するレジストリ（`backends`）を設けた。
+- `cursor`: `{SlotLauncher: true, OSSandbox: "workspace", ToolGate: "preToolUse-failClosed"}`
+- `antigravity`: `{SlotLauncher: false, OSSandbox: "none", ToolGate: "none"}`（願望ではなく実装の事実を記録）
+- spec の `backend.isolation` をバックエンド能力が満たさない場合、`apply` / `plan` は fail-closed で直ちに停止し、「どの層が、どのバックエンドで、なぜ足りないか」を明示する。
+- 安全装置を迂回する `--force` や `--skip-capability-check` フラグは一切提供しない。
+
+**3. リリース成果物から独立したバイナリコンパイル済み `productionMinimum`**
+- 本番環境（`environment: "production"`、省略時の既定値）における下限 `productionMinimum` を `gdg` バイナリ内にコンパイルされた不変値として定義した。
+- spec 側で `isolation` を下げても、`productionMinimum` を下回る場合は `apply` / `plan` が拒絶される。
+- 下限の緩和は `environment: "development"`（Lima やローカル検証環境用）でのみ許容され、かつ development spec はリリース CI（`ValidateSpecForRelease`）によって本番リリース成果物から機械的に排除される。
+
+**4. re-exec 穴の二重防御**
+- `pins.gdgCli` による自己 re-exec の前に、現行の信頼されたバイナリ自身が spec の `environment` と `backend.isolation` を現行の `productionMinimum` で検証し、違反があればダウンロードや re-exec を行わずに落とす。
+- `pins.gdgCli` の SHA-256 チェックサムをバイナリ内の承認済みリリース allowlist（`approvedGdgCliDigests`）と照合し、未知のバイナリへの re-exec を遮断する。
+
+**5. ポリシーバンドルのバックエンド別分離**
+- `agent-host/config/` 直下に混在していた cursor 固有設定を `agent-host/config/backends/cursor/` に移動し、`backends/antigravity/` を予約した。
+- 収束エンジンは選択中のバックエンドのバンドルのみを配置する。
+- バンドル内のファイル構造（`hooks.json` の `failClosed: true`、`cli-config.json` の `sandbox.mode: "enabled"`、`sandbox.json.in` のスロットパスと `.config` 非公開、sudoers の `spawn-slot-N`）に対する構造的不変条件検査を `backend.go` 内に集約した。
+
+### Alternatives Considered
+
+- **spec のバリデーションのみで制御する**: spec はリポジトリの commit/push で書き換え可能であるため、自動リリース（Stage 10）と組み合わさると人間が差分を見ないまま 3 層防御が外れる事故を防げない。バイナリコンパイル済みの `productionMinimum` が不可欠。
+- **re-exec 後に新バイナリで下限を検査する**: 悪意のある、または下限の緩い旧バージョン CLI へ re-exec された時点で検査が無力化されるため、現行バイナリによる事前検証と digest allowlist の組み合わせを採用した。
+- **`--force` フラグの提供**: 信頼境界の強制が目的であるため、迂回路を作ると安全装置として破綻する。下限変更は CLI バイナリの更新（コードレビューとリリース）を伴うべきである。
+
+### Consequences
+
+- `backend.name` を `antigravity` に設定した spec は、Stage 12（uid/slot 分離）および Stage 14（pre-tool gate / sandbox）が実装されるまで、機械的に本番適用が拒絶される。
+- 本番の 3 層防御が spec の記述ミスや意図しないダウングレードによって外れるリスクが構造的に排除された。
+- Stage 10 のリリース CI に必要な `backend.isolation` 検査、`productionMinimum` 検査、`environment` ゲートの基盤が確立された。

@@ -330,7 +330,7 @@ test("gdg agent-host apply prefix mode writes layout", async () => {
     assert.equal(spec.pins.cursorAgent.version, "2026.08.11-e8db854");
     assert.ok(spec.pins.cursorAgent.sha256.x86_64);
     assert.ok(spec.pins.cursorAgent.sha256.aarch64);
-    assert.equal(spec.pins.gdgCli.version, "0.3.1");
+    assert.equal(spec.pins.gdgCli.version, "0.4.0");
     assert.equal(spec.pins.gdgCli.assetTemplate, "gdg_{version}_linux_{arch}.zip");
     assert.ok(spec.pins.gdgCli.sha256.x86_64);
     assert.ok(spec.pins.gdgCli.sha256.aarch64);
@@ -338,7 +338,7 @@ test("gdg agent-host apply prefix mode writes layout", async () => {
     assert.equal(spec.pins.gws.version, "v0.22.5");
 
     const cliConfigSrc = await readFile(
-      join(repositoryRoot, "agent-host/config/cli-config.json"),
+      join(repositoryRoot, "agent-host/config/backends/cursor/cli-config.json"),
       "utf8",
     );
     assert.doesNotMatch(cliConfigSrc, /google-workspace/);
@@ -817,17 +817,22 @@ test("rejects unsupported backend values in schema and agent-host apply", async 
     const baseSpec = JSON.parse(
       await readFile(join(repositoryRoot, "agent-host/agent-host.json"), "utf8"),
     );
-    const badBackendSpec = {
+    const unknownBackendSpec = {
       ...baseSpec,
       backend: {
-        name: "antigravity",
+        name: "unknown-llm",
         model: "composer-2.5",
+        isolation: {
+          slotLauncher: true,
+          osSandbox: "workspace",
+          toolGate: "preToolUse-failClosed",
+        },
       },
     };
-    const badSpecPath = join(customSpecDir, "agent-host.json");
-    await writeFile(badSpecPath, JSON.stringify(badBackendSpec, null, 2), "utf8");
+    const unknownSpecPath = join(customSpecDir, "unknown-backend.json");
+    await writeFile(unknownSpecPath, JSON.stringify(unknownBackendSpec, null, 2), "utf8");
 
-    // Schema validation must reject antigravity
+    // Schema validation must reject unknown-llm
     const ajvCheck = spawnSync(
       "npx",
       [
@@ -836,23 +841,76 @@ test("rejects unsupported backend values in schema and agent-host apply", async 
         "-s",
         join(repositoryRoot, "agent-host/agent-host.schema.json"),
         "-d",
-        badSpecPath,
+        unknownSpecPath,
       ],
       { encoding: "utf8" },
     );
     assert.notEqual(ajvCheck.status, 0);
 
-    // agent-host apply must fail closed on unsupported backend
-    const applyCheck = applyLayout(
+    // agent-host apply must fail closed on unknown backend
+    const applyCheckUnknown = applyLayout(
       {
         ...process.env,
-        GDG_SPEC: badSpecPath,
+        GDG_SPEC: unknownSpecPath,
         GDG_SETUP_PREFIX: "/tmp/fake-prefix",
       },
       ["--dry-run"],
     );
-    assert.notEqual(applyCheck.status, 0);
-    assert.match(applyCheck.stderr, /Unsupported backend/);
+    assert.notEqual(applyCheckUnknown.status, 0);
+    assert.match(applyCheckUnknown.stderr, /unknown backend/);
+
+    // Schema validation must reject missing isolation
+    const missingIsolationSpec = {
+      ...baseSpec,
+      backend: {
+        name: "cursor",
+        model: "composer-2.5",
+      },
+    };
+    const missingIsoPath = join(customSpecDir, "missing-iso.json");
+    await writeFile(missingIsoPath, JSON.stringify(missingIsolationSpec, null, 2), "utf8");
+    const ajvIsoCheck = spawnSync(
+      "npx",
+      [
+        "ajv-cli",
+        "validate",
+        "-s",
+        join(repositoryRoot, "agent-host/agent-host.schema.json"),
+        "-d",
+        missingIsoPath,
+      ],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(ajvIsoCheck.status, 0);
+
+    // agent-host apply must fail closed on antigravity because it lacks 3 layers
+    const antigravitySpec = {
+      ...baseSpec,
+      backend: {
+        name: "antigravity",
+        model: "gemini-2.5",
+        isolation: {
+          slotLauncher: true,
+          osSandbox: "workspace",
+          toolGate: "preToolUse-failClosed",
+        },
+      },
+    };
+    const antigravityPath = join(customSpecDir, "antigravity.json");
+    await writeFile(antigravityPath, JSON.stringify(antigravitySpec, null, 2), "utf8");
+    const applyCheckAntigravity = applyLayout(
+      {
+        ...process.env,
+        GDG_SPEC: antigravityPath,
+        GDG_SETUP_PREFIX: "/tmp/fake-prefix",
+      },
+      ["--dry-run"],
+    );
+    assert.notEqual(applyCheckAntigravity.status, 0);
+    assert.match(applyCheckAntigravity.stderr, /does not satisfy required isolation/);
+    assert.match(applyCheckAntigravity.stderr, /slotLauncher/);
+    assert.match(applyCheckAntigravity.stderr, /osSandbox/);
+    assert.match(applyCheckAntigravity.stderr, /toolGate/);
   } finally {
     await rm(customSpecDir, { recursive: true, force: true });
   }
@@ -887,6 +945,65 @@ test("spec node pin strictly enforces pinned Node minor version", async () => {
       ["--dry-run"],
     );
     assert.notEqual(check.status, 0);
+  } finally {
+    await rm(customSpecDir, { recursive: true, force: true });
+  }
+});
+
+test("validate-spec command and build-agent-host-release enforce release gating", async () => {
+  const { validateSpecForPublish } = await import("../../scripts/build-agent-host-release.mjs");
+  const bin = ensureGdgBin();
+
+  // 1. Default spec is production and satisfies validate-spec --for-release
+  const prodCheck = spawnSync(
+    bin,
+    ["agent-host", "validate-spec", "--for-release", "--spec", defaultSpec],
+    {
+      encoding: "utf8",
+    },
+  );
+  assert.equal(prodCheck.status, 0, prodCheck.stderr || prodCheck.stdout);
+
+  // 2. Development spec passes validate-spec but is rejected by --for-release and publish gate
+  const customSpecDir = await mkdtemp(join(tmpdir(), "gdg-agent-dev-spec-"));
+  try {
+    const baseSpec = JSON.parse(await readFile(defaultSpec, "utf8"));
+    const devSpec = {
+      ...baseSpec,
+      environment: "development",
+      backend: {
+        name: "antigravity",
+        model: "gemini-2.5",
+        isolation: {
+          slotLauncher: false,
+          osSandbox: "none",
+          toolGate: "none",
+        },
+      },
+    };
+    const devSpecPath = join(customSpecDir, "dev-spec.json");
+    const devSpecContent = JSON.stringify(devSpec, null, 2);
+    await writeFile(devSpecPath, devSpecContent, "utf8");
+
+    // Local validation succeeds
+    const localCheck = spawnSync(bin, ["agent-host", "validate-spec", "--spec", devSpecPath], {
+      encoding: "utf8",
+    });
+    assert.equal(localCheck.status, 0, localCheck.stderr || localCheck.stdout);
+
+    // Release validation gate fails
+    const releaseCheck = spawnSync(
+      bin,
+      ["agent-host", "validate-spec", "--for-release", "--spec", devSpecPath],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(releaseCheck.status, 0);
+    assert.match(releaseCheck.stderr, /cannot be published/);
+
+    // scripts/build-agent-host-release.mjs validateSpecForPublish rejects dev spec
+    assert.throws(() => {
+      validateSpecForPublish(devSpecPath, devSpecContent, bin);
+    }, /cannot be published/);
   } finally {
     await rm(customSpecDir, { recursive: true, force: true });
   }

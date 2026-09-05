@@ -85,10 +85,16 @@ func setupTestSpecAndPrefix(t *testing.T, prefix string) string {
 	t.Helper()
 	specJSON := fmt.Sprintf(`{
 		"$schema": "./agent-host.schema.json",
+		"environment": "production",
 		"slotCount": 4,
 		"backend": {
 			"name": "cursor",
-			"model": "composer-2.5"
+			"model": "composer-2.5",
+			"isolation": {
+				"slotLauncher": true,
+				"osSandbox": "workspace",
+				"toolGate": "preToolUse-failClosed"
+			}
 		},
 		"discord": {
 			"showThinking": false,

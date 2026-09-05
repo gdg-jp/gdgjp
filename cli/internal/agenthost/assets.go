@@ -31,3 +31,7 @@ func configBytes(name string) ([]byte, error) {
 	}
 	return data, nil
 }
+
+func backendConfigBytes(backend, name string) ([]byte, error) {
+	return configBytes("backends/" + backend + "/" + name)
+}

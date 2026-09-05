@@ -8,6 +8,10 @@
     "$schema": {
       "type": "string"
     },
+    "environment": {
+      "type": "string",
+      "enum": ["production", "development"]
+    },
     "slotCount": {
       "type": "integer",
       "minimum": 1
@@ -17,14 +21,32 @@
       "properties": {
         "name": {
           "type": "string",
-          "enum": ["cursor"]
+          "enum": ["cursor", "antigravity"]
         },
         "model": {
           "type": "string",
           "minLength": 1
+        },
+        "isolation": {
+          "type": "object",
+          "properties": {
+            "slotLauncher": {
+              "type": "boolean"
+            },
+            "osSandbox": {
+              "type": "string",
+              "enum": ["workspace", "none"]
+            },
+            "toolGate": {
+              "type": "string",
+              "enum": ["preToolUse-failClosed", "none"]
+            }
+          },
+          "required": ["slotLauncher", "osSandbox", "toolGate"],
+          "additionalProperties": false
         }
       },
-      "required": ["name", "model"],
+      "required": ["name", "model", "isolation"],
       "additionalProperties": false
     },
     "discord": {

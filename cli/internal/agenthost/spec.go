@@ -12,8 +12,9 @@ import (
 )
 
 type BackendSpec struct {
-	Name  string `json:"name"`
-	Model string `json:"model"`
+	Name      string        `json:"name"`
+	Model     string        `json:"model"`
+	Isolation IsolationSpec `json:"isolation"`
 }
 
 type DiscordSpec struct {
@@ -182,6 +183,7 @@ type WorkspaceSyncSpec struct {
 
 type SpecFile struct {
 	Schema        string             `json:"$schema,omitempty"`
+	Environment   string             `json:"environment,omitempty"`
 	SlotCount     int                `json:"slotCount"`
 	Backend       BackendSpec        `json:"backend"`
 	Discord       DiscordSpec        `json:"discord"`
@@ -198,6 +200,12 @@ func parseSpecBytes(raw []byte, origin string) (SpecFile, error) {
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&spec); err != nil {
 		return spec, fmt.Errorf("Failed to parse spec at %s: %w", origin, err)
+	}
+
+	if spec.Environment == "" {
+		spec.Environment = "production"
+	} else if spec.Environment != "production" && spec.Environment != "development" {
+		return spec, fmt.Errorf("spec.environment must be one of [production, development] in %s (got %q)", origin, spec.Environment)
 	}
 
 	if spec.SlotCount < 1 {
@@ -218,11 +226,17 @@ func parseSpecBytes(raw []byte, origin string) (SpecFile, error) {
 		}
 	}
 
-	if spec.Backend.Name != "cursor" {
-		return spec, fmt.Errorf("Unsupported backend: %q. Only \"cursor\" is supported at this stage.", spec.Backend.Name)
+	if strings.TrimSpace(spec.Backend.Name) == "" {
+		return spec, fmt.Errorf("spec.backend.name must be a non-empty string in %s", origin)
 	}
 	if strings.TrimSpace(spec.Backend.Model) == "" {
 		return spec, fmt.Errorf("spec.backend.model must be a non-empty string in %s", origin)
+	}
+	if err := ValidateIsolationValues(spec.Backend.Isolation); err != nil {
+		return spec, fmt.Errorf("spec.backend.isolation invalid in %s: %w", origin, err)
+	}
+	if err := ValidateBackendContract(spec); err != nil {
+		return spec, err
 	}
 
 	switch spec.Discord.CompletionNotify {
