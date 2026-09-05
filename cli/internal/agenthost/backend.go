@@ -51,6 +51,9 @@ var productionMinimum = IsolationSpec{
 }
 
 var approvedGdgCliDigests = map[string]bool{
+	// v0.4.1
+	"32430a137e8e394c073a73b8f7aecb2e6f9fddb9f3beba9e69c0d1118683beaa": true, // x86_64
+	"23b421423a3d9ec0454b0f47023003497ebc2e670fe3391b55134a0c68777fd4": true, // aarch64
 	// v0.4.0
 	"9235020b3516695bef999feea00745dd0542c932eb93a7c01fff684070de2fb1": true, // x86_64
 	"1d4513e571794b6b9843852ffd64d2c7f0087757e6597611eb0e97e3fe778fef": true, // aarch64
