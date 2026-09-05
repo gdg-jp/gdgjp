@@ -383,7 +383,13 @@ gdgs.jp が一時的に死んだリンクと壊れた画像を出す。
 - `pnpm-workspace.yaml`
 - `.github/scripts/changed-workspaces.mjs`（`CI_WORKSPACES` / `DEPLOY_TARGETS` / `GDG_LIB_DEPENDENTS`）
 - `.github/workflows/deploy.yml`（`deploy` ジョブに build / deploy / `migrate:remote`）
-- `.github/workflows/ci.yml`（`typecheck` / `build` / `test` / `e2e` の `parallel` に 1 ステップずつ）
+- `.github/workflows/ci.yml`（`typecheck` / `build` / `test` の `parallel` に 1 ステップずつ。
+  **`e2e` だけは `parallel` ではなく `needs.changes.outputs.e2e` の matrix であり、
+  ステップを足す必要は無い。** その代わり、`CI_WORKSPACES` を `e2e: true` にするなら
+  **e2e ジョブの「Create accounts dev vars」ステップに `discord-relay/.dev.vars` の
+  生成を足すこと。** これが無いと CI の e2e は `.dev.vars` 無しで走り、
+  全ケース 500 になる。`e2e: true` の 4 アプリ（accounts / tinyurl / img / scheduler）が
+  ちょうどこのステップで `.dev.vars` を書かれているアプリと一致するのは偶然ではない）
 - `.github/scripts/workflows.test.mjs`（`cloudflareWorkspaces` に `discord-relay`。
   **`connpass` と `pay` の欠落も併せて埋める** — この配列は `deploy.yml` の実態から既に遅れており、
   登録漏れを捕まえる役を果たしていない）
@@ -405,6 +411,8 @@ gdgs.jp が一時的に死んだリンクと壊れた画像を出す。
 - [ ] 複数チャプター所属のユーザーで SCR-602 のセレクタが全所属を出し、切り替えると
       cookie が変わり、以降の画面が新しいチャプターで絞られる
 - [ ] 所属 0 件のユーザーが `/no-chapter` に落ちる
+      （e2e で固める。`/dev/login` に `chapter=none` を持たせ、所属 0 件の
+      セッションを IdP 往復無しで作れるようにする）
 - [ ] サインアウトでローカルセッションが消え、**IdP 側のセッションも終わっている**
       （もう一度サインインすると Accounts の認証画面が出る）
 - [ ] `member` ロールで編集系エンドポイントを叩くと 403 になる
