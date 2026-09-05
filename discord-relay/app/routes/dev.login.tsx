@@ -8,6 +8,7 @@ import type { Route } from "./+types/dev.login";
  * Hard 404 in production.
  *
  *   /dev/login?as=owner&chapter=1:dev-chapter&return_to=/
+ *   /dev/login?as=stray&chapter=none&return_to=/   (no memberships)
  */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
@@ -18,9 +19,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const as =
     (url.searchParams.get("as") ?? "dev").replace(/[^a-z0-9_-]/gi, "").slice(0, 40) || "dev";
-  const [chapterIdRaw, chapterSlugRaw] = (url.searchParams.get("chapter") ?? "1:dev-chapter").split(
-    ":",
-  );
+  const chapterParam = url.searchParams.get("chapter") ?? "1:dev-chapter";
+  // `chapter=none` mints a session with zero memberships so the /no-chapter
+  // path (SCR-602, 0 affiliations) is reachable without a real IdP round-trip.
+  const noChapters = chapterParam === "none";
+  const [chapterIdRaw, chapterSlugRaw] = chapterParam.split(":");
   const chapterId = Number.parseInt(chapterIdRaw ?? "1", 10) || 1;
   const chapterSlug = chapterSlugRaw || "dev-chapter";
   const roleParam = url.searchParams.get("role");
@@ -57,7 +60,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const signed = await signPayload(session, env.RP_SESSION_SECRET);
   const secure = !/^http:\/\/(localhost|127\.0\.0\.1)/.test(env.APP_URL);
 
-  const chapters = [{ chapterId, chapterSlug, role }];
+  const chapters = noChapters ? [] : [{ chapterId, chapterSlug, role }];
   const headers = new Headers();
   headers.append(
     "Set-Cookie",

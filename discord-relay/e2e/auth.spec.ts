@@ -1,13 +1,16 @@
 import { expect, test } from "@playwright/test";
 
 test("unauthenticated access to / redirects to /signin", async ({ page }) => {
-  await page.goto("/");
-  expect(page.url()).toContain("/signin");
+  // Stop at the first hop: following it leads into /api/auth/signin, which needs
+  // a reachable accounts IdP that this suite deliberately does not start.
+  const res = await page.request.get("/", { maxRedirects: 0 });
+  expect(res.status()).toBe(302);
+  expect(res.headers().location).toContain("/signin");
 });
 
-test("/no-chapter page renders without error", async ({ page }) => {
-  const res = await page.goto("/no-chapter");
-  expect(res?.status()).toBe(200);
+test("a signed-in user with no chapter lands on /no-chapter", async ({ page }) => {
+  await page.goto("/dev/login?as=stray&chapter=none&return_to=/");
+  expect(page.url()).toContain("/no-chapter");
   await expect(
     page.getByRole("heading", { name: "GDG チャプターへの参加が必要です" }),
   ).toBeVisible();
