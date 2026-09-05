@@ -793,7 +793,7 @@ WantedBy=timers.target
 	}
 	xangiRef := paths.Spec.Pins.Xangi.Ref
 	if xangiRef == "" {
-		xangiRef = "b3db5919a5e33769ef8d7bcef245aa6b76974948"
+		xangiRef = "f69572739f46931cff1d3edbe7c34409a9f329ee"
 	}
 	res = append(res, &GitResource{
 		Destination: "/opt/xangi",

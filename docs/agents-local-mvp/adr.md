@@ -2417,6 +2417,60 @@ xangi 側の import 指定子も `@gdgjp/gdg-lib/acl` から `@gdgjp/gdg-lib/acl
 - xangi 側は本スライスの時点で先行して `@gdgjp/gdg-lib/acl/agent`（narrow 面）への import 移行を
   完了しており、publish 後の変更はパッケージ名のスコープ（`@gdgjp` → `@gdg-jp`）とレジストリ設定のみで済む。
 
+### Update: 残タスク 1〜6 完了、Stage 13 完了（2026-09-05）
+
+上記 7 項目のうち、1〜6 を完了した。
+
+1. **リポジトリ移管**: `Harineko0/xangi` → `gdg-jp/xangi`（ユーザーが実施）。合わせて
+   `gdgjp` モノレポに `./xangi` として submodule 追加した。`~/proj/xangi` の
+   スタンドアロン clone は廃止し、以後の xangi 側変更は submodule 経由で行う。
+2. **`@gdg-jp/gdg-lib@0.1.0` の初回 publish**: `gdg-lib-publish.yml` を
+   `workflow_dispatch` で実行し成功（`npm notice + @gdg-jp/gdg-lib@0.1.0`
+   をログで確認）。パッケージは `visibility: private`、`gdgjp` リポに紐づく。
+3. **xangi 側の依存切替**: `package.json` の `@gdgjp/gdg-lib` を
+   `devDependencies` の `file:../gdgjp/gdg-lib` から `dependencies` の
+   `@gdg-jp/gdg-lib": "^0.1.0"` へ変更し、8 ファイルの import 指定子を
+   `@gdgjp/gdg-lib/acl/agent` → `@gdg-jp/gdg-lib/acl/agent` へ変更した。
+   `tsc --noEmit`・`npm run build`・移行対象 8 ファイルのテスト（83 件）を
+   ローカルで確認済み。
+4. **xangi CI の sibling checkout 回避策の削除**: `.github/workflows/ci.yml`
+   から `gdg-jp/gdgjp` の sibling checkout と symlink 手順を削除し、
+   `permissions: packages: read` を付けた `GITHUB_TOKEN` で
+   `npm.pkg.github.com` から直接installするよう変更した。
+   **想定外だった点**: 同一 org 内であっても、`gdg-lib` パッケージが
+   private かつ `gdgjp` リポに紐づく限り、`xangi` リポの `GITHUB_TOKEN` は
+   自動的には読めない（`403 permission_denied: read_package`）。
+   `gdg-lib` パッケージの Package settings → Manage Actions access に
+   `gdg-jp/xangi` を追加してもらうことで解消した（ユーザー操作）。
+   将来 gdg-lib の消費者が増える場合は、都度この一覧に追加するか、
+   visibility を `internal` に変える判断が要る。
+5. **本番ホストの GitHub Packages 認証**: 生産ホストの `npm.pkg.github.com`
+   読み取りは、xangi CI と異なり同一 org の `GITHUB_TOKEN` に相当するものが
+   無い（GitHub Actions 外の Ubuntu ホストのため）。そのため個人アカウントの
+   `GITHUB_TOKEN` に頼らず、Discord/Langfuse と同じパターンで
+   `gdg agent-host secrets set npm-registry` を新設し、
+   `/home/gdgagent-svc/.config/xangi/secrets.json` の `NPM_READ_TOKEN` に
+   `read:packages` PAT を保存する形にした。`plan.go` はこの値を
+   `npm-ci:/opt/xangi` の `ExecResource.Env` に `NODE_AUTH_TOKEN=...` として
+   注入し、`/opt/xangi/.npmrc`（`@gdg-jp` スコープのレジストリ指定のみ、
+   トークンは `${NODE_AUTH_TOKEN}` 展開でファイルには残らない）と組み合わせて
+   解決する。`ExecResource` に汎用の `Env` フィールドを追加し、
+   `npm run build`（`npm-build:/opt/xangi`、watch は `.git/HEAD`）を新設、
+   `xangi.service` の `ExecStart` を `tsx` 経由の `src/index.ts` から
+   `node dist/index.js` に切り替えた（ADR-022 の要求どおり）。
+6. **`pins.xangi.repo`/`ref` の更新**: `gdg-jp/xangi` と、依存切替後の最新
+   commit（`f69572739f46931cff1d3edbe7c34409a9f329ee`）に更新した。
+
+**残タスク 7（`/opt/gdgjp` の完全撤去）について**: コード上の前提はすべて
+揃った——xangi（本更新）・agents-index（Stage 08、`agentsindex.go` が
+`/opt/agents-index` から自己完結で動く設計であることを明記済み）・
+langfuse-forwarder（Stage 07、go:embed 済み）のいずれも、現在の
+`buildDesiredResources` は `/opt/gdgjp` を作る収束リソースを一切持たない
+（新規ホストでは最初から作られない）。ただし稼働中の `mincra-srv` に
+過去の `install.sh` が作った `/opt/gdgjp` の実体が残っている可能性があり、
+その物理的な削除確認は本セッションの範囲外（ホストへの適用は
+`--dry-run --diff` のレビューを経て operator が行う）。
+
 ---
 
 ## ADR-032: Stage 14 ブロッキング調査 — Antigravity (`agy`) の実際の能力
