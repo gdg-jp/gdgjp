@@ -8,6 +8,7 @@ packages:
   - "connpass"
   - "pay"
   - "ost"
+  - "roster"
   - "website"
   - "tinyurl-gateway"
   - "agents"

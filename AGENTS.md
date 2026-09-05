@@ -9,7 +9,8 @@ This is a flat pnpm/Turborepo monorepo. The workspace packages are listed in
   D1 and KV.
 - `tinyurl/`, `img/`, `scheduler/`, `sns/`, `connpass/`, `pay/`, and `wiki/` are React Router v7 SSR
   Cloudflare Workers and relying parties of `accounts/` (connpass is Bearer-API oriented for
-  CLI/agents; `ost/` below is a relying party for its admin surfaces only). They keep routes in
+  CLI/agents; `ost/` and `roster/` below are relying parties for their admin surfaces only). They
+  keep routes in
   `app/routes/`, route registration in `app/routes.ts`, Worker entrypoints in `workers/`, and D1
   migrations in `migrations/`.
   `wiki/` additionally uses R2, Queues, Browser Rendering, Workers AI, Vectorize, and a Durable
@@ -25,6 +26,14 @@ This is a flat pnpm/Turborepo monorepo. The workspace packages are listed in
   routes gated by GDG chapter membership. D1 (`DB`) holds only auth tables + an `events` registry;
   each event's live state (topics, votes, merge groups, desks) is one per-slug Durable Object
   (`OstBoard`, SQLite storage + hibernatable WebSockets, `getByName(slug)`).
+- `roster/` is the staff shift-schedule generator for events (`roster.gdgs.jp`): owners define
+  time slots/tracks/roles/demand, staff self-register through a public link, and an auto-generator
+  drafts a schedule (skill-mix aware) for hand-editing before publishing a read-only shared view.
+  React Router v7 SSR on Cloudflare Workers, scaffolded from `ost/` but feature-first from the
+  start (`app/features/<domain>/`, no `app/lib/` grab-bag) — see `docs/roster/`. D1 (`DB`) holds
+  auth tables; domain tables land starting Stage 02 of that plan. All admin surfaces are
+  `accounts/` relying-party routes gated by GDG chapter membership; staff self-registration and
+  the published shift view are separate public/sign-in-only surfaces.
 - `gdg-lib/` is the source-only shared TypeScript package (`@gdgjp/gdg-lib`) for relying-party
   auth and signed-cookie helpers. Keep code app-local unless it is genuinely shared here.
 - `agents-index/` is the local, ACL-filtered semantic navigation MCP service for the shared wiki

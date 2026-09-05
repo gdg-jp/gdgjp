@@ -47,6 +47,7 @@ const workspaces = new Map([
   ["go-extension", "@gdgjp/go-extension"],
   ["img", "@gdgjp/img"],
   ["ost", "@gdgjp/ost"],
+  ["roster", "@gdgjp/roster"],
   ["scheduler", "@gdgjp/scheduler"],
   ["sns", "@gdgjp/sns"],
   ["tinyurl", "@gdgjp/tinyurl"],

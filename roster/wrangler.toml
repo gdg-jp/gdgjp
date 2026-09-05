@@ -1,0 +1,51 @@
+name = "gdgjp-roster"
+main = "./workers/app.ts"
+compatibility_date = "2026-07-28"
+compatibility_flags = ["nodejs_compat"]
+
+[alias]
+"virtual:react-router/server-build" = "./build/server/index.js"
+
+[vars]
+ENVIRONMENT = "production"
+APP_URL = "https://roster.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+IDP_URL = "https://accounts.gdgs.jp"
+IDP_CLIENT_ID = "roster"
+
+[assets]
+binding = "ASSETS"
+directory = "./build/client"
+
+[[routes]]
+pattern = "roster.gdgs.jp/*"
+zone_name = "gdgs.jp"
+
+# Relying-party auth tables (user, oidc_session). Domain tables (events,
+# time_slots, ...) are added by Stage 02 onward.
+#
+# NOTE: `database_id` below is a placeholder, not a real Cloudflare D1
+# database. This PR intentionally does not create Cloudflare resources — see
+# the "Deploy steps (manual, not in this PR)" section of the PR description
+# for the real `wrangler d1 create gdgjp-roster-db` step and the ID swap it
+# requires here.
+[[d1_databases]]
+binding = "DB"
+database_name = "gdgjp-roster-db"
+database_id = "8a07111c-6950-42c4-8472-7ee6c09cde09"
+migrations_dir = "./migrations"
+
+# Worker-to-Worker OIDC (discovery, token, UserInfo) stays on Cloudflare's
+# internal network instead of looping through public HTTPS.
+[[services]]
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
