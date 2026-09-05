@@ -45,7 +45,7 @@ func testReleaseSpecJSON(t *testing.T, notify string) []byte {
 				}
 			},
 			"xangi": {
-				"repo": "https://github.com/Harineko0/xangi.git",
+				"repo": "https://github.com/gdg-jp/xangi.git",
 				"ref": "b3db5919a5e33769ef8d7bcef245aa6b76974948"
 			},
 			"gws": {

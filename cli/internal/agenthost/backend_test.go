@@ -38,7 +38,7 @@ func validProductionSpec() SpecFile {
 				},
 			},
 			Xangi: XangiPin{
-				Repo: "https://github.com/Harineko0/xangi.git",
+				Repo: "https://github.com/gdg-jp/xangi.git",
 				Ref:  "b3db5919a5e33769ef8d7bcef245aa6b76974948",
 			},
 			GWS: GWSPin{

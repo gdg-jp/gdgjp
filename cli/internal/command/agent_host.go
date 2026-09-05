@@ -278,7 +278,7 @@ func newAgentHostSecretsCommand() *cobra.Command {
 
 	setCmd := &cobra.Command{
 		Use:   "set [target]",
-		Short: "Interactively set a secret (discord, langfuse)",
+		Short: "Interactively set a secret (discord, langfuse, npm-registry)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switch strings.ToLower(args[0]) {
@@ -286,8 +286,10 @@ func newAgentHostSecretsCommand() *cobra.Command {
 				return agenthost.SecretsSetDiscord()
 			case "langfuse":
 				return agenthost.SecretsSetLangfuse()
+			case "npm-registry":
+				return agenthost.SecretsSetNpmRegistry()
 			default:
-				return fmt.Errorf("unknown secret target %q (valid: discord, langfuse)", args[0])
+				return fmt.Errorf("unknown secret target %q (valid: discord, langfuse, npm-registry)", args[0])
 			}
 		},
 	}

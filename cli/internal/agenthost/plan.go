@@ -2,6 +2,7 @@ package agenthost
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -506,7 +507,7 @@ After=network-online.target
 
 [Service]
 WorkingDirectory=/opt/xangi
-ExecStart=/usr/bin/node /opt/xangi/node_modules/tsx/dist/cli.mjs /opt/xangi/src/index.ts
+ExecStart=/usr/bin/node /opt/xangi/dist/index.js
 Environment=XANGI_SETUP_CONFIG_PATH=/home/gdgagent-svc/.config/xangi/xangi.json
 Environment=XANGI_SETUP_STATE_DIR=/home/gdgagent-svc/.local/share/xangi
 Restart=on-failure
@@ -788,7 +789,7 @@ WantedBy=timers.target
 
 	xangiRepo := paths.Spec.Pins.Xangi.Repo
 	if xangiRepo == "" {
-		xangiRepo = "https://github.com/Harineko0/xangi.git"
+		xangiRepo = "https://github.com/gdg-jp/xangi.git"
 	}
 	xangiRef := paths.Spec.Pins.Xangi.Ref
 	if xangiRef == "" {
@@ -801,6 +802,29 @@ WantedBy=timers.target
 		Symlink:     "/usr/local/bin/xangi",
 		Prefix:      paths.Prefix,
 	})
+
+	// @gdg-jp/gdg-lib is resolved from GitHub Packages (Stage 13), not a
+	// sibling /opt/gdgjp checkout. The token is never written into this file:
+	// npm substitutes ${NODE_AUTH_TOKEN} from the exec environment below, so
+	// .npmrc itself carries no secret and can be world-readable.
+	res = append(res, &FileResource{
+		Path:  paths.Prefix + "/opt/xangi/.npmrc",
+		Data:  []byte("@gdg-jp:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}\n"),
+		Mode:  0o644,
+		Owner: "root",
+		Group: "root",
+	})
+
+	var npmCiEnv []string
+	if data, err := os.ReadFile("/home/gdgagent-svc/.config/xangi/secrets.json"); err == nil {
+		var sec map[string]any
+		if json.Unmarshal(data, &sec) == nil {
+			if tok, ok := sec["NPM_READ_TOKEN"].(string); ok && strings.TrimSpace(tok) != "" {
+				npmCiEnv = []string{"NODE_AUTH_TOKEN=" + strings.TrimSpace(tok)}
+			}
+		}
+	}
+
 	res = append(res, &ExecResource{
 		Name:           "npm-ci:/opt/xangi",
 		Command:        []string{"npm", "ci"},
@@ -809,7 +833,17 @@ WantedBy=timers.target
 		StateFile:      "/opt/xangi/node_modules/.package-lock.sha256",
 		CheckDir:       "/opt/xangi/node_modules",
 		ChmodRecursive: "/opt/xangi/node_modules",
+		Env:            npmCiEnv,
 		Prefix:         paths.Prefix,
+	})
+	res = append(res, &ExecResource{
+		Name:      "npm-build:/opt/xangi",
+		Command:   []string{"npm", "run", "build"},
+		Dir:       "/opt/xangi",
+		WatchFile: "/opt/xangi/.git/HEAD",
+		StateFile: "/opt/xangi/dist/.build.sha256",
+		CheckDir:  "/opt/xangi/dist",
+		Prefix:    paths.Prefix,
 	})
 
 	if paths.Prefix == "" {

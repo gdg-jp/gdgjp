@@ -4,3 +4,6 @@
 [submodule "skills"]
 	path = skills
 	url = https://github.com/gdg-jp/skills.git
+[submodule "xangi"]
+	path = xangi
+	url = https://github.com/gdg-jp/xangi.git

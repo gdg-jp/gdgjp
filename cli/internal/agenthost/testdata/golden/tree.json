@@ -303,7 +303,7 @@
     "path": "home/gdgagent-svc/.config/systemd/user/xangi.service",
     "type": "file",
     "mode": "0644",
-    "sha256": "af84b5e5624cdb5c6bb40198d8d12389e5afe773f13904316fbbdd64d77a76d6"
+    "sha256": "6841c35d9ff470d28a3f8e9f25d5b59ce66a25a3089ae489eae5dc79e98ce4af"
   },
   {
     "path": "home/gdgagent-svc/.config/systemd/user/xangi.service.d",
@@ -571,6 +571,17 @@
     "type": "file",
     "mode": "0444",
     "sha256": "609158e6c5fbc237939fa3ddf7faab80ab690bdc0c8d584414a885130103c4e8"
+  },
+  {
+    "path": "opt/xangi",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "opt/xangi/.npmrc",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "3a5264e4ee06754bf863981cbe6e1928441e5aaada49fdeb26cd8f1cb5746094"
   },
   {
     "path": "run",

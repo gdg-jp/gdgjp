@@ -30,7 +30,8 @@
       ".claude/**",
       ".cursor/**",
       "agent-host/**/.cursor/**",
-      "learn/**"
+      "learn/**",
+      "xangi/**"
     ]
   },
   "formatter": {

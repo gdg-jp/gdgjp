@@ -21,6 +21,7 @@ type ExecResource struct {
 	StateFile      string
 	CheckDir       string
 	ChmodRecursive string
+	Env            []string
 	Prefix         string
 }
 
@@ -95,13 +96,23 @@ func (e *ExecResource) Apply(ctx context.Context, c Change) error {
 	if e.Prefix != "" || os.Getuid() != 0 {
 		return nil
 	}
+	return e.applyUnchecked(ctx)
+}
 
+// applyUnchecked runs the resource's command (with a CheckDir-triggered retry)
+// and updates the watch state, without the production-only uid-0 gate in
+// Apply. It exists so tests can exercise the actual subprocess/env behavior
+// without requiring root.
+func (e *ExecResource) applyUnchecked(ctx context.Context) error {
 	if len(e.Command) == 0 {
 		return fmt.Errorf("empty command in ExecResource %q", e.Name)
 	}
 
 	cmd := exec.CommandContext(ctx, e.Command[0], e.Command[1:]...)
 	cmd.Dir = e.Dir
+	if len(e.Env) > 0 {
+		cmd.Env = append(os.Environ(), e.Env...)
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		// Retry once with clean CheckDir if configured (e.g. rm -rf node_modules && npm ci)
@@ -109,6 +120,9 @@ func (e *ExecResource) Apply(ctx context.Context, c Change) error {
 			_ = os.RemoveAll(e.CheckDir)
 			retryCmd := exec.CommandContext(ctx, e.Command[0], e.Command[1:]...)
 			retryCmd.Dir = e.Dir
+			if len(e.Env) > 0 {
+				retryCmd.Env = append(os.Environ(), e.Env...)
+			}
 			outRetry, errRetry := retryCmd.CombinedOutput()
 			if errRetry != nil {
 				return fmt.Errorf("exec %s in %s failed after retry: %w (%s)", strings.Join(e.Command, " "), e.Dir, errRetry, string(outRetry))

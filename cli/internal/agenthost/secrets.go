@@ -75,6 +75,24 @@ func SecretsStatus(slotCount int) error {
 		fmt.Printf("  [OPTIONAL] Langfuse credentials not configured (%s)\n", lfCred)
 	}
 
+	// 5. GitHub Packages read token (needed for `npm ci` in /opt/xangi to
+	// resolve @gdg-jp/gdg-lib from npm.pkg.github.com; Stage 13)
+	npmTokenOk := false
+	if data, err := os.ReadFile(xangiSecrets); err == nil {
+		var sec map[string]any
+		if json.Unmarshal(data, &sec) == nil {
+			if tok, ok := sec["NPM_READ_TOKEN"].(string); ok && strings.TrimSpace(tok) != "" {
+				npmTokenOk = true
+			}
+		}
+	}
+	if npmTokenOk {
+		fmt.Printf("  [OK] GitHub Packages read token configured (%s)\n", xangiSecrets)
+	} else {
+		fmt.Printf("  [MISSING] GitHub Packages read token in %s\n", xangiSecrets)
+		missing = append(missing, "GitHub Packages read token (run 'sudo gdg agent-host secrets set npm-registry')")
+	}
+
 	if len(missing) > 0 {
 		fmt.Println("\nActions needed to activate service:")
 		for _, m := range missing {
@@ -191,6 +209,48 @@ func SecretsSetDiscord() error {
 	}
 
 	fmt.Printf("==> Saved DISCORD_TOKEN to %s\n", dest)
+	return nil
+}
+
+// SecretsSetNpmRegistry interactively prompts for a GitHub Packages
+// read:packages personal access token, used by `npm ci` in /opt/xangi to
+// resolve @gdg-jp/gdg-lib from npm.pkg.github.com (Stage 13).
+func SecretsSetNpmRegistry() error {
+	fmt.Print("GitHub Packages read:packages token (input hidden): ")
+	byteToken, err := term.ReadPassword(int(syscall.Stdin))
+	fmt.Println()
+	if err != nil {
+		return err
+	}
+
+	token := strings.TrimSpace(string(byteToken))
+	if token == "" {
+		return fmt.Errorf("token cannot be empty")
+	}
+
+	dest := "/home/gdgagent-svc/.config/xangi/secrets.json"
+	sec := make(map[string]any)
+	if existing, err := os.ReadFile(dest); err == nil {
+		_ = json.Unmarshal(existing, &sec)
+	}
+	sec["NPM_READ_TOKEN"] = token
+
+	data, err := json.MarshalIndent(sec, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+
+	_ = os.MkdirAll(filepath.Dir(dest), 0o700)
+	if err := os.WriteFile(dest, data, 0o600); err != nil {
+		return err
+	}
+	if os.Getuid() == 0 {
+		_ = chownPath(dest, "gdgagent-svc", "gdgagent-svc")
+		_ = chownPath(filepath.Dir(dest), "gdgagent-svc", "gdgagent-svc")
+	}
+
+	fmt.Printf("==> Saved NPM_READ_TOKEN to %s\n", dest)
 	return nil
 }
 

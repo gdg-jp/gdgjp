@@ -133,7 +133,7 @@ converger.
 
 `gdg agent-host apply` is Ubuntu-only for live paths. It installs the apt prerequisites and the
 pinned Node, creates the uid-isolation users, writes `/opt/gdg-agent`, installs Cursor CLI and
-[Harineko0/xangi](https://github.com/Harineko0/xangi) at `/opt/xangi`, deploys the agents-index
+[gdg-jp/xangi](https://github.com/gdg-jp/xangi) at `/opt/xangi`, deploys the agents-index
 daemon to `/opt/agents-index`, and manages the systemd units — `xangi.service` /
 `langfuse-forwarder.*` as `gdgagent-svc` `--user` units, `agents-index.service` as a system unit.
 Re-running it converges only the differences; review first with

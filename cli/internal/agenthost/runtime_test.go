@@ -201,6 +201,46 @@ func TestExecResourceConditions(t *testing.T) {
 	}
 }
 
+// TestExecResourceEnvPassedToCommand guards the Env field added for Stage 13:
+// npm-ci for /opt/xangi needs NODE_AUTH_TOKEN in the child process environment
+// to authenticate against npm.pkg.github.com, without ever touching disk.
+func TestExecResourceEnvPassedToCommand(t *testing.T) {
+	tmpDir := t.TempDir()
+	watchFile := filepath.Join(tmpDir, "watch")
+	stateFile := filepath.Join(tmpDir, "state")
+	outFile := filepath.Join(tmpDir, "out.txt")
+
+	if err := os.WriteFile(watchFile, []byte("v1"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	execRes := &ExecResource{
+		Name:      "test-env",
+		Command:   []string{"sh", "-c", "printf '%s' \"$MY_TEST_TOKEN\" > " + outFile},
+		Dir:       tmpDir,
+		WatchFile: watchFile,
+		StateFile: stateFile,
+		Env:       []string{"MY_TEST_TOKEN=secret-value-123"},
+	}
+
+	if _, err := execRes.Plan(context.Background()); err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+	// applyUnchecked exercises the same subprocess/env logic as Apply, minus
+	// the production-only uid-0 gate that would make this test a no-op.
+	if err := execRes.applyUnchecked(context.Background()); err != nil {
+		t.Fatalf("applyUnchecked failed: %v", err)
+	}
+
+	got, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("reading output file: %v", err)
+	}
+	if string(got) != "secret-value-123" {
+		t.Errorf("expected child process to see MY_TEST_TOKEN=secret-value-123, got %q", string(got))
+	}
+}
+
 func TestWikiCloneResource(t *testing.T) {
 	tmpDir := t.TempDir()
 	wikiDir := filepath.Join(tmpDir, "srv", "gdg-agent", "wiki")
