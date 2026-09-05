@@ -908,7 +908,10 @@ test("rejects unsupported backend values in schema and agent-host apply", async 
     );
     assert.notEqual(applyCheckAntigravity.status, 0);
     assert.match(applyCheckAntigravity.stderr, /does not satisfy required isolation/);
-    assert.match(applyCheckAntigravity.stderr, /slotLauncher/);
+    // Stage 12 lifted slot isolation into CliRunnerBase for all xangi adapters, so slotLauncher is
+    // now satisfied for antigravity too; only osSandbox and toolGate still block the switch,
+    // pending Stage 14. slotLauncher must NOT appear in the failure output any more.
+    assert.doesNotMatch(applyCheckAntigravity.stderr, /slotLauncher/);
     assert.match(applyCheckAntigravity.stderr, /osSandbox/);
     assert.match(applyCheckAntigravity.stderr, /toolGate/);
   } finally {
@@ -1004,6 +1007,34 @@ test("validate-spec command and build-agent-host-release enforce release gating"
     assert.throws(() => {
       validateSpecForPublish(devSpecPath, devSpecContent, bin);
     }, /cannot be published/);
+
+    // 3. A spec that OMITS "environment" entirely must be rejected for release, not silently
+    // defaulted to production -- distinguishing this from an explicit "production" spec is only
+    // possible against the raw JSON, before ordinary spec loading defaults the omission away.
+    const { environment: _omitted, ...specWithoutEnvironment } = baseSpec;
+    const noEnvPath = join(customSpecDir, "no-environment-spec.json");
+    const noEnvContent = JSON.stringify(specWithoutEnvironment, null, 2);
+    await writeFile(noEnvPath, noEnvContent, "utf8");
+
+    // Ordinary (non-release) validation still accepts the omission (defaults to production).
+    const noEnvLocalCheck = spawnSync(bin, ["agent-host", "validate-spec", "--spec", noEnvPath], {
+      encoding: "utf8",
+    });
+    assert.equal(noEnvLocalCheck.status, 0, noEnvLocalCheck.stderr || noEnvLocalCheck.stdout);
+
+    // Release validation gate rejects the omission.
+    const noEnvReleaseCheck = spawnSync(
+      bin,
+      ["agent-host", "validate-spec", "--for-release", "--spec", noEnvPath],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(noEnvReleaseCheck.status, 0);
+    assert.match(noEnvReleaseCheck.stderr, /environment.*required/i);
+
+    // scripts/build-agent-host-release.mjs validateSpecForPublish rejects the omission too.
+    assert.throws(() => {
+      validateSpecForPublish(noEnvPath, noEnvContent, bin);
+    }, /environment/i);
   } finally {
     await rm(customSpecDir, { recursive: true, force: true });
   }

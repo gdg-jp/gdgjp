@@ -61,5 +61,10 @@
   "workspaceSync": {
     "interval": "5min",
     "source": "https://github.com/gdg-jp/gdgjp/releases/download/agent-host-workspace-latest/agent-host-workspace.manifest.json"
+  },
+  "release": {
+    "manifestBaseURL": "https://github.com/gdg-jp/gdgjp/releases/download/agent-host-release-latest",
+    "applyInterval": "1h",
+    "keep": 5
   }
 }

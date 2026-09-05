@@ -82,6 +82,14 @@ func BuildPlan(ctx context.Context, opts PlanOptions) (*Plan, error) {
 		return nil, err
 	}
 
+	// Stage 10 Tier boundary: paths.workspace must be converged exclusively through the Stage 09
+	// sync-workspace transaction (mutex, local-modification detection, Mode B journal), never as a
+	// generic file/dir resource here. Enforced structurally, before any --only filtering, so it
+	// cannot be scoped away.
+	if err := ValidateWorkspaceDelegation(resources, paths.WikiRoot); err != nil {
+		return nil, err
+	}
+
 	// Filter by --only if specified
 	onlySet, err := parseOnlyFilter(opts.Only)
 	if err != nil {
@@ -111,6 +119,40 @@ func BuildPlan(ctx context.Context, opts PlanOptions) (*Plan, error) {
 	}
 
 	return plan, nil
+}
+
+// ValidateWorkspaceDelegation is Stage 10's structural enforcement of the Tier boundary:
+// the *content* of paths.workspace must be converged exclusively through the Stage 09
+// sync-workspace transaction (wiki mutex, local-modification detection, Mode B write-ahead
+// journal), never through a generic file/dir resource planned here. If this ever finds a
+// violation, a release apply could otherwise overwrite the live worktree out from under a
+// concurrent sleep/ingest run.
+//
+// A DirResource for the workspace root path itself is exempt: the mountpoint's existence, mode,
+// and ownership are managed here (so WikiCloneResource has somewhere to clone into) before any
+// content ever exists under it. Only resources *strictly inside* workspacePath are violations.
+func ValidateWorkspaceDelegation(resources []Resource, workspacePath string) error {
+	if strings.TrimSpace(workspacePath) == "" {
+		return nil
+	}
+	clean := filepath.Clean(workspacePath)
+	prefix := clean + string(filepath.Separator)
+	for _, r := range resources {
+		var p string
+		switch res := r.(type) {
+		case *FileResource:
+			p = res.Path
+		case *DirResource:
+			p = res.Path
+		default:
+			continue
+		}
+		cp := filepath.Clean(p)
+		if strings.HasPrefix(cp, prefix) {
+			return fmt.Errorf("plan invariant violation: %s resource %s targets inside paths.workspace (%s); workspace/ content must be converged exclusively through the Tier 1 sync-workspace transaction, never as a generic file/dir resource", r.ResourceType(), p, workspacePath)
+		}
+	}
+	return nil
 }
 
 func parseOnlyFilter(only string) (map[string]bool, error) {
@@ -274,6 +316,24 @@ func buildDesiredResources(paths layoutPaths, prune bool) ([]Resource, error) {
 	res = append(res, &DirResource{
 		Path:  filepath.Join(paths.EtcRoot, "apparmor.d"),
 		Mode:  0o755,
+		Owner: "root",
+		Group: "root",
+	})
+	// Stage 10: live spec published by each successful release apply (world-readable, root-owned;
+	// see release.go's publishLiveSpec). Every gdg agent-host subcommand falls back to this path
+	// when --spec/GDG_SPEC are unset, so config-only changes take effect without a manual --spec.
+	res = append(res, &DirResource{
+		Path:  filepath.Join(paths.EtcRoot, "gdg-agent"),
+		Mode:  0o755,
+		Owner: "root",
+		Group: "root",
+	})
+	// Stage 10: release generations (/var/lib/agent-host/releases/<version>). root:root 0700 --
+	// deliberately outside even gdgagent-svc's reach, since no slot uid or service account should
+	// be able to read or tamper with release generations or the "current" pointer.
+	res = append(res, &DirResource{
+		Path:  filepath.Join(paths.VarLibRoot, "releases"),
+		Mode:  0o700,
 		Owner: "root",
 		Group: "root",
 	})
@@ -615,6 +675,63 @@ WantedBy=timers.target
 		Group:    "gdgagent-svc",
 		Scope:    "user",
 		User:     "gdgagent-svc",
+		Enable:   true,
+		Prefix:   paths.Prefix,
+	})
+
+	// 7a. Stage 10 Tier 2: agent-host-apply, the pull-type release converger. Unlike
+	// agent-host-sync (Tier 1, gdgagent-svc --user unit), converging spec/config/packages/systemd
+	// requires root, so this is a system unit -- same scope as agents-index.service.
+	systemUnitDir := filepath.Join(paths.EtcRoot, "systemd", "system")
+	res = append(res, &DirResource{
+		Path:  systemUnitDir,
+		Mode:  0o755,
+		Owner: "root",
+		Group: "root",
+	})
+
+	applyService := `[Unit]
+Description=agent-host-apply (GDG agent host Tier 2 control-plane release apply)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gdg agent-host release apply
+`
+	res = append(res, &SystemdUnitResource{
+		UnitName: "agent-host-apply.service",
+		Path:     filepath.Join(systemUnitDir, "agent-host-apply.service"),
+		Data:     []byte(applyService),
+		Mode:     0o644,
+		Owner:    "root",
+		Group:    "root",
+		Scope:    "system",
+		Prefix:   paths.Prefix,
+	})
+
+	applyInterval := "1h"
+	if paths.Spec.Release != nil && strings.TrimSpace(paths.Spec.Release.ApplyInterval) != "" {
+		applyInterval = paths.Spec.Release.ApplyInterval
+	}
+	applyTimer := fmt.Sprintf(`[Unit]
+Description=Run agent-host-apply periodically
+
+[Timer]
+OnUnitActiveSec=%s
+OnBootSec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+`, applyInterval)
+	res = append(res, &SystemdUnitResource{
+		UnitName: "agent-host-apply.timer",
+		Path:     filepath.Join(systemUnitDir, "agent-host-apply.timer"),
+		Data:     []byte(applyTimer),
+		Mode:     0o644,
+		Owner:    "root",
+		Group:    "root",
+		Scope:    "system",
 		Enable:   true,
 		Prefix:   paths.Prefix,
 	})

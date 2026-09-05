@@ -247,8 +247,24 @@
         }
       },
       "additionalProperties": false
+    },
+    "release": {
+      "type": "object",
+      "properties": {
+        "manifestBaseURL": {
+          "type": "string"
+        },
+        "applyInterval": {
+          "type": "string"
+        },
+        "keep": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
     }
   },
-  "required": ["slotCount", "backend", "discord", "pins", "paths"],
+  "required": ["environment", "slotCount", "backend", "discord", "pins", "paths"],
   "additionalProperties": false
 }

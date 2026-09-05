@@ -2244,6 +2244,78 @@ Accepted
 
 ### Consequences
 
-- `backend.name` を `antigravity` に設定した spec は、Stage 12（uid/slot 分離）および Stage 14（pre-tool gate / sandbox）が実装されるまで、機械的に本番適用が拒絶される。
+- `backend.name` を `antigravity` に設定した spec は、Stage 12(uid/slot 分離)および Stage 14(pre-tool gate / sandbox)が実装されるまで、機械的に本番適用が拒絶される。
 - 本番の 3 層防御が spec の記述ミスや意図しないダウングレードによって外れるリスクが構造的に排除された。
 - Stage 10 のリリース CI に必要な `backend.isolation` 検査、`productionMinimum` 検査、`environment` ゲートの基盤が確立された。
+
+## ADR-030: Tier 2 署名リリースと pull 型適用、ロールバック
+
+### Status
+
+Accepted
+
+### Date
+
+2026-09-05
+
+### Context
+
+全体方針の要求 3(「リポジトリの HEAD が本番ホストの構成と一致していることが、常に機械的に検証されている」)を満たすため、Stage 09 が Tier 1(`agent-host/workspace/**`)向けに確立した署名基盤(`cli/internal/agenthost/signing.go`、detached Ed25519 マニフェスト、defensive extraction)を、spec・config・systemd unit・パッケージ全体を扱う Tier 2 に拡張する必要があった。ブラスト半径が Tier 1 より桁違いに大きいため、機構は共有しつつ適用対象と世代管理・ロールバックだけを分離する。
+
+このステージで新たに生じた設計上の決定点が 7 つあった(括弧内は、初回実装のレビューで発見され、本 ADR の版で修正した項目):
+
+1. Tier 2 は「最新版を検出する」ためのポインタ機構が要る(GitHub Releases に固定名アセットが無い)。
+2. workspace/ を含むリリースを、Tier 1 の mutex・crash recovery・journal を再実装せずに委譲する方法が要る。
+3. verify 失敗時の自動ロールバックが「ロールバック先が存在しない」場合に黙って続行しない設計が要る。
+4. 収束後、次回以降の `apply`/`verify`/`sync-workspace` がどの spec を見るかを決める「ライブ spec」の置き場所が要る。
+5. (レビュー起因)`config/` はリリースに含めるだけでなく実際に収束エンジンへ反映されなければならない。
+6. (レビュー起因)`pins.gdgCli` を変更するリリースは、適用前に self re-exec しなければ古いバイナリがそのまま適用してしまう。
+7. (レビュー起因)apply 自体の失敗(verify 失敗より前)も自動ロールバックの対象でなければならず、drift チェックと dry-run は破壊的であってはならず、未検証の spec を live spec として公開してはならない。
+
+### Decision
+
+**1. `latest.txt` によるバージョンポインタ + 固定 URL 構成での fetch**
+- CI(`scripts/build-agent-host-release.mjs`)が `agent-host-release-<version>.{tar.gz,manifest.json,manifest.json.sig}` に加えて `latest.txt`(バージョン文字列のみ)を生成し、同一の `agent-host-release-latest` GitHub Release に `--clobber` で上書きアップロードする。
+- ホスト側(`cli/internal/agenthost/release.go` の `fetchAndVerifyReleaseArtifacts`)は `latest.txt` を読んでバージョンを特定し、そのバージョン名のマニフェスト・署名・アーカイブを個別に取得する。**署名検証はアーカイブに触れる前に完了する**(マニフェスト+署名を取得・検証 → `env.Version` が `latest.txt` の値と一致することを確認 → その後にのみアーカイブを取得)。アーカイブのダウンロード自体も署名済みマニフェストの `archive.size` で上限を切り、サイズ不一致は即座に部分ファイルを削除して失敗する(改竄されたアップストリームがディスクを食い潰す前に遮断する)。
+- `file://` スキームも同じ関数でサポートし、テストがネットワーク無しで fetch/verify/apply 全体を検証できるようにした(署名検証テスト、アーカイブ改竄検出テストなど)。
+
+**2. `workspace/` は共有トランザクション関数 `ApplyWorkspaceFiles` に委譲し、`plan.go` が構造的に強制する**
+- `cli/internal/agenthost/workspace.go` を、mutex 取得+crash recovery(`withWorkspaceMutexAndRecovery`)と、検証済みファイル群を実際に収束させる部分(`ApplyWorkspaceFiles`)に分割した。Tier 1(`SyncWorkspace`)と Tier 2(`release.go` の `applyReleaseGeneration`)は両方ともこの共有関数を呼ぶ。**mutex 取得とファイル取得の順序は元の Tier 1 の挙動を厳密に保持する**(`TestSyncWorkspace_WikiMutexYield`/`TestSyncWorkspace_CrashRecoveryModeB` が要求する順序: mutex 取得 → crash recovery → fetch/apply)。署名は 2 つ存在しない(Stage 09 の `signing.go` を再利用するのみ)。
+- `plan.go` の `BuildPlan` は `ValidateWorkspaceDelegation` を呼び、`paths.workspace` の**内側**を対象とする file/dir リソースが 1 つでもあれば即座にエラーにする(ワークスペースのルートディレクトリ自体の mode/owner 管理は例外)。これにより Tier 2 の収束エンジンが `workspace/` を汎用リソースとして書く経路を作ろうとしても、`BuildPlan` の時点で構造的に拒否される。
+
+**3. 自動ロールバックは「apply 失敗」と「verify 失敗」の両方から同じ経路に入り、target が無い・同一の場合は黙って続行しない**
+- 初版では verify 失敗のみが自動ロールバックの引き金だったが、レビューにより「apply(収束)そのものの失敗はどうなるのか」が指摘された。修正後は `applyReleaseGeneration` の失敗と、その後の `VerifyHost` の失敗の両方が同一の `rollbackOrFail` を通る。
+- `currentVersion == ""`(初回リリース)の場合は、ロールバックを試みずに直ちにエラーを返す(戻る先が無い)。
+- ロールバック自体が失敗する、またはロールバック後も verify が通らない場合も、その旨を明示したエラーを返す。`gdg agent-host rollback` コマンド(`--to` 省略時は current の直前世代)も同じ `applyReleaseGeneration`+`VerifyHost`+`setCurrentRelease`(+ 下記 4 の `publishLiveSpec`)の経路を再利用する。
+
+**4. ライブ spec と `current` ポインタは verify 成功後にのみ更新する**
+- 初版では `publishLiveSpec` が `applyReleaseGeneration` の内側、つまり `VerifyHost` より前に呼ばれていた。これは検証に失敗した候補が `current` にならないまま `/etc/gdg-agent/agent-host.json` に残ってしまうバグで、レビューで発覚した。修正後は `publishLiveSpec` と `setCurrentRelease` を `applyReleaseGeneration` から呼び出し側(`ApplyRelease` の成功パス、および `rollbackOrFail`/`Rollback` のロールバック成功パス)に移し、**verify を通過した世代についてのみ**呼ぶ。
+- `cli/internal/command/agent_host.go` の `resolveSpecPath` が `--spec` → `GDG_SPEC` → このライブ spec パス → (埋め込み既定 spec)の順で解決する。
+- `/var/lib/agent-host/releases/<version>/` にリリース世代を保持し、`current` シンボリックリンクで現在の世代を指す。このディレクトリと `/etc/gdg-agent` はいずれも `root:root` で、slot uid(`gdgagent-run-<N>`)や `gdgagent-svc` からもアクセスできない(自己改変経路の遮断)。
+
+**5. drift チェックと dry-run は非破壊にし、`current` と同一バージョンは常に report-only にする**
+- 初版は `--dry-run` の判定より前にアーカイブを `releasesRoot/<version>` へ直接展開しており、これは (a) `current` と同じバージョンを再フェッチしただけで、稼働中の世代ディレクトリ(将来のロールバック先)を消して作り直してしまう、(b) `--dry-run` という「読み取り専用」であるべき操作がディスクの永続状態を書き換える、という 2 つの問題を持っていた。レビューでどちらも指摘された。
+- 修正後は常に **使い捨てのステージング領域**(`stagingRoot/extracted`)へ展開し、実際に収束させて verify が通った後にのみ `releasesRoot/<version>` へ `os.Rename` で昇格させる。`--dry-run` はステージングに対してのみ `apply --dry-run --diff` を実行し、何も永続化しない。
+- 取得したバージョンが **既に `current` と同じ**場合は、`--dry-run` の指定に関わらず常に report-only の drift チェックのみを行う(`current` が指す既存の展開先に対して dry-run するだけで、再展開すらしない)。これは全体方針の「3. 現在適用中のリリースと同じなら dry-run だけ実行し、差分があれば非ゼロ」という要求そのものであり、初版がここを「同一バージョンでも実際に再適用してドリフトを修復する」という異なる(そして黙って修復してしまう)挙動にしていたのは設計からの逸脱だった。周期的なタイマーが変更のないリリースを検知するたびに黙って収束させてしまうと、ホストへの意図しない改変が「通常の収束」として隠れてしまう。
+
+**6. `pins.gdgCli` の変更は、適用前に検証済み spec を根拠に self re-exec する**
+- 初版は `release apply` から `CheckAndReexecSelf`(Stage 04/07 で確立済み、`apply` コマンドはすでに呼んでいた)を一切呼んでいなかった。これは `pins.gdgCli` を変更するリリースが、それを解釈すべき新しい `gdg` バイナリではなく、現在動いている古いバイナリによって処理されてしまうことを意味していた。
+- 修正後は、ステージングへの展開・署名検証が終わった**認証済みの** extracted spec を使って、host/workspace への変更を一切加える前に `CheckAndReexecSelf` を呼ぶ。実際に re-exec が発生する場合は `syscall.Exec` でプロセスイメージが置き換わり、同じ argv で `release apply` が最初からやり直される(再フェッチは冪等)。
+
+**7. `config/` は Tier 2 の収束エンジンに実際に反映する(埋め込みへのフォールバック付き)**
+- 初版は `config/` をリリースに含めながら、`BuildPlan` は常に `gdg` バイナリに `go:embed` された設定を読んでいた。これはレビューで発見された、Stage 10 の核心である「HEAD = ホスト構成」を破る欠陥だった(config のみの変更が publish されても決して反映されない)。
+- 修正として `cli/internal/agenthost/assets.go` に `withConfigOverrideRoot` を追加した。プロセス全体スコープの(goroutine 非対応、`gdg` は 1 プロセスにつき 1 操作を直列実行する前提の)オーバーライドで、`configBytes`/`backendConfigBytes` はまずオーバーライドされたディレクトリを見て、無ければ埋め込みのデフォルトにフォールバックする。`applyReleaseGeneration` は spec のロード(`ValidateBundleInvariants` を経由するため)から `BuildPlan`/`ApplyPlan` まで全体をこのオーバーライドで包む。関数引数として全 `configBytes` 呼び出し箇所(`ValidateBundleInvariants` は spec 解析そのものの内部から呼ばれ、経路上に paths が存在しない)に配線するのはこの段階では大規模すぎるため、意図的にこの形を選んだ。
+
+### Alternatives Considered
+
+- **push 型(GitHub Actions から ssh、または self-hosted runner)**: `docs/agents-local-mvp/adr.md` の既存方針どおり、public リポジトリでの self-hosted runner は fork PR からのコード実行経路になり、ssh デプロイは CI に root 相当の資格情報を持たせる。pull 型を維持した。
+- **`current` を経由せず、常に `latest.txt` の内容を信頼してロールバック判定する**: ネットワーク到達性がロールバックの前提になってしまい、「ロールバックはネットワークの問題そのものによってブロックされてはならない」という要件に反する。ロールバックは常にローカルにすでに展開済みの世代のみを対象にする設計にした。
+- **`config/` を読むために `configBytes`/`backendConfigBytes` の全呼び出し箇所へ config root パラメータを配線する**: 最も「正しい」形だが、`ValidateBundleInvariants` が spec 解析(`parseSpecBytes`)の内部から呼ばれているため、呼び出しチェーンの非常に深いところまでパラメータを通す必要があり、Tier 2 のスコープを大きく超える。プロセススコープのオーバーライド(決定 7)を採用した。
+- **同一バージョン再フェッチでも実際に再適用してドリフトを修復する**(初版の挙動): 「変更の無いリリースの再適用」と「実際の新規リリース適用」を区別できなくなり、ホストへの意図しない改変が通常の収束ログに埋もれてしまう。全体方針の要求(dry-run のみ・差分があれば非ゼロ)どおり report-only に統一した。
+
+### Consequences
+
+- spec の `backend.model`・`discord.*`・`pins.*` に加えて **`config/` のテンプレート内容変更(hooks.json、sandbox.json.in 等)** も、CI 経由で署名付きリリースが publish されれば `agent-host-apply.timer`(既定 1 時間毎)が取得・検証・収束・再検証し、失敗時は自動的に直前世代へロールバックする。`gdg` バイナリの再ビルドを要するのは `configBytes` が読まない新しい構造(コード変更を要する変更)に限られる。
+- `pins.gdgCli` を変更するリリースは、ホストが古いバイナリで動いていても、次の `agent-host-apply.timer` 発火で self re-exec を経由して新しいバイナリに切り替わってから収束する。
+- branch protection・署名コミット・リリース署名鍵(`AGENT_HOST_SIGNING_KEY`)の管理方針・GitHub Environment protection rule によるゲートの要否は、リポジトリ設定(GitHub 側)の変更を伴うため本 ADR の記録のみに留め、実際の設定変更は別途人間の承認を要する。
+- Lima VM 上での `useradd`/systemd/apparmor/sudo を実際に動かす統合テストは、本ステージの時点では CI に配線されておらず、今後の課題として残る。

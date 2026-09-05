@@ -1,0 +1,10 @@
+[Unit]
+Description=Run agent-host-apply periodically
+
+[Timer]
+OnUnitActiveSec=1h
+OnBootSec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

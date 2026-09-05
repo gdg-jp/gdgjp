@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -257,13 +258,99 @@ func SyncWorkspace(ctx context.Context, opts SyncWorkspaceOptions) error {
 	}
 
 	stagingBase := filepath.Join(varLibDir, "workspace-staging")
-	backupBase := filepath.Join(varLibDir, "workspace-backup")
-	journalDir := filepath.Join(varLibDir, "workspace-journal")
-	lastAppliedPath := filepath.Join(varLibDir, "workspace-last-applied.json")
-
 	if err := os.MkdirAll(stagingBase, 0o700); err != nil {
 		return fmt.Errorf("create staging directory %s: %w", stagingBase, err)
 	}
+
+	// Resolve Public Key for signature verification
+	pubKeyPath := opts.PubKeyPath
+	if pubKeyPath == "" {
+		pubKeyPath = filepath.Join(agentRoot, "lib", "release-key.pub")
+	}
+
+	// Mutex acquisition and crash recovery happen first (below), and the source fetch/verify
+	// happens while still holding the mutex -- exactly as before this function was split, so a
+	// concurrent sleep/ingest run is detected before any fetch is attempted, and a prior crash is
+	// always repaired before new content is considered, even if the fetch that follows fails.
+	return withWorkspaceMutexAndRecovery(wikiRoot, varLibDir, opts.Timeout, func() error {
+		desiredFiles := make(map[string][]byte)
+		bundleVersion := "unknown"
+
+		source := strings.TrimSpace(opts.Source)
+		if source == "" && spec.WorkspaceSync != nil {
+			source = strings.TrimSpace(spec.WorkspaceSync.Source)
+		}
+
+		if source == "" {
+			return errors.New("no workspace source specified (pass --source or configure workspaceSync.source in spec)")
+		}
+
+		if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
+			// HTTP/HTTPS URL source
+			v, files, err := fetchHTTPBundle(ctx, source, pubKeyPath, stagingBase)
+			if err != nil {
+				return fmt.Errorf("fetch remote bundle: %w", err)
+			}
+			bundleVersion = v
+			desiredFiles = files
+		} else {
+			// Local file or directory source
+			sourceInfo, err := os.Stat(source)
+			if err != nil {
+				return fmt.Errorf("cannot access source %s: %w", source, err)
+			}
+
+			if !sourceInfo.IsDir() && (strings.HasSuffix(source, ".json") || strings.HasSuffix(source, ".tar.gz")) {
+				// Specific bundle file specified
+				manifestPath := source
+				if base, ok := strings.CutSuffix(source, ".tar.gz"); ok {
+					manifestPath = base + ".manifest.json"
+				}
+				v, files, err := loadAndVerifyBundle(manifestPath, pubKeyPath, stagingBase)
+				if err != nil {
+					return err
+				}
+				bundleVersion = v
+				desiredFiles = files
+			} else if sourceInfo.IsDir() {
+				// Source directory MUST contain a signed release bundle (*.manifest.json + *.tar.gz + *.sig)
+				manifestFile, isBundle := findBundleInDir(source)
+				if !isBundle {
+					return fmt.Errorf("source directory %s does not contain a signed bundle (*.manifest.json); unsigned plain directories are not permitted", source)
+				}
+				v, files, err := loadAndVerifyBundle(manifestFile, pubKeyPath, stagingBase)
+				if err != nil {
+					return err
+				}
+				bundleVersion = v
+				desiredFiles = files
+			} else {
+				return fmt.Errorf("unsupported source: %s", source)
+			}
+		}
+
+		return ApplyWorkspaceFiles(ApplyWorkspaceFilesOptions{
+			WikiRoot:     wikiRoot,
+			VarLibDir:    varLibDir,
+			DesiredFiles: desiredFiles,
+			Version:      bundleVersion,
+			Force:        opts.Force,
+			DryRun:       opts.DryRun,
+			Diff:         opts.Diff,
+			OnApplying:   opts.OnApplying,
+		})
+	})
+}
+
+// withWorkspaceMutexAndRecovery acquires the wiki mutex (yielding cleanly, non-error, if it is
+// currently held by sleep/ingest), runs Stage 09 crash recovery, and only then invokes fn while
+// still holding the mutex. Every caller that touches the live worktree -- Tier 1's SyncWorkspace
+// and the Tier 2 release converger (release.go) alike -- goes through this so recovery always
+// happens before any new content is considered, and so a concurrent sleep/ingest run is detected
+// before anything else is attempted.
+func withWorkspaceMutexAndRecovery(wikiRoot, varLibDir string, timeout time.Duration, fn func() error) error {
+	backupBase := filepath.Join(varLibDir, "workspace-backup")
+	journalDir := filepath.Join(varLibDir, "workspace-journal")
 	if err := os.MkdirAll(backupBase, 0o700); err != nil {
 		return fmt.Errorf("create backup directory %s: %w", backupBase, err)
 	}
@@ -271,8 +358,6 @@ func SyncWorkspace(ctx context.Context, opts SyncWorkspaceOptions) error {
 		return fmt.Errorf("create journal directory %s: %w", journalDir, err)
 	}
 
-	// 1. Acquire wiki mutex. If busy, yield cleanly (non-error exit) to next timer cycle.
-	timeout := opts.Timeout
 	if timeout <= 0 {
 		timeout = 10 * time.Second
 	}
@@ -285,89 +370,68 @@ func SyncWorkspace(ctx context.Context, opts SyncWorkspaceOptions) error {
 	}
 	defer wiki.ReleaseLocksMutex(wikiRoot)
 
-	// 2. CRASH RECOVERY FIRST: Run recovery before fetching or verifying new sources
 	if err := RecoverIncompleteTransactions(journalDir, wikiRoot); err != nil {
 		return fmt.Errorf("startup recovery failed: %w", err)
 	}
 
-	// 3. Resolve Public Key for signature verification
-	pubKeyPath := opts.PubKeyPath
-	if pubKeyPath == "" {
-		pubKeyPath = filepath.Join(agentRoot, "lib", "release-key.pub")
+	return fn()
+}
+
+// ApplyWorkspaceFilesOptions carries pre-resolved, already-verified workspace content to converge
+// against the live worktree. The caller must already hold the wiki mutex and have run crash
+// recovery -- see withWorkspaceMutexAndRecovery, which both SyncWorkspace (Tier 1) and the Tier 2
+// release converger (release.go) go through before calling this.
+type ApplyWorkspaceFilesOptions struct {
+	WikiRoot     string
+	VarLibDir    string
+	DesiredFiles map[string][]byte
+	Version      string
+	Force        bool
+	DryRun       bool
+	Diff         bool
+	OnApplying   func(relPath string)
+}
+
+// ApplyWorkspaceFiles converges WikiRoot to DesiredFiles using the Stage 09 Mode B write-ahead
+// journal transaction. It does not verify signatures itself, and it does not acquire the wiki
+// mutex or run crash recovery -- callers are responsible for having already established that
+// DesiredFiles is trustworthy (either via a Tier 1 signed bundle, or by extraction from an already
+// Ed25519-verified Tier 2 release envelope) and for calling through withWorkspaceMutexAndRecovery.
+func ApplyWorkspaceFiles(opts ApplyWorkspaceFilesOptions) error {
+	wikiRoot := opts.WikiRoot
+	backupBase := filepath.Join(opts.VarLibDir, "workspace-backup")
+	journalDir := filepath.Join(opts.VarLibDir, "workspace-journal")
+	lastAppliedPath := filepath.Join(opts.VarLibDir, "workspace-last-applied.json")
+
+	if err := os.MkdirAll(backupBase, 0o700); err != nil {
+		return fmt.Errorf("create backup directory %s: %w", backupBase, err)
+	}
+	if err := os.MkdirAll(journalDir, 0o700); err != nil {
+		return fmt.Errorf("create journal directory %s: %w", journalDir, err)
 	}
 
-	// 4. Acquire & Verify Source Content
-	desiredFiles := make(map[string][]byte)
-	bundleVersion := "unknown"
-
-	source := strings.TrimSpace(opts.Source)
-	if source == "" && spec.WorkspaceSync != nil {
-		source = strings.TrimSpace(spec.WorkspaceSync.Source)
-	}
-
-	if source == "" {
-		return errors.New("no workspace source specified (pass --source or configure workspaceSync.source in spec)")
-	}
-
-	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
-		// HTTP/HTTPS URL source
-		v, files, err := fetchHTTPBundle(ctx, source, pubKeyPath, stagingBase)
-		if err != nil {
-			return fmt.Errorf("fetch remote bundle: %w", err)
-		}
-		bundleVersion = v
-		desiredFiles = files
-	} else {
-		// Local file or directory source
-		sourceInfo, err := os.Stat(source)
-		if err != nil {
-			return fmt.Errorf("cannot access source %s: %w", source, err)
-		}
-
-		if !sourceInfo.IsDir() && (strings.HasSuffix(source, ".json") || strings.HasSuffix(source, ".tar.gz")) {
-			// Specific bundle file specified
-			manifestPath := source
-			if strings.HasSuffix(source, ".tar.gz") {
-				manifestPath = strings.TrimSuffix(source, ".tar.gz") + ".manifest.json"
-			}
-			v, files, err := loadAndVerifyBundle(manifestPath, pubKeyPath, stagingBase)
-			if err != nil {
-				return err
-			}
-			bundleVersion = v
-			desiredFiles = files
-		} else if sourceInfo.IsDir() {
-			// Source directory MUST contain a signed release bundle (*.manifest.json + *.tar.gz + *.sig)
-			manifestFile, isBundle := findBundleInDir(source)
-			if !isBundle {
-				return fmt.Errorf("source directory %s does not contain a signed bundle (*.manifest.json); unsigned plain directories are not permitted", source)
-			}
-			v, files, err := loadAndVerifyBundle(manifestFile, pubKeyPath, stagingBase)
-			if err != nil {
-				return err
-			}
-			bundleVersion = v
-			desiredFiles = files
-		} else {
-			return fmt.Errorf("unsupported source: %s", source)
-		}
-	}
-
-	// 5. Synthesize .cursor/rules/local.mdc from AGENTS.md
+	// 3. Synthesize .cursor/rules/local.mdc from AGENTS.md (copy so callers keep their own map).
+	desiredFiles := make(map[string][]byte, len(opts.DesiredFiles))
+	maps.Copy(desiredFiles, opts.DesiredFiles)
 	if agentsRaw, ok := desiredFiles["AGENTS.md"]; ok {
 		localMDC := fmt.Sprintf("---\nalwaysApply: true\n---\n\n%s", string(agentsRaw))
 		desiredFiles[".cursor/rules/local.mdc"] = []byte(localMDC)
 		delete(desiredFiles, "AGENTS.md")
 	}
 
-	// 6. Enforce Tier 1 boundary on all desired files
+	// 4. Enforce Tier 1 boundary on all desired files
 	for relPath := range desiredFiles {
 		if !isManagedWorkspacePath(relPath) {
 			return fmt.Errorf("Tier 1 boundary violation: unmanaged path in sync target: %s", relPath)
 		}
 	}
 
-	// 7. Load last-applied state
+	bundleVersion := opts.Version
+	if bundleVersion == "" {
+		bundleVersion = "unknown"
+	}
+
+	// 5. Load last-applied state
 	var lastApplied LastAppliedManifest
 	lastApplied.Entries = make(map[string]string)
 	if raw, err := os.ReadFile(lastAppliedPath); err == nil {
@@ -377,7 +441,7 @@ func SyncWorkspace(ctx context.Context, opts SyncWorkspaceOptions) error {
 		}
 	}
 
-	// 8. Detect local modifications in live worktree
+	// 6. Detect local modifications in live worktree
 	// Check all files in desiredFiles + existing managed files in worktree
 	for relPath, desiredData := range desiredFiles {
 		targetPath := filepath.Join(wikiRoot, filepath.FromSlash(relPath))
@@ -398,7 +462,7 @@ func SyncWorkspace(ctx context.Context, opts SyncWorkspaceOptions) error {
 		}
 	}
 
-	// 9. Plan Changes
+	// 7. Plan Changes
 	var changes []fileChange
 	desiredKeys := make(map[string]bool)
 	for relPath, desiredData := range desiredFiles {
@@ -478,7 +542,7 @@ func SyncWorkspace(ctx context.Context, opts SyncWorkspaceOptions) error {
 		return nil
 	}
 
-	// 10. ATOMIC APPLY (Mode B)
+	// 8. ATOMIC APPLY (Mode B)
 	txnID := fmt.Sprintf("%d-%d", time.Now().UnixNano(), os.Getpid())
 	txnBackupDir := filepath.Join(backupBase, txnID)
 	if err := os.MkdirAll(txnBackupDir, 0o700); err != nil {

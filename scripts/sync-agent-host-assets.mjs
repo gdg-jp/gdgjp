@@ -61,6 +61,14 @@ const copies = [
     dest: join(configDest, "systemd/agent-host-sync.timer"),
   },
   {
+    src: join(repositoryRoot, "agent-host/config/systemd/agent-host-apply.service"),
+    dest: join(configDest, "systemd/agent-host-apply.service"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/config/systemd/agent-host-apply.timer"),
+    dest: join(configDest, "systemd/agent-host-apply.timer"),
+  },
+  {
     src: join(repositoryRoot, "agent-host/agent-host.json"),
     dest: join(destDir, "agent-host.json"),
   },

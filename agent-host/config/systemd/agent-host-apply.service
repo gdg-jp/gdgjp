@@ -1,0 +1,7 @@
+[Unit]
+Description=agent-host-apply (GDG agent host Tier 2 control-plane release apply)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gdg agent-host release apply

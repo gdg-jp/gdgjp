@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -222,6 +223,52 @@ func ValidateSpecForRelease(spec SpecFile) error {
 		return errors.New("spec with environment \"development\" cannot be published to production release")
 	}
 	return ValidateBackendContract(spec)
+}
+
+// ValidateSpecForReleaseFromPath is like ValidateSpecForRelease, but additionally rejects a spec
+// whose "environment" field is omitted from the raw JSON, rather than accepting the silent default
+// to "production" that ordinary spec loading (LoadSpecWithOverlay/parseSpecBytes) applies
+// elsewhere. This must be checked against the raw bytes: by the time a SpecFile struct exists,
+// an omitted field and an explicit "production" are indistinguishable, and the whole point of this
+// release-boundary gate is to catch a spec that forgot to declare itself production before it gets
+// published as one (see Stage 10's design constraint that an omitted environment must not
+// silently pass release validation).
+func ValidateSpecForReleaseFromPath(specPath, overlayPath string) error {
+	baseRaw := defaultSpecJSON
+	if specPath != "" {
+		raw, err := os.ReadFile(specPath)
+		if err != nil {
+			return fmt.Errorf("read spec %s: %w", specPath, err)
+		}
+		baseRaw = raw
+	}
+
+	effectiveRaw := baseRaw
+	if overlayPath != "" {
+		overlayRaw, err := os.ReadFile(overlayPath)
+		if err != nil {
+			return fmt.Errorf("read overlay %s: %w", overlayPath, err)
+		}
+		merged, err := mergeJSON(baseRaw, overlayRaw)
+		if err != nil {
+			return err
+		}
+		effectiveRaw = merged
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(effectiveRaw, &raw); err != nil {
+		return fmt.Errorf("parse spec: %w", err)
+	}
+	if _, ok := raw["environment"]; !ok {
+		return errors.New(`spec.environment is required for release (omission is not accepted; the spec must explicitly declare "production" or "development")`)
+	}
+
+	spec, err := LoadSpecWithOverlay(specPath, overlayPath)
+	if err != nil {
+		return err
+	}
+	return ValidateSpecForRelease(spec)
 }
 
 // --- Cursor Policy Implementation ---

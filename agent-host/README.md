@@ -207,6 +207,68 @@ To manually inspect or sync:
 sudo -u gdgagent-svc gdg agent-host sync-workspace --dry-run --diff
 ```
 
+## Releasing spec/config/systemd changes (Tier 2)
+
+Everything else -- `backend.model`, `discord.*`, `pins.*`, `slotCount`, systemd drop-ins, and
+`config/` template content (`hooks.json`, `sandbox.json.in`, etc.) -- is a **Tier 2 control-plane
+release**, distinct from Tier 1's workspace-only sync. Push to `main` and the CI workflow
+(`.github/workflows/agent-host-release.yml`) validates the spec (schema, backend capability
+contract, an `environment: "production"` gate that rejects an *omitted* field, not just
+`"development"`), builds a signed release bundle (`agent-host.json` + `config/` + `workspace/`,
+detached Ed25519 manifest, same signing code as Tier 1, with a fail-closed denylist that refuses
+to bundle anything that looks like `credentials.json`/`.dev.vars`/a private key), and publishes it
+to the `agent-host-release-latest` GitHub Release alongside a `latest.txt` version pointer.
+
+The host runs `agent-host-apply.timer` (a **system** unit -- unlike `agent-host-sync.timer`,
+converging spec/packages/systemd needs root; default interval `spec.release.applyInterval`, 1h),
+which runs `gdg agent-host release apply`:
+
+1. Fetches `latest.txt`, verifies the Ed25519 signature over the manifest *before ever downloading
+   the archive*, then downloads the archive bounded by the manifest's own declared size (never an
+   unlimited stream) and verifies its sha256/size.
+2. **If the fetched version is already current**, this is a **report-only drift check** against the
+   already-installed generation -- it never re-extracts or re-applies anything, regardless of
+   `--dry-run`. A periodic timer tick on an unchanged release must not silently "repair" drift;
+   that would mask host tampering as routine convergence. Non-zero exit means drift was found.
+3. **If the version is new**, it's extracted into disposable staging (never written to the durable
+   release store yet). `--dry-run` previews from there and stops. For a real apply: self re-execs
+   to `pins.gdgCli` first if the release changed it (so the *new* pin is what actually applies, not
+   whatever binary happened to be running), then converges from staging -- `workspace/` exclusively
+   through the same Tier 1 `sync-workspace` transaction (mutex, local-modification detection, Mode B
+   journal), everything else (including `config/` -- see below) via the standard converger.
+4. Only once applied *and* verified does the staged generation get promoted into
+   `/var/lib/agent-host/releases/<version>/`, the extracted spec get published to
+   `/etc/gdg-agent/agent-host.json` (which every `gdg agent-host` subcommand falls back to, after
+   `--spec` and `GDG_SPEC`, when no explicit spec is given), and `current` get repointed.
+
+`config/` is not just provenance: `configBytes`/`backendConfigBytes` (in `assets.go`) prefer the
+extracted release's own `config/` over the `gdg` binary's `go:embed` default while a release is
+being applied, falling back to the embedded default for any file an older release didn't carry —
+so a `hooks.json`/`sandbox.json.in` change takes effect through a Tier 2 release alone, without a
+new `gdg` CLI build.
+
+Release generations are kept under `/var/lib/agent-host/releases/<version>/` (retention:
+`spec.release.keep`, default 5), root-owned 0700 -- unreachable from any slot uid or
+`gdgagent-svc`. `current` is a symlink to the active generation.
+
+If applying a new release fails -- either the convergence step itself, or the subsequent `gdg
+agent-host verify` -- it is automatically rolled back to the previously-installed generation and
+re-verified; if there is no previous generation, or the rollback also fails verification, the
+failure is surfaced loudly rather than left silent. An unverified candidate never becomes the live
+spec or the `current` pointer. Manual rollback:
+```bash
+sudo gdg agent-host rollback              # rolls back to the generation immediately before current
+sudo gdg agent-host rollback --to 1.2.3   # rolls back to a specific installed generation
+```
+
+Drift check (no network, no apply):
+```bash
+sudo gdg agent-host apply --dry-run --diff
+```
+
+There is no `--skip-verify` or `--force` on `release apply`: signature and per-file digest
+verification cannot be bypassed. See ADR-030 in `docs/agents-local-mvp/adr.md` for the full design.
+
 ## Updating the wiki content
 
 `wiki/` is a normal `gdg wiki clone` working tree once populated — use `gdg wiki raw pull`,

@@ -67,6 +67,22 @@ function buildTarArchive(entries) {
   return Buffer.concat(chunks);
 }
 
+// SENSITIVE_PATH_PATTERN is the fail-closed denylist checked against every relative path before
+// it is read into the release archive. Matches by filename (or extension) alone, regardless of
+// directory, since agent-host/config/ and agent-host/workspace/ are walked in full: a locally
+// created secret file under either tree must never make it into a bundle that gets published
+// publicly (this is a public GitHub Release).
+const SENSITIVE_PATH_PATTERN =
+  /(^|\/)(auth\.json|secrets\.json|credentials\.json|\.dev\.vars(\..*)?|id_rsa(\.pub)?|id_ed25519(\.pub)?|[^/]*\.pem|[^/]*\.key|[^/]*_key|[^/]*private[-_]?key[^/]*)$/i;
+
+function assertNotSensitive(relPath) {
+  if (SENSITIVE_PATH_PATTERN.test(relPath)) {
+    throw new Error(
+      `Refusing to include sensitive-looking file in public release bundle: ${relPath}`,
+    );
+  }
+}
+
 async function walkDir(dir, baseDir = dir) {
   const results = [];
   let entries;
@@ -82,6 +98,7 @@ async function walkDir(dir, baseDir = dir) {
     if (entry.isDirectory()) {
       results.push(...(await walkDir(fullPath, baseDir)));
     } else if (entry.isFile()) {
+      assertNotSensitive(relPath);
       results.push({ fullPath, relPath });
     }
   }
@@ -96,8 +113,14 @@ export function validateSpecForPublish(specPath, specContent, gdgBin) {
     throw new Error(`Failed to parse spec at ${specPath}: ${err.message}`);
   }
 
-  const env = spec.environment || "production";
-  if (env === "development") {
+  // Checked against raw presence, not `spec.environment || "production"`: an omitted field must
+  // be rejected here, not silently treated as an explicit "production" declaration (Stage 10).
+  if (!Object.hasOwn(spec, "environment")) {
+    throw new Error(
+      `spec at ${specPath} is missing required field "environment"; releases must explicitly declare "production" or "development"`,
+    );
+  }
+  if (spec.environment === "development") {
     throw new Error(
       `spec with environment "development" cannot be published to production release`,
     );
@@ -232,15 +255,21 @@ export async function buildRelease({
   const archivePath = join(outDir, archiveName);
   const manifestPath = join(outDir, `agent-host-release-${version}.manifest.json`);
   const sigPath = join(outDir, `agent-host-release-${version}.manifest.json.sig`);
+  // Fixed filename the host polls to discover which versioned assets are current on the
+  // "agent-host-release-latest" GitHub Release. Every publish overwrites this (gh release
+  // upload --clobber), while the versioned assets above accumulate for provenance/rollback.
+  const latestPointerPath = join(outDir, "latest.txt");
 
   await writeFile(archivePath, tarGzBuffer);
   await writeFile(manifestPath, manifestBytes);
   await writeFile(sigPath, sigHex, "utf8");
+  await writeFile(latestPointerPath, `${version}\n`, "utf8");
 
   return {
     archivePath,
     manifestPath,
     sigPath,
+    latestPointerPath,
     manifest,
     publicKey: pubKeyRaw,
   };
@@ -293,7 +322,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     console.log(`Release bundle created successfully:
   Archive:  ${res.archivePath}
   Manifest: ${res.manifestPath}
-  Sig:      ${res.sigPath}`);
+  Sig:      ${res.sigPath}
+  Latest:   ${res.latestPointerPath}`);
   } catch (err) {
     console.error("Error building agent-host release:", err.message);
     process.exit(1);

@@ -16,6 +16,11 @@
     "sha256": "b64f780c011c3d123776175e7341816f9e86beef11c98f80a2dde6086fa0ecb1"
   },
   {
+    "path": "etc/gdg-agent",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
     "path": "etc/sudoers.d",
     "type": "dir",
     "mode": "0755"
@@ -35,6 +40,18 @@
     "path": "etc/systemd/system",
     "type": "dir",
     "mode": "0755"
+  },
+  {
+    "path": "etc/systemd/system/agent-host-apply.service",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "a2767d7b0ed1309e41b6cf3728e3da1e401e5778d80646fe53bc1aab98f9afc6"
+  },
+  {
+    "path": "etc/systemd/system/agent-host-apply.timer",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "a9108960c0c830803b290e4f9b0ac86336798521bc2c6b08e58d7708ba1d99d9"
   },
   {
     "path": "etc/systemd/system/agents-index.service",
@@ -614,6 +631,11 @@
     "path": "var/lib/agent-host",
     "type": "dir",
     "mode": "0750"
+  },
+  {
+    "path": "var/lib/agent-host/releases",
+    "type": "dir",
+    "mode": "0700"
   },
   {
     "path": "var/lib/agent-host/workspace-backup",

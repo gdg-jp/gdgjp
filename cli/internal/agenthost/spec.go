@@ -181,6 +181,14 @@ type WorkspaceSyncSpec struct {
 	Source   string `json:"source,omitempty"`
 }
 
+// ReleaseSpec configures Tier 2 control-plane release fetch, apply cadence, and generation
+// retention. It is optional; ApplyRelease falls back to compiled-in defaults when unset.
+type ReleaseSpec struct {
+	ManifestBaseURL string `json:"manifestBaseURL,omitempty"`
+	ApplyInterval   string `json:"applyInterval,omitempty"`
+	Keep            int    `json:"keep,omitempty"`
+}
+
 type SpecFile struct {
 	Schema        string             `json:"$schema,omitempty"`
 	Environment   string             `json:"environment,omitempty"`
@@ -192,6 +200,7 @@ type SpecFile struct {
 	Systemd       SystemdSpec        `json:"systemd,omitempty"`
 	AgentsIndex   AgentsIndexSpec    `json:"agentsIndex,omitempty"`
 	WorkspaceSync *WorkspaceSyncSpec `json:"workspaceSync,omitempty"`
+	Release       *ReleaseSpec       `json:"release,omitempty"`
 }
 
 func parseSpecBytes(raw []byte, origin string) (SpecFile, error) {
@@ -303,6 +312,11 @@ func parseSpecBytes(raw []byte, origin string) (SpecFile, error) {
 		if !strings.HasPrefix(spec.AgentsIndex.DBPath, "/") {
 			return spec, fmt.Errorf("spec.agentsIndex.dbPath must be an absolute path in %s", origin)
 		}
+	}
+
+	// release is optional; when present its fields are advisory (defaults live in release.go).
+	if spec.Release != nil && spec.Release.Keep < 0 {
+		return spec, fmt.Errorf("spec.release.keep must be a non-negative integer in %s", origin)
 	}
 
 	return spec, nil

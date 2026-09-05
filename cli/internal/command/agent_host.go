@@ -23,7 +23,27 @@ func newAgentHostCommand() *cobra.Command {
 	command.AddCommand(newAgentHostSecretsCommand())
 	command.AddCommand(newAgentHostSyncWorkspaceCommand())
 	command.AddCommand(newAgentHostValidateSpecCommand())
+	command.AddCommand(newAgentHostReleaseCommand())
+	command.AddCommand(newAgentHostRollbackCommand())
 	return command
+}
+
+// resolveSpecPath applies the shared fallback chain used by every agent-host subcommand:
+// an explicit --spec flag wins, then GDG_SPEC, then (Stage 10) the live spec published by the
+// most recent successful `gdg agent-host release apply` at agenthost.LiveSpecPath, so a
+// config-only release takes effect for every future invocation without a manual --spec. Falls
+// through to the embedded default spec (via LoadSpecWithOverlay's own fallback) if none exist.
+func resolveSpecPath(explicit string) string {
+	if explicit != "" {
+		return explicit
+	}
+	if env := os.Getenv("GDG_SPEC"); env != "" {
+		return env
+	}
+	if _, err := os.Stat(agenthost.LiveSpecPath); err == nil {
+		return agenthost.LiveSpecPath
+	}
+	return ""
 }
 
 func newAgentHostApplyCommand() *cobra.Command {
@@ -46,9 +66,7 @@ func newAgentHostApplyCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if specPath == "" {
-				specPath = os.Getenv("GDG_SPEC")
-			}
+			specPath = resolveSpecPath(specPath)
 			if prefix == "" {
 				prefix = os.Getenv("GDG_SETUP_PREFIX")
 			}
@@ -119,9 +137,7 @@ func newAgentHostRenderCommand() *cobra.Command {
 			if outDir == "" {
 				return fmt.Errorf("--out directory is required")
 			}
-			if specPath == "" {
-				specPath = os.Getenv("GDG_SPEC")
-			}
+			specPath = resolveSpecPath(specPath)
 			if slotCount == 0 {
 				if env := os.Getenv("GDG_AGENT_SLOT_COUNT"); env != "" {
 					n, err := strconv.Atoi(env)
@@ -159,9 +175,7 @@ func newEmitLayoutCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if specPath == "" {
-				specPath = os.Getenv("GDG_SPEC")
-			}
+			specPath = resolveSpecPath(specPath)
 			if prefix == "" {
 				prefix = os.Getenv("GDG_SETUP_PREFIX")
 			}
@@ -206,9 +220,7 @@ func newAgentHostVerifyCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if specPath == "" {
-				specPath = os.Getenv("GDG_SPEC")
-			}
+			specPath = resolveSpecPath(specPath)
 			if prefix == "" {
 				prefix = os.Getenv("GDG_SETUP_PREFIX")
 			}
@@ -313,9 +325,7 @@ func newAgentHostSyncWorkspaceCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if specPath == "" {
-				specPath = os.Getenv("GDG_SPEC")
-			}
+			specPath = resolveSpecPath(specPath)
 			if prefix == "" {
 				prefix = os.Getenv("GDG_SETUP_PREFIX")
 			}
@@ -356,15 +366,15 @@ func newAgentHostValidateSpecCommand() *cobra.Command {
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if specPath == "" {
-				specPath = os.Getenv("GDG_SPEC")
+			specPath = resolveSpecPath(specPath)
+			if forRelease {
+				// Checked against the raw spec bytes, not the parsed/defaulted struct: an omitted
+				// environment field must be rejected here, not silently treated as "production".
+				return agenthost.ValidateSpecForReleaseFromPath(specPath, overlayPath)
 			}
 			spec, err := agenthost.LoadSpecWithOverlay(specPath, overlayPath)
 			if err != nil {
 				return err
-			}
-			if forRelease {
-				return agenthost.ValidateSpecForRelease(spec)
 			}
 			return agenthost.ValidateBackendContract(spec)
 		},
@@ -372,5 +382,109 @@ func newAgentHostValidateSpecCommand() *cobra.Command {
 	command.Flags().StringVar(&specPath, "spec", "", "Path to agent-host.json")
 	command.Flags().StringVar(&overlayPath, "overlay", "", "Path to overlay spec file (e.g. agent-host.dev.json)")
 	command.Flags().BoolVar(&forRelease, "for-release", false, "Validate that the spec satisfies release gating requirements")
+	return command
+}
+
+func newAgentHostReleaseCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "release",
+		Short: "Manage Tier 2 control-plane releases (fetch, verify, converge)",
+	}
+	command.AddCommand(newAgentHostReleaseApplyCommand())
+	return command
+}
+
+func newAgentHostReleaseApplyCommand() *cobra.Command {
+	var specPath string
+	var overlayPath string
+	var prefix string
+	var releasesRoot string
+	var baseURL string
+	var pubKeyPath string
+	var keep int
+	var slotCount int
+	var dryRun bool
+	var diff bool
+
+	command := &cobra.Command{
+		Use:   "apply",
+		Short: "Fetch, verify, and converge the host to the latest signed Tier 2 release",
+		Long: "Fetches the latest signed control-plane release (spec, config, workspace) from\n" +
+			"spec.release.manifestBaseURL, verifies its Ed25519 signature before the archive is ever\n" +
+			"downloaded, and converges the host to it -- spec/config/packages/systemd via the standard\n" +
+			"converger, workspace/ exclusively through the Tier 1 sync-workspace transaction. If already\n" +
+			"current, still re-applies to catch host-side drift. On verification failure after apply,\n" +
+			"automatically rolls back to the previously-installed generation; if there is none, fails\n" +
+			"loudly rather than continuing. --dry-run reports drift without applying or rolling back.\n" +
+			"There is no --skip-verify or --force: signature and per-file digest verification cannot be\n" +
+			"bypassed.",
+		SilenceUsage: true,
+		Args:         cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			specPath = resolveSpecPath(specPath)
+			if prefix == "" {
+				prefix = os.Getenv("GDG_SETUP_PREFIX")
+			}
+			return agenthost.ApplyRelease(context.Background(), agenthost.ApplyReleaseOptions{
+				SpecPath:        specPath,
+				OverlayPath:     overlayPath,
+				Prefix:          prefix,
+				ReleasesRoot:    releasesRoot,
+				ManifestBaseURL: baseURL,
+				PubKeyPath:      pubKeyPath,
+				Keep:            keep,
+				SlotCount:       slotCount,
+				DryRun:          dryRun,
+				Diff:            diff,
+				CurrentVersion:  cmd.Root().Version,
+				Args:            os.Args,
+			})
+		},
+	}
+	command.Flags().StringVar(&specPath, "spec", "", "Path to a seed agent-host.json (normally left unset; uses the live spec published by a previous release)")
+	command.Flags().StringVar(&overlayPath, "overlay", "", "Path to overlay spec file (e.g. agent-host.dev.json)")
+	command.Flags().StringVar(&prefix, "prefix", "", "Install under this prefix instead of live paths (tests)")
+	command.Flags().StringVar(&releasesRoot, "releases-root", "", "Override releases directory (tests)")
+	command.Flags().StringVar(&baseURL, "base-url", "", "Override release manifest base URL (defaults to spec.release.manifestBaseURL)")
+	command.Flags().StringVar(&pubKeyPath, "pubkey", "", "Path to Ed25519 verification public key")
+	command.Flags().IntVar(&keep, "keep", 0, "Override number of release generations to retain")
+	command.Flags().IntVar(&slotCount, "slot-count", 0, "Override spec.slotCount")
+	command.Flags().BoolVar(&dryRun, "dry-run", false, "Report drift against the latest release without applying or rolling back")
+	command.Flags().BoolVar(&diff, "diff", false, "Print detailed diffs alongside --dry-run")
+	return command
+}
+
+func newAgentHostRollbackCommand() *cobra.Command {
+	var prefix string
+	var releasesRoot string
+	var to string
+	var slotCount int
+
+	command := &cobra.Command{
+		Use:   "rollback",
+		Short: "Roll back to a previously-installed Tier 2 release generation",
+		Long: "Re-applies a previously-installed release generation (defaulting to the one\n" +
+			"immediately before the current one) and updates the current pointer. Operates purely on\n" +
+			"generations already extracted locally under /var/lib/agent-host/releases; never contacts\n" +
+			"the network, so it cannot be blocked by the same connectivity or signing issue that may\n" +
+			"have caused the incident.",
+		SilenceUsage: true,
+		Args:         cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if prefix == "" {
+				prefix = os.Getenv("GDG_SETUP_PREFIX")
+			}
+			return agenthost.Rollback(context.Background(), agenthost.RollbackOptions{
+				ReleasesRoot: releasesRoot,
+				Prefix:       prefix,
+				To:           to,
+				SlotCount:    slotCount,
+			})
+		},
+	}
+	command.Flags().StringVar(&prefix, "prefix", "", "Install under this prefix instead of live paths (tests)")
+	command.Flags().StringVar(&releasesRoot, "releases-root", "", "Override releases directory (tests)")
+	command.Flags().StringVar(&to, "to", "", "Target version to roll back to (defaults to the generation immediately before current)")
+	command.Flags().IntVar(&slotCount, "slot-count", 0, "Override spec.slotCount")
 	return command
 }
