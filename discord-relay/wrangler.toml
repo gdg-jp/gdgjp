@@ -1,0 +1,30 @@
+name = "gdgjp-discord-relay"
+main = "./workers/app.ts"
+compatibility_date = "2026-07-28"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "production"
+APP_URL = "https://relay.gdgs.jp"
+ACCOUNTS_URL = "https://accounts.gdgs.jp"
+IDP_URL = "https://accounts.gdgs.jp"
+IDP_CLIENT_ID = "discord-relay"
+
+[assets]
+binding = "ASSETS"
+directory = "./build/client"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gdgjp-discord-relay-db"
+migrations_dir = "./migrations"
+
+# Worker-to-Worker OIDC (discovery, token, UserInfo) stays on Cloudflare's
+# internal network instead of looping through public HTTPS.
+[[services]]
+binding = "ACCOUNTS"
+service = "gdgjp-accounts"
+
+[[routes]]
+pattern = "relay.gdgs.jp/*"
+zone_name = "gdgs.jp"

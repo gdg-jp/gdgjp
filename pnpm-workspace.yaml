@@ -8,6 +8,7 @@ packages:
   - "connpass"
   - "pay"
   - "ost"
+  - "discord-relay"
   - "website"
   - "tinyurl-gateway"
   - "agents"
