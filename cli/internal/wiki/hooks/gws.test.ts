@@ -182,7 +182,16 @@ function setAmbientEnv(opts: { home: string; socketPath?: string }): void {
 }
 
 describe("gws.ts", () => {
-  it("the real CLI entrypoint always targets the fixed /opt/gdg-agent/bin/gws-bin, ignoring any env override", async () => {
+  it("the real CLI entrypoint always targets the fixed /opt/gdg-agent/bin/gws-bin, ignoring any env override", async (t) => {
+    // This assertion only holds hermetically when /opt/gdg-agent/bin/gws-bin is absent: spawning
+    // gws.ts then fails at exec time with a message naming that fixed path. On a host where the
+    // real binary is actually installed (e.g. a live agent-host production box), the spawn
+    // succeeds and the child attempts real Google Workspace API calls instead, which is a
+    // different (and non-hermetic) failure path this test can't assert on.
+    if (existsSync("/opt/gdg-agent/bin/gws-bin")) {
+      t.skip("requires a host without a real /opt/gdg-agent/bin/gws-bin installed");
+      return;
+    }
     const home = freshHome(["drive files list"]);
     const authz = await startAuthzStub({ gdgSub: "linked-user" });
     try {

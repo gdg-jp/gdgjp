@@ -16,6 +16,11 @@ type VerifyOptions struct {
 	Prefix      string
 }
 
+// slotZeroUsername is the OS account VerifyHost looks up to decide whether live uid checks apply
+// (a package variable, not a hardcoded literal, so tests can point it at a username guaranteed
+// not to exist rather than assuming the real production account is absent from the test host).
+var slotZeroUsername = "gdgagent-run-0"
+
 // VerifyHost runs the 13 verification checks verifying the agent-host isolation boundary.
 func VerifyHost(ctx context.Context, opts VerifyOptions) error {
 	spec, err := loadSpecWithOverlay(opts.SpecPath, opts.OverlayPath)
@@ -62,7 +67,7 @@ func VerifyHost(ctx context.Context, opts VerifyOptions) error {
 		return nil
 	}
 
-	_, lookupErr := user.Lookup("gdgagent-run-0")
+	_, lookupErr := user.Lookup(slotZeroUsername)
 	if lookupErr != nil {
 		fmt.Println("    skip live uid checks until OS users exist")
 		return nil
