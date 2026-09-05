@@ -37,6 +37,18 @@ const copies = [
     dest: join(configDest, "backends/antigravity/README.md"),
   },
   {
+    src: join(repositoryRoot, "agent-host/config/backends/antigravity/permissions.json"),
+    dest: join(configDest, "backends/antigravity/permissions.json"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/config/backends/antigravity/hooks.json"),
+    dest: join(configDest, "backends/antigravity/hooks.json"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/config/backends/antigravity/settings.json"),
+    dest: join(configDest, "backends/antigravity/settings.json"),
+  },
+  {
     src: join(repositoryRoot, "agent-host/config/extra-mcp.json"),
     dest: join(configDest, "extra-mcp.json"),
   },

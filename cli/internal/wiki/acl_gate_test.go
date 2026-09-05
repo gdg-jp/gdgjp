@@ -305,6 +305,178 @@ func TestACLGateShellGwsAllowlist(t *testing.T) {
 	}
 }
 
+// Stage 14 (ADR-032): acl-gate.ts is reused for the Antigravity backend via a payload/output
+// translation boundary. These tests exercise that boundary directly with Antigravity's
+// documented PreToolUse shape ({"toolCall":{"name","args"}}, decision:"allow"/"deny"),
+// while the tests above continue to exercise Cursor's unchanged shape — same judgment logic,
+// different wire format on each side.
+func assertAntigravityDeny(t *testing.T, stdout, want string) {
+	t.Helper()
+	if !strings.Contains(stdout, `"decision":"deny"`) {
+		t.Fatalf("expected decision:deny JSON, got %s", stdout)
+	}
+	if want != "" && !strings.Contains(stdout, want) {
+		t.Fatalf("expected %q in %s", want, stdout)
+	}
+}
+
+func assertAntigravityAllow(t *testing.T, stdout string) {
+	t.Helper()
+	var payload struct {
+		Decision string `json:"decision"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stdout)), &payload); err != nil {
+		t.Fatalf("allow must write decision JSON, got %s", stdout)
+	}
+	if payload.Decision != "allow" {
+		t.Fatalf("expected decision allow, got %s", stdout)
+	}
+}
+
+// runAntigravityGate sets ACL_GATE_BACKEND=antigravity, the only thing that selects the
+// output wire format (out-of-band, per ADR-032 review: never sniffed from the payload).
+func runAntigravityGate(
+	t *testing.T,
+	dir string,
+	env []string,
+	payload map[string]any,
+	extraArgv ...string,
+) (stdout, stderr string) {
+	t.Helper()
+	base := env
+	if base == nil {
+		base = os.Environ()
+	}
+	return runGateEnv(t, dir, append(append([]string{}, base...), "ACL_GATE_BACKEND=antigravity"), payload, extraArgv...)
+}
+
+func TestACLGateAntigravityPayloadShape(t *testing.T) {
+	root := t.TempDir()
+	writeClone(t, root)
+
+	// run_command via wk is allowed, and output uses Antigravity's decision format,
+	// not Cursor's permission format.
+	stdout, _ := runAntigravityGate(t, root, nil, map[string]any{
+		"toolCall": map[string]any{
+			"name": "run_command",
+			"args": map[string]any{"CommandLine": "wk read pages/x/page.md"},
+		},
+		"cwd": root,
+	})
+	assertAntigravityAllow(t, stdout)
+	if strings.Contains(stdout, "permission") {
+		t.Fatalf("antigravity output must not use cursor's permission format: %s", stdout)
+	}
+
+	// run_command outside wk/gws is denied — same judgment as Cursor's Shell tool.
+	stdout, _ = runAntigravityGate(t, root, nil, map[string]any{
+		"toolCall": map[string]any{
+			"name": "run_command",
+			"args": map[string]any{"CommandLine": "cat /etc/passwd"},
+		},
+		"cwd": root,
+	})
+	assertAntigravityDeny(t, stdout, "wk")
+
+	// A tool with no mapping (e.g. propose_code, a file-mutation tool) falls through to
+	// the same default-deny as Cursor's unmapped tools.
+	stdout, _ = runAntigravityGate(t, root, nil, map[string]any{
+		"toolCall": map[string]any{"name": "propose_code", "args": map[string]any{}},
+		"cwd":      root,
+	})
+	assertAntigravityDeny(t, stdout, "blocked")
+}
+
+// Review finding (P1): the wire format must be selected out-of-band, not sniffed from the
+// payload — otherwise a malformed or unexpectedly-shaped Antigravity payload silently answers
+// in Cursor's permission:deny format, which Antigravity has no confirmed fail-closed handling
+// for (ADR-032). These prove ACL_GATE_BACKEND=antigravity always yields decision:deny, no
+// matter how broken the input is.
+func TestACLGateAntigravityMalformedPayloadStillDeniesInAntigravityFormat(t *testing.T) {
+	root := t.TempDir()
+	writeClone(t, root)
+
+	stdout, _ := runAntigravityGateRawStdin(t, root, "not json at all")
+	assertAntigravityDeny(t, stdout, "")
+	if strings.Contains(stdout, "permission") {
+		t.Fatalf("malformed JSON must still answer in antigravity format, got %s", stdout)
+	}
+
+	stdout, _ = runAntigravityGateRawStdin(t, root, "")
+	assertAntigravityDeny(t, stdout, "")
+
+	// Valid JSON, but no toolCall object at all (e.g. Cursor's own shape sent by mistake,
+	// or a future Antigravity version that renamed the field).
+	stdout, _ = runAntigravityGate(t, root, nil, map[string]any{
+		"tool_name":  "Shell",
+		"cwd":        root,
+		"tool_input": map[string]any{"command": "wk read pages/x/page.md"},
+	})
+	assertAntigravityDeny(t, stdout, "")
+	if strings.Contains(stdout, "permission") {
+		t.Fatalf("cursor-shaped payload under ACL_GATE_BACKEND=antigravity must still answer in antigravity format, got %s", stdout)
+	}
+
+	// toolCall present but not an object.
+	stdout, _ = runAntigravityGate(t, root, nil, map[string]any{"toolCall": "not-an-object", "cwd": root})
+	assertAntigravityDeny(t, stdout, "")
+}
+
+func runAntigravityGateRawStdin(t *testing.T, dir, rawStdin string) (stdout, stderr string) {
+	t.Helper()
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node not available")
+	}
+	cmd := exec.Command("node", gateScript(t))
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "ACL_GATE_BACKEND=antigravity")
+	cmd.Stdin = strings.NewReader(rawStdin)
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	if runErr := cmd.Run(); runErr != nil {
+		t.Fatalf("gate exited %v\nstdout=%s\nstderr=%s", runErr, outBuf.String(), errBuf.String())
+	}
+	return outBuf.String(), errBuf.String()
+}
+
+func TestACLGateAntigravityGwsAllowlistEnvOverride(t *testing.T) {
+	root := t.TempDir()
+	writeClone(t, root)
+
+	// A HOME with no ~/.cursor/permissions.json at all — Antigravity slot users won't have
+	// one — proves the allowlist really comes from GDG_GWS_ALLOWLIST_PATH, not the cursor
+	// default path silently still resolving.
+	home := t.TempDir()
+	allowlistPath := filepath.Join(t.TempDir(), "antigravity-permissions.json")
+	raw, err := json.Marshal(map[string]any{"gwsAllowlist": []string{"drive files list"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(allowlistPath, raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	env := append(os.Environ(), "HOME="+home, "GDG_GWS_ALLOWLIST_PATH="+allowlistPath)
+
+	stdout, _ := runAntigravityGate(t, root, env, map[string]any{
+		"toolCall": map[string]any{
+			"name": "run_command",
+			"args": map[string]any{"CommandLine": "gws drive files list"},
+		},
+		"cwd": root,
+	})
+	assertAntigravityAllow(t, stdout)
+
+	stdout, _ = runAntigravityGate(t, root, env, map[string]any{
+		"toolCall": map[string]any{
+			"name": "run_command",
+			"args": map[string]any{"CommandLine": "gws drive files delete FILE_ID"},
+		},
+		"cwd": root,
+	})
+	assertAntigravityDeny(t, stdout, "")
+}
+
 func TestACLGateShellAllowlist(t *testing.T) {
 	root := t.TempDir()
 	writeClone(t, root)

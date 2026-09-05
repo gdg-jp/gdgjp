@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -516,29 +517,241 @@ func (a *antigravityPolicy) Name() string { return "antigravity" }
 
 func (a *antigravityPolicy) Capabilities() BackendCapabilities {
 	return BackendCapabilities{
-		SlotLauncher: true,   // Stage 12: CliRunnerBase now sudo-execs spawn-slot-<N> for all adapters
-		OSSandbox:    "none", // Stage 14
-		ToolGate:     "none", // Stage 14
+		SlotLauncher: true, // Stage 12: CliRunnerBase now sudo-execs spawn-slot-<N> for all adapters
+		// Stage 14 (ADR-032): agy's --sandbox / enableTerminalSandbox exists, but its read
+		// boundary was not verified equivalent to Cursor's readBoundary: workspace. Recording
+		// this as anything but "none" without that proof would be exactly the registry lie
+		// Stage 11 forbids, so it stays false until a VM-based boundary test confirms it.
+		OSSandbox: "none",
+		// Stage 14 (ADR-032, and its code-review follow-up): the mechanism is implemented
+		// below (acl-gate.ts reused via a root-owned per-slot hooks.json, a hard
+		// decision:"deny" in agy's documented PreToolUse contract) and end-to-end tested
+		// against the unpinned agy 1.1.3 available during development. It still stays
+		// "none" here: the registry must not claim a stronger guarantee than a pinned,
+		// checksummed release actually provides, and no agy version is pinned yet
+		// (docs/agents-local-mvp/adr.md ADR-032 residual tasks). Flip this only after
+		// pins.antigravity is set to a real version+sha256 and an agy-driven E2E deny
+		// test passes against that exact pinned binary.
+		ToolGate:     "none",
 		PolicyBundle: "antigravity",
 	}
 }
 
 func (a *antigravityPolicy) ValidateBundleInvariants(iso IsolationSpec) error {
-	// Stage 14 will implement bundle verification once the bundle is checked in
+	bundleDir := a.Capabilities().PolicyBundle
+
+	if iso.ToolGate == "preToolUse-failClosed" {
+		permBytes, err := backendConfigBytes(bundleDir, "permissions.json")
+		if err != nil {
+			return fmt.Errorf("failed to read antigravity permissions.json: %w", err)
+		}
+		var permData struct {
+			GwsAllowlist []string `json:"gwsAllowlist"`
+		}
+		if err := json.Unmarshal(permBytes, &permData); err != nil {
+			return fmt.Errorf("failed to parse antigravity permissions.json: %w", err)
+		}
+
+		if err := validateAntigravityHooksBundle(bundleDir); err != nil {
+			return err
+		}
+
+		if err := validateAntigravitySettingsBundle(bundleDir); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
+// validateAntigravitySettingsBundle checks settings.json (agy's own native config, deployed to
+// ~/.gemini/antigravity-cli/settings.json) grants the "command" permission for wk and gws.
+//
+// This is a second, independent gate discovered empirically (ADR-032 E2E test): agy's headless
+// mode auto-denies any "command"-type tool call that lacks a matching permissions.allow entry,
+// regardless of what the PreToolUse hook decides — the hook returning decision:"allow" for a wk
+// invocation is not sufficient on its own for the call to actually run in production. Without
+// this, the toolGate mechanism would fail safe but be unusable: wk/gws would never execute.
+func validateAntigravitySettingsBundle(bundleDir string) error {
+	settingsBytes, err := backendConfigBytes(bundleDir, "settings.json")
+	if err != nil {
+		return fmt.Errorf("failed to read antigravity settings.json: %w", err)
+	}
+	var settingsData struct {
+		Permissions struct {
+			Allow []string `json:"allow"`
+		} `json:"permissions"`
+	}
+	if err := json.Unmarshal(settingsBytes, &settingsData); err != nil {
+		return fmt.Errorf("failed to parse antigravity settings.json: %w", err)
+	}
+	for _, want := range []string{"command(wk)", "command(gws)"} {
+		if !slices.Contains(settingsData.Permissions.Allow, want) {
+			return fmt.Errorf(
+				"backend bundle violation: settings.json permissions.allow must contain %q",
+				want,
+			)
+		}
+	}
+	return nil
+}
+
+// antigravityHooksFile mirrors the shape documented for agy's hooks.json (see ADR-032):
+// a map of hook-name to event lists, PreToolUse entries grouped by matcher+hooks.
+type antigravityHooksFile map[string]struct {
+	PreToolUse []struct {
+		Matcher string `json:"matcher"`
+		Hooks   []struct {
+			Type    string `json:"type"`
+			Command string `json:"command"`
+			Timeout int    `json:"timeout"`
+		} `json:"hooks"`
+	} `json:"PreToolUse"`
+}
+
+// validateAntigravityHooksBundle checks the structural invariants a hostile edit could break
+// silently. The command is intentionally exact: accepting substrings would allow a shell prefix,
+// suffix, or reordered environment assignment to satisfy validation without executing the gate
+// under the intended policy.
+func validateAntigravityHooksBundle(bundleDir string) error {
+	hooksBytes, err := backendConfigBytes(bundleDir, "hooks.json")
+	if err != nil {
+		return fmt.Errorf("failed to read antigravity hooks.json: %w", err)
+	}
+	var hooksData antigravityHooksFile
+	if err := json.Unmarshal(hooksBytes, &hooksData); err != nil {
+		return fmt.Errorf("failed to parse antigravity hooks.json: %w", err)
+	}
+
+	for name, hook := range hooksData {
+		for _, entry := range hook.PreToolUse {
+			if entry.Matcher != "*" {
+				continue
+			}
+			for _, h := range entry.Hooks {
+				if h.Type != "command" {
+					continue
+				}
+				wantCommand := strings.Join([]string{
+					"ACL_GATE_BACKEND=antigravity",
+					"GDG_GWS_ALLOWLIST_PATH=/opt/gdg-agent/lib/antigravity-permissions.json",
+					"/usr/bin/node",
+					"/opt/gdg-agent/lib/acl-gate.ts",
+					"/opt/gdg-agent/bin/wk",
+					"/opt/gdg-agent/bin/gws",
+				}, " ")
+				if h.Command != wantCommand {
+					continue
+				}
+				if h.Timeout <= 0 {
+					return fmt.Errorf(
+						"backend bundle violation: hooks.json entry %q must set a positive timeout",
+						name,
+					)
+				}
+				return nil
+			}
+		}
+	}
+	return errors.New(
+		"backend bundle violation: hooks.json must contain a PreToolUse command hook matching \"*\" with the exact Antigravity acl-gate command",
+	)
+}
+
 func (a *antigravityPolicy) BuildHostResources(paths layoutPaths) ([]Resource, error) {
-	// Stage 14 will implement Antigravity host resources
-	return nil, nil
+	var res []Resource
+	bundleDir := a.Capabilities().PolicyBundle
+
+	if paths.Spec.Backend.Isolation.ToolGate == "preToolUse-failClosed" {
+		permissions, err := backendConfigBytes(bundleDir, "permissions.json")
+		if err != nil {
+			return nil, err
+		}
+		// Host-wide, not per-slot: every slot's hooks.json (below) points at the same
+		// fixed path via GDG_GWS_ALLOWLIST_PATH, so one shared, root-owned copy suffices —
+		// this leaves Cursor's per-slot ~/.cursor/permissions.json (and its default
+		// lookup path) untouched.
+		res = append(res, &FileResource{
+			Path:  filepath.Join(paths.AgentRoot, "lib", "antigravity-permissions.json"),
+			Data:  permissions,
+			Mode:  0o444,
+			Owner: "root",
+			Group: "root",
+		})
+	}
+
+	return res, nil
 }
 
 func (a *antigravityPolicy) BuildSlotDirectories(paths layoutPaths, slot int) ([]Resource, error) {
-	// Stage 14 will implement Antigravity slot directories
-	return nil, nil
+	if paths.Spec.Backend.Isolation.ToolGate != "preToolUse-failClosed" {
+		return nil, nil
+	}
+	slotUser := fmt.Sprintf("gdgagent-run-%d", slot)
+	slotHome := filepath.Join(paths.HomeRoot, slotUser)
+	// Same shape as Cursor's ~/.cursor/: root-owned, sticky-bit group-writable directories
+	// (slotUser can create files but — per the sticky bit — cannot delete or rename ones it
+	// doesn't own) holding individually root-owned, mode-0444 config files. A slot process
+	// cannot read its own gate out of the loop even though it runs as the uid the gate exists
+	// to constrain (review finding: workspace-synced content under gdgwiki-group-writable
+	// WikiRoot could not make this guarantee, since every slot user is a member of gdgwiki).
+	// .gemini/config/hooks.json is agy's "Global Customizations Root" (its own term) for the
+	// PreToolUse gate; .gemini/antigravity-cli/settings.json is a second, independent gate
+	// agy enforces for any "command"-type tool call regardless of the hook's own verdict —
+	// found empirically in the ADR-032 E2E test, not documented anywhere discovered so far.
+	return []Resource{
+		&DirResource{
+			Path:  filepath.Join(slotHome, ".gemini"),
+			Mode:  unixFileMode(0o1775),
+			Owner: "root",
+			Group: slotUser,
+		},
+		&DirResource{
+			Path:  filepath.Join(slotHome, ".gemini", "config"),
+			Mode:  unixFileMode(0o1775),
+			Owner: "root",
+			Group: slotUser,
+		},
+		&DirResource{
+			Path:  filepath.Join(slotHome, ".gemini", "antigravity-cli"),
+			Mode:  unixFileMode(0o1775),
+			Owner: "root",
+			Group: slotUser,
+		},
+	}, nil
 }
 
 func (a *antigravityPolicy) BuildSlotResources(paths layoutPaths, slot int, slotRunDir, indexSocket string) ([]Resource, error) {
-	// Stage 14 will implement Antigravity slot configuration resources
-	return nil, nil
+	if paths.Spec.Backend.Isolation.ToolGate != "preToolUse-failClosed" {
+		return nil, nil
+	}
+	slotUser := fmt.Sprintf("gdgagent-run-%d", slot)
+	slotHome := filepath.Join(paths.HomeRoot, slotUser)
+	bundleDir := a.Capabilities().PolicyBundle
+
+	hooks, err := backendConfigBytes(bundleDir, "hooks.json")
+	if err != nil {
+		return nil, err
+	}
+	settings, err := backendConfigBytes(bundleDir, "settings.json")
+	if err != nil {
+		return nil, err
+	}
+
+	return []Resource{
+		&FileResource{
+			Path:  filepath.Join(slotHome, ".gemini", "config", "hooks.json"),
+			Data:  []byte(subst(string(hooks), paths.SpecAgentRoot, "", "")),
+			Mode:  0o444,
+			Owner: "root",
+			Group: "root",
+		},
+		&FileResource{
+			Path:  filepath.Join(slotHome, ".gemini", "antigravity-cli", "settings.json"),
+			Data:  settings,
+			Mode:  0o444,
+			Owner: "root",
+			Group: "root",
+		},
+	}, nil
 }

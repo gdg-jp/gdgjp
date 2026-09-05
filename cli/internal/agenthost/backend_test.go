@@ -1,8 +1,11 @@
 package agenthost
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -104,7 +107,13 @@ func TestAntigravityBackendFailsClosedAndLeavesHostUntouched(t *testing.T) {
 		}
 	}
 	// Stage 12 lifted slot isolation into CliRunnerBase for every adapter, so antigravity
-	// now satisfies slotLauncher — only osSandbox and toolGate remain blocking (Stage 14).
+	// now satisfies slotLauncher — only osSandbox and toolGate remain blocking. Stage 14
+	// (ADR-032) implemented the toolGate mechanism (acl-gate.ts reuse, root-owned per-slot
+	// hooks.json) and end-to-end tested it against an unpinned agy, but its code-review
+	// follow-up requires a pinned+checksummed agy version and an E2E test against that exact
+	// binary before the registry may claim toolGate: the mechanism working on one unpinned
+	// dev build isn't the same guarantee as "this is what production runs". So toolGate stays
+	// a blocking reason here until pins.antigravity is set (see ADR-032 residual tasks).
 	if strings.Contains(errMsg, "slotLauncher") {
 		t.Errorf("slotLauncher should no longer be a failure for antigravity after Stage 12; got:\n%s", errMsg)
 	}
@@ -142,12 +151,15 @@ func TestAntigravitySlotLauncherSatisfiedAfterStage12(t *testing.T) {
 	}
 
 	// production spec still requires the full contract, so switching to antigravity
-	// remains rejected — but only for osSandbox/toolGate now, not slotLauncher.
+	// remains rejected for osSandbox and toolGate — only slotLauncher (Stage 12) is
+	// satisfied. toolGate's mechanism is implemented (Stage 14/ADR-032) but the registry
+	// withholds the guarantee until a pinned+checksummed agy version passes its own E2E
+	// deny test (see ADR-032 residual tasks and its code-review follow-up).
 	prodSpec := validProductionSpec()
 	prodSpec.Backend.Name = "antigravity"
 	err := ValidateBackendContract(prodSpec)
 	if err == nil {
-		t.Fatalf("expected production spec to still reject antigravity (osSandbox/toolGate pending Stage 14)")
+		t.Fatalf("expected production spec to still reject antigravity (osSandbox/toolGate pending)")
 	}
 	if strings.Contains(err.Error(), "slotLauncher") {
 		t.Errorf("slotLauncher must not appear in the rejection reason after Stage 12; got: %v", err)
@@ -425,6 +437,230 @@ func TestCursorBundleInvariants(t *testing.T) {
 	}
 }
 
+// This is the deterministic half of the Antigravity E2E chain: read the command from the
+// shipped hooks.json, preserve its environment selector and argv, invoke the real acl-gate.ts
+// with agy's documented payload shape, and prove a non-wk/gws command receives a hard deny.
+// The separate pinned-agy E2E still has to prove the CLI itself honors that decision.
+func TestAntigravityShippedHookDeniesDisallowedCommand(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node not available")
+	}
+
+	hooksBytes, err := backendConfigBytes("antigravity", "hooks.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hooks antigravityHooksFile
+	if err := json.Unmarshal(hooksBytes, &hooks); err != nil {
+		t.Fatalf("parse shipped antigravity hooks.json: %v", err)
+	}
+
+	var hookCommand string
+	for _, group := range hooks {
+		for _, event := range group.PreToolUse {
+			if event.Matcher != "*" {
+				continue
+			}
+			for _, hook := range event.Hooks {
+				if strings.Contains(hook.Command, "acl-gate.ts") {
+					hookCommand = hook.Command
+					break
+				}
+			}
+		}
+	}
+	if hookCommand == "" {
+		t.Fatal("shipped antigravity hooks.json has no catch-all acl-gate.ts command")
+	}
+
+	fields := strings.Fields(hookCommand)
+	var hookEnv []string
+	for len(fields) > 0 && strings.Contains(fields[0], "=") {
+		hookEnv = append(hookEnv, fields[0])
+		fields = fields[1:]
+	}
+	if len(fields) < 2 {
+		t.Fatalf("invalid shipped hook command %q", hookCommand)
+	}
+	nodePath, err := exec.LookPath("node")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gatePath, err := filepath.Abs(filepath.Join("..", "wiki", "hooks", "acl-gate.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fields[0] = nodePath
+	fields[1] = gatePath
+
+	payload, err := json.Marshal(map[string]any{
+		"toolCall": map[string]any{
+			"name": "run_command",
+			"args": map[string]any{"CommandLine": "cat /etc/passwd"},
+		},
+		"cwd": t.TempDir(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(fields[0], fields[1:]...)
+	cmd.Env = append(os.Environ(), hookEnv...)
+	cmd.Stdin = bytes.NewReader(payload)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+	if err != nil {
+		t.Fatalf("shipped antigravity hook command failed: %v\nstdout=%s\nstderr=%s", err, stdout.Bytes(), stderr.Bytes())
+	}
+	var decision struct {
+		Decision string `json:"decision"`
+		Reason   string `json:"reason"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &decision); err != nil {
+		t.Fatalf("hook output is not decision JSON: %v\nstdout=%s\nstderr=%s", err, stdout.Bytes(), stderr.Bytes())
+	}
+	if decision.Decision != "deny" || !strings.Contains(decision.Reason, "wk") {
+		t.Fatalf("expected hard deny from shipped hook chain, got %s", stdout.Bytes())
+	}
+}
+
+func TestAntigravityBundleInvariants(t *testing.T) {
+	iso := IsolationSpec{
+		SlotLauncher: true,
+		OSSandbox:    "none",
+		ToolGate:     "preToolUse-failClosed",
+	}
+	if err := ValidateBackendBundleInvariants("antigravity", iso); err != nil {
+		t.Fatalf("expected antigravity bundle to satisfy all invariants, got: %v", err)
+	}
+}
+
+// Review finding (P1): a bundle invariant check must fail if the deployed hooks.json is
+// tampered with such that it stops selecting Antigravity's decision:"deny"/"allow" wire format
+// — otherwise the capability registry could keep advertising a working gate after an edit
+// silently broke it. writeAntigravityBundle lets these tests substitute a broken hooks.json or
+// settings.json for the real one via withConfigOverrideRoot.
+func writeAntigravityBundle(t *testing.T, files map[string]string) string {
+	t.Helper()
+	dir := t.TempDir()
+	bundleDir := filepath.Join(dir, "backends", "antigravity")
+	if err := os.MkdirAll(bundleDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	defaults := map[string]string{
+		"hooks.json": `{
+  "acl-gate": {
+    "PreToolUse": [
+      {"matcher": "*", "hooks": [{"type": "command", "command": "ACL_GATE_BACKEND=antigravity GDG_GWS_ALLOWLIST_PATH=/opt/gdg-agent/lib/antigravity-permissions.json /usr/bin/node /opt/gdg-agent/lib/acl-gate.ts /opt/gdg-agent/bin/wk /opt/gdg-agent/bin/gws", "timeout": 10}]}
+    ]
+  }
+}`,
+		"settings.json":    `{"permissions": {"allow": ["command(wk)", "command(gws)"]}}`,
+		"permissions.json": `{"gwsAllowlist": []}`,
+	}
+	for name, content := range defaults {
+		if override, ok := files[name]; ok {
+			content = override
+		}
+		if err := os.WriteFile(filepath.Join(bundleDir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+func TestAntigravityHooksBundleInvariantCatchesMissingBackendSelector(t *testing.T) {
+	iso := IsolationSpec{SlotLauncher: true, OSSandbox: "none", ToolGate: "preToolUse-failClosed"}
+	override := writeAntigravityBundle(t, map[string]string{
+		// ACL_GATE_BACKEND=antigravity dropped: acl-gate.ts would silently answer in
+		// Cursor's permission:deny format instead, which agy has no confirmed handling for.
+		"hooks.json": `{
+  "acl-gate": {
+    "PreToolUse": [
+      {"matcher": "*", "hooks": [{"type": "command", "command": "node /opt/gdg-agent/lib/acl-gate.ts", "timeout": 10}]}
+    ]
+  }
+}`,
+	})
+	var err error
+	if wrapErr := withConfigOverrideRoot(override, func() error {
+		err = ValidateBackendBundleInvariants("antigravity", iso)
+		return nil
+	}); wrapErr != nil {
+		t.Fatal(wrapErr)
+	}
+	if err == nil || !strings.Contains(err.Error(), "exact Antigravity acl-gate command") {
+		t.Fatalf("expected rejection citing the invalid gate command, got: %v", err)
+	}
+}
+
+func TestAntigravityHooksBundleInvariantCatchesMissingTimeout(t *testing.T) {
+	iso := IsolationSpec{SlotLauncher: true, OSSandbox: "none", ToolGate: "preToolUse-failClosed"}
+	override := writeAntigravityBundle(t, map[string]string{
+		"hooks.json": `{
+  "acl-gate": {
+    "PreToolUse": [
+      {"matcher": "*", "hooks": [{"type": "command", "command": "ACL_GATE_BACKEND=antigravity GDG_GWS_ALLOWLIST_PATH=/opt/gdg-agent/lib/antigravity-permissions.json /usr/bin/node /opt/gdg-agent/lib/acl-gate.ts /opt/gdg-agent/bin/wk /opt/gdg-agent/bin/gws"}]}
+    ]
+  }
+}`,
+	})
+	var err error
+	if wrapErr := withConfigOverrideRoot(override, func() error {
+		err = ValidateBackendBundleInvariants("antigravity", iso)
+		return nil
+	}); wrapErr != nil {
+		t.Fatal(wrapErr)
+	}
+	if err == nil || !strings.Contains(err.Error(), "timeout") {
+		t.Fatalf("expected rejection citing the missing timeout, got: %v", err)
+	}
+}
+
+func TestAntigravityHooksBundleInvariantCatchesWrongMatcher(t *testing.T) {
+	iso := IsolationSpec{SlotLauncher: true, OSSandbox: "none", ToolGate: "preToolUse-failClosed"}
+	override := writeAntigravityBundle(t, map[string]string{
+		// A narrowed matcher would silently exempt every other tool name from the gate.
+		"hooks.json": `{
+  "acl-gate": {
+    "PreToolUse": [
+      {"matcher": "run_command", "hooks": [{"type": "command", "command": "ACL_GATE_BACKEND=antigravity GDG_GWS_ALLOWLIST_PATH=/opt/gdg-agent/lib/antigravity-permissions.json /usr/bin/node /opt/gdg-agent/lib/acl-gate.ts /opt/gdg-agent/bin/wk /opt/gdg-agent/bin/gws", "timeout": 10}]}
+    ]
+  }
+}`,
+	})
+	var err error
+	if wrapErr := withConfigOverrideRoot(override, func() error {
+		err = ValidateBackendBundleInvariants("antigravity", iso)
+		return nil
+	}); wrapErr != nil {
+		t.Fatal(wrapErr)
+	}
+	if err == nil {
+		t.Fatalf("expected rejection of a hooks.json with no \"*\" matcher invoking acl-gate.ts")
+	}
+}
+
+func TestAntigravitySettingsBundleInvariantCatchesMissingAllowRule(t *testing.T) {
+	iso := IsolationSpec{SlotLauncher: true, OSSandbox: "none", ToolGate: "preToolUse-failClosed"}
+	override := writeAntigravityBundle(t, map[string]string{
+		// Without command(wk)/command(gws), headless mode auto-denies every wk/gws
+		// invocation regardless of the hook's own decision:"allow" (ADR-032 E2E finding).
+		"settings.json": `{"permissions": {"allow": ["command(wk)"]}}`,
+	})
+	var err error
+	if wrapErr := withConfigOverrideRoot(override, func() error {
+		err = ValidateBackendBundleInvariants("antigravity", iso)
+		return nil
+	}); wrapErr != nil {
+		t.Fatal(wrapErr)
+	}
+	if err == nil || !strings.Contains(err.Error(), "command(gws)") {
+		t.Fatalf("expected rejection citing the missing command(gws) allow-rule, got: %v", err)
+	}
+}
+
 func TestSandboxReadonlyPathsCanonicalization(t *testing.T) {
 	// Valid baseline
 	validPaths := []string{
@@ -510,21 +746,49 @@ func TestBackendPolicyResourceDispatch(t *testing.T) {
 		t.Errorf("expected 5 slot resources for cursor, got %d", len(slotRes))
 	}
 
-	// Antigravity policy dispatch (stubs for stage 12-14)
+	// Antigravity policy dispatch. Stage 14 (ADR-032) implemented the toolGate layer as a
+	// root-owned per-slot ~/.gemini/config/hooks.json (mirroring Cursor's ~/.cursor/ pattern,
+	// after a code-review finding that Tier-1 workspace-synced content is group-writable by
+	// every gdgagent-run-* slot user and so cannot constrain them). BuildHostResources/
+	// BuildSlotDirectories/BuildSlotResources are keyed off the spec's requested isolation
+	// (validProductionSpec() always requests the full 3 layers, regardless of backend.name),
+	// not the capability registry — GetBackendCapabilities("antigravity").ToolGate stays
+	// "none" until a pinned+checksummed agy version passes an E2E deny test, but these
+	// resource builders are exercised here independently of that gate.
 	agPol, err := GetBackendPolicy("antigravity")
 	if err != nil {
 		t.Fatal(err)
 	}
 	agHostRes, err := agPol.BuildHostResources(paths)
-	if err != nil || len(agHostRes) != 0 {
-		t.Errorf("expected 0 host resources for antigravity in stage 11, got %d (err: %v)", len(agHostRes), err)
+	if err != nil || len(agHostRes) != 1 { // antigravity-permissions.json
+		t.Errorf("expected 1 host resource for antigravity after Stage 14, got %d (err: %v)", len(agHostRes), err)
 	}
 	agSlotDirs, err := agPol.BuildSlotDirectories(paths, 0)
-	if err != nil || len(agSlotDirs) != 0 {
-		t.Errorf("expected 0 slot dirs for antigravity in stage 11, got %d (err: %v)", len(agSlotDirs), err)
+	if err != nil || len(agSlotDirs) != 3 { // .gemini, .gemini/config, .gemini/antigravity-cli
+		t.Errorf("expected 3 slot dirs for antigravity after Stage 14, got %d (err: %v)", len(agSlotDirs), err)
 	}
 	agSlotRes, err := agPol.BuildSlotResources(paths, 0, "/run/gdg-agent/0", "/run/gdg-agent/0/index.sock")
-	if err != nil || len(agSlotRes) != 0 {
-		t.Errorf("expected 0 slot resources for antigravity in stage 11, got %d (err: %v)", len(agSlotRes), err)
+	if err != nil || len(agSlotRes) != 2 { // hooks.json, settings.json
+		t.Errorf("expected 2 slot resources for antigravity after Stage 14, got %d (err: %v)", len(agSlotRes), err)
+	}
+
+	customPaths := paths
+	customPaths.SpecAgentRoot = "/opt/custom-agent"
+	customSlotRes, err := agPol.BuildSlotResources(
+		customPaths,
+		0,
+		"/run/custom-agent/0",
+		"/run/custom-agent/0/index.sock",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hooksResource, ok := customSlotRes[0].(*FileResource)
+	if !ok {
+		t.Fatalf("expected first antigravity slot resource to be hooks.json, got %T", customSlotRes[0])
+	}
+	if !strings.Contains(string(hooksResource.Data), "/opt/custom-agent/lib/acl-gate.ts") ||
+		strings.Contains(string(hooksResource.Data), "/opt/gdg-agent/") {
+		t.Fatalf("antigravity hooks.json must honor paths.agentRoot, got:\n%s", hooksResource.Data)
 	}
 }

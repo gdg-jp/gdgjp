@@ -364,8 +364,27 @@ export function inspectGwsScript(command: string, allowlist: Set<string>): Shell
   return { ok: true, simples };
 }
 
-/** Fail closed: a missing, unreadable, or malformed allowlist approves nothing. */
+/**
+ * Fail closed: a missing, unreadable, or malformed allowlist approves nothing.
+ *
+ * The path is `~/.cursor/permissions.json` by default (Cursor's own config directory).
+ * A backend whose bundle isn't rooted there (e.g. Antigravity, Stage 14) must set
+ * GDG_GWS_ALLOWLIST_PATH so this stays backend-independent without moving Cursor's file.
+ */
 export function loadGwsAllowlist(): Set<string> {
+  const override = process.env.GDG_GWS_ALLOWLIST_PATH;
+  if (override) {
+    try {
+      const raw = readFileSync(override, "utf8");
+      const parsed: unknown = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return new Set();
+      const list = (parsed as { gwsAllowlist?: unknown }).gwsAllowlist;
+      if (!Array.isArray(list)) return new Set();
+      return new Set(list.filter((entry): entry is string => typeof entry === "string"));
+    } catch {
+      return new Set();
+    }
+  }
   const home = process.env.HOME;
   if (!home) return new Set();
   try {

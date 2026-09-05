@@ -504,7 +504,7 @@
     "path": "opt/gdg-agent/lib/acl-gate.ts",
     "type": "file",
     "mode": "0444",
-    "sha256": "5f46099da609860e4fa598ab4466444f972b8c0f4e8eb8d7410819dda35d7f39"
+    "sha256": "69c49059ae55e54227d3bc4a4b404d6d02a61c3fb6d1ac63da090de046124d46"
   },
   {
     "path": "opt/gdg-agent/lib/acl-insert-core.ts",
@@ -558,7 +558,7 @@
     "path": "opt/gdg-agent/lib/shell-allowlist.ts",
     "type": "file",
     "mode": "0444",
-    "sha256": "092627e8a5c2b8ee8b4b69d4a81dd28d0c371a3ed80f299d277ac8533528ce17"
+    "sha256": "11ed7e9264b7906054d92621c85e9dddd13dbe628098d1c7297ba008f60bb62b"
   },
   {
     "path": "opt/gdg-agent/lib/wk.ts",

@@ -46,7 +46,7 @@ The 3 layers are governed by the **Backend Capability Contract** in `spec.backen
 ```
 
 The Go converger (`gdg agent-host apply`) enforces this contract against a backend capabilities registry:
-- Switching `backend.name` to `antigravity` fails closed with explicit error messages for each missing layer. Since Stage 12 lifted slot isolation into `CliRunnerBase` for all xangi adapters, `slotLauncher` is satisfied; `osSandbox` and `toolGate` still block the switch pending Stage 14.
+- Switching `backend.name` to `antigravity` still fails closed. Stage 12 satisfies `slotLauncher`, and Stage 14 implements the `toolGate` mechanism by deploying root-owned per-slot `~/.gemini/config/hooks.json` and `~/.gemini/antigravity-cli/settings.json`; the hook reuses `cli/internal/wiki/hooks/acl-gate.ts` and emits Antigravity's hard `decision:"deny"` response. The capability registry nevertheless keeps `toolGate` at `"none"` until the same chain passes against a pinned, checksummed `agy` build. `osSandbox` also remains `"none"` until its workspace boundary is verified. Both missing claims therefore continue to block production application rather than weakening the three-layer contract.
 - Relaxing `backend.isolation` in `environment: "production"` is rejected against an immutable `productionMinimum` compiled into the `gdg` binary.
 - Self re-exec (`pins.gdgCli`) verifies the current binary's `productionMinimum` before re-exec and requires SHA-256 digests to match an approved release allowlist, preventing downgrade bypasses.
 - Backend configuration bundles are organized under `config/backends/<name>/` (e.g. `cursor/`), with the converger placing only the active backend's templates.

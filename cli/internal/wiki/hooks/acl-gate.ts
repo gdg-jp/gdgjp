@@ -41,7 +41,59 @@ type HookPayload = {
   path?: unknown;
   tool_input?: ToolInput;
   tool_name?: unknown;
+  /** Antigravity's PreToolUse shape (`{"toolCall":{"name":...,"args":{...}}}`); see normalizeAntigravityPayload. */
+  toolCall?: unknown;
 };
+
+/**
+ * Antigravity's PreToolUse hooks.json invokes this same script (Stage 14). Its payload and
+ * decision-output shapes differ from Cursor's, so this is a translation boundary only: it
+ * normalizes {"toolCall":{"name","args"}} into the same HookPayload/ToolInput shape Cursor
+ * produces, and later deny()/allow() serialize back to Antigravity's {"decision":...} format.
+ * The judgment logic in between (handleShell/handleReadLike/classifyPath/etc.) is untouched
+ * and identical for both backends — see docs/agents-local-refactoring/14-antigravity-backend.md
+ * and ADR-032 (docs/agents-local-mvp/adr.md) for why this reuse is possible and what remains
+ * unverified (exact PascalCase arg field names beyond run_command's CommandLine/Cwd).
+ */
+let outputMode: "cursor" | "antigravity" = "cursor";
+
+const ANTIGRAVITY_TOOL_MAP: Record<string, string> = {
+  run_command: "Shell",
+  view_file: "Read",
+  grep_search: "Grep",
+  list_directory: "List",
+  find: "Glob",
+};
+
+function normalizeAntigravityPayload(
+  toolCall: Record<string, unknown>,
+  rawCwd: unknown,
+): HookPayload {
+  const rawName = typeof toolCall.name === "string" ? toolCall.name : "";
+  const args = asRecord(toolCall.args) ?? {};
+  const tool_name = ANTIGRAVITY_TOOL_MAP[rawName] ?? rawName;
+
+  const command = typeof args.CommandLine === "string" ? args.CommandLine : undefined;
+  // Beyond run_command's CommandLine/Cwd (confirmed against the installed agy binary's
+  // embedded docs), these field names are unverified guesses at Antigravity's PascalCase
+  // convention. An unmatched name yields "no path", which handleReadLike() already denies
+  // (fail closed) rather than silently allowing — see ADR-032 investigation #4.
+  const file_path =
+    stringField(args.AbsolutePath) ??
+    stringField(args.TargetFile) ??
+    stringField(args.FilePath) ??
+    stringField(args.Path) ??
+    undefined;
+  const target_directory =
+    stringField(args.TargetDirectory) ?? stringField(args.SearchDirectory) ?? undefined;
+  const cwd = stringField(args.Cwd) ?? stringField(rawCwd) ?? undefined;
+
+  return {
+    cwd,
+    tool_name,
+    tool_input: { command, file_path, target_directory, cwd },
+  };
+}
 
 function readStdin(): string {
   try {
@@ -177,20 +229,29 @@ function audit(root: string | null, permission: "allow" | "deny", tool: string):
 
 function deny(root: string | null, tool: string, agentMessage: string): void {
   audit(root, "deny", tool);
-  process.stdout.write(
-    JSON.stringify({
-      permission: "deny",
-      agent_message: agentMessage,
-      user_message: "ACL gate blocked a tool call.",
-    }),
-  );
+  if (outputMode === "antigravity") {
+    // decision:"deny" is documented as a hard, unconditional block (see ADR-032).
+    process.stdout.write(JSON.stringify({ decision: "deny", reason: agentMessage }));
+  } else {
+    process.stdout.write(
+      JSON.stringify({
+        permission: "deny",
+        agent_message: agentMessage,
+        user_message: "ACL gate blocked a tool call.",
+      }),
+    );
+  }
   process.exit(0);
 }
 
 function allow(root: string | null, tool: string): void {
   audit(root, "allow", tool);
-  // failClosed: true treats empty stdout as a hook failure and blocks the tool.
-  process.stdout.write(JSON.stringify({ permission: "allow" }));
+  if (outputMode === "antigravity") {
+    process.stdout.write(JSON.stringify({ decision: "allow" }));
+  } else {
+    // failClosed: true treats empty stdout as a hook failure and blocks the tool.
+    process.stdout.write(JSON.stringify({ permission: "allow" }));
+  }
   process.exit(0);
 }
 
@@ -330,11 +391,31 @@ function mutateHint(tool: string): string {
 }
 
 async function main(): Promise<void> {
-  const payload = parsePayload(readStdin());
-  if (!payload) {
+  // Backend is selected out-of-band (the hooks.json command sets this env var), never by
+  // sniffing the payload shape: a malformed or empty stdin body must still get an answer in
+  // the right wire format, and Antigravity's exit-code-based fail-closed behavior is
+  // unconfirmed (ADR-032), so silently answering in Cursor's format on a parse failure would
+  // be an unverified fail-open risk rather than a safe fallback.
+  if (process.env.ACL_GATE_BACKEND === "antigravity") {
+    outputMode = "antigravity";
+  }
+
+  const raw = parsePayload(readStdin());
+  if (!raw) {
     deny(null, "unknown", "Malformed hook payload. Use wk for Wiki reads and writes.");
     return;
   }
+
+  let payload: HookPayload = raw;
+  if (outputMode === "antigravity") {
+    const toolCall = asRecord(raw.toolCall);
+    if (!toolCall) {
+      deny(null, "unknown", "Malformed hook payload. Use wk for Wiki reads and writes.");
+      return;
+    }
+    payload = normalizeAntigravityPayload(toolCall, raw.cwd);
+  }
+
   const tool = stringField(payload.tool_name) ?? "";
   const cwd = toolCwd(payload, process.cwd());
   const root = cloneRootOrNull(cwd) ?? cloneRootOrNull(process.cwd());
@@ -355,6 +436,17 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  process.stderr.write(`${error instanceof Error ? error.message : "acl-gate: failed"}\n`);
+  const message = error instanceof Error ? error.message : "acl-gate: failed";
+  process.stderr.write(`${message}\n`);
+  if (outputMode === "antigravity") {
+    // No documented exit-code-based fail-closed behavior is confirmed for Antigravity
+    // (ADR-032, investigation #1 follow-up), so an uncaught crash must still emit an
+    // explicit deny rather than relying on a non-zero exit to be treated as a block.
+    process.stdout.write(
+      JSON.stringify({ decision: "deny", reason: `acl-gate crashed: ${message}` }),
+    );
+    process.exit(0);
+    return;
+  }
   process.exit(1);
 });

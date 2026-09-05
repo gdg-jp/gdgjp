@@ -2417,3 +2417,195 @@ xangi 側の import 指定子も `@gdgjp/gdg-lib/acl` から `@gdgjp/gdg-lib/acl
 - xangi 側は本スライスの時点で先行して `@gdgjp/gdg-lib/acl/agent`（narrow 面）への import 移行を
   完了しており、publish 後の変更はパッケージ名のスコープ（`@gdgjp` → `@gdg-jp`）とレジストリ設定のみで済む。
 
+---
+
+## ADR-032: Stage 14 ブロッキング調査 — Antigravity (`agy`) の実際の能力
+
+### Status
+
+Accepted（調査のみ。実装は継続判断待ち — 下記 Consequences 参照）
+
+### Date
+
+2026-09-05
+
+### Context
+
+Stage 14（`docs/agents-local-refactoring/14-antigravity-backend.md`）は実装前に
+「`agy` に fail-closed なプログラム的 pre-tool フックがあるか」を確認し、無ければ
+実装者が独断で進めてはならないと定める。ADR-029 は当時の理解として
+「Antigravity（`agy` CLI）には同等のプログラム的 pre-tool フックが存在しない」と
+記録していたが、これは xangi 側のソース（`antigravity-cli.ts` が素の `spawn()` を
+使っていること）からの推論であり、`agy` 自体の能力を実地検証したものではなかった。
+
+この開発機に `agy` 1.1.3（`/Users/hari/.local/bin/agy`、Google の Antigravity CLI）が
+実際にインストールされていたため、`agy --help`、バイナリに埋め込まれた
+Markdown 形式のドキュメント文字列（`strings` で抽出。hooks.json の完全な仕様書が
+バイナリ内に埋め込まれている）、実機での `agy -p`（print/headless モード）実行、
+および `~/.gemini/config/hooks.json` ・ `~/.gemini/antigravity-cli/settings.json` という
+既存の実運用設定（Orca が同じフック機構を使って自身の hook を登録済み）を根拠に、
+調査 1〜4 を実地で行った。
+
+### Findings
+
+**調査 1（fail-closed なプログラム的 pre-tool フック）: 「有り」— ADR-029 の記録は誤りだった**
+
+- `agy` は `<workspace>/.agents/hooks.json`（バイナリ埋め込みドキュメントに明記。
+  changelog にも「Fixed workspace-local hooks defined in `<workspace>/.agents/hooks.json`
+  not loading after trusting a folder」という記述があり実在が二重に裏付けられる）に
+  `PreToolUse` / `PostToolUse` / `PreInvocation` / `PostInvocation` / `Stop` の
+  5 イベントのフックを定義できる。構造は Cursor の `hooks.json` とほぼ同型
+  （`matcher` 正規表現 + `hooks` 配列 + `type: "command"` + `timeout`）。
+- `PreToolUse` の出力 JSON は `decision` フィールドを持ち、値は
+  `allow` / `deny` / `ask` / `force_ask` / `deny_unless_prior_grant` の 5 種類
+  （バイナリ内の protojson スキーマ記述: `enum=allow,enum=deny,enum=ask,enum=force_ask,enum=deny_unless_prior_grant`）。
+  ドキュメントは `"deny"` を「Hard block the execution immediately」と明記しており、
+  Cursor の `failClosed: true` と機能的に同等かそれ以上（`overwrite` によるツール引数の
+  書き換えなど Cursor には無い機能もある）。
+- **ヘッドレス（`-p`）モードは既定で fail-closed。** 実機テストで、`.agents/hooks.json` を
+  一切置かない状態でも `run_command` ツールは自動的に拒否された
+  （`jetski: no output produced — a tool required the "command" permission that headless
+  mode cannot prompt for, so it was auto-denied.`）。バイナリ内の changelog にも
+  「Fixed headless (`-p`) runs hanging or silently auto-approving tools that require a
+  permission confirmation, so the CLI now soft-denies such tools」と明記されており、
+  過去のバージョンでは fail-open（サイレント自動承認）だった欠陥が修正済みであることが
+  分かる。**ピン留めするバージョンがこの修正を含むこと（後述のバージョン注意点）を
+  確認する必要がある。**
+- `~/.gemini/config/hooks.json` は本機で実際に使われている実データであり、
+  Orca がこの機構に自身の `PreToolUse` フック（`orca-status`）を登録している。
+  これは調査対象システムの外部の実運用証跡であり、フック機構が「ドキュメント上の
+  仕様」ではなく実際に動作しているものであることの独立した裏付けになる。
+- 結論: `acl-gate.ts` は Cursor と同じ判定ロジックのまま、起動経路（Cursor は
+  `hooks.json` の `command` から Cursor 固有のペイロード形状で呼ばれる／antigravity は
+  同じく `command` から `toolCall.name` / `toolCall.args.CommandLine` という
+  camelCase ペイロードで呼ばれる）だけを antigravity 用に薄いアダプタで吸収すれば
+  再利用できる。**代替 A・代替 B（PATH 制限や採用見送り）は不要。**
+
+**調査 2（OS サンドボックス相当）: 「部分的に有り、境界の等価性は未検証」**
+
+- `agy --help` に `--sandbox`（「Run in a sandbox with terminal restrictions
+  enabled」）というフラグが存在し、`~/.gemini/config/config.json` の
+  `userSettings.enableTerminalSandbox` という設定項目も実在する（本機では `false`）。
+  つまり「サンドボックス」という概念自体は存在する。
+- ただし、これが Cursor の `sandbox.mode: "enabled"` + `readBoundary: "workspace"`
+  と同じ意味論（ワークスペース外の読み取りを拒否する）を持つのか、単に「ターミナルの
+  一部機能制限」（例えばインタラクティブ端末機能の無効化）に過ぎないのかは、
+  本調査では確認できていない。`--sandbox` を有効にした状態での実際のファイル
+  アクセス境界テスト（ワークスペース外のファイルを読ませて拒否されるか）は未実施。
+- **結論: `OSSandbox` を `"workspace"` として能力レジストリに true と書くのは時期尚早。**
+  実装フェーズでは `OSSandbox: "none"` を維持し、境界の実地検証（Lima VM 上で
+  `--sandbox` を有効にしたプロセスからワークスペース外のファイルを読ませる等）を
+  別途行うまで安全側に倒す。
+
+**調査 3（allowlist 型の権限モデル）: 「有り、ただし Cursor とは構造が異なる」**
+
+- `agy` は独自の allowlist を持つ。`settings.json`（本機では
+  `~/.gemini/antigravity-cli/settings.json`）の `permissions.allow` と、
+  `~/.gemini/config/config.json` の `userSettings.globalPermissionGrants.allow` に
+  `"command(<cmd>)"` / `"mcp(<url>)"` / `"unsandboxed(<cmd>)"` 形式のエントリを
+  書くことで、ヘッドレスモードでも該当ツール呼び出しを事前承認できる。
+- **これは Cursor の `~/.cursor/permissions.json`（gwsAllowlist 形式のフラットな
+  JSON ファイルをワークスペース/スロットごとに配置する方式）とは構造が異なり、
+  「パスをバックエンド非依存にする」という Stage 14 Design #3 の前提が
+  そのままでは成立しない。** antigravity では allowlist はユーザー単位の
+  中央集権的な `settings.json` であり、cursor のようにスロットごとの
+  ワークスペース相対パスに配置する設計ではない可能性が高い（ワークスペース単位の
+  trust 状態は `trustedWorkspaces` という別の中央リストで管理されている形跡がある）。
+  ワークスペース局所スコープの allowlist が別途存在するかは未確認。
+- **`--dangerously-skip-permissions` と `PreToolUse` の `"deny"` の優先順位は
+  未検証。** ドキュメント文字列は「`--dangerously-skip-permissions` で全ツール
+  自動承認」と書かれているが、これが `"ask"` の自動昇格（人間確認の省略）のみを
+  指すのか、フックが明示的に返す `"deny"` すら上書きするのかは、実機テストで
+  切り分けようとしたところ、**この Claude Code セッション自身の安全機構
+  （auto mode classifier）が `--dangerously-skip-permissions` を渡すコマンドの
+  実行を拒否したため、確認できなかった。** これは重大な未解決点であり、
+  Stage 14 の実装（特に「production では `--dangerously-skip-permissions` を
+  一切渡さない」という設計判断）の前提として、別途（このセッションの制約を
+  受けない環境で）検証が必要。**現時点の設計方針としては、production バンドルは
+  そもそも `--dangerously-skip-permissions` を渡さず、`permissions.allow` に
+  `wk` / `gws` 相当の許可だけを明示するアプローチを採り、この未検証の
+  優先順位に依存しない設計にする（xangi 側 `antigravity-cli.ts:137` の
+  `--dangerously-skip-permissions` 経路そのものを production では使わない）。**
+
+**調査 4（構造化出力によるツール呼び出しの観測）: 「バージョン依存、本機では未確認」**
+
+- `docs/design.md:308` が言及する「Agy 1.1.8 以降の JSON/stream-json」に対し、
+  本機にインストールされている `agy` は **1.1.3** であり、`agy --help` の出力にも
+  `--output-format` フラグは現れなかった（`stream-json` を要求するとエラーになる
+  文字列 `--json-schema can only be used when --output-format is 'json' or
+  'stream-json'` はバイナリ内に存在するため、機能自体はコードベースにはあるが、
+  このバージョンの `--help` には出ていない＝ CLI 引数パーサ側で無効化されているか
+  ドキュメント漏れの可能性がある）。**pin する `agy` のバージョンは 1.1.8 以降を
+  明示的に選定し、そのバージョンで `--output-format stream-json` の実地確認を
+  改めて行うこと。**
+
+### Decision
+
+ADR-029 の「Antigravity にはプログラム的 pre-tool フックが存在しない」という記述を
+本 ADR により訂正する。実地検証の結果、**調査 1 は「有り」であり、Stage 14 の
+分かれ道は代替 A/B ではなく「`acl-gate.ts` を antigravity 用の薄いアダプタ経由で
+再利用する」の本流に進める。**
+
+ただし、調査 2（OS サンドボックス境界の等価性）と調査 3 後半（`--dangerously-skip-permissions`
+と hook `deny` の優先順位）は本セッションの制約下では確認しきれなかった。
+**Stage 14 の制約「3 層を保てないまま能力レジストリを `true` にしない」に従い、
+これらが実地検証されるまで `OSSandbox` は `"none"` のまま false 側に倒す。**
+`ToolGate` は調査 1 の結果に基づき実装を進めてよい。
+
+### Consequences
+
+- `cli/internal/agenthost/backend.go` の `antigravityPolicy.Capabilities()` は
+  `ToolGate: "preToolUse-failClosed"` を実装対象にできるが、`OSSandbox` は
+  `"none"` のまま維持する。**この状態では `productionMinimum`（`osSandbox: "workspace"`
+  必須）を満たせないため、`environment: "production"` の antigravity spec は
+  引き続き機械的に拒否される。これは ADR-029 の設計どおりの正しい挙動であり、
+  OS サンドボックスの等価性が別途確認されるまで意図的に維持する。**
+- xangi（`Harineko0/xangi`、`~/proj/xangi` にチェックアウト済みと判明。
+  Stage 13 完了後は `gdg-jp/xangi`）を実際に読んだ結果、**toolGate 層の実装に
+  xangi 側の変更は不要だった**: antigravity は `agy` 起動時の cwd
+  （`AntigravityRunner` の `this.workdir` = `WORKSPACE_PATH`）から
+  `.agents/hooks.json` を自力で発見する。この cwd は Stage 09 のワークスペース同期
+  で配布される `agent-host/workspace/` そのものなので、hooks 定義はコード変更ではなく
+  ワークスペースコンテンツ（後述）として追加すれば済んだ。`--dangerously-skip-permissions`
+  は `src/antigravity-cli.ts:137` に経路として残るが、`skipPermissions` は
+  `SKIP_PERMISSIONS` 環境変数（既定 false）でのみ有効化され、
+  `agent-host/config/` のいずれにも設定されていないことを確認した
+  （cursor の `CURSOR_FORCE`/`--force` と同型の、明示 opt-in のみのオペレータ
+  用エスケープハッチであり、既定で安全）。よってこの経路は変更しなかった。
+- **本セッションで実装した内容**（toolGate 層、上記の理由で xangi 側変更なし）:
+  - `cli/internal/wiki/hooks/acl-gate.ts` — Antigravity の `{"toolCall":{"name","args"}}`
+    ペイロードを Cursor と同じ内部形状に正規化し、`decision:"allow"/"deny"` 形式で
+    出力する薄いアダプタを追加（判定ロジック本体は無変更）。
+  - `cli/internal/wiki/hooks/shell-allowlist.ts` — `loadGwsAllowlist()` に
+    `GDG_GWS_ALLOWLIST_PATH` 環境変数オーバーライドを追加（cursor の既定パスは無変更）。
+  - `agent-host/config/backends/antigravity/permissions.json`（新規） —
+    antigravity 用 gwsAllowlist。
+  - `agent-host/config/backends/antigravity/hooks.json` / `settings.json`（新規） —
+    `PreToolUse` を `acl-gate.ts` に接続し、converger が slot ごとの root 所有
+    `~/.gemini/` 配下へ配置する。workspace 同期物は全 slot uid から可書きなので採用しない。
+  - `cli/internal/agenthost/backend.go` — bundle の構造的不変条件と slot 配置を実装し、
+    `/opt/gdg-agent/lib/antigravity-permissions.json` も配置する。mechanism は実装済みだが、
+    pin 済み `agy` に対する E2E が完了するまで capability の `ToolGate` は `"none"`、
+    `OSSandbox` も `"none"` のまま安全側に倒す。
+  - テスト: `cli/internal/wiki/acl_gate_test.go`、
+    `cli/internal/agenthost/backend_test.go`、golden fixture 更新。
+    shipped `hooks.json` の command から実 `acl-gate.ts` まで実行する Go 回帰テストを含む。
+    `go test ./internal/agenthost/... ./internal/wiki/...` と `pnpm typecheck:node-scripts` で確認済み
+    （`pnpm ci:quick`/`ci:full` は未実行 — コミット前に実行すること）。
+- 残タスク（本 ADR の対象外、実装継続時に別途行う）:
+  1. `--sandbox` / `enableTerminalSandbox` の境界を Lima VM 実機で検証
+     （ワークスペース外ファイル読み取りが実際に拒否されるか）。確認できたら
+     `backend.go` の `OSSandbox` を `"workspace"` に、
+     `agent-host/config/backends/antigravity/` にサンドボックス設定を追加する。
+  2. `--dangerously-skip-permissions` と hook `deny` の優先順位を、この
+     セッションの制約を受けない環境で確認
+  3. `agy` の pin バージョンを 1.1.8 以降に確定し、`--output-format
+     stream-json` を再確認したうえで `agent-host/agent-host.json` の
+     `pins.antigravity` に実際の version + sha256 を追加する
+     （本 ADR は検証していないバージョン/ハッシュを書かない）
+  4. `normalizeAntigravityPayload()` の `run_command` 以外（`view_file` /
+     `grep_search` 等）の引数フィールド名は未確認の推測。実ペイロードで
+     確認し、必要なら候補リストを修正する
+  5. `osSandbox` 実装（残タスク 1）が固まった段階で、xangi 側に
+     sandbox フラグ配線が必要か再判断する（toolGate 層は xangi 側変更なしで
+     完了したが、osSandbox 層は `agy --sandbox` の起動フラグ配線が要る可能性がある）

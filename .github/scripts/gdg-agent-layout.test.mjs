@@ -908,12 +908,16 @@ test("rejects unsupported backend values in schema and agent-host apply", async 
     );
     assert.notEqual(applyCheckAntigravity.status, 0);
     assert.match(applyCheckAntigravity.stderr, /does not satisfy required isolation/);
-    // Stage 12 lifted slot isolation into CliRunnerBase for all xangi adapters, so slotLauncher is
-    // now satisfied for antigravity too; only osSandbox and toolGate still block the switch,
-    // pending Stage 14. slotLauncher must NOT appear in the failure output any more.
+    // Stage 12 lifted slot isolation into CliRunnerBase for all xangi adapters, so slotLauncher
+    // is now satisfied for antigravity too — it must not appear in the failure output any more.
+    // Stage 14 (ADR-032) implemented the toolGate mechanism (acl-gate.ts reuse via a root-owned
+    // per-slot hooks.json) and end-to-end verified it against an unpinned agy build, but its
+    // code-review follow-up requires a pinned+checksummed agy version and an E2E test against
+    // that exact binary before the registry may claim the guarantee — so toolGate (alongside
+    // osSandbox, unverified boundary equivalence) still blocks the switch here.
     assert.doesNotMatch(applyCheckAntigravity.stderr, /slotLauncher/);
-    assert.match(applyCheckAntigravity.stderr, /osSandbox/);
     assert.match(applyCheckAntigravity.stderr, /toolGate/);
+    assert.match(applyCheckAntigravity.stderr, /osSandbox/);
   } finally {
     await rm(customSpecDir, { recursive: true, force: true });
   }
