@@ -2663,3 +2663,97 @@ ADR-029 の「Antigravity にはプログラム的 pre-tool フックが存在�
   5. `osSandbox` 実装（残タスク 1）が固まった段階で、xangi 側に
      sandbox フラグ配線が必要か再判断する（toolGate 層は xangi 側変更なしで
      完了したが、osSandbox 層は `agy --sandbox` の起動フラグ配線が要る可能性がある）
+
+### Update: コードレビュー対応（3 件の P1）
+
+上記の初版実装に対して、以下 3 件の P1（ブロッキング）指摘を受けた。いずれも実地で
+検証したうえで修正した。
+
+**P1-1: `.agents/hooks.json` を Tier 1 ワークスペース同期物として配置していた。**
+指摘: ワークスペース（`paths.WikiRoot`）は `gdgagent-svc:gdgwiki` 所有・モード
+`0o2770`（ディレクトリ）/ `0o660`（ファイル）で、`gdgagent-run-*` は全スロットが
+`gdgwiki` グループに属する（`plan.go` で確認）。つまりゲート対象のスロットプロセス
+自身がゲート定義を書き換え・削除できてしまい、境界として機能しない。
+
+`agy` のドキュメント文字列を再確認したところ、customization root は実は 2 種類ある
+ことが分かった: **Workspace Customizations Root**（`.agents/`、ワークスペース相対
+— 今回使っていたもの）と **Global Customizations Root**（`$HOME` 相対、実機では
+`~/.gemini/config/`）。後者はスロットユーザーのホーム配下であり、Cursor の
+`~/.cursor/hooks.json` と全く同じ形（root 所有・sticky bit 付き group-writable な
+ディレクトリの中に、個別に root 所有 mode 0444 のファイルを置く）で保護できる。
+
+`agent-host/workspace/.agents/hooks.json` を削除し、`agent-host/config/backends/antigravity/hooks.json`
+（新規ポリシーバンドル）を `backend.go` の `BuildSlotDirectories`/`BuildSlotResources`
+から `<slotHome>/.gemini/config/hooks.json` へ root 所有 mode 0444 で配置するよう
+変更した。`ValidateBundleInvariants` にも構造的検査を追加（matcher が `"*"` か、
+command が `acl-gate.ts` と `ACL_GATE_BACKEND=antigravity` を含むか、timeout が
+正か）。
+
+**P1-2: `outputMode` をペイロード形状から推測していた。**
+指摘: 壊れた JSON や `toolCall` が無い/壊れた形の入力に対して、`outputMode` が
+`"cursor"` のままフォールスルーし、`{"permission":"deny",...}` を返してしまう。
+Antigravity 側の exit-code ベースの fail-closed 挙動は未検証（調査 1 の残課題）
+なので、これは「安全なフォールバック」ではなく「未検証の fail-open リスク」である。
+レビューが実際に手動再現して確認した。
+
+`acl-gate.ts` を修正し、`process.env.ACL_GATE_BACKEND === "antigravity"` を
+**stdin を読む前に** チェックしてモードを確定するようにした。ペイロード形状には
+一切依存しない。`ACL_GATE_BACKEND=antigravity` はデプロイされる `hooks.json` の
+`command` 文字列にインラインで設定する（`GDG_GWS_ALLOWLIST_PATH` と同じ要領）。
+モードが antigravity に確定した後は、`toolCall` が無い/壊れていれば直ちに
+`decision:"deny"` を返す（cursor 形式へのフォールスルーは無くなった）。
+`cli/internal/wiki/acl_gate_test.go` に壊れた JSON・空文字列・`toolCall` 抜けを
+含む網羅的なテストを追加し、いずれも antigravity 形式で deny を返すことを確認した。
+
+**P1-3: `ToolGate: "preToolUse-failClosed"` を宣言していたが、実バイナリでの
+end-to-end 検証が無かった。**
+指摘: ADR-032 自体が「旧 `agy` にはヘッドレス fail-open の欠陥があった」と書いており、
+検証機のバージョンは unpinned の 1.1.3、しかも `acl-gate.ts` 単体のユニットテストは
+していても、実際の `hooks.json` → `agy` → `acl-gate.ts` → deny という経路を
+本物のバイナリで通したことは無かった。
+
+`backend.go` の `Capabilities().ToolGate` を `"none"` に戻した（実装・検証済みの
+機構ではあるが、pin されていない開発機での成功は「本番が実行するもの」と同じ保証
+ではないため）。そのうえで、実機での end-to-end 検証を行った:
+
+1. 本機の `agy` は検証開始時点から自動更新されており **1.1.27**（当初確認した 1.1.3
+   ではない）になっていた。
+2. 実際の `~/.gemini/config/hooks.json`（ユーザーの日常利用中の設定。Orca 自身の
+   `orca-status` フックが既に登録されている）に、**別キー**として一時的に
+   `acl-gate.ts` を指すフックを追加した（複数の named hook は event ごとにマージ
+   される、というドキュメント記載どおり、既存の `orca-status` とは独立して共存できる
+   ことも実地で確認した）。事前にバックアップを取り、テスト後に完全に元へ戻した
+   （SHA256 で一致を確認済み）。
+3. スクラッチワークスペースから `agy -p` で「`cat /etc/hostname` を実行して」と
+   依頼したところ、**実際に拒否され**、理由文言（`shell-allowlist.ts` の
+   `inspectWkScript()` が返す「every simple command must start with wk」）が
+   ユーザーに向けてそのまま表示された。これは (a) `normalizeAntigravityPayload()`
+   が仮定した `toolCall.args.CommandLine` という実ペイロード形状が正しいこと、
+   (b) `decision:"deny"` が実際にツール呼び出しを止めることの両方を実地で証明する。
+4. **新発見**: 同じ手順で `wk ls pages/`（フェイクの `wk` 実行可能ファイルを用意）を
+   allow させようとしたところ、フックは `decision:"allow"` を返しているにも
+   関わらず、`jetski: no output produced — a tool required the "command"
+   permission that headless mode cannot prompt for, so it was auto-denied` で
+   ブロックされた。これは PreToolUse フックとは**別の、独立した権限ゲート**が
+   `"command"` 種別のツールに存在することを意味する。`~/.gemini/antigravity-cli/settings.json`
+   の `permissions.allow` に `"command(wk)"` を一時的に追加したところ許可された
+   （これもテスト後に完全復元・SHA256 で確認済み）。
+5. この発見を受けて `agent-host/config/backends/antigravity/settings.json`
+   （新規）を追加し、`{"permissions":{"allow":["command(wk)","command(gws)"]}}`
+   を `<slotHome>/.gemini/antigravity-cli/settings.json` へ同じく root 所有
+   mode 0444 で配置するようにした。`ValidateBundleInvariants` にもこのファイルの
+   構造検査を追加した。**この発見が無ければ、toolGate 層は「安全だが使い物にならない」
+   状態のまま出荷するところだった**（deny は機能するが、正規の wk/gws 呼び出しまで
+   ヘッドレスモードで機械的に拒否され続ける）。
+6. 生きた `agy` バイナリと OAuth 認証への依存を避けるため、恒久的な回帰テスト
+   （`TestAntigravityShippedHookDeniesDisallowedCommand`、`cli/internal/agenthost/backend_test.go`）
+   も追加した。これは出荷される `hooks.json` の `command` 文字列を実際にパースして
+   `node` + 実 `acl-gate.ts` を実行し、`decision:"deny"` が返ることを CI で
+   毎回確認する。手動の実機確認（上記 1〜4）とは独立に、この Go テストが
+   `go test ./internal/agenthost/...` で継続的に守る。
+
+**Consequences（更新）**: `ToolGate` は引き続き `"none"` のまま
+（残タスク 3 の pin 完了と、pin 済みバイナリに対する同等の E2E が前提）。ただし
+今回の実機検証により、機構そのものが実際に機能すること（deny 側は完全に、allow 側は
+settings.json の追加込みで）は高い確度で確認された。残る不確実性は
+「pin する具体的なバージョンでも同じか」という一点に絞られた。
