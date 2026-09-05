@@ -46,6 +46,16 @@ func resolveSpecPath(explicit string) string {
 	return ""
 }
 
+// selfReexecAllowed reports whether specPath (as returned by resolveSpecPath) came from an
+// authoritative source -- an explicit --spec, GDG_SPEC, or the published live spec -- rather than
+// falling through to the binary's own embedded default. An embedded spec from a past release
+// cannot be trusted to drive replacement of the currently running binary: since older releases
+// can pin gdgCli to a version older than themselves, chasing it would walk the self re-exec chain
+// backwards through history instead of converging on the intended version.
+func selfReexecAllowed(specPath string) bool {
+	return specPath != ""
+}
+
 func newAgentHostApplyCommand() *cobra.Command {
 	var specPath string
 	var overlayPath string
@@ -72,7 +82,7 @@ func newAgentHostApplyCommand() *cobra.Command {
 			}
 
 			// Self re-exec check on live paths
-			if prefix == "" {
+			if prefix == "" && selfReexecAllowed(specPath) {
 				spec, err := agenthost.LoadSpecWithOverlay(specPath, overlayPath)
 				if err == nil && spec.Pins.GdgCli.Version != "" {
 					if err := agenthost.CheckAndReexecSelf(context.Background(), cmd.Root().Version, spec, os.Args, nil); err != nil {

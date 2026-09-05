@@ -65,6 +65,23 @@ func TestApplyCommandHasNoForceOrBypassFlags(t *testing.T) {
 	}
 }
 
+// TestSelfReexecNotAllowedFromEmbeddedDefault guards against the downgrade-cascade bug where
+// `agent-host apply` with no --spec, no GDG_SPEC, and no live spec at LiveSpecPath fed the
+// binary's own embedded default spec into CheckAndReexecSelf. Historical releases can embed a
+// gdgCli pin older than themselves, so trusting that spec to drive self re-exec walks backwards
+// through release history instead of converging.
+func TestSelfReexecNotAllowedFromEmbeddedDefault(t *testing.T) {
+	if selfReexecAllowed("") {
+		t.Fatal("self re-exec must not be attempted when specPath fell through to the embedded default")
+	}
+	if !selfReexecAllowed("/etc/gdg-agent/agent-host.json") {
+		t.Fatal("self re-exec must be attempted when specPath is the published live spec")
+	}
+	if !selfReexecAllowed("/tmp/some-explicit-spec.json") {
+		t.Fatal("self re-exec must be attempted when specPath came from an explicit --spec/GDG_SPEC")
+	}
+}
+
 func TestValidateSpecCommand(t *testing.T) {
 	tempDir := t.TempDir()
 

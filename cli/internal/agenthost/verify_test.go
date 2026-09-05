@@ -2,9 +2,12 @@ package agenthost
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestVerifyHostPrefix(t *testing.T) {
@@ -19,7 +22,21 @@ func TestVerifyHostPrefix(t *testing.T) {
 }
 
 func TestVerifyHostNonExistentUser(t *testing.T) {
-	// On machines where gdgagent-run-0 does not exist, VerifyHost must skip and return nil
+	// gdgagent-run-0 is a real account on hosts where agent-host has actually been applied, so
+	// don't assume it's absent here -- point the lookup at a name checked to not resolve instead.
+	original := slotZeroUsername
+	t.Cleanup(func() { slotZeroUsername = original })
+
+	candidate := fmt.Sprintf("gdg-verify-test-%d-%d", os.Getpid(), time.Now().UnixNano())
+	if _, err := user.Lookup(candidate); err == nil {
+		candidate = fmt.Sprintf("gdg-verify-test-%d-%d", os.Getpid(), time.Now().UnixNano())
+		if _, err := user.Lookup(candidate); err == nil {
+			t.Fatalf("test setup invalid: candidate username %q unexpectedly resolved to a real user", candidate)
+		}
+	}
+	slotZeroUsername = candidate
+
+	// VerifyHost must skip and return nil when slotZeroUsername does not exist
 	err := VerifyHost(context.Background(), VerifyOptions{})
 	if err != nil {
 		t.Fatalf("expected nil when OS user does not exist, got: %v", err)
