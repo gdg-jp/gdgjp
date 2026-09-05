@@ -2,6 +2,7 @@ export {
   isSourceVisibility,
   sourceVisibilityNeedsChapter,
 } from "./visibility";
+export type { SourceVisibility } from "./visibility";
 export { parseLevelAudienceKey, sourceAudienceKey } from "./audience";
 export {
   canClassesAccessSourceInChannel,

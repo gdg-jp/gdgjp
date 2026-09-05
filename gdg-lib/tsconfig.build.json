@@ -1,0 +1,11 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "outDir": "dist",
+    "rootDir": "src/acl"
+  },
+  "include": ["src/acl/**/*.ts"],
+  "exclude": ["src/acl/**/*.test.ts"]
+}

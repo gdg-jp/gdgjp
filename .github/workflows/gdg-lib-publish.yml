@@ -1,0 +1,65 @@
+name: Publish @gdg-jp/gdg-lib
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gdg-lib/**'
+      - '.github/workflows/gdg-lib-publish.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  publish:
+    name: Build & Publish to GitHub Packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@gdg-jp"
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @gdgjp/gdg-lib typecheck
+
+      - name: Test
+        run: pnpm --filter @gdgjp/gdg-lib test
+
+      - name: Build published subset (gdg-lib/dist)
+        run: pnpm --filter @gdgjp/gdg-lib build
+
+      - name: Skip if this version is already published
+        id: check
+        working-directory: gdg-lib/dist
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "Already published: $NAME@$VERSION"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish
+        if: steps.check.outputs.skip == 'false'
+        working-directory: gdg-lib/dist
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish

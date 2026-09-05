@@ -1,6 +1,6 @@
 {
   "name": "@gdgjp/gdg-lib",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -18,7 +18,9 @@
     "pretest": "pnpm build:acl",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:acl": "esbuild src/acl/agent.ts --bundle --format=esm --platform=neutral --banner:js='// @ts-nocheck' --outfile=../cli/internal/wiki/hooks/acl.ts"
+    "build:acl": "esbuild src/acl/agent.ts --bundle --format=esm --platform=neutral --banner:js='// @ts-nocheck' --outfile=../cli/internal/wiki/hooks/acl.ts",
+    "build": "node scripts/build-publish-package.mjs",
+    "publish:gh-packages": "cd dist && npm publish"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250101.0",

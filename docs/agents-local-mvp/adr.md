@@ -37,6 +37,8 @@
 | [027](#adr-027-agents-index-を-spec-と収束エンジンへ吸収しプロビジョニング用シェルを-bootstrap-1-本に一本化する) | agents-index を spec と収束エンジンへ吸収し、プロビジョニング用シェルを bootstrap 1 本に一本化する | Accepted |
 | [028](#adr-028-署名基盤アーカイブ防御mode-b-によるワークスペース同期tier-1を採用する) | 署名基盤・アーカイブ防御・Mode B によるワークスペース同期（Tier 1）を採用する | Accepted |
 | [029](#adr-029-バックエンド能力契約fail-closedと二重化された本番防御下限を採用する) | バックエンド能力契約（fail-closed）と二重化された本番防御下限 | Accepted |
+| [030](#adr-030-tier-2-署名リリースと-pull-型適用ロールバック) | Tier 2 署名リリースと pull 型適用、ロールバック | Accepted |
+| [031](#adr-031-gdgjpgdg-lib-の-acl-評価器のみを-github-packages-へ-publish-する) | `@gdgjp/gdg-lib` の ACL 評価器のみを GitHub Packages へ publish する | Accepted |
 
 ---
 
@@ -2319,3 +2321,99 @@ Accepted
 - `pins.gdgCli` を変更するリリースは、ホストが古いバイナリで動いていても、次の `agent-host-apply.timer` 発火で self re-exec を経由して新しいバイナリに切り替わってから収束する。
 - branch protection・署名コミット・リリース署名鍵(`AGENT_HOST_SIGNING_KEY`)の管理方針・GitHub Environment protection rule によるゲートの要否は、リポジトリ設定(GitHub 側)の変更を伴うため本 ADR の記録のみに留め、実際の設定変更は別途人間の承認を要する。
 - Lima VM 上での `useradd`/systemd/apparmor/sudo を実際に動かす統合テストは、本ステージの時点では CI に配線されておらず、今後の課題として残る。
+
+## ADR-031: `@gdgjp/gdg-lib` の ACL 評価器のみを GitHub Packages へ publish する（Stage 13 producer package スライス）
+
+### Status
+
+Accepted（Stage 13 プロデューサースライス。consumer・ホストの完全移行は後続作業）
+
+### Date
+
+2026-09-05
+
+### Context
+
+xangi（本番 Discord エージェント。当時 `Harineko0/xangi`、後に `gdg-jp/xangi` へ移管）は
+`@gdgjp/gdg-lib` を `devDependencies` の `file:../gdgjp/gdg-lib` として参照している。この
+sibling 参照ゆえに:
+
+- xangi のホスト上 `npm ci` に `/opt/gdgjp`（monorepo 全体の checkout）が要る。
+- `dist/` をビルドしても `@gdgjp/gdg-lib` の TypeScript ソースを解決できず、
+  systemd unit は `tsx` で `src/index.ts` を直接動かす暫定運用のままになっている
+  （`agent-host/ENVIRONMENT.md:184-187`、ADR-022 が求める「tsx を使わない」に反する）。
+- xangi の CI は `gdg-jp/gdgjp` を sibling checkout する回避策を要る。
+
+`gdg-lib` は React/Radix/Cloudflare Workers（D1 型）に依存する RP 認証コードと、
+純粋関数のみの ACL 評価器（`src/acl/**`、ADR-007）を同居させている。外部から実際に
+使われるのは後者だけである。xangi は `@gdgjp/gdg-lib/acl` から `isSourceVisibility`、
+`sourceAudienceKey`、`SourceAudienceKey`、および `SourceVisibility` を import していた。
+従来 `agent.ts` は `SourceVisibility`（型）を再エクスポートしていなかったが、
+公開面を `./acl` 全体に広げるのではなく、**`agent.ts` に `export type { SourceVisibility }` を
+追加することで、プランの「narrow な `./acl/agent` 面のみを公開する」という制約を維持する**。
+xangi 側の import 指定子も `@gdgjp/gdg-lib/acl` から `@gdgjp/gdg-lib/acl/agent`（最終的には
+`@gdg-jp/gdg-lib/acl/agent`）へ移行する。`agents-index/src/authz.ts:3` も `@gdgjp/gdg-lib/acl/agent`
+を参照しており、両者が同一の狭い再エクスポート面に統一される。
+
+### Decision
+
+**1. publish するのは `src/acl/agent.ts` の narrow な面（subpath `./acl/agent`）だけ。パッケージ全体や `./acl` 全体ではない。**
+- `gdg-lib/tsconfig.build.json` で `rootDir: "src/acl"` を指定し、React/Radix/Workers 型に
+  一切触れない範囲だけを `tsc` でコンパイルする。
+- `gdg-lib/scripts/build-publish-package.mjs`（`pnpm --filter @gdgjp/gdg-lib build`）が
+  コンパイル後、`gdg-lib/dist/` に**独立した** `package.json` を書き出す。ワークスペース用の
+  `private`・`devDependencies`・peerDependencies・`exports` の src 参照は一切引き継がない。
+  `exports` には `./acl/agent` のみを定義し、`./acl` やルートは一切公開しない。
+- 相対 import のモジュール指定子には `.js` 拡張子が無い
+  （リポジトリ全体が `moduleResolution: "Bundler"` のため）。`tsc` はこれをそのまま出力するが、
+  素の Node ESM は拡張子を要求するため、同スクリプトが `dist/` 生成後に機械的に付与する。
+- `npm publish` は `gdg-lib/dist/` を cwd として実行する（`.github/workflows/gdg-lib-publish.yml`）。
+  ワークスペース側 `gdg-lib/package.json` 自体を publish 対象にはしない。
+
+**2. publish 先は GitHub Packages（`gdg-jp` org スコープ）。npm public registry は不採用。**
+- ユーザー判断により、private のまま配れる GitHub Packages を選択した
+  （npm public も「機密は無い」という理由で候補にあったが、org スコープの GitHub Packages を優先）。
+- GitHub Packages は publish するパッケージ名のスコープが所有 org と一致することを要求する。
+  そのため **publish 名は `@gdg-jp/gdg-lib` とし、ワークスペース内部の呼称 `@gdgjp/gdg-lib`
+  とは異なる**。モノレポ内の既存インポート（`agents-index/src/authz.ts` を含む）は
+  ワークスペース参照のままなので影響しない。xangi 側だけが新しい名前
+  `@gdg-jp/gdg-lib` でインポートし直す必要がある。
+- 認証は CI の既定 `GITHUB_TOKEN`（`packages: write`）で足り、専用トークンの発行は不要。
+
+**3. `build:acl`（`cli/internal/wiki/hooks/acl.ts` 向け esbuild バンドル、Stage 05）とは
+完全に独立させる。**
+- 出力先・スクリプト名・実行タイミングのいずれも共有しない。`pnpm --filter @gdgjp/gdg-lib test`
+  が両方の経路を回帰として固定する（`scripts/build-publish-package.test.ts`）。
+
+### Alternatives Considered
+
+- **`package.json` の `publishConfig.exports`/`main`/`types` で src → dist を上書きする**:
+  実装して `npm pack --dry-run` で検証したところ、手元の npm 11.16 ではこれらのフィールドは
+  publish 時に一切マージされず（`publishConfig` オブジェクトがネストされたまま残るだけ）、
+  `files: ["dist"]` と組み合わせると `main` が存在しないファイルを指す壊れたパッケージが
+  出来た。ドキュメントで見た挙動が実際には確認できなかったため採用しなかった。
+  `dist/` に独立した `package.json` を書き出す方式は同じ目的を確実な形で達成する。
+- **`gdg-lib` パッケージ全体を publish する**: React/Radix/Cloudflare Workers 依存を
+  未検証のまま外部（xangi は素の Node、ブラウザでも Cloudflare Workers でもない）に
+  持ち出すことになり、「publish するのは既存の narrow な面だけ」という制約に反する。
+- **npm public registry**: 最も単純だが、org スコープを外部に公開する判断を伴う。
+  ユーザーは GitHub Packages（private のまま配れる）を選んだ。
+
+### Consequences
+
+- **本コミットは Stage 13 のプロデューサーパッケージ準備スライスであり、Stage 13 の完了ではない。**
+  Stage 13 の完全な完了（`docs/agents-local-refactoring/13-xangi-packaging.md` の完了条件）には
+  以下の後続タスクが必要である:
+  1. `Harineko0/xangi` から `gdg-jp/xangi` への GitHub リポジトリ移管。
+  2. GitHub Packages への `@gdg-jp/gdg-lib` の初回 publish（CI workflow 実行）。
+  3. xangi 側の `package.json` で `@gdg-jp/gdg-lib` を `devDependencies` の `file:../gdgjp/gdg-lib` から
+     `dependencies` の GitHub Packages 版へ切り替え、import を `@gdg-jp/gdg-lib/acl/agent` へ移行。
+  4. xangi CI の sibling symlink 回避策（`.github/workflows/ci.yml`）の削除。
+  5. xangi が `dist/` をビルドし、ホストの systemd unit `ExecStart` を
+     `/usr/bin/node /opt/xangi/dist/index.js`（`tsx` なし）に切り替え。
+  6. `agent-host/agent-host.json` の `pins.xangi.repo` を `gdg-jp/xangi` に更新。
+  7. xangi、agents-index（Stage 08）、langfuse-forwarder（Stage 07）の 3 つすべてが自己完結した成果物
+     になったことを確認したうえで、ホストプロビジョニングから `/opt/gdgjp` clone を完全撤去。
+- xangi 側は本スライスの時点で先行して `@gdgjp/gdg-lib/acl/agent`（narrow 面）への import 移行を
+  完了しており、publish 後の変更はパッケージ名のスコープ（`@gdgjp` → `@gdg-jp`）とレジストリ設定のみで済む。
+

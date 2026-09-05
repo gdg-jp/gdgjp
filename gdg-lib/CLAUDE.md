@@ -4,13 +4,32 @@ Repo-wide conventions in `../CLAUDE.md`. This file = lib-specific only.
 
 Shared RP building blocks for the four downstream apps (`tinyurl`, `img`, `scheduler`, `wiki`), plus signed-cookie primitives. The IdP (`accounts/`) uses Better Auth's OAuth Provider plugin and only consumes shared types from this package; do not add IdP-side handlers here.
 
-No build step: source TS exported directly (`"main": "./src/index.ts"`), bundled by each consumer. No `lint`/`build`/`dev` scripts here — those run at root via Turborepo + Biome.
+No build step for workspace consumption: source TS exported directly (`"main": "./src/index.ts"`),
+bundled by each consumer. No `lint`/`dev` scripts here — those run at root via Turborepo + Biome.
 
 ```
 pnpm --filter @gdgjp/gdg-lib typecheck
 pnpm --filter @gdgjp/gdg-lib test
 pnpm --filter @gdgjp/gdg-lib exec vitest run src/auth/cookie.test.ts   # single file
 ```
+
+## `pnpm build` — the one exception (external publish only)
+
+`pnpm --filter @gdgjp/gdg-lib build` compiles **only `src/acl/**`** (not the rest of the
+package) to `gdg-lib/dist/`, via `scripts/build-publish-package.mjs`. This is not used by
+anything inside this monorepo — every in-repo consumer (including `agents-index`) keeps
+importing `@gdgjp/gdg-lib/acl/agent` as workspace TS source, unaffected by this build.
+
+It exists solely so `gdg-lib/dist/` can be `npm publish`-ed to GitHub Packages as
+**`@gdg-jp/gdg-lib`** (a different, org-scoped name — GitHub Packages requires the scope to
+match the owning org) for `xangi`, an external repo that cannot resolve a `file:../gdgjp/gdg-lib`
+sibling checkout. See `docs/agents-local-refactoring/13-xangi-packaging.md` and ADR-031.
+
+Do not widen what `build` compiles or what its generated `dist/package.json` exports — it is
+deliberately narrower than this package's real `exports` map (`./acl/agent` only,
+nothing Workers/React-coupled). `pnpm --filter @gdgjp/gdg-lib test` covers the shape of the
+generated manifest (`scripts/build-publish-package.test.ts`); keep it passing when you touch
+either script.
 
 ## Architecture (from `src/index.ts`)
 
