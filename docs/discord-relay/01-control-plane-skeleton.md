@@ -403,29 +403,45 @@ gdgs.jp が一時的に死んだリンクと壊れた画像を出す。
 
 ### 完了条件
 
-- [ ] `pnpm --filter @gdgjp/discord-relay dev` が 5181 で起動し、`/` が `/signin` へ飛ぶ
-- [ ] `wrangler d1 create gdgjp-discord-relay-db` を実行し、`database_id` を
+- [x] `pnpm --filter @gdgjp/discord-relay dev` が 5181 で起動し、`/` が `/signin` へ飛ぶ
+- [x] `wrangler d1 create gdgjp-discord-relay-db` を実行し、`database_id` を
       `wrangler.toml` に書いた。`migrate:remote` が通る
       （`--local` と `deploy --dry-run` はこれが無くても通ってしまう）
 - [ ] Accounts でサインインでき、`user` と `oidc_session` に行が入る
 - [ ] 複数チャプター所属のユーザーで SCR-602 のセレクタが全所属を出し、切り替えると
       cookie が変わり、以降の画面が新しいチャプターで絞られる
-- [ ] 所属 0 件のユーザーが `/no-chapter` に落ちる
+- [x] 所属 0 件のユーザーが `/no-chapter` に落ちる
       （e2e で固める。`/dev/login` に `chapter=none` を持たせ、所属 0 件の
       セッションを IdP 往復無しで作れるようにする）
 - [ ] サインアウトでローカルセッションが消え、**IdP 側のセッションも終わっている**
       （もう一度サインインすると Accounts の認証画面が出る）
 - [ ] `member` ロールで編集系エンドポイントを叩くと 403 になる
 - [ ] `is_admin` が自分の所属外のチャプターを開くと `audit_log` に `chapter.cross_access` が入る
-- [ ] `getFreshClaims()` の結果がキャッシュされていない（後述の回帰テスト）
-- [ ] 7 箇所の登録が済んでいる。`discord-relay/` を 1 文字変更した diff で
+- [x] `getFreshClaims()` の結果がキャッシュされていない（後述の回帰テスト）
+- [x] 7 箇所の登録が済んでいる。`discord-relay/` を 1 文字変更した diff で
       `changed-workspaces.mjs` が `@gdgjp/discord-relay` を返す
-- [ ] `gdg-lib/` を 1 文字変更した diff でも `@gdgjp/discord-relay` が返る
+- [x] `gdg-lib/` を 1 文字変更した diff でも `@gdgjp/discord-relay` が返る
 - [ ] `discord-relay/public/app-icon.png` があり、**サインアウト状態で**
       `https://relay.gdgs.jp/app-icon.png` が 200 を返す
 - [ ] `GDG_APP_LINKS` に `Discord Relay` があり、**共有ランチャと gdgs.jp のトップの両方**に
       アイコンとラベルが出る。`relay.gdgs.jp` の稼働後に出したこと
 - [ ] `pnpm ci:quick` が通る
+
+未チェックのうち **コードではなく外部の状態待ちになっているもの**（2026-09-05 時点）:
+
+- **`relay.gdgs.jp` の DNS レコードが無い。** ワーカー自体は
+  `wrangler deploy` 済みで、`RP_SESSION_SECRET` / `IDP_CLIENT_SECRET` も入っているが、
+  ホスト名が NXDOMAIN なので到達できない。`[[routes]]` は DNS レコードを
+  作らないので、**これを忘れても `wrangler deploy` は成功し、CI も赤くならない**
+- **Accounts の OAuth クライアント行が未作成。** `DISCORD_RELAY_CLIENT_SECRET` は
+  accounts ワーカーに入っているが、`DISCORD_RELAY_CLIENT_ID` /
+  `_REDIRECT_URLS` は `wrangler.toml` の `[vars]` なので **accounts を
+  再デプロイするまで本番の `collectSpecs()` に届かない。**
+  マージで accounts がデプロイされた後に `/admin/seed-clients` を叩くこと
+
+この 2 つが残っている間は、実サインインを伴う完了条件
+（Accounts でのサインイン、SCR-602 のセレクタ、サインアウト、403、
+`chapter.cross_access` の監査行、`app-icon.png` の 200）を埋められない。
 
 ### コマンド
 
