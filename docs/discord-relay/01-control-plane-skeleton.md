@@ -132,6 +132,24 @@ pattern = "relay.gdgs.jp/*"
 zone_name = "gdgs.jp"
 ```
 
+**上の骨格は不完全である。** 他の 9 アプリと突き合わせて次を足すこと:
+
+- `compatibility_date`（`ost` と同じ値）。無いと `wrangler types` が
+  `Config must have a compatibility date.` で落ちる
+- `[assets] binding = "ASSETS"` / `directory = "./build/client"`。
+  **`run_worker_first` を書かない** — `/app-icon.png` が認証ゲートに落ちる（§9）
+- `[[d1_databases]]` の `database_id`。**`wrangler d1 create gdgjp-discord-relay-db` を
+  実行するまで埋められない。** `--local` のマイグレーションと `deploy --dry-run` は
+  これが無くても通るので、**ゲートでは捕まらない。** `migrate:remote` で初めて落ちる
+- `[observability]` は `09` で入れる。ここでは要らない
+
+`.dev.vars.example` は **`ost` / `sns` と同じく本番値を上書きする形にする。**
+`[vars]` は `wrangler dev` にもそのまま効くので、上書きが無いと dev が本番の
+`accounts.gdgs.jp` を向き、`APP_URL` が https のままなので gdg-lib が cookie を
+`Secure` にしてサインインが平文 HTTP で成立しない。**`ENVIRONMENT=development` も要る** —
+これが無いと `/dev/login` が 404 のままで、e2e もローカルの手動確認も始められない
+（`wiki/.dev.vars.example:45` が唯一の先例）。
+
 秘密は `.dev.vars.example` にキー名だけ置き、本番は `wrangler secret put`。
 
 | 名前 | 用途 | このステージで使うか |
@@ -380,6 +398,9 @@ gdgs.jp が一時的に死んだリンクと壊れた画像を出す。
 ### 完了条件
 
 - [ ] `pnpm --filter @gdgjp/discord-relay dev` が 5181 で起動し、`/` が `/signin` へ飛ぶ
+- [ ] `wrangler d1 create gdgjp-discord-relay-db` を実行し、`database_id` を
+      `wrangler.toml` に書いた。`migrate:remote` が通る
+      （`--local` と `deploy --dry-run` はこれが無くても通ってしまう）
 - [ ] Accounts でサインインでき、`user` と `oidc_session` に行が入る
 - [ ] 複数チャプター所属のユーザーで SCR-602 のセレクタが全所属を出し、切り替えると
       cookie が変わり、以降の画面が新しいチャプターで絞られる
