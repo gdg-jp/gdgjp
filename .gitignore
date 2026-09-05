@@ -52,3 +52,6 @@ worker-configuration.d.ts
 
 # Built by agent-host/install.sh when the pinned CLI lacks emit-layout.
 .gdg-built/
+
+# PRD and prototypes handed over for planning; not part of the repository.
+local_data/
