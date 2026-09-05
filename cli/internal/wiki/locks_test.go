@@ -1,8 +1,11 @@
 package wiki
 
 import (
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLockDocumentIdempotentAndExclusive(t *testing.T) {
@@ -99,4 +102,93 @@ func TestLockOwnerPrefersEnv(t *testing.T) {
 	if got := LockOwner(); got != "orchestrator:123" {
 		t.Fatalf("LockOwner() = %q", got)
 	}
+}
+
+func TestHelperLockProcess(t *testing.T) {
+	if os.Getenv("GO_TEST_LOCK_HELPER") != "1" {
+		return
+	}
+	root := os.Getenv("GO_TEST_LOCK_ROOT")
+	if err := AcquireLocksMutexWithTimeout(root, 5*time.Second); err != nil {
+		os.Exit(1)
+	}
+	_, _ = os.Stdout.WriteString("LOCKED\n")
+	time.Sleep(30 * time.Second)
+	os.Exit(0)
+}
+
+func TestAcquireLocksMutexWithTimeout_BasicAndStale(t *testing.T) {
+	root := t.TempDir()
+	if err := AcquireLocksMutexWithTimeout(root, time.Second); err != nil {
+		t.Fatalf("first acquire: %v", err)
+	}
+
+	// Second acquire in same process should fail quickly
+	err := AcquireLocksMutexWithTimeout(root, 50*time.Millisecond)
+	if err == nil {
+		t.Fatal("expected second acquire to time out")
+	}
+
+	ReleaseLocksMutex(root)
+
+	// Can acquire again
+	if err := AcquireLocksMutexWithTimeout(root, time.Second); err != nil {
+		t.Fatalf("acquire after release: %v", err)
+	}
+	ReleaseLocksMutex(root)
+}
+
+func TestAcquireLocksMutexWithTimeout_DeadProcessRecovery(t *testing.T) {
+	root := t.TempDir()
+
+	// Spawn helper process that acquires the lock
+	cmd := exec.Command(os.Args[0], "-test.run=TestHelperLockProcess")
+	cmd.Env = append(os.Environ(), "GO_TEST_LOCK_HELPER=1", "GO_TEST_LOCK_ROOT="+root)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Wait for helper to acquire lock
+	buf := make([]byte, 7)
+	_, _ = stdout.Read(buf)
+	if string(buf) != "LOCKED\n" {
+		_ = cmd.Process.Kill()
+		t.Fatalf("unexpected helper output: %q", string(buf))
+	}
+
+	// Mutex should be held by child process; parent acquisition should time out
+	err = AcquireLocksMutexWithTimeout(root, 50*time.Millisecond)
+	if err == nil {
+		_ = cmd.Process.Kill()
+		t.Fatal("expected acquire to fail while child holds lock")
+	}
+
+	// Kill child process with SIGKILL (simulates sudden crash / OOM)
+	_ = cmd.Process.Kill()
+	_ = cmd.Wait()
+
+	// OS must automatically release the file lock; parent must now acquire immediately!
+	if err := AcquireLocksMutexWithTimeout(root, 1*time.Second); err != nil {
+		t.Fatalf("parent failed acquiring lock after child killed: %v", err)
+	}
+	ReleaseLocksMutex(root)
+}
+
+func TestAcquireLocksMutexWithTimeout_LegacyDirCleanup(t *testing.T) {
+	root := t.TempDir()
+	mutex := locksMutexPath(root)
+	// Create legacy directory at mutex path
+	if err := os.MkdirAll(mutex, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	// AcquireLocksMutexWithTimeout should clean up legacy directory and acquire file lock
+	if err := AcquireLocksMutexWithTimeout(root, time.Second); err != nil {
+		t.Fatalf("failed acquiring lock over legacy directory: %v", err)
+	}
+	ReleaseLocksMutex(root)
 }

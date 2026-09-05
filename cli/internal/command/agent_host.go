@@ -21,6 +21,7 @@ func newAgentHostCommand() *cobra.Command {
 	command.AddCommand(newAgentHostRenderCommand())
 	command.AddCommand(newAgentHostVerifyCommand())
 	command.AddCommand(newAgentHostSecretsCommand())
+	command.AddCommand(newAgentHostSyncWorkspaceCommand())
 	return command
 }
 
@@ -288,5 +289,54 @@ func newAgentHostSecretsCommand() *cobra.Command {
 	}
 
 	command.AddCommand(statusCmd, importCmd, setCmd, loginCmd)
+	return command
+}
+
+func newAgentHostSyncWorkspaceCommand() *cobra.Command {
+	var specPath string
+	var overlayPath string
+	var prefix string
+	var source string
+	var pubKeyPath string
+	var dryRun bool
+	var diff bool
+	var force bool
+
+	command := &cobra.Command{
+		Use:   "sync-workspace",
+		Short: "Synchronize agent workspace skills and rules into live worktree (Tier 1)",
+		Long: "Synchronizes agent-host/workspace/** (.agents, .claude, .codex, AGENTS.md -> local.mdc)\n" +
+			"into /srv/gdg-agent/wiki while holding the wiki mutex. Uses Ed25519 signature\n" +
+			"verification, defensive archive extraction, and Mode B write-ahead journal crash recovery.\n" +
+			"--force permits overwriting managed files when local changes are detected.",
+		SilenceUsage: true,
+		Args:         cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if specPath == "" {
+				specPath = os.Getenv("GDG_SPEC")
+			}
+			if prefix == "" {
+				prefix = os.Getenv("GDG_SETUP_PREFIX")
+			}
+			return agenthost.SyncWorkspace(context.Background(), agenthost.SyncWorkspaceOptions{
+				Source:      source,
+				DryRun:      dryRun,
+				Diff:        diff,
+				Force:       force,
+				SpecPath:    specPath,
+				OverlayPath: overlayPath,
+				Prefix:      prefix,
+				PubKeyPath:  pubKeyPath,
+			})
+		},
+	}
+	command.Flags().StringVar(&source, "source", "", "Path to bundle archive, manifest, or workspace directory")
+	command.Flags().StringVar(&specPath, "spec", "", "Path to agent-host.json")
+	command.Flags().StringVar(&overlayPath, "overlay", "", "Path to overlay spec file (e.g. agent-host.dev.json)")
+	command.Flags().StringVar(&prefix, "prefix", "", "Install under this prefix instead of live paths (tests)")
+	command.Flags().StringVar(&pubKeyPath, "pubkey", "", "Path to Ed25519 verification public key")
+	command.Flags().BoolVar(&dryRun, "dry-run", false, "Check for drift without modifying live worktree")
+	command.Flags().BoolVar(&diff, "diff", false, "Print planned additions, modifications, and deletions")
+	command.Flags().BoolVar(&force, "force", false, "Allow overwriting managed files when local modifications are detected")
 	return command
 }

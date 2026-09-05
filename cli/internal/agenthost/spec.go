@@ -77,6 +77,7 @@ type layoutPaths struct {
 	RunRoot       string
 	EtcRoot       string
 	HomeRoot      string
+	VarLibRoot    string
 	Spec          SpecFile
 }
 
@@ -174,15 +175,21 @@ type PathsSpec struct {
 	RunRoot   string `json:"runRoot"`
 }
 
+type WorkspaceSyncSpec struct {
+	Interval string `json:"interval,omitempty"`
+	Source   string `json:"source,omitempty"`
+}
+
 type SpecFile struct {
-	Schema      string          `json:"$schema,omitempty"`
-	SlotCount   int             `json:"slotCount"`
-	Backend     BackendSpec     `json:"backend"`
-	Discord     DiscordSpec     `json:"discord"`
-	Pins        PinsSpec        `json:"pins"`
-	Paths       PathsSpec       `json:"paths"`
-	Systemd     SystemdSpec     `json:"systemd,omitempty"`
-	AgentsIndex AgentsIndexSpec `json:"agentsIndex,omitempty"`
+	Schema        string             `json:"$schema,omitempty"`
+	SlotCount     int                `json:"slotCount"`
+	Backend       BackendSpec        `json:"backend"`
+	Discord       DiscordSpec        `json:"discord"`
+	Pins          PinsSpec           `json:"pins"`
+	Paths         PathsSpec          `json:"paths"`
+	Systemd       SystemdSpec        `json:"systemd,omitempty"`
+	AgentsIndex   AgentsIndexSpec    `json:"agentsIndex,omitempty"`
+	WorkspaceSync *WorkspaceSyncSpec `json:"workspaceSync,omitempty"`
 }
 
 func parseSpecBytes(raw []byte, origin string) (SpecFile, error) {
@@ -332,6 +339,11 @@ func resolveLayoutPaths(spec SpecFile, prefix string, slotCountOverride int) (la
 		paths.HomeRoot = v
 	} else {
 		paths.HomeRoot = prefix + "/home"
+	}
+	if v := os.Getenv("GDG_SETUP_VAR_LIB_ROOT"); v != "" {
+		paths.VarLibRoot = v
+	} else {
+		paths.VarLibRoot = prefix + "/var/lib/agent-host"
 	}
 	return paths, nil
 }

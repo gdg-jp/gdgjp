@@ -1,0 +1,126 @@
+name: Agent Host Workspace Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agent-host/workspace/**'
+      - '.github/workflows/agent-host-workspace.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  validate-and-publish:
+    name: Validate & Publish Workspace Bundle
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Validate SKILL.md frontmatter
+        run: |
+          node -e '
+          import { readdir, readFile } from "node:fs/promises";
+          import { join } from "node:path";
+
+          async function checkSkills(dir) {
+            let entries;
+            try {
+              entries = await readdir(dir, { withFileTypes: true });
+            } catch { return; }
+            for (const entry of entries) {
+              const full = join(dir, entry.name);
+              if (entry.isDirectory()) {
+                await checkSkills(full);
+              } else if (entry.name === "SKILL.md") {
+                const content = await readFile(full, "utf8");
+                if (!content.startsWith("---\n")) {
+                  throw new Error(`${full}: missing frontmatter header (---)`);
+                }
+                const end = content.indexOf("\n---\n", 4);
+                if (end === -1) {
+                  throw new Error(`${full}: unclosed frontmatter block`);
+                }
+                const fm = content.slice(4, end);
+                if (!/^name:\s*\S+/m.test(fm)) {
+                  throw new Error(`${full}: missing required "name" field in frontmatter`);
+                }
+                if (!/^description:\s*\S+/m.test(fm)) {
+                  throw new Error(`${full}: missing required "description" field in frontmatter`);
+                }
+              }
+            }
+          }
+          await checkSkills("agent-host/workspace");
+          console.log("All SKILL.md frontmatter validated successfully.");
+          '
+
+      - name: Check public content invariants
+        run: |
+          node -e '
+          import { readdir, readFile } from "node:fs/promises";
+          import { join } from "node:path";
+
+          async function scanDir(dir) {
+            const entries = await readdir(dir, { withFileTypes: true });
+            for (const entry of entries) {
+              const full = join(dir, entry.name);
+              if (entry.isDirectory()) {
+                await scanDir(full);
+              } else if (entry.isFile()) {
+                const content = await readFile(full, "utf8");
+                if (/docs\.google\.com\/(?:spreadsheets|document)/i.test(content)) {
+                  throw new Error(`Public content invariant violation in ${full}: contains Google Docs/Sheets URL`);
+                }
+                if (/drive\.google\.com/i.test(content)) {
+                  throw new Error(`Public content invariant violation in ${full}: contains Google Drive URL`);
+                }
+                if (/\b(?:guild|channel|server)_id\b\s*[:=]\s*["\x27]?[0-9]{17,20}["\x27]?/i.test(content)) {
+                  throw new Error(`Public content invariant violation in ${full}: contains Discord snowflake ID`);
+                }
+              }
+            }
+          }
+          await scanDir("agent-host/workspace");
+          console.log("Public content invariants passed.");
+          '
+
+      - name: Build and Sign Workspace Bundle
+        env:
+          AGENT_HOST_SIGNING_KEY: ${{ secrets.AGENT_HOST_SIGNING_KEY }}
+        run: |
+          if [ -z "$AGENT_HOST_SIGNING_KEY" ]; then
+            echo "::error::AGENT_HOST_SIGNING_KEY secret is required to sign production workspace bundles"
+            exit 1
+          fi
+          node scripts/build-agent-host-bundle.mjs \
+            --workspace agent-host/workspace \
+            --out dist/agent-host-workspace \
+            --version "${{ github.sha }}"
+
+      - name: Upload Workspace Bundle Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-host-workspace-bundle
+          path: dist/agent-host-workspace/
+          if-no-files-found: error
+
+      - name: Publish to GitHub Releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view agent-host-workspace-latest >/dev/null 2>&1 || \
+          gh release create agent-host-workspace-latest \
+            --title "Agent Host Workspace (Latest)" \
+            --notes "Automated Tier 1 workspace distribution bundle from ${{ github.sha }}"
+          gh release upload agent-host-workspace-latest dist/agent-host-workspace/* --clobber

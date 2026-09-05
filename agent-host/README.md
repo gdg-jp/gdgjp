@@ -167,6 +167,21 @@ and [the Stage 12 specification](../docs/agents-local-mvp/12-local-test-environm
 xangi's Web Chat has no built-in auth — if you enable it, keep it bound to `localhost` or expose
 it only over Tailscale, per xangi's own README. Don't expose it to the open LAN or internet.
 
+## Updating skills and workspace content (Tier 1)
+
+Skills and rules live in `agent-host/workspace/`:
+- `.agents/skills/`
+- `AGENTS.md` (automatically synthesized to `.cursor/rules/local.mdc`)
+
+Push changes to `main`. The CI workflow (`.github/workflows/agent-host-workspace.yml`) validates `SKILL.md` frontmatter, verifies public content invariants, and packages a signed bundle with an Ed25519 detached manifest.
+
+The host runs `agent-host-sync.timer` (every 5 minutes as `gdgagent-svc`), which runs `gdg agent-host sync-workspace`. It holds the wiki mutex to serialize against sleep ingest, verifies the Ed25519 signature against `/opt/gdg-agent/lib/release-key.pub`, defends against archive exploits, and atomically converges the worktree using Mode B write-ahead journals. No manual SSH or service restarts are required.
+
+To manually inspect or sync:
+```bash
+sudo -u gdgagent-svc gdg agent-host sync-workspace --dry-run --diff
+```
+
 ## Updating the wiki content
 
 `wiki/` is a normal `gdg wiki clone` working tree once populated — use `gdg wiki raw pull`,

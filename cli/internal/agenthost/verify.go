@@ -23,13 +23,42 @@ func VerifyHost(ctx context.Context, opts VerifyOptions) error {
 		return err
 	}
 
+	wikiRoot := spec.Paths.Workspace
+	agentRoot := spec.Paths.AgentRoot
+
 	prefix := opts.Prefix
 	if prefix == "" {
 		prefix = os.Getenv("GDG_SETUP_PREFIX")
 	}
 
 	if prefix != "" {
-		fmt.Printf("verify: prefix mode active (%s); skipping live host checks.\n", prefix)
+		fmt.Printf("verify: prefix mode active (%s); checking filesystem invariants.\n", prefix)
+		var failures []string
+		pWikiRoot := filepath.Join(prefix, strings.TrimPrefix(wikiRoot, "/"))
+		if fi, err := os.Stat(filepath.Join(pWikiRoot, ".xangi")); err == nil && fi.IsDir() {
+			failures = append(failures, "dataDir must not live under the wiki worktree")
+		}
+		speechDir := filepath.Join(pWikiRoot, "speech")
+		sessionsDir := filepath.Join(pWikiRoot, "logs", "sessions")
+		if _, err1 := os.Stat(speechDir); err1 == nil {
+			failures = append(failures, "conversation logs must not live under the wiki worktree")
+		} else if _, err2 := os.Stat(sessionsDir); err2 == nil {
+			failures = append(failures, "conversation logs must not live under the wiki worktree")
+		}
+
+		journalDir := filepath.Join(prefix, "var/lib/agent-host/workspace-journal")
+		hasIncomplete, txns, err := CheckIncompleteTransactions(journalDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "    FAIL error checking workspace sync journals: %v\n", err)
+			failures = append(failures, fmt.Sprintf("error checking workspace sync journals: %v", err))
+		} else if hasIncomplete {
+			fmt.Fprintf(os.Stderr, "    FAIL incomplete workspace sync transactions found: %v\n", txns)
+			failures = append(failures, fmt.Sprintf("incomplete workspace sync transactions found: %v", txns))
+		}
+
+		if len(failures) > 0 {
+			return fmt.Errorf("verification failed: %d checks did not meet expectations", len(failures))
+		}
 		return nil
 	}
 
@@ -74,8 +103,6 @@ func VerifyHost(ctx context.Context, opts VerifyOptions) error {
 		return append([]string{"runuser", "-u", username, "--"}, args...)
 	}
 
-	wikiRoot := spec.Paths.Workspace
-	agentRoot := spec.Paths.AgentRoot
 	runRoot := spec.Paths.RunRoot
 
 	// 1. Credentials not readable by slot user
@@ -132,6 +159,26 @@ func VerifyHost(ctx context.Context, opts VerifyOptions) error {
 	} else if _, err2 := os.Stat(sessionsDir); err2 == nil {
 		fmt.Fprintf(os.Stderr, "    FAIL conversation logs must not live under the wiki worktree\n")
 		failures = append(failures, "conversation logs must not live under the wiki worktree")
+	}
+
+	// 14. Verification public key not writable by slot user
+	pubKeyPath := filepath.Join(agentRoot, "lib", "release-key.pub")
+	if _, err := os.Stat(pubKeyPath); err == nil {
+		runCheck("fail", runAs("gdgagent-run-0", "test", "-w", pubKeyPath)...)
+	}
+
+	// 15. Incomplete workspace sync transaction journals must not remain
+	journalDir := "/var/lib/agent-host/workspace-journal"
+	if prefix != "" {
+		journalDir = filepath.Join(prefix, "var/lib/agent-host/workspace-journal")
+	}
+	hasIncomplete, txns, err := CheckIncompleteTransactions(journalDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "    FAIL error checking workspace sync journals: %v\n", err)
+		failures = append(failures, fmt.Sprintf("error checking workspace sync journals: %v", err))
+	} else if hasIncomplete {
+		fmt.Fprintf(os.Stderr, "    FAIL incomplete workspace sync transactions found: %v\n", txns)
+		failures = append(failures, fmt.Sprintf("incomplete workspace sync transactions found: %v", txns))
 	}
 
 	if len(failures) > 0 {

@@ -1,0 +1,7 @@
+[Unit]
+Description=agent-host-sync (GDG agent workspace sync)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gdg agent-host sync-workspace

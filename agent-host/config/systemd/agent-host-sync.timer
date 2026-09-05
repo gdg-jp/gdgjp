@@ -1,0 +1,10 @@
+[Unit]
+Description=Run agent-host-sync every 5 minutes
+
+[Timer]
+OnUnitActiveSec=5min
+OnBootSec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

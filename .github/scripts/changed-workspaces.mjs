@@ -130,6 +130,7 @@ function allResults() {
     openapi: true,
     scriptTests: true,
     cli: true,
+    agentHostWorkspace: true,
     full: true,
   };
 }
@@ -200,6 +201,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         /^scripts\/install-gdg-agent-host\.sh$/.test(file),
     ),
     cli: ciGlobal || normalizedFiles.some((file) => file.startsWith("cli/")),
+    agentHostWorkspace: normalizedFiles.some((file) => file.startsWith("agent-host/workspace/")),
     full: false,
   };
 }
@@ -253,6 +255,7 @@ function workflowOutputs(result, base, head) {
     openapi: String(result.openapi),
     "script-tests": String(result.scriptTests),
     cli: String(result.cli),
+    "agent-host-workspace": String(result.agentHostWorkspace),
     full: String(result.full),
     base: base ?? "",
     head: head ?? "",

@@ -45,6 +45,18 @@ const copies = [
     dest: join(configDest, "apparmor.d-cursor-agent-cursorsandbox"),
   },
   {
+    src: join(repositoryRoot, "agent-host/config/release-key.pub"),
+    dest: join(configDest, "release-key.pub"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/config/systemd/agent-host-sync.service"),
+    dest: join(configDest, "systemd/agent-host-sync.service"),
+  },
+  {
+    src: join(repositoryRoot, "agent-host/config/systemd/agent-host-sync.timer"),
+    dest: join(configDest, "systemd/agent-host-sync.timer"),
+  },
+  {
     src: join(repositoryRoot, "agent-host/agent-host.json"),
     dest: join(destDir, "agent-host.json"),
   },

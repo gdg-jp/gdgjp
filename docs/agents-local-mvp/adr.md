@@ -33,8 +33,9 @@
 | [022](#adr-022-ローカル実行物を-node-ネイティブ-typescript-に統一する) | ローカル実行物を Node ネイティブ TypeScript に統一する | Accepted |
 | [023](#adr-023-ローカル検証環境を-ubuntu-vm-に置きdocker-を採らない) | ローカル検証環境を Ubuntu VM に置き、Docker を採らない | Accepted |
 | [024](#adr-024-ci-の-script-tests-における-private-submodule-チェックアウトの失敗と暫定方針) | CI の script-tests における private submodule チェックアウトの失敗と暫定方針 | Accepted |
-| [025](#adr-025-公開前コンテンツレビューと-squash-import-による-public-化) | 公開前コンテンツレビューと squash import による public 化 | Accepted |
 | [026](#adr-026-収束エンジンを-go-gdg-cli-とし宣言的-specピン留めpull-型配信を採用する) | 収束エンジンを Go (gdg CLI) とし宣言的 spec・ピン留め・pull 型配信を採用する | Accepted |
+| [027](#adr-027-agents-index-を-spec-と収束エンジンへ吸収しプロビジョニング用シェルを-bootstrap-1-本に一本化する) | agents-index を spec と収束エンジンへ吸収し、プロビジョニング用シェルを bootstrap 1 本に一本化する | Accepted |
+| [028](#adr-028-署名基盤アーカイブ防御mode-b-によるワークスペース同期tier-1を採用する) | 署名基盤・アーカイブ防御・Mode B によるワークスペース同期（Tier 1）を採用する | Accepted |
 
 ---
 
@@ -2115,4 +2116,73 @@ Accepted
 - `SystemdUnitDeleteResource` の `systemctl` 失敗（`disable --now` / `daemon-reload`）を握り潰さず伝播する。unit が本当に存在しない場合のみ許容する。
 - agent-host のプロビジョニング用シェルが 2 本 → 1 本（開始時点の 7 本からの到達点）。一本化が完了した。
 
+---
+
+## ADR-028: 署名基盤・アーカイブ防御・Mode B によるワークスペース同期（Tier 1）を採用する
+
+### Status
+
+Accepted
+
+### Date
+
+2026-09-04
+
+### Context
+
+全体方針の第 1 要求である「`agent-host/workspace/.agents/skills/` にスキルを追加して push したら、本番のエージェントが自動で使えるようになる」を実現するため、Tier 1 ワークスペース同期（`gdg agent-host sync-workspace`）を新設する。
+
+旧 `agent-host/install.sh` の `seed_wiki_cursor_files` には以下の問題があった:
+1. `rm -rf` + `cp -a` により、ホスト上のローカル変更が黙って破壊されていた。
+2. 稼働中 worktree（`/srv/gdg-agent/wiki`）に対して wiki mutex を取得しておらず、sleep ingest（毎朝 04:00 JST）や Discord ターンの変更と競合する危険があった。
+3. 配信物の署名検証がなく、真正性が担保されていなかった（SHA-256 マニフェストのみでは改竄者がマニフェストごと差し替え可能）。
+4. 途中でプロセスが `SIGKILL` された場合の原子性が担保されておらず、新旧ファイルが混在した状態が残りうる。
+
+また、Tier 1 はスキルの高速反映を目的とするため、ホスト実行時設定（`agent-host.json` や `config/`）を巻き込んではならず（それらは Tier 2 / Stage 10 の担当）、機械的な境界強制が求められる。
+
+### Decision
+
+**1. Ed25519 detached manifest envelope 形式と共通署名基盤の採用**
+- `cli/internal/agenthost/signing.go` に、アーカイブ外の detached なマニフェストエンベロープ（`ManifestEnvelope`）形式と Ed25519 署名検証（`VerifyEnvelopeSignature`）を実装した。
+- エンベロープはアーカイブ全体の `sha256` / `size` / `entryCount` / `uncompressedSize` と per-file ハッシュ一覧（`entries`）を保持し、アーカイブ自体には署名を含めない（自己 digest 依存の循環を防止）。
+- この署名検証コードとマニフェスト形式は、Stage 10 の Tier 2 リリース管理でもそのまま再利用する。
+- 署名鍵の管理方針: リリース/バンドル署名秘密鍵は CI Secret（`AGENT_HOST_SIGNING_KEY`）として保管し、検証用公開鍵は `/opt/gdg-agent/lib/release-key.pub`（root:root、0644）に配置する。`/opt/gdg-agent/lib` は 0755 root 所有のため、slot uid（`gdgagent-run-*`）から改竄・上書きできない。
+
+**2. 多層アーカイブ展開防御の徹底**
+- 署名は「誰が作ったか」のみを保証し中身の安全性を保証しないため、展開前に以下の防御を行う:
+  - アーカイブに触れる前に Ed25519 署名を検証（無効なら即座に中止）。
+  - アーカイブ実バイトの SHA-256 と size をエンベロープと照合。
+  - 合計サイズとエントリ数の上限検査（zip bomb 防御）。
+- 展開処理は `tar -xzf` に丸投げせず、`archive/tar` で 1 エントリずつ検査し、以下を検出した場合はスキップではなく即座に中止する:
+  - 絶対パス（`/` で始まるパス）
+  - パストラバーサル（`..` を含むパス）
+  - シンボリックリンクおよびハードリンク
+  - デバイスファイル・FIFO・ソケット等の非通常ファイル
+  - 重複するエントリパス
+  - エンベロープの `entries` allowlist に存在しないエントリ
+- 展開は staging ディレクトリ（`/var/lib/agent-host/workspace-staging/<version>/`）に行い、per-file SHA-256 検証がすべて通過するまで live worktree には一切触れない。
+
+**3. 原子性として「方式 B（Write-Ahead Journal + 実バイトバックアップ + 起動時リカバリ）」の採用**
+- 方式 A（単一ディレクトリ + `renameat2(RENAME_EXCHANGE)`）と方式 B の比較検討の結果、**方式 B** を採用した。
+  - 方式 A は Linux 固有（macOS で単体テスト不可）であり、`.agents/`、`.claude/`、`.codex/`、`.cursor/rules/local.mdc` という複数のトップレベルパスを 1 つのシステムコールで交換するには親コンテナディレクトリまたは symlink が必須となるが、これは Cursor CLI サンドボックス境界および xangi の `src/skills.ts` による直接相対パス解決と衝突する。
+  - 方式 B は対象パスの現在の実バイトを `/var/lib/agent-host/workspace-backup/<txn-id>/` にバックアップし、write-ahead journal（`/var/lib/agent-host/workspace-journal/<txn-id>.json`）を書き `fsync` してから live worktree への temp-write + rename を行う。
+  - 適用途中でプロセスが `SIGKILL` されても、次回の `sync-workspace` 起動時に **wiki mutex を取得した直後・外部ソース取得の前** にリカバリ処理が走り、バックアップから実バイトを完全復元する。
+  - `gdg agent-host verify` にも未完了トランザクション検出を追加した。
+
+**4. wiki mutex による直列化と clean yield**
+- `/srv/gdg-agent/wiki` の既存 mutex（`filepath.Join(wikiRoot, ".gdgwiki/ingest-locks.json.mutex")`）を取得してから同期処理を行う。独自ロックは作らない。
+- mutex が既に保持されている場合（sleep ingest 等が稼働中）、エラーで異常終了するのではなく、ログを出力して exit 0 でクリーンに終了し、次回のタイマー実行（5 分後）に処理を譲る（clean yield）。
+
+**5. `--force` の厳格な契約**
+- ローカル変更が検出された場合、`--force` が指定されていない限り適用を中止し、破壊を防ぐ。
+- `--force` はローカル変更の上書きのみを許可し、署名検証・マニフェスト照合・アーカイブ検査・Tier 1 配信境界チェックを一切迂回しない。
+
+**6. systemd タイマーによる定期実行**
+- `agent-host-sync.service`（Type=oneshot）および `agent-host-sync.timer`（OnUnitActiveSec=5min, OnBootSec=2min）を `gdgagent-svc` の user scope unit として配置・収束させる。
+
+### Consequences
+
+- スキルを `agent-host/workspace/.agents/skills/` に push するだけで、最長 5 分で本番の `/srv/gdg-agent/wiki/.agents/skills/` に安全かつ自動的に反映される。
+- `AGENTS.md` の更新に伴い、`.cursor/rules/local.mdc` が常に `---\nalwaysApply: true\n---\n\n` を前置して自動生成・追随する。
+- 署名基盤・アーカイブ防御・マニフェストエンベロープ形式が確立され、Stage 10 の Tier 2 リリース管理に再利用可能となった。
 

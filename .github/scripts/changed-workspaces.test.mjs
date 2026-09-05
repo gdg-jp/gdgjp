@@ -135,4 +135,15 @@ test("agent-host non-forwarder changes do not select @gdgjp/langfuse-forwarder",
   const result = classifyChanges(["agent-host/workspace/AGENTS.md"]);
   assert.deepEqual(result.ci, []);
   assert.equal(result.scriptTests, true);
+  assert.equal(result.agentHostWorkspace, true);
+});
+
+test("detects agent-host/workspace changes with agentHostWorkspace predicate", () => {
+  assert.equal(
+    classifyChanges(["agent-host/workspace/.agents/skills/wiki-ingest/SKILL.md"])
+      .agentHostWorkspace,
+    true,
+  );
+  assert.equal(classifyChanges(["agent-host/config/cli-config.json"]).agentHostWorkspace, false);
+  assert.equal(classifyChanges(["wiki/app/routes/home.tsx"]).agentHostWorkspace, false);
 });

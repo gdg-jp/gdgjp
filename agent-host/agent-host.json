@@ -51,5 +51,9 @@
     "enabled": true,
     "dataDir": "/var/lib/agents-index",
     "dbPath": "/var/lib/agents-index/index.db"
+  },
+  "workspaceSync": {
+    "interval": "5min",
+    "source": "https://github.com/gdg-jp/gdgjp/releases/download/agent-host-workspace-latest/agent-host-workspace.manifest.json"
   }
 }

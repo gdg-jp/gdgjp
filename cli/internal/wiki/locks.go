@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -162,28 +163,86 @@ func withLocksFile(root string, mutate func(*IngestLocksFile) error) error {
 	return os.Rename(tmp, path)
 }
 
-// acquireLocksMutex uses mkdir as a portable exclusive lock (works on Unix and
-// Windows; syscall.Flock is unavailable on Windows).
-func acquireLocksMutex(root string) error {
-	mutex := locksMutexPath(root)
-	deadline := time.Now().Add(10 * time.Second)
+var (
+	mutexMu     sync.Mutex
+	activeLocks = make(map[string]*os.File)
+)
+
+// AcquireLocksMutexWithTimeout uses an OS-managed file lock with a configurable timeout.
+func AcquireLocksMutexWithTimeout(root string, timeout time.Duration) error {
+	configDir := ConfigDir(root)
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		return fmt.Errorf("mkdir config dir: %w", err)
+	}
+	mutexPath := locksMutexPath(root)
+
+	// Clean up legacy directory if present from older versions
+	if fi, err := os.Stat(mutexPath); err == nil && fi.IsDir() {
+		_ = os.RemoveAll(mutexPath)
+	}
+
+	deadline := time.Now().Add(timeout)
 	for {
-		err := os.Mkdir(mutex, 0o700)
-		if err == nil {
-			return nil
+		// 1. Check in-process lock
+		mutexMu.Lock()
+		if _, held := activeLocks[root]; held {
+			mutexMu.Unlock()
+			if time.Now().After(deadline) {
+				return fmt.Errorf("lock %s: timed out waiting for mutex", mutexPath)
+			}
+			time.Sleep(25 * time.Millisecond)
+			continue
 		}
-		if !os.IsExist(err) {
-			return fmt.Errorf("lock %s: %w", mutex, err)
+
+		// 2. Open lock file
+		f, err := os.OpenFile(mutexPath, os.O_CREATE|os.O_RDWR, 0o600)
+		if err != nil {
+			mutexMu.Unlock()
+			return fmt.Errorf("open lock %s: %w", mutexPath, err)
 		}
-		if time.Now().After(deadline) {
-			return fmt.Errorf("lock %s: timed out waiting for mutex", mutex)
+
+		// 3. Attempt OS-level exclusive non-blocking lock
+		if err := osLockFile(f); err != nil {
+			mutexMu.Unlock()
+			_ = f.Close()
+			if time.Now().After(deadline) {
+				return fmt.Errorf("lock %s: timed out waiting for mutex", mutexPath)
+			}
+			time.Sleep(25 * time.Millisecond)
+			continue
 		}
-		time.Sleep(25 * time.Millisecond)
+
+		// 4. Lock acquired successfully
+		_ = f.Truncate(0)
+		_, _ = f.Seek(0, 0)
+		_, _ = f.WriteString(fmt.Sprintf("%d\n", os.Getpid()))
+		activeLocks[root] = f
+		mutexMu.Unlock()
+		return nil
 	}
 }
 
+// ReleaseLocksMutex releases the OS-managed lock if held by this process.
+func ReleaseLocksMutex(root string) {
+	mutexMu.Lock()
+	f, ok := activeLocks[root]
+	if ok {
+		delete(activeLocks, root)
+	}
+	mutexMu.Unlock()
+
+	if ok && f != nil {
+		_ = osUnlockFile(f)
+		_ = f.Close()
+	}
+}
+
+func acquireLocksMutex(root string) error {
+	return AcquireLocksMutexWithTimeout(root, 10*time.Second)
+}
+
 func releaseLocksMutex(root string) {
-	_ = os.Remove(locksMutexPath(root))
+	ReleaseLocksMutex(root)
 }
 
 // LockedSourceIDs returns source ids for documents locked by LockOwner.

@@ -231,6 +231,30 @@ func buildDesiredResources(paths layoutPaths, prune bool) ([]Resource, error) {
 		Group: "gdgagent-svc",
 	})
 	res = append(res, &DirResource{
+		Path:  paths.VarLibRoot,
+		Mode:  0o750,
+		Owner: "gdgagent-svc",
+		Group: "gdgagent-svc",
+	})
+	res = append(res, &DirResource{
+		Path:  filepath.Join(paths.VarLibRoot, "workspace-staging"),
+		Mode:  0o700,
+		Owner: "gdgagent-svc",
+		Group: "gdgagent-svc",
+	})
+	res = append(res, &DirResource{
+		Path:  filepath.Join(paths.VarLibRoot, "workspace-backup"),
+		Mode:  0o700,
+		Owner: "gdgagent-svc",
+		Group: "gdgagent-svc",
+	})
+	res = append(res, &DirResource{
+		Path:  filepath.Join(paths.VarLibRoot, "workspace-journal"),
+		Mode:  0o700,
+		Owner: "gdgagent-svc",
+		Group: "gdgagent-svc",
+	})
+	res = append(res, &DirResource{
 		Path:  filepath.Join(paths.EtcRoot, "sudoers.d"),
 		Mode:  0o755,
 		Owner: "root",
@@ -339,6 +363,17 @@ func buildDesiredResources(paths layoutPaths, prune bool) ([]Resource, error) {
 		Owner: "root",
 		Group: "root",
 	})
+
+	releaseKeyBytes, err := configBytes("release-key.pub")
+	if err == nil && len(releaseKeyBytes) > 0 {
+		res = append(res, &FileResource{
+			Path:  filepath.Join(paths.AgentRoot, "lib", "release-key.pub"),
+			Data:  releaseKeyBytes,
+			Mode:  0o644,
+			Owner: "root",
+			Group: "root",
+		})
+	}
 
 	// Bin wrappers
 	res = append(res, &FileResource{
@@ -609,6 +644,50 @@ WantedBy=timers.target
 			return err == nil && fi.Size() > 0
 		},
 		Prefix: paths.Prefix,
+	})
+
+	syncService := `[Unit]
+Description=agent-host-sync (GDG agent workspace sync)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gdg agent-host sync-workspace
+`
+	res = append(res, &SystemdUnitResource{
+		UnitName: "agent-host-sync.service",
+		Path:     filepath.Join(userUnitDir, "agent-host-sync.service"),
+		Data:     []byte(syncService),
+		Mode:     0o644,
+		Owner:    "gdgagent-svc",
+		Group:    "gdgagent-svc",
+		Scope:    "user",
+		User:     "gdgagent-svc",
+		Prefix:   paths.Prefix,
+	})
+
+	syncTimer := `[Unit]
+Description=Run agent-host-sync every 5 minutes
+
+[Timer]
+OnUnitActiveSec=5min
+OnBootSec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+`
+	res = append(res, &SystemdUnitResource{
+		UnitName: "agent-host-sync.timer",
+		Path:     filepath.Join(userUnitDir, "agent-host-sync.timer"),
+		Data:     []byte(syncTimer),
+		Mode:     0o644,
+		Owner:    "gdgagent-svc",
+		Group:    "gdgagent-svc",
+		Scope:    "user",
+		User:     "gdgagent-svc",
+		Enable:   true,
+		Prefix:   paths.Prefix,
 	})
 
 	// 8. Runtime Packages & Binaries

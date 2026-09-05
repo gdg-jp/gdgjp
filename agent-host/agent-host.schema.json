@@ -213,6 +213,18 @@
       },
       "required": ["enabled"],
       "additionalProperties": false
+    },
+    "workspaceSync": {
+      "type": "object",
+      "properties": {
+        "interval": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": ["slotCount", "backend", "discord", "pins", "paths"],

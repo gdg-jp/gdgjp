@@ -259,6 +259,18 @@
     "mode": "0755"
   },
   {
+    "path": "home/gdgagent-svc/.config/systemd/user/agent-host-sync.service",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "15ade739fc6723987426315015dbfb18803c7b1eaf59c2dec6cc2dbb56645fde"
+  },
+  {
+    "path": "home/gdgagent-svc/.config/systemd/user/agent-host-sync.timer",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "15091c4c5a8f247e9873f08684231194dddfac52f3e8578d856781980cce8d75"
+  },
+  {
     "path": "home/gdgagent-svc/.config/systemd/user/langfuse-forwarder.service",
     "type": "file",
     "mode": "0644",
@@ -520,6 +532,12 @@
     "sha256": "1210eab0cb6d7b38f75eef45df747dea6d49652b0482b15b9519ad73f85f02d2"
   },
   {
+    "path": "opt/gdg-agent/lib/release-key.pub",
+    "type": "file",
+    "mode": "0644",
+    "sha256": "8921911d074074e18c9c530a2fa7e0edba57fc1d07612c0c7a413242dc441772"
+  },
+  {
     "path": "opt/gdg-agent/lib/shell-allowlist.ts",
     "type": "file",
     "mode": "0444",
@@ -591,6 +609,26 @@
     "path": "var/lib",
     "type": "dir",
     "mode": "0755"
+  },
+  {
+    "path": "var/lib/agent-host",
+    "type": "dir",
+    "mode": "0750"
+  },
+  {
+    "path": "var/lib/agent-host/workspace-backup",
+    "type": "dir",
+    "mode": "0700"
+  },
+  {
+    "path": "var/lib/agent-host/workspace-journal",
+    "type": "dir",
+    "mode": "0700"
+  },
+  {
+    "path": "var/lib/agent-host/workspace-staging",
+    "type": "dir",
+    "mode": "0700"
   },
   {
     "path": "var/lib/agents-index",
