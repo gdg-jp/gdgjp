@@ -95,7 +95,6 @@ func TestAntigravityBackendFailsClosedAndLeavesHostUntouched(t *testing.T) {
 	errMsg := planErr.Error()
 	expectedSubstrings := []string{
 		`error: backend "antigravity" does not satisfy required isolation`,
-		`slotLauncher: required true, but antigravity-cli.ts does not use slot-runtime (see Stage 12)`,
 		`osSandbox:    required "workspace", but antigravity provides "none"`,
 		`toolGate:     required "preToolUse-failClosed", but antigravity provides "none"`,
 	}
@@ -103,6 +102,11 @@ func TestAntigravityBackendFailsClosedAndLeavesHostUntouched(t *testing.T) {
 		if !strings.Contains(errMsg, expected) {
 			t.Errorf("error message missing expected explanation %q; got:\n%s", expected, errMsg)
 		}
+	}
+	// Stage 12 lifted slot isolation into CliRunnerBase for every adapter, so antigravity
+	// now satisfies slotLauncher — only osSandbox and toolGate remain blocking (Stage 14).
+	if strings.Contains(errMsg, "slotLauncher") {
+		t.Errorf("slotLauncher should no longer be a failure for antigravity after Stage 12; got:\n%s", errMsg)
 	}
 
 	// Verify host is untouched: prefix should contain only the test spec file
@@ -112,6 +116,44 @@ func TestAntigravityBackendFailsClosedAndLeavesHostUntouched(t *testing.T) {
 	}
 	if len(entries) != 1 || entries[0].Name() != "agent-host.json" {
 		t.Fatalf("expected host prefix to remain untouched (only agent-host.json exists), but found %d entries", len(entries))
+	}
+}
+
+// 3b. Stage 12 が antigravity の SlotLauncher を true にした後の状態を固定する:
+// レジストリは true を返すが、production への切り替えは osSandbox/toolGate の欠如で
+// 依然として拒否される（Stage 14 待ち）。development では slotLauncher だけを要求する
+// spec が素通りすることも確認する。
+func TestAntigravitySlotLauncherSatisfiedAfterStage12(t *testing.T) {
+	caps, ok := GetBackendCapabilities("antigravity")
+	if !ok {
+		t.Fatal("expected antigravity to be a known backend")
+	}
+	if !caps.SlotLauncher {
+		t.Fatalf("expected antigravity.SlotLauncher to be true after Stage 12, got false")
+	}
+
+	// development spec requiring only slotLauncher passes the capability check.
+	devSpec := validProductionSpec()
+	devSpec.Environment = "development"
+	devSpec.Backend.Name = "antigravity"
+	devSpec.Backend.Isolation = IsolationSpec{SlotLauncher: true, OSSandbox: "none", ToolGate: "none"}
+	if err := ValidateBackendContract(devSpec); err != nil {
+		t.Fatalf("expected development spec requiring only slotLauncher to pass, got: %v", err)
+	}
+
+	// production spec still requires the full contract, so switching to antigravity
+	// remains rejected — but only for osSandbox/toolGate now, not slotLauncher.
+	prodSpec := validProductionSpec()
+	prodSpec.Backend.Name = "antigravity"
+	err := ValidateBackendContract(prodSpec)
+	if err == nil {
+		t.Fatalf("expected production spec to still reject antigravity (osSandbox/toolGate pending Stage 14)")
+	}
+	if strings.Contains(err.Error(), "slotLauncher") {
+		t.Errorf("slotLauncher must not appear in the rejection reason after Stage 12; got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "osSandbox") || !strings.Contains(err.Error(), "toolGate") {
+		t.Errorf("expected rejection to cite osSandbox and toolGate, got: %v", err)
 	}
 }
 

@@ -517,7 +517,7 @@
     "path": "opt/gdg-agent/lib/exec-spawn.ts",
     "type": "file",
     "mode": "0444",
-    "sha256": "588fc7ea3c56dd58d2a9b55bb1717786fc52dec2b92c64f53f399e9d252fddb4"
+    "sha256": "f9ace3fb662e378409a712079a8c417c87ca95d2c5cbc00dfad15880e9ed923d"
   },
   {
     "path": "opt/gdg-agent/lib/gws.ts",

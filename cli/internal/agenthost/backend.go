@@ -118,11 +118,7 @@ func ValidateBackendContract(spec SpecFile) error {
 	// 1. Verify backend capabilities against requested isolation.
 	var failures []string
 	if spec.Backend.Isolation.SlotLauncher && !caps.SlotLauncher {
-		if spec.Backend.Name == "antigravity" {
-			failures = append(failures, "  slotLauncher: required true, but antigravity-cli.ts does not use slot-runtime (see Stage 12)")
-		} else {
-			failures = append(failures, fmt.Sprintf("  slotLauncher: required true, but %s provides false", spec.Backend.Name))
-		}
+		failures = append(failures, fmt.Sprintf("  slotLauncher: required true, but %s provides false", spec.Backend.Name))
 	}
 	if spec.Backend.Isolation.OSSandbox == "workspace" && caps.OSSandbox != "workspace" {
 		failures = append(failures, fmt.Sprintf("  osSandbox:    required %q, but %s provides %q", spec.Backend.Isolation.OSSandbox, spec.Backend.Name, caps.OSSandbox))
@@ -473,7 +469,7 @@ func (a *antigravityPolicy) Name() string { return "antigravity" }
 
 func (a *antigravityPolicy) Capabilities() BackendCapabilities {
 	return BackendCapabilities{
-		SlotLauncher: false,  // Stage 12
+		SlotLauncher: true,   // Stage 12: CliRunnerBase now sudo-execs spawn-slot-<N> for all adapters
 		OSSandbox:    "none", // Stage 14
 		ToolGate:     "none", // Stage 14
 		PolicyBundle: "antigravity",

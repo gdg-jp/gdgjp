@@ -56,7 +56,6 @@ const extraEnv =
   spec.env && typeof spec.env === "object" && !Array.isArray(spec.env)
     ? (spec.env as Record<string, unknown>)
     : {};
-const cursorApiKey = extraEnv.CURSOR_API_KEY;
 const lockOwner = extraEnv.GDG_WIKI_LOCK_OWNER;
 const env: NodeJS.ProcessEnv = {
   PATH: "/opt/gdg-agent/bin:/usr/bin:/bin",
@@ -68,8 +67,20 @@ const env: NodeJS.ProcessEnv = {
 };
 if (typeof extraEnv.LANG === "string") env.LANG = extraEnv.LANG;
 if (typeof extraEnv.TZ === "string") env.TZ = extraEnv.TZ;
-if (typeof cursorApiKey === "string" && cursorApiKey) env.CURSOR_API_KEY = cursorApiKey;
 if (typeof lockOwner === "string" && lockOwner) env.GDG_WIKI_LOCK_OWNER = lockOwner;
+// Per-backend secrets/config forwarded by CliRunnerBase.resolveSpawn() (xangi, Stage 12
+// isolatedEnvKeys). Fixed allowlist by design — spawn.json is written by xangi, a lower
+// trust tier than this launcher, so arbitrary keys in spec.env are never passed through.
+const BACKEND_ENV_ALLOWLIST = [
+  "CURSOR_API_KEY",
+  "ANTHROPIC_API_KEY",
+  "XAI_API_KEY",
+  "AGY_CLI_HIDE_ACCOUNT_INFO",
+] as const;
+for (const key of BACKEND_ENV_ALLOWLIST) {
+  const value = extraEnv[key];
+  if (typeof value === "string" && value) env[key] = value;
+}
 
 // MCP servers come from $HOME/.cursor/mcp.json (root-owned). There is no CLI
 // flag that pins or disables project mcp.json on this cursor-agent version.

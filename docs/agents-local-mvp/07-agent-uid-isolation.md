@@ -530,6 +530,14 @@ Stage 09 は `index.db` を `gdgagent-run-*` から読めない所有権にす�
 [07-ubuntu-host-install-2026-08-20.md](07-ubuntu-host-install-2026-08-20.md)。
 所有権と workdir は載った。Discord Privileged Intents と invocation 実走は未完了。
 
+**Stage 12 での訂正**: 実装時、§3 の spawn 経路（`sudo -u gdgagent-run-<N>` 起動）は
+`cli-runner-core.ts` ではなく `cursor-cli.ts` に溶接され、cursor 以外の 4 バックエンドには
+uid 分離が存在しない状態になっていた。
+[`docs/agents-local-refactoring/12-xangi-slot-isolation.md`](../agents-local-refactoring/12-xangi-slot-isolation.md)
+がこの節の設計どおり `CliRunnerBase.resolveSpawn`（`cli-runner-core.ts`）へ引き上げ、
+全アダプタに適用した。`slot-runtime.ts` の中身（`slotIsolationEnabled` /
+`assertSlotLauncher` / `writeSpawnSpec` / `sudoLauncherArgs`）は変わっていない。
+
 ## Verification — 完了条件と検証
 
 ### 完了条件

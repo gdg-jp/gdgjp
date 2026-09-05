@@ -20,9 +20,12 @@ the main monorepo for the Vercel deployment's setup, for background on what the 
 Three layers, none of which is optional in production:
 
 1. **preToolUse gate** (`toolGate: "preToolUse-failClosed"`) — the only in-workdir ACL boundary (`wk` vs everything else).
-2. **uid isolation** (`slotLauncher: true`) — `cursor-agent` runs as `gdgagent-run-<N>`, not as the
-   operator. `~/.config/gdg/credentials.json`, IAM files, hooks, and conversation
-   logs are owned by `gdgagent-svc` and are not readable from a slot uid.
+2. **uid isolation** (`slotLauncher: true`) — the backend CLI (`cursor-agent`, and since Stage 12
+   every other xangi adapter too) runs as `gdgagent-run-<N>`, not as the operator.
+   `~/.config/gdg/credentials.json`, IAM files, hooks, and conversation
+   logs are owned by `gdgagent-svc` and are not readable from a slot uid. Slot isolation lives
+   in xangi's `CliRunnerBase` (`src/cli-runner-core.ts`), not in any single adapter, and fails
+   closed (throws) rather than falling back to a same-uid spawn when a slot can't be assigned.
 3. **OS sandbox** (`osSandbox: "workspace"`) — `sandbox.mode: "enabled"` and `readBoundary: "workspace"`
    stop shell reads of paths outside the worktree. This is a workspace-sized
    fence, not a per-file policy. **It does not replace the gate.**
@@ -43,7 +46,7 @@ The 3 layers are governed by the **Backend Capability Contract** in `spec.backen
 ```
 
 The Go converger (`gdg agent-host apply`) enforces this contract against a backend capabilities registry:
-- Switching `backend.name` to `antigravity` fails closed with explicit error messages for each missing layer (`slotLauncher`, `osSandbox`, `toolGate`).
+- Switching `backend.name` to `antigravity` fails closed with explicit error messages for each missing layer. Since Stage 12 lifted slot isolation into `CliRunnerBase` for all xangi adapters, `slotLauncher` is satisfied; `osSandbox` and `toolGate` still block the switch pending Stage 14.
 - Relaxing `backend.isolation` in `environment: "production"` is rejected against an immutable `productionMinimum` compiled into the `gdg` binary.
 - Self re-exec (`pins.gdgCli`) verifies the current binary's `productionMinimum` before re-exec and requires SHA-256 digests to match an approved release allowlist, preventing downgrade bypasses.
 - Backend configuration bundles are organized under `config/backends/<name>/` (e.g. `cursor/`), with the converger placing only the active backend's templates.
