@@ -48,6 +48,12 @@ body {
   background-color: var(--color-surface);
 }
 
+/* ost/app/app.css also defines an animate-in/animate-out utility block here
+ * (a minimal tailwindcss-animate subset) for @gdgjp/gdg-lib/ui's dropdown
+ * menus. Roster doesn't render any gdg-lib/ui component yet — see
+ * vite.config.ts's matching optimizeDeps note — so it's omitted for now; add
+ * it back (copy from ost/app/app.css) the moment a route renders one. */
+
 /* Respect the OS setting for everything that isn't already gated in JS. */
 @media (prefers-reduced-motion: reduce) {
   *,
