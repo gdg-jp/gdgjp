@@ -161,6 +161,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - parallel:
+          - name: Typecheck GDG UI library
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/gdg-ui-library')
+            run: pnpm --filter @gdgjp/gdg-ui-library typecheck
           - name: Typecheck accounts
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/accounts')
             run: |
@@ -253,6 +256,9 @@ jobs:
           - name: Test website
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website test
+          - name: Test GDG UI library
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/gdg-ui-library')
+            run: pnpm --filter @gdgjp/gdg-ui-library test
           - name: Test gdg-lib
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/gdg-lib')
             run: pnpm --filter @gdgjp/gdg-lib test
@@ -283,6 +289,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - parallel:
+          - name: Build GDG UI library
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/gdg-ui-library')
+            run: pnpm --filter @gdgjp/gdg-ui-library build && pnpm --filter @gdgjp/gdg-ui-library test:consumer
           - name: Build accounts
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/accounts')
             run: pnpm --filter @gdgjp/accounts build
@@ -359,6 +368,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Create accounts dev vars
+        if: matrix.app != 'gdg-ui-library'
         run: |
           cat > accounts/.dev.vars <<EOF
           BETTER_AUTH_SECRET=ci-better-auth-secret-for-e2e-tests
@@ -419,6 +429,7 @@ jobs:
           ENVIRONMENT=development
           EOF
       - name: Migrate Accounts local database
+        if: matrix.app != 'gdg-ui-library'
         run: pnpm --filter @gdgjp/accounts migrate:local
       - name: Migrate img local database
         if: matrix.app == 'img'
