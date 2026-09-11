@@ -7,7 +7,7 @@ import { ThemeToggle } from "~/components/theme-toggle";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader } from "~/components/ui/card";
 import { SubmitButton } from "~/components/ui/submit-button";
-import { safeReturnTo } from "~/lib/auth-redirect";
+import { safeReturnTo, signedInDestination } from "~/lib/auth-redirect";
 import { getSessionUser } from "~/lib/auth.server";
 import { i18n } from "~/lib/i18n/i18n.server";
 import type { Route } from "./+types/signin";
@@ -17,9 +17,10 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const t = await i18n.getFixedT(request);
   const url = new URL(request.url);
   const returnTo = safeReturnTo(url.searchParams.get("return_to")) ?? "/dashboard";
-  // If already signed in, jump straight to return_to.
+  // Resume an OAuth authorization request when the provider sent the user here.
+  // A normal, first-party sign-in still jumps straight to return_to.
   const session = await getSessionUser(env, request);
-  if (session) throw redirect(returnTo);
+  if (session) throw redirect(signedInDestination(url.searchParams));
   return { title: t("meta.signin"), returnTo };
 }
 

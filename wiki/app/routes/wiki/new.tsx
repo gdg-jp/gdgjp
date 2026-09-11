@@ -65,7 +65,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     lastEditedBy: user.id,
   });
 
-  return redirect(`/wiki/${slug}`);
+  return redirect(`/wiki/${slug}`, { headers: { "X-Wiki-Page-Id": pageId } });
 }
 
 // ---------------------------------------------------------------------------

@@ -148,6 +148,24 @@
       "discard_cancel": "Keep editing",
       "reply_to": "Reply",
       "reply_count": "{{count}} replies"
+    },
+    "menu": {
+      "more": "More actions",
+      "copy_link": "Copy link",
+      "copy_contents": "Copy page contents",
+      "duplicate": "Duplicate",
+      "move": "Move to",
+      "trash": "Move to Trash",
+      "small_text": "Small text",
+      "full_width": "Full width",
+      "copied": "Copied",
+      "copy_failed": "Could not copy",
+      "action_failed": "Could not complete this action. Check your permissions and the page status, then try again.",
+      "working": "Working…",
+      "loading": "Loading…",
+      "move_description": "Choose a destination. Sharing permissions will be preserved.",
+      "search_pages": "Search pages",
+      "root": "Root (top level)"
     }
   },
   "archived": {

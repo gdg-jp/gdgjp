@@ -30,11 +30,12 @@ async function makePage(
 }
 
 async function openShareDialog(page: Page) {
-  const button = page.getByRole("button", { name: /share/i }).first();
+  let button = page.getByRole("button", { name: /share/i }).first();
   if (!(await button.isVisible().catch(() => false))) {
     const more = page.getByRole("button", { name: /more actions/i });
     await expect(more).toBeVisible({ timeout: 10_000 });
     await more.click();
+    button = page.getByRole("menuitem", { name: "Share", exact: true });
   }
   await expect(button).toBeVisible({ timeout: 10_000 });
   const dialog = page.getByRole("dialog");
@@ -65,6 +66,16 @@ async function setGeneralAccess(page: Page, value: "restricted" | "unlisted" | "
   await accessSelect.click();
   await page.getByRole("option", { name: labels[value], exact: true }).click();
   expect((await response).ok()).toBeTruthy();
+}
+
+async function setGeneralAccessViaApi(
+  page: Page,
+  visibility: "restricted" | "unlisted" | "public",
+) {
+  const response = await page.request.post(`/api/page-access/${TEST_PAGE.id}`, {
+    data: { intent: "setGeneralAccess", visibility, generalRole: "viewer" },
+  });
+  expect(response.ok()).toBeTruthy();
 }
 
 async function hasRunningAnimation(locator: Locator) {
@@ -250,18 +261,20 @@ test("combobox supports keyboard selection and multiple-chip grants", async ({ b
   await ctx.close();
 });
 
-test("general access has three modes and hides the role for Restricted", async ({ browser }) => {
+test("general access has five modes and hides the role for Restricted", async ({ browser }) => {
   const { ctx, page } = await makePage(browser, "author.json");
   await page.goto(PAGE_URL);
   await openShareDialog(page);
 
   await page.locator("#general-access").click();
-  await expect(page.getByRole("option")).toHaveCount(3);
+  await expect(page.getByRole("option")).toHaveCount(5);
   await expect(page.getByRole("option", { name: "Restricted", exact: true })).toBeVisible();
   await expect(
     page.getByRole("option", { name: "Anyone with the link", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("option", { name: "Public", exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Organizer", exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Member", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await setGeneralAccess(page, "unlisted");
   const accessSelect = page.locator("#general-access");
@@ -281,9 +294,7 @@ test("anonymous users can directly view unlisted pages but cannot discover them"
   browser,
 }) => {
   const { ctx: authorCtx, page: authorPage } = await makePage(browser, "author.json");
-  await authorPage.goto(PAGE_URL);
-  await openShareDialog(authorPage);
-  await setGeneralAccess(authorPage, "unlisted");
+  await setGeneralAccessViaApi(authorPage, "unlisted");
   await authorCtx.close();
 
   const { ctx, page } = await makePage(browser);
@@ -296,9 +307,7 @@ test("anonymous users can directly view unlisted pages but cannot discover them"
 
 test("anonymous top and sidebar expose public pages only", async ({ browser }) => {
   const { ctx: authorCtx, page: authorPage } = await makePage(browser, "author.json");
-  await authorPage.goto(PAGE_URL);
-  await openShareDialog(authorPage);
-  await setGeneralAccess(authorPage, "public");
+  await setGeneralAccessViaApi(authorPage, "public");
   await authorCtx.close();
 
   const { ctx, page } = await makePage(browser);
@@ -310,9 +319,7 @@ test("anonymous top and sidebar expose public pages only", async ({ browser }) =
 
 test("restricted pages reject anonymous direct access", async ({ browser }) => {
   const { ctx: authorCtx, page: authorPage } = await makePage(browser, "author.json");
-  await authorPage.goto(PAGE_URL);
-  await openShareDialog(authorPage);
-  await setGeneralAccess(authorPage, "restricted");
+  await setGeneralAccessViaApi(authorPage, "restricted");
   await authorCtx.close();
 
   const { ctx, page } = await makePage(browser);

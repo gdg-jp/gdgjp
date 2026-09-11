@@ -22,6 +22,19 @@ export function safeReturnTo(value: string | null | undefined): string | null {
   return null;
 }
 
+/**
+ * Continue an OAuth authorization request after the Accounts session has been
+ * established. The provider sends unauthenticated authorization requests to
+ * `/signin` with the original query parameters, so sending an already signed-in
+ * user to the dashboard here would abandon the relying-party login entirely.
+ */
+export function signedInDestination(searchParams: URLSearchParams): string {
+  if (searchParams.has("client_id")) {
+    return `/api/auth/oauth2/authorize?${searchParams.toString()}`;
+  }
+  return safeReturnTo(searchParams.get("return_to")) ?? "/dashboard";
+}
+
 export function buildSignInRedirect(request: Request): Response {
   const url = new URL(request.url);
   const returnTo = url.pathname + url.search;

@@ -1,5 +1,7 @@
 import { List } from "lucide-react";
 import { MdPreview } from "md-editor-rt";
+import { displayedMarkdown } from "~/features/pages/page-menu-content";
+import type { PageDisplay } from "~/features/pages/use-page-display";
 import "md-editor-rt/lib/preview.css";
 import { Suspense, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -37,6 +39,7 @@ export type PageMetaPayload = {
 };
 
 interface WikiPageBodyProps {
+  display: PageDisplay;
   page: PageSlice;
   content: { contentJa: string; contentEn: string };
   pageMeta: Promise<PageMetaPayload>;
@@ -44,7 +47,14 @@ interface WikiPageBodyProps {
   isAdmin: boolean;
 }
 
-export function WikiPageBody({ page, content, pageMeta, lang, isAdmin }: WikiPageBodyProps) {
+export function WikiPageBody({
+  page,
+  content,
+  pageMeta,
+  lang,
+  isAdmin,
+  display,
+}: WikiPageBodyProps) {
   const { t } = useTranslation("common");
   const theme = useThemeMode();
   const isDesktop = useMediaQuery("(min-width: 768px)");
@@ -54,7 +64,7 @@ export function WikiPageBody({ page, content, pageMeta, lang, isAdmin }: WikiPag
 
   const hasContent = primaryContent && primaryContent.trim().length > 0;
   const hasFallback = !hasContent && fallbackContent && fallbackContent.trim().length > 0;
-  const displayContent = hasContent ? primaryContent : (fallbackContent ?? "");
+  const displayContent = displayedMarkdown(content, lang);
 
   const [tocItems, setTocItems] = useState<TocItem[]>(() => parseMdHeadings(displayContent));
   const [mobileContentsOpen, setMobileContentsOpen] = useState(false);
@@ -92,7 +102,10 @@ export function WikiPageBody({ page, content, pageMeta, lang, isAdmin }: WikiPag
 
   return (
     <div className="flex gap-0">
-      <article className="max-w-3xl min-w-0 flex-1 px-4 pt-4 pb-6 md:px-10 md:pt-4 md:pb-8">
+      <article
+        data-small-text={display.smallText}
+        className={`${display.fullWidth ? "" : "max-w-3xl"} min-w-0 flex-1 px-4 pt-4 pb-6 md:px-10 md:pt-4 md:pb-8`}
+      >
         {/* Mobile "Contents" button */}
         {tocItems.length > 0 ? (
           <button

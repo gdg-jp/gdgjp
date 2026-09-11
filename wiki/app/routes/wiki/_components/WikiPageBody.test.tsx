@@ -53,6 +53,7 @@ describe("WikiPageBody mobile contents button trigger", () => {
   it("renders mobile contents button immediately when headings exist", async () => {
     const html = await renderToString(
       <WikiPageBody
+        display={{ smallText: false, fullWidth: false }}
         page={basePage}
         content={{ contentJa: "## Heading", contentEn: "## Heading" }}
         lang="ja"
@@ -82,6 +83,7 @@ describe("WikiPageBody mobile contents button trigger", () => {
 
     const html = await renderToString(
       <WikiPageBody
+        display={{ smallText: false, fullWidth: false }}
         page={basePage}
         content={{ contentJa: "No headings here", contentEn: "No headings here" }}
         lang="ja"
@@ -104,6 +106,7 @@ describe("WikiPageBody mobile contents button trigger", () => {
 
     const html = await renderToString(
       <WikiPageBody
+        display={{ smallText: false, fullWidth: false }}
         page={basePage}
         content={{ contentJa: "No headings here", contentEn: "No headings here" }}
         lang="ja"
@@ -126,6 +129,7 @@ describe("WikiPageBody mobile contents button trigger", () => {
 
     const html = await renderToString(
       <WikiPageBody
+        display={{ smallText: false, fullWidth: false }}
         page={basePage}
         content={{ contentJa: "No headings here", contentEn: "No headings here" }}
         lang="ja"
@@ -143,6 +147,7 @@ describe("WikiPageBody mobile contents button trigger", () => {
 
     const html = await renderToString(
       <WikiPageBody
+        display={{ smallText: false, fullWidth: false }}
         page={basePage}
         content={{ contentJa: "No headings here", contentEn: "No headings here" }}
         lang="ja"

@@ -5,6 +5,7 @@ import ConfirmDialog from "~/components/ConfirmDialog";
 import { ArticleSkeleton, ListSkeleton, TocSkeleton } from "~/components/Skeleton";
 import CommentSection from "~/features/pages/components/CommentSection";
 import ShareDialog from "~/features/pages/components/ShareDialog";
+import { usePageDisplay } from "~/features/pages/use-page-display";
 import type { loader } from "../page";
 import { WikiPageBody } from "./WikiPageBody";
 import { WikiPageToolbar } from "./WikiPageToolbar";
@@ -26,6 +27,7 @@ export function WikiPageView() {
     canChangeVisibility,
     visibility,
   } = useLoaderData<typeof loader>();
+  const [display, setDisplay] = usePageDisplay(page.id, currentUserId);
   const { t } = useTranslation("common");
   const location = useLocation();
   const contentLangFetcher = useFetcher();
@@ -33,9 +35,13 @@ export function WikiPageView() {
 
   // Persist content lang selection only when it differs from the stored value.
   useEffect(() => {
-    const stored = localStorage.getItem("content_lang");
-    if (stored === lang) return;
-    localStorage.setItem("content_lang", lang);
+    try {
+      const stored = localStorage.getItem("content_lang");
+      if (stored === lang) return;
+      localStorage.setItem("content_lang", lang);
+    } catch {
+      // Reader preferences must remain usable when browser storage is blocked.
+    }
     submitRef({ lang }, { method: "post", action: "/api/set-content-lang" });
   }, [lang, submitRef]);
 
@@ -51,6 +57,11 @@ export function WikiPageView() {
   return (
     <div>
       <WikiPageToolbar
+        key={`${currentUserId}:${page.id}:${location.pathname}`}
+        title={title}
+        content={content}
+        display={display}
+        onDisplayChange={setDisplay}
         page={page}
         lang={lang}
         jaUrl={jaUrl}
@@ -64,13 +75,19 @@ export function WikiPageView() {
       />
 
       <div className="px-4 pt-6 md:px-10 md:pt-8">
-        <h1 className="max-w-3xl text-3xl font-bold text-content-primary">{title}</h1>
+        <h1
+          className={`${display.fullWidth ? "" : "max-w-3xl"} text-3xl font-bold text-content-primary`}
+        >
+          {title}
+        </h1>
       </div>
 
       <Suspense
         fallback={
           <div className="flex gap-0">
-            <div className="max-w-3xl min-w-0 flex-1 px-4 pt-4 pb-6 md:px-10 md:pt-4 md:pb-8">
+            <div
+              className={`${display.fullWidth ? "" : "max-w-3xl"} min-w-0 flex-1 px-4 pt-4 pb-6 md:px-10 md:pt-4 md:pb-8`}
+            >
               <ArticleSkeleton />
             </div>
             <TocSkeleton />
@@ -87,6 +104,7 @@ export function WikiPageView() {
         >
           {(resolvedContent) => (
             <WikiPageBody
+              display={display}
               page={page}
               content={resolvedContent}
               pageMeta={pageMeta}
@@ -98,7 +116,9 @@ export function WikiPageView() {
       </Suspense>
 
       {/* Comments section — full article width below content */}
-      <div className="max-w-3xl min-w-0 flex-1 border-t border-border-subtle px-4 py-8 md:px-10">
+      <div
+        className={`${display.fullWidth ? "" : "max-w-3xl"} min-w-0 flex-1 border-t border-border-subtle px-4 py-8 md:px-10`}
+      >
         <Suspense fallback={<ListSkeleton rows={3} />}>
           <Await
             resolve={comments}

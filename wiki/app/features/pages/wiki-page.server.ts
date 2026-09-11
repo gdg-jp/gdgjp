@@ -10,6 +10,8 @@ import { archivePageAndDescendants } from "~/features/pages/archive.server";
 import { classifyWikiRequestPath, wikiPagePath } from "~/features/pages/wiki-page-path";
 import { getWikiCanonicalSlugPath } from "~/features/pages/wiki-page-path.server";
 import { getDb } from "~/lib/db.server";
+import { duplicatePage } from "./duplicate.server";
+import { movePage } from "./move.server";
 
 type WikiDb = ReturnType<typeof getDb>;
 
@@ -258,6 +260,46 @@ export async function handleWikiPageAction({ request, context, params }: ActionF
 
   const form = await request.formData();
   const intent = form.get("intent");
+
+  if (intent === "duplicatePage" || intent === "movePage") {
+    const page = await db
+      .select({ id: schema.pages.id })
+      .from(schema.pages)
+      .where(eq(schema.pages.slug, leafSlug))
+      .get();
+    if (!page) return Response.json({ error: "not_found" }, { status: 404 });
+    try {
+      let path: string;
+      if (intent === "duplicatePage") {
+        const identity = await getAccessIdentity(request, env);
+        path = await duplicatePage(
+          env,
+          sessionUser,
+          identity.chapters,
+          page.id,
+          new URL(request.url).origin,
+        );
+      } else {
+        const parentId = form.get("parentId");
+        if (typeof parentId !== "string")
+          return Response.json({ error: "invalid_parent" }, { status: 400 });
+        await movePage(env, sessionUser, {
+          pageId: page.id,
+          newParentId: parentId || null,
+          insertAfterId: null,
+          append: true,
+        });
+        path = wikiPagePath(await getWikiCanonicalSlugPath(env, page.id));
+      }
+      return redirect(`${path}?lang=${form.get("lang") === "en" ? "en" : "ja"}`);
+    } catch (error) {
+      if (!(error instanceof Response)) console.error("[page-menu] action failed", error);
+      return Response.json(
+        { error: "page_action_failed" },
+        { status: error instanceof Response ? error.status : 500 },
+      );
+    }
+  }
 
   if (intent === "toggleFavorite") {
     const pageId = form.get("pageId");

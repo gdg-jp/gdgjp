@@ -311,6 +311,55 @@ describe("OIDC RP", () => {
     expect(calls.some((call) => call.operation === "run")).toBe(false);
   });
 
+  it("repairs a stale subject from a recreated loopback IdP database", async () => {
+    oidc.discovery.mockResolvedValue(configuration("http://localhost:5173"));
+    const { db, calls } = database({
+      linked: null,
+      byEmail: {
+        id: "local-user",
+        oidc_issuer: "http://localhost:5173",
+        oidc_subject: "old-subject",
+      },
+    });
+    const response = await auth(db, "http://localhost:5173").handleAuthRequest(
+      new Request("https://app.example/api/auth/callback/gdgjp?code=code&state=state", {
+        headers: { Cookie: await transactionCookie() },
+      }),
+    );
+
+    expect(response.status).toBe(302);
+    expect(calls).toContainEqual(
+      expect.objectContaining({
+        operation: "run",
+        args: expect.arrayContaining([
+          "subject-1",
+          "local-user",
+          "http://localhost:5173",
+          "old-subject",
+        ]),
+      }),
+    );
+  });
+
+  it("does not repair a stale subject for a non-loopback issuer", async () => {
+    const { db, calls } = database({
+      linked: null,
+      byEmail: {
+        id: "other-user",
+        oidc_issuer: "https://issuer.example",
+        oidc_subject: "old-subject",
+      },
+    });
+    const response = await auth(db).handleAuthRequest(
+      new Request("https://app.example/api/auth/callback/gdgjp?code=code&state=state", {
+        headers: { Cookie: await transactionCookie() },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(calls.some((call) => call.operation === "run")).toBe(false);
+  });
+
   it("uses RP-Initiated Logout with an ID Token hint", async () => {
     const sessionId = "session-1";
     const session = await signPayload(

@@ -19,6 +19,7 @@ function requestArgs(pageType: string | null) {
         author_id: "user-1",
         origin: "agent",
         page_type: pageType,
+        status: "published",
       }),
       all: vi.fn().mockResolvedValue({ results: [] }),
       sql,

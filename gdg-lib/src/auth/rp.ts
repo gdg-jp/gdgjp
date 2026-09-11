@@ -600,6 +600,39 @@ async function upsertUser(
 
   if (existingByEmail) {
     if (existingByEmail.oidc_issuer || existingByEmail.oidc_subject) {
+      // A local IdP database can be recreated independently from an RP's
+      // database, changing its generated user ID (the OIDC subject) while the
+      // verified account email and loopback issuer remain the same. Repair
+      // only that local-development case; non-loopback issuers retain the
+      // strict identity-conflict guard below.
+      if (
+        existingByEmail.oidc_issuer === issuer &&
+        typeof existingByEmail.oidc_subject === "string" &&
+        existingByEmail.oidc_subject !== subject &&
+        isLoopbackIssuer(issuer)
+      ) {
+        const result = await db
+          .prepare(
+            `UPDATE "user"
+             SET oidc_subject = ?, name = ?, image = ?, is_admin = ?, updated_at = ?
+             WHERE id = ? AND oidc_issuer = ? AND oidc_subject = ?`,
+          )
+          .bind(
+            subject,
+            name,
+            image,
+            isAdmin,
+            now,
+            existingByEmail.id,
+            issuer,
+            existingByEmail.oidc_subject,
+          )
+          .run();
+        if (result.meta.changes !== 1) {
+          throw new Error("OIDC identity link changed concurrently");
+        }
+        return existingByEmail.id;
+      }
       throw new Error("Email is already linked to a different OIDC identity");
     }
     const result = await db
@@ -688,6 +721,15 @@ function isLocalAppUrl(appUrl: string): boolean {
   try {
     const u = new URL(appUrl);
     return u.hostname === "localhost" || u.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+function isLoopbackIssuer(issuer: string): boolean {
+  try {
+    const hostname = new URL(issuer).hostname;
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
   } catch {
     return false;
   }

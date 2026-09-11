@@ -607,3 +607,8 @@
 .md-editor-preview ol {
   list-style-type: decimal;
 }
+
+/* Page-local reader preference; headings and code retain their relative scale. */
+article[data-small-text="true"] .md-editor-preview {
+  font-size: 14px;
+}

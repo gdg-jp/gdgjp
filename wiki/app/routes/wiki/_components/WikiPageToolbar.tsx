@@ -1,9 +1,11 @@
-import { Archive, History, MoreHorizontal, Pencil, Share2, Star } from "lucide-react";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { History, Pencil, Share2, Star } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, Link, useFetcher } from "react-router";
 import { Skeleton } from "~/components/Skeleton";
-import Tooltip from "~/components/Tooltip";
+import { DropdownMenuItem } from "~/components/ui/dropdown-menu";
+import type { PageDisplay } from "~/features/pages/use-page-display";
+import { PageActionsMenu } from "./PageActionsMenu";
 
 const btnBase =
   "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-content-tertiary transition-colors hover:bg-surface-hover hover:text-content-primary";
@@ -51,11 +53,9 @@ function StarButton({ pageId, initialStarred }: { pageId: string; initialStarred
 function MobileStarButton({
   pageId,
   initialStarred,
-  onSelect,
 }: {
   pageId: string;
   initialStarred: boolean;
-  onSelect: () => void;
 }) {
   const { t } = useTranslation("common");
   const favFetcher = useFetcher<{ ok: boolean; starred: boolean }>();
@@ -77,18 +77,19 @@ function MobileStarButton({
     : undefined;
 
   return (
-    <button
-      type="button"
-      onClick={() => {
-        favFetcher.submit({ intent: "toggleFavorite", pageId }, { method: "post" });
-        onSelect();
-      }}
-      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
-      style={starStyle}
-    >
-      <Star size={14} style={starIconStyle} />
-      {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
-    </button>
+    <DropdownMenuItem asChild>
+      <button
+        type="button"
+        onClick={() => {
+          favFetcher.submit({ intent: "toggleFavorite", pageId }, { method: "post" });
+        }}
+        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
+        style={starStyle}
+      >
+        <Star size={14} style={starIconStyle} />
+        {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
+      </button>
+    </DropdownMenuItem>
   );
 }
 
@@ -104,6 +105,10 @@ export function WikiPageToolbar({
   pageMeta,
   onShare,
   onArchive,
+  title,
+  content,
+  display,
+  onDisplayChange,
 }: {
   page: PageSlice;
   lang: "ja" | "en";
@@ -115,22 +120,15 @@ export function WikiPageToolbar({
   pageMeta: Promise<{ isStarred: boolean }>;
   onShare: () => void;
   onArchive: () => void;
+  title: string;
+  content: Promise<{ contentJa: string; contentEn: string }>;
+  display: PageDisplay;
+  onDisplayChange: (value: PageDisplay) => void;
 }) {
   const { t } = useTranslation("common");
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!moreOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [moreOpen]);
 
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-2 md:px-10">
+    <div className="relative flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-2 md:px-10">
       <div className="flex shrink-0 gap-1 rounded-md border border-border-default bg-surface-raised p-0.5">
         {(["ja", "en"] as const).map((l) => {
           const status = l === "ja" ? page.translationStatusJa : page.translationStatusEn;
@@ -166,7 +164,7 @@ export function WikiPageToolbar({
         })}
       </div>
       {/* Desktop action buttons (md+) */}
-      <div className="hidden items-center gap-1 md:flex">
+      <div className="ml-auto hidden items-center gap-1 md:flex">
         {canEdit && (
           <Link to={`/wiki/${page.slug}/edit`} className={btnBase}>
             <Pencil size={14} />
@@ -192,102 +190,54 @@ export function WikiPageToolbar({
             </button>
           </>
         )}
-        <Tooltip label={t("wiki.archive_no_permission")} disabled={!canArchive}>
-          <button
-            type="button"
-            onClick={canArchive ? onArchive : undefined}
-            disabled={!canArchive}
-            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-content-tertiary transition-colors hover:bg-feedback-warning-surface hover:text-feedback-warning-foreground disabled:opacity-50"
-          >
-            <Archive size={14} />
-            {t("wiki.archive")}
-          </button>
-        </Tooltip>
       </div>
 
-      {/* Mobile "more" dropdown (<md) */}
-      <div ref={moreRef} className="relative md:hidden">
-        <button
-          type="button"
-          onClick={() => setMoreOpen((o) => !o)}
-          className={btnBase}
-          aria-label="More actions"
-        >
-          <MoreHorizontal size={16} />
-        </button>
-        {moreOpen && (
-          <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-border-default bg-surface-raised py-1 shadow-lg">
+      <PageActionsMenu
+        pageId={page.id}
+        title={title}
+        lang={lang}
+        content={content}
+        canManage={canArchive}
+        onArchive={onArchive}
+        display={display}
+        onDisplayChange={onDisplayChange}
+        mobileActions={
+          <>
             {canEdit && (
-              <Link
-                to={`/wiki/${page.slug}/edit`}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
-                onClick={() => setMoreOpen(false)}
-              >
-                <Pencil size={14} />
-                {t("wiki.edit")}
+              <DropdownMenuItem asChild>
+                <Link to={`/wiki/${page.slug}/edit`}>
+                  <Pencil size={14} />
+                  {t("wiki.edit")}
+                </Link>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem asChild>
+              <Link to={`/wiki/${page.slug}/history`}>
+                <History size={14} />
+                {t("wiki.history")}
               </Link>
-            )}
-            <Link
-              to={`/wiki/${page.slug}/history`}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
-              onClick={() => setMoreOpen(false)}
-            >
-              <History size={14} />
-              {t("wiki.history")}
-            </Link>
+            </DropdownMenuItem>
             {isAuthenticated && (
-              <Suspense
-                fallback={
-                  <div className="px-3 py-2">
-                    <Skeleton className="h-4 w-20" />
-                  </div>
-                }
-              >
-                <Await resolve={pageMeta} errorElement={null}>
-                  {(meta) => (
-                    <MobileStarButton
-                      pageId={page.id}
-                      initialStarred={meta?.isStarred ?? false}
-                      onSelect={() => setMoreOpen(false)}
-                    />
-                  )}
-                </Await>
-              </Suspense>
+              <>
+                <Suspense fallback={null}>
+                  <Await resolve={pageMeta} errorElement={null}>
+                    {(meta) => (
+                      <MobileStarButton
+                        pageId={page.id}
+                        initialStarred={meta?.isStarred ?? false}
+                      />
+                    )}
+                  </Await>
+                </Suspense>
+                <DropdownMenuItem onSelect={onShare}>
+                  <Share2 size={14} />
+                  {t("wiki.share")}
+                </DropdownMenuItem>
+              </>
             )}
-            {isAuthenticated && (
-              <button
-                type="button"
-                onClick={() => {
-                  onShare();
-                  setMoreOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
-              >
-                <Share2 size={14} />
-                {t("wiki.share")}
-              </button>
-            )}
-            <Tooltip label={t("wiki.archive_no_permission")} disabled={!canArchive}>
-              <button
-                type="button"
-                onClick={
-                  canArchive
-                    ? () => {
-                        onArchive();
-                        setMoreOpen(false);
-                      }
-                    : undefined
-                }
-                disabled={!canArchive}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-feedback-warning-surface hover:text-feedback-warning-foreground disabled:opacity-50"
-              >
-                <Archive size={14} />
-                {t("wiki.archive")}
-              </button>
-            </Tooltip>
-          </div>
-        )}
-      </div>
+          </>
+        }
+      />
     </div>
   );
 }

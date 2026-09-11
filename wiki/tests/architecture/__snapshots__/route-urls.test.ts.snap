@@ -51,6 +51,7 @@ exports[`routes.ts URL surface > exposes a stable set of URLs 1`] = `
   "/api/ingest/:sessionId/status",
   "/api/notifications",
   "/api/page-access/:pageId",
+  "/api/pages/move-targets",
   "/api/pages/reorder",
   "/api/recent",
   "/api/set-content-lang",

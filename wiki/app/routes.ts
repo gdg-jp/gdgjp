@@ -39,6 +39,7 @@ export default [
   route("/api/sources/:id/archive", "routes/api/sources/archive.ts"),
   route("/api/sources/:id/unarchive", "routes/api/sources/unarchive.ts"),
   route("/api/sources/:id/visibility", "routes/api/sources/visibility.ts"),
+  route("/api/pages/move-targets", "routes/api/pages/move-targets.ts"),
   route("/api/pages/reorder", "routes/api/pages/reorder.ts"),
   route("/api/notifications", "routes/api/user/notifications.ts"),
   route("/api/comments", "routes/api/pages/comments.ts"),

@@ -148,6 +148,24 @@
       "discard_cancel": "編集を続ける",
       "reply_to": "返信",
       "reply_count": "{{count}} 件の返信"
+    },
+    "menu": {
+      "more": "その他の操作",
+      "copy_link": "リンクをコピー",
+      "copy_contents": "ページの内容をコピー",
+      "duplicate": "複製",
+      "move": "移動先を選択",
+      "trash": "ゴミ箱に移動",
+      "small_text": "文字を小さくする",
+      "full_width": "ページ幅を広げる",
+      "copied": "コピーしました",
+      "copy_failed": "コピーできませんでした",
+      "action_failed": "操作できませんでした。権限やページの状態を確認して、再度お試しください。",
+      "working": "処理中…",
+      "loading": "読み込み中…",
+      "move_description": "移動先を選択してください。共有設定は維持されます。",
+      "search_pages": "ページを検索",
+      "root": "ルート（最上位）"
     }
   },
   "archived": {
