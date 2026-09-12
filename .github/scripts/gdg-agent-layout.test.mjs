@@ -330,11 +330,11 @@ test("gdg agent-host apply prefix mode writes layout", async () => {
     assert.equal(spec.pins.cursorAgent.version, "2026.08.11-e8db854");
     assert.ok(spec.pins.cursorAgent.sha256.x86_64);
     assert.ok(spec.pins.cursorAgent.sha256.aarch64);
-    assert.equal(spec.pins.gdgCli.version, "0.4.0");
+    assert.equal(spec.pins.gdgCli.version, "0.4.4");
     assert.equal(spec.pins.gdgCli.assetTemplate, "gdg_{version}_linux_{arch}.zip");
     assert.ok(spec.pins.gdgCli.sha256.x86_64);
     assert.ok(spec.pins.gdgCli.sha256.aarch64);
-    assert.equal(spec.pins.xangi.ref, "b3db5919a5e33769ef8d7bcef245aa6b76974948");
+    assert.equal(spec.pins.xangi.ref, "f69572739f46931cff1d3edbe7c34409a9f329ee");
     assert.equal(spec.pins.gws.version, "v0.22.5");
 
     const cliConfigSrc = await readFile(
