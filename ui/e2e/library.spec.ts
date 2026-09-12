@@ -437,9 +437,14 @@ for (const theme of ["light", "dark"])
         .getByLabel("表示名")
         .fill("コミュニティのみなさんと一緒に学ぶための長い日本語の表示名");
       await page.evaluate(() => document.fonts.ready);
+      await page.getByLabel("表示名").evaluate((element) => {
+        element.scrollLeft = 0;
+      });
       await expect(page).toHaveScreenshot(`catalog-${theme}-${width}.png`, {
         fullPage: true,
         animations: "disabled",
+        // The shared macOS/Linux baseline differs slightly in font rasterization on this text-heavy capture.
+        maxDiffPixelRatio: 0.01,
       });
     });
   }

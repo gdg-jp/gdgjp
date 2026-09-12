@@ -33,6 +33,10 @@ body {
   font-weight: 650;
   margin: 8px 0;
 }
+.gdg-toolbar > .gdg-inline > input.gdg-input {
+  /* Keep bare toolbar inputs compact after the bundled font loads on Linux. */
+  width: 12.2em;
+}
 @media (max-width: 600px) {
   .gdg-stat-grid {
     grid-template-columns: 1fr;
