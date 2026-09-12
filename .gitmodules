@@ -7,7 +7,3 @@
 [submodule "xangi"]
 	path = xangi
 	url = https://github.com/gdg-jp/xangi.git
-[submodule "ui"]
-	path = ui
-	url = https://github.com/gdg-jp/ui.git
-	branch = main
