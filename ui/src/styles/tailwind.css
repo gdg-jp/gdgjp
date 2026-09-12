@@ -19,6 +19,7 @@
   --color-gdg-red: var(--gdg-red);
   --color-gdg-green: var(--gdg-green);
   --color-gdg-yellow: var(--gdg-yellow);
+  --color-gdg-neutral: var(--gdg-neutral);
   --color-background: var(--gdg-background);
   --color-surface: var(--gdg-surface);
   --color-foreground: var(--gdg-text);
@@ -31,13 +32,15 @@
   --color-link: var(--gdg-link);
   --color-selected: var(--gdg-selected);
   --color-secondary: var(--gdg-secondary);
+  --color-secondary-foreground: var(--gdg-on-secondary);
   --color-danger: var(--gdg-danger);
   --color-success: var(--gdg-success);
   --color-warning: var(--gdg-warning);
   --radius-sm: var(--gdg-radius-sm);
   --radius-md: var(--gdg-radius-md);
   --radius-lg: var(--gdg-radius-card);
-  --radius-xl: var(--gdg-radius-dialog);
+  --radius-xl: calc(var(--gdg-space) * 6);
+  --radius-2xl: var(--gdg-radius-dialog);
   --ease-out: var(--gdg-ease-out);
   --ease-in-out: var(--gdg-ease-in-out);
   --ease-drawer: var(--gdg-ease-drawer);

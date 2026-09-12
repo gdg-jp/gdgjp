@@ -26,3 +26,12 @@ export const Checked: Story = {
     </div>
   ),
 };
+
+export const Indeterminate: Story = {
+  render: () => (
+    <div className="gdg-inline">
+      <Checkbox id="partial" defaultChecked="indeterminate" />
+      <label htmlFor="partial">一部選択</label>
+    </div>
+  ),
+};

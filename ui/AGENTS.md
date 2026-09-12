@@ -24,7 +24,7 @@ the consumer contract and must stay synchronized with user-visible API or integr
 - Use semantic tokens instead of literal theme colors. Validate both light and dark themes,
   forced-colors, reduced motion, long Japanese content, and narrow layouts.
 - Follow the motion timings and easing in `DESIGN.md`. Do not use `transition: all`, `scale(0)`,
-  decorative motion for keyboard actions, or perpetual skeleton animation.
+  or decorative motion for keyboard actions.
 
 ## Stories, Tests, and Generated Output
 

@@ -11,6 +11,9 @@ createRoot(root).render(
       <div data-testid="accent" className="bg-gdg-yellow text-black">
         GDG Yellow
       </div>
+      <div data-testid="secondary" className="bg-secondary text-secondary-foreground">
+        Muted blue secondary
+      </div>
     </main>
   </ThemeProvider>,
 );

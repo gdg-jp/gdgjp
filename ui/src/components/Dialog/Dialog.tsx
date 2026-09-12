@@ -14,7 +14,7 @@ export function DialogTitle({ className, ...props }: ComponentProps<typeof RD.Ti
 }
 
 export function DialogDescription({ className, ...props }: ComponentProps<typeof RD.Description>) {
-  return <RD.Description {...props} className={cn("gdg-muted", className)} />;
+  return <RD.Description {...props} className={cn("gdg-text gdg-muted", className)} />;
 }
 
 export function DialogContent({

@@ -44,7 +44,10 @@
     --gdg-link: #185abc;
     --gdg-focus: #185abc;
     --gdg-selected: #e8f0fe;
-    --gdg-secondary: #e7e7e7;
+    --gdg-secondary: #5d899d;
+    --gdg-on-secondary: var(--gdg-white);
+    --gdg-secondary-hover: #6b9aae;
+    --gdg-neutral: #e7e7e7;
     --gdg-hover: #eaeaea;
     --gdg-danger: #b3261e;
     --gdg-on-danger: #ffffff;
@@ -70,6 +73,8 @@
     --gdg-radius-md: 18px;
     --gdg-radius-card: 28px;
     --gdg-radius-dialog: 32px;
+    /* Applied to every element in a GDG radius scope by components.css. */
+    --gdg-corner-shape: squircle;
     --gdg-text-xs: 12px;
     --gdg-text-sm: 14px;
     --gdg-text-md: 16px;
@@ -89,6 +94,7 @@
     --gdg-motion-dialog: 250ms;
     --gdg-motion-sheet: 280ms;
     --gdg-motion-accordion: 200ms;
+    --gdg-motion-skeleton: 2400ms;
     --gdg-motion-reduced: 100ms;
     --gdg-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     --gdg-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
@@ -125,7 +131,10 @@
     --gdg-link: #8ab4f8;
     --gdg-focus: #8ab4f8;
     --gdg-selected: #253655;
-    --gdg-secondary: #303030;
+    --gdg-secondary: #5d899d;
+    --gdg-on-secondary: var(--gdg-white);
+    --gdg-secondary-hover: #6b9aae;
+    --gdg-neutral: #303030;
     --gdg-hover: #292929;
     --gdg-danger: #ffb4ab;
     --gdg-on-danger: #601410;

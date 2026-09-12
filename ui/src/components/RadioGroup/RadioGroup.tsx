@@ -20,7 +20,7 @@ export function RadioGroup({ className, ...props }: ComponentProps<typeof RR.Roo
 export function RadioGroupItem({ className, ...props }: ComponentProps<typeof RR.Item>) {
   return (
     <RR.Item {...props} className={cn("gdg-radio", className)}>
-      <RR.Indicator className="gdg-radio-indicator" />
+      <RR.Indicator forceMount className="gdg-radio-indicator" />
     </RR.Item>
   );
 }

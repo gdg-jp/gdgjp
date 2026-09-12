@@ -29,7 +29,10 @@ export function DropdownMenuItem({ className, ...props }: ComponentProps<typeof 
 }
 
 export const DropdownMenuGroup = RM.Group;
-export const DropdownMenuLabel = RM.Label;
+
+export function DropdownMenuLabel({ className, ...props }: ComponentProps<typeof RM.Label>) {
+  return <RM.Label {...props} className={cn("gdg-menu-label", className)} />;
+}
 
 export function DropdownMenuSeparator(props: ComponentProps<typeof RM.Separator>) {
   return <RM.Separator {...props} className={cn("gdg-separator", props.className)} />;
