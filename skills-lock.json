@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "plans": {
+      "source": "harineko0/skills",
+      "sourceType": "github",
+      "skillPath": "skills/plans/SKILL.md",
+      "computedHash": "20976ca4a6c7e4d00d0f9f39e1893eb3d0594ffaf447b68cbe7f39913032e7ad"
+    }
+  }
+}
