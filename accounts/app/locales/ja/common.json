@@ -3,7 +3,9 @@
     "name": "GDG Japan Accounts"
   },
   "common": {
-    "loading": "読み込み中…"
+    "loading": "読み込み中…",
+    "tableScroll": "表を横にスクロール",
+    "close": "閉じる"
   },
   "nav": {
     "homeAria": "GDG Japan Accounts ホーム",
@@ -20,8 +22,10 @@
     "manageChapters": "チャプター管理",
     "joinRequests": "参加リクエスト",
     "navigation": "ナビゲーション",
-    "openNavigation": "ナビゲーションを開く",
-    "closeNavigation": "ナビゲーションを閉じる"
+    "navigationDescription": "移動先を選択してください。",
+    "appLauncher": "アプリランチャーを開く",
+    "closeNavigation": "ナビゲーションを閉じる",
+    "skipToContent": "本文へ移動"
   },
   "meta": {
     "signin": "サインイン — GDG Japan Accounts",
@@ -108,7 +112,6 @@
     },
     "list": {
       "title": "OAuth クライアント",
-      "subtitle": "GDG Accounts を OAuth 2.0 / OpenID Connect Provider として利用するクライアントを管理します。",
       "create": "クライアントを作成",
       "emptyTitle": "OAuth クライアントはまだありません",
       "emptyDescription": "クライアントを作成して、アプリケーションから GDG Accounts のサインインを利用できるようにします。",
@@ -119,19 +122,13 @@
       "type": "種類",
       "status": "ステータス",
       "actions": "操作",
-      "createdAt": "{{date}} に作成",
       "clientId": "Client ID",
-      "appUrl": "アプリケーションURL",
-      "scopeCount_one": "許可する scope: {{count}} 件",
-      "scopeCount_other": "許可する scope: {{count}} 件",
       "manage": "管理",
       "manageClient": "{{name}} を編集"
     },
     "create": {
       "title": "OAuth クライアントを作成",
       "subtitle": "アプリケーションを識別し、GDG Accounts でのサインインに使用する OAuth 2.0 クライアントを登録します。環境ごとにクライアントを分けて作成してください。",
-      "cardTitle": "クライアント設定",
-      "cardDescription": "クライアントを識別する情報、Redirect URI、要求可能な scope を設定します。設定は後から変更できます。",
       "beforeYouStart": "作成前に確認してください",
       "beforeYouStartDescription": "Redirect URI は完全一致で照合されます。実際に使用する URL を登録し、localhost 以外では HTTPS を使用してください。",
       "basics": "アプリケーションの情報",
@@ -140,14 +137,12 @@
       "redirectsDescription": "認証またはログアウト完了後に、ユーザーを安全に戻す URL を登録します。",
       "permissions": "許可する scope",
       "submit": "クライアントを作成",
-      "pending": "作成中…",
       "cancel": "キャンセル",
       "effectNote": "設定が反映されるまで数分かかる場合があります。",
       "manage": "このクライアントを管理"
     },
     "detail": {
       "title": "Web アプリケーションのクライアント ID",
-      "subtitle": "認証情報、Redirect URI、scope、クライアントの状態を管理します。",
       "additionalInformation": "追加情報",
       "clientSecrets": "Client Secret",
       "createdAt": "作成日時",
@@ -157,17 +152,11 @@
       "effectNote": "設定が反映されるまで数分かかる場合があります。",
       "credentials": "クライアント認証情報",
       "credentialsDescription": "認証情報はアプリケーションのサーバーでのみ使用してください。",
-      "settings": "アプリケーション設定",
-      "settingsDescription": "Redirect URI と scope の変更はすぐに反映されます。",
       "save": "変更を保存",
-      "saving": "保存中…",
       "saved": "変更を保存しました",
       "rotate": "Client Secret をローテーション",
-      "dangerZone": "クライアントの停止と削除",
-      "dangerDescription": "クライアントを停止または削除すると、既存の access token と refresh token は失効します。",
       "disableDescription": "新しいサインインを停止し、現在のアクセス権を失効させます。",
       "enableDescription": "新しいサインインを再開します。すでに失効した token は復元されません。",
-      "deleteDescription": "このクライアント、認証情報、現在のアクセス権を完全に削除します。",
       "enable": "クライアントを再開",
       "disable": "クライアントを停止",
       "delete": "クライアントを削除"
@@ -235,10 +224,8 @@
   },
   "chapters": {
     "title": "チャプター",
-    "subtitle": "GDG・GDGoC のすべてのチャプターを表示します。所属するチャプターに参加リクエストを送ってください。オーガナイザーが承認します。",
     "memberCount_one": "メンバー {{count}} 名",
     "memberCount_other": "メンバー {{count}} 名",
-    "errorTitle": "操作を実行できませんでした",
     "empty": {
       "title": "チャプターがまだありません",
       "description": "現時点で利用可能なチャプターはありません。後ほどお試しください。"
@@ -270,17 +257,10 @@
       "joinable": "参加可能",
       "mine": "所属中",
       "pending": "承認待ち"
-    },
-    "state": {
-      "joinableDescription": "参加をリクエストすると、オーガナイザーが確認します。",
-      "pendingDescription": "参加リクエストはオーガナイザーの承認待ちです。",
-      "memberDescription": "このチャプターのアクティブメンバーです。",
-      "organizerDescription": "このチャプターを運営し、メンバーを管理できます。"
     }
   },
   "adminRequests": {
     "title": "参加リクエスト",
-    "subtitle": "すべてのチャプターの保留中の参加リクエスト一覧。",
     "empty": "保留中のリクエストはありません。",
     "noMatches": "検索条件に一致するリクエストはありません。",
     "searchPlaceholder": "申請者またはチャプターで検索",
@@ -298,7 +278,6 @@
   },
   "adminUsers": {
     "title": "ユーザー管理",
-    "subtitle": "GDG Japan Accounts のユーザー、権限、ログインセッションを管理します。",
     "searchPlaceholder": "名前またはメールアドレスで検索",
     "search": "検索",
     "clear": "クリア",
@@ -356,11 +335,9 @@
   },
   "adminSeed": {
     "title": "信頼済み OAuth クライアント",
-    "description": "組み込みアプリを現在の Worker 設定と同期します。",
     "noticeTitle": "管理者向け操作",
     "noticeDescription": "設定済みの tinyurl、wiki、img、scheduler、sns クライアントを D1 に反映します。繰り返し実行しても安全です。",
     "submit": "クライアントを同期",
-    "pending": "同期中…",
     "result": "{{at}} の実行結果",
     "written": "反映: {{value}}",
     "skipped": "スキップ: {{value}}"
@@ -368,7 +345,6 @@
   "onboarding": {
     "title": "チャプターに参加",
     "subtitle": "所属する GDG または GDGoC チャプターを教えてください。オーガナイザーが承認します。",
-    "skip": "あとで",
     "back": "戻る",
     "continue": "続ける",
     "empty": {
@@ -403,8 +379,7 @@
       "subtitle": "任意です。同じ {{kind}} のチャプターにも参加をリクエストできます。",
       "primaryLabel": "メインのチャプター",
       "submit": "参加をリクエスト",
-      "submitWithCount": "{{count}} 件をリクエスト",
-      "submitPending": "リクエスト送信中…"
+      "submitWithCount": "{{count}} 件をリクエスト"
     },
     "done": {
       "title": "リクエストを送りました",
@@ -416,7 +391,6 @@
   },
   "admin": {
     "title": "チャプター管理",
-    "subtitle": "チャプターの作成と、メンバー・オーガナイザーの管理を行います。",
     "create": {
       "cardTitle": "チャプターを作成",
       "description": "Accounts の一覧に GDG または GDGoC チャプターを追加します。",
@@ -427,7 +401,6 @@
       "kindLabel": "種別",
       "regionLabel": "地域",
       "submit": "チャプターを作成",
-      "submitPending": "作成中…",
       "errorTitle": "保存できませんでした"
     },
     "list": {
@@ -442,7 +415,6 @@
       "organize": "運営",
       "delete": "削除",
       "memberSummary": "有効 {{active}} 名・承認待ち {{pending}} 名",
-      "deleteAria": "{{name}} を削除",
       "dialogTitle": "{{name}} を削除しますか？",
       "dialogDesc": "メンバーはメンバーシップを失います。この操作は取り消せません。",
       "deleteConfirm": "チャプターを削除",
@@ -452,7 +424,6 @@
   "organize": {
     "title": "{{chapter}} を運営",
     "back": "チャプターに戻る",
-    "subtitle": "まず参加リクエストを確認し、その後メンバーと役割を管理します。",
     "pending": "保留中のリクエスト ({{count}})",
     "pendingDescription": "チャプターに所属する方を承認し、参加を見送るリクエストは却下します。",
     "members": "メンバー ({{count}})",
@@ -468,7 +439,6 @@
     "memberBadge": "メンバー",
     "organizerBadge": "オーガナイザー",
     "currentUser": "あなたのアカウント",
-    "manageAria": "{{name}} を管理",
     "search": {
       "placeholder": "名前またはメールアドレスでメンバーを検索",
       "ariaLabel": "メンバーを検索",
@@ -507,8 +477,7 @@
       "subtitle": "Google アカウントで続行します。",
       "welcome": "GDG Japan のチャプターと開発者ツールを、ひとつのアカウントで。",
       "secure": "次の画面で Google アカウントを選択します。",
-      "continueWithGoogle": "Google で続行",
-      "continueWithGooglePending": "サインイン中…"
+      "continueWithGoogle": "Google で続行"
     },
     "consent": {
       "eyebrow": "GDG Japan Accounts",
@@ -552,7 +521,7 @@
       "deniedTitle": "サインインを拒否しました",
       "deniedDescription": "このタブは閉じて構いません。"
     },
-    "userMenuAria": "アカウントメニュー",
+    "manageAccount": "アカウントを管理",
     "signOut": "サインアウト"
   },
   "settings": {
@@ -574,7 +543,6 @@
   "errors": {
     "selectChapter": "チャプターを選択してください。",
     "chapterNotFound": "チャプターが見つかりません。",
-    "alreadyHasChapter": "すでにチャプターに所属しています。",
     "alreadyInChapter": "すでにこのチャプターに参加しています。",
     "notInChapter": "このチャプターに所属していません。",
     "lastOrganizer": "最後のオーガナイザーのため退会できません。先に他の方を昇格させてください。",

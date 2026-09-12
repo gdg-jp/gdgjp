@@ -334,6 +334,35 @@ test("Tailwind CSS-first config and utility overrides work from package exports"
     "padding-left",
     "32px",
   );
+  await expect(page.getByTestId("bare-border")).toHaveCSS(
+    "border-top-color",
+    "rgba(30, 30, 30, 0.1)",
+  );
+  await expect(page.getByTestId("deliberate-border")).not.toHaveCSS(
+    "border-top-color",
+    "rgba(30, 30, 30, 0.1)",
+  );
+});
+
+test("menu selection keeps its label in place", async ({ page }) => {
+  await page.goto(story("components-dropdownmenu--radio-selection"));
+  const trigger = page.getByRole("button", { name: "表示形式" });
+  const item = page.getByRole("menuitemradio", { name: "一覧" });
+  await trigger.click();
+  const [beforeItem, beforeLabel] = await Promise.all([
+    item.boundingBox(),
+    item.locator(".gdg-menu-item-label").boundingBox(),
+  ]);
+  await item.click();
+  await trigger.click();
+  const [afterItem, afterLabel] = await Promise.all([
+    item.boundingBox(),
+    item.locator(".gdg-menu-item-label").boundingBox(),
+  ]);
+  expect((afterLabel?.x ?? 0) - (afterItem?.x ?? 0)).toBeCloseTo(
+    (beforeLabel?.x ?? 0) - (beforeItem?.x ?? 0),
+    0,
+  );
 });
 
 test("finite-radius surfaces use squircles while circles and pills stay round", async ({

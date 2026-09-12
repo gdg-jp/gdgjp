@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Button } from "../Button";
 import {
@@ -6,6 +7,8 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./DropdownMenu";
@@ -44,4 +47,27 @@ export const Default = {
         }),
       ],
     }),
+};
+export const RadioSelection = {
+  render: function RadioSelection() {
+    const [value, setValue] = useState("card");
+    return _jsxs(DropdownMenu, {
+      children: [
+        _jsx(DropdownMenuTrigger, {
+          asChild: true,
+          children: _jsx(Button, { variant: "outline", children: "\u8868\u793A\u5F62\u5F0F" }),
+        }),
+        _jsx(DropdownMenuContent, {
+          children: _jsxs(DropdownMenuRadioGroup, {
+            value: value,
+            onValueChange: setValue,
+            children: [
+              _jsx(DropdownMenuRadioItem, { value: "card", children: "\u30AB\u30FC\u30C9" }),
+              _jsx(DropdownMenuRadioItem, { value: "list", children: "\u4E00\u89A7" }),
+            ],
+          }),
+        }),
+      ],
+    });
+  },
 };

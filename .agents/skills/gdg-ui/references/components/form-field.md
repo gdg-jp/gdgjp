@@ -2,7 +2,7 @@
 
 ## Use case
 
-Associate one input with its label/description/error. `id` and `label` are primary props, and `required/disabled/error` are propagated to the child. Put an explicit ID on FormField; the app owns `name`, validation, and submission.
+Associate one input with its label/description/error. `id` and `label` are primary props, and `required/disabled/error` are propagated to the child. `hideLabel` visually hides the owned label and suppresses the visible required marker by default. Put an explicit ID on FormField; the app owns `name`, validation, and submission.
 
 Avoid: wrapping multiple independent inputs or an entire fieldset in one FormField. Use Field for a composite form section.
 

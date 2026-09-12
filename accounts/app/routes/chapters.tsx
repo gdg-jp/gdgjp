@@ -1,26 +1,30 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { ArrowRight, LogOut, Search, Settings2, Users } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Link, useFetcher } from "react-router";
-import { toast } from "sonner";
-import { PageHeader } from "~/components/page-header";
-import { PageShell } from "~/components/page-shell";
-import { StatusBadge } from "~/components/status-badge";
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "~/components/ui/alert-dialog";
-import { Button } from "~/components/ui/button";
-import { Card, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
-import { SubmitButton } from "~/components/ui/submit-button";
+  Button,
+  Card,
+  FormField,
+  Heading,
+  IconButton,
+  Icons,
+  Input,
+  Stack,
+  Text,
+} from "@gdgjp/ui";
+import { toast } from "@gdgjp/ui";
+import { cn } from "@gdgjp/ui";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Link, useFetcher } from "react-router";
+import { PageHeader } from "~/components/page-header";
+import { PageShell } from "~/components/page-shell";
+import { StatusBadge } from "~/components/status-badge";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { requireUser } from "~/lib/auth.server";
 import {
@@ -36,7 +40,6 @@ import {
 } from "~/lib/db";
 import { sendJoinRequestSubmitted, sendMemberLeft } from "~/lib/email.server";
 import { i18n } from "~/lib/i18n/i18n.server";
-import { cn } from "~/lib/utils";
 import type { Route } from "./+types/chapters";
 
 type ChapterState = "joinable" | "pending" | "active-member" | "active-organizer";
@@ -190,35 +193,45 @@ export default function ChaptersPage({ loaderData }: Route.ComponentProps) {
 
       {items.length === 0 ? (
         <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="text-base">{t("chapters.empty.title")}</CardTitle>
-            <CardDescription>{t("chapters.empty.description")}</CardDescription>
-          </CardHeader>
+          <Stack>
+            <Heading level={2} className="text-base">
+              {t("chapters.empty.title")}
+            </Heading>
+            <Text tone="muted">{t("chapters.empty.description")}</Text>
+          </Stack>
         </Card>
       ) : (
         <>
           <div className="mt-8 space-y-4">
-            <div className="relative max-w-xl">
-              <Search
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <Input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t("chapters.search.placeholder")}
-                aria-label={t("chapters.search.ariaLabel")}
-                className="pl-9"
-              />
-            </div>
+            <FormField
+              id="chapters-search"
+              label={t("chapters.search.ariaLabel")}
+              hideLabel
+              className="max-w-xl gap-0"
+            >
+              <div className="relative">
+                <Icons
+                  name="Search"
+                  size={16}
+                  className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+                  aria-hidden="true"
+                />
+                <Input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={t("chapters.search.placeholder")}
+                  className="w-full pl-9"
+                />
+              </div>
+            </FormField>
             <fieldset className="flex gap-2 overflow-x-auto pb-1">
               <legend className="sr-only">{t("chapters.filters.ariaLabel")}</legend>
               {filters.map((item) => (
                 <Button
                   key={item.value}
                   type="button"
-                  variant={filter === item.value ? "default" : "outline"}
+                  variant={filter === item.value ? "primary" : "outline"}
                   size="sm"
                   aria-pressed={filter === item.value}
                   onClick={() => setFilter(item.value)}
@@ -231,13 +244,15 @@ export default function ChaptersPage({ loaderData }: Route.ComponentProps) {
           </div>
           {filtered.length === 0 ? (
             <Card className="mt-4">
-              <CardHeader>
-                <CardTitle className="text-base">{t("chapters.search.noMatches")}</CardTitle>
-                <CardDescription>{t("chapters.search.noMatchesDescription")}</CardDescription>
-              </CardHeader>
+              <Stack>
+                <Heading level={2} className="text-base">
+                  {t("chapters.search.noMatches")}
+                </Heading>
+                <Text tone="muted">{t("chapters.search.noMatchesDescription")}</Text>
+              </Stack>
             </Card>
           ) : (
-            <div className="mt-4 divide-y overflow-x-auto rounded-xl border bg-card">
+            <div className="mt-4 divide-y overflow-x-auto rounded-xl border border-border bg-surface">
               {filtered.map(({ chapter, state }) => (
                 <ChapterRow key={chapter.id} chapter={chapter} state={state} />
               ))}
@@ -276,22 +291,22 @@ function ChapterRow({
   }, [fetcher.state, fetcher.data, t]);
 
   return (
-    <div className="flex min-h-14 min-w-[760px] items-center gap-3 bg-card px-4 py-2 transition-colors hover:bg-muted/35">
+    <div className="chapter-table-row flex min-h-14 items-center gap-3 bg-surface px-4 py-2 transition-colors hover:bg-neutral">
       <div className="w-56 min-w-0 shrink-0">
-        <p className="truncate text-sm font-semibold" title={chapter.name}>
+        <Text size="sm" className="truncate font-semibold" title={chapter.name}>
           {chapter.name}
-        </p>
-        <p className="truncate font-mono text-xs text-muted-foreground" title={chapter.slug}>
+        </Text>
+        <Text size="xs" tone="muted" className="truncate font-mono" title={chapter.slug}>
           {chapter.slug}
-        </p>
+        </Text>
       </div>
 
       <span className={cn("w-20 shrink-0 font-mono text-xs", accent)}>{kindLabel}</span>
 
       <span className="min-w-0 flex-1" />
 
-      <span className="inline-flex w-24 shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-        <Users className="size-3.5" aria-hidden="true" />
+      <span className="inline-flex w-24 shrink-0 items-center gap-1.5 text-xs text-muted">
+        <Icons name="Users" size={14} aria-hidden="true" />
         {t("chapters.memberCount", { count: chapter.activeCount })}
       </span>
 
@@ -331,10 +346,10 @@ function ChapterAction({
       <fetcher.Form method="post">
         <input type="hidden" name="intent" value="request" />
         <input type="hidden" name="chapterId" value={chapter.id} />
-        <SubmitButton className="w-full" pending={isRequesting} pendingLabel={t("common.loading")}>
+        <Button type="submit" fullWidth loading={isRequesting}>
           {t("chapters.actions.request")}
-          {isRequesting ? null : <ArrowRight className="size-4" />}
-        </SubmitButton>
+          {isRequesting ? null : <Icons name="ArrowRight" size={16} aria-hidden="true" />}
+        </Button>
       </fetcher.Form>
     );
   }
@@ -357,7 +372,8 @@ function ChapterAction({
       <div className="flex gap-2">
         <Button asChild variant="outline" className="min-w-0 flex-1">
           <Link to={`/chapters/${chapter.slug}/organize`} prefetch="intent">
-            <Settings2 className="size-4" /> {t("dashboard.active.organizeCta")}
+            <Icons name="Settings" size={16} aria-hidden="true" />{" "}
+            {t("dashboard.active.organizeCta")}
           </Link>
         </Button>
         <LeaveButton
@@ -368,7 +384,7 @@ function ChapterAction({
           isLeaving={isLeaving}
           compact
         >
-          <LogOut className="size-4" />
+          <Icons name="Logout" size={16} aria-hidden="true" />
           <span className="sr-only">{t("chapters.actions.leave")}</span>
         </LeaveButton>
       </div>
@@ -383,7 +399,7 @@ function ChapterAction({
       fetcher={fetcher}
       isLeaving={isLeaving}
     >
-      <LogOut className="size-4" /> {t("chapters.actions.leave")}
+      <Icons name="Logout" size={16} aria-hidden="true" /> {t("chapters.actions.leave")}
     </LeaveButton>
   );
 }
@@ -400,7 +416,7 @@ function LeaveButton({
 }: {
   chapterId: number;
   chapterName: string;
-  variant: "outline" | "default";
+  variant: "outline" | "primary";
   children: ReactNode;
   fetcher: ChapterCardFetcher;
   isLeaving: boolean;
@@ -411,16 +427,22 @@ function LeaveButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button
-          variant={variant}
-          className={compact ? "shrink-0" : "w-full"}
-          size={compact ? "icon" : "default"}
-        >
-          {children}
-        </Button>
+        {compact ? (
+          <IconButton
+            variant={variant}
+            className="shrink-0"
+            aria-label={t("chapters.actions.leave")}
+          >
+            {children}
+          </IconButton>
+        ) : (
+          <Button variant={variant} fullWidth size="md">
+            {children}
+          </Button>
+        )}
       </AlertDialogTrigger>
       <AlertDialogContent>
-        <AlertDialogHeader>
+        <Stack className="gap-2">
           <AlertDialogTitle>
             {isPending
               ? t("dashboard.memberships.cancelTitle", { name: chapterName })
@@ -431,25 +453,25 @@ function LeaveButton({
               ? t("dashboard.memberships.cancelDescription")
               : t("chapters.leaveDialog.desc")}
           </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLeaving}>
-            {t("chapters.leaveDialog.cancel")}
+        </Stack>
+        <div className="flex flex-wrap justify-end gap-3">
+          <AlertDialogCancel asChild>
+            <Button type="button" variant="outline" disabled={isLeaving}>
+              {t("chapters.leaveDialog.cancel")}
+            </Button>
           </AlertDialogCancel>
           <fetcher.Form method="post">
             <input type="hidden" name="intent" value="leave" />
             <input type="hidden" name="chapterId" value={chapterId} />
-            <SubmitButton
-              variant={isPending ? "default" : "destructive"}
-              pending={isLeaving}
-              pendingLabel={t("common.loading")}
-            >
-              {isPending
-                ? t("dashboard.memberships.cancelConfirm")
-                : t("chapters.leaveDialog.confirm")}
-            </SubmitButton>
+            <AlertDialogAction asChild>
+              <Button type="submit" variant={isPending ? "primary" : "danger"} loading={isLeaving}>
+                {isPending
+                  ? t("dashboard.memberships.cancelConfirm")
+                  : t("chapters.leaveDialog.confirm")}
+              </Button>
+            </AlertDialogAction>
           </fetcher.Form>
-        </AlertDialogFooter>
+        </div>
       </AlertDialogContent>
     </AlertDialog>
   );

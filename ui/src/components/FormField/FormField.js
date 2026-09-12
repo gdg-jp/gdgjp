@@ -8,6 +8,8 @@ export function FormField({
   description,
   error,
   required,
+  hideLabel,
+  requiredMarker = !hideLabel,
   disabled,
   children,
   className,
@@ -30,7 +32,11 @@ export function FormField({
         _jsxs("label", {
           id: `${id}-label`,
           htmlFor: id,
-          children: [label, required && _jsx("span", { "aria-hidden": "true", children: " *" })],
+          className: cn(hideLabel && "gdg-sr-only"),
+          children: [
+            label,
+            required && requiredMarker && _jsx("span", { "aria-hidden": "true", children: " *" }),
+          ],
         }),
         children,
         description &&

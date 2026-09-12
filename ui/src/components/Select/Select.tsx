@@ -106,10 +106,14 @@ export function SelectContent({
 export function SelectItem({ children, className, ...props }: ComponentProps<typeof RSelect.Item>) {
   return (
     <RSelect.Item {...props} className={cn("gdg-menu-item", className)}>
-      <RSelect.ItemText>{children}</RSelect.ItemText>
-      <RSelect.ItemIndicator>
-        <Check size={16} />
-      </RSelect.ItemIndicator>
+      <span className="gdg-menu-item-label">
+        <RSelect.ItemText>{children}</RSelect.ItemText>
+      </span>
+      <span className="gdg-menu-item-indicator" aria-hidden="true">
+        <RSelect.ItemIndicator>
+          <Check size={16} />
+        </RSelect.ItemIndicator>
+      </span>
     </RSelect.Item>
   );
 }

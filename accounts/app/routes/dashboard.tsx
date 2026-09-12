@@ -1,32 +1,24 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import {
-  ArrowRight,
-  Blocks,
-  Compass,
-  ListChecks,
-  LogOut,
-  Plus,
-  Settings2,
-  ShieldCheck,
-  Users,
-} from "lucide-react";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  Button,
+  Card,
+  Heading,
+  Icons,
+  Inline,
+  Stack,
+  Text,
+} from "@gdgjp/ui";
 import { useTranslation } from "react-i18next";
 import { Link, redirect, useFetcher } from "react-router";
 import { PageShell } from "~/components/page-shell";
 import { StatusBadge } from "~/components/status-badge";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "~/components/ui/alert-dialog";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { SubmitButton } from "~/components/ui/submit-button";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { requireUser } from "~/lib/auth.server";
 import { listMembershipsForUser } from "~/lib/db";
@@ -76,21 +68,22 @@ function MembershipsSection({
   const { t } = useTranslation();
   if (memberships.length === 0) {
     return (
-      <Card className="overflow-hidden border-gdg-blue/25">
-        <CardHeader className="bg-gdg-blue/5">
+      <Card>
+        <Stack>
           <div className="flex size-10 items-center justify-center rounded-full bg-gdg-blue/10 text-gdg-blue">
-            <Compass className="size-5" aria-hidden="true" />
+            <Icons name="Compass" size={20} aria-hidden="true" />
           </div>
-          <CardTitle>{t("dashboard.noChapter.title")}</CardTitle>
-          <CardDescription>{t("dashboard.noChapter.description")}</CardDescription>
-        </CardHeader>
-        <CardContent>
+          <Heading level={2}>{t("dashboard.noChapter.title")}</Heading>
+          <Text tone="muted">{t("dashboard.noChapter.description")}</Text>
+        </Stack>
+        <div className="mt-6">
           <Button asChild>
             <Link to="/onboarding" prefetch="intent">
-              {t("dashboard.noChapter.cta")} <ArrowRight className="size-4" />
+              {t("dashboard.noChapter.cta")}{" "}
+              <Icons name="ArrowRight" size={16} aria-hidden="true" />
             </Link>
           </Button>
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -98,18 +91,19 @@ function MembershipsSection({
     <section aria-labelledby="membership-heading" className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h2 id="membership-heading" className="text-lg font-medium tracking-tight">
+          <Heading level={2} id="membership-heading" className="text-lg">
             {t("dashboard.memberships.heading")}
-          </h2>
+          </Heading>
           {compact ? null : (
-            <p className="text-sm text-muted-foreground">
+            <Text size="sm" tone="muted">
               {t("dashboard.memberships.description")}
-            </p>
+            </Text>
           )}
         </div>
         <Button asChild variant="ghost" size="sm">
           <Link to="/chapters" prefetch="intent">
-            <Plus className="size-4" /> {t("dashboard.memberships.browseCta")}
+            <Icons name="Plus" size={16} aria-hidden="true" />{" "}
+            {t("dashboard.memberships.browseCta")}
           </Link>
         </Button>
       </div>
@@ -159,26 +153,32 @@ function MembershipRow({
       className={`animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ${exitCls}`}
       style={{ animationDelay, animationFillMode: "both" }}
     >
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-2">
+      <Card>
+        <Stack>
+          <Inline className="justify-between">
             <div className="min-w-0">
-              <CardTitle className="truncate text-base">{membership.chapter.name}</CardTitle>
+              <Heading level={3} className="truncate text-base">
+                {membership.chapter.name}
+              </Heading>
               {compact ? null : (
-                <CardDescription className="font-mono text-xs">
+                <Text size="xs" tone="muted" className="font-mono">
                   {membership.chapter.slug}
-                </CardDescription>
+                </Text>
               )}
             </div>
             <StatusBadge status={status}>{statusLabel}</StatusBadge>
-          </div>
-          {compact ? null : <p className="mt-2 text-sm text-muted-foreground">{desc}</p>}
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-2">
+          </Inline>
+          {compact ? null : (
+            <Text size="sm" tone="muted">
+              {desc}
+            </Text>
+          )}
+        </Stack>
+        <div className="mt-6 flex flex-wrap items-center gap-2">
           {isOrganizer && !isPending ? (
             <Button asChild variant="outline" size="sm">
               <Link to={`/chapters/${membership.chapter.slug}/organize`} prefetch="intent">
-                <Settings2 className="size-4" />
+                <Icons name="Settings" size={16} aria-hidden="true" />
                 {t("dashboard.memberships.manage")}
               </Link>
             </Button>
@@ -191,7 +191,7 @@ function MembershipRow({
             isLeaving={isLeaving}
             isPending={isPending}
           />
-        </CardContent>
+        </div>
       </Card>
     </li>
   );
@@ -219,12 +219,12 @@ function LeaveDialog({
     <AlertDialog>
       <AlertDialogTrigger asChild>
         <Button variant={isOrganizer ? "ghost" : "outline"} size="sm">
-          <LogOut className="size-4" />
+          <Icons name="Logout" size={16} aria-hidden="true" />
           {isPending ? t("dashboard.memberships.cancel") : t("dashboard.memberships.leave")}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
-        <AlertDialogHeader>
+        <Stack className="gap-2">
           <AlertDialogTitle>
             {isPending
               ? t("dashboard.memberships.cancelTitle", { name: chapterName })
@@ -235,23 +235,25 @@ function LeaveDialog({
               ? t("dashboard.memberships.cancelDescription")
               : t("chapters.leaveDialog.desc")}
           </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t("chapters.leaveDialog.cancel")}</AlertDialogCancel>
+        </Stack>
+        <div className="flex flex-wrap justify-end gap-3">
+          <AlertDialogCancel asChild>
+            <Button type="button" variant="outline">
+              {t("chapters.leaveDialog.cancel")}
+            </Button>
+          </AlertDialogCancel>
           <fetcher.Form method="post" action="/chapters">
             <input type="hidden" name="intent" value="leave" />
             <input type="hidden" name="chapterId" value={chapterId} />
-            <SubmitButton
-              variant="destructive"
-              pending={isLeaving}
-              pendingLabel={t("common.loading")}
-            >
-              {isPending
-                ? t("dashboard.memberships.cancelConfirm")
-                : t("chapters.leaveDialog.confirm")}
-            </SubmitButton>
+            <AlertDialogAction asChild>
+              <Button type="submit" variant="danger" loading={isLeaving}>
+                {isPending
+                  ? t("dashboard.memberships.cancelConfirm")
+                  : t("chapters.leaveDialog.confirm")}
+              </Button>
+            </AlertDialogAction>
           </fetcher.Form>
-        </AlertDialogFooter>
+        </div>
       </AlertDialogContent>
     </AlertDialog>
   );
@@ -260,30 +262,32 @@ function LeaveDialog({
 function MemberSimpleOidcLink() {
   const { t } = useTranslation();
   return (
-    <p className="mt-8 text-sm text-muted-foreground">
+    <div className="mt-8 text-sm text-muted">
       <Link
         to="/developers/apps"
         prefetch="intent"
         className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline"
       >
-        {t("dashboard.memberSimple.oidcLink")} <ArrowRight className="size-3.5" />
+        {t("dashboard.memberSimple.oidcLink")}{" "}
+        <Icons name="ArrowRight" size={14} aria-hidden="true" />
       </Link>
-    </p>
+    </div>
   );
 }
 
 function GoogleWorkspaceLink() {
   const { t } = useTranslation();
   return (
-    <p className="mt-4 text-sm text-muted-foreground">
+    <div className="mt-4 text-sm text-muted">
       <Link
         to="/settings/google-workspace"
         prefetch="intent"
         className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline"
       >
-        {t("dashboard.googleWorkspaceLink")} <ArrowRight className="size-3.5" />
+        {t("dashboard.googleWorkspaceLink")}{" "}
+        <Icons name="ArrowRight" size={14} aria-hidden="true" />
       </Link>
-    </p>
+    </div>
   );
 }
 
@@ -303,22 +307,26 @@ function RoleToolsSection({
   return (
     <section aria-labelledby="role-tools-heading" className="mt-10 space-y-3">
       <div>
-        <h2 id="role-tools-heading" className="text-lg font-medium tracking-tight">
+        <Heading level={2} id="role-tools-heading" className="text-lg">
           {t("dashboard.roleTools.heading")}
-        </h2>
-        <p className="text-sm text-muted-foreground">{t("dashboard.roleTools.description")}</p>
+        </Heading>
+        <Text size="sm" tone="muted">
+          {t("dashboard.roleTools.description")}
+        </Text>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {organizerMemberships.length > 0 ? (
           <Card>
-            <CardHeader>
+            <Stack>
               <div className="flex items-center gap-2">
-                <Settings2 className="size-4 text-gdg-green" />
-                <CardTitle className="text-base">{t("dashboard.organizerTools.title")}</CardTitle>
+                <Icons name="Settings" size={16} aria-hidden="true" />
+                <Heading level={3} className="text-base">
+                  {t("dashboard.organizerTools.title")}
+                </Heading>
               </div>
-              <CardDescription>{t("dashboard.organizerTools.description")}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
+              <Text tone="muted">{t("dashboard.organizerTools.description")}</Text>
+            </Stack>
+            <div className="mt-6 flex flex-wrap gap-2">
               {organizerMemberships.map((membership) => (
                 <Button asChild key={membership.chapterId} variant="outline" size="sm">
                   <Link to={`/chapters/${membership.chapter.slug}/organize`} prefetch="intent">
@@ -326,45 +334,52 @@ function RoleToolsSection({
                   </Link>
                 </Button>
               ))}
-            </CardContent>
+            </div>
           </Card>
         ) : null}
         {canRegisterApps ? (
           <Card>
-            <CardHeader>
+            <Stack>
               <div className="flex items-center gap-2">
-                <Blocks className="size-4 text-gdg-blue" />
-                <CardTitle className="text-base">{t("dashboard.developerApps.title")}</CardTitle>
+                <Icons name="Key" size={16} aria-hidden="true" />
+                <Heading level={3} className="text-base">
+                  {t("dashboard.developerApps.title")}
+                </Heading>
               </div>
-              <CardDescription>{t("dashboard.developerApps.description")}</CardDescription>
-            </CardHeader>
-            <CardContent>
+              <Text tone="muted">{t("dashboard.developerApps.description")}</Text>
+            </Stack>
+            <div className="mt-6">
               <Button asChild variant="outline" size="sm">
                 <Link to="/developers/apps" prefetch="intent">
-                  {t("dashboard.developerApps.cta")} <ArrowRight className="size-4" />
+                  {t("dashboard.developerApps.cta")}{" "}
+                  <Icons name="ArrowRight" size={16} aria-hidden="true" />
                 </Link>
               </Button>
-            </CardContent>
+            </div>
           </Card>
         ) : null}
         {user.isAdmin ? (
-          <Card className="border-gdg-blue/30 bg-gdg-blue/5 md:col-span-2">
-            <CardHeader>
+          <Card className="md:col-span-2">
+            <Stack>
               <div className="flex items-center gap-2">
-                <ShieldCheck className="size-4 text-gdg-blue" />
-                <CardTitle className="text-base">{t("dashboard.superAdmin.title")}</CardTitle>
+                <Icons name="ShieldCheck" size={16} aria-hidden="true" />
+                <Heading level={3} className="text-base">
+                  {t("dashboard.superAdmin.title")}
+                </Heading>
               </div>
-              <CardDescription>{t("dashboard.superAdmin.description")}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
+              <Text tone="muted">{t("dashboard.superAdmin.description")}</Text>
+            </Stack>
+            <div className="mt-6 flex flex-wrap gap-2">
               <Button asChild variant="outline" size="sm">
                 <Link to="/admin/users" prefetch="intent">
-                  <Users className="size-4" /> {t("dashboard.superAdmin.usersCta")}
+                  <Icons name="Users" size={16} aria-hidden="true" />{" "}
+                  {t("dashboard.superAdmin.usersCta")}
                 </Link>
               </Button>
               <Button asChild variant="outline" size="sm">
                 <Link to="/admin/requests" prefetch="intent">
-                  <ListChecks className="size-4" /> {t("dashboard.superAdmin.requestsCta")}
+                  <Icons name="List" size={16} aria-hidden="true" />{" "}
+                  {t("dashboard.superAdmin.requestsCta")}
                 </Link>
               </Button>
               <Button asChild variant="outline" size="sm">
@@ -372,7 +387,7 @@ function RoleToolsSection({
                   {t("dashboard.superAdmin.manageCta")}
                 </Link>
               </Button>
-            </CardContent>
+            </div>
           </Card>
         ) : null}
       </div>

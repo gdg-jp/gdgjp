@@ -2,7 +2,7 @@
 
 ## Use case
 
-Use as a vertical layout primitive with a default 16px gap. It accepts native div props/ref and `className` to create a flow for related content. When sectioning semantics are needed, use the appropriate element at the call site.
+Use as a vertical layout primitive with a default 16px gap. It accepts native div props/ref, `className`, and `align` (`stretch | start | center | end`) to create a flow for related content. When sectioning semantics are needed, use the appropriate element at the call site.
 
 Avoid: using it as a wrapper merely to stack margins or as a substitute for nested Cards.
 

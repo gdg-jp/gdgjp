@@ -1,5 +1,5 @@
 import { Menu } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Button } from "../Button";
 import { IconButton } from "../IconButton";
@@ -19,6 +19,7 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarProvider,
+  SidebarTrigger,
 } from "../Sidebar";
 export function AppShell({
   navigation,
@@ -26,34 +27,31 @@ export function AppShell({
   children,
   brand,
   navigationLabel = "ナビゲーション",
+  navigationDescription = "移動先を選択してください。",
+  closeNavigationLabel = "閉じる",
+  skipLinkLabel = "本文へ移動",
+  collapsible = "icon",
+  defaultSidebarOpen = true,
+  sidebarOpen,
+  onSidebarOpenChange,
 }) {
-  const [sidebarOpen, setSidebarOpen] = useState(
-    () => typeof window === "undefined" || window.innerWidth >= 768,
-  );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  useEffect(() => {
-    const media = window.matchMedia("(min-width: 768px)");
-    const syncSidebar = () => setSidebarOpen(media.matches);
-    syncSidebar();
-    media.addEventListener("change", syncSidebar);
-    return () => media.removeEventListener("change", syncSidebar);
-  }, []);
   return _jsxs(SidebarProvider, {
     className: "gdg-shell",
+    defaultOpen: defaultSidebarOpen,
     open: sidebarOpen,
-    onOpenChange: setSidebarOpen,
+    onOpenChange: onSidebarOpenChange,
     children: [
-      _jsx("a", {
-        className: "gdg-skip-link",
-        href: "#gdg-main",
-        children: "\u672C\u6587\u3078\u79FB\u52D5",
-      }),
+      _jsx("a", { className: "gdg-skip-link", href: "#gdg-main", children: skipLinkLabel }),
       _jsxs(Sidebar, {
         "aria-label": navigationLabel,
-        collapsible: "offcanvas",
+        collapsible: collapsible,
         children: [
-          _jsx(SidebarHeader, {
-            children: _jsx("div", { className: "gdg-sidebar-title", children: brand }),
+          _jsxs(SidebarHeader, {
+            children: [
+              _jsx("div", { className: "gdg-sidebar-title", children: brand }),
+              _jsx(SidebarTrigger, {}),
+            ],
           }),
           _jsx(SidebarContent, {
             children: _jsx(SidebarGroup, {
@@ -85,10 +83,7 @@ export function AppShell({
                     _jsxs(SheetContent, {
                       children: [
                         _jsx(SheetTitle, { children: navigationLabel }),
-                        _jsx(SheetDescription, {
-                          children:
-                            "\u79FB\u52D5\u5148\u3092\u9078\u629E\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
-                        }),
+                        _jsx(SheetDescription, { children: navigationDescription }),
                         _jsx("div", {
                           onClick: (e) => {
                             if (e.target.closest("a")) setMobileNavOpen(false);
@@ -102,7 +97,7 @@ export function AppShell({
                           asChild: true,
                           children: _jsx(Button, {
                             variant: "outline",
-                            children: "\u9589\u3058\u308B",
+                            children: closeNavigationLabel,
                           }),
                         }),
                       ],

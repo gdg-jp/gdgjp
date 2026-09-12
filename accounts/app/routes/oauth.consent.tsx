@@ -1,13 +1,9 @@
-import { Check, ExternalLink, Globe2, ShieldCheck, X } from "lucide-react";
+import { Badge, Button, Card, Heading, Icons, Stack, Text } from "@gdgjp/ui";
 import { useTranslation } from "react-i18next";
 import { Form, Link, redirect, useNavigation, useSearchParams } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { LocaleSwitcher } from "~/components/locale-switcher";
 import { ThemeToggle } from "~/components/theme-toggle";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader } from "~/components/ui/card";
-import { SubmitButton } from "~/components/ui/submit-button";
 import { runAuthHandler } from "~/lib/auth.server";
 import { i18n } from "~/lib/i18n/i18n.server";
 import type { Route } from "./+types/oauth.consent";
@@ -72,72 +68,67 @@ export default function ConsentPage({ loaderData }: Route.ComponentProps) {
   const appName = loaderData.client?.name || t("auth.consent.unknownApp");
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-muted/40">
-      <div className="pointer-events-none absolute -top-32 -right-32 size-[420px] rounded-full bg-gdg-blue/10 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-32 -left-32 size-[420px] rounded-full bg-gdg-yellow/10 blur-3xl" />
-
+    <div className="min-h-dvh bg-background">
       <div className="absolute top-4 right-4 flex items-center gap-2">
         <LocaleSwitcher />
         <ThemeToggle />
       </div>
 
-      <main className="relative grid min-h-dvh place-items-center px-4 py-10">
-        <Card className="w-full max-w-lg shadow-sm">
-          <CardHeader className="items-start gap-4 sm:flex-row">
+      <main className="grid min-h-dvh place-items-center px-4 py-10">
+        <Card className="w-full max-w-lg">
+          <Stack align="start" className="gap-4 sm:flex-row">
             <Link to="/" aria-label={t("nav.homeAria")} className="shrink-0">
               <GdgMark size="md" />
             </Link>
-            <div className="min-w-0 space-y-2">
-              <Badge variant="outline">{t("auth.consent.eyebrow")}</Badge>
-              <h1 className="text-2xl font-medium tracking-tight">
-                {t("auth.consent.title", { appName })}
-              </h1>
-              <CardDescription>{t("auth.consent.description")}</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
+            <Stack className="min-w-0 gap-2">
+              <Badge tone="info">{t("auth.consent.eyebrow")}</Badge>
+              <Heading level={1}>{t("auth.consent.title", { appName })}</Heading>
+              <Text tone="muted">{t("auth.consent.description")}</Text>
+            </Stack>
+          </Stack>
+          <Stack className="mt-6">
             {loaderData.client?.appUrl ? (
               <a
                 href={loaderData.client.appUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm transition-colors hover:bg-muted/50"
+                className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface p-3 text-sm hover:bg-neutral"
               >
                 <span className="flex min-w-0 items-center gap-2">
-                  <Globe2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <Icons name="Earth" size={16} className="shrink-0" aria-hidden="true" />
                   <span className="min-w-0">
-                    <span className="block text-xs text-muted-foreground">
-                      {t("auth.consent.website")}
-                    </span>
+                    <span className="block text-xs text-muted">{t("auth.consent.website")}</span>
                     <span className="block truncate font-medium">{loaderData.client.appUrl}</span>
                   </span>
                 </span>
-                <ExternalLink
-                  className="size-4 shrink-0 text-muted-foreground"
-                  aria-hidden="true"
-                />
+                <Icons name="ArrowUpRight" size={16} className="shrink-0" aria-hidden="true" />
               </a>
             ) : null}
 
-            <section aria-labelledby="requested-permissions" className="space-y-3">
+            <section aria-labelledby="requested-permissions">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="size-4 text-gdg-blue" aria-hidden="true" />
-                <h2 id="requested-permissions" className="font-medium">
+                <Icons name="ShieldCheck" size={16} aria-hidden="true" />
+                <Heading level={2} id="requested-permissions" className="text-base">
                   {t("auth.consent.permissions")}
-                </h2>
+                </Heading>
               </div>
-              <ul className="space-y-2">
+              <ul className="mt-3 space-y-2">
                 {scopes.length === 0 ? (
-                  <li className="rounded-lg border bg-muted/30 p-3 text-sm">
+                  <li className="rounded-md border border-border bg-background p-3 text-sm">
                     {t("auth.consent.noPermissions")}
                   </li>
                 ) : (
                   scopes.map((scope) => (
                     <li
                       key={scope}
-                      className="flex items-start gap-3 rounded-lg border bg-card p-3 text-sm"
+                      className="flex items-start gap-3 rounded-md border border-border bg-surface p-3 text-sm"
                     >
-                      <Check className="mt-0.5 size-4 shrink-0 text-gdg-green" aria-hidden="true" />
+                      <Icons
+                        name="Check"
+                        size={16}
+                        className="mt-0.5 shrink-0"
+                        aria-hidden="true"
+                      />
                       <span>{t(scopeLabelKey(scope))}</span>
                     </li>
                   ))
@@ -145,7 +136,7 @@ export default function ConsentPage({ loaderData }: Route.ComponentProps) {
               </ul>
             </section>
 
-            <Form method="post" className="space-y-4">
+            <Form method="post" action="/oauth/consent" className="space-y-4">
               <input type="hidden" name="oauth_query" value={params.toString()} />
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                 <Button
@@ -154,24 +145,27 @@ export default function ConsentPage({ loaderData }: Route.ComponentProps) {
                   value="false"
                   variant="outline"
                   disabled={isSubmitting}
+                  loading={isSubmitting && navigation.formData?.get("accept") === "false"}
                 >
-                  <X className="size-4" />
+                  <Icons name="X" size={16} aria-hidden="true" />
                   {t("auth.consent.deny")}
                 </Button>
-                <SubmitButton
+                <Button
+                  type="submit"
                   name="accept"
                   value="true"
-                  pending={isSubmitting && navigation.formData?.get("accept") === "true"}
+                  disabled={isSubmitting}
+                  loading={isSubmitting && navigation.formData?.get("accept") === "true"}
                 >
-                  <Check className="size-4" />
+                  <Icons name="Check" size={16} aria-hidden="true" />
                   {t("auth.consent.allow")}
-                </SubmitButton>
+                </Button>
               </div>
             </Form>
-            <p className="text-xs leading-relaxed text-muted-foreground">
+            <Text size="xs" tone="muted">
               {t("auth.consent.privacy")}
-            </p>
-          </CardContent>
+            </Text>
+          </Stack>
         </Card>
       </main>
     </div>

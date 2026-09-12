@@ -33,6 +33,13 @@ export const Sizes = {
     }),
 };
 export const Loading = { args: { loading: true, children: "保存中" } };
+export const FullWidth = {
+  render: () =>
+    _jsx("div", {
+      style: { width: 320 },
+      children: _jsx(Button, { fullWidth: true, children: "\u5909\u66F4\u3092\u4FDD\u5B58" }),
+    }),
+};
 export const AsLink = {
   render: () =>
     _jsx(Button, {

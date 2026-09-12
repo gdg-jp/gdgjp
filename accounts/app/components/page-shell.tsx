@@ -1,7 +1,7 @@
+import { cn } from "@gdgjp/ui";
 import type { ReactNode } from "react";
 import { useLocation } from "react-router";
 import type { TopBarUser } from "~/components/top-bar";
-import { cn } from "~/lib/utils";
 
 type PageShellProps = {
   /**

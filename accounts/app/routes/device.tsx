@@ -1,16 +1,21 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { Check, ShieldCheck, X } from "lucide-react";
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  FormField,
+  Heading,
+  Icons,
+  Input,
+  Stack,
+  Text,
+} from "@gdgjp/ui";
 import { useTranslation } from "react-i18next";
 import { Form, useActionData, useNavigation } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { LocaleSwitcher } from "~/components/locale-switcher";
 import { ThemeToggle } from "~/components/theme-toggle";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardHeader } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { SubmitButton } from "~/components/ui/submit-button";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { requireUser, runAuthHandler } from "~/lib/auth.server";
 import {
@@ -85,24 +90,19 @@ export default function DevicePage({ loaderData }: Route.ComponentProps) {
   const submittedIntent = navigation.formData?.get("intent");
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-muted/40">
-      <div className="pointer-events-none absolute -top-32 -right-32 size-[420px] rounded-full bg-gdg-blue/10 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-32 -left-32 size-[420px] rounded-full bg-gdg-yellow/10 blur-3xl" />
-
+    <div className="min-h-dvh bg-background">
       <div className="absolute top-4 right-4 flex items-center gap-2">
         <LocaleSwitcher />
         <ThemeToggle />
       </div>
 
-      <main className="relative grid min-h-dvh place-items-center px-4 py-10">
-        <Card className="w-full max-w-lg shadow-sm">
-          <CardHeader className="items-start gap-4 sm:flex-row">
+      <main className="grid min-h-dvh place-items-center px-4 py-10">
+        <Card className="w-full max-w-lg">
+          <Stack align="start" className="gap-4 sm:flex-row">
             <GdgMark size="md" />
-            <div className="min-w-0 space-y-2">
-              <Badge variant="outline">{t("auth.device.eyebrow")}</Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
+            <Badge tone="info">{t("auth.device.eyebrow")}</Badge>
+          </Stack>
+          <div className="mt-6">
             <DeviceBody
               userCode={loaderData.userCode}
               pending={loaderData.pending}
@@ -110,7 +110,7 @@ export default function DevicePage({ loaderData }: Route.ComponentProps) {
               isSubmitting={isSubmitting}
               submittedIntent={typeof submittedIntent === "string" ? submittedIntent : null}
             />
-          </CardContent>
+          </div>
         </Card>
       </main>
     </div>
@@ -134,41 +134,44 @@ function DeviceBody({
 
   if (actionResult?.status === "approved") {
     return (
-      <div className="space-y-2 text-center">
+      <Stack align="center" className="text-center">
         <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-gdg-green/10 text-gdg-green">
-          <Check className="size-6" aria-hidden="true" />
+          <Icons name="Check" size={24} aria-hidden="true" />
         </div>
-        <h1 className="text-xl font-medium tracking-tight">{t("auth.device.successTitle")}</h1>
-        <p className="text-sm text-muted-foreground">{t("auth.device.successDescription")}</p>
-      </div>
+        <Heading level={1}>{t("auth.device.successTitle")}</Heading>
+        <Text size="sm" tone="muted">
+          {t("auth.device.successDescription")}
+        </Text>
+      </Stack>
     );
   }
 
   if (actionResult?.status === "denied") {
     return (
-      <div className="space-y-2 text-center">
-        <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <X className="size-6" aria-hidden="true" />
+      <Stack align="center" className="text-center">
+        <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-neutral text-muted">
+          <Icons name="X" size={24} aria-hidden="true" />
         </div>
-        <h1 className="text-xl font-medium tracking-tight">{t("auth.device.deniedTitle")}</h1>
-        <p className="text-sm text-muted-foreground">{t("auth.device.deniedDescription")}</p>
-      </div>
+        <Heading level={1}>{t("auth.device.deniedTitle")}</Heading>
+        <Text size="sm" tone="muted">
+          {t("auth.device.deniedDescription")}
+        </Text>
+      </Stack>
     );
   }
 
   if (!pending) {
     return (
-      <div className="space-y-4">
+      <Stack>
         <div>
-          <h1 className="text-xl font-medium tracking-tight">{t("auth.device.enterTitle")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("auth.device.enterDescription")}</p>
+          <Heading level={1}>{t("auth.device.enterTitle")}</Heading>
+          <Text size="sm" tone="muted">
+            {t("auth.device.enterDescription")}
+          </Text>
         </div>
-        {userCode ? (
-          <p className="text-sm text-destructive">{t("auth.device.invalidCode")}</p>
-        ) : null}
+        {userCode ? <Alert tone="danger" title={t("auth.device.invalidCode")} /> : null}
         <Form method="get" className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="user_code">{t("auth.device.codeLabel")}</Label>
+          <FormField id="user_code" label={t("auth.device.codeLabel")} required>
             <Input
               id="user_code"
               name="user_code"
@@ -177,51 +180,54 @@ function DeviceBody({
               autoCapitalize="characters"
               defaultValue={userCode}
               required
+              className="w-full"
             />
-          </div>
+          </FormField>
           <Button type="submit">{t("auth.device.submit")}</Button>
         </Form>
-      </div>
+      </Stack>
     );
   }
 
   const scopes = pending.scope.split(/\s+/).filter(Boolean);
 
   return (
-    <div className="space-y-6">
+    <Stack>
       <div>
-        <h1 className="text-xl font-medium tracking-tight">
+        <Heading level={1}>
           {t("auth.device.confirmTitle", { appName: pending.clientName })}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("auth.device.confirmDescription")}</p>
-        <p className="mt-2 font-mono text-sm">
+        </Heading>
+        <Text size="sm" tone="muted">
+          {t("auth.device.confirmDescription")}
+        </Text>
+        <Text size="sm" className="mt-2 font-mono">
           {t("auth.device.codeConfirm", { code: formatUserCode(userCode) })}
-        </p>
+        </Text>
       </div>
 
       {actionResult?.status === "failed" ? (
-        <p className="text-sm text-destructive">{t("auth.device.approveFailed")}</p>
+        <Alert tone="danger" title={t("auth.device.approveFailed")} />
       ) : null}
 
-      <section aria-labelledby="requested-permissions" className="space-y-3">
+      <section aria-labelledby="requested-permissions">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="size-4 text-gdg-blue" aria-hidden="true" />
-          <h2 id="requested-permissions" className="font-medium">
+          <Icons name="ShieldCheck" size={16} aria-hidden="true" />
+          <Heading level={2} id="requested-permissions" className="text-base">
             {t("auth.device.permissions")}
-          </h2>
+          </Heading>
         </div>
-        <ul className="space-y-2">
+        <ul className="mt-3 space-y-2">
           {scopes.length === 0 ? (
-            <li className="rounded-lg border bg-muted/30 p-3 text-sm">
+            <li className="rounded-md border border-border bg-background p-3 text-sm">
               {t("auth.device.noPermissions")}
             </li>
           ) : (
             scopes.map((scope) => (
               <li
                 key={scope}
-                className="flex items-start gap-3 rounded-lg border bg-card p-3 text-sm"
+                className="flex items-start gap-3 rounded-md border border-border bg-surface p-3 text-sm"
               >
-                <Check className="mt-0.5 size-4 shrink-0 text-gdg-green" aria-hidden="true" />
+                <Icons name="Check" size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
                 <span>{t(scopeLabelKey(scope))}</span>
               </li>
             ))
@@ -231,20 +237,29 @@ function DeviceBody({
 
       <Form method="post" className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <input type="hidden" name="id" value={pending.id} />
-        <Button type="submit" name="intent" value="deny" variant="outline" disabled={isSubmitting}>
-          <X className="size-4" />
+        <Button
+          type="submit"
+          name="intent"
+          value="deny"
+          variant="outline"
+          disabled={isSubmitting}
+          loading={isSubmitting && submittedIntent === "deny"}
+        >
+          <Icons name="X" size={16} aria-hidden="true" />
           {t("auth.device.deny")}
         </Button>
-        <SubmitButton
+        <Button
+          type="submit"
           name="intent"
           value="approve"
-          pending={isSubmitting && submittedIntent === "approve"}
+          disabled={isSubmitting}
+          loading={isSubmitting && submittedIntent === "approve"}
         >
-          <Check className="size-4" />
+          <Icons name="Check" size={16} aria-hidden="true" />
           {t("auth.device.approve")}
-        </SubmitButton>
+        </Button>
       </Form>
-    </div>
+    </Stack>
   );
 }
 

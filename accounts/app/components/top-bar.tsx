@@ -1,11 +1,21 @@
-import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
-import { Menu } from "lucide-react";
+import { GDG_APP_LINKS } from "@gdgjp/gdg-lib/ui";
+import {
+  Avatar,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  IconButton,
+  Icons,
+} from "@gdgjp/ui";
+import { cn } from "@gdgjp/ui";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { LocaleSwitcher } from "~/components/locale-switcher";
 import { ThemeToggle } from "~/components/theme-toggle";
-import { cn } from "~/lib/utils";
 
 export type TopBarUser = {
   email: string;
@@ -23,67 +33,41 @@ export type TopBarNavItem = {
 export function TopBar({
   user,
   primaryNav,
-  onOpenNavigation,
-  navigationOpen = false,
+  showBrand = true,
 }: {
   user: TopBarUser | null;
   primaryNav?: TopBarNavItem[];
-  onOpenNavigation?: () => void;
-  navigationOpen?: boolean;
+  showBrand?: boolean;
 }) {
   const { t } = useTranslation();
   return (
-    <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur transition-[background-color,border-color,box-shadow] duration-[var(--motion-base)] ease-[var(--ease-out-quart)] supports-[backdrop-filter]:bg-background/60 motion-reduce:transition-none">
-      <div className="flex h-14 w-full items-center justify-between gap-3 px-4">
-        <div className="flex min-w-0 items-center gap-3 md:gap-6">
+    <div className="flex min-h-16 w-full items-center justify-between gap-3 px-4 md:px-6">
+      <div className="flex min-w-0 items-center gap-3 md:gap-6">
+        {showBrand ? (
           <Link
             to="/dashboard"
             prefetch="intent"
-            className="group flex shrink-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="group flex shrink-0 items-center gap-3 rounded-md outline-none"
           >
-            <GdgMark
-              size="sm"
-              className="transition-transform duration-[var(--motion-base)] ease-[var(--ease-out-quart)] group-hover:rotate-2 group-hover:scale-105 group-active:scale-95 motion-reduce:transform-none motion-reduce:transition-none"
-            />
-            <span className="hidden font-medium tracking-tight transition-colors duration-[var(--motion-fast)] group-hover:text-primary sm:inline motion-reduce:transition-none">
-              {t("app.name")}
-            </span>
+            <GdgMark size="sm" />
+            <span className="hidden font-medium tracking-tight sm:inline">{t("app.name")}</span>
           </Link>
-          {primaryNav && primaryNav.length > 0 ? (
-            <nav aria-label={t("nav.navigation")} className="flex min-w-0 items-center gap-1">
-              {primaryNav.map((item) => (
-                <PrimaryNavLink key={item.to} item={item} />
-              ))}
-            </nav>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <LocaleSwitcher />
-          <ThemeToggle />
-          {user ? <GdgAppLauncher /> : null}
-          <UserMenu user={user} />
-          {onOpenNavigation ? (
-            <button
-              type="button"
-              onClick={onOpenNavigation}
-              aria-label={t("nav.openNavigation")}
-              aria-expanded={navigationOpen}
-              className={cn(
-                "group rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-[var(--motion-fast)] ease-[var(--ease-out-quart)] hover:bg-accent hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden motion-reduce:transform-none motion-reduce:transition-none",
-                navigationOpen && "bg-accent text-foreground",
-              )}
-            >
-              <Menu
-                className={cn(
-                  "size-5 transition-transform duration-[var(--motion-base)] ease-[var(--ease-out-quart)] motion-reduce:transform-none motion-reduce:transition-none",
-                  navigationOpen && "rotate-90",
-                )}
-              />
-            </button>
-          ) : null}
-        </div>
+        ) : null}
+        {primaryNav && primaryNav.length > 0 ? (
+          <nav aria-label={t("nav.navigation")} className="flex min-w-0 items-center gap-1">
+            {primaryNav.map((item) => (
+              <PrimaryNavLink key={item.to} item={item} />
+            ))}
+          </nav>
+        ) : null}
       </div>
-    </header>
+      <div className="flex shrink-0 items-center gap-1">
+        <LocaleSwitcher />
+        <ThemeToggle />
+        {user ? <AppLauncher /> : null}
+        <UserMenu user={user} />
+      </div>
+    </div>
   );
 }
 
@@ -98,14 +82,47 @@ function PrimaryNavLink({ item }: { item: TopBarNavItem }) {
       prefetch="intent"
       aria-current={active ? "page" : undefined}
       className={cn(
-        "truncate rounded-md px-2 py-1.5 text-sm transition-[color,background-color] duration-[var(--motion-fast)] ease-[var(--ease-out-quart)] motion-reduce:transition-none",
-        active
-          ? "bg-accent font-medium text-foreground"
-          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+        "truncate rounded-md px-2 py-1.5 text-sm",
+        active ? "bg-selected font-medium text-foreground" : "text-muted hover:bg-selected",
       )}
     >
       {item.label}
     </Link>
+  );
+}
+
+function AppLauncher() {
+  const { t } = useTranslation();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <IconButton variant="ghost" aria-label={t("nav.appLauncher")}>
+          <Icons name="LayoutGrid" size={18} aria-hidden="true" />
+        </IconButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72 p-4">
+        <div className="grid grid-cols-3 gap-3">
+          {GDG_APP_LINKS.map((app) => (
+            <DropdownMenuItem
+              key={app.url}
+              asChild
+              className="aspect-square flex-col justify-center gap-2 px-1 py-2 text-center"
+            >
+              <a href={app.url} target="_blank" rel="noreferrer">
+                <img
+                  src={app.iconUrl}
+                  alt=""
+                  width={44}
+                  height={44}
+                  className="size-11 object-contain"
+                />
+                <span className="w-full truncate font-medium">{app.label}</span>
+              </a>
+            </DropdownMenuItem>
+          ))}
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -117,12 +134,46 @@ function UserMenu({ user }: { user: TopBarUser | null }) {
     window.location.assign("/auth/signout");
   }
 
+  const title = user.name || user.email;
+  const initials = (title.match(/\p{L}/gu) ?? []).slice(0, 2).join("").toUpperCase();
+
   return (
-    <GdgAccountMenu
-      accountUrl="/dashboard"
-      onSignOut={signOut}
-      signOutLabel={t("auth.signOut")}
-      user={user}
-    />
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <IconButton
+          variant="ghost"
+          aria-label={t("auth.manageAccount")}
+          title={title}
+          className="p-1"
+        >
+          <Avatar
+            src={user.image ?? undefined}
+            alt={title}
+            fallback={initials || "?"}
+            className="size-8"
+          />
+        </IconButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>
+          <span className="block truncate font-medium">{title}</span>
+          {user.name ? (
+            <span className="block truncate text-sm text-muted">{user.email}</span>
+          ) : null}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/dashboard" prefetch="intent">
+            <Icons name="Settings" size={16} aria-hidden="true" />
+            {t("auth.manageAccount")}
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={signOut}>
+          <Icons name="Logout" size={16} aria-hidden="true" />
+          {t("auth.signOut")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

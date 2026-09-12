@@ -71,8 +71,15 @@ export function SelectItem({ children, className, ...props }) {
     ...props,
     className: cn("gdg-menu-item", className),
     children: [
-      _jsx(RSelect.ItemText, { children: children }),
-      _jsx(RSelect.ItemIndicator, { children: _jsx(Check, { size: 16 }) }),
+      _jsx("span", {
+        className: "gdg-menu-item-label",
+        children: _jsx(RSelect.ItemText, { children: children }),
+      }),
+      _jsx("span", {
+        className: "gdg-menu-item-indicator",
+        "aria-hidden": "true",
+        children: _jsx(RSelect.ItemIndicator, { children: _jsx(Check, { size: 16 }) }),
+      }),
     ],
   });
 }

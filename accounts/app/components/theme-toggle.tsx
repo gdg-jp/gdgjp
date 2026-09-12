@@ -1,22 +1,23 @@
-import { Monitor, Moon, Sun } from "lucide-react";
-import { useTranslation } from "react-i18next";
-import { Button } from "~/components/ui/button";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import { type Theme, useTheme } from "~/lib/theme";
+  IconButton,
+  Icons,
+  useTheme,
+} from "@gdgjp/ui";
+import { useTranslation } from "react-i18next";
 
 const OPTIONS: {
-  value: Theme;
+  value: "light" | "dark" | "system";
   labelKey: "nav.themeLight" | "nav.themeDark" | "nav.themeSystem";
-  Icon: typeof Sun;
+  icon: "Sun" | "Moon" | "SunMoon";
 }[] = [
-  { value: "light", labelKey: "nav.themeLight", Icon: Sun },
-  { value: "dark", labelKey: "nav.themeDark", Icon: Moon },
-  { value: "system", labelKey: "nav.themeSystem", Icon: Monitor },
+  { value: "light", labelKey: "nav.themeLight", icon: "Sun" },
+  { value: "dark", labelKey: "nav.themeDark", icon: "Moon" },
+  { value: "system", labelKey: "nav.themeSystem", icon: "SunMoon" },
 ];
 
 export function ThemeToggle() {
@@ -25,22 +26,26 @@ export function ThemeToggle() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={t("nav.toggleTheme")}>
-          <Sun className="size-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-          <Moon className="absolute size-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
-        </Button>
+        <IconButton variant="ghost" aria-label={t("nav.toggleTheme")}>
+          <Icons name="Sun" size={18} aria-hidden="true" />
+        </IconButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {OPTIONS.map(({ value, labelKey, Icon }) => (
-          <DropdownMenuCheckboxItem
-            key={value}
-            checked={theme === value}
-            onCheckedChange={() => setTheme(value)}
-          >
-            <Icon className="size-4" />
-            {t(labelKey)}
-          </DropdownMenuCheckboxItem>
-        ))}
+        <DropdownMenuRadioGroup
+          value={theme}
+          onValueChange={(value) => {
+            if (OPTIONS.some((option) => option.value === value)) {
+              setTheme(value as (typeof OPTIONS)[number]["value"]);
+            }
+          }}
+        >
+          {OPTIONS.map(({ value, labelKey, icon }) => (
+            <DropdownMenuRadioItem key={value} value={value}>
+              <Icons name={icon} size={16} aria-hidden="true" />
+              {t(labelKey)}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

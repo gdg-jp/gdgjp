@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { DropdownMenu as RM } from "radix-ui";
 import type { ComponentProps } from "react";
 import { useMotionRef } from "../../hooks";
@@ -28,7 +29,42 @@ export function DropdownMenuItem({ className, ...props }: ComponentProps<typeof 
   return <RM.Item {...props} className={cn("gdg-menu-item", className)} />;
 }
 
+export function DropdownMenuCheckboxItem({
+  children,
+  className,
+  ...props
+}: ComponentProps<typeof RM.CheckboxItem>) {
+  return (
+    <RM.CheckboxItem {...props} className={cn("gdg-menu-item", className)}>
+      <span className="gdg-menu-item-label">{children}</span>
+      <span className="gdg-menu-item-indicator" aria-hidden="true">
+        <RM.ItemIndicator>
+          <Check size={16} />
+        </RM.ItemIndicator>
+      </span>
+    </RM.CheckboxItem>
+  );
+}
+
 export const DropdownMenuGroup = RM.Group;
+export const DropdownMenuRadioGroup = RM.RadioGroup;
+
+export function DropdownMenuRadioItem({
+  children,
+  className,
+  ...props
+}: ComponentProps<typeof RM.RadioItem>) {
+  return (
+    <RM.RadioItem {...props} className={cn("gdg-menu-item", className)}>
+      <span className="gdg-menu-item-label">{children}</span>
+      <span className="gdg-menu-item-indicator" aria-hidden="true">
+        <RM.ItemIndicator>
+          <Check size={16} />
+        </RM.ItemIndicator>
+      </span>
+    </RM.RadioItem>
+  );
+}
 
 export function DropdownMenuLabel({ className, ...props }: ComponentProps<typeof RM.Label>) {
   return <RM.Label {...props} className={cn("gdg-menu-label", className)} />;

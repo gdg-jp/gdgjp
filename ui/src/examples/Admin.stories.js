@@ -119,7 +119,9 @@ function OtherPage({ page }) {
                   "\u958B\u767A\u8005\u540C\u58EB\u3067\u5B66\u3073\u3001\u3064\u306A\u304C\u308B\u30B3\u30DF\u30E5\u30CB\u30C6\u30A3\u3067\u3059\u3002",
               }),
             }),
-            _jsx(UI.Button, { children: "\u5909\u66F4\u3092\u4FDD\u5B58" }),
+            _jsx(UI.Inline, {
+              children: _jsx(UI.Button, { children: "\u5909\u66F4\u3092\u4FDD\u5B58" }),
+            }),
           ],
         }),
       }),
@@ -130,9 +132,6 @@ export function AdminDemo() {
   const [page, setPage] = useState("events");
   const [query, setQuery] = useState("");
   const [format, setFormat] = useState("all");
-  const [sidebarOpen, setSidebarOpen] = useState(
-    () => typeof window === "undefined" || window.innerWidth >= 768,
-  );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [edit, setEdit] = useState(false);
   const [name, setName] = useState("コミュニティミートアップ");
@@ -142,13 +141,6 @@ export function AdminDemo() {
     syncPage();
     window.addEventListener("hashchange", syncPage);
     return () => window.removeEventListener("hashchange", syncPage);
-  }, []);
-  useEffect(() => {
-    const media = window.matchMedia("(min-width: 768px)");
-    const syncSidebar = () => setSidebarOpen(media.matches);
-    syncSidebar();
-    media.addEventListener("change", syncSidebar);
-    return () => media.removeEventListener("change", syncSidebar);
   }, []);
   const showEvent =
     !deleted && (!query || name.includes(query)) && (format === "all" || format === "hybrid");
@@ -177,8 +169,8 @@ export function AdminDemo() {
       ),
     });
   return _jsxs(UI.SidebarProvider, {
-    open: sidebarOpen,
-    onOpenChange: setSidebarOpen,
+    className: "gdg-shell",
+    defaultOpen: true,
     children: [
       _jsx("a", {
         className: "gdg-skip-link",
@@ -187,7 +179,7 @@ export function AdminDemo() {
       }),
       _jsxs(UI.Sidebar, {
         "aria-label": "\u30E1\u30A4\u30F3\u30CA\u30D3\u30B2\u30FC\u30B7\u30E7\u30F3",
-        collapsible: "offcanvas",
+        collapsible: "icon",
         children: [
           _jsxs(UI.SidebarHeader, {
             children: [

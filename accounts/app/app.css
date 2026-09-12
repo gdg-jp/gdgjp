@@ -1,125 +1,10 @@
+@layer theme, base, gdg-tokens, gdg-base, gdg-components, utilities;
 @import "tailwindcss";
-@import "tw-animate-css";
-
-@source "../../gdg-lib/src/ui";
-
-@custom-variant dark (&:where(.dark, .dark *));
-
-@font-face {
-  font-family: "Google Sans";
-  src: url("/fonts/GoogleSans-Variable.ttf") format("truetype-variations");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Google Sans";
-  src: url("/fonts/GoogleSans-Italic-Variable.ttf") format("truetype-variations");
-  font-weight: 100 900;
-  font-style: italic;
-  font-display: swap;
-}
-
-@theme inline {
-  --font-sans: "Google Sans", -apple-system, "BlinkMacSystemFont", "Segoe UI", "Roboto", sans-serif;
-
-  --color-gdg-blue: #4285f4;
-  --color-gdg-red: #ea4335;
-  --color-gdg-yellow: #fbbc04;
-  --color-gdg-green: #34a853;
-
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-}
-
-:root {
-  --radius: 0.625rem;
-  --motion-fast: 120ms;
-  --motion-base: 200ms;
-  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-
-  /* GDG Blue (#4285F4) as primary */
-  --primary: oklch(0.624 0.214 259.815);
-  --primary-foreground: oklch(0.985 0 0);
-
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-
-  /* GDG Red (#EA4335) as destructive */
-  --destructive: oklch(0.628 0.218 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.624 0.214 259.815);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-
-  /* Lighter GDG Blue (#8AB4F8) for dark surfaces */
-  --primary: oklch(0.764 0.121 259.815);
-  --primary-foreground: oklch(0.205 0 0);
-
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 18%);
-  --ring: oklch(0.764 0.121 259.815);
-}
+@import "@gdgjp/ui/tailwind.css";
+@import "@gdgjp/ui/components.css";
+@import "@gdgjp/ui/fonts.css";
 
 @layer base {
-  * {
-    @apply border-border;
-  }
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
@@ -141,36 +26,105 @@
   }
 }
 
-@keyframes page-header-divider-enter {
-  from {
-    opacity: 0;
-    transform: scaleX(0.88);
-  }
-  to {
-    opacity: 1;
-    transform: scaleX(1);
-  }
-}
-
 @layer utilities {
+  .dashboard-navigation-progress {
+    z-index: var(--gdg-layer-toast);
+  }
+
+  .dashboard-top-bar {
+    box-shadow: var(--gdg-shadow-bottom);
+  }
+
+  .chapter-table-row {
+    min-width: 760px;
+  }
+
+  .developer-empty-state {
+    min-height: 34rem;
+  }
+
+  .developer-empty-key {
+    left: 4.4rem;
+  }
+
+  .developer-empty-crane-left {
+    left: 2.9rem;
+    transform: rotate(-25deg);
+  }
+
+  .developer-empty-crane-right {
+    right: 2.9rem;
+    transform: rotate(25deg);
+  }
+
+  .onboarding-card {
+    min-height: 24rem;
+  }
+
+  .onboarding-step {
+    min-height: 22rem;
+  }
+
+  .onboarding-region-list {
+    scrollbar-width: thin;
+  }
+
+  .onboarding-chapter-list {
+    max-height: 16rem;
+  }
+
+  .onboarding-extra-list {
+    max-height: 14rem;
+  }
+
+  .onboarding-success-icon {
+    color: var(--gdg-surface);
+  }
+
+  @media (min-width: 640px) {
+    .organize-pending-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .organize-member-row {
+      grid-template-columns: minmax(0, 1fr) auto auto;
+    }
+
+    .developer-client-metadata {
+      grid-template-columns: 7.5rem minmax(0, 1fr);
+    }
+
+    .onboarding-chapter-list {
+      max-height: 18rem;
+    }
+
+    .onboarding-extra-list {
+      max-height: 16rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .developer-settings-section {
+      grid-template-columns: 13rem minmax(0, 1fr);
+    }
+
+    .developer-settings-alert {
+      margin-inline-start: 15rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .developer-client-layout {
+      grid-template-columns: minmax(0, 1.25fr) minmax(19rem, 0.85fr);
+    }
+  }
+
   .route-enter {
-    animation: route-enter var(--motion-base) var(--ease-out-quart) both;
+    animation: route-enter 200ms var(--gdg-ease-out) both;
   }
 
   .navigation-progress {
-    animation: navigation-progress 900ms var(--ease-out-expo) infinite;
-  }
-
-  .page-header::after {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    height: 1px;
-    content: "";
-    background: var(--border);
-    transform-origin: left;
-    animation: page-header-divider-enter var(--motion-base) var(--ease-out-quart) both;
+    animation: navigation-progress 900ms var(--gdg-ease-out) infinite;
   }
 }
 
@@ -182,9 +136,5 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-  }
-
-  .page-header::after {
-    animation: none;
   }
 }

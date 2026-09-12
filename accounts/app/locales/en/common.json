@@ -3,7 +3,9 @@
     "name": "GDG Japan Accounts"
   },
   "common": {
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "tableScroll": "Scroll table horizontally",
+    "close": "Close"
   },
   "nav": {
     "homeAria": "GDG Japan Accounts home",
@@ -20,8 +22,10 @@
     "manageChapters": "Manage chapters",
     "joinRequests": "Join requests",
     "navigation": "Navigation",
-    "openNavigation": "Open navigation",
-    "closeNavigation": "Close navigation"
+    "navigationDescription": "Choose a destination.",
+    "appLauncher": "Open app launcher",
+    "closeNavigation": "Close navigation",
+    "skipToContent": "Skip to content"
   },
   "meta": {
     "signin": "Sign in — GDG Japan Accounts",
@@ -108,7 +112,6 @@
     },
     "list": {
       "title": "OAuth clients",
-      "subtitle": "Manage clients that use GDG Accounts as their OAuth 2.0 and OpenID Connect provider.",
       "create": "Create client",
       "emptyTitle": "No OAuth clients yet",
       "emptyDescription": "Create a client to enable sign-in with GDG Accounts from your application.",
@@ -119,19 +122,13 @@
       "type": "Type",
       "status": "Status",
       "actions": "Actions",
-      "createdAt": "Created {{date}}",
       "clientId": "Client ID",
-      "appUrl": "App URL",
-      "scopeCount_one": "{{count}} allowed scope",
-      "scopeCount_other": "{{count}} allowed scopes",
       "manage": "Manage",
       "manageClient": "Edit {{name}}"
     },
     "create": {
       "title": "Create OAuth client",
       "subtitle": "Register an OAuth 2.0 client that identifies your application and enables sign-in with GDG Accounts. Create a separate client for each environment.",
-      "cardTitle": "Client configuration",
-      "cardDescription": "Configure the client identity, redirect URIs, and scopes it may request. You can change these settings later.",
       "beforeYouStart": "Before you create the client",
       "beforeYouStartDescription": "Redirect URIs are matched exactly. Register the URLs your application uses and use HTTPS except for localhost development.",
       "basics": "Application details",
@@ -140,14 +137,12 @@
       "redirectsDescription": "Register the URLs users may safely return to after authentication or sign-out.",
       "permissions": "Allowed scopes",
       "submit": "Create client",
-      "pending": "Creating…",
       "cancel": "Cancel",
       "effectNote": "Changes may take a few minutes to take effect.",
       "manage": "Manage this client"
     },
     "detail": {
       "title": "Client ID for Web application",
-      "subtitle": "Manage credentials, redirect URIs, scopes, and client status.",
       "additionalInformation": "Additional information",
       "clientSecrets": "Client secrets",
       "createdAt": "Creation date",
@@ -157,17 +152,11 @@
       "effectNote": "Changes may take a few minutes to take effect.",
       "credentials": "Client credentials",
       "credentialsDescription": "Use these credentials only on your application's server.",
-      "settings": "Application settings",
-      "settingsDescription": "Changes to redirect URIs and scopes take effect immediately.",
       "save": "Save changes",
-      "saving": "Saving…",
       "saved": "Changes saved",
       "rotate": "Rotate Client Secret",
-      "dangerZone": "Client status and deletion",
-      "dangerDescription": "Disabling or deleting a client revokes its existing access and refresh tokens.",
       "disableDescription": "Stop new sign-ins and revoke the client's current access.",
       "enableDescription": "Allow new sign-ins again. Previously revoked tokens stay revoked.",
-      "deleteDescription": "Permanently remove this client, its credentials, and its active access.",
       "enable": "Enable client",
       "disable": "Disable client",
       "delete": "Delete client"
@@ -235,10 +224,8 @@
   },
   "chapters": {
     "title": "Chapters",
-    "subtitle": "Browse all GDG and GDGoC chapters. Join the ones you belong to — an organizer will approve your request.",
     "memberCount_one": "{{count}} member",
     "memberCount_other": "{{count}} members",
-    "errorTitle": "Couldn't perform action",
     "empty": {
       "title": "No chapters yet",
       "description": "No chapters are available yet. Please check back later."
@@ -270,17 +257,10 @@
       "joinable": "Available to join",
       "mine": "My chapters",
       "pending": "Pending"
-    },
-    "state": {
-      "joinableDescription": "Request to join this chapter and an organizer will review it.",
-      "pendingDescription": "Your membership request is waiting for organizer approval.",
-      "memberDescription": "You are an active member of this chapter.",
-      "organizerDescription": "You organize this chapter and can manage its members."
     }
   },
   "adminRequests": {
     "title": "Join requests",
-    "subtitle": "Every pending join request across all chapters.",
     "empty": "No pending requests right now.",
     "noMatches": "No requests match your search.",
     "searchPlaceholder": "Search by requester or chapter",
@@ -298,7 +278,6 @@
   },
   "adminUsers": {
     "title": "Manage users",
-    "subtitle": "Manage GDG Japan Accounts users, privileges, and sign-in sessions.",
     "searchPlaceholder": "Search by name or email",
     "search": "Search",
     "clear": "Clear",
@@ -336,7 +315,6 @@
       "demoteDescription": "They will return to a regular user and lose access to administration tools.",
       "revokeTitle": "Revoke every session for {{name}}?",
       "revokeDescription": "They will be signed out of Accounts and connected apps, and must sign in again.",
-      "revokeConfirm": "Revoke sessions",
       "changeChapterTitle": "Change {{name}}'s chapter?",
       "changeChapterDescription": "Select every chapter they should belong to. Memberships for unselected chapters will be removed."
     },
@@ -357,11 +335,9 @@
   },
   "adminSeed": {
     "title": "Trusted OAuth clients",
-    "description": "Synchronize the built-in applications with the current Worker configuration.",
     "noticeTitle": "Administrative operation",
     "noticeDescription": "This idempotent operation writes configured tinyurl, wiki, img, scheduler, and sns clients to D1.",
     "submit": "Synchronize clients",
-    "pending": "Synchronizing…",
     "result": "Result at {{at}}",
     "written": "Written: {{value}}",
     "skipped": "Skipped: {{value}}"
@@ -369,7 +345,6 @@
   "onboarding": {
     "title": "Join your chapter",
     "subtitle": "Tell us which GDG or GDGoC chapter you belong to. An organizer will approve your request.",
-    "skip": "Skip for now",
     "back": "Back",
     "continue": "Continue",
     "empty": {
@@ -404,8 +379,7 @@
       "subtitle": "Optional — request membership in additional {{kind}} chapters.",
       "primaryLabel": "Your main chapter",
       "submit": "Request membership",
-      "submitWithCount": "Request {{count}} chapters",
-      "submitPending": "Sending requests…"
+      "submitWithCount": "Request {{count}} chapters"
     },
     "done": {
       "title": "Request sent",
@@ -417,7 +391,6 @@
   },
   "admin": {
     "title": "Manage chapters",
-    "subtitle": "Create chapters and manage their membership and organizer teams.",
     "create": {
       "cardTitle": "Create a chapter",
       "description": "Add a GDG or GDGoC chapter to the Accounts directory.",
@@ -428,7 +401,6 @@
       "kindLabel": "Kind",
       "regionLabel": "Region",
       "submit": "Create chapter",
-      "submitPending": "Creating…",
       "errorTitle": "Couldn't save"
     },
     "list": {
@@ -443,7 +415,6 @@
       "organize": "Organize",
       "delete": "Delete",
       "memberSummary": "{{active}} active · {{pending}} pending",
-      "deleteAria": "Delete {{name}}",
       "dialogTitle": "Delete {{name}}?",
       "dialogDesc": "Members will lose their membership. This action cannot be undone.",
       "deleteConfirm": "Delete chapter",
@@ -453,7 +424,6 @@
   "organize": {
     "title": "Organize {{chapter}}",
     "back": "Back to chapters",
-    "subtitle": "Review requests first, then maintain roles and membership for this chapter.",
     "pending": "Pending requests ({{count}})",
     "pendingDescription": "Approve people who belong here, or reject requests that should not join.",
     "members": "Members ({{count}})",
@@ -469,7 +439,6 @@
     "memberBadge": "Member",
     "organizerBadge": "Organizer",
     "currentUser": "Your account",
-    "manageAria": "Manage {{name}}",
     "search": {
       "placeholder": "Search members by name or email",
       "ariaLabel": "Search members",
@@ -508,8 +477,7 @@
       "subtitle": "Use your Google account to continue.",
       "welcome": "One account for your GDG Japan chapters and developer tools.",
       "secure": "You'll choose a Google account on the next screen.",
-      "continueWithGoogle": "Continue with Google",
-      "continueWithGooglePending": "Signing in…"
+      "continueWithGoogle": "Continue with Google"
     },
     "consent": {
       "eyebrow": "GDG Japan Accounts",
@@ -553,7 +521,7 @@
       "deniedTitle": "Sign-in denied",
       "deniedDescription": "You can close this tab."
     },
-    "userMenuAria": "Account menu",
+    "manageAccount": "Manage your account",
     "signOut": "Sign out"
   },
   "settings": {
@@ -575,7 +543,6 @@
   "errors": {
     "selectChapter": "Please select a chapter.",
     "chapterNotFound": "Chapter not found.",
-    "alreadyHasChapter": "You already have a chapter.",
     "alreadyInChapter": "You're already part of this chapter.",
     "notInChapter": "You're not in this chapter.",
     "lastOrganizer": "You're the last organizer. Promote someone else first.",

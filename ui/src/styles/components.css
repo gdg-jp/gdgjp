@@ -1,5 +1,16 @@
 @layer gdg-tokens, gdg-base, gdg-components, utilities;
 @layer gdg-base {
+  /*
+   * Tailwind Preflight sets `border: 0 solid` but leaves border-color as
+   * currentColor. Set the shared semantic default after Preflight so consumer
+   * utilities can still deliberately override it.
+   */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--gdg-border);
+  }
+
   :where([class^="gdg-"], [class*=" gdg-"]) {
     box-sizing: border-box;
     font-family: var(--gdg-font-sans);
@@ -67,6 +78,10 @@
     transition: transform var(--gdg-motion-press) var(--gdg-ease-out), box-shadow
       var(--gdg-motion-press) var(--gdg-ease-out), background-color var(--gdg-motion-press)
       var(--gdg-ease-out);
+  }
+  .gdg-button-block {
+    display: flex;
+    width: 100%;
   }
 
   .gdg-icons {
@@ -169,6 +184,15 @@
     flex-direction: column;
     gap: calc(var(--gdg-space) * 4);
     min-width: 0;
+  }
+  .gdg-stack[data-align="start"] {
+    align-items: flex-start;
+  }
+  .gdg-stack[data-align="center"] {
+    align-items: center;
+  }
+  .gdg-stack[data-align="end"] {
+    align-items: flex-end;
   }
   .gdg-inline {
     display: flex;
@@ -430,13 +454,29 @@
   .gdg-menu-item {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: calc(var(--gdg-space) * 3);
     padding: calc(var(--gdg-space) * 2) 10px;
     min-height: 36px;
     border-radius: var(--gdg-radius-sm);
     outline-offset: -2px;
     cursor: default;
+  }
+  .gdg-menu-item-label {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .gdg-menu-item-indicator,
+  .gdg-menu-item-slot {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: flex-end;
+    margin-inline-start: auto;
+  }
+  .gdg-menu-item-indicator {
+    inline-size: 16px;
+    block-size: 16px;
   }
   .gdg-menu-item[data-highlighted] {
     background: var(--gdg-selected);
@@ -804,6 +844,15 @@
   .gdg-page-header p {
     margin-bottom: 0;
   }
+  .gdg-page-header-with-back {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: calc(var(--gdg-space) * 2);
+  }
+  .gdg-page-header-with-back > .gdg-page-header {
+    align-self: stretch;
+  }
   .gdg-shell {
     min-height: 100dvh;
     display: flex;
@@ -971,6 +1020,9 @@
   }
   @media (max-width: 767px) {
     .gdg-sidebar {
+      display: none;
+    }
+    .gdg-shell > .gdg-sidebar-component {
       display: none;
     }
     .gdg-mobile-only {

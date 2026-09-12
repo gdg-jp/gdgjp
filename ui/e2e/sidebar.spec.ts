@@ -1,5 +1,21 @@
 import { expect, test } from "@playwright/test";
 
+test("reference AppShell exposes a working collapse toggle", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/iframe.html?id=patterns-admin--default&viewMode=story");
+  const trigger = page.locator(".gdg-shell .gdg-sidebar-trigger");
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect
+    .poll(async () =>
+      Math.round(
+        (await page.locator(".gdg-shell .gdg-sidebar-component").boundingBox())?.width ?? 0,
+      ),
+    )
+    .toBe(64);
+});
+
 test("sidebar trigger stays beside the title and collapses to navigation icons", async ({
   page,
 }) => {

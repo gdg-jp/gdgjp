@@ -1,12 +1,9 @@
-import { Check, ShieldCheck } from "lucide-react";
+import { Badge, Button, Card, Heading, Icons, Inline, Stack, Text } from "@gdgjp/ui";
 import { useTranslation } from "react-i18next";
-import { Link, redirect, useSearchParams } from "react-router";
+import { Link, redirect, useNavigation, useSearchParams } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
 import { LocaleSwitcher } from "~/components/locale-switcher";
 import { ThemeToggle } from "~/components/theme-toggle";
-import { Badge } from "~/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader } from "~/components/ui/card";
-import { SubmitButton } from "~/components/ui/submit-button";
 import { safeReturnTo, signedInDestination } from "~/lib/auth-redirect";
 import { getSessionUser } from "~/lib/auth.server";
 import { i18n } from "~/lib/i18n/i18n.server";
@@ -61,50 +58,58 @@ function GoogleGlyph() {
 export default function SignInPage() {
   const { t } = useTranslation();
   const [params] = useSearchParams();
+  const navigation = useNavigation();
   const returnTo = safeReturnTo(params.get("return_to")) ?? "/dashboard";
   const oauthQuery = params.has("client_id") ? params.toString() : "";
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-muted/40">
-      <div className="pointer-events-none absolute -top-32 -right-32 size-[420px] rounded-full bg-gdg-blue/10 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-32 -left-32 size-[420px] rounded-full bg-gdg-yellow/10 blur-3xl" />
-
+    <div className="min-h-dvh bg-background">
       <div className="absolute top-4 right-4 flex items-center gap-2">
         <LocaleSwitcher />
         <ThemeToggle />
       </div>
 
-      <main className="relative grid min-h-dvh place-items-center px-4 py-10">
-        <Card className="w-full max-w-md shadow-sm">
-          <CardHeader className="justify-items-center space-y-3 text-center">
+      <main className="grid min-h-dvh place-items-center px-4 py-10">
+        <Card className="w-full max-w-md">
+          <Stack className="text-center">
             <Link to="/" aria-label={t("nav.homeAria")}>
               <GdgMark size="md" />
             </Link>
-            <Badge variant="outline">{t("app.name")}</Badge>
-            <div className="space-y-1.5">
-              <h1 className="text-2xl font-medium tracking-tight">{t("auth.signin.title")}</h1>
-              <CardDescription>{t("auth.signin.subtitle")}</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <p className="text-center text-sm text-muted-foreground">{t("auth.signin.welcome")}</p>
+            <Badge tone="info">{t("app.name")}</Badge>
+            <Stack className="gap-2">
+              <Heading level={1}>{t("auth.signin.title")}</Heading>
+              <Text tone="muted">{t("auth.signin.subtitle")}</Text>
+            </Stack>
+            <Text tone="muted" className="text-center">
+              {t("auth.signin.welcome")}
+            </Text>
             <form method="get" action="/oauth/google/start" className="space-y-3">
               <input type="hidden" name="return_to" value={returnTo} />
               {oauthQuery ? <input type="hidden" name="oauth_query" value={oauthQuery} /> : null}
-              <SubmitButton type="submit" className="w-full" size="lg" variant="outline">
+              <Button
+                type="submit"
+                fullWidth
+                size="lg"
+                variant="outline"
+                loading={navigation.state !== "idle"}
+              >
                 <GoogleGlyph />
                 {t("auth.signin.continueWithGoogle")}
-              </SubmitButton>
+              </Button>
             </form>
-            <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-xs leading-relaxed text-muted-foreground">
-              <ShieldCheck className="mt-0.5 size-4 shrink-0 text-gdg-blue" aria-hidden="true" />
-              <span>{t("auth.signin.secure")}</span>
+            <div className="flex items-start gap-2 rounded-md bg-neutral p-3">
+              <Icons name="ShieldCheck" size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <Text size="sm" tone="muted">
+                {t("auth.signin.secure")}
+              </Text>
             </div>
-            <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
-              <Check className="size-3.5 text-gdg-green" aria-hidden="true" />
-              {t("app.name")}
-            </p>
-          </CardContent>
+            <Inline className="justify-center text-center">
+              <Icons name="Check" size={14} aria-hidden="true" />
+              <Text size="sm" tone="muted">
+                {t("app.name")}
+              </Text>
+            </Inline>
+          </Stack>
         </Card>
       </main>
     </div>

@@ -1,5 +1,4 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { motion, useReducedMotion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { Link, data, redirect } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";
@@ -130,98 +129,27 @@ export async function action(args: Route.ActionArgs) {
   return { error: t("errors.unknownAction") };
 }
 
-function AmbientOrb({
-  className,
-  reduceMotion,
-  delay = 0,
-  x = 0,
-  y = 0,
-}: {
-  className: string;
-  reduceMotion: boolean | null;
-  delay?: number;
-  x?: number;
-  y?: number;
-}) {
-  return (
-    <motion.div
-      aria-hidden="true"
-      className={className}
-      initial={false}
-      animate={
-        reduceMotion
-          ? undefined
-          : {
-              x: [0, x, 0],
-              y: [0, y, 0],
-              scale: [1, 1.06, 1],
-            }
-      }
-      transition={
-        reduceMotion
-          ? undefined
-          : { duration: 14 + delay * 2, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut", delay }
-      }
-    />
-  );
-}
-
 export default function OnboardingPage({ loaderData }: Route.ComponentProps) {
   const { t } = useTranslation();
-  const reduceMotion = useReducedMotion();
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-muted/40">
-      <AmbientOrb
-        reduceMotion={reduceMotion}
-        className="pointer-events-none absolute -top-36 -right-20 size-[28rem] rounded-full bg-gdg-blue/15 blur-3xl"
-        x={-24}
-        y={30}
-      />
-      <AmbientOrb
-        reduceMotion={reduceMotion}
-        className="pointer-events-none absolute -bottom-40 -left-24 size-[26rem] rounded-full bg-gdg-green/15 blur-3xl"
-        delay={1.2}
-        x={28}
-        y={-22}
-      />
-      <AmbientOrb
-        reduceMotion={reduceMotion}
-        className="pointer-events-none absolute top-[28%] left-[42%] size-[18rem] -translate-x-1/2 rounded-full bg-gdg-yellow/12 blur-3xl"
-        delay={2}
-        x={18}
-        y={24}
-      />
-      <AmbientOrb
-        reduceMotion={reduceMotion}
-        className="pointer-events-none absolute top-[55%] right-[12%] size-[14rem] rounded-full bg-gdg-red/10 blur-3xl"
-        delay={0.6}
-        x={-16}
-        y={-18}
-      />
-
+    <div className="min-h-dvh bg-background">
       <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
         <LocaleSwitcher />
         <ThemeToggle />
       </div>
 
-      <main className="relative mx-auto flex min-h-dvh w-full max-w-3xl flex-col px-4 py-10 sm:py-14">
-        <motion.div
-          initial={reduceMotion ? false : { opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={
-            reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 360, damping: 30 }
-          }
-        >
+      <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col px-4 py-10 sm:py-14">
+        <div>
           <Link
             to="/dashboard"
-            className="mb-8 inline-flex w-fit items-center gap-3 rounded-2xl border border-border/50 bg-background/50 px-3 py-2 pr-4 shadow-sm backdrop-blur-sm transition-colors hover:bg-background/80"
+            className="mb-8 inline-flex w-fit items-center gap-3 rounded-md px-3 py-2 pr-4"
             aria-label={loaderData.user.name}
           >
             <GdgMark size="sm" />
             <span className="text-sm font-medium tracking-tight">{t("app.name")}</span>
           </Link>
-        </motion.div>
+        </div>
         <OnboardingWizard chapters={loaderData.chapters} />
       </main>
     </div>

@@ -1,5 +1,5 @@
 import { Menu } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Button } from "../Button";
 import { IconButton } from "../IconButton";
 import {
@@ -18,6 +18,7 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarProvider,
+  SidebarTrigger,
 } from "../Sidebar";
 
 export function AppShell({
@@ -26,33 +27,43 @@ export function AppShell({
   children,
   brand,
   navigationLabel = "ナビゲーション",
+  navigationDescription = "移動先を選択してください。",
+  closeNavigationLabel = "閉じる",
+  skipLinkLabel = "本文へ移動",
+  collapsible = "icon",
+  defaultSidebarOpen = true,
+  sidebarOpen,
+  onSidebarOpenChange,
 }: {
   navigation: ReactNode;
   header?: ReactNode;
   children: ReactNode;
   brand: ReactNode;
   navigationLabel?: string;
+  navigationDescription?: ReactNode;
+  closeNavigationLabel?: ReactNode;
+  skipLinkLabel?: ReactNode;
+  collapsible?: "offcanvas" | "icon" | "none";
+  defaultSidebarOpen?: boolean;
+  sidebarOpen?: boolean;
+  onSidebarOpenChange?: (open: boolean) => void;
 }) {
-  const [sidebarOpen, setSidebarOpen] = useState(
-    () => typeof window === "undefined" || window.innerWidth >= 768,
-  );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  useEffect(() => {
-    const media = window.matchMedia("(min-width: 768px)");
-    const syncSidebar = () => setSidebarOpen(media.matches);
-    syncSidebar();
-    media.addEventListener("change", syncSidebar);
-    return () => media.removeEventListener("change", syncSidebar);
-  }, []);
 
   return (
-    <SidebarProvider className="gdg-shell" open={sidebarOpen} onOpenChange={setSidebarOpen}>
+    <SidebarProvider
+      className="gdg-shell"
+      defaultOpen={defaultSidebarOpen}
+      open={sidebarOpen}
+      onOpenChange={onSidebarOpenChange}
+    >
       <a className="gdg-skip-link" href="#gdg-main">
-        本文へ移動
+        {skipLinkLabel}
       </a>
-      <Sidebar aria-label={navigationLabel} collapsible="offcanvas">
+      <Sidebar aria-label={navigationLabel} collapsible={collapsible}>
         <SidebarHeader>
           <div className="gdg-sidebar-title">{brand}</div>
+          <SidebarTrigger />
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
@@ -71,7 +82,7 @@ export function AppShell({
               </SheetTrigger>
               <SheetContent>
                 <SheetTitle>{navigationLabel}</SheetTitle>
-                <SheetDescription>移動先を選択してください。</SheetDescription>
+                <SheetDescription>{navigationDescription}</SheetDescription>
                 <div
                   onClick={(e) => {
                     if ((e.target as HTMLElement).closest("a")) setMobileNavOpen(false);
@@ -84,7 +95,7 @@ export function AppShell({
                   {navigation}
                 </div>
                 <SheetClose asChild>
-                  <Button variant="outline">閉じる</Button>
+                  <Button variant="outline">{closeNavigationLabel}</Button>
                 </SheetClose>
               </SheetContent>
             </Sheet>

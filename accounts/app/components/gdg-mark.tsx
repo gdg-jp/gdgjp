@@ -1,4 +1,4 @@
-import { cn } from "~/lib/utils";
+import { cn } from "@gdgjp/ui";
 
 type Size = "sm" | "md" | "lg";
 

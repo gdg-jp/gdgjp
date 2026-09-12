@@ -1,26 +1,28 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { Check, Search, ShieldCheck, UserRound, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { useFetcher } from "react-router";
-import { toast } from "sonner";
-import { PageHeader } from "~/components/page-header";
-import { PageShell } from "~/components/page-shell";
-import { StatusBadge } from "~/components/status-badge";
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "~/components/ui/alert-dialog";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
-import { SubmitButton } from "~/components/ui/submit-button";
+  Button,
+  Card,
+  FormField,
+  Heading,
+  Icons,
+  Input,
+  Stack,
+  Text,
+} from "@gdgjp/ui";
+import { toast } from "@gdgjp/ui";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useFetcher } from "react-router";
+import { PageHeader } from "~/components/page-header";
+import { PageShell } from "~/components/page-shell";
+import { StatusBadge } from "~/components/status-badge";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { requireUser } from "~/lib/auth.server";
 import {
@@ -179,8 +181,12 @@ function useToastError(fetcher: RowFetcher) {
 function Person({ name, email }: { name: string; email: string }) {
   return (
     <div className="min-w-0">
-      <p className="truncate font-medium">{name}</p>
-      {email ? <p className="truncate text-xs text-muted-foreground">{email}</p> : null}
+      <Text className="truncate font-medium">{name}</Text>
+      {email ? (
+        <Text size="xs" tone="muted" className="truncate">
+          {email}
+        </Text>
+      ) : null}
     </div>
   );
 }
@@ -206,7 +212,7 @@ function ConfirmMemberAction({
       title: t("organize.dialog.promoteTitle", { name }),
       description: t("organize.dialog.promoteDescription"),
       confirm: t("organize.promote"),
-      variant: "default" as const,
+      variant: "primary" as const,
     },
     demote: {
       label: t("organize.demote"),
@@ -220,7 +226,7 @@ function ConfirmMemberAction({
       title: t("organize.dialog.removeTitle", { name }),
       description: t("organize.dialog.removeDescription"),
       confirm: t("organize.remove"),
-      variant: "destructive" as const,
+      variant: "danger" as const,
     },
   }[intent];
 
@@ -230,7 +236,7 @@ function ConfirmMemberAction({
         <Button
           type="button"
           variant={config.variant}
-          size={compact ? "sm" : "default"}
+          size={compact ? "sm" : "md"}
           disabled={fetcher.state !== "idle"}
           className={compact ? "w-full justify-start" : undefined}
         >
@@ -238,24 +244,26 @@ function ConfirmMemberAction({
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
-        <AlertDialogHeader>
+        <Stack className="gap-2">
           <AlertDialogTitle>{config.title}</AlertDialogTitle>
           <AlertDialogDescription>{config.description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>{t("organize.dialog.cancel")}</AlertDialogCancel>
+        </Stack>
+        <div className="flex flex-wrap justify-end gap-3">
+          <AlertDialogCancel asChild>
+            <Button type="button" variant="outline" disabled={isPending}>
+              {t("organize.dialog.cancel")}
+            </Button>
+          </AlertDialogCancel>
           <fetcher.Form method="post">
             <input type="hidden" name="intent" value={intent} />
             <input type="hidden" name="userId" value={userId} />
-            <SubmitButton
-              variant={config.variant === "destructive" ? "destructive" : "default"}
-              pending={isPending}
-              pendingLabel={t("common.loading")}
-            >
-              {config.confirm}
-            </SubmitButton>
+            <AlertDialogAction asChild>
+              <Button type="submit" variant={config.variant} loading={isPending}>
+                {config.confirm}
+              </Button>
+            </AlertDialogAction>
           </fetcher.Form>
-        </AlertDialogFooter>
+        </div>
       </AlertDialogContent>
     </AlertDialog>
   );
@@ -275,10 +283,10 @@ function PendingRow({
   const isApproving = fetcher.state !== "idle" && fetcher.formData?.get("intent") === "approve";
   const isRejecting = fetcher.state !== "idle" && fetcher.formData?.get("intent") === "remove";
   return (
-    <li className="grid gap-3 rounded-lg border p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:rounded-none sm:border-x-0 sm:border-t-0 sm:px-0">
+    <li className="organize-pending-row grid gap-3 rounded-lg border p-4 sm:items-center sm:rounded-none sm:border-x-0 sm:border-t-0 sm:px-0">
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300">
-          <UserRound className="size-4" aria-hidden="true" />
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning">
+          <Icons name="User" size={16} aria-hidden="true" />
         </div>
         <Person {...user} />
       </div>
@@ -286,15 +294,10 @@ function PendingRow({
         <fetcher.Form method="post">
           <input type="hidden" name="intent" value="approve" />
           <input type="hidden" name="userId" value={member.userId} />
-          <SubmitButton
-            className="w-full"
-            size="sm"
-            pending={isApproving}
-            pendingLabel={t("common.loading")}
-          >
-            {isApproving ? null : <Check className="size-4" />}
+          <Button type="submit" fullWidth size="sm" loading={isApproving}>
+            {isApproving ? null : <Icons name="Check" size={16} aria-hidden="true" />}
             {t("organize.approve")}
-          </SubmitButton>
+          </Button>
         </fetcher.Form>
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -303,36 +306,36 @@ function PendingRow({
               variant="outline"
               size="sm"
               disabled={fetcher.state !== "idle"}
-              className="w-full"
+              fullWidth
             >
-              <X className="size-4" /> {t("organize.reject")}
+              <Icons name="X" size={16} aria-hidden="true" /> {t("organize.reject")}
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
-            <AlertDialogHeader>
+            <Stack className="gap-2">
               <AlertDialogTitle>
                 {t("organize.dialog.rejectTitle", { name: user.name })}
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {t("organize.dialog.rejectDescription")}
               </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={isRejecting}>
-                {t("organize.dialog.cancel")}
+            </Stack>
+            <div className="flex flex-wrap justify-end gap-3">
+              <AlertDialogCancel asChild>
+                <Button type="button" variant="outline" disabled={isRejecting}>
+                  {t("organize.dialog.cancel")}
+                </Button>
               </AlertDialogCancel>
               <fetcher.Form method="post">
                 <input type="hidden" name="intent" value="remove" />
                 <input type="hidden" name="userId" value={member.userId} />
-                <SubmitButton
-                  variant="destructive"
-                  pending={isRejecting}
-                  pendingLabel={t("common.loading")}
-                >
-                  {t("organize.reject")}
-                </SubmitButton>
+                <AlertDialogAction asChild>
+                  <Button type="submit" variant="danger" loading={isRejecting}>
+                    {t("organize.reject")}
+                  </Button>
+                </AlertDialogAction>
               </fetcher.Form>
-            </AlertDialogFooter>
+            </div>
           </AlertDialogContent>
         </AlertDialog>
       </div>
@@ -356,7 +359,11 @@ function MemberActions({
   const { t } = useTranslation();
   const isOrganizer = member.role === "organizer";
   if (isCurrentUser) {
-    return <p className="text-xs text-muted-foreground">{t("organize.currentUser")}</p>;
+    return (
+      <Text size="xs" tone="muted">
+        {t("organize.currentUser")}
+      </Text>
+    );
   }
   return (
     <div className={compact ? "grid gap-2" : "flex flex-wrap justify-end gap-2"}>
@@ -393,15 +400,14 @@ function MemberRow({
   const user = userLabel(users, member.userId);
   const isOrganizer = member.role === "organizer";
   return (
-    <li className="grid gap-4 rounded-lg border p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:rounded-none sm:border-x-0 sm:border-t-0 sm:px-0">
+    <li className="organize-member-row grid gap-4 rounded-lg border p-4 sm:items-center sm:rounded-none sm:border-x-0 sm:border-t-0 sm:px-0">
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <UserRound className="size-4" aria-hidden="true" />
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral text-muted">
+          <Icons name="User" size={16} aria-hidden="true" />
         </div>
         <Person {...user} />
       </div>
       <StatusBadge status={isOrganizer ? "organizer" : "member"}>
-        {isOrganizer ? <ShieldCheck className="size-3" aria-hidden="true" /> : null}
         {isOrganizer ? t("organize.organizerBadge") : t("organize.memberBadge")}
       </StatusBadge>
       <MemberActions
@@ -434,16 +440,18 @@ export default function OrganizeChapter({ loaderData }: Route.ComponentProps) {
       />
 
       <section aria-labelledby="pending-heading" className="mt-8">
-        <Card className="overflow-hidden border-amber-500/25">
-          <CardHeader className="bg-amber-500/5">
-            <CardTitle id="pending-heading">
+        <Card className="overflow-hidden">
+          <Stack>
+            <Heading level={2} id="pending-heading">
               {t("organize.pending", { count: pending.length })}
-            </CardTitle>
-            <CardDescription>{t("organize.pendingDescription")}</CardDescription>
-          </CardHeader>
-          <CardContent>
+            </Heading>
+            <Text tone="muted">{t("organize.pendingDescription")}</Text>
+          </Stack>
+          <div className="mt-6">
             {pending.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("organize.noPending")}</p>
+              <Text size="sm" tone="muted">
+                {t("organize.noPending")}
+              </Text>
             ) : (
               <ul className="space-y-3 sm:space-y-0">
                 {pending.map((member) => (
@@ -451,39 +459,51 @@ export default function OrganizeChapter({ loaderData }: Route.ComponentProps) {
                 ))}
               </ul>
             )}
-          </CardContent>
+          </div>
         </Card>
       </section>
 
       <section aria-labelledby="members-heading" className="mt-8">
         <Card>
-          <CardHeader>
-            <CardTitle id="members-heading">
+          <Stack>
+            <Heading level={2} id="members-heading">
               {t("organize.members", { count: members.length })}
-            </CardTitle>
-            <CardDescription>{t("organize.membersDescription")}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </Heading>
+            <Text tone="muted">{t("organize.membersDescription")}</Text>
+          </Stack>
+          <Stack className="mt-6">
             {members.length > 0 ? (
-              <div className="relative max-w-md">
-                <Search
-                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <Input
-                  type="search"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder={t("organize.search.placeholder")}
-                  aria-label={t("organize.search.ariaLabel")}
-                  className="pl-9"
-                />
-              </div>
+              <FormField
+                id="organize-members-search"
+                label={t("organize.search.ariaLabel")}
+                hideLabel
+                className="max-w-md gap-0"
+              >
+                <div className="relative">
+                  <Icons
+                    name="Search"
+                    size={16}
+                    className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    type="search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder={t("organize.search.placeholder")}
+                    className="w-full pl-9"
+                  />
+                </div>
+              </FormField>
             ) : null}
             {members.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("organize.noMembers")}</p>
+              <Text size="sm" tone="muted">
+                {t("organize.noMembers")}
+              </Text>
             ) : filteredMembers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("organize.search.noMatches")}</p>
+              <Text size="sm" tone="muted">
+                {t("organize.search.noMatches")}
+              </Text>
             ) : (
               <ul className="space-y-3 sm:space-y-0">
                 {filteredMembers.map((member) => (
@@ -491,7 +511,7 @@ export default function OrganizeChapter({ loaderData }: Route.ComponentProps) {
                 ))}
               </ul>
             )}
-          </CardContent>
+          </Stack>
         </Card>
       </section>
     </PageShell>

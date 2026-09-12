@@ -32,6 +32,13 @@ export const Sizes: Story = {
   ),
 };
 export const Loading: Story = { args: { loading: true, children: "保存中" } };
+export const FullWidth: Story = {
+  render: () => (
+    <div style={{ width: 320 }}>
+      <Button fullWidth>変更を保存</Button>
+    </div>
+  ),
+};
 export const AsLink: Story = {
   render: () => (
     <Button asChild variant="outline">

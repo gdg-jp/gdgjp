@@ -9,6 +9,8 @@ export function FormField({
   description,
   error,
   required,
+  hideLabel,
+  requiredMarker = !hideLabel,
   disabled,
   children,
   className,
@@ -18,6 +20,8 @@ export function FormField({
   description?: ReactNode;
   error?: ReactNode;
   required?: boolean;
+  requiredMarker?: boolean;
+  hideLabel?: boolean;
   disabled?: boolean;
   children: ReactNode;
   className?: string;
@@ -37,9 +41,9 @@ export function FormField({
       }}
     >
       <div className={cn("gdg-field", className)}>
-        <label id={`${id}-label`} htmlFor={id}>
+        <label id={`${id}-label`} htmlFor={id} className={cn(hideLabel && "gdg-sr-only")}>
           {label}
-          {required && <span aria-hidden="true"> *</span>}
+          {required && requiredMarker && <span aria-hidden="true"> *</span>}
         </label>
         {children}
         {description && (

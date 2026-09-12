@@ -19,13 +19,18 @@ const buttonVariants = cva("gdg-button", {
 });
 
 export type ButtonProps = ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & { asChild?: boolean; loading?: boolean };
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean;
+    fullWidth?: boolean;
+    loading?: boolean;
+  };
 
 export function Button({
   className,
   variant,
   size,
   asChild,
+  fullWidth,
   loading,
   disabled,
   children,
@@ -71,7 +76,7 @@ export function Button({
             tabIndex: unavailable ? -1 : props.tabIndex,
           })}
       aria-busy={loading || undefined}
-      className={cn(buttonVariants({ variant, size }), className)}
+      className={cn(buttonVariants({ variant, size }), fullWidth && "gdg-button-block", className)}
       onClick={(event) => {
         if (unavailable) {
           event.preventDefault();

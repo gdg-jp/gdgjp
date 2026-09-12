@@ -1,23 +1,22 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { Check, Inbox, Search, X } from "lucide-react";
+import {
+  Button,
+  Card,
+  EmptyState,
+  FormField,
+  Heading,
+  Icons,
+  Input,
+  Stack,
+  Table,
+  Text,
+} from "@gdgjp/ui";
+import { toast } from "@gdgjp/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useFetcher } from "react-router";
-import { toast } from "sonner";
-import { EmptyState } from "~/components/empty-state";
 import { PageHeader } from "~/components/page-header";
 import { PageShell } from "~/components/page-shell";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
-import { SubmitButton } from "~/components/ui/submit-button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/components/ui/table";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { requireUser } from "~/lib/auth.server";
 import {
@@ -169,24 +168,19 @@ function RequestActions({ req }: { req: RequestRowData }) {
         <input type="hidden" name="intent" value="approve" />
         <input type="hidden" name="userId" value={req.userId} />
         <input type="hidden" name="chapterId" value={req.chapterId} />
-        <SubmitButton size="sm" pending={isApproving} pendingLabel={t("common.loading")}>
-          {isApproving ? null : <Check className="size-4" />}
+        <Button type="submit" size="sm" loading={isApproving}>
+          {isApproving ? null : <Icons name="Check" size={16} aria-hidden="true" />}
           {t("adminRequests.approve")}
-        </SubmitButton>
+        </Button>
       </fetcher.Form>
       <fetcher.Form method="post">
         <input type="hidden" name="intent" value="reject" />
         <input type="hidden" name="userId" value={req.userId} />
         <input type="hidden" name="chapterId" value={req.chapterId} />
-        <SubmitButton
-          size="sm"
-          variant="outline"
-          pending={isRejecting}
-          pendingLabel={t("common.loading")}
-        >
-          {isRejecting ? null : <X className="size-4" />}
+        <Button type="submit" size="sm" variant="outline" loading={isRejecting}>
+          {isRejecting ? null : <Icons name="X" size={16} aria-hidden="true" />}
           {t("adminRequests.reject")}
-        </SubmitButton>
+        </Button>
       </fetcher.Form>
     </div>
   );
@@ -194,14 +188,12 @@ function RequestActions({ req }: { req: RequestRowData }) {
 
 function RequestRow({ req, locale, now }: { req: RequestRowData; locale: string; now: number }) {
   return (
-    <TableRow>
-      <TableCell>
+    <tr>
+      <td>
         <div className="font-medium">{req.user.name || req.user.email}</div>
-        {req.user.name ? (
-          <div className="text-xs text-muted-foreground">{req.user.email}</div>
-        ) : null}
-      </TableCell>
-      <TableCell>
+        {req.user.name ? <div className="text-xs text-muted">{req.user.email}</div> : null}
+      </td>
+      <td>
         <Link
           to={`/chapters/${req.chapter.slug}/organize`}
           prefetch="intent"
@@ -209,17 +201,15 @@ function RequestRow({ req, locale, now }: { req: RequestRowData; locale: string;
         >
           {req.chapter.name}
         </Link>
-        <div className="font-mono text-xs text-muted-foreground">{req.chapter.slug}</div>
-      </TableCell>
-      <TableCell className="text-sm text-muted-foreground">
-        {formatRelative(now, req.createdAt, locale)}
-      </TableCell>
-      <TableCell>
+        <div className="font-mono text-xs text-muted">{req.chapter.slug}</div>
+      </td>
+      <td className="text-sm text-muted">{formatRelative(now, req.createdAt, locale)}</td>
+      <td>
         <div className="flex justify-end">
           <RequestActions req={req} />
         </div>
-      </TableCell>
-    </TableRow>
+      </td>
+    </tr>
   );
 }
 
@@ -230,16 +220,14 @@ function RequestCard({ req, locale, now }: { req: RequestRowData; locale: string
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-medium">{req.user.name || req.user.email}</p>
-          {req.user.name ? (
-            <p className="truncate text-xs text-muted-foreground">{req.user.email}</p>
-          ) : null}
+          {req.user.name ? <p className="truncate text-xs text-muted">{req.user.email}</p> : null}
         </div>
-        <span className="shrink-0 text-xs text-muted-foreground">
+        <span className="shrink-0 text-xs text-muted">
           {formatRelative(now, req.createdAt, locale)}
         </span>
       </div>
-      <div className="rounded-md bg-muted/60 px-3 py-2">
-        <p className="text-xs text-muted-foreground">{t("adminRequests.tableChapter")}</p>
+      <div className="rounded-md bg-neutral px-3 py-2">
+        <p className="text-xs text-muted">{t("adminRequests.tableChapter")}</p>
         <Link
           to={`/chapters/${req.chapter.slug}/organize`}
           prefetch="intent"
@@ -271,28 +259,37 @@ export default function AdminRequests({ loaderData }: Route.ComponentProps) {
       <PageHeader title={t("adminRequests.title")} />
 
       {requests.length > 0 ? (
-        <div className="relative mt-6 max-w-xl">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("adminRequests.searchPlaceholder")}
-            aria-label={t("adminRequests.searchPlaceholder")}
-            className="pl-9"
-          />
-        </div>
+        <FormField
+          id="admin-requests-search"
+          label={t("adminRequests.searchPlaceholder")}
+          hideLabel
+          className="mt-6 max-w-xl gap-0"
+        >
+          <div className="relative">
+            <Icons
+              name="Search"
+              size={16}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+              aria-hidden="true"
+            />
+            <Input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("adminRequests.searchPlaceholder")}
+              className="w-full pl-9"
+            />
+          </div>
+        </FormField>
       ) : null}
 
       <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>{t("adminRequests.title")}</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <Heading level={2}>{t("adminRequests.title")}</Heading>
+        <div className="mt-6">
           {requests.length === 0 ? (
-            <EmptyState icon={Inbox} title={t("adminRequests.empty")} className="border-0" />
+            <EmptyState title={t("adminRequests.empty")} />
           ) : filtered.length === 0 ? (
-            <EmptyState title={t("adminRequests.noMatches")} className="border-0" />
+            <EmptyState title={t("adminRequests.noMatches")} />
           ) : (
             <>
               <ul className="divide-y md:hidden">
@@ -306,18 +303,16 @@ export default function AdminRequests({ loaderData }: Route.ComponentProps) {
                 ))}
               </ul>
               <div className="hidden md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("adminRequests.tableRequester")}</TableHead>
-                      <TableHead>{t("adminRequests.tableChapter")}</TableHead>
-                      <TableHead>{t("adminRequests.tableRequested")}</TableHead>
-                      <TableHead className="text-right">
-                        {t("adminRequests.tableActions")}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <Table scrollLabel={t("common.tableScroll")}>
+                  <thead>
+                    <tr>
+                      <th>{t("adminRequests.tableRequester")}</th>
+                      <th>{t("adminRequests.tableChapter")}</th>
+                      <th>{t("adminRequests.tableRequested")}</th>
+                      <th className="text-right">{t("adminRequests.tableActions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {filtered.map((r) => (
                       <RequestRow
                         key={`${r.userId}-${r.chapterId}`}
@@ -326,12 +321,12 @@ export default function AdminRequests({ loaderData }: Route.ComponentProps) {
                         now={now}
                       />
                     ))}
-                  </TableBody>
+                  </tbody>
                 </Table>
               </div>
             </>
           )}
-        </CardContent>
+        </div>
       </Card>
     </PageShell>
   );

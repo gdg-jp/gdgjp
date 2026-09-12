@@ -1,15 +1,25 @@
-import { Check, GraduationCap, MapPin, Search, Sparkles, Users } from "lucide-react";
-import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Checkbox,
+  FormField,
+  Heading,
+  Icons,
+  Input,
+  Progress,
+  ProgressIndicator,
+  Stack,
+  Text,
+} from "@gdgjp/ui";
+import { cn } from "@gdgjp/ui";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useFetcher } from "react-router";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { SubmitButton } from "~/components/ui/submit-button";
 import { CHAPTER_REGIONS } from "~/lib/chapter-regions";
 import type { Chapter, ChapterKind, ChapterRegion } from "~/lib/db";
-import { cn } from "~/lib/utils";
 
 export type OnboardingChapter = Pick<Chapter, "id" | "slug" | "name" | "kind" | "region">;
 
@@ -19,8 +29,6 @@ type RequestActionData = { ok: true; intent: "request"; chapterIds: number[] } |
 
 const spring = { type: "spring" as const, stiffness: 380, damping: 32 };
 const softSpring = { type: "spring" as const, stiffness: 280, damping: 28 };
-const STEP_COLORS = ["bg-gdg-blue", "bg-gdg-red", "bg-gdg-yellow", "bg-gdg-green"] as const;
-
 function stepIndex(step: WizardStep): number {
   switch (step) {
     case "kind":
@@ -122,13 +130,13 @@ export function OnboardingWizard({ chapters }: { chapters: OnboardingChapter[] }
 
   if (chapters.length === 0) {
     return (
-      <div className="mx-auto max-w-lg space-y-4 text-center">
-        <h1 className="text-2xl font-medium tracking-tight">{t("onboarding.empty.title")}</h1>
-        <p className="text-muted-foreground">{t("onboarding.empty.description")}</p>
+      <Stack align="center" className="mx-auto max-w-lg text-center">
+        <Heading level={1}>{t("onboarding.empty.title")}</Heading>
+        <Text tone="muted">{t("onboarding.empty.description")}</Text>
         <Button asChild variant="outline">
           <Link to="/dashboard">{t("onboarding.done.dashboard")}</Link>
         </Button>
-      </div>
+      </Stack>
     );
   }
 
@@ -142,30 +150,23 @@ export function OnboardingWizard({ chapters }: { chapters: OnboardingChapter[] }
         transition={reduceMotion ? { duration: 0 } : { ...spring, delay: 0.05 }}
         className="space-y-4 text-center sm:text-left"
       >
-        <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1 text-xs text-muted-foreground backdrop-blur-sm">
-          <span className="flex gap-1" aria-hidden="true">
-            <span className="size-1.5 rounded-full bg-gdg-blue" />
-            <span className="size-1.5 rounded-full bg-gdg-red" />
-            <span className="size-1.5 rounded-full bg-gdg-yellow" />
-            <span className="size-1.5 rounded-full bg-gdg-green" />
-          </span>
+        <Badge tone="info" className="w-fit">
           {t("app.name")}
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">
+        </Badge>
+        <Stack className="gap-2">
+          <Heading level={1} className="text-3xl sm:text-4xl">
             {t("onboarding.title")}
-          </h1>
-          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+          </Heading>
+          <Text tone="muted" className="max-w-xl sm:text-base">
             {t("onboarding.subtitle")}
-          </p>
-        </div>
+          </Text>
+        </Stack>
         <StepProgress current={current} />
       </motion.header>
 
       {requestError ? (
-        <Alert variant="destructive">
-          <AlertTitle>{t("onboarding.errorTitle")}</AlertTitle>
-          <AlertDescription>{requestError}</AlertDescription>
+        <Alert tone="danger" title={t("onboarding.errorTitle")}>
+          {requestError}
         </Alert>
       ) : null}
 
@@ -173,17 +174,9 @@ export function OnboardingWizard({ chapters }: { chapters: OnboardingChapter[] }
         initial={reduceMotion ? false : { opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={reduceMotion ? { duration: 0 } : { ...spring, delay: 0.12 }}
-        className="relative overflow-hidden rounded-3xl border border-border/60 bg-card/80 shadow-[0_20px_60px_-36px_rgba(15,23,42,0.35)] backdrop-blur-md"
+        className="relative"
       >
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-1"
-          aria-hidden="true"
-          style={{
-            background:
-              "linear-gradient(90deg, var(--color-gdg-blue), var(--color-gdg-red), var(--color-gdg-yellow), var(--color-gdg-green))",
-          }}
-        />
-        <div className="relative min-h-[24rem] p-5 sm:p-7">
+        <Card className="onboarding-card p-5 sm:p-7">
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
               key={step}
@@ -193,7 +186,7 @@ export function OnboardingWizard({ chapters }: { chapters: OnboardingChapter[] }
               animate="center"
               exit="exit"
               transition={transition}
-              className="flex min-h-[22rem] flex-col"
+              className="onboarding-step flex flex-col"
             >
               {step === "kind" ? <KindStep onSelect={selectKind} /> : null}
               {step === "chapter" && kind ? (
@@ -231,7 +224,7 @@ export function OnboardingWizard({ chapters }: { chapters: OnboardingChapter[] }
               ) : null}
             </motion.div>
           </AnimatePresence>
-        </div>
+        </Card>
       </motion.div>
     </div>
   );
@@ -249,18 +242,9 @@ function StepProgress({ current }: { current: number }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-        {STEP_COLORS.map((color, i) => (
-          <motion.div
-            key={color}
-            className={cn("h-full flex-1 first:rounded-l-full last:rounded-r-full", color)}
-            initial={false}
-            animate={{ opacity: i <= current ? 1 : 0.15, scaleY: i <= current ? 1 : 0.7 }}
-            transition={reduceMotion ? { duration: 0 } : { ...spring, delay: i * 0.04 }}
-            style={{ transformOrigin: "center" }}
-          />
-        ))}
-      </div>
+      <Progress value={(current / (labels.length - 1)) * 100} aria-label={t("onboarding.title")}>
+        <ProgressIndicator />
+      </Progress>
       <ol className="flex items-center justify-between gap-2" aria-label={t("onboarding.title")}>
         {labels.map((label, i) => {
           const done = i < current;
@@ -272,10 +256,10 @@ function StepProgress({ current }: { current: number }) {
                 className={cn(
                   "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-medium",
                   active
-                    ? "bg-foreground text-background"
+                    ? "bg-primary text-primary-foreground"
                     : done
-                      ? cn(STEP_COLORS[i], "text-white")
-                      : "bg-muted text-muted-foreground",
+                      ? "onboarding-success-icon bg-success"
+                      : "bg-neutral text-muted",
                 )}
                 animate={
                   reduceMotion || !active
@@ -284,12 +268,12 @@ function StepProgress({ current }: { current: number }) {
                 }
                 aria-current={active ? "step" : undefined}
               >
-                {done ? <Check className="size-3.5" aria-hidden="true" /> : i + 1}
+                {done ? <Icons name="Check" size={14} aria-hidden="true" /> : i + 1}
               </motion.span>
               <span
                 className={cn(
                   "hidden truncate text-xs sm:inline",
-                  active ? "font-medium text-foreground" : "text-muted-foreground",
+                  active ? "font-medium text-foreground" : "text-muted",
                 )}
               >
                 {label}
@@ -317,72 +301,56 @@ function StepFooter({ children, className }: { children: ReactNode; className?: 
 
 function KindStep({ onSelect }: { onSelect: (kind: ChapterKind) => void }) {
   const { t } = useTranslation();
-  const reduceMotion = useReducedMotion();
   return (
-    <div className="space-y-5">
-      <div className="space-y-1 text-center sm:text-left">
-        <h2 className="text-xl font-medium tracking-tight">{t("onboarding.kind.title")}</h2>
-        <p className="text-sm text-muted-foreground">{t("onboarding.kind.subtitle")}</p>
-      </div>
+    <Stack>
+      <Stack className="gap-1 text-center sm:text-left">
+        <Heading level={2}>{t("onboarding.kind.title")}</Heading>
+        <Text size="sm" tone="muted">
+          {t("onboarding.kind.subtitle")}
+        </Text>
+      </Stack>
       <div className="grid gap-3 sm:grid-cols-2">
         {(
           [
             {
               kind: "gdg" as const,
-              icon: Users,
+              icon: "Users" as const,
               title: t("onboarding.kind.gdgTitle"),
               description: t("onboarding.kind.gdgDescription"),
-              bar: "from-gdg-blue via-gdg-blue/80 to-gdg-blue/40",
               iconWrap: "bg-gdg-blue/10 text-gdg-blue",
-              accent: "hover:border-gdg-blue/50 hover:bg-gdg-blue/[0.04]",
             },
             {
               kind: "gdgoc" as const,
-              icon: GraduationCap,
+              icon: "GraduationCap" as const,
               title: t("onboarding.kind.gdgocTitle"),
               description: t("onboarding.kind.gdgocDescription"),
-              bar: "from-gdg-green via-gdg-green/80 to-gdg-green/40",
               iconWrap: "bg-gdg-green/10 text-gdg-green",
-              accent: "hover:border-gdg-green/50 hover:bg-gdg-green/[0.04]",
             },
           ] as const
-        ).map((option, index) => (
-          <motion.button
+        ).map((option) => (
+          <Button
             key={option.kind}
             type="button"
-            initial={reduceMotion ? false : { opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={reduceMotion ? { duration: 0 } : { ...spring, delay: 0.08 + index * 0.08 }}
-            whileHover={reduceMotion ? undefined : { y: -3, scale: 1.015 }}
-            whileTap={reduceMotion ? undefined : { scale: 0.985 }}
             onClick={() => onSelect(option.kind)}
-            className={cn(
-              "group relative flex min-h-36 flex-col gap-4 overflow-hidden rounded-2xl border border-border/80 bg-background/80 p-5 text-left shadow-sm transition-colors",
-              option.accent,
-            )}
+            variant="outline"
+            className="min-h-36 flex-col items-start gap-4 p-5 text-left"
           >
             <span
-              className={cn("absolute inset-x-0 top-0 h-1 bg-linear-to-r", option.bar)}
-              aria-hidden="true"
-            />
-            <span
               className={cn(
-                "flex size-12 items-center justify-center rounded-2xl transition-transform group-hover:scale-105",
+                "flex size-12 items-center justify-center rounded-2xl",
                 option.iconWrap,
               )}
             >
-              <option.icon className="size-5" aria-hidden="true" />
+              <Icons name={option.icon} size={20} aria-hidden="true" />
             </span>
             <span className="space-y-1.5">
               <span className="block text-lg font-medium tracking-tight">{option.title}</span>
-              <span className="block text-sm leading-relaxed text-muted-foreground">
-                {option.description}
-              </span>
+              <span className="block text-sm leading-relaxed text-muted">{option.description}</span>
             </span>
-          </motion.button>
+          </Button>
         ))}
       </div>
-    </div>
+    </Stack>
   );
 }
 
@@ -415,81 +383,73 @@ function ChapterStep({
 }) {
   const { t } = useTranslation();
   const reduceMotion = useReducedMotion();
-  const accent = kind === "gdg" ? "gdg-blue" : "gdg-green";
 
   return (
-    <div className="flex flex-1 flex-col gap-5">
-      <div className="space-y-1 text-center sm:text-left">
-        <h2 className="text-xl font-medium tracking-tight">{t("onboarding.chapter.title")}</h2>
-        <p className="text-sm text-muted-foreground">{t("onboarding.chapter.subtitle")}</p>
-      </div>
+    <Stack className="flex-1">
+      <Stack className="gap-1 text-center sm:text-left">
+        <Heading level={2}>{t("onboarding.chapter.title")}</Heading>
+        <Text size="sm" tone="muted">
+          {t("onboarding.chapter.subtitle")}
+        </Text>
+      </Stack>
 
       <fieldset className="space-y-2">
-        <legend className="text-xs font-medium text-muted-foreground">
+        <legend className="text-xs font-medium text-muted">
           {t("onboarding.chapter.regionLabel")}
         </legend>
-        <LayoutGroup id="region-pills">
-          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
-            {regions.map((r) => {
-              const selected = region === r;
-              return (
-                <button
-                  key={r}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => onRegionChange(r)}
-                  className={cn(
-                    "relative inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-sm transition-colors",
-                    selected
-                      ? accent === "gdg-blue"
-                        ? "text-gdg-blue"
-                        : "text-gdg-green"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {selected ? (
-                    <motion.span
-                      layoutId="region-pill"
-                      className={cn(
-                        "absolute inset-0 rounded-full border",
-                        accent === "gdg-blue"
-                          ? "border-gdg-blue/40 bg-gdg-blue/10"
-                          : "border-gdg-green/40 bg-gdg-green/10",
-                      )}
-                      transition={reduceMotion ? { duration: 0 } : spring}
-                    />
-                  ) : (
-                    <span className="absolute inset-0 rounded-full border border-border/80" />
-                  )}
-                  <MapPin className="relative size-3.5" aria-hidden="true" />
-                  <span className="relative">{t(`region.${r}`)}</span>
-                </button>
-              );
-            })}
-          </div>
-        </LayoutGroup>
+        <div className="onboarding-region-list -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+          {regions.map((r) => {
+            const selected = region === r;
+            return (
+              <Button
+                key={r}
+                type="button"
+                size="sm"
+                variant={selected ? "primary" : "outline"}
+                aria-pressed={selected}
+                onClick={() => onRegionChange(r)}
+                className="shrink-0"
+              >
+                <Icons name="MapPin" size={14} aria-hidden="true" />
+                {t(`region.${r}`)}
+              </Button>
+            );
+          })}
+        </div>
       </fieldset>
 
-      <div className="relative">
-        <Search
-          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden="true"
-        />
-        <Input
-          value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          placeholder={t("onboarding.chapter.searchPlaceholder")}
-          aria-label={t("onboarding.chapter.searchAria")}
-          className="h-11 rounded-xl border-border/80 bg-background/70 pl-9"
-        />
-      </div>
+      <FormField
+        id="onboarding-chapter-search"
+        label={t("onboarding.chapter.searchAria")}
+        hideLabel
+        className="gap-0"
+      >
+        <div className="relative">
+          <Icons
+            name="Search"
+            size={16}
+            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+            aria-hidden="true"
+          />
+          <Input
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder={t("onboarding.chapter.searchPlaceholder")}
+            className="w-full pl-9"
+          />
+        </div>
+      </FormField>
 
       {chapters.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/80 px-4 py-8 text-center text-sm text-muted-foreground">
+        <Text
+          size="sm"
+          tone="muted"
+          className="rounded-md border border-dashed border-border px-4 py-8 text-center"
+        >
           {t("onboarding.chapter.noMatches")}
-        </p>
+        </Text>
       ) : (
-        <ul className="grid max-h-[16rem] gap-2 overflow-y-auto overscroll-contain pr-1 sm:max-h-[18rem] sm:grid-cols-2">
+        <ul className="onboarding-chapter-list grid gap-2 overflow-y-auto overscroll-contain pr-1 sm:grid-cols-2">
           <AnimatePresence mode="popLayout" initial={false}>
             {chapters.map((chapter, index) => {
               const selected = primaryId === chapter.id;
@@ -506,39 +466,21 @@ function ChapterStep({
                       : { ...spring, delay: Math.min(index, 10) * 0.025 }
                   }
                 >
-                  <button
+                  <Button
                     type="button"
+                    variant={selected ? "primary" : "outline"}
                     onClick={() => onSelect(chapter.id)}
-                    className={cn(
-                      "relative flex min-h-14 w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition-colors sm:p-4",
-                      selected
-                        ? accent === "gdg-blue"
-                          ? "border-gdg-blue bg-gdg-blue/5 shadow-[0_0_0_1px_rgba(66,133,244,0.25)]"
-                          : "border-gdg-green bg-gdg-green/5 shadow-[0_0_0_1px_rgba(52,168,83,0.25)]"
-                        : "border-border/80 bg-background/60 hover:bg-muted/50",
-                    )}
+                    aria-pressed={selected}
+                    className="min-h-14 w-full justify-start p-3.5 text-left sm:p-4"
                   >
-                    {selected ? (
-                      <motion.span
-                        layoutId="chapter-check"
-                        className={cn(
-                          "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-white",
-                          accent === "gdg-blue" ? "bg-gdg-blue" : "bg-gdg-green",
-                        )}
-                        transition={reduceMotion ? { duration: 0 } : spring}
-                      >
-                        <Check className="size-3" aria-hidden="true" />
-                      </motion.span>
-                    ) : (
-                      <span className="mt-0.5 size-5 shrink-0 rounded-full border border-border" />
-                    )}
+                    {selected ? <Icons name="Check" size={16} aria-hidden="true" /> : null}
                     <span className="min-w-0">
                       <span className="block truncate font-medium">{chapter.name}</span>
-                      <span className="block truncate font-mono text-xs text-muted-foreground">
+                      <span className="block truncate font-mono text-xs text-muted">
                         {chapter.slug}
                       </span>
                     </span>
-                  </button>
+                  </Button>
                 </motion.li>
               );
             })}
@@ -547,20 +489,13 @@ function ChapterStep({
       )}
 
       {primaryName ? (
-        <p
-          className={cn(
-            "truncate rounded-xl border px-3 py-2 text-sm",
-            accent === "gdg-blue"
-              ? "border-gdg-blue/30 bg-gdg-blue/5 text-gdg-blue"
-              : "border-gdg-green/30 bg-gdg-green/5 text-gdg-green",
-          )}
-        >
+        <Text className="truncate rounded-md border border-border px-3 py-2 text-sm">
           {t("onboarding.chapter.selected", { name: primaryName })}
-        </p>
+        </Text>
       ) : null}
 
       <StepFooter>
-        <Button type="button" variant="ghost" onClick={onBack} className="w-full sm:w-auto">
+        <Button type="button" variant="ghost" fullWidth onClick={onBack} className="sm:w-auto">
           {t("onboarding.back")}
         </Button>
         <motion.div
@@ -575,15 +510,16 @@ function ChapterStep({
           <Button
             type="button"
             size="lg"
+            fullWidth
             disabled={primaryId == null}
             onClick={onContinue}
-            className="w-full sm:min-w-40"
+            className="sm:min-w-40"
           >
             {t("onboarding.continue")}
           </Button>
         </motion.div>
       </StepFooter>
-    </div>
+    </Stack>
   );
 }
 
@@ -615,42 +551,34 @@ function MoreStep({
       : t("onboarding.more.submit");
 
   return (
-    <div className="flex flex-1 flex-col gap-5">
-      <div className="space-y-1 text-center sm:text-left">
-        <h2 className="text-xl font-medium tracking-tight">{t("onboarding.more.title")}</h2>
-        <p className="text-sm text-muted-foreground">
+    <Stack className="flex-1">
+      <Stack className="gap-1 text-center sm:text-left">
+        <Heading level={2}>{t("onboarding.more.title")}</Heading>
+        <Text size="sm" tone="muted">
           {t("onboarding.more.subtitle", {
             kind: kind === "gdg" ? t("kind.gdg") : t("kind.gdgoc"),
           })}
-        </p>
-      </div>
+        </Text>
+      </Stack>
 
       <motion.div
         initial={reduceMotion ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className={cn(
-          "flex items-center gap-3 rounded-2xl border px-4 py-3",
-          kind === "gdg"
-            ? "border-gdg-blue/30 bg-gdg-blue/5"
-            : "border-gdg-green/30 bg-gdg-green/5",
-        )}
+        className="flex items-center gap-3 rounded-md border border-border bg-neutral px-4 py-3"
       >
-        <span
-          className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-full text-white",
-            kind === "gdg" ? "bg-gdg-blue" : "bg-gdg-green",
-          )}
-        >
-          <Check className="size-4" aria-hidden="true" />
+        <span className="onboarding-success-icon flex size-9 shrink-0 items-center justify-center rounded-full bg-success">
+          <Icons name="Check" size={16} aria-hidden="true" />
         </span>
         <div className="min-w-0 text-sm">
-          <p className="truncate font-medium">{primary.name}</p>
-          <p className="text-muted-foreground">{t("onboarding.more.primaryLabel")}</p>
+          <Text className="truncate font-medium">{primary.name}</Text>
+          <Text size="sm" tone="muted">
+            {t("onboarding.more.primaryLabel")}
+          </Text>
         </div>
       </motion.div>
 
       {candidates.length > 0 ? (
-        <ul className="grid max-h-[14rem] gap-2 overflow-y-auto overscroll-contain pr-1 sm:max-h-[16rem] sm:grid-cols-2">
+        <ul className="onboarding-extra-list grid gap-2 overflow-y-auto overscroll-contain pr-1 sm:grid-cols-2">
           {candidates.map((chapter, index) => {
             const selected = extraIds.includes(chapter.id);
             return (
@@ -662,32 +590,24 @@ function MoreStep({
                   reduceMotion ? { duration: 0 } : { ...spring, delay: Math.min(index, 12) * 0.02 }
                 }
               >
-                <button
-                  type="button"
-                  onClick={() => onToggle(chapter.id)}
-                  className={cn(
-                    "flex min-h-14 w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition-colors",
-                    selected
-                      ? "border-primary bg-primary/5"
-                      : "border-border/80 bg-background/60 hover:bg-muted/50",
-                  )}
-                >
-                  <motion.span
-                    animate={selected && !reduceMotion ? { scale: [0.9, 1.08, 1] } : { scale: 1 }}
-                    className={cn(
-                      "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border",
-                      selected && "border-primary bg-primary text-primary-foreground",
-                    )}
-                  >
-                    {selected ? <Check className="size-3" aria-hidden="true" /> : null}
-                  </motion.span>
+                <div className="flex min-h-14 w-full items-start gap-3 rounded-md border border-border bg-surface p-3.5 text-left">
+                  <Checkbox
+                    id={`onboarding-extra-${chapter.id}`}
+                    checked={selected}
+                    onCheckedChange={() => onToggle(chapter.id)}
+                  />
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium">{chapter.name}</span>
-                    <span className="block text-xs text-muted-foreground">
+                    <label
+                      htmlFor={`onboarding-extra-${chapter.id}`}
+                      className="block truncate text-sm font-medium"
+                    >
+                      {chapter.name}
+                    </label>
+                    <span className="block text-xs text-muted">
                       {t(`region.${chapter.region}`)}
                     </span>
                   </span>
-                </button>
+                </div>
               </motion.li>
             );
           })}
@@ -700,62 +620,45 @@ function MoreStep({
           variant="ghost"
           onClick={onBack}
           disabled={pending}
-          className="w-full sm:w-auto"
+          fullWidth
+          className="sm:w-auto"
         >
           {t("onboarding.back")}
         </Button>
-        <SubmitButton
+        <Button
           type="button"
           size="lg"
-          pending={pending}
-          pendingLabel={t("onboarding.more.submitPending")}
+          loading={pending}
           onClick={onSubmit}
-          className="w-full sm:min-w-44"
+          fullWidth
+          className="sm:min-w-44"
         >
           {submitLabel}
-        </SubmitButton>
+        </Button>
       </StepFooter>
-    </div>
+    </Stack>
   );
 }
 
 function DoneStep({ chapters }: { chapters: OnboardingChapter[] }) {
   const { t } = useTranslation();
   const reduceMotion = useReducedMotion();
-  const burst = [
-    { className: "bg-gdg-blue", x: -28, y: -18 },
-    { className: "bg-gdg-red", x: 26, y: -22 },
-    { className: "bg-gdg-yellow", x: -22, y: 20 },
-    { className: "bg-gdg-green", x: 30, y: 16 },
-  ];
 
   return (
-    <div className="space-y-6 text-center">
+    <Stack align="center" className="text-center">
       <div className="relative mx-auto grid place-items-center py-2">
-        {!reduceMotion
-          ? burst.map((dot, i) => (
-              <motion.span
-                key={dot.className}
-                className={cn("absolute size-2.5 rounded-full", dot.className)}
-                initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
-                animate={{ opacity: [0, 1, 0], scale: [0.4, 1, 0.6], x: dot.x, y: dot.y }}
-                transition={{ duration: 0.9, delay: 0.1 + i * 0.05, ease: "easeOut" }}
-                aria-hidden="true"
-              />
-            ))
-          : null}
         <motion.div
           initial={reduceMotion ? false : { scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={reduceMotion ? { duration: 0 } : softSpring}
-          className="relative flex size-20 items-center justify-center rounded-full bg-gdg-green/15 text-gdg-green"
+          className="relative flex size-20 items-center justify-center rounded-full bg-success/15 text-success"
         >
           <motion.span
             initial={reduceMotion ? false : { scale: 0 }}
             animate={{ scale: 1 }}
             transition={reduceMotion ? { duration: 0 } : { ...spring, delay: 0.12 }}
           >
-            <Check className="size-9" aria-hidden="true" />
+            <Icons name="Check" size={36} aria-hidden="true" />
           </motion.span>
         </motion.div>
       </div>
@@ -765,8 +668,10 @@ function DoneStep({ chapters }: { chapters: OnboardingChapter[] }) {
         transition={reduceMotion ? { duration: 0 } : { ...spring, delay: 0.15 }}
         className="space-y-2"
       >
-        <h2 className="text-2xl font-medium tracking-tight">{t("onboarding.done.title")}</h2>
-        <p className="mx-auto max-w-md text-muted-foreground">{t("onboarding.done.subtitle")}</p>
+        <Heading level={2}>{t("onboarding.done.title")}</Heading>
+        <Text tone="muted" className="mx-auto max-w-md">
+          {t("onboarding.done.subtitle")}
+        </Text>
       </motion.div>
       <ul className="mx-auto max-w-sm space-y-2 text-left">
         {chapters.map((c, index) => (
@@ -775,11 +680,11 @@ function DoneStep({ chapters }: { chapters: OnboardingChapter[] }) {
             initial={reduceMotion ? false : { opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
             transition={reduceMotion ? { duration: 0 } : { ...spring, delay: 0.2 + index * 0.06 }}
-            className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-background/70 px-3 py-2.5 text-sm"
+            className="flex items-center justify-between gap-3 rounded-md border border-border bg-neutral px-3 py-2.5 text-sm"
           >
             <span className="truncate font-medium">{c.name}</span>
-            <span className="inline-flex shrink-0 items-center gap-1 text-xs text-gdg-green">
-              <Sparkles className="size-3" aria-hidden="true" />
+            <span className="inline-flex shrink-0 items-center gap-1 text-xs text-success">
+              <Icons name="Sparkles" size={12} aria-hidden="true" />
               {t("onboarding.done.requested")}
             </span>
           </motion.li>
@@ -790,10 +695,10 @@ function DoneStep({ chapters }: { chapters: OnboardingChapter[] }) {
         animate={{ opacity: 1, y: 0 }}
         transition={reduceMotion ? { duration: 0 } : { ...spring, delay: 0.28 }}
       >
-        <Button asChild size="lg" className="w-full sm:w-auto sm:min-w-44">
+        <Button asChild size="lg" fullWidth className="sm:w-auto sm:min-w-44">
           <Link to="/dashboard">{t("onboarding.done.dashboard")}</Link>
         </Button>
       </motion.div>
-    </div>
+    </Stack>
   );
 }

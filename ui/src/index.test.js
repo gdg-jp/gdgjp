@@ -7,7 +7,7 @@ describe("public contracts", () => {
   it("exports every planned primary component", () => {
     const planned = `
       Button IconButton Link Text Heading Stack Inline Card Separator Badge Avatar Input Textarea
-      FormField Checkbox RadioGroup Switch Select Dialog AlertDialog Sheet Popover DropdownMenu Tooltip
+      FormField Checkbox RadioGroup Switch Select Dialog AlertDialog Sheet Popover DropdownMenu DropdownMenuCheckboxItem DropdownMenuRadioGroup DropdownMenuRadioItem Tooltip
       Alert Toaster Spinner Skeleton EmptyState Table Pagination Tabs Accordion Breadcrumb AppShell
       SidebarNav PageHeader Toolbar ThemeProvider ThemeToggle useTheme
       AspectRatio Attachment Bubble ButtonGroup Calendar Carousel Chart Collapsible Combobox Command
@@ -36,6 +36,17 @@ describe("public contracts", () => {
     expect(components).toContain('[class*=" gdg-"] *');
     expect(components).toContain("corner-shape is not inherited");
     expect(components).toContain("corner-shape: round;");
+  });
+  it("keeps examples and AppShell free from viewport-driven component state", () => {
+    const sources = [
+      readFileSync(new URL("./components/AppShell/AppShell.tsx", import.meta.url), "utf8"),
+      readFileSync(new URL("./examples/Admin.stories.tsx", import.meta.url), "utf8"),
+    ].join("\n");
+    expect(sources).not.toMatch(/window\.(?:matchMedia|innerWidth)/);
+    expect(sources).toContain("SidebarTrigger");
+    expect(readFileSync(new URL("./styles/components.css", import.meta.url), "utf8")).toMatch(
+      /::before,\s*\n\s*::after\s*\{\s*\n\s*border-color: var\(--gdg-border\);/,
+    );
   });
   it("uses a muted blue secondary with a distinct hover color", () => {
     const tokens = readFileSync(new URL("./styles/tokens.css", import.meta.url), "utf8");

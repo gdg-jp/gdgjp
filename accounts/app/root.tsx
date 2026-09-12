@@ -1,3 +1,4 @@
+import { ThemeProvider, Toaster } from "@gdgjp/ui";
 import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,10 +10,8 @@ import {
   ScrollRestoration,
   type ShouldRevalidateFunction,
 } from "react-router";
-import { Toaster } from "~/components/ui/sonner";
 import { i18n } from "~/lib/i18n/i18n.server";
 import { fallbackLng, isLocale } from "~/lib/i18n/resources";
-import { ThemeProvider, themeInitScript } from "~/lib/theme";
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 
@@ -48,8 +47,6 @@ export function Layout({ children }: { children: ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: pre-paint theme bootstrap */}
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="font-sans antialiased">
         {children}
@@ -74,7 +71,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     }
   }, [locale, i18nClient]);
   return (
-    <ThemeProvider>
+    <ThemeProvider storageKey="gdg-apps-theme" defaultTheme="system">
       <Outlet />
       <Toaster position="top-center" richColors />
     </ThemeProvider>

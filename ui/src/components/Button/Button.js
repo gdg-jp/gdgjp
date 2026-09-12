@@ -22,6 +22,7 @@ export function Button({
   variant,
   size,
   asChild,
+  fullWidth,
   loading,
   disabled,
   children,
@@ -66,7 +67,7 @@ export function Button({
           tabIndex: unavailable ? -1 : props.tabIndex,
         }),
     "aria-busy": loading || undefined,
-    className: cn(buttonVariants({ variant, size }), className),
+    className: cn(buttonVariants({ variant, size }), fullWidth && "gdg-button-block", className),
     onClick: (event) => {
       if (unavailable) {
         event.preventDefault();

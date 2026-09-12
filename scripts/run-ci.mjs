@@ -1,8 +1,10 @@
 import { spawn } from "node:child_process";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const quickSteps = [
   ["lint", "pnpm exec biome check . --reporter=github"],
+  ["ui-conventions", "node scripts/check-ui-conventions.mjs"],
   ["typecheck", "pnpm exec turbo typecheck --output-logs=errors-only"],
   [
     "test",
@@ -23,7 +25,7 @@ const fullSteps = [
   ...quickSteps,
   [
     "e2e",
-    "pnpm exec turbo test:e2e --filter=@gdgjp/accounts --filter=@gdgjp/tinyurl --filter=@gdgjp/img --filter=@gdgjp/scheduler --filter=@gdgjp/ui --concurrency=1 --output-logs=errors-only -- --reporter=dot",
+    "pnpm exec turbo test:e2e --filter=@gdgjp/accounts --filter=@gdgjp/tinyurl --filter=@gdgjp/img --filter=@gdgjp/scheduler --filter=@gdgjp/ui --filter=@gdgjp/ost --filter=@gdgjp/roster --filter=@gdgjp/connpass --concurrency=1 --output-logs=errors-only -- --reporter=dot",
   ],
 ];
 
@@ -58,6 +60,15 @@ const workspaces = new Map([
   ["wiki", "@gdgjp/wiki"],
   ["connpass", "@gdgjp/connpass"],
 ]);
+
+const uiAppDirectories = new Set(
+  readdirSync(process.cwd()).filter((directory) => {
+    const packagePath = `${directory}/package.json`;
+    if (!existsSync(packagePath)) return false;
+    const pkg = JSON.parse(readFileSync(packagePath, "utf8"));
+    return pkg.dependencies?.["@gdgjp/ui"] === "workspace:*";
+  }),
+);
 
 function changedFiles() {
   // A pre-commit hook must inspect the index, not the whole working tree. A
@@ -145,6 +156,22 @@ export function changedSteps(mode, files) {
     ]);
   }
 
+  const changedUiApps = [...new Set(relevantFiles.map((file) => file.split("/")[0]))].filter(
+    (directory) =>
+      uiAppDirectories.has(directory) &&
+      relevantFiles.some((file) => file.startsWith(`${directory}/app/`)),
+  );
+  for (const app of changedUiApps) {
+    steps.push([
+      `ui-conventions:${app}`,
+      `node scripts/check-ui-conventions.mjs --app ${shellQuote(app)} --staged`,
+    ]);
+    steps.push([
+      `locale-keys:${app}`,
+      `node scripts/check-locale-keys.mjs --app ${shellQuote(app)}`,
+    ]);
+  }
+
   if (nodeFiles.length > 0 || hasGlobalNodeInput) {
     const filters = hasGlobalNodeInput
       ? ""
@@ -191,14 +218,20 @@ export function changedSteps(mode, files) {
     if (changedWorkspaces.has("@gdgjp/ui")) {
       steps.push(["e2e:ui", "pnpm --filter @gdgjp/ui test:e2e"]);
     }
-    const e2eTestsByWorkspace = workspaceFiles(relevantFiles, (file) =>
+    const e2eWorkspaces = new Map();
+    for (const [workspace, files] of workspaceFiles(relevantFiles, (file) =>
       /(?:^|\/)(?:e2e|tests\/e2e)\/.*\.(?:spec|test)\.[cm]?[jt]sx?$/.test(file),
-    );
-    for (const [workspace, e2eFiles] of e2eTestsByWorkspace) {
+    )) {
+      e2eWorkspaces.set(workspace, files);
+    }
+    for (const [workspace] of workspaceFiles(relevantFiles, (file) => /^[^/]+\/app\//.test(file))) {
+      e2eWorkspaces.set(workspace, null);
+    }
+    for (const [workspace, e2eFiles] of e2eWorkspaces) {
       if (workspace === "@gdgjp/ui") continue;
       steps.push([
         `e2e:${workspace}`,
-        `pnpm --filter ${workspace} exec playwright test --reporter=dot ${e2eFiles.map(shellQuote).join(" ")}`,
+        `pnpm --filter ${workspace} exec playwright test --reporter=dot${e2eFiles ? ` ${e2eFiles.map(shellQuote).join(" ")}` : ""}`,
       ]);
     }
   }

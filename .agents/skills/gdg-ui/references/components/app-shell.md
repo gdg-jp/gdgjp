@@ -2,7 +2,7 @@
 
 ## Use case
 
-Use as an application frame with `brand`, `navigation`, and `children` as required regions and `header` as an optional region. It consistently composes a desktop off-canvas Sidebar, a mobile Sheet, a skip link, and a main focus target. Use the Sidebar family directly for finer collapse or mobile control.
+Use as an application frame with `brand`, `navigation`, and `children` as required regions and `header` as an optional region. It composes an icon-collapsible desktop Sidebar with a working trigger, a mobile Sheet, a skip link, and a main focus target. Use the Sidebar family directly only for finer control.
 
 Avoid: putting routing, account-menu data fetching, or permission checks into the shell itself.
 

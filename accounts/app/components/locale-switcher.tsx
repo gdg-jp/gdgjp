@@ -1,13 +1,14 @@
-import { Languages } from "lucide-react";
-import { useTranslation } from "react-i18next";
-import { useLocation, useSubmit } from "react-router";
-import { Button } from "~/components/ui/button";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
+  IconButton,
+  Icons,
+} from "@gdgjp/ui";
+import { useTranslation } from "react-i18next";
+import { useLocation, useSubmit } from "react-router";
 import { type Locale, supportedLngs } from "~/lib/i18n/resources";
 
 export function LocaleSwitcher() {
@@ -24,26 +25,27 @@ export function LocaleSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={t("nav.localeLabel")}>
-          <Languages className="size-4" />
-        </Button>
+        <IconButton variant="ghost" aria-label={t("nav.localeLabel")}>
+          <Icons name="Languages" size={18} aria-hidden="true" />
+        </IconButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {supportedLngs.map((lng) => (
-          <DropdownMenuCheckboxItem
-            key={lng}
-            checked={current === lng}
-            onCheckedChange={() => {
-              if (current === lng) return;
-              const data = new FormData();
-              data.set("locale", lng);
-              data.set("return_to", returnTo);
-              void submit(data, { method: "post", action: "/api/locale", replace: true });
-            }}
-          >
-            {lng === "ja" ? t("nav.localeJa") : t("nav.localeEn")}
-          </DropdownMenuCheckboxItem>
-        ))}
+        <DropdownMenuRadioGroup
+          value={current}
+          onValueChange={(value) => {
+            if (!supportedLngs.includes(value as Locale) || current === value) return;
+            const data = new FormData();
+            data.set("locale", value);
+            data.set("return_to", returnTo);
+            void submit(data, { method: "post", action: "/api/locale", replace: true });
+          }}
+        >
+          {supportedLngs.map((lng) => (
+            <DropdownMenuRadioItem key={lng} value={lng}>
+              <span>{lng === "ja" ? t("nav.localeJa") : t("nav.localeEn")}</span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

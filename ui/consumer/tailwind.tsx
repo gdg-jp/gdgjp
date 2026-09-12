@@ -14,6 +14,12 @@ createRoot(root).render(
       <div data-testid="secondary" className="bg-secondary text-secondary-foreground">
         Muted blue secondary
       </div>
+      <div data-testid="bare-border" className="border p-4">
+        bare
+      </div>
+      <div data-testid="deliberate-border" className="border-2 border-foreground p-4">
+        deliberate
+      </div>
     </main>
   </ThemeProvider>,
 );

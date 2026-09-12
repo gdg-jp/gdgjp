@@ -1,8 +1,6 @@
-import { ArrowLeft } from "lucide-react";
+import { Button, Icons, PageHeader as SharedPageHeader } from "@gdgjp/ui";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { Button } from "~/components/ui/button";
-import { cn } from "~/lib/utils";
 
 export type PageHeaderBack = {
   label: string;
@@ -25,36 +23,26 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={cn("page-header relative pb-4", className)}>
-      {back ? (
-        <Button
-          asChild
-          variant="ghost"
-          size="sm"
-          className="group -ml-2 mb-2 text-muted-foreground"
-        >
-          <Link to={back.to} prefetch="intent">
-            <ArrowLeft className="size-4 group-hover:-translate-x-0.5 motion-reduce:transform-none" />
-            {back.label}
-          </Link>
-        </Button>
-      ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          {eyebrow ? (
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              {eyebrow}
-            </p>
-          ) : null}
-          <h1 className="text-xl font-medium tracking-tight text-balance">{title}</h1>
-          {description ? (
-            <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>
-          ) : null}
-        </div>
-        {actions ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
-        ) : null}
-      </div>
-    </header>
+    <SharedPageHeader
+      back={
+        back ? (
+          <Button asChild variant="ghost" size="sm" className="group -ml-2 text-muted">
+            <Link to={back.to} prefetch="intent">
+              <Icons name="ArrowLeft" size={16} aria-hidden="true" />
+              {back.label}
+            </Link>
+          </Button>
+        ) : undefined
+      }
+      className={className}
+      title={
+        <>
+          {eyebrow ? <span className="mb-1 block text-sm text-muted">{eyebrow}</span> : null}
+          {title}
+        </>
+      }
+      description={description}
+      actions={actions}
+    />
   );
 }

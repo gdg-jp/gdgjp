@@ -1,4 +1,19 @@
-import { Info, KeyRound, Power, PowerOff, Trash2 } from "lucide-react";
+import {
+  Alert,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  Badge,
+  Button,
+  Heading,
+  Icons,
+  Stack,
+  Text,
+} from "@gdgjp/ui";
 import { useTranslation } from "react-i18next";
 import { Form, Link, data, redirect, useNavigation } from "react-router";
 import {
@@ -9,20 +24,6 @@ import {
 } from "~/components/developer-apps";
 import { PageHeader } from "~/components/page-header";
 import { PageShell } from "~/components/page-shell";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "~/components/ui/alert-dialog";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
-import { SubmitButton } from "~/components/ui/submit-button";
 import { loadDeveloperAccess } from "~/lib/developer-access.server";
 import { parseDeveloperClientForm } from "~/lib/developer-app-form.server";
 import { i18n } from "~/lib/i18n/i18n.server";
@@ -125,27 +126,33 @@ function ConfirmAction({
     <AlertDialog>
       <AlertDialogTrigger asChild>
         <Button
-          variant={toolbar ? "ghost" : destructive ? "destructive" : "outline"}
+          variant={toolbar ? "ghost" : destructive ? "danger" : "outline"}
           size="sm"
-          className={toolbar ? "text-destructive hover:text-destructive" : undefined}
+          className={toolbar ? "text-danger hover:text-danger" : undefined}
         >
           {icon} {trigger}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
-        <AlertDialogHeader>
+        <Stack className="gap-2">
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t("developerApps.dialog.cancel")}</AlertDialogCancel>
+        </Stack>
+        <div className="flex flex-wrap justify-end gap-3">
+          <AlertDialogCancel asChild>
+            <Button type="button" variant="outline">
+              {t("developerApps.dialog.cancel")}
+            </Button>
+          </AlertDialogCancel>
           <Form method="post">
             <input type="hidden" name="intent" value={intent} />
-            <SubmitButton variant={destructive ? "destructive" : "default"} pending={pending}>
-              {confirm}
-            </SubmitButton>
+            <AlertDialogAction asChild>
+              <Button type="submit" variant={destructive ? "danger" : "primary"} loading={pending}>
+                {confirm}
+              </Button>
+            </AlertDialogAction>
           </Form>
-        </AlertDialogFooter>
+        </div>
       </AlertDialogContent>
     </AlertDialog>
   );
@@ -173,7 +180,7 @@ export default function DeveloperAppDetail({ loaderData, actionData }: Route.Com
           client ? (
             <ConfirmAction
               intent="delete"
-              icon={<Trash2 className="size-4" />}
+              icon={<Icons name="Delete" size={16} aria-hidden="true" />}
               trigger={t("developerApps.detail.delete")}
               title={t("developerApps.dialog.deleteTitle")}
               description={t("developerApps.dialog.deleteDescription")}
@@ -198,31 +205,25 @@ export default function DeveloperAppDetail({ loaderData, actionData }: Route.Com
               <ClientSecret clientId={actionData.clientId} secret={actionData.clientSecret} />
             ) : null}
             {actionData?.ok && actionData.intent === "update" ? (
-              <Alert>
-                <AlertTitle>{t("developerApps.detail.saved")}</AlertTitle>
-              </Alert>
+              <Alert tone="success" title={t("developerApps.detail.saved")} />
             ) : null}
             {actionData && !actionData.ok ? (
-              <Alert variant="destructive">
-                <AlertTitle>{t("developerApps.errors.title")}</AlertTitle>
-                <AlertDescription>{actionData.error}</AlertDescription>
+              <Alert tone="danger" title={t("developerApps.errors.title")}>
+                {actionData.error}
               </Alert>
             ) : null}
 
-            <div className="grid items-start gap-12 lg:grid-cols-[minmax(0,1.25fr)_minmax(19rem,0.85fr)]">
+            <div className="developer-client-layout grid items-start gap-12">
               <Form method="post" className="min-w-0">
                 <input type="hidden" name="intent" value="update" />
                 <DeveloperClientForm client={client} variant="create" />
-                <p className="mt-8 text-sm text-muted-foreground">
+                <Text size="sm" tone="muted" className="mt-8">
                   {t("developerApps.detail.effectNote")}
-                </p>
+                </Text>
                 <div className="mt-5 flex flex-wrap items-center gap-3 border-t pt-6">
-                  <SubmitButton
-                    pending={isUpdating}
-                    pendingLabel={t("developerApps.detail.saving")}
-                  >
+                  <Button type="submit" loading={isUpdating}>
                     {t("developerApps.detail.save")}
-                  </SubmitButton>
+                  </Button>
                   <Button asChild variant="ghost">
                     <Link to="/developers/apps">{t("developerApps.create.cancel")}</Link>
                   </Button>
@@ -231,45 +232,37 @@ export default function DeveloperAppDetail({ loaderData, actionData }: Route.Com
 
               <aside className="min-w-0 space-y-11 lg:sticky lg:top-20">
                 <section aria-labelledby="client-information-heading">
-                  <h2
-                    id="client-information-heading"
-                    className="text-xl font-medium tracking-tight"
-                  >
+                  <Heading level={2} id="client-information-heading">
                     {t("developerApps.detail.additionalInformation")}
-                  </h2>
+                  </Heading>
                   <dl className="mt-5 divide-y border-y text-sm">
-                    <div className="grid gap-1 py-3 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
+                    <div className="developer-client-metadata grid gap-1 py-3">
                       <dt className="font-medium">{t("developerApps.fields.clientId")}</dt>
-                      <dd className="break-all font-mono text-xs text-muted-foreground">
-                        {client.clientId}
-                      </dd>
+                      <dd className="break-all font-mono text-xs text-muted">{client.clientId}</dd>
                     </div>
-                    <div className="grid gap-1 py-3 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
+                    <div className="developer-client-metadata grid gap-1 py-3">
                       <dt className="font-medium">{t("developerApps.detail.createdAt")}</dt>
-                      <dd className="text-muted-foreground">{formatDate(client.createdAt)}</dd>
+                      <dd className="text-muted">{formatDate(client.createdAt)}</dd>
                     </div>
-                    <div className="grid gap-1 py-3 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
+                    <div className="developer-client-metadata grid gap-1 py-3">
                       <dt className="font-medium">{t("developerApps.detail.updatedAt")}</dt>
-                      <dd className="text-muted-foreground">{formatDate(client.updatedAt)}</dd>
+                      <dd className="text-muted">{formatDate(client.updatedAt)}</dd>
                     </div>
                   </dl>
                 </section>
 
                 <section aria-labelledby="client-secrets-heading">
-                  <h2 id="client-secrets-heading" className="text-xl font-medium tracking-tight">
+                  <Heading level={2} id="client-secrets-heading">
                     {t("developerApps.detail.clientSecrets")}
-                  </h2>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  </Heading>
+                  <Text size="sm" tone="muted">
                     {t("developerApps.detail.credentialsDescription")}
-                  </p>
-                  <div className="mt-4 flex gap-3 rounded-md bg-muted/70 px-4 py-3 text-sm">
-                    <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                    <p className="leading-relaxed">{t("developerApps.secret.notShown")}</p>
-                  </div>
+                  </Text>
+                  <Alert tone="info" title={t("developerApps.secret.notShown")} className="mt-4" />
                   <div className="mt-5">
                     <ConfirmAction
                       intent="rotate"
-                      icon={<KeyRound className="size-4" />}
+                      icon={<Icons name="Key" size={16} aria-hidden="true" />}
                       trigger={t("developerApps.detail.rotate")}
                       title={t("developerApps.dialog.rotateTitle")}
                       description={t("developerApps.dialog.rotateDescription")}
@@ -280,25 +273,25 @@ export default function DeveloperAppDetail({ loaderData, actionData }: Route.Com
 
                 <section aria-labelledby="client-status-heading">
                   <div className="flex items-center justify-between gap-3">
-                    <h2 id="client-status-heading" className="text-xl font-medium tracking-tight">
+                    <Heading level={2} id="client-status-heading">
                       {t("developerApps.detail.status")}
-                    </h2>
-                    <Badge variant={client.disabled ? "secondary" : "default"}>
+                    </Heading>
+                    <Badge tone={client.disabled ? "neutral" : "success"}>
                       {client.disabled
                         ? t("developerApps.status.disabled")
                         : t("developerApps.status.active")}
                     </Badge>
                   </div>
-                  <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                  <Text size="sm" tone="muted" className="mt-4">
                     {client.disabled
                       ? t("developerApps.detail.enableDescription")
                       : t("developerApps.detail.disableDescription")}
-                  </p>
+                  </Text>
                   <div className="mt-5">
                     {client.disabled ? (
                       <ConfirmAction
                         intent="enable"
-                        icon={<Power className="size-4" />}
+                        icon={<Icons name="PlugZap" size={16} aria-hidden="true" />}
                         trigger={t("developerApps.detail.enable")}
                         title={t("developerApps.dialog.enableTitle")}
                         description={t("developerApps.dialog.enableDescription")}
@@ -307,7 +300,7 @@ export default function DeveloperAppDetail({ loaderData, actionData }: Route.Com
                     ) : (
                       <ConfirmAction
                         intent="disable"
-                        icon={<PowerOff className="size-4" />}
+                        icon={<Icons name="Ban" size={16} aria-hidden="true" />}
                         trigger={t("developerApps.detail.disable")}
                         title={t("developerApps.dialog.disableTitle")}
                         description={t("developerApps.dialog.disableDescription")}

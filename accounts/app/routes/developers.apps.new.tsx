@@ -1,4 +1,4 @@
-import { CheckCircle2, Info } from "lucide-react";
+import { Alert, Button, Text } from "@gdgjp/ui";
 import { useTranslation } from "react-i18next";
 import { Form, Link, data, useNavigation } from "react-router";
 import {
@@ -8,9 +8,6 @@ import {
 } from "~/components/developer-apps";
 import { PageHeader } from "~/components/page-header";
 import { PageShell } from "~/components/page-shell";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
-import { Button } from "~/components/ui/button";
-import { SubmitButton } from "~/components/ui/submit-button";
 import { loadDeveloperAccess } from "~/lib/developer-access.server";
 import { parseDeveloperClientForm } from "~/lib/developer-app-form.server";
 import { i18n } from "~/lib/i18n/i18n.server";
@@ -71,10 +68,8 @@ export default function NewDeveloperApp({ loaderData, actionData }: Route.Compon
           <DeveloperAccessRequired user={loaderData.user} />
         ) : actionData?.ok ? (
           <div className="space-y-4">
-            <Alert>
-              <CheckCircle2 />
-              <AlertTitle>{t("developerApps.create.submit")}</AlertTitle>
-              <AlertDescription>{t("developerApps.secret.description")}</AlertDescription>
+            <Alert tone="success" title={t("developerApps.create.submit")}>
+              {t("developerApps.secret.description")}
             </Alert>
             <ClientSecret clientId={actionData.clientId} secret={actionData.clientSecret} />
             <Button asChild>
@@ -85,32 +80,28 @@ export default function NewDeveloperApp({ loaderData, actionData }: Route.Compon
           </div>
         ) : (
           <div className="max-w-2xl">
-            <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+            <Text size="sm" tone="muted" className="max-w-xl">
               {t("developerApps.create.subtitle")}
-            </p>
+            </Text>
             <Form method="post" className="mt-7 space-y-10">
-              <div className="flex gap-3 rounded-md bg-muted/70 px-4 py-3 text-sm">
-                <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <p className="leading-relaxed">
-                  {t("developerApps.create.beforeYouStartDescription")}
-                </p>
-              </div>
+              <Alert tone="info" title={t("developerApps.create.beforeYouStart")}>
+                {t("developerApps.create.beforeYouStartDescription")}
+              </Alert>
               <div className="space-y-6">
                 {actionData && !actionData.ok ? (
-                  <Alert variant="destructive">
-                    <AlertTitle>{t("developerApps.errors.title")}</AlertTitle>
-                    <AlertDescription>{actionData.error}</AlertDescription>
+                  <Alert tone="danger" title={t("developerApps.errors.title")}>
+                    {actionData.error}
                   </Alert>
                 ) : null}
                 <DeveloperClientForm variant="create" />
               </div>
-              <p className="text-sm text-muted-foreground">
+              <Text size="sm" tone="muted">
                 {t("developerApps.create.effectNote")}
-              </p>
+              </Text>
               <div className="flex flex-wrap items-center gap-3 border-t pt-6">
-                <SubmitButton pending={pending} pendingLabel={t("developerApps.create.pending")}>
+                <Button type="submit" loading={pending}>
                   {t("developerApps.create.submit")}
-                </SubmitButton>
+                </Button>
                 <Button asChild variant="ghost">
                   <Link to="/developers/apps">{t("developerApps.create.cancel")}</Link>
                 </Button>

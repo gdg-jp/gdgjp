@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { ContextMenu as RM } from "radix-ui";
 import type { ComponentProps } from "react";
 import { useMotionRef } from "../../hooks";
@@ -48,14 +49,37 @@ export function ContextMenuItem({ className, ...props }: ComponentProps<typeof R
 }
 
 export function ContextMenuCheckboxItem({
+  children,
   className,
   ...props
 }: ComponentProps<typeof RM.CheckboxItem>) {
-  return <RM.CheckboxItem {...props} className={cn("gdg-menu-item", className)} />;
+  return (
+    <RM.CheckboxItem {...props} className={cn("gdg-menu-item", className)}>
+      <span className="gdg-menu-item-label">{children}</span>
+      <span className="gdg-menu-item-indicator" aria-hidden="true">
+        <RM.ItemIndicator>
+          <Check size={16} />
+        </RM.ItemIndicator>
+      </span>
+    </RM.CheckboxItem>
+  );
 }
 
-export function ContextMenuRadioItem({ className, ...props }: ComponentProps<typeof RM.RadioItem>) {
-  return <RM.RadioItem {...props} className={cn("gdg-menu-item", className)} />;
+export function ContextMenuRadioItem({
+  children,
+  className,
+  ...props
+}: ComponentProps<typeof RM.RadioItem>) {
+  return (
+    <RM.RadioItem {...props} className={cn("gdg-menu-item", className)}>
+      <span className="gdg-menu-item-label">{children}</span>
+      <span className="gdg-menu-item-indicator" aria-hidden="true">
+        <RM.ItemIndicator>
+          <Check size={16} />
+        </RM.ItemIndicator>
+      </span>
+    </RM.RadioItem>
+  );
 }
 
 export function ContextMenuLabel({ className, ...props }: ComponentProps<typeof RM.Label>) {

@@ -1,5 +1,6 @@
+import { Check } from "lucide-react";
 import { Menubar as RM } from "radix-ui";
-import { jsx as _jsx } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useMotionRef } from "../../hooks";
 import { cn } from "../../utils";
 export function Menubar({ className, ...props }) {
@@ -25,14 +26,36 @@ export function MenubarContent({ ref, className, ...props }) {
 export function MenubarItem({ className, ...props }) {
   return _jsx(RM.Item, { ...props, className: cn("gdg-menu-item", className) });
 }
-export function MenubarCheckboxItem({ className, ...props }) {
-  return _jsx(RM.CheckboxItem, { ...props, className: cn("gdg-menu-item", className) });
+export function MenubarCheckboxItem({ children, className, ...props }) {
+  return _jsxs(RM.CheckboxItem, {
+    ...props,
+    className: cn("gdg-menu-item", className),
+    children: [
+      _jsx("span", { className: "gdg-menu-item-label", children: children }),
+      _jsx("span", {
+        className: "gdg-menu-item-indicator",
+        "aria-hidden": "true",
+        children: _jsx(RM.ItemIndicator, { children: _jsx(Check, { size: 16 }) }),
+      }),
+    ],
+  });
 }
 export function MenubarRadioGroup({ ...props }) {
   return _jsx(RM.RadioGroup, { ...props });
 }
-export function MenubarRadioItem({ className, ...props }) {
-  return _jsx(RM.RadioItem, { ...props, className: cn("gdg-menu-item", className) });
+export function MenubarRadioItem({ children, className, ...props }) {
+  return _jsxs(RM.RadioItem, {
+    ...props,
+    className: cn("gdg-menu-item", className),
+    children: [
+      _jsx("span", { className: "gdg-menu-item-label", children: children }),
+      _jsx("span", {
+        className: "gdg-menu-item-indicator",
+        "aria-hidden": "true",
+        children: _jsx(RM.ItemIndicator, { children: _jsx(Check, { size: 16 }) }),
+      }),
+    ],
+  });
 }
 export function MenubarLabel({ className, ...props }) {
   return _jsx(RM.Label, { ...props, className: cn("gdg-menu-label", className) });

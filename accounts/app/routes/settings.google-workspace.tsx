@@ -1,23 +1,24 @@
-import { CheckCircle2, ShieldOff, Unplug } from "lucide-react";
-import { useEffect } from "react";
-import { useTranslation } from "react-i18next";
-import { useFetcher } from "react-router";
-import { toast } from "sonner";
-import { PageHeader } from "~/components/page-header";
-import { PageShell } from "~/components/page-shell";
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "~/components/ui/alert-dialog";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+  Button,
+  Card,
+  Heading,
+  Icons,
+  Stack,
+  Text,
+} from "@gdgjp/ui";
+import { toast } from "@gdgjp/ui";
+import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { useFetcher } from "react-router";
+import { PageHeader } from "~/components/page-header";
+import { PageShell } from "~/components/page-shell";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { requireUser } from "~/lib/auth.server";
 import {
@@ -112,54 +113,58 @@ export default function GoogleWorkspaceSettings({ loaderData }: Route.ComponentP
         description={t("settings.googleWorkspace.description")}
       />
       <Card>
-        <CardHeader>
+        <Stack>
           <div className="flex items-center gap-2">
             {connected ? (
-              <CheckCircle2 className="size-4 text-gdg-green" aria-hidden="true" />
+              <Icons name="CircleCheck" size={16} aria-hidden="true" />
             ) : (
-              <Unplug className="size-4 text-muted-foreground" aria-hidden="true" />
+              <Icons name="PlugZap" size={16} aria-hidden="true" />
             )}
-            <CardTitle className="text-base">
+            <Heading level={2} className="text-base">
               {connected
                 ? t("settings.googleWorkspace.connectedTitle")
                 : t("settings.googleWorkspace.notConnectedTitle")}
-            </CardTitle>
+            </Heading>
           </div>
-          <CardDescription>
+          <Text tone="muted">
             {connected
               ? t("settings.googleWorkspace.connectedDescription", { scope })
               : t("settings.googleWorkspace.notConnectedDescription")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
+          </Text>
+        </Stack>
+        <div className="mt-6 flex flex-wrap gap-2">
           {connected ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm">
-                  <ShieldOff className="size-4" />
+                  <Icons name="PlugZap" size={16} aria-hidden="true" />
                   {t("settings.googleWorkspace.disconnect")}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
-                <AlertDialogHeader>
+                <Stack className="gap-2">
                   <AlertDialogTitle>
                     {t("settings.googleWorkspace.disconnectConfirmTitle")}
                   </AlertDialogTitle>
                   <AlertDialogDescription>
                     {t("settings.googleWorkspace.disconnectConfirmDescription")}
                   </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t("chapters.leaveDialog.cancel")}</AlertDialogCancel>
+                </Stack>
+                <div className="flex flex-wrap justify-end gap-3">
+                  <AlertDialogCancel asChild>
+                    <Button type="button" variant="outline">
+                      {t("chapters.leaveDialog.cancel")}
+                    </Button>
+                  </AlertDialogCancel>
                   <fetcher.Form method="post">
                     <input type="hidden" name="intent" value="disconnect" />
                     <AlertDialogAction asChild>
-                      <Button type="submit" variant="destructive" disabled={isDisconnecting}>
+                      <Button type="submit" variant="danger" loading={isDisconnecting}>
                         {t("settings.googleWorkspace.disconnect")}
                       </Button>
                     </AlertDialogAction>
                   </fetcher.Form>
-                </AlertDialogFooter>
+                </div>
               </AlertDialogContent>
             </AlertDialog>
           ) : (
@@ -169,7 +174,7 @@ export default function GoogleWorkspaceSettings({ loaderData }: Route.ComponentP
               </a>
             </Button>
           )}
-        </CardContent>
+        </div>
       </Card>
     </PageShell>
   );

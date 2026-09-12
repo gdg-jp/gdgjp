@@ -1,14 +1,11 @@
 // One-shot admin route to (re-)seed the trusted OAuth clients into D1.
 // Idempotent — safe to re-run after rotating a client secret.
 
-import { Database } from "lucide-react";
+import { Alert, Button, Card, Icons, Stack, Text } from "@gdgjp/ui";
 import { useTranslation } from "react-i18next";
 import { redirect, useActionData, useNavigation } from "react-router";
 import { PageHeader } from "~/components/page-header";
 import { PageShell } from "~/components/page-shell";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
-import { Card, CardContent } from "~/components/ui/card";
-import { SubmitButton } from "~/components/ui/submit-button";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { requireUser } from "~/lib/auth.server";
 import { seedClients } from "~/lib/seed-clients.server";
@@ -51,26 +48,28 @@ export default function SeedClientsPage({ loaderData }: Route.ComponentProps) {
     <PageShell user={loaderData.user} size="sm">
       <PageHeader title={t("adminSeed.title")} />
       <Card className="mt-6">
-        <CardContent className="space-y-4">
-          <Alert>
-            <Database />
-            <AlertTitle>{t("adminSeed.noticeTitle")}</AlertTitle>
-            <AlertDescription>{t("adminSeed.noticeDescription")}</AlertDescription>
+        <Stack>
+          <Alert tone="info" title={t("adminSeed.noticeTitle")}>
+            {t("adminSeed.noticeDescription")}
           </Alert>
           <form method="post">
-            <SubmitButton pending={submitting} pendingLabel={t("adminSeed.pending")}>
+            <Button type="submit" loading={submitting}>
+              <Icons name="Database" size={16} aria-hidden="true" />
               {t("adminSeed.submit")}
-            </SubmitButton>
+            </Button>
           </form>
-        </CardContent>
+        </Stack>
       </Card>
       {actionData ? (
-        <Alert className="mt-6">
-          <AlertTitle>{t("adminSeed.result", { at: actionData.at })}</AlertTitle>
-          <AlertDescription className="space-y-1">
-            <p>{t("adminSeed.written", { value: actionData.written.join(", ") || "—" })}</p>
-            <p>{t("adminSeed.skipped", { value: actionData.skipped.join(", ") || "—" })}</p>
-          </AlertDescription>
+        <Alert tone="success" title={t("adminSeed.result", { at: actionData.at })} className="mt-6">
+          <Stack className="gap-1">
+            <Text size="sm">
+              {t("adminSeed.written", { value: actionData.written.join(", ") || "—" })}
+            </Text>
+            <Text size="sm">
+              {t("adminSeed.skipped", { value: actionData.skipped.join(", ") || "—" })}
+            </Text>
+          </Stack>
         </Alert>
       ) : null}
     </PageShell>

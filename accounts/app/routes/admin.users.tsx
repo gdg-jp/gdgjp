@@ -1,46 +1,37 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { Check, KeyRound, Search, ShieldCheck, ShieldOff, X } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Form, Link, redirect, useFetcher } from "react-router";
-import { toast } from "sonner";
-import { EmptyState } from "~/components/empty-state";
-import { PageHeader } from "~/components/page-header";
-import { PageShell } from "~/components/page-shell";
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "~/components/ui/alert-dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent } from "~/components/ui/card";
-import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
   Dialog,
   DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "~/components/ui/dialog";
-import { Input } from "~/components/ui/input";
-import { SubmitButton } from "~/components/ui/submit-button";
-import {
+  EmptyState,
+  FormField,
+  Heading,
+  Icons,
+  Input,
+  Stack,
   Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/components/ui/table";
+  Text,
+} from "@gdgjp/ui";
+import { toast } from "@gdgjp/ui";
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Form, Link, redirect, useFetcher } from "react-router";
+import { PageHeader } from "~/components/page-header";
+import { PageShell } from "~/components/page-shell";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { requireUser } from "~/lib/auth.server";
 import { listChapters } from "~/lib/db";
@@ -193,7 +184,10 @@ function UserActions({
       return;
     }
     if ("intent" in fetcher.data) {
-      toast.success(t(`adminUsers.toast.${fetcher.data.intent}`));
+      if (fetcher.data.intent === "promote") toast.success(t("adminUsers.toast.promoted"));
+      else if (fetcher.data.intent === "demote") toast.success(t("adminUsers.toast.demoted"));
+      else if (fetcher.data.intent === "revoke") toast.success(t("adminUsers.toast.revoked"));
+      else if (fetcher.data.intent === "chapter") toast.success(t("adminUsers.toast.chapter"));
       if (fetcher.data.intent === "chapter") setChapterOpen(false);
     }
   }, [fetcher.data, fetcher.state, t]);
@@ -232,13 +226,13 @@ function UserActions({
             {t("adminUsers.changeChapter")}
           </Button>
         </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent closeLabel={t("common.close")}>
+          <Stack className="gap-2">
             <DialogTitle>
               {t("adminUsers.dialog.changeChapterTitle", { name: displayName })}
             </DialogTitle>
             <DialogDescription>{t("adminUsers.dialog.changeChapterDescription")}</DialogDescription>
-          </DialogHeader>
+          </Stack>
           <fetcher.Form method="post" className="grid gap-4">
             <input type="hidden" name="intent" value="set-chapter" />
             <input type="hidden" name="userId" value={item.id} />
@@ -247,25 +241,27 @@ function UserActions({
             ))}
             <div className="space-y-3">
               <div>
-                <p className="text-sm font-medium">{t("adminUsers.chapterLabel")}</p>
-                <p className="text-sm text-muted-foreground">{t("adminUsers.chapterHelp")}</p>
+                <Text size="sm">{t("adminUsers.chapterLabel")}</Text>
+                <Text size="sm" tone="muted">
+                  {t("adminUsers.chapterHelp")}
+                </Text>
               </div>
               <div className="flex flex-wrap gap-2">
                 {selectedChapters.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
+                  <Text size="sm" tone="muted">
                     {t("adminUsers.chapterSelectedEmpty")}
-                  </p>
+                  </Text>
                 ) : (
                   selectedChapters.map((chapter) => (
                     <Button
                       key={chapter.id}
                       type="button"
                       variant="secondary"
-                      size="xs"
+                      size="sm"
                       onClick={() => toggleChapter(chapter.id)}
                     >
                       {chapter.name}
-                      <X className="size-3" aria-hidden="true" />
+                      <Icons name="X" size={14} aria-hidden="true" />
                       <span className="sr-only">
                         {t("adminUsers.removeChapter", { name: chapter.name })}
                       </span>
@@ -273,18 +269,25 @@ function UserActions({
                   ))
                 )}
               </div>
-              <Input
-                type="search"
-                value={chapterQuery}
-                onChange={(event) => setChapterQuery(event.target.value)}
-                placeholder={t("adminUsers.chapterSearchPlaceholder")}
-                aria-label={t("adminUsers.chapterSearchPlaceholder")}
-              />
+              <FormField
+                id="chapter-search"
+                label={t("adminUsers.chapterSearchPlaceholder")}
+                hideLabel
+                className="gap-0"
+              >
+                <Input
+                  type="search"
+                  value={chapterQuery}
+                  onChange={(event) => setChapterQuery(event.target.value)}
+                  placeholder={t("adminUsers.chapterSearchPlaceholder")}
+                  className="w-full"
+                />
+              </FormField>
               <div className="max-h-52 overflow-y-auto rounded-md border p-1">
                 {chapterResults.length === 0 ? (
-                  <p className="p-3 text-sm text-muted-foreground">
+                  <Text size="sm" tone="muted" className="p-3">
                     {t("adminUsers.chapterNoMatches")}
-                  </p>
+                  </Text>
                 ) : (
                   chapterResults.map((chapter) => {
                     const selected = selectedChapterIds.includes(chapter.id);
@@ -293,32 +296,31 @@ function UserActions({
                         key={chapter.id}
                         type="button"
                         variant="ghost"
-                        className="w-full justify-start"
+                        fullWidth
+                        className="justify-start"
                         onClick={() => toggleChapter(chapter.id)}
                       >
                         <span className="flex size-4 items-center justify-center">
-                          {selected ? <Check className="size-4" aria-hidden="true" /> : null}
+                          {selected ? <Icons name="Check" size={16} aria-hidden="true" /> : null}
                         </span>
                         {chapter.name}
-                        <span className="ml-auto font-mono text-xs text-muted-foreground">
-                          {chapter.slug}
-                        </span>
+                        <span className="ml-auto font-mono text-xs text-muted">{chapter.slug}</span>
                       </Button>
                     );
                   })
                 )}
               </div>
             </div>
-            <DialogFooter>
+            <div className="flex flex-wrap justify-end gap-3">
               <DialogClose asChild>
                 <Button type="button" variant="outline" disabled={busy}>
                   {t("adminUsers.dialog.cancel")}
                 </Button>
               </DialogClose>
-              <SubmitButton pending={busy} pendingLabel={t("common.loading")}>
+              <Button type="submit" loading={busy}>
                 {t("adminUsers.changeChapter")}
-              </SubmitButton>
-            </DialogFooter>
+              </Button>
+            </div>
           </fetcher.Form>
         </DialogContent>
       </Dialog>
@@ -326,12 +328,16 @@ function UserActions({
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button type="button" variant="outline" size="sm" disabled={busy || isSelf}>
-            {item.isAdmin ? <ShieldOff className="size-4" /> : <ShieldCheck className="size-4" />}
+            {item.isAdmin ? (
+              <Icons name="ShieldCheck" size={16} aria-hidden="true" />
+            ) : (
+              <Icons name="UserRoundCheck" size={16} aria-hidden="true" />
+            )}
             {item.isAdmin ? t("adminUsers.demote") : t("adminUsers.promote")}
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
-          <AlertDialogHeader>
+          <Stack className="gap-2">
             <AlertDialogTitle>
               {t(
                 item.isAdmin ? "adminUsers.dialog.demoteTitle" : "adminUsers.dialog.promoteTitle",
@@ -345,47 +351,59 @@ function UserActions({
                   : "adminUsers.dialog.promoteDescription",
               )}
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("adminUsers.dialog.cancel")}</AlertDialogCancel>
+          </Stack>
+          <div className="flex flex-wrap justify-end gap-3">
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline">
+                {t("adminUsers.dialog.cancel")}
+              </Button>
+            </AlertDialogCancel>
             <fetcher.Form method="post">
               <input type="hidden" name="intent" value="set-admin" />
               <input type="hidden" name="userId" value={item.id} />
               <input type="hidden" name="isAdmin" value={item.isAdmin ? "false" : "true"} />
-              <SubmitButton pending={busy} pendingLabel={t("common.loading")}>
-                {item.isAdmin ? t("adminUsers.demote") : t("adminUsers.promote")}
-              </SubmitButton>
+              <AlertDialogAction asChild>
+                <Button type="submit" loading={busy}>
+                  {item.isAdmin ? t("adminUsers.demote") : t("adminUsers.promote")}
+                </Button>
+              </AlertDialogAction>
             </fetcher.Form>
-          </AlertDialogFooter>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
 
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button type="button" variant="outline" size="sm" disabled={busy || isSelf}>
-            <KeyRound className="size-4" />
+            <Icons name="Key" size={16} aria-hidden="true" />
             {t("adminUsers.revoke")}
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
-          <AlertDialogHeader>
+          <Stack className="gap-2">
             <AlertDialogTitle>
               {t("adminUsers.dialog.revokeTitle", { name: displayName })}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {t("adminUsers.dialog.revokeDescription")}
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("adminUsers.dialog.cancel")}</AlertDialogCancel>
+          </Stack>
+          <div className="flex flex-wrap justify-end gap-3">
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline">
+                {t("adminUsers.dialog.cancel")}
+              </Button>
+            </AlertDialogCancel>
             <fetcher.Form method="post">
               <input type="hidden" name="intent" value="revoke-sessions" />
               <input type="hidden" name="userId" value={item.id} />
-              <SubmitButton variant="destructive" pending={busy} pendingLabel={t("common.loading")}>
-                {t("adminUsers.revoke")}
-              </SubmitButton>
+              <AlertDialogAction asChild>
+                <Button type="submit" variant="danger" loading={busy}>
+                  {t("adminUsers.revoke")}
+                </Button>
+              </AlertDialogAction>
             </fetcher.Form>
-          </AlertDialogFooter>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
     </div>
@@ -410,16 +428,28 @@ export default function AdminUsers({ loaderData }: Route.ComponentProps) {
       <PageHeader title={t("adminUsers.title")} />
 
       <Form method="get" className="mt-6 flex flex-col gap-2 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            name="q"
-            defaultValue={query}
-            placeholder={t("adminUsers.searchPlaceholder")}
-            className="pl-9"
-          />
-        </div>
+        <FormField
+          id="admin-users-search"
+          label={t("adminUsers.searchPlaceholder")}
+          hideLabel
+          className="flex-1 gap-0"
+        >
+          <div className="relative">
+            <Icons
+              name="Search"
+              size={16}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+              aria-hidden="true"
+            />
+            <Input
+              type="search"
+              name="q"
+              defaultValue={query}
+              placeholder={t("adminUsers.searchPlaceholder")}
+              className="w-full pl-9"
+            />
+          </div>
+        </FormField>
         <Button type="submit">{t("adminUsers.search")}</Button>
         {query ? (
           <Button asChild variant="outline">
@@ -428,117 +458,109 @@ export default function AdminUsers({ loaderData }: Route.ComponentProps) {
         ) : null}
       </Form>
 
-      <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+      <Text size="sm" tone="muted" className="mt-4 flex items-center justify-between">
         <span>{t("adminUsers.resultCount", { count: total })}</span>
         <span>{t("adminUsers.page", { page, pages })}</span>
-      </div>
+      </Text>
 
-      <Card className="mt-3 overflow-hidden py-0">
-        <CardContent className="p-0">
-          {users.length === 0 ? (
-            <EmptyState title={t("adminUsers.empty")} className="border-0" />
-          ) : (
-            <>
-              <ul className="divide-y md:hidden">
-                {users.map((item) => (
-                  <li key={item.id} className="space-y-4 p-4">
-                    <div className="flex items-start gap-3">
-                      <Avatar>
-                        {item.image ? <AvatarImage src={item.image} alt="" /> : null}
-                        <AvatarFallback>{initials(item.name, item.email)}</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate font-medium">{item.name || item.email}</div>
-                        <div className="truncate text-xs text-muted-foreground">{item.email}</div>
-                      </div>
-                      <Badge variant={item.isAdmin ? "default" : "secondary"}>
-                        {item.isAdmin ? t("adminUsers.adminBadge") : t("adminUsers.userBadge")}
-                      </Badge>
+      <Card className="mt-3 overflow-hidden p-0">
+        {users.length === 0 ? (
+          <EmptyState title={t("adminUsers.empty")} />
+        ) : (
+          <>
+            <ul className="divide-y md:hidden">
+              {users.map((item) => (
+                <li key={item.id} className="space-y-4 p-4">
+                  <div className="flex items-start gap-3">
+                    <Avatar
+                      src={item.image ?? undefined}
+                      alt={item.name || item.email}
+                      fallback={initials(item.name, item.email)}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{item.name || item.email}</div>
+                      <div className="truncate text-xs text-muted">{item.email}</div>
                     </div>
-                    <dl className="grid grid-cols-3 gap-3 text-sm">
-                      <div>
-                        <dt className="text-xs text-muted-foreground">
-                          {t("adminUsers.table.memberships")}
-                        </dt>
-                        <dd className="mt-1">
-                          {t("adminUsers.activeMemberships", {
-                            active: item.activeMembershipCount,
-                            total: item.membershipCount,
-                          })}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">
-                          {t("adminUsers.table.sessions")}
-                        </dt>
-                        <dd className="mt-1 tabular-nums">{item.sessionCount}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">
-                          {t("adminUsers.table.created")}
-                        </dt>
-                        <dd className="mt-1">{formatCreatedAt(item.createdAt, locale)}</dd>
-                      </div>
-                    </dl>
-                    <UserActions item={item} actorId={user.id} chapters={chapters} />
-                  </li>
-                ))}
-              </ul>
-              <div className="hidden overflow-x-auto md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("adminUsers.table.user")}</TableHead>
-                      <TableHead>{t("adminUsers.table.memberships")}</TableHead>
-                      <TableHead>{t("adminUsers.table.sessions")}</TableHead>
-                      <TableHead>{t("adminUsers.table.created")}</TableHead>
-                      <TableHead>{t("adminUsers.table.role")}</TableHead>
-                      <TableHead className="text-right">{t("adminUsers.table.actions")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <div className="flex min-w-56 items-center gap-3">
-                            <Avatar>
-                              {item.image ? <AvatarImage src={item.image} alt="" /> : null}
-                              <AvatarFallback>{initials(item.name, item.email)}</AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0">
-                              <div className="truncate font-medium">{item.name || item.email}</div>
-                              <div className="truncate text-xs text-muted-foreground">
-                                {item.email}
-                              </div>
-                            </div>
+                    <Badge tone={item.isAdmin ? "success" : "neutral"}>
+                      {item.isAdmin ? t("adminUsers.adminBadge") : t("adminUsers.userBadge")}
+                    </Badge>
+                  </div>
+                  <dl className="grid grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <dt className="text-xs text-muted">{t("adminUsers.table.memberships")}</dt>
+                      <dd className="mt-1">
+                        {t("adminUsers.activeMemberships", {
+                          active: item.activeMembershipCount,
+                          total: item.membershipCount,
+                        })}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted">{t("adminUsers.table.sessions")}</dt>
+                      <dd className="mt-1 tabular-nums">{item.sessionCount}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted">{t("adminUsers.table.created")}</dt>
+                      <dd className="mt-1">{formatCreatedAt(item.createdAt, locale)}</dd>
+                    </div>
+                  </dl>
+                  <UserActions item={item} actorId={user.id} chapters={chapters} />
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
+              <Table scrollLabel={t("common.tableScroll")}>
+                <thead>
+                  <tr>
+                    <th>{t("adminUsers.table.user")}</th>
+                    <th>{t("adminUsers.table.memberships")}</th>
+                    <th>{t("adminUsers.table.sessions")}</th>
+                    <th>{t("adminUsers.table.created")}</th>
+                    <th>{t("adminUsers.table.role")}</th>
+                    <th className="text-right">{t("adminUsers.table.actions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <div className="flex min-w-56 items-center gap-3">
+                          <Avatar
+                            src={item.image ?? undefined}
+                            alt={item.name || item.email}
+                            fallback={initials(item.name, item.email)}
+                          />
+                          <div className="min-w-0">
+                            <div className="truncate font-medium">{item.name || item.email}</div>
+                            <div className="truncate text-xs text-muted">{item.email}</div>
                           </div>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                          {t("adminUsers.activeMemberships", {
-                            active: item.activeMembershipCount,
-                            total: item.membershipCount,
-                          })}
-                        </TableCell>
-                        <TableCell className="tabular-nums">{item.sessionCount}</TableCell>
-                        <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                          {formatCreatedAt(item.createdAt, locale)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={item.isAdmin ? "default" : "secondary"}>
-                            {item.isAdmin ? t("adminUsers.adminBadge") : t("adminUsers.userBadge")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <UserActions item={item} actorId={user.id} chapters={chapters} />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
-          )}
-        </CardContent>
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap text-sm text-muted">
+                        {t("adminUsers.activeMemberships", {
+                          active: item.activeMembershipCount,
+                          total: item.membershipCount,
+                        })}
+                      </td>
+                      <td className="tabular-nums">{item.sessionCount}</td>
+                      <td className="whitespace-nowrap text-sm text-muted">
+                        {formatCreatedAt(item.createdAt, locale)}
+                      </td>
+                      <td>
+                        <Badge tone={item.isAdmin ? "success" : "neutral"}>
+                          {item.isAdmin ? t("adminUsers.adminBadge") : t("adminUsers.userBadge")}
+                        </Badge>
+                      </td>
+                      <td>
+                        <UserActions item={item} actorId={user.id} chapters={chapters} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          </>
+        )}
       </Card>
 
       <div className="mt-4 flex justify-end gap-2">

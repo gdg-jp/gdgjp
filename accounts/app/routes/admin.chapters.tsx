@@ -1,51 +1,40 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
-import { Blocks, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Form, Link, useFetcher, useNavigation } from "react-router";
-import { EmptyState } from "~/components/empty-state";
-import { PageHeader } from "~/components/page-header";
-import { PageShell } from "~/components/page-shell";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import {
+  Alert,
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "~/components/ui/alert-dialog";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import {
+  Button,
+  Card,
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "~/components/ui/dialog";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import {
+  EmptyState,
+  FormField,
+  Heading,
+  Icons,
+  Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
-import { SubmitButton } from "~/components/ui/submit-button";
-import {
+  Stack,
   Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "~/components/ui/table";
+  Text,
+} from "@gdgjp/ui";
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Form, Link, useFetcher, useNavigation } from "react-router";
+import { PageHeader } from "~/components/page-header";
+import { PageShell } from "~/components/page-shell";
 import { buildSignInRedirect } from "~/lib/auth-redirect";
 import { requireUser } from "~/lib/auth.server";
 import { CHAPTER_REGIONS, isChapterRegion } from "~/lib/chapter-regions";
@@ -147,31 +136,33 @@ function ChapterActions({ chapter }: { chapter: ChapterRowData }) {
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button variant="outline" size="sm">
-            <Trash2 className="size-4 text-destructive" />
+            <Icons name="Delete" size={16} aria-hidden="true" />
             {t("admin.list.delete")}
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
-          <AlertDialogHeader>
+          <Stack className="gap-2">
             <AlertDialogTitle>
               {t("admin.list.dialogTitle", { name: chapter.name })}
             </AlertDialogTitle>
             <AlertDialogDescription>{t("admin.list.dialogDesc")}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("admin.list.cancel")}</AlertDialogCancel>
+          </Stack>
+          <div className="flex flex-wrap justify-end gap-3">
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="outline">
+                {t("admin.list.cancel")}
+              </Button>
+            </AlertDialogCancel>
             <fetcher.Form method="post">
               <input type="hidden" name="intent" value="delete" />
               <input type="hidden" name="id" value={chapter.id} />
-              <SubmitButton
-                variant="destructive"
-                pending={isDeleting}
-                pendingLabel={t("common.loading")}
-              >
-                {t("admin.list.deleteConfirm")}
-              </SubmitButton>
+              <AlertDialogAction asChild>
+                <Button type="submit" variant="danger" loading={isDeleting}>
+                  {t("admin.list.deleteConfirm")}
+                </Button>
+              </AlertDialogAction>
             </fetcher.Form>
-          </AlertDialogFooter>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
     </div>
@@ -182,13 +173,13 @@ function ChapterRow({ chapter, index }: { chapter: ChapterRowData; index: number
   const { t } = useTranslation();
   const animationDelay = `${Math.min(index, 9) * 30}ms`;
   return (
-    <TableRow
+    <tr
       className="animate-in fade-in-0 duration-300"
       style={{ animationDelay, animationFillMode: "both" }}
     >
-      <TableCell className="font-medium">{chapter.name}</TableCell>
-      <TableCell className="font-mono text-xs text-muted-foreground">{chapter.slug}</TableCell>
-      <TableCell>
+      <td className="font-medium">{chapter.name}</td>
+      <td className="font-mono text-xs text-muted">{chapter.slug}</td>
+      <td>
         <span
           className={
             chapter.kind === "gdg"
@@ -198,22 +189,20 @@ function ChapterRow({ chapter, index }: { chapter: ChapterRowData; index: number
         >
           {chapter.kind === "gdg" ? t("kind.gdg") : t("kind.gdgoc")}
         </span>
-      </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
-        {t(`region.${chapter.region}`)}
-      </TableCell>
-      <TableCell className="text-right tabular-nums">
+      </td>
+      <td className="text-xs text-muted">{t(`region.${chapter.region}`)}</td>
+      <td className="text-right tabular-nums">
         {chapter.activeCount}
         {chapter.pendingCount > 0 ? (
-          <span className="ml-1 text-xs text-muted-foreground">(+{chapter.pendingCount})</span>
+          <span className="ml-1 text-xs text-muted">(+{chapter.pendingCount})</span>
         ) : null}
-      </TableCell>
-      <TableCell className="text-right">
+      </td>
+      <td className="text-right">
         <div className="flex justify-end">
           <ChapterActions chapter={chapter} />
         </div>
-      </TableCell>
-    </TableRow>
+      </td>
+    </tr>
   );
 }
 
@@ -234,40 +223,35 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
               <Button>
-                <Plus className="size-4" />
+                <Icons name="Plus" size={16} aria-hidden="true" />
                 {t("admin.create.submit")}
               </Button>
             </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
+            <DialogContent closeLabel={t("common.close")}>
+              <Stack className="gap-2">
                 <DialogTitle>{t("admin.create.cardTitle")}</DialogTitle>
                 <DialogDescription>{t("admin.create.description")}</DialogDescription>
-              </DialogHeader>
+              </Stack>
               <Form method="post" className="grid gap-4">
                 <input type="hidden" name="intent" value="create" />
-                <div className="space-y-2">
-                  <Label htmlFor="slug">{t("admin.create.slugLabel")}</Label>
+                <FormField id="slug" label={t("admin.create.slugLabel")} required>
                   <Input
-                    id="slug"
                     name="slug"
                     placeholder={t("admin.create.slugPlaceholder")}
                     pattern="[a-z0-9-]+"
-                    required
+                    className="w-full"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="name">{t("admin.create.nameLabel")}</Label>
+                </FormField>
+                <FormField id="name" label={t("admin.create.nameLabel")} required>
                   <Input
-                    id="name"
                     name="name"
                     placeholder={t("admin.create.namePlaceholder")}
-                    required
+                    className="w-full"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="kind">{t("admin.create.kindLabel")}</Label>
+                </FormField>
+                <FormField id="kind" label={t("admin.create.kindLabel")} required>
                   <Select name="kind" defaultValue="gdg">
-                    <SelectTrigger id="kind" className="w-full">
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -275,11 +259,10 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
                       <SelectItem value="gdgoc">{t("kind.gdgoc")}</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="region">{t("admin.create.regionLabel")}</Label>
+                </FormField>
+                <FormField id="region" label={t("admin.create.regionLabel")} required>
                   <Select name="region" defaultValue="kanto">
-                    <SelectTrigger id="region" className="w-full">
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -290,20 +273,17 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                </FormField>
                 {actionData?.error ? (
-                  <div>
-                    <Alert variant="destructive">
-                      <AlertTitle>{t("admin.create.errorTitle")}</AlertTitle>
-                      <AlertDescription>{actionData.error}</AlertDescription>
-                    </Alert>
-                  </div>
+                  <Alert tone="danger" title={t("admin.create.errorTitle")}>
+                    {actionData.error}
+                  </Alert>
                 ) : null}
-                <DialogFooter>
-                  <SubmitButton pending={isCreating} pendingLabel={t("admin.create.submitPending")}>
+                <div className="flex justify-end">
+                  <Button type="submit" loading={isCreating}>
                     {t("admin.create.submit")}
-                  </SubmitButton>
-                </DialogFooter>
+                  </Button>
+                </div>
               </Form>
             </DialogContent>
           </Dialog>
@@ -311,12 +291,10 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
       />
 
       <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>{t("admin.list.cardTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <Heading level={2}>{t("admin.list.cardTitle")}</Heading>
+        <div className="mt-6">
           {loaderData.chapters.length === 0 ? (
-            <EmptyState icon={Blocks} title={t("admin.list.empty")} className="border-0" />
+            <EmptyState title={t("admin.list.empty")} />
           ) : (
             <>
               <ul className="divide-y md:hidden">
@@ -325,7 +303,7 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-medium">{chapter.name}</p>
-                        <p className="font-mono text-xs text-muted-foreground">{chapter.slug}</p>
+                        <p className="font-mono text-xs text-muted">{chapter.slug}</p>
                       </div>
                       <span
                         className={
@@ -337,8 +315,8 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
                         {chapter.kind === "gdg" ? t("kind.gdg") : t("kind.gdgoc")}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{t(`region.${chapter.region}`)}</p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted">{t(`region.${chapter.region}`)}</p>
+                    <p className="text-sm text-muted">
                       {t("admin.list.memberSummary", {
                         active: chapter.activeCount,
                         pending: chapter.pendingCount,
@@ -349,27 +327,27 @@ export default function AdminChapters({ loaderData, actionData }: Route.Componen
                 ))}
               </ul>
               <div className="hidden md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("admin.list.name")}</TableHead>
-                      <TableHead>{t("admin.list.slug")}</TableHead>
-                      <TableHead>{t("admin.list.kind")}</TableHead>
-                      <TableHead>{t("admin.list.region")}</TableHead>
-                      <TableHead className="text-right">{t("admin.list.members")}</TableHead>
-                      <TableHead className="text-right">{t("admin.list.actions")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <Table scrollLabel={t("common.tableScroll")}>
+                  <thead>
+                    <tr>
+                      <th>{t("admin.list.name")}</th>
+                      <th>{t("admin.list.slug")}</th>
+                      <th>{t("admin.list.kind")}</th>
+                      <th>{t("admin.list.region")}</th>
+                      <th className="text-right">{t("admin.list.members")}</th>
+                      <th className="text-right">{t("admin.list.actions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {loaderData.chapters.map((c, i) => (
                       <ChapterRow key={c.id} chapter={c} index={i} />
                     ))}
-                  </TableBody>
+                  </tbody>
                 </Table>
               </div>
             </>
           )}
-        </CardContent>
+        </div>
       </Card>
     </PageShell>
   );

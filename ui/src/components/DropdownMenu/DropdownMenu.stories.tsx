@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { useState } from "react";
 import { Button } from "../Button";
 import {
   DropdownMenu,
@@ -6,6 +7,8 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./DropdownMenu";
@@ -35,4 +38,23 @@ export const Default: Story = {
       </DropdownMenuContent>
     </DropdownMenu>
   ),
+};
+
+export const RadioSelection: Story = {
+  render: function RadioSelection() {
+    const [value, setValue] = useState("card");
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline">表示形式</Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuRadioGroup value={value} onValueChange={setValue}>
+            <DropdownMenuRadioItem value="card">カード</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="list">一覧</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  },
 };

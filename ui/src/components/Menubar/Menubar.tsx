@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { Menubar as RM } from "radix-ui";
 import type { ComponentProps } from "react";
 import { useMotionRef } from "../../hooks";
@@ -34,18 +35,41 @@ export function MenubarItem({ className, ...props }: ComponentProps<typeof RM.It
 }
 
 export function MenubarCheckboxItem({
+  children,
   className,
   ...props
 }: ComponentProps<typeof RM.CheckboxItem>) {
-  return <RM.CheckboxItem {...props} className={cn("gdg-menu-item", className)} />;
+  return (
+    <RM.CheckboxItem {...props} className={cn("gdg-menu-item", className)}>
+      <span className="gdg-menu-item-label">{children}</span>
+      <span className="gdg-menu-item-indicator" aria-hidden="true">
+        <RM.ItemIndicator>
+          <Check size={16} />
+        </RM.ItemIndicator>
+      </span>
+    </RM.CheckboxItem>
+  );
 }
 
 export function MenubarRadioGroup({ ...props }: ComponentProps<typeof RM.RadioGroup>) {
   return <RM.RadioGroup {...props} />;
 }
 
-export function MenubarRadioItem({ className, ...props }: ComponentProps<typeof RM.RadioItem>) {
-  return <RM.RadioItem {...props} className={cn("gdg-menu-item", className)} />;
+export function MenubarRadioItem({
+  children,
+  className,
+  ...props
+}: ComponentProps<typeof RM.RadioItem>) {
+  return (
+    <RM.RadioItem {...props} className={cn("gdg-menu-item", className)}>
+      <span className="gdg-menu-item-label">{children}</span>
+      <span className="gdg-menu-item-indicator" aria-hidden="true">
+        <RM.ItemIndicator>
+          <Check size={16} />
+        </RM.ItemIndicator>
+      </span>
+    </RM.RadioItem>
+  );
 }
 
 export function MenubarLabel({ className, ...props }: ComponentProps<typeof RM.Label>) {

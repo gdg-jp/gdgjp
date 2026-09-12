@@ -84,7 +84,9 @@ function OtherPage({ page }: { page: Exclude<Page, "events"> }) {
           <UI.FormField label="説明">
             <UI.Textarea defaultValue="開発者同士で学び、つながるコミュニティです。" />
           </UI.FormField>
-          <UI.Button>変更を保存</UI.Button>
+          <UI.Inline>
+            <UI.Button>変更を保存</UI.Button>
+          </UI.Inline>
         </UI.Stack>
       </UI.Card>
     </UI.Stack>
@@ -95,9 +97,6 @@ export function AdminDemo() {
   const [page, setPage] = useState<Page>("events");
   const [query, setQuery] = useState("");
   const [format, setFormat] = useState<EventFormat>("all");
-  const [sidebarOpen, setSidebarOpen] = useState(
-    () => typeof window === "undefined" || window.innerWidth >= 768,
-  );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [edit, setEdit] = useState(false);
   const [name, setName] = useState("コミュニティミートアップ");
@@ -107,13 +106,6 @@ export function AdminDemo() {
     syncPage();
     window.addEventListener("hashchange", syncPage);
     return () => window.removeEventListener("hashchange", syncPage);
-  }, []);
-  useEffect(() => {
-    const media = window.matchMedia("(min-width: 768px)");
-    const syncSidebar = () => setSidebarOpen(media.matches);
-    syncSidebar();
-    media.addEventListener("change", syncSidebar);
-    return () => media.removeEventListener("change", syncSidebar);
   }, []);
   const showEvent =
     !deleted && (!query || name.includes(query)) && (format === "all" || format === "hybrid");
@@ -133,11 +125,11 @@ export function AdminDemo() {
   );
 
   return (
-    <UI.SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
+    <UI.SidebarProvider className="gdg-shell" defaultOpen>
       <a className="gdg-skip-link" href="#gdg-main">
         本文へ移動
       </a>
-      <UI.Sidebar aria-label="メインナビゲーション" collapsible="offcanvas">
+      <UI.Sidebar aria-label="メインナビゲーション" collapsible="icon">
         <UI.SidebarHeader>
           <strong className="gdg-sidebar-title">GDG Apps</strong>
           <UI.SidebarTrigger />
