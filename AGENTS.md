@@ -36,6 +36,8 @@ This is a flat pnpm/Turborepo monorepo. The workspace packages are listed in
   the published shift view are separate public/sign-in-only surfaces.
 - `gdg-lib/` is the source-only shared TypeScript package (`@gdgjp/gdg-lib`) for relying-party
   auth and signed-cookie helpers. Keep code app-local unless it is genuinely shared here.
+- `ui/` is the private shared React 19 design-system workspace (`@gdgjp/ui`), independent of
+  application routing, authentication, and data fetching.
 - `agents-index/` is the local, ACL-filtered semantic navigation MCP service for the shared wiki
   worktree. Its results must never include indexed document text.
 - `tinyurl-gateway/` is a Vercel Edge gateway for TinyURL custom domains.

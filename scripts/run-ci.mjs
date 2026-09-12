@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const quickSteps = [
   ["lint", "pnpm exec biome check . --reporter=github"],
@@ -22,7 +23,7 @@ const fullSteps = [
   ...quickSteps,
   [
     "e2e",
-    "pnpm exec turbo test:e2e --filter=@gdgjp/accounts --filter=@gdgjp/tinyurl --filter=@gdgjp/img --filter=@gdgjp/scheduler --concurrency=1 --output-logs=errors-only -- --reporter=dot",
+    "pnpm exec turbo test:e2e --filter=@gdgjp/accounts --filter=@gdgjp/tinyurl --filter=@gdgjp/img --filter=@gdgjp/scheduler --filter=@gdgjp/ui --concurrency=1 --output-logs=errors-only -- --reporter=dot",
   ],
 ];
 
@@ -44,6 +45,7 @@ const workspaces = new Map([
   ["accounts", "@gdgjp/accounts"],
   ["accounts-oidc-client-demo", "@gdgjp/accounts-oidc-client-demo"],
   ["gdg-lib", "@gdgjp/gdg-lib"],
+  ["ui", "@gdgjp/ui"],
   ["go-extension", "@gdgjp/go-extension"],
   ["img", "@gdgjp/img"],
   ["ost", "@gdgjp/ost"],
@@ -94,7 +96,9 @@ function changedFiles() {
 function isNodeFile(file) {
   return (
     !file.startsWith("cli/") &&
-    (codeFilePattern.test(file) || nodeConfigurationFilePattern.test(file))
+    (codeFilePattern.test(file) ||
+      nodeConfigurationFilePattern.test(file) ||
+      (file.startsWith("ui/") && /\.(?:css|mdx|woff2)$/.test(file)))
   );
 }
 
@@ -120,7 +124,7 @@ function workspaceFiles(files, predicate) {
   return filesByWorkspace;
 }
 
-function changedSteps(mode, files) {
+export function changedSteps(mode, files) {
   // Agent configuration is intentionally versioned but is not application code.
   // Exclude it from the changed-file CI path used by the pre-commit hook.
   const relevantFiles = files.filter((file) => !preCommitExcludedPathPattern.test(file));
@@ -163,6 +167,10 @@ function changedSteps(mode, files) {
     (file) => isNodeFile(file) && !file.includes("/e2e/"),
   );
   for (const [workspace, workspaceNodeFiles] of unitTestsByWorkspace) {
+    if (workspace === "@gdgjp/ui") {
+      steps.push(["test:ui", "pnpm --filter @gdgjp/ui test"]);
+      continue;
+    }
     // `related` receives staged source paths and uses Vitest's import graph to
     // select the tests that cover them. It deliberately does not inspect the
     // working tree, so unrelated unstaged edits cannot expand this check.
@@ -180,10 +188,14 @@ function changedSteps(mode, files) {
   }
 
   if (mode === "full") {
+    if (changedWorkspaces.has("@gdgjp/ui")) {
+      steps.push(["e2e:ui", "pnpm --filter @gdgjp/ui test:e2e"]);
+    }
     const e2eTestsByWorkspace = workspaceFiles(relevantFiles, (file) =>
       /(?:^|\/)(?:e2e|tests\/e2e)\/.*\.(?:spec|test)\.[cm]?[jt]sx?$/.test(file),
     );
     for (const [workspace, e2eFiles] of e2eTestsByWorkspace) {
+      if (workspace === "@gdgjp/ui") continue;
       steps.push([
         `e2e:${workspace}`,
         `pnpm --filter ${workspace} exec playwright test --reporter=dot ${e2eFiles.map(shellQuote).join(" ")}`,
@@ -241,27 +253,37 @@ function runStep([name, command, environment = {}]) {
   });
 }
 
-const [mode, ...options] = process.argv.slice(2);
-const allSteps =
-  mode === "go" ? goSteps : mode === "quick" ? quickSteps : mode === "full" ? fullSteps : undefined;
-const changedOnly = options.length === 1 && options[0] === "--changed";
+export async function run(args = process.argv.slice(2)) {
+  const [mode, ...options] = args;
+  const allSteps =
+    mode === "go"
+      ? goSteps
+      : mode === "quick"
+        ? quickSteps
+        : mode === "full"
+          ? fullSteps
+          : undefined;
+  const changedOnly = options.length === 1 && options[0] === "--changed";
 
-if (!allSteps || (options.length > 0 && !changedOnly)) {
-  console.error("Usage: node scripts/run-ci.mjs <go|quick|full> [--changed]");
-  process.exitCode = 2;
-} else {
-  const files = changedOnly ? await changedFiles() : undefined;
-  const steps = changedOnly && files ? changedSteps(mode, files) : allSteps;
-  if (changedOnly && !files) {
-    console.warn("ci:warn could not inspect changed files; running all checks");
-  }
-  if (changedOnly && steps.length === 0) {
-    console.log("ci:skip no relevant code changes");
-  }
-  for (const step of steps) {
-    if (!(await runStep(step))) {
-      process.exitCode = 1;
-      break;
+  if (!allSteps || (options.length > 0 && !changedOnly)) {
+    console.error("Usage: node scripts/run-ci.mjs <go|quick|full> [--changed]");
+    process.exitCode = 2;
+  } else {
+    const files = changedOnly ? await changedFiles() : undefined;
+    const steps = changedOnly && files ? changedSteps(mode, files) : allSteps;
+    if (changedOnly && !files) {
+      console.warn("ci:warn could not inspect changed files; running all checks");
+    }
+    if (changedOnly && steps.length === 0) {
+      console.log("ci:skip no relevant code changes");
+    }
+    for (const step of steps) {
+      if (!(await runStep(step))) {
+        process.exitCode = 1;
+        break;
+      }
     }
   }
 }
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) await run();

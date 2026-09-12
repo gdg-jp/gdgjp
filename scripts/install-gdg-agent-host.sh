@@ -15,10 +15,10 @@ apt-get update -qq
 apt-get install -y -qq curl ca-certificates unzip
 
 # (c) Pinned gdg CLI from GitHub Releases
-GDG_VERSION="0.4.0"
+GDG_VERSION="0.4.4"
 GDG_ASSET_TEMPLATE="gdg_{version}_linux_{arch}.zip"
-GDG_SHA256_X86_64="9235020b3516695bef999feea00745dd0542c932eb93a7c01fff684070de2fb1"
-GDG_SHA256_AARCH64="1d4513e571794b6b9843852ffd64d2c7f0087757e6597611eb0e97e3fe778fef"
+GDG_SHA256_X86_64="329eb234a741c8d2db56f30c7847255fb287551276d8589768c87b29a53f30c8"
+GDG_SHA256_AARCH64="57d13f222357e1ee9eefec4fc9f3f3c70c293952c864aa5871bc1f135ecb3881"
 
 arch="$(uname -m)"
 case "$arch" in
@@ -42,4 +42,3 @@ trap - EXIT
 
 # (d) Execute gdg converger
 exec /usr/local/bin/gdg agent-host apply "$@"
-

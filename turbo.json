@@ -24,6 +24,9 @@
     "test:e2e": {
       "dependsOn": ["^build"],
       "outputs": ["playwright-report/**", "test-results/**"]
+    },
+    "@gdgjp/ui#build": {
+      "outputs": ["dist/**"]
     }
   }
 }
