@@ -407,8 +407,11 @@ collapse to an icon rail; use `offcanvas` when it should leave the layout entire
 `Alert` is persistent inline feedback with a semantic tone. `Toast` is reserved for a short-lived
 result of an action; errors that require resolution must also appear on the relevant field or in an
 alert. `Skeleton` is a restrained visual placeholder and is not, by itself, a loading announcement;
-use a labelled `Spinner`, a parent `aria-busy`, or an accompanying message. `Toaster` keeps Sonner's
-positioning, stacking, dismissal, and action behavior while applying the library's theme tokens.
+use a labelled `Spinner`, a parent `aria-busy`, or an accompanying message. `Icons` wraps
+`lucide-animated` so consumers import only from `@gdgjp/ui`. Its default
+`animateOnHover` behavior runs the selected icon's animation on hover; `animateOnHover={false}`
+disables it, and `prefers-reduced-motion` disables this decorative hover animation. `Toaster` keeps
+Sonner's positioning, stacking, dismissal, and action behavior while applying the library's theme tokens.
 
 ### Accessibility and motion contract
 
@@ -430,6 +433,7 @@ Motion exists for feedback, state comprehension, and preserving spatial relation
 | Sheet | 280ms | Edge-specific `translateX` with the drawer easing |
 | Accordion and collapsible | 200ms | Measured height and opacity |
 | Skeleton shimmer | 2400ms | Constant transform/opacity shimmer |
+| Icon hover animation | Icon-specific | Feedback on precise-pointer hover; disabled for reduced motion |
 
 The standard easing is `cubic-bezier(0.23, 1, 0.32, 1)`; sheets use
 `cubic-bezier(0.32, 0.72, 0, 1)`. Use CSS transitions and Radix Presence's exit lifetime so

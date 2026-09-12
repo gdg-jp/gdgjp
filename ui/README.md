@@ -72,7 +72,7 @@ Portalはdocument.bodyへ配置し、htmlのテーマを継承します。部分
 | 分類 | Exportと用途 |
 | --- | --- |
 | 操作 | `Button`, `IconButton`, `Link`, `ButtonGroup`, `Collapsible`, `Slider`, `Toggle`, `ToggleGroup`。Buttonはprimary／secondary／outline／ghost／danger、sm／md／lg。既定typeはbutton。IconButtonのaria-labelは必須 |
-| 表示 | `Text`（xs／sm／md、default／muted）、`Heading`（level 1〜6）、`Stack`, `Inline`, `Card`, `Separator`, `Badge`（neutral／info／success／warning／danger）、`Avatar`, `Attachment`, `Bubble`, `Chart`, `Empty`, `Item`, `Kbd`, `Marker`, `Message`, `Typography` |
+| 表示 | `Text`（xs／sm／md、default／muted）、`Heading`（level 1〜6）、`Stack`, `Inline`, `Card`, `Separator`, `Badge`（neutral／info／success／warning／danger）、`Avatar`, `Attachment`, `Bubble`, `Chart`, `Empty`, `Icons`, `Item`, `Kbd`, `Marker`, `Message`, `Typography` |
 | フォーム | `FormField`, `Field`, `Input`, `InputGroup`, `InputOTP`, `Textarea`, `Checkbox`, `RadioGroup`＋`RadioGroupItem`, `Switch`, `Select`, `NativeSelect`, `Calendar`, `DatePicker`, `Combobox`, `Command`, `Questionnaire`, `QuestionnaireNew` |
 | オーバーレイ | `Dialog`, `AlertDialog`, `Sheet`, `Drawer`, `Popover`, `DropdownMenu`, `ContextMenu`, `HoverCard`, `Menubar`, `Tooltip` と対応するTrigger／Content、必要なTitle／Description／Close／Action／Cancel／Item。TooltipProviderも公開 |
 | 状態 | `Alert`（tone、title、children）、`Progress`, `Toast`, `Toaster`, `toast`, `Spinner`, `Skeleton`, `EmptyState`（title、description、action） |
@@ -96,5 +96,6 @@ Radix部品はRadixのcontrolled／uncontrolled props、イベント、refを維
 - Sidebarは既定で`collapsible="icon"`です。SidebarHeader内のSidebarTriggerはタイトル右側の正方形アイコンボタンになり、閉じた状態ではメニュー項目のアイコンを残します。完全に収納する場合は`collapsible="offcanvas"`を指定します。
 - Toolbarは配置部品です。矢印キー操作を提供しないためARIA toolbarロールは付けません。
 - Skeletonは控えめなshimmerが走る装飾プレースホルダーです。読込状態はSpinnerのlabelか親のaria-busyとメッセージで通知し、reduced motionではshimmerを停止します。情報・成功・警告・危険は色とラベル／アイコンで表します。
+- `Icons` は `lucide-animated` を内部でラップしたアイコン部品です。使用側は `@gdgjp/ui` から `Icons` を読み込み、Lucideの名前（例：`name="Heart"`）を指定します。既定では `animateOnHover` が有効で、カーソルホバー時にアイコン固有のアニメーションを再生します。`animateOnHover={false}` で停止でき、`prefers-reduced-motion` では装飾的なホバーアニメーションを停止します。ラベル付きアイコンは `role="img"` を自動付与し、操作部品内の装飾アイコンには `aria-hidden="true"` を指定してください。
 
 詳細な判断基準・変更手順は [DESIGN.md](DESIGN.md)、組み合わせ例と状態一覧はStorybookを参照してください。

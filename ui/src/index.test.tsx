@@ -13,7 +13,7 @@ describe("public contracts", () => {
       AspectRatio Attachment Bubble ButtonGroup Calendar Carousel Chart Collapsible Combobox Command
       ContextMenu DataTable DatePicker Direction Drawer Empty Field HoverCard InputGroup InputOTP Item
       Kbd Label Marker Menubar Message MessageScroller NativeSelect NavigationMenu Progress Questionnaire
-      QuestionnaireNew Resizable ScrollArea Sidebar Slider Toast Toggle ToggleGroup Typography
+      Icons QuestionnaireNew Resizable ScrollArea Sidebar Slider Toast Toggle ToggleGroup Typography
     `
       .split(/\s+/)
       .filter(Boolean);

@@ -68,6 +68,18 @@
       var(--gdg-motion-press) var(--gdg-ease-out), background-color var(--gdg-motion-press)
       var(--gdg-ease-out);
   }
+
+  .gdg-icons {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+  }
+
+  .gdg-icons > svg {
+    display: block;
+  }
   .gdg-button-primary {
     background: var(--gdg-primary);
     color: var(--gdg-on-primary);

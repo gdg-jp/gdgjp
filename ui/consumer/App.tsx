@@ -1,4 +1,4 @@
-import { Button, Card, FormField, Input, ThemeProvider, ThemeToggle } from "@gdgjp/ui";
+import { Button, Card, FormField, Icons, Input, ThemeProvider, ThemeToggle } from "@gdgjp/ui";
 export function App() {
   return (
     <ThemeProvider nonce="consumer-test">
@@ -6,6 +6,7 @@ export function App() {
         <Card>
           <h1>配布物の検証</h1>
           <ThemeToggle />
+          <Icons name="Heart" aria-label="お気に入り" />
           <FormField label="名前">
             <Input />
           </FormField>

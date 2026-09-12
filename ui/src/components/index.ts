@@ -32,6 +32,7 @@ export * from "./FormField";
 export * from "./HoverCard";
 export * from "./Heading";
 export * from "./IconButton";
+export * from "./Icons";
 export * from "./Inline";
 export * from "./Input";
 export * from "./InputGroup";
