@@ -1,0 +1,58 @@
+{
+  "name": "@gdgjp/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": ["dist"],
+  "sideEffects": ["**/*.css"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./tokens.css": "./dist/styles/tokens.css",
+    "./components.css": "./dist/styles/components.css",
+    "./tailwind.css": "./dist/styles/tailwind.css",
+    "./fonts.css": "./dist/styles/fonts.css"
+  },
+  "scripts": {
+    "dev": "storybook dev -p 6006",
+    "build": "node scripts/build.mjs",
+    "build:storybook": "storybook build -o build/storybook",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "pnpm build && pnpm test:consumer && pnpm build:storybook && playwright test",
+    "test:consumer": "node scripts/check-consumer.mjs"
+  },
+  "dependencies": {
+    "radix-ui": "^1.4.3",
+    "sonner": "^2.0.7",
+    "lucide-react": "^1.14.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.5.0",
+    "next-themes": "^0.4.6"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.1",
+    "typescript": "^5.9.2",
+    "vite": "^6.0.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.2.4",
+    "@tailwindcss/vite": "^4.2.4",
+    "storybook": "^10.0.0",
+    "@storybook/react-vite": "^10.0.0",
+    "@storybook/addon-docs": "^10.0.0",
+    "vitest": "^4.1.10",
+    "@playwright/test": "^1.49.1",
+    "@axe-core/playwright": "^4.10.2",
+    "esbuild": "^0.25.0"
+  }
+}

@@ -1,0 +1,5 @@
+@layer theme, base, gdg-tokens, gdg-base, gdg-components, utilities;
+@import "tailwindcss";
+@import "@gdgjp/ui/tailwind.css";
+@import "@gdgjp/ui/components.css";
+@source "./tailwind.tsx";

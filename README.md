@@ -123,6 +123,7 @@ because that grant has no single-column id.
 | `pay/` | `@gdgjp/pay` | pay.gdgs.jp | Event expense reimbursement. D1 + R2, Gemini receipt extraction, Google Sheets/Drive sync; OAuth client of `accounts`. |
 | `tinyurl/` | `@gdgjp/tinyurl` | url.gdgs.jp | URL shortener. D1-backed; OAuth client of `accounts`. |
 | `tinyurl-gateway/` | `@gdgjp/tinyurl-gateway` | Custom short-link domains | Vercel Edge gateway for TinyURL custom domains. It serves an optional upstream first, then resolves a short link when the upstream returns 404. |
+| `ui/` | `@gdgjp/ui` | — | Private shared React 19 design system for GDG Apps, independent of application routing, authentication, and data fetching. |
 | `website/` | `@gdgjp/website` | gdgs.jp | Public GDG Japan website. Cloudflare Worker using the TinyURL service binding. |
 | `wiki/` | `@gdgjp/wiki` | wiki.gdgs.jp | Community wiki. D1 + R2 + Queues + Browser Rendering + Workers AI + Vectorize + Durable Object (Yjs collab); OAuth client of `accounts`. |
 
