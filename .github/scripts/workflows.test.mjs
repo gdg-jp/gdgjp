@@ -25,6 +25,11 @@ test("Cloudflare pipelines invoke the package deploy script unambiguously", () =
 
 test("deploy keeps application pipelines inside a parallel step", () => {
   assert.match(deployWorkflow, / {6}- parallel:\n/);
+  const deployJob = deployWorkflow.slice(deployWorkflow.indexOf("  deploy:\n"));
+  assert.match(
+    deployJob,
+    /pnpm install --frozen-lockfile\n[\s\S]*?- name: Build shared UI dependency\n\s+run: pnpm --filter @gdgjp\/ui build\n\s+- parallel:/,
+  );
   assert.match(
     deployWorkflow,
     /pnpm --filter @gdgjp\/accounts build\n\s+pnpm --filter @gdgjp\/accounts run deploy\n\s+pnpm --filter @gdgjp\/accounts migrate:remote/,

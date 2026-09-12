@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const quickSteps = [
+  ["typecheck:node-scripts", "pnpm typecheck:node-scripts"],
   ["lint", "pnpm exec biome check . --reporter=github"],
   ["ui-conventions", "node scripts/check-ui-conventions.mjs"],
   ["typecheck", "pnpm exec turbo typecheck --output-logs=errors-only"],
@@ -32,17 +33,10 @@ const fullSteps = [
 const codeFilePattern = /\.(?:[cm]?[jt]sx?|sql)$/;
 const biomeFilePattern = /\.(?:[cm]?[jt]sx?|jsonc?|css|graphql|ya?ml)$/;
 const preCommitExcludedPathPattern = /^(?:\.agents|\.claude)\//;
+const nodeScriptInputPattern =
+  /^(?:\.codex\/hooks\/.*\.ts|cli\/internal\/wiki\/hooks\/.*\.ts|gdg-lib\/src\/acl\/|tsconfig\.node-scripts\.json)$/;
 const nodeConfigurationFilePattern =
   /(?:^|\/)(?:package\.json|tsconfig(?:\.[^/]+)?\.json|vite\.config\.[cm]?[jt]s|wrangler\.(?:toml|jsonc?)|react-router\.config\.[cm]?[jt]s)$/;
-const globalNodeInputs = new Set([
-  "package.json",
-  "pnpm-lock.yaml",
-  "pnpm-workspace.yaml",
-  "turbo.json",
-  "tsconfig.json",
-  "biome.json",
-  "biome.jsonc",
-]);
 const workspaces = new Map([
   ["accounts", "@gdgjp/accounts"],
   ["accounts-oidc-client-demo", "@gdgjp/accounts-oidc-client-demo"],
@@ -139,7 +133,6 @@ export function changedSteps(mode, files) {
   // Agent configuration is intentionally versioned but is not application code.
   // Exclude it from the changed-file CI path used by the pre-commit hook.
   const relevantFiles = files.filter((file) => !preCommitExcludedPathPattern.test(file));
-  const hasGlobalNodeInput = relevantFiles.some((file) => globalNodeInputs.has(file));
   const nodeFiles = relevantFiles.filter(isNodeFile);
   const changedWorkspaces = new Set(
     nodeFiles
@@ -147,6 +140,10 @@ export function changedSteps(mode, files) {
       .filter((workspace) => workspace !== undefined),
   );
   const steps = [];
+
+  if (relevantFiles.some((file) => nodeScriptInputPattern.test(file))) {
+    steps.push(["typecheck:node-scripts", "pnpm typecheck:node-scripts"]);
+  }
 
   if (relevantFiles.some((file) => biomeFilePattern.test(file))) {
     // Biome owns staged-file selection, including deleted and ignored files.
@@ -172,10 +169,8 @@ export function changedSteps(mode, files) {
     ]);
   }
 
-  if (nodeFiles.length > 0 || hasGlobalNodeInput) {
-    const filters = hasGlobalNodeInput
-      ? ""
-      : [...changedWorkspaces].map((workspace) => ` --filter=${workspace}`).join("");
+  if (changedWorkspaces.size > 0) {
+    const filters = [...changedWorkspaces].map((workspace) => ` --filter=${workspace}`).join("");
     steps.push(["typecheck", `pnpm exec turbo typecheck${filters} --output-logs=errors-only`]);
   }
 
@@ -207,10 +202,8 @@ export function changedSteps(mode, files) {
     ]);
   }
 
-  if (nodeFiles.length > 0 || hasGlobalNodeInput) {
-    const filters = hasGlobalNodeInput
-      ? ""
-      : [...changedWorkspaces].map((workspace) => ` --filter=${workspace}`).join("");
+  if (changedWorkspaces.size > 0) {
+    const filters = [...changedWorkspaces].map((workspace) => ` --filter=${workspace}`).join("");
     steps.push(["build", `pnpm exec turbo build${filters} --output-logs=errors-only`]);
   }
 

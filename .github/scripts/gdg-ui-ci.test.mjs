@@ -25,9 +25,50 @@ test("UI E2E edits run the suite once and unrelated apps retain related tests", 
   assert.ok(steps.some(([, command]) => command.includes("@gdgjp/tinyurl exec vitest related")));
 });
 
+test("repository script edits do not run every workspace's checks", () => {
+  const steps = changedSteps("full", [".github/scripts/workflows.test.mjs"]);
+  const commands = steps.map(([, command]) => command).join("\n");
+
+  assert.match(
+    commands,
+    /node --test --test-reporter=dot '.github\/scripts\/workflows\.test\.mjs'/,
+  );
+  assert.doesNotMatch(commands, /turbo typecheck/);
+  assert.doesNotMatch(commands, /turbo build/);
+});
+
+test("global configuration edits do not expand changed CI to every workspace", () => {
+  const commands = changedSteps("full", ["package.json"])
+    .map(([, command]) => command)
+    .join("\n");
+
+  assert.match(commands, /biome check --staged/);
+  assert.doesNotMatch(commands, /turbo typecheck/);
+  assert.doesNotMatch(commands, /turbo build/);
+});
+
+test("changed CI does not unconditionally typecheck unrelated Node scripts", () => {
+  const steps = changedSteps("full", [".github/scripts/workflows.test.mjs"]);
+  assert.ok(steps.every(([name]) => name !== "typecheck:node-scripts"));
+
+  const packageJSON = JSON.parse(
+    readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+  );
+  assert.equal(packageJSON.scripts["ci:quick"], "node scripts/run-ci.mjs quick");
+  assert.equal(packageJSON.scripts["ci:full"], "node scripts/run-ci.mjs full");
+});
+
 test("hosted CI includes the UI checks and isolates database setup", () => {
   const workflow = readFileSync(new URL("../workflows/ci.yml", import.meta.url), "utf8");
   for (const command of ["typecheck", "test", "build", "test:consumer"])
     assert.ok(workflow.includes(`@gdgjp/ui ${command}`));
+  assert.equal(
+    (
+      workflow.match(
+        /- name: Build shared UI dependency\n\s+run: pnpm --filter @gdgjp\/ui build/g,
+      ) ?? []
+    ).length,
+    4,
+  );
   assert.match(workflow, /Migrate Accounts local database\n\s+if: matrix.app != 'ui'/);
 });

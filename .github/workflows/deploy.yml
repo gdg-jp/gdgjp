@@ -134,6 +134,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Deploy targets run independently from a clean checkout. @gdgjp/ui
+      # deliberately exports its generated dist files, so create them first.
+      - name: Build shared UI dependency
+        run: pnpm --filter @gdgjp/ui build
       - parallel:
           - name: Build, deploy, and migrate accounts
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'accounts')

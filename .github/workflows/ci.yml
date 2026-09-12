@@ -173,6 +173,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Application typechecks run in isolated clean jobs. Build the workspace
+      # package that their package.json exports point at before Vite resolves it.
+      - name: Build shared UI dependency
+        run: pnpm --filter @gdgjp/ui build
       - parallel:
           - name: Typecheck GDG UI
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/ui')
@@ -240,6 +244,9 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Vitest also resolves the package's generated export entrypoints.
+      - name: Build shared UI dependency
+        run: pnpm --filter @gdgjp/ui build
       - parallel:
           - name: Test accounts
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/accounts')
@@ -305,10 +312,14 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Each parallel app build has its own clean filesystem, so it cannot use
+      # the UI build produced by the separate "Build GDG UI" entry below.
+      - name: Build shared UI dependency
+        run: pnpm --filter @gdgjp/ui build
       - parallel:
           - name: Build GDG UI
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/ui')
-            run: pnpm --filter @gdgjp/ui build && pnpm --filter @gdgjp/ui test:consumer
+            run: pnpm --filter @gdgjp/ui test:consumer
           - name: Build accounts
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/accounts')
             run: pnpm --filter @gdgjp/accounts build
@@ -386,6 +397,9 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Playwright's web servers import @gdgjp/ui through its dist-only exports.
+      - name: Build shared UI dependency
+        run: pnpm --filter @gdgjp/ui build
       - name: Create accounts dev vars
         if: matrix.app != 'ui'
         run: |

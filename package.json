@@ -19,8 +19,8 @@
     "test": "node --test .github/scripts/*.test.mjs && turbo test",
     "test:e2e": "turbo test:e2e --concurrency=1",
     "ci:go": "node scripts/run-ci.mjs go",
-    "ci:quick": "pnpm typecheck:node-scripts && node scripts/run-ci.mjs quick",
-    "ci:full": "pnpm typecheck:node-scripts && node scripts/run-ci.mjs full",
+    "ci:quick": "node scripts/run-ci.mjs quick",
+    "ci:full": "node scripts/run-ci.mjs full",
     "prepare": "node scripts/install-git-hooks.mjs"
   },
   "devDependencies": {
