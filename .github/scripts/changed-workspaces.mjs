@@ -3,7 +3,7 @@ import { appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const CI_WORKSPACES = [
-  { directory: "gdg-ui-library", workspace: "@gdgjp/gdg-ui-library", build: true, e2e: true },
+  { directory: "ui", workspace: "@gdgjp/ui", build: true, e2e: true },
   { directory: "accounts", workspace: "@gdgjp/accounts", build: true, e2e: true },
   { directory: "tinyurl", workspace: "@gdgjp/tinyurl", build: true, e2e: true },
   { directory: "wiki", workspace: "@gdgjp/wiki", build: true, e2e: false },

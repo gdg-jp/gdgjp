@@ -23,7 +23,7 @@ const fullSteps = [
   ...quickSteps,
   [
     "e2e",
-    "pnpm exec turbo test:e2e --filter=@gdgjp/accounts --filter=@gdgjp/tinyurl --filter=@gdgjp/img --filter=@gdgjp/scheduler --filter=@gdgjp/gdg-ui-library --concurrency=1 --output-logs=errors-only -- --reporter=dot",
+    "pnpm exec turbo test:e2e --filter=@gdgjp/accounts --filter=@gdgjp/tinyurl --filter=@gdgjp/img --filter=@gdgjp/scheduler --filter=@gdgjp/ui --concurrency=1 --output-logs=errors-only -- --reporter=dot",
   ],
 ];
 
@@ -45,7 +45,7 @@ const workspaces = new Map([
   ["accounts", "@gdgjp/accounts"],
   ["accounts-oidc-client-demo", "@gdgjp/accounts-oidc-client-demo"],
   ["gdg-lib", "@gdgjp/gdg-lib"],
-  ["gdg-ui-library", "@gdgjp/gdg-ui-library"],
+  ["ui", "@gdgjp/ui"],
   ["go-extension", "@gdgjp/go-extension"],
   ["img", "@gdgjp/img"],
   ["ost", "@gdgjp/ost"],
@@ -98,7 +98,7 @@ function isNodeFile(file) {
     !file.startsWith("cli/") &&
     (codeFilePattern.test(file) ||
       nodeConfigurationFilePattern.test(file) ||
-      (file.startsWith("gdg-ui-library/") && /\.(?:css|mdx|woff2)$/.test(file)))
+      (file.startsWith("ui/") && /\.(?:css|mdx|woff2)$/.test(file)))
   );
 }
 
@@ -167,8 +167,8 @@ export function changedSteps(mode, files) {
     (file) => isNodeFile(file) && !file.includes("/e2e/"),
   );
   for (const [workspace, workspaceNodeFiles] of unitTestsByWorkspace) {
-    if (workspace === "@gdgjp/gdg-ui-library") {
-      steps.push(["test:gdg-ui-library", "pnpm --filter @gdgjp/gdg-ui-library test"]);
+    if (workspace === "@gdgjp/ui") {
+      steps.push(["test:ui", "pnpm --filter @gdgjp/ui test"]);
       continue;
     }
     // `related` receives staged source paths and uses Vitest's import graph to
@@ -188,14 +188,14 @@ export function changedSteps(mode, files) {
   }
 
   if (mode === "full") {
-    if (changedWorkspaces.has("@gdgjp/gdg-ui-library")) {
-      steps.push(["e2e:gdg-ui-library", "pnpm --filter @gdgjp/gdg-ui-library test:e2e"]);
+    if (changedWorkspaces.has("@gdgjp/ui")) {
+      steps.push(["e2e:ui", "pnpm --filter @gdgjp/ui test:e2e"]);
     }
     const e2eTestsByWorkspace = workspaceFiles(relevantFiles, (file) =>
       /(?:^|\/)(?:e2e|tests\/e2e)\/.*\.(?:spec|test)\.[cm]?[jt]sx?$/.test(file),
     );
     for (const [workspace, e2eFiles] of e2eTestsByWorkspace) {
-      if (workspace === "@gdgjp/gdg-ui-library") continue;
+      if (workspace === "@gdgjp/ui") continue;
       steps.push([
         `e2e:${workspace}`,
         `pnpm --filter ${workspace} exec playwright test --reporter=dot ${e2eFiles.map(shellQuote).join(" ")}`,

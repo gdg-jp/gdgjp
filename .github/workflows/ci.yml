@@ -31,6 +31,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: true
       - name: Detect affected workspaces
         id: changes
         env:
@@ -47,6 +48,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: true
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -76,6 +78,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -99,6 +103,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -117,6 +123,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -154,6 +162,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -161,9 +171,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - parallel:
-          - name: Typecheck GDG UI library
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/gdg-ui-library')
-            run: pnpm --filter @gdgjp/gdg-ui-library typecheck
+          - name: Typecheck GDG UI
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/ui')
+            run: pnpm --filter @gdgjp/ui typecheck
           - name: Typecheck accounts
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/accounts')
             run: |
@@ -219,6 +229,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -256,9 +268,9 @@ jobs:
           - name: Test website
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website test
-          - name: Test GDG UI library
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/gdg-ui-library')
-            run: pnpm --filter @gdgjp/gdg-ui-library test
+          - name: Test GDG UI
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/ui')
+            run: pnpm --filter @gdgjp/ui test
           - name: Test gdg-lib
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/gdg-lib')
             run: pnpm --filter @gdgjp/gdg-lib test
@@ -282,6 +294,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -289,9 +303,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - parallel:
-          - name: Build GDG UI library
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/gdg-ui-library')
-            run: pnpm --filter @gdgjp/gdg-ui-library build && pnpm --filter @gdgjp/gdg-ui-library test:consumer
+          - name: Build GDG UI
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/ui')
+            run: pnpm --filter @gdgjp/ui build && pnpm --filter @gdgjp/ui test:consumer
           - name: Build accounts
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/accounts')
             run: pnpm --filter @gdgjp/accounts build
@@ -361,6 +375,8 @@ jobs:
         app: ${{ fromJSON(needs.changes.outputs.e2e) }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -368,7 +384,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Create accounts dev vars
-        if: matrix.app != 'gdg-ui-library'
+        if: matrix.app != 'ui'
         run: |
           cat > accounts/.dev.vars <<EOF
           BETTER_AUTH_SECRET=ci-better-auth-secret-for-e2e-tests
@@ -429,7 +445,7 @@ jobs:
           ENVIRONMENT=development
           EOF
       - name: Migrate Accounts local database
-        if: matrix.app != 'gdg-ui-library'
+        if: matrix.app != 'ui'
         run: pnpm --filter @gdgjp/accounts migrate:local
       - name: Migrate img local database
         if: matrix.app == 'img'

@@ -151,9 +151,9 @@ test("detects agent-host/workspace changes with agentHostWorkspace predicate", (
 });
 
 test("GDG UI changes run library checks without deploying or migrating apps", () => {
-  const result = classifyChanges(["gdg-ui-library/src/styles/tokens.css"]);
-  assert.deepEqual(result.ci, ["@gdgjp/gdg-ui-library"]);
-  assert.deepEqual(result.build, ["@gdgjp/gdg-ui-library"]);
-  assert.deepEqual(result.e2e, ["gdg-ui-library"]);
+  const result = classifyChanges(["ui/src/styles/tokens.css"]);
+  assert.deepEqual(result.ci, ["@gdgjp/ui"]);
+  assert.deepEqual(result.build, ["@gdgjp/ui"]);
+  assert.deepEqual(result.e2e, ["ui"]);
   assert.deepEqual(result.deploy, []);
 });
