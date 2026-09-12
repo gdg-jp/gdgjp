@@ -12,7 +12,7 @@ Read only the families you need. The source of truth for public contracts is `ui
 
 ## Layout and display
 
-[Stack](stack.md) · [Inline](inline.md) · [Card](card.md) · [Separator](separator.md) · [Heading](heading.md) · [Text](text.md) · [Typography](typography.md) · [Badge](badge.md) · [Avatar](avatar.md) · [AspectRatio](aspect-ratio.md) · [Attachment](attachment.md) · [Bubble](bubble.md) · [Item](item.md) · [Kbd](kbd.md) · [Marker](marker.md) · [Message](message.md) · [MessageScroller](message-scroller.md) · [Chart](chart.md) · [Carousel](carousel.md)
+[Stack](stack.md) · [Inline](inline.md) · [Card](card.md) · [Separator](separator.md) · [Heading](heading.md) · [Text](text.md) · [Typography](typography.md) · [Badge](badge.md) · [Avatar](avatar.md) · [AspectRatio](aspect-ratio.md) · [Attachment](attachment.md) · [Bubble](bubble.md) · [Item](item.md) · [Kbd](kbd.md) · [Marker](marker.md) · [Icons](icons.md) · [Message](message.md) · [MessageScroller](message-scroller.md) · [Chart](chart.md) · [Carousel](carousel.md)
 
 ## Data and state
 

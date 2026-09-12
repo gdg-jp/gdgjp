@@ -1,6 +1,6 @@
 ---
 name: gdg-ui
-description: Implement and refactor GDG Apps React Router screens according to @gdgjp/ui. Use for app-side layouts, forms, navigation, state displays, and responsive behavior; do not use for maintaining the shared ui/ library itself.
+description: Implement and refactor GDG Apps React Router screens according to @gdgjp/ui. Use for app-side layouts, forms, icons, navigation, state displays, and responsive behavior; do not use for maintaining the shared ui/ library itself.
 ---
 
 # GDG Apps UI implementation
