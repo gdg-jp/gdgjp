@@ -1,5 +1,5 @@
 import { Menu } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Button } from "../Button";
 import { IconButton } from "../IconButton";
@@ -11,6 +11,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "../Sheet";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarProvider,
+} from "../Sidebar";
 export function AppShell({
   navigation,
   header,
@@ -18,18 +27,40 @@ export function AppShell({
   brand,
   navigationLabel = "ナビゲーション",
 }) {
-  const [open, setOpen] = useState(false);
-  return _jsxs("div", {
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => typeof window === "undefined" || window.innerWidth >= 768,
+  );
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)");
+    const syncSidebar = () => setSidebarOpen(media.matches);
+    syncSidebar();
+    media.addEventListener("change", syncSidebar);
+    return () => media.removeEventListener("change", syncSidebar);
+  }, []);
+  return _jsxs(SidebarProvider, {
     className: "gdg-shell",
+    open: sidebarOpen,
+    onOpenChange: setSidebarOpen,
     children: [
       _jsx("a", {
         className: "gdg-skip-link",
         href: "#gdg-main",
         children: "\u672C\u6587\u3078\u79FB\u52D5",
       }),
-      _jsxs("aside", {
-        className: "gdg-sidebar",
-        children: [_jsx("div", { className: "gdg-brand", children: brand }), navigation],
+      _jsxs(Sidebar, {
+        "aria-label": navigationLabel,
+        collapsible: "offcanvas",
+        children: [
+          _jsx(SidebarHeader, {
+            children: _jsx("div", { className: "gdg-sidebar-title", children: brand }),
+          }),
+          _jsx(SidebarContent, {
+            children: _jsx(SidebarGroup, {
+              children: _jsx(SidebarGroupContent, { children: navigation }),
+            }),
+          }),
+        ],
       }),
       _jsxs("div", {
         className: "gdg-shell-body",
@@ -40,8 +71,8 @@ export function AppShell({
               _jsx("div", {
                 className: "gdg-mobile-only",
                 children: _jsxs(Sheet, {
-                  open: open,
-                  onOpenChange: setOpen,
+                  open: mobileNavOpen,
+                  onOpenChange: setMobileNavOpen,
                   children: [
                     _jsx(SheetTrigger, {
                       asChild: true,
@@ -60,10 +91,10 @@ export function AppShell({
                         }),
                         _jsx("div", {
                           onClick: (e) => {
-                            if (e.target.closest("a")) setOpen(false);
+                            if (e.target.closest("a")) setMobileNavOpen(false);
                           },
                           onKeyDown: (e) => {
-                            if (e.key === "Enter" && e.target.closest("a")) setOpen(false);
+                            if (e.key === "Enter" && e.target.closest("a")) setMobileNavOpen(false);
                           },
                           children: navigation,
                         }),
@@ -82,7 +113,12 @@ export function AppShell({
               header,
             ],
           }),
-          _jsx("main", { id: "gdg-main", tabIndex: -1, className: "gdg-main", children: children }),
+          _jsx(SidebarInset, {
+            id: "gdg-main",
+            tabIndex: -1,
+            className: "gdg-main",
+            children: children,
+          }),
         ],
       }),
     ],

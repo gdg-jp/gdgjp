@@ -7,8 +7,17 @@ export const AlertDialog = RA.Root;
 export const AlertDialogTrigger = RA.Trigger;
 export const AlertDialogAction = RA.Action;
 export const AlertDialogCancel = RA.Cancel;
-export const AlertDialogTitle = RA.Title;
-export const AlertDialogDescription = RA.Description;
+
+export function AlertDialogTitle({ className, ...props }: ComponentProps<typeof RA.Title>) {
+  return <RA.Title {...props} className={cn("gdg-heading", className)} />;
+}
+
+export function AlertDialogDescription({
+  className,
+  ...props
+}: ComponentProps<typeof RA.Description>) {
+  return <RA.Description {...props} className={cn("gdg-text gdg-muted", className)} />;
+}
 
 export function AlertDialogContent({
   ref,

@@ -250,6 +250,12 @@ test("sample editing, empty state, toast and confirmation", async ({ page }) => 
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await expect(page.getByText("保存しました")).toBeVisible();
   await page.getByRole("button", { name: "イベントを削除", exact: true }).click();
+  const alertDialogTitle = page.getByRole("heading", { name: "イベントを削除しますか？" });
+  await expect(alertDialogTitle).toHaveClass(/gdg-heading/);
+  await expect(alertDialogTitle).toHaveCSS("margin", "0px");
+  await expect(page.getByText("このサンプル一覧からイベントを取り除きます。")).toHaveClass(
+    /gdg-text gdg-muted/,
+  );
   await page.getByRole("button", { name: "削除する", exact: true }).click();
   await expect(page.getByRole("heading", { name: "イベントがありません" })).toBeVisible();
 });

@@ -37,7 +37,6 @@ export const Default = {
             _jsxs("div", {
               className: "gdg-inline",
               children: [
-                _jsx(Button, { children: "\u4FDD\u5B58" }),
                 _jsx(DialogClose, {
                   asChild: true,
                   children: _jsx(Button, {
@@ -45,6 +44,7 @@ export const Default = {
                     children: "\u30AD\u30E3\u30F3\u30BB\u30EB",
                   }),
                 }),
+                _jsx(Button, { children: "\u4FDD\u5B58" }),
               ],
             }),
           ],

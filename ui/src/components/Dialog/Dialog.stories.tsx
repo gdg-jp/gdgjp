@@ -28,10 +28,10 @@ export const Default: Story = {
         <DialogDescription>参加者に伝わる名前を設定してください。</DialogDescription>
         <input className="gdg-input" aria-label="イベント名" defaultValue="GDG Apps Meetup" />
         <div className="gdg-inline">
-          <Button>保存</Button>
           <DialogClose asChild>
             <Button variant="outline">キャンセル</Button>
           </DialogClose>
+          <Button>保存</Button>
         </div>
       </DialogContent>
     </Dialog>
