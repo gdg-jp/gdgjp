@@ -2,8 +2,82 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import * as UI from "./index";
+import type { IconBaseName, IconName } from "./index";
+
+const wikiIconNames = [
+  "AlertCircle",
+  "AlertTriangle",
+  "Archive",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUpRight",
+  "Bell",
+  "BellDot",
+  "BellOff",
+  "CalendarDays",
+  "ChartPie",
+  "Check",
+  "CheckCircle2",
+  "ChevronDown",
+  "ChevronLeft",
+  "ChevronRight",
+  "Clipboard",
+  "Clock",
+  "Copy",
+  "ExternalLink",
+  "FileInput",
+  "FileQuestion",
+  "FileText",
+  "Folder",
+  "FolderOpen",
+  "Globe",
+  "Globe2",
+  "Hash",
+  "History",
+  "Home",
+  "LayoutList",
+  "Link",
+  "Link2",
+  "List",
+  "ListChecks",
+  "ListFilter",
+  "ListTodo",
+  "Loader2",
+  "LoaderCircle",
+  "LockKeyhole",
+  "MessageSquare",
+  "Moon",
+  "MoreHorizontal",
+  "MoveHorizontal",
+  "PanelLeft",
+  "PanelLeftClose",
+  "Pencil",
+  "Plus",
+  "RefreshCw",
+  "RotateCcw",
+  "Send",
+  "ServerCrash",
+  "Settings",
+  "Share2",
+  "Smile",
+  "Star",
+  "Sun",
+  "Tag",
+  "Trash2",
+  "Type",
+  "Upload",
+  "UserRound",
+  "UsersRound",
+  "X",
+] satisfies readonly IconBaseName[];
 
 describe("public contracts", () => {
+  it("exports the Wiki icon catalog types from the package root", () => {
+    const suffixed: IconName = "StarIcon";
+    expect(wikiIconNames).toHaveLength(64);
+    expect(suffixed).toBe("StarIcon");
+  });
+
   it("exports every planned primary component", () => {
     const planned = `
       Button IconButton Link Text Heading Stack Inline Card Separator Badge Avatar Input Textarea

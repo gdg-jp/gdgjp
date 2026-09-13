@@ -17,6 +17,14 @@ export type DatePickerProps = Omit<
   calendarProps?: Omit<CalendarProps, "mode" | "selected" | "onSelect">;
 };
 
+function hasOwn(object: object, key: PropertyKey) {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1, 12);
+}
+
 function sameDay(a: Date | undefined, b: Date | undefined) {
   return (
     !!a &&
@@ -125,23 +133,25 @@ function isDateUnavailable(date: Date, calendarProps: DatePickerProps["calendarP
   );
 }
 
-export function DatePicker({
-  value,
-  defaultValue,
-  onChange,
-  placeholder = "日付を選択",
-  locale = "ja-JP",
-  disabled,
-  calendarProps,
-  className,
-  onBlur,
-  onClick,
-  onMouseDown,
-  onKeyDown,
-  ...inputProps
-}: DatePickerProps) {
+export function DatePicker(props: DatePickerProps) {
+  const valueIsControlled = hasOwn(props, "value");
+  const {
+    value,
+    defaultValue,
+    onChange,
+    placeholder = "日付を選択",
+    locale = "ja-JP",
+    disabled,
+    calendarProps,
+    className,
+    onBlur,
+    onClick,
+    onMouseDown,
+    onKeyDown,
+    ...inputProps
+  } = props;
   const [internalValue, setInternalValue] = useState<Date | undefined>(defaultValue);
-  const selected = value !== undefined ? value : internalValue;
+  const selected = valueIsControlled ? value : internalValue;
   const selectedInputValue = selected && isValidDate(selected) ? formatDateInput(selected) : "";
   const initialInputValue = selectedInputValue;
   const [inputValue, setInputValue] = useState(initialInputValue);
@@ -150,12 +160,27 @@ export function DatePicker({
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [pendingSelection, setPendingSelection] = useState<number | null>(null);
+  const calendarMonthIsControlled = calendarProps?.month !== undefined;
+  const initialCalendarMonth =
+    selected && isValidDate(selected) ? selected : (calendarProps?.defaultMonth ?? new Date());
+  const [internalMonth, setInternalMonth] = useState(() => startOfMonth(initialCalendarMonth));
+  const previousCommittedValue = useRef(selectedInputValue);
 
   useEffect(() => {
     setInputValue(selectedInputValue);
     setInputState(dateInputStateFromValue(selectedInputValue));
     setInputInvalid(false);
+    setPendingSelection(null);
   }, [selectedInputValue]);
+
+  useEffect(() => {
+    if (previousCommittedValue.current !== selectedInputValue) {
+      if (!calendarMonthIsControlled && selected && isValidDate(selected)) {
+        setInternalMonth(startOfMonth(selected));
+      }
+      previousCommittedValue.current = selectedInputValue;
+    }
+  }, [calendarMonthIsControlled, selected, selectedInputValue]);
 
   useEffect(() => {
     if (pendingSelection === null) return;
@@ -163,12 +188,21 @@ export function DatePicker({
     setPendingSelection(null);
   }, [pendingSelection]);
 
-  const applyDate = (next: Date | undefined) => {
-    if (value === undefined) setInternalValue(next);
-    const nextValue = next ? formatDateInput(next) : "";
+  const syncInput = (nextValue: string) => {
     setInputValue(nextValue);
     setInputState(dateInputStateFromValue(nextValue));
     setInputInvalid(false);
+  };
+
+  const applyDate = (next: Date | undefined) => {
+    if (!valueIsControlled) {
+      setInternalValue(next);
+      syncInput(next ? formatDateInput(next) : "");
+    } else {
+      // A controlled value is not committed until the consumer accepts onChange.
+      // Keep an unapproved calendar or input selection out of the committed display.
+      syncInput(selectedInputValue);
+    }
     if (!sameDay(selected, next)) onChange?.(next);
   };
 
@@ -186,6 +220,14 @@ export function DatePicker({
     applyDate(next);
     return true;
   };
+
+  const handleMonthChange = (next: Date) => {
+    if (!calendarMonthIsControlled) setInternalMonth(startOfMonth(next));
+    calendarProps?.onMonthChange?.(next);
+  };
+
+  const committedInputValue = selected && isValidDate(selected) ? formatDateInput(selected) : "";
+  const calendarMonth = calendarMonthIsControlled ? calendarProps?.month : internalMonth;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -257,13 +299,7 @@ export function DatePicker({
                 if (commitInput()) setOpen(false);
               } else if (event.key === "Escape") {
                 event.preventDefault();
-                setInputValue(selected && isValidDate(selected) ? formatDateInput(selected) : "");
-                setInputState(
-                  dateInputStateFromValue(
-                    selected && isValidDate(selected) ? formatDateInput(selected) : "",
-                  ),
-                );
-                setInputInvalid(false);
+                syncInput(committedInputValue);
                 setOpen(false);
               } else if (event.key === "/") {
                 event.preventDefault();
@@ -281,8 +317,10 @@ export function DatePicker({
         <Calendar
           {...calendarProps}
           mode="single"
+          month={calendarMonth}
           selected={selected}
           locale={calendarProps?.locale ?? locale}
+          onMonthChange={handleMonthChange}
           onSelect={(next) => {
             if (!(next instanceof Date)) return;
             applyDate(next);

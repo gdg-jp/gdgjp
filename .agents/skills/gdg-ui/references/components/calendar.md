@@ -2,7 +2,7 @@
 
 ## Use case
 
-Use for date or date-range selection. Use selected/defaultSelected and onSelect according to `mode`, and configure locale, disabled dates, and month navigation for the app's requirements. Preserve button labels and keyboard navigation.
+Use for date or date-range selection. Use selected/defaultSelected and onSelect according to `mode`, and configure locale, disabled dates, and month navigation for the app's requirements. Preserve button labels and keyboard navigation. The `selected` prop is controlled by key presence: omit it for uncontrolled `defaultSelected`, and pass `selected={undefined}` for a controlled empty selection.
 
 Avoid: using it for a single date-string input; choose DatePicker instead. Handle date-time and timezone processing in the app domain.
 

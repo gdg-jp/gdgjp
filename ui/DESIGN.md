@@ -367,12 +367,21 @@ copyable; disabled controls are not interactive. `InputGroup` creates one shared
 and `InputOTP` keeps its active slot distinct with the focus token. `Calendar` and `DatePicker`
 use the same surface and control geometry; the date text input accepts sequential digits, inserts
 year/month separators, and formats the value as `YYYY/MM/DD` without requiring `/` keystrokes.
+Their controlledness is determined by prop presence: omitted `value`/`selected` uses the
+uncontrolled default, while `value={undefined}`/`selected={undefined}` is an explicit empty
+controlled value. DatePicker keeps its calendar month local when `calendarProps.month` is not
+controlled, follows a valid external replacement, and preserves the last month on clear.
 
 Choose selection controls by meaning: `RadioGroup` for one choice from a small set, `Select` for
 one choice from a larger set, `Switch` for an immediate binary setting, and `Checkbox` for consent
 or form selection. Give the group an accessible name and each item a visible or programmatic label.
 Use `Combobox` and `Command` for searchable choice or command entry, but keep their initial use
-lightweight and Radix-based.
+lightweight and Radix-based. `Combobox` owns the shared listbox identity, input focus,
+`aria-activedescendant`, and keyboard state machine; consumers own remote fetching, debouncing,
+ACL, and multiple-selection chips. `shouldFilter={false}` leaves remote results untouched and
+`closeOnSelect={false}` keeps the input open for continuation. Omitted `query`/`activeValue`/`value`
+props are uncontrolled; `query=""` and `activeValue={null}`/`value={null}` are explicit controlled
+empty values. Arrow navigation stops at the ends, and Enter ignores removed or disabled options.
 
 ### Surfaces and data
 
@@ -407,11 +416,14 @@ collapse to an icon rail; use `offcanvas` when it should leave the layout entire
 `Alert` is persistent inline feedback with a semantic tone. `Toast` is reserved for a short-lived
 result of an action; errors that require resolution must also appear on the relevant field or in an
 alert. `Skeleton` is a restrained visual placeholder and is not, by itself, a loading announcement;
-use a labelled `Spinner`, a parent `aria-busy`, or an accompanying message. `Icons` wraps
-`lucide-animated` so consumers import only from `@gdgjp/ui`. Its default
-`animateOnHover` behavior runs the selected icon's animation on hover; `animateOnHover={false}`
-disables it, and `prefers-reduced-motion` disables this decorative hover animation. `Toaster` keeps
-Sonner's positioning, stacking, dismissal, and action behavior while applying the library's theme tokens.
+use a labelled `Spinner`, a parent `aria-busy`, or an accompanying message. `Icons` wraps both the
+animated catalog and an explicit static Lucide registry so consumers import only from `@gdgjp/ui`.
+`IconName` and `IconBaseName` are public type exports. Both sources share the outer `gdg-icons`
+wrapper, accessible-name ownership, size/style/stroke-width forwarding, and
+`startAnimation()`/`stopAnimation()` ref shape; static handles are no-ops and static hover never
+switches the source. Its default `animateOnHover` behavior runs animated icons on precise-pointer
+hover; `prefers-reduced-motion` disables that decorative animation. `Toaster` keeps Sonner's
+positioning, stacking, dismissal, and action behavior while applying the library's theme tokens.
 
 ### Accessibility and motion contract
 

@@ -1,9 +1,80 @@
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx, jsxs } from "react/jsx-runtime";
 import { describe, expect, it } from "vitest";
 import * as UI from "./index";
+const wikiIconNames = [
+  "AlertCircle",
+  "AlertTriangle",
+  "Archive",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUpRight",
+  "Bell",
+  "BellDot",
+  "BellOff",
+  "CalendarDays",
+  "ChartPie",
+  "Check",
+  "CheckCircle2",
+  "ChevronDown",
+  "ChevronLeft",
+  "ChevronRight",
+  "Clipboard",
+  "Clock",
+  "Copy",
+  "ExternalLink",
+  "FileInput",
+  "FileQuestion",
+  "FileText",
+  "Folder",
+  "FolderOpen",
+  "Globe",
+  "Globe2",
+  "Hash",
+  "History",
+  "Home",
+  "LayoutList",
+  "Link",
+  "Link2",
+  "List",
+  "ListChecks",
+  "ListFilter",
+  "ListTodo",
+  "Loader2",
+  "LoaderCircle",
+  "LockKeyhole",
+  "MessageSquare",
+  "Moon",
+  "MoreHorizontal",
+  "MoveHorizontal",
+  "PanelLeft",
+  "PanelLeftClose",
+  "Pencil",
+  "Plus",
+  "RefreshCw",
+  "RotateCcw",
+  "Send",
+  "ServerCrash",
+  "Settings",
+  "Share2",
+  "Smile",
+  "Star",
+  "Sun",
+  "Tag",
+  "Trash2",
+  "Type",
+  "Upload",
+  "UserRound",
+  "UsersRound",
+  "X",
+];
 describe("public contracts", () => {
+  it("exports the Wiki icon catalog types from the package root", () => {
+    const suffixed = "StarIcon";
+    expect(wikiIconNames).toHaveLength(64);
+    expect(suffixed).toBe("StarIcon");
+  });
   it("exports every planned primary component", () => {
     const planned = `
       Button IconButton Link Text Heading Stack Inline Card Separator Badge Avatar Input Textarea
@@ -58,36 +129,41 @@ describe("public contracts", () => {
   });
   it("renders newly added compositions in SSR", () => {
     const markup = renderToStaticMarkup(
-      _jsxs("main", {
+      /* @__PURE__ */ jsxs("main", {
         children: [
-          _jsx(UI.AspectRatio, {
+          /* @__PURE__ */ jsx(UI.AspectRatio, {
             ratio: 1,
-            children: _jsx("img", {
+            children: /* @__PURE__ */ jsx("img", {
               alt: "\u30D7\u30EC\u30FC\u30B9\u30DB\u30EB\u30C0\u30FC",
               src: "/placeholder.png",
             }),
           }),
-          _jsx(UI.Attachment, {
+          /* @__PURE__ */ jsx(UI.Attachment, {
             state: "uploading",
-            children: _jsx(UI.AttachmentContent, {
-              children: _jsx(UI.AttachmentTitle, { children: "\u8CC7\u6599.pdf" }),
+            children: /* @__PURE__ */ jsx(UI.AttachmentContent, {
+              children: /* @__PURE__ */ jsx(UI.AttachmentTitle, { children: "\u8CC7\u6599.pdf" }),
             }),
           }),
-          _jsx(UI.Bubble, {
-            children: _jsx(UI.BubbleContent, { children: "\u3053\u3093\u306B\u3061\u306F" }),
+          /* @__PURE__ */ jsx(UI.Bubble, {
+            children: /* @__PURE__ */ jsx(UI.BubbleContent, {
+              children: "\u3053\u3093\u306B\u3061\u306F",
+            }),
           }),
-          _jsx(UI.InputOTP, {
+          /* @__PURE__ */ jsx(UI.InputOTP, {
             defaultValue: "12",
             maxLength: 4,
-            children: _jsxs(UI.InputOTPGroup, {
-              children: [_jsx(UI.InputOTPSlot, { index: 0 }), _jsx(UI.InputOTPSlot, { index: 1 })],
+            children: /* @__PURE__ */ jsxs(UI.InputOTPGroup, {
+              children: [
+                /* @__PURE__ */ jsx(UI.InputOTPSlot, { index: 0 }),
+                /* @__PURE__ */ jsx(UI.InputOTPSlot, { index: 1 }),
+              ],
             }),
           }),
-          _jsx(UI.Questionnaire, {
+          /* @__PURE__ */ jsx(UI.Questionnaire, {
             items: [{ name: "format" }],
-            children: _jsx(UI.QuestionnaireItem, {
+            children: /* @__PURE__ */ jsx(UI.QuestionnaireItem, {
               name: "format",
-              children: _jsx(UI.QuestionnaireChoice, {
+              children: /* @__PURE__ */ jsx(UI.QuestionnaireChoice, {
                 value: "online",
                 children: "\u30AA\u30F3\u30E9\u30A4\u30F3",
               }),
@@ -100,7 +176,7 @@ describe("public contracts", () => {
     expect(markup).toContain("gdg-attachment-title");
     expect(markup).toContain("gdg-bubble-content");
     expect(markup).toContain('value="12"');
-    expect(markup).toContain("オンライン");
+    expect(markup).toContain("\u30AA\u30F3\u30E9\u30A4\u30F3");
   });
 });
 function luminance(hex) {

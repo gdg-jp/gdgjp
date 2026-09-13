@@ -45,3 +45,8 @@ test("selected calendar days use the primary button hover color", async ({ page 
     expect(contrastRatio).toBeGreaterThanOrEqual(3);
   }
 });
+
+test("Calendar controlled empty selection does not revive defaultSelected", async ({ page }) => {
+  await page.goto(story("components-calendar--controlled-empty", "light"));
+  await expect(page.locator('.gdg-calendar-day[aria-pressed="true"]')).toHaveCount(0);
+});

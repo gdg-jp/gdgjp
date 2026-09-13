@@ -1,8 +1,8 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx, jsxs } from "react/jsx-runtime";
 import { cn } from "../../utils";
-const weekdayLabels = ["日", "月", "火", "水", "木", "金", "土"];
+const weekdayLabels = ["\u65E5", "\u6708", "\u706B", "\u6C34", "\u6728", "\u91D1", "\u571F"];
 function startOfMonth(date) {
   return new Date(date.getFullYear(), date.getMonth(), 1, 12);
 }
@@ -10,7 +10,9 @@ function sameDay(a, b) {
   return !!a && !!b && a.toDateString() === b.toDateString();
 }
 function dateKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
 }
 function selectionMonth(selection) {
   if (selection instanceof Date) return selection;
@@ -26,28 +28,36 @@ function compareDays(a, b) {
     new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime()
   );
 }
-export function Calendar({
-  mode = "single",
-  month,
-  defaultMonth,
-  selected,
-  defaultSelected,
-  onMonthChange,
-  onSelect,
-  disabled,
-  minDate,
-  maxDate,
-  showOutsideDays = true,
-  locale = "ja-JP",
-  weekStartsOn = 0,
-  className,
-  ...props
-}) {
-  const initialMonth = selectionMonth(selected ?? defaultSelected) ?? defaultMonth ?? new Date();
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+function Calendar(props) {
+  const selectedIsControlled = hasOwn(props, "selected");
+  const {
+    mode = "single",
+    month,
+    defaultMonth,
+    selected,
+    defaultSelected,
+    onMonthChange,
+    onSelect,
+    disabled,
+    minDate,
+    maxDate,
+    showOutsideDays = true,
+    locale = "ja-JP",
+    weekStartsOn = 0,
+    className,
+    ...rest
+  } = props;
+  const initialMonth =
+    selectionMonth(selectedIsControlled ? selected : defaultSelected) ??
+    defaultMonth ??
+    /* @__PURE__ */ new Date();
   const [internalMonth, setInternalMonth] = useState(() => startOfMonth(initialMonth));
   const [internalSelected, setInternalSelected] = useState(defaultSelected);
   const displayedMonth = startOfMonth(month ?? internalMonth);
-  const currentSelection = selected !== undefined ? selected : internalSelected;
+  const currentSelection = selectedIsControlled ? selected : internalSelected;
   const firstWeekday = displayedMonth.getDay();
   const offset = (firstWeekday - weekStartsOn + 7) % 7;
   const daysInMonth = new Date(
@@ -66,14 +76,14 @@ export function Calendar({
   }, [displayedMonth, offset, rowCount]);
   const changeMonth = (delta) => {
     const next = new Date(displayedMonth.getFullYear(), displayedMonth.getMonth() + delta, 1, 12);
-    if (month === undefined) setInternalMonth(next);
+    if (month === void 0) setInternalMonth(next);
     onMonthChange?.(next);
   };
   const isDisabled = (date) =>
     (typeof disabled === "function" && disabled(date)) ||
     (Array.isArray(disabled) && disabled.some((item) => sameDay(item, date))) ||
-    (minDate !== undefined && compareDays(date, minDate) < 0) ||
-    (maxDate !== undefined && compareDays(date, maxDate) > 0);
+    (minDate !== void 0 && compareDays(date, minDate) < 0) ||
+    (maxDate !== void 0 && compareDays(date, maxDate) > 0);
   const isSelected = (date) => {
     if (currentSelection instanceof Date) return sameDay(currentSelection, date);
     if (Array.isArray(currentSelection))
@@ -109,7 +119,7 @@ export function Calendar({
     } else {
       next = date;
     }
-    if (selected === undefined) setInternalSelected(next);
+    if (!selectedIsControlled) setInternalSelected(next);
     onSelect?.(next);
   };
   const focusDate = (date) => {
@@ -118,7 +128,7 @@ export function Calendar({
       date.getFullYear() !== displayedMonth.getFullYear()
     ) {
       const next = startOfMonth(date);
-      if (month === undefined) setInternalMonth(next);
+      if (month === void 0) setInternalMonth(next);
       onMonthChange?.(next);
     }
     window.requestAnimationFrame(() =>
@@ -146,62 +156,62 @@ export function Calendar({
   const orderedWeekdays = weekdayLabels
     .slice(weekStartsOn)
     .concat(weekdayLabels.slice(0, weekStartsOn));
-  return _jsxs("div", {
-    ...props,
+  return /* @__PURE__ */ jsxs("div", {
+    ...rest,
     className: cn("gdg-calendar", className),
     children: [
-      _jsxs("div", {
+      /* @__PURE__ */ jsxs("div", {
         className: "gdg-calendar-header",
         children: [
-          _jsx("button", {
+          /* @__PURE__ */ jsx("button", {
             type: "button",
             className: "gdg-calendar-nav",
             onClick: () => changeMonth(-1),
             "aria-label": "\u524D\u306E\u6708",
-            children: _jsx(ChevronLeft, { size: 18, "aria-hidden": "true" }),
+            children: /* @__PURE__ */ jsx(ChevronLeft, { size: 18, "aria-hidden": "true" }),
           }),
-          _jsx("strong", { "aria-live": "polite", children: monthLabel }),
-          _jsx("button", {
+          /* @__PURE__ */ jsx("strong", { "aria-live": "polite", children: monthLabel }),
+          /* @__PURE__ */ jsx("button", {
             type: "button",
             className: "gdg-calendar-nav",
             onClick: () => changeMonth(1),
             "aria-label": "\u6B21\u306E\u6708",
-            children: _jsx(ChevronRight, { size: 18, "aria-hidden": "true" }),
+            children: /* @__PURE__ */ jsx(ChevronRight, { size: 18, "aria-hidden": "true" }),
           }),
         ],
       }),
-      _jsxs("table", {
+      /* @__PURE__ */ jsxs("table", {
         className: "gdg-calendar-grid",
         "aria-label": monthLabel,
         children: [
-          _jsx("thead", {
-            children: _jsx("tr", {
+          /* @__PURE__ */ jsx("thead", {
+            children: /* @__PURE__ */ jsx("tr", {
               children: orderedWeekdays.map((day) =>
-                _jsx("th", { scope: "col", children: day }, day),
+                /* @__PURE__ */ jsx("th", { scope: "col", children: day }, day),
               ),
             }),
           }),
-          _jsx("tbody", {
+          /* @__PURE__ */ jsx("tbody", {
             children: Array.from({ length: rowCount }, (_, row) => {
               const week = days.slice(row * 7, row * 7 + 7);
-              return _jsx(
+              return /* @__PURE__ */ jsx(
                 "tr",
                 {
                   children: week.map((date) => {
                     const outside = date.getMonth() !== displayedMonth.getMonth();
                     const unavailable = isDisabled(date);
                     const selectedDay = isSelected(date);
-                    return _jsx(
+                    return /* @__PURE__ */ jsx(
                       "td",
                       {
                         children:
                           outside && !showOutsideDays
-                            ? _jsx("span", { "aria-hidden": "true" })
-                            : _jsx("button", {
+                            ? /* @__PURE__ */ jsx("span", { "aria-hidden": "true" })
+                            : /* @__PURE__ */ jsx("button", {
                                 id: `gdg-calendar-day-${dateKey(date)}`,
                                 type: "button",
                                 "data-date": dateKey(date),
-                                "data-outside": outside || undefined,
+                                "data-outside": outside || void 0,
                                 className: "gdg-calendar-day",
                                 disabled: unavailable,
                                 "aria-label": date.toLocaleDateString(locale, {
@@ -228,3 +238,4 @@ export function Calendar({
     ],
   });
 }
+export { Calendar };

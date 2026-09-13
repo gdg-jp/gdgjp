@@ -95,6 +95,9 @@
   .gdg-icons > svg {
     display: block;
   }
+  .gdg-icons[data-gdg-stroke-width="true"] > svg {
+    stroke-width: inherit;
+  }
   .gdg-button-primary {
     background: var(--gdg-primary);
     color: var(--gdg-on-primary);
@@ -1726,6 +1729,12 @@
     transition: opacity var(--gdg-motion-press) var(--gdg-ease-out), transform
       var(--gdg-motion-press) var(--gdg-ease-out);
   }
+  .gdg-combobox-item[data-active="true"] {
+    background: var(--gdg-hover);
+    color: var(--gdg-text);
+    outline: 2px solid var(--gdg-focus);
+    outline-offset: -2px;
+  }
   .gdg-combobox-item-shell[data-combobox-hidden="true"] .gdg-combobox-item {
     min-height: 0;
     padding-block: 0;
@@ -1737,6 +1746,11 @@
   .gdg-combobox-item[aria-selected="true"] {
     background: var(--gdg-selected);
     color: var(--gdg-link);
+  }
+  .gdg-combobox-item:disabled,
+  .gdg-combobox-item[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   .gdg-combobox-empty {
     padding: calc(var(--gdg-space) * 4);
@@ -3174,6 +3188,7 @@
     :is(
       .gdg-collapsible-content,
       .gdg-calendar-day,
+      .gdg-combobox-item,
       .gdg-drawer,
       .gdg-progress-indicator,
       .gdg-toggle,
@@ -3190,12 +3205,19 @@
     animation: none;
   }
 
+  :root[data-gdg-input="keyboard"]
+    .gdg-combobox-item-shell[data-combobox-hidden="true"]
+    .gdg-combobox-item {
+    transform: none;
+  }
+
   @media (forced-colors: active) {
     .gdg-attachment,
     .gdg-bubble-content,
     .gdg-calendar,
     .gdg-chart-visual,
     .gdg-command,
+    .gdg-combobox-content,
     .gdg-drawer,
     .gdg-empty-component,
     .gdg-field-set,
@@ -3216,6 +3238,7 @@
       box-shadow: none;
     }
     .gdg-progress-indicator,
+    .gdg-combobox-item[data-active="true"],
     .gdg-questionnaire-choice[data-state="checked"],
     .gdg-slider-thumb,
     .gdg-toggle[data-state="on"],

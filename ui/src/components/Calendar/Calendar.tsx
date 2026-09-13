@@ -55,28 +55,35 @@ function compareDays(a: Date, b: Date) {
   );
 }
 
-export function Calendar({
-  mode = "single",
-  month,
-  defaultMonth,
-  selected,
-  defaultSelected,
-  onMonthChange,
-  onSelect,
-  disabled,
-  minDate,
-  maxDate,
-  showOutsideDays = true,
-  locale = "ja-JP",
-  weekStartsOn = 0,
-  className,
-  ...props
-}: CalendarProps) {
-  const initialMonth = selectionMonth(selected ?? defaultSelected) ?? defaultMonth ?? new Date();
+function hasOwn(object: object, key: PropertyKey) {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+export function Calendar(props: CalendarProps) {
+  const selectedIsControlled = hasOwn(props, "selected");
+  const {
+    mode = "single",
+    month,
+    defaultMonth,
+    selected,
+    defaultSelected,
+    onMonthChange,
+    onSelect,
+    disabled,
+    minDate,
+    maxDate,
+    showOutsideDays = true,
+    locale = "ja-JP",
+    weekStartsOn = 0,
+    className,
+    ...rest
+  } = props;
+  const initialMonth =
+    selectionMonth(selectedIsControlled ? selected : defaultSelected) ?? defaultMonth ?? new Date();
   const [internalMonth, setInternalMonth] = useState(() => startOfMonth(initialMonth));
   const [internalSelected, setInternalSelected] = useState<CalendarSelection>(defaultSelected);
   const displayedMonth = startOfMonth(month ?? internalMonth);
-  const currentSelection = selected !== undefined ? selected : internalSelected;
+  const currentSelection = selectedIsControlled ? selected : internalSelected;
   const firstWeekday = displayedMonth.getDay();
   const offset = (firstWeekday - weekStartsOn + 7) % 7;
   const daysInMonth = new Date(
@@ -142,7 +149,7 @@ export function Calendar({
     } else {
       next = date;
     }
-    if (selected === undefined) setInternalSelected(next);
+    if (!selectedIsControlled) setInternalSelected(next);
     onSelect?.(next);
   };
 
@@ -184,7 +191,7 @@ export function Calendar({
     .concat(weekdayLabels.slice(0, weekStartsOn));
 
   return (
-    <div {...props} className={cn("gdg-calendar", className)}>
+    <div {...rest} className={cn("gdg-calendar", className)}>
       <div className="gdg-calendar-header">
         <button
           type="button"

@@ -82,6 +82,31 @@ Portalはdocument.bodyへ配置し、htmlのテーマを継承します。部分
 
 Radix部品はRadixのcontrolled／uncontrolled props、イベント、refを維持します。DOM部品はネイティブ属性とrefを受け取ります。コンポーネント内部のDOM構造に依存したセレクタは公開契約ではありません。
 
+### Combobox、Icons、日付部品の契約
+
+`Combobox` は `query`／`open`／`value`／`activeValue` をそれぞれ controlled または uncontrolled として
+扱います。`query` の controlled empty は `query=""`、選択値と active option の controlled empty は
+`value={null}`／`activeValue={null}` です。prop を省略した場合だけ内部 state を使い、mount 後の
+controlled／uncontrolled 切り替えによる state 移行は行いません。`defaultQuery`、`defaultActiveValue`、
+`onQueryChange`、`onActiveValueChange` で初期値と通知を指定できます。
+
+既定の `shouldFilter` は `true`、`closeOnSelect` は `true` です。リモート検索では
+`shouldFilter={false}`、複数選択では `closeOnSelect={false}` を明示し、取得・debounce・ACL・chip state は
+利用側が所有します。入力は popup 開始時に focus を受け、候補は `aria-activedescendant` で示されます。
+ArrowUp／ArrowDown／Home／End は表示中かつ enabled の候補だけを端で停止して移動し、Enter は現在の
+候補だけを選択します。Escape は popup だけを閉じ、Tab は通常の focus 順序を保ちます。
+
+`Icons` の `IconName` と `IconBaseName` は package root から type export されます。animated icon と static
+catalog icon は同じ `Icons` wrapper、ARIA、`size`、`style`、`strokeWidth`、ref handle を共有します。
+static icon の `startAnimation()`／`stopAnimation()` は安全な no-op で、`animateOnHover` によって source を
+切り替えません。意味を持つ単独 icon には `aria-label`、装飾 icon には `aria-hidden="true"` を指定します。
+
+`DatePicker` は `value` prop の key が存在するかで controlled mode を判定します。`value` を省略した場合は
+`defaultValue` と内部更新を使い、`value={undefined}` は過去の default や internal selection を表示しない
+controlled empty です。`Calendar` も同じ規則で `selected={undefined}` を controlled empty として扱います。
+外部 clear／replace は input、selected day、invalid draft と表示月へ同期しますが、日付は timezone-aware
+timestamp へ変換せず local year／month／day として扱います。
+
 ### 状態とアクセシビリティ
 
 - Buttonのloadingはaria-busyと二重実行防止、通常ボタンではSpinnerを伴います。disabledはネイティブdisabled、asChildではaria-disabled・tab順序・クリック抑止に対応します。asChildは属性とイベント、refを転送する一つの要素を渡してください。リンク合成時のloading内容は呼び出し側で用意します。

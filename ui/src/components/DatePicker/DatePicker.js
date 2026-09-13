@@ -1,10 +1,16 @@
 import { CalendarDays } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx, jsxs } from "react/jsx-runtime";
 import { cn } from "../../utils";
 import { Calendar } from "../Calendar";
 import { Input } from "../Input";
 import { Popover, PopoverContent, PopoverTrigger } from "../Popover";
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1, 12);
+}
 function sameDay(a, b) {
   return (
     !!a &&
@@ -24,7 +30,9 @@ function compareDays(a, b) {
   );
 }
 function formatDateInput(date) {
-  return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
+  return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
 }
 function dateInputStateFromValue(value) {
   const digits = value.replace(/\D/g, "").slice(0, 8);
@@ -44,7 +52,6 @@ function formatDateInputState(state) {
 function appendDateInputDigit(state, digit) {
   if (state.year.length < 4) return { ...state, year: `${state.year}${digit}` };
   if (!state.month) return { ...state, month: digit };
-  // A month starting with 2-9 is complete after one digit (04 is displayed as 04).
   if (state.month.length === 1 && Number(state.month) > 1) {
     return state.day.length < 2 ? { ...state, day: `${state.day}${digit}` } : state;
   }
@@ -71,40 +78,42 @@ function parseDateInput(value) {
         .replace(/\/{2,}/g, "/")
         .replace(/^\/|\/$/g, "")
         .split("/");
-  if (parts.length !== 3 || parts.some((part) => !/^\d+$/.test(part))) return undefined;
+  if (parts.length !== 3 || parts.some((part) => !/^\d+$/.test(part))) return void 0;
   const [year, month, day] = parts.map(Number);
-  if (!year || !month || !day) return undefined;
+  if (!year || !month || !day) return void 0;
   const date = new Date(year, month - 1, day, 12);
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
     ? date
-    : undefined;
+    : void 0;
 }
 function isDateUnavailable(date, calendarProps) {
   const disabled = calendarProps?.disabled;
   return (
     (typeof disabled === "function" && disabled(date)) ||
     (Array.isArray(disabled) && disabled.some((item) => sameDay(item, date))) ||
-    (calendarProps?.minDate !== undefined && compareDays(date, calendarProps.minDate) < 0) ||
-    (calendarProps?.maxDate !== undefined && compareDays(date, calendarProps.maxDate) > 0)
+    (calendarProps?.minDate !== void 0 && compareDays(date, calendarProps.minDate) < 0) ||
+    (calendarProps?.maxDate !== void 0 && compareDays(date, calendarProps.maxDate) > 0)
   );
 }
-export function DatePicker({
-  value,
-  defaultValue,
-  onChange,
-  placeholder = "日付を選択",
-  locale = "ja-JP",
-  disabled,
-  calendarProps,
-  className,
-  onBlur,
-  onClick,
-  onMouseDown,
-  onKeyDown,
-  ...inputProps
-}) {
+function DatePicker(props) {
+  const valueIsControlled = hasOwn(props, "value");
+  const {
+    value,
+    defaultValue,
+    onChange,
+    placeholder = "\u65E5\u4ED8\u3092\u9078\u629E",
+    locale = "ja-JP",
+    disabled,
+    calendarProps,
+    className,
+    onBlur,
+    onClick,
+    onMouseDown,
+    onKeyDown,
+    ...inputProps
+  } = props;
   const [internalValue, setInternalValue] = useState(defaultValue);
-  const selected = value !== undefined ? value : internalValue;
+  const selected = valueIsControlled ? value : internalValue;
   const selectedInputValue = selected && isValidDate(selected) ? formatDateInput(selected) : "";
   const initialInputValue = selectedInputValue;
   const [inputValue, setInputValue] = useState(initialInputValue);
@@ -113,28 +122,50 @@ export function DatePicker({
   const [open, setOpen] = useState(false);
   const inputRef = useRef(null);
   const [pendingSelection, setPendingSelection] = useState(null);
+  const calendarMonthIsControlled = calendarProps?.month !== void 0;
+  const initialCalendarMonth =
+    selected && isValidDate(selected)
+      ? selected
+      : (calendarProps?.defaultMonth ?? /* @__PURE__ */ new Date());
+  const [internalMonth, setInternalMonth] = useState(() => startOfMonth(initialCalendarMonth));
+  const previousCommittedValue = useRef(selectedInputValue);
   useEffect(() => {
     setInputValue(selectedInputValue);
     setInputState(dateInputStateFromValue(selectedInputValue));
     setInputInvalid(false);
+    setPendingSelection(null);
   }, [selectedInputValue]);
+  useEffect(() => {
+    if (previousCommittedValue.current !== selectedInputValue) {
+      if (!calendarMonthIsControlled && selected && isValidDate(selected)) {
+        setInternalMonth(startOfMonth(selected));
+      }
+      previousCommittedValue.current = selectedInputValue;
+    }
+  }, [calendarMonthIsControlled, selected, selectedInputValue]);
   useEffect(() => {
     if (pendingSelection === null) return;
     inputRef.current?.setSelectionRange(pendingSelection, pendingSelection);
     setPendingSelection(null);
   }, [pendingSelection]);
-  const applyDate = (next) => {
-    if (value === undefined) setInternalValue(next);
-    const nextValue = next ? formatDateInput(next) : "";
+  const syncInput = (nextValue) => {
     setInputValue(nextValue);
     setInputState(dateInputStateFromValue(nextValue));
     setInputInvalid(false);
+  };
+  const applyDate = (next) => {
+    if (!valueIsControlled) {
+      setInternalValue(next);
+      syncInput(next ? formatDateInput(next) : "");
+    } else {
+      syncInput(selectedInputValue);
+    }
     if (!sameDay(selected, next)) onChange?.(next);
   };
   const commitInput = () => {
     const text = inputValue.trim();
     if (!text) {
-      applyDate(undefined);
+      applyDate(void 0);
       return true;
     }
     const next = parseDateInput(text);
@@ -145,26 +176,32 @@ export function DatePicker({
     applyDate(next);
     return true;
   };
-  return _jsxs(Popover, {
-    open: open,
+  const handleMonthChange = (next) => {
+    if (!calendarMonthIsControlled) setInternalMonth(startOfMonth(next));
+    calendarProps?.onMonthChange?.(next);
+  };
+  const committedInputValue = selected && isValidDate(selected) ? formatDateInput(selected) : "";
+  const calendarMonth = calendarMonthIsControlled ? calendarProps?.month : internalMonth;
+  return /* @__PURE__ */ jsxs(Popover, {
+    open,
     onOpenChange: setOpen,
     children: [
-      _jsxs("div", {
+      /* @__PURE__ */ jsxs("div", {
         className: cn("gdg-date-picker-trigger", className),
         children: [
-          _jsx(CalendarDays, {
+          /* @__PURE__ */ jsx(CalendarDays, {
             className: "gdg-date-picker-icon",
             size: 16,
             "aria-hidden": "true",
           }),
-          _jsx(PopoverTrigger, {
+          /* @__PURE__ */ jsx(PopoverTrigger, {
             asChild: true,
-            children: _jsx(Input, {
+            children: /* @__PURE__ */ jsx(Input, {
               ...inputProps,
               type: "text",
               value: inputValue,
-              placeholder: placeholder,
-              disabled: disabled,
+              placeholder,
+              disabled,
               ref: inputRef,
               inputMode: "numeric",
               "aria-haspopup": "dialog",
@@ -224,13 +261,7 @@ export function DatePicker({
                   if (commitInput()) setOpen(false);
                 } else if (event.key === "Escape") {
                   event.preventDefault();
-                  setInputValue(selected && isValidDate(selected) ? formatDateInput(selected) : "");
-                  setInputState(
-                    dateInputStateFromValue(
-                      selected && isValidDate(selected) ? formatDateInput(selected) : "",
-                    ),
-                  );
-                  setInputInvalid(false);
+                  syncInput(committedInputValue);
                   setOpen(false);
                 } else if (event.key === "/") {
                   event.preventDefault();
@@ -240,16 +271,18 @@ export function DatePicker({
           }),
         ],
       }),
-      _jsx(PopoverContent, {
+      /* @__PURE__ */ jsx(PopoverContent, {
         align: "start",
         collisionPadding: 12,
         className: "gdg-date-picker-content",
         onOpenAutoFocus: (event) => event.preventDefault(),
-        children: _jsx(Calendar, {
+        children: /* @__PURE__ */ jsx(Calendar, {
           ...calendarProps,
           mode: "single",
-          selected: selected,
+          month: calendarMonth,
+          selected,
           locale: calendarProps?.locale ?? locale,
+          onMonthChange: handleMonthChange,
           onSelect: (next) => {
             if (!(next instanceof Date)) return;
             applyDate(next);
@@ -260,3 +293,4 @@ export function DatePicker({
     ],
   });
 }
+export { DatePicker };

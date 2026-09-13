@@ -1,5 +1,7 @@
 import * as AnimatedIcons from "lucide-animated";
+import type { LucideIcon } from "lucide-react";
 import {
+  type CSSProperties,
   type ForwardRefExoticComponent,
   type HTMLAttributes,
   type MouseEvent,
@@ -11,7 +13,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import { cn } from "../../utils";
-import type { IconName } from "./IconName";
+import type { IconBaseName, IconName } from "./IconName";
+import { type StaticIconName, staticIcons } from "./StaticIcons";
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -22,6 +25,7 @@ export type IconsHandle = {
 
 type AnimatedIconProps = HTMLAttributes<HTMLDivElement> & {
   size?: number;
+  strokeWidth?: number | string;
   animateOnHover?: boolean;
 };
 
@@ -29,12 +33,15 @@ type AnimatedIconComponent = ForwardRefExoticComponent<
   AnimatedIconProps & RefAttributes<IconsHandle>
 >;
 
-type AnimatedIconExportName = Extract<IconName, `${string}Icon`>;
+type ResolvedIcon =
+  | { kind: "animated"; component: AnimatedIconComponent }
+  | { kind: "static"; component: LucideIcon };
 
 export type IconsProps = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
   /** Lucide icon name, with or without the `Icon` suffix (for example, `Heart`). */
   name: IconName;
   size?: number;
+  strokeWidth?: number | string;
   animateOnHover?: boolean;
 };
 
@@ -63,24 +70,38 @@ function usePrefersReducedMotion() {
   return useSyncExternalStore(subscribeToReducedMotion, getReducedMotionSnapshot, () => false);
 }
 
-function resolveIcon(name: IconName) {
-  const exportName = (name.endsWith("Icon") ? name : `${name}Icon`) as AnimatedIconExportName;
-  const Icon = AnimatedIcons[exportName];
-  if (!Icon) {
-    throw new Error(
-      `[gdg-ui] Unknown icon "${name}". Use a name exported by lucide-animated, such as "Heart".`,
-    );
-  }
-  return Icon as AnimatedIconComponent;
+function resolveIcon(name: IconName): ResolvedIcon {
+  const baseName = (name.endsWith("Icon") ? name.slice(0, -4) : name) as IconBaseName;
+  const exportName = `${baseName}Icon` as Extract<IconName, `${string}Icon`>;
+  const animatedIcons = AnimatedIcons as Record<string, unknown>;
+  const AnimatedIcon = animatedIcons[exportName] as AnimatedIconComponent | undefined;
+  if (AnimatedIcon) return { kind: "animated", component: AnimatedIcon };
+
+  const StaticIcon = staticIcons[baseName as StaticIconName];
+  if (StaticIcon) return { kind: "static", component: StaticIcon };
+
+  throw new Error(
+    `[gdg-ui] Unknown icon "${name}". Use a name exported by the shared icon catalog, such as "Heart".`,
+  );
+}
+
+function withStrokeWidth(
+  style: CSSProperties | undefined,
+  strokeWidth: number | string | undefined,
+) {
+  if (strokeWidth === undefined) return style;
+  return { ...style, strokeWidth };
 }
 
 export const Icons = forwardRef<IconsHandle, IconsProps>(function Icons(
   {
     name,
     size = 24,
+    strokeWidth,
     animateOnHover = true,
     className,
     role,
+    style,
     "aria-label": ariaLabel,
     "aria-labelledby": ariaLabelledBy,
     onMouseEnter,
@@ -89,30 +110,67 @@ export const Icons = forwardRef<IconsHandle, IconsProps>(function Icons(
   },
   ref,
 ) {
-  const Icon = resolveIcon(name);
+  const resolved = resolveIcon(name);
   const prefersReducedMotion = usePrefersReducedMotion();
   const iconRef = useRef<IconsHandle>(null);
-  const shouldAnimateOnHover = animateOnHover && !prefersReducedMotion;
+  const shouldAnimateOnHover =
+    resolved.kind === "animated" && animateOnHover && !prefersReducedMotion;
+  const outerStyle = withStrokeWidth(style, strokeWidth);
+  const labelledRole = role ?? (ariaLabel || ariaLabelledBy ? "img" : undefined);
 
   useImperativeHandle(
     ref,
     () => ({
-      startAnimation: () => iconRef.current?.startAnimation(),
-      stopAnimation: () => iconRef.current?.stopAnimation(),
+      startAnimation: () => {
+        if (resolved.kind === "animated") iconRef.current?.startAnimation();
+      },
+      stopAnimation: () => {
+        if (resolved.kind === "animated") iconRef.current?.stopAnimation();
+      },
     }),
-    [],
+    [resolved.kind],
   );
-  useEffect(() => {
-    if (!shouldAnimateOnHover) iconRef.current?.stopAnimation();
-  }, [shouldAnimateOnHover]);
 
+  useEffect(() => {
+    if (resolved.kind === "animated" && !shouldAnimateOnHover) iconRef.current?.stopAnimation();
+  }, [resolved.kind, shouldAnimateOnHover]);
+
+  if (resolved.kind === "static") {
+    const StaticIcon = resolved.component;
+    const innerStrokeWidth = typeof strokeWidth === "string" ? Number(strokeWidth) : strokeWidth;
+    return (
+      <div
+        {...props}
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy}
+        role={labelledRole}
+        style={outerStyle}
+        data-gdg-stroke-width={strokeWidth === undefined ? undefined : "true"}
+        className={cn("gdg-icons", className)}
+        onMouseEnter={(event: MouseEvent<HTMLDivElement>) => onMouseEnter?.(event)}
+        onMouseLeave={(event: MouseEvent<HTMLDivElement>) => onMouseLeave?.(event)}
+      >
+        <StaticIcon
+          size={size}
+          strokeWidth={innerStrokeWidth}
+          focusable="false"
+          aria-hidden="true"
+        />
+      </div>
+    );
+  }
+
+  const AnimatedIcon = resolved.component;
   return (
-    <Icon
+    <AnimatedIcon
       {...props}
       ref={iconRef}
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledBy}
-      role={role ?? (ariaLabel || ariaLabelledBy ? "img" : undefined)}
+      role={labelledRole}
+      style={outerStyle}
+      data-gdg-stroke-width={strokeWidth === undefined ? undefined : "true"}
+      strokeWidth={strokeWidth}
       size={size}
       animateOnHover={false}
       className={cn("gdg-icons", className)}
