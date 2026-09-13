@@ -1,0 +1,7 @@
+- [ ] 1. [Shared library defects](01-shared-library-defects.md)
+- [ ] 2. [Wiki app foundation and CI](02-app-foundation-and-ci.md)
+- [ ] 3. [Shell and public surfaces](03-shell-and-public-surfaces.md)
+- [ ] 4. parallel: [Wiki pages and editor](04-wiki-pages-and-editor.md)
+- [ ] 4. parallel: [Ingestion, sources, and notifications](05-ingestion-sources-and-notifications.md)
+- [ ] 4. parallel: [Tasks, admin, and settings](06-tasks-admin-and-settings.md)
+- [ ] 5. [Integration and visual QA](07-integration-and-visual-qa.md)
