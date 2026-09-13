@@ -6,7 +6,7 @@ const CI_WORKSPACES = [
   { directory: "ui", workspace: "@gdgjp/ui", build: true, e2e: true },
   { directory: "accounts", workspace: "@gdgjp/accounts", build: true, e2e: true },
   { directory: "tinyurl", workspace: "@gdgjp/tinyurl", build: true, e2e: true },
-  { directory: "wiki", workspace: "@gdgjp/wiki", build: true, e2e: false },
+  { directory: "wiki", workspace: "@gdgjp/wiki", build: true, e2e: true },
   { directory: "img", workspace: "@gdgjp/img", build: true, e2e: true },
   { directory: "scheduler", workspace: "@gdgjp/scheduler", build: true, e2e: true },
   { directory: "sns", workspace: "@gdgjp/sns", build: true, e2e: false },
@@ -204,6 +204,9 @@ export function classifyChanges(files, { forceAll = false } = {}) {
     scriptTests: normalizedFiles.some(
       (file) =>
         /^\.github\/scripts\/.*\.mjs$/.test(file) ||
+        file === "scripts/check-ui-conventions.mjs" ||
+        file === "scripts/run-ci.mjs" ||
+        file === "wiki/tests/architecture/ui-conventions-baseline.json" ||
         /^agent-host\//.test(file) ||
         /^agents-index\//.test(file) ||
         /^cli\/internal\/wiki\/hooks\//.test(file) ||

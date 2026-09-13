@@ -209,7 +209,6 @@ export default function Navbar({
           value={queryInput}
           onChange={(e) => setQueryInput(e.target.value)}
           placeholder={`${t("nav.search")}…`}
-          // gdg-ui-allow: literal-color — app-specific-layout-or-token
           className="w-full max-w-[400px]"
         />
       </Form>

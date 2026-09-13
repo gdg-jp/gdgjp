@@ -142,9 +142,7 @@ function AnalyzeForm() {
     <form method="post" onSubmit={handleSubmit} className="space-y-6">
       {/* Errors */}
       {allErrors.length > 0 && (
-        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="rounded-lg border border-danger bg-[var(--gdg-danger-surface)] p-4"
-        >
+        <div className="rounded-lg border border-danger bg-[var(--gdg-danger-surface)] p-4">
           <ul className="list-disc pl-4 text-sm text-danger">
             {allErrors.map((e) => (
               <li key={e}>{e}</li>
@@ -155,13 +153,10 @@ function AnalyzeForm() {
 
       {/* Connect Google prompt */}
       {!driveConnected && (
-        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="rounded-lg border border-warning bg-[var(--gdg-warning-surface)] p-4"
-        >
+        <div className="rounded-lg border border-warning bg-[var(--gdg-warning-surface)] p-4">
           <p className="text-sm text-warning">{t("analyze.form.connect_hint")}</p>
           <a
             href="/api/google-drive/auth?returnTo=/analyze"
-            // gdg-ui-allow: literal-color — app-specific-layout-or-token
             className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-warning bg-surface px-3 py-2 text-sm font-medium text-warning transition-colors hover:bg-[var(--gdg-warning-surface)]"
           >
             {t("analyze.form.connect_google")}

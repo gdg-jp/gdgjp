@@ -141,14 +141,11 @@ function PageGrid({ pages, emptyKey }: { pages: PageCard[]; emptyKey: string }) 
 
   return (
     <div className="overflow-x-auto pb-2">
-      <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-        className="inline-grid grid-rows-2 grid-flow-col auto-cols-[260px] gap-4"
-      >
+      <div className="inline-grid grid-rows-2 grid-flow-col auto-cols-[260px] gap-4">
         {pages.map((page) => (
           <Link
             key={page.id}
             to={page.wikiPath}
-            // gdg-ui-allow: literal-color — app-specific-layout-or-token
             className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-border-ring/40 hover:shadow-sm"
           >
             <h3 className="line-clamp-2 font-medium text-foreground">

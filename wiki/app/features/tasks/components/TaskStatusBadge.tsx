@@ -12,7 +12,6 @@ export default function TaskStatusBadge({ status }: { status: string }) {
   const { t } = useTranslation();
   return (
     <span
-      // gdg-ui-allow: literal-color — app-specific-layout-or-token
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[status] ?? STATUS_STYLES.todo}`}
     >
       {t(`tasks.status_${status}`)}

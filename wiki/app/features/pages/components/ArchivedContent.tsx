@@ -117,7 +117,6 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
                             { method: "post", action: "/api/archived" },
                           )
                         }
-                        // gdg-ui-allow: literal-color — app-specific-layout-or-token
                         className="rounded p-1 text-muted hover:bg-[var(--gdg-success-surface)] hover:text-success"
                         title={t("archived.restore")}
                       >
@@ -129,7 +128,6 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
                         type="button"
                         disabled={actionFetcher.state !== "idle"}
                         onClick={() => setDeleteTarget({ id: page.id, title: pageTitle })}
-                        // gdg-ui-allow: literal-color — app-specific-layout-or-token
                         className="rounded p-1 text-muted hover:bg-[var(--gdg-danger-surface)] hover:text-danger"
                         title={t("archived.delete")}
                       >

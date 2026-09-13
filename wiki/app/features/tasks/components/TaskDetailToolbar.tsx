@@ -146,7 +146,6 @@ export function TaskDetailToolbar({
             type="button"
             onClick={canArchive ? onArchive : undefined}
             disabled={!canArchive}
-            // gdg-ui-allow: literal-color — app-specific-layout-or-token
             className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-[var(--gdg-warning-surface)] hover:text-warning disabled:opacity-50"
           >
             <Icons name="Archive" size={14} />
@@ -166,9 +165,7 @@ export function TaskDetailToolbar({
           <Icons name="MoreHorizontal" size={16} />
         </button>
         {moreOpen && (
-          <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-            className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-border bg-surface py-1 shadow-lg"
-          >
+          <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-border bg-surface py-1 shadow-lg">
             <Link
               to={`/tasks/${slug}/history`}
               className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted hover:bg-neutral"
@@ -219,7 +216,6 @@ export function TaskDetailToolbar({
                     : undefined
                 }
                 disabled={!canArchive}
-                // gdg-ui-allow: literal-color — app-specific-layout-or-token
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted hover:bg-[var(--gdg-warning-surface)] hover:text-warning disabled:opacity-50"
               >
                 <Icons name="Archive" size={14} />

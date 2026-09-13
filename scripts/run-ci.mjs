@@ -26,7 +26,7 @@ const fullSteps = [
   ...quickSteps,
   [
     "e2e",
-    "pnpm exec turbo test:e2e --filter=@gdgjp/accounts --filter=@gdgjp/tinyurl --filter=@gdgjp/img --filter=@gdgjp/scheduler --filter=@gdgjp/ui --filter=@gdgjp/ost --filter=@gdgjp/roster --filter=@gdgjp/connpass --concurrency=1 --output-logs=errors-only -- --reporter=dot",
+    "pnpm exec turbo test:e2e --filter=@gdgjp/accounts --filter=@gdgjp/tinyurl --filter=@gdgjp/img --filter=@gdgjp/scheduler --filter=@gdgjp/ui --filter=@gdgjp/wiki --filter=@gdgjp/ost --filter=@gdgjp/roster --filter=@gdgjp/connpass --concurrency=1 --output-logs=errors-only -- --reporter=dot",
   ],
 ];
 
@@ -220,12 +220,21 @@ export function changedSteps(mode, files) {
     for (const [workspace] of workspaceFiles(relevantFiles, (file) => /^[^/]+\/app\//.test(file))) {
       e2eWorkspaces.set(workspace, null);
     }
+    for (const [workspace] of workspaceFiles(relevantFiles, (file) =>
+      /^wiki\/(?:tests\/e2e\/(?:global-setup|setup|run|fixtures|seed)\.|playwright\.config\.|vite\.config\.|package\.json)/.test(
+        file,
+      ),
+    )) {
+      e2eWorkspaces.set(workspace, null);
+    }
     for (const [workspace, e2eFiles] of e2eWorkspaces) {
       if (workspace === "@gdgjp/ui") continue;
-      steps.push([
-        `e2e:${workspace}`,
-        `pnpm --filter ${workspace} exec playwright test --reporter=dot${e2eFiles ? ` ${e2eFiles.map(shellQuote).join(" ")}` : ""}`,
-      ]);
+      const e2eArguments = e2eFiles ? ` -- ${e2eFiles.map(shellQuote).join(" ")}` : "";
+      const command =
+        workspace === "@gdgjp/wiki"
+          ? `pnpm --filter ${workspace} test:e2e${e2eArguments}`
+          : `pnpm --filter ${workspace} exec playwright test --reporter=dot${e2eFiles ? ` ${e2eFiles.map(shellQuote).join(" ")}` : ""}`;
+      steps.push([`e2e:${workspace}`, command]);
     }
   }
 

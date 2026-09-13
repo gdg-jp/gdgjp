@@ -15,6 +15,12 @@ test("selects only the directly changed application", () => {
   );
 });
 
+test("selects Wiki E2E for Wiki application and harness changes", () => {
+  assert.deepEqual(classifyChanges(["wiki/app/root.tsx"]).e2e, ["wiki"]);
+  assert.deepEqual(classifyChanges(["wiki/tests/e2e/setup.ts"]).e2e, ["wiki"]);
+  assert.deepEqual(classifyChanges(["wiki/playwright.config.ts"]).e2e, ["wiki"]);
+});
+
 test("propagates gdg-lib changes to every dependent application", () => {
   const result = classifyChanges(["gdg-lib/src/auth/session.ts"]);
 
@@ -124,6 +130,12 @@ test("gates script-tests on workflow scripts and agent-host components", () => {
   assert.equal(classifyChanges(["wiki/app/routes/home.tsx"]).scriptTests, false);
   assert.equal(classifyChanges(["docs/operations.md"]).scriptTests, false);
   assert.equal(classifyChanges(["accounts/src/index.ts"]).scriptTests, false);
+  assert.equal(classifyChanges(["scripts/check-ui-conventions.mjs"]).scriptTests, true);
+  assert.equal(classifyChanges(["scripts/run-ci.mjs"]).scriptTests, true);
+  assert.equal(
+    classifyChanges(["wiki/tests/architecture/ui-conventions-baseline.json"]).scriptTests,
+    true,
+  );
 });
 
 test("selects nested workspace @gdgjp/langfuse-forwarder on agent-host/langfuse-forwarder changes", () => {

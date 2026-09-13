@@ -161,7 +161,6 @@ export function SearchView() {
                 <li key={page.id}>
                   <Link
                     to={page.wikiPath}
-                    // gdg-ui-allow: literal-color — app-specific-layout-or-token
                     className="block rounded-lg border border-border bg-surface p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-border-ring/40 hover:shadow-sm"
                   >
                     <span className="font-medium text-foreground hover:text-link">{title}</span>
@@ -257,7 +256,6 @@ function AiSearchResults({
                 <li key={source.pageId}>
                   <Link
                     to={source.wikiPath}
-                    // gdg-ui-allow: literal-color — app-specific-layout-or-token
                     className="block rounded-lg border border-border bg-surface p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-border-ring/40 hover:shadow-sm"
                   >
                     <span className="font-medium text-foreground hover:text-link">{title}</span>

@@ -332,9 +332,7 @@ export function AddSourceSection({
         ) : null}
         {pickerError ? <p className="mt-2 text-sm text-danger">{pickerError}</p> : null}
         {needsChatReauth ? (
-          <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-            className="mt-3 flex items-center gap-3 rounded-md border border-warning bg-[var(--gdg-warning-surface)] p-3 text-sm text-warning"
-          >
+          <div className="mt-3 flex items-center gap-3 rounded-md border border-warning bg-[var(--gdg-warning-surface)] p-3 text-sm text-warning">
             <span>{t("sources.chat_reauth_hint")}</span>
             <button
               type="button"

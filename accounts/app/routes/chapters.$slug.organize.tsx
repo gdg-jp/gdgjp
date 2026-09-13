@@ -238,7 +238,8 @@ function ConfirmMemberAction({
           variant={config.variant}
           size={compact ? "sm" : "md"}
           disabled={fetcher.state !== "idle"}
-          className={compact ? "w-full justify-start" : undefined}
+          fullWidth={compact}
+          className={compact ? "justify-start" : undefined}
         >
           {config.label}
         </Button>

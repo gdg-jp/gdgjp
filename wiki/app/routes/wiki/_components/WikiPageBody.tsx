@@ -165,9 +165,7 @@ export function WikiPageBody({
         </Suspense>
 
         {hasFallback && (
-          <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-            className="mb-6 rounded-lg border border-warning bg-[var(--gdg-warning-surface)] p-4 text-sm text-warning"
-          >
+          <div className="mb-6 rounded-lg border border-warning bg-[var(--gdg-warning-surface)] p-4 text-sm text-warning">
             {lang === "en" ? t("wiki.translation_fallback_en") : t("wiki.translation_fallback_ja")}
           </div>
         )}

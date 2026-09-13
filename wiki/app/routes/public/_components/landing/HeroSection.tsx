@@ -167,9 +167,7 @@ export function HeroSection({ ctaSlot }: { ctaSlot: React.ReactNode }) {
           }}
         />
         {/* Content */}
-        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="relative z-10 mx-auto flex min-h-[88vh] max-w-4xl flex-col items-center justify-center px-6 py-24 text-center"
-        >
+        <div className="relative z-10 mx-auto flex min-h-[88vh] max-w-4xl flex-col items-center justify-center px-6 py-24 text-center">
           {/* Pill badge */}
           <div
             className="mb-7 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"

@@ -63,9 +63,7 @@ export function ChatSenderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent // gdg-ui-allow: literal-color — app-specific-layout-or-token
-        className="max-h-[85vh] overflow-y-auto bg-surface sm:max-w-2xl"
-      >
+      <DialogContent className="max-h-[85vh] overflow-y-auto bg-surface sm:max-w-2xl">
         <Stack>
           <DialogTitle>{t("sources.sender_dialog_title")}</DialogTitle>
           <DialogDescription>{t("sources.sender_dialog_description")}</DialogDescription>

@@ -158,19 +158,13 @@ export default function TaskTableView({
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto border-y border-border">
-        <table // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="min-w-[900px] w-full table-fixed divide-y divide-border-border"
-        >
+        <table className="min-w-[900px] w-full table-fixed divide-y divide-border-border">
           <thead className="bg-background">
             <tr>
-              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
-                className="w-[3%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
-              >
+              <th className="w-[3%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted">
                 #
               </th>
-              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
-                className="w-[7%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
-              >
+              <th className="w-[7%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted">
                 <span className="flex items-center justify-between">
                   {t("tasks.col_status")}
                   <ColumnFilterPopover
@@ -181,14 +175,10 @@ export default function TaskTableView({
                   />
                 </span>
               </th>
-              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
-                className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
-              >
+              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted">
                 {t("tasks.col_due_date")}
               </th>
-              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
-                className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
-              >
+              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted">
                 <span className="flex items-center justify-between">
                   {t("tasks.col_assignee")}
                   <ColumnFilterPopover
@@ -201,9 +191,7 @@ export default function TaskTableView({
                   />
                 </span>
               </th>
-              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
-                className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
-              >
+              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted">
                 <span className="flex items-center justify-between">
                   {t("tasks.col_team")}
                   <span className="flex items-center gap-1">
@@ -226,14 +214,10 @@ export default function TaskTableView({
                   </span>
                 </span>
               </th>
-              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
-                className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
-              >
+              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted">
                 {t("tasks.col_deps")}
               </th>
-              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
-                className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
-              >
+              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted">
                 <span className="flex items-center justify-between">
                   {t("tasks.col_type")}
                   <ColumnFilterPopover
@@ -244,14 +228,10 @@ export default function TaskTableView({
                   />
                 </span>
               </th>
-              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
-                className="w-[18%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
-              >
+              <th className="w-[18%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted">
                 {t("tasks.col_title")}
               </th>
-              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
-                className="w-[25%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
-              >
+              <th className="w-[25%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted">
                 {t("tasks.description")}
               </th>
             </tr>

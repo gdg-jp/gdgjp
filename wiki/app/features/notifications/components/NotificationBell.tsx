@@ -172,9 +172,7 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
         >
           <Icons name={bellIconName} className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span // gdg-ui-allow: literal-color — app-specific-layout-or-token
-              className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground"
-            >
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
@@ -184,7 +182,6 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
         <output
           key={chipNotification.id}
           aria-live="polite"
-          // gdg-ui-allow: literal-color — app-specific-layout-or-token
           className="fixed right-4 top-16 z-50 flex max-w-[calc(100vw-2rem)] items-center gap-3 bg-surface px-4 py-3 sm:max-w-xs"
         >
           {typeIcon(chipNotification.type)}
@@ -203,7 +200,6 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
       <PopoverContent
         align="end"
         sideOffset={6}
-        // gdg-ui-allow: literal-color — app-specific-layout-or-token
         className="w-[calc(100vw-1.5rem)] max-w-72 overflow-hidden rounded-xl p-0 shadow-xl shadow-content-primary/10 sm:w-72"
       >
         <div className="flex items-center justify-between border-b border-border px-3 py-2">

@@ -471,7 +471,8 @@ function ChapterStep({
                     variant={selected ? "primary" : "outline"}
                     onClick={() => onSelect(chapter.id)}
                     aria-pressed={selected}
-                    className="min-h-14 w-full justify-start p-3.5 text-left sm:p-4"
+                    fullWidth
+                    className="min-h-14 justify-start p-3.5 text-left sm:p-4"
                   >
                     {selected ? <Icons name="Check" size={16} aria-hidden="true" /> : null}
                     <span className="min-w-0">

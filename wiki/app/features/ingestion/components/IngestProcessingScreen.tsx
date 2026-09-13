@@ -133,17 +133,13 @@ function ToolActivityCard({ activity }: { activity: ToolActivityItem }) {
         <span className={`rounded-full px-2 py-0.5 font-medium ${statusClass}`}>{statusLabel}</span>
       </div>
       {activity.summary && <p className="mt-1 text-muted">{activity.summary}</p>}
-      <pre // gdg-ui-allow: literal-color — app-specific-layout-or-token
-        className="mt-2 whitespace-pre-wrap break-all rounded-md bg-neutral p-2 font-mono text-[11px] leading-4 text-muted"
-      >
+      <pre className="mt-2 whitespace-pre-wrap break-all rounded-md bg-neutral p-2 font-mono text-[11px] leading-4 text-muted">
         {formatToolArguments(activity.args)}
       </pre>
       {(activity.durationMs !== undefined ||
         activity.truncated ||
         activity.errorCode !== undefined) && (
-        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted"
-        >
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted">
           {activity.durationMs !== undefined && <span>{activity.durationMs} ms</span>}
           {activity.truncated && <span>Output truncated</span>}
           {activity.errorCode !== undefined && <span>{activity.errorCode}</span>}

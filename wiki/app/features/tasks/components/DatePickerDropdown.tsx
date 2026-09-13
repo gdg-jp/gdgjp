@@ -147,7 +147,6 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
             aria-label={t("tasks.calendar_label")}
             tabIndex={-1}
             style={{ position: "absolute", top: pos.top, left: pos.left }}
-            // gdg-ui-allow: literal-color — app-specific-layout-or-token
             className="z-[9999] w-[252px] rounded-md border border-border bg-surface p-3 shadow-lg"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
@@ -176,10 +175,7 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
             {/* Day-of-week headers */}
             <div className="mb-1 grid grid-cols-7">
               {dayLabels.map((d) => (
-                <div
-                  key={d} // gdg-ui-allow: literal-color — app-specific-layout-or-token
-                  className="text-center text-[11px] font-medium text-muted"
-                >
+                <div key={d} className="text-center text-[11px] font-medium text-muted">
                   {d}
                 </div>
               ))}

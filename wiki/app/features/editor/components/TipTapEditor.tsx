@@ -152,7 +152,6 @@ export default function TipTapEditor({
       )}
       <EditorContent
         editor={editor}
-        // gdg-ui-allow: literal-color — app-specific-layout-or-token
         className="prose prose-sm max-w-none px-4 py-3 focus:outline-none [&_.ProseMirror]:min-h-32 [&_.ProseMirror]:outline-none"
       />
     </div>

@@ -67,7 +67,6 @@ export default function DropdownMenu({
           <div
             ref={menuRef}
             style={{ position: "absolute", top: pos.top, left: pos.left, minWidth: pos.width }}
-            // gdg-ui-allow: literal-color — app-specific-layout-or-token
             className="z-[9999] overflow-hidden rounded-md border border-border bg-surface shadow-lg"
           >
             {searchable && header && (
@@ -126,9 +125,7 @@ export default function DropdownMenu({
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-                          className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-selected text-[10px] font-semibold text-link"
-                        >
+                        <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-selected text-[10px] font-semibold text-link">
                           {opt.label.slice(0, 1).toUpperCase()}
                         </div>
                       ))}
@@ -147,7 +144,6 @@ export default function DropdownMenu({
       <button
         ref={triggerRef}
         type="button"
-        // gdg-ui-allow: literal-color — app-specific-layout-or-token
         className={`${triggerVariants[variant]}${variant === "chip" && selected?.chipClass ? ` ${selected.chipClass}` : ""}`}
         onClick={openMenu}
         onKeyDown={(e) => e.stopPropagation()}
@@ -168,9 +164,7 @@ export default function DropdownMenu({
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-              className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-selected text-[10px] font-semibold text-link"
-            >
+            <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-selected text-[10px] font-semibold text-link">
               {selected.label.slice(0, 1).toUpperCase()}
             </div>
           ))}

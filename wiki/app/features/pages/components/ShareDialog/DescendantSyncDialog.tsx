@@ -30,13 +30,9 @@ export function DescendantSyncDialog({ c }: { c: ShareDialogController }) {
 
   return (
     <AlertDialog open={showDescendantDialog} onOpenChange={setShowDescendantDialog}>
-      <AlertDialogContent // gdg-ui-allow: literal-color — app-specific-layout-or-token
-        className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-2xl bg-surface p-0 text-foreground shadow-2xl shadow-content-primary/20 sm:max-w-lg"
-      >
+      <AlertDialogContent className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-2xl bg-surface p-0 text-foreground shadow-2xl shadow-content-primary/20 sm:max-w-lg">
         <Stack align="start" className="gap-2 border-b border-border px-5 py-5 text-left sm:px-6">
-          <AlertDialogTitle // gdg-ui-allow: literal-color — app-specific-layout-or-token
-            className="text-xl font-semibold tracking-[-0.01em]"
-          >
+          <AlertDialogTitle className="text-xl font-semibold tracking-[-0.01em]">
             {t("wiki.share_sync_descendants_title")}
           </AlertDialogTitle>
           <AlertDialogDescription className="text-base leading-relaxed">
@@ -65,9 +61,7 @@ export function DescendantSyncDialog({ c }: { c: ShareDialogController }) {
             </p>
           )}
           {descendantRequestCompleted && descendantFetcher.data?.ok && (
-            <output // gdg-ui-allow: literal-color — app-specific-layout-or-token
-              className="block rounded-xl bg-[var(--gdg-success-surface)] px-4 py-3 text-sm leading-relaxed text-success"
-            >
+            <output className="block rounded-xl bg-[var(--gdg-success-surface)] px-4 py-3 text-sm leading-relaxed text-success">
               {t("wiki.share_sync_descendants_result", {
                 updated: descendantFetcher.data.updatedCount ?? 0,
                 unsynced: descendantFetcher.data.unsyncedSkippedCount ?? 0,

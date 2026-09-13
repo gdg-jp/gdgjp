@@ -73,14 +73,10 @@ export default function SensitiveReviewModal({ items, onProceed }: SensitiveRevi
 
   return (
     <AlertDialog open>
-      <AlertDialogContent // gdg-ui-allow: literal-color — app-specific-layout-or-token
-        className="max-h-[calc(100dvh-2rem)] max-w-2xl gap-0 overflow-hidden rounded-2xl bg-surface p-0 text-foreground shadow-2xl shadow-content-primary/20"
-      >
+      <AlertDialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl gap-0 overflow-hidden rounded-2xl bg-surface p-0 text-foreground shadow-2xl shadow-content-primary/20">
         {/* Header */}
         <div className="flex items-start gap-3 border-b border-border px-6 py-5 text-left">
-          <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--gdg-warning-surface)]"
-          >
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--gdg-warning-surface)]">
             <svg
               className="h-5 w-5 text-warning"
               viewBox="0 0 20 20"
@@ -114,7 +110,6 @@ export default function SensitiveReviewModal({ items, onProceed }: SensitiveRevi
                 <div className="mb-2 flex items-center gap-2">
                   <span className="text-sm font-medium text-muted">{idx + 1}.</span>
                   <span
-                    // gdg-ui-allow: literal-color — app-specific-layout-or-token
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[item.type] ?? "bg-neutral text-muted"}`}
                   >
                     {t(`ingest.sensitive.type.${item.type}`, { defaultValue: item.type })}

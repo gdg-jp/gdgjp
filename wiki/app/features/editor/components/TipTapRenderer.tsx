@@ -75,9 +75,7 @@ function renderMarkedText(text: string, marks: TipTapNode["marks"]): ReactNode {
         break;
       case "code":
         content = (
-          <code // gdg-ui-allow: literal-color — app-specific-layout-or-token
-            className="rounded-md bg-neutral px-[0.4em] py-[0.2em] font-mono text-[85%]"
-          >
+          <code className="rounded-md bg-neutral px-[0.4em] py-[0.2em] font-mono text-[85%]">
             {content}
           </code>
         );
@@ -182,25 +180,15 @@ function renderNode(node: TipTapNode, counters: Map<string, number>, key: number
       const lang = (node.attrs?.language as string) ?? "";
       const code = (node.content ?? []).map((n) => n.text ?? "").join("");
       return (
-        <pre
-          key={key} // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="mb-4 overflow-x-auto rounded-md bg-neutral p-4 leading-[1.45]"
-        >
-          <code // gdg-ui-allow: literal-color — app-specific-layout-or-token
-            className={`font-mono text-[85%]${lang ? ` language-${lang}` : ""}`}
-          >
-            {code}
-          </code>
+        <pre key={key} className="mb-4 overflow-x-auto rounded-md bg-neutral p-4 leading-[1.45]">
+          <code className={`font-mono text-[85%]${lang ? ` language-${lang}` : ""}`}>{code}</code>
         </pre>
       );
     }
 
     case "blockquote":
       return (
-        <blockquote
-          key={key} // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="mb-4 border-l-[0.25em] border-border pl-4 text-muted"
-        >
+        <blockquote key={key} className="mb-4 border-l-[0.25em] border-border pl-4 text-muted">
           {(node.content ?? []).map((child, i) => renderNode(child, counters, i))}
         </blockquote>
       );
@@ -234,7 +222,6 @@ function renderNode(node: TipTapNode, counters: Map<string, number>, key: number
       return (
         <th
           key={key}
-          // gdg-ui-allow: literal-color — app-specific-layout-or-token
           className="border border-border bg-background px-[13px] py-[6px] text-left font-semibold"
         >
           {(node.content ?? []).map((child, i) => renderNode(child, counters, i))}
@@ -243,10 +230,7 @@ function renderNode(node: TipTapNode, counters: Map<string, number>, key: number
 
     case "tableCell":
       return (
-        <td
-          key={key} // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="border border-border px-[13px] py-[6px]"
-        >
+        <td key={key} className="border border-border px-[13px] py-[6px]">
           {(node.content ?? []).map((child, i) => renderNode(child, counters, i))}
         </td>
       );

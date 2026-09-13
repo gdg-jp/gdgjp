@@ -111,13 +111,13 @@
 .md-editor-preview :not(pre) > code {
   background: var(--gdg-neutral);
   padding: 0.2em 0.4em;
-  border-radius: 6px;
+  border-radius: var(--gdg-radius-sm);
   font-size: 85%;
 }
 
 .md-editor-preview pre {
   background: var(--gdg-neutral);
-  border-radius: 6px;
+  border-radius: var(--gdg-radius-sm);
   padding: 16px;
   font-size: 85%;
   line-height: 1.45;

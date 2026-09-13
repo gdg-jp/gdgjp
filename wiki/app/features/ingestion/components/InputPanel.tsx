@@ -133,9 +133,7 @@ export default function InputPanel({ driveConnected, serverError }: InputPanelPr
     <form method="post" encType="multipart/form-data" onSubmit={handleSubmit} className="space-y-6">
       {/* Errors */}
       {allErrors.length > 0 ? (
-        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="rounded-lg border border-danger bg-[var(--gdg-danger-surface)] p-4"
-        >
+        <div className="rounded-lg border border-danger bg-[var(--gdg-danger-surface)] p-4">
           <ul className="list-disc pl-4 text-sm text-danger">
             {allErrors.map((e) => (
               <li key={e}>{e}</li>
@@ -295,9 +293,7 @@ export default function InputPanel({ driveConnected, serverError }: InputPanelPr
             className="flex-1 rounded-lg border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
           />
           {driveConnected ? (
-            <span // gdg-ui-allow: literal-color — app-specific-layout-or-token
-              className="flex items-center gap-1.5 rounded-lg border border-success bg-[var(--gdg-success-surface)] px-3 py-2 text-sm text-success"
-            >
+            <span className="flex items-center gap-1.5 rounded-lg border border-success bg-[var(--gdg-success-surface)] px-3 py-2 text-sm text-success">
               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                 <path
                   fillRule="evenodd"

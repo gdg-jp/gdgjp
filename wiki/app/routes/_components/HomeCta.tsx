@@ -41,7 +41,6 @@ export function HomeCta() {
           </div>
           <Link
             to="/ingest"
-            // gdg-ui-allow: literal-color — app-specific-layout-or-token
             className="inline-flex shrink-0 items-center gap-2 rounded-xl border-2 border-border bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-[3px_3px_0px_0px_var(--color-border-border)] transition-[transform,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-x-[1px] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-y-[1px] hover:shadow-[1px_1px_0px_0px_var(--color-border-border)]"
           >
             <svg

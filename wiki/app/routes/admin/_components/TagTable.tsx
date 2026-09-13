@@ -69,7 +69,6 @@ export function TagTable({ tags, onEditTag }: TagTableProps) {
                       <input type="hidden" name="slug" value={tag.slug} />
                       <button
                         type="submit"
-                        // gdg-ui-allow: literal-color — app-specific-layout-or-token
                         className="rounded border border-danger px-3 py-1 text-xs font-medium text-danger hover:bg-[var(--gdg-danger-surface)]"
                       >
                         {t("admin.tags.delete")}

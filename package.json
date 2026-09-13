@@ -30,7 +30,8 @@
     "@types/node": "^22.15.30",
     "openapi-typescript": "^7.13.0",
     "turbo": "^2.3.3",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "yaml": "^2.9.0"
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {

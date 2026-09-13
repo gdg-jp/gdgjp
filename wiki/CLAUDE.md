@@ -81,8 +81,8 @@ UI strings: `app/locales/{ja,en}/*.json` via `remix-i18next` (`i18n.server.ts` /
 
 `tests/e2e/global-setup.ts` bypasses the IdP entirely:
 
-1. Locates miniflare D1 sqlite under `.wrangler/state/v3/d1/...` (fails with a hint if `pnpm dev` hasn't created it).
-2. Inserts three fixed users (`admin`/`author`/`member`) + a stable test page, forges a `gdgjp-wiki-session` cookie signed with `RP_SESSION_SECRET` from `.dev.vars`.
+1. Uses the dedicated `.wrangler/e2e-state` persistence path and applies migrations/seed with Wrangler's `--persist-to` option.
+2. Inserts three fixed users (`admin`/`author`/`member`) + a stable test page, verifies the fixture counts, and forges a `gdgjp-wiki-session` cookie signed with `WIKI_E2E_SESSION_SECRET` and `WIKI_E2E_ISSUER`.
 3. Writes storage-state files under `tests/e2e/storage-state/{admin,author,member}.json`.
 
 `tests/e2e/fixtures.ts` exposes `adminPage` / `authorPage` / `memberPage`. When changing cookie format or session-secret env var, both files MUST move together.

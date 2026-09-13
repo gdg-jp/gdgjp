@@ -120,7 +120,6 @@ export default function DepsDropdown({
           <div
             ref={menuRef}
             style={{ position: "absolute", top: pos.top, left: pos.left, minWidth: 220 }}
-            // gdg-ui-allow: literal-color — app-specific-layout-or-token
             className="z-[9999] overflow-hidden rounded-md border border-border bg-surface shadow-lg"
           >
             <div className="border-b border-border px-3 py-2 text-xs font-semibold text-muted">

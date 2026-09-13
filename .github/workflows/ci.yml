@@ -377,15 +377,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # wiki's inherited e2e suite (tests/e2e/access-control.spec.ts) seeds
-        # users directly into the local miniflare D1 sqlite file, which
-        # @cloudflare/vite-plugin only creates lazily on first query. The
-        # wiki app's loaders short-circuit for anonymous requests before
-        # touching D1, so the sqlite file is never created during CI's
-        # webServer warmup and global-setup throws. Tracked as a follow-up:
-        # rewrite global-setup to migrate-then-seed via better-sqlite3 at a
-        # deterministic path. Page-access logic is still covered by the
-        # vitest unit suite (Unit tests (wiki)) in the meantime.
         app: ${{ fromJSON(needs.changes.outputs.e2e) }}
     steps:
       - uses: actions/checkout@v4
@@ -401,7 +392,7 @@ jobs:
       - name: Build shared UI dependency
         run: pnpm --filter @gdgjp/ui build
       - name: Create accounts dev vars
-        if: matrix.app != 'ui'
+        if: matrix.app != 'ui' && matrix.app != 'wiki'
         run: |
           cat > accounts/.dev.vars <<EOF
           BETTER_AUTH_SECRET=ci-better-auth-secret-for-e2e-tests
@@ -461,12 +452,31 @@ jobs:
           IDP_CLIENT_ID=roster
           ENVIRONMENT=development
           EOF
+      - name: Create Wiki E2E vars
+        if: matrix.app == 'wiki'
+        run: |
+          cat > wiki/.dev.vars <<EOF
+          RP_SESSION_SECRET=ci-wiki-e2e-session-secret
+          IDP_CLIENT_SECRET=ci-wiki-idp-client-secret
+          APP_URL=http://localhost:5177
+          ACCOUNTS_URL=http://localhost:5173
+          IDP_URL=http://localhost:5173
+          ENVIRONMENT=development
+          EOF
+          {
+            echo "WIKI_E2E_SESSION_SECRET=ci-wiki-e2e-session-secret"
+            echo "WIKI_E2E_ISSUER=http://localhost:5173"
+            echo "WIKI_E2E_PERSIST_TO=.wrangler/e2e-state"
+          } >> "$GITHUB_ENV"
       - name: Migrate Accounts local database
-        if: matrix.app != 'ui'
+        if: matrix.app != 'ui' && matrix.app != 'wiki'
         run: pnpm --filter @gdgjp/accounts migrate:local
       - name: Migrate img local database
         if: matrix.app == 'img'
         run: pnpm --filter @gdgjp/img migrate:local
+      - name: Prepare Wiki E2E state
+        if: matrix.app == 'wiki'
+        run: pnpm --filter @gdgjp/wiki e2e:prepare
       - name: Install Playwright browsers
         run: pnpm --filter @gdgjp/${{ matrix.app }} exec playwright install --with-deps chromium
       - name: Run E2E testing

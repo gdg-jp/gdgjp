@@ -145,16 +145,12 @@ export default function AdminTags() {
       </div>
 
       {flashOk && (
-        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="mb-4 rounded-md bg-[var(--gdg-success-surface)] px-4 py-3 text-sm text-success"
-        >
+        <div className="mb-4 rounded-md bg-[var(--gdg-success-surface)] px-4 py-3 text-sm text-success">
           {flashOk}
         </div>
       )}
       {flashError && (
-        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="mb-4 rounded-md bg-[var(--gdg-danger-surface)] px-4 py-3 text-sm text-danger"
-        >
+        <div className="mb-4 rounded-md bg-[var(--gdg-danger-surface)] px-4 py-3 text-sm text-danger">
           {flashError}
         </div>
       )}

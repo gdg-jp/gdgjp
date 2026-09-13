@@ -113,7 +113,6 @@ export default function TaskHistoryPage() {
                 {task.title}
               </span>
               <span
-                // gdg-ui-allow: literal-color — app-specific-layout-or-token
                 className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[task.status] ?? "bg-neutral text-muted"}`}
               >
                 {statusLabel(task.status)}

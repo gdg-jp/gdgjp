@@ -147,7 +147,6 @@ function ArchivedRow({
               name="intent"
               value="restorePage"
               disabled={isActing || !canRestore}
-              // gdg-ui-allow: literal-color — app-specific-layout-or-token
               className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-[var(--gdg-success-surface)] hover:text-success disabled:opacity-50"
             >
               <Icons name="RotateCcw" size={13} />
@@ -160,7 +159,6 @@ function ArchivedRow({
             type="button"
             disabled={isActing || !canDelete}
             onClick={canDelete ? () => setDeleteDialogOpen(true) : undefined}
-            // gdg-ui-allow: literal-color — app-specific-layout-or-token
             className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-danger hover:bg-[var(--gdg-danger-surface)] hover:text-danger disabled:opacity-50"
           >
             <Icons name="Trash2" size={13} />

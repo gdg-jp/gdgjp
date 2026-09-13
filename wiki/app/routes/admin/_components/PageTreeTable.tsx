@@ -204,7 +204,6 @@ export function PageTreeTable({ pages }: { pages: AdminPageNode[] }) {
                             <input type="hidden" name="pageId" value={p.id} />
                             <button
                               type="submit"
-                              // gdg-ui-allow: literal-color — app-specific-layout-or-token
                               className="rounded px-2 py-1 text-xs text-danger hover:bg-[var(--gdg-danger-surface)]"
                             >
                               {t("admin.pages.delete")}

@@ -260,9 +260,7 @@ export default function WikiRightSidebar({
 
         {/* Translation status */}
         {translationStatus === "ai" && (
-          <span // gdg-ui-allow: literal-color — app-specific-layout-or-token
-            className="inline-flex items-center rounded-full bg-[var(--gdg-warning-surface)] px-2 py-0.5 text-xs font-medium text-warning"
-          >
+          <span className="inline-flex items-center rounded-full bg-[var(--gdg-warning-surface)] px-2 py-0.5 text-xs font-medium text-warning">
             {t("wiki.auto_translated")}
           </span>
         )}

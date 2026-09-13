@@ -65,7 +65,6 @@ export function MobileContentsSheet({
       <div
         ref={sheetRef}
         tabIndex={-1}
-        // gdg-ui-allow: literal-color — app-specific-layout-or-token
         className="fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-xl bg-surface shadow-xl md:hidden"
       >
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -145,9 +144,7 @@ export function MobileContentsSheet({
 
           {/* Translation status */}
           {(lang === "en" ? page.translationStatusEn : page.translationStatusJa) === "ai" && (
-            <span // gdg-ui-allow: literal-color — app-specific-layout-or-token
-              className="inline-flex items-center rounded-full bg-[var(--gdg-warning-surface)] px-2 py-0.5 text-xs font-medium text-warning"
-            >
+            <span className="inline-flex items-center rounded-full bg-[var(--gdg-warning-surface)] px-2 py-0.5 text-xs font-medium text-warning">
               {t("wiki.auto_translated")}
             </span>
           )}

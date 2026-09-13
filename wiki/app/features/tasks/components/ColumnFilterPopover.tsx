@@ -50,7 +50,6 @@ export default function ColumnFilterPopover({
           <div
             ref={menuRef}
             style={{ position: "absolute", top: pos.top, left: pos.left, minWidth: pos.width }}
-            // gdg-ui-allow: literal-color — app-specific-layout-or-token
             className="z-[9999] overflow-hidden rounded-md border border-border bg-surface shadow-lg"
           >
             {searchable && (
@@ -129,9 +128,7 @@ export default function ColumnFilterPopover({
       >
         <Icons name="ListFilter" size={12} />
         {isActive && (
-          <span // gdg-ui-allow: literal-color — app-specific-layout-or-token
-            className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground"
-          >
+          <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
             {selected.length}
           </span>
         )}

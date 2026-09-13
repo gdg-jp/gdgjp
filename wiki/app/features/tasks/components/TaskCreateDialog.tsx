@@ -117,7 +117,6 @@ export default function TaskCreateDialog({
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent
         aria-describedby={undefined}
-        // gdg-ui-allow: literal-color — app-specific-layout-or-token
         className="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-surface p-6 text-foreground shadow-2xl shadow-content-primary/20"
       >
         <div className="mb-4 flex items-center justify-between">

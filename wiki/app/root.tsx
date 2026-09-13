@@ -1,5 +1,6 @@
-import { Button, ThemeProvider, Toaster } from "@gdgjp/ui";
+import { Button, Icons, ThemeProvider, Toaster } from "@gdgjp/ui";
 
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Links,
@@ -10,6 +11,7 @@ import {
   isRouteErrorResponse,
   useLoaderData,
   useRouteError,
+  useRouteLoaderData,
 } from "react-router";
 import type {
   LinksFunction,
@@ -27,7 +29,6 @@ import appStylesHref from "./app.css?url";
  * Locale/theme only change via dedicated cookie APIs. Skip revalidating root
  * on every in-app GET so leaf navigations aren't blocked by an extra loader.
  */
-import { Icons } from "@gdgjp/ui";
 export const shouldRevalidate: ShouldRevalidateFunction = ({
   formAction,
   formMethod,
@@ -95,45 +96,30 @@ export const meta: MetaFunction<typeof loader> = () => [
   { property: "og:site_name", content: "GDG Japan Wiki" },
 ];
 
-export function ErrorBoundary() {
-  const error = useRouteError();
-  const status = isRouteErrorResponse(error) ? error.status : 500;
-  const is404 = status === 404;
-  const iconName = is404 ? "AlertTriangle" : "ServerCrash";
-  const { t, i18n } = useTranslation();
+const fallbackLocale: SupportedLng = "ja";
 
-  return (
-    <html lang={i18n.language} suppressHydrationWarning>
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <Meta />
-        <Links />
-      </head>
-      <body className="bg-background text-foreground font-sans antialiased">
-        <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4">
-          <Icons name={iconName} className="w-16 h-16 text-link" strokeWidth={1.5} />
-          <div className="text-center space-y-2">
-            <p className="text-8xl font-bold text-muted/70">{status}</p>
-            <h1 className="text-2xl font-semibold">
-              {is404 ? t("error.404_title") : t("error.500_title")}
-            </h1>
-            <p className="text-muted max-w-sm">
-              {is404 ? t("error.404_desc") : t("error.500_desc")}
-            </p>
-          </div>
-          <Button asChild className="mt-2">
-            <a href="/">{t("error.back_home")}</a>
-          </Button>
-        </div>
-        <Scripts />
-      </body>
-    </html>
-  );
+function useDocumentLocale(): SupportedLng {
+  const rootData = useRouteLoaderData("root") as { locale?: unknown } | undefined;
+  const { i18n } = useTranslation();
+  const loaderLocale = rootData?.locale;
+  if (
+    typeof loaderLocale === "string" &&
+    (supportedLngs as readonly string[]).includes(loaderLocale)
+  ) {
+    return loaderLocale as SupportedLng;
+  }
+  if ((supportedLngs as readonly string[]).includes(i18n.resolvedLanguage ?? "")) {
+    return i18n.resolvedLanguage as SupportedLng;
+  }
+  if ((supportedLngs as readonly string[]).includes(i18n.language ?? "")) {
+    return i18n.language as SupportedLng;
+  }
+  return fallbackLocale;
 }
 
-export default function App() {
-  const { locale, firebaseConfig } = useLoaderData<typeof loader>();
+/** The document is shared by normal routes and route error boundaries. */
+export function Layout({ children }: { children: ReactNode }) {
+  const locale = useDocumentLocale();
 
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -147,14 +133,48 @@ export default function App() {
       </head>
       <body className="bg-background text-foreground font-sans antialiased">
         <ThemeProvider storageKey="gdg-apps-theme" defaultTheme="system">
-          <FirebaseConfigContext value={firebaseConfig}>
-            <Outlet />
-          </FirebaseConfigContext>
-          <Toaster position="top-center" richColors />
+          {children}
         </ThemeProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
     </html>
+  );
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  const status = isRouteErrorResponse(error) ? error.status : 500;
+  const is404 = status === 404;
+  const iconName = is404 ? "AlertTriangle" : "ServerCrash";
+  const { t } = useTranslation();
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4">
+      <Icons name={iconName} className="w-16 h-16 text-link" strokeWidth={1.5} />
+      <div className="text-center space-y-2">
+        <p className="text-8xl font-bold text-muted/70">{status}</p>
+        <h1 className="text-2xl font-semibold">
+          {is404 ? t("error.404_title") : t("error.500_title")}
+        </h1>
+        <p className="text-muted max-w-sm">{is404 ? t("error.404_desc") : t("error.500_desc")}</p>
+      </div>
+      <Button asChild className="mt-2">
+        <a href="/">{t("error.back_home")}</a>
+      </Button>
+    </div>
+  );
+}
+
+export default function App() {
+  const { firebaseConfig } = useLoaderData<typeof loader>();
+
+  return (
+    <>
+      <FirebaseConfigContext value={firebaseConfig}>
+        <Outlet />
+      </FirebaseConfigContext>
+      <Toaster position="top-center" richColors />
+    </>
   );
 }

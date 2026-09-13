@@ -119,9 +119,7 @@ export function TagDialog({ mode, tag, open, onOpenChange }: TagDialogProps) {
         </Stack>
 
         {currentError && (
-          <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-            className="rounded-md bg-[var(--gdg-danger-surface)] px-4 py-3 text-sm text-danger"
-          >
+          <div className="rounded-md bg-[var(--gdg-danger-surface)] px-4 py-3 text-sm text-danger">
             {t(currentError.errorKey, currentError.errorParams)}
           </div>
         )}

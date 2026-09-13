@@ -76,7 +76,6 @@ export function ClarificationScreen({
                       return { ...prev, [q.id]: next };
                     })
                   }
-                  // gdg-ui-allow: literal-color — app-specific-layout-or-token
                   className={`rounded-full border px-3 py-1 text-xs ${
                     (selected[q.id] ?? []).includes(s)
                       ? "border-border-ring bg-primary text-primary-foreground"
@@ -109,9 +108,7 @@ export function ClarificationScreen({
       </div>
 
       {submitError && (
-        <p // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="mt-4 rounded-lg border border-danger bg-[var(--gdg-danger-surface)] px-4 py-2 text-sm text-danger"
-        >
+        <p className="mt-4 rounded-lg border border-danger bg-[var(--gdg-danger-surface)] px-4 py-2 text-sm text-danger">
           {submitError}
         </p>
       )}
@@ -204,9 +201,7 @@ export function UrlSelectionScreen({
       </div>
 
       {submitError && (
-        <p // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="mt-4 rounded-lg border border-danger bg-[var(--gdg-danger-surface)] px-4 py-2 text-sm text-danger"
-        >
+        <p className="mt-4 rounded-lg border border-danger bg-[var(--gdg-danger-surface)] px-4 py-2 text-sm text-danger">
           {submitError}
         </p>
       )}

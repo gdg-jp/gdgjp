@@ -91,19 +91,20 @@ Run from the repo root with `pnpm --filter @gdgjp/wiki <script>`, or from `wiki/
 | `test:golden` | `vitest run tests/golden` — TipTap↔Markdown conversion/rendering snapshots. |
 | `test:golden:update` | Refresh golden snapshots (`-u`); review the diff when the editor schema changes. |
 | `test:coverage` | `vitest run --coverage`. |
-| `test:e2e` | `playwright test`; auto-boots the dev server on 5177. |
+| `test:e2e` | Runs Playwright with an isolated test-only `.dev.vars.e2e`, then auto-boots the dev server on 5177 with dedicated E2E persistence. |
+| `e2e:prepare` | Applies local migrations, seeds deterministic fixtures, and writes ignored storage states. |
 | `migrate:local` | Applies migrations to the local D1 (`gdgjp-wiki-db`) and regenerates `schema.sql`. |
 | `migrate:remote` | Same, against the remote D1. |
 | `openapi:lint` / `openapi:bundle` / `openapi:generate` | Lint, bundle, and generate types for `openapi/openapi.yaml` (the CLI-facing API surface). |
 
 ## Testing notes
 
-- E2E bypasses the IdP entirely: `tests/e2e/global-setup.ts` seeds three fixed users
-  (`admin`/`author`/`member`) plus a stable test page directly into the local miniflare D1 sqlite
-  file, and forges a `gdgjp-wiki-session` cookie signed with `RP_SESSION_SECRET` from `.dev.vars`.
-  It requires `pnpm dev` to have already created the local D1 state. `tests/e2e/fixtures.ts`
-  exposes `adminPage` / `authorPage` / `memberPage`; the cookie format and the session-secret env
-  var must change together across both files.
+- E2E bypasses the IdP entirely: `tests/e2e/global-setup.ts` applies migrations and an idempotent
+  seed to the dedicated `.wrangler/e2e-state` persistence directory, then forges a
+  `gdgjp-wiki-session` cookie with the test-only `WIKI_E2E_SESSION_SECRET` and
+  `WIKI_E2E_ISSUER` environment variables. It never opens a hashed SQLite file or the developer's
+  normal `.wrangler/state`. `tests/e2e/fixtures.ts` exposes `adminPage` / `authorPage` /
+  `memberPage`; `e2e:prepare` can run the same setup before Playwright.
 - Golden tests snapshot the canonical-Markdown storage model against TipTap's editor
   representation — page and version content is stored as Markdown, and `tiptap-convert.ts` is only
   a legacy TipTap JSON → Markdown boundary converter.

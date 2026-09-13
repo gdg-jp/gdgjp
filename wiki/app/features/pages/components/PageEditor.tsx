@@ -182,9 +182,7 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
       <input type="hidden" name="contentEn" value={contentEn} />
 
       {page.origin === "agent" && (
-        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="border-b border-warning bg-[var(--gdg-warning-surface)] px-3 py-2 text-sm text-warning"
-        >
+        <div className="border-b border-warning bg-[var(--gdg-warning-surface)] px-3 py-2 text-sm text-warning">
           {t("wiki.ingest_managed_warning")}
         </div>
       )}

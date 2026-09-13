@@ -9,24 +9,47 @@ async function source(relativePath: string): Promise<string> {
 }
 
 describe("Wiki shared UI theme", () => {
-  it("loads the shared token, component, and font layers", async () => {
+  it("loads the shared layers exactly once and in the documented order", async () => {
     const css = await source("app.css");
 
-    expect(
-      css.startsWith("@layer theme, base, gdg-tokens, gdg-base, gdg-components, utilities;"),
-    ).toBe(true);
-    expect(css).toContain('@import "@gdgjp/ui/tailwind.css";');
-    expect(css).toContain('@import "@gdgjp/ui/components.css";');
-    expect(css).toContain('@import "@gdgjp/ui/fonts.css";');
+    expect(css.split("\n")[0]).toBe(
+      "@layer theme, base, gdg-tokens, gdg-base, gdg-components, utilities;",
+    );
+    expect(css.match(/@import "tailwindcss";/g)).toHaveLength(1);
+    expect(css.match(/@import "@gdgjp\/ui\/tailwind\.css";/g)).toHaveLength(1);
+    expect(css.match(/@import "@gdgjp\/ui\/components\.css";/g)).toHaveLength(1);
+    expect(css.match(/@import "@gdgjp\/ui\/fonts\.css";/g)).toHaveLength(1);
+    expect(css.indexOf('@import "tailwindcss";')).toBeLessThan(
+      css.indexOf('@import "@gdgjp/ui/tailwind.css";'),
+    );
+    expect(css.indexOf('@import "@gdgjp/ui/tailwind.css";')).toBeLessThan(
+      css.indexOf('@import "@gdgjp/ui/components.css";'),
+    );
+    expect(css.indexOf('@import "@gdgjp/ui/components.css";')).toBeLessThan(
+      css.indexOf('@import "@gdgjp/ui/fonts.css";'),
+    );
     expect(css).not.toContain("@theme {");
   });
 
-  it("uses explicit warning tokens for the Google Chat reauthorization card", async () => {
-    // The reauthorization card moved to the `/sources` add-source panel in Stage 06.
-    const addSourceSection = await source("routes/sources/_components/AddSourceSection.tsx");
+  it("keeps app CSS limited to documented third-party and domain bridges", async () => {
+    const css = await source("app.css");
 
-    expect(addSourceSection).toContain("border-warning");
-    expect(addSourceSection).toContain("var(--gdg-warning-surface)");
-    expect(addSourceSection).toContain("text-warning");
+    expect(css).toContain(".remote-cursor");
+    expect(css).toContain(".md-editor-preview");
+    expect(css).toContain('article[data-small-text="true"]');
+    expect(css).not.toMatch(/(^|\n)\s*\.button\b/);
+    expect(css).not.toMatch(/border-radius:\s*\d+px/);
+  });
+
+  it("defines one document provider and renders errors inside the shared shell", async () => {
+    const root = await source("root.tsx");
+
+    expect(root.match(/<ThemeProvider\b/g)).toHaveLength(1);
+    expect(root.match(/<Toaster\b/g)).toHaveLength(1);
+    expect(root.match(/storageKey="gdg-apps-theme"/g)).toHaveLength(1);
+    expect(root.match(/defaultTheme="system"/g)).toHaveLength(1);
+    expect(root.match(/<html\b/g)).toHaveLength(1);
+    expect(root.slice(root.indexOf("export function ErrorBoundary")).includes("<html")).toBe(false);
+    expect(root).not.toContain("themeInitScript");
   });
 });

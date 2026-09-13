@@ -119,9 +119,7 @@ function PreviewTreeNode({ node, depth }: { node: PreviewNode; depth: number }) 
         {node.isNew ? (
           <>
             <span className="text-xs font-semibold text-success">+ {node.title}</span>
-            <span // gdg-ui-allow: literal-color — app-specific-layout-or-token
-              className="rounded-full bg-[var(--gdg-success-surface)] px-1.5 py-0.5 text-xs font-medium text-success"
-            >
+            <span className="rounded-full bg-[var(--gdg-success-surface)] px-1.5 py-0.5 text-xs font-medium text-success">
               {t("ingest.review.op_create")}
             </span>
           </>
@@ -173,7 +171,6 @@ export default function PageStructurePreview({
         </span>
         <Icons
           name="ChevronDown"
-          // gdg-ui-allow: literal-color — app-specific-layout-or-token
           className={`size-4 text-muted transition-transform duration-200 ease-[var(--motion-ease-in-out)] ${open ? "rotate-180" : "rotate-0"}`}
           aria-hidden="true"
         />

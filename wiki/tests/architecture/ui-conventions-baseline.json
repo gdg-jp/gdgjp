@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "ruleId": "legacy-import",
+      "path": "wiki/app/features/pages/components/ShareDialog/types.ts",
+      "fingerprint": "lucide-react",
+      "count": 1
+    },
+    {
+      "ruleId": "button-full-width",
+      "path": "wiki/app/features/pages/components/ShareDialog/SearchCombobox.tsx",
+      "fingerprint": "w-full",
+      "count": 1
+    }
+  ]
+}

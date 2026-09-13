@@ -234,9 +234,7 @@ export default function ChangesetReview({
 
       {/* Warnings */}
       {draft.warnings && draft.warnings.length > 0 && (
-        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="rounded-lg border border-warning bg-[var(--gdg-warning-surface)] p-4"
-        >
+        <div className="rounded-lg border border-warning bg-[var(--gdg-warning-surface)] p-4">
           <h3 className="text-sm font-medium text-warning">{t("ingest.review.warnings")}</h3>
           <ul className="mt-1 list-disc pl-4 text-sm text-warning">
             {draft.warnings.map((w) => (
@@ -248,16 +246,13 @@ export default function ChangesetReview({
 
       {/* Sibling warning */}
       {showSiblingWarning && (
-        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="flex items-start justify-between gap-4 rounded-lg border border-warning bg-[var(--gdg-warning-surface)] p-4"
-        >
+        <div className="flex items-start justify-between gap-4 rounded-lg border border-warning bg-[var(--gdg-warning-surface)] p-4">
           <p className="text-sm text-warning">
             {t("ingest.review.sibling_warning", { count: rootLevelCreateCount })}
           </p>
           <button
             type="button"
             onClick={handleAddParentPage}
-            // gdg-ui-allow: literal-color — app-specific-layout-or-token
             className="shrink-0 rounded-lg border border-warning bg-surface px-3 py-1.5 text-xs font-medium text-warning hover:bg-[var(--gdg-warning-surface)]"
           >
             {t("ingest.review.add_parent_page")}

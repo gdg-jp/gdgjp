@@ -94,7 +94,6 @@ export function PageActionsMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          // gdg-ui-allow: literal-color — app-specific-layout-or-token
           className="w-72 max-w-[calc(100vw-2rem)] border border-border bg-surface p-1.5 text-foreground"
         >
           <DropdownMenuItem
@@ -155,7 +154,6 @@ export function PageActionsMenu({
       {(busy || message || actionError) && (
         <div
           role={actionError ? "alert" : undefined}
-          // gdg-ui-allow: literal-color — app-specific-layout-or-token
           className="absolute right-4 top-full z-20 max-w-[calc(100vw-2rem)] rounded border border-border bg-surface px-3 py-2 text-sm text-foreground shadow"
         >
           {busy ? t("wiki.menu.working") : actionError ? t("wiki.menu.action_failed") : message}

@@ -25,9 +25,7 @@ export function GrantScreen({ c }: { c: ShareDialogController }) {
 
   return (
     <section className="pt-5" aria-label={t("wiki.share_add_people")}>
-      <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
-        className="grid gap-4 sm:grid-cols-[1fr_144px] sm:items-start"
-      >
+      <div className="grid gap-4 sm:grid-cols-[1fr_144px] sm:items-start">
         <label className="flex min-h-10 items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"
@@ -60,7 +58,6 @@ export function GrantScreen({ c }: { c: ShareDialogController }) {
       <div
         aria-hidden={!notify}
         inert={notify ? undefined : true}
-        // gdg-ui-allow: literal-color — app-specific-layout-or-token
         className={`grid transition-[grid-template-rows,opacity,transform,margin] ease-[var(--motion-ease-out)] motion-reduce:translate-y-0 motion-reduce:transition-[opacity] motion-reduce:duration-100 ${
           notify
             ? "visible mt-5 grid-rows-[1fr] translate-y-0 opacity-100 duration-[240ms]"
@@ -76,7 +73,6 @@ export function GrantScreen({ c }: { c: ShareDialogController }) {
               placeholder={t("wiki.share_message")}
               rows={5}
               disabled={!notify}
-              // gdg-ui-allow: literal-color — app-specific-layout-or-token
               className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-2 focus:ring-ring/20"
             />
           </label>

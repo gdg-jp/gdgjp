@@ -4,6 +4,11 @@ import tailwindcss from "@tailwindcss/vite";
 import agents from "agents/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
+import { E2E_PERSISTENCE_ENV, resolveE2EPersistencePath } from "./tests/e2e/setup";
+
+const e2ePersistencePath = process.env[E2E_PERSISTENCE_ENV]
+  ? resolveE2EPersistencePath(process.env[E2E_PERSISTENCE_ENV])
+  : undefined;
 
 export default defineConfig({
   // Pin to a fixed port so the IdP redirect URL
@@ -13,7 +18,11 @@ export default defineConfig({
   server: { port: 5177, strictPort: true },
   plugins: [
     agents(),
-    cloudflare({ viteEnvironment: { name: "ssr" }, remoteBindings: false }),
+    cloudflare({
+      viteEnvironment: { name: "ssr" },
+      remoteBindings: false,
+      ...(e2ePersistencePath ? { persistState: { path: e2ePersistencePath } } : {}),
+    }),
     reactRouter(),
     tailwindcss(),
     tsconfigPaths(),

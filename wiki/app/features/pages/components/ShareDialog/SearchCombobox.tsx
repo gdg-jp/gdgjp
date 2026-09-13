@@ -34,7 +34,6 @@ export function SearchCombobox({ c }: { c: ShareDialogController }) {
       <div ref={searchInputHeight.containerRef} className="overflow-hidden">
         <div
           ref={searchInputHeight.contentRef}
-          // gdg-ui-allow: literal-color — app-specific-layout-or-token
           className={`flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border bg-background px-2 py-1 shadow-sm transition-[border-color,box-shadow] duration-150 ${isListOpen ? "border-ring ring-2 ring-ring/20" : "border-border"}`}
         >
           <SelectedChips

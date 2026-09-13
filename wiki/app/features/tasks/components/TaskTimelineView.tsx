@@ -58,15 +58,12 @@ export default function TaskTimelineView({ tasks, members, onTaskClick }: TaskTi
           <table className="min-w-full">
             <thead>
               <tr className="bg-background">
-                <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
-                  className="sticky left-0 z-10 min-w-[150px] bg-background px-3 py-2 text-left text-xs font-medium uppercase text-muted"
-                >
+                <th className="sticky left-0 z-10 min-w-[150px] bg-background px-3 py-2 text-left text-xs font-medium uppercase text-muted">
                   {t("tasks.col_assignee")}
                 </th>
                 {dates.map((date) => (
                   <th
                     key={date}
-                    // gdg-ui-allow: literal-color — app-specific-layout-or-token
                     className={`min-w-[80px] px-1 py-2 text-center text-xs font-medium ${
                       date === today
                         ? "bg-selected text-link"
@@ -108,7 +105,6 @@ export default function TaskTimelineView({ tasks, members, onTaskClick }: TaskTi
                                 key={task.id}
                                 type="button"
                                 onClick={() => onTaskClick(task.id)}
-                                // gdg-ui-allow: literal-color — app-specific-layout-or-token
                                 className={`w-full truncate px-1 py-0.5 text-left text-xs text-muted hover:opacity-80 ${
                                   {
                                     done: "bg-selected",

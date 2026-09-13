@@ -72,7 +72,6 @@ export function ChangesetOperationCard({
       {/* Op header */}
       <div className="mb-4 flex items-center gap-3">
         <span
-          // gdg-ui-allow: literal-color — app-specific-layout-or-token
           className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
             op.type === "create"
               ? "bg-[var(--gdg-success-surface)] text-success"
@@ -87,7 +86,6 @@ export function ChangesetOperationCard({
       {/* Actionability score banner */}
       {score && score < 3 && (
         <div
-          // gdg-ui-allow: literal-color — app-specific-layout-or-token
           className={`mb-4 rounded-lg p-3 text-sm ${
             score === 1
               ? "border border-danger bg-[var(--gdg-danger-surface)] text-danger"

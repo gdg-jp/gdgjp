@@ -26,7 +26,6 @@ function Initials({ name, blue }: { name: string; blue?: boolean }) {
   const initial = name.slice(0, 1).toUpperCase();
   return (
     <div
-      // gdg-ui-allow: literal-color — app-specific-layout-or-token
       className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${
         blue ? "bg-selected text-link" : "bg-neutral text-muted"
       }`}
@@ -129,7 +128,6 @@ export default function AssigneeCell({
           <div
             ref={menuRef}
             style={{ position: "absolute", top: pos.top, left: pos.left, minWidth: pos.width }}
-            // gdg-ui-allow: literal-color — app-specific-layout-or-token
             className="z-[9999] overflow-hidden rounded-md border border-border bg-surface shadow-lg"
           >
             {/* Search input */}
@@ -233,32 +231,18 @@ export default function AssigneeCell({
         ) : (
           <Initials name={assignedMember.name} blue />
         )}
-        <span // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="max-w-[60px] truncate"
-        >
-          {assignedMember.name}
-        </span>
+        <span className="max-w-[60px] truncate">{assignedMember.name}</span>
       </>
     );
   } else if (assigneeName) {
     triggerContent = (
       <>
         <Initials name={assigneeName} />
-        <span // gdg-ui-allow: literal-color — app-specific-layout-or-token
-          className="max-w-[60px] truncate"
-        >
-          {assigneeName}
-        </span>
+        <span className="max-w-[60px] truncate">{assigneeName}</span>
       </>
     );
   } else {
-    triggerContent = (
-      <span // gdg-ui-allow: literal-color — app-specific-layout-or-token
-        className="max-w-[60px] truncate text-muted"
-      >
-        —
-      </span>
-    );
+    triggerContent = <span className="max-w-[60px] truncate text-muted">—</span>;
   }
 
   return (

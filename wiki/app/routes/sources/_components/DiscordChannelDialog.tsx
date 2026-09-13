@@ -207,9 +207,7 @@ export function DiscordChannelDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent // gdg-ui-allow: literal-color — app-specific-layout-or-token
-        className="max-h-[85vh] overflow-y-auto bg-surface sm:max-w-lg"
-      >
+      <DialogContent className="max-h-[85vh] overflow-y-auto bg-surface sm:max-w-lg">
         <Stack className="border-b border-border px-5 py-4">
           <DialogTitle>{t("sources.discord_dialog_title")}</DialogTitle>
           <DialogDescription>{t("sources.discord_dialog_description")}</DialogDescription>

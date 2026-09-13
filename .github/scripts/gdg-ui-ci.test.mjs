@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { parse as parseYaml } from "yaml";
 import { changedSteps } from "../../scripts/run-ci.mjs";
+
+function readWorkflow(name) {
+  return parseYaml(readFileSync(new URL(`../workflows/${name}`, import.meta.url), "utf8"));
+}
+
+function allSteps(job) {
+  return job.steps.flatMap((step) => step.parallel ?? [step]);
+}
+
+function stepByName(job, name) {
+  return job.steps.find((step) => step.name === name);
+}
 
 test("CSS-only UI changes trigger build, behavior tests and visual checks", () => {
   const steps = changedSteps("full", ["ui/src/styles/tokens.css"]);
@@ -23,6 +36,33 @@ test("UI E2E edits run the suite once and unrelated apps retain related tests", 
   const steps = changedSteps("full", ["ui/e2e/library.spec.ts", "tinyurl/app/lib/utils.ts"]);
   assert.equal(steps.filter(([name]) => name === "e2e:ui").length, 1);
   assert.ok(steps.some(([, command]) => command.includes("@gdgjp/tinyurl exec vitest related")));
+});
+
+test("Wiki E2E specs and setup changes select the Wiki suite", () => {
+  const specSteps = changedSteps("full", ["wiki/tests/e2e/access-control.spec.ts"]);
+  const setupSteps = changedSteps("full", ["wiki/tests/e2e/setup.ts"]);
+  const appSteps = changedSteps("full", ["wiki/app/root.tsx"]);
+
+  assert.equal(specSteps.filter(([name]) => name === "e2e:@gdgjp/wiki").length, 1);
+  assert.match(
+    specSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[1],
+    /access-control\.spec\.ts/,
+  );
+  assert.equal(setupSteps.filter(([name]) => name === "e2e:@gdgjp/wiki").length, 1);
+  assert.match(setupSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[1], /@gdgjp\/wiki test:e2e/);
+  assert.doesNotMatch(setupSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[1], /access-control/);
+  assert.equal(appSteps.filter(([name]) => name === "e2e:@gdgjp/wiki").length, 1);
+});
+
+test("full CI schedules the Wiki E2E target once", () => {
+  const runCi = readFileSync(new URL("../../scripts/run-ci.mjs", import.meta.url), "utf8");
+  const fullE2eCommand = runCi.match(/\[\s*"e2e",\s*"([^"]+)"/s)?.[1];
+  assert.ok(fullE2eCommand);
+  assert.equal((fullE2eCommand.match(/--filter=@gdgjp\/wiki/g) ?? []).length, 1);
+  assert.equal(
+    readWorkflow("ci.yml").jobs.e2e.strategy.matrix.app,
+    "${{ fromJSON(needs.changes.outputs.e2e) }}",
+  );
 });
 
 test("repository script edits do not run every workspace's checks", () => {
@@ -58,17 +98,97 @@ test("changed CI does not unconditionally typecheck unrelated Node scripts", () 
   assert.equal(packageJSON.scripts["ci:full"], "node scripts/run-ci.mjs full");
 });
 
-test("hosted CI includes the UI checks and isolates database setup", () => {
-  const workflow = readFileSync(new URL("../workflows/ci.yml", import.meta.url), "utf8");
-  for (const command of ["typecheck", "test", "build", "test:consumer"])
-    assert.ok(workflow.includes(`@gdgjp/ui ${command}`));
+test("hosted CI builds UI before every clean consumer job", () => {
+  const workflow = readWorkflow("ci.yml");
+  for (const jobName of ["typecheck", "test", "build", "e2e"]) {
+    const job = workflow.jobs[jobName];
+    const sharedBuildIndex = job.steps.findIndex(
+      (step) =>
+        step.name === "Build shared UI dependency" && step.run === "pnpm --filter @gdgjp/ui build",
+    );
+    assert.notEqual(sharedBuildIndex, -1, `${jobName} must build the shared UI package`);
+    assert.equal(
+      job.steps.filter((step) => step.name === "Build shared UI dependency").length,
+      1,
+      `${jobName} must build UI once`,
+    );
+    const flattened = allSteps(job);
+    if (jobName === "e2e") {
+      const e2eIndex = flattened.findIndex((step) => step.name === "Run E2E testing");
+      assert.ok(e2eIndex > sharedBuildIndex, "E2E must start after the shared UI build");
+      continue;
+    }
+    const consumerIndex = flattened.findIndex(
+      (step) =>
+        step.name !== "Build shared UI dependency" &&
+        String(step.run ?? "").includes("@gdgjp/ui") &&
+        (String(step.run).includes("typecheck") ||
+          String(step.run).includes("test") ||
+          String(step.run).includes("build")),
+    );
+    assert.ok(consumerIndex > -1, `${jobName} must have a UI consumer`);
+    assert.ok(
+      flattened.findIndex((step) => step.name === "Build shared UI dependency") < consumerIndex,
+      `${jobName} UI build must precede its consumer`,
+    );
+  }
+  const buildParallel = workflow.jobs.build.steps.find((step) =>
+    Array.isArray(step.parallel),
+  ).parallel;
   assert.equal(
-    (
-      workflow.match(
-        /- name: Build shared UI dependency\n\s+run: pnpm --filter @gdgjp\/ui build/g,
-      ) ?? []
-    ).length,
-    4,
+    buildParallel.find((step) => step.name === "Build GDG UI").run,
+    "pnpm --filter @gdgjp/ui test:consumer",
   );
-  assert.match(workflow, /Migrate Accounts local database\n\s+if: matrix.app != 'ui'/);
+});
+
+test("Wiki E2E setup is isolated from Accounts and uploads only the report", () => {
+  const workflow = readWorkflow("ci.yml");
+  const job = workflow.jobs.e2e;
+  assert.equal(stepByName(job, "Create Wiki E2E vars").if, "matrix.app == 'wiki'");
+  assert.equal(stepByName(job, "Prepare Wiki E2E state").if, "matrix.app == 'wiki'");
+  assert.equal(
+    stepByName(job, "Migrate Accounts local database").if,
+    "matrix.app != 'ui' && matrix.app != 'wiki'",
+  );
+  const wikiVars = stepByName(job, "Create Wiki E2E vars").run;
+  assert.match(wikiVars, /WIKI_E2E_SESSION_SECRET=ci-wiki-e2e-session-secret/);
+  assert.match(wikiVars, /WIKI_E2E_ISSUER=http:\/\/localhost:5173/);
+  assert.match(wikiVars, /WIKI_E2E_PERSIST_TO=\.wrangler\/e2e-state/);
+  assert.match(wikiVars, /APP_URL=http:\/\/localhost:5177/);
+  assert.doesNotMatch(wikiVars, /CLOUDFLARE_API_TOKEN|accounts\.gdgs\.jp/);
+  assert.equal(
+    job.steps.findIndex((step) => step.name === "Create Wiki E2E vars") <
+      job.steps.findIndex((step) => step.name === "Prepare Wiki E2E state"),
+    true,
+  );
+  assert.equal(
+    job.steps.findIndex((step) => step.name === "Prepare Wiki E2E state") <
+      job.steps.findIndex((step) => step.name === "Run E2E testing"),
+    true,
+  );
+  assert.equal(stepByName(job, "Upload Playwright report").if, "always()");
+  assert.doesNotMatch(JSON.stringify(job), /continue-on-error/);
+});
+
+test("deploy builds shared UI before its parallel application builds", () => {
+  const workflow = readWorkflow("deploy.yml");
+  const job = workflow.jobs.deploy;
+  const sharedBuildIndex = job.steps.findIndex(
+    (step) => step.name === "Build shared UI dependency",
+  );
+  const parallelIndex = job.steps.findIndex((step) => Array.isArray(step.parallel));
+  assert.ok(sharedBuildIndex >= 0);
+  assert.ok(parallelIndex > sharedBuildIndex);
+  const parallel = job.steps.find((step) => Array.isArray(step.parallel)).parallel;
+  const wiki = parallel.find((step) => step.name === "Build, deploy, and migrate wiki");
+  assert.equal(
+    wiki.run.indexOf("pnpm --filter @gdgjp/wiki build") <
+      wiki.run.indexOf("pnpm --filter @gdgjp/wiki run deploy"),
+    true,
+  );
+  assert.equal(
+    wiki.run.indexOf("pnpm --filter @gdgjp/wiki run deploy") <
+      wiki.run.indexOf("pnpm --filter @gdgjp/wiki migrate:remote"),
+    true,
+  );
 });
