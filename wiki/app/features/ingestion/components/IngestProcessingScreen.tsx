@@ -1,4 +1,3 @@
-import { MotionSwap } from "~/components/ui/motion";
 import {
   type ToolActivityItem,
   buildLiveActivity,
@@ -41,10 +40,10 @@ export function ProcessingScreen({
   const activity = buildLiveActivity(events);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-surface-sunken">
-      <div className="h-12 w-12 animate-spin rounded-full border-4 border-feedback-info-border border-t-blue-600 motion-reduce:animate-none" />
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-neutral">
+      <div className="h-12 w-12 animate-spin rounded-full border-4 border-link border-t-blue-600 motion-reduce:animate-none" />
       <div className="text-center">
-        <p className="text-lg font-medium text-content-primary">{t("ingest.processing_message")}</p>
+        <p className="text-lg font-medium text-foreground">{t("ingest.processing_message")}</p>
       </div>
       <div className="w-72 space-y-2">
         {PHASE_STEPS.map((step, i) => {
@@ -58,33 +57,29 @@ export function ProcessingScreen({
               : "";
           return (
             <div key={step.key} className="flex items-center gap-3">
-              <MotionSwap
-                as="span"
-                stateKey={visualState}
-                className="inline-flex w-5 justify-center text-center text-sm"
-              >
+              <span className="inline-flex w-5 justify-center text-center text-sm">
                 {isDone ? (
                   "✓"
                 ) : isActive ? (
-                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-action-primary motion-reduce:animate-none" />
+                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />
                 ) : (
                   "○"
                 )}
-              </MotionSwap>
-              <MotionSwap as="span" stateKey={`${visualState}:${detail}`} className="inline-block">
+              </span>
+              <span className="inline-block">
                 <span
                   className={
                     isDone
-                      ? "text-sm text-feedback-success-foreground"
+                      ? "text-sm text-success"
                       : isActive
-                        ? "text-sm font-medium text-content-primary"
-                        : "text-sm text-content-disabled"
+                        ? "text-sm font-medium text-foreground"
+                        : "text-sm text-muted/70"
                   }
                 >
                   {label}
                   {detail}
                 </span>
-              </MotionSwap>
+              </span>
             </div>
           );
         })}
@@ -95,7 +90,7 @@ export function ProcessingScreen({
           aria-live="polite"
           aria-label="Live generation activity"
         >
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-content-tertiary">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
             Live activity
           </p>
           <ul className="space-y-2">
@@ -103,7 +98,7 @@ export function ProcessingScreen({
               item.kind === "tool" ? (
                 <ToolActivityCard key={item.key} activity={item} />
               ) : (
-                <li key={item.key} className="text-xs text-content-tertiary">
+                <li key={item.key} className="text-xs text-muted">
                   {eventDescription(item.event)}
                 </li>
               ),
@@ -111,8 +106,8 @@ export function ProcessingScreen({
           </ul>
         </div>
       )}
-      <p className="text-sm text-content-tertiary">{t("ingest.processing_hint")}</p>
-      <p className="text-xs text-content-disabled">{t("ingest.processing_leave_hint")}</p>
+      <p className="text-sm text-muted">{t("ingest.processing_hint")}</p>
+      <p className="text-xs text-muted/70">{t("ingest.processing_leave_hint")}</p>
     </div>
   );
 }
@@ -126,25 +121,29 @@ function ToolActivityCard({ activity }: { activity: ToolActivityItem }) {
         : "Failed";
   const statusClass =
     activity.status === "running"
-      ? "bg-feedback-info-surface text-action-primary-hover"
+      ? "bg-selected text-link"
       : activity.status === "completed"
-        ? "bg-feedback-success-surface text-feedback-success-foreground"
-        : "bg-feedback-danger-surface text-feedback-danger-foreground";
+        ? "bg-[var(--gdg-success-surface)] text-success"
+        : "bg-[var(--gdg-danger-surface)] text-danger";
 
   return (
-    <li className="rounded-lg border border-border-default bg-surface-raised p-3 text-xs text-content-secondary shadow-sm">
+    <li className="rounded-lg border border-border bg-surface p-3 text-xs text-muted shadow-sm">
       <div className="flex items-center justify-between gap-3">
-        <code className="font-semibold text-content-primary">{activity.tool}</code>
+        <code className="font-semibold text-foreground">{activity.tool}</code>
         <span className={`rounded-full px-2 py-0.5 font-medium ${statusClass}`}>{statusLabel}</span>
       </div>
-      {activity.summary && <p className="mt-1 text-content-tertiary">{activity.summary}</p>}
-      <pre className="mt-2 whitespace-pre-wrap break-all rounded-md bg-surface-sunken p-2 font-mono text-[11px] leading-4 text-content-secondary">
+      {activity.summary && <p className="mt-1 text-muted">{activity.summary}</p>}
+      <pre // gdg-ui-allow: literal-color — app-specific-layout-or-token
+        className="mt-2 whitespace-pre-wrap break-all rounded-md bg-neutral p-2 font-mono text-[11px] leading-4 text-muted"
+      >
         {formatToolArguments(activity.args)}
       </pre>
       {(activity.durationMs !== undefined ||
         activity.truncated ||
         activity.errorCode !== undefined) && (
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-content-tertiary">
+        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted"
+        >
           {activity.durationMs !== undefined && <span>{activity.durationMs} ms</span>}
           {activity.truncated && <span>Output truncated</span>}
           {activity.errorCode !== undefined && <span>{activity.errorCode}</span>}

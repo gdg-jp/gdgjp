@@ -6,14 +6,14 @@ export function HomeCta() {
 
   return (
     <section className="mb-10">
-      <div className="relative overflow-hidden rounded-2xl border border-feedback-info-border bg-gradient-to-br from-surface-selected to-surface-hover px-6 py-8 md:px-10 md:py-10">
+      <div className="relative overflow-hidden rounded-2xl border border-link bg-gradient-to-br from-surface-selected to-surface-hover px-6 py-8 md:px-10 md:py-10">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-feedback-info-surface/40 blur-2xl"
+          className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-selected/40 blur-2xl"
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-8 left-1/3 h-32 w-32 rounded-full bg-feedback-info-surface/40 blur-2xl"
+          className="pointer-events-none absolute -bottom-8 left-1/3 h-32 w-32 rounded-full bg-selected/40 blur-2xl"
         />
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-2">
@@ -23,7 +23,7 @@ export function HomeCta() {
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
                 fill="currentColor"
-                className="h-6 w-6 text-action-primary"
+                className="h-6 w-6 text-link"
               >
                 <path
                   fillRule="evenodd"
@@ -31,17 +31,18 @@ export function HomeCta() {
                   clipRule="evenodd"
                 />
               </svg>
-              <h2 className="text-xl font-bold text-content-primary md:text-2xl">
+              <h2 className="text-xl font-bold text-foreground md:text-2xl">
                 {t("home.cta_heading")}
               </h2>
             </div>
-            <p className="max-w-lg text-sm leading-relaxed text-content-secondary md:text-base">
+            <p className="max-w-lg text-sm leading-relaxed text-muted md:text-base">
               {t("home.cta_subheading")}
             </p>
           </div>
           <Link
             to="/ingest"
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl border-2 border-border-strong bg-action-primary px-5 py-2.5 text-sm font-semibold text-action-primary-foreground shadow-[3px_3px_0px_0px_var(--color-border-strong)] transition-[transform,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-x-[1px] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-y-[1px] hover:shadow-[1px_1px_0px_0px_var(--color-border-strong)]"
+            // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl border-2 border-border bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-[3px_3px_0px_0px_var(--color-border-border)] transition-[transform,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-x-[1px] [@media(hover:hover)_and_(pointer:fine)_and_(prefers-reduced-motion:no-preference)]:hover:translate-y-[1px] hover:shadow-[1px_1px_0px_0px_var(--color-border-border)]"
           >
             <svg
               aria-hidden="true"

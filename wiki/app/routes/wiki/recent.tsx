@@ -136,24 +136,27 @@ function PageGrid({ pages, emptyKey }: { pages: PageCard[]; emptyKey: string }) 
   const isJa = i18n.language !== "en";
 
   if (pages.length === 0) {
-    return <p className="text-sm text-content-disabled">{t(emptyKey)}</p>;
+    return <p className="text-sm text-muted/70">{t(emptyKey)}</p>;
   }
 
   return (
     <div className="overflow-x-auto pb-2">
-      <div className="inline-grid grid-rows-2 grid-flow-col auto-cols-[260px] gap-4">
+      <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+        className="inline-grid grid-rows-2 grid-flow-col auto-cols-[260px] gap-4"
+      >
         {pages.map((page) => (
           <Link
             key={page.id}
             to={page.wikiPath}
-            className="flex flex-col gap-2 rounded-lg border border-border-default bg-surface-raised p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-border-focus/40 hover:shadow-sm"
+            // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4 transition-[border-color,box-shadow] duration-[var(--motion-duration-micro)] ease-[var(--motion-ease-out)] hover:border-border-ring/40 hover:shadow-sm"
           >
-            <h3 className="line-clamp-2 font-medium text-content-primary">
+            <h3 className="line-clamp-2 font-medium text-foreground">
               {isJa ? page.titleJa || page.titleEn : page.titleEn || page.titleJa}
             </h3>
 
             {(page.summaryEn || page.summaryJa) && (
-              <p className="line-clamp-2 text-sm text-content-tertiary">
+              <p className="line-clamp-2 text-sm text-muted">
                 {isJa ? page.summaryJa || page.summaryEn : page.summaryEn || page.summaryJa}
               </p>
             )}
@@ -162,7 +165,7 @@ function PageGrid({ pages, emptyKey }: { pages: PageCard[]; emptyKey: string }) 
               {page.tags.map((tag) => (
                 <span
                   key={tag.tagSlug}
-                  className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-content-inverse"
+                  className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-primary-foreground"
                   style={{ backgroundColor: tag.color }}
                 >
                   {isJa ? tag.labelJa : tag.labelEn}
@@ -170,9 +173,7 @@ function PageGrid({ pages, emptyKey }: { pages: PageCard[]; emptyKey: string }) 
               ))}
             </div>
 
-            {page.timeLabel && (
-              <time className="text-xs text-content-disabled">{page.timeLabel}</time>
-            )}
+            {page.timeLabel && <time className="text-xs text-muted/70">{page.timeLabel}</time>}
           </Link>
         ))}
       </div>
@@ -186,17 +187,17 @@ export default function RecentPage() {
 
   return (
     <div className="px-4 py-6 md:px-8 md:py-8">
-      <h1 className="mb-8 text-2xl font-bold text-content-primary">{t("recent.title")}</h1>
+      <h1 className="mb-8 text-2xl font-bold text-foreground">{t("recent.title")}</h1>
 
       <Suspense
         fallback={
           <div className="space-y-10">
             <div>
-              <div className="mb-4 h-6 w-36 rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
+              <div className="mb-4 h-6 w-36 rounded bg-neutral animate-pulse motion-reduce:animate-none" />
               <CardGridSkeleton count={4} />
             </div>
             <div>
-              <div className="mb-4 h-6 w-36 rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
+              <div className="mb-4 h-6 w-36 rounded bg-neutral animate-pulse motion-reduce:animate-none" />
               <CardGridSkeleton count={4} />
             </div>
           </div>
@@ -204,9 +205,7 @@ export default function RecentPage() {
       >
         <Await
           resolve={recentData}
-          errorElement={
-            <p className="text-sm text-feedback-danger-foreground">Failed to load recent pages.</p>
-          }
+          errorElement={<p className="text-sm text-danger">Failed to load recent pages.</p>}
         >
           {({ recentUpdated, recentViewed }) => {
             const updatedCards: PageCard[] = recentUpdated.map((p) => ({
@@ -222,14 +221,14 @@ export default function RecentPage() {
             return (
               <>
                 <section className="mb-10">
-                  <h2 className="mb-4 text-lg font-semibold text-content-primary">
+                  <h2 className="mb-4 text-lg font-semibold text-foreground">
                     {t("recent.recently_viewed")}
                   </h2>
                   <PageGrid pages={viewedCards} emptyKey="recent.no_viewed" />
                 </section>
 
                 <section>
-                  <h2 className="mb-4 text-lg font-semibold text-content-primary">
+                  <h2 className="mb-4 text-lg font-semibold text-foreground">
                     {t("recent.recently_updated")}
                   </h2>
                   <PageGrid pages={updatedCards} emptyKey="recent.no_updated" />

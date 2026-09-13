@@ -42,30 +42,27 @@ export function ClarificationScreen({
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
-      <h1 className="mb-2 text-2xl font-bold text-content-primary">
+      <h1 className="mb-2 text-2xl font-bold text-foreground">
         {t("ingest.clarification_heading")}
       </h1>
-      <p className="mb-6 text-sm text-content-tertiary">{t("ingest.clarification_hint")}</p>
+      <p className="mb-6 text-sm text-muted">{t("ingest.clarification_hint")}</p>
 
       {summary && (
-        <div className="mb-8 rounded-lg border border-feedback-info-border bg-feedback-info-surface p-4  ">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-action-primary-hover ">
+        <div className="mb-8 rounded-lg border border-link bg-selected p-4  ">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-link ">
             {t("ingest.clarification_summary_label")}
           </p>
-          <p className="text-sm text-content-secondary dark:text-content-disabled">{summary}</p>
+          <p className="text-sm text-muted dark:text-muted/70">{summary}</p>
         </div>
       )}
 
       <div className="space-y-6">
         {questions.map((q) => (
           <div key={q.id}>
-            <label
-              htmlFor={`q-${q.id}`}
-              className="mb-1 block text-sm font-medium text-content-primary"
-            >
+            <label htmlFor={`q-${q.id}`} className="mb-1 block text-sm font-medium text-foreground">
               {q.question}
             </label>
-            {q.context && <p className="mb-2 text-xs text-content-tertiary">{q.context}</p>}
+            {q.context && <p className="mb-2 text-xs text-muted">{q.context}</p>}
             <div className="mb-2 flex flex-wrap gap-2">
               {(q.suggestions ?? []).map((s) => (
                 <button
@@ -79,10 +76,11 @@ export function ClarificationScreen({
                       return { ...prev, [q.id]: next };
                     })
                   }
+                  // gdg-ui-allow: literal-color — app-specific-layout-or-token
                   className={`rounded-full border px-3 py-1 text-xs ${
                     (selected[q.id] ?? []).includes(s)
-                      ? "border-border-focus bg-action-primary text-action-primary-foreground"
-                      : "border-border-strong bg-surface-raised text-content-secondary hover:border-border-focus hover:text-action-primary"
+                      ? "border-border-ring bg-primary text-primary-foreground"
+                      : "border-border bg-surface text-muted hover:border-border-ring hover:text-link"
                   }`}
                 >
                   {s}
@@ -94,7 +92,7 @@ export function ClarificationScreen({
                   setSelected((prev) => ({ ...prev, [q.id]: [] }));
                   setFreeText((prev) => ({ ...prev, [q.id]: t("ingest.nothing_in_particular") }));
                 }}
-                className="rounded-full border border-border-default bg-surface-sunken px-3 py-1 text-xs text-content-disabled hover:border-border-strong hover:text-content-secondary"
+                className="rounded-full border border-border bg-neutral px-3 py-1 text-xs text-muted/70 hover:border-border hover:text-muted"
               >
                 {t("ingest.nothing_in_particular")}
               </button>
@@ -104,14 +102,16 @@ export function ClarificationScreen({
               rows={3}
               value={freeText[q.id] ?? ""}
               onChange={(e) => setFreeText((prev) => ({ ...prev, [q.id]: e.target.value }))}
-              className="w-full rounded-lg border border-border-strong p-3 text-sm focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+              className="w-full rounded-lg border border-border p-3 text-sm focus:border-border-ring focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
         ))}
       </div>
 
       {submitError && (
-        <p className="mt-4 rounded-lg border border-feedback-danger-border bg-feedback-danger-surface px-4 py-2 text-sm text-feedback-danger-foreground">
+        <p // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="mt-4 rounded-lg border border-danger bg-[var(--gdg-danger-surface)] px-4 py-2 text-sm text-danger"
+        >
           {submitError}
         </p>
       )}
@@ -120,7 +120,7 @@ export function ClarificationScreen({
         type="button"
         disabled={submitting}
         onClick={handleSubmit}
-        className="mt-8 rounded-lg bg-action-primary px-6 py-2.5 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-50"
+        className="mt-8 rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
       >
         {submitting ? "..." : t("ingest.clarification_submit")}
       </button>
@@ -176,26 +176,26 @@ export function UrlSelectionScreen({
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
-      <h1 className="mb-2 text-2xl font-bold text-content-primary">
+      <h1 className="mb-2 text-2xl font-bold text-foreground">
         {t("ingest.url_selection_heading")}
       </h1>
-      <p className="mb-6 text-sm text-content-tertiary">{t("ingest.url_selection_hint")}</p>
+      <p className="mb-6 text-sm text-muted">{t("ingest.url_selection_hint")}</p>
 
       <div className="space-y-3">
         {urls.map((u) => (
           <label
             key={u.id}
-            className="flex cursor-pointer items-start gap-3 rounded-lg border border-border-default bg-surface-raised p-4 hover:border-border-focus"
+            className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-surface p-4 hover:border-border-ring"
           >
             <input
               type="checkbox"
               checked={selected.has(u.url)}
               onChange={() => toggleUrl(u.url)}
-              className="mt-0.5 h-4 w-4 rounded border-border-strong text-action-primary"
+              className="mt-0.5 h-4 w-4 rounded border-border text-link"
             />
             <div className="min-w-0 flex-1">
-              <p className="break-all text-sm font-medium text-action-primary">{u.url}</p>
-              <p className="mt-1 text-xs text-content-disabled">
+              <p className="break-all text-sm font-medium text-link">{u.url}</p>
+              <p className="mt-1 text-xs text-muted/70">
                 {t(`ingest.url_source_${u.source}`)} — {u.context}
               </p>
             </div>
@@ -204,7 +204,9 @@ export function UrlSelectionScreen({
       </div>
 
       {submitError && (
-        <p className="mt-4 rounded-lg border border-feedback-danger-border bg-feedback-danger-surface px-4 py-2 text-sm text-feedback-danger-foreground">
+        <p // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="mt-4 rounded-lg border border-danger bg-[var(--gdg-danger-surface)] px-4 py-2 text-sm text-danger"
+        >
           {submitError}
         </p>
       )}
@@ -214,7 +216,7 @@ export function UrlSelectionScreen({
           type="button"
           disabled={submitting}
           onClick={handleSubmit}
-          className="rounded-lg bg-action-primary px-6 py-2.5 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-50"
+          className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           {submitting ? "..." : t("ingest.url_selection_submit")}
         </button>
@@ -222,7 +224,7 @@ export function UrlSelectionScreen({
           type="button"
           disabled={submitting}
           onClick={handleSkip}
-          className="rounded-lg border border-border-strong bg-surface-raised px-6 py-2.5 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-50"
+          className="rounded-lg border border-border bg-surface px-6 py-2.5 text-sm font-medium text-muted hover:bg-neutral disabled:opacity-50"
         >
           {t("ingest.url_selection_skip")}
         </button>

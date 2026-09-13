@@ -144,7 +144,7 @@ export function DraggablePageTree({
             />
           ))}
           {sortableItems.length === 0 && (
-            <li className="px-2 py-1 text-xs text-content-tertiary">{t("pageTree.noPages")}</li>
+            <li className="px-2 py-1 text-xs text-muted">{t("pageTree.noPages")}</li>
           )}
         </ul>
       </SortableContext>

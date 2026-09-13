@@ -227,20 +227,18 @@ export default function ChangesetReview({
   return (
     <div className="space-y-6">
       {/* Plan rationale */}
-      <div className="rounded-lg border border-feedback-info-border bg-feedback-info-surface p-4">
-        <h3 className="text-sm font-medium text-feedback-info-foreground">
-          {t("ingest.review.ai_rationale")}
-        </h3>
-        <p className="mt-1 text-sm text-action-primary">{draft.planRationale}</p>
+      <div className="rounded-lg border border-link bg-selected p-4">
+        <h3 className="text-sm font-medium text-link">{t("ingest.review.ai_rationale")}</h3>
+        <p className="mt-1 text-sm text-link">{draft.planRationale}</p>
       </div>
 
       {/* Warnings */}
       {draft.warnings && draft.warnings.length > 0 && (
-        <div className="rounded-lg border border-feedback-warning-border bg-feedback-warning-surface p-4">
-          <h3 className="text-sm font-medium text-feedback-warning-foreground">
-            {t("ingest.review.warnings")}
-          </h3>
-          <ul className="mt-1 list-disc pl-4 text-sm text-feedback-warning-foreground">
+        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="rounded-lg border border-warning bg-[var(--gdg-warning-surface)] p-4"
+        >
+          <h3 className="text-sm font-medium text-warning">{t("ingest.review.warnings")}</h3>
+          <ul className="mt-1 list-disc pl-4 text-sm text-warning">
             {draft.warnings.map((w) => (
               <li key={w}>{w}</li>
             ))}
@@ -250,14 +248,17 @@ export default function ChangesetReview({
 
       {/* Sibling warning */}
       {showSiblingWarning && (
-        <div className="flex items-start justify-between gap-4 rounded-lg border border-feedback-warning-border bg-feedback-warning-surface p-4">
-          <p className="text-sm text-feedback-warning-foreground">
+        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="flex items-start justify-between gap-4 rounded-lg border border-warning bg-[var(--gdg-warning-surface)] p-4"
+        >
+          <p className="text-sm text-warning">
             {t("ingest.review.sibling_warning", { count: rootLevelCreateCount })}
           </p>
           <button
             type="button"
             onClick={handleAddParentPage}
-            className="shrink-0 rounded-lg border border-feedback-warning-border bg-surface-raised px-3 py-1.5 text-xs font-medium text-feedback-warning-foreground hover:bg-feedback-warning-surface"
+            // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="shrink-0 rounded-lg border border-warning bg-surface px-3 py-1.5 text-xs font-medium text-warning hover:bg-[var(--gdg-warning-surface)]"
           >
             {t("ingest.review.add_parent_page")}
           </button>
@@ -293,12 +294,12 @@ export default function ChangesetReview({
       <PageStructurePreview pageIndex={pageIndex} operations={operations} opStates={opStates} />
 
       {/* Submit buttons */}
-      <div className="flex justify-end gap-3 border-t border-subtle pt-4">
+      <div className="flex justify-end gap-3 border-t border-border pt-4">
         <button
           type="button"
           onClick={handleSubmit}
           disabled={submitting}
-          className="rounded-lg bg-action-primary px-5 py-2.5 text-sm font-medium text-content-inverse transition-colors hover:bg-action-primary-hover disabled:opacity-50"
+          className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
           {submitting ? t("ingest.review.publishing") : t("ingest.review.publish")}
         </button>

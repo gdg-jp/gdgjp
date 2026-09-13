@@ -183,16 +183,6 @@ export default function AppLayout() {
 
   const lang: "ja" | "en" = i18n.language === "en" ? "en" : "ja";
 
-  // Restore desktop sidebar state from localStorage
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("gdg-sidebar-open");
-      if (stored !== null) setDesktopOpen(stored === "true");
-    } catch {
-      // ignore – localStorage unavailable
-    }
-  }, []);
-
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     if (!searchParams.has("google_document_import")) return;
@@ -218,17 +208,7 @@ export default function AppLayout() {
   function toggleSidebar() {
     if (isMobile) {
       setMobileOpen((v) => !v);
-    } else {
-      setDesktopOpen((v) => {
-        const next = !v;
-        try {
-          localStorage.setItem("gdg-sidebar-open", String(next));
-        } catch {
-          // ignore
-        }
-        return next;
-      });
-    }
+    } else setDesktopOpen((v) => !v);
   }
 
   const sidebarOpen = isMobile ? mobileOpen : desktopOpen;

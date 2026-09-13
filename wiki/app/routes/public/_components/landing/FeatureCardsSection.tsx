@@ -6,19 +6,17 @@ export function FeatureCardsSection() {
   return (
     <section className="mx-auto max-w-6xl px-6 py-24">
       <div className="mb-14 text-center">
-        <h2 className="mb-3 text-3xl font-bold text-content-primary sm:text-4xl">
+        <h2 className="mb-3 text-3xl font-bold text-foreground sm:text-4xl">
           {t("lp.features_title")}
         </h2>
-        <p className="mx-auto max-w-xl text-base text-content-secondary">
-          {t("lp.features_subtitle")}
-        </p>
+        <p className="mx-auto max-w-xl text-base text-muted">{t("lp.features_subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {FEATURES.map((f) => (
           <div
             key={f.key}
-            className="lp-feature-card flex flex-col gap-4 rounded-2xl bg-surface-raised p-6"
+            className="lp-feature-card flex flex-col gap-4 rounded-2xl bg-surface p-6"
             style={{
               border: `1.5px solid ${f.color.accent}22`,
               boxShadow: `0 4px 24px ${f.color.accent}12`,
@@ -35,8 +33,8 @@ export function FeatureCardsSection() {
               {f.icon}
             </div>
 
-            <h3 className="font-semibold text-content-primary">{t(f.titleKey)}</h3>
-            <p className="text-sm leading-relaxed text-content-secondary">{t(f.descKey)}</p>
+            <h3 className="font-semibold text-foreground">{t(f.titleKey)}</h3>
+            <p className="text-sm leading-relaxed text-muted">{t(f.descKey)}</p>
           </div>
         ))}
       </div>

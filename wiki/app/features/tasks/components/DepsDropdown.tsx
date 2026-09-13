@@ -1,8 +1,8 @@
-import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
+import { Icons } from "@gdgjp/ui";
 interface DepsDropdownProps {
   taskId: string;
   value: string[];
@@ -120,27 +120,26 @@ export default function DepsDropdown({
           <div
             ref={menuRef}
             style={{ position: "absolute", top: pos.top, left: pos.left, minWidth: 220 }}
-            className="z-[9999] overflow-hidden rounded-md border border-default bg-surface-raised shadow-lg"
+            // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="z-[9999] overflow-hidden rounded-md border border-border bg-surface shadow-lg"
           >
-            <div className="border-b border-subtle px-3 py-2 text-xs font-semibold text-content-secondary">
+            <div className="border-b border-border px-3 py-2 text-xs font-semibold text-muted">
               {t("tasks.dependencies")}
             </div>
-            <div className="border-b border-subtle px-2 py-1.5">
+            <div className="border-b border-border px-2 py-1.5">
               <input
                 ref={searchInputRef}
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t("tasks.filterPlaceholder")}
-                className="w-full rounded border border-default px-2 py-1 text-xs focus:border-focus focus:outline-none"
+                className="w-full rounded border border-border px-2 py-1 text-xs focus:border-ring focus:outline-none"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
             <div className="max-h-48 overflow-y-auto py-1">
               {sorted.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-content-tertiary">
-                  {t("tasks.noTasksFound")}
-                </div>
+                <div className="px-3 py-2 text-xs text-muted">{t("tasks.noTasksFound")}</div>
               ) : (
                 sorted.map((opt) => {
                   const isChecked = value.includes(opt.id);
@@ -152,17 +151,17 @@ export default function DepsDropdown({
                         e.stopPropagation();
                         toggleOption(opt.id);
                       }}
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-canvas"
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-background"
                     >
                       <span className="flex w-4 flex-shrink-0 items-center justify-center">
-                        {isChecked && <Check size={14} className="text-action-primary" />}
+                        {isChecked && <Icons name="Check" size={14} className="text-link" />}
                       </span>
                       <span
-                        className={`flex-shrink-0 text-xs font-mono ${isChecked ? "text-action-primary" : "text-content-tertiary"}`}
+                        className={`flex-shrink-0 text-xs font-mono ${isChecked ? "text-link" : "text-muted"}`}
                       >
                         #{opt.number}
                       </span>
-                      <span className="truncate text-content-secondary">{opt.title}</span>
+                      <span className="truncate text-muted">{opt.title}</span>
                     </button>
                   );
                 })
@@ -178,7 +177,7 @@ export default function DepsDropdown({
       <button
         ref={triggerRef}
         type="button"
-        className="flex items-start gap-1 rounded px-1.5 py-0.5 text-left text-sm text-content-tertiary hover:bg-surface-sunken"
+        className="flex items-start gap-1 rounded px-1.5 py-0.5 text-left text-sm text-muted hover:bg-neutral"
         onClick={openMenu}
         onKeyDown={(e) => e.stopPropagation()}
       >
@@ -189,10 +188,10 @@ export default function DepsDropdown({
               .filter((o): o is { id: string; number: number; title: string } => o !== undefined)
               .map((o) => <span key={o.id}>#{o.number}</span>)
           ) : (
-            <span className="text-content-tertiary">—</span>
+            <span className="text-muted">—</span>
           )}
         </span>
-        <ChevronDown size={12} className="mt-0.5 flex-shrink-0 opacity-60" />
+        <Icons name="ChevronDown" size={12} className="mt-0.5 flex-shrink-0 opacity-60" />
       </button>
       {menu}
     </>

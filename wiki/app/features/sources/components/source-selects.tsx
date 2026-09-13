@@ -1,17 +1,11 @@
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@gdgjp/ui";
 import { SOURCE_VISIBILITIES } from "~/features/sources/shared";
 
 export function VisibilitySelect({
   t,
   value,
   onValueChange,
-  className = "w-full bg-surface-raised sm:w-56",
+  className = "w-full bg-surface sm:w-56",
 }: {
   t: (key: string) => string;
   value: string;
@@ -40,7 +34,7 @@ export function ChapterSelect({
   t,
   value,
   onValueChange,
-  className = "w-full bg-surface-raised sm:w-56",
+  className = "w-full bg-surface sm:w-56",
 }: {
   chapters: Array<{ id: string; nameJa: string; nameEn: string }>;
   language: string;
@@ -78,15 +72,15 @@ export function ChapterSelect({
 export function statusBadgeClass(status: string): string {
   switch (status) {
     case "ready":
-      return "bg-feedback-success-surface text-feedback-success-foreground";
+      return "bg-[var(--gdg-success-surface)] text-success";
     case "pending":
     case "fetching":
-      return "bg-feedback-warning-surface text-feedback-warning-foreground";
+      return "bg-[var(--gdg-warning-surface)] text-warning";
     case "error":
-      return "bg-feedback-danger-surface text-feedback-danger-foreground";
+      return "bg-[var(--gdg-danger-surface)] text-danger";
     case "archived":
-      return "bg-surface-hover text-content-secondary";
+      return "bg-neutral text-muted";
     default:
-      return "bg-surface-hover text-content-secondary";
+      return "bg-neutral text-muted";
   }
 }

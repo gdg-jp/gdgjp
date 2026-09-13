@@ -1,11 +1,11 @@
-import { AlertCircle, Bell, BellDot, CheckCircle2, X } from "lucide-react";
+import { Button, IconButton } from "@gdgjp/ui";
+import { Popover, PopoverContent, PopoverTrigger } from "@gdgjp/ui";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { Button } from "~/components/ui/button";
-import { MotionPresence } from "~/components/ui/motion";
-import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 
+import { Icons } from "@gdgjp/ui";
 function playChime() {
   try {
     const ctx = new AudioContext();
@@ -51,11 +51,11 @@ interface Notification {
 function typeIcon(type: string) {
   switch (type) {
     case "ingestion_done":
-      return <CheckCircle2 className="h-4 w-4 shrink-0 text-feedback-success-foreground" />;
+      return <Icons name="CheckCircle2" className="h-4 w-4 shrink-0 text-success" />;
     case "ingestion_error":
-      return <AlertCircle className="h-4 w-4 shrink-0 text-feedback-danger-foreground" />;
+      return <Icons name="AlertCircle" className="h-4 w-4 shrink-0 text-danger" />;
     default:
-      return <Bell className="h-4 w-4 shrink-0 text-content-tertiary" />;
+      return <Icons name="Bell" className="h-4 w-4 shrink-0 text-muted" />;
   }
 }
 
@@ -159,72 +159,64 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
   }
 
   const title = (n: Notification) => (i18n.language === "en" ? n.titleEn : n.titleJa);
-  const BellIcon = unreadCount > 0 ? BellDot : Bell;
+  const bellIconName = unreadCount > 0 ? "BellDot" : "Bell";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
+        <IconButton
           variant="ghost"
-          size="icon"
           title={t("notifications.title")}
           aria-label={t("notifications.title")}
-          className="relative text-muted-foreground"
+          className="relative text-muted"
         >
-          <BellIcon className="h-5 w-5" />
+          <Icons name={bellIconName} className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-action-primary px-1 text-[10px] font-bold leading-none text-content-inverse">
+            <span // gdg-ui-allow: literal-color — app-specific-layout-or-token
+              className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground"
+            >
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
-        </Button>
+        </IconButton>
       </PopoverTrigger>
-
-      <MotionPresence
-        present={chipNotification !== null}
-        distance={-8}
-        className="fixed right-4 top-16 z-50 max-w-[calc(100vw-2rem)] sm:max-w-xs"
-      >
+      {chipNotification ? (
         <output
-          key={chipNotification?.id}
+          key={chipNotification.id}
           aria-live="polite"
-          className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-card-foreground shadow-xl shadow-content-primary/15"
+          // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="fixed right-4 top-16 z-50 flex max-w-[calc(100vw-2rem)] items-center gap-3 bg-surface px-4 py-3 sm:max-w-xs"
         >
-          {chipNotification ? typeIcon(chipNotification.type) : null}
-          <p className="min-w-0 flex-1 truncate text-sm font-medium">
-            {chipNotification ? title(chipNotification) : ""}
-          </p>
-          <Button
+          {typeIcon(chipNotification.type)}
+          <p className="min-w-0 flex-1 truncate text-sm font-medium">{title(chipNotification)}</p>
+          <IconButton
             variant="ghost"
-            size="icon-sm"
             onClick={() => setChipNotification(null)}
             aria-label="Dismiss"
-            className="-mr-2 rounded-full text-muted-foreground"
+            className="-mr-2 text-muted"
           >
-            <X className="size-4" />
-          </Button>
+            <Icons name="X" className="size-4" />
+          </IconButton>
           <AutoDismiss onDismiss={() => setChipNotification(null)} />
         </output>
-      </MotionPresence>
-
+      ) : null}
       <PopoverContent
         align="end"
         sideOffset={6}
+        // gdg-ui-allow: literal-color — app-specific-layout-or-token
         className="w-[calc(100vw-1.5rem)] max-w-72 overflow-hidden rounded-xl p-0 shadow-xl shadow-content-primary/10 sm:w-72"
       >
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
           <p className="text-sm font-semibold">{t("notifications.title")}</p>
           {unreadCount > 0 && (
-            <Button variant="ghost" size="xs" onClick={markAllRead}>
+            <Button variant="ghost" size="sm" onClick={markAllRead}>
               {t("notifications.mark_all_read")}
             </Button>
           )}
         </div>
 
         {notifications.length === 0 ? (
-          <div className="px-3 py-6 text-center text-sm text-content-tertiary">
-            {t("notifications.empty")}
-          </div>
+          <div className="px-3 py-6 text-center text-sm text-muted">{t("notifications.empty")}</div>
         ) : (
           <div className="max-h-64 overflow-y-auto">
             {notifications.map((n) => (
@@ -237,14 +229,14 @@ export default function NotificationBell({ initialCount }: { initialCount: numbe
                   if (n.refUrl) navigate(n.refUrl);
                 }}
                 className={[
-                  "ui-pressable flex w-full items-center gap-2.5 px-3 py-2.5 text-left hover:bg-accent",
-                  !n.readAt ? "bg-feedback-info-surface dark:bg-surface-selected/40" : "",
+                  "ui-pressable flex w-full items-center gap-2.5 px-3 py-2.5 text-left hover:bg-neutral",
+                  !n.readAt ? "bg-selected dark:bg-selected/40" : "",
                 ].join(" ")}
               >
                 {typeIcon(n.type)}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm">{title(n)}</p>
-                  <p className="text-xs text-muted-foreground">{relativeTime(t, n.createdAt)}</p>
+                  <p className="text-xs text-muted">{relativeTime(t, n.createdAt)}</p>
                 </div>
               </button>
             ))}

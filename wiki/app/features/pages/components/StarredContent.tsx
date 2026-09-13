@@ -98,14 +98,14 @@ export default function StarredContent({
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-subtle px-5 py-4">
-        <h2 className="text-base font-semibold text-content-primary">
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <h2 className="text-base font-semibold text-foreground">
           {t("wiki.starred_dialog_title")}
         </h2>
         <button
           type="button"
           onClick={onClose}
-          className="flex h-7 w-7 items-center justify-center rounded-full text-content-tertiary hover:bg-surface-sunken hover:text-content-secondary"
+          className="flex h-7 w-7 items-center justify-center rounded-full text-muted hover:bg-neutral hover:text-muted"
           aria-label="Close"
         >
           ×
@@ -114,12 +114,12 @@ export default function StarredContent({
 
       {/* Current page (only shown when inside a wiki page) */}
       {currentPageId && currentPageTitle && (
-        <div className="border-b border-subtle px-5 py-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-tertiary">
+        <div className="border-b border-border px-5 py-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             {t("wiki.this_page")}
           </p>
           <div className="flex items-center justify-between gap-3">
-            <span className="truncate text-sm text-content-secondary">{currentPageTitle}</span>
+            <span className="truncate text-sm text-muted">{currentPageTitle}</span>
             <button
               type="button"
               onClick={handleToggle}
@@ -127,8 +127,8 @@ export default function StarredContent({
               className={[
                 "shrink-0 rounded px-3 py-1 text-xs font-medium transition-colors",
                 optimisticStarred
-                  ? "bg-feedback-warning-surface text-feedback-warning-foreground hover:bg-feedback-warning-surface"
-                  : "bg-surface-sunken text-content-secondary hover:bg-surface-hover",
+                  ? "bg-[var(--gdg-warning-surface)] text-warning hover:bg-[var(--gdg-warning-surface)]"
+                  : "bg-neutral text-muted hover:bg-neutral",
               ].join(" ")}
             >
               {optimisticStarred ? t("wiki.star_remove") : t("wiki.star_add")}
@@ -144,7 +144,7 @@ export default function StarredContent({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("wiki.search_starred")}
-          className="w-full rounded-lg border border-default px-3 py-2 text-sm outline-none focus:border-focus focus:ring-1 focus:ring-border-focus/20"
+          className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-ring focus:ring-1 focus:ring-ring/20"
         />
       </div>
 
@@ -153,7 +153,7 @@ export default function StarredContent({
         {isFirstLoad ? (
           <ListSkeleton rows={4} />
         ) : filtered.length === 0 ? (
-          <p className="py-4 text-center text-sm text-content-tertiary">
+          <p className="py-4 text-center text-sm text-muted">
             {query ? `"${query}" — 0` : t("wiki.starred_empty")}
           </p>
         ) : (
@@ -163,7 +163,7 @@ export default function StarredContent({
                 <Link
                   to={page.wikiPath}
                   onClick={onClose}
-                  className="block truncate rounded-lg px-3 py-2 text-sm text-content-secondary hover:bg-surface-canvas hover:text-action-primary"
+                  className="block truncate rounded-lg px-3 py-2 text-sm text-muted hover:bg-background hover:text-link"
                 >
                   {lang === "en" ? page.titleEn || page.titleJa : page.titleJa || page.titleEn}
                 </Link>

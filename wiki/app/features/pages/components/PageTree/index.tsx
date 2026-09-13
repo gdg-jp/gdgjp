@@ -1,4 +1,3 @@
-import { ChartPie, ListTodo, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -7,6 +6,7 @@ import { findNodeIdBySlug } from "./build-tree";
 import { DraggablePageTree } from "./dnd";
 import { TreeNode } from "./row";
 
+import { Icons } from "@gdgjp/ui";
 export type { PageNode };
 
 interface PageTreeProps {
@@ -100,29 +100,29 @@ export default function PageTree({
             />
           ))}
           {pages.length === 0 && !isCollapsed && (
-            <li className="px-2 py-1 text-xs text-content-tertiary">{t("pageTree.noPages")}</li>
+            <li className="px-2 py-1 text-xs text-muted">{t("pageTree.noPages")}</li>
           )}
         </ul>
       )}
 
       {canCreate && (
-        <div className="relative border-t border-subtle px-2 pt-2 pb-1" ref={dropdownRef}>
+        <div className="relative border-t border-border px-2 pt-2 pb-1" ref={dropdownRef}>
           <button
             type="button"
             title={isCollapsed ? t("pageTree.newPage") : undefined}
             onClick={() => setDropdownOpen((v) => !v)}
-            className="flex min-h-8 w-full items-center gap-1.5 rounded px-2 py-1.5 text-sm text-content-secondary hover:bg-surface-sunken hover:text-action-primary"
+            className="flex min-h-8 w-full items-center gap-1.5 rounded px-2 py-1.5 text-sm text-muted hover:bg-neutral hover:text-link"
           >
-            <Plus size={14} className="flex-shrink-0" />
+            <Icons name="Plus" size={14} className="flex-shrink-0" />
             {!isCollapsed && <span>{t("pageTree.newPage")}</span>}
           </button>
 
           {dropdownOpen && (
-            <div className="absolute bottom-full left-2 right-2 mb-1 overflow-hidden rounded-md border border-default bg-surface-raised shadow-md">
+            <div className="absolute bottom-full left-2 right-2 mb-1 overflow-hidden rounded-md border border-border bg-surface shadow-md">
               <Link
                 to="/ingest"
                 onClick={() => setDropdownOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-canvas"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:bg-background"
               >
                 <span>✦</span>
                 <span>{t("pageTree.newPage_ai")}</span>
@@ -130,15 +130,15 @@ export default function PageTree({
               <Link
                 to="/analyze"
                 onClick={() => setDropdownOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-canvas"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:bg-background"
               >
-                <ChartPie size={14} />
+                <Icons name="ChartPie" size={14} />
                 <span>{t("pageTree.newPage_analyze")}</span>
               </Link>
               <Link
                 to="/wiki/new"
                 onClick={() => setDropdownOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-canvas"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:bg-background"
               >
                 <span>✎</span>
                 <span>{t("pageTree.newPage_manual")}</span>
@@ -149,7 +149,7 @@ export default function PageTree({
                   setDropdownOpen(false);
                   onImportZip?.();
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-content-secondary hover:bg-surface-canvas"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-muted hover:bg-background"
               >
                 <span>⇪</span>
                 <span>{t("pageTree.importZip")}</span>
@@ -157,9 +157,9 @@ export default function PageTree({
               <Link
                 to="/tasks/new"
                 onClick={() => setDropdownOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-canvas"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:bg-background"
               >
-                <ListTodo size={14} />
+                <Icons name="ListTodo" size={14} />
                 <span>{t("pageTree.newTaskList")}</span>
               </Link>
             </div>

@@ -1,21 +1,29 @@
 // Consistent color hashing for collaborative editing features.
-// The values intentionally refer to semantic presence tokens from app.css so
-// avatars and CodeMirror cursors follow the active color scheme.
-
-const PRESENCE_TOKENS = ["rose", "amber", "emerald", "cyan", "violet", "pink", "teal", "indigo"];
+// The shared GDG brand accents are the only non-semantic colours used for
+// collaborator identity. They are decorative, deterministic, and never carry
+// status meaning.
 
 // Keep the class names literal so Tailwind includes each generated utility.
 const AVATAR_CLASSES = [
-  "bg-presence-rose",
-  "bg-presence-amber",
-  "bg-presence-emerald",
-  "bg-presence-cyan",
-  "bg-presence-violet",
-  "bg-presence-pink",
-  "bg-presence-teal",
-  "bg-presence-indigo",
+  "bg-gdg-red",
+  "bg-gdg-yellow",
+  "bg-gdg-green",
+  "bg-gdg-blue",
+  "bg-gdg-blue",
+  "bg-gdg-red",
+  "bg-gdg-green",
+  "bg-gdg-blue",
 ];
-const CURSOR_COLORS = PRESENCE_TOKENS.map((token) => `var(--color-presence-${token})`);
+const CURSOR_COLORS = [
+  "var(--gdg-red)",
+  "var(--gdg-yellow)",
+  "var(--gdg-green)",
+  "var(--gdg-blue)",
+  "var(--gdg-blue)",
+  "var(--gdg-red)",
+  "var(--gdg-green)",
+  "var(--gdg-blue)",
+];
 
 function hash(str: string): number {
   let h = 0;

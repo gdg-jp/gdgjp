@@ -52,26 +52,27 @@ export default function TaskTimelineView({ tasks, members, onTaskClick }: TaskTi
   return (
     <div className="space-y-6">
       {dates.length === 0 ? (
-        <div className="py-8 text-center text-sm text-content-tertiary">
-          {t("tasks.timeline_no_dates")}
-        </div>
+        <div className="py-8 text-center text-sm text-muted">{t("tasks.timeline_no_dates")}</div>
       ) : (
-        <div className="overflow-x-auto border border-default">
+        <div className="overflow-x-auto border border-border">
           <table className="min-w-full">
             <thead>
-              <tr className="bg-surface-canvas">
-                <th className="sticky left-0 z-10 min-w-[150px] bg-surface-canvas px-3 py-2 text-left text-xs font-medium uppercase text-content-secondary">
+              <tr className="bg-background">
+                <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                  className="sticky left-0 z-10 min-w-[150px] bg-background px-3 py-2 text-left text-xs font-medium uppercase text-muted"
+                >
                   {t("tasks.col_assignee")}
                 </th>
                 {dates.map((date) => (
                   <th
                     key={date}
+                    // gdg-ui-allow: literal-color — app-specific-layout-or-token
                     className={`min-w-[80px] px-1 py-2 text-center text-xs font-medium ${
                       date === today
-                        ? "bg-feedback-info-surface text-action-primary"
+                        ? "bg-selected text-link"
                         : isWeekend(date)
-                          ? "bg-surface-sunken text-content-tertiary"
-                          : "text-content-secondary"
+                          ? "bg-neutral text-muted"
+                          : "text-muted"
                     }`}
                   >
                     {formatDate(date)}
@@ -84,8 +85,8 @@ export default function TaskTimelineView({ tasks, members, onTaskClick }: TaskTi
                 const member = groupKey ? members.find((m) => m.id === groupKey) : null;
                 const label = groupKey ? (member?.name ?? groupKey) : t("tasks.filter_unassigned");
                 return (
-                  <tr key={groupKey ?? "unassigned"} className="border-t border-subtle">
-                    <td className="sticky left-0 z-10 bg-surface-raised px-3 py-2 text-sm font-medium text-content-secondary">
+                  <tr key={groupKey ?? "unassigned"} className="border-t border-border">
+                    <td className="sticky left-0 z-10 bg-surface px-3 py-2 text-sm font-medium text-muted">
                       {label}
                     </td>
                     {dates.map((date) => {
@@ -95,9 +96,9 @@ export default function TaskTimelineView({ tasks, members, onTaskClick }: TaskTi
                           key={date}
                           className={`px-1 py-1 ${
                             date === today
-                              ? "bg-feedback-info-surface/50"
+                              ? "bg-selected/50"
                               : isWeekend(date)
-                                ? "bg-surface-canvas"
+                                ? "bg-background"
                                 : ""
                           }`}
                         >
@@ -107,14 +108,15 @@ export default function TaskTimelineView({ tasks, members, onTaskClick }: TaskTi
                                 key={task.id}
                                 type="button"
                                 onClick={() => onTaskClick(task.id)}
-                                className={`w-full truncate px-1 py-0.5 text-left text-xs text-content-secondary hover:opacity-80 ${
+                                // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                                className={`w-full truncate px-1 py-0.5 text-left text-xs text-muted hover:opacity-80 ${
                                   {
-                                    done: "bg-feedback-info-surface",
-                                    in_progress: "bg-feedback-warning-surface",
-                                    todo: "bg-feedback-success-surface",
-                                    cancelled: "bg-surface-sunken",
-                                    duplicated: "bg-surface-sunken",
-                                  }[task.status] ?? "bg-surface-sunken"
+                                    done: "bg-selected",
+                                    in_progress: "bg-[var(--gdg-warning-surface)]",
+                                    todo: "bg-[var(--gdg-success-surface)]",
+                                    cancelled: "bg-neutral",
+                                    duplicated: "bg-neutral",
+                                  }[task.status] ?? "bg-neutral"
                                 }`}
                                 title={`#${task.number} ${task.title}`}
                               >
@@ -136,18 +138,16 @@ export default function TaskTimelineView({ tasks, members, onTaskClick }: TaskTi
       {/* Tasks without due dates */}
       {tasksWithoutDates.length > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-medium text-content-secondary">
-            {t("tasks.no_due_date")}
-          </h3>
+          <h3 className="mb-2 text-sm font-medium text-muted">{t("tasks.no_due_date")}</h3>
           <div className="flex flex-wrap gap-2">
             {tasksWithoutDates.map((task) => (
               <button
                 key={task.id}
                 type="button"
                 onClick={() => onTaskClick(task.id)}
-                className="inline-flex items-center gap-1 border border-default px-2 py-1 text-sm hover:bg-surface-canvas"
+                className="inline-flex items-center gap-1 border border-border px-2 py-1 text-sm hover:bg-background"
               >
-                <span className="text-content-tertiary">#{task.number}</span>
+                <span className="text-muted">#{task.number}</span>
                 <span>{task.title}</span>
                 <TaskStatusBadge status={task.status} />
               </button>

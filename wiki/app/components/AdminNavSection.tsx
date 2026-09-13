@@ -1,8 +1,8 @@
-import { FileText, Settings, Tag } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router";
 import { NavItem } from "~/components/NavItem";
 
+import { Icons } from "@gdgjp/ui";
 interface AdminNavSectionProps {
   isCollapsed: boolean;
 }
@@ -10,8 +10,8 @@ interface AdminNavSectionProps {
 // Direct link to /admin/pages, not /admin — /admin/index.tsx server-redirects,
 // which would cost a round trip on every click from the normal sidebar.
 const ADMIN_CHILDREN = [
-  { to: "/admin/pages", labelKey: "admin.nav.pages", icon: FileText },
-  { to: "/admin/tags", labelKey: "admin.nav.tags", icon: Tag },
+  { to: "/admin/pages", labelKey: "admin.nav.pages", icon: "FileText" },
+  { to: "/admin/tags", labelKey: "admin.nav.tags", icon: "Tag" },
 ] as const;
 
 /**
@@ -28,18 +28,18 @@ export default function AdminNavSection({ isCollapsed }: AdminNavSectionProps) {
     <>
       <NavItem
         to="/admin/pages"
-        icon={<Settings size={16} />}
+        icon={<Icons name="Settings" size={16} />}
         label={t("admin.label")}
         isCollapsed={isCollapsed}
         isActive={inAdmin}
       />
       {inAdmin && !isCollapsed && (
-        <div className="ml-4 space-y-0.5 border-l border-subtle pl-2">
-          {ADMIN_CHILDREN.map(({ to, labelKey, icon: Icon }) => (
+        <div className="ml-4 space-y-0.5 border-l border-border pl-2">
+          {ADMIN_CHILDREN.map(({ to, labelKey, icon }) => (
             <NavItem
               key={to}
               to={to}
-              icon={<Icon size={16} />}
+              icon={<Icons name={icon} size={16} />}
               label={t(labelKey)}
               isCollapsed={isCollapsed}
               isActive={location.pathname.startsWith(to)}

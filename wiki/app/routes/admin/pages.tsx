@@ -103,13 +103,11 @@ export default function AdminPages() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-content-primary">{t("admin.pages.heading")}</h1>
+      <h1 className="mb-6 text-2xl font-bold text-foreground">{t("admin.pages.heading")}</h1>
       <Suspense fallback={<TableSkeleton rows={8} cols={5} />}>
         <Await
           resolve={pages}
-          errorElement={
-            <p className="text-sm text-feedback-danger-foreground">Failed to load pages.</p>
-          }
+          errorElement={<p className="text-sm text-danger">Failed to load pages.</p>}
         >
           {(resolvedPages) => <PageTreeTable pages={resolvedPages} />}
         </Await>

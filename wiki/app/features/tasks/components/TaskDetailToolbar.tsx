@@ -1,11 +1,11 @@
-import { Archive, History, MoreHorizontal, Share2, Star } from "lucide-react";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, Link, useFetcher } from "react-router";
 import Tooltip from "~/components/Tooltip";
 
+import { Icons } from "@gdgjp/ui";
 const btnBase =
-  "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-content-tertiary transition-colors hover:bg-surface-hover hover:text-content-primary";
+  "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-neutral hover:text-foreground";
 
 function TaskStarButton({ pageId, initialStarred }: { pageId: string; initialStarred: boolean }) {
   const { t } = useTranslation();
@@ -34,7 +34,7 @@ function TaskStarButton({ pageId, initialStarred }: { pageId: string; initialSta
       className={btnBase}
       style={starStyle}
     >
-      <Star size={14} style={starIconStyle} />
+      <Icons name="Star" size={14} style={starIconStyle} />
       {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
     </button>
   );
@@ -75,10 +75,10 @@ function MobileTaskStarButton({
         favFetcher.submit({ intent: "toggleFavorite", pageId }, { method: "post" });
         onSelect();
       }}
-      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
+      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted hover:bg-neutral"
       style={starStyle}
     >
-      <Star size={14} style={starIconStyle} />
+      <Icons name="Star" size={14} style={starIconStyle} />
       {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
     </button>
   );
@@ -117,17 +117,17 @@ export function TaskDetailToolbar({
   }, [moreOpen]);
 
   return (
-    <div className="flex items-center justify-end gap-2 border-b border-border-subtle px-4 py-2 md:px-10">
+    <div className="flex items-center justify-end gap-2 border-b border-border px-4 py-2 md:px-10">
       {/* Desktop action buttons (md+) */}
       <div className="hidden items-center gap-1 md:flex">
         <Link to={`/tasks/${slug}/history`} className={btnBase}>
-          <History size={14} />
+          <Icons name="History" size={14} />
           {t("tasks.history")}
         </Link>
         {isAuthenticated && (
           <Suspense
             fallback={
-              <div className="h-7 w-16 rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
+              <div className="h-7 w-16 rounded bg-neutral animate-pulse motion-reduce:animate-none" />
             }
           >
             <Await resolve={taskData} errorElement={null}>
@@ -137,7 +137,7 @@ export function TaskDetailToolbar({
         )}
         {isAuthenticated && (
           <button type="button" onClick={onShare} className={btnBase}>
-            <Share2 size={14} />
+            <Icons name="Share2" size={14} />
             {t("wiki.share")}
           </button>
         )}
@@ -146,9 +146,10 @@ export function TaskDetailToolbar({
             type="button"
             onClick={canArchive ? onArchive : undefined}
             disabled={!canArchive}
-            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-content-tertiary transition-colors hover:bg-feedback-warning-surface hover:text-feedback-warning-foreground disabled:opacity-50"
+            // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-[var(--gdg-warning-surface)] hover:text-warning disabled:opacity-50"
           >
-            <Archive size={14} />
+            <Icons name="Archive" size={14} />
             {t("wiki.archive")}
           </button>
         </Tooltip>
@@ -162,22 +163,24 @@ export function TaskDetailToolbar({
           className={btnBase}
           aria-label="More actions"
         >
-          <MoreHorizontal size={16} />
+          <Icons name="MoreHorizontal" size={16} />
         </button>
         {moreOpen && (
-          <div className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-border-default bg-surface-raised py-1 shadow-lg">
+          <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-border bg-surface py-1 shadow-lg"
+          >
             <Link
               to={`/tasks/${slug}/history`}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted hover:bg-neutral"
               onClick={() => setMoreOpen(false)}
             >
-              <History size={14} />
+              <Icons name="History" size={14} />
               {t("tasks.history")}
             </Link>
             {isAuthenticated && (
               <Suspense
                 fallback={
-                  <div className="h-8 w-full rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
+                  <div className="h-8 w-full rounded bg-neutral animate-pulse motion-reduce:animate-none" />
                 }
               >
                 <Await resolve={taskData} errorElement={null}>
@@ -198,9 +201,9 @@ export function TaskDetailToolbar({
                   onShare();
                   setMoreOpen(false);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted hover:bg-neutral"
               >
-                <Share2 size={14} />
+                <Icons name="Share2" size={14} />
                 {t("wiki.share")}
               </button>
             )}
@@ -216,9 +219,10 @@ export function TaskDetailToolbar({
                     : undefined
                 }
                 disabled={!canArchive}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-feedback-warning-surface hover:text-feedback-warning-foreground disabled:opacity-50"
+                // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted hover:bg-[var(--gdg-warning-surface)] hover:text-warning disabled:opacity-50"
               >
-                <Archive size={14} />
+                <Icons name="Archive" size={14} />
                 {t("wiki.archive")}
               </button>
             </Tooltip>

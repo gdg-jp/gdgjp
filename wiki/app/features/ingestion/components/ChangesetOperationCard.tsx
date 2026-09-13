@@ -68,28 +68,30 @@ export function ChangesetOperationCard({
     .filter(({ op: o, idx: i }) => i !== idx && o.type === "create" && o.tempId);
 
   return (
-    <div className="rounded-xl border border-default bg-surface-raised p-6 shadow-sm">
+    <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
       {/* Op header */}
       <div className="mb-4 flex items-center gap-3">
         <span
+          // gdg-ui-allow: literal-color — app-specific-layout-or-token
           className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
             op.type === "create"
-              ? "bg-feedback-success-surface text-feedback-success-foreground"
-              : "bg-feedback-info-surface text-action-primary"
+              ? "bg-[var(--gdg-success-surface)] text-success"
+              : "bg-selected text-link"
           }`}
         >
           {op.type === "create" ? t("ingest.review.op_create") : t("ingest.review.op_update")}
         </span>
-        <span className="text-sm text-content-secondary">{op.rationale}</span>
+        <span className="text-sm text-muted">{op.rationale}</span>
       </div>
 
       {/* Actionability score banner */}
       {score && score < 3 && (
         <div
+          // gdg-ui-allow: literal-color — app-specific-layout-or-token
           className={`mb-4 rounded-lg p-3 text-sm ${
             score === 1
-              ? "border border-feedback-danger-border bg-feedback-danger-surface text-feedback-danger-foreground"
-              : "border border-feedback-warning-border bg-feedback-warning-surface text-feedback-warning-foreground"
+              ? "border border-danger bg-[var(--gdg-danger-surface)] text-danger"
+              : "border border-warning bg-[var(--gdg-warning-surface)] text-warning"
           }`}
         >
           <strong>
@@ -103,17 +105,14 @@ export function ChangesetOperationCard({
       {/* Parent page selector (CREATE only) */}
       {op.type === "create" && (
         <div className="mb-4">
-          <label
-            htmlFor={`parent-${idx}`}
-            className="mb-1 block text-xs font-medium text-content-secondary"
-          >
+          <label htmlFor={`parent-${idx}`} className="mb-1 block text-xs font-medium text-muted">
             {t("ingest.review.field_parent_page")}
           </label>
           <select
             id={`parent-${idx}`}
             value={state?.parentId ?? ""}
             onChange={(e) => onUpdateOp({ parentId: e.target.value || null })}
-            className="w-full rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
           >
             <option value="">{t("ingest.review.parent_none")}</option>
             {existingPageFlatList.length > 0 && (
@@ -141,10 +140,7 @@ export function ChangesetOperationCard({
 
       {/* Title */}
       <div className="mb-4">
-        <label
-          htmlFor={`title-${idx}`}
-          className="mb-1 block text-xs font-medium text-content-secondary"
-        >
+        <label htmlFor={`title-${idx}`} className="mb-1 block text-xs font-medium text-muted">
           {t("ingest.review.field_title")}
         </label>
         <input
@@ -152,16 +148,13 @@ export function ChangesetOperationCard({
           type="text"
           value={state.title}
           onChange={(e) => onUpdateOp({ title: e.target.value })}
-          className="w-full rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+          className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
       {/* Summary */}
       <div className="mb-4">
-        <label
-          htmlFor={`summary-${idx}`}
-          className="mb-1 block text-xs font-medium text-content-secondary"
-        >
+        <label htmlFor={`summary-${idx}`} className="mb-1 block text-xs font-medium text-muted">
           {t("ingest.review.field_summary")}
         </label>
         <textarea
@@ -169,23 +162,20 @@ export function ChangesetOperationCard({
           value={state.summaryJa}
           onChange={(e) => onUpdateOp({ summaryJa: e.target.value })}
           rows={2}
-          className="w-full rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+          className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
       {/* Page type */}
       <div className="mb-4">
-        <label
-          htmlFor={`pagetype-${idx}`}
-          className="mb-1 block text-xs font-medium text-content-secondary"
-        >
+        <label htmlFor={`pagetype-${idx}`} className="mb-1 block text-xs font-medium text-muted">
           {t("ingest.review.field_page_type")}
         </label>
         <select
           id={`pagetype-${idx}`}
           value={state.pageType}
           onChange={(e) => onUpdateOp({ pageType: e.target.value })}
-          className="rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+          className="rounded-lg border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
         >
           {PAGE_TYPE_VALUES.map((value) => (
             <option key={value} value={value}>
@@ -197,9 +187,7 @@ export function ChangesetOperationCard({
 
       {/* Tags */}
       <div className="mb-4">
-        <p className="mb-1 text-xs font-medium text-content-secondary">
-          {t("ingest.review.field_tags")}
-        </p>
+        <p className="mb-1 text-xs font-medium text-muted">{t("ingest.review.field_tags")}</p>
         <div className="flex flex-wrap gap-2">
           {CANONICAL_TAG_SLUGS.map((slug) => (
             <button
@@ -208,8 +196,8 @@ export function ChangesetOperationCard({
               onClick={() => onToggleTag(slug)}
               className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 state.tags.includes(slug)
-                  ? "bg-action-primary text-content-inverse"
-                  : "bg-surface-sunken text-content-secondary hover:bg-surface-hover"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-neutral text-muted hover:bg-neutral"
               }`}
             >
               {t(`ingest.review.tag.${slug}`)}
@@ -220,9 +208,7 @@ export function ChangesetOperationCard({
 
       {/* Editor */}
       <div className="mb-4">
-        <p className="mb-1 text-xs font-medium text-content-secondary">
-          {t("ingest.review.field_body")}
-        </p>
+        <p className="mb-1 text-xs font-medium text-muted">{t("ingest.review.field_body")}</p>
         <TipTapEditor
           initialMarkdown={draftMarkdown}
           onChange={(json) => onUpdateOp({ tiptapJson: json })}
@@ -230,11 +216,8 @@ export function ChangesetOperationCard({
       </div>
 
       {/* Regenerate */}
-      <div className="mt-4 border-t border-subtle pt-4">
-        <label
-          htmlFor={`feedback-${idx}`}
-          className="mb-1 block text-xs font-medium text-content-secondary"
-        >
+      <div className="mt-4 border-t border-border pt-4">
+        <label htmlFor={`feedback-${idx}`} className="mb-1 block text-xs font-medium text-muted">
           {t("ingest.review.field_feedback")}
         </label>
         <div className="flex gap-2">
@@ -244,20 +227,18 @@ export function ChangesetOperationCard({
             value={feedbackValue}
             onChange={(e) => onFeedbackChange(e.target.value)}
             placeholder={t("ingest.review.feedback_placeholder")}
-            className="flex-1 rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+            className="flex-1 rounded-lg border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
           />
           <button
             type="button"
             onClick={onRegenerate}
             disabled={regenerating || !feedbackValue.trim()}
-            className="rounded-lg border border-default px-4 py-2 text-sm text-content-secondary transition-colors hover:bg-surface-canvas disabled:opacity-50"
+            className="rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:bg-background disabled:opacity-50"
           >
             {regenerating ? t("ingest.review.regenerating") : t("ingest.review.regenerate")}
           </button>
         </div>
-        {regenerateError && (
-          <p className="mt-2 text-xs text-feedback-danger-foreground">{regenerateError}</p>
-        )}
+        {regenerateError && <p className="mt-2 text-xs text-danger">{regenerateError}</p>}
       </div>
     </div>
   );

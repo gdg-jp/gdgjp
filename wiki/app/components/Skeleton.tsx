@@ -4,9 +4,7 @@ interface SkeletonProps {
 
 export function Skeleton({ className = "" }: SkeletonProps) {
   return (
-    <div
-      className={`animate-pulse rounded bg-surface-hover motion-reduce:animate-none ${className}`}
-    />
+    <div className={`animate-pulse rounded bg-neutral motion-reduce:animate-none ${className}`} />
   );
 }
 
@@ -112,7 +110,7 @@ export function CardGridSkeleton({ count = 6 }: { count?: number }) {
       {SLOTS.slice(0, count).map((key) => (
         <div
           key={key}
-          className="flex h-44 flex-col justify-between rounded-xl border border-border-default bg-surface-raised p-5"
+          className="flex h-44 flex-col justify-between rounded-xl border border-border bg-surface p-5"
         >
           <div className="space-y-2">
             <Skeleton className="h-5 w-4/5" />
@@ -131,15 +129,15 @@ export function TableSkeleton({ rows = 5, cols = 4 }: { rows?: number; cols?: nu
   const rowKeys = SLOTS.slice(0, rows);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border-default bg-surface-raised">
-      <div className="border-b border-border-default bg-surface-sunken p-3">
+    <div className="overflow-hidden rounded-lg border border-border bg-surface">
+      <div className="border-b border-border bg-neutral p-3">
         <div className="flex items-center gap-4">
           {colKeys.map((cKey) => (
             <Skeleton key={cKey} className="h-4 flex-1" />
           ))}
         </div>
       </div>
-      <div className="divide-y divide-border-subtle">
+      <div className="divide-y divide-border-border">
         {rowKeys.map((rKey) => (
           <div key={rKey} className="flex items-center gap-4 p-3">
             {colKeys.map((cKey) => (

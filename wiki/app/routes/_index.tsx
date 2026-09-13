@@ -165,11 +165,11 @@ export default function Index() {
           <div className="mb-8 max-w-2xl">
             <h1
               id="public-pages-heading"
-              className="text-2xl font-bold tracking-tight text-content-primary md:text-3xl"
+              className="text-2xl font-bold tracking-tight text-foreground md:text-3xl"
             >
               {t("public_pages.title")}
             </h1>
-            <p className="mt-2 text-sm leading-6 text-content-secondary md:text-base">
+            <p className="mt-2 text-sm leading-6 text-muted md:text-base">
               {t("public_pages.description")}
             </p>
           </div>
@@ -178,14 +178,14 @@ export default function Index() {
             <Await
               resolve={data.publicPages}
               errorElement={
-                <p className="rounded-lg border border-dashed border-border-strong px-5 py-8 text-sm text-feedback-danger-foreground">
+                <p className="rounded-lg border border-dashed border-border px-5 py-8 text-sm text-danger">
                   Failed to load pages.
                 </p>
               }
             >
               {(publicPages) =>
                 publicPages.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-border-strong px-5 py-8 text-sm text-content-tertiary">
+                  <p className="rounded-lg border border-dashed border-border px-5 py-8 text-sm text-muted">
                     {t("public_pages.empty")}
                   </p>
                 ) : (
@@ -201,18 +201,18 @@ export default function Index() {
                         <li key={page.id}>
                           <Link
                             to={page.wikiPath}
-                            className="group flex h-full flex-col rounded-xl border border-border-default bg-surface-raised p-5 transition-colors hover:border-border-focus hover:bg-surface-selected/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
+                            className="group flex h-full flex-col rounded-xl border border-border bg-surface p-5 transition-colors hover:border-border-ring hover:bg-selected/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-ring"
                           >
-                            <h2 className="line-clamp-2 font-semibold text-content-primary group-hover:text-action-primary-hover">
+                            <h2 className="line-clamp-2 font-semibold text-foreground group-hover:text-link">
                               {title}
                             </h2>
                             {summary && (
-                              <p className="mt-2 line-clamp-3 text-sm leading-6 text-content-secondary">
+                              <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted">
                                 {summary}
                               </p>
                             )}
                             {page.updatedAt && (
-                              <time className="mt-4 text-xs text-content-disabled">
+                              <time className="mt-4 text-xs text-muted/70">
                                 {timeAgo(new Date(page.updatedAt), t)}
                               </time>
                             )}
@@ -241,20 +241,18 @@ export default function Index() {
       <Suspense fallback={<CardGridSkeleton count={4} />}>
         <Await
           resolve={data.homeData}
-          errorElement={
-            <p className="text-sm text-feedback-danger-foreground">Failed to load content.</p>
-          }
+          errorElement={<p className="text-sm text-danger">Failed to load content.</p>}
         >
           {({ recentPages, allTags, recentComments }) => (
             <>
               {/* Section 2: Browse by Tag */}
               <section className="mb-10">
-                <h2 className="mb-4 text-lg font-semibold text-content-primary">
+                <h2 className="mb-4 text-lg font-semibold text-foreground">
                   {t("home.browse_by_tag")}
                 </h2>
 
                 {allTags.length === 0 ? (
-                  <p className="text-sm text-content-disabled">{t("home.no_tags_yet")}</p>
+                  <p className="text-sm text-muted/70">{t("home.no_tags_yet")}</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {allTags.map((tag) => (
@@ -274,30 +272,30 @@ export default function Index() {
 
               {/* Section 3: Discover what's happening */}
               <section>
-                <h2 className="mb-4 text-lg font-semibold text-content-primary">
+                <h2 className="mb-4 text-lg font-semibold text-foreground">
                   {t("home.activity_heading")}
                 </h2>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   {/* Recent pages column */}
                   <div>
-                    <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-content-disabled">
+                    <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted/70">
                       {t("home.activity_pages_heading")}
                     </h3>
                     {recentPages.length === 0 ? (
-                      <p className="text-sm text-content-disabled">{t("home.no_activity_pages")}</p>
+                      <p className="text-sm text-muted/70">{t("home.no_activity_pages")}</p>
                     ) : (
-                      <ul className="flex flex-col divide-y divide-border-subtle">
+                      <ul className="flex flex-col divide-y divide-border-border">
                         {recentPages.map((page) => (
                           <li key={page.id}>
                             <Link
                               to={page.wikiPath}
-                              className="flex items-center justify-between gap-3 py-2.5 text-sm transition-colors hover:text-action-primary"
+                              className="flex items-center justify-between gap-3 py-2.5 text-sm transition-colors hover:text-link"
                             >
-                              <span className="line-clamp-1 font-medium text-content-primary">
+                              <span className="line-clamp-1 font-medium text-foreground">
                                 {isJa ? page.titleJa || page.titleEn : page.titleEn || page.titleJa}
                               </span>
                               {page.updatedAt && (
-                                <time className="shrink-0 text-xs text-content-disabled">
+                                <time className="shrink-0 text-xs text-muted/70">
                                   {timeAgo(new Date(page.updatedAt), t)}
                                 </time>
                               )}
@@ -310,20 +308,18 @@ export default function Index() {
 
                   {/* Recent comments column */}
                   <div>
-                    <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-content-disabled">
+                    <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted/70">
                       {t("home.activity_comments_heading")}
                     </h3>
                     {recentComments.length === 0 ? (
-                      <p className="text-sm text-content-disabled">
-                        {t("home.no_activity_comments")}
-                      </p>
+                      <p className="text-sm text-muted/70">{t("home.no_activity_comments")}</p>
                     ) : (
-                      <ul className="flex flex-col divide-y divide-border-subtle">
+                      <ul className="flex flex-col divide-y divide-border-border">
                         {recentComments.map((c) => (
                           <li key={c.commentId}>
                             <Link
                               to={c.wikiPath}
-                              className="flex items-start gap-2.5 py-2.5 transition-colors hover:text-action-primary"
+                              className="flex items-start gap-2.5 py-2.5 transition-colors hover:text-link"
                             >
                               {c.authorImage ? (
                                 <img
@@ -333,24 +329,26 @@ export default function Index() {
                                   referrerPolicy="no-referrer"
                                 />
                               ) : (
-                                <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-feedback-info-surface text-[10px] font-semibold text-action-primary-hover">
+                                <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                                  className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-selected text-[10px] font-semibold text-link"
+                                >
                                   {c.authorName.slice(0, 1).toUpperCase()}
                                 </div>
                               )}
                               <div className="flex flex-col gap-0.5">
-                                <span className="text-sm text-content-secondary">
-                                  <span className="font-medium text-content-primary">
+                                <span className="text-sm text-muted">
+                                  <span className="font-medium text-foreground">
                                     {c.authorName}
                                   </span>{" "}
                                   {t("home.activity_commented_on")}{" "}
-                                  <span className="font-medium text-content-primary">
+                                  <span className="font-medium text-foreground">
                                     {isJa
                                       ? c.pageTitleJa || c.pageTitleEn
                                       : c.pageTitleEn || c.pageTitleJa}
                                   </span>
                                 </span>
                                 {c.commentedAt && (
-                                  <time className="text-xs text-content-disabled">
+                                  <time className="text-xs text-muted/70">
                                     {timeAgo(new Date(c.commentedAt), t)}
                                   </time>
                                 )}

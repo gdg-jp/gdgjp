@@ -1,15 +1,16 @@
 import { diffLines } from "diff";
-import { History } from "lucide-react";
+
 import { MdPreview } from "md-editor-rt";
 import "md-editor-rt/lib/preview.css";
+import { useTheme } from "@gdgjp/ui";
 import { Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, Link, useFetcher } from "react-router";
 import ConfirmDialog from "~/components/ConfirmDialog";
 import { ArticleWithTitleSkeleton, ListSkeleton } from "~/components/Skeleton";
-import { useThemeMode } from "~/hooks/useThemeMode";
 import type { loader } from "../history";
 
+import { Icons } from "@gdgjp/ui";
 type HistoryLoaderData = Awaited<ReturnType<typeof loader>>;
 
 function relativeTimeDiff(savedAt: number): { key: string; count?: number } {
@@ -61,7 +62,8 @@ function HistoryContent({
   currentContentEn: string;
 }) {
   const { t } = useTranslation("common");
-  const theme = useThemeMode();
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === "dark" ? "dark" : "light";
   const [diffMode, setDiffMode] = useState(false);
   const [revertOpen, setRevertOpen] = useState(false);
   const revertFetcher = useFetcher();
@@ -102,21 +104,19 @@ function HistoryContent({
   return (
     <div className="flex flex-1 gap-0 px-4 py-4 md:px-10 md:py-6">
       {/* Left: version list */}
-      <aside className="mr-6 w-56 shrink-0 border-r border-border-subtle pr-4">
+      <aside className="mr-6 w-56 shrink-0 border-r border-border pr-4">
         {versions.length === 0 ? (
-          <p className="text-sm text-content-disabled">{t("wiki.history_empty")}</p>
+          <p className="text-sm text-muted/70">{t("wiki.history_empty")}</p>
         ) : (
           <ul className="space-y-1">
             {/* "Current" entry linking back to live page */}
             <li>
               <Link
                 to={page.wikiPath}
-                className="block rounded-md px-3 py-2 text-sm text-content-tertiary hover:bg-surface-hover"
+                className="block rounded-md px-3 py-2 text-sm text-muted hover:bg-neutral"
               >
-                <div className="font-medium text-content-secondary">
-                  {t("wiki.history_current")}
-                </div>
-                <div className="truncate text-xs text-content-disabled">{pageTitle}</div>
+                <div className="font-medium text-muted">{t("wiki.history_current")}</div>
+                <div className="truncate text-xs text-muted/70">{pageTitle}</div>
               </Link>
             </li>
 
@@ -131,14 +131,14 @@ function HistoryContent({
                     className={[
                       "block rounded-md px-3 py-2 text-sm transition-colors",
                       isActive
-                        ? "border-l-2 border-border-focus bg-feedback-info-surface text-action-primary-hover"
-                        : "text-content-secondary hover:bg-surface-hover",
+                        ? "border-l-2 border-border-ring bg-selected text-link"
+                        : "text-muted hover:bg-neutral",
                     ].join(" ")}
                   >
                     <div className="truncate font-medium">
                       {lang === "en" ? v.titleEn || v.titleJa : v.titleJa || v.titleEn}
                     </div>
-                    <div className="mt-0.5 text-xs text-content-disabled">
+                    <div className="mt-0.5 text-xs text-muted/70">
                       {v.editorName ?? v.editedBy.slice(0, 8)}
                       {" · "}
                       {timeStr}
@@ -155,7 +155,7 @@ function HistoryContent({
       <div className="min-w-0 flex-1">
         {/* Language tabs + Preview/Diff toggle */}
         <div className="mb-4 flex items-center justify-between gap-2">
-          <div className="flex w-fit shrink-0 gap-1 rounded-md border border-border-default bg-surface-raised p-0.5">
+          <div className="flex w-fit shrink-0 gap-1 rounded-md border border-border bg-surface p-0.5">
             {(["ja", "en"] as const).map((l) => {
               const isActive = lang === l;
               return (
@@ -164,9 +164,7 @@ function HistoryContent({
                   to={langUrl(l)}
                   className={[
                     "min-w-10 rounded px-2 py-1 text-center text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-action-primary text-action-primary-foreground"
-                      : "text-content-secondary hover:bg-surface-hover",
+                    isActive ? "bg-primary text-primary-foreground" : "text-muted hover:bg-neutral",
                   ].join(" ")}
                 >
                   {l === "ja" ? "JA" : "EN"}
@@ -176,15 +174,13 @@ function HistoryContent({
           </div>
 
           {selectedVersion && (
-            <div className="flex w-fit gap-1 rounded-md border border-border-default bg-surface-raised p-0.5">
+            <div className="flex w-fit gap-1 rounded-md border border-border bg-surface p-0.5">
               <button
                 type="button"
                 onClick={() => setDiffMode(false)}
                 className={[
                   "rounded px-2 py-1 text-sm font-medium transition-colors",
-                  !diffMode
-                    ? "bg-action-primary text-action-primary-foreground"
-                    : "text-content-secondary hover:bg-surface-hover",
+                  !diffMode ? "bg-primary text-primary-foreground" : "text-muted hover:bg-neutral",
                 ].join(" ")}
               >
                 {t("wiki.history_preview")}
@@ -194,9 +190,7 @@ function HistoryContent({
                 onClick={() => setDiffMode(true)}
                 className={[
                   "rounded px-2 py-1 text-sm font-medium transition-colors",
-                  diffMode
-                    ? "bg-action-primary text-action-primary-foreground"
-                    : "text-content-secondary hover:bg-surface-hover",
+                  diffMode ? "bg-primary text-primary-foreground" : "text-muted hover:bg-neutral",
                 ].join(" ")}
               >
                 {t("wiki.history_diff")}
@@ -207,20 +201,20 @@ function HistoryContent({
 
         {selectedVersion ? (
           <>
-            <h1 className="mb-4 text-2xl font-bold text-content-primary">{displayTitle}</h1>
+            <h1 className="mb-4 text-2xl font-bold text-foreground">{displayTitle}</h1>
 
             {diffMode && diffResult ? (
-              <pre className="overflow-x-auto rounded-lg border border-border-default bg-surface-sunken p-4 text-sm leading-relaxed">
+              <pre className="overflow-x-auto rounded-lg border border-border bg-neutral p-4 text-sm leading-relaxed">
                 {diffResult.map((part, i) => (
                   <div
                     // biome-ignore lint/suspicious/noArrayIndexKey: stable diff output
                     key={i}
                     className={
                       part.added
-                        ? "bg-feedback-success-surface text-feedback-success-foreground"
+                        ? "bg-[var(--gdg-success-surface)] text-success"
                         : part.removed
-                          ? "bg-feedback-danger-surface text-feedback-danger-foreground line-through"
-                          : "text-content-secondary"
+                          ? "bg-[var(--gdg-danger-surface)] text-danger line-through"
+                          : "text-muted"
                     }
                   >
                     {part.value
@@ -246,7 +240,7 @@ function HistoryContent({
                 autoFoldThreshold={Number.POSITIVE_INFINITY}
               />
             ) : (
-              <p className="text-content-disabled">{t("wiki.history_no_content")}</p>
+              <p className="text-muted/70">{t("wiki.history_no_content")}</p>
             )}
 
             {canRevert && (
@@ -255,7 +249,7 @@ function HistoryContent({
                   type="button"
                   onClick={() => setRevertOpen(true)}
                   disabled={isReverting}
-                  className="rounded-md bg-feedback-warning-solid px-4 py-2 text-sm font-medium text-feedback-warning-solid-foreground hover:bg-feedback-warning-solid disabled:opacity-60"
+                  className="rounded-md bg-warning px-4 py-2 text-sm font-medium text-warning-foreground hover:bg-warning disabled:opacity-60"
                 >
                   {isReverting ? t("wiki.history_reverting") : t("wiki.history_revert")}
                 </button>
@@ -279,8 +273,8 @@ function HistoryContent({
             />
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-content-disabled">
-            <History size={32} className="mb-3 opacity-30" />
+          <div className="flex flex-col items-center justify-center py-20 text-muted/70">
+            <Icons name="History" size={32} className="mb-3 opacity-30" />
             <p className="text-sm">{t("wiki.history_empty")}</p>
           </div>
         )}
@@ -296,15 +290,12 @@ export function HistoryView({ page, lang, historyData }: HistoryLoaderData) {
   return (
     <div className="flex min-h-full flex-col">
       {/* Mini-header */}
-      <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-2 md:px-10">
-        <Link
-          to={page.wikiPath}
-          className="text-sm text-content-tertiary hover:text-content-primary"
-        >
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2 md:px-10">
+        <Link to={page.wikiPath} className="text-sm text-muted hover:text-foreground">
           ← {pageTitle}
         </Link>
-        <div className="flex items-center gap-1.5 text-sm font-medium text-content-secondary">
-          <History size={14} />
+        <div className="flex items-center gap-1.5 text-sm font-medium text-muted">
+          <Icons name="History" size={14} />
           {t("wiki.history")}
         </div>
       </div>
@@ -312,7 +303,7 @@ export function HistoryView({ page, lang, historyData }: HistoryLoaderData) {
       <Suspense
         fallback={
           <div className="flex flex-1 gap-0 px-4 py-4 md:px-10 md:py-6">
-            <aside className="mr-6 w-56 shrink-0 border-r border-border-subtle pr-4">
+            <aside className="mr-6 w-56 shrink-0 border-r border-border pr-4">
               <ListSkeleton rows={5} />
             </aside>
             <div className="flex-1">
@@ -323,11 +314,7 @@ export function HistoryView({ page, lang, historyData }: HistoryLoaderData) {
       >
         <Await
           resolve={historyData}
-          errorElement={
-            <div className="p-6 text-sm text-feedback-danger-foreground">
-              Failed to load page history.
-            </div>
-          }
+          errorElement={<div className="p-6 text-sm text-danger">Failed to load page history.</div>}
         >
           {(resolvedData) => (
             <HistoryContent

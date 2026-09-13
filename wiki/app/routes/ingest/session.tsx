@@ -1,10 +1,10 @@
+import { toast } from "@gdgjp/ui";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLoaderData, useRevalidator } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import Toast from "~/components/Toast";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/features/auth/utils.server";
 import ChangesetReview from "~/features/ingestion/components/ChangesetReview";
@@ -105,7 +105,6 @@ export default function IngestSessionPage() {
   const [optimisticStatus, setOptimisticStatus] = useState<IngestionStatus | null>(null);
   const [sensitiveResolved, setSensitiveResolved] = useState(false);
   const [resolvedDraft, setResolvedDraft] = useState<ResultDraft | null>(null);
-  const [showToast, setShowToast] = useState(false);
   const lastRevision = useRef<number | null>(null);
   const previousStatus = useRef<string | null>(null);
 
@@ -126,10 +125,10 @@ export default function IngestSessionPage() {
 
   useEffect(() => {
     if (previousStatus.current === "processing" && status === "done") {
-      setShowToast(true);
+      toast.success(t("ingest.complete_toast"));
     }
     previousStatus.current = status;
-  }, [status]);
+  }, [status, t]);
 
   // D1 remains authoritative. Poll only while the realtime transport is
   // unavailable so rolling deploys and transient WebSocket failures recover.
@@ -214,11 +213,11 @@ export default function IngestSessionPage() {
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center">
         <div className="mb-4 text-4xl">⚠️</div>
-        <h1 className="text-lg font-semibold text-content-primary">{t("ingest.error_heading")}</h1>
-        {errorMessage && <p className="mt-2 text-sm text-content-tertiary">{errorMessage}</p>}
+        <h1 className="text-lg font-semibold text-foreground">{t("ingest.error_heading")}</h1>
+        {errorMessage && <p className="mt-2 text-sm text-muted">{errorMessage}</p>}
         <a
           href="/ingest"
-          className="mt-6 inline-block rounded-lg bg-action-primary px-5 py-2.5 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover"
+          className="mt-6 inline-block rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           {t("ingest.retry")}
         </a>
@@ -230,7 +229,7 @@ export default function IngestSessionPage() {
   if (!isResultDraft(draft)) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center">
-        <p className="text-content-tertiary">{t("ingest.review_not_found")}</p>
+        <p className="text-muted">{t("ingest.review_not_found")}</p>
       </div>
     );
   }
@@ -249,12 +248,9 @@ export default function IngestSessionPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
-      {showToast && (
-        <Toast message={t("ingest.complete_toast")} onDismiss={() => setShowToast(false)} />
-      )}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-content-primary">{t("ingest.review_heading")}</h1>
-        <p className="mt-1 text-sm text-content-tertiary">{t("ingest.review_subtitle")}</p>
+        <h1 className="text-2xl font-bold text-foreground">{t("ingest.review_heading")}</h1>
+        <p className="mt-1 text-sm text-muted">{t("ingest.review_subtitle")}</p>
       </div>
 
       {hasSensitive && !sensitiveResolved && (

@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { ArrowLeft } from "lucide-react";
+
 import { nanoid } from "nanoid";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,6 +14,7 @@ import { getDb } from "~/lib/db.server";
 // Meta
 // ---------------------------------------------------------------------------
 
+import { Icons } from "@gdgjp/ui";
 export const meta: MetaFunction = () => [{ title: "New Task List — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------
@@ -95,9 +96,9 @@ export default function NewTaskList() {
     <div className="mx-auto max-w-2xl px-4 py-8">
       <Link
         to="/"
-        className="mb-6 inline-flex items-center gap-1 text-sm text-content-tertiary hover:text-content-primary"
+        className="mb-6 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
       >
-        <ArrowLeft size={14} />
+        <Icons name="ArrowLeft" size={14} />
         {t("editor.back_to_page")}
       </Link>
 
@@ -105,14 +106,14 @@ export default function NewTaskList() {
 
       <Form method="post" className="space-y-6">
         {/* Language tabs */}
-        <div className="flex gap-2 border-b border-border-default">
+        <div className="flex gap-2 border-b border-border">
           <button
             type="button"
             onClick={() => setActiveLang("ja")}
             className={`border-b-2 px-3 py-2 text-sm font-medium ${
               activeLang === "ja"
-                ? "border-border-focus text-action-primary"
-                : "border-transparent text-content-tertiary hover:text-content-primary"
+                ? "border-border-ring text-link"
+                : "border-transparent text-muted hover:text-foreground"
             }`}
           >
             {t("language.ja")}
@@ -122,8 +123,8 @@ export default function NewTaskList() {
             onClick={() => setActiveLang("en")}
             className={`border-b-2 px-3 py-2 text-sm font-medium ${
               activeLang === "en"
-                ? "border-border-focus text-action-primary"
-                : "border-transparent text-content-tertiary hover:text-content-primary"
+                ? "border-border-ring text-link"
+                : "border-transparent text-muted hover:text-foreground"
             }`}
           >
             {t("language.en")}
@@ -133,40 +134,36 @@ export default function NewTaskList() {
         {/* Title fields */}
         <div>
           <label htmlFor="titleJa" className={activeLang === "ja" ? "" : "hidden"}>
-            <span className="mb-1 block text-sm font-medium text-content-secondary">
-              {t("tasks.title_ja")}
-            </span>
+            <span className="mb-1 block text-sm font-medium text-muted">{t("tasks.title_ja")}</span>
             <input
               id="titleJa"
               name="titleJa"
               type="text"
-              className="w-full rounded-md border border-border-strong px-3 py-2 text-sm focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+              className="w-full rounded-md border border-border px-3 py-2 text-sm focus:border-border-ring focus:outline-none focus:ring-1 focus:ring-ring"
               placeholder={t("tasks.title_ja_placeholder")}
             />
           </label>
           <label htmlFor="titleEn" className={activeLang === "en" ? "" : "hidden"}>
-            <span className="mb-1 block text-sm font-medium text-content-secondary">
-              {t("tasks.title_en")}
-            </span>
+            <span className="mb-1 block text-sm font-medium text-muted">{t("tasks.title_en")}</span>
             <input
               id="titleEn"
               name="titleEn"
               type="text"
-              className="w-full rounded-md border border-border-strong px-3 py-2 text-sm focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+              className="w-full rounded-md border border-border px-3 py-2 text-sm focus:border-border-ring focus:outline-none focus:ring-1 focus:ring-ring"
               placeholder={t("tasks.title_en_placeholder")}
             />
           </label>
         </div>
 
         {actionData?.error && (
-          <p role="alert" className="text-sm text-feedback-danger-foreground">
+          <p role="alert" className="text-sm text-danger">
             {actionData.error}
           </p>
         )}
 
         <button
           type="submit"
-          className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         >
           {t("tasks.create")}
         </button>

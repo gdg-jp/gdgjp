@@ -1,13 +1,12 @@
-import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MotionPresence } from "~/components/ui/motion";
 import type { ChangesetOperation } from "../../../../shared/ingestion/domain";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
+import { Icons } from "@gdgjp/ui";
 interface PageIndexEntry {
   id: string;
   titleJa: string;
@@ -116,25 +115,25 @@ function PreviewTreeNode({ node, depth }: { node: PreviewNode; depth: number }) 
   return (
     <div>
       <div className="flex items-center gap-1.5 py-0.5" style={{ paddingLeft: `${indent}px` }}>
-        <span className="text-content-tertiary text-xs">{"└"}</span>
+        <span className="text-muted text-xs">{"└"}</span>
         {node.isNew ? (
           <>
-            <span className="text-xs font-semibold text-feedback-success-foreground">
-              + {node.title}
-            </span>
-            <span className="rounded-full bg-feedback-success-surface px-1.5 py-0.5 text-xs font-medium text-feedback-success-foreground">
+            <span className="text-xs font-semibold text-success">+ {node.title}</span>
+            <span // gdg-ui-allow: literal-color — app-specific-layout-or-token
+              className="rounded-full bg-[var(--gdg-success-surface)] px-1.5 py-0.5 text-xs font-medium text-success"
+            >
               {t("ingest.review.op_create")}
             </span>
           </>
         ) : node.isUpdate ? (
           <>
-            <span className="text-xs italic text-action-primary">~ {node.title}</span>
-            <span className="rounded-full bg-feedback-info-surface px-1.5 py-0.5 text-xs font-medium text-action-primary">
+            <span className="text-xs italic text-link">~ {node.title}</span>
+            <span className="rounded-full bg-selected px-1.5 py-0.5 text-xs font-medium text-link">
               {t("ingest.review.op_update")}
             </span>
           </>
         ) : (
-          <span className="text-xs text-content-secondary">{node.title}</span>
+          <span className="text-xs text-muted">{node.title}</span>
         )}
       </div>
       {node.children.map((child) => (
@@ -162,26 +161,28 @@ export default function PageStructurePreview({
   );
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="ui-pressable flex min-h-11 w-full items-center justify-between px-4 py-3 text-left hover:bg-accent/60"
+        className="ui-pressable flex min-h-11 w-full items-center justify-between px-4 py-3 text-left hover:bg-neutral/60"
       >
         <span className="text-sm font-medium text-foreground">
           {t("ingest.review.structure_preview")}
         </span>
-        <ChevronDown
-          className={`size-4 text-muted-foreground transition-transform duration-200 ease-[var(--motion-ease-in-out)] ${open ? "rotate-180" : "rotate-0"}`}
+        <Icons
+          name="ChevronDown"
+          // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className={`size-4 text-muted transition-transform duration-200 ease-[var(--motion-ease-in-out)] ${open ? "rotate-180" : "rotate-0"}`}
           aria-hidden="true"
         />
       </button>
 
-      <MotionPresence present={open} distance={-4}>
+      {open ? (
         <div className="border-t border-border px-4 py-3">
           {roots.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{t("ingest.review.parent_none")}</p>
+            <p className="text-xs text-muted">{t("ingest.review.parent_none")}</p>
           ) : (
             <div className="font-mono">
               {roots.map((node) => (
@@ -190,7 +191,7 @@ export default function PageStructurePreview({
             </div>
           )}
         </div>
-      </MotionPresence>
+      ) : null}
     </div>
   );
 }

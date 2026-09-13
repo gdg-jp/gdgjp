@@ -20,9 +20,7 @@ export function NavItem({ to, icon, label, isCollapsed, isActive }: NavItemProps
       prefetch="intent"
       title={isCollapsed ? label : undefined}
       className={`flex min-h-8 items-center gap-2 rounded px-2 py-1.5 text-sm ${
-        isActive
-          ? "bg-surface-selected font-medium text-action-primary"
-          : "text-content-secondary hover:bg-surface-sunken"
+        isActive ? "bg-selected font-medium text-link" : "text-muted hover:bg-neutral"
       }`}
     >
       <span className="flex-shrink-0">{icon}</span>

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { MotionPresence } from "~/components/ui/motion";
 
 interface SidebarPopoverProps {
   open: boolean;
@@ -74,25 +73,13 @@ export default function SidebarPopover({
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [open, onClose, anchorRef]);
 
-  if (!pos) return null;
+  if (!open || !pos) return null;
 
   return createPortal(
     <div className="fixed z-50" style={{ top: pos.top, left: pos.left }}>
-      <MotionPresence
-        present={open}
-        axis="x"
-        distance={-4}
-        scale={0.98}
-        transformOrigin={`left ${pos.originY}px`}
-        enterDuration={200}
-        exitDuration={140}
-        reducedOpacity={0.85}
-        className="w-80"
-      >
-        <div ref={panelRef} className="rounded-xl bg-surface-raised shadow-xl">
-          {children}
-        </div>
-      </MotionPresence>
+      <div ref={panelRef} className="w-80 bg-surface">
+        {children}
+      </div>
     </div>,
     document.body,
   );

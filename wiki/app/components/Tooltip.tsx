@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
 import {
   TooltipContent,
   Tooltip as TooltipPrimitive,
   TooltipProvider,
   TooltipTrigger,
-} from "~/components/ui/tooltip";
+} from "@gdgjp/ui";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Wraps children with a tooltip label.

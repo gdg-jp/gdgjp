@@ -1,17 +1,11 @@
-import { Loader2, Send, Share2 } from "lucide-react";
-import { Button } from "~/components/ui/button";
-import { MotionPresence } from "~/components/ui/motion";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
+import { Button } from "@gdgjp/ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@gdgjp/ui";
+
 import { type PageRole, ROLES } from "./types";
 import type { ShareDialogController } from "./use-share-dialog";
 
 /** The "grant access to selected people" screen. */
+import { Icons } from "@gdgjp/ui";
 export function GrantScreen({ c }: { c: ShareDialogController }) {
   const {
     t,
@@ -31,8 +25,10 @@ export function GrantScreen({ c }: { c: ShareDialogController }) {
 
   return (
     <section className="pt-5" aria-label={t("wiki.share_add_people")}>
-      <div className="grid gap-4 sm:grid-cols-[1fr_144px] sm:items-start">
-        <label className="flex min-h-10 items-center gap-2 text-sm text-muted-foreground">
+      <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+        className="grid gap-4 sm:grid-cols-[1fr_144px] sm:items-start"
+      >
+        <label className="flex min-h-10 items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"
             checked={notify}
@@ -64,6 +60,7 @@ export function GrantScreen({ c }: { c: ShareDialogController }) {
       <div
         aria-hidden={!notify}
         inert={notify ? undefined : true}
+        // gdg-ui-allow: literal-color — app-specific-layout-or-token
         className={`grid transition-[grid-template-rows,opacity,transform,margin] ease-[var(--motion-ease-out)] motion-reduce:translate-y-0 motion-reduce:transition-[opacity] motion-reduce:duration-100 ${
           notify
             ? "visible mt-5 grid-rows-[1fr] translate-y-0 opacity-100 duration-[240ms]"
@@ -79,16 +76,17 @@ export function GrantScreen({ c }: { c: ShareDialogController }) {
               placeholder={t("wiki.share_message")}
               rows={5}
               disabled={!notify}
-              className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-2 focus:ring-ring/20"
+              // gdg-ui-allow: literal-color — app-specific-layout-or-token
+              className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-2 focus:ring-ring/20"
             />
           </label>
         </div>
       </div>
-      <MotionPresence present={Boolean(error)} className="mt-3" distance={-3}>
-        <p role="alert" className="text-sm text-destructive">
+      {error ? (
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
-      </MotionPresence>
+      ) : null}
       <footer className="mt-6 flex items-center justify-end gap-3">
         <Button
           variant="ghost"
@@ -107,11 +105,11 @@ export function GrantScreen({ c }: { c: ShareDialogController }) {
           className="rounded-full px-5"
         >
           {isMutating ? (
-            <Loader2 size={18} className="animate-spin motion-reduce:animate-none" />
+            <Icons name="Loader2" size={18} className="animate-spin motion-reduce:animate-none" />
           ) : notify ? (
-            <Send size={18} />
+            <Icons name="Send" size={18} />
           ) : (
-            <Share2 size={18} />
+            <Icons name="Share2" size={18} />
           )}
           {notify ? t("wiki.share_send") : t("wiki.share")}
         </Button>

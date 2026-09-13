@@ -76,7 +76,7 @@ export function WikiPageView() {
 
       <div className="px-4 pt-6 md:px-10 md:pt-8">
         <h1
-          className={`${display.fullWidth ? "" : "max-w-3xl"} text-3xl font-bold text-content-primary`}
+          className={`${display.fullWidth ? "" : "max-w-3xl"} text-3xl font-bold text-foreground`}
         >
           {title}
         </h1>
@@ -97,7 +97,7 @@ export function WikiPageView() {
         <Await
           resolve={content}
           errorElement={
-            <div className="px-4 py-6 md:px-10 md:py-8 text-sm text-feedback-danger-foreground">
+            <div className="px-4 py-6 md:px-10 md:py-8 text-sm text-danger">
               Failed to load page content.
             </div>
           }
@@ -117,12 +117,12 @@ export function WikiPageView() {
 
       {/* Comments section — full article width below content */}
       <div
-        className={`${display.fullWidth ? "" : "max-w-3xl"} min-w-0 flex-1 border-t border-border-subtle px-4 py-8 md:px-10`}
+        className={`${display.fullWidth ? "" : "max-w-3xl"} min-w-0 flex-1 border-t border-border px-4 py-8 md:px-10`}
       >
         <Suspense fallback={<ListSkeleton rows={3} />}>
           <Await
             resolve={comments}
-            errorElement={<p className="text-sm text-content-tertiary">Failed to load comments.</p>}
+            errorElement={<p className="text-sm text-muted">Failed to load comments.</p>}
           >
             {(resolvedComments) => (
               <CommentSection

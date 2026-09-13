@@ -1,10 +1,11 @@
-import { ExternalLink, FileText, Loader2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@gdgjp/ui";
+
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
-import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { timeAgo } from "~/lib/time";
 
+import { Icons } from "@gdgjp/ui";
 const listboxRole = "listbox";
 const optionRole = "option";
 
@@ -112,12 +113,12 @@ export default function WikiRightSidebar({
       {author.image ? (
         <img src={author.image} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" />
       ) : (
-        <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-action-primary" />
+        <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-primary" />
       )}
       <span className="truncate">{author.name}</span>
     </span>
   ) : (
-    <span className="text-content-tertiary">—</span>
+    <span className="text-muted">—</span>
   );
 
   return (
@@ -125,7 +126,7 @@ export default function WikiRightSidebar({
       {/* Table of Contents */}
       {tocItems.length > 0 && (
         <div className="mb-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-tertiary">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             {t("wiki.on_this_page")}
           </p>
           <nav aria-label="Table of contents">
@@ -137,8 +138,8 @@ export default function WikiRightSidebar({
                     className={[
                       "block truncate text-sm transition-colors",
                       activeId === item.id
-                        ? "font-medium text-action-primary"
-                        : "text-content-secondary hover:text-content-primary",
+                        ? "font-medium text-link"
+                        : "text-muted hover:text-foreground",
                     ].join(" ")}
                   >
                     {item.text}
@@ -154,7 +155,7 @@ export default function WikiRightSidebar({
       <div className="space-y-4">
         {/* Author */}
         <div>
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-content-tertiary">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
             {t("wiki.author")}
           </p>
           {isAdmin ? (
@@ -162,7 +163,7 @@ export default function WikiRightSidebar({
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="w-full rounded-md py-0.5 text-left text-sm text-content-secondary transition-colors hover:bg-surface-hover hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full rounded-md py-0.5 text-left text-sm text-muted transition-colors hover:bg-neutral hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label={t("wiki.change_author")}
                 >
                   {authorIdentity}
@@ -182,7 +183,7 @@ export default function WikiRightSidebar({
                   aria-expanded="true"
                   aria-controls={`${listboxId}-options`}
                   placeholder={t("wiki.author_search_placeholder")}
-                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
+                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
                 />
                 <div
                   id={`${listboxId}-options`}
@@ -192,8 +193,12 @@ export default function WikiRightSidebar({
                   className="mt-1 max-h-56 overflow-y-auto"
                 >
                   {candidatesFetcher.state !== "idle" && candidates.length === 0 ? (
-                    <p className="flex items-center gap-2 px-2 py-3 text-xs text-content-tertiary">
-                      <Loader2 size={14} className="animate-spin motion-reduce:animate-none" />
+                    <p className="flex items-center gap-2 px-2 py-3 text-xs text-muted">
+                      <Icons
+                        name="Loader2"
+                        size={14}
+                        className="animate-spin motion-reduce:animate-none"
+                      />
                       {t("wiki.share_loading_candidates")}
                     </p>
                   ) : candidates.length ? (
@@ -205,7 +210,7 @@ export default function WikiRightSidebar({
                         aria-selected={false}
                         onClick={() => selectAuthor(candidate)}
                         disabled={authorFetcher.state !== "idle"}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-surface-hover disabled:opacity-50"
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-neutral disabled:opacity-50"
                       >
                         {candidate.image ? (
                           <img
@@ -216,39 +221,37 @@ export default function WikiRightSidebar({
                         ) : (
                           <span
                             aria-hidden="true"
-                            className="h-2 w-2 shrink-0 rounded-full bg-action-primary"
+                            className="h-2 w-2 shrink-0 rounded-full bg-primary"
                           />
                         )}
                         <span className="min-w-0">
-                          <span className="block truncate text-sm text-content-primary">
+                          <span className="block truncate text-sm text-foreground">
                             {candidate.name}
                           </span>
-                          <span className="block truncate text-xs text-content-tertiary">
+                          <span className="block truncate text-xs text-muted">
                             {candidate.email}
                           </span>
                         </span>
                       </button>
                     ))
                   ) : (
-                    <p className="px-2 py-3 text-xs text-content-tertiary">
-                      {t("wiki.author_no_candidates")}
-                    </p>
+                    <p className="px-2 py-3 text-xs text-muted">{t("wiki.author_no_candidates")}</p>
                   )}
                 </div>
               </PopoverContent>
             </Popover>
           ) : (
-            <div className="text-sm text-content-secondary">{authorIdentity}</div>
+            <div className="text-sm text-muted">{authorIdentity}</div>
           )}
         </div>
 
         {/* Last edited */}
         {updatedAt && (
           <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-content-tertiary">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
               {t("wiki.last_edited_by")}
             </p>
-            <p className="text-xs text-content-secondary">
+            <p className="text-xs text-muted">
               {editor ? `${editor.name}, ` : ""}
               {timeAgo(new Date(updatedAt as string), t)}
             </p>
@@ -257,7 +260,9 @@ export default function WikiRightSidebar({
 
         {/* Translation status */}
         {translationStatus === "ai" && (
-          <span className="inline-flex items-center rounded-full bg-feedback-warning-surface px-2 py-0.5 text-xs font-medium text-feedback-warning-foreground">
+          <span // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="inline-flex items-center rounded-full bg-[var(--gdg-warning-surface)] px-2 py-0.5 text-xs font-medium text-warning"
+          >
             {t("wiki.auto_translated")}
           </span>
         )}
@@ -265,7 +270,7 @@ export default function WikiRightSidebar({
         {/* Sources (URLs, PDFs, and image attachments) */}
         {((sources && sources.length > 0) || (attachments && attachments.length > 0)) && (
           <div>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-content-tertiary">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
               {t("wiki.sources")}
             </p>
             {sources && sources.length > 0 && (
@@ -280,7 +285,7 @@ export default function WikiRightSidebar({
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs text-action-primary hover:underline"
+                        className="flex items-center gap-1.5 text-xs text-link hover:underline"
                       >
                         {isDoc && (
                           <svg
@@ -326,9 +331,9 @@ export default function WikiRightSidebar({
                             />
                           </svg>
                         )}
-                        {isPdf && <FileText className="h-3 w-3 flex-shrink-0" />}
+                        {isPdf && <Icons name="FileText" className="h-3 w-3 flex-shrink-0" />}
                         {!isDoc && !isSlide && !isPdf && (
-                          <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                          <Icons name="ExternalLink" className="h-3 w-3 flex-shrink-0" />
                         )}
                         <span className="truncate">{title}</span>
                       </a>
@@ -350,7 +355,7 @@ export default function WikiRightSidebar({
                     <img
                       src={`/api/images/${r2Key}`}
                       alt={fileName}
-                      className="h-12 w-12 rounded border border-default object-cover"
+                      className="h-12 w-12 rounded border border-border object-cover"
                     />
                   </a>
                 ))}

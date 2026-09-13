@@ -134,23 +134,27 @@ export default function AdminTags() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-content-primary">{t("admin.tags.heading")}</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("admin.tags.heading")}</h1>
         <button
           type="button"
           onClick={handleCreate}
-          className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           {t("admin.tags.new_tag")}
         </button>
       </div>
 
       {flashOk && (
-        <div className="mb-4 rounded-md bg-feedback-success-surface px-4 py-3 text-sm text-feedback-success-foreground">
+        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="mb-4 rounded-md bg-[var(--gdg-success-surface)] px-4 py-3 text-sm text-success"
+        >
           {flashOk}
         </div>
       )}
       {flashError && (
-        <div className="mb-4 rounded-md bg-feedback-danger-surface px-4 py-3 text-sm text-feedback-danger-foreground">
+        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="mb-4 rounded-md bg-[var(--gdg-danger-surface)] px-4 py-3 text-sm text-danger"
+        >
           {flashError}
         </div>
       )}
@@ -158,9 +162,7 @@ export default function AdminTags() {
       <Suspense fallback={<TableSkeleton rows={6} cols={5} />}>
         <Await
           resolve={tags}
-          errorElement={
-            <p className="text-sm text-feedback-danger-foreground">Failed to load tags.</p>
-          }
+          errorElement={<p className="text-sm text-danger">Failed to load tags.</p>}
         >
           {(resolvedTags) => <TagTable tags={resolvedTags} onEditTag={handleEdit} />}
         </Await>

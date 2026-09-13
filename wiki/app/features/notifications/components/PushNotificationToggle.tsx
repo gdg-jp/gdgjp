@@ -1,8 +1,8 @@
-import { Bell, BellOff } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFirebaseConfig } from "~/features/notifications/firebase-config-context";
 
+import { Icons } from "@gdgjp/ui";
 type PushState = "loading" | "unsupported" | "denied" | "enabled" | "disabled";
 
 export function PushNotificationToggle() {
@@ -82,8 +82,8 @@ export function PushNotificationToggle() {
 
   if (state === "loading") {
     return (
-      <div className="flex items-center gap-3 text-sm text-content-tertiary">
-        <Bell className="h-4 w-4" />
+      <div className="flex items-center gap-3 text-sm text-muted">
+        <Icons name="Bell" className="h-4 w-4" />
         <span>{t("settings.push.loading")}</span>
       </div>
     );
@@ -91,8 +91,8 @@ export function PushNotificationToggle() {
 
   if (state === "unsupported") {
     return (
-      <div className="flex items-center gap-3 text-sm text-content-tertiary">
-        <BellOff className="h-4 w-4" />
+      <div className="flex items-center gap-3 text-sm text-muted">
+        <Icons name="BellOff" className="h-4 w-4" />
         <span>{t("settings.push.unsupported")}</span>
       </div>
     );
@@ -100,8 +100,8 @@ export function PushNotificationToggle() {
 
   if (state === "denied") {
     return (
-      <div className="flex items-center gap-3 text-sm text-content-tertiary">
-        <BellOff className="h-4 w-4" />
+      <div className="flex items-center gap-3 text-sm text-muted">
+        <Icons name="BellOff" className="h-4 w-4" />
         <span>{t("settings.push.denied")}</span>
       </div>
     );
@@ -115,19 +115,21 @@ export function PushNotificationToggle() {
         type="button"
         disabled={busy}
         onClick={isEnabled ? handleDisable : handleEnable}
-        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-[var(--motion-ease-out)] motion-reduce:duration-100 focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 disabled:opacity-60 ${
-          isEnabled ? "bg-action-primary" : "bg-surface-hover"
+        // gdg-ui-allow: literal-color — app-specific-layout-or-token
+        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-[var(--motion-ease-out)] motion-reduce:duration-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-60 ${
+          isEnabled ? "bg-primary" : "bg-neutral"
         }`}
         role="switch"
         aria-checked={isEnabled}
       >
         <span
-          className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-surface-raised shadow ring-0 transition-transform duration-200 ease-[var(--motion-ease-in-out)] motion-reduce:duration-100 motion-reduce:translate-x-0 motion-reduce:transform-none ${
+          // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-surface shadow ring-0 transition-transform duration-200 ease-[var(--motion-ease-in-out)] motion-reduce:duration-100 motion-reduce:translate-x-0 motion-reduce:transform-none ${
             isEnabled ? "translate-x-5" : "translate-x-0"
           }`}
         />
       </button>
-      <span className="text-sm text-content-secondary">
+      <span className="text-sm text-muted">
         {isEnabled ? t("settings.push.enabled") : t("settings.push.disabled")}
       </span>
     </div>

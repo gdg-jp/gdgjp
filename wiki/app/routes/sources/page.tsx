@@ -66,14 +66,14 @@ function SourcesContent({
     <>
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-content-primary">{t("sources.title")}</h1>
-          <p className="mt-1 text-sm text-content-secondary">{t("sources.subtitle")}</p>
+          <h1 className="text-2xl font-semibold text-foreground">{t("sources.title")}</h1>
+          <p className="mt-1 text-sm text-muted">{t("sources.subtitle")}</p>
         </div>
         <button
           type="button"
           disabled={chatSenders.samples.length === 0}
           onClick={() => setSenderDialogOpen(true)}
-          className="shrink-0 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+          className="shrink-0 rounded-md border border-border px-3 py-2 text-sm font-medium text-muted hover:bg-neutral disabled:cursor-not-allowed disabled:opacity-60"
         >
           {t("sources.configure_senders")}
         </button>
@@ -82,7 +82,7 @@ function SourcesContent({
       <AddSourceSection sources={sources} assignableChapters={assignableChapters} />
 
       {sources.length === 0 ? (
-        <p className="text-sm text-content-tertiary">{t("sources.empty")}</p>
+        <p className="text-sm text-muted">{t("sources.empty")}</p>
       ) : (
         <>
           <SourcesToolbar sources={sources} />
@@ -126,10 +126,8 @@ export default function SourcesPage() {
           <div>
             <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h1 className="text-2xl font-semibold text-content-primary">
-                  {t("sources.title")}
-                </h1>
-                <p className="mt-1 text-sm text-content-secondary">{t("sources.subtitle")}</p>
+                <h1 className="text-2xl font-semibold text-foreground">{t("sources.title")}</h1>
+                <p className="mt-1 text-sm text-muted">{t("sources.subtitle")}</p>
               </div>
             </header>
             <TableSkeleton rows={6} cols={4} />
@@ -141,11 +139,9 @@ export default function SourcesPage() {
           errorElement={
             <div>
               <header className="mb-6">
-                <h1 className="text-2xl font-semibold text-content-primary">
-                  {t("sources.title")}
-                </h1>
+                <h1 className="text-2xl font-semibold text-foreground">{t("sources.title")}</h1>
               </header>
-              <p className="text-sm text-feedback-danger-foreground">Failed to load sources.</p>
+              <p className="text-sm text-danger">Failed to load sources.</p>
             </div>
           }
         >

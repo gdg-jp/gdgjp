@@ -1,5 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
-import { ArrowLeft } from "lucide-react";
+
 import { useTranslation } from "react-i18next";
 import { Link, useLoaderData } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
@@ -9,6 +9,7 @@ import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { getDb } from "~/lib/db.server";
 import { timeAgo } from "~/lib/time";
 
+import { Icons } from "@gdgjp/ui";
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   {
     title: data
@@ -67,11 +68,11 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  todo: "bg-surface-hover text-content-secondary",
-  in_progress: "bg-feedback-info-surface text-action-primary-hover",
-  done: "bg-task-done-surface text-feedback-success-foreground",
-  cancelled: "bg-task-cancelled-surface text-feedback-danger-foreground",
-  duplicated: "bg-task-duplicated-surface text-task-duplicated-foreground",
+  todo: "bg-neutral text-muted",
+  in_progress: "bg-selected text-link",
+  done: "bg-selected text-success",
+  cancelled: "bg-neutral text-danger",
+  duplicated: "bg-neutral text-muted",
 };
 
 export default function TaskHistoryPage() {
@@ -90,35 +91,34 @@ export default function TaskHistoryPage() {
     <div className="mx-auto max-w-3xl px-4 py-8">
       <Link
         to={`/tasks/${page.slug}`}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-content-tertiary hover:text-content-primary"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground"
       >
-        <ArrowLeft size={14} />
+        <Icons name="ArrowLeft" size={14} />
         {title}
       </Link>
 
-      <h1 className="mb-6 text-2xl font-bold text-content-primary">{t("tasks.history")}</h1>
+      <h1 className="mb-6 text-2xl font-bold text-foreground">{t("tasks.history")}</h1>
 
       {tasks.length === 0 ? (
-        <p className="text-sm text-content-disabled">{t("tasks.history_empty")}</p>
+        <p className="text-sm text-muted/70">{t("tasks.history_empty")}</p>
       ) : (
         <ul className="space-y-3">
           {tasks.map((task) => (
             <li
               key={task.id}
-              className="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-raised px-4 py-3 shadow-sm"
+              className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm"
             >
-              <span className="shrink-0 text-sm font-mono text-content-disabled">
-                #{task.number}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-content-primary">
+              <span className="shrink-0 text-sm font-mono text-muted/70">#{task.number}</span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                 {task.title}
               </span>
               <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[task.status] ?? "bg-surface-hover text-content-secondary"}`}
+                // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[task.status] ?? "bg-neutral text-muted"}`}
               >
                 {statusLabel(task.status)}
               </span>
-              <span className="shrink-0 text-xs text-content-disabled">
+              <span className="shrink-0 text-xs text-muted/70">
                 {task.creatorName ? `${task.creatorName} · ` : ""}
                 {task.createdAt ? timeAgo(new Date(task.createdAt as unknown as string), t) : ""}
               </span>

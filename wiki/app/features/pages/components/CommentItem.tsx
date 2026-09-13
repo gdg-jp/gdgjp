@@ -1,4 +1,3 @@
-import { MessageSquare, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import ConfirmDialog from "~/components/ConfirmDialog";
@@ -8,6 +7,7 @@ import type { ReactionGroup } from "~/features/pages/components/EmojiReactionBar
 import EmojiReactionBar from "~/features/pages/components/EmojiReactionBar";
 import CommentEditor from "./CommentEditor";
 
+import { Icons } from "@gdgjp/ui";
 export interface CommentThread {
   id: string;
   authorId: string;
@@ -67,7 +67,7 @@ function AuthorAvatar({ name, image }: { name: string; image: string | null }) {
     .slice(0, 2)
     .toUpperCase();
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-feedback-info-surface text-xs font-semibold text-action-primary">
+    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-selected text-xs font-semibold text-link">
       {initials}
     </div>
   );
@@ -110,21 +110,21 @@ export default function CommentItem({
       <div className="min-w-0 flex-1">
         {/* Header */}
         <div className="mb-1 flex items-baseline gap-2">
-          <span className="text-sm font-medium text-content-primary">{comment.authorName}</span>
-          <span className="text-xs text-content-tertiary">
+          <span className="text-sm font-medium text-foreground">{comment.authorName}</span>
+          <span className="text-xs text-muted">
             <RelativeTime date={comment.createdAt} />
           </span>
         </div>
 
         {/* Content */}
         {isDeleted ? (
-          <p className="text-sm italic text-content-tertiary">{t("wiki.comment.deleted")}</p>
+          <p className="text-sm italic text-muted">{t("wiki.comment.deleted")}</p>
         ) : parsedDoc ? (
-          <div className="text-sm text-content-primary">
+          <div className="text-sm text-foreground">
             <TipTapRenderer doc={parsedDoc} />
           </div>
         ) : (
-          <p className="text-sm text-content-primary">{comment.contentJson}</p>
+          <p className="text-sm text-foreground">{comment.contentJson}</p>
         )}
 
         {/* Bottom bar */}
@@ -140,9 +140,9 @@ export default function CommentItem({
               <button
                 type="button"
                 onClick={() => setPendingReplyId(showReplyEditor ? null : comment.id)}
-                className="flex items-center gap-1 text-xs text-content-secondary hover:text-content-secondary"
+                className="flex items-center gap-1 text-xs text-muted hover:text-muted"
               >
-                <MessageSquare size={13} />
+                <Icons name="MessageSquare" size={13} />
                 {t("wiki.comment.reply")}
               </button>
             )}
@@ -151,9 +151,9 @@ export default function CommentItem({
               <button
                 type="button"
                 onClick={() => setDeleteDialogOpen(true)}
-                className="flex items-center gap-1 text-xs text-content-tertiary hover:text-feedback-danger-foreground"
+                className="flex items-center gap-1 text-xs text-muted hover:text-danger"
               >
-                <Trash2 size={13} />
+                <Icons name="Trash2" size={13} />
                 {t("wiki.comment.delete")}
               </button>
             )}
@@ -173,7 +173,7 @@ export default function CommentItem({
 
         {/* Replies (depth=1, no reply button on children) */}
         {depth === 0 && comment.replies.length > 0 && (
-          <div className="mt-4 space-y-4 border-l-2 border-subtle pl-4">
+          <div className="mt-4 space-y-4 border-l-2 border-border pl-4">
             {comment.replies.map((reply) => (
               <CommentItem
                 key={reply.id}

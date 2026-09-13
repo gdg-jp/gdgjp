@@ -1,4 +1,5 @@
-import { AlertTriangle, ServerCrash } from "lucide-react";
+import { Button, ThemeProvider, Toaster } from "@gdgjp/ui";
+
 import { useTranslation } from "react-i18next";
 import {
   Links,
@@ -26,6 +27,7 @@ import appStylesHref from "./app.css?url";
  * Locale/theme only change via dedicated cookie APIs. Skip revalidating root
  * on every in-app GET so leaf navigations aren't blocked by an extra loader.
  */
+import { Icons } from "@gdgjp/ui";
 export const shouldRevalidate: ShouldRevalidateFunction = ({
   formAction,
   formMethod,
@@ -72,12 +74,6 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
     cookieLang && (supportedLngs as readonly string[]).includes(cookieLang)
       ? (cookieLang as SupportedLng)
       : (detected as SupportedLng);
-  const cookieTheme = cookieHeader
-    .split(";")
-    .map((c) => c.trim())
-    .find((c) => c.startsWith("theme="))
-    ?.split("=")[1];
-  const theme = cookieTheme === "dark" ? "dark" : "light";
   const origin = new URL(request.url).origin;
 
   const firebaseConfig =
@@ -92,7 +88,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
         }
       : null;
 
-  return { locale, theme, origin, firebaseConfig };
+  return { locale, origin, firebaseConfig };
 }
 
 export const meta: MetaFunction<typeof loader> = () => [
@@ -103,7 +99,7 @@ export function ErrorBoundary() {
   const error = useRouteError();
   const status = isRouteErrorResponse(error) ? error.status : 500;
   const is404 = status === 404;
-  const Icon = is404 ? AlertTriangle : ServerCrash;
+  const iconName = is404 ? "AlertTriangle" : "ServerCrash";
   const { t, i18n } = useTranslation();
 
   return (
@@ -111,28 +107,24 @@ export function ErrorBoundary() {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <script src="/theme-init.js" />
         <Meta />
         <Links />
       </head>
-      <body className="bg-surface-canvas text-content-primary antialiased">
+      <body className="bg-background text-foreground font-sans antialiased">
         <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4">
-          <Icon className="w-16 h-16 text-feedback-info-solid" strokeWidth={1.5} />
+          <Icons name={iconName} className="w-16 h-16 text-link" strokeWidth={1.5} />
           <div className="text-center space-y-2">
-            <p className="text-8xl font-bold text-content-disabled">{status}</p>
+            <p className="text-8xl font-bold text-muted/70">{status}</p>
             <h1 className="text-2xl font-semibold">
               {is404 ? t("error.404_title") : t("error.500_title")}
             </h1>
-            <p className="text-content-tertiary max-w-sm">
+            <p className="text-muted max-w-sm">
               {is404 ? t("error.404_desc") : t("error.500_desc")}
             </p>
           </div>
-          <a
-            href="/"
-            className="mt-2 inline-flex items-center gap-2 rounded-lg bg-action-primary px-5 py-2.5 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover transition-colors"
-          >
-            {t("error.back_home")}
-          </a>
+          <Button asChild className="mt-2">
+            <a href="/">{t("error.back_home")}</a>
+          </Button>
         </div>
         <Scripts />
       </body>
@@ -141,23 +133,25 @@ export function ErrorBoundary() {
 }
 
 export default function App() {
-  const { locale, theme, firebaseConfig } = useLoaderData<typeof loader>();
+  const { locale, firebaseConfig } = useLoaderData<typeof loader>();
 
   return (
-    <html lang={locale} className={theme === "dark" ? "dark" : undefined} suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <script src="/theme-init.js" />
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-K7FMPPSCPY" />
         <script src="/gtag-init.js" />
         <Meta />
         <Links />
       </head>
-      <body className="bg-surface-canvas text-content-primary antialiased">
-        <FirebaseConfigContext value={firebaseConfig}>
-          <Outlet />
-        </FirebaseConfigContext>
+      <body className="bg-background text-foreground font-sans antialiased">
+        <ThemeProvider storageKey="gdg-apps-theme" defaultTheme="system">
+          <FirebaseConfigContext value={firebaseConfig}>
+            <Outlet />
+          </FirebaseConfigContext>
+          <Toaster position="top-center" richColors />
+        </ThemeProvider>
         <ScrollRestoration />
         <Scripts />
       </body>

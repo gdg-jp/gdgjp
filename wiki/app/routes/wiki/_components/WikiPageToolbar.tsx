@@ -1,14 +1,15 @@
-import { History, Pencil, Share2, Star } from "lucide-react";
+import { DropdownMenuItem } from "@gdgjp/ui";
+
 import { Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, Link, useFetcher } from "react-router";
 import { Skeleton } from "~/components/Skeleton";
-import { DropdownMenuItem } from "~/components/ui/dropdown-menu";
 import type { PageDisplay } from "~/features/pages/use-page-display";
 import { PageActionsMenu } from "./PageActionsMenu";
 
+import { Icons } from "@gdgjp/ui";
 const btnBase =
-  "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-content-tertiary transition-colors hover:bg-surface-hover hover:text-content-primary";
+  "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-neutral hover:text-foreground";
 
 type PageSlice = {
   id: string;
@@ -44,7 +45,7 @@ function StarButton({ pageId, initialStarred }: { pageId: string; initialStarred
       className={btnBase}
       style={starStyle}
     >
-      <Star size={14} style={starIconStyle} />
+      <Icons name="Star" size={14} style={starIconStyle} />
       {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
     </button>
   );
@@ -83,10 +84,10 @@ function MobileStarButton({
         onClick={() => {
           favFetcher.submit({ intent: "toggleFavorite", pageId }, { method: "post" });
         }}
-        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover"
+        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted hover:bg-neutral"
         style={starStyle}
       >
-        <Star size={14} style={starIconStyle} />
+        <Icons name="Star" size={14} style={starIconStyle} />
         {optimisticStarred ? t("wiki.unstar") : t("wiki.starred")}
       </button>
     </DropdownMenuItem>
@@ -128,8 +129,8 @@ export function WikiPageToolbar({
   const { t } = useTranslation("common");
 
   return (
-    <div className="relative flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-2 md:px-10">
-      <div className="flex shrink-0 gap-1 rounded-md border border-border-default bg-surface-raised p-0.5">
+    <div className="relative flex items-center justify-between gap-2 border-b border-border px-4 py-2 md:px-10">
+      <div className="flex shrink-0 gap-1 rounded-md border border-border bg-surface p-0.5">
         {(["ja", "en"] as const).map((l) => {
           const status = l === "ja" ? page.translationStatusJa : page.translationStatusEn;
           const isPending = status === "missing";
@@ -137,10 +138,10 @@ export function WikiPageToolbar({
           const className = [
             "min-w-10 rounded px-2 py-1 text-center text-sm font-medium transition-colors",
             isActive
-              ? "bg-action-primary text-action-primary-foreground"
+              ? "bg-primary text-primary-foreground"
               : isPending
-                ? "text-content-disabled"
-                : "text-content-secondary hover:bg-surface-hover",
+                ? "text-muted/70"
+                : "text-muted hover:bg-neutral",
           ].join(" ");
 
           if (isPending) {
@@ -167,12 +168,12 @@ export function WikiPageToolbar({
       <div className="ml-auto hidden items-center gap-1 md:flex">
         {canEdit && (
           <Link to={`/wiki/${page.slug}/edit`} className={btnBase}>
-            <Pencil size={14} />
+            <Icons name="Pencil" size={14} />
             {t("wiki.edit")}
           </Link>
         )}
         <Link to={`/wiki/${page.slug}/history`} className={btnBase}>
-          <History size={14} />
+          <Icons name="History" size={14} />
           {t("wiki.history")}
         </Link>
         {isAuthenticated && (
@@ -185,7 +186,7 @@ export function WikiPageToolbar({
               </Await>
             </Suspense>
             <button type="button" onClick={onShare} className={btnBase}>
-              <Share2 size={14} />
+              <Icons name="Share2" size={14} />
               {t("wiki.share")}
             </button>
           </>
@@ -206,14 +207,14 @@ export function WikiPageToolbar({
             {canEdit && (
               <DropdownMenuItem asChild>
                 <Link to={`/wiki/${page.slug}/edit`}>
-                  <Pencil size={14} />
+                  <Icons name="Pencil" size={14} />
                   {t("wiki.edit")}
                 </Link>
               </DropdownMenuItem>
             )}
             <DropdownMenuItem asChild>
               <Link to={`/wiki/${page.slug}/history`}>
-                <History size={14} />
+                <Icons name="History" size={14} />
                 {t("wiki.history")}
               </Link>
             </DropdownMenuItem>
@@ -230,7 +231,7 @@ export function WikiPageToolbar({
                   </Await>
                 </Suspense>
                 <DropdownMenuItem onSelect={onShare}>
-                  <Share2 size={14} />
+                  <Icons name="Share2" size={14} />
                   {t("wiki.share")}
                 </DropdownMenuItem>
               </>

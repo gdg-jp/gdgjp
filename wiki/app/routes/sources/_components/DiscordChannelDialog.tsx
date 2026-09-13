@@ -1,21 +1,8 @@
-import { LoaderCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, Inline, Stack } from "@gdgjp/ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@gdgjp/ui";
+
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "~/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
 import { buildDiscordSourceTitle } from "~/features/sources/staged-candidates";
 import type { StagedSource } from "~/features/sources/staged-candidates";
 
@@ -24,6 +11,7 @@ import type { StagedSource } from "~/features/sources/staged-candidates";
  * owned by the parent so a duplicate-source message survives the dialog closing
  * (shown in the add-source section once `open` is false).
  */
+import { Icons } from "@gdgjp/ui";
 export function DiscordChannelDialog({
   open,
   onOpenChange,
@@ -219,15 +207,17 @@ export function DiscordChannelDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto bg-surface-raised sm:max-w-lg">
-        <DialogHeader className="border-b border-border-subtle px-5 py-4">
+      <DialogContent // gdg-ui-allow: literal-color — app-specific-layout-or-token
+        className="max-h-[85vh] overflow-y-auto bg-surface sm:max-w-lg"
+      >
+        <Stack className="border-b border-border px-5 py-4">
           <DialogTitle>{t("sources.discord_dialog_title")}</DialogTitle>
           <DialogDescription>{t("sources.discord_dialog_description")}</DialogDescription>
-        </DialogHeader>
+        </Stack>
         <div className="space-y-4 px-5 py-4">
           {discordGuildsLoading ? (
-            <div className="flex items-center gap-2 text-sm text-content-secondary">
-              <LoaderCircle className="size-4 animate-spin" />
+            <div className="flex items-center gap-2 text-sm text-muted">
+              <Icons name="LoaderCircle" className="size-4 animate-spin" />
               {t("sources.discord_loading_guilds")}
             </div>
           ) : needsConnection || needsReauth ? (
@@ -238,7 +228,7 @@ export function DiscordChannelDialog({
               <button
                 type="button"
                 onClick={connectDiscord}
-                className="w-fit font-medium text-action-primary hover:text-action-primary-hover"
+                className="w-fit font-medium text-link hover:text-link"
               >
                 {t("sources.connect_discord")}
               </button>
@@ -246,14 +236,14 @@ export function DiscordChannelDialog({
           ) : (
             <>
               <div>
-                <p className="mb-1 text-sm font-medium text-content-secondary">
+                <p className="mb-1 text-sm font-medium text-muted">
                   {t("sources.discord_server_label")}
                 </p>
                 <Select
                   value={selectedDiscordGuildId ?? undefined}
                   onValueChange={(value) => void selectDiscordGuild(value)}
                 >
-                  <SelectTrigger className="w-full bg-surface-raised">
+                  <SelectTrigger className="w-full bg-surface">
                     <SelectValue placeholder={t("sources.discord_server_placeholder")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -267,7 +257,7 @@ export function DiscordChannelDialog({
                 </Select>
               </div>
               {discordInviteUrl || (discordBotInviteUrl && !selectedDiscordGuildId) ? (
-                <div className="rounded-md border border-border-default bg-surface-sunken p-3 text-sm text-content-secondary">
+                <div className="rounded-md border border-border bg-neutral p-3 text-sm text-muted">
                   <p className="mb-2">
                     {discordInviteUrl
                       ? t("sources.discord_invite_hint")
@@ -278,14 +268,14 @@ export function DiscordChannelDialog({
                       href={discordInviteUrl ?? discordBotInviteUrl ?? undefined}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-medium text-action-primary hover:underline"
+                      className="font-medium text-link hover:underline"
                     >
                       {t("sources.discord_invite_bot")}
                     </a>
                     {discordInviteUrl ? (
                       <button
                         type="button"
-                        className="text-sm text-content-secondary hover:underline"
+                        className="text-sm text-muted hover:underline"
                         onClick={() =>
                           selectedDiscordGuildId
                             ? void selectDiscordGuild(selectedDiscordGuildId)
@@ -299,20 +289,20 @@ export function DiscordChannelDialog({
                 </div>
               ) : null}
               {discordChannelsLoading ? (
-                <div className="flex items-center gap-2 text-sm text-content-secondary">
-                  <LoaderCircle className="size-4 animate-spin" />
+                <div className="flex items-center gap-2 text-sm text-muted">
+                  <Icons name="LoaderCircle" className="size-4 animate-spin" />
                   {t("sources.discord_loading_channels")}
                 </div>
               ) : null}
               {!discordChannelsLoading && discordChannelGroups.length > 0 ? (
                 <div>
-                  <p className="mb-2 text-sm font-medium text-content-secondary">
+                  <p className="mb-2 text-sm font-medium text-muted">
                     {t("sources.discord_channel_label")}
                   </p>
-                  <div className="max-h-72 space-y-3 overflow-y-auto rounded-md border border-border-default p-2">
+                  <div className="max-h-72 space-y-3 overflow-y-auto rounded-md border border-border p-2">
                     {discordChannelGroups.map((group) => (
                       <div key={group.categoryId ?? "__uncategorized"}>
-                        <p className="sticky top-0 bg-surface-raised px-2 py-1 text-xs font-semibold tracking-wide text-content-tertiary uppercase">
+                        <p className="sticky top-0 bg-surface px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase">
                           {group.categoryName ?? t("sources.discord_uncategorized")}
                         </p>
                         <ul className="space-y-0.5">
@@ -324,7 +314,7 @@ export function DiscordChannelDialog({
                             return (
                               <li key={channel.id}>
                                 <label
-                                  className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-surface-hover ${
+                                  className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-neutral ${
                                     already ? "opacity-50" : ""
                                   }`}
                                 >
@@ -347,13 +337,13 @@ export function DiscordChannelDialog({
               ) : null}
             </>
           )}
-          {error ? <p className="text-sm text-feedback-danger-foreground">{error}</p> : null}
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
         </div>
-        <DialogFooter className="border-t border-border-subtle px-5 py-4">
+        <Inline className="border-t border-border px-5 py-4">
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="rounded-md border border-border-strong px-4 py-2 text-sm hover:bg-surface-hover"
+            className="rounded-md border border-border px-4 py-2 text-sm hover:bg-neutral"
           >
             {t("cancel")}
           </button>
@@ -361,11 +351,11 @@ export function DiscordChannelDialog({
             type="button"
             disabled={selectedDiscordChannelIds.size === 0}
             onClick={stageSelectedDiscordChannels}
-            className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
             {t("sources.stage_discord_channels")}
           </button>
-        </DialogFooter>
+        </Inline>
       </DialogContent>
     </Dialog>
   );

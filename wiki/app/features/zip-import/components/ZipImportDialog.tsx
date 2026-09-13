@@ -1,16 +1,11 @@
-import { Archive, LoaderCircle, Upload } from "lucide-react";
+import { Button } from "@gdgjp/ui";
+import { Dialog, DialogContent, DialogTitle, Inline, Stack } from "@gdgjp/ui";
+
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useRevalidator } from "react-router";
-import { Button } from "~/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "~/components/ui/dialog";
 
+import { Icons } from "@gdgjp/ui";
 interface Preview {
   rootTitle: string;
   pageCount: number;
@@ -108,11 +103,11 @@ export default function ZipImportDialog({
       }}
     >
       <DialogContent className="max-w-md sm:max-w-md">
-        <DialogHeader className="border-b border-border px-6 py-5">
+        <Stack className="border-b border-border px-6 py-5">
           <DialogTitle>{t("zipImport.title")}</DialogTitle>
-        </DialogHeader>
+        </Stack>
         <div className="space-y-4 px-6">
-          <p className="text-sm text-muted-foreground">{t("zipImport.description")}</p>
+          <p className="text-sm text-muted">{t("zipImport.description")}</p>
           <input
             ref={inputRef}
             type="file"
@@ -125,14 +120,18 @@ export default function ZipImportDialog({
             onClick={() => inputRef.current?.click()}
             disabled={loading || submitting}
           >
-            {loading ? <LoaderCircle className="animate-spin" /> : <Upload />}
+            {loading ? (
+              <Icons name="LoaderCircle" className="animate-spin" />
+            ) : (
+              <Icons name="Upload" />
+            )}
             {file ? t("zipImport.chooseAnother") : t("zipImport.choose")}
           </Button>
           {file && <p className="text-sm font-medium">{file.name}</p>}
           {preview && (
             <div className="space-y-2 rounded-lg border border-border p-3 text-sm">
               <p className="font-medium">{preview.rootTitle}</p>
-              <p className="text-muted-foreground">
+              <p className="text-muted">
                 {t("zipImport.summary", {
                   pages: preview.pageCount,
                   folders: preview.folderCount,
@@ -142,27 +141,31 @@ export default function ZipImportDialog({
                 })}
               </p>
               {preview.skipped.length > 0 && (
-                <p className="text-muted-foreground">
+                <p className="text-muted">
                   {t("zipImport.skipped", { count: preview.skipped.length })}
                 </p>
               )}
             </div>
           )}
           {error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-sm text-danger">
               {error}
             </p>
           )}
         </div>
-        <DialogFooter className="border-t border-border px-6 py-4">
+        <Inline className="border-t border-border px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             {t("common.cancel")}
           </Button>
           <Button onClick={importArchive} disabled={!preview || submitting}>
-            {submitting ? <LoaderCircle className="animate-spin" /> : <Archive />}
+            {submitting ? (
+              <Icons name="LoaderCircle" className="animate-spin" />
+            ) : (
+              <Icons name="Archive" />
+            )}
             {t("zipImport.import")}
           </Button>
-        </DialogFooter>
+        </Inline>
       </DialogContent>
     </Dialog>
   );

@@ -1,4 +1,3 @@
-import { RotateCcw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useFetcher } from "react-router";
@@ -6,6 +5,7 @@ import ConfirmDialog from "~/components/ConfirmDialog";
 import { ListSkeleton } from "~/components/Skeleton";
 import { timeAgo } from "~/lib/time";
 
+import { Icons } from "@gdgjp/ui";
 interface ArchivedPage {
   id: string;
   slug: string;
@@ -67,12 +67,12 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-subtle px-5 py-4">
-        <h2 className="text-base font-semibold text-content-primary">{t("archived.title")}</h2>
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <h2 className="text-base font-semibold text-foreground">{t("archived.title")}</h2>
         <button
           type="button"
           onClick={onClose}
-          className="flex h-7 w-7 items-center justify-center rounded-full text-content-tertiary hover:bg-surface-sunken hover:text-content-secondary"
+          className="flex h-7 w-7 items-center justify-center rounded-full text-muted hover:bg-neutral hover:text-muted"
           aria-label="Close"
         >
           ×
@@ -84,7 +84,7 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
         {isFirstLoad ? (
           <ListSkeleton rows={4} />
         ) : pages.length === 0 ? (
-          <p className="py-4 text-center text-sm text-content-tertiary">{t("archived.empty")}</p>
+          <p className="py-4 text-center text-sm text-muted">{t("archived.empty")}</p>
         ) : (
           <ul className="space-y-1">
             {pages.map((page) => {
@@ -97,11 +97,11 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
                   className="flex items-center justify-between gap-2 rounded-lg px-3 py-2"
                 >
                   <div className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-content-primary">
+                    <span className="block truncate text-sm font-medium text-foreground">
                       {pageTitle}
                     </span>
                     {page.updatedAt && (
-                      <span className="text-xs text-content-tertiary">
+                      <span className="text-xs text-muted">
                         {timeAgo(new Date(page.updatedAt), t)}
                       </span>
                     )}
@@ -117,10 +117,11 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
                             { method: "post", action: "/api/archived" },
                           )
                         }
-                        className="rounded p-1 text-content-tertiary hover:bg-feedback-success-surface hover:text-feedback-success-foreground"
+                        // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                        className="rounded p-1 text-muted hover:bg-[var(--gdg-success-surface)] hover:text-success"
                         title={t("archived.restore")}
                       >
-                        <RotateCcw size={14} />
+                        <Icons name="RotateCcw" size={14} />
                       </button>
                     )}
                     {canDelete && (
@@ -128,10 +129,11 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
                         type="button"
                         disabled={actionFetcher.state !== "idle"}
                         onClick={() => setDeleteTarget({ id: page.id, title: pageTitle })}
-                        className="rounded p-1 text-content-tertiary hover:bg-feedback-danger-surface hover:text-feedback-danger-foreground"
+                        // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                        className="rounded p-1 text-muted hover:bg-[var(--gdg-danger-surface)] hover:text-danger"
                         title={t("archived.delete")}
                       >
-                        <Trash2 size={14} />
+                        <Icons name="Trash2" size={14} />
                       </button>
                     )}
                   </div>
@@ -143,11 +145,11 @@ export default function ArchivedContent({ open, onClose, lang }: ArchivedContent
       </div>
 
       {/* View all footer */}
-      <div className="border-t border-subtle px-5 py-3">
+      <div className="border-t border-border px-5 py-3">
         <Link
           to="/archived"
           onClick={onClose}
-          className="block text-center text-sm font-medium text-action-primary hover:text-action-primary"
+          className="block text-center text-sm font-medium text-link hover:text-link"
         >
           {t("archived.view_all")}
         </Link>

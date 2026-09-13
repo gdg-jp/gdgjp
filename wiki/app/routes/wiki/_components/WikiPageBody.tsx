@@ -1,8 +1,8 @@
-import { List } from "lucide-react";
 import { MdPreview } from "md-editor-rt";
 import { displayedMarkdown } from "~/features/pages/page-menu-content";
 import type { PageDisplay } from "~/features/pages/use-page-display";
 import "md-editor-rt/lib/preview.css";
+import { useTheme } from "@gdgjp/ui";
 import { Suspense, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Await } from "react-router";
@@ -12,9 +12,9 @@ import TagChip from "~/features/pages/components/TagChip";
 import type { TocItem } from "~/features/pages/components/WikiRightSidebar";
 import WikiRightSidebar from "~/features/pages/components/WikiRightSidebar";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
-import { useThemeMode } from "~/hooks/useThemeMode";
 import { MobileContentsSheet } from "./MobileContentsSheet";
 
+import { Icons } from "@gdgjp/ui";
 type PageSlice = {
   id: string;
   slug: string;
@@ -56,7 +56,8 @@ export function WikiPageBody({
   display,
 }: WikiPageBodyProps) {
   const { t } = useTranslation("common");
-  const theme = useThemeMode();
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === "dark" ? "dark" : "light";
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const primaryContent = lang === "en" ? content.contentEn : content.contentJa;
@@ -101,7 +102,7 @@ export function WikiPageBody({
   }, []);
 
   return (
-    <div className="flex gap-0">
+    <div className="flex w-full gap-0">
       <article
         data-small-text={display.smallText}
         className={`${display.fullWidth ? "" : "max-w-3xl"} min-w-0 flex-1 px-4 pt-4 pb-6 md:px-10 md:pt-4 md:pb-8`}
@@ -112,9 +113,9 @@ export function WikiPageBody({
             ref={mobileContentsTriggerRef}
             type="button"
             onClick={openMobileContents}
-            className="mb-4 flex items-center gap-1.5 rounded-md border border-border-default px-3 py-1.5 text-sm text-content-secondary md:hidden"
+            className="mb-4 flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted md:hidden"
           >
-            <List size={14} />
+            <Icons name="List" size={14} />
             {t("wiki.contents")}
           </button>
         ) : (
@@ -131,9 +132,9 @@ export function WikiPageBody({
                     ref={mobileContentsTriggerRef}
                     type="button"
                     onClick={openMobileContents}
-                    className="mb-4 flex items-center gap-1.5 rounded-md border border-border-default px-3 py-1.5 text-sm text-content-secondary md:hidden"
+                    className="mb-4 flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted md:hidden"
                   >
-                    <List size={14} />
+                    <Icons name="List" size={14} />
                     {t("wiki.contents")}
                   </button>
                 );
@@ -164,7 +165,9 @@ export function WikiPageBody({
         </Suspense>
 
         {hasFallback && (
-          <div className="mb-6 rounded-lg border border-feedback-warning-border bg-feedback-warning-surface p-4 text-sm text-feedback-warning-foreground">
+          <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="mb-6 rounded-lg border border-warning bg-[var(--gdg-warning-surface)] p-4 text-sm text-warning"
+          >
             {lang === "en" ? t("wiki.translation_fallback_en") : t("wiki.translation_fallback_ja")}
           </div>
         )}
@@ -177,11 +180,9 @@ export function WikiPageBody({
             onGetCatalog={handleGetCatalog}
           />
         ) : (
-          <p className="text-content-disabled">No content available.</p>
+          <p className="text-muted/70">No content available.</p>
         )}
       </article>
-
-      {/* Right sidebar — hidden on mobile */}
       {isDesktop && (
         <Suspense fallback={<TocSkeleton />}>
           <Await
@@ -218,8 +219,6 @@ export function WikiPageBody({
           </Await>
         </Suspense>
       )}
-
-      {/* Mobile contents bottom sheet */}
       {mobileContentsOpen && (
         <Suspense fallback={null}>
           <Await resolve={pageMeta} errorElement={null}>

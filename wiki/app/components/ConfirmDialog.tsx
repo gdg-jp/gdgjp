@@ -1,14 +1,15 @@
-import { useEffect, useRef } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
   AlertDialogTitle,
-} from "~/components/ui/alert-dialog";
+  Button,
+  Inline,
+  Stack,
+} from "@gdgjp/ui";
+import { useEffect, useRef } from "react";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -47,11 +48,11 @@ export default function ConfirmDialog({
       }}
     >
       <AlertDialogContent className="max-w-sm rounded-2xl shadow-2xl shadow-content-primary/20">
-        <AlertDialogHeader>
+        <Stack>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{message}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
+        </Stack>
+        <Inline>
           <AlertDialogCancel
             onClick={() => {
               closeIntent.current = "cancel";
@@ -60,16 +61,17 @@ export default function ConfirmDialog({
           >
             {cancelLabel}
           </AlertDialogCancel>
-          <AlertDialogAction
-            variant={destructive ? "destructive" : "default"}
-            onClick={() => {
-              closeIntent.current = "confirm";
-              onConfirm();
-            }}
-          >
-            {confirmLabel}
-          </AlertDialogAction>
-        </AlertDialogFooter>
+          <Button asChild variant={destructive ? "danger" : "primary"}>
+            <AlertDialogAction
+              onClick={() => {
+                closeIntent.current = "confirm";
+                onConfirm();
+              }}
+            >
+              {confirmLabel}
+            </AlertDialogAction>
+          </Button>
+        </Inline>
       </AlertDialogContent>
     </AlertDialog>
   );

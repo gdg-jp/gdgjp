@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, ListTodo } from "lucide-react";
+
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { FlatNode, PageNode } from "~/features/pages/tree";
@@ -10,6 +10,7 @@ import { INDENT_WIDTH, getLocalizedTitle } from "./build-tree";
 // ---------------------------------------------------------------------------
 // SortableTreeItem — used when canReorder=true
 // ---------------------------------------------------------------------------
+import { Icons } from "@gdgjp/ui";
 export function SortableTreeItem({
   node,
   depth,
@@ -47,7 +48,7 @@ export function SortableTreeItem({
     >
       {showDropIndicator && (
         <div
-          className="pointer-events-none absolute top-0 right-0 z-10 h-0.5 bg-action-primary"
+          className="pointer-events-none absolute top-0 right-0 z-10 h-0.5 bg-primary"
           style={{ left: `${(indicatorDepth ?? 0) * INDENT_WIDTH + 8}px` }}
         />
       )}
@@ -60,10 +61,8 @@ export function SortableTreeItem({
         className={`relative flex min-h-8 items-center gap-1 rounded px-1 py-1.5 text-sm ${
           hasChildren ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
         } ${
-          isCurrent
-            ? "bg-surface-selected font-medium text-action-primary"
-            : "text-content-secondary hover:bg-surface-sunken"
-        }${isOverlay ? " border border-default bg-surface-raised shadow-md" : ""}`}
+          isCurrent ? "bg-selected font-medium text-link" : "text-muted hover:bg-neutral"
+        }${isOverlay ? " border border-border bg-surface shadow-md" : ""}`}
       >
         {hasChildren && (
           <button
@@ -77,26 +76,30 @@ export function SortableTreeItem({
 
         {hasChildren ? (
           <span
-            className="relative z-10 flex h-4 w-4 flex-shrink-0 items-center justify-center text-content-tertiary pointer-events-none"
+            className="relative z-10 flex h-4 w-4 flex-shrink-0 items-center justify-center text-muted pointer-events-none"
             aria-hidden
           >
-            {isFolderCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+            {isFolderCollapsed ? (
+              <Icons name="ChevronRight" size={12} />
+            ) : (
+              <Icons name="ChevronDown" size={12} />
+            )}
           </span>
         ) : (
           <span className="h-4 w-4 flex-shrink-0" />
         )}
 
-        <span className="relative z-10 flex-shrink-0 text-content-tertiary pointer-events-none">
+        <span className="relative z-10 flex-shrink-0 text-muted pointer-events-none">
           {node.pageType === "task-list" ? (
-            <ListTodo size={14} />
+            <Icons name="ListTodo" size={14} />
           ) : hasChildren ? (
             isFolderCollapsed ? (
-              <Folder size={14} />
+              <Icons name="Folder" size={14} />
             ) : (
-              <FolderOpen size={14} />
+              <Icons name="FolderOpen" size={14} />
             )
           ) : (
-            <FileText size={14} />
+            <Icons name="FileText" size={14} />
           )}
         </span>
 
@@ -151,11 +154,7 @@ export function TreeNode({
         title={isCollapsed ? title : undefined}
         className={`relative flex min-h-8 items-center gap-1 rounded px-2 py-1.5 text-sm ${
           hasChildren ? "cursor-pointer" : ""
-        } ${
-          isCurrent
-            ? "bg-surface-selected font-medium text-action-primary"
-            : "text-content-secondary hover:bg-surface-sunken"
-        }`}
+        } ${isCurrent ? "bg-selected font-medium text-link" : "text-muted hover:bg-neutral"}`}
       >
         {hasChildren && !isCollapsed && (
           <button
@@ -170,26 +169,30 @@ export function TreeNode({
         {!isCollapsed &&
           (hasChildren ? (
             <span
-              className="relative z-10 flex h-4 w-4 flex-shrink-0 items-center justify-center text-content-tertiary pointer-events-none"
+              className="relative z-10 flex h-4 w-4 flex-shrink-0 items-center justify-center text-muted pointer-events-none"
               aria-hidden
             >
-              {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              {expanded ? (
+                <Icons name="ChevronDown" size={12} />
+              ) : (
+                <Icons name="ChevronRight" size={12} />
+              )}
             </span>
           ) : (
             <span className="h-4 w-4 flex-shrink-0" />
           ))}
 
-        <span className="relative z-10 flex-shrink-0 text-content-tertiary pointer-events-none">
+        <span className="relative z-10 flex-shrink-0 text-muted pointer-events-none">
           {node.pageType === "task-list" ? (
-            <ListTodo size={14} />
+            <Icons name="ListTodo" size={14} />
           ) : hasChildren ? (
             expanded ? (
-              <FolderOpen size={14} />
+              <Icons name="FolderOpen" size={14} />
             ) : (
-              <Folder size={14} />
+              <Icons name="Folder" size={14} />
             )
           ) : (
-            <FileText size={14} />
+            <Icons name="FileText" size={14} />
           )}
         </span>
 

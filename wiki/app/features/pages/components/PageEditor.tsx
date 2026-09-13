@@ -1,18 +1,19 @@
 import { MdEditor } from "md-editor-rt";
 import "md-editor-rt/lib/style.css";
-import { ArrowLeft } from "lucide-react";
+import { useTheme } from "@gdgjp/ui";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useBlocker, useFetcher } from "react-router";
 import PresenceAvatars from "~/features/editor/components/PresenceAvatars";
 import type { CollabUser } from "~/features/editor/use-collab-editor";
 import { useCollabEditor } from "~/features/editor/use-collab-editor";
-import { useThemeMode } from "~/hooks/useThemeMode";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
+import { Icons } from "@gdgjp/ui";
 interface Page {
   id: string;
   titleJa: string;
@@ -55,7 +56,8 @@ function formatRelativeTime(
 export default function PageEditor({ page, currentUser }: PageEditorProps) {
   const { t } = useTranslation();
   const fetcher = useFetcher<{ ok: boolean; savedAt: string }>();
-  const theme = useThemeMode();
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === "dark" ? "dark" : "light";
 
   const [titleJa, setTitleJa] = useState(page.titleJa);
   const [titleEn, setTitleEn] = useState(page.titleEn);
@@ -180,7 +182,9 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
       <input type="hidden" name="contentEn" value={contentEn} />
 
       {page.origin === "agent" && (
-        <div className="border-b border-feedback-warning-border bg-feedback-warning-surface px-3 py-2 text-sm text-feedback-warning-foreground">
+        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="border-b border-warning bg-[var(--gdg-warning-surface)] px-3 py-2 text-sm text-warning"
+        >
           {t("wiki.ingest_managed_warning")}
         </div>
       )}
@@ -188,15 +192,15 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
       {/* ------------------------------------------------------------------ */}
       {/* Mini-header                                                          */}
       {/* ------------------------------------------------------------------ */}
-      <div className="sticky top-14 z-10 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-default bg-surface-raised px-3 py-2 shadow-sm">
+      <div className="sticky top-14 z-10 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-surface px-3 py-2 shadow-sm">
         {/* Back + title */}
         <div className="flex min-w-0 flex-1 items-center gap-1">
           <Link
             to={page.wikiPath}
-            className="shrink-0 rounded-md p-1.5 text-content-secondary hover:bg-surface-sunken hover:text-content-secondary"
+            className="shrink-0 rounded-md p-1.5 text-muted hover:bg-neutral hover:text-muted"
             aria-label={t("editor.back_to_page")}
           >
-            <ArrowLeft size={18} />
+            <Icons name="ArrowLeft" size={18} />
           </Link>
 
           {/* Title inputs — toggled by active language, both always in DOM */}
@@ -207,7 +211,7 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
             placeholder={t("editor.title_ja")}
             required={isJaActive}
             aria-hidden={!isJaActive}
-            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-content-primary placeholder:text-content-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus ${!isJaActive ? "hidden" : ""}`}
+            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-ring ${!isJaActive ? "hidden" : ""}`}
           />
           <input
             name="titleEn"
@@ -215,7 +219,7 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
             onChange={(e) => setTitleEn(e.target.value)}
             placeholder={t("editor.title_en")}
             aria-hidden={!isEnActive}
-            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-content-primary placeholder:text-content-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus ${!isEnActive ? "hidden" : ""}`}
+            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-ring ${!isEnActive ? "hidden" : ""}`}
           />
         </div>
 
@@ -229,9 +233,9 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
             <span
               role="status"
               aria-label={connected ? t("editor.connected") : t("editor.disconnected")}
-              className={`inline-block h-2 w-2 shrink-0 rounded-full ${connected ? "bg-feedback-success-solid" : "bg-border-strong"}`}
+              className={`inline-block h-2 w-2 shrink-0 rounded-full ${connected ? "bg-success" : "bg-border-border"}`}
             />
-            <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-content-primary px-2 py-1 text-xs text-content-inverse opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-xs text-primary-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100">
               {connected ? t("editor.connected") : t("editor.disconnected")}
             </span>
           </span>
@@ -239,14 +243,14 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
           {/* Autosave status */}
           {statusText && (
             <span
-              className={`hidden shrink-0 text-xs sm:inline ${fetcher.data && !fetcher.data.ok ? "text-feedback-danger-foreground" : "text-content-tertiary"}`}
+              className={`hidden shrink-0 text-xs sm:inline ${fetcher.data && !fetcher.data.ok ? "text-danger" : "text-muted"}`}
             >
               {statusText}
             </span>
           )}
 
           {/* Language switcher */}
-          <div className="flex shrink-0 overflow-hidden rounded-md border border-default">
+          <div className="flex shrink-0 overflow-hidden rounded-md border border-border">
             {(["ja", "en"] as const).map((lang) => (
               <button
                 key={lang}
@@ -254,8 +258,8 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
                 onClick={() => setActiveLang(lang)}
                 className={`px-3 py-1 text-sm font-medium transition-colors ${
                   activeLang === lang
-                    ? "bg-action-primary text-content-inverse hover:bg-action-primary-hover"
-                    : "bg-surface-raised text-content-secondary hover:bg-surface-canvas hover:text-content-secondary"
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-surface text-muted hover:bg-background hover:text-muted"
                 }`}
               >
                 {lang === "ja" ? t("language.ja") : t("language.en")}
@@ -267,7 +271,7 @@ export default function PageEditor({ page, currentUser }: PageEditorProps) {
             type="submit"
             name="intent"
             value="save"
-            className="shrink-0 rounded-lg border border-strong px-3 py-1.5 text-sm font-medium text-content-secondary hover:bg-surface-canvas focus:outline-none focus:ring-2 focus:ring-border-focus"
+            className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-muted hover:bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           >
             {t("editor.save")}
           </button>

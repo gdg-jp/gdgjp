@@ -13,12 +13,10 @@ export function HowItWorksSection() {
     >
       <div className="mx-auto max-w-4xl">
         <div className="mb-16 text-center">
-          <h2 className="mb-3 text-3xl font-bold text-content-primary sm:text-4xl">
+          <h2 className="mb-3 text-3xl font-bold text-foreground sm:text-4xl">
             {t("lp.how_title")}
           </h2>
-          <p className="mx-auto max-w-lg text-base text-content-secondary">
-            {t("lp.how_subtitle")}
-          </p>
+          <p className="mx-auto max-w-lg text-base text-muted">{t("lp.how_subtitle")}</p>
         </div>
 
         <div className="relative flex flex-col gap-10 lg:flex-row lg:gap-0 lg:items-start">
@@ -55,14 +53,14 @@ export function HowItWorksSection() {
 
               {/* Step number badge */}
               <div
-                className="mb-3 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-content-inverse"
+                className="mb-3 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-primary-foreground"
                 style={{ background: step.color.accent }}
               >
                 {step.num}
               </div>
 
-              <h3 className="mb-2 font-semibold text-content-primary">{t(step.titleKey)}</h3>
-              <p className="text-sm leading-relaxed text-content-secondary">{t(step.descKey)}</p>
+              <h3 className="mb-2 font-semibold text-foreground">{t(step.titleKey)}</h3>
+              <p className="text-sm leading-relaxed text-muted">{t(step.descKey)}</p>
             </div>
           ))}
         </div>

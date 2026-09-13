@@ -1,19 +1,19 @@
-import { Check, Copy, Loader2 } from "lucide-react";
-import { Button } from "~/components/ui/button";
-import { MotionPresence, MotionSwap } from "~/components/ui/motion";
+import { Button } from "@gdgjp/ui";
 import {
   Select,
   SelectContent,
   SelectItem,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from "~/components/ui/select";
+  Separator,
+} from "@gdgjp/ui";
+
 import { AccessIcon, Avatar } from "./avatar";
 import { GENERAL_ACCESS, type GeneralAccess, type PageRole, ROLES } from "./types";
 import type { ShareDialogController } from "./use-share-dialog";
 
 /** The default screen: people-with-access list, general access, copy-link footer. */
+import { Icons } from "@gdgjp/ui";
 export function OverviewScreen({ c }: { c: ShareDialogController }) {
   const {
     t,
@@ -41,7 +41,7 @@ export function OverviewScreen({ c }: { c: ShareDialogController }) {
         <h3 className="mb-3 text-base">{t("wiki.share_people_with_access")}</h3>
         {isLoading ? (
           <div className="flex justify-center py-6">
-            <Loader2 className="animate-spin text-muted-foreground motion-reduce:animate-none" />
+            <Icons name="Loader2" className="animate-spin text-muted motion-reduce:animate-none" />
           </div>
         ) : (
           <ul className="space-y-3">
@@ -51,14 +51,10 @@ export function OverviewScreen({ c }: { c: ShareDialogController }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-base">{ownerSubject.label}</p>
                   {ownerSubject.secondary && (
-                    <p className="truncate text-sm text-muted-foreground">
-                      {ownerSubject.secondary}
-                    </p>
+                    <p className="truncate text-sm text-muted">{ownerSubject.secondary}</p>
                   )}
                 </div>
-                <span className="text-base text-muted-foreground">
-                  {t("wiki.share_role_owner")}
-                </span>
+                <span className="text-base text-muted">{t("wiki.share_role_owner")}</span>
               </li>
             )}
             {accessList.map((entry) => (
@@ -66,7 +62,7 @@ export function OverviewScreen({ c }: { c: ShareDialogController }) {
                 <Avatar subject={entry} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-base">{entry.label}</p>
-                  <p className="truncate text-sm text-muted-foreground">{entry.secondary}</p>
+                  <p className="truncate text-sm text-muted">{entry.secondary}</p>
                 </div>
                 {canManage ? (
                   <>
@@ -81,7 +77,6 @@ export function OverviewScreen({ c }: { c: ShareDialogController }) {
                       <SelectTrigger
                         id={`role-${entry.id}`}
                         aria-label={t("wiki.share_role")}
-                        size="sm"
                         className="max-w-36 rounded-lg bg-background"
                       >
                         <SelectValue />
@@ -92,27 +87,25 @@ export function OverviewScreen({ c }: { c: ShareDialogController }) {
                             {t(`wiki.share_role_${role}`)}
                           </SelectItem>
                         ))}
-                        <SelectSeparator />
+                        <Separator />
                         {accessFetcher.data?.myRole === "owner" &&
                           entry.type === "email" &&
                           entry.userId && (
                             <SelectItem value="transfer">{t("wiki.share_transfer")}</SelectItem>
                           )}
-                        <SelectItem value="remove" className="text-destructive">
+                        <SelectItem value="remove" className="text-danger">
                           {t("wiki.share_remove")}
                         </SelectItem>
                       </SelectContent>
                     </Select>
                   </>
                 ) : (
-                  <span className="text-sm text-muted-foreground">
-                    {t(`wiki.share_role_${entry.role}`)}
-                  </span>
+                  <span className="text-sm text-muted">{t(`wiki.share_role_${entry.role}`)}</span>
                 )}
               </li>
             ))}
             {!ownerSubject && accessList.length === 0 && (
-              <li className="text-sm text-muted-foreground">{t("wiki.share_no_access")}</li>
+              <li className="text-sm text-muted">{t("wiki.share_no_access")}</li>
             )}
           </ul>
         )}
@@ -138,7 +131,7 @@ export function OverviewScreen({ c }: { c: ShareDialogController }) {
                   <SelectTrigger
                     id="general-access"
                     aria-label={t("wiki.share_general_access")}
-                    className="h-9 max-w-full border-0 bg-transparent px-2 shadow-none hover:bg-accent"
+                    className="h-9 max-w-full border-0 bg-transparent px-2 shadow-none hover:bg-neutral"
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -152,7 +145,7 @@ export function OverviewScreen({ c }: { c: ShareDialogController }) {
                   </SelectContent>
                 </Select>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm text-muted">
                 {t(`wiki.share_access_${localAccess}_desc`)}
               </p>
             </div>
@@ -169,7 +162,7 @@ export function OverviewScreen({ c }: { c: ShareDialogController }) {
                   <SelectTrigger
                     id="general-role"
                     aria-label={t("wiki.share_general_role")}
-                    className="h-9 rounded-lg border-0 bg-transparent shadow-none hover:bg-accent"
+                    className="h-9 rounded-lg border-0 bg-transparent shadow-none hover:bg-neutral"
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -185,7 +178,7 @@ export function OverviewScreen({ c }: { c: ShareDialogController }) {
             )}
           </div>
           {accessFetcher.data?.parentId && !accessFetcher.data.aclSyncedWithParent && (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
               <span>{t("wiki.share_parent_acl_not_synced")}</span>
               <Button
                 variant="outline"
@@ -195,7 +188,11 @@ export function OverviewScreen({ c }: { c: ShareDialogController }) {
                 className="rounded-full"
               >
                 {isMutating && (
-                  <Loader2 className="animate-spin motion-reduce:animate-none" size={16} />
+                  <Icons
+                    name="Loader2"
+                    className="animate-spin motion-reduce:animate-none"
+                    size={16}
+                  />
                 )}
                 {t("wiki.share_sync_now")}
               </Button>
@@ -203,23 +200,17 @@ export function OverviewScreen({ c }: { c: ShareDialogController }) {
           )}
         </section>
       )}
-      <MotionPresence present={Boolean(error || warning)} className="mt-4" distance={-3}>
-        <p role={error ? "alert" : "status"} className="text-sm text-destructive">
+      {error || warning ? (
+        <p role={error ? "alert" : "status"} className="text-sm text-danger">
           {error ?? warning}
         </p>
-      </MotionPresence>
+      ) : null}
       <footer className="mt-6 flex items-center justify-between border-t border-border pt-4">
         <Button variant="outline" onClick={copyLink} className="rounded-full text-primary">
-          <MotionSwap
-            as="span"
-            stateKey={copied ? "copied" : "copy"}
-            distance={0}
-            enterDuration={140}
-            className="inline-flex items-center gap-2"
-          >
-            {copied ? <Check size={20} /> : <Copy size={20} />}
+          <span className="inline-flex items-center gap-2">
+            {copied ? <Icons name="Check" size={20} /> : <Icons name="Copy" size={20} />}
             {copied ? t("wiki.share_copied") : t("wiki.share_copy_link")}
-          </MotionSwap>
+          </span>
         </Button>
         <Button onClick={close} disabled={isMutating} className="rounded-full px-5">
           {t("wiki.share_done")}

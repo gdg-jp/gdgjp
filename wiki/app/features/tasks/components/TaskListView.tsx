@@ -1,4 +1,3 @@
-import { CalendarDays, Check, LayoutList, ListChecks, Pencil, X } from "lucide-react";
 import { type ReactNode, Suspense, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, useFetcher, useLoaderData, useRevalidator } from "react-router";
@@ -11,6 +10,7 @@ import TaskTimelineView from "~/features/tasks/components/TaskTimelineView";
 import type { TaskDetailData } from "../task-detail.server";
 import { TaskDetailToolbar } from "./TaskDetailToolbar";
 
+import { Icons } from "@gdgjp/ui";
 type ViewTab = "table" | "timeline" | "remaining";
 
 async function ensureOkResponse(response: Response): Promise<void> {
@@ -133,9 +133,17 @@ export function TaskListView() {
   const handleTaskClick = useCallback((_taskId: string) => {}, []);
 
   const tabs: { key: ViewTab; label: string; icon: ReactNode }[] = [
-    { key: "table", label: t("tasks.view_table"), icon: <LayoutList size={14} /> },
-    { key: "timeline", label: t("tasks.view_timeline"), icon: <CalendarDays size={14} /> },
-    { key: "remaining", label: t("tasks.view_remaining"), icon: <ListChecks size={14} /> },
+    { key: "table", label: t("tasks.view_table"), icon: <Icons name="LayoutList" size={14} /> },
+    {
+      key: "timeline",
+      label: t("tasks.view_timeline"),
+      icon: <Icons name="CalendarDays" size={14} />,
+    },
+    {
+      key: "remaining",
+      label: t("tasks.view_remaining"),
+      icon: <Icons name="ListChecks" size={14} />,
+    },
   ];
 
   return (
@@ -163,7 +171,7 @@ export function TaskListView() {
                 if (displayLang === "ja") setEditTitleJa(e.target.value);
                 else setEditTitleEn(e.target.value);
               }}
-              className="min-w-0 flex-1 rounded-md border border-border-strong px-3 py-1.5 text-xl font-bold focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+              className="min-w-0 flex-1 rounded-md border border-border px-3 py-1.5 text-xl font-bold focus:border-border-ring focus:outline-none focus:ring-1 focus:ring-ring"
             />
           ) : (
             <h1 className="min-w-0 truncate text-2xl font-bold">{title}</h1>
@@ -172,7 +180,7 @@ export function TaskListView() {
           {/* Right: JA|EN pill + visibility + Edit/Save/Cancel */}
           <div className="flex shrink-0 items-center gap-2">
             {/* JA|EN — wiki-style pill */}
-            <div className="flex gap-1 rounded-md border border-border-default bg-surface-raised p-0.5">
+            <div className="flex gap-1 rounded-md border border-border bg-surface p-0.5">
               {(["ja", "en"] as const).map((l) => (
                 <button
                   key={l}
@@ -180,8 +188,8 @@ export function TaskListView() {
                   onClick={() => setDisplayLang(l)}
                   className={`min-w-10 rounded px-2 py-1 text-center text-sm font-medium transition-colors ${
                     displayLang === l
-                      ? "bg-action-primary text-action-primary-foreground"
-                      : "text-content-secondary hover:bg-surface-hover"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted hover:bg-neutral"
                   }`}
                 >
                   {l === "ja" ? "JA" : "EN"}
@@ -195,17 +203,17 @@ export function TaskListView() {
                 <button
                   type="button"
                   onClick={handleSave}
-                  className="inline-flex items-center gap-1 rounded-md bg-action-primary px-3 py-1.5 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover"
+                  className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                 >
-                  <Check size={14} />
+                  <Icons name="Check" size={14} />
                   {t("tasks.save")}
                 </button>
                 <button
                   type="button"
                   onClick={handleEditCancel}
-                  className="inline-flex items-center gap-1 rounded-md border border-border-strong px-3 py-1.5 text-sm text-content-secondary hover:bg-surface-hover"
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-sm text-muted hover:bg-neutral"
                 >
-                  <X size={14} />
+                  <Icons name="X" size={14} />
                   {t("cancel")}
                 </button>
               </>
@@ -214,9 +222,9 @@ export function TaskListView() {
                 <button
                   type="button"
                   onClick={handleEditStart}
-                  className="inline-flex items-center gap-1 rounded-md border border-border-strong px-3 py-1.5 text-sm text-content-secondary hover:bg-surface-hover"
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-sm text-muted hover:bg-neutral"
                 >
-                  <Pencil size={14} />
+                  <Icons name="Pencil" size={14} />
                   {t("wiki.edit")}
                 </button>
               )
@@ -234,8 +242,8 @@ export function TaskListView() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium ${
                   activeTab === tab.key
-                    ? "bg-feedback-info-surface text-action-primary-hover"
-                    : "text-content-tertiary hover:bg-surface-hover hover:text-content-primary"
+                    ? "bg-selected text-link"
+                    : "text-muted hover:bg-neutral hover:text-foreground"
                 }`}
               >
                 {tab.icon}
@@ -250,9 +258,7 @@ export function TaskListView() {
       <Suspense fallback={<TableSkeleton rows={8} cols={6} />}>
         <Await
           resolve={taskData}
-          errorElement={
-            <div className="p-8 text-sm text-feedback-danger-foreground">Failed to load tasks.</div>
-          }
+          errorElement={<div className="p-8 text-sm text-danger">Failed to load tasks.</div>}
         >
           {({ tasks, teams, members }) => (
             <>

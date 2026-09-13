@@ -4,7 +4,7 @@ import { Link } from "react-router";
 export function LandingFooter() {
   const { t } = useTranslation();
   return (
-    <footer className="border-t border-subtle px-6 py-8 text-center">
+    <footer className="border-t border-border px-6 py-8 text-center">
       <div className="mb-4 flex items-center justify-center gap-2">
         <span
           style={{
@@ -43,11 +43,11 @@ export function LandingFooter() {
           }}
         />
       </div>
-      <div className="flex justify-center gap-6 text-sm text-content-tertiary">
-        <Link to="/privacy" className="transition-colors hover:text-action-primary">
+      <div className="flex justify-center gap-6 text-sm text-muted">
+        <Link to="/privacy" className="transition-colors hover:text-link">
           {t("footer.privacy")}
         </Link>
-        <Link to="/terms" className="transition-colors hover:text-action-primary">
+        <Link to="/terms" className="transition-colors hover:text-link">
           {t("footer.terms")}
         </Link>
       </div>

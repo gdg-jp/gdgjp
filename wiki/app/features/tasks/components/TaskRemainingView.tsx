@@ -54,9 +54,7 @@ export default function TaskRemainingView({ tasks, members, onTaskClick }: TaskR
   }, [remaining]);
 
   if (remaining.length === 0) {
-    return (
-      <div className="py-8 text-center text-sm text-content-tertiary">{t("tasks.all_done")}</div>
-    );
+    return <div className="py-8 text-center text-sm text-muted">{t("tasks.all_done")}</div>;
   }
 
   const now = new Date();
@@ -69,11 +67,9 @@ export default function TaskRemainingView({ tasks, members, onTaskClick }: TaskR
         const label = groupKey ? (member?.name ?? groupKey) : t("tasks.filter_unassigned");
         return (
           <div key={groupKey ?? "unassigned"}>
-            <h3 className="mb-2 text-sm font-semibold text-content-secondary">
+            <h3 className="mb-2 text-sm font-semibold text-muted">
               {label}
-              <span className="ml-2 text-xs font-normal text-content-tertiary">
-                ({assigneeTasks.length})
-              </span>
+              <span className="ml-2 text-xs font-normal text-muted">({assigneeTasks.length})</span>
             </h3>
             <div className="space-y-1">
               {assigneeTasks.map((task) => {
@@ -83,16 +79,14 @@ export default function TaskRemainingView({ tasks, members, onTaskClick }: TaskR
                     key={task.id}
                     type="button"
                     onClick={() => onTaskClick(task.id)}
-                    className="flex w-full items-center gap-3 rounded-md border border-subtle px-3 py-2 text-left hover:bg-surface-canvas"
+                    className="flex w-full items-center gap-3 rounded-md border border-border px-3 py-2 text-left hover:bg-background"
                   >
-                    <span className="text-sm text-content-tertiary">#{task.number}</span>
+                    <span className="text-sm text-muted">#{task.number}</span>
                     <TaskStatusBadge status={task.status} />
-                    <span className="flex-1 truncate text-sm text-content-primary">
-                      {task.title}
-                    </span>
+                    <span className="flex-1 truncate text-sm text-foreground">{task.title}</span>
                     {task.dueDate && (
                       <span
-                        className={`text-xs ${overdue ? "font-medium text-feedback-danger-foreground" : "text-content-tertiary"}`}
+                        className={`text-xs ${overdue ? "font-medium text-danger" : "text-muted"}`}
                       >
                         {task.dueDate}
                       </span>

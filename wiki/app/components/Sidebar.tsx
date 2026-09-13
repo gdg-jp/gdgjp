@@ -1,4 +1,3 @@
-import { Archive, ChevronRight, Clock, FileInput, Home, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router";
 import AdminNavSection from "~/components/AdminNavSection";
@@ -7,6 +6,7 @@ import { NavItem } from "~/components/NavItem";
 import PageTree from "~/features/pages/components/PageTree";
 import type { PageNode } from "~/features/pages/tree";
 
+import { Icons } from "@gdgjp/ui";
 interface SidebarProps {
   pages: PageNode[];
   currentSlug?: string;
@@ -47,19 +47,14 @@ export default function Sidebar({
   const location = useLocation();
 
   return (
-    <BaseSidebar
-      storageKey="gdg-sidebar-width"
-      isOpen={isOpen}
-      isMobile={isMobile}
-      onClose={onClose}
-    >
+    <BaseSidebar isOpen={isOpen} isMobile={isMobile} onClose={onClose}>
       {({ isCollapsed }) => (
         <div className="flex h-full flex-col">
           {/* Nav items */}
           <nav aria-label="Main navigation" className="space-y-0.5 px-2 pb-1 pt-3">
             <NavItem
               to="/"
-              icon={<Home size={16} />}
+              icon={<Icons name="Home" size={16} />}
               label={t("nav.home")}
               isCollapsed={isCollapsed}
               isActive={location.pathname === "/"}
@@ -71,22 +66,22 @@ export default function Sidebar({
                   type="button"
                   title={isCollapsed ? t("nav.recent") : undefined}
                   onClick={onRecentClick}
-                  className="flex min-h-8 w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-content-secondary hover:bg-surface-sunken"
+                  className="flex min-h-8 w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-muted hover:bg-neutral"
                 >
                   <span className="flex-shrink-0">
-                    <Clock size={16} />
+                    <Icons name="Clock" size={16} />
                   </span>
                   {!isCollapsed && (
                     <>
                       <span className="flex-1 truncate text-left">{t("nav.recent")}</span>
-                      <ChevronRight size={14} className="shrink-0 text-content-tertiary" />
+                      <Icons name="ChevronRight" size={14} className="shrink-0 text-muted" />
                     </>
                   )}
                 </button>
               ) : (
                 <NavItem
                   to="/recent"
-                  icon={<Clock size={16} />}
+                  icon={<Icons name="Clock" size={16} />}
                   label={t("nav.recent")}
                   isCollapsed={isCollapsed}
                   isActive={location.pathname === "/recent"}
@@ -99,22 +94,22 @@ export default function Sidebar({
                   type="button"
                   title={isCollapsed ? t("nav.starred") : undefined}
                   onClick={onStarredClick}
-                  className="flex min-h-8 w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-content-secondary hover:bg-surface-sunken"
+                  className="flex min-h-8 w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-muted hover:bg-neutral"
                 >
                   <span className="flex-shrink-0">
-                    <Star size={16} />
+                    <Icons name="Star" size={16} />
                   </span>
                   {!isCollapsed && (
                     <>
                       <span className="flex-1 truncate text-left">{t("nav.starred")}</span>
-                      <ChevronRight size={14} className="shrink-0 text-content-tertiary" />
+                      <Icons name="ChevronRight" size={14} className="shrink-0 text-muted" />
                     </>
                   )}
                 </button>
               ) : (
                 <NavItem
                   to="/starred"
-                  icon={<Star size={16} />}
+                  icon={<Icons name="Star" size={16} />}
                   label={t("nav.starred")}
                   isCollapsed={isCollapsed}
                   isActive={location.pathname === "/starred"}
@@ -127,22 +122,22 @@ export default function Sidebar({
                   type="button"
                   title={isCollapsed ? t("nav.archived") : undefined}
                   onClick={onArchivedClick}
-                  className="flex min-h-8 w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-content-secondary hover:bg-surface-sunken"
+                  className="flex min-h-8 w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-muted hover:bg-neutral"
                 >
                   <span className="flex-shrink-0">
-                    <Archive size={16} />
+                    <Icons name="Archive" size={16} />
                   </span>
                   {!isCollapsed && (
                     <>
                       <span className="flex-1 truncate text-left">{t("nav.archived")}</span>
-                      <ChevronRight size={14} className="shrink-0 text-content-tertiary" />
+                      <Icons name="ChevronRight" size={14} className="shrink-0 text-muted" />
                     </>
                   )}
                 </button>
               ) : (
                 <NavItem
                   to="/archived"
-                  icon={<Archive size={16} />}
+                  icon={<Icons name="Archive" size={16} />}
                   label={t("nav.archived")}
                   isCollapsed={isCollapsed}
                   isActive={location.pathname === "/archived"}
@@ -152,7 +147,7 @@ export default function Sidebar({
           </nav>
 
           {/* Divider */}
-          <div className="mx-2 my-1 border-t border-subtle" />
+          <div className="mx-2 my-1 border-t border-border" />
 
           {/* Page tree */}
           <div className="min-h-0 flex-1">
@@ -174,11 +169,11 @@ export default function Sidebar({
           {isAuthenticated && (
             <nav
               aria-label={t("sources.nav_label")}
-              className="mt-auto space-y-0.5 border-t border-subtle px-2 py-2"
+              className="mt-auto space-y-0.5 border-t border-border px-2 py-2"
             >
               <NavItem
                 to="/sources"
-                icon={<FileInput size={16} />}
+                icon={<Icons name="FileInput" size={16} />}
                 label={t("nav.sources")}
                 isCollapsed={isCollapsed}
                 isActive={location.pathname.startsWith("/sources")}

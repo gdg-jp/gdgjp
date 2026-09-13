@@ -90,7 +90,7 @@ test("mobile dark menu retains existing actions and handles clipboard/storage fa
   const source = await createPage(authorPage, "Menu mobile");
   await authorPage.setViewportSize({ width: 390, height: 844 });
   await authorPage.addInitScript(() => {
-    localStorage.setItem("theme", "dark");
+    localStorage.setItem("gdg-apps-theme", "dark");
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText: () => Promise.reject(new Error("Denied")) },
     });

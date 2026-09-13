@@ -1,13 +1,7 @@
+import { Dialog, DialogContent, DialogTitle, Inline, Stack } from "@gdgjp/ui";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form, useActionData, useNavigation } from "react-router";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "~/components/ui/dialog";
 
 export interface TagRow {
   slug: string;
@@ -119,13 +113,15 @@ export function TagDialog({ mode, tag, open, onOpenChange }: TagDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md border border-border-default bg-surface-raised p-6 text-content-primary">
-        <DialogHeader className="p-0">
-          <DialogTitle className="text-lg font-semibold text-content-primary">{title}</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-md border border-border bg-surface p-6 text-foreground">
+        <Stack className="p-0">
+          <DialogTitle className="text-lg font-semibold text-foreground">{title}</DialogTitle>
+        </Stack>
 
         {currentError && (
-          <div className="rounded-md bg-feedback-danger-surface px-4 py-3 text-sm text-feedback-danger-foreground">
+          <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="rounded-md bg-[var(--gdg-danger-surface)] px-4 py-3 text-sm text-danger"
+          >
             {t(currentError.errorKey, currentError.errorParams)}
           </div>
         )}
@@ -140,10 +136,7 @@ export function TagDialog({ mode, tag, open, onOpenChange }: TagDialogProps) {
           <div className="grid grid-cols-2 gap-4">
             {mode === "create" ? (
               <div>
-                <label
-                  htmlFor="tag-slug"
-                  className="mb-1 block text-sm font-medium text-content-secondary"
-                >
+                <label htmlFor="tag-slug" className="mb-1 block text-sm font-medium text-muted">
                   {t("admin.tags.form.slug")}
                 </label>
                 <input
@@ -153,15 +146,15 @@ export function TagDialog({ mode, tag, open, onOpenChange }: TagDialogProps) {
                   required
                   pattern="[a-z0-9]+(-[a-z0-9]+)*"
                   placeholder="my-tag"
-                  className="w-full rounded-md border border-border-strong bg-surface-raised px-3 py-2 text-sm text-content-primary focus:border-border-focus focus:outline-none"
+                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-border-ring focus:outline-none"
                 />
               </div>
             ) : (
               <div>
-                <span className="mb-1 block text-sm font-medium text-content-secondary">
+                <span className="mb-1 block text-sm font-medium text-muted">
                   {t("admin.tags.form.slug")}
                 </span>
-                <div className="rounded-md border border-border-default bg-surface-sunken px-3 py-2 font-mono text-sm text-content-secondary">
+                <div className="rounded-md border border-border bg-neutral px-3 py-2 font-mono text-sm text-muted">
                   {tag?.slug}
                 </div>
                 <input type="hidden" name="slug" value={tag?.slug ?? ""} />
@@ -169,10 +162,7 @@ export function TagDialog({ mode, tag, open, onOpenChange }: TagDialogProps) {
             )}
 
             <div>
-              <label
-                htmlFor="tag-color"
-                className="mb-1 block text-sm font-medium text-content-secondary"
-              >
+              <label htmlFor="tag-color" className="mb-1 block text-sm font-medium text-muted">
                 {t("admin.tags.form.color")}
               </label>
               <input
@@ -180,15 +170,12 @@ export function TagDialog({ mode, tag, open, onOpenChange }: TagDialogProps) {
                 type="color"
                 name="color"
                 defaultValue={mode === "edit" && tag?.color ? tag.color : "#3b82f6"} // design-token-policy: allow-dynamic-color
-                className="h-10 w-full cursor-pointer rounded-md border border-border-strong bg-surface-raised"
+                className="h-10 w-full cursor-pointer rounded-md border border-border bg-surface"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="tag-label-ja"
-                className="mb-1 block text-sm font-medium text-content-secondary"
-              >
+              <label htmlFor="tag-label-ja" className="mb-1 block text-sm font-medium text-muted">
                 {t("admin.tags.form.label_ja")}
               </label>
               <input
@@ -197,15 +184,12 @@ export function TagDialog({ mode, tag, open, onOpenChange }: TagDialogProps) {
                 name="labelJa"
                 required
                 defaultValue={mode === "edit" ? (tag?.labelJa ?? "") : ""}
-                className="w-full rounded-md border border-border-strong bg-surface-raised px-3 py-2 text-sm text-content-primary focus:border-border-focus focus:outline-none"
+                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-border-ring focus:outline-none"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="tag-label-en"
-                className="mb-1 block text-sm font-medium text-content-secondary"
-              >
+              <label htmlFor="tag-label-en" className="mb-1 block text-sm font-medium text-muted">
                 {t("admin.tags.form.label_en")}
               </label>
               <input
@@ -214,27 +198,27 @@ export function TagDialog({ mode, tag, open, onOpenChange }: TagDialogProps) {
                 name="labelEn"
                 required
                 defaultValue={mode === "edit" ? (tag?.labelEn ?? "") : ""}
-                className="w-full rounded-md border border-border-strong bg-surface-raised px-3 py-2 text-sm text-content-primary focus:border-border-focus focus:outline-none"
+                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-border-ring focus:outline-none"
               />
             </div>
           </div>
 
-          <DialogFooter className="mt-6 flex justify-end gap-2">
+          <Inline className="mt-6 flex justify-end gap-2">
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="rounded-md border border-border-strong px-4 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
+              className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted hover:bg-neutral"
             >
               {t("cancel")}
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-50"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               {mode === "create" ? t("admin.tags.form.submit") : t("admin.tags.form.update")}
             </button>
-          </DialogFooter>
+          </Inline>
         </Form>
       </DialogContent>
     </Dialog>

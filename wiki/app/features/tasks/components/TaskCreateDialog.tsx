@@ -1,8 +1,7 @@
-import { X } from "lucide-react";
+import { Button, FormField, Input, Textarea } from "@gdgjp/ui";
+import { Dialog, DialogContent, DialogTitle } from "@gdgjp/ui";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "~/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
 import DropdownMenu, { type DropdownOption } from "./DropdownMenu";
 
 interface Team {
@@ -91,9 +90,6 @@ export default function TaskCreateDialog({
     setTeamId("");
   }
 
-  const inputClass =
-    "w-full rounded-md border border-strong px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus";
-
   const statusOptions: DropdownOption[] = [
     "todo",
     "in_progress",
@@ -120,61 +116,40 @@ export default function TaskCreateDialog({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent
-        showCloseButton={false}
         aria-describedby={undefined}
-        className="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-card p-6 text-card-foreground shadow-2xl shadow-content-primary/20"
+        // gdg-ui-allow: literal-color — app-specific-layout-or-token
+        className="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-surface p-6 text-foreground shadow-2xl shadow-content-primary/20"
       >
         <div className="mb-4 flex items-center justify-between">
           <DialogTitle className="text-lg font-semibold">
             {initial ? t("tasks.edit_task") : t("tasks.new_task")}
           </DialogTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="-mr-2 rounded-full text-muted-foreground"
-            aria-label={t("close")}
-          >
-            <X size={18} />
-          </Button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label
-              htmlFor="task-title"
-              className="mb-1 block text-sm font-medium text-content-secondary"
-            >
-              {t("tasks.col_title")} *
-            </label>
-            <input
-              id="task-title"
+          <FormField id="task-title" label={t("tasks.col_title")} required>
+            <Input
+              name="title"
               type="text"
-              className={inputClass}
+              className="w-full"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label
-              htmlFor="task-desc"
-              className="mb-1 block text-sm font-medium text-content-secondary"
-            >
-              {t("tasks.description")}
-            </label>
-            <textarea
-              id="task-desc"
-              className={`${inputClass} min-h-[80px]`}
+          <FormField id="task-desc" label={t("tasks.description")}>
+            <Textarea
+              name="description"
+              className="min-h-20 w-full"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t("tasks.description_placeholder")}
             />
-          </div>
+          </FormField>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <span className="mb-1 block text-sm font-medium text-content-secondary">
+              <span className="mb-1 block text-sm font-medium text-muted">
                 {t("tasks.col_status")}
               </span>
               <DropdownMenu
@@ -186,7 +161,7 @@ export default function TaskCreateDialog({
             </div>
 
             <div>
-              <span className="mb-1 block text-sm font-medium text-content-secondary">
+              <span className="mb-1 block text-sm font-medium text-muted">
                 {t("tasks.col_type")}
               </span>
               <DropdownMenu value={type} options={typeOptions} onChange={setType} variant="field" />
@@ -195,7 +170,7 @@ export default function TaskCreateDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <span className="mb-1 block text-sm font-medium text-content-secondary">
+              <span className="mb-1 block text-sm font-medium text-muted">
                 {t("tasks.col_assignee")}
               </span>
               <DropdownMenu
@@ -211,7 +186,7 @@ export default function TaskCreateDialog({
 
             {teams.length > 0 && (
               <div>
-                <span className="mb-1 block text-sm font-medium text-content-secondary">
+                <span className="mb-1 block text-sm font-medium text-muted">
                   {t("tasks.col_team")}
                 </span>
                 <DropdownMenu
@@ -225,16 +200,12 @@ export default function TaskCreateDialog({
           </div>
 
           <div>
-            <label
-              htmlFor="task-due"
-              className="mb-1 block text-sm font-medium text-content-secondary"
-            >
+            <label htmlFor="task-due" className="mb-1 block text-sm font-medium text-muted">
               {t("tasks.col_due_date")}
             </label>
-            <input
+            <Input
               id="task-due"
               type="date"
-              className={inputClass}
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
             />

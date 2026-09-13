@@ -84,10 +84,10 @@ export default function TipTapEditor({
 
   return (
     <div
-      className={`rounded-lg border border-default bg-surface-raised ${readOnly ? "" : "focus-within:ring-2 focus-within:ring-border-focus"}`}
+      className={`rounded-lg border border-border bg-surface ${readOnly ? "" : "focus-within:ring-2 focus-within:ring-border-ring"}`}
     >
       {!readOnly && (
-        <div className="flex flex-wrap gap-1 border-b border-subtle px-2 py-1">
+        <div className="flex flex-wrap gap-1 border-b border-border px-2 py-1">
           <ToolbarButton
             onClick={() => editor?.chain().focus().toggleBold().run()}
             active={editor?.isActive("bold")}
@@ -109,7 +109,7 @@ export default function TipTapEditor({
           >
             <code>{"<>"}</code>
           </ToolbarButton>
-          <span className="mx-1 text-content-disabled">|</span>
+          <span className="mx-1 text-muted/70">|</span>
           {[1, 2, 3].map((level) => (
             <ToolbarButton
               key={level}
@@ -126,7 +126,7 @@ export default function TipTapEditor({
               H{level}
             </ToolbarButton>
           ))}
-          <span className="mx-1 text-content-disabled">|</span>
+          <span className="mx-1 text-muted/70">|</span>
           <ToolbarButton
             onClick={() => editor?.chain().focus().toggleBulletList().run()}
             active={editor?.isActive("bulletList")}
@@ -152,6 +152,7 @@ export default function TipTapEditor({
       )}
       <EditorContent
         editor={editor}
+        // gdg-ui-allow: literal-color — app-specific-layout-or-token
         className="prose prose-sm max-w-none px-4 py-3 focus:outline-none [&_.ProseMirror]:min-h-32 [&_.ProseMirror]:outline-none"
       />
     </div>
@@ -181,9 +182,7 @@ function ToolbarButton({
       aria-label={title}
       aria-pressed={active}
       className={`rounded px-1.5 py-0.5 text-sm transition-colors ${
-        active
-          ? "bg-feedback-info-surface text-action-primary"
-          : "text-content-secondary hover:bg-surface-sunken"
+        active ? "bg-selected text-link" : "text-muted hover:bg-neutral"
       }`}
     >
       {children}

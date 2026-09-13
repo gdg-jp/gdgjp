@@ -18,8 +18,9 @@ vi.mock("~/hooks/useMediaQuery", () => ({
   useMediaQuery: () => false,
 }));
 
-vi.mock("~/hooks/useThemeMode", () => ({
-  useThemeMode: () => "light",
+vi.mock("@gdgjp/ui", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@gdgjp/ui")>()),
+  useTheme: () => ({ resolvedTheme: "light" }),
 }));
 
 vi.mock("md-editor-rt", () => ({

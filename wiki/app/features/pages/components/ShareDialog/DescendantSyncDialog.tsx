@@ -1,16 +1,17 @@
-import { Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
   AlertDialogTitle,
-} from "~/components/ui/alert-dialog";
-import { Button } from "~/components/ui/button";
+  Inline,
+  Stack,
+} from "@gdgjp/ui";
+import { Button } from "@gdgjp/ui";
+
 import type { ShareDialogController } from "./use-share-dialog";
 
 /** Prompt to propagate an ACL change to a page's descendants, shown after close. */
+import { Icons } from "@gdgjp/ui";
 export function DescendantSyncDialog({ c }: { c: ShareDialogController }) {
   const {
     t,
@@ -29,9 +30,13 @@ export function DescendantSyncDialog({ c }: { c: ShareDialogController }) {
 
   return (
     <AlertDialog open={showDescendantDialog} onOpenChange={setShowDescendantDialog}>
-      <AlertDialogContent className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-2xl bg-card p-0 text-card-foreground shadow-2xl shadow-content-primary/20 sm:max-w-lg">
-        <AlertDialogHeader className="gap-2 border-b border-border px-5 py-5 text-left sm:place-items-start sm:px-6">
-          <AlertDialogTitle className="text-xl font-semibold tracking-[-0.01em]">
+      <AlertDialogContent // gdg-ui-allow: literal-color — app-specific-layout-or-token
+        className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-2xl bg-surface p-0 text-foreground shadow-2xl shadow-content-primary/20 sm:max-w-lg"
+      >
+        <Stack align="start" className="gap-2 border-b border-border px-5 py-5 text-left sm:px-6">
+          <AlertDialogTitle // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="text-xl font-semibold tracking-[-0.01em]"
+          >
             {t("wiki.share_sync_descendants_title")}
           </AlertDialogTitle>
           <AlertDialogDescription className="text-base leading-relaxed">
@@ -40,10 +45,10 @@ export function DescendantSyncDialog({ c }: { c: ShareDialogController }) {
               syncedCount: syncedDescendantCount,
             })}
           </AlertDialogDescription>
-        </AlertDialogHeader>
+        </Stack>
         <div className="space-y-3 px-5 py-5 sm:px-6">
           {hasUnsyncedDescendants && (
-            <label className="flex min-h-10 items-center gap-2 text-sm text-card-foreground">
+            <label className="flex min-h-10 items-center gap-2 text-sm text-foreground">
               <input
                 type="checkbox"
                 checked={includeUnsyncedDescendants}
@@ -55,12 +60,14 @@ export function DescendantSyncDialog({ c }: { c: ShareDialogController }) {
             </label>
           )}
           {syncedDescendantCount === 0 && !includeUnsyncedDescendants && (
-            <p className="rounded-xl bg-muted px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+            <p className="rounded-xl bg-muted px-4 py-3 text-sm leading-relaxed text-muted">
               {t("wiki.share_sync_descendants_none")}
             </p>
           )}
           {descendantRequestCompleted && descendantFetcher.data?.ok && (
-            <output className="block rounded-xl bg-feedback-success-surface px-4 py-3 text-sm leading-relaxed text-feedback-success-foreground">
+            <output // gdg-ui-allow: literal-color — app-specific-layout-or-token
+              className="block rounded-xl bg-[var(--gdg-success-surface)] px-4 py-3 text-sm leading-relaxed text-success"
+            >
               {t("wiki.share_sync_descendants_result", {
                 updated: descendantFetcher.data.updatedCount ?? 0,
                 unsynced: descendantFetcher.data.unsyncedSkippedCount ?? 0,
@@ -69,15 +76,12 @@ export function DescendantSyncDialog({ c }: { c: ShareDialogController }) {
             </output>
           )}
           {descendantRequestCompleted && descendantFetcher.data?.error && (
-            <p
-              role="alert"
-              className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive"
-            >
+            <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-danger">
               {t("wiki.share_error_generic")}
             </p>
           )}
         </div>
-        <AlertDialogFooter className="border-t border-border bg-muted/30 px-5 py-4 sm:px-6">
+        <Inline className="border-t border-border bg-muted/30 px-5 py-4 sm:px-6">
           <Button
             variant="ghost"
             onClick={() => setShowDescendantDialog(false)}
@@ -94,7 +98,11 @@ export function DescendantSyncDialog({ c }: { c: ShareDialogController }) {
               className="rounded-full px-5"
             >
               {descendantFetcher.state !== "idle" && (
-                <Loader2 className="animate-spin motion-reduce:animate-none" size={16} />
+                <Icons
+                  name="Loader2"
+                  className="animate-spin motion-reduce:animate-none"
+                  size={16}
+                />
               )}
               {t(
                 includeUnsyncedDescendants
@@ -103,7 +111,7 @@ export function DescendantSyncDialog({ c }: { c: ShareDialogController }) {
               )}
             </Button>
           )}
-        </AlertDialogFooter>
+        </Inline>
       </AlertDialogContent>
     </AlertDialog>
   );

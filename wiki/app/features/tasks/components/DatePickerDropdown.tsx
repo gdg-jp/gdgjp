@@ -1,9 +1,9 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { formatDueDate } from "../task-utils";
 
+import { Icons } from "@gdgjp/ui";
 interface DatePickerDropdownProps {
   value: string | null;
   onChange: (date: string | null) => void;
@@ -147,7 +147,8 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
             aria-label={t("tasks.calendar_label")}
             tabIndex={-1}
             style={{ position: "absolute", top: pos.top, left: pos.left }}
-            className="z-[9999] w-[252px] rounded-md border border-default bg-surface-raised p-3 shadow-lg"
+            // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="z-[9999] w-[252px] rounded-md border border-border bg-surface p-3 shadow-lg"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >
@@ -156,26 +157,29 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
               <button
                 type="button"
                 onClick={prevMonth}
-                className="rounded p-0.5 hover:bg-surface-sunken"
+                className="rounded p-0.5 hover:bg-neutral"
                 aria-label={t("tasks.calendar_prev_month")}
               >
-                <ChevronLeft size={16} />
+                <Icons name="ChevronLeft" size={16} />
               </button>
-              <span className="text-sm font-medium text-content-secondary">{monthLabel}</span>
+              <span className="text-sm font-medium text-muted">{monthLabel}</span>
               <button
                 type="button"
                 onClick={nextMonth}
-                className="rounded p-0.5 hover:bg-surface-sunken"
+                className="rounded p-0.5 hover:bg-neutral"
                 aria-label={t("tasks.calendar_next_month")}
               >
-                <ChevronRight size={16} />
+                <Icons name="ChevronRight" size={16} />
               </button>
             </div>
 
             {/* Day-of-week headers */}
             <div className="mb-1 grid grid-cols-7">
               {dayLabels.map((d) => (
-                <div key={d} className="text-center text-[11px] font-medium text-content-tertiary">
+                <div
+                  key={d} // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                  className="text-center text-[11px] font-medium text-muted"
+                >
                   {d}
                 </div>
               ))}
@@ -198,10 +202,10 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
                     }}
                     className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-colors ${
                       isSelected
-                        ? "bg-action-primary text-content-inverse"
+                        ? "bg-primary text-primary-foreground"
                         : isToday
-                          ? "ring-1 ring-border-focus hover:bg-feedback-info-surface"
-                          : "text-content-secondary hover:bg-feedback-info-surface"
+                          ? "ring-1 ring-border-ring hover:bg-selected"
+                          : "text-muted hover:bg-selected"
                     }`}
                   >
                     {Number.parseInt(cell.split("-")[2], 10)}
@@ -211,14 +215,14 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
             </div>
 
             {/* Footer */}
-            <div className="mt-2 border-t border-subtle pt-2">
+            <div className="mt-2 border-t border-border pt-2">
               <button
                 type="button"
                 onClick={() => {
                   onChange(null);
                   setOpen(false);
                 }}
-                className="w-full rounded px-2 py-1 text-sm text-content-secondary hover:bg-surface-sunken"
+                className="w-full rounded px-2 py-1 text-sm text-muted hover:bg-neutral"
               >
                 {t("tasks.calendar_clear")}
               </button>
@@ -235,14 +239,14 @@ export default function DatePickerDropdown({ value, onChange }: DatePickerDropdo
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="rounded px-1.5 py-0.5 text-sm hover:bg-surface-sunken"
+        className="rounded px-1.5 py-0.5 text-sm hover:bg-neutral"
         onClick={openPicker}
         onKeyDown={(e) => e.stopPropagation()}
       >
         {value ? (
-          <span className="text-content-secondary">{formatDueDate(value)}</span>
+          <span className="text-muted">{formatDueDate(value)}</span>
         ) : (
-          <span className="text-content-tertiary">—</span>
+          <span className="text-muted">—</span>
         )}
       </button>
       {menu}

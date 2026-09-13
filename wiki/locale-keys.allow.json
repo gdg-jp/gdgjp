@@ -1,0 +1,19 @@
+{
+  "prefixes": [
+    "googleDocumentImport.actions.",
+    "ingest.review.pageType.",
+    "ingest.review.tag.",
+    "ingest.sensitive.type.",
+    "ingest.url_source_",
+    "language.",
+    "settings.errors.",
+    "sources.error_",
+    "sources.kind.",
+    "sources.status.",
+    "sources.visibility.",
+    "tasks.status_",
+    "tasks.type_",
+    "wiki.share_access_",
+    "wiki.share_role_"
+  ]
+}

@@ -106,7 +106,7 @@ function SaveButton({
     <button
       type="submit"
       disabled={submitting}
-      className="shrink-0 rounded-md bg-action-primary px-4 py-1.5 text-sm font-medium text-action-primary-foreground transition-colors hover:bg-action-primary disabled:opacity-60"
+      className="shrink-0 rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary disabled:opacity-60"
     >
       {label}
     </button>
@@ -128,8 +128,8 @@ function SettingsSection({
   return (
     <section className="px-6 py-6">
       <div className="mb-4">
-        <h2 className="text-sm font-semibold text-content-primary">{title}</h2>
-        <p className="mt-0.5 text-sm text-content-tertiary">{description}</p>
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        <p className="mt-0.5 text-sm text-muted">{description}</p>
       </div>
       {children}
     </section>
@@ -166,19 +166,19 @@ export default function SettingsPage() {
       <fetcher.Form method="post">
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
-            <h1 className="mb-1 text-2xl font-bold text-content-primary">{t("settings.title")}</h1>
-            <p className="text-sm text-content-tertiary">{t("settings.subtitle")}</p>
+            <h1 className="mb-1 text-2xl font-bold text-foreground">{t("settings.title")}</h1>
+            <p className="text-sm text-muted">{t("settings.subtitle")}</p>
           </div>
           <SaveButton state={fetcher.state} saved={saved} />
         </div>
 
-        <div className="divide-y divide-border-subtle rounded-xl border border-border-default bg-surface-raised">
+        <div className="divide-y divide-border-border rounded-xl border border-border bg-surface">
           {/* Display Name */}
           <SettingsSection
             title={t("settings.name.title")}
             description={t("settings.name.description")}
           >
-            <label htmlFor="name" className="mb-1 block text-sm font-medium text-content-secondary">
+            <label htmlFor="name" className="mb-1 block text-sm font-medium text-muted">
               {t("settings.name.label")}
             </label>
             <input
@@ -187,10 +187,10 @@ export default function SettingsPage() {
               type="text"
               defaultValue={user.name}
               maxLength={100}
-              className="w-full rounded-md border border-border-strong px-3 py-1.5 text-sm text-content-primary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+              className="w-full rounded-md border border-border px-3 py-1.5 text-sm text-foreground focus:border-border-ring focus:outline-none focus:ring-1 focus:ring-ring"
             />
             {errors?.name && (
-              <p className="mt-1 text-xs text-feedback-danger-foreground">
+              <p className="mt-1 text-xs text-danger">
                 {t(`settings.errors.${errors.name}`, t("settings.save_error"))}
               </p>
             )}
@@ -203,17 +203,14 @@ export default function SettingsPage() {
           >
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label
-                  htmlFor="uiLang"
-                  className="mb-1 block text-sm font-medium text-content-secondary"
-                >
+                <label htmlFor="uiLang" className="mb-1 block text-sm font-medium text-muted">
                   {t("settings.language.ui_label")}
                 </label>
                 <select
                   id="uiLang"
                   name="uiLang"
                   defaultValue={preferredUiLanguage}
-                  className="w-full rounded-md border border-border-strong px-3 py-1.5 text-sm text-content-primary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                  className="w-full rounded-md border border-border px-3 py-1.5 text-sm text-foreground focus:border-border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   {supportedLngs.map((lng) => (
                     <option key={lng} value={lng}>
@@ -223,17 +220,14 @@ export default function SettingsPage() {
                 </select>
               </div>
               <div>
-                <label
-                  htmlFor="contentLang"
-                  className="mb-1 block text-sm font-medium text-content-secondary"
-                >
+                <label htmlFor="contentLang" className="mb-1 block text-sm font-medium text-muted">
                   {t("settings.language.content_label")}
                 </label>
                 <select
                   id="contentLang"
                   name="contentLang"
                   defaultValue={preferredContentLanguage}
-                  className="w-full rounded-md border border-border-strong px-3 py-1.5 text-sm text-content-primary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                  className="w-full rounded-md border border-border px-3 py-1.5 text-sm text-foreground focus:border-border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   {supportedLngs.map((lng) => (
                     <option key={lng} value={lng}>
@@ -244,7 +238,7 @@ export default function SettingsPage() {
               </div>
             </div>
             {errors?.lang && (
-              <p className="mt-2 text-xs text-feedback-danger-foreground">
+              <p className="mt-2 text-xs text-danger">
                 {t(`settings.errors.${errors.lang}`, t("settings.save_error"))}
               </p>
             )}
@@ -263,10 +257,7 @@ export default function SettingsPage() {
             title={t("settings.discord.title")}
             description={t("settings.discord.description")}
           >
-            <label
-              htmlFor="discordId"
-              className="mb-1 block text-sm font-medium text-content-secondary"
-            >
+            <label htmlFor="discordId" className="mb-1 block text-sm font-medium text-muted">
               {t("settings.discord.idLabel")}
             </label>
             <input
@@ -275,11 +266,11 @@ export default function SettingsPage() {
               type="text"
               defaultValue={discordId ?? ""}
               placeholder="e.g. 123456789012345678"
-              className="w-full rounded-md border border-border-strong px-3 py-1.5 text-sm text-content-primary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+              className="w-full rounded-md border border-border px-3 py-1.5 text-sm text-foreground focus:border-border-ring focus:outline-none focus:ring-1 focus:ring-ring"
             />
-            <p className="mt-1 text-xs text-content-tertiary">{t("settings.discord.idHint")}</p>
+            <p className="mt-1 text-xs text-muted">{t("settings.discord.idHint")}</p>
             {errors?.discordId && (
-              <p className="mt-1 text-xs text-feedback-danger-foreground">
+              <p className="mt-1 text-xs text-danger">
                 {t(`settings.errors.${errors.discordId}`, t("settings.save_error"))}
               </p>
             )}

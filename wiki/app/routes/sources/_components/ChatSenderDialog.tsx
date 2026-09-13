@@ -1,21 +1,8 @@
+import { Dialog, DialogContent, DialogDescription, DialogTitle, Inline, Stack } from "@gdgjp/ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@gdgjp/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "~/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
 import type { action } from "../page";
 
 export function ChatSenderDialog({
@@ -76,18 +63,20 @@ export function ChatSenderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto bg-surface-raised sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent // gdg-ui-allow: literal-color — app-specific-layout-or-token
+        className="max-h-[85vh] overflow-y-auto bg-surface sm:max-w-2xl"
+      >
+        <Stack>
           <DialogTitle>{t("sources.sender_dialog_title")}</DialogTitle>
           <DialogDescription>{t("sources.sender_dialog_description")}</DialogDescription>
-        </DialogHeader>
+        </Stack>
         <fetcher.Form method="post" className="space-y-4 px-5 pb-5">
           <input type="hidden" name="intent" value="save-chat-sender" />
           <input type="hidden" name="senderId" value={senderId} />
-          <div className="block text-sm font-medium text-content-secondary">
+          <div className="block text-sm font-medium text-muted">
             <p>{t("sources.sender_id_label")}</p>
             <Select value={senderId} onValueChange={selectSender}>
-              <SelectTrigger className="mt-1 w-full bg-surface-raised">
+              <SelectTrigger className="mt-1 w-full bg-surface">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -102,7 +91,7 @@ export function ChatSenderDialog({
               </SelectContent>
             </Select>
           </div>
-          <label className="block text-sm font-medium text-content-secondary">
+          <label className="block text-sm font-medium text-muted">
             {t("sources.sender_name_label")}
             <input
               name="displayName"
@@ -110,13 +99,11 @@ export function ChatSenderDialog({
               maxLength={120}
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
-              className="mt-1 block w-full rounded-md border border-border-strong bg-surface-raised px-3 py-2 text-sm"
+              className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
             />
           </label>
           <section>
-            <h3 className="text-sm font-medium text-content-secondary">
-              {t("sources.sender_samples")}
-            </h3>
+            <h3 className="text-sm font-medium text-muted">{t("sources.sender_samples")}</h3>
             <ul className="mt-2 space-y-2">
               {selectedSamples.map((sample, index) => {
                 const key = `${sample.sourceId}:${index}`;
@@ -126,9 +113,9 @@ export function ChatSenderDialog({
                     ? `${sample.messageText.slice(0, 160)}…`
                     : sample.messageText;
                 return (
-                  <li key={key} className="rounded-md border border-border-default p-3 text-sm">
-                    <p className="font-medium text-content-primary">{sample.sourceTitle}</p>
-                    <p className="mt-1 whitespace-pre-wrap text-content-secondary">
+                  <li key={key} className="rounded-md border border-border p-3 text-sm">
+                    <p className="font-medium text-foreground">{sample.sourceTitle}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-muted">
                       {isExpanded
                         ? sample.messageText
                         : preview || t("sources.sender_empty_message")}
@@ -139,7 +126,7 @@ export function ChatSenderDialog({
                         onClick={() =>
                           setExpanded((current) => ({ ...current, [key]: !isExpanded }))
                         }
-                        className="mt-2 text-xs font-medium text-action-primary hover:underline"
+                        className="mt-2 text-xs font-medium text-link hover:underline"
                       >
                         {t(isExpanded ? "sources.sender_collapse" : "sources.sender_expand")}
                       </button>
@@ -150,31 +137,31 @@ export function ChatSenderDialog({
             </ul>
           </section>
           {fetcher.data && !fetcher.data.ok ? (
-            <p className="text-sm text-feedback-danger-foreground">
+            <p className="text-sm text-danger">
               {t(`sources.error_${fetcher.data.error}`, {
                 defaultValue: t("sources.error_generic"),
               })}
             </p>
           ) : null}
           {fetcher.data?.ok && fetcher.data.senderSaved ? (
-            <p className="text-sm text-feedback-success-foreground">{t("sources.sender_saved")}</p>
+            <p className="text-sm text-success">{t("sources.sender_saved")}</p>
           ) : null}
-          <DialogFooter className="px-0 py-0">
+          <Inline className="px-0 py-0">
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="rounded-md border border-border-strong px-4 py-2 text-sm hover:bg-surface-hover"
+              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-neutral"
             >
               {t("cancel")}
             </button>
             <button
               type="submit"
               disabled={saving || !senderId || !displayName.trim()}
-              className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
             >
               {saving ? t("sources.sender_saving") : t("sources.sender_save")}
             </button>
-          </DialogFooter>
+          </Inline>
         </fetcher.Form>
       </DialogContent>
     </Dialog>

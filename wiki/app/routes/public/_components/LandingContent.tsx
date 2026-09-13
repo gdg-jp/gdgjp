@@ -12,7 +12,7 @@ type LandingContentProps = {
 
 export default function LandingContent({ ctaSlot }: LandingContentProps) {
   return (
-    <div className="force-light min-h-screen bg-surface-raised font-sans">
+    <div className="min-h-screen bg-background font-sans">
       <HeroSection ctaSlot={ctaSlot} />
       <FeatureCardsSection />
       <HowItWorksSection />

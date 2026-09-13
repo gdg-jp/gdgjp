@@ -1,19 +1,20 @@
-import { ChevronDown, ChevronRight, MoreHorizontal, Pencil, RefreshCw, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
-import { useFetcher } from "react-router";
-import ConfirmDialog from "~/components/ConfirmDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
+} from "@gdgjp/ui";
+import { Popover, PopoverContent, PopoverTrigger } from "@gdgjp/ui";
+
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useFetcher } from "react-router";
+import ConfirmDialog from "~/components/ConfirmDialog";
 import { isSourceVisibility, sourceVisibilityNeedsChapter } from "~/features/sources/shared";
 import { timeAgo } from "~/lib/time";
 import { ChapterSelect, VisibilitySelect, statusBadgeClass } from "./source-selects";
 
+import { Icons } from "@gdgjp/ui";
 export type SourceListItemSource = {
   id: string;
   title: string;
@@ -91,22 +92,22 @@ export default function SourceListItem({
       : "";
 
   return (
-    <li className="border-b border-border-subtle last:border-b-0">
+    <li className="border-b border-border last:border-b-0">
       <div className="flex items-start gap-2 px-3 py-3 sm:gap-3 sm:px-4">
         <button
           type="button"
           onClick={onToggle}
-          className="mt-0.5 rounded p-1 text-content-tertiary hover:bg-surface-hover"
+          className="mt-0.5 rounded p-1 text-muted hover:bg-neutral"
           aria-expanded={open}
           aria-label={t("sources.toggle_documents")}
         >
-          {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          {open ? <Icons name="ChevronDown" size={16} /> : <Icons name="ChevronRight" size={16} />}
         </button>
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2
-              className="min-w-0 truncate text-sm font-medium text-content-primary"
+              className="min-w-0 truncate text-sm font-medium text-foreground"
               title={source.title}
             >
               {source.title}
@@ -116,17 +117,17 @@ export default function SourceListItem({
             >
               {t(`sources.status.${source.status}`, source.status)}
             </span>
-            <span className="inline-flex rounded-full bg-surface-hover px-2 py-0.5 text-xs font-medium text-content-secondary">
+            <span className="inline-flex rounded-full bg-neutral px-2 py-0.5 text-xs font-medium text-muted">
               {t(`sources.kind.${source.kind}`, source.kind)}
             </span>
           </div>
 
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-content-tertiary">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
             <a
               href={source.url}
               target="_blank"
               rel="noreferrer"
-              className="max-w-full truncate text-action-primary hover:underline"
+              className="max-w-full truncate text-link hover:underline"
               title={source.url}
             >
               {source.url}
@@ -138,7 +139,7 @@ export default function SourceListItem({
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="inline-flex rounded-full bg-surface-hover px-2 py-0.5 text-xs font-medium text-content-secondary">
+            <span className="inline-flex rounded-full bg-neutral px-2 py-0.5 text-xs font-medium text-muted">
               {visibilityLabel}
               {visibilityDetail}
             </span>
@@ -156,9 +157,9 @@ export default function SourceListItem({
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1 rounded border border-border-strong px-2 py-0.5 text-xs text-content-secondary hover:bg-surface-hover"
+                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-xs text-muted hover:bg-neutral"
                   >
-                    <Pencil size={12} />
+                    <Icons name="Pencil" size={12} />
                     {t("sources.edit_visibility")}
                   </button>
                 </PopoverTrigger>
@@ -174,7 +175,7 @@ export default function SourceListItem({
                       t={t}
                       value={editVisibility}
                       onValueChange={setEditVisibility}
-                      className="w-full bg-surface-raised"
+                      className="w-full bg-surface"
                     />
                     {editNeedsChapter ? (
                       <ChapterSelect
@@ -183,7 +184,7 @@ export default function SourceListItem({
                         t={t}
                         value={editChapter}
                         onValueChange={setEditChapter}
-                        className="w-full bg-surface-raised"
+                        className="w-full bg-surface"
                       />
                     ) : null}
                     <button
@@ -193,7 +194,7 @@ export default function SourceListItem({
                         !isSourceVisibility(editVisibility) ||
                         (editNeedsChapter && !editChapter)
                       }
-                      className="rounded border border-border-strong px-2 py-1 text-xs hover:bg-surface-hover disabled:opacity-50"
+                      className="rounded border border-border px-2 py-1 text-xs hover:bg-neutral disabled:opacity-50"
                     >
                       {t("sources.visibility_save")}
                     </button>
@@ -210,17 +211,17 @@ export default function SourceListItem({
           </div>
 
           {source.errorMessage ? (
-            <p className="mt-2 text-xs text-feedback-danger-foreground">{source.errorMessage}</p>
+            <p className="mt-2 text-xs text-danger">{source.errorMessage}</p>
           ) : null}
           {unarchiveFetcher.data && !unarchiveFetcher.data.ok ? (
-            <p className="mt-1 text-xs text-feedback-danger-foreground">
+            <p className="mt-1 text-xs text-danger">
               {t(`sources.error_${unarchiveFetcher.data.error}`, {
                 defaultValue: t("sources.error_generic"),
               })}
             </p>
           ) : null}
           {deleteFetcher.data && !deleteFetcher.data.ok ? (
-            <p className="mt-1 text-xs text-feedback-danger-foreground">
+            <p className="mt-1 text-xs text-danger">
               {t(`sources.error_${deleteFetcher.data.error}`, {
                 defaultValue: t("sources.error_generic"),
               })}
@@ -233,10 +234,10 @@ export default function SourceListItem({
             <button
               type="button"
               disabled={busy}
-              className="rounded p-1.5 text-content-tertiary hover:bg-surface-hover disabled:opacity-50"
+              className="rounded p-1.5 text-muted hover:bg-neutral disabled:opacity-50"
               aria-label={t("sources.col_actions")}
             >
-              <MoreHorizontal size={16} />
+              <Icons name="MoreHorizontal" size={16} />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -251,15 +252,15 @@ export default function SourceListItem({
                     )
                   }
                 >
-                  <RefreshCw size={14} />
+                  <Icons name="RefreshCw" size={14} />
                   {t("sources.unarchive")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={busy}
-                  variant="destructive"
+                  className="text-danger"
                   onSelect={() => setDeleteDialogOpen(true)}
                 >
-                  <Trash2 size={14} />
+                  <Icons name="Trash2" size={14} />
                   {t("sources.delete")}
                 </DropdownMenuItem>
               </>
@@ -274,7 +275,7 @@ export default function SourceListItem({
                     )
                   }
                 >
-                  <RefreshCw size={14} />
+                  <Icons name="RefreshCw" size={14} />
                   {t("sources.refresh")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -309,19 +310,16 @@ export default function SourceListItem({
       />
 
       {open ? (
-        <div className="bg-surface-sunken px-4 py-3 sm:px-12">
+        <div className="bg-neutral px-4 py-3 sm:px-12">
           {source.documents.length === 0 ? (
-            <p className="text-xs text-content-tertiary">{t("sources.no_documents")}</p>
+            <p className="text-xs text-muted">{t("sources.no_documents")}</p>
           ) : (
             <ul className="space-y-2">
               {source.documents.map((doc) => (
-                <li
-                  key={doc.id}
-                  className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-content-secondary"
-                >
-                  <span className="font-medium text-content-primary">{doc.title}</span>
-                  <span className="text-content-tertiary">{doc.path}</span>
-                  <span className="rounded bg-surface-hover px-1.5 py-0.5 font-mono text-content-tertiary">
+                <li key={doc.id} className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                  <span className="font-medium text-foreground">{doc.title}</span>
+                  <span className="text-muted">{doc.path}</span>
+                  <span className="rounded bg-neutral px-1.5 py-0.5 font-mono text-muted">
                     {doc.mediaType}
                   </span>
                   <span
@@ -329,12 +327,8 @@ export default function SourceListItem({
                   >
                     {t(`sources.status.${doc.status}`, doc.status)}
                   </span>
-                  <span className="text-content-tertiary">
-                    {timeAgo(new Date(doc.capturedAt), t)}
-                  </span>
-                  <span className="font-mono text-content-disabled">
-                    {doc.contentHash.slice(0, 12)}…
-                  </span>
+                  <span className="text-muted">{timeAgo(new Date(doc.capturedAt), t)}</span>
+                  <span className="font-mono text-muted/70">{doc.contentHash.slice(0, 12)}…</span>
                 </li>
               ))}
             </ul>

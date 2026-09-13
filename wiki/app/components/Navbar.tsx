@@ -1,19 +1,23 @@
 import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
-import { ChartPie, Globe, ListTodo, Moon, PanelLeft, PanelLeftClose, Sun } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Form, Link, useFetcher, useLocation, useSearchParams } from "react-router";
-import { Button } from "~/components/ui/button";
 import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
+  IconButton,
+  Input,
+  useTheme,
+} from "@gdgjp/ui";
+
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Form, Link, useFetcher, useLocation, useSearchParams } from "react-router";
 import NotificationBell from "~/features/notifications/components/NotificationBell";
 
+import { Icons } from "@gdgjp/ui";
 interface NavbarProps {
   user: { name: string; email: string; image?: string | null } | null;
   sidebarOpen?: boolean;
@@ -37,15 +41,14 @@ function UiLangSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
+        <IconButton
           variant="ghost"
-          size="icon"
           title={t("language.switch_ui")}
           aria-label={t("language.switch_ui")}
-          className="text-muted-foreground"
+          className="text-muted"
         >
-          <Globe size={18} aria-hidden="true" />
-        </Button>
+          <Icons name="Globe" size={18} aria-hidden="true" />
+        </IconButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-28">
         <DropdownMenuRadioGroup
@@ -78,42 +81,30 @@ function UserMenu({ user }: { user: NonNullable<NavbarProps["user"]> }) {
 
 function ThemeSwitcher() {
   const { t } = useTranslation();
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"));
-  }, []);
-
-  function toggleTheme() {
-    const nextIsDark = !isDark;
-    setIsDark(nextIsDark);
-    document.documentElement.classList.toggle("dark", nextIsDark);
-    localStorage.setItem("theme", nextIsDark ? "dark" : "light");
-    document.cookie = `theme=${nextIsDark ? "dark" : "light"}; path=/; max-age=31536000; SameSite=Lax`;
-  }
-
-  const title = isDark ? t("theme.switch_to_light") : t("theme.switch_to_dark");
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const title = t("theme.label");
+  const iconName = resolvedTheme === "dark" ? "Moon" : "Sun";
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={toggleTheme}
-      title={title}
-      aria-label={title}
-      className="relative text-muted-foreground"
-    >
-      <Sun
-        size={18}
-        aria-hidden="true"
-        className={`absolute transition-[opacity,scale,filter] duration-200 ease-[var(--motion-ease-out)] motion-reduce:scale-100 motion-reduce:blur-0 motion-reduce:duration-100 ${isDark ? "scale-100 opacity-100 blur-0" : "scale-95 opacity-0 blur-[4px]"}`}
-      />
-      <Moon
-        size={18}
-        aria-hidden="true"
-        className={`transition-[opacity,scale,filter] duration-200 ease-[var(--motion-ease-out)] motion-reduce:scale-100 motion-reduce:blur-0 motion-reduce:duration-100 ${isDark ? "scale-95 opacity-0 blur-[4px]" : "scale-100 opacity-100 blur-0"}`}
-      />
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <IconButton variant="ghost" title={title} aria-label={title} className="text-muted">
+          <Icons name={iconName} size={18} aria-hidden="true" />
+        </IconButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuRadioGroup
+          value={theme}
+          onValueChange={(value) => {
+            if (value === "system" || value === "light" || value === "dark") setTheme(value);
+          }}
+        >
+          <DropdownMenuRadioItem value="system">{t("theme.system")}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="light">{t("theme.light")}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="dark">{t("theme.dark")}</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -136,7 +127,7 @@ function NewPageDropdown({ onImportZip }: { onImportZip?: () => void }) {
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link to="/analyze">
-            <ChartPie size={14} />
+            <Icons name="ChartPie" size={14} />
             <span>{t("pageTree.newPage_analyze")}</span>
           </Link>
         </DropdownMenuItem>
@@ -152,7 +143,7 @@ function NewPageDropdown({ onImportZip }: { onImportZip?: () => void }) {
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link to="/tasks/new">
-            <ListTodo size={14} />
+            <Icons name="ListTodo" size={14} />
             <span>{t("pageTree.newTaskList")}</span>
           </Link>
         </DropdownMenuItem>
@@ -180,19 +171,22 @@ export default function Navbar({
   }, [currentQuery]);
 
   return (
-    <header className="fixed top-0 right-0 left-0 z-50 flex h-14 items-center gap-2 border-b border-default bg-surface-raised px-3 sm:gap-4 sm:px-4">
+    <header className="fixed top-0 right-0 left-0 z-50 flex h-14 items-center gap-2 border-b border-border bg-surface px-3 sm:gap-4 sm:px-4">
       {/* Sidebar toggle */}
       {onToggleSidebar && (
-        <Button
+        <IconButton
           variant="ghost"
-          size="icon"
           onClick={onToggleSidebar}
           title={sidebarOpen ? t("nav.close_sidebar") : t("nav.open_sidebar")}
           aria-label={sidebarOpen ? t("nav.close_sidebar") : t("nav.open_sidebar")}
-          className="text-muted-foreground"
+          className="text-muted"
         >
-          {sidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeft size={20} />}
-        </Button>
+          {sidebarOpen ? (
+            <Icons name="PanelLeftClose" size={20} />
+          ) : (
+            <Icons name="PanelLeft" size={20} />
+          )}
+        </IconButton>
       )}
 
       {/* Logo */}
@@ -209,13 +203,14 @@ export default function Navbar({
 
       {/* Search */}
       <Form action="/search" method="get" className="flex flex-1 justify-center">
-        <input
+        <Input
           name="q"
           type="search"
           value={queryInput}
           onChange={(e) => setQueryInput(e.target.value)}
           placeholder={`${t("nav.search")}…`}
-          className="w-full max-w-[400px] rounded-md border border-default bg-surface-canvas px-3 py-1.5 text-sm text-content-primary placeholder:text-content-tertiary focus:border-focus focus:bg-surface-raised dark:focus:bg-surface-sunken focus:outline-none focus:ring-1 focus:ring-border-focus"
+          // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="w-full max-w-[400px]"
         />
       </Form>
 
@@ -237,7 +232,7 @@ export default function Navbar({
         ) : (
           <Link
             to={`/signin?return_to=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
-            className="text-sm font-medium text-action-primary hover:underline"
+            className="text-sm font-medium text-link hover:underline"
           >
             {t("auth.sign_in")}
           </Link>

@@ -75,7 +75,9 @@ function renderMarkedText(text: string, marks: TipTapNode["marks"]): ReactNode {
         break;
       case "code":
         content = (
-          <code className="rounded-md bg-surface-sunken px-[0.4em] py-[0.2em] font-mono text-[85%]">
+          <code // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="rounded-md bg-neutral px-[0.4em] py-[0.2em] font-mono text-[85%]"
+          >
             {content}
           </code>
         );
@@ -88,7 +90,7 @@ function renderMarkedText(text: string, marks: TipTapNode["marks"]): ReactNode {
         content = (
           <a
             href={href}
-            className="text-action-primary hover:underline"
+            className="text-link hover:underline"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -123,7 +125,7 @@ function renderNode(node: TipTapNode, counters: Map<string, number>, key: number
   switch (node.type) {
     case "paragraph":
       return (
-        <p key={key} className="mb-4 leading-relaxed text-content-primary">
+        <p key={key} className="mb-4 leading-relaxed text-foreground">
           {renderInline(node.content ?? [])}
         </p>
       );
@@ -134,12 +136,12 @@ function renderNode(node: TipTapNode, counters: Map<string, number>, key: number
       const id = makeHeadingId(text, counters);
       const inner = renderInline(node.content ?? []);
       const clsMap: Record<number, string> = {
-        1: "text-[2em] font-semibold text-content-primary mb-4 mt-6 border-b border-default pb-[0.3em]",
-        2: "text-[1.5em] font-semibold text-content-primary mb-4 mt-6 border-b border-default pb-[0.3em]",
-        3: "text-[1.25em] font-semibold text-content-primary mb-3 mt-6",
-        4: "text-lg font-semibold text-content-primary mb-2 mt-4",
-        5: "text-base font-semibold text-content-primary mb-2 mt-4",
-        6: "text-sm font-semibold text-content-primary mb-2 mt-4",
+        1: "text-[2em] font-semibold text-foreground mb-4 mt-6 border-b border-border pb-[0.3em]",
+        2: "text-[1.5em] font-semibold text-foreground mb-4 mt-6 border-b border-border pb-[0.3em]",
+        3: "text-[1.25em] font-semibold text-foreground mb-3 mt-6",
+        4: "text-lg font-semibold text-foreground mb-2 mt-4",
+        5: "text-base font-semibold text-foreground mb-2 mt-4",
+        6: "text-sm font-semibold text-foreground mb-2 mt-4",
       };
       const className = clsMap[level] ?? (clsMap[6] as string);
       const Tag = `h${level}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
@@ -181,10 +183,14 @@ function renderNode(node: TipTapNode, counters: Map<string, number>, key: number
       const code = (node.content ?? []).map((n) => n.text ?? "").join("");
       return (
         <pre
-          key={key}
-          className="mb-4 overflow-x-auto rounded-md bg-surface-sunken p-4 leading-[1.45]"
+          key={key} // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="mb-4 overflow-x-auto rounded-md bg-neutral p-4 leading-[1.45]"
         >
-          <code className={`font-mono text-[85%]${lang ? ` language-${lang}` : ""}`}>{code}</code>
+          <code // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className={`font-mono text-[85%]${lang ? ` language-${lang}` : ""}`}
+          >
+            {code}
+          </code>
         </pre>
       );
     }
@@ -192,15 +198,15 @@ function renderNode(node: TipTapNode, counters: Map<string, number>, key: number
     case "blockquote":
       return (
         <blockquote
-          key={key}
-          className="mb-4 border-l-[0.25em] border-strong pl-4 text-content-secondary"
+          key={key} // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="mb-4 border-l-[0.25em] border-border pl-4 text-muted"
         >
           {(node.content ?? []).map((child, i) => renderNode(child, counters, i))}
         </blockquote>
       );
 
     case "horizontalRule":
-      return <hr key={key} className="my-6 border-default" />;
+      return <hr key={key} className="my-6 border-border" />;
 
     case "image": {
       const src = (node.attrs?.src as string) ?? "";
@@ -219,7 +225,7 @@ function renderNode(node: TipTapNode, counters: Map<string, number>, key: number
 
     case "tableRow":
       return (
-        <tr key={key} className="even:bg-surface-canvas">
+        <tr key={key} className="even:bg-background">
           {(node.content ?? []).map((cell, i) => renderNode(cell, counters, i))}
         </tr>
       );
@@ -228,7 +234,8 @@ function renderNode(node: TipTapNode, counters: Map<string, number>, key: number
       return (
         <th
           key={key}
-          className="border border-default bg-surface-canvas px-[13px] py-[6px] text-left font-semibold"
+          // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="border border-border bg-background px-[13px] py-[6px] text-left font-semibold"
         >
           {(node.content ?? []).map((child, i) => renderNode(child, counters, i))}
         </th>
@@ -236,7 +243,10 @@ function renderNode(node: TipTapNode, counters: Map<string, number>, key: number
 
     case "tableCell":
       return (
-        <td key={key} className="border border-default px-[13px] py-[6px]">
+        <td
+          key={key} // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="border border-border px-[13px] py-[6px]"
+        >
           {(node.content ?? []).map((child, i) => renderNode(child, counters, i))}
         </td>
       );

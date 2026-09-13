@@ -55,12 +55,12 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-subtle px-5 py-4">
-        <h2 className="text-base font-semibold text-content-primary">{t("recent.title")}</h2>
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <h2 className="text-base font-semibold text-foreground">{t("recent.title")}</h2>
         <button
           type="button"
           onClick={onClose}
-          className="flex h-7 w-7 items-center justify-center rounded-full text-content-tertiary hover:bg-surface-sunken hover:text-content-secondary"
+          className="flex h-7 w-7 items-center justify-center rounded-full text-muted hover:bg-neutral hover:text-muted"
           aria-label="Close"
         >
           ×
@@ -70,13 +70,13 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
       <div className="max-h-80 overflow-y-auto">
         {/* Recently Viewed */}
         <div className="px-5 pt-3 pb-1">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-tertiary">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             {t("recent.recently_viewed")}
           </p>
           {isFirstLoad ? (
             <ListSkeleton rows={3} />
           ) : viewed.length === 0 ? (
-            <p className="py-2 text-sm text-content-tertiary">{t("recent.no_viewed")}</p>
+            <p className="py-2 text-sm text-muted">{t("recent.no_viewed")}</p>
           ) : (
             <ul className="space-y-0.5">
               {viewed.map((page) => (
@@ -84,11 +84,11 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
                   <Link
                     to={page.wikiPath}
                     onClick={onClose}
-                    className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-content-secondary hover:bg-surface-canvas hover:text-action-primary"
+                    className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-muted hover:bg-background hover:text-link"
                   >
                     <span className="truncate">{title(page)}</span>
                     {page.viewedAt && (
-                      <span className="shrink-0 text-xs text-content-tertiary">
+                      <span className="shrink-0 text-xs text-muted">
                         {timeAgo(new Date(page.viewedAt), t)}
                       </span>
                     )}
@@ -101,13 +101,13 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
 
         {/* Recently Updated */}
         <div className="px-5 pt-2 pb-1">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-tertiary">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             {t("recent.recently_updated")}
           </p>
           {isFirstLoad ? (
             <ListSkeleton rows={3} />
           ) : updated.length === 0 ? (
-            <p className="py-2 text-sm text-content-tertiary">{t("recent.no_updated")}</p>
+            <p className="py-2 text-sm text-muted">{t("recent.no_updated")}</p>
           ) : (
             <ul className="space-y-0.5">
               {updated.map((page) => (
@@ -115,11 +115,11 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
                   <Link
                     to={page.wikiPath}
                     onClick={onClose}
-                    className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-content-secondary hover:bg-surface-canvas hover:text-action-primary"
+                    className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-muted hover:bg-background hover:text-link"
                   >
                     <span className="truncate">{title(page)}</span>
                     {page.updatedAt && (
-                      <span className="shrink-0 text-xs text-content-tertiary">
+                      <span className="shrink-0 text-xs text-muted">
                         {timeAgo(new Date(page.updatedAt), t)}
                       </span>
                     )}
@@ -132,11 +132,11 @@ export default function RecentContent({ open, onClose, lang }: RecentContentProp
       </div>
 
       {/* View all footer */}
-      <div className="border-t border-subtle px-5 py-3">
+      <div className="border-t border-border px-5 py-3">
         <Link
           to="/recent"
           onClick={onClose}
-          className="block text-center text-sm font-medium text-action-primary hover:text-action-primary"
+          className="block text-center text-sm font-medium text-link hover:text-link"
         >
           {t("recent.view_all")}
         </Link>

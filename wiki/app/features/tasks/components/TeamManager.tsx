@@ -1,7 +1,7 @@
-import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Icons } from "@gdgjp/ui";
 interface Team {
   id: string;
   name: string;
@@ -36,7 +36,7 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
           onClick={() => onChange(c)}
           aria-label={`Select color ${c}`}
           aria-pressed={value === c}
-          className={`h-5 w-5 rounded-full border-2 ${value === c ? "border-strong" : "border-transparent"}`}
+          className={`h-5 w-5 rounded-full border-2 ${value === c ? "border-border" : "border-transparent"}`}
           style={{ backgroundColor: c }}
         />
       ))}
@@ -102,17 +102,14 @@ export default function TeamManager({ teams, taskListId, onRefresh }: TeamManage
 
   return (
     <div className="space-y-2">
-      {error && <p className="text-xs text-feedback-danger-foreground">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
       {/* Existing teams */}
       {teams.map((team) => {
         return editingId === team.id ? (
-          <div
-            key={team.id}
-            className="space-y-2 rounded-md border border-feedback-info-border px-3 py-2"
-          >
+          <div key={team.id} className="space-y-2 rounded-md border border-link px-3 py-2">
             <input
               type="text"
-              className="w-full rounded border border-strong px-2 py-1.5 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+              className="w-full rounded border border-border px-2 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleUpdate(team.id)}
@@ -122,14 +119,14 @@ export default function TeamManager({ teams, taskListId, onRefresh }: TeamManage
               <button
                 type="button"
                 onClick={() => setEditingId(null)}
-                className="rounded-md border border-strong px-2 py-1 text-sm text-content-secondary hover:bg-surface-canvas"
+                className="rounded-md border border-border px-2 py-1 text-sm text-muted hover:bg-background"
               >
                 {t("cancel")}
               </button>
               <button
                 type="button"
                 onClick={() => handleUpdate(team.id)}
-                className="rounded-md bg-action-primary px-2 py-1 text-sm text-content-inverse hover:bg-action-primary-hover"
+                className="rounded-md bg-primary px-2 py-1 text-sm text-primary-foreground hover:bg-primary/90"
               >
                 {t("tasks.save")}
               </button>
@@ -138,7 +135,7 @@ export default function TeamManager({ teams, taskListId, onRefresh }: TeamManage
         ) : (
           <div
             key={team.id}
-            className="flex items-center gap-2 rounded-md border border-default px-3 py-2"
+            className="flex items-center gap-2 rounded-md border border-border px-3 py-2"
           >
             <div
               className="h-4 w-4 flex-shrink-0 rounded-full"
@@ -153,28 +150,28 @@ export default function TeamManager({ teams, taskListId, onRefresh }: TeamManage
                 setEditName(team.name);
                 setEditColor(team.color ?? "#6b7280"); // design-token-policy: allow-dynamic-color
               }}
-              className="text-content-tertiary hover:text-content-secondary"
+              className="text-muted hover:text-muted"
             >
-              <Pencil size={14} />
+              <Icons name="Pencil" size={14} />
             </button>
             <button
               type="button"
               aria-label={`Delete team ${team.name}`}
               onClick={() => handleDelete(team.id)}
-              className="text-content-tertiary hover:text-feedback-danger-foreground"
+              className="text-muted hover:text-danger"
             >
-              <Trash2 size={14} />
+              <Icons name="Trash2" size={14} />
             </button>
           </div>
         );
       })}
 
       {/* New team form */}
-      <div className="space-y-2 border-t border-subtle pt-3">
-        <p className="text-xs font-semibold text-content-secondary">{t("tasks.new_team")}</p>
+      <div className="space-y-2 border-t border-border pt-3">
+        <p className="text-xs font-semibold text-muted">{t("tasks.new_team")}</p>
         <input
           type="text"
-          className="w-full rounded-md border border-strong px-2 py-1.5 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+          className="w-full rounded-md border border-border px-2 py-1.5 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder={t("tasks.team_name_placeholder")}
@@ -186,9 +183,9 @@ export default function TeamManager({ teams, taskListId, onRefresh }: TeamManage
             type="button"
             onClick={handleCreate}
             disabled={!newName.trim()}
-            className="inline-flex items-center gap-1 rounded-md bg-action-primary px-2 py-1.5 text-sm text-content-inverse hover:bg-action-primary-hover disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
-            <Plus size={14} />
+            <Icons name="Plus" size={14} />
             {t("tasks.add_team")}
           </button>
         </div>

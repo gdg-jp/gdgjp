@@ -1,18 +1,9 @@
-import {
-  ArrowRight,
-  Clipboard,
-  Copy,
-  Link as LinkIcon,
-  MoreHorizontal,
-  MoveHorizontal,
-  Trash2,
-  Type,
-} from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@gdgjp/ui";
+
 import { Suspense, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, useFetcher, useLocation } from "react-router";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "~/components/ui/dialog";
 import { displayedMarkdown } from "~/features/pages/page-menu-content";
 import type { PageDisplay } from "~/features/pages/use-page-display";
 import {
@@ -24,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "./page-menu-primitives";
 
+import { Icons } from "@gdgjp/ui";
 type Targets = {
   targets?: { id: string; titleJa: string; titleEn: string; slug: string }[];
   error?: string;
@@ -81,7 +73,7 @@ export function PageActionsMenu({
         if (text !== undefined) void copy(`# ${title}\n\n${text}`);
       }}
     >
-      <Clipboard />
+      <Icons name="Clipboard" />
       {t("wiki.menu.copy_contents")}
     </DropdownMenuItem>
   );
@@ -95,19 +87,20 @@ export function PageActionsMenu({
             type="button"
             disabled={!hydrated}
             aria-label={t("wiki.menu.more")}
-            className="rounded-md p-2 text-content-tertiary hover:bg-surface-hover hover:text-content-primary"
+            className="rounded-md p-2 text-muted hover:bg-neutral hover:text-foreground"
           >
-            <MoreHorizontal size={18} />
+            <Icons name="MoreHorizontal" size={18} />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          className="w-72 max-w-[calc(100vw-2rem)] border border-border-default bg-surface-raised p-1.5 text-content-primary"
+          // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="w-72 max-w-[calc(100vw-2rem)] border border-border bg-surface p-1.5 text-foreground"
         >
           <DropdownMenuItem
             onSelect={() => void copy(`${window.location.origin}${location.pathname}?lang=${lang}`)}
           >
-            <LinkIcon />
+            <Icons name="LinkIcon" />
             {t("wiki.menu.copy_link")}
           </DropdownMenuItem>
           <Suspense fallback={copyItem()}>
@@ -119,7 +112,7 @@ export function PageActionsMenu({
             disabled={!canManage || busy}
             onSelect={() => mutation.submit({ intent: "duplicatePage", lang }, { method: "post" })}
           >
-            <Copy />
+            <Icons name="Copy" />
             {t("wiki.menu.duplicate")}
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -130,11 +123,11 @@ export function PageActionsMenu({
               targets.load(`/api/pages/move-targets?pageId=${encodeURIComponent(pageId)}`);
             }}
           >
-            <ArrowRight />
+            <Icons name="ArrowRight" />
             {t("wiki.menu.move")}
           </DropdownMenuItem>
           <DropdownMenuItem disabled={!canManage || busy} onSelect={onArchive}>
-            <Trash2 />
+            <Icons name="Trash2" />
             {t("wiki.menu.trash")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -142,17 +135,17 @@ export function PageActionsMenu({
             checked={display.smallText}
             onCheckedChange={(checked) => onDisplayChange({ ...display, smallText: checked })}
           >
-            <Type />
+            <Icons name="Type" />
             {t("wiki.menu.small_text")}
           </DropdownMenuPrimitiveSwitch>
           <DropdownMenuPrimitiveSwitch
             checked={display.fullWidth}
             onCheckedChange={(checked) => onDisplayChange({ ...display, fullWidth: checked })}
           >
-            <MoveHorizontal />
+            <Icons name="MoveHorizontal" />
             {t("wiki.menu.full_width")}
           </DropdownMenuPrimitiveSwitch>
-          <div className="md:hidden">
+          <div className="block md:hidden">
             <DropdownMenuSeparator />
             {mobileActions}
           </div>
@@ -162,7 +155,8 @@ export function PageActionsMenu({
       {(busy || message || actionError) && (
         <div
           role={actionError ? "alert" : undefined}
-          className="absolute right-4 top-full z-20 max-w-[calc(100vw-2rem)] rounded border border-border-default bg-surface-raised px-3 py-2 text-sm text-content-primary shadow"
+          // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="absolute right-4 top-full z-20 max-w-[calc(100vw-2rem)] rounded border border-border bg-surface px-3 py-2 text-sm text-foreground shadow"
         >
           {busy ? t("wiki.menu.working") : actionError ? t("wiki.menu.action_failed") : message}
         </div>
@@ -182,7 +176,7 @@ export function PageActionsMenu({
             placeholder={t("wiki.menu.search_pages")}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="w-full rounded border border-border-default bg-surface-default px-3 py-2"
+            className="w-full rounded border border-border bg-surface px-3 py-2"
           />
           {actionError && <p role="alert">{t("wiki.menu.action_failed")}</p>}
           {targets.state !== "idle" ? (
@@ -193,7 +187,7 @@ export function PageActionsMenu({
                 type="button"
                 disabled={busy}
                 onClick={() => move("")}
-                className="w-full rounded px-3 py-2 text-left hover:bg-surface-hover disabled:opacity-50"
+                className="w-full rounded px-3 py-2 text-left hover:bg-neutral disabled:opacity-50"
               >
                 {t("wiki.menu.root")}
               </button>
@@ -209,14 +203,14 @@ export function PageActionsMenu({
                     type="button"
                     disabled={busy}
                     onClick={() => move(target.id)}
-                    className="block w-full rounded px-3 py-2 text-left hover:bg-surface-hover disabled:opacity-50"
+                    className="block w-full rounded px-3 py-2 text-left hover:bg-neutral disabled:opacity-50"
                   >
                     <span className="block">
                       {lang === "en"
                         ? target.titleEn || target.titleJa
                         : target.titleJa || target.titleEn}
                     </span>
-                    <span className="text-xs text-content-tertiary">{target.slug}</span>
+                    <span className="text-xs text-muted">{target.slug}</span>
                   </button>
                 ))}
             </div>

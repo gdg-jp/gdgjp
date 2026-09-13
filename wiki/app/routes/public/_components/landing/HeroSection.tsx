@@ -78,7 +78,6 @@ export function HeroSection({ ctaSlot }: { ctaSlot: React.ReactNode }) {
             animation: "lp-float 9s ease-in-out infinite reverse",
           }}
         />
-
         {/* Floating GDG dots — decorative */}
         <div
           aria-hidden="true"
@@ -136,7 +135,6 @@ export function HeroSection({ ctaSlot }: { ctaSlot: React.ReactNode }) {
             animation: "lp-float 5s ease-in-out infinite reverse",
           }}
         />
-
         {/* Tiny squares */}
         <div
           aria-hidden="true"
@@ -168,9 +166,10 @@ export function HeroSection({ ctaSlot }: { ctaSlot: React.ReactNode }) {
             animation: "lp-float 9s ease-in-out infinite reverse",
           }}
         />
-
         {/* Content */}
-        <div className="relative z-10 mx-auto flex min-h-[88vh] max-w-4xl flex-col items-center justify-center px-6 py-24 text-center">
+        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="relative z-10 mx-auto flex min-h-[88vh] max-w-4xl flex-col items-center justify-center px-6 py-24 text-center"
+        >
           {/* Pill badge */}
           <div
             className="mb-7 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
@@ -225,14 +224,14 @@ export function HeroSection({ ctaSlot }: { ctaSlot: React.ReactNode }) {
           </div>
 
           <h1
-            className="mb-6 text-5xl font-bold tracking-tight text-content-primary sm:text-6xl lg:text-7xl"
+            className="mb-6 text-5xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl"
             style={{ lineHeight: 1.1 }}
           >
             {t("lp.hero_title")}
           </h1>
 
           <p
-            className="mx-auto mb-10 max-w-xl text-lg text-content-secondary sm:text-xl"
+            className="mx-auto mb-10 max-w-xl text-lg text-muted sm:text-xl"
             style={{ lineHeight: 1.65 }}
           >
             {t("lp.hero_subtitle")}

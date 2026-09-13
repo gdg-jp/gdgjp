@@ -1,12 +1,12 @@
-import { FileText, Hash, Link2, LoaderCircle, MessageSquare } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
+} from "@gdgjp/ui";
+
+import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { loadGooglePicker } from "~/features/google/picker.client";
 import type { GooglePickerConfig } from "~/features/google/picker.client";
 import { ChapterSelect, VisibilitySelect } from "~/features/sources/components/source-selects";
@@ -27,6 +27,7 @@ import { useSourceStaging } from "./use-source-staging";
  * `discordError` / `needsDiscord*` are kept here (not inside the dialog) so an
  * auth hint or duplicate message shows in this section after the dialog closes.
  */
+import { Icons } from "@gdgjp/ui";
 export function AddSourceSection({
   sources,
   assignableChapters,
@@ -195,22 +196,20 @@ export function AddSourceSection({
   }
 
   return (
-    <section className="mb-8 rounded-lg border border-border-default bg-surface-raised p-4">
+    <section className="mb-8 rounded-lg border border-border bg-surface p-4">
       <div>
-        <p className="mb-2 text-sm font-medium text-content-primary">
-          {t("sources.add_candidate")}
-        </p>
+        <p className="mb-2 text-sm font-medium text-foreground">{t("sources.add_candidate")}</p>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={chooseGoogleDriveSource}
             disabled={pickerLoading}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover disabled:opacity-60"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-muted hover:bg-neutral disabled:opacity-60"
           >
             {pickerLoading ? (
-              <LoaderCircle className="size-4 animate-spin" />
+              <Icons name="LoaderCircle" className="size-4 animate-spin" />
             ) : (
-              <FileText className="size-4" />
+              <Icons name="FileText" className="size-4" />
             )}
             {t("sources.choose_google_drive")}
           </button>
@@ -218,12 +217,12 @@ export function AddSourceSection({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-muted hover:bg-neutral"
               >
                 {chatLoading ? (
-                  <LoaderCircle className="size-4 animate-spin" />
+                  <Icons name="LoaderCircle" className="size-4 animate-spin" />
                 ) : (
-                  <MessageSquare className="size-4" />
+                  <Icons name="MessageSquare" className="size-4" />
                 )}
                 {t("sources.add_chat_space")}
               </button>
@@ -231,7 +230,7 @@ export function AddSourceSection({
             <DropdownMenuContent align="start" className="min-w-56">
               {chatLoading ? (
                 <DropdownMenuItem disabled>
-                  <LoaderCircle className="size-4 animate-spin" />
+                  <Icons name="LoaderCircle" className="size-4 animate-spin" />
                   {t("sources.chat_space_placeholder")}
                 </DropdownMenuItem>
               ) : (
@@ -250,17 +249,17 @@ export function AddSourceSection({
           <button
             type="button"
             onClick={() => setDiscordDialogOpen(true)}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-muted hover:bg-neutral"
           >
-            <Hash className="size-4" />
+            <Icons name="Hash" className="size-4" />
             {t("sources.add_discord_channel")}
           </button>
           <button
             type="button"
             onClick={addUrlCandidate}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border-strong px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-hover"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-muted hover:bg-neutral"
           >
-            <Link2 className="size-4" />
+            <Icons name="Link2" className="size-4" />
             {t("sources.add_url")}
           </button>
           <div className="flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto">
@@ -288,9 +287,9 @@ export function AddSourceSection({
                   { method: "post" },
                 )
               }
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover disabled:opacity-60 sm:min-w-24"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 sm:min-w-24"
             >
-              {submitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
+              {submitting ? <Icons name="LoaderCircle" className="size-4 animate-spin" /> : null}
               {t("sources.add")}
             </button>
           </div>
@@ -304,19 +303,19 @@ export function AddSourceSection({
           onUpdateUrl={updateUrlCandidate}
         />
         {needsDriveConnection ? (
-          <div className="mt-3 flex items-center gap-3 rounded-md border border-border-default bg-surface-sunken p-3 text-sm">
+          <div className="mt-3 flex items-center gap-3 rounded-md border border-border bg-neutral p-3 text-sm">
             <span>{t("sources.connect_hint")}</span>
             <button
               type="button"
               onClick={connectGoogleDrive}
-              className="font-medium text-action-primary hover:text-action-primary-hover"
+              className="font-medium text-link hover:text-link"
             >
               {t("sources.connect_google_drive")}
             </button>
           </div>
         ) : null}
         {needsDiscordConnection || needsDiscordReauth ? (
-          <div className="mt-3 flex items-center gap-3 rounded-md border border-border-default bg-surface-sunken p-3 text-sm">
+          <div className="mt-3 flex items-center gap-3 rounded-md border border-border bg-neutral p-3 text-sm">
             <span>
               {needsDiscordReauth
                 ? t("sources.discord_reauth_hint")
@@ -325,42 +324,38 @@ export function AddSourceSection({
             <button
               type="button"
               onClick={connectDiscord}
-              className="font-medium text-action-primary hover:text-action-primary-hover"
+              className="font-medium text-link hover:text-link"
             >
               {t("sources.connect_discord")}
             </button>
           </div>
         ) : null}
-        {pickerError ? (
-          <p className="mt-2 text-sm text-feedback-danger-foreground">{pickerError}</p>
-        ) : null}
+        {pickerError ? <p className="mt-2 text-sm text-danger">{pickerError}</p> : null}
         {needsChatReauth ? (
-          <div className="mt-3 flex items-center gap-3 rounded-md border border-feedback-warning-border bg-feedback-warning-surface p-3 text-sm text-feedback-warning-foreground">
+          <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="mt-3 flex items-center gap-3 rounded-md border border-warning bg-[var(--gdg-warning-surface)] p-3 text-sm text-warning"
+          >
             <span>{t("sources.chat_reauth_hint")}</span>
             <button
               type="button"
               onClick={connectGoogleDrive}
-              className="font-medium text-action-primary hover:text-action-primary-hover"
+              className="font-medium text-link hover:text-link"
             >
               {t("sources.connect_google_drive")}
             </button>
           </div>
         ) : null}
-        {chatError ? (
-          <p className="mt-2 text-sm text-feedback-danger-foreground">{chatError}</p>
-        ) : null}
+        {chatError ? <p className="mt-2 text-sm text-danger">{chatError}</p> : null}
         {discordError && !discordDialogOpen ? (
-          <p className="mt-2 text-sm text-feedback-danger-foreground">{discordError}</p>
+          <p className="mt-2 text-sm text-danger">{discordError}</p>
         ) : null}
         {batchFetcher.data?.ok &&
         "failed" in batchFetcher.data &&
         batchFetcher.data.failed?.length ? (
-          <p className="mt-2 text-sm text-feedback-danger-foreground">
-            {t("sources.batch_partial_failure")}
-          </p>
+          <p className="mt-2 text-sm text-danger">{t("sources.batch_partial_failure")}</p>
         ) : null}
         {batchFetcher.data && !batchFetcher.data.ok ? (
-          <p className="mt-2 text-sm text-feedback-danger-foreground">
+          <p className="mt-2 text-sm text-danger">
             {t(`sources.error_${batchFetcher.data.error}`, {
               defaultValue: t("sources.error_generic"),
             })}

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MotionPresence } from "~/components/ui/motion";
 import { isGoogleDriveUrl } from "~/features/google/drive-utils";
 
 interface InputPanelProps {
@@ -133,23 +132,22 @@ export default function InputPanel({ driveConnected, serverError }: InputPanelPr
   return (
     <form method="post" encType="multipart/form-data" onSubmit={handleSubmit} className="space-y-6">
       {/* Errors */}
-      <MotionPresence present={allErrors.length > 0} distance={-4}>
-        <div className="rounded-lg border border-feedback-danger-border bg-feedback-danger-surface p-4">
-          <ul className="list-disc pl-4 text-sm text-feedback-danger-foreground">
+      {allErrors.length > 0 ? (
+        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="rounded-lg border border-danger bg-[var(--gdg-danger-surface)] p-4"
+        >
+          <ul className="list-disc pl-4 text-sm text-danger">
             {allErrors.map((e) => (
               <li key={e}>{e}</li>
             ))}
           </ul>
         </div>
-      </MotionPresence>
+      ) : null}
 
       {/* Text input */}
       <div>
-        <label
-          htmlFor="ingest-text"
-          className="mb-1.5 block text-sm font-medium text-content-secondary"
-        >
-          {t("ingest.form.text_label")} <span className="text-feedback-danger-foreground">*</span>
+        <label htmlFor="ingest-text" className="mb-1.5 block text-sm font-medium text-muted">
+          {t("ingest.form.text_label")} <span className="text-danger">*</span>
         </label>
         <textarea
           id="ingest-text"
@@ -158,16 +156,16 @@ export default function InputPanel({ driveConnected, serverError }: InputPanelPr
           onChange={(e) => setText(e.target.value)}
           rows={8}
           placeholder={t("ingest.form.text_placeholder")}
-          className="w-full rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+          className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
         />
-        <p className="mt-1 text-right text-xs text-content-tertiary">
+        <p className="mt-1 text-right text-xs text-muted">
           {t("ingest.form.char_count", { count: text.length })}
         </p>
       </div>
 
       {/* Image upload */}
       <div>
-        <p className="mb-1.5 text-sm font-medium text-content-secondary">
+        <p className="mb-1.5 text-sm font-medium text-muted">
           {t("ingest.form.images_label", { max: MAX_IMAGES })}
         </p>
         <input
@@ -190,11 +188,11 @@ export default function InputPanel({ driveConnected, serverError }: InputPanelPr
           onClick={() => fileInputRef.current?.click()}
           className={`w-full cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
             dragging
-              ? "border-focus bg-feedback-info-surface"
-              : "border-default hover:border-strong hover:bg-surface-canvas"
+              ? "border-ring bg-selected"
+              : "border-border hover:border-border hover:bg-background"
           }`}
         >
-          <p className="text-sm text-content-secondary">{t("ingest.form.drop_hint")}</p>
+          <p className="text-sm text-muted">{t("ingest.form.drop_hint")}</p>
         </button>
 
         {/* Image previews */}
@@ -213,19 +211,19 @@ export default function InputPanel({ driveConnected, serverError }: InputPanelPr
 
       {/* PDF upload */}
       <div>
-        <p className="mb-1.5 text-sm font-medium text-content-secondary">
+        <p className="mb-1.5 text-sm font-medium text-muted">
           {t("ingest.form.pdfs_label", { max: MAX_PDFS })}
         </p>
-        <p className="mb-2 text-xs text-content-tertiary">{t("ingest.form.pdfs_hint")}</p>
+        <p className="mb-2 text-xs text-muted">{t("ingest.form.pdfs_hint")}</p>
         {pdfs.length > 0 && (
           <div className="mb-2 space-y-1.5">
             {pdfs.map((pdf) => (
               <div
                 key={`${pdf.name}-${pdf.size}`}
-                className="flex items-center gap-2 rounded-lg border border-default bg-surface-canvas px-3 py-2"
+                className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2"
               >
                 <svg
-                  className="h-4 w-4 shrink-0 text-feedback-danger-foreground"
+                  className="h-4 w-4 shrink-0 text-danger"
                   viewBox="0 0 20 20"
                   fill="currentColor"
                   aria-hidden="true"
@@ -236,14 +234,14 @@ export default function InputPanel({ driveConnected, serverError }: InputPanelPr
                     clipRule="evenodd"
                   />
                 </svg>
-                <span className="flex-1 truncate text-sm text-content-secondary">{pdf.name}</span>
-                <span className="shrink-0 text-xs text-content-tertiary">
+                <span className="flex-1 truncate text-sm text-muted">{pdf.name}</span>
+                <span className="shrink-0 text-xs text-muted">
                   {(pdf.size / 1024 / 1024).toFixed(1)} MB
                 </span>
                 <button
                   type="button"
                   onClick={() => setPdfs((prev) => prev.filter((f) => f !== pdf))}
-                  className="flex h-5 w-5 items-center justify-center rounded-full bg-feedback-danger-solid text-xs text-content-inverse"
+                  className="flex h-5 w-5 items-center justify-center rounded-full bg-danger text-xs text-primary-foreground"
                 >
                   ×
                 </button>
@@ -273,8 +271,8 @@ export default function InputPanel({ driveConnected, serverError }: InputPanelPr
           onClick={() => pdfInputRef.current?.click()}
           className={`w-full cursor-pointer rounded-lg border-2 border-dashed p-4 text-center text-sm transition-colors ${pdfs.length >= MAX_PDFS ? "hidden" : ""} ${
             draggingPdf
-              ? "border-focus bg-feedback-info-surface text-action-primary"
-              : "border-default text-content-secondary hover:border-strong hover:bg-surface-canvas"
+              ? "border-ring bg-selected text-link"
+              : "border-border text-muted hover:border-border hover:bg-background"
           }`}
         >
           {t("ingest.form.pdfs_drop_hint")}
@@ -283,10 +281,7 @@ export default function InputPanel({ driveConnected, serverError }: InputPanelPr
 
       {/* Google Doc URL */}
       <div>
-        <label
-          htmlFor="ingest-doc-url"
-          className="mb-1.5 block text-sm font-medium text-content-secondary"
-        >
+        <label htmlFor="ingest-doc-url" className="mb-1.5 block text-sm font-medium text-muted">
           {t("ingest.form.doc_url_label")}
         </label>
         <div className="flex gap-2">
@@ -297,10 +292,12 @@ export default function InputPanel({ driveConnected, serverError }: InputPanelPr
             value={docUrl}
             onChange={(e) => setDocUrl(e.target.value)}
             placeholder="https://docs.google.com/..."
-            className="flex-1 rounded-lg border border-default px-3 py-2 text-sm focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+            className="flex-1 rounded-lg border border-border px-3 py-2 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
           />
           {driveConnected ? (
-            <span className="flex items-center gap-1.5 rounded-lg border border-feedback-success-border bg-feedback-success-surface px-3 py-2 text-sm text-feedback-success-foreground">
+            <span // gdg-ui-allow: literal-color — app-specific-layout-or-token
+              className="flex items-center gap-1.5 rounded-lg border border-success bg-[var(--gdg-success-surface)] px-3 py-2 text-sm text-success"
+            >
               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                 <path
                   fillRule="evenodd"
@@ -313,7 +310,7 @@ export default function InputPanel({ driveConnected, serverError }: InputPanelPr
           ) : (
             <a
               href="/api/google-drive/auth"
-              className="flex items-center gap-1.5 rounded-lg border border-default px-3 py-2 text-sm text-content-secondary transition-colors hover:bg-surface-canvas"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted transition-colors hover:bg-background"
             >
               <GoogleDriveIcon />
               {t("ingest.form.drive_connect")}
@@ -326,7 +323,7 @@ export default function InputPanel({ driveConnected, serverError }: InputPanelPr
       <div className="flex justify-end">
         <button
           type="submit"
-          className="rounded-lg bg-action-primary px-6 py-2.5 text-sm font-medium text-content-inverse transition-colors hover:bg-action-primary-hover focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2"
+          className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         >
           {t("ingest.form.submit")}
         </button>
@@ -349,7 +346,7 @@ function ImagePreview({ img, onRemove }: { img: File; onRemove: () => void }) {
       <img
         src={url}
         alt={img.name}
-        className="h-20 w-20 rounded-md object-cover ring-1 ring-border-default"
+        className="h-20 w-20 rounded-md object-cover ring-1 ring-border-border"
       />
       <button
         type="button"
@@ -357,7 +354,7 @@ function ImagePreview({ img, onRemove }: { img: File; onRemove: () => void }) {
           e.stopPropagation();
           onRemove();
         }}
-        className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-feedback-danger-solid text-xs text-content-inverse"
+        className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-xs text-primary-foreground"
       >
         ×
       </button>

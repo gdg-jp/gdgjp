@@ -1,17 +1,12 @@
-import { FileText, LoaderCircle } from "lucide-react";
+import { Button } from "@gdgjp/ui";
+import { Dialog, DialogContent, DialogTitle, Inline, Stack } from "@gdgjp/ui";
+
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "~/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "~/components/ui/dialog";
 import { loadGooglePicker } from "~/features/google/picker.client";
 import type { GooglePickerConfig } from "~/features/google/picker.client";
 
+import { Icons } from "@gdgjp/ui";
 interface ImportPreview {
   documentTitle: string;
   createCount: number;
@@ -204,9 +199,9 @@ export default function GoogleDocumentImportDialog({
       }}
     >
       <DialogContent className="max-w-sm sm:max-w-sm">
-        <DialogHeader className="border-b border-border px-6 py-5">
+        <Stack className="border-b border-border px-6 py-5">
           <DialogTitle>{t("googleDocumentImport.title")}</DialogTitle>
-        </DialogHeader>
+        </Stack>
         <div className="space-y-4 px-6">
           {needsConnection ? (
             <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
@@ -216,13 +211,17 @@ export default function GoogleDocumentImportDialog({
           ) : (
             <>
               <Button variant="outline" onClick={chooseDocument} disabled={loading || !config}>
-                {loading ? <LoaderCircle className="animate-spin" /> : <FileText />}
+                {loading ? (
+                  <Icons name="LoaderCircle" className="animate-spin" />
+                ) : (
+                  <Icons name="FileText" />
+                )}
                 {t("googleDocumentImport.choose")}
               </Button>
               {selectedName && (
                 <div className="rounded-lg border border-border p-3 text-sm">
                   <p className="font-medium">{selectedName}</p>
-                  <p className="mt-1 text-muted-foreground">
+                  <p className="mt-1 text-muted">
                     {preview
                       ? t("googleDocumentImport.preview_summary", {
                           create: preview.createCount,
@@ -242,7 +241,7 @@ export default function GoogleDocumentImportDialog({
                       style={{ paddingInlineStart: `${page.depth * 16}px` }}
                     >
                       <span className="truncate">{page.title}</span>
-                      <span className="shrink-0 text-muted-foreground">
+                      <span className="shrink-0 text-muted">
                         {t(`googleDocumentImport.actions.${page.action}`)}
                       </span>
                     </li>
@@ -252,22 +251,22 @@ export default function GoogleDocumentImportDialog({
             </>
           )}
           {error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-sm text-danger">
               {error}
             </p>
           )}
         </div>
-        <DialogFooter className="border-t border-border px-6 py-4">
+        <Inline className="border-t border-border px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             {t("cancel")}
           </Button>
           {!needsConnection && preview && (
             <Button onClick={commitImport} disabled={submitting}>
-              {submitting && <LoaderCircle className="animate-spin" />}
+              {submitting && <Icons name="LoaderCircle" className="animate-spin" />}
               {t("googleDocumentImport.import")}
             </Button>
           )}
-        </DialogFooter>
+        </Inline>
       </DialogContent>
     </Dialog>
   );

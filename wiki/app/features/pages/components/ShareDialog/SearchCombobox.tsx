@@ -1,12 +1,12 @@
-import { Loader2, UsersRound } from "lucide-react";
-import { Button } from "~/components/ui/button";
-import { MotionPresence } from "~/components/ui/motion";
+import { Button } from "@gdgjp/ui";
+
 import { Avatar } from "./avatar";
 import { SelectedChips } from "./chips";
 import { listboxRole, optionRole } from "./types";
 import type { ShareDialogController } from "./use-share-dialog";
 
 /** The people/chapter search box + candidate listbox shared by both screens. */
+import { Icons } from "@gdgjp/ui";
 export function SearchCombobox({ c }: { c: ShareDialogController }) {
   const {
     t,
@@ -34,7 +34,8 @@ export function SearchCombobox({ c }: { c: ShareDialogController }) {
       <div ref={searchInputHeight.containerRef} className="overflow-hidden">
         <div
           ref={searchInputHeight.contentRef}
-          className={`flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border bg-background px-2 py-1 shadow-sm transition-[border-color,box-shadow] duration-150 ${isListOpen ? "border-ring ring-2 ring-ring/20" : "border-input"}`}
+          // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className={`flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border bg-background px-2 py-1 shadow-sm transition-[border-color,box-shadow] duration-150 ${isListOpen ? "border-ring ring-2 ring-ring/20" : "border-border"}`}
         >
           <SelectedChips
             selected={selected}
@@ -59,69 +60,62 @@ export function SearchCombobox({ c }: { c: ShareDialogController }) {
             placeholder={
               selected.length ? t("wiki.share_add_more") : t("wiki.share_search_placeholder")
             }
-            className="min-w-44 flex-1 border-0 bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground"
+            className="min-w-44 flex-1 border-0 bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted"
           />
         </div>
       </div>
-      <MotionPresence
-        present={isListOpen}
-        distance={-8}
-        enterDuration={260}
-        exitDuration={180}
-        reducedDuration={180}
-        reducedOpacity={0}
-        scale={0.92}
-        transformOrigin="top center"
-        className="absolute left-0 right-0 z-10 mt-1"
-      >
-        <div
-          id={listboxId}
-          role={listboxRole}
-          tabIndex={-1}
-          aria-label={t("wiki.share_search_placeholder")}
-          className="max-h-64 overflow-y-auto rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-xl shadow-content-primary/10"
-        >
-          {candidatesFetcher.state !== "idle" && candidateRows.length === 0 ? (
-            <p className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">
-              <Loader2 className="animate-spin motion-reduce:animate-none" size={16} />
-              {t("wiki.share_loading_candidates")}
-            </p>
-          ) : candidateRows.length ? (
-            candidateRows.map((subject, index) => (
-              <Button
-                id={`${listboxId}-${index}`}
-                key={`${subject.type}:${subject.key}`}
-                variant="ghost"
-                size="default"
-                role={optionRole}
-                aria-selected={activeIndex === index}
-                onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => chooseCandidate(subject)}
-                className={`h-auto w-full justify-start gap-3 rounded-none px-4 py-2.5 text-left ${activeIndex === index ? "bg-accent" : ""}`}
-              >
-                <Avatar subject={subject} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm">{subject.label}</span>
-                  <span className="block truncate text-sm text-muted-foreground">
-                    {subject.secondary}
+      {isListOpen ? (
+        <div className="absolute left-0 right-0 z-10 mt-1">
+          <div
+            id={listboxId}
+            role={listboxRole}
+            tabIndex={-1}
+            aria-label={t("wiki.share_search_placeholder")}
+            className="max-h-64 overflow-y-auto rounded-xl border border-border bg-surface py-1 text-foreground shadow-xl shadow-content-primary/10"
+          >
+            {candidatesFetcher.state !== "idle" && candidateRows.length === 0 ? (
+              <p className="flex items-center gap-2 px-5 py-4 text-sm text-muted">
+                <Icons
+                  name="Loader2"
+                  className="animate-spin motion-reduce:animate-none"
+                  size={16}
+                />
+                {t("wiki.share_loading_candidates")}
+              </p>
+            ) : candidateRows.length ? (
+              candidateRows.map((subject, index) => (
+                <Button
+                  id={`${listboxId}-${index}`}
+                  key={`${subject.type}:${subject.key}`}
+                  variant="ghost"
+                  size="sm"
+                  role={optionRole}
+                  aria-selected={activeIndex === index}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => chooseCandidate(subject)}
+                  className={`h-auto w-full justify-start gap-3 rounded-none px-4 py-2.5 text-left ${activeIndex === index ? "bg-neutral" : ""}`}
+                >
+                  <Avatar subject={subject} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm">{subject.label}</span>
+                    <span className="block truncate text-sm text-muted">{subject.secondary}</span>
                   </span>
-                </span>
-                {subject.type === "chapter" && (
-                  <UsersRound
-                    className="text-muted-foreground"
-                    size={18}
-                    aria-label={t("wiki.share_chapter")}
-                  />
-                )}
-              </Button>
-            ))
-          ) : (
-            <p className="px-5 py-4 text-sm text-muted-foreground">
-              {t("wiki.share_no_candidates")}
-            </p>
-          )}
+                  {subject.type === "chapter" && (
+                    <Icons
+                      name="UsersRound"
+                      className="text-muted"
+                      size={18}
+                      aria-label={t("wiki.share_chapter")}
+                    />
+                  )}
+                </Button>
+              ))
+            ) : (
+              <p className="px-5 py-4 text-sm text-muted">{t("wiki.share_no_candidates")}</p>
+            )}
+          </div>
         </div>
-      </MotionPresence>
+      ) : null}
     </div>
   );
 }

@@ -19,13 +19,13 @@ vi.mock("react-router", () => ({
   ),
 }));
 
-vi.mock("~/components/ui/dialog", () => ({
+vi.mock("@gdgjp/ui", () => ({
   Dialog: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
     open ? <div data-slot="dialog">{children}</div> : null,
   DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
-  DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Inline: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 import { TagDialog } from "./TagDialog";

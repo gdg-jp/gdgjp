@@ -1,10 +1,10 @@
-import { ExternalLink, FileText, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import TagChip from "~/features/pages/components/TagChip";
 import type { TocItem } from "~/features/pages/components/WikiRightSidebar";
 import { timeAgo } from "~/lib/time";
 
+import { Icons } from "@gdgjp/ui";
 type WikiPageSlice = {
   updatedAt: Date | string | number | null;
   translationStatusJa: string;
@@ -58,24 +58,25 @@ export function MobileContentsSheet({
     <>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop closes via pointer; Escape handled by window keydown */}
       <div
-        className="fixed inset-0 top-14 z-40 bg-content-primary/40 md:hidden"
+        className="fixed inset-0 top-14 z-40 bg-foreground/40 md:hidden"
         onClick={onClose}
         aria-hidden="true"
       />
       <div
         ref={sheetRef}
         tabIndex={-1}
-        className="fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-xl bg-surface-raised shadow-xl md:hidden"
+        // gdg-ui-allow: literal-color — app-specific-layout-or-token
+        className="fixed bottom-0 left-0 right-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-xl bg-surface shadow-xl md:hidden"
       >
-        <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
-          <p className="font-semibold text-content-primary">{t("wiki.contents")}</p>
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <p className="font-semibold text-foreground">{t("wiki.contents")}</p>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-content-disabled hover:bg-surface-hover hover:text-content-secondary"
+            className="rounded-md p-1 text-muted/70 hover:bg-neutral hover:text-muted"
             aria-label={t("common:close")}
           >
-            <X size={18} />
+            <Icons name="X" size={18} />
           </button>
         </div>
 
@@ -83,7 +84,7 @@ export function MobileContentsSheet({
           {/* TOC */}
           {tocItems.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-disabled">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted/70">
                 {t("wiki.on_this_page")}
               </p>
               <nav aria-label={t("tableOfContents")}>
@@ -96,7 +97,7 @@ export function MobileContentsSheet({
                       <a
                         href={`#${item.id}`}
                         onClick={onClose}
-                        className="block truncate py-1 text-sm text-content-secondary hover:text-content-primary"
+                        className="block truncate py-1 text-sm text-muted hover:text-foreground"
                       >
                         {item.text}
                       </a>
@@ -110,7 +111,7 @@ export function MobileContentsSheet({
           {/* Tags */}
           {tags.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-disabled">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted/70">
                 {t("wiki.tags")}
               </p>
               <div className="flex flex-wrap gap-1">
@@ -132,10 +133,10 @@ export function MobileContentsSheet({
           {/* Last edited */}
           {page.updatedAt && (
             <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-content-disabled">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted/70">
                 {t("wiki.last_edited_by")}
               </p>
-              <p className="text-xs text-content-tertiary">
+              <p className="text-xs text-muted">
                 {editor ? `${editor.name}, ` : ""}
                 {timeAgo(new Date(page.updatedAt as unknown as string), t)}
               </p>
@@ -144,7 +145,9 @@ export function MobileContentsSheet({
 
           {/* Translation status */}
           {(lang === "en" ? page.translationStatusEn : page.translationStatusJa) === "ai" && (
-            <span className="inline-flex items-center rounded-full bg-feedback-warning-surface px-2 py-0.5 text-xs font-medium text-feedback-warning-foreground">
+            <span // gdg-ui-allow: literal-color — app-specific-layout-or-token
+              className="inline-flex items-center rounded-full bg-[var(--gdg-warning-surface)] px-2 py-0.5 text-xs font-medium text-warning"
+            >
               {t("wiki.auto_translated")}
             </span>
           )}
@@ -152,7 +155,7 @@ export function MobileContentsSheet({
           {/* Sources (URLs, PDFs, and image attachments) */}
           {((sources && sources.length > 0) || (attachments && attachments.length > 0)) && (
             <div>
-              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-content-disabled">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted/70">
                 {t("wiki.sources")}
               </p>
               {sources && sources.length > 0 && (
@@ -167,7 +170,7 @@ export function MobileContentsSheet({
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs text-action-primary hover:underline"
+                          className="flex items-center gap-1.5 text-xs text-link hover:underline"
                         >
                           {isDoc && (
                             <svg
@@ -213,9 +216,9 @@ export function MobileContentsSheet({
                               />
                             </svg>
                           )}
-                          {isPdf && <FileText className="h-3 w-3 flex-shrink-0" />}
+                          {isPdf && <Icons name="FileText" className="h-3 w-3 flex-shrink-0" />}
                           {!isDoc && !isSlide && !isPdf && (
-                            <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                            <Icons name="ExternalLink" className="h-3 w-3 flex-shrink-0" />
                           )}
                           <span className="truncate">{sourceTitle}</span>
                         </a>
@@ -237,7 +240,7 @@ export function MobileContentsSheet({
                       <img
                         src={`/api/images/${r2Key}`}
                         alt={fileName}
-                        className="h-12 w-12 rounded border border-border-default object-cover"
+                        className="h-12 w-12 rounded border border-border object-cover"
                       />
                     </a>
                   ))}

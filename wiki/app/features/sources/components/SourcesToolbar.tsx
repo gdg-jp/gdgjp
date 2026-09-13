@@ -1,13 +1,7 @@
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@gdgjp/ui";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
 import {
   ACTIVE_SOURCE_STATUSES,
   type SourceListView,
@@ -48,30 +42,30 @@ export default function SourcesToolbar({ sources }: SourcesToolbarProps) {
 
   return (
     <div className="mb-4 space-y-3">
-      <div className="inline-flex rounded-md border border-border-default bg-surface-raised p-0.5">
+      <div className="inline-flex rounded-md border border-border bg-surface p-0.5">
         <button
           type="button"
           onClick={() => setView("active")}
           className={`rounded px-3 py-1.5 text-sm font-medium ${
             filters.view === "active"
-              ? "bg-surface-sunken text-content-primary"
-              : "text-content-secondary hover:text-content-primary"
+              ? "bg-neutral text-foreground"
+              : "text-muted hover:text-foreground"
           }`}
         >
           {t("sources.view_active")}
-          <span className="ml-1.5 text-xs text-content-tertiary">{counts.active}</span>
+          <span className="ml-1.5 text-xs text-muted">{counts.active}</span>
         </button>
         <button
           type="button"
           onClick={() => setView("archived")}
           className={`rounded px-3 py-1.5 text-sm font-medium ${
             filters.view === "archived"
-              ? "bg-surface-sunken text-content-primary"
-              : "text-content-secondary hover:text-content-primary"
+              ? "bg-neutral text-foreground"
+              : "text-muted hover:text-foreground"
           }`}
         >
           {t("sources.view_archived")}
-          <span className="ml-1.5 text-xs text-content-tertiary">{counts.archived}</span>
+          <span className="ml-1.5 text-xs text-muted">{counts.archived}</span>
         </button>
       </div>
 
@@ -82,7 +76,7 @@ export default function SourcesToolbar({ sources }: SourcesToolbarProps) {
           onChange={(event) => patchParams({ q: event.target.value || null })}
           placeholder={t("sources.search_placeholder")}
           aria-label={t("sources.search_placeholder")}
-          className="w-full rounded-md border border-border-strong bg-surface-raised px-3 py-2 text-sm text-content-primary placeholder:text-content-tertiary sm:max-w-xs"
+          className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted sm:max-w-xs"
         />
 
         <Select
@@ -92,7 +86,7 @@ export default function SourcesToolbar({ sources }: SourcesToolbarProps) {
           }
         >
           <SelectTrigger
-            className="w-full bg-surface-raised sm:w-48"
+            className="w-full bg-surface sm:w-48"
             aria-label={t("sources.filter_kind")}
           >
             <SelectValue placeholder={t("sources.filter_kind")} />
@@ -115,7 +109,7 @@ export default function SourcesToolbar({ sources }: SourcesToolbarProps) {
             }
           >
             <SelectTrigger
-              className="w-full bg-surface-raised sm:w-40"
+              className="w-full bg-surface sm:w-40"
               aria-label={t("sources.filter_status")}
             >
               <SelectValue placeholder={t("sources.filter_status")} />

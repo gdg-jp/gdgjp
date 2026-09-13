@@ -27,12 +27,12 @@ export default function SourceList({
   const { t } = useTranslation();
 
   if (sources.length === 0) {
-    return <p className="text-sm text-content-tertiary">{emptyMessage}</p>;
+    return <p className="text-sm text-muted">{emptyMessage}</p>;
   }
 
   return (
     <ul
-      className="overflow-hidden rounded-lg border border-border-default bg-surface-raised"
+      className="overflow-hidden rounded-lg border border-border bg-surface"
       aria-label={t("sources.title")}
     >
       {sources.map((source) => (

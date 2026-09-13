@@ -1,5 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
-import { RotateCcw, Trash2 } from "lucide-react";
+
 import { Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, useFetcher, useLoaderData } from "react-router";
@@ -13,6 +13,7 @@ import { requireUser } from "~/features/auth/utils.server";
 import { getDb } from "~/lib/db.server";
 import { timeAgo } from "~/lib/time";
 
+import { Icons } from "@gdgjp/ui";
 export const meta: MetaFunction = () => [{ title: "Archived — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------
@@ -132,11 +133,9 @@ function ArchivedRow({
   return (
     <li className="flex items-center justify-between gap-4 px-4 py-3">
       <div className="min-w-0">
-        <span className="block truncate font-medium text-content-primary">{title}</span>
+        <span className="block truncate font-medium text-foreground">{title}</span>
         {page.updatedAt && (
-          <time className="text-xs text-content-disabled">
-            {timeAgo(new Date(page.updatedAt), t)}
-          </time>
+          <time className="text-xs text-muted/70">{timeAgo(new Date(page.updatedAt), t)}</time>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-1">
@@ -148,9 +147,10 @@ function ArchivedRow({
               name="intent"
               value="restorePage"
               disabled={isActing || !canRestore}
-              className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-content-tertiary hover:bg-feedback-success-surface hover:text-feedback-success-foreground disabled:opacity-50"
+              // gdg-ui-allow: literal-color — app-specific-layout-or-token
+              className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-[var(--gdg-success-surface)] hover:text-success disabled:opacity-50"
             >
-              <RotateCcw size={13} />
+              <Icons name="RotateCcw" size={13} />
               {t("archived.restore")}
             </button>
           </Tooltip>
@@ -160,9 +160,10 @@ function ArchivedRow({
             type="button"
             disabled={isActing || !canDelete}
             onClick={canDelete ? () => setDeleteDialogOpen(true) : undefined}
-            className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-feedback-danger-foreground hover:bg-feedback-danger-surface hover:text-feedback-danger-foreground disabled:opacity-50"
+            // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-danger hover:bg-[var(--gdg-danger-surface)] hover:text-danger disabled:opacity-50"
           >
-            <Trash2 size={13} />
+            <Icons name="Trash2" size={13} />
             {t("archived.delete")}
           </button>
         </Tooltip>
@@ -190,29 +191,21 @@ export default function ArchivedPage() {
 
   return (
     <div className="px-4 py-6 md:px-8 md:py-8">
-      <h1 className="mb-2 text-2xl font-bold text-content-primary">{t("archived.title")}</h1>
+      <h1 className="mb-2 text-2xl font-bold text-foreground">{t("archived.title")}</h1>
 
-      {!isLead && (
-        <p className="mb-6 text-sm text-content-tertiary">{t("archived.own_pages_note")}</p>
-      )}
-      {isLead && (
-        <p className="mb-6 text-sm text-content-tertiary">{t("archived.all_pages_note")}</p>
-      )}
+      {!isLead && <p className="mb-6 text-sm text-muted">{t("archived.own_pages_note")}</p>}
+      {isLead && <p className="mb-6 text-sm text-muted">{t("archived.all_pages_note")}</p>}
 
       <Suspense fallback={<CardGridSkeleton count={4} />}>
         <Await
           resolve={pages}
-          errorElement={
-            <p className="text-sm text-feedback-danger-foreground">
-              Failed to load archived pages.
-            </p>
-          }
+          errorElement={<p className="text-sm text-danger">Failed to load archived pages.</p>}
         >
           {(resolvedPages) =>
             resolvedPages.length === 0 ? (
-              <p className="text-sm text-content-disabled">{t("archived.empty")}</p>
+              <p className="text-sm text-muted/70">{t("archived.empty")}</p>
             ) : (
-              <ul className="divide-y divide-border-subtle rounded-lg border border-border-default bg-surface-raised">
+              <ul className="divide-y divide-border-border rounded-lg border border-border bg-surface">
                 {resolvedPages.map((page) => (
                   <ArchivedRow
                     key={page.id}

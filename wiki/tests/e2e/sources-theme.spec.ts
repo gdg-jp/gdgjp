@@ -1,7 +1,7 @@
 import { expect, test } from "./fixtures";
 
 test("Google Chat reauthorization warning uses dark-mode warning tokens", async ({ adminPage }) => {
-  await adminPage.addInitScript(() => localStorage.setItem("theme", "dark"));
+  await adminPage.addInitScript(() => localStorage.setItem("gdg-apps-theme", "dark"));
   await adminPage.route("**/api/google-chat/spaces", async (route) => {
     await route.fulfill({
       status: 403,
@@ -18,8 +18,8 @@ test("Google Chat reauthorization warning uses dark-mode warning tokens", async 
   await expect(warningText).toBeVisible();
   const warning = warningText.locator("..");
 
-  await expect(warning).toHaveClass(/bg-feedback-warning-surface/);
-  await expect(warning).toHaveClass(/text-feedback-warning-foreground/);
+  await expect(warning).toHaveClass(/bg-\[var\(--gdg-warning-surface\)\]/);
+  await expect(warning).toHaveClass(/text-warning/);
   await expect
     .poll(() =>
       warning.evaluate((element) => {

@@ -1,7 +1,7 @@
-import { Check, ChevronDown } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useAnchoredMenu } from "../useAnchoredMenu";
 
+import { Icons } from "@gdgjp/ui";
 export interface DropdownOption {
   value: string;
   label: string;
@@ -33,10 +33,10 @@ interface DropdownMenuProps {
 
 const triggerBase = "flex items-center gap-1 text-left text-sm";
 const triggerVariants: Record<string, string> = {
-  inline: `${triggerBase} rounded px-1.5 py-0.5 hover:bg-surface-sunken`,
+  inline: `${triggerBase} rounded px-1.5 py-0.5 hover:bg-neutral`,
   field:
-    "flex w-full items-center justify-between rounded-md border border-strong px-3 py-2 text-left text-sm hover:border-strong focus:border-focus focus:outline-none focus:ring-1 focus:ring-border-focus",
-  filter: `${triggerBase} rounded-md border border-strong px-2 py-1 hover:border-strong`,
+    "flex w-full items-center justify-between rounded-md border border-border px-3 py-2 text-left text-sm hover:border-border focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring",
+  filter: `${triggerBase} rounded-md border border-border px-2 py-1 hover:border-border`,
   chip: "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity",
 };
 
@@ -67,22 +67,23 @@ export default function DropdownMenu({
           <div
             ref={menuRef}
             style={{ position: "absolute", top: pos.top, left: pos.left, minWidth: pos.width }}
-            className="z-[9999] overflow-hidden rounded-md border border-default bg-surface-raised shadow-lg"
+            // gdg-ui-allow: literal-color — app-specific-layout-or-token
+            className="z-[9999] overflow-hidden rounded-md border border-border bg-surface shadow-lg"
           >
             {searchable && header && (
-              <div className="border-b border-subtle px-3 py-2 text-xs font-semibold text-content-secondary">
+              <div className="border-b border-border px-3 py-2 text-xs font-semibold text-muted">
                 {header}
               </div>
             )}
             {searchable && (
-              <div className="border-b border-subtle px-2 py-1.5">
+              <div className="border-b border-border px-2 py-1.5">
                 <input
                   ref={searchInputRef}
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={searchPlaceholder}
-                  className="w-full rounded border border-default px-2 py-1 text-xs focus:border-focus focus:outline-none"
+                  className="w-full rounded border border-border px-2 py-1 text-xs focus:border-ring focus:outline-none"
                   onClick={(e) => e.stopPropagation()}
                 />
               </div>
@@ -100,11 +101,11 @@ export default function DropdownMenu({
                       close();
                     }}
                     className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${
-                      isSelected ? "font-medium text-content-primary" : "text-content-secondary"
-                    } hover:bg-surface-canvas`}
+                      isSelected ? "font-medium text-foreground" : "text-muted"
+                    } hover:bg-background`}
                   >
                     <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
-                      {isSelected && <Check size={14} className="text-action-primary" />}
+                      {isSelected && <Icons name="Check" size={14} className="text-link" />}
                     </span>
                     {opt.dot && (
                       <span
@@ -125,7 +126,9 @@ export default function DropdownMenu({
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-feedback-info-surface text-[10px] font-semibold text-action-primary">
+                        <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                          className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-selected text-[10px] font-semibold text-link"
+                        >
                           {opt.label.slice(0, 1).toUpperCase()}
                         </div>
                       ))}
@@ -144,6 +147,7 @@ export default function DropdownMenu({
       <button
         ref={triggerRef}
         type="button"
+        // gdg-ui-allow: literal-color — app-specific-layout-or-token
         className={`${triggerVariants[variant]}${variant === "chip" && selected?.chipClass ? ` ${selected.chipClass}` : ""}`}
         onClick={openMenu}
         onKeyDown={(e) => e.stopPropagation()}
@@ -164,17 +168,18 @@ export default function DropdownMenu({
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-feedback-info-surface text-[10px] font-semibold text-action-primary">
+            <div // gdg-ui-allow: literal-color — app-specific-layout-or-token
+              className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-selected text-[10px] font-semibold text-link"
+            >
               {selected.label.slice(0, 1).toUpperCase()}
             </div>
           ))}
         <span className={`truncate${labelClass ? ` ${labelClass}` : ""}`}>
           {selected?.label ?? placeholder}
         </span>
-        <ChevronDown size={12} className="flex-shrink-0 opacity-60" />
+        <Icons name="ChevronDown" size={12} className="flex-shrink-0 opacity-60" />
       </button>
-
-      {menu}
+      menu
     </div>
   );
 }

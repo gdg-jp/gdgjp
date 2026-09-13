@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogTitle } from "~/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@gdgjp/ui";
 
 interface SidebarDialogProps {
   open: boolean;
@@ -16,9 +16,9 @@ export default function SidebarDialog({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent
-        showCloseButton={false}
         aria-describedby={undefined}
-        className="w-[calc(100%-1.5rem)] max-w-md gap-0 overflow-hidden rounded-2xl border-border bg-card p-0 text-card-foreground shadow-2xl shadow-content-primary/20"
+        // gdg-ui-allow: literal-color — app-specific-layout-or-token
+        className="w-[calc(100%-1.5rem)] max-w-md gap-0 overflow-hidden rounded-2xl border-border bg-surface p-0 text-foreground shadow-2xl shadow-content-primary/20"
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
         {children}

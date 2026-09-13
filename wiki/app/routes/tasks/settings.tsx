@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { ArrowLeft } from "lucide-react";
+
 import { useTranslation } from "react-i18next";
 import { Form, Link, redirect, useLoaderData, useRevalidator } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
@@ -13,6 +13,7 @@ import { getDb } from "~/lib/db.server";
 // Meta
 // ---------------------------------------------------------------------------
 
+import { Icons } from "@gdgjp/ui";
 export const meta: MetaFunction = () => [{ title: "Task List Settings — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------
@@ -95,15 +96,15 @@ export default function TaskListSettings() {
   const revalidator = useRevalidator();
 
   const inputClass =
-    "w-full rounded-md border border-border-strong px-3 py-2 text-sm focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus";
+    "w-full rounded-md border border-border px-3 py-2 text-sm focus:border-border-ring focus:outline-none focus:ring-1 focus:ring-ring";
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <Link
         to={`/tasks/${page.slug}`}
-        className="mb-6 inline-flex items-center gap-1 text-sm text-content-tertiary hover:text-content-primary"
+        className="mb-6 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
       >
-        <ArrowLeft size={14} />
+        <Icons name="ArrowLeft" size={14} />
         {t("tasks.back_to_list")}
       </Link>
 
@@ -112,10 +113,7 @@ export default function TaskListSettings() {
       {/* Title form */}
       <Form method="post" className="mb-8 space-y-4">
         <div>
-          <label
-            htmlFor="settings-titleJa"
-            className="mb-1 block text-sm font-medium text-content-secondary"
-          >
+          <label htmlFor="settings-titleJa" className="mb-1 block text-sm font-medium text-muted">
             {t("tasks.title_ja")}
           </label>
           <input
@@ -128,10 +126,7 @@ export default function TaskListSettings() {
         </div>
 
         <div>
-          <label
-            htmlFor="settings-titleEn"
-            className="mb-1 block text-sm font-medium text-content-secondary"
-          >
+          <label htmlFor="settings-titleEn" className="mb-1 block text-sm font-medium text-muted">
             {t("tasks.title_en")}
           </label>
           <input
@@ -145,7 +140,7 @@ export default function TaskListSettings() {
 
         <button
           type="submit"
-          className="rounded-md bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           {t("tasks.save")}
         </button>

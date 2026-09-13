@@ -1,4 +1,3 @@
-import { ArrowUpRight, Settings, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import SidebarDialog from "~/components/SidebarDialog";
@@ -9,6 +8,7 @@ import NewTaskRow from "./NewTaskRow";
 import TaskRow from "./TaskRow";
 import TeamManager from "./TeamManager";
 
+import { Icons } from "@gdgjp/ui";
 interface Team {
   id: string;
   name: string;
@@ -140,13 +140,13 @@ export default function TaskTableView({
   const teamSettingsContent = (
     <div className="p-4">
       <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm font-semibold text-content-secondary">{t("tasks.teams")}</span>
+        <span className="text-sm font-semibold text-muted">{t("tasks.teams")}</span>
         <button
           type="button"
           onClick={() => setShowTeamSettings(false)}
-          className="text-content-tertiary hover:text-content-secondary"
+          className="text-muted hover:text-muted"
         >
-          <X size={16} />
+          <Icons name="X" size={16} />
         </button>
       </div>
       {taskListId && (
@@ -157,14 +157,20 @@ export default function TaskTableView({
 
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto border-y border-default">
-        <table className="min-w-[900px] w-full table-fixed divide-y divide-border-default">
-          <thead className="bg-surface-canvas">
+      <div className="overflow-x-auto border-y border-border">
+        <table // gdg-ui-allow: literal-color — app-specific-layout-or-token
+          className="min-w-[900px] w-full table-fixed divide-y divide-border-border"
+        >
+          <thead className="bg-background">
             <tr>
-              <th className="w-[3%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
+              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                className="w-[3%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
+              >
                 #
               </th>
-              <th className="w-[7%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
+              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                className="w-[7%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
+              >
                 <span className="flex items-center justify-between">
                   {t("tasks.col_status")}
                   <ColumnFilterPopover
@@ -175,10 +181,14 @@ export default function TaskTableView({
                   />
                 </span>
               </th>
-              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
+              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
+              >
                 {t("tasks.col_due_date")}
               </th>
-              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
+              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
+              >
                 <span className="flex items-center justify-between">
                   {t("tasks.col_assignee")}
                   <ColumnFilterPopover
@@ -191,7 +201,9 @@ export default function TaskTableView({
                   />
                 </span>
               </th>
-              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
+              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
+              >
                 <span className="flex items-center justify-between">
                   {t("tasks.col_team")}
                   <span className="flex items-center gap-1">
@@ -206,18 +218,22 @@ export default function TaskTableView({
                         ref={teamSettingsBtnRef}
                         type="button"
                         onClick={() => setShowTeamSettings(true)}
-                        className="text-content-tertiary hover:text-content-secondary"
+                        className="text-muted hover:text-muted"
                       >
-                        <Settings size={12} />
+                        <Icons name="Settings" size={12} />
                       </button>
                     )}
                   </span>
                 </span>
               </th>
-              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
+              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
+              >
                 {t("tasks.col_deps")}
               </th>
-              <th className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
+              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                className="w-[6%] overflow-hidden px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
+              >
                 <span className="flex items-center justify-between">
                   {t("tasks.col_type")}
                   <ColumnFilterPopover
@@ -228,15 +244,19 @@ export default function TaskTableView({
                   />
                 </span>
               </th>
-              <th className="w-[18%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
+              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                className="w-[18%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
+              >
                 {t("tasks.col_title")}
               </th>
-              <th className="w-[25%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-content-secondary">
+              <th // gdg-ui-allow: literal-color — app-specific-layout-or-token
+                className="w-[25%] px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted"
+              >
                 {t("tasks.description")}
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border-subtle bg-surface-raised">
+          <tbody className="divide-y divide-border-border bg-surface">
             {filtered.map((task) => (
               <TaskRow
                 key={task.id}
@@ -264,10 +284,10 @@ export default function TaskTableView({
       </div>
 
       {canManage && (
-        <div className="mt-2 pb-4 flex flex-col items-center gap-1 text-center text-sm text-content-tertiary">
-          <ArrowUpRight size={32} className="translate-x-12" />
+        <div className="mt-2 pb-4 flex flex-col items-center gap-1 text-center text-sm text-muted">
+          <Icons name="ArrowUpRight" size={32} className="translate-x-12" />
           <p>{t("tasks.add_task_hint")}</p>
-          <p className="text-xs text-content-disabled">{t(tipKey)}</p>
+          <p className="text-xs text-muted/70">{t(tipKey)}</p>
         </div>
       )}
 

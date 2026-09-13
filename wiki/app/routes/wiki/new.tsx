@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { MdEditor } from "md-editor-rt";
 import "md-editor-rt/lib/style.css";
-import { ArrowLeft } from "lucide-react";
+import { useTheme } from "@gdgjp/ui";
+
 import { nanoid } from "nanoid";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,13 +11,13 @@ import type { ActionFunctionArgs, MetaFunction } from "react-router";
 import * as schema from "~/db/schema";
 import { requireUser } from "~/features/auth/utils.server";
 import { generateSlug } from "~/features/ingestion/slug";
-import { useThemeMode } from "~/hooks/useThemeMode";
 import { getDb } from "~/lib/db.server";
 
 // ---------------------------------------------------------------------------
 // Meta
 // ---------------------------------------------------------------------------
 
+import { Icons } from "@gdgjp/ui";
 export const meta: MetaFunction = () => [{ title: "New Page — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------
@@ -74,7 +75,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
 export default function NewPage() {
   const { t } = useTranslation();
-  const theme = useThemeMode();
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === "dark" ? "dark" : "light";
 
   const [titleJa, setTitleJa] = useState("");
   const [titleEn, setTitleEn] = useState("");
@@ -94,15 +96,15 @@ export default function NewPage() {
       {/* ------------------------------------------------------------------ */}
       {/* Mini-header                                                          */}
       {/* ------------------------------------------------------------------ */}
-      <div className="sticky top-14 z-10 grid grid-cols-2 items-center gap-x-2 gap-y-1 border-b border-border-default bg-surface-raised px-3 py-2 shadow-sm sm:flex sm:flex-wrap sm:gap-2">
+      <div className="sticky top-14 z-10 grid grid-cols-2 items-center gap-x-2 gap-y-1 border-b border-border bg-surface px-3 py-2 shadow-sm sm:flex sm:flex-wrap sm:gap-2">
         {/* Row 1 col 1 (mobile) / inline (desktop): back + title */}
         <div className="flex min-w-0 items-center gap-1 sm:flex-1">
           <Link
             to="/"
-            className="shrink-0 rounded-md p-1.5 text-content-tertiary hover:bg-surface-hover hover:text-content-primary"
+            className="shrink-0 rounded-md p-1.5 text-muted hover:bg-neutral hover:text-foreground"
             aria-label={t("editor.back_to_page")}
           >
-            <ArrowLeft size={18} />
+            <Icons name="ArrowLeft" size={18} />
           </Link>
 
           {/* Title inputs — toggled by active language, both always in DOM */}
@@ -113,7 +115,7 @@ export default function NewPage() {
             placeholder={t("editor.title_ja")}
             required={isJaActive}
             aria-hidden={!isJaActive}
-            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-content-primary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-border-focus ${!isJaActive ? "hidden" : ""}`}
+            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-ring ${!isJaActive ? "hidden" : ""}`}
           />
           <input
             name="titleEn"
@@ -121,14 +123,14 @@ export default function NewPage() {
             onChange={(e) => setTitleEn(e.target.value)}
             placeholder={t("editor.title_en")}
             aria-hidden={!isEnActive}
-            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-content-primary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-border-focus ${!isEnActive ? "hidden" : ""}`}
+            className={`min-w-0 flex-1 rounded bg-transparent px-2 py-1 text-base font-medium text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-ring ${!isEnActive ? "hidden" : ""}`}
           />
         </div>
 
         {/* Row 1 col 2 (mobile) / inline (desktop): lang switcher + actions */}
         <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-auto">
           {/* Language switcher */}
-          <div className="flex shrink-0 overflow-hidden rounded-md border border-border-default">
+          <div className="flex shrink-0 overflow-hidden rounded-md border border-border">
             {(["ja", "en"] as const).map((lang) => (
               <button
                 key={lang}
@@ -136,8 +138,8 @@ export default function NewPage() {
                 onClick={() => setActiveLang(lang)}
                 className={`px-3 py-1 text-sm font-medium transition-colors ${
                   activeLang === lang
-                    ? "bg-action-primary text-action-primary-foreground hover:bg-action-primary-hover"
-                    : "bg-surface-raised text-content-tertiary hover:bg-surface-hover hover:text-content-primary"
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-surface text-muted hover:bg-neutral hover:text-foreground"
                 }`}
               >
                 {lang === "ja" ? t("language.ja") : t("language.en")}
@@ -147,7 +149,7 @@ export default function NewPage() {
 
           <button
             type="submit"
-            className="shrink-0 rounded-lg bg-action-primary px-3 py-1.5 text-sm font-medium text-action-primary-foreground hover:bg-action-primary-hover focus:outline-none focus:ring-2 focus:ring-border-focus"
+            className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring"
           >
             {t("editor.publish")} ↗
           </button>

@@ -14,10 +14,10 @@ export function CtaBannerSection({ ctaSlot }: { ctaSlot: React.ReactNode }) {
             "0 24px 64px color-mix(in srgb, var(--color-brand-google-blue) 30%, transparent)",
         }}
       >
-        <h2 className="mb-3 text-3xl font-bold text-content-inverse sm:text-4xl">
+        <h2 className="mb-3 text-3xl font-bold text-primary-foreground sm:text-4xl">
           {t("lp.cta_title")}
         </h2>
-        <p className="mx-auto mb-10 max-w-md text-base text-content-inverse/80">
+        <p className="mx-auto mb-10 max-w-md text-base text-primary-foreground/80">
           {t("lp.cta_subtitle")}
         </p>
         {ctaSlot}

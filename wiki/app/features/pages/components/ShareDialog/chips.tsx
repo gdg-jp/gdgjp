@@ -1,11 +1,11 @@
-import { X } from "lucide-react";
+import { IconButton } from "@gdgjp/ui";
+
 import { useEffect, useRef, useState } from "react";
-import { Button } from "~/components/ui/button";
-import { MotionPresence } from "~/components/ui/motion";
 import { Avatar } from "./avatar";
 import { subjectKey } from "./normalize";
 import { CHIP_EXIT_DURATION_MS, type ShareSubject } from "./types";
 
+import { Icons } from "@gdgjp/ui";
 function SelectedChip({
   subject,
   present,
@@ -29,29 +29,18 @@ function SelectedChip({
   }, [present, subject]);
 
   return (
-    <MotionPresence
-      as="span"
-      present={present}
-      distance={0}
-      enterDuration={240}
-      exitDuration={CHIP_EXIT_DURATION_MS}
-      reducedDuration={180}
-      reducedOpacity={0}
-      scale={0.92}
-      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-secondary py-0.5 pl-0.5 pr-1.5 text-sm text-secondary-foreground"
-    >
+    <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-secondary py-0.5 pl-0.5 pr-1.5 text-sm text-secondary-foreground">
       <Avatar subject={subject} size="h-8 w-8" />
       <span className="max-w-48 truncate">{subject.label}</span>
-      <Button
+      <IconButton
         variant="ghost"
-        size="icon-sm"
         onClick={() => onRemove(subject)}
         className="rounded-full"
         aria-label={removeLabel}
       >
-        <X size={16} />
-      </Button>
-    </MotionPresence>
+        <Icons name="X" size={16} />
+      </IconButton>
+    </span>
   );
 }
 

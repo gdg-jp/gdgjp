@@ -1,9 +1,9 @@
 import EmojiPicker, { Emoji, EmojiStyle, type EmojiClickData } from "emoji-picker-react";
-import { Smile } from "lucide-react";
+
 import { useEffect, useRef, useState } from "react";
-import { MotionPresence } from "~/components/ui/motion";
 
 /** Convert a raw emoji character to the unified hex string expected by the Emoji component. */
+import { Icons } from "@gdgjp/ui";
 function toUnified(emoji: string): string {
   return [...emoji].map((c) => (c.codePointAt(0) ?? 0).toString(16)).join("-");
 }
@@ -61,9 +61,7 @@ export default function EmojiReactionBar({
           disabled={readOnly}
           className={[
             "flex items-center gap-1 rounded-full px-2 py-0.5 text-sm transition-colors",
-            r.reactedByMe
-              ? "reaction-active hover:brightness-95"
-              : "bg-surface-sunken hover:bg-surface-hover",
+            r.reactedByMe ? "reaction-active hover:brightness-95" : "bg-neutral hover:bg-neutral",
             readOnly ? "cursor-default" : "",
           ].join(" ")}
         >
@@ -71,7 +69,7 @@ export default function EmojiReactionBar({
           <span
             className={[
               "text-xs font-medium",
-              r.reactedByMe ? "reaction-count" : "text-content-secondary",
+              r.reactedByMe ? "reaction-count" : "text-muted",
             ].join(" ")}
           >
             {r.count}
@@ -84,24 +82,15 @@ export default function EmojiReactionBar({
           ref={triggerRef}
           type="button"
           onClick={() => setPickerOpen((v) => !v)}
-          className="rounded-full border border-default bg-surface-raised p-1 text-content-secondary hover:bg-surface-canvas hover:text-content-secondary"
+          className="rounded-full border border-border bg-surface p-1 text-muted hover:bg-background hover:text-muted"
           aria-label="Add reaction"
         >
-          <Smile size={15} />
+          <Icons name="Smile" size={15} />
         </button>
       )}
 
-      {!readOnly && (
-        <MotionPresence
-          present={pickerOpen}
-          distance={4}
-          scale={0.98}
-          transformOrigin="bottom left"
-          enterDuration={200}
-          exitDuration={140}
-          reducedOpacity={0.85}
-          className="absolute bottom-full left-0 z-50 mb-1"
-        >
+      {!readOnly && pickerOpen ? (
+        <div className="absolute bottom-full left-0 z-50 mb-1">
           <div ref={pickerRef}>
             <EmojiPicker
               onEmojiClick={handlePickerSelect}
@@ -110,8 +99,8 @@ export default function EmojiReactionBar({
               width={300}
             />
           </div>
-        </MotionPresence>
-      )}
+        </div>
+      ) : null}
     </div>
   );
 }

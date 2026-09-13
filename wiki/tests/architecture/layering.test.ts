@@ -77,7 +77,6 @@ const WORKER_INTERNALS_IMPORT_ALLOWLIST = new Set([
 
 const LIB_ALLOWED_FILES = new Set([
   "db.server.ts",
-  "utils.ts",
   "time.ts",
   "color-utils.ts",
   "url-extract.ts",
@@ -96,7 +95,6 @@ const COMPONENTS_SHELL_FILES = new Set([
   "BaseSidebar.tsx",
   "SidebarDialog.tsx",
   "SidebarPopover.tsx",
-  "Toast.tsx",
   "Tooltip.tsx",
   "ConfirmDialog.tsx",
   "Skeleton.tsx",
@@ -142,14 +140,14 @@ describe("layering", () => {
     expect(actual).toEqual(expected);
   });
 
-  it("app/components/ top level is exactly the app-shell files, with ui/ as the only subdir", () => {
+  it("app/components/ top level is exactly the app-shell files", () => {
     // Everything with a domain lives in app/features/<domain>/components/; the
     // shell is the shared chrome that every route renders. Exact match in both
     // directions — a missing shell file is as much a drift as an extra one.
     const actualFiles = directFileNames("app/components").sort();
     const expectedFiles = [...COMPONENTS_SHELL_FILES].sort();
     const subdirs = directSubdirs("app/components").sort();
-    expect({ actualFiles, subdirs }).toEqual({ actualFiles: expectedFiles, subdirs: ["ui"] });
+    expect({ actualFiles, subdirs }).toEqual({ actualFiles: expectedFiles, subdirs: [] });
   });
 
   it("app/features/** does not import from app/routes/", () => {
