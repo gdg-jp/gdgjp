@@ -11,7 +11,10 @@
     "archived": "Archived",
     "sources": "Sources",
     "close_sidebar": "Close Sidebar",
-    "open_sidebar": "Open Sidebar"
+    "open_sidebar": "Open Sidebar",
+    "navigation": "Navigation",
+    "navigation_description": "Choose a Wiki destination.",
+    "skip_to_content": "Skip to content"
   },
   "language": {
     "ja": "日本語",

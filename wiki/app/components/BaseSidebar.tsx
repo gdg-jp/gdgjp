@@ -1,10 +1,11 @@
-import { Sheet, SheetContent, SheetTitle } from "@gdgjp/ui";
+import { Sheet, SheetContent, SheetDescription, SheetTitle, Sidebar as UiSidebar } from "@gdgjp/ui";
 import { useRef } from "react";
 
 interface BaseSidebarProps {
   isOpen: boolean;
   isMobile: boolean;
   onClose?: () => void;
+  navigationDescription: string;
   children: (props: { isCollapsed: boolean }) => React.ReactNode;
 }
 
@@ -12,7 +13,13 @@ interface BaseSidebarProps {
  * Wiki navigation uses the shared Sheet surface and a fixed-width desktop
  * sidebar. Width dragging is intentionally removed for the GDG Apps shell.
  */
-export default function BaseSidebar({ isOpen, isMobile, onClose, children }: BaseSidebarProps) {
+export default function BaseSidebar({
+  isOpen,
+  isMobile,
+  onClose,
+  navigationDescription,
+  children,
+}: BaseSidebarProps) {
   const mobileTriggerRef = useRef<HTMLElement | null>(null);
 
   if (isMobile) {
@@ -20,7 +27,6 @@ export default function BaseSidebar({ isOpen, isMobile, onClose, children }: Bas
       <Sheet open={isOpen} onOpenChange={(nextOpen) => !nextOpen && onClose?.()}>
         <SheetContent
           side="left"
-          aria-describedby={undefined}
           className="bottom-0 top-14 w-60 bg-surface text-foreground"
           onOpenAutoFocus={() => {
             if (document.activeElement instanceof HTMLElement) {
@@ -33,6 +39,7 @@ export default function BaseSidebar({ isOpen, isMobile, onClose, children }: Bas
           }}
         >
           <SheetTitle className="gdg-sr-only">Navigation</SheetTitle>
+          <SheetDescription className="gdg-sr-only">{navigationDescription}</SheetDescription>
           {children({ isCollapsed: false })}
         </SheetContent>
       </Sheet>
@@ -41,14 +48,13 @@ export default function BaseSidebar({ isOpen, isMobile, onClose, children }: Bas
 
   return (
     <>
-      <aside
+      <UiSidebar
         aria-hidden={!isOpen}
-        className={`fixed bottom-0 left-0 top-14 w-60 overflow-hidden bg-surface transition-transform motion-reduce:transition-none ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        collapsible="offcanvas"
+        className="fixed bottom-0 left-0 top-14 h-[calc(100dvh-3.5rem)] min-h-0 p-0"
       >
         {children({ isCollapsed: false })}
-      </aside>
+      </UiSidebar>
       <div aria-hidden="true" className={`shrink-0 ${isOpen ? "w-60" : "w-0"}`} />
     </>
   );

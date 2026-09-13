@@ -1,3 +1,4 @@
+import { SidebarProvider } from "@gdgjp/ui";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -100,7 +101,7 @@ export default function AppLayout() {
   const params = useParams();
   // Prefer :slug (edit/history/tasks); fall back to leaf of wiki splat path (/wiki/*).
   const currentSlug = params.slug ?? params["*"]?.split("/").filter(Boolean).at(-1);
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const revalidator = useRevalidator();
@@ -112,6 +113,23 @@ export default function AppLayout() {
   const [googleDocumentImportOpen, setGoogleDocumentImportOpen] = useState(false);
   const [zipImportOpen, setZipImportOpen] = useState(false);
   const importProgressRef = useRef("");
+
+  useEffect(() => {
+    try {
+      const persisted = localStorage.getItem("gdg-sidebar-open");
+      if (persisted !== null) setDesktopOpen(persisted === "true");
+    } catch {
+      // Storage can be disabled by privacy settings; the in-memory default remains usable.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("gdg-sidebar-open", String(desktopOpen));
+    } catch {
+      // Persistence is optional; never let unavailable storage break the shell.
+    }
+  }, [desktopOpen]);
 
   useEffect(() => {
     const storageKey = "gdg-google-document-import-jobs";
@@ -230,7 +248,10 @@ export default function AppLayout() {
   } as const;
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <SidebarProvider open={desktopOpen} onOpenChange={setDesktopOpen} className="flex-col">
+      <a className="gdg-skip-link" href="#wiki-main">
+        {t("nav.skip_to_content")}
+      </a>
       <NavigationProgress />
       <Navbar
         user={user}
@@ -253,7 +274,7 @@ export default function AppLayout() {
 
         {/* Main content */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <main className="flex-1">
+          <main id="wiki-main" tabIndex={-1} className="flex-1">
             <Outlet />
           </main>
           <Footer />
@@ -335,6 +356,6 @@ export default function AppLayout() {
             />
           </SidebarPopover>
         ))}
-    </div>
+    </SidebarProvider>
   );
 }

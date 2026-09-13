@@ -1,3 +1,4 @@
+import { SidebarMenuButton, SidebarMenuItem } from "@gdgjp/ui";
 import { Link } from "react-router";
 
 interface NavItemProps {
@@ -15,16 +16,20 @@ interface NavItemProps {
  */
 export function NavItem({ to, icon, label, isCollapsed, isActive }: NavItemProps) {
   return (
-    <Link
-      to={to}
-      prefetch="intent"
-      title={isCollapsed ? label : undefined}
-      className={`flex min-h-8 items-center gap-2 rounded px-2 py-1.5 text-sm ${
-        isActive ? "bg-selected font-medium text-link" : "text-muted hover:bg-neutral"
-      }`}
-    >
-      <span className="flex-shrink-0">{icon}</span>
-      {!isCollapsed && <span className="truncate">{label}</span>}
-    </Link>
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild isActive={isActive}>
+        <Link
+          to={to}
+          prefetch="intent"
+          title={isCollapsed ? label : undefined}
+          aria-current={isActive ? "page" : undefined}
+        >
+          <span className="shrink-0" aria-hidden="true">
+            {icon}
+          </span>
+          {!isCollapsed && <span className="truncate">{label}</span>}
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   );
 }

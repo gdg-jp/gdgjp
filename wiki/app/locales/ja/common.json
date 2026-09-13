@@ -11,7 +11,10 @@
     "archived": "アーカイブ済み",
     "sources": "ソース",
     "close_sidebar": "サイドバーを閉じる",
-    "open_sidebar": "サイドバーを開く"
+    "open_sidebar": "サイドバーを開く",
+    "navigation": "ナビゲーション",
+    "navigation_description": "Wiki の移動先を選択します。",
+    "skip_to_content": "本文へ移動"
   },
   "language": {
     "ja": "日本語",

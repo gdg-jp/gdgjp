@@ -1,3 +1,4 @@
+import { Card, EmptyState, Heading, PageHeader, Text } from "@gdgjp/ui";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { Suspense } from "react";
 import { useTranslation } from "react-i18next";
@@ -161,70 +162,72 @@ export default function Index() {
     const isJa = i18n.language !== "en";
     return (
       <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8 md:py-10">
-        <section aria-labelledby="public-pages-heading">
-          <div className="mb-8 max-w-2xl">
-            <h1
-              id="public-pages-heading"
-              className="text-2xl font-bold tracking-tight text-foreground md:text-3xl"
-            >
-              {t("public_pages.title")}
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-muted md:text-base">
-              {t("public_pages.description")}
-            </p>
-          </div>
+        <section aria-label={t("public_pages.title")}>
+          <PageHeader
+            title={t("public_pages.title")}
+            description={t("public_pages.description")}
+            className="mb-8 max-w-2xl"
+          />
 
-          <Suspense fallback={<CardGridSkeleton count={6} />}>
-            <Await
-              resolve={data.publicPages}
-              errorElement={
-                <p className="rounded-lg border border-dashed border-border px-5 py-8 text-sm text-danger">
-                  Failed to load pages.
-                </p>
+          <section aria-label={t("public_pages.title")} aria-busy="false">
+            <Suspense
+              fallback={
+                <div aria-busy="true" aria-label={t("public_pages.title")}>
+                  <CardGridSkeleton count={6} />
+                </div>
               }
             >
-              {(publicPages) =>
-                publicPages.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-border px-5 py-8 text-sm text-muted">
-                    {t("public_pages.empty")}
+              <Await
+                resolve={data.publicPages}
+                errorElement={
+                  <p className="rounded-lg border border-dashed border-border px-5 py-8 text-sm text-danger">
+                    Failed to load pages.
                   </p>
-                ) : (
-                  <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {publicPages.map((page) => {
-                      const title = isJa
-                        ? page.titleJa || page.titleEn
-                        : page.titleEn || page.titleJa;
-                      const summary = isJa
-                        ? page.summaryJa || page.summaryEn
-                        : page.summaryEn || page.summaryJa;
-                      return (
-                        <li key={page.id}>
-                          <Link
-                            to={page.wikiPath}
-                            className="group flex h-full flex-col rounded-xl border border-border bg-surface p-5 transition-colors hover:border-border-ring hover:bg-selected/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-ring"
-                          >
-                            <h2 className="line-clamp-2 font-semibold text-foreground group-hover:text-link">
-                              {title}
-                            </h2>
-                            {summary && (
-                              <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted">
-                                {summary}
-                              </p>
-                            )}
-                            {page.updatedAt && (
-                              <time className="mt-4 text-xs text-muted/70">
-                                {timeAgo(new Date(page.updatedAt), t)}
-                              </time>
-                            )}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )
-              }
-            </Await>
-          </Suspense>
+                }
+              >
+                {(publicPages) =>
+                  publicPages.length === 0 ? (
+                    <EmptyState title={t("public_pages.empty")} />
+                  ) : (
+                    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {publicPages.map((page) => {
+                        const title = isJa
+                          ? page.titleJa || page.titleEn
+                          : page.titleEn || page.titleJa;
+                        const summary = isJa
+                          ? page.summaryJa || page.summaryEn
+                          : page.summaryEn || page.summaryJa;
+                        return (
+                          <li key={page.id}>
+                            <Link
+                              to={page.wikiPath}
+                              className="group block h-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-ring"
+                            >
+                              <Card className="flex h-full flex-col p-5 transition-colors group-hover:bg-selected/40">
+                                <Heading level={2} className="line-clamp-2 group-hover:text-link">
+                                  {title}
+                                </Heading>
+                                {summary && (
+                                  <Text size="sm" tone="muted" className="mt-2 line-clamp-3">
+                                    {summary}
+                                  </Text>
+                                )}
+                                {page.updatedAt && (
+                                  <time className="mt-4 text-xs text-muted/70">
+                                    {timeAgo(new Date(page.updatedAt), t)}
+                                  </time>
+                                )}
+                              </Card>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )
+                }
+              </Await>
+            </Suspense>
+          </section>
         </section>
       </div>
     );
@@ -247,9 +250,9 @@ export default function Index() {
             <>
               {/* Section 2: Browse by Tag */}
               <section className="mb-10">
-                <h2 className="mb-4 text-lg font-semibold text-foreground">
+                <Heading level={2} className="mb-4">
                   {t("home.browse_by_tag")}
-                </h2>
+                </Heading>
 
                 {allTags.length === 0 ? (
                   <p className="text-sm text-muted/70">{t("home.no_tags_yet")}</p>
@@ -272,15 +275,18 @@ export default function Index() {
 
               {/* Section 3: Discover what's happening */}
               <section>
-                <h2 className="mb-4 text-lg font-semibold text-foreground">
+                <Heading level={2} className="mb-4">
                   {t("home.activity_heading")}
-                </h2>
+                </Heading>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   {/* Recent pages column */}
                   <div>
-                    <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted/70">
+                    <Heading
+                      level={3}
+                      className="mb-3 text-sm uppercase tracking-wide text-muted/70"
+                    >
                       {t("home.activity_pages_heading")}
-                    </h3>
+                    </Heading>
                     {recentPages.length === 0 ? (
                       <p className="text-sm text-muted/70">{t("home.no_activity_pages")}</p>
                     ) : (
@@ -308,9 +314,12 @@ export default function Index() {
 
                   {/* Recent comments column */}
                   <div>
-                    <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted/70">
+                    <Heading
+                      level={3}
+                      className="mb-3 text-sm uppercase tracking-wide text-muted/70"
+                    >
                       {t("home.activity_comments_heading")}
-                    </h3>
+                    </Heading>
                     {recentComments.length === 0 ? (
                       <p className="text-sm text-muted/70">{t("home.no_activity_comments")}</p>
                     ) : (

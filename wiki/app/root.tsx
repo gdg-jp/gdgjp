@@ -1,4 +1,4 @@
-import { Button, Icons, ThemeProvider, Toaster } from "@gdgjp/ui";
+import { Button, Heading, Icons, Stack, Text, ThemeProvider, Toaster } from "@gdgjp/ui";
 
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -150,19 +150,19 @@ export function ErrorBoundary() {
   const { t } = useTranslation();
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4">
-      <Icons name={iconName} className="w-16 h-16 text-link" strokeWidth={1.5} />
-      <div className="text-center space-y-2">
-        <p className="text-8xl font-bold text-muted/70">{status}</p>
-        <h1 className="text-2xl font-semibold">
-          {is404 ? t("error.404_title") : t("error.500_title")}
-        </h1>
-        <p className="text-muted max-w-sm">{is404 ? t("error.404_desc") : t("error.500_desc")}</p>
-      </div>
-      <Button asChild className="mt-2">
-        <a href="/">{t("error.back_home")}</a>
-      </Button>
-    </div>
+    <main id="gdg-main" className="flex min-h-screen items-center justify-center px-4">
+      <Stack align="center" className="max-w-md text-center">
+        <Icons name={iconName} className="w-16 h-16 text-link" strokeWidth={1.5} />
+        <div className="space-y-2">
+          <Text className="text-8xl font-bold text-muted/70">{status}</Text>
+          <Heading level={1}>{is404 ? t("error.404_title") : t("error.500_title")}</Heading>
+          <Text tone="muted">{is404 ? t("error.404_desc") : t("error.500_desc")}</Text>
+        </div>
+        <Button asChild>
+          <a href="/">{t("error.back_home")}</a>
+        </Button>
+      </Stack>
+    </main>
   );
 }
 

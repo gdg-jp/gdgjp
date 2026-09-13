@@ -1,8 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { useLocation } from "react-router";
-import { NavItem } from "~/components/NavItem";
+import { Link, useLocation } from "react-router";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@gdgjp/ui";
 interface AdminNavSectionProps {
   isCollapsed: boolean;
 }
@@ -25,28 +24,35 @@ export default function AdminNavSection({ isCollapsed }: AdminNavSectionProps) {
   const inAdmin = location.pathname.startsWith("/admin");
 
   return (
-    <>
-      <NavItem
-        to="/admin/pages"
-        icon={<Icons name="Settings" size={16} />}
-        label={t("admin.label")}
-        isCollapsed={isCollapsed}
-        isActive={inAdmin}
-      />
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild isActive={inAdmin}>
+        <Link
+          to="/admin/pages"
+          prefetch="intent"
+          title={isCollapsed ? t("admin.label") : undefined}
+          aria-current={inAdmin ? "page" : undefined}
+        >
+          <Icons name="Settings" size={16} aria-hidden="true" />
+          {!isCollapsed && <span className="truncate">{t("admin.label")}</span>}
+        </Link>
+      </SidebarMenuButton>
       {inAdmin && !isCollapsed && (
-        <div className="ml-4 space-y-0.5 border-l border-border pl-2">
-          {ADMIN_CHILDREN.map(({ to, labelKey, icon }) => (
-            <NavItem
-              key={to}
-              to={to}
-              icon={<Icons name={icon} size={16} />}
-              label={t(labelKey)}
-              isCollapsed={isCollapsed}
-              isActive={location.pathname.startsWith(to)}
-            />
-          ))}
-        </div>
+        <SidebarMenu className="ml-4 border-l border-border pl-2">
+          {ADMIN_CHILDREN.map(({ to, labelKey, icon }) => {
+            const isActive = location.pathname.startsWith(to);
+            return (
+              <SidebarMenuItem key={to}>
+                <SidebarMenuButton asChild isActive={isActive}>
+                  <Link to={to} prefetch="intent" aria-current={isActive ? "page" : undefined}>
+                    <Icons name={icon} size={16} aria-hidden="true" />
+                    <span className="truncate">{t(labelKey)}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
       )}
-    </>
+    </SidebarMenuItem>
   );
 }

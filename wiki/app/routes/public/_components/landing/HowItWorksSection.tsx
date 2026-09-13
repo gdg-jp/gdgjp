@@ -1,69 +1,39 @@
+import { Badge, Card, Heading, Stack, Text } from "@gdgjp/ui";
 import { useTranslation } from "react-i18next";
 import { STEPS } from "./landing-data";
 
 export function HowItWorksSection() {
   const { t } = useTranslation();
+
   return (
-    <section
-      className="px-6 py-24"
-      style={{
-        background:
-          "linear-gradient(180deg, var(--color-surface-canvas) 0%, var(--color-surface-raised) 100%)",
-      }}
-    >
+    <section className="bg-neutral px-4 py-16 sm:px-6 sm:py-24" aria-labelledby="how-title">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-16 text-center">
-          <h2 className="mb-3 text-3xl font-bold text-foreground sm:text-4xl">
+        <Stack align="center" className="mb-12 text-center">
+          <Heading id="how-title" level={2} className="text-3xl sm:text-4xl">
             {t("lp.how_title")}
-          </h2>
-          <p className="mx-auto max-w-lg text-base text-muted">{t("lp.how_subtitle")}</p>
-        </div>
-
-        <div className="relative flex flex-col gap-10 lg:flex-row lg:gap-0 lg:items-start">
-          {/* Desktop connector line */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute left-0 right-0 hidden lg:block"
-            style={{
-              top: "36px",
-              height: "2px",
-              background:
-                "linear-gradient(90deg, var(--color-brand-google-blue), var(--color-brand-google-red), var(--color-brand-google-green))",
-              opacity: 0.25,
-              zIndex: 0,
-            }}
-          />
-
+          </Heading>
+          <Text tone="muted" className="max-w-lg">
+            {t("lp.how_subtitle")}
+          </Text>
+        </Stack>
+        <ol className="grid gap-4 md:grid-cols-3">
           {STEPS.map((step) => (
-            <div
-              key={step.num}
-              className="relative z-10 flex flex-1 flex-col items-center px-4 text-center"
-            >
-              {/* Icon circle */}
-              <div
-                className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl shadow-lg"
-                style={{
-                  background: `linear-gradient(135deg, ${step.color.accent}22 0%, ${step.color.accent}44 100%)`,
-                  border: `2px solid ${step.color.accent}66`,
-                  color: step.color.accent,
-                }}
-              >
-                {step.icon}
-              </div>
-
-              {/* Step number badge */}
-              <div
-                className="mb-3 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-primary-foreground"
-                style={{ background: step.color.accent }}
-              >
-                {step.num}
-              </div>
-
-              <h3 className="mb-2 font-semibold text-foreground">{t(step.titleKey)}</h3>
-              <p className="text-sm leading-relaxed text-muted">{t(step.descKey)}</p>
-            </div>
+            <li key={step.num}>
+              <Card className="h-full p-5 text-center sm:p-6">
+                <Stack align="center">
+                  <Badge tone="info">{step.num}</Badge>
+                  <span className="text-link" aria-hidden="true">
+                    {step.icon}
+                  </span>
+                  <Heading level={3}>{t(step.titleKey)}</Heading>
+                  <Text size="sm" tone="muted">
+                    {t(step.descKey)}
+                  </Text>
+                </Stack>
+              </Card>
+            </li>
           ))}
-        </div>
+        </ol>
       </div>
     </section>
   );

@@ -202,8 +202,12 @@ export default function Navbar({
       </Link>
 
       {/* Search */}
-      <Form action="/search" method="get" className="flex flex-1 justify-center">
+      <Form action="/search" method="get" className="flex min-w-0 flex-1 justify-center">
+        <label htmlFor="wiki-search" className="gdg-sr-only">
+          {t("nav.search")}
+        </label>
         <Input
+          id="wiki-search"
           name="q"
           type="search"
           value={queryInput}
@@ -214,7 +218,7 @@ export default function Navbar({
       </Form>
 
       {/* Right actions */}
-      <div className="flex flex-shrink-0 items-center gap-3">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-3">
         {user && <NewPageDropdown onImportZip={onImportZip} />}
 
         {user && <NotificationBell initialCount={unreadNotificationCount ?? 0} />}

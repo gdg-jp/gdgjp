@@ -1,56 +1,22 @@
+import { Inline, Text, Link as UiLink } from "@gdgjp/ui";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
 export function LandingFooter() {
   const { t } = useTranslation();
   return (
-    <footer className="border-t border-border px-6 py-8 text-center">
-      <div className="mb-4 flex items-center justify-center gap-2">
-        <span
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: "var(--color-brand-google-blue)",
-            display: "inline-block",
-          }}
-        />
-        <span
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: "var(--color-brand-google-red)",
-            display: "inline-block",
-          }}
-        />
-        <span
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: "var(--color-brand-google-yellow)",
-            display: "inline-block",
-          }}
-        />
-        <span
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: "var(--color-brand-google-green)",
-            display: "inline-block",
-          }}
-        />
-      </div>
-      <div className="flex justify-center gap-6 text-sm text-muted">
-        <Link to="/privacy" className="transition-colors hover:text-link">
-          {t("footer.privacy")}
-        </Link>
-        <Link to="/terms" className="transition-colors hover:text-link">
-          {t("footer.terms")}
-        </Link>
-      </div>
+    <footer className="border-t px-4 py-8 sm:px-6">
+      <Inline className="justify-center">
+        <Text size="sm" tone="muted">
+          © {new Date().getFullYear()} GDG Japan
+        </Text>
+        <UiLink asChild>
+          <Link to="/privacy">{t("footer.privacy")}</Link>
+        </UiLink>
+        <UiLink asChild>
+          <Link to="/terms">{t("footer.terms")}</Link>
+        </UiLink>
+      </Inline>
     </footer>
   );
 }
