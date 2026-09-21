@@ -117,8 +117,15 @@ push to main で:
    `failClosed === true`、`additionalReadonlyPaths` が親を含まない、など
 5. **バックエンド能力契約**（Stage 11）— `backend.isolation` の 3 項目が満たされていること、
    **かつ `productionMinimum` を下回っていないこと**
-6. **Lima 統合テスト** — 実際に `useradd` / systemd / apparmor / sudo を動かす唯一の場所
-7. 全部グリーンなら **Ed25519 署名済みリリースを publish**
+6. **実機統合テスト**（`verify-on-fresh-host` job、2026-09-06 実装）— `ubuntu-latest`
+   runner 上で実際に `useradd` / systemd / apparmor / sudoers を収束させる唯一の場所。
+   Lima は不要（runner 自体が sudo/systemd の使える実 Ubuntu VM）。`--only` で
+   network/secret 依存の resource type（`git` / `exec` / `tarball`）を除外し、
+   `apply` → `verify` → 2 回目 `apply --dry-run` で冪等性を回帰固定する。
+   あわせて `verify-npm-token-permission-boundary` job が `NPM_READ_TOKEN` 相当の
+   スロット到達資格情報が `gdg-jp/gdgjp` へ write 権を持たないことを GitHub API で assert
+   （`CI_NPM_READ_TOKEN_TEST_COPY` secret 未設定なら skip）。
+7. 全部グリーンなら **Ed25519 署名済みリリースを publish**（`pull_request` では publish しない）
 
 #### 2 の `environment` ゲートが必要な理由
 

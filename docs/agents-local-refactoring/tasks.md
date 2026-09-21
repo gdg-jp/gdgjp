@@ -6,12 +6,17 @@
 
 ## Stage 10 — control-plane-release
 
-- [ ] Lima 上での systemd/apparmor/sudoers/useradd の実機統合テストを CI に配線する。
-      ADR-030 が「今後の課題」と明記したまま。`.github/workflows/agent-host-release.yml`
-      には現状 Lima ステップが無い。**2026-09-06 時点で調査済み**: Lima 自体は不要と判明
-      （ADR-030/032 が Lima に言及するのは著者が macOS 開発機から検証していたためで、
-      `ubuntu-latest` runner は最初から実 Ubuntu VM で sudo/systemd が使える）。実装計画を
-      `docs/plans/01-agent-host-lima-ci-and-permission-separation.md` に起票済み、レビュー待ち。
+- [x] systemd/apparmor/sudoers/useradd の実機統合テストを CI に配線する
+      （2026-09-06 実装）。Lima は不要と判明（`ubuntu-latest` runner 自体が実 Ubuntu VM で
+      sudo/systemd がそのまま使える）。`.github/workflows/agent-host-release.yml` に
+      `verify-on-fresh-host` job を追加: `--only user,group,dir,file,sudoers,tmpfiles,symlink,systemd,apparmor`
+      で network/secret 依存を切り離した `apply` → `verify` → 2 回目 `apply --dry-run`
+      で冪等性を回帰固定、sudoers `visudo -cf`（負のコントロール付き）、slot/svc ユーザーの
+      home/shell、system unit と apparmor プロファイルのロードを assert。`pull_request` トリガーを
+      足してマージ前に走らせる（`validate-and-publish` は `pull_request` では skip）。
+      実装計画 `docs/plans/01-agent-host-lima-ci-and-permission-separation.md` の Design Part 1。
+      **未実行**: 初回 PR での実機グリーン確認（特に gdgagent-svc の `--user` unit 収束と
+      apparmor プロファイルロードが CI runner で通るか）。
 - [x] リポジトリ設定変更（2026-09-06、gh CLI で確認・適用済み）:
   - branch protection — **調査の結果すでに有効だった**（ruleset `main`, id 15974538。
     PR 必須・承認 1・force-push 禁止・削除禁止。classic branch-protection API では
@@ -20,11 +25,15 @@
   - GitHub Environment protection rule — `Production` environment に
     `deployment_branch_policy: {protected_branches: true}` を設定（従来は無保護で
     どのブランチからでも deploy 可能だった）
-- [ ] 「エージェントから到達できるどの経路もリリース生成リポジトリへ push できない」という
-      不変条件を、ファイル権限だけでなく GitHub 側の権限分離（wiki transport token vs
-      monorepo write 権限）でもテスト固定する。上記と同じ実装計画ファイルの Design Part 2
-      に設計済み（`NPM_READ_TOKEN` が唯一エージェントスロットに到達する GitHub 資格情報）、
-      実装待ち。
+- [x] 「エージェントから到達できるどの経路もリリース生成リポジトリへ push できない」という
+      不変条件を GitHub 側の権限分離でもテスト固定する（2026-09-06 実装）。
+      `agent-host-release.yml` に `verify-npm-token-permission-boundary` job を追加:
+      `read:packages` のみのエージェントスロット到達資格情報（`NPM_READ_TOKEN`）が
+      `gdg-jp/gdgjp` に対し `push`/`admin`/`maintain` を持たないことを GitHub API へ問い合わせて
+      assert（404 = 可視性なし → OK、200 かつ write 権あり → 赤）。`GET /user` を正のコントロールに
+      使い「無効トークンで 404」を弾く。**要運用側の準備**: 本番トークンとは別物の
+      `read:packages`-only fine-grained PAT を `CI_NPM_READ_TOKEN_TEST_COPY` Actions secret として
+      登録する。secret 未設定の間は job が `::notice::` を出して skip（恒久 red にしない）。
 
 ## Stage 13 — xangi-packaging
 
@@ -50,8 +59,10 @@ publish、xangi の依存切替、CI 修正、ホスト側 GitHub Packages 認�
       `TestLangfuseForwarderResourcePathsAreAbsolute` で固定。**反映には同上のリリース
       サイクルが必要。** 実機の `/opt/langfuse-forwarder` が最新ソースに更新されているかは
       正しいパスでの `apply` 再実行後に要確認。
-- [ ] xangi のローカル git remote（`~/proj/xangi` 由来の環境に残っていれば）を
-      `gdg-jp/xangi` に向け直す。GitHub のリダイレクトで動作はするが、恒久対応ではない。
+- [x] xangi のローカル git remote を確認（2026-09-06）。`~/proj/xangi` は存在せず、
+      `~/xangi` の origin は既に `git@github.com:gdg-jp/xangi`。旧 remote を指すチェックアウトは
+      見つからなかった（`~/gdgjp/xangi` は monorepo 内の git-ignore 済み作業ディレクトリで
+      独立 clone ではない）。対応不要。
 - [ ] `gdg-lib` パッケージの消費者が増えた場合、Package settings の
       Manage Actions access に都度リポジトリを追加するか、visibility を `internal` に
       変えるかを判断する（今回は `gdg-jp/xangi` のみ追加、private のまま維持）。

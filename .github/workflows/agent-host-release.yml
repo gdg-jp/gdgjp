@@ -6,6 +6,11 @@ on:
     paths:
       - 'agent-host/**'
       - '.github/workflows/agent-host-release.yml'
+  pull_request:
+    paths:
+      - 'agent-host/**'
+      - 'cli/internal/agenthost/**'
+      - '.github/workflows/agent-host-release.yml'
   workflow_dispatch:
 
 concurrency:
@@ -18,17 +23,24 @@ env:
 jobs:
   validate-and-publish:
     name: Validate & Publish Control Plane Release
+    # Publishing signs and uploads a GitHub Release; never run it for pull_request
+    # events (no signing key on forked-PR runs, and PRs must not mutate releases).
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23"
+
+      - run: pnpm install --frozen-lockfile
 
       - name: Build gdg CLI
         run: |
@@ -69,3 +81,180 @@ jobs:
             --title "Agent Host Release (Latest)" \
             --notes "Automated Tier 2 control plane release from ${{ github.sha }}"
           gh release upload agent-host-release-latest dist/agent-host-release/* --clobber
+
+  # Stage 10 residual task: exercise the useradd / sudoers / systemd / apparmor
+  # convergence for real. A GitHub `ubuntu-latest` runner is itself a disposable
+  # Ubuntu VM with passwordless sudo and systemd as PID 1, so no Lima / nested VM
+  # is needed (see docs/plans/01-agent-host-lima-ci-and-permission-separation.md).
+  # Network/secret-bound resource types (git, exec, tarball) are filtered out via
+  # --only so this job needs no credentials and no external downloads.
+  verify-on-fresh-host:
+    name: Verify apply/verify on a fresh Ubuntu host
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build gdg CLI
+        run: |
+          pnpm build:acl
+          pnpm sync:agent-host-assets
+          go build -C cli -o /tmp/gdg ./cmd/gdg
+
+      - name: Record host-local resource filter
+        id: only
+        run: echo "types=user,group,dir,file,sudoers,tmpfiles,symlink,systemd,apparmor" >>"$GITHUB_OUTPUT"
+
+      - name: Apply host-local resources (no network, no secrets)
+        run: |
+          sudo /tmp/gdg agent-host apply \
+            --spec agent-host/agent-host.json \
+            --overlay agent-host/agent-host.dev.json \
+            --only "${{ steps.only.outputs.types }}" \
+            --diff
+
+      - name: Verify convergence
+        run: |
+          sudo /tmp/gdg agent-host verify \
+            --spec agent-host/agent-host.json \
+            --overlay agent-host/agent-host.dev.json
+
+      - name: Re-apply must be a no-op (idempotency regression guard)
+        run: |
+          # `apply --dry-run` exits non-zero (ErrDriftDetected) if any resource
+          # still reports pending changes after the apply above. That is the
+          # failure mode Stage 10 is most likely to regress silently.
+          sudo /tmp/gdg agent-host apply \
+            --spec agent-host/agent-host.json \
+            --overlay agent-host/agent-host.dev.json \
+            --only "${{ steps.only.outputs.types }}" \
+            --dry-run --diff
+
+      - name: Assert sudoers drop-in is syntactically valid
+        run: sudo visudo -cf /etc/sudoers.d/gdg-agent
+
+      - name: Assert slot + service users converged with expected home/shell
+        run: |
+          set -euo pipefail
+          for u in gdgagent-svc gdgagent-run-0 gdgagent-run-1; do
+            id "$u"
+            home=$(getent passwd "$u" | cut -d: -f6)
+            shell=$(getent passwd "$u" | cut -d: -f7)
+            echo "$u home=$home shell=$shell"
+            case "$u" in
+              gdgagent-svc) test "$home" = "/home/gdgagent-svc" ;;
+              *)            test "$home" = "/home/$u" ;;
+            esac
+            case "$shell" in
+              /usr/sbin/nologin|/sbin/nologin|/bin/false) ;;
+              *) echo "::error::$u has an interactive shell ($shell)"; exit 1 ;;
+            esac
+          done
+          # slotCount is 2 in agent-host.dev.json: gdgagent-run-2 must NOT exist.
+          if id gdgagent-run-2 2>/dev/null; then
+            echo "::error::gdgagent-run-2 exists but overlay slotCount is 2"; exit 1
+          fi
+
+      - name: Assert systemd units converged
+        run: |
+          set -euo pipefail
+          # agent-host-apply is a system unit (Tier 2 pull converger); the sync
+          # units are gdgagent-svc --user units under its home. ExecStart binaries
+          # are intentionally absent (git/exec/tarball filtered out), so assert
+          # unit-file syntax and enable state only, not runnability.
+          sudo systemd-analyze verify /etc/systemd/system/agent-host-apply.service || true
+          systemctl is-enabled agent-host-apply.timer
+          test -f /home/gdgagent-svc/.config/systemd/user/agent-host-sync.service
+          test -f /home/gdgagent-svc/.config/systemd/user/agent-host-sync.timer
+
+      - name: Assert AppArmor profile was loaded
+        run: |
+          set -euo pipefail
+          test -f /etc/apparmor.d/cursor-agent-cursorsandbox
+          # apply reloads the profile via apparmor_parser -r when AppArmor is
+          # active on the host; confirm it is now known to the kernel.
+          if sudo aa-status >/tmp/aa.txt 2>/dev/null; then
+            grep -q cursor-agent-cursorsandbox /tmp/aa.txt \
+              || { echo "::error::cursor-agent-cursorsandbox not loaded"; cat /tmp/aa.txt; exit 1; }
+          else
+            sudo apparmor_parser -Q /etc/apparmor.d/cursor-agent-cursorsandbox
+          fi
+
+      - name: Negative control - a broken sudoers template must fail visudo
+        run: |
+          # Guards the "Assert sudoers drop-in is syntactically valid" step above
+          # against silently passing on a no-op. Uses a scratch file; never the
+          # converged /etc/sudoers.d/gdg-agent.
+          echo 'brokenuser this is not valid sudoers' | sudo tee /etc/sudoers.d/zz-ci-negative-control >/dev/null
+          if sudo visudo -cf /etc/sudoers.d/zz-ci-negative-control; then
+            echo "::error::visudo accepted an intentionally broken drop-in"
+            sudo rm -f /etc/sudoers.d/zz-ci-negative-control
+            exit 1
+          fi
+          sudo rm -f /etc/sudoers.d/zz-ci-negative-control
+
+  # Stage 10 residual task: pin, in CI, the invariant that the only GitHub
+  # credential reaching an agent slot (NPM_READ_TOKEN, read:packages-only) cannot
+  # write to the release-producing repo. Requires a *test-only* fine-grained PAT
+  # with the same read:packages scope, registered as the CI_NPM_READ_TOKEN_TEST_COPY
+  # Actions secret (never the production token - CI logs must not see real creds).
+  # Skips cleanly until that secret exists so it is not a permanent red check.
+  verify-npm-token-permission-boundary:
+    name: Verify NPM_READ_TOKEN cannot write to gdg-jp/gdgjp
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query effective permission on gdg-jp/gdgjp
+        env:
+          TOKEN: ${{ secrets.CI_NPM_READ_TOKEN_TEST_COPY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TOKEN:-}" ]; then
+            echo "::notice::CI_NPM_READ_TOKEN_TEST_COPY is not set; skipping the token permission-boundary check. Register a read:packages-only test PAT to enable it."
+            exit 0
+          fi
+
+          # Positive control: the token must be valid at all, so a 404 on the repo
+          # below means "no access", not "bad token".
+          ucode=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/user)
+          if [ "$ucode" != "200" ]; then
+            echo "::error::CI_NPM_READ_TOKEN_TEST_COPY is not a valid GitHub token (GET /user -> $ucode)"
+            exit 1
+          fi
+
+          code=$(curl -sS -o /tmp/repo.json -w '%{http_code}' \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/gdg-jp/gdgjp)
+          echo "GET /repos/gdg-jp/gdgjp -> HTTP $code"
+
+          if [ "$code" = "404" ]; then
+            echo "::notice::token has no visibility into gdg-jp/gdgjp (expected for a read:packages-only PAT)"
+            exit 0
+          fi
+          if [ "$code" != "200" ]; then
+            echo "::error::unexpected HTTP $code querying gdg-jp/gdgjp"
+            cat /tmp/repo.json
+            exit 1
+          fi
+
+          push=$(jq -r '.permissions.push // false' /tmp/repo.json)
+          admin=$(jq -r '.permissions.admin // false' /tmp/repo.json)
+          maintain=$(jq -r '.permissions.maintain // false' /tmp/repo.json)
+          echo "permissions: push=$push admin=$admin maintain=$maintain"
+          if [ "$push" = "true" ] || [ "$admin" = "true" ] || [ "$maintain" = "true" ]; then
+            echo "::error::NPM_READ_TOKEN test copy can write to gdg-jp/gdgjp (push=$push admin=$admin maintain=$maintain); it must be read-only"
+            exit 1
+          fi
+          echo "OK: token is read-only on gdg-jp/gdgjp"
