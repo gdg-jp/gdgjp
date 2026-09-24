@@ -1,9 +1,9 @@
 # @gdgjp/accounts
 
 OAuth 2.0 / OIDC identity provider for GDG Japan, deployed at `accounts.gdgs.jp`. Every other
-relying-party app (`tinyurl`, `img`, `scheduler`, `sns`, `wiki`, `pay`, plus the `agents` service
-and the `gdg` CLI) authenticates its users against this service instead of implementing sign-in
-itself; see `gdg-lib/README.md` for the RP-side integration.
+relying-party app (`tinyurl`, `img`, `scheduler`, `sns`, `wiki`, `pay`, `ost`, `roster`, plus the
+`agents` service and the `gdg` CLI) authenticates its users against this service instead of
+implementing sign-in itself; see `gdg-lib/README.md` for the RP-side integration.
 
 ## Architecture
 
@@ -74,7 +74,7 @@ Copy `.dev.vars.example` to `.dev.vars` and fill in secrets. Required:
 | `GOOGLE_CLIENT_SECRET` | Google sign-in (client ID is a public var in `wrangler.toml`) |
 | `BETTER_AUTH_SECRET` | Better Auth signing/encryption key |
 | `GOOGLE_WORKSPACE_ENCRYPTION_KEY` | AES-256 key encrypting stored Workspace refresh tokens |
-| `TINYURL_CLIENT_SECRET`, `WIKI_CLIENT_SECRET`, `IMG_CLIENT_SECRET`, `SCHEDULER_CLIENT_SECRET`, `SNS_CLIENT_SECRET`, `AGENTS_CLIENT_SECRET`, `PAY_CLIENT_SECRET` | One per trusted RP, written into D1 by `/admin/seed-clients` |
+| `TINYURL_CLIENT_SECRET`, `WIKI_CLIENT_SECRET`, `IMG_CLIENT_SECRET`, `SCHEDULER_CLIENT_SECRET`, `SNS_CLIENT_SECRET`, `AGENTS_CLIENT_SECRET`, `PAY_CLIENT_SECRET`, `OST_CLIENT_SECRET`, `ROSTER_CLIENT_SECRET` | One per trusted RP, written into D1 by `/admin/seed-clients` |
 | `RESEND_API_KEY` | Transactional email |
 | `APP_URL`, `*_REDIRECT_URLS` | Overridden to `localhost` origins/ports so OIDC callbacks resolve locally instead of to prod hostnames |
 
