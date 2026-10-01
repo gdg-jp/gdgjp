@@ -11,7 +11,9 @@ const MIGRATIONS = [
   fileURLToPath(new URL("../../../migrations/0006_revisions.sql", import.meta.url)),
   fileURLToPath(new URL("../../../migrations/0007_roster_sheets_expand.sql", import.meta.url)),
   fileURLToPath(new URL("../../../migrations/0008_default_sheet_compat.sql", import.meta.url)),
-  fileURLToPath(new URL("../../../migrations/0009_time_slots_sheet_uniqueness.sql", import.meta.url)),
+  fileURLToPath(
+    new URL("../../../migrations/0009_time_slots_sheet_uniqueness.sql", import.meta.url),
+  ),
   fileURLToPath(new URL("../../../migrations/0010_revisions_sheet_sequence.sql", import.meta.url)),
 ];
 
