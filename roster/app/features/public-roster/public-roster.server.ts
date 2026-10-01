@@ -1,6 +1,9 @@
 import { listApplicationsForEvent } from "~/features/applications/applications.server";
 import type { EventRecord } from "~/features/events/events.server";
-import { canView } from "~/features/events/status";
+import {
+  getDefaultRosterSheet,
+  getRosterSheet,
+} from "~/features/roster-sheets/roster-sheets.server";
 import { readAssignments } from "~/features/roster/roster.server";
 import { listTimeSlots } from "~/features/schedule/schedule.server";
 import { listEventRoleIds, listRoles, listTracks } from "~/features/schedule/tracks.server";
@@ -12,9 +15,9 @@ import type { PublicEventSummary, PublicRosterView, PublicStaff } from "./types"
  * function in this stage, per the stage's own framing. Two rules this file
  * exists to enforce structurally, not just by convention:
  *
- * 1. **`canView` gates ASSEMBLY, not just the rendered output.** When the
- *    event isn't `published`, this returns before a single query touches
- *    `applications`/`assignments` — an unpublished event's staff/assignment
+ * 1. **Sheet visibility gates ASSEMBLY, not just the rendered output.** When
+ *    the selected sheet isn't `published`, this returns before a single query touches
+ *    `applications`/`assignments` — an unpublished sheet's staff/assignment
  *    rows never even get read, let alone serialized into the loader's
  *    return value (docs/roster/09-share-public-views.md "制約": "データ自体
  *    を返してはならない。返していると...RR の hydration データから読める").
@@ -34,6 +37,7 @@ import type { PublicEventSummary, PublicRosterView, PublicStaff } from "./types"
 export async function buildPublicRosterData(
   db: D1Database,
   event: EventRecord,
+  rosterSheetId?: string,
 ): Promise<PublicRosterView> {
   const eventSummary: PublicEventSummary = {
     name: event.name,
@@ -43,17 +47,25 @@ export async function buildPublicRosterData(
     hasParty: event.hasParty,
   };
 
-  if (!canView(event.status)) {
+  // Public roster views always describe one live, explicitly published
+  // sheet. Event-only callers retain compatibility by selecting the default
+  // sheet, whose visibility is synchronized with the event status by the
+  // compatibility trigger. Other sheets have independent publication state.
+  const rosterSheet =
+    rosterSheetId === undefined
+      ? await getDefaultRosterSheet(db, event.id)
+      : await getRosterSheet(db, event.id, rosterSheetId);
+  if (!rosterSheet || rosterSheet.visibility !== "published") {
     return { published: false, event: eventSummary };
   }
 
   const [timeSlots, tracks, eventRoleIds, allRoles, applications, assignments] = await Promise.all([
-    listTimeSlots(db, event.id),
-    listTracks(db, event.id),
-    listEventRoleIds(db, event.id),
+    listTimeSlots(db, event.id, rosterSheet.id),
+    listTracks(db, event.id, rosterSheet.id),
+    listEventRoleIds(db, event.id, rosterSheet.id),
     listRoles(db),
     listApplicationsForEvent(db, event.id),
-    readAssignments(db, event.id),
+    readAssignments(db, event.id, rosterSheet.id),
   ]);
 
   const roleIdSet = new Set(eventRoleIds);
