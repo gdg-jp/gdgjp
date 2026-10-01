@@ -3,7 +3,14 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { asD1, createTestD1 } from "../../../tests/helpers/sqlite-d1";
-import { getDefaultRosterSheet, getRosterSheet, listRosterSheets } from "./roster-sheets.server";
+import {
+  createRosterSheet,
+  getDefaultRosterSheet,
+  getRosterSheet,
+  listRosterSheets,
+  setRosterSheetVisibility,
+  updateRosterSheet,
+} from "./roster-sheets.server";
 
 const migrations = [
   "0002_domain.sql",
@@ -14,6 +21,12 @@ const migrations = [
   "0007_roster_sheets_expand.sql",
   "0008_default_sheet_compat.sql",
 ].map((name) => fileURLToPath(new URL(`../../../migrations/${name}`, import.meta.url)));
+const currentMigrations = [
+  ...migrations,
+  ...["0009_time_slots_sheet_uniqueness.sql", "0010_revisions_sheet_sequence.sql"].map((name) =>
+    fileURLToPath(new URL(`../../../migrations/${name}`, import.meta.url)),
+  ),
+];
 
 const insertEvent = `INSERT INTO events
   (id, chapter_id, name, date, start_time, end_time, step_min, no_solo_newcomer,
@@ -306,4 +319,163 @@ describe("roster sheet accessors", () => {
     expect(await getDefaultRosterSheet(db, "event")).toBeNull();
     expect(await getRosterSheet(db, "event", "main")).toBeNull();
   });
+});
+
+describe("roster sheet mutations", () => {
+  async function seedEvents() {
+    const testDb = createTestD1(currentMigrations);
+    await testDb.prepare(insertEvent).bind("event", "draft", "apply", "view").run();
+    await testDb
+      .prepare(insertEvent)
+      .bind("other-event", "draft", "apply-other", "view-other")
+      .run();
+    return asD1(testDb);
+  }
+
+  const partyInput = {
+    name: "After party",
+    date: "2026-11-07",
+    startTime: "18:00",
+    endTime: "21:00",
+    stepMin: 30,
+    noSoloNewcomer: true,
+    maxConsecutive: 2,
+    seed: 12,
+  };
+
+  it("creates a private non-default sheet and updates its metadata/settings", async () => {
+    const db = await seedEvents();
+    const created = await createRosterSheet(db, "event", partyInput);
+    expect(created).toMatchObject({
+      eventId: "event",
+      name: "After party",
+      date: "2026-11-07",
+      startTime: "18:00",
+      endTime: "21:00",
+      stepMin: 30,
+      noSoloNewcomer: true,
+      maxConsecutive: 2,
+      seed: 12,
+      visibility: "private",
+      sortOrder: 1,
+      deletedAt: null,
+    });
+
+    const updated = await updateRosterSheet(db, "event", created.id, {
+      name: "  Evening party  ",
+      date: "2026-11-08",
+      startTime: "17:30",
+      endTime: "20:30",
+      stepMin: 15,
+      noSoloNewcomer: false,
+      maxConsecutive: 4,
+      seed: 31,
+    });
+    expect(updated).toMatchObject({
+      name: "Evening party",
+      date: "2026-11-08",
+      startTime: "17:30",
+      endTime: "20:30",
+      stepMin: 15,
+      noSoloNewcomer: false,
+      maxConsecutive: 4,
+      seed: 31,
+    });
+    expect(await setRosterSheetVisibility(db, "event", created.id, "published")).toMatchObject({
+      id: created.id,
+      visibility: "published",
+    });
+    expect(await db.prepare("SELECT status FROM events WHERE id = 'event'").first()).toEqual({
+      status: "draft",
+    });
+    expect(await setRosterSheetVisibility(db, "event", created.id, "private")).toMatchObject({
+      visibility: "private",
+    });
+    await expect(
+      setRosterSheetVisibility(db, "event", created.id, "other" as never),
+    ).rejects.toThrow("Visibility");
+
+    expect(await setRosterSheetVisibility(db, "event", "default:event", "published")).toMatchObject(
+      {
+        visibility: "published",
+      },
+    );
+    expect(await db.prepare("SELECT status FROM events WHERE id = 'event'").first()).toEqual({
+      status: "published",
+    });
+    expect(await setRosterSheetVisibility(db, "event", created.id, "published")).toMatchObject({
+      visibility: "published",
+    });
+    expect(await db.prepare("SELECT status FROM events WHERE id = 'event'").first()).toEqual({
+      status: "published",
+    });
+    expect(await setRosterSheetVisibility(db, "event", "default:event", "private")).toMatchObject({
+      visibility: "private",
+    });
+    expect(await db.prepare("SELECT status FROM events WHERE id = 'event'").first()).toEqual({
+      status: "draft",
+    });
+  });
+
+  it("validates title, date, time, step, settings, and event scope", async () => {
+    const db = await seedEvents();
+    await expect(createRosterSheet(db, "event", { ...partyInput, name: "  " })).rejects.toThrow();
+    await expect(
+      createRosterSheet(db, "event", { ...partyInput, date: "2026-02-30" }),
+    ).rejects.toThrow();
+    await expect(
+      createRosterSheet(db, "event", { ...partyInput, startTime: "25:00" }),
+    ).rejects.toThrow();
+    await expect(
+      createRosterSheet(db, "event", { ...partyInput, endTime: "17:00" }),
+    ).rejects.toThrow();
+    await expect(createRosterSheet(db, "event", { ...partyInput, stepMin: 20 })).rejects.toThrow();
+    await expect(
+      createRosterSheet(db, "event", {
+        ...partyInput,
+        startTime: "18:00",
+        endTime: "18:15",
+      }),
+    ).rejects.toThrow("at least one step");
+    await expect(
+      createRosterSheet(db, "event", { ...partyInput, maxConsecutive: 0 }),
+    ).rejects.toThrow();
+    await expect(createRosterSheet(db, "missing", partyInput)).rejects.toThrow();
+
+    const created = await createRosterSheet(db, "event", partyInput);
+    await expect(
+      updateRosterSheet(db, "other-event", created.id, { name: "Wrong event" }),
+    ).rejects.toThrow("not found");
+    await expect(
+      setRosterSheetVisibility(db, "other-event", created.id, "published"),
+    ).rejects.toThrow("not found");
+    await expect(updateRosterSheet(db, "event", created.id, { endTime: "18:15" })).rejects.toThrow(
+      "at least one step",
+    );
+
+    await db
+      .prepare("UPDATE roster_sheets SET deleted_at = 'deleted' WHERE id = 'default:event'")
+      .run();
+    await expect(createRosterSheet(db, "event", partyInput)).rejects.toThrow("Event not found");
+  });
+
+  it.each(["open", "closed", "ended"] as const)(
+    "preserves the %s event status when the default sheet stays private",
+    async (status) => {
+      const db = await seedEvents();
+      await db
+        .prepare("UPDATE events SET status = ?, updated_at = 'status-changed' WHERE id = 'event'")
+        .bind(status)
+        .run();
+
+      await setRosterSheetVisibility(db, "event", "default:event", "private");
+
+      expect(await db.prepare("SELECT status FROM events WHERE id = 'event'").first()).toEqual({
+        status,
+      });
+      expect(await getRosterSheet(db, "event", "default:event")).toMatchObject({
+        visibility: "private",
+      });
+    },
+  );
 });
