@@ -11,6 +11,7 @@ exports[`routes.ts URL surface > exposes a stable set of URLs 1`] = `
   "/e/:id",
   "/e/:id/design",
   "/e/:id/roster",
+  "/e/:id/s/:sheetId/design",
   "/e/:id/share",
   "/e/:id/staff",
   "/events/new",
