@@ -67,6 +67,7 @@ function renderOverview(props: Parameters<typeof EventOverview>[0]) {
 }
 
 const VALID_SHEET_FORM = {
+  intent: "createSheet",
   name: "午後のシフト",
   date: "2026-11-07",
   startTime: "13:00",
@@ -129,6 +130,7 @@ describe("e.$id overview", () => {
       date: "2026-11-07",
       startTime: "09:00",
       endTime: "18:00",
+      status: "draft",
       stepMin: 60,
       maxConsecutive: 4,
       noSoloNewcomer: true,
@@ -183,6 +185,103 @@ describe("e.$id overview", () => {
     expect(overview.sheets.at(-1)?.name).toBe("午後のシフト");
   });
 
+  it("requires an explicit sheet id and scopes visibility changes to the event", async () => {
+    asChapter(OTHER);
+    await expect(
+      callAction("event", asD1(db), {
+        intent: "setVisibility",
+        sheetId: "sheet-first",
+        visibility: "private",
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+
+    asChapter(OWNER);
+    await db
+      .prepare(
+        `INSERT INTO events
+          (id, chapter_id, name, date, start_time, end_time, seed, apply_token, view_token,
+           created_at, updated_at)
+         VALUES ('other-event', 1, 'Other event', '2026-11-07', '09:00', '18:00', 1,
+           'apply-other', 'view-other', 'created', 'updated')`,
+      )
+      .run();
+    await db
+      .prepare(
+        `INSERT INTO roster_sheets
+          (id, event_id, name, date, start_time, end_time, seed, visibility, sort_order,
+           created_at, updated_at)
+         VALUES ('sheet-other', 'other-event', 'Other', '2026-11-07', '09:00', '18:00', 1,
+           'private', 1, 'created', 'updated')`,
+      )
+      .run();
+
+    const result = await callAction("event", asD1(db), {
+      intent: "setVisibility",
+      sheetId: "sheet-other",
+      visibility: "published",
+    });
+    expect(result).toMatchObject({ sheetError: { sheetId: "sheet-other" } });
+    expect(
+      await db.prepare("SELECT visibility FROM roster_sheets WHERE id = 'sheet-other'").first(),
+    ).toEqual({ visibility: "private" });
+  });
+
+  it("uses default-sheet visibility to update event lifecycle without clobbering recruitment", async () => {
+    asChapter(OWNER);
+    await db.prepare("UPDATE events SET status = 'open' WHERE id = 'event'").run();
+
+    await callAction("event", asD1(db), {
+      intent: "setVisibility",
+      sheetId: "default:event",
+      visibility: "private",
+    });
+    expect(await db.prepare("SELECT status FROM events WHERE id = 'event'").first()).toEqual({
+      status: "open",
+    });
+
+    await callAction("event", asD1(db), {
+      intent: "setVisibility",
+      sheetId: "default:event",
+      visibility: "published",
+    });
+    expect(await db.prepare("SELECT status FROM events WHERE id = 'event'").first()).toEqual({
+      status: "published",
+    });
+    const overview = await callLoader("event", asD1(db));
+    expect(overview.sheets[0]).toMatchObject({ id: "default:event", visibility: "published" });
+  });
+
+  it("rejects default-sheet archive requests and archives populated non-default sheets", async () => {
+    asChapter(OWNER);
+    const defaultArchive = await callAction("event", asD1(db), {
+      intent: "archiveSheet",
+      sheetId: "default:event",
+    });
+    expect(defaultArchive).toMatchObject({ sheetError: { sheetId: "default:event" } });
+    expect(
+      await db.prepare("SELECT deleted_at FROM roster_sheets WHERE id = 'default:event'").first(),
+    ).toEqual({ deleted_at: null });
+
+    await db
+      .prepare(
+        "INSERT INTO phases (id, event_id, name, from_time, to_time, sort_order, roster_sheet_id) VALUES ('phase-sheet', 'event', '午前', '09:00', '12:00', 0, 'sheet-first')",
+      )
+      .run();
+    const archived = await callAction("event", asD1(db), {
+      intent: "archiveSheet",
+      sheetId: "sheet-first",
+    });
+    expect(archived).toBeInstanceOf(Response);
+    expect(
+      await db.prepare("SELECT deleted_at FROM roster_sheets WHERE id = 'sheet-first'").first(),
+    ).toMatchObject({ deleted_at: expect.any(String) });
+    expect(await db.prepare("SELECT id FROM phases WHERE id = 'phase-sheet'").first()).toEqual({
+      id: "phase-sheet",
+    });
+    const overview = await callLoader("event", asD1(db));
+    expect(overview.sheets.map((sheet) => sheet.id)).not.toContain("sheet-first");
+  });
+
   it("returns field errors with submitted values for an invalid sheet", async () => {
     asChapter(OWNER);
     const response = await callAction("event", asD1(db), {
@@ -230,6 +329,16 @@ describe("e.$id overview", () => {
     expect(html).toContain("09:00");
     expect(html).toContain("公開");
     expect(html).toContain("非公開");
+    expect(html).toContain('name="intent" value="setVisibility"');
+    expect(html).toContain('name="sheetId" value="sheet-first"');
+    expect(html).toContain('name="visibility" value="private"');
+    expect(html).toContain("公開にする");
+    expect(html).toContain("非公開にする");
+    expect(html).toContain("アーカイブ");
+    expect(html).toMatch(/<button[^>]*>アーカイブ<\/button>/);
+    const defaultCard = html.match(/<li[^>]*>.*?本編.*?<\/li>/s)?.[0];
+    expect(defaultCard).toBeDefined();
+    expect(defaultCard).not.toContain("アーカイブ");
     expect(html).toContain('href="/e/event/staff"');
     expect(html).toContain('href="/e/event/share"');
     expect(html).not.toContain("/s/");
@@ -277,6 +386,7 @@ describe("e.$id overview", () => {
           date: "2026-11-07",
           startTime: "09:00",
           endTime: "18:00",
+          status: "draft",
           stepMin: 30,
           maxConsecutive: 4,
           noSoloNewcomer: false,
