@@ -3,6 +3,7 @@ import { listAvailabilityForApplication } from "~/features/applications/availabi
 import { listSkillsForApplication } from "~/features/applications/skills.server";
 import { listDemandsForEvent } from "~/features/demand/demand.server";
 import type { EventRecord } from "~/features/events/events.server";
+import { listCrossSheetAssignmentOverlapByApplication } from "~/features/roster-sheets/cross-sheet-conflicts.server";
 import {
   getDefaultRosterSheet,
   getRosterSheet,
@@ -80,14 +81,16 @@ export async function buildSolverInput(
       ? await getDefaultRosterSheet(db, event.id)
       : await getRosterSheet(db, event.id, rosterSheetId);
   if (!sheet) throw new Error("Roster sheet not found for this event.");
-  const [timeSlots, tracks, eventRoleIds, allRoles, demandRows, applications] = await Promise.all([
-    listTimeSlots(db, event.id, sheet.id),
-    listTracks(db, event.id, sheet.id),
-    listEventRoleIds(db, event.id, sheet.id),
-    listRoles(db),
-    listDemandsForEvent(db, event.id, sheet.id),
-    listApplicationsForEvent(db, event.id),
-  ]);
+  const [timeSlots, tracks, eventRoleIds, allRoles, demandRows, applications, crossSheetOverlaps] =
+    await Promise.all([
+      listTimeSlots(db, event.id, sheet.id),
+      listTracks(db, event.id, sheet.id),
+      listEventRoleIds(db, event.id, sheet.id),
+      listRoles(db),
+      listDemandsForEvent(db, event.id, sheet.id),
+      listApplicationsForEvent(db, event.id),
+      listCrossSheetAssignmentOverlapByApplication(db, event.id, sheet.id),
+    ]);
 
   const eventRoleIdSet = new Set(eventRoleIds);
   const roles = allRoles.filter((role) => eventRoleIdSet.has(role.id));
@@ -117,7 +120,11 @@ export async function buildSolverInput(
       const skillsRecord: Record<string, { level: Level; pref: Pref }> = {};
       for (const s of skills) skillsRecord[s.roleId] = { level: s.level, pref: s.pref };
       const availabilityRecord: Record<string, Availability> = {};
-      for (const a of availability) availabilityRecord[a.timeSlotId] = a.value;
+      const unavailableSlots = crossSheetOverlaps.get(application.id);
+      for (const a of availability) {
+        availabilityRecord[a.timeSlotId] = unavailableSlots?.has(a.timeSlotId) ? "x" : a.value;
+      }
+      for (const slotId of unavailableSlots ?? []) availabilityRecord[slotId] = "x";
       return {
         id: application.id,
         withdrawn: false, // filtered above — always false for anything that reaches here
