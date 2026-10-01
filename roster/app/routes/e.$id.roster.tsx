@@ -22,6 +22,7 @@ import { ShortageReport } from "~/features/roster/components/ShortageReport";
 import { buildStaffColumns } from "~/features/roster/grid";
 import {
   readAssignmentsMap,
+  readAssignmentsState,
   writeAssignments,
   writeManualEdit,
 } from "~/features/roster/roster.server";
@@ -121,16 +122,24 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   if (intent === "generate") {
     const rawSeed = Number(form.get("seed"));
     const seed = Number.isFinite(rawSeed) ? Math.trunc(rawSeed) : event.seed;
+    const assignmentState = await readAssignmentsState(db, event.id);
     const input = await buildSolverInput(db, event, seed);
     const start = Date.now();
     const { assignments, report } = solve(input);
     const ms = Date.now() - start;
-    await writeAssignments(db, event.id, assignments, {
-      metrics: report.metrics,
-      label: `自動生成（シード ${seed}）`,
-      actor,
-      kind: "generate",
-    });
+    await writeAssignments(
+      db,
+      event.id,
+      assignments,
+      {
+        metrics: report.metrics,
+        label: `自動生成（シード ${seed}）`,
+        actor,
+        kind: "generate",
+      },
+      undefined,
+      assignmentState.revisionCursor,
+    );
     if (seed !== event.seed) await setEventSeed(db, event.id, seed);
     return { ok: true as const, intent: "generate" as const, ms, seed };
   }
@@ -143,14 +152,15 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     if (!applicationId || !trackId || !roleId || slotIds.length === 0) {
       return { error: "入力が不正です。", intent: "assign" as const };
     }
-    const current = await readAssignmentsMap(db, event.id);
+    const assignmentState = await readAssignmentsState(db, event.id);
+    const current = assignmentState.assignments;
     // Map.set on an existing key overwrites it in place, so this alone both
     // moves the applicant off any OTHER cell they held in this slot and
     // places them in the new one — no separate delete needed.
     for (const slotId of slotIds) {
       current.set(assignmentKey(applicationId, slotId), { trackId, roleId, locked: false });
     }
-    await writeManualEdit(db, event, actor, current);
+    await writeManualEdit(db, event, actor, current, undefined, assignmentState.revisionCursor);
     return { ok: true as const, intent: "assign" as const };
   }
 
@@ -160,9 +170,10 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     if (!applicationId || slotIds.length === 0) {
       return { error: "入力が不正です。", intent: "unassign" as const };
     }
-    const current = await readAssignmentsMap(db, event.id);
+    const assignmentState = await readAssignmentsState(db, event.id);
+    const current = assignmentState.assignments;
     for (const slotId of slotIds) current.delete(assignmentKey(applicationId, slotId));
-    await writeManualEdit(db, event, actor, current);
+    await writeManualEdit(db, event, actor, current, undefined, assignmentState.revisionCursor);
     return { ok: true as const, intent: "unassign" as const };
   }
 

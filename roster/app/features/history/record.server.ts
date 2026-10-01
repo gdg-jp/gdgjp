@@ -32,6 +32,10 @@ export type RecordRevisionInput = {
   kind: "generate" | "edit";
   groupKey?: string | null;
   rosterSheetId?: string;
+  /** Cursor observed with the caller's assignment map; null is a valid expected state. */
+  expectedRevisionCursor?: number | null;
+  /** Guarded domain mutations to run after claiming the sheet cursor and before history changes. */
+  mutationStatements?: readonly D1PreparedStatement[];
 };
 
 async function resolveSheetId(
@@ -126,7 +130,9 @@ function recordGuardStatement(
 /** Inserts or merges a revision, truncates its redo branch, and applies retention. */
 export async function recordRevision(db: D1Database, input: RecordRevisionInput): Promise<void> {
   const sheetId = await resolveSheetId(db, input.eventId, input.rosterSheetId);
-  const cursor = await getSheetCursor(db, input.eventId, sheetId);
+  const cursor = Object.hasOwn(input, "expectedRevisionCursor")
+    ? (input.expectedRevisionCursor ?? null)
+    : await getSheetCursor(db, input.eventId, sheetId);
   const head = cursor === null ? null : await getRevisionBySeq(db, input.eventId, sheetId, cursor);
   const now = new Date();
   const groupKey = input.groupKey ?? null;
@@ -135,6 +141,7 @@ export async function recordRevision(db: D1Database, input: RecordRevisionInput)
 
   const statements: D1PreparedStatement[] = [
     recordGuardStatement(db, input.eventId, sheetId, cursor, head),
+    ...(input.mutationStatements ?? []),
   ];
   const claimedSheet = `EXISTS (
     SELECT 1 FROM roster_sheets
@@ -223,13 +230,6 @@ export async function recordRevision(db: D1Database, input: RecordRevisionInput)
   }
 
   const nextCursor = merge ? cursor : (cursor ?? 0) + 1;
-  statements.push(
-    db
-      .prepare(
-        "UPDATE roster_sheets SET revision_cursor = ? WHERE id = ? AND event_id = ? AND deleted_at IS NULL AND revision_cursor = -1",
-      )
-      .bind(nextCursor, sheetId, input.eventId),
-  );
   if (sheetId === `default:${input.eventId}`) {
     statements.push(
       db
@@ -237,10 +237,18 @@ export async function recordRevision(db: D1Database, input: RecordRevisionInput)
           `UPDATE events SET revision_cursor = ? WHERE id = ?
            AND EXISTS (
              SELECT 1 FROM roster_sheets WHERE id = ? AND event_id = ?
-               AND revision_cursor = ? AND deleted_at IS NULL
+               AND revision_cursor = -1 AND deleted_at IS NULL
            )`,
         )
-        .bind(nextCursor, input.eventId, sheetId, input.eventId, nextCursor),
+        .bind(nextCursor, input.eventId, sheetId, input.eventId),
+    );
+  } else {
+    statements.push(
+      db
+        .prepare(
+          "UPDATE roster_sheets SET revision_cursor = ? WHERE id = ? AND event_id = ? AND deleted_at IS NULL AND revision_cursor = -1",
+        )
+        .bind(nextCursor, sheetId, input.eventId),
     );
   }
   const results = await db.batch(statements);
