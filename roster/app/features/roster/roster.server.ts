@@ -75,12 +75,16 @@ export function toAssignment(r: AssignmentRow): AssignmentRecord {
 export async function readAssignments(
   db: D1Database,
   eventId: string,
+  rosterSheetId?: string,
 ): Promise<AssignmentRecord[]> {
+  const sheetFilter = rosterSheetId === undefined ? "" : " AND roster_sheet_id = ?";
   const { results } = await db
     .prepare(
-      `SELECT ${ASSIGNMENT_COLS} FROM assignments WHERE event_id = ? ORDER BY time_slot_id, application_id`,
+      `SELECT ${ASSIGNMENT_COLS} FROM assignments
+       WHERE event_id = ?${sheetFilter}
+       ORDER BY time_slot_id, application_id`,
     )
-    .bind(eventId)
+    .bind(...(rosterSheetId === undefined ? [eventId] : [eventId, rosterSheetId]))
     .all<AssignmentRow>();
   return (results ?? []).map(toAssignment);
 }
