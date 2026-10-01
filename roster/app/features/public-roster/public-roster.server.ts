@@ -39,13 +39,28 @@ export async function buildPublicRosterData(
   event: EventRecord,
   rosterSheetId?: string,
 ): Promise<PublicRosterView> {
-  const eventSummary: PublicEventSummary = {
+  const eventSummary = (sheet?: {
+    name: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+  }): PublicEventSummary => ({
+    id: event.id,
     name: event.name,
     date: event.date,
     startTime: event.startTime,
     endTime: event.endTime,
     hasParty: event.hasParty,
-  };
+    // Keep legacy event fields at the top level while exposing the selected
+    // sheet's own schedule. For a missing/deleted sheet, fall back to the
+    // event's compatibility values so the unpublished response stays useful.
+    sheet: sheet ?? {
+      name: "本編",
+      date: event.date,
+      startTime: event.startTime,
+      endTime: event.endTime,
+    },
+  });
 
   // Public roster views always describe one live, explicitly published
   // sheet. Event-only callers retain compatibility by selecting the default
@@ -55,8 +70,18 @@ export async function buildPublicRosterData(
     rosterSheetId === undefined
       ? await getDefaultRosterSheet(db, event.id)
       : await getRosterSheet(db, event.id, rosterSheetId);
+  const summary = eventSummary(
+    rosterSheet
+      ? {
+          name: rosterSheet.name,
+          date: rosterSheet.date,
+          startTime: rosterSheet.startTime,
+          endTime: rosterSheet.endTime,
+        }
+      : undefined,
+  );
   if (!rosterSheet || rosterSheet.visibility !== "published") {
-    return { published: false, event: eventSummary };
+    return { published: false, event: summary };
   }
 
   const [timeSlots, tracks, eventRoleIds, allRoles, applications, assignments] = await Promise.all([
@@ -80,7 +105,7 @@ export async function buildPublicRosterData(
   return {
     published: true,
     data: {
-      event: eventSummary,
+      event: summary,
       slots: timeSlots.map((s) => ({ id: s.id, idx: s.idx, startTime: s.start, endTime: s.end })),
       tracks: tracks.map((t) => ({ id: t.id, name: t.name, color: t.color })),
       roles: allRoles.filter((r) => roleIdSet.has(r.id)).map((r) => ({ id: r.id, name: r.name })),
