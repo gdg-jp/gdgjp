@@ -15,7 +15,7 @@ export function EventCard({ event }: { event: EventRecord }) {
   return (
     <li className="rounded-xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link to={`/e/${event.id}/design`} className="font-semibold hover:text-gdg-blue">
+        <Link to={`/e/${event.id}`} className="font-semibold hover:text-gdg-blue">
           {event.name}
         </Link>
         <EventStatusBadge status={event.status} />

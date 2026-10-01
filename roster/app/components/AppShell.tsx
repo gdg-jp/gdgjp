@@ -71,7 +71,7 @@ export function AppShell({
               value={currentEvent?.id ?? ""}
               onChange={(event) => {
                 const eventId = event.currentTarget.value;
-                void navigate(eventId ? `/e/${eventId}/design` : "/");
+                void navigate(eventId ? `/e/${eventId}` : "/");
               }}
             >
               <option value="">イベント一覧</option>
@@ -100,6 +100,10 @@ export function AppShell({
           {currentEvent ? (
             <div className="event-nav-group">
               <p className="nav-label">このイベント</p>
+              <NavLink to={`/e/${currentEvent.id}`} end className={navClassName}>
+                <LayoutDashboard aria-hidden="true" />
+                <span>概要</span>
+              </NavLink>
               {EVENT_NAV.map(([segment, label, Icon]) => (
                 <NavLink
                   key={segment}
