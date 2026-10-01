@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it } from "vitest";
 import { type TestD1Database, asD1, createTestD1 } from "../../../tests/helpers/sqlite-d1";
+import { solve } from "../solver/solve";
 import { buildSolverInput } from "./solver-input.server";
 
 const MIGRATIONS = [
@@ -44,7 +45,12 @@ async function seedBase(db: TestD1Database) {
       .prepare(
         "INSERT INTO time_slots (id, event_id, idx, start_time, end_time) VALUES (?, 'evt_1', ?, ?, ?)",
       )
-      .bind(`slot_${i}`, i, `0${9 + i}:00`, `0${10 + i}:00`)
+      .bind(
+        `slot_${i}`,
+        i,
+        `${String(9 + i).padStart(2, "0")}:00`,
+        `${String(10 + i).padStart(2, "0")}:00`,
+      )
       .run();
   }
   await db
@@ -77,6 +83,51 @@ async function seedApplication(
   await db
     .prepare("INSERT INTO availabilities (application_id, time_slot_id, value) VALUES (?, ?, ?)")
     .bind(id, "slot_0", "o")
+    .run();
+}
+
+async function addSiblingAssignment(
+  db: TestD1Database,
+  input: {
+    applicationId: string;
+    sheetId: string;
+    date: string;
+    start: string;
+    end: string;
+    archived?: boolean;
+  },
+) {
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO roster_sheets (id, event_id, name, date, start_time, end_time, step_min,
+         no_solo_newcomer, max_consecutive, seed, visibility, sort_order, created_at, updated_at,
+         deleted_at)
+       VALUES (?, 'evt_1', ?, ?, '09:00', '12:00', 60, 1, 4, 1, 'private', 1, ?, ?, ?)`,
+    )
+    .bind(input.sheetId, input.sheetId, input.date, now, now, input.archived ? now : null)
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+       VALUES (?, 'evt_1', 0, ?, ?, ?)`,
+    )
+    .bind(`${input.sheetId}:slot`, input.start, input.end, input.sheetId)
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO tracks (id, event_id, name, color, shared, sort_order, roster_sheet_id)
+       VALUES (?, 'evt_1', '別枠', '#fff', 0, 0, ?)`,
+    )
+    .bind(`${input.sheetId}:track`, input.sheetId)
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO assignments (event_id, roster_sheet_id, application_id, time_slot_id,
+         track_id, role_id, locked)
+       VALUES ('evt_1', ?, ?, ?, ?, 'reception', 0)`,
+    )
+    .bind(input.sheetId, input.applicationId, `${input.sheetId}:slot`, `${input.sheetId}:track`)
     .run();
 }
 
@@ -159,6 +210,82 @@ describe("buildSolverInput", () => {
       skills: { reception: { level: "lead", pref: 1 } },
       availability: { slot_0: "o" },
     });
+  });
+
+  it("blocks overlapping live sibling assignments in generated input and solve", async () => {
+    await seedApplication(testDb, "app_overlap");
+    await seedApplication(testDb, "app_adjacent");
+    await seedApplication(testDb, "app_other_date");
+    await seedApplication(testDb, "app_archived");
+    await testDb
+      .prepare(
+        "INSERT INTO availabilities (application_id, time_slot_id, value) VALUES (?, 'slot_1', 'o')",
+      )
+      .bind("app_adjacent")
+      .run();
+    await addSiblingAssignment(testDb, {
+      applicationId: "app_overlap",
+      sheetId: "sheet_overlap",
+      date: "2026-11-07",
+      start: "09:30",
+      end: "10:30",
+    });
+    await addSiblingAssignment(testDb, {
+      applicationId: "app_adjacent",
+      sheetId: "sheet_adjacent",
+      date: "2026-11-07",
+      start: "10:00",
+      end: "11:00",
+    });
+    await addSiblingAssignment(testDb, {
+      applicationId: "app_other_date",
+      sheetId: "sheet_other_date",
+      date: "2026-11-08",
+      start: "09:30",
+      end: "10:30",
+    });
+    await addSiblingAssignment(testDb, {
+      applicationId: "app_archived",
+      sheetId: "sheet_archived",
+      date: "2026-11-07",
+      start: "09:30",
+      end: "10:30",
+      archived: true,
+    });
+
+    const input = await buildSolverInput(asD1(testDb), EVENT, 1);
+    const availabilityById = new Map(input.applications.map((app) => [app.id, app.availability]));
+
+    expect(availabilityById.get("app_overlap")?.slot_0).toBe("x");
+    expect(availabilityById.get("app_adjacent")?.slot_0).toBe("o");
+    expect(availabilityById.get("app_adjacent")?.slot_1).toBe("x");
+    expect(availabilityById.get("app_other_date")?.slot_0).toBe("o");
+    expect(availabilityById.get("app_archived")?.slot_0).toBe("o");
+    expect(solve(input).assignments.has("app_overlap|slot_0")).toBe(false);
+  });
+
+  it("makes an overlapping sole candidate unavailable to the solver", async () => {
+    await seedApplication(testDb, "app_only_candidate");
+    await addSiblingAssignment(testDb, {
+      applicationId: "app_only_candidate",
+      sheetId: "sheet_only_candidate",
+      date: "2026-11-07",
+      start: "09:30",
+      end: "10:30",
+    });
+
+    const input = await buildSolverInput(asD1(testDb), EVENT, 1);
+    expect(input.applications[0].availability.slot_0).toBe("x");
+
+    const unblockedInput = {
+      ...input,
+      applications: input.applications.map((application) => ({
+        ...application,
+        availability: { ...application.availability, slot_0: "o" as const },
+      })),
+    };
+    expect(solve(unblockedInput).assignments.has("app_only_candidate|slot_0")).toBe(true);
+    expect(solve(input).assignments.has("app_only_candidate|slot_0")).toBe(false);
   });
 
   it("uses the live default sheet's settings and seed when no seed is supplied", async () => {

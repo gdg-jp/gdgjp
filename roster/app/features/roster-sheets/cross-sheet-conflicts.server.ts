@@ -41,6 +41,72 @@ type ConflictRow = {
   other_role_id: string;
 };
 
+type OverlappingAssignmentSlotRow = {
+  application_id: string;
+  target_slot_id: string;
+};
+
+/**
+ * Returns target-sheet slots that an applicant cannot take because they
+ * already have an overlapping assignment on another live sheet for this event.
+ * This deliberately selects identifiers only; solver input does not need PII.
+ */
+export async function listCrossSheetAssignmentOverlapByApplication(
+  db: D1Database,
+  eventId: string,
+  targetSheetId: string,
+): Promise<Map<string, Set<string>>> {
+  if (!(await getRosterSheet(db, eventId, targetSheetId))) {
+    throw new RosterSheetMutationError("Roster sheet not found for this event.");
+  }
+
+  const { results } = await db
+    .prepare(
+      `SELECT DISTINCT
+         app.id AS application_id,
+         target_slot.id AS target_slot_id
+       FROM applications AS app
+       JOIN assignments AS other_assignment
+         ON other_assignment.application_id = app.id
+        AND other_assignment.event_id = app.event_id
+       JOIN roster_sheets AS other_sheet
+         ON other_sheet.id = other_assignment.roster_sheet_id
+        AND other_sheet.event_id = other_assignment.event_id
+       JOIN time_slots AS other_slot
+         ON other_slot.id = other_assignment.time_slot_id
+        AND other_slot.event_id = other_assignment.event_id
+        AND other_slot.roster_sheet_id = other_assignment.roster_sheet_id
+       JOIN roster_sheets AS target_sheet
+         ON target_sheet.event_id = app.event_id
+        AND target_sheet.id = ?
+       JOIN time_slots AS target_slot
+         ON target_slot.event_id = target_sheet.event_id
+        AND target_slot.roster_sheet_id = target_sheet.id
+       JOIN events AS event
+         ON event.id = app.event_id
+       WHERE app.event_id = ?
+         AND app.withdrawn = 0
+         AND target_sheet.deleted_at IS NULL
+         AND other_sheet.deleted_at IS NULL
+         AND event.deleted_at IS NULL
+         AND other_sheet.id <> target_sheet.id
+         AND other_sheet.date = target_sheet.date
+         AND target_slot.start_time < other_slot.end_time
+         AND other_slot.start_time < target_slot.end_time
+       ORDER BY app.id, target_slot.id`,
+    )
+    .bind(targetSheetId, eventId)
+    .all<OverlappingAssignmentSlotRow>();
+
+  const slotsByApplication = new Map<string, Set<string>>();
+  for (const row of results ?? []) {
+    const slots = slotsByApplication.get(row.application_id) ?? new Set<string>();
+    slots.add(row.target_slot_id);
+    slotsByApplication.set(row.application_id, slots);
+  }
+  return slotsByApplication;
+}
+
 /**
  * Finds assignments on other live sheets that overlap actual target-sheet
  * assignments for the same applicant. Sheets only conflict on the same date;
