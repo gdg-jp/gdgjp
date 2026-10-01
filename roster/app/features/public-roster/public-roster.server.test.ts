@@ -287,6 +287,59 @@ describe("buildPublicRosterData", () => {
     expect(calls.some((sql) => /FROM tracks/i.test(sql))).toBe(false);
   });
 
+  it.each(["missing", "cross-event", "deleted"] as const)(
+    "does not expose schedule or applicant data for a %s sheet ID",
+    async (kind) => {
+      await seedFullFixture(testDb);
+      let sheetId = "sheet_missing";
+
+      if (kind === "deleted") {
+        await seedSiblingSheet(testDb, "published");
+        await testDb
+          .prepare("UPDATE roster_sheets SET deleted_at = ? WHERE id = 'sheet_2'")
+          .bind(new Date().toISOString())
+          .run();
+        sheetId = "sheet_2";
+      }
+
+      if (kind === "cross-event") {
+        const now = new Date().toISOString();
+        await testDb
+          .prepare(
+            `INSERT INTO events (
+              id, chapter_id, name, date, start_time, end_time, status, seed,
+              apply_token, view_token, created_at, updated_at
+            ) VALUES ('evt_2', 1, 'Other event', '2026-12-01', '09:00', '17:00',
+              'published', 2, 'apply-2', 'view-2', ?, ?)`,
+          )
+          .bind(now, now)
+          .run();
+        await testDb
+          .prepare(
+            `INSERT INTO roster_sheets (
+              id, event_id, name, date, start_time, end_time, step_min,
+              no_solo_newcomer, max_consecutive, seed, visibility, sort_order,
+              created_at, updated_at
+            ) VALUES ('sheet_other', 'evt_2', 'Other event sheet', '2026-12-01',
+              '09:00', '17:00', 60, 0, 4, 2, 'published', 1, ?, ?)`,
+          )
+          .bind(now, now)
+          .run();
+        sheetId = "sheet_other";
+      }
+
+      const { db, calls } = spyOn(testDb);
+      const result = await buildPublicRosterData(db, baseEvent(), sheetId);
+
+      expect(result.published).toBe(false);
+      expect(Object.keys(result).sort()).toEqual(["event", "published"]);
+      expect(calls.some((sql) => /FROM applications/i.test(sql))).toBe(false);
+      expect(calls.some((sql) => /FROM assignments/i.test(sql))).toBe(false);
+      expect(calls.some((sql) => /FROM time_slots/i.test(sql))).toBe(false);
+      expect(calls.some((sql) => /FROM tracks/i.test(sql))).toBe(false);
+    },
+  );
+
   it("returns only the explicitly selected published sheet", async () => {
     await seedFullFixture(testDb);
     await seedSiblingSheet(testDb, "published");
