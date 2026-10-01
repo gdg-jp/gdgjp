@@ -15,6 +15,7 @@ exports[`routes.ts URL surface > exposes a stable set of URLs 1`] = `
   "/events/new",
   "/no-chapter",
   "/r/:token",
+  "/r/:token/s/:sheetId",
   "/signin",
 ]
 `;
