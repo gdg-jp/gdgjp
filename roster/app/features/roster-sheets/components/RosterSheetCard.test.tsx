@@ -17,6 +17,7 @@ function renderCard(archivePending: boolean) {
             startTime: "09:00",
             endTime: "12:00",
           },
+          eventId: "event-1",
           visibility: "private",
           isDefault: false,
           visibilityPending: false,

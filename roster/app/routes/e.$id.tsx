@@ -284,8 +284,6 @@ export default function EventOverview({ loaderData, actionData }: Route.Componen
         }
       />
 
-      <p className="gdg-muted text-sm">シフト表ごとの設計・管理画面は準備中です。</p>
-
       <Card>
         <Stack>
           <Heading level={2}>シフト表を追加</Heading>
@@ -378,6 +376,7 @@ export default function EventOverview({ loaderData, actionData }: Route.Componen
               <li key={sheet.id}>
                 <RosterSheetCard
                   sheet={sheet}
+                  eventId={event.id}
                   visibility={visibility}
                   isDefault={isDefault}
                   error={sheetError}
