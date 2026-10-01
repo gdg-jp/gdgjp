@@ -15,6 +15,7 @@
 /** One row of the current shift table (docs/roster/index.md §4 "assignments"). */
 export type AssignmentRecord = {
   eventId: string;
+  rosterSheetId: string;
   applicationId: string;
   timeSlotId: string;
   trackId: string;
