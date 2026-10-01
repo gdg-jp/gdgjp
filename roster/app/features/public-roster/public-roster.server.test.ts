@@ -134,7 +134,7 @@ async function seedSiblingSheet(db: TestD1Database, visibility: "private" | "pub
         id, event_id, name, date, start_time, end_time, step_min,
         no_solo_newcomer, max_consecutive, seed, visibility, sort_order,
         created_at, updated_at
-      ) VALUES ('sheet_2', 'evt_1', '別会場', '2026-11-07', '10:00', '11:00', 60,
+      ) VALUES ('sheet_2', 'evt_1', '別会場', '2026-12-01', '12:00', '14:00', 60,
         1, 4, 2, ?, 1, ?, ?)`,
     )
     .bind(visibility, now, now)
@@ -183,8 +183,20 @@ describe("buildPublicRosterData", () => {
       ["assignments", "event", "roles", "slots", "staff", "tracks"].sort(),
     );
     expect(Object.keys(result.data.event).sort()).toEqual(
-      ["date", "endTime", "hasParty", "name", "startTime"].sort(),
+      ["date", "endTime", "hasParty", "id", "name", "sheet", "startTime"].sort(),
     );
+    expect(Object.keys(result.data.event.sheet).sort()).toEqual(
+      ["date", "endTime", "name", "startTime"].sort(),
+    );
+    expect(result.data.event).toEqual({
+      id: "evt_1",
+      name: "DevFest 2026",
+      date: "2026-11-07",
+      startTime: "09:00",
+      endTime: "19:00",
+      hasParty: true,
+      sheet: { name: "本編", date: "2026-11-07", startTime: "09:00", endTime: "19:00" },
+    });
     for (const staff of result.data.staff) {
       expect(Object.keys(staff).sort()).toEqual(["id", "name", "party"].sort());
     }
@@ -253,6 +265,22 @@ describe("buildPublicRosterData", () => {
 
     expect(result.published).toBe(false);
     expect(Object.keys(result).sort()).toEqual(["event", "published"].sort());
+    if (result.published) throw new Error("expected private sheet");
+    expect(Object.keys(result.event).sort()).toEqual(
+      ["date", "endTime", "hasParty", "id", "name", "sheet", "startTime"].sort(),
+    );
+    expect(Object.keys(result.event.sheet).sort()).toEqual(
+      ["date", "endTime", "name", "startTime"].sort(),
+    );
+    expect(result.event).toEqual({
+      id: "evt_1",
+      name: "DevFest 2026",
+      date: "2026-11-07",
+      startTime: "09:00",
+      endTime: "19:00",
+      hasParty: true,
+      sheet: { name: "別会場", date: "2026-12-01", startTime: "12:00", endTime: "14:00" },
+    });
     expect(calls.some((sql) => /FROM applications/i.test(sql))).toBe(false);
     expect(calls.some((sql) => /FROM assignments/i.test(sql))).toBe(false);
     expect(calls.some((sql) => /FROM time_slots/i.test(sql))).toBe(false);
@@ -271,6 +299,15 @@ describe("buildPublicRosterData", () => {
     expect(result.data.roles.map((role) => role.id)).toEqual(["guide"]);
     expect(result.data.assignments.map((assignment) => assignment.timeSlotId)).toEqual(["slot_2"]);
     expect(result.data.staff.map((staff) => staff.id)).toEqual(["app_active"]);
+    expect(result.data.event).toEqual({
+      id: "evt_1",
+      name: "DevFest 2026",
+      date: "2026-11-07",
+      startTime: "09:00",
+      endTime: "19:00",
+      hasParty: true,
+      sheet: { name: "別会場", date: "2026-12-01", startTime: "12:00", endTime: "14:00" },
+    });
   });
 
   for (const status of ["open", "draft"] as const) {
