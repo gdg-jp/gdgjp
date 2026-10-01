@@ -14,9 +14,14 @@ import type { Actor } from "./types";
 
 const MIGRATIONS = [
   fileURLToPath(new URL("../../../migrations/0002_domain.sql", import.meta.url)),
+  fileURLToPath(new URL("../../../migrations/0003_demands.sql", import.meta.url)),
   fileURLToPath(new URL("../../../migrations/0004_applications.sql", import.meta.url)),
   fileURLToPath(new URL("../../../migrations/0005_assignments.sql", import.meta.url)),
   fileURLToPath(new URL("../../../migrations/0006_revisions.sql", import.meta.url)),
+  fileURLToPath(new URL("../../../migrations/0007_roster_sheets_expand.sql", import.meta.url)),
+  fileURLToPath(new URL("../../../migrations/0008_default_sheet_compat.sql", import.meta.url)),
+  fileURLToPath(new URL("../../../migrations/0009_time_slots_sheet_uniqueness.sql", import.meta.url)),
+  fileURLToPath(new URL("../../../migrations/0010_revisions_sheet_sequence.sql", import.meta.url)),
 ];
 
 const EVENT_ID = "evt_1";
