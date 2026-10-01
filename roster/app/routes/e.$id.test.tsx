@@ -318,7 +318,7 @@ describe("e.$id overview", () => {
     ).toEqual({ count: 0 });
   });
 
-  it("renders sheet details and event-level navigation without unfinished sheet links", async () => {
+  it("renders sheet details and links each sheet to its design route", async () => {
     asChapter(OWNER);
     const data = await callLoader("event", asD1(db));
     const html = renderOverview({ loaderData: data });
@@ -341,8 +341,10 @@ describe("e.$id overview", () => {
     expect(defaultCard).not.toContain("アーカイブ");
     expect(html).toContain('href="/e/event/staff"');
     expect(html).toContain('href="/e/event/share"');
-    expect(html).not.toContain("/s/");
-    expect(html).toContain("シフト表ごとの設計・管理画面は準備中です。");
+    expect(html).toContain('href="/e/event/s/default:event/design"');
+    expect(html).toContain('href="/e/event/s/sheet-first/design"');
+    expect(html).toContain('href="/e/event/s/sheet-late/design"');
+    expect(html).not.toContain("シフト表ごとの設計・管理画面は準備中です。");
     expect(html).not.toContain("sheet-archived");
     expect(html).toContain("シフト表を追加");
     expect(html).toContain('name="name"');

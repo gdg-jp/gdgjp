@@ -8,7 +8,11 @@ import type { Phase, TimeSlot } from "~/features/schedule/schedule.server";
  * `regenerateTimeSlots` from the event's start/end/step and this phase list,
  * never edited directly.
  */
-export function PhaseList({ phases, timeSlots }: { phases: Phase[]; timeSlots: TimeSlot[] }) {
+export function PhaseList({
+  phases,
+  timeSlots,
+  sheetId,
+}: { phases: Phase[]; timeSlots: TimeSlot[]; sheetId: string }) {
   const phaseName = new Map(phases.map((p) => [p.id, p.name]));
 
   return (
@@ -33,6 +37,7 @@ export function PhaseList({ phases, timeSlots }: { phases: Phase[]; timeSlots: T
                 <Form method="post">
                   <input type="hidden" name="intent" value="deletePhase" />
                   <input type="hidden" name="phaseId" value={phase.id} />
+                  <input type="hidden" name="sheetId" value={sheetId} />
                   <button type="submit" className="text-sm font-medium text-gdg-red underline">
                     削除
                   </button>
@@ -44,6 +49,7 @@ export function PhaseList({ phases, timeSlots }: { phases: Phase[]; timeSlots: T
 
         <Form method="post" className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="intent" value="createPhase" />
+          <input type="hidden" name="sheetId" value={sheetId} />
           <label className="space-y-1">
             <span className="block text-sm font-medium">名前</span>
             <input
