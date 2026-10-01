@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import type { UserChapter } from "@gdgjp/gdg-lib";
+import { signPayload, verifyPayload } from "@gdgjp/gdg-lib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("~/features/auth/auth-redirect.server", () => ({
@@ -29,7 +30,7 @@ const OTHER_CHAPTER: UserChapter = { chapterId: 99, chapterSlug: "osaka", role: 
 
 function mockContext(db: D1Database) {
   return {
-    cloudflare: { env: { DB: db } as unknown as Env },
+    cloudflare: { env: { DB: db, RP_SESSION_SECRET: "test-roster-secret" } as unknown as Env },
   } as Parameters<typeof loader>[0]["context"];
 }
 
@@ -123,6 +124,53 @@ async function seedFixture(db: TestD1Database) {
       .bind(id, avail1)
       .run();
   }
+}
+
+async function seedSiblingAssignment(db: TestD1Database, start = "09:30", end = "10:30") {
+  await db
+    .prepare(
+      `INSERT INTO roster_sheets
+        (id, event_id, name, date, start_time, end_time, step_min, seed, created_at, updated_at)
+       VALUES ('sheet_other', 'evt_1', '懇親会', '2026-11-07', ?, ?, 60, 1, 'now', 'now')`,
+    )
+    .bind(start, end)
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+       VALUES ('slot_other', 'evt_1', 0, ?, ?, 'sheet_other')`,
+    )
+    .bind(start, end)
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO tracks (id, event_id, name, color, shared, sort_order, roster_sheet_id)
+       VALUES ('track_other', 'evt_1', '懇親会', '#000', 0, 0, 'sheet_other')`,
+    )
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO assignments
+        (event_id, roster_sheet_id, application_id, time_slot_id, track_id, role_id, locked)
+       VALUES ('evt_1', 'sheet_other', 'app_o', 'slot_other', 'track_other', 'reception', 0)`,
+    )
+    .run();
+}
+
+async function seedAdditionalSiblingSlot(db: TestD1Database) {
+  await db
+    .prepare(
+      `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+       VALUES ('slot_other_2', 'evt_1', 1, '09:15', '10:15', 'sheet_other')`,
+    )
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO assignments
+        (event_id, roster_sheet_id, application_id, time_slot_id, track_id, role_id, locked)
+       VALUES ('evt_1', 'sheet_other', 'app_o', 'slot_other_2', 'track_other', 'reception', 0)`,
+    )
+    .run();
 }
 
 function buildRequest(fields: Record<string, string | string[]>): Request {
@@ -365,6 +413,343 @@ describe("e.$id.roster action — manual edit (warn-and-allow)", () => {
     );
     expect(result).toEqual({ error: "入力が不正です。", intent: "assign" });
     expect(await readAssignmentRows(testDb)).toEqual([]);
+  });
+
+  it("returns a signed warning for an overlapping sibling assignment without writing", async () => {
+    await seedSiblingAssignment(testDb);
+    const result = await callAction(
+      buildRequest({
+        intent: "assign",
+        applicationId: "app_o",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotId: "slot_0",
+      }),
+      "evt_1",
+      asD1(testDb),
+    );
+
+    expect(result).toMatchObject({
+      warning: "cross-sheet",
+      conflicts: [
+        {
+          sheetName: "懇親会",
+          date: "2026-11-07",
+          startTime: "09:30",
+          endTime: "10:30",
+        },
+      ],
+      assignment: {
+        applicationId: "app_o",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotIds: ["slot_0"],
+      },
+      intent: "assign",
+    });
+    expect((result as { confirmation?: string }).confirmation).toBeTruthy();
+    expect(await readAssignmentRows(testDb)).toHaveLength(1);
+    expect(await testDb.prepare("SELECT id FROM revisions").all()).toMatchObject({ results: [] });
+  });
+
+  it("writes the exact confirmed assignment and records its history", async () => {
+    await seedSiblingAssignment(testDb);
+    const warning = await callAction(
+      buildRequest({
+        intent: "assign",
+        applicationId: "app_o",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotId: "slot_0",
+      }),
+      "evt_1",
+      asD1(testDb),
+    );
+    expect(warning).toHaveProperty("warning", "cross-sheet");
+    const confirmation = (warning as { confirmation: string }).confirmation;
+    const result = await callAction(
+      buildRequest({
+        intent: "assign",
+        applicationId: "app_o",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotId: "slot_0",
+        conflictConfirmation: confirmation,
+      }),
+      "evt_1",
+      asD1(testDb),
+    );
+
+    expect(result).toEqual({ ok: true, intent: "assign" });
+    expect(await readAssignmentRows(testDb)).toHaveLength(2);
+    expect(await testDb.prepare("SELECT label, actor_id FROM revisions").all()).toMatchObject({
+      results: [{ label: "手動編集", actor_id: "owner_1" }],
+    });
+  });
+
+  it("does not warn for an adjacent sibling slot", async () => {
+    await seedSiblingAssignment(testDb, "10:00", "11:00");
+    const result = await callAction(
+      buildRequest({
+        intent: "assign",
+        applicationId: "app_o",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotId: "slot_0",
+      }),
+      "evt_1",
+      asD1(testDb),
+    );
+
+    expect(result).toEqual({ ok: true, intent: "assign" });
+    expect(await readAssignmentRows(testDb)).toHaveLength(2);
+  });
+
+  it("rejects a changed confirmation payload without writing the proposed target row", async () => {
+    await seedSiblingAssignment(testDb);
+    const warning = await callAction(
+      buildRequest({
+        intent: "assign",
+        applicationId: "app_o",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotId: "slot_0",
+      }),
+      "evt_1",
+      asD1(testDb),
+    );
+    const confirmation = (warning as { confirmation: string }).confirmation;
+    const result = await callAction(
+      buildRequest({
+        intent: "assign",
+        applicationId: "app_x",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotId: "slot_0",
+        conflictConfirmation: confirmation,
+      }),
+      "evt_1",
+      asD1(testDb),
+    );
+
+    expect(result).toMatchObject({ warning: "cross-sheet", conflicts: [], intent: "assign" });
+    expect(await readAssignmentRows(testDb)).toHaveLength(1);
+
+    await testDb
+      .prepare(
+        `INSERT INTO events
+          (id, chapter_id, name, date, start_time, end_time, seed, apply_token, view_token,
+           created_at, updated_at)
+         VALUES ('evt_2', 1, '別イベント', '2026-11-07', '09:00', '11:00', 1,
+           'apply2', 'view2', 'now', 'now')`,
+      )
+      .run();
+    const crossEvent = await callAction(
+      buildRequest({
+        intent: "assign",
+        applicationId: "app_o",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotId: "slot_0",
+        conflictConfirmation: confirmation,
+      }),
+      "evt_2",
+      asD1(testDb),
+    );
+    expect(crossEvent).toMatchObject({ warning: "cross-sheet", conflicts: [], intent: "assign" });
+    expect(
+      await testDb.prepare("SELECT application_id FROM assignments WHERE event_id = 'evt_2'").all(),
+    ).toMatchObject({ results: [] });
+  });
+
+  it("allows the confirmed conflict but rolls back if a new one appears inside the batch", async () => {
+    await seedSiblingAssignment(testDb);
+    const warning = await callAction(
+      buildRequest({
+        intent: "assign",
+        applicationId: "app_o",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotId: "slot_0",
+      }),
+      "evt_1",
+      asD1(testDb),
+    );
+    const confirmation = (warning as { confirmation: string }).confirmation;
+    const db = asD1(testDb);
+    let injectConflict = true;
+    const racingDb = {
+      prepare: db.prepare.bind(db),
+      batch: async (statements: D1PreparedStatement[]) => {
+        if (injectConflict) {
+          injectConflict = false;
+          await seedAdditionalSiblingSlot(testDb);
+        }
+        return db.batch(statements);
+      },
+    } as unknown as D1Database;
+    const result = await callAction(
+      buildRequest({
+        intent: "assign",
+        applicationId: "app_o",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotId: "slot_0",
+        conflictConfirmation: confirmation,
+      }),
+      "evt_1",
+      racingDb,
+    );
+
+    expect(result).toMatchObject({ warning: "cross-sheet", conflicts: [{}, {}], intent: "assign" });
+    expect(await readAssignmentRows(testDb)).toHaveLength(2);
+    expect(await testDb.prepare("SELECT id FROM revisions").all()).toMatchObject({ results: [] });
+  });
+
+  it("returns a fresh warning when the confirmed conflict set gains a new pair", async () => {
+    await seedSiblingAssignment(testDb);
+    const initial = await callAction(
+      buildRequest({
+        intent: "assign",
+        applicationId: "app_o",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotId: "slot_0",
+      }),
+      "evt_1",
+      asD1(testDb),
+    );
+    const initialConfirmation = (initial as { confirmation: string }).confirmation;
+    await seedAdditionalSiblingSlot(testDb);
+    const result = await callAction(
+      buildRequest({
+        intent: "assign",
+        applicationId: "app_o",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotId: "slot_0",
+        conflictConfirmation: initialConfirmation,
+      }),
+      "evt_1",
+      asD1(testDb),
+    );
+
+    expect(result).toMatchObject({ warning: "cross-sheet", conflicts: [{}, {}] });
+    expect((result as { confirmation: string }).confirmation).not.toBe(initialConfirmation);
+    expect(await readAssignmentRows(testDb)).toHaveLength(2);
+    expect(await testDb.prepare("SELECT id FROM revisions").all()).toMatchObject({ results: [] });
+  });
+
+  it("refreshes an expired confirmation instead of applying it", async () => {
+    await seedSiblingAssignment(testDb);
+    const initial = await callAction(
+      buildRequest({
+        intent: "assign",
+        applicationId: "app_o",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotId: "slot_0",
+      }),
+      "evt_1",
+      asD1(testDb),
+    );
+    const initialConfirmation = (initial as { confirmation: string }).confirmation;
+    const payload = await verifyPayload<Record<string, unknown>>(
+      initialConfirmation,
+      "test-roster-secret",
+    );
+    if (!payload) throw new Error("Expected a signed assignment confirmation");
+    const expiredConfirmation = await signPayload(
+      { ...payload, issuedAt: Date.now() - 10 * 60 * 1000 },
+      "test-roster-secret",
+    );
+    const result = await callAction(
+      buildRequest({
+        intent: "assign",
+        applicationId: "app_o",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotId: "slot_0",
+        conflictConfirmation: expiredConfirmation,
+      }),
+      "evt_1",
+      asD1(testDb),
+    );
+
+    expect(result).toMatchObject({ warning: "cross-sheet", conflicts: [{ sheetName: "懇親会" }] });
+    expect((result as { confirmation: string }).confirmation).not.toBe(expiredConfirmation);
+    expect(await readAssignmentRows(testDb)).toHaveLength(1);
+    expect(await testDb.prepare("SELECT id FROM revisions").all()).toMatchObject({ results: [] });
+  });
+
+  it("rejects replay by refreshing the warning after the first confirmed write", async () => {
+    await seedSiblingAssignment(testDb);
+    const initial = await callAction(
+      buildRequest({
+        intent: "assign",
+        applicationId: "app_o",
+        trackId: "trk_1",
+        roleId: "reception",
+        slotId: "slot_0",
+      }),
+      "evt_1",
+      asD1(testDb),
+    );
+    const confirmation = (initial as { confirmation: string }).confirmation;
+    const confirmFields = {
+      intent: "assign",
+      applicationId: "app_o",
+      trackId: "trk_1",
+      roleId: "reception",
+      slotId: "slot_0",
+      conflictConfirmation: confirmation,
+    };
+    expect(await callAction(buildRequest(confirmFields), "evt_1", asD1(testDb))).toEqual({
+      ok: true,
+      intent: "assign",
+    });
+
+    const replay = await callAction(buildRequest(confirmFields), "evt_1", asD1(testDb));
+    expect(replay).toMatchObject({ warning: "cross-sheet", intent: "assign" });
+    expect((replay as { confirmation: string }).confirmation).not.toBe(confirmation);
+    expect(await readAssignmentRows(testDb)).toHaveLength(2);
+  });
+
+  it("rejects replay after a confirmed edit merges into the same history head", async () => {
+    const assignmentFields = {
+      intent: "assign",
+      applicationId: "app_o",
+      trackId: "trk_1",
+      roleId: "reception",
+      slotId: "slot_0",
+    };
+    await callAction(buildRequest(assignmentFields), "evt_1", asD1(testDb));
+    const oldCreatedAt = new Date(Date.now() - 60_000).toISOString();
+    await testDb
+      .prepare("UPDATE revisions SET created_at = ? WHERE event_id = 'evt_1'")
+      .bind(oldCreatedAt)
+      .run();
+    await seedSiblingAssignment(testDb);
+    const warning = await callAction(buildRequest(assignmentFields), "evt_1", asD1(testDb));
+    const confirmation = (warning as { confirmation: string }).confirmation;
+    const confirmedFields = { ...assignmentFields, conflictConfirmation: confirmation };
+    expect(await callAction(buildRequest(confirmedFields), "evt_1", asD1(testDb))).toEqual({
+      ok: true,
+      intent: "assign",
+    });
+    const mergedHead = await testDb
+      .prepare("SELECT seq, created_at FROM revisions WHERE event_id = 'evt_1'")
+      .all<{ seq: number; created_at: string }>();
+    expect(mergedHead.results).toHaveLength(1);
+    expect(mergedHead.results?.[0]).toMatchObject({ seq: 1 });
+    expect(mergedHead.results?.[0]?.created_at).not.toBe(oldCreatedAt);
+
+    const replay = await callAction(buildRequest(confirmedFields), "evt_1", asD1(testDb));
+    expect(replay).toMatchObject({ warning: "cross-sheet", intent: "assign" });
+    expect((replay as { confirmation: string }).confirmation).not.toBe(confirmation);
+    expect(
+      await testDb.prepare("SELECT seq FROM revisions WHERE event_id = 'evt_1'").all(),
+    ).toMatchObject({ results: [{ seq: 1 }] });
   });
 });
 

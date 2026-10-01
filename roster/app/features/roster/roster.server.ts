@@ -198,6 +198,8 @@ export type WriteAssignmentsRevision = {
    * 08-history.md "Design" §3: "同一ユーザー × 同一イベント"). Ignored for
    * `kind: "generate"`, which never merges regardless of this value. */
   groupKey?: string | null;
+  /** Cross-sheet safety checks that must run inside the assignment/history batch. */
+  mutationGuards?: readonly D1PreparedStatement[];
 };
 
 /**
@@ -219,7 +221,10 @@ export async function writeAssignments(
   const sheet = await requireRosterSheet(db, eventId, rosterSheetId);
   const sheetId = sheet.id;
   await validateAssignmentsForSheet(db, eventId, sheetId, next);
-  const mutationStatements = assignmentReplacementStatements(db, eventId, sheetId, next);
+  const mutationStatements = [
+    ...(revision?.mutationGuards ?? []),
+    ...assignmentReplacementStatements(db, eventId, sheetId, next),
+  ];
   if (revision) {
     await recordRevision(db, {
       eventId,
@@ -282,6 +287,7 @@ export async function writeManualEdit(
   next: Assignments,
   rosterSheetId?: string,
   expectedRevisionCursor?: number | null,
+  mutationGuards: readonly D1PreparedStatement[] = [],
 ): Promise<void> {
   const sheet = await requireRosterSheet(db, event.id, rosterSheetId);
   const input = await buildSolverInput(
@@ -305,6 +311,7 @@ export async function writeManualEdit(
       actor,
       kind: "edit",
       groupKey: actor.id,
+      mutationGuards,
     },
     sheet.id,
     expectedRevisionCursor,
