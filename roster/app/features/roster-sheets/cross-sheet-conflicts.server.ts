@@ -1,3 +1,4 @@
+import { type Assignments, parseAssignmentKey } from "../solver/types";
 import { RosterSheetMutationError, getRosterSheet } from "./roster-sheets.server";
 
 export type CrossSheetAssignmentConflict = {
@@ -45,6 +46,195 @@ type OverlappingAssignmentSlotRow = {
   application_id: string;
   target_slot_id: string;
 };
+
+type ProposedAssignment = {
+  applicationId: string;
+  slotId: string;
+  trackId: string;
+  roleId: string;
+  startTime: string;
+  endTime: string;
+};
+
+type ProposedTargetRow = {
+  application_id: string;
+  slot_id: string;
+  start_time: string;
+  end_time: string;
+};
+
+type OtherAssignmentRow = {
+  application_id: string;
+  application_name: string;
+  sheet_id: string;
+  sheet_name: string;
+  sheet_date: string;
+  slot_id: string;
+  start_time: string;
+  end_time: string;
+  track_id: string;
+  role_id: string;
+};
+
+function compareText(a: string, b: string): number {
+  const lowerA = a.toLowerCase();
+  const lowerB = b.toLowerCase();
+  return lowerA < lowerB ? -1 : lowerA > lowerB ? 1 : a < b ? -1 : a > b ? 1 : 0;
+}
+
+function compareConflicts(
+  a: CrossSheetAssignmentConflict,
+  b: CrossSheetAssignmentConflict,
+): number {
+  return (
+    compareText(a.application.name, b.application.name) ||
+    compareText(a.application.id, b.application.id) ||
+    a.target.startTime.localeCompare(b.target.startTime) ||
+    a.target.endTime.localeCompare(b.target.endTime) ||
+    compareText(a.target.slotId, b.target.slotId) ||
+    compareText(a.other.sheetName, b.other.sheetName) ||
+    compareText(a.other.sheetId, b.other.sheetId) ||
+    a.other.startTime.localeCompare(b.other.startTime) ||
+    a.other.endTime.localeCompare(b.other.endTime) ||
+    compareText(a.other.slotId, b.other.slotId) ||
+    compareText(a.other.trackId, b.other.trackId) ||
+    compareText(a.other.roleId, b.other.roleId)
+  );
+}
+
+export async function listProposedCrossSheetAssignmentConflicts(
+  db: D1Database,
+  eventId: string,
+  targetSheetId: string,
+  assignments: Assignments,
+): Promise<CrossSheetAssignmentConflict[]> {
+  const targetSheet = await getRosterSheet(db, eventId, targetSheetId);
+  if (!targetSheet) {
+    throw new RosterSheetMutationError("Roster sheet not found for this event.");
+  }
+
+  const proposed: ProposedAssignment[] = [...assignments].map(([key, value]) => {
+    const { applicationId, slotId } = parseAssignmentKey(key);
+    return {
+      applicationId,
+      slotId,
+      trackId: value.trackId,
+      roleId: value.roleId,
+      startTime: "",
+      endTime: "",
+    };
+  });
+  if (proposed.length === 0) return [];
+
+  const validated = new Map<string, ProposedTargetRow>();
+  for (let offset = 0; offset < proposed.length; offset += 20) {
+    const batch = proposed.slice(offset, offset + 20);
+    const values = batch.map(() => "(?, ?)").join(", ");
+    const binds: string[] = [];
+    for (const assignment of batch) binds.push(assignment.applicationId, assignment.slotId);
+    const { results } = await db
+      .prepare(
+        `WITH proposal(application_id, slot_id) AS (VALUES ${values})
+         SELECT proposal.application_id, proposal.slot_id,
+                slot.start_time, slot.end_time
+         FROM proposal
+         JOIN applications AS app
+           ON app.id = proposal.application_id AND app.event_id = ?
+         JOIN time_slots AS slot
+           ON slot.id = proposal.slot_id AND slot.event_id = app.event_id
+          AND slot.roster_sheet_id = ?
+         JOIN roster_sheets AS sheet
+           ON sheet.id = slot.roster_sheet_id AND sheet.event_id = app.event_id
+          AND sheet.deleted_at IS NULL
+         JOIN events AS event ON event.id = app.event_id AND event.deleted_at IS NULL`,
+      )
+      .bind(...binds, eventId, targetSheetId)
+      .all<ProposedTargetRow>();
+    for (const row of results ?? []) validated.set(`${row.application_id}|${row.slot_id}`, row);
+  }
+  if (validated.size !== proposed.length) {
+    throw new RosterSheetMutationError(
+      "Proposed assignment references an application or slot outside this roster sheet.",
+    );
+  }
+  for (const assignment of proposed) {
+    const row = validated.get(`${assignment.applicationId}|${assignment.slotId}`);
+    if (row) {
+      assignment.startTime = row.start_time;
+      assignment.endTime = row.end_time;
+    }
+  }
+
+  const { results: otherRows } = await db
+    .prepare(
+      `SELECT app.id AS application_id, app.name AS application_name,
+              other_sheet.id AS sheet_id, other_sheet.name AS sheet_name,
+              other_sheet.date AS sheet_date, other_slot.id AS slot_id,
+              other_slot.start_time, other_slot.end_time,
+              other_assignment.track_id, other_assignment.role_id
+       FROM assignments AS other_assignment
+       JOIN applications AS app
+         ON app.id = other_assignment.application_id
+        AND app.event_id = other_assignment.event_id
+       JOIN roster_sheets AS other_sheet
+         ON other_sheet.id = other_assignment.roster_sheet_id
+        AND other_sheet.event_id = other_assignment.event_id
+       JOIN time_slots AS other_slot
+         ON other_slot.id = other_assignment.time_slot_id
+        AND other_slot.event_id = other_assignment.event_id
+        AND other_slot.roster_sheet_id = other_assignment.roster_sheet_id
+       JOIN events AS event ON event.id = other_assignment.event_id
+       WHERE other_assignment.event_id = ?
+         AND other_assignment.roster_sheet_id <> ?
+         AND app.withdrawn = 0
+         AND other_sheet.deleted_at IS NULL
+         AND event.deleted_at IS NULL
+         AND other_sheet.date = ?
+       ORDER BY app.name COLLATE NOCASE, app.id,
+         other_sheet.name COLLATE NOCASE, other_sheet.id,
+         other_slot.start_time, other_slot.end_time, other_slot.id,
+         other_assignment.track_id, other_assignment.role_id`,
+    )
+    .bind(eventId, targetSheetId, targetSheet.date)
+    .all<OtherAssignmentRow>();
+
+  const othersByApplication = new Map<string, OtherAssignmentRow[]>();
+  for (const row of otherRows ?? []) {
+    const rows = othersByApplication.get(row.application_id) ?? [];
+    rows.push(row);
+    othersByApplication.set(row.application_id, rows);
+  }
+
+  const conflicts: CrossSheetAssignmentConflict[] = [];
+  for (const assignment of proposed) {
+    for (const other of othersByApplication.get(assignment.applicationId) ?? []) {
+      if (assignment.startTime >= other.end_time || other.start_time >= assignment.endTime)
+        continue;
+      conflicts.push({
+        application: { id: other.application_id, name: other.application_name },
+        target: {
+          sheetId: targetSheetId,
+          slotId: assignment.slotId,
+          startTime: assignment.startTime,
+          endTime: assignment.endTime,
+          trackId: assignment.trackId,
+          roleId: assignment.roleId,
+        },
+        other: {
+          sheetId: other.sheet_id,
+          sheetName: other.sheet_name,
+          sheetDate: other.sheet_date,
+          slotId: other.slot_id,
+          startTime: other.start_time,
+          endTime: other.end_time,
+          trackId: other.track_id,
+          roleId: other.role_id,
+        },
+      });
+    }
+  }
+  return conflicts.sort(compareConflicts);
+}
 
 /**
  * Returns target-sheet slots that an applicant cannot take because they
