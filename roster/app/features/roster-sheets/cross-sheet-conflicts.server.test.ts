@@ -1,7 +1,11 @@
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { asD1, createTestD1 } from "../../../tests/helpers/sqlite-d1";
-import { listCrossSheetAssignmentConflicts } from "./cross-sheet-conflicts.server";
+import { type Assignments, assignmentKey } from "../solver/types";
+import {
+  listCrossSheetAssignmentConflicts,
+  listProposedCrossSheetAssignmentConflicts,
+} from "./cross-sheet-conflicts.server";
 
 const migrations = [
   "0002_domain.sql",
@@ -91,6 +95,186 @@ function addAssignment(
 }
 
 describe("cross-sheet assignment conflicts", () => {
+  it("checks unsaved assignments and uses proposed target details", async () => {
+    const db = makeDb();
+    addSheet(db, "sheet-other", "Second venue");
+    addStaff(db, "staff-1", "Aki");
+    addAssignment(db, {
+      applicationId: "staff-1",
+      sheetId: "sheet-other",
+      slotId: "other-slot",
+      start: "10:15",
+      end: "10:45",
+    });
+    const proposal: Assignments = new Map([
+      [
+        assignmentKey("staff-1", "target-slot"),
+        { trackId: "proposed-track", roleId: "lead", locked: false },
+      ],
+    ]);
+    db.prepare(
+      `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+       VALUES ('target-slot', 'event-a', 0, '10:00', '10:30', 'default:event-a')`,
+    ).run();
+
+    await expect(
+      listProposedCrossSheetAssignmentConflicts(asD1(db), "event-a", "default:event-a", proposal),
+    ).resolves.toEqual([
+      {
+        application: { id: "staff-1", name: "Aki" },
+        target: {
+          sheetId: "default:event-a",
+          slotId: "target-slot",
+          startTime: "10:00",
+          endTime: "10:30",
+          trackId: "proposed-track",
+          roleId: "lead",
+        },
+        other: {
+          sheetId: "sheet-other",
+          sheetName: "Second venue",
+          sheetDate: "2026-11-07",
+          slotId: "other-slot",
+          startTime: "10:15",
+          endTime: "10:45",
+          trackId: "track:sheet-other",
+          roleId: "reception",
+        },
+      },
+    ]);
+  });
+
+  it("clears a conflict when the proposed map removes the assignment", async () => {
+    const db = makeDb();
+    addSheet(db, "sheet-other", "Second venue");
+    addStaff(db, "staff-1");
+    addAssignment(db, {
+      applicationId: "staff-1",
+      sheetId: "default:event-a",
+      slotId: "target-slot",
+      start: "10:00",
+      end: "10:30",
+    });
+    addAssignment(db, {
+      applicationId: "staff-1",
+      sheetId: "sheet-other",
+      slotId: "other-slot",
+      start: "10:15",
+      end: "10:45",
+    });
+    await expect(
+      listProposedCrossSheetAssignmentConflicts(asD1(db), "event-a", "default:event-a", new Map()),
+    ).resolves.toEqual([]);
+  });
+
+  it("returns multiple proposed conflicts in stable order", async () => {
+    const db = makeDb();
+    addSheet(db, "sheet-z", "Zulu");
+    addSheet(db, "sheet-a", "Alpha");
+    addStaff(db, "staff-z", "Zed");
+    addStaff(db, "staff-a", "Ari");
+    for (const [applicationId, prefix] of [
+      ["staff-z", "z"],
+      ["staff-a", "a"],
+    ]) {
+      addAssignment(db, {
+        applicationId,
+        sheetId: "sheet-z",
+        slotId: `other-z-${prefix}`,
+        start: "10:15",
+        end: "10:45",
+      });
+      addAssignment(db, {
+        applicationId,
+        sheetId: "sheet-a",
+        slotId: `other-a-${prefix}`,
+        start: "10:15",
+        end: "10:45",
+      });
+    }
+    for (const [idx, id] of ["target-a", "target-z"].entries()) {
+      db.prepare(
+        `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+         VALUES (?, 'event-a', ?, '10:00', '10:30', 'default:event-a')`,
+      )
+        .bind(id, idx)
+        .run();
+    }
+    const proposal: Assignments = new Map([
+      [assignmentKey("staff-z", "target-z"), { trackId: "track", roleId: "role", locked: false }],
+      [assignmentKey("staff-a", "target-a"), { trackId: "track", roleId: "role", locked: false }],
+    ]);
+
+    const conflicts = await listProposedCrossSheetAssignmentConflicts(
+      asD1(db),
+      "event-a",
+      "default:event-a",
+      proposal,
+    );
+    expect(
+      conflicts.map((conflict) => [conflict.application.name, conflict.other.sheetId]),
+    ).toEqual([
+      ["Ari", "sheet-a"],
+      ["Ari", "sheet-z"],
+      ["Zed", "sheet-a"],
+      ["Zed", "sheet-z"],
+    ]);
+  });
+
+  it("validates the target and every proposed application and slot", async () => {
+    const db = makeDb();
+    const proposal = (applicationId: string, slotId: string): Assignments =>
+      new Map([
+        [assignmentKey(applicationId, slotId), { trackId: "track", roleId: "role", locked: false }],
+      ]);
+    await expect(
+      listProposedCrossSheetAssignmentConflicts(asD1(db), "event-a", "missing", new Map()),
+    ).rejects.toThrow("Roster sheet not found for this event.");
+    await expect(
+      listProposedCrossSheetAssignmentConflicts(
+        asD1(db),
+        "event-a",
+        "default:event-a",
+        proposal("missing-app", "missing-slot"),
+      ),
+    ).rejects.toThrow(
+      "Proposed assignment references an application or slot outside this roster sheet.",
+    );
+    addStaff(db, "staff-1");
+    db.prepare(
+      `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+       VALUES ('other-slot', 'event-a', 0, '10:00', '10:30', 'default:event-a')`,
+    ).run();
+    await expect(
+      listProposedCrossSheetAssignmentConflicts(
+        asD1(db),
+        "event-a",
+        "default:event-a",
+        proposal("staff-1", "missing-slot"),
+      ),
+    ).rejects.toThrow(
+      "Proposed assignment references an application or slot outside this roster sheet.",
+    );
+    await expect(
+      listProposedCrossSheetAssignmentConflicts(
+        asD1(db),
+        "event-a",
+        "default:event-a",
+        proposal("missing-app", "other-slot"),
+      ),
+    ).rejects.toThrow(
+      "Proposed assignment references an application or slot outside this roster sheet.",
+    );
+    await expect(
+      listProposedCrossSheetAssignmentConflicts(
+        asD1(db),
+        "event-a",
+        "default:event-a",
+        proposal("staff-1", "other-slot"),
+      ),
+    ).resolves.toEqual([]);
+  });
+
   it("finds same-day overlapping assignments and returns useful details", async () => {
     const db = makeDb();
     addSheet(db, "sheet-other", "Second venue");
