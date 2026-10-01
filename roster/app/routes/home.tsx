@@ -67,7 +67,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link
-                        to={`/e/${event.id}/design`}
+                        to={`/e/${event.id}`}
                         className="rounded-md border border-border px-3 py-1.5 font-semibold hover:bg-muted"
                       >
                         開く
