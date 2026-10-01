@@ -11,7 +11,7 @@ const DEFAULT_COLORS = ["#4285f4", "#ea4335", "#fbbc04", "#34a853", "#673ab7", "
  * (`tracks.server.ts#reorderTracks` takes the whole ordered id list, not a
  * single-step move).
  */
-export function TrackEditor({ tracks }: { tracks: Track[] }) {
+export function TrackEditor({ tracks, sheetId }: { tracks: Track[]; sheetId: string }) {
   return (
     <div className="space-y-4">
       {tracks.length === 0 ? (
@@ -41,6 +41,7 @@ export function TrackEditor({ tracks }: { tracks: Track[] }) {
                   <input type="hidden" name="intent" value="moveTrack" />
                   <input type="hidden" name="trackId" value={track.id} />
                   <input type="hidden" name="direction" value="up" />
+                  <input type="hidden" name="sheetId" value={sheetId} />
                   <button
                     type="submit"
                     disabled={i === 0}
@@ -54,6 +55,7 @@ export function TrackEditor({ tracks }: { tracks: Track[] }) {
                   <input type="hidden" name="intent" value="moveTrack" />
                   <input type="hidden" name="trackId" value={track.id} />
                   <input type="hidden" name="direction" value="down" />
+                  <input type="hidden" name="sheetId" value={sheetId} />
                   <button
                     type="submit"
                     disabled={i === tracks.length - 1}
@@ -66,6 +68,7 @@ export function TrackEditor({ tracks }: { tracks: Track[] }) {
                 <Form method="post">
                   <input type="hidden" name="intent" value="deleteTrack" />
                   <input type="hidden" name="trackId" value={track.id} />
+                  <input type="hidden" name="sheetId" value={sheetId} />
                   <button type="submit" className="text-sm font-medium text-gdg-red underline">
                     削除
                   </button>
@@ -78,6 +81,7 @@ export function TrackEditor({ tracks }: { tracks: Track[] }) {
 
       <Form method="post" className="flex flex-wrap items-end gap-3">
         <input type="hidden" name="intent" value="createTrack" />
+        <input type="hidden" name="sheetId" value={sheetId} />
         <label className="space-y-1">
           <span className="block text-sm font-medium">名前</span>
           <input

@@ -13,11 +13,12 @@ import {
   Inline,
   Stack,
 } from "@gdgjp/ui";
-import { Form } from "react-router";
+import { Form, Link as RouterLink } from "react-router";
 import type { RosterSheet, SheetVisibility } from "../types";
 
 type Props = {
   sheet: Pick<RosterSheet, "id" | "name" | "date" | "startTime" | "endTime">;
+  eventId: string;
   visibility: SheetVisibility;
   isDefault: boolean;
   error?: string;
@@ -27,6 +28,7 @@ type Props = {
 
 export function RosterSheetCard({
   sheet,
+  eventId,
   visibility,
   isDefault,
   error,
@@ -58,6 +60,9 @@ export function RosterSheetCard({
           </p>
         )}
         <Inline className="flex-wrap">
+          <Button asChild>
+            <RouterLink to={`/e/${eventId}/s/${sheet.id}/design`}>設計</RouterLink>
+          </Button>
           <Form method="post">
             <input type="hidden" name="intent" value="setVisibility" />
             <input type="hidden" name="sheetId" value={sheet.id} />

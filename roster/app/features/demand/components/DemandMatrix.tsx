@@ -31,12 +31,14 @@ export function DemandMatrix({
   tracks,
   roles,
   demands,
+  sheetId,
 }: {
   phases: Phase[];
   timeSlots: TimeSlot[];
   tracks: Track[];
   roles: Role[];
   demands: Demand[];
+  sheetId: string;
 }) {
   const [mode, setMode] = useState<MatrixMode>("phase");
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -168,6 +170,7 @@ export function DemandMatrix({
           roles={roles}
           phases={phases}
           onClose={() => setSelection(null)}
+          sheetId={sheetId}
         />
       ) : null}
     </div>
