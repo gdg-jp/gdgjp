@@ -1,11 +1,9 @@
 import {
-  Badge,
   Button,
   Card,
   Checkbox,
   FormField,
   Heading,
-  Inline,
   Input,
   Link,
   NativeSelect,
@@ -17,7 +15,14 @@ import { Form, Link as RouterLink, redirect, useNavigation } from "react-router"
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { canManageEvent } from "~/features/auth/permissions";
 import { getEvent } from "~/features/events/events.server";
-import { createRosterSheet, listRosterSheets } from "~/features/roster-sheets/roster-sheets.server";
+import { canView } from "~/features/events/status";
+import { RosterSheetCard } from "~/features/roster-sheets/components/RosterSheetCard";
+import { archiveRosterSheet } from "~/features/roster-sheets/roster-sheet-lifecycle.server";
+import {
+  createRosterSheet,
+  listRosterSheets,
+  setRosterSheetVisibility,
+} from "~/features/roster-sheets/roster-sheets.server";
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/e.$id";
 
@@ -154,6 +159,36 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       formError: "入力を読み取れませんでした。もう一度お試しください。",
     };
   }
+  const intent = formValue(form, "intent");
+  if (intent === "setVisibility" || intent === "archiveSheet") {
+    const sheetId = formValue(form, "sheetId");
+    const fail = (message: string) => ({ sheetError: { sheetId, intent, message } });
+    if (!sheetId) return fail("シフト表を特定できませんでした。画面を更新してお試しください。");
+
+    try {
+      if (intent === "setVisibility") {
+        const visibility = formValue(form, "visibility");
+        if (visibility !== "private" && visibility !== "published") {
+          return fail("公開状態を変更できませんでした。画面を更新してお試しください。");
+        }
+        await setRosterSheetVisibility(db, event.id, sheetId, visibility);
+      } else {
+        await archiveRosterSheet(db, event.id, sheetId);
+      }
+    } catch {
+      return fail(
+        intent === "archiveSheet"
+          ? "シフト表をアーカイブできませんでした。対象を確認してお試しください。"
+          : "公開状態を変更できませんでした。対象を確認してお試しください。",
+      );
+    }
+    return redirect(`/e/${event.id}`);
+  }
+
+  if (intent !== "createSheet") {
+    return { formError: "操作を読み取れませんでした。画面を更新してお試しください。" };
+  }
+
   const { values, errors, input } = parseSheetForm(form);
   if (Object.keys(errors).length > 0) return { values, errors };
 
@@ -191,6 +226,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
       stepMin: event.stepMin,
       maxConsecutive: event.maxConsecutive,
       noSoloNewcomer: event.noSoloNewcomer,
+      status: event.status,
     },
     sheets: sheets.map(({ id, name, date, startTime, endTime, visibility }) => ({
       id,
@@ -217,6 +253,8 @@ export default function EventOverview({ loaderData, actionData }: Route.Componen
   };
   const errors = actionData?.errors ?? {};
   const submitting = navigation.state === "submitting";
+  const pendingSheetId = navigation.formData?.get("sheetId");
+  const pendingIntent = navigation.formData?.get("intent");
 
   return (
     <main className="admin-page">
@@ -247,6 +285,7 @@ export default function EventOverview({ loaderData, actionData }: Route.Componen
             </p>
           )}
           <Form method="post" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <input type="hidden" name="intent" value="createSheet" />
             <FormField id="sheet-name" label="シフト表名" error={errors.name} required>
               <Input
                 name="name"
@@ -313,29 +352,32 @@ export default function EventOverview({ loaderData, actionData }: Route.Componen
         <output className="gdg-muted">シフト表はまだありません。</output>
       ) : (
         <ul className="grid list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 xl:grid-cols-3">
-          {sheets.map((sheet) => (
-            <li key={sheet.id}>
-              <Card>
-                <Stack>
-                  <Inline className="items-start justify-between">
-                    <Heading level={2} className="min-w-0 break-words">
-                      {sheet.name}
-                    </Heading>
-                    <Badge tone={sheet.visibility === "published" ? "success" : "neutral"}>
-                      {sheet.visibility === "published" ? "公開" : "非公開"}
-                    </Badge>
-                  </Inline>
-                  <p className="gdg-muted text-sm">
-                    <time dateTime={sheet.date}>{sheet.date}</time>
-                    <span aria-hidden="true"> · </span>
-                    <time dateTime={`${sheet.date}T${sheet.startTime}`}>{sheet.startTime}</time>
-                    <span aria-hidden="true">–</span>
-                    <time dateTime={`${sheet.date}T${sheet.endTime}`}>{sheet.endTime}</time>
-                  </p>
-                </Stack>
-              </Card>
-            </li>
-          ))}
+          {sheets.map((sheet) => {
+            const isDefault = sheet.id === `default:${event.id}`;
+            const visibility = isDefault
+              ? canView(event.status)
+                ? "published"
+                : "private"
+              : sheet.visibility;
+            const sheetError =
+              actionData?.sheetError?.sheetId === sheet.id
+                ? actionData.sheetError.message
+                : undefined;
+            return (
+              <li key={sheet.id}>
+                <RosterSheetCard
+                  sheet={sheet}
+                  visibility={visibility}
+                  isDefault={isDefault}
+                  error={sheetError}
+                  visibilityPending={
+                    pendingSheetId === sheet.id && pendingIntent === "setVisibility"
+                  }
+                  archivePending={pendingSheetId === sheet.id && pendingIntent === "archiveSheet"}
+                />
+              </li>
+            );
+          })}
         </ul>
       )}
     </main>

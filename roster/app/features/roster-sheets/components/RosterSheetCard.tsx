@@ -1,0 +1,108 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  Badge,
+  Button,
+  Card,
+  Heading,
+  Inline,
+  Stack,
+} from "@gdgjp/ui";
+import { Form } from "react-router";
+import type { RosterSheet, SheetVisibility } from "../types";
+
+type Props = {
+  sheet: Pick<RosterSheet, "id" | "name" | "date" | "startTime" | "endTime">;
+  visibility: SheetVisibility;
+  isDefault: boolean;
+  error?: string;
+  visibilityPending: boolean;
+  archivePending: boolean;
+};
+
+export function RosterSheetCard({
+  sheet,
+  visibility,
+  isDefault,
+  error,
+  visibilityPending,
+  archivePending,
+}: Props) {
+  const nextVisibility = visibility === "published" ? "private" : "published";
+  const visibilityLabel = visibility === "published" ? "公開" : "非公開";
+
+  return (
+    <Card>
+      <Stack>
+        <Inline className="items-start justify-between">
+          <Heading level={2} className="min-w-0 break-words">
+            {sheet.name}
+          </Heading>
+          <Badge tone={visibility === "published" ? "success" : "neutral"}>{visibilityLabel}</Badge>
+        </Inline>
+        <p className="gdg-muted text-sm">
+          <time dateTime={sheet.date}>{sheet.date}</time>
+          <span aria-hidden="true"> · </span>
+          <time dateTime={`${sheet.date}T${sheet.startTime}`}>{sheet.startTime}</time>
+          <span aria-hidden="true">–</span>
+          <time dateTime={`${sheet.date}T${sheet.endTime}`}>{sheet.endTime}</time>
+        </p>
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+        <Inline className="flex-wrap">
+          <Form method="post">
+            <input type="hidden" name="intent" value="setVisibility" />
+            <input type="hidden" name="sheetId" value={sheet.id} />
+            <input type="hidden" name="visibility" value={nextVisibility} />
+            <Button type="submit" variant="secondary" loading={visibilityPending}>
+              {visibilityPending
+                ? "更新中…"
+                : nextVisibility === "published"
+                  ? "公開にする"
+                  : "非公開にする"}
+            </Button>
+          </Form>
+          {!isDefault && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="danger"
+                  loading={archivePending}
+                  aria-label={archivePending ? "アーカイブ中" : "アーカイブ"}
+                >
+                  {archivePending ? "アーカイブ中…" : "アーカイブ"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogTitle>「{sheet.name}」をアーカイブしますか？</AlertDialogTitle>
+                <AlertDialogDescription>
+                  シフト表は一覧から非表示になります。スタッフや履歴のデータは保持されます。
+                </AlertDialogDescription>
+                <Form method="post" className="flex flex-wrap justify-end gap-2">
+                  <input type="hidden" name="intent" value="archiveSheet" />
+                  <input type="hidden" name="sheetId" value={sheet.id} />
+                  <AlertDialogCancel asChild>
+                    <Button variant="outline">キャンセル</Button>
+                  </AlertDialogCancel>
+                  <AlertDialogAction asChild>
+                    <Button type="submit" variant="danger" loading={archivePending}>
+                      {archivePending ? "アーカイブ中…" : "アーカイブする"}
+                    </Button>
+                  </AlertDialogAction>
+                </Form>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </Inline>
+      </Stack>
+    </Card>
+  );
+}
