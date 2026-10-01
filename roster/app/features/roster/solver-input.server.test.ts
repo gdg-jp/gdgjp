@@ -18,6 +18,7 @@ const MIGRATIONS = [
 ];
 
 const EVENT = { id: "evt_1", noSoloNewcomer: true, maxConsecutive: 4 };
+const OTHER_SHEET = "sheet:other";
 
 async function seedBase(db: TestD1Database) {
   const now = new Date().toISOString();
@@ -160,13 +161,14 @@ describe("buildSolverInput", () => {
     });
   });
 
-  it("builds options from the event's noSoloNewcomer/maxConsecutive and the given seed", async () => {
-    const input = await buildSolverInput(
-      asD1(testDb),
-      { id: "evt_1", noSoloNewcomer: false, maxConsecutive: 6 },
-      777,
-    );
-    expect(input.options).toEqual({ noSoloNewcomer: false, maxConsecutive: 6, seed: 777 });
+  it("uses the live default sheet's settings and seed when no seed is supplied", async () => {
+    const input = await buildSolverInput(asD1(testDb), { id: "evt_1" });
+    expect(input.options).toEqual({ noSoloNewcomer: true, maxConsecutive: 4, seed: 1 });
+  });
+
+  it("uses an explicitly supplied seed override", async () => {
+    const input = await buildSolverInput(asD1(testDb), { id: "evt_1" }, 777);
+    expect(input.options.seed).toBe(777);
   });
 
   it("orders slots by idx", async () => {
@@ -176,5 +178,82 @@ describe("buildSolverInput", () => {
       { id: "slot_1", idx: 1 },
       { id: "slot_2", idx: 2 },
     ]);
+  });
+
+  it("uses only the selected sheet's domain rows, availability, assignments and settings", async () => {
+    const now = new Date().toISOString();
+    await testDb
+      .prepare(
+        `INSERT INTO roster_sheets (id, event_id, name, date, start_time, end_time, step_min,
+           no_solo_newcomer, max_consecutive, seed, visibility, sort_order, created_at, updated_at)
+         VALUES (?, 'evt_1', '別枠', '2026-11-08', '09:00', '10:00', 60, 0, 2, 99, 'private', 1, ?, ?)`,
+      )
+      .bind(OTHER_SHEET, now, now)
+      .run();
+    await testDb
+      .prepare(
+        `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+         VALUES ('slot_other', 'evt_1', 0, '09:00', '10:00', ?)`,
+      )
+      .bind(OTHER_SHEET)
+      .run();
+    await testDb
+      .prepare(
+        `INSERT INTO tracks (id, event_id, name, color, shared, sort_order, roster_sheet_id)
+         VALUES ('track_other', 'evt_1', '別トラック', '#fff', 0, 0, ?)`,
+      )
+      .bind(OTHER_SHEET)
+      .run();
+    await testDb
+      .prepare("INSERT INTO roster_sheet_roles (roster_sheet_id, role_id) VALUES (?, 'guide')")
+      .bind(OTHER_SHEET)
+      .run();
+    await testDb
+      .prepare(
+        `INSERT INTO demands (event_id, time_slot_id, track_id, role_id, min_count, ideal_count,
+           lead_min, new_max, roster_sheet_id)
+         VALUES ('evt_1', 'slot_other', 'track_other', 'guide', 1, 1, 0, 1, ?)`,
+      )
+      .bind(OTHER_SHEET)
+      .run();
+    await seedApplication(testDb, "app_1", { roleId: "guide" });
+    await testDb
+      .prepare(
+        "INSERT INTO availabilities (application_id, time_slot_id, value) VALUES ('app_1', 'slot_other', 'd')",
+      )
+      .run();
+    await testDb
+      .prepare(
+        `INSERT INTO assignments (event_id, roster_sheet_id, application_id, time_slot_id,
+           track_id, role_id, locked)
+         VALUES ('evt_1', ?, 'app_1', 'slot_other', 'track_other', 'guide', 1)`,
+      )
+      .bind(OTHER_SHEET)
+      .run();
+    await testDb
+      .prepare(
+        `INSERT INTO assignments (event_id, roster_sheet_id, application_id, time_slot_id,
+           track_id, role_id, locked)
+         VALUES ('evt_1', 'default:evt_1', 'app_1', 'slot_0', 'trk_1', 'reception', 0)`,
+      )
+      .run();
+
+    const input = await buildSolverInput(asD1(testDb), EVENT, undefined, OTHER_SHEET);
+
+    expect(input.slots).toEqual([{ id: "slot_other", idx: 0 }]);
+    expect(input.tracks).toEqual([{ id: "track_other" }]);
+    expect(input.roles).toEqual([{ id: "guide" }]);
+    expect([...input.demands.keys()]).toEqual(["slot_other|track_other|guide"]);
+    expect(input.applications[0].availability).toEqual({ slot_other: "d" });
+    expect(input.existingAssignments).toEqual(
+      new Map([["app_1|slot_other", { trackId: "track_other", roleId: "guide", locked: true }]]),
+    );
+    expect(input.options).toEqual({ noSoloNewcomer: false, maxConsecutive: 2, seed: 99 });
+  });
+
+  it("rejects a sheet that is missing or belongs to another event", async () => {
+    await expect(buildSolverInput(asD1(testDb), EVENT, 1, "sheet:missing")).rejects.toThrow(
+      "Roster sheet not found",
+    );
   });
 });
