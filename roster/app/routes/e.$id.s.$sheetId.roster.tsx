@@ -25,7 +25,7 @@ import { assignManually } from "~/features/roster/manual-assignment.server";
 import {
   readAssignmentsMap,
   readAssignmentsState,
-  writeAssignments,
+  writeGeneratedAssignments,
   writeManualEdit,
 } from "~/features/roster/roster.server";
 import { buildSolverInput } from "~/features/roster/solver-input.server";
@@ -143,7 +143,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     const start = Date.now();
     const { assignments, report } = solve(input);
     const ms = Date.now() - start;
-    await writeAssignments(
+    const saved = await writeGeneratedAssignments(
       db,
       event.id,
       assignments,
@@ -156,6 +156,14 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       sheet.id,
       assignmentState.revisionCursor,
     );
+    if (!saved) {
+      return {
+        ok: false as const,
+        intent: "generate" as const,
+        error:
+          "別のシフト表で重複する割り当てが追加されました。画面を再読み込みして、もう一度自動生成してください。",
+      };
+    }
     if (seed !== sheet.seed) await updateRosterSheet(db, event.id, sheet.id, { seed });
     return { ok: true as const, intent: "generate" as const, ms, seed };
   }
@@ -300,10 +308,11 @@ export default function RosterPage({ loaderData, actionData }: Route.ComponentPr
     closeOnSuccess: cellSucceeded,
   });
 
-  // GeneratePanel keeps a failure variant for robustness; this action currently cannot construct it.
   let generateResult: GenerateResult | undefined;
   if (actionData?.intent === "generate" && "ok" in actionData && actionData.ok) {
     generateResult = { ok: true, ms: actionData.ms, seed: actionData.seed };
+  } else if (actionData?.intent === "generate" && "error" in actionData) {
+    generateResult = { ok: false, error: actionData.error };
   }
 
   return (

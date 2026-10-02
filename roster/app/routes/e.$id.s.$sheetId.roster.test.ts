@@ -127,6 +127,17 @@ async function seedFixture(db: TestD1Database) {
 }
 
 async function seedSiblingAssignment(db: TestD1Database, start = "09:30", end = "10:30") {
+  await seedSiblingSheet(db, start, end);
+  await db
+    .prepare(
+      `INSERT INTO assignments
+        (event_id, roster_sheet_id, application_id, time_slot_id, track_id, role_id, locked)
+       VALUES ('evt_1', 'sheet_other', 'app_o', 'slot_other', 'track_other', 'reception', 0)`,
+    )
+    .run();
+}
+
+async function seedSiblingSheet(db: TestD1Database, start = "09:30", end = "10:30") {
   await db
     .prepare(
       `INSERT INTO roster_sheets
@@ -148,13 +159,27 @@ async function seedSiblingAssignment(db: TestD1Database, start = "09:30", end = 
        VALUES ('track_other', 'evt_1', '懇親会', '#000', 0, 0, 'sheet_other')`,
     )
     .run();
-  await db
-    .prepare(
-      `INSERT INTO assignments
-        (event_id, roster_sheet_id, application_id, time_slot_id, track_id, role_id, locked)
-       VALUES ('evt_1', 'sheet_other', 'app_o', 'slot_other', 'track_other', 'reception', 0)`,
-    )
-    .run();
+}
+
+function addSiblingAssignmentInNextBatch(db: TestD1Database, applicationId: string): D1Database {
+  let inserted = false;
+  return asD1({
+    prepare: (sql) => db.prepare(sql),
+    async batch(statements) {
+      if (!inserted) {
+        inserted = true;
+        await db
+          .prepare(
+            `INSERT INTO assignments
+              (event_id, roster_sheet_id, application_id, time_slot_id, track_id, role_id, locked)
+             VALUES ('evt_1', 'sheet_other', ?, 'slot_other', 'track_other', 'reception', 0)`,
+          )
+          .bind(applicationId)
+          .run();
+      }
+      return db.batch(statements);
+    },
+  });
 }
 
 async function seedAdditionalSiblingSlot(db: TestD1Database) {
@@ -295,6 +320,81 @@ describe("e.$id.roster action — generate", () => {
       .prepare("SELECT seed FROM roster_sheets WHERE id = 'default:evt_1'")
       .first<{ seed: number }>();
     expect(row?.seed).toBe(777);
+  });
+
+  it("rolls back generated assignments, history, and cursor when a sibling overlap races the write", async () => {
+    const db = asD1(testDb);
+    const generated = await callAction(
+      buildRequest({ intent: "generate", seed: "42" }),
+      "evt_1",
+      db,
+    );
+    expect(generated).toMatchObject({ ok: true, intent: "generate", seed: 42 });
+
+    const priorAssignments = await testDb
+      .prepare(
+        `SELECT application_id, time_slot_id, track_id, role_id, locked
+         FROM assignments WHERE roster_sheet_id = 'default:evt_1'
+         ORDER BY time_slot_id, application_id`,
+      )
+      .all();
+    expect(priorAssignments.results.length).toBeGreaterThan(0);
+    const targetAssignment = priorAssignments.results[0] as { application_id: string };
+    const priorHistory = await testDb
+      .prepare(
+        `SELECT seq, snapshot, metrics FROM revisions
+         WHERE event_id = 'evt_1' AND roster_sheet_id = 'default:evt_1' ORDER BY seq`,
+      )
+      .all();
+    const priorCursor = await testDb
+      .prepare("SELECT revision_cursor FROM roster_sheets WHERE id = 'default:evt_1'")
+      .first();
+    const priorEventCursor = await testDb
+      .prepare("SELECT revision_cursor FROM events WHERE id = 'evt_1'")
+      .first();
+
+    await seedSiblingSheet(testDb);
+    const result = await callAction(
+      buildRequest({ intent: "generate", seed: "42" }),
+      "evt_1",
+      addSiblingAssignmentInNextBatch(testDb, targetAssignment.application_id),
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      intent: "generate",
+      error: expect.stringContaining("再読み込みして、もう一度自動生成"),
+    });
+    expect(
+      await testDb
+        .prepare(
+          `SELECT application_id, time_slot_id, track_id, role_id, locked
+           FROM assignments WHERE roster_sheet_id = 'default:evt_1'
+           ORDER BY time_slot_id, application_id`,
+        )
+        .all(),
+    ).toEqual(priorAssignments);
+    expect(
+      await testDb
+        .prepare(
+          `SELECT seq, snapshot, metrics FROM revisions
+           WHERE event_id = 'evt_1' AND roster_sheet_id = 'default:evt_1' ORDER BY seq`,
+        )
+        .all(),
+    ).toEqual(priorHistory);
+    expect(
+      await testDb
+        .prepare("SELECT revision_cursor FROM roster_sheets WHERE id = 'default:evt_1'")
+        .first(),
+    ).toEqual(priorCursor);
+    expect(
+      await testDb.prepare("SELECT revision_cursor FROM events WHERE id = 'evt_1'").first(),
+    ).toEqual(priorEventCursor);
+    expect(
+      await testDb
+        .prepare("SELECT application_id FROM assignments WHERE roster_sheet_id = 'sheet_other'")
+        .first(),
+    ).toEqual({ application_id: targetAssignment.application_id });
   });
 });
 
