@@ -20,6 +20,8 @@ const MIGRATIONS = [
 const EVENT_ID = "evt_1";
 const TRACK_ID = "track_1";
 const SLOT_1 = "slot_1";
+const OTHER_SHEET = "sheet:other";
+const OTHER_SLOT = "slot_other";
 const STREAM = "stream";
 
 async function seedEventAndSlot(testDb: TestD1Database) {
@@ -48,14 +50,17 @@ async function seedEventAndSlot(testDb: TestD1Database) {
 async function seedDemand(
   testDb: TestD1Database,
   overrides: { min?: number; ideal?: number; leadMin?: number } = {},
+  rosterSheetId = `default:${EVENT_ID}`,
+  timeSlotId = SLOT_1,
+  trackId = TRACK_ID,
 ) {
   const { min = 1, ideal = 1, leadMin = 0 } = overrides;
   await testDb
     .prepare(
-      `INSERT INTO demands (event_id, time_slot_id, track_id, role_id, min_count, ideal_count, lead_min, new_max)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 99)`,
+      `INSERT INTO demands (event_id, time_slot_id, track_id, role_id, min_count, ideal_count, lead_min, new_max, roster_sheet_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 99, ?)`,
     )
-    .bind(EVENT_ID, SLOT_1, TRACK_ID, STREAM, min, ideal, leadMin)
+    .bind(EVENT_ID, timeSlotId, trackId, STREAM, min, ideal, leadMin, rosterSheetId)
     .run();
 }
 
@@ -198,5 +203,68 @@ describe("getSupplyDemandForEvent (real SQLite, migrated schema)", () => {
   it("returns need = 0 and no tight entries for a slot with no demand at all", async () => {
     const result = await getSupplyDemandForEvent(db, EVENT_ID);
     expect(result).toEqual([{ timeSlotId: SLOT_1, need: 0, available: 0, tight: [] }]);
+  });
+
+  it("keeps demand and availability scoped to the selected sheet, even with cross-sheet prefetched details", async () => {
+    const now = new Date().toISOString();
+    await testDb
+      .prepare(
+        `INSERT INTO roster_sheets (id, event_id, name, date, start_time, end_time, step_min,
+           no_solo_newcomer, max_consecutive, seed, visibility, sort_order, created_at, updated_at)
+         VALUES (?, ?, '別枠', '2026-11-08', '09:00', '10:00', 60, 0, 2, 99, 'private', 1, ?, ?)`,
+      )
+      .bind(OTHER_SHEET, EVENT_ID, now, now)
+      .run();
+    await testDb
+      .prepare(
+        `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+         VALUES (?, ?, 0, '09:00', '10:00', ?)`,
+      )
+      .bind(OTHER_SLOT, EVENT_ID, OTHER_SHEET)
+      .run();
+    await testDb
+      .prepare(
+        `INSERT INTO tracks (id, event_id, name, color, shared, sort_order, roster_sheet_id)
+         VALUES ('track_other', ?, '別トラック', '#fff', 0, 0, ?)`,
+      )
+      .bind(EVENT_ID, OTHER_SHEET)
+      .run();
+    await seedDemand(testDb, { min: 1, leadMin: 0 }, OTHER_SHEET, OTHER_SLOT, "track_other");
+    await seedApplicant(testDb, "app_1", { level: "lead", availability: "x" });
+    await testDb
+      .prepare(
+        "INSERT INTO availabilities (application_id, time_slot_id, value) VALUES (?, ?, 'o')",
+      )
+      .bind("app_1", OTHER_SLOT)
+      .run();
+
+    const details = await listApplicantDetailsForEvent(db, EVENT_ID);
+    const selectedDetails = await listApplicantDetailsForEvent(db, EVENT_ID, OTHER_SHEET);
+    expect(details[0].availability).toEqual([
+      { applicationId: "app_1", timeSlotId: SLOT_1, value: "x" },
+    ]);
+    expect(selectedDetails[0].availability).toEqual([
+      { applicationId: "app_1", timeSlotId: OTHER_SLOT, value: "o" },
+    ]);
+    expect(await getSupplyDemandForEvent(db, EVENT_ID, selectedDetails, OTHER_SHEET)).toEqual([
+      { timeSlotId: OTHER_SLOT, need: 1, available: 1, tight: [] },
+    ]);
+    expect(await getSupplyDemandForEvent(db, EVENT_ID, details, OTHER_SHEET)).toEqual([
+      {
+        timeSlotId: OTHER_SLOT,
+        need: 1,
+        available: 0,
+        tight: [{ roleId: STREAM, kind: "head", lack: 1 }],
+      },
+    ]);
+  });
+
+  it("rejects a sheet from another event or a missing live default", async () => {
+    await expect(listApplicantDetailsForEvent(db, EVENT_ID, "sheet:missing")).rejects.toThrow(
+      "Roster sheet not found",
+    );
+    await expect(getSupplyDemandForEvent(db, "evt_missing")).rejects.toThrow(
+      "Roster sheet not found",
+    );
   });
 });
