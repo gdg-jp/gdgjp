@@ -24,6 +24,26 @@ export type ApplyFormOwn = {
   availability: { timeSlotId: string; value: AvailabilityValue }[];
 };
 
+export type ApplyFormRosterSheet = {
+  id: string;
+  name: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  timeSlots: AvailabilityGridSlot[];
+};
+
+type ApplyFormProps = {
+  hasParty: boolean;
+  roles: { id: string; name: string }[];
+  own: ApplyFormOwn | null;
+  defaultName: string;
+  error?: string;
+  /** Grouped sheets are the preferred input; `timeSlots` remains for the current route. */
+  rosterSheets?: readonly ApplyFormRosterSheet[];
+  timeSlots?: AvailabilityGridSlot[];
+};
+
 type SkillState = { selected: boolean; level: Level; pref: Pref };
 
 /**
@@ -34,21 +54,37 @@ type SkillState = { selected: boolean; level: Level; pref: Pref };
  * never shows a form for someone else's application (the loader only ever
  * passes the viewer's own data, see `apply.$token.tsx`).
  */
+export function applyAvailabilityBulkChange(
+  current: Readonly<Record<string, AvailabilityValue>>,
+  timeSlots: readonly AvailabilityGridSlot[],
+  compute: (slot: AvailabilityGridSlot) => AvailabilityValue,
+): Record<string, AvailabilityValue> {
+  return {
+    ...current,
+    ...Object.fromEntries(timeSlots.map((slot) => [slot.id, compute(slot)])),
+  };
+}
+
 export function ApplyForm({
   hasParty,
   roles,
-  timeSlots,
+  timeSlots = [],
+  rosterSheets,
   own,
   defaultName,
   error,
-}: {
-  hasParty: boolean;
-  roles: { id: string; name: string }[];
-  timeSlots: AvailabilityGridSlot[];
-  own: ApplyFormOwn | null;
-  defaultName: string;
-  error?: string;
-}) {
+}: ApplyFormProps) {
+  const availabilitySheets: readonly ApplyFormRosterSheet[] = rosterSheets ?? [
+    {
+      id: "event",
+      name: "",
+      date: "",
+      startTime: "",
+      endTime: "",
+      timeSlots,
+    },
+  ];
+  const allTimeSlots = availabilitySheets.flatMap((sheet) => sheet.timeSlots);
   const [skills, setSkills] = useState<Record<string, SkillState>>(() =>
     Object.fromEntries(
       roles.map((role) => {
@@ -62,7 +98,7 @@ export function ApplyForm({
   );
   const [availability, setAvailability] = useState<Record<string, AvailabilityValue>>(() =>
     Object.fromEntries(
-      timeSlots.map((slot) => [
+      allTimeSlots.map((slot) => [
         slot.id,
         own?.availability.find((a) => a.timeSlotId === slot.id)?.value ?? "o",
       ]),
@@ -129,14 +165,43 @@ export function ApplyForm({
 
       <fieldset className="space-y-3">
         <legend className="text-sm font-medium">稼働可能時間</legend>
-        <AvailabilityGrid
-          timeSlots={timeSlots}
-          values={availability}
-          onChange={(timeSlotId, value) => setAvailability((a) => ({ ...a, [timeSlotId]: value }))}
-          onBulkChange={(compute) =>
-            setAvailability(Object.fromEntries(timeSlots.map((slot) => [slot.id, compute(slot)])))
-          }
-        />
+        {availabilitySheets.length === 0 ? (
+          <output className="text-sm text-muted-foreground">
+            回答できるシフト表がありません。
+          </output>
+        ) : (
+          <div className="space-y-5">
+            {availabilitySheets.map((sheet) => {
+              const grid = (
+                <AvailabilityGrid
+                  timeSlots={sheet.timeSlots}
+                  values={availability}
+                  onChange={(timeSlotId, value) =>
+                    setAvailability((current) => ({ ...current, [timeSlotId]: value }))
+                  }
+                  onBulkChange={(compute) =>
+                    setAvailability((current) =>
+                      applyAvailabilityBulkChange(current, sheet.timeSlots, compute),
+                    )
+                  }
+                />
+              );
+
+              if (!sheet.name) return <div key={sheet.id}>{grid}</div>;
+
+              return (
+                <fieldset key={sheet.id} className="space-y-3 rounded-lg border border-border p-3">
+                  <legend className="max-w-full px-1 text-sm font-semibold">
+                    {sheet.name}
+                    {sheet.date ? ` — ${sheet.date}` : ""}
+                    {sheet.startTime && sheet.endTime ? ` ${sheet.startTime}–${sheet.endTime}` : ""}
+                  </legend>
+                  {grid}
+                </fieldset>
+              );
+            })}
+          </div>
+        )}
       </fieldset>
 
       {hasParty ? (
