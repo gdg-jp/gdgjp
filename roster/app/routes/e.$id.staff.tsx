@@ -1,13 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  correctApplication,
-  createApplication,
   getApplicationByEventAndEmail,
   getApplicationById,
-  updateApplication,
   withdrawApplication,
 } from "~/features/applications/applications.server";
-import { setAvailability } from "~/features/applications/availability.server";
 import { ProxyAddDialog } from "~/features/applications/components/ProxyAddDialog";
 import { StaffDrawer } from "~/features/applications/components/StaffDrawer";
 import { StaffTable } from "~/features/applications/components/StaffTable";
@@ -15,8 +11,9 @@ import {
   parseAvailabilityFromForm,
   parseSkillsFromForm,
 } from "~/features/applications/form-fields";
-import { setApplicationSkills } from "~/features/applications/skills.server";
-import { buildStaffRows, toStaffDrawerDetail } from "~/features/applications/staff-view";
+import { saveOwnerRegistration } from "~/features/applications/owner-registration.server";
+import { getPublicApplyData } from "~/features/applications/public-apply-data.server";
+import { buildLiveStaffView } from "~/features/applications/staff-view";
 import { DEFAULT_PARTY, type PartyStatus } from "~/features/applications/types";
 import { validateApplyForm } from "~/features/applications/validate";
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
@@ -24,14 +21,12 @@ import { canEditApplication, canManageEvent } from "~/features/auth/permissions"
 import { ApplyLinkCard } from "~/features/events/components/ApplyLinkCard";
 import { getEvent, updateEventSettings } from "~/features/events/events.server";
 import { canApply, isEventStatus } from "~/features/events/status";
-import { listPhases, listTimeSlots } from "~/features/schedule/schedule.server";
-import { listEventRoleIds, listRoles } from "~/features/schedule/tracks.server";
 import { ShortageSummary } from "~/features/supply/components/ShortageSummary";
 import { SupplyDemandRow } from "~/features/supply/components/SupplyDemandRow";
 import { summarizeShortages } from "~/features/supply/supply";
 import {
   getSupplyDemandForEvent,
-  listApplicantDetailsForEvent,
+  listEventApplicantDetails,
 } from "~/features/supply/supply.server";
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/e.$id.staff";
@@ -51,6 +46,8 @@ import type { Route } from "./+types/e.$id.staff";
 // address is real (this route only decides whether it looks well-formed
 // enough to store).
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SCHEDULE_CHANGED_ERROR =
+  "シフト表が更新されたため保存できませんでした。画面を再読み込みして、もう一度お試しください。";
 
 async function requireStaffAccess(env: Env, request: Request, id: string | undefined) {
   const { chapters } = await requireUserWithChapter(env, request);
@@ -69,57 +66,62 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const { event } = await requireStaffAccess(env, request, params.id);
   const db = getDb(env);
-  const [roles, eventRoleIds, timeSlots, phases, applicantDetails] = await Promise.all([
-    listRoles(db),
-    listEventRoleIds(db, event.id),
-    listTimeSlots(db, event.id),
-    listPhases(db, event.id),
-    listApplicantDetailsForEvent(db, event.id),
+  const [publicApplyData, applicantDetails] = await Promise.all([
+    getPublicApplyData(db, event.id),
+    listEventApplicantDetails(db, event.id),
   ]);
-  const roleIdSet = new Set(eventRoleIds);
-  const availableRoles = roles
-    .filter((role) => roleIdSet.has(role.id))
-    .map((role) => ({ id: role.id, name: role.name }));
-  const phaseNameById = new Map(phases.map((phase) => [phase.id, phase.name]));
-  const timeSlotViews = timeSlots.map((slot) => ({
-    id: slot.id,
-    start: slot.start,
-    end: slot.end,
-    phaseName: slot.phaseId ? (phaseNameById.get(slot.phaseId) ?? null) : null,
-  }));
-
-  const staff = buildStaffRows(
+  const availableRoles = publicApplyData.roles;
+  const rosterSheets = publicApplyData.rosterSheets;
+  const timeSlots = rosterSheets.flatMap((sheet) => sheet.timeSlots);
+  const { staff, staffDetails } = buildLiveStaffView(
     applicantDetails,
     availableRoles,
     timeSlots.map((slot) => slot.id),
   );
-  const staffDetails = Object.fromEntries(
-    applicantDetails.map((d) => [d.application.id, toStaffDrawerDetail(d)]),
-  );
   const registeredCount = applicantDetails.filter((d) => !d.application.withdrawn).length;
 
-  // Reuses the applicantDetails already fetched above instead of a second
-  // application_skills/availabilities round trip (~/features/supply/
-  // supply.server#getSupplyDemandForEvent's third argument).
-  const supplyDemand = await getSupplyDemandForEvent(db, event.id, applicantDetails);
-  const supplyBySlot = new Map(supplyDemand.map((s) => [s.timeSlotId, s]));
-  const supplyRows = timeSlotViews.map((slot) => ({
-    label: `${slot.start}–${slot.end}`,
-    phaseName: slot.phaseName,
-    slot: supplyBySlot.get(slot.id) ?? { timeSlotId: slot.id, need: 0, available: 0, tight: [] },
+  // Reuse applicant details so each sheet's supply query does not re-fetch applicants.
+  const supplyDataBySheet = await Promise.all(
+    rosterSheets.map(async (sheet) => {
+      const supplyDemand = await getSupplyDemandForEvent(db, event.id, applicantDetails, sheet.id);
+      const supplyBySlot = new Map(supplyDemand.map((entry) => [entry.timeSlotId, entry]));
+      return {
+        id: sheet.id,
+        name: sheet.name,
+        date: sheet.date,
+        rows: sheet.timeSlots.map((slot) => ({
+          label: `${slot.start}–${slot.end}`,
+          phaseName: slot.phaseName,
+          slot: supplyBySlot.get(slot.id) ?? {
+            timeSlotId: slot.id,
+            need: 0,
+            available: 0,
+            tight: [],
+          },
+        })),
+        demand: supplyDemand,
+      };
+    }),
+  );
+  const shortageSummary = summarizeShortages(supplyDataBySheet.flatMap((group) => group.demand));
+  const supplyGroups = supplyDataBySheet.map((group) => ({
+    id: group.id,
+    name: group.name,
+    date: group.date,
+    rows: group.rows,
   }));
-  const shortageSummary = summarizeShortages(supplyDemand);
 
   return {
     event: { id: event.id, name: event.name, hasParty: event.hasParty, status: event.status },
     applyUrl: `${env.APP_URL}/apply/${event.applyToken}`,
     canApplyNow: canApply(event.status),
     roles: availableRoles,
-    timeSlots: timeSlotViews,
+    rosterSheets,
+    timeSlots,
     staff,
     staffDetails,
     registeredCount,
-    supplyRows,
+    supplyGroups,
     shortageSummary,
   };
 }
@@ -148,11 +150,9 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       return { ok: true, intent: "withdraw" as const };
     }
 
-    const [eventRoleIds, timeSlots] = await Promise.all([
-      listEventRoleIds(db, event.id),
-      listTimeSlots(db, event.id),
-    ]);
-    const timeSlotIds = timeSlots.map((slot) => slot.id);
+    const { roles, rosterSheets } = await getPublicApplyData(db, event.id);
+    const eventRoleIds = roles.map((role) => role.id);
+    const timeSlotIds = rosterSheets.flatMap((sheet) => sheet.timeSlots.map((slot) => slot.id));
     const skills = parseSkillsFromForm(form, eventRoleIds);
     const availability = parseAvailabilityFromForm(form, timeSlotIds);
 
@@ -173,7 +173,27 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     );
     if (errors.length > 0) return { error: errors[0], intent: "correct" as const };
 
-    await correctApplication(db, existing, { skills, availability });
+    try {
+      const saved = await saveOwnerRegistration(db, {
+        eventId: event.id,
+        existingApplicationId: existing.id,
+        expectedUserId: existing.userId,
+        email: existing.email,
+        name: existing.name,
+        contact: existing.contact,
+        party: existing.party,
+        note: existing.note,
+        skills,
+        liveRoleIds: eventRoleIds,
+        availability,
+      });
+      if (!saved.ok) return { error: "既に登録されています。", intent: "correct" as const };
+    } catch {
+      return {
+        error: SCHEDULE_CHANGED_ERROR,
+        intent: "correct" as const,
+      };
+    }
     return { ok: true, intent: "correct" as const };
   }
 
@@ -210,11 +230,9 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { error: "メールアドレスの形式が正しくありません。", intent: "proxyAdd" as const };
   }
 
-  const [eventRoleIds, timeSlots] = await Promise.all([
-    listEventRoleIds(db, event.id),
-    listTimeSlots(db, event.id),
-  ]);
-  const timeSlotIds = timeSlots.map((slot) => slot.id);
+  const { roles, rosterSheets } = await getPublicApplyData(db, event.id);
+  const eventRoleIds = roles.map((role) => role.id);
+  const timeSlotIds = rosterSheets.flatMap((sheet) => sheet.timeSlots.map((slot) => slot.id));
   const skills = parseSkillsFromForm(form, eventRoleIds);
   const availability = parseAvailabilityFromForm(form, timeSlotIds);
 
@@ -236,36 +254,26 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   // (owner-vs-owner or owner-vs-self, "最後に書いた側が勝つ") rather than
   // creating a duplicate; `userId` is left untouched either way.
   const existingByEmail = await getApplicationByEventAndEmail(db, event.id, email);
-  let applicationId: string;
-  if (existingByEmail) {
-    const updated = await updateApplication(db, existingByEmail.id, {
-      name,
-      contact,
-      party: resolvedParty,
-      note: note || null,
-      withdrawn: false,
-      updatedBy: "owner",
-    });
-    if (!updated) throw new Response(null, { status: 404 });
-    applicationId = updated.id;
-  } else {
-    const created = await createApplication(db, event.id, {
-      userId: null,
+  try {
+    const saved = await saveOwnerRegistration(db, {
+      eventId: event.id,
+      ...(existingByEmail ? { existingApplicationId: existingByEmail.id } : {}),
+      expectedUserId: existingByEmail?.userId ?? null,
       email,
       name,
       contact,
       party: resolvedParty,
       note: note || null,
-      updatedBy: "owner",
+      skills,
+      availability,
     });
-    if (!created.ok) return { error: "既に登録されています。", intent: "proxyAdd" as const };
-    applicationId = created.application.id;
+    if (!saved.ok) return { error: "既に登録されています。", intent: "proxyAdd" as const };
+  } catch {
+    return {
+      error: SCHEDULE_CHANGED_ERROR,
+      intent: "proxyAdd" as const,
+    };
   }
-
-  await Promise.all([
-    setApplicationSkills(db, applicationId, skills),
-    setAvailability(db, applicationId, availability),
-  ]);
 
   return { ok: true, intent: "proxyAdd" as const };
 }
@@ -276,11 +284,11 @@ export default function StaffPage({ loaderData, actionData }: Route.ComponentPro
     applyUrl,
     canApplyNow,
     roles,
-    timeSlots,
+    rosterSheets,
     staff,
     staffDetails,
     registeredCount,
-    supplyRows,
+    supplyGroups,
     shortageSummary,
   } = loaderData;
   const actionIntent = actionData && "intent" in actionData ? actionData.intent : undefined;
@@ -329,17 +337,36 @@ export default function StaffPage({ loaderData, actionData }: Route.ComponentPro
 
       <section className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
         <h2 className="font-semibold">時間帯別の需給</h2>
-        <ul className="space-y-2">
-          {supplyRows.map((row) => (
-            <SupplyDemandRow
-              key={row.slot.timeSlotId}
-              slot={row.slot}
-              label={row.label}
-              phaseName={row.phaseName}
-              roleNameById={roleNameById}
-            />
-          ))}
-        </ul>
+        {supplyGroups.length === 0 ? (
+          <p className="text-sm text-muted-foreground">回答できるシフト表がありません。</p>
+        ) : (
+          <div className="space-y-4">
+            {supplyGroups.map((group) => (
+              <section key={group.id} aria-labelledby={`supply-${group.id}`} className="space-y-2">
+                <h3 id={`supply-${group.id}`} className="text-sm font-semibold">
+                  {group.name} — {group.date}
+                </h3>
+                {group.rows.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    このシフト表には時間枠がありません。
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {group.rows.map((row) => (
+                      <SupplyDemandRow
+                        key={row.slot.timeSlotId}
+                        slot={row.slot}
+                        label={row.label}
+                        phaseName={row.phaseName}
+                        roleNameById={roleNameById}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </section>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
@@ -348,7 +375,7 @@ export default function StaffPage({ loaderData, actionData }: Route.ComponentPro
           <ProxyAddDialog
             hasParty={event.hasParty}
             roles={roles}
-            timeSlots={timeSlots}
+            rosterSheets={rosterSheets}
             error={proxyError}
             succeeded={proxySucceeded}
           />
@@ -359,7 +386,7 @@ export default function StaffPage({ loaderData, actionData }: Route.ComponentPro
       <StaffDrawer
         detail={selectedDetail}
         roles={roles}
-        timeSlots={timeSlots}
+        rosterSheets={rosterSheets}
         error={staffError}
         succeeded={staffSucceeded}
         onClose={() => setSelectedId(null)}

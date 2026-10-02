@@ -67,7 +67,8 @@ export function buildEventAvailabilityStatements(
   eventId: string,
   applicationId: string,
   entries: readonly AvailabilityInput[],
-  expectedUserId?: string,
+  expectedUserId?: string | null,
+  expectedEmail?: string,
 ): D1PreparedStatement[] {
   if (
     new Set(entries.map((entry) => entry.timeSlotId)).size !== entries.length ||
@@ -76,14 +77,16 @@ export function buildEventAvailabilityStatements(
     throw new Error("Availability entries must have unique slots and valid values.");
   }
   const input = JSON.stringify(entries);
-  const validScope = eventAvailabilityScopeSql(expectedUserId);
-  const identityParams = expectedUserId ? [expectedUserId] : [];
+  const validScope = eventAvailabilityScopeSql(expectedUserId, expectedEmail);
+  const identityParams =
+    expectedUserId !== undefined && expectedUserId !== null ? [expectedUserId] : [];
+  const emailParams = expectedEmail ? [expectedEmail] : [];
   return [
     db
       .prepare(`INSERT INTO availabilities (application_id, time_slot_id, value)
         SELECT ?, '__event_availability_scope_guard__', 'invalid'
         WHERE NOT EXISTS (${validScope})`)
-      .bind(applicationId, applicationId, eventId, ...identityParams, input, input),
+      .bind(applicationId, applicationId, eventId, ...identityParams, ...emailParams, input, input),
     db
       .prepare(`DELETE FROM availabilities
         WHERE application_id = ? AND time_slot_id IN (
@@ -100,12 +103,19 @@ export function buildEventAvailabilityStatements(
   ];
 }
 
-function eventAvailabilityScopeSql(expectedUserId?: string): string {
-  const userScope = expectedUserId ? "AND a.user_id = ?" : "";
+function eventAvailabilityScopeSql(expectedUserId?: string | null, expectedEmail?: string): string {
+  const userScope =
+    expectedUserId === undefined
+      ? ""
+      : expectedUserId === null
+        ? "AND a.user_id IS NULL"
+        : "AND a.user_id = ?";
+  const emailScope = expectedEmail ? "AND a.email = ?" : "";
   return `SELECT 1 FROM applications a
     JOIN events e ON e.id = a.event_id
     WHERE a.id = ? AND a.event_id = ? AND e.deleted_at IS NULL
       ${userScope}
+      ${emailScope}
       AND NOT EXISTS (
         SELECT 1 FROM json_each(?) requested
         WHERE NOT EXISTS (
