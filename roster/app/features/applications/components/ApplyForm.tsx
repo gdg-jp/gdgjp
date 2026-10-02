@@ -11,8 +11,14 @@ import {
   type PartyStatus,
   type Pref,
 } from "~/features/applications/types";
-import { AvailabilityGrid, type AvailabilityGridSlot } from "./AvailabilityGrid";
+import {
+  AvailabilityGrid,
+  type AvailabilityGridSlot,
+  type AvailabilityRosterSheet,
+} from "./AvailabilityGrid";
 import { RoleSkillRow } from "./RoleSkillRow";
+
+export type ApplyFormRosterSheet = AvailabilityRosterSheet;
 
 export type ApplyFormOwn = {
   name: string;
@@ -22,15 +28,6 @@ export type ApplyFormOwn = {
   withdrawn: boolean;
   skills: { roleId: string; level: Level; pref: Pref }[];
   availability: { timeSlotId: string; value: AvailabilityValue }[];
-};
-
-export type ApplyFormRosterSheet = {
-  id: string;
-  name: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  timeSlots: AvailabilityGridSlot[];
 };
 
 type ApplyFormProps = {
