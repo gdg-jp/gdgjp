@@ -60,6 +60,9 @@ export function RosterSheetCard({
           </p>
         )}
         <Inline className="flex-wrap">
+          <Button asChild variant="secondary">
+            <RouterLink to={`/e/${eventId}/s/${sheet.id}/roster`}>シフト表</RouterLink>
+          </Button>
           <Button asChild>
             <RouterLink to={`/e/${eventId}/s/${sheet.id}/design`}>設計</RouterLink>
           </Button>
