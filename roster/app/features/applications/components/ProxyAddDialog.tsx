@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Form } from "react-router";
 import {
   type AvailabilityValue,
@@ -11,7 +11,13 @@ import {
   type PartyStatus,
   type Pref,
 } from "~/features/applications/types";
-import { AvailabilityGrid, type AvailabilityGridSlot } from "./AvailabilityGrid";
+import { type ApplyFormRosterSheet, applyAvailabilityBulkChange } from "./ApplyForm";
+import type { AvailabilityGridSlot } from "./AvailabilityGrid";
+import {
+  AvailabilitySheetGrids,
+  availabilitySlots,
+  buildAvailabilityState,
+} from "./AvailabilitySheetGrids";
 import { RoleSkillRow } from "./RoleSkillRow";
 
 type SkillState = { selected: boolean; level: Level; pref: Pref };
@@ -20,12 +26,6 @@ function buildInitialSkills(roles: readonly { id: string }[]): Record<string, Sk
   return Object.fromEntries(
     roles.map((role) => [role.id, { selected: false, level: DEFAULT_LEVEL, pref: DEFAULT_PREF }]),
   );
-}
-
-function buildInitialAvailability(
-  timeSlots: readonly AvailabilityGridSlot[],
-): Record<string, AvailabilityValue> {
-  return Object.fromEntries(timeSlots.map((slot) => [slot.id, "o" as AvailabilityValue]));
 }
 
 /**
@@ -45,13 +45,15 @@ function buildInitialAvailability(
 export function ProxyAddDialog({
   hasParty,
   roles,
+  rosterSheets,
   timeSlots,
   error,
   succeeded,
 }: {
   hasParty: boolean;
   roles: { id: string; name: string }[];
-  timeSlots: AvailabilityGridSlot[];
+  rosterSheets?: readonly ApplyFormRosterSheet[];
+  timeSlots?: AvailabilityGridSlot[];
   error?: string;
   /**
    * A fresh truthy value (the route's `actionData`) only when the last
@@ -63,9 +65,13 @@ export function ProxyAddDialog({
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const allTimeSlots = useMemo(
+    () => availabilitySlots(rosterSheets, timeSlots),
+    [rosterSheets, timeSlots],
+  );
   const [skills, setSkills] = useState<Record<string, SkillState>>(() => buildInitialSkills(roles));
   const [availability, setAvailability] = useState<Record<string, AvailabilityValue>>(() =>
-    buildInitialAvailability(timeSlots),
+    buildAvailabilityState(allTimeSlots, [], "o"),
   );
 
   // Reset the form and close the dialog only on a successful submission —
@@ -76,10 +82,10 @@ export function ProxyAddDialog({
   useEffect(() => {
     if (!succeeded) return;
     setSkills(buildInitialSkills(roles));
-    setAvailability(buildInitialAvailability(timeSlots));
+    setAvailability(buildAvailabilityState(allTimeSlots, [], "o"));
     formRef.current?.reset();
     dialogRef.current?.close();
-  }, [succeeded, roles, timeSlots]);
+  }, [succeeded, roles, allTimeSlots]);
 
   return (
     <>
@@ -166,15 +172,16 @@ export function ProxyAddDialog({
 
           <fieldset className="space-y-3">
             <legend className="text-sm font-medium">稼働可能時間</legend>
-            <AvailabilityGrid
+            <AvailabilitySheetGrids
+              rosterSheets={rosterSheets}
               timeSlots={timeSlots}
               values={availability}
               onChange={(timeSlotId, value) =>
                 setAvailability((a) => ({ ...a, [timeSlotId]: value }))
               }
-              onBulkChange={(compute) =>
-                setAvailability(
-                  Object.fromEntries(timeSlots.map((slot) => [slot.id, compute(slot)])),
+              onBulkChange={(sheet, compute) =>
+                setAvailability((current) =>
+                  applyAvailabilityBulkChange(current, sheet.timeSlots, compute),
                 )
               }
             />
