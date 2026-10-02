@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Form } from "react-router";
 import {
   type AvailabilityValue,
@@ -7,7 +7,13 @@ import {
   type Level,
   type Pref,
 } from "~/features/applications/types";
-import { AvailabilityGrid, type AvailabilityGridSlot } from "./AvailabilityGrid";
+import { type ApplyFormRosterSheet, applyAvailabilityBulkChange } from "./ApplyForm";
+import type { AvailabilityGridSlot } from "./AvailabilityGrid";
+import {
+  AvailabilitySheetGrids,
+  availabilitySlots,
+  buildAvailabilityState,
+} from "./AvailabilitySheetGrids";
 import { RoleSkillRow } from "./RoleSkillRow";
 
 /** The owner-correction drawer's editable snapshot of one application. */
@@ -41,6 +47,7 @@ type SkillState = { selected: boolean; level: Level; pref: Pref };
 export function StaffDrawer({
   detail,
   roles,
+  rosterSheets,
   timeSlots,
   error,
   succeeded,
@@ -48,15 +55,22 @@ export function StaffDrawer({
 }: {
   detail: StaffDrawerDetail | null;
   roles: { id: string; name: string }[];
-  timeSlots: AvailabilityGridSlot[];
+  rosterSheets?: readonly ApplyFormRosterSheet[];
+  timeSlots?: AvailabilityGridSlot[];
   error?: string;
   /** A fresh truthy value only on a successful correct/withdraw — see `ProxyAddDialog`'s identical contract. */
   succeeded: unknown;
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const allTimeSlots = useMemo(
+    () => availabilitySlots(rosterSheets, timeSlots),
+    [rosterSheets, timeSlots],
+  );
   const [skills, setSkills] = useState<Record<string, SkillState>>({});
-  const [availability, setAvailability] = useState<Record<string, AvailabilityValue>>({});
+  const [availability, setAvailability] = useState<Record<string, AvailabilityValue>>(() =>
+    buildAvailabilityState(allTimeSlots, detail?.availability ?? [], "x"),
+  );
 
   // Re-seed local state and open the dialog whenever a different
   // application is selected. Missing availability defaults to "x" (never
@@ -76,16 +90,9 @@ export function StaffDrawer({
         }),
       ),
     );
-    setAvailability(
-      Object.fromEntries(
-        timeSlots.map((slot) => [
-          slot.id,
-          detail.availability.find((a) => a.timeSlotId === slot.id)?.value ?? "x",
-        ]),
-      ),
-    );
+    setAvailability(buildAvailabilityState(allTimeSlots, detail.availability, "x"));
     dialogRef.current?.showModal();
-  }, [detail, roles, timeSlots]);
+  }, [detail, roles, allTimeSlots]);
 
   // Close on a successful submission only — an error must leave the
   // owner's in-progress edits exactly as they were.
@@ -156,15 +163,16 @@ export function StaffDrawer({
 
           <fieldset className="space-y-3">
             <legend className="text-sm font-medium">稼働可能時間</legend>
-            <AvailabilityGrid
+            <AvailabilitySheetGrids
+              rosterSheets={rosterSheets}
               timeSlots={timeSlots}
               values={availability}
               onChange={(timeSlotId, value) =>
                 setAvailability((a) => ({ ...a, [timeSlotId]: value }))
               }
-              onBulkChange={(compute) =>
-                setAvailability(
-                  Object.fromEntries(timeSlots.map((slot) => [slot.id, compute(slot)])),
+              onBulkChange={(sheet, compute) =>
+                setAvailability((current) =>
+                  applyAvailabilityBulkChange(current, sheet.timeSlots, compute),
                 )
               }
             />
