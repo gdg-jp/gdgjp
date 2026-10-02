@@ -30,6 +30,8 @@ export type SlotDataLossImpact = {
   lostDemandCount: number;
   lostAvailabilityCount: number;
   lostAssignmentCount: number;
+  /** Every existing slot that reconciliation will delete, including empty slots. */
+  removedSlotIds: string[];
   lostSlotIds: string[];
   hasLoss: boolean;
   confirmationKey: string;
@@ -72,6 +74,7 @@ export function slotDataLossOnSlotChange(
     lostDemandCount,
     lostAvailabilityCount,
     lostAssignmentCount,
+    removedSlotIds,
     lostSlotIds: allLostSlotIds,
   };
   const hasLoss = lostDemandCount + lostAvailabilityCount + lostAssignmentCount > 0;

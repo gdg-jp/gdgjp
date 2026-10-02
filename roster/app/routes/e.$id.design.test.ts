@@ -37,6 +37,20 @@ function args(request: Request, db: D1Database, params: { id: string; sheetId?: 
   };
 }
 
+function beforeNextBatch(db: TestD1Database, beforeBatch: () => Promise<void>): TestD1Database {
+  let injected = false;
+  return {
+    prepare: (sql) => db.prepare(sql),
+    async batch(statements) {
+      if (!injected) {
+        injected = true;
+        await beforeBatch();
+      }
+      return db.batch(statements);
+    },
+  };
+}
+
 function owner() {
   vi.mocked(requireUserWithChapter).mockResolvedValue({
     user: { id: "owner", email: "owner@example.com", name: "Owner", image: null, isAdmin: false },
@@ -393,5 +407,144 @@ describe("e.$id.design sheet routing", () => {
         .prepare("SELECT start_time FROM roster_sheets WHERE id = 'sheet-a2'")
         .first<{ start_time: string }>(),
     ).toEqual({ start_time: "13:00" });
+  });
+
+  it("rolls back settings and slot deletion if availability arrives after impact validation", async () => {
+    owner();
+    await db
+      .prepare(
+        `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+         VALUES ('slot-race-remove', 'event-a', 0, '13:00', '14:00', 'sheet-a2'),
+                ('slot-race-keep', 'event-a', 1, '14:00', '15:00', 'sheet-a2')`,
+      )
+      .run();
+
+    const racingDb = beforeNextBatch(db, async () => {
+      await db
+        .prepare(
+          `INSERT INTO applications
+           (id, event_id, email, name, party, updated_by, created_at, updated_at)
+           VALUES ('app-race', 'event-a', 'race@example.com', 'Staff', 'yes', 'owner', 'now', 'now')`,
+        )
+        .run();
+      await db
+        .prepare(
+          "INSERT INTO availabilities (application_id, time_slot_id, value) VALUES (?, ?, ?)",
+        )
+        .bind("app-race", "slot-race-remove", "o")
+        .run();
+    });
+    const form = new FormData();
+    for (const [key, value] of Object.entries({
+      intent: "updateSettings",
+      name: "Parallel updated",
+      date: "2026-11-09",
+      startTime: "14:00",
+      endTime: "16:00",
+      stepMin: "60",
+      maxConsecutive: "5",
+      noSoloNewcomer: "true",
+    })) {
+      form.set(key, value);
+    }
+
+    const result = await action(
+      args(
+        new Request("http://localhost/e/event-a/s/sheet-a2/design", { method: "POST", body: form }),
+        asD1(racingDb),
+        { id: "event-a", sheetId: "sheet-a2" },
+      ) as Parameters<typeof action>[0],
+    );
+
+    expect(result).toMatchObject({ error: expect.any(String) });
+    expect(
+      await db
+        .prepare("SELECT start_time, end_time FROM roster_sheets WHERE id = 'sheet-a2'")
+        .first<{ start_time: string; end_time: string }>(),
+    ).toEqual({ start_time: "13:00", end_time: "15:00" });
+    expect(
+      (
+        await db
+          .prepare("SELECT COUNT(*) AS count FROM time_slots WHERE id = 'slot-race-remove'")
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(1);
+    expect(
+      (
+        await db
+          .prepare(
+            "SELECT COUNT(*) AS count FROM availabilities WHERE time_slot_id = 'slot-race-remove'",
+          )
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(1);
+  });
+
+  it("rolls back settings and slot reconciliation if the slot grid changes after validation", async () => {
+    owner();
+    await db
+      .prepare(
+        `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+         VALUES ('slot-grid-before-0', 'event-a', 0, '13:00', '14:00', 'sheet-a2'),
+                ('slot-grid-before-1', 'event-a', 1, '14:00', '15:00', 'sheet-a2')`,
+      )
+      .run();
+
+    const racingDb = beforeNextBatch(db, async () => {
+      await db
+        .prepare(
+          `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+           VALUES ('slot-grid-race', 'event-a', 2, '16:00', '17:00', 'sheet-a2')`,
+        )
+        .run();
+    });
+    const form = new FormData();
+    for (const [key, value] of Object.entries({
+      intent: "updateSettings",
+      name: "Parallel updated",
+      date: "2026-11-09",
+      startTime: "14:00",
+      endTime: "16:00",
+      stepMin: "60",
+      maxConsecutive: "5",
+    })) {
+      form.set(key, value);
+    }
+
+    const result = await action(
+      args(
+        new Request("http://localhost/e/event-a/s/sheet-a2/design", { method: "POST", body: form }),
+        asD1(racingDb),
+        { id: "event-a", sheetId: "sheet-a2" },
+      ) as Parameters<typeof action>[0],
+    );
+
+    expect(result).toMatchObject({ error: expect.any(String) });
+    expect(
+      await db
+        .prepare("SELECT start_time, end_time FROM roster_sheets WHERE id = 'sheet-a2'")
+        .first<{ start_time: string; end_time: string }>(),
+    ).toEqual({ start_time: "13:00", end_time: "15:00" });
+    expect(
+      (
+        await db
+          .prepare("SELECT COUNT(*) AS count FROM time_slots WHERE roster_sheet_id = 'sheet-a2'")
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(3);
+    expect(
+      (
+        await db
+          .prepare("SELECT COUNT(*) AS count FROM time_slots WHERE id = 'slot-grid-before-0'")
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(1);
+    expect(
+      (
+        await db
+          .prepare("SELECT COUNT(*) AS count FROM time_slots WHERE id = 'slot-grid-race'")
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(1);
   });
 });
