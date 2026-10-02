@@ -12,6 +12,7 @@ import {
 import type { DemandValue } from "~/features/demand/types";
 import { firstDemandValidationMessage, validateDemand } from "~/features/demand/validate";
 import { getEvent } from "~/features/events/events.server";
+import DesignScreen from "~/features/roster-sheets/DesignScreen";
 import { getRosterSheet, updateRosterSheet } from "~/features/roster-sheets/roster-sheets.server";
 import type { RosterSheet } from "~/features/roster-sheets/types";
 import {
@@ -34,7 +35,11 @@ import {
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/e.$id.s.$sheetId.design";
 
-export { default } from "~/features/roster-sheets/DesignScreen";
+// React Router only injects loaderData/actionData into a default export defined in the route
+// module itself; a re-exported component would render with undefined props.
+export default function SheetDesignRoute({ loaderData, actionData }: Route.ComponentProps) {
+  return <DesignScreen loaderData={loaderData} actionData={actionData} />;
+}
 
 export function meta({ data }: Route.MetaArgs) {
   return [{ title: data ? `${data.sheet.name} — 設計 — roster` : "roster" }];
