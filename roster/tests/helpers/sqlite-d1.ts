@@ -39,6 +39,10 @@ class TestD1PreparedStatement {
   }
 
   async run(): Promise<{ success: true; meta: { changes: number } }> {
+    return this.runSync();
+  }
+
+  runSync(): { success: true; meta: { changes: number } } {
     const result = this.raw.run(...(this.params as never[]));
     return { success: true, meta: { changes: Number(result.changes) } };
   }
@@ -69,17 +73,21 @@ export function createTestD1(migrationFiles: readonly string[]): TestD1Database 
     prepare(sql: string) {
       return new TestD1PreparedStatement(raw.prepare(sql), []);
     },
-    // No explicit BEGIN/COMMIT: callers legitimately fire two independent
-    // batch() calls concurrently (e.g. setApplicationSkills +
-    // setAvailability via Promise.all), and node:sqlite's single connection
-    // can't nest transactions — a real D1 database handles that fine since
-    // each batch() call is its own request. Per-statement atomicity is still
-    // real (SQLite guarantees that); only cross-batch atomicity is not
-    // simulated here, and nothing in this test suite depends on it.
     async batch(statements) {
-      const results = [];
-      for (const statement of statements) results.push(await statement.run());
-      return results;
+      if (!statements.every((statement) => typeof statement.runSync === "function")) {
+        const results = [];
+        for (const statement of statements) results.push(await statement.run());
+        return results;
+      }
+      raw.exec("BEGIN");
+      try {
+        const results = statements.map((statement) => statement.runSync());
+        raw.exec("COMMIT");
+        return results;
+      } catch (error) {
+        raw.exec("ROLLBACK");
+        throw error;
+      }
     },
   };
 }

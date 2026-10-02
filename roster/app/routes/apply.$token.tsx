@@ -1,30 +1,22 @@
 import { PublicShell } from "~/components/PublicShell";
 import {
-  createApplication,
   resolveOwnApplication,
-  updateApplication,
   withdrawApplication,
 } from "~/features/applications/applications.server";
-import {
-  listAvailabilityForApplication,
-  setAvailability,
-} from "~/features/applications/availability.server";
 import { ApplyForm, type ApplyFormOwn } from "~/features/applications/components/ApplyForm";
+import { listEventAvailabilityForApplication } from "~/features/applications/event-availability.server";
 import {
   parseAvailabilityFromForm,
   parseSkillsFromForm,
 } from "~/features/applications/form-fields";
-import {
-  listSkillsForApplication,
-  setApplicationSkills,
-} from "~/features/applications/skills.server";
+import { getPublicApplyData } from "~/features/applications/public-apply-data.server";
+import { saveSelfRegistration } from "~/features/applications/self-registration.server";
+import { listSkillsForApplication } from "~/features/applications/skills.server";
 import { DEFAULT_PARTY, type PartyStatus } from "~/features/applications/types";
 import { validateApplyForm } from "~/features/applications/validate";
 import { buildSignInRedirect, getOptionalUser } from "~/features/auth/auth-redirect.server";
 import { getEventByApplyToken } from "~/features/events/events.server";
 import { canApply } from "~/features/events/status";
-import { listPhases, listTimeSlots } from "~/features/schedule/schedule.server";
-import { listEventRoleIds, listRoles } from "~/features/schedule/tracks.server";
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/apply.$token";
 
@@ -36,8 +28,8 @@ import type { Route } from "./+types/apply.$token";
  * the event id never appears in this URL.
  *
  * The loader's return value is the whole PII surface of this public route:
- * it must contain the event summary, the recruiting roles, the time-slot
- * grid, and *only the viewer's own* application/skills/availability — never
+ * it must contain the event summary, the union of recruiting roles, the live
+ * sheet/time-slot groups, and *only the viewer's own* application/skills/availability — never
  * another applicant's name, email, contact, or skills. See
  * `apply.$token.test.ts` for a test that asserts this on the raw returned
  * object, not just on what the UI happens to render.
@@ -55,23 +47,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const event = await getEventByApplyToken(db, token);
   if (!event) throw new Response(null, { status: 404 });
 
-  const [roles, eventRoleIds, timeSlots, phases] = await Promise.all([
-    listRoles(db),
-    listEventRoleIds(db, event.id),
-    listTimeSlots(db, event.id),
-    listPhases(db, event.id),
-  ]);
-  const roleIdSet = new Set(eventRoleIds);
-  const availableRoles = roles
-    .filter((role) => roleIdSet.has(role.id))
-    .map((role) => ({ id: role.id, name: role.name }));
-  const phaseNameById = new Map(phases.map((phase) => [phase.id, phase.name]));
-  const timeSlotViews = timeSlots.map((slot) => ({
-    id: slot.id,
-    start: slot.start,
-    end: slot.end,
-    phaseName: slot.phaseId ? (phaseNameById.get(slot.phaseId) ?? null) : null,
-  }));
+  const publicApplyData = await getPublicApplyData(db, event.id);
 
   const viewer = await getOptionalUser(env, request);
   const url = new URL(request.url);
@@ -92,7 +68,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     if (resolved.kind === "own") {
       const [skills, availability] = await Promise.all([
         listSkillsForApplication(db, resolved.application.id),
-        listAvailabilityForApplication(db, resolved.application.id),
+        listEventAvailabilityForApplication(db, resolved.application.id),
       ]);
       own = {
         name: resolved.application.name,
@@ -118,8 +94,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     canApplyNow: canApply(event.status),
     viewer: viewer ? { name: viewer.name, email: viewer.email } : null,
     signInHref,
-    roles: availableRoles,
-    timeSlots: timeSlotViews,
+    roles: publicApplyData.roles,
+    rosterSheets: publicApplyData.rosterSheets,
     own,
   };
 }
@@ -158,11 +134,9 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
-  const [eventRoleIds, timeSlots] = await Promise.all([
-    listEventRoleIds(db, event.id),
-    listTimeSlots(db, event.id),
-  ]);
-  const timeSlotIds = timeSlots.map((slot) => slot.id);
+  const { roles, rosterSheets } = await getPublicApplyData(db, event.id);
+  const eventRoleIds = roles.map((role) => role.id);
+  const timeSlotIds = rosterSheets.flatMap((sheet) => sheet.timeSlots.map((slot) => slot.id));
 
   const name = String(form.get("name") ?? "").trim();
   const contactInput = String(form.get("contact") ?? "").trim();
@@ -187,49 +161,39 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const contact = contactInput || viewer.email;
   const resolvedParty: PartyStatus = event.hasParty ? party : "undecided";
 
-  let applicationId: string;
-  if (resolved.kind === "own") {
-    const updated = await updateApplication(db, resolved.application.id, {
-      name,
-      contact,
-      party: resolvedParty,
-      note: note || null,
-      withdrawn: false,
-      updatedBy: "self",
-    });
-    if (!updated) throw new Response(null, { status: 404 });
-    applicationId = updated.id;
-  } else {
-    const created = await createApplication(db, event.id, {
+  try {
+    const saved = await saveSelfRegistration(db, {
+      eventId: event.id,
       userId: viewer.id,
       email: viewer.email,
+      ...(resolved.kind === "own" ? { existingApplicationId: resolved.application.id } : {}),
       name,
       contact,
       party: resolvedParty,
       note: note || null,
-      updatedBy: "self",
+      skills,
+      availability,
     });
-    if (!created.ok) {
+    if (!saved.ok) {
       return {
         error:
-          created.reason === "duplicate_email"
+          saved.reason === "duplicate_email"
             ? "このメールアドレスは既に登録されています。"
             : "既に登録されています。",
       };
     }
-    applicationId = created.application.id;
+  } catch {
+    return {
+      error:
+        "シフト表が更新されたため保存できませんでした。画面を再読み込みして、もう一度お試しください。",
+    };
   }
-
-  await Promise.all([
-    setApplicationSkills(db, applicationId, skills),
-    setAvailability(db, applicationId, availability),
-  ]);
 
   return { ok: true };
 }
 
 export default function ApplyPage({ loaderData, actionData }: Route.ComponentProps) {
-  const { event, canApplyNow, viewer, signInHref, roles, timeSlots, own } = loaderData;
+  const { event, canApplyNow, viewer, signInHref, roles, rosterSheets, own } = loaderData;
   const error = actionData && "error" in actionData ? actionData.error : undefined;
 
   return (
@@ -277,7 +241,7 @@ export default function ApplyPage({ loaderData, actionData }: Route.ComponentPro
           <ApplyForm
             hasParty={event.hasParty}
             roles={roles}
-            timeSlots={timeSlots}
+            rosterSheets={rosterSheets}
             own={own}
             defaultName={viewer.name}
             error={error}

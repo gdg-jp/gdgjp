@@ -41,12 +41,11 @@ export async function listSkillsForApplication(
 
 export type SkillInput = { roleId: string; level: Level; pref: Pref };
 
-/** Replaces the application's whole skill set — never a partial merge. */
-export async function setApplicationSkills(
+export function applicationSkillReplacementStatements(
   db: D1Database,
   applicationId: string,
   skills: readonly SkillInput[],
-): Promise<void> {
+): D1PreparedStatement[] {
   const statements: D1PreparedStatement[] = [
     db.prepare("DELETE FROM application_skills WHERE application_id = ?").bind(applicationId),
   ];
@@ -59,5 +58,14 @@ export async function setApplicationSkills(
         .bind(applicationId, skill.roleId, skill.level, skill.pref),
     );
   }
-  await db.batch(statements);
+  return statements;
+}
+
+/** Replaces the application's whole skill set — never a partial merge. */
+export async function setApplicationSkills(
+  db: D1Database,
+  applicationId: string,
+  skills: readonly SkillInput[],
+): Promise<void> {
+  await db.batch(applicationSkillReplacementStatements(db, applicationId, skills));
 }
