@@ -44,6 +44,31 @@ export async function setEventAvailability(
   entries: readonly AvailabilityInput[],
 ): Promise<void> {
   const eventId = await requireApplicationEvent(db, applicationId);
+  const statements = buildEventAvailabilityStatements(db, eventId, applicationId, entries);
+  const input = JSON.stringify(entries);
+  const valid = await db
+    .prepare(eventAvailabilityScopeSql())
+    .bind(applicationId, eventId, input, input)
+    .first();
+  if (!valid)
+    throw new Error("Availability must include exactly the current live event time slots.");
+
+  await db.batch(statements);
+}
+
+/**
+ * Creates the guarded replacement statements so callers can combine profile,
+ * skills, and availability writes into one D1 batch. `expectedUserId` binds
+ * the guard to a self-registration identity and prevents a changed/claimed
+ * application from receiving the submitted grid.
+ */
+export function buildEventAvailabilityStatements(
+  db: D1Database,
+  eventId: string,
+  applicationId: string,
+  entries: readonly AvailabilityInput[],
+  expectedUserId?: string,
+): D1PreparedStatement[] {
   if (
     new Set(entries.map((entry) => entry.timeSlotId)).size !== entries.length ||
     entries.some((entry) => !["o", "d", "x"].includes(entry.value))
@@ -51,9 +76,36 @@ export async function setEventAvailability(
     throw new Error("Availability entries must have unique slots and valid values.");
   }
   const input = JSON.stringify(entries);
-  const validScope = `SELECT 1 FROM applications a
+  const validScope = eventAvailabilityScopeSql(expectedUserId);
+  const identityParams = expectedUserId ? [expectedUserId] : [];
+  return [
+    db
+      .prepare(`INSERT INTO availabilities (application_id, time_slot_id, value)
+        SELECT ?, '__event_availability_scope_guard__', 'invalid'
+        WHERE NOT EXISTS (${validScope})`)
+      .bind(applicationId, applicationId, eventId, ...identityParams, input, input),
+    db
+      .prepare(`DELETE FROM availabilities
+        WHERE application_id = ? AND time_slot_id IN (
+          SELECT ts.id FROM time_slots ts
+          JOIN roster_sheets s ON s.id = ts.roster_sheet_id AND s.event_id = ts.event_id
+          WHERE ts.event_id = ? AND s.deleted_at IS NULL
+        )`)
+      .bind(applicationId, eventId),
+    db
+      .prepare(`INSERT INTO availabilities (application_id, time_slot_id, value)
+        SELECT ?, json_extract(value, '$.timeSlotId'), json_extract(value, '$.value')
+        FROM json_each(?)`)
+      .bind(applicationId, input),
+  ];
+}
+
+function eventAvailabilityScopeSql(expectedUserId?: string): string {
+  const userScope = expectedUserId ? "AND a.user_id = ?" : "";
+  return `SELECT 1 FROM applications a
     JOIN events e ON e.id = a.event_id
     WHERE a.id = ? AND a.event_id = ? AND e.deleted_at IS NULL
+      ${userScope}
       AND NOT EXISTS (
         SELECT 1 FROM json_each(?) requested
         WHERE NOT EXISTS (
@@ -72,28 +124,4 @@ export async function setEventAvailability(
             WHERE json_extract(requested.value, '$.timeSlotId') = ts.id
           )
       )`;
-  const valid = await db.prepare(validScope).bind(applicationId, eventId, input, input).first();
-  if (!valid)
-    throw new Error("Availability must include exactly the current live event time slots.");
-
-  await db.batch([
-    db
-      .prepare(`INSERT INTO availabilities (application_id, time_slot_id, value)
-        SELECT ?, '__event_availability_scope_guard__', 'invalid'
-        WHERE NOT EXISTS (${validScope})`)
-      .bind(applicationId, applicationId, eventId, input, input),
-    db
-      .prepare(`DELETE FROM availabilities
-        WHERE application_id = ? AND time_slot_id IN (
-          SELECT ts.id FROM time_slots ts
-          JOIN roster_sheets s ON s.id = ts.roster_sheet_id AND s.event_id = ts.event_id
-          WHERE ts.event_id = ? AND s.deleted_at IS NULL
-        )`)
-      .bind(applicationId, eventId),
-    db
-      .prepare(`INSERT INTO availabilities (application_id, time_slot_id, value)
-        SELECT ?, json_extract(value, '$.timeSlotId'), json_extract(value, '$.value')
-        FROM json_each(?)`)
-      .bind(applicationId, input),
-  ]);
 }
