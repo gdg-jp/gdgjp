@@ -20,12 +20,6 @@ import { type Page, expect, test } from "@playwright/test";
  * produces the same shape a real staff member would actually see).
  */
 
-async function setStatusOnDesignPage(page: Page, status: string): Promise<void> {
-  await page.selectOption('select[name="status"]', status);
-  await page.getByRole("button", { name: "設定を保存" }).click();
-  await page.waitForLoadState("networkidle");
-}
-
 async function setStatusOnStaffPage(page: Page, status: string): Promise<void> {
   await page.selectOption('select[name="status"]', status);
   await page.getByRole("button", { name: "ステータスを更新" }).click();
@@ -43,16 +37,24 @@ async function createEventWithDemand(
   await page.fill('input[name="name"]', eventName);
   await page.fill('input[name="date"]', "2030-06-01");
   await page.getByRole("button", { name: "作成する" }).click();
-  await page.waitForURL(/\/e\/[^/]+\/design$/);
+  await page.waitForURL(/\/e\/[^/]+\/(?:s\/[^/]+\/)?design$/);
   const eventId = new URL(page.url()).pathname.split("/")[2];
 
   await page.check('input[name="roleId"][value="reception"]');
   await page.getByRole("button", { name: "役割を保存" }).click();
   await expect(page.getByRole("checkbox", { name: "受付" })).toBeChecked();
 
-  await page.selectOption('select[name="noSoloNewcomer"]', "0");
-  await page.getByRole("button", { name: "設定を保存" }).click();
-  await page.waitForLoadState("networkidle");
+  // Wait for the save's response itself: networkidle may already hold before the POST starts,
+  // and reloading early drops the write.
+  await page.getByRole("checkbox", { name: "新人を単独の時間枠に割り当てない" }).uncheck();
+  await Promise.all([
+    page.waitForResponse((response) => response.request().method() === "POST" && response.ok()),
+    page.getByRole("button", { name: "シフト表設定を保存" }).click(),
+  ]);
+  await page.reload();
+  await expect(
+    page.getByRole("checkbox", { name: "新人を単独の時間枠に割り当てない" }),
+  ).not.toBeChecked();
 
   await page.getByRole("button", { name: "役割を追加" }).click();
   await page
@@ -108,8 +110,8 @@ test("public roster: not-published message, no PII/experience leakage once publi
   await registerStaff(page, applyPath, "rosterx", "10:00–11:00");
   await registerStaff(page, applyPath, "rostery");
 
-  await page.goto(`/dev/login?as=owner&chapter=1:e2e-public-owner&return_to=/e/${eventId}/design`);
-  await setStatusOnDesignPage(page, "closed");
+  await page.goto(`/dev/login?as=owner&chapter=1:e2e-public-owner&return_to=/e/${eventId}/staff`);
+  await setStatusOnStaffPage(page, "closed");
 
   // /e/:id/share while not published: shows the message, and the view URL is
   // visible even though it isn't live yet.
@@ -131,8 +133,8 @@ test("public roster: not-published message, no PII/experience leakage once publi
   await page.goto(`/dev/login?as=owner&chapter=1:e2e-public-owner&return_to=/e/${eventId}/roster`);
   await page.getByRole("button", { name: "自動生成" }).click();
   await page.waitForLoadState("networkidle");
-  await page.goto(`/e/${eventId}/design`);
-  await setStatusOnDesignPage(page, "published");
+  await page.goto(`/e/${eventId}/staff`);
+  await setStatusOnStaffPage(page, "published");
 
   // A signed-out visitor sees the live shift table with no sign-in prompt.
   await page.context().clearCookies();

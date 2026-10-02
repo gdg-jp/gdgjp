@@ -10,12 +10,14 @@ import type { Role } from "~/features/schedule/tracks.server";
 export function RolePicker({
   roles,
   selectedRoleIds,
-}: { roles: Role[]; selectedRoleIds: string[] }) {
+  sheetId,
+}: { roles: Role[]; selectedRoleIds: string[]; sheetId: string }) {
   const selected = new Set(selectedRoleIds);
 
   return (
     <Form method="post" className="space-y-4">
       <input type="hidden" name="intent" value="setRoles" />
+      <input type="hidden" name="sheetId" value={sheetId} />
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {roles.map((role) => (
           <li key={role.id}>

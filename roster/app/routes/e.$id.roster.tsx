@@ -20,6 +20,7 @@ import { MetricsRow } from "~/features/roster/components/MetricsRow";
 import { RosterGridViews } from "~/features/roster/components/RosterGridViews";
 import { ShortageReport } from "~/features/roster/components/ShortageReport";
 import { buildStaffColumns } from "~/features/roster/grid";
+import { assignManually } from "~/features/roster/manual-assignment.server";
 import {
   readAssignmentsMap,
   readAssignmentsState,
@@ -145,23 +146,19 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   }
 
   if (intent === "assign") {
-    const applicationId = String(form.get("applicationId") ?? "");
-    const trackId = String(form.get("trackId") ?? "");
-    const roleId = String(form.get("roleId") ?? "");
-    const slotIds = form.getAll("slotId").map(String);
-    if (!applicationId || !trackId || !roleId || slotIds.length === 0) {
-      return { error: "入力が不正です。", intent: "assign" as const };
-    }
-    const assignmentState = await readAssignmentsState(db, event.id);
-    const current = assignmentState.assignments;
-    // Map.set on an existing key overwrites it in place, so this alone both
-    // moves the applicant off any OTHER cell they held in this slot and
-    // places them in the new one — no separate delete needed.
-    for (const slotId of slotIds) {
-      current.set(assignmentKey(applicationId, slotId), { trackId, roleId, locked: false });
-    }
-    await writeManualEdit(db, event, actor, current, undefined, assignmentState.revisionCursor);
-    return { ok: true as const, intent: "assign" as const };
+    return assignManually(
+      db,
+      event,
+      actor,
+      {
+        applicationId: String(form.get("applicationId") ?? ""),
+        trackId: String(form.get("trackId") ?? ""),
+        roleId: String(form.get("roleId") ?? ""),
+        slotIds: form.getAll("slotId").map(String),
+      },
+      String(form.get("conflictConfirmation") ?? ""),
+      env.RP_SESSION_SECRET,
+    );
   }
 
   if (intent === "unassign") {
@@ -250,6 +247,10 @@ export default function RosterPage({ loaderData, actionData }: Route.ComponentPr
   const actionError = actionData && "error" in actionData ? actionData.error : undefined;
   const actionSucceeded =
     actionData && "ok" in actionData && actionData.ok ? actionData : undefined;
+  const crossSheetWarning =
+    actionData && "warning" in actionData && actionData.warning === "cross-sheet"
+      ? actionData
+      : undefined;
 
   const cellSucceeded =
     actionIntent === "assign" || actionIntent === "unassign" ? actionSucceeded : undefined;
@@ -349,6 +350,7 @@ export default function RosterPage({ loaderData, actionData }: Route.ComponentPr
         trackNameById={trackNameById}
         roleNameById={roleNameById}
         error={cellError}
+        crossSheetWarning={crossSheetWarning}
         succeeded={cellSucceeded}
         onClose={drawers.closeStaffCell}
       />
