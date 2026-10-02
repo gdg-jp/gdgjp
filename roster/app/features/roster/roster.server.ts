@@ -288,16 +288,7 @@ export async function writeManualEdit(
   expectedRevisionCursor?: number | null,
 ): Promise<void> {
   const sheet = await requireRosterSheet(db, event.id, rosterSheetId);
-  const input = await buildSolverInput(
-    db,
-    {
-      id: event.id,
-      noSoloNewcomer: sheet.noSoloNewcomer,
-      maxConsecutive: sheet.maxConsecutive,
-    },
-    sheet.seed,
-    sheet.id,
-  );
+  const input = await buildSolverInput(db, { id: event.id }, sheet.seed, sheet.id);
   const { metrics } = evaluate(input, next);
   await writeAssignments(
     db,

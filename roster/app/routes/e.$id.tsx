@@ -41,6 +41,13 @@ type SheetFormValues = {
 
 type SheetFormErrors = Partial<Record<keyof SheetFormValues, string>>;
 
+type ActionData = {
+  values?: SheetFormValues;
+  errors?: SheetFormErrors;
+  formError?: string;
+  sheetError?: { sheetId: string; intent: string; message: string };
+};
+
 function formValue(form: FormData, name: string): string {
   const value = form.get(name);
   return typeof value === "string" ? value : "";
@@ -131,7 +138,11 @@ export function meta({ data }: Route.MetaArgs) {
   return [{ title: data ? `${data.event.name} — シフト一覧 — roster` : "roster" }];
 }
 
-export async function action({ request, context, params }: Route.ActionArgs) {
+export async function action({
+  request,
+  context,
+  params,
+}: Route.ActionArgs): Promise<Response | ActionData> {
   const env = context.cloudflare.env;
   const { chapters } = await requireUserWithChapter(env, request);
   if (!params.id) throw new Response(null, { status: 404 });

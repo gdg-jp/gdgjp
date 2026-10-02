@@ -58,9 +58,11 @@ function callAction(id: string, db: D1Database, values: Record<string, string>) 
   } as Parameters<typeof action>[0]);
 }
 
-function renderOverview(props: Parameters<typeof EventOverview>[0]) {
+type OverviewProps = Parameters<typeof EventOverview>[0];
+
+function renderOverview(props: Pick<OverviewProps, "loaderData" | "actionData">) {
   const router = createMemoryRouter(
-    [{ path: "/e/event", element: createElement(EventOverview, props) }],
+    [{ path: "/e/event", element: createElement(EventOverview, props as OverviewProps) }],
     { initialEntries: ["/e/event"] },
   );
   return renderToStaticMarkup(createElement(RouterProvider, { router }));
