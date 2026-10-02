@@ -1,20 +1,19 @@
-import { Link as UiLink } from "@gdgjp/ui";
-import type { ReactNode } from "react";
-import { Link as RouterLink } from "react-router";
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { canManageEvent } from "~/features/auth/permissions";
-import { DemandMatrix } from "~/features/demand/components/DemandMatrix";
 import { bulkUpsertDemands, listDemandsForEvent } from "~/features/demand/demand.server";
+import { type SlotRowCounts, slotDataLossOnSlotChange } from "~/features/demand/impact";
 import { type MatrixMode, timeSlotIdsForTarget } from "~/features/demand/matrix";
+import {
+  isSlotDataSnapshotConflict,
+  listSlotDataCounts,
+  listSlotDependentRowIds,
+  prepareSettingsAndSlotDataGuard,
+} from "~/features/demand/slot-impact-guard.server";
 import type { DemandValue } from "~/features/demand/types";
 import { firstDemandValidationMessage, validateDemand } from "~/features/demand/validate";
 import { getEvent } from "~/features/events/events.server";
-import { SheetSettingsForm } from "~/features/roster-sheets/components/SheetSettingsForm";
 import { getRosterSheet, updateRosterSheet } from "~/features/roster-sheets/roster-sheets.server";
 import type { RosterSheet } from "~/features/roster-sheets/types";
-import { PhaseList } from "~/features/schedule/components/PhaseList";
-import { RolePicker } from "~/features/schedule/components/RolePicker";
-import { TrackEditor } from "~/features/schedule/components/TrackEditor";
 import {
   createPhase,
   deletePhase,
@@ -22,7 +21,7 @@ import {
   listTimeSlots,
   regenerateTimeSlots,
 } from "~/features/schedule/schedule.server";
-import { isValidTime, toMin } from "~/features/schedule/slots";
+import { buildSlots, isValidTime, toMin } from "~/features/schedule/slots";
 import {
   createTrack,
   deleteTrack,
@@ -35,14 +34,12 @@ import {
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/e.$id.s.$sheetId.design";
 
+export { default } from "~/features/roster-sheets/DesignScreen";
+
 export function meta({ data }: Route.MetaArgs) {
   return [{ title: data ? `${data.sheet.name} — 設計 — roster` : "roster" }];
 }
 
-/**
- * `/e/:id/s/:sheetId/design`: selected-sheet settings, phases + derived
- * time-slot grid, tracks, roles, and demand. Access stays chapter-gated.
- */
 async function requireDesignAccess(env: Env, request: Request, id: string | undefined) {
   const { chapters } = await requireUserWithChapter(env, request);
   if (!id) throw new Response(null, { status: 404 });
@@ -68,22 +65,48 @@ async function loadSheetDesign(
   const event = await requireDesignAccess(env, request, id);
   const db = getDb(env);
   const sheet = await requireSelectedSheet(db, event.id, sheetId);
-  const [phases, timeSlots, tracks, roles, eventRoleIds, demands] = await Promise.all([
-    listPhases(db, event.id, sheet.id),
-    listTimeSlots(db, event.id, sheet.id),
-    listTracks(db, event.id, sheet.id),
-    listRoles(db),
-    listEventRoleIds(db, event.id, sheet.id),
-    listDemandsForEvent(db, event.id, sheet.id),
-  ]);
-  return { event, sheet, phases, timeSlots, tracks, roles, eventRoleIds, demands };
+  const [phases, timeSlots, tracks, roles, eventRoleIds, demands, slotDataCounts] =
+    await Promise.all([
+      listPhases(db, event.id, sheet.id),
+      listTimeSlots(db, event.id, sheet.id),
+      listTracks(db, event.id, sheet.id),
+      listRoles(db),
+      listEventRoleIds(db, event.id, sheet.id),
+      listDemandsForEvent(db, event.id, sheet.id),
+      listSlotDataCounts(db, event.id, sheet.id),
+    ]);
+  return {
+    event,
+    sheet,
+    phases,
+    timeSlots,
+    tracks,
+    roles,
+    eventRoleIds,
+    demands,
+    ...slotDataCounts,
+  };
+}
+
+async function regenerateAfterScheduleChange(
+  db: D1Database,
+  eventId: string,
+  sheet: Pick<RosterSheet, "id" | "startTime" | "endTime" | "stepMin">,
+) {
+  const phases = await listPhases(db, eventId, sheet.id);
+  await regenerateTimeSlots(
+    db,
+    eventId,
+    { start: sheet.startTime, end: sheet.endTime, stepMin: sheet.stepMin },
+    phases,
+    sheet.id,
+  );
 }
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   return loadSheetDesign(context.cloudflare.env, request, params.id, params.sheetId);
 }
 
-/** `min`/`ideal`/`leadMin`/`newMax` from a demand form submission, or `null` if any is missing/non-numeric/negative. */
 function parseDemandValueFromForm(form: FormData): DemandValue | null {
   const min = Number.parseInt(String(form.get("min") ?? ""), 10);
   const ideal = Number.parseInt(String(form.get("ideal") ?? ""), 10);
@@ -102,21 +125,6 @@ function isValidDate(value: string): boolean {
     date.getUTCFullYear() === Number(year) &&
     date.getUTCMonth() === Number(month) - 1 &&
     date.getUTCDate() === Number(day)
-  );
-}
-
-async function regenerateAfterScheduleChange(
-  db: D1Database,
-  eventId: string,
-  sheet: Pick<RosterSheet, "id" | "startTime" | "endTime" | "stepMin">,
-) {
-  const phases = await listPhases(db, eventId, sheet.id);
-  await regenerateTimeSlots(
-    db,
-    eventId,
-    { start: sheet.startTime, end: sheet.endTime, stepMin: sheet.stepMin },
-    phases,
-    sheet.id,
   );
 }
 
@@ -152,21 +160,76 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       if (toMin(endTime) - toMin(startTime) < stepMin) {
         return { error: "時間の長さは刻み幅以上にしてください。" };
       }
-      const updated = await updateRosterSheet(db, event.id, sheet.id, {
-        name,
-        date,
-        startTime,
-        endTime,
-        stepMin,
-        maxConsecutive,
-        noSoloNewcomer: form.get("noSoloNewcomer") === "true",
-      });
-      if (
-        updated.startTime !== sheet.startTime ||
-        updated.endTime !== sheet.endTime ||
-        updated.stepMin !== sheet.stepMin
-      ) {
-        await regenerateAfterScheduleChange(db, event.id, updated);
+      const scheduleChanged =
+        startTime !== sheet.startTime || endTime !== sheet.endTime || stepMin !== sheet.stepMin;
+      if (scheduleChanged) {
+        const [phases, timeSlots, demands, slotDataCounts, slotDataRowIds] = await Promise.all([
+          listPhases(db, event.id, sheet.id),
+          listTimeSlots(db, event.id, sheet.id),
+          listDemandsForEvent(db, event.id, sheet.id),
+          listSlotDataCounts(db, event.id, sheet.id),
+          listSlotDependentRowIds(db, event.id, sheet.id),
+        ]);
+        const impact = slotDataLossOnSlotChange(
+          timeSlots,
+          buildSlots({ start: startTime, end: endTime, stepMin }, phases),
+          demands,
+          slotDataCounts.availabilityCounts,
+          slotDataCounts.assignmentCounts,
+        );
+        if (
+          impact.hasLoss &&
+          String(form.get("slotDataLossConfirmation") ?? "") !== impact.confirmationKey
+        ) {
+          return {
+            error:
+              "時間枠の変更で需要・スタッフの希望・割当が失われます。内容を確認してからもう一度保存してください。",
+          };
+        }
+        try {
+          await regenerateTimeSlots(
+            db,
+            event.id,
+            { start: startTime, end: endTime, stepMin },
+            phases,
+            sheet.id,
+            prepareSettingsAndSlotDataGuard(
+              db,
+              event.id,
+              sheet,
+              {
+                name,
+                date,
+                startTime,
+                endTime,
+                stepMin,
+                maxConsecutive,
+                noSoloNewcomer: form.get("noSoloNewcomer") === "true",
+              },
+              timeSlots,
+              impact,
+              slotDataRowIds,
+            ),
+          );
+        } catch (error) {
+          if (isSlotDataSnapshotConflict(error)) {
+            return {
+              error:
+                "保存データが確認後に変更されました。最新の内容を読み込み、もう一度確認してください。",
+            };
+          }
+          throw error;
+        }
+      } else {
+        await updateRosterSheet(db, event.id, sheet.id, {
+          name,
+          date,
+          startTime,
+          endTime,
+          stepMin,
+          maxConsecutive,
+          noSoloNewcomer: form.get("noSoloNewcomer") === "true",
+        });
       }
       return { ok: true };
     }
@@ -229,8 +292,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     // (docs/roster/03-demand-input.md "Design" §4). Both share the same
     // value fields; `copyDemand` additionally fans the value out to the
     // checked `copyTrackId` (same row, other track) and `copyRowKey` (other
-    // phase, same track) targets — see the drawer's module doc for why
-    // those two axes are independent rather than a full cross-product.
+    // phase, same track) targets — see the drawer's module doc for details.
     case "saveDemand":
     case "copyDemand": {
       const mode = String(form.get("mode") ?? "") as MatrixMode;
@@ -289,77 +351,4 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     default:
       return { error: "不明な操作です。" };
   }
-}
-
-export default function EventDesign({ loaderData, actionData }: Route.ComponentProps) {
-  const { event, sheet, phases, timeSlots, tracks, roles, eventRoleIds, demands } = loaderData;
-  // The "役割を追加" affordance only offers roles the event has actually
-  // selected (docs/roster/03-demand-input.md "Design" §3) — DemandMatrix
-  // expects that filtering to already be done by its caller.
-  const selectedRoles = roles.filter((r) => eventRoleIds.includes(r.id));
-  return (
-    <main className="admin-page">
-      <div className="page-heading">
-        <div>
-          <h1>設計</h1>
-          <p>
-            {event.name} · {sheet.name} · {sheet.date} {sheet.startTime}–{sheet.endTime}
-          </p>
-        </div>
-        <nav className="flex flex-wrap gap-3">
-          <UiLink asChild>
-            <RouterLink to={`/e/${event.id}`}>シフト表一覧</RouterLink>
-          </UiLink>
-          <UiLink asChild>
-            <RouterLink to={`/e/${event.id}/staff`}>スタッフ</RouterLink>
-          </UiLink>
-        </nav>
-      </div>
-
-      {actionData && "error" in actionData ? (
-        <p role="alert" className="text-sm font-medium text-gdg-red">
-          {actionData.error}
-        </p>
-      ) : null}
-
-      <div className="grid items-start gap-4 xl:grid-cols-2">
-        <Section title="シフト表設定">
-          <SheetSettingsForm
-            sheet={sheet}
-            phases={phases}
-            timeSlots={timeSlots}
-            demands={demands}
-          />
-        </Section>
-        <Section title="フェーズと時間枠">
-          <PhaseList phases={phases} timeSlots={timeSlots} sheetId={sheet.id} />
-        </Section>
-        <Section title="トラック">
-          <TrackEditor tracks={tracks} sheetId={sheet.id} />
-        </Section>
-        <Section title="使う役割">
-          <RolePicker roles={roles} selectedRoleIds={eventRoleIds} sheetId={sheet.id} />
-        </Section>
-      </div>
-      <Section title="需要">
-        <DemandMatrix
-          phases={phases}
-          timeSlots={timeSlots}
-          tracks={tracks}
-          roles={selectedRoles}
-          demands={demands}
-          sheetId={sheet.id}
-        />
-      </Section>
-    </main>
-  );
-}
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5">
-      <h2 className="text-base font-semibold">{title}</h2>
-      {children}
-    </section>
-  );
 }

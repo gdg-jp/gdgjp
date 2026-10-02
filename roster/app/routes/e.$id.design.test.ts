@@ -7,6 +7,7 @@ vi.mock("~/features/auth/auth-redirect.server", () => ({
 }));
 
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
+import { slotDataLossOnSlotChange } from "~/features/demand/impact";
 import { type TestD1Database, asD1, createTestD1 } from "../../tests/helpers/sqlite-d1";
 import { loader as legacyLoader } from "./e.$id.design";
 import { action, loader } from "./e.$id.s.$sheetId.design";
@@ -33,6 +34,20 @@ function args(request: Request, db: D1Database, params: { id: string; sheetId?: 
     context: { cloudflare: { env: { DB: db } as unknown as Env } },
     unstable_pattern: "/e/:id/s/:sheetId/design",
     unstable_url: new URL(request.url),
+  };
+}
+
+function beforeNextBatch(db: TestD1Database, beforeBatch: () => Promise<void>): TestD1Database {
+  let injected = false;
+  return {
+    prepare: (sql) => db.prepare(sql),
+    async batch(statements) {
+      if (!injected) {
+        injected = true;
+        await beforeBatch();
+      }
+      return db.batch(statements);
+    },
   };
 }
 
@@ -225,5 +240,311 @@ describe("e.$id.design sheet routing", () => {
           .first<{ count: number }>()
       )?.count,
     ).toBe(0);
+  });
+
+  it("requires current confirmation before deleting availability-only and assigned slots", async () => {
+    owner();
+    await db
+      .prepare(
+        `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+         VALUES ('slot-remove', 'event-a', 0, '13:00', '14:00', 'sheet-a2'),
+                ('slot-keep', 'event-a', 1, '14:00', '15:00', 'sheet-a2')`,
+      )
+      .run();
+    await db
+      .prepare(
+        `INSERT INTO applications
+         (id, event_id, email, name, party, updated_by, created_at, updated_at)
+         VALUES ('app-impact', 'event-a', 'staff@example.com', 'Staff', 'yes', 'owner', 'now', 'now')`,
+      )
+      .run();
+    await db
+      .prepare("INSERT INTO availabilities (application_id, time_slot_id, value) VALUES (?, ?, ?)")
+      .bind("app-impact", "slot-remove", "o")
+      .run();
+    await db
+      .prepare(
+        `INSERT INTO assignments
+         (event_id, application_id, time_slot_id, track_id, role_id, roster_sheet_id)
+         VALUES ('event-a', 'app-impact', 'slot-remove', 'track-sheet', 'reception', 'sheet-a2')`,
+      )
+      .run();
+
+    const fields = {
+      intent: "updateSettings",
+      name: "Parallel updated",
+      date: "2026-11-09",
+      startTime: "14:00",
+      endTime: "16:00",
+      stepMin: "60",
+      maxConsecutive: "5",
+      noSoloNewcomer: "true",
+    };
+    const req = (entries: Record<string, string>) => {
+      const form = new FormData();
+      for (const [key, value] of Object.entries(entries)) form.set(key, value);
+      return new Request("http://localhost/e/event-a/s/sheet-a2/design", {
+        method: "POST",
+        body: form,
+      });
+    };
+    const call = (request: Request) =>
+      action(
+        args(request, asD1(db), { id: "event-a", sheetId: "sheet-a2" }) as Parameters<
+          typeof action
+        >[0],
+      );
+
+    expect(await call(req(fields))).toMatchObject({ error: expect.any(String) });
+    expect(
+      await db
+        .prepare("SELECT start_time FROM roster_sheets WHERE id = 'sheet-a2'")
+        .first<{ start_time: string }>(),
+    ).toEqual({ start_time: "13:00" });
+    expect(
+      (
+        await db
+          .prepare(
+            "SELECT COUNT(*) AS count FROM availabilities WHERE time_slot_id = 'slot-remove'",
+          )
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(1);
+
+    const confirmation = slotDataLossOnSlotChange(
+      [
+        { id: "slot-remove", start: "13:00", end: "14:00" },
+        { id: "slot-keep", start: "14:00", end: "15:00" },
+      ],
+      [
+        { start: "14:00", end: "15:00" },
+        { start: "15:00", end: "16:00" },
+      ],
+      [],
+      { "slot-remove": 1 },
+      { "slot-remove": 1 },
+    ).confirmationKey;
+    expect(confirmation).toBeTruthy();
+    expect(await call(req({ ...fields, slotDataLossConfirmation: confirmation }))).toEqual({
+      ok: true,
+    });
+    expect(
+      (
+        await db
+          .prepare(
+            "SELECT COUNT(*) AS count FROM availabilities WHERE time_slot_id = 'slot-remove'",
+          )
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(0);
+    expect(
+      (
+        await db
+          .prepare("SELECT COUNT(*) AS count FROM assignments WHERE time_slot_id = 'slot-remove'")
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(0);
+    expect(
+      (
+        await db
+          .prepare("SELECT COUNT(*) AS count FROM time_slots WHERE id = 'slot-keep'")
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(1);
+  });
+
+  it("rejects a confirmation when slot-dependent rows changed after preview", async () => {
+    owner();
+    await db
+      .prepare(
+        `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+         VALUES ('slot-stale-remove', 'event-a', 0, '13:00', '14:00', 'sheet-a2')`,
+      )
+      .run();
+    const staleConfirmation = slotDataLossOnSlotChange(
+      [{ id: "slot-stale-remove", start: "13:00", end: "14:00" }],
+      [
+        { start: "14:00", end: "15:00" },
+        { start: "15:00", end: "16:00" },
+      ],
+      [],
+      {},
+      {},
+    ).confirmationKey;
+    await db
+      .prepare(
+        `INSERT INTO applications
+         (id, event_id, email, name, party, updated_by, created_at, updated_at)
+         VALUES ('app-stale', 'event-a', 'stale@example.com', 'Staff', 'yes', 'owner', 'now', 'now')`,
+      )
+      .run();
+    await db
+      .prepare("INSERT INTO availabilities (application_id, time_slot_id, value) VALUES (?, ?, ?)")
+      .bind("app-stale", "slot-stale-remove", "o")
+      .run();
+    const fields = {
+      intent: "updateSettings",
+      name: "Parallel updated",
+      date: "2026-11-09",
+      startTime: "14:00",
+      endTime: "16:00",
+      stepMin: "60",
+      maxConsecutive: "5",
+      slotDataLossConfirmation: staleConfirmation,
+    };
+    const form = new FormData();
+    for (const [key, value] of Object.entries(fields)) form.set(key, value);
+    const result = await action(
+      args(
+        new Request("http://localhost/e/event-a/s/sheet-a2/design", { method: "POST", body: form }),
+        asD1(db),
+        { id: "event-a", sheetId: "sheet-a2" },
+      ) as Parameters<typeof action>[0],
+    );
+    expect(result).toMatchObject({ error: expect.any(String) });
+    expect(
+      await db
+        .prepare("SELECT start_time FROM roster_sheets WHERE id = 'sheet-a2'")
+        .first<{ start_time: string }>(),
+    ).toEqual({ start_time: "13:00" });
+  });
+
+  it("rolls back settings and slot deletion if availability arrives after impact validation", async () => {
+    owner();
+    await db
+      .prepare(
+        `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+         VALUES ('slot-race-remove', 'event-a', 0, '13:00', '14:00', 'sheet-a2'),
+                ('slot-race-keep', 'event-a', 1, '14:00', '15:00', 'sheet-a2')`,
+      )
+      .run();
+
+    const racingDb = beforeNextBatch(db, async () => {
+      await db
+        .prepare(
+          `INSERT INTO applications
+           (id, event_id, email, name, party, updated_by, created_at, updated_at)
+           VALUES ('app-race', 'event-a', 'race@example.com', 'Staff', 'yes', 'owner', 'now', 'now')`,
+        )
+        .run();
+      await db
+        .prepare(
+          "INSERT INTO availabilities (application_id, time_slot_id, value) VALUES (?, ?, ?)",
+        )
+        .bind("app-race", "slot-race-remove", "o")
+        .run();
+    });
+    const form = new FormData();
+    for (const [key, value] of Object.entries({
+      intent: "updateSettings",
+      name: "Parallel updated",
+      date: "2026-11-09",
+      startTime: "14:00",
+      endTime: "16:00",
+      stepMin: "60",
+      maxConsecutive: "5",
+      noSoloNewcomer: "true",
+    })) {
+      form.set(key, value);
+    }
+
+    const result = await action(
+      args(
+        new Request("http://localhost/e/event-a/s/sheet-a2/design", { method: "POST", body: form }),
+        asD1(racingDb),
+        { id: "event-a", sheetId: "sheet-a2" },
+      ) as Parameters<typeof action>[0],
+    );
+
+    expect(result).toMatchObject({ error: expect.any(String) });
+    expect(
+      await db
+        .prepare("SELECT start_time, end_time FROM roster_sheets WHERE id = 'sheet-a2'")
+        .first<{ start_time: string; end_time: string }>(),
+    ).toEqual({ start_time: "13:00", end_time: "15:00" });
+    expect(
+      (
+        await db
+          .prepare("SELECT COUNT(*) AS count FROM time_slots WHERE id = 'slot-race-remove'")
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(1);
+    expect(
+      (
+        await db
+          .prepare(
+            "SELECT COUNT(*) AS count FROM availabilities WHERE time_slot_id = 'slot-race-remove'",
+          )
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(1);
+  });
+
+  it("rolls back settings and slot reconciliation if the slot grid changes after validation", async () => {
+    owner();
+    await db
+      .prepare(
+        `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+         VALUES ('slot-grid-before-0', 'event-a', 0, '13:00', '14:00', 'sheet-a2'),
+                ('slot-grid-before-1', 'event-a', 1, '14:00', '15:00', 'sheet-a2')`,
+      )
+      .run();
+
+    const racingDb = beforeNextBatch(db, async () => {
+      await db
+        .prepare(
+          `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+           VALUES ('slot-grid-race', 'event-a', 2, '16:00', '17:00', 'sheet-a2')`,
+        )
+        .run();
+    });
+    const form = new FormData();
+    for (const [key, value] of Object.entries({
+      intent: "updateSettings",
+      name: "Parallel updated",
+      date: "2026-11-09",
+      startTime: "14:00",
+      endTime: "16:00",
+      stepMin: "60",
+      maxConsecutive: "5",
+    })) {
+      form.set(key, value);
+    }
+
+    const result = await action(
+      args(
+        new Request("http://localhost/e/event-a/s/sheet-a2/design", { method: "POST", body: form }),
+        asD1(racingDb),
+        { id: "event-a", sheetId: "sheet-a2" },
+      ) as Parameters<typeof action>[0],
+    );
+
+    expect(result).toMatchObject({ error: expect.any(String) });
+    expect(
+      await db
+        .prepare("SELECT start_time, end_time FROM roster_sheets WHERE id = 'sheet-a2'")
+        .first<{ start_time: string; end_time: string }>(),
+    ).toEqual({ start_time: "13:00", end_time: "15:00" });
+    expect(
+      (
+        await db
+          .prepare("SELECT COUNT(*) AS count FROM time_slots WHERE roster_sheet_id = 'sheet-a2'")
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(3);
+    expect(
+      (
+        await db
+          .prepare("SELECT COUNT(*) AS count FROM time_slots WHERE id = 'slot-grid-before-0'")
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(1);
+    expect(
+      (
+        await db
+          .prepare("SELECT COUNT(*) AS count FROM time_slots WHERE id = 'slot-grid-race'")
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(1);
   });
 });
