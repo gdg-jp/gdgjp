@@ -9,6 +9,7 @@ export default [
     route("e/:id/s/:sheetId/design", "routes/e.$id.s.$sheetId.design.tsx"),
     route("e/:id/staff", "routes/e.$id.staff.tsx"),
     route("e/:id/roster", "routes/e.$id.roster.tsx"),
+    route("e/:id/s/:sheetId/roster", "routes/e.$id.s.$sheetId.roster.tsx"),
     route("e/:id/share", "routes/e.$id.share.tsx"),
   ]),
 
