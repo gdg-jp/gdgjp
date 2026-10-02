@@ -14,6 +14,15 @@ export type AvailabilityGridSlot = {
   phaseName: string | null;
 };
 
+export type AvailabilityRosterSheet = {
+  id: string;
+  name: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  timeSlots: AvailabilityGridSlot[];
+};
+
 /**
  * The ○/△/× grid over an event's time slots (docs/roster/04-applications.md
  * "Design" §2). Shortcut buttons ("終日○" etc.) exist because filling a
