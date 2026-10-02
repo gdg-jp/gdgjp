@@ -53,7 +53,7 @@ export type PublicRosterData = {
  * (including selected-sheet metadata when available) — no `data` key at all — so a private sheet's
  * assignments/staff never enter the loader's return value, let alone the rendered HTML
  * or the hydration payload (docs/roster/09-share-public-views.md "制約":
- * "canView が false のとき 404 にしない。200 で「まだ公開されていません」").
+ * a private sheet returns 200 with "まだ公開されていません").
  */
 export type PublicRosterView =
   | { published: false; event: PublicEventSummary }

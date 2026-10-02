@@ -46,7 +46,7 @@ import { describe, expect, it } from "vitest";
  * ("1 は import 解析...難しいので...でも良い").
  *
  * The loader's actual RETURNED DATA (email/contact/note/skills/availability/
- * locked, and `canView` gating assembly rather than just rendering) is a
+ * locked, and sheet-visibility gating assembly rather than just rendering) is a
  * structural property a source scan can't verify — that's covered instead by
  * `app/features/public-roster/public-roster.server.test.ts`, which calls the
  * assembly function directly and inspects its real keys.

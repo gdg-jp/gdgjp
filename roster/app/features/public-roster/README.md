@@ -2,7 +2,7 @@
 
 The one fully public, unauthenticated screen in this app: `/r/:viewToken`
 (docs/roster/09-share-public-views.md). No table of its own — this feature
-only reads `events`/`time_slots`/`tracks`/`roles`/`applications`/`assignments`
+only reads `events`/`roster_sheets`/`time_slots`/`tracks`/`roles`/`applications`/`assignments`
 through other features' existing accessors and reshapes the result into a
 data surface that is deliberately smaller than what the owner-only
 `~/features/roster/` screens can see.
@@ -16,13 +16,13 @@ Entry points:
   doc first.
 - `public-roster.server.ts` — `buildPublicRosterData`, the single function
   that assembles `/r/:viewToken`'s entire response. Two rules it enforces
-  structurally: `canView(status)` gates ASSEMBLY (an unpublished event never
-  even queries `applications`/`assignments`, not just "queries them but
-  hides the result"), and the published branch builds `PublicRosterData`
+  structurally: the selected sheet's `visibility` gates ASSEMBLY (a private
+  sheet never even queries `applications`/`assignments`, not just "queries
+  them but hides the result"), and the published branch builds `PublicRosterData`
   field-by-field rather than spreading a D1 row, so a later PII column added
   elsewhere can't silently ride along. `public-roster.server.test.ts` asserts
   both properties directly — the exact returned key set, and (via a D1-call
-  spy) that no query runs when the event isn't published.
+  spy) that no query runs when the selected sheet isn't published.
 - `timeline.ts` — `buildPersonTimeline`, pure per-person merge logic for the
   individual view: consecutive slots with the same (track, role) collapse
   into one entry, a gap becomes an explicit `"break"` entry, and a merged

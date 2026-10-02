@@ -1,19 +1,18 @@
 import { Badge, Button, Card, Heading, Inline, Stack } from "@gdgjp/ui";
 import { useState } from "react";
-import { type EventStatus, STATUS_LABELS, canView } from "~/features/events/status";
 import type { SheetVisibility } from "~/features/roster-sheets/types";
 
 /**
  * `/e/:id/share`'s single card (docs/roster/09-share-public-views.md
- * "Design" §1): one-click copy of `/r/:viewToken` and the current status,
+ * "Design" §1): one-click copy of `/r/:viewToken` and the default sheet's visibility,
  * mirroring `~/features/events/components/ApplyLinkCard`'s copy-button pattern.
- * Deliberately has no status select of its own (unlike `ApplyLinkCard`): `/e/:id/design` and
- * `/e/:id/staff` already own that control, and duplicating it a third place
- * would be a second source of truth for the same `updateEventSettings` call
- * for no benefit — this card only ever reads `status`, never writes it.
+ * Publication is managed from the event overview independently of recruitment.
  */
-export function ShareCard({ viewUrl, status }: { viewUrl: string; status: EventStatus }) {
-  const isPublished = canView(status);
+export function ShareCard({
+  viewUrl,
+  visibility,
+}: { viewUrl: string; visibility: SheetVisibility }) {
+  const isPublished = visibility === "published";
 
   return (
     <Card>
@@ -24,9 +23,7 @@ export function ShareCard({ viewUrl, status }: { viewUrl: string; status: EventS
             {isPublished ? "公開中" : "非公開"}
           </Badge>
         </Inline>
-        <p className="gdg-muted text-sm">
-          旧形式のURLは、本編（既定のシフト表）を表示します。現在の状態: {STATUS_LABELS[status]}
-        </p>
+        <p className="gdg-muted text-sm">旧形式のURLは、本編（既定のシフト表）を表示します。</p>
         {isPublished ? (
           <p className="text-sm">このURLを共有すると、誰でもサインインなしで閲覧できます。</p>
         ) : (

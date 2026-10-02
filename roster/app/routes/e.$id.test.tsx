@@ -23,6 +23,8 @@ const MIGRATIONS = [
   "0008_default_sheet_compat.sql",
   "0009_time_slots_sheet_uniqueness.sql",
   "0010_revisions_sheet_sequence.sql",
+  "0011_repair_default_sheet_compat.sql",
+  "0012_independent_sheet_publication.sql",
 ].map((name) => fileURLToPath(new URL(`../../migrations/${name}`, import.meta.url)));
 
 const OWNER: UserChapter = { chapterId: 1, chapterSlug: "tokyo", role: "member" };
@@ -234,7 +236,7 @@ describe("e.$id overview", () => {
     ).toEqual({ visibility: "private" });
   });
 
-  it("uses default-sheet visibility to update event lifecycle without clobbering recruitment", async () => {
+  it("publishes the default sheet without changing recruitment and renders its actual visibility", async () => {
     asChapter(OWNER);
     await db.prepare("UPDATE events SET status = 'open' WHERE id = 'event'").run();
 
@@ -253,10 +255,12 @@ describe("e.$id overview", () => {
       visibility: "published",
     });
     expect(await db.prepare("SELECT status FROM events WHERE id = 'event'").first()).toEqual({
-      status: "published",
+      status: "open",
     });
     const overview = await callLoader("event", asD1(db));
     expect(overview.sheets[0]).toMatchObject({ id: "default:event", visibility: "published" });
+    const html = renderOverview({ loaderData: overview });
+    expect(html).toContain('value="private"');
   });
 
   it("rejects default-sheet archive requests and archives populated non-default sheets", async () => {
