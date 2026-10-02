@@ -110,6 +110,9 @@ export function RosterSheetCard({
               {renderMoveButton(1)}
             </div>
           )}
+          <Button asChild variant="secondary">
+            <RouterLink to={`/e/${eventId}/s/${sheet.id}/roster`}>シフト表</RouterLink>
+          </Button>
           <Button asChild>
             <RouterLink to={`/e/${eventId}/s/${sheet.id}/design`}>設計</RouterLink>
           </Button>
