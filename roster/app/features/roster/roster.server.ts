@@ -15,6 +15,10 @@ import {
   parseAssignmentKey,
 } from "~/features/solver/types";
 import { readAssignmentsMap } from "./assignment-reads.server";
+import {
+  crossSheetConflictGuard,
+  isCrossSheetConflictGuardFailure,
+} from "./cross-sheet-conflicts.server";
 import { buildSolverInput } from "./solver-input.server";
 
 export { readAssignments, readAssignmentsMap, toAssignment } from "./assignment-reads.server";
@@ -267,6 +271,40 @@ export async function writeAssignments(
   if (results[0]?.meta.changes !== 1) {
     throw new Error("Roster sheet changed concurrently; retry the operation.");
   }
+}
+
+/**
+ * Replaces a solver-generated sheet snapshot only if its applicants still
+ * have no overlapping live-sheet assignments. The guards are part of the
+ * same history/cursor batch as the replacement, so a conflict changes
+ * nothing in this sheet.
+ */
+export async function writeGeneratedAssignments(
+  db: D1Database,
+  eventId: string,
+  assignments: Assignments,
+  revision: Omit<WriteAssignmentsRevision, "mutationGuards">,
+  rosterSheetId: string,
+  expectedRevisionCursor: number | null,
+): Promise<boolean> {
+  const mutationGuards = [...assignments.keys()].map((key) => {
+    const { applicationId, slotId } = parseAssignmentKey(key);
+    return crossSheetConflictGuard(db, eventId, rosterSheetId, applicationId, slotId, []);
+  });
+  try {
+    await writeAssignments(
+      db,
+      eventId,
+      assignments,
+      { ...revision, mutationGuards },
+      rosterSheetId,
+      expectedRevisionCursor,
+    );
+  } catch (error) {
+    if (isCrossSheetConflictGuardFailure(error)) return false;
+    throw error;
+  }
+  return true;
 }
 
 /**
