@@ -15,7 +15,6 @@ import { Form, Link as RouterLink, redirect, useNavigation } from "react-router"
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { canManageEvent } from "~/features/auth/permissions";
 import { getEvent } from "~/features/events/events.server";
-import { canView } from "~/features/events/status";
 import { RosterSheetCard } from "~/features/roster-sheets/components/RosterSheetCard";
 import {
   archiveRosterSheet,
@@ -304,11 +303,6 @@ export default function EventOverview({ loaderData, actionData }: Route.Componen
         <ul className="grid list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 xl:grid-cols-3">
           {sheets.map((sheet) => {
             const isDefault = sheet.id === `default:${event.id}`;
-            const visibility = isDefault
-              ? canView(event.status)
-                ? "published"
-                : "private"
-              : sheet.visibility;
             const sheetError =
               actionData?.sheetError?.sheetId === sheet.id
                 ? actionData.sheetError.message
@@ -318,7 +312,7 @@ export default function EventOverview({ loaderData, actionData }: Route.Componen
                 <RosterSheetCard
                   sheet={sheet}
                   eventId={event.id}
-                  visibility={visibility}
+                  visibility={sheet.visibility}
                   isDefault={isDefault}
                   error={sheetError}
                   visibilityPending={

@@ -6,8 +6,8 @@ import type { PublicStaff } from "../types";
  * "Design" §2d): 3 groups (参加/未定/不参加) with a headcount and names each.
  * The caller (`app/routes/r.$token.tsx`) hides this tab entirely when
  * `event.hasParty` is false — this component doesn't re-check that itself,
- * the same way `RoleGrid` doesn't re-check `canView` either; gating is the
- * route's job, rendering is this component's.
+ * the same way `RoleGrid` doesn't re-check sheet publication either; gating
+ * is the route's job, rendering is this component's.
  */
 export function PartyList({
   staff,
