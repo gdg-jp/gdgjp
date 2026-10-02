@@ -121,7 +121,7 @@ test("public roster: not-published message, no PII/experience leakage once publi
 
   // The public page for a real (but unpublished) token is 200, not 404 — a
   // shared link must never look broken (docs/roster/09-share-public-views.md
-  // "制約": "canView が false のとき 404 にしない").
+  // "制約": a private sheet still returns 200 with the unpublished message).
   await page.context().clearCookies();
   const notPublished = await page.goto(viewPath);
   expect(notPublished?.status()).toBe(200);
@@ -131,8 +131,11 @@ test("public roster: not-published message, no PII/experience leakage once publi
   await page.goto(`/dev/login?as=owner&chapter=1:e2e-public-owner&return_to=/e/${eventId}/roster`);
   await page.getByRole("button", { name: "自動生成" }).click();
   await page.waitForLoadState("networkidle");
+  await page.goto(`/e/${eventId}`);
+  await page.getByRole("button", { name: "公開にする", exact: true }).click();
+  await page.waitForLoadState("networkidle");
   await page.goto(`/e/${eventId}/design`);
-  await setStatusOnDesignPage(page, "published");
+  await expect(page.locator('select[name="status"]')).toHaveValue("closed");
 
   // A signed-out visitor sees the live shift table with no sign-in prompt.
   await page.context().clearCookies();

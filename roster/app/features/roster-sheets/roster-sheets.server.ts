@@ -255,29 +255,6 @@ export async function setRosterSheetVisibility(
   }
   await requireLiveSheet(db, eventId, sheetId);
   const now = new Date().toISOString();
-  if (sheetId === `default:${eventId}`) {
-    const event = await db
-      .prepare(
-        `UPDATE events
-         SET status = CASE
-               WHEN ? = 'published' THEN 'published'
-               WHEN status = 'published' THEN 'draft'
-               ELSE status
-             END,
-             updated_at = ?
-         WHERE id = ? AND deleted_at IS NULL
-           AND EXISTS (
-             SELECT 1 FROM roster_sheets
-             WHERE id = ? AND event_id = events.id AND deleted_at IS NULL
-           )
-         RETURNING id`,
-      )
-      .bind(visibility, now, eventId, sheetId)
-      .first<{ id: string }>();
-    if (!event) throw new RosterSheetMutationError("Roster sheet not found for this event.");
-    return requireLiveSheet(db, eventId, sheetId);
-  }
-
   const row = await db
     .prepare(
       `UPDATE roster_sheets SET visibility = ?, updated_at = ?

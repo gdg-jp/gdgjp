@@ -25,6 +25,12 @@ const MIGRATIONS = [
     new URL("../../../migrations/0009_time_slots_sheet_uniqueness.sql", import.meta.url),
   ),
   fileURLToPath(new URL("../../../migrations/0010_revisions_sheet_sequence.sql", import.meta.url)),
+  fileURLToPath(
+    new URL("../../../migrations/0011_repair_default_sheet_compat.sql", import.meta.url),
+  ),
+  fileURLToPath(
+    new URL("../../../migrations/0012_independent_sheet_publication.sql", import.meta.url),
+  ),
 ];
 
 function baseEvent(overrides: Partial<EventRecord> = {}): EventRecord {
@@ -124,6 +130,13 @@ async function seedFullFixture(db: TestD1Database) {
 
 async function setEventStatus(db: TestD1Database, status: EventRecord["status"]) {
   await db.prepare("UPDATE events SET status = ? WHERE id = 'evt_1'").bind(status).run();
+}
+
+async function setDefaultSheetVisibility(db: TestD1Database, visibility: "private" | "published") {
+  await db
+    .prepare("UPDATE roster_sheets SET visibility = ? WHERE id = 'default:evt_1'")
+    .bind(visibility)
+    .run();
 }
 
 async function seedSiblingSheet(db: TestD1Database, visibility: "private" | "published") {
@@ -377,38 +390,34 @@ describe("buildPublicRosterData", () => {
     });
   }
 
-  it("returns only {published:false, event} for a non-published status, with no `data` key", async () => {
+  it("returns no data for a private default sheet, even when recruitment status is published", async () => {
     await seedFullFixture(testDb);
-    await setEventStatus(testDb, "closed");
-    const result = await buildPublicRosterData(asD1(testDb), baseEvent({ status: "closed" }));
+    await setDefaultSheetVisibility(testDb, "private");
+    const { db, calls } = spyOn(testDb);
+    const result = await buildPublicRosterData(db, baseEvent({ status: "published" }));
 
     expect(result.published).toBe(false);
     expect(Object.keys(result).sort()).toEqual(["event", "published"].sort());
     expect("data" in result).toBe(false);
-  });
-
-  it("a private default sheet gates assembly before schedule or staff reads", async () => {
-    await seedFullFixture(testDb);
-    await setEventStatus(testDb, "draft");
-    const { db, calls } = spyOn(testDb);
-    await buildPublicRosterData(db, baseEvent({ status: "draft" }));
-
     expect(calls.some((sql) => /FROM applications/i.test(sql))).toBe(false);
     expect(calls.some((sql) => /FROM assignments/i.test(sql))).toBe(false);
     expect(calls.some((sql) => /FROM time_slots/i.test(sql))).toBe(false);
     expect(calls.some((sql) => /FROM tracks/i.test(sql))).toBe(false);
   });
 
-  for (const status of ["draft", "open", "closed", "ended"] as const) {
-    it(`treats the default sheet for event status "${status}" as not-published`, async () => {
-      await seedFullFixture(testDb);
-      await setEventStatus(testDb, status);
-      const result = await buildPublicRosterData(asD1(testDb), baseEvent({ status }));
-      expect(result.published).toBe(false);
-    });
-  }
+  it("publishes the default sheet while recruitment remains open", async () => {
+    await seedFullFixture(testDb);
+    await setDefaultSheetVisibility(testDb, "published");
+    await setEventStatus(testDb, "open");
 
-  it("returns empty arrays (not an error) for a published event with no staff yet", async () => {
+    const result = await buildPublicRosterData(asD1(testDb), baseEvent({ status: "open" }));
+
+    expect(result.published).toBe(true);
+    if (!result.published) throw new Error("expected published");
+    expect(result.data.slots.map((slot) => slot.id)).toEqual(["slot_1"]);
+  });
+
+  it("returns empty arrays (not an error) for a published sheet with no staff yet", async () => {
     const now = new Date().toISOString();
     await testDb
       .prepare(

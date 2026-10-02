@@ -64,8 +64,8 @@ export async function buildPublicRosterData(
 
   // Public roster views always describe one live, explicitly published
   // sheet. Event-only callers retain compatibility by selecting the default
-  // sheet, whose visibility is synchronized with the event status by the
-  // compatibility trigger. Other sheets have independent publication state.
+  // sheet. Its visibility is independent of recruitment status, like every
+  // other sheet's visibility.
   const rosterSheet =
     rosterSheetId === undefined
       ? await getDefaultRosterSheet(db, event.id)

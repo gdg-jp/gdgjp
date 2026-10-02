@@ -46,15 +46,15 @@ code map.
   grids, backed by `undo`/`redo`/`restore` action intents that move `events.revision_cursor`
   without ever creating a new revision.
 - `/e/:id/share` — chapter-gated like the routes above. `ShareCard`: the `/r/:viewToken` URL with
-  one-click copy and the current status. Reads
-  only — does not change `status` itself (`/e/:id/design`/`/e/:id/staff` already own that control).
+  one-click copy and the default sheet's visibility. Recruitment status and sheet publication are
+  managed independently.
 - `/apply/:token` — **public** staff self-registration. `getOptionalUser`, never
   `requireUserWithChapter` — Chapter membership must not be required to register as staff. Event
   lookup is by `apply_token` alone (`getEventByApplyToken`); the event id never appears in the
   URL. See "Applications / staff registration" below for the loader's PII constraint.
 - `/r/:token` — **fully public, zero authentication** (not even `getOptionalUser`). Event lookup is
-  by `view_token` alone (`getEventByViewToken`); an unknown token 404s, but an event that isn't
-  `published` still renders 200 with "まだ公開されていません" (`canView` gates data ASSEMBLY, not
+  by `view_token` alone (`getEventByViewToken`); an unknown token 404s, but a private default sheet
+  still renders 200 with "まだ公開されていません" (sheet visibility gates data ASSEMBLY, not
   just what's rendered — see "Public view" below). 4 tabs: staff-grid, role-grid (`RoleGrid` reused
   with `readOnly`), individual timeline (`PersonTimeline` — the screen this stage exists for), and
   party list (hidden when `event.hasParty` is false).
@@ -123,10 +123,11 @@ code map.
   approach `wiki/workers/features/sources/test-db.ts` uses), not a hand-mocked `D1Database`. This
   is what lets `applications.server.test.ts` actually exercise the UNIQUE-index dedup rules
   instead of asserting a mock was called correctly.
-- **Public view (ADR-005, Stage 09).** `buildPublicRosterData` returns `PublicStaff` as
+- **Public view (ADR-005, Stage 09).** The default sheet's `visibility` gates `buildPublicRosterData`
+  independently of event recruitment status. It returns `PublicStaff` as
   `{id, name, party}` only — never `email`/`contact`/`note`/`skills`/`availability`, and no
   experience level anywhere — and excludes withdrawn applicants (and any residual assignment row
-  they still have) entirely. `canView(status)` gates the query itself: an unpublished event's
+  they still have) entirely. Sheet visibility gates the query itself: a private sheet's
   loader call never touches `applications`/`assignments`, verified in
   `public-roster.server.test.ts` by spying on the actual SQL issued, not just on the returned
   shape. `tests/architecture/public-view-exposure.test.ts` additionally scans
