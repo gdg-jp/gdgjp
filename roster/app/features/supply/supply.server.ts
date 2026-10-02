@@ -1,5 +1,6 @@
 import { listApplicationsForEvent } from "~/features/applications/applications.server";
 import { listAvailabilityForApplication } from "~/features/applications/availability.server";
+import { listEventAvailabilityForApplication } from "~/features/applications/event-availability.server";
 import { listSkillsForApplication } from "~/features/applications/skills.server";
 import type {
   ApplicationRecord,
@@ -7,6 +8,7 @@ import type {
   AvailabilityRecord,
 } from "~/features/applications/types";
 import { listDemandsForEvent } from "~/features/demand/demand.server";
+import { getEvent } from "~/features/events/events.server";
 import {
   getDefaultRosterSheet,
   getRosterSheet,
@@ -31,6 +33,32 @@ export type ApplicantDetail = {
   skills: ApplicationSkillRecord[];
   availability: AvailabilityRecord[];
 };
+
+/**
+ * Event-wide staff details, including withdrawn applicants and availability
+ * across all live sheets. Callers must authorize event access before reading
+ * these private details. Creation order is preserved, with IDs breaking ties.
+ */
+export async function listEventApplicantDetails(
+  db: D1Database,
+  eventId: string,
+): Promise<ApplicantDetail[]> {
+  if (!(await getEvent(db, eventId))) throw new Error("Event not found.");
+  const applications = await listApplicationsForEvent(db, eventId);
+  applications.sort((a, b) => {
+    if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+  return Promise.all(
+    applications.map(async (application): Promise<ApplicantDetail> => {
+      const [skills, availability] = await Promise.all([
+        listSkillsForApplication(db, application.id),
+        listEventAvailabilityForApplication(db, application.id),
+      ]);
+      return { application, skills, availability };
+    }),
+  );
+}
 
 /**
  * Every application for the event together with its skills and availability
