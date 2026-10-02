@@ -14,7 +14,7 @@ export default [
   ]),
 
   route("apply/:token", "routes/apply.$token.tsx"), // public — sign-in only, no Chapter required
-  route("r/:token", "routes/r.$token.tsx"), // public — no auth at all, gated only by canView(status)
+  route("r/:token", "routes/r.$token.tsx"), // public — no auth; default-sheet visibility gates data
   route("r/:token/s/:sheetId", "routes/r.$token.s.$sheetId.tsx"), // public — event-token scoped sheet view
 
   route("signin", "routes/signin.tsx"),
