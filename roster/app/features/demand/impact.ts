@@ -24,6 +24,67 @@ export type DemandLossImpact = {
   lostSlotIds: string[];
 };
 
+export type SlotRowCounts = Readonly<Record<string, number>>;
+
+export type SlotDataLossImpact = {
+  lostDemandCount: number;
+  lostAvailabilityCount: number;
+  lostAssignmentCount: number;
+  lostSlotIds: string[];
+  hasLoss: boolean;
+  confirmationKey: string;
+};
+
+/**
+ * All live rows that disappear when a regenerated slot is removed. Availability and assignment
+ * counts are keyed by slot id and come from the selected sheet's live rows.
+ */
+export function slotDataLossOnSlotChange(
+  existingSlots: readonly ExistingSlotKey[],
+  nextSlots: readonly NextSlotKey[],
+  demands: readonly Demand[],
+  availabilityCounts: SlotRowCounts,
+  assignmentCounts: SlotRowCounts,
+): SlotDataLossImpact {
+  const { lostCount: lostDemandCount, lostSlotIds } = demandLossOnSlotChange(
+    existingSlots,
+    nextSlots,
+    demands,
+  );
+  const removedSlotIds = reconcileSlotKeys(existingSlots, nextSlots).remove;
+  const lostAvailabilityCount = removedSlotIds.reduce(
+    (total, id) => total + (availabilityCounts[id] ?? 0),
+    0,
+  );
+  const lostAssignmentCount = removedSlotIds.reduce(
+    (total, id) => total + (assignmentCounts[id] ?? 0),
+    0,
+  );
+  const allLostSlotIds = [
+    ...new Set([
+      ...lostSlotIds,
+      ...removedSlotIds.filter(
+        (id) => (availabilityCounts[id] ?? 0) > 0 || (assignmentCounts[id] ?? 0) > 0,
+      ),
+    ]),
+  ].sort();
+  const impact = {
+    lostDemandCount,
+    lostAvailabilityCount,
+    lostAssignmentCount,
+    lostSlotIds: allLostSlotIds,
+  };
+  const hasLoss = lostDemandCount + lostAvailabilityCount + lostAssignmentCount > 0;
+
+  return {
+    ...impact,
+    hasLoss,
+    // The server recomputes this value at submit time, so stale previews cannot authorize
+    // deletion of rows added or changed after the browser confirmation was shown.
+    confirmationKey: hasLoss ? JSON.stringify(impact) : "",
+  };
+}
+
 export function demandLossOnSlotChange(
   existingSlots: readonly ExistingSlotKey[],
   nextSlots: readonly NextSlotKey[],
