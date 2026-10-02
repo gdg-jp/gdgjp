@@ -45,9 +45,15 @@ function callLoader(id: string, db: D1Database) {
   } as Parameters<typeof loader>[0]);
 }
 
-function callAction(id: string, db: D1Database, values: Record<string, string>) {
+function callAction(id: string, db: D1Database, values: Record<string, string | string[]>) {
   const form = new FormData();
-  for (const [name, value] of Object.entries(values)) form.set(name, value);
+  for (const [name, value] of Object.entries(values)) {
+    if (Array.isArray(value)) {
+      for (const item of value) form.append(name, item);
+    } else {
+      form.set(name, value);
+    }
+  }
   const request = new Request(`http://localhost/e/${id}`, { method: "POST", body: form });
   return action({
     request,
@@ -284,6 +290,68 @@ describe("e.$id overview", () => {
     expect(overview.sheets.map((sheet) => sheet.id)).not.toContain("sheet-first");
   });
 
+  it("reorders the complete live sheet list and excludes archived sheets", async () => {
+    asChapter(OWNER);
+    const response = await callAction("event", asD1(db), {
+      intent: "reorderSheets",
+      sheetIds: ["default:event", "sheet-late", "sheet-first"],
+    });
+
+    expect(response).toBeInstanceOf(Response);
+    expect((response as Response).headers.get("Location")).toBe("/e/event");
+    const overview = await callLoader("event", asD1(db));
+    expect(overview.sheets.map((sheet) => sheet.id)).toEqual([
+      "default:event",
+      "sheet-late",
+      "sheet-first",
+    ]);
+    expect(overview.sheets.map((sheet) => sheet.id)).not.toContain("sheet-archived");
+  });
+
+  it("returns a refresh message when the submitted order is missing live sheets", async () => {
+    asChapter(OWNER);
+    const missing = await callAction("event", asD1(db), {
+      intent: "reorderSheets",
+      sheetIds: ["default:event", "sheet-first"],
+    });
+    const empty = await callAction("event", asD1(db), { intent: "reorderSheets" });
+
+    expect(missing).toMatchObject({ reorderError: expect.stringContaining("画面を更新") });
+    expect(empty).toMatchObject({ reorderError: expect.stringContaining("画面を更新") });
+  });
+
+  it("rejects IDs from another event when reordering", async () => {
+    asChapter(OWNER);
+    await db
+      .prepare(
+        `INSERT INTO events
+          (id, chapter_id, name, date, start_time, end_time, seed, apply_token, view_token,
+           created_at, updated_at)
+         VALUES ('other-event', 1, 'Other event', '2026-11-07', '09:00', '18:00', 1,
+           'apply-other', 'view-other', 'created', 'updated')`,
+      )
+      .run();
+    await db
+      .prepare(
+        `INSERT INTO roster_sheets
+          (id, event_id, name, date, start_time, end_time, seed, visibility, sort_order,
+           created_at, updated_at)
+         VALUES ('sheet-other', 'other-event', 'Other', '2026-11-07', '09:00', '18:00', 1,
+           'private', 1, 'created', 'updated')`,
+      )
+      .run();
+
+    const result = await callAction("event", asD1(db), {
+      intent: "reorderSheets",
+      sheetIds: ["default:event", "sheet-first", "sheet-other"],
+    });
+
+    expect(result).toMatchObject({ reorderError: expect.stringContaining("画面を更新") });
+    expect(
+      await db.prepare("SELECT sort_order FROM roster_sheets WHERE id = 'sheet-other'").first(),
+    ).toEqual({ sort_order: 1 });
+  });
+
   it("returns field errors with submitted values for an invalid sheet", async () => {
     asChapter(OWNER);
     const response = await callAction("event", asD1(db), {
@@ -334,6 +402,11 @@ describe("e.$id overview", () => {
     expect(html).toContain('name="intent" value="setVisibility"');
     expect(html).toContain('name="sheetId" value="sheet-first"');
     expect(html).toContain('name="visibility" value="private"');
+    expect(html).toContain('name="intent" value="reorderSheets"');
+    expect(html).toContain('name="sheetIds" value="default:event"');
+    expect(html).toContain('name="sheetIds" value="sheet-first"');
+    expect(html).toContain('name="sheetIds" value="sheet-late"');
+    expect(html).toContain("「午前の部」を上へ移動");
     expect(html).toContain("公開にする");
     expect(html).toContain("非公開にする");
     expect(html).toContain("アーカイブ");
