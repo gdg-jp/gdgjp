@@ -21,18 +21,11 @@ directory = "./build/client"
 pattern = "roster.gdgs.jp/*"
 zone_name = "gdgs.jp"
 
-# Relying-party auth tables (user, oidc_session). Domain tables (events,
-# time_slots, ...) are added by Stage 02 onward.
-#
-# NOTE: `database_id` below is a placeholder, not a real Cloudflare D1
-# database. This PR intentionally does not create Cloudflare resources — see
-# the "Deploy steps (manual, not in this PR)" section of the PR description
-# for the real `wrangler d1 create gdgjp-roster-db` step and the ID swap it
-# requires here.
+# Relying-party auth tables (user, oidc_session) and roster domain tables.
 [[d1_databases]]
 binding = "DB"
 database_name = "gdgjp-roster-db"
-database_id = "8a07111c-6950-42c4-8472-7ee6c09cde09"
+database_id = "3e91f8ac-5138-4351-bbed-c4001307d855"
 migrations_dir = "./migrations"
 
 # Worker-to-Worker OIDC (discovery, token, UserInfo) stays on Cloudflare's
