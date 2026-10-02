@@ -8,7 +8,8 @@ vi.mock("~/features/auth/auth-redirect.server", () => ({
 
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { type TestD1Database, asD1, createTestD1 } from "../../tests/helpers/sqlite-d1";
-import { action, loader } from "./e.$id.design";
+import { loader as legacyLoader } from "./e.$id.design";
+import { action, loader } from "./e.$id.s.$sheetId.design";
 
 const MIGRATIONS = [
   "0002_domain.sql",
@@ -30,7 +31,7 @@ function args(request: Request, db: D1Database, params: { id: string; sheetId?: 
     request,
     params,
     context: { cloudflare: { env: { DB: db } as unknown as Env } },
-    unstable_pattern: "/e/:id/design",
+    unstable_pattern: "/e/:id/s/:sheetId/design",
     unstable_url: new URL(request.url),
   };
 }
@@ -89,10 +90,10 @@ describe("e.$id.design sheet routing", () => {
     owner();
     let redirectResponse: Response | undefined;
     try {
-      await loader(
+      await legacyLoader(
         args(new Request("http://localhost/e/event-a/design"), asD1(db), {
           id: "event-a",
-        }) as Parameters<typeof loader>[0],
+        }) as Parameters<typeof legacyLoader>[0],
       );
     } catch (error) {
       redirectResponse = error as Response;
