@@ -1,7 +1,9 @@
+import { PageHeader, Stack } from "@gdgjp/ui";
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { canManageEvent } from "~/features/auth/permissions";
-import { ShareCard } from "~/features/events/components/ShareCard";
+import { ShareCard, SheetShareList } from "~/features/events/components/ShareCard";
 import { getEvent } from "~/features/events/events.server";
+import { listRosterSheets } from "~/features/roster-sheets/roster-sheets.server";
 import { getDb } from "~/lib/db.server";
 import type { Route } from "./+types/e.$id.share";
 
@@ -10,7 +12,7 @@ import type { Route } from "./+types/e.$id.share";
  * chapter-gated exactly like `/e/:id/design`/`/e/:id/staff`/`/e/:id/roster`
  * — the same `requireUserWithChapter` + `canManageEvent` pattern every other
  * owner route in this app uses. This route does not change `status`; it
- * only surfaces the `/r/:viewToken` URL and its publish status (`ShareCard`).
+ * surfaces the default compatibility URL and each live sheet's visibility and public URL.
  * Changing status to `published` happens on `/e/:id/design`
  * or `/e/:id/staff`, both of which already own that control.
  */
@@ -30,24 +32,33 @@ export function meta({ data }: Route.MetaArgs) {
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   const { event } = await requireShareAccess(env, request, params.id);
+  const sheets = await listRosterSheets(getDb(env), event.id);
   return {
     event: { id: event.id, name: event.name, status: event.status },
     viewUrl: `${env.APP_URL}/r/${event.viewToken}`,
+    sheets: sheets.map(({ id, name, date, startTime, endTime, visibility }) => ({
+      id,
+      name,
+      date,
+      startTime,
+      endTime,
+      visibility,
+      isDefault: id === `default:${event.id}`,
+      viewUrl: `${env.APP_URL}/r/${event.viewToken}/s/${id}`,
+    })),
   };
 }
 
 export default function SharePage({ loaderData }: Route.ComponentProps) {
-  const { event, viewUrl } = loaderData;
+  const { event, viewUrl, sheets } = loaderData;
 
   return (
     <main className="admin-page admin-page-narrow">
-      <div className="page-heading">
-        <div>
-          <h1>共有</h1>
-          <p>{event.name} · 閲覧専用URL</p>
-        </div>
-      </div>
-      <ShareCard viewUrl={viewUrl} status={event.status} />
+      <Stack>
+        <PageHeader title="共有" description={`${event.name} · 閲覧専用URL`} />
+        <ShareCard viewUrl={viewUrl} status={event.status} />
+        <SheetShareList sheets={sheets} />
+      </Stack>
     </main>
   );
 }
