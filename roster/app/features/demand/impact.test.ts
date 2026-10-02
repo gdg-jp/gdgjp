@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { demandLossByStepMinOption, demandLossOnSlotChange } from "./impact";
+import {
+  demandLossByStepMinOption,
+  demandLossOnSlotChange,
+  slotDataLossOnSlotChange,
+} from "./impact";
 import type { Demand } from "./types";
 
 function demand(timeSlotId: string, overrides: Partial<Demand> = {}): Demand {
@@ -81,6 +85,67 @@ describe("demandLossOnSlotChange", () => {
     const result = demandLossOnSlotChange(existing, next, demands);
     expect(result.lostCount).toBe(2);
     expect(result.lostSlotIds).toEqual(["slot_1"]);
+  });
+});
+
+describe("slotDataLossOnSlotChange", () => {
+  it("requires confirmation when a removed slot only has staff availability rows", () => {
+    const result = slotDataLossOnSlotChange(
+      [{ id: "slot_1", start: "09:00", end: "10:00" }],
+      [],
+      [],
+      { slot_1: 3 },
+      {},
+    );
+
+    expect(result).toMatchObject({
+      lostDemandCount: 0,
+      lostAvailabilityCount: 3,
+      lostAssignmentCount: 0,
+      lostSlotIds: ["slot_1"],
+      hasLoss: true,
+    });
+    expect(result.confirmationKey).toBeTruthy();
+  });
+
+  it("counts demands, availability, and assignments on removed slots only", () => {
+    const result = slotDataLossOnSlotChange(
+      [
+        { id: "slot_1", start: "09:00", end: "10:00" },
+        { id: "slot_2", start: "10:00", end: "11:00" },
+      ],
+      [{ start: "10:00", end: "11:00" }],
+      [demand("slot_1"), demand("slot_2")],
+      { slot_1: 2, slot_2: 5 },
+      { slot_1: 1, slot_2: 4 },
+    );
+
+    expect(result).toMatchObject({
+      lostDemandCount: 1,
+      lostAvailabilityCount: 2,
+      lostAssignmentCount: 1,
+      lostSlotIds: ["slot_1"],
+      hasLoss: true,
+    });
+  });
+
+  it("returns no confirmation key when changed settings keep every live slot", () => {
+    const result = slotDataLossOnSlotChange(
+      [{ id: "slot_1", start: "09:00", end: "10:00" }],
+      [{ start: "09:00", end: "10:00" }],
+      [],
+      { slot_1: 2 },
+      { slot_1: 1 },
+    );
+
+    expect(result).toMatchObject({
+      lostDemandCount: 0,
+      lostAvailabilityCount: 0,
+      lostAssignmentCount: 0,
+      lostSlotIds: [],
+      hasLoss: false,
+      confirmationKey: "",
+    });
   });
 });
 

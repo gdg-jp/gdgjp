@@ -5,6 +5,7 @@ import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { canManageEvent } from "~/features/auth/permissions";
 import { DemandMatrix } from "~/features/demand/components/DemandMatrix";
 import { bulkUpsertDemands, listDemandsForEvent } from "~/features/demand/demand.server";
+import { type SlotRowCounts, slotDataLossOnSlotChange } from "~/features/demand/impact";
 import { type MatrixMode, timeSlotIdsForTarget } from "~/features/demand/matrix";
 import type { DemandValue } from "~/features/demand/types";
 import { firstDemandValidationMessage, validateDemand } from "~/features/demand/validate";
@@ -22,7 +23,7 @@ import {
   listTimeSlots,
   regenerateTimeSlots,
 } from "~/features/schedule/schedule.server";
-import { isValidTime, toMin } from "~/features/schedule/slots";
+import { buildSlots, isValidTime, toMin } from "~/features/schedule/slots";
 import {
   createTrack,
   deleteTrack,
@@ -59,6 +60,43 @@ async function requireSelectedSheet(db: D1Database, eventId: string, sheetId: st
   return sheet;
 }
 
+async function listSlotDataCounts(
+  db: D1Database,
+  eventId: string,
+  sheetId: string,
+): Promise<{ availabilityCounts: SlotRowCounts; assignmentCounts: SlotRowCounts }> {
+  const [availabilityRows, assignmentRows] = await Promise.all([
+    db
+      .prepare(
+        `SELECT a.time_slot_id, COUNT(*) AS count
+         FROM availabilities a
+         JOIN time_slots ts ON ts.id = a.time_slot_id
+         WHERE ts.event_id = ? AND ts.roster_sheet_id = ?
+         GROUP BY a.time_slot_id`,
+      )
+      .bind(eventId, sheetId)
+      .all<{ time_slot_id: string; count: number }>(),
+    db
+      .prepare(
+        `SELECT a.time_slot_id, COUNT(*) AS count
+         FROM assignments a
+         JOIN time_slots ts ON ts.id = a.time_slot_id
+         WHERE ts.event_id = ? AND ts.roster_sheet_id = ?
+         GROUP BY a.time_slot_id`,
+      )
+      .bind(eventId, sheetId)
+      .all<{ time_slot_id: string; count: number }>(),
+  ]);
+  return {
+    availabilityCounts: Object.fromEntries(
+      (availabilityRows.results ?? []).map((row) => [row.time_slot_id, row.count]),
+    ),
+    assignmentCounts: Object.fromEntries(
+      (assignmentRows.results ?? []).map((row) => [row.time_slot_id, row.count]),
+    ),
+  };
+}
+
 async function loadSheetDesign(
   env: Env,
   request: Request,
@@ -68,15 +106,27 @@ async function loadSheetDesign(
   const event = await requireDesignAccess(env, request, id);
   const db = getDb(env);
   const sheet = await requireSelectedSheet(db, event.id, sheetId);
-  const [phases, timeSlots, tracks, roles, eventRoleIds, demands] = await Promise.all([
-    listPhases(db, event.id, sheet.id),
-    listTimeSlots(db, event.id, sheet.id),
-    listTracks(db, event.id, sheet.id),
-    listRoles(db),
-    listEventRoleIds(db, event.id, sheet.id),
-    listDemandsForEvent(db, event.id, sheet.id),
-  ]);
-  return { event, sheet, phases, timeSlots, tracks, roles, eventRoleIds, demands };
+  const [phases, timeSlots, tracks, roles, eventRoleIds, demands, slotDataCounts] =
+    await Promise.all([
+      listPhases(db, event.id, sheet.id),
+      listTimeSlots(db, event.id, sheet.id),
+      listTracks(db, event.id, sheet.id),
+      listRoles(db),
+      listEventRoleIds(db, event.id, sheet.id),
+      listDemandsForEvent(db, event.id, sheet.id),
+      listSlotDataCounts(db, event.id, sheet.id),
+    ]);
+  return {
+    event,
+    sheet,
+    phases,
+    timeSlots,
+    tracks,
+    roles,
+    eventRoleIds,
+    demands,
+    ...slotDataCounts,
+  };
 }
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
@@ -152,6 +202,32 @@ export async function action({ request, context, params }: Route.ActionArgs) {
       if (toMin(endTime) - toMin(startTime) < stepMin) {
         return { error: "時間の長さは刻み幅以上にしてください。" };
       }
+      const scheduleChanged =
+        startTime !== sheet.startTime || endTime !== sheet.endTime || stepMin !== sheet.stepMin;
+      if (scheduleChanged) {
+        const [phases, timeSlots, demands, slotDataCounts] = await Promise.all([
+          listPhases(db, event.id, sheet.id),
+          listTimeSlots(db, event.id, sheet.id),
+          listDemandsForEvent(db, event.id, sheet.id),
+          listSlotDataCounts(db, event.id, sheet.id),
+        ]);
+        const impact = slotDataLossOnSlotChange(
+          timeSlots,
+          buildSlots({ start: startTime, end: endTime, stepMin }, phases),
+          demands,
+          slotDataCounts.availabilityCounts,
+          slotDataCounts.assignmentCounts,
+        );
+        if (
+          impact.hasLoss &&
+          String(form.get("slotDataLossConfirmation") ?? "") !== impact.confirmationKey
+        ) {
+          return {
+            error:
+              "時間枠の変更で需要・スタッフの希望・割当が失われます。内容を確認してからもう一度保存してください。",
+          };
+        }
+      }
       const updated = await updateRosterSheet(db, event.id, sheet.id, {
         name,
         date,
@@ -161,11 +237,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
         maxConsecutive,
         noSoloNewcomer: form.get("noSoloNewcomer") === "true",
       });
-      if (
-        updated.startTime !== sheet.startTime ||
-        updated.endTime !== sheet.endTime ||
-        updated.stepMin !== sheet.stepMin
-      ) {
+      if (scheduleChanged) {
         await regenerateAfterScheduleChange(db, event.id, updated);
       }
       return { ok: true };
@@ -292,7 +364,18 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 }
 
 export default function EventDesign({ loaderData, actionData }: Route.ComponentProps) {
-  const { event, sheet, phases, timeSlots, tracks, roles, eventRoleIds, demands } = loaderData;
+  const {
+    event,
+    sheet,
+    phases,
+    timeSlots,
+    tracks,
+    roles,
+    eventRoleIds,
+    demands,
+    availabilityCounts,
+    assignmentCounts,
+  } = loaderData;
   // The "役割を追加" affordance only offers roles the event has actually
   // selected (docs/roster/03-demand-input.md "Design" §3) — DemandMatrix
   // expects that filtering to already be done by its caller.
@@ -329,6 +412,8 @@ export default function EventDesign({ loaderData, actionData }: Route.ComponentP
             phases={phases}
             timeSlots={timeSlots}
             demands={demands}
+            availabilityCounts={availabilityCounts}
+            assignmentCounts={assignmentCounts}
           />
         </Section>
         <Section title="フェーズと時間枠">
