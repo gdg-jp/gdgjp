@@ -18,6 +18,10 @@ import { DatabaseSync, type StatementSync } from "node:sqlite";
  * (docs/roster/index.md §4) depends on.
  */
 
+function countPlaceholders(sql: string): number {
+  return (sql.replace(/'(?:[^']|'')*'|"(?:[^"]|"")*"|--[^\n]*/g, "").match(/\?/g) ?? []).length;
+}
+
 class TestD1PreparedStatement {
   constructor(
     private readonly raw: StatementSync,
@@ -25,6 +29,14 @@ class TestD1PreparedStatement {
   ) {}
 
   bind(...params: unknown[]): TestD1PreparedStatement {
+    // node:sqlite binds missing parameters as NULL; D1 rejects the query instead, so mirror D1
+    // here or a short `.bind()` passes every unit test and only fails against real D1.
+    const expected = countPlaceholders(this.raw.sourceSQL);
+    if (params.length !== expected) {
+      throw new Error(
+        `Wrong number of parameter bindings for SQL query (expected ${expected}, got ${params.length}).`,
+      );
+    }
     return new TestD1PreparedStatement(this.raw, params);
   }
 

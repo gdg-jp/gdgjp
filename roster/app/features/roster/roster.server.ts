@@ -168,6 +168,10 @@ function assignmentStatement(
       timeSlotId,
       value.trackId,
       value.roleId,
+      eventId,
+      timeSlotId,
+      value.trackId,
+      value.roleId,
       rosterSheetId,
     );
 }
