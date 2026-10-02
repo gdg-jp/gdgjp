@@ -94,7 +94,7 @@ describe("r.$token.s.$sheetId loader", () => {
   });
 
   it("uses the generic metadata fallback when route data is unavailable", () => {
-    expect(sheetMeta({ data: undefined } as Parameters<typeof sheetMeta>[0])).toEqual([
+    expect(sheetMeta({ data: undefined } as unknown as Parameters<typeof sheetMeta>[0])).toEqual([
       { title: "roster" },
     ]);
   });
