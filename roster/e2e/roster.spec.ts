@@ -199,6 +199,8 @@ test("multi-sheet availability, generation history, and publishing stay scoped t
   await page.fill('input[name="startTime"]', "19:00");
   await page.fill('input[name="endTime"]', "21:00");
   await page.selectOption('select[name="stepMin"]', "60");
+  // Every registrant is a newcomer; see createEventWithDemand for why this rule must be off.
+  await page.getByRole("checkbox", { name: "新人を単独の時間枠に割り当てない" }).uncheck();
   await page.getByRole("button", { name: "シフト表を作成" }).click();
   await page.waitForLoadState("networkidle");
 
@@ -252,8 +254,8 @@ test("multi-sheet availability, generation history, and publishing stay scoped t
   await partyGrid.getByRole("button", { name: "終日 ○" }).click();
   await partyGrid
     .locator("li", { hasText: "19:00–20:00" })
-    .getByRole("radio", { name: "× 不可" })
-    .check();
+    .locator("label", { hasText: "×" })
+    .click();
   await page.getByRole("button", { name: "登録する" }).click();
   await expect(page.getByRole("button", { name: "登録内容を更新" })).toBeVisible();
   await expect(
@@ -267,8 +269,8 @@ test("multi-sheet availability, generation history, and publishing stay scoped t
   ).toBeChecked();
 
   // Generate only the party sheet. Its assignment/history should not appear on 本編.
-  await page.goto(`/dev/login?as=owner&chapter=1:e2e-roster-owner&return_to=/e/${eventId}/design`);
-  await setStatusOnDesignPage(page, "closed");
+  await page.goto(`/dev/login?as=owner&chapter=1:e2e-roster-owner&return_to=/e/${eventId}/staff`);
+  await setStatusOnStaffPage(page, "closed");
   await page.goto(`/e/${eventId}/s/${partySheetId}/roster`);
   await expect(page.getByText("まだ生成していません")).toBeVisible();
   await page.getByRole("button", { name: "自動生成" }).click();
@@ -276,7 +278,7 @@ test("multi-sheet availability, generation history, and publishing stay scoped t
   await expect(page.getByRole("button", { name: "再生成" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "履歴" })).toBeVisible();
   await expect(
-    page.locator("section").filter({ hasText: "履歴" }).getByText("自動生成"),
+    page.locator("section").filter({ hasText: "履歴" }).getByText("自動生成").first(),
   ).toBeVisible();
   await page.goto(`/e/${eventId}/roster`);
   await expect(page.getByText("まだ生成していません")).toBeVisible();
