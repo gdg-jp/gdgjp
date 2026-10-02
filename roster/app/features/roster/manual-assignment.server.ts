@@ -8,6 +8,7 @@ import {
   crossSheetConflictGuard,
   findCrossSheetConflicts,
   fingerprint,
+  isCrossSheetConflictGuardFailure,
 } from "./cross-sheet-conflicts.server";
 import { readAssignmentsState, writeManualEdit } from "./roster.server";
 
@@ -147,7 +148,7 @@ export async function assignManually(
       ),
     );
   } catch (error) {
-    if (isConflictGuardFailure(error)) {
+    if (isCrossSheetConflictGuardFailure(error)) {
       const latest = await readAssignmentsState(db, event.id, sheetId);
       const latestHeadSignature = await readRevisionHeadSignature(
         db,
@@ -287,13 +288,4 @@ async function readRevisionHeadSignature(
     .bind(eventId, rosterSheetId, revisionCursor)
     .first<{ id: string; created_at: string; snapshot: string; metrics: string }>();
   return head ? fingerprint(head) : null;
-}
-
-function isConflictGuardFailure(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message.includes(
-      "UNIQUE constraint failed: assignments.application_id, assignments.time_slot_id",
-    )
-  );
 }
