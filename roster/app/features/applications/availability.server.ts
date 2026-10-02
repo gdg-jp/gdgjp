@@ -62,9 +62,9 @@ export async function setAvailability(
     if (!slot) throw new Error("Availability time slot not found for this roster sheet.");
   }
 
-  const requestedSlots = entries.length
-    ? entries.map(() => "SELECT ? AS id").join(" UNION ALL ")
-    : "SELECT NULL AS id WHERE 0";
+  // One JSON parameter instead of a UNION ALL term per slot: D1 caps both compound-SELECT terms
+  // and bound parameters, and a full availability grid exceeds either.
+  const requestedSlotIds = JSON.stringify(entries.map((e) => e.timeSlotId));
   const statements: D1PreparedStatement[] = [
     db
       .prepare(
@@ -77,7 +77,7 @@ export async function setAvailability(
            WHERE a.id = ? AND e.deleted_at IS NULL
              AND s.id = ? AND s.deleted_at IS NULL
              AND NOT EXISTS (
-               SELECT 1 FROM (${requestedSlots}) requested
+               SELECT 1 FROM (SELECT value AS id FROM json_each(?)) requested
                WHERE NOT EXISTS (
                  SELECT 1 FROM time_slots ts
                  WHERE ts.id = requested.id
@@ -87,7 +87,7 @@ export async function setAvailability(
              )
          )`,
       )
-      .bind(applicationId, applicationId, scope.rosterSheetId, ...entries.map((e) => e.timeSlotId)),
+      .bind(applicationId, applicationId, scope.rosterSheetId, requestedSlotIds),
     db
       .prepare(
         `DELETE FROM availabilities

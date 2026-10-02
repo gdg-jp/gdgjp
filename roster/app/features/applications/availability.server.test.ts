@@ -108,6 +108,25 @@ describe("setAvailability / listAvailabilityForApplication (real SQLite)", () =>
     ]);
   });
 
+  it("stores a grid larger than SQLite's compound-SELECT term limit", async () => {
+    const slotIds = Array.from({ length: 600 }, (_, i) => `slot_bulk_${i}`);
+    for (const [i, id] of slotIds.entries()) {
+      await testDb
+        .prepare(
+          "INSERT INTO time_slots (id, event_id, idx, start_time, end_time) VALUES (?, 'evt_1', ?, '09:00', '10:00')",
+        )
+        .bind(id, i + 2)
+        .run();
+    }
+    await setAvailability(
+      db,
+      APPLICATION_ID,
+      slotIds.map((timeSlotId) => ({ timeSlotId, value: "o" as const })),
+    );
+    const rows = await listAvailabilityForApplication(db, APPLICATION_ID);
+    expect(rows).toHaveLength(600);
+  });
+
   it("wholesale-replaces the grid on a second call", async () => {
     await setAvailability(db, APPLICATION_ID, [{ timeSlotId: SLOT_1, value: "o" }]);
     await setAvailability(db, APPLICATION_ID, [
