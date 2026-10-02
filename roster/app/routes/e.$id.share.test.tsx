@@ -22,6 +22,8 @@ const MIGRATIONS = [
   "0008_default_sheet_compat.sql",
   "0009_time_slots_sheet_uniqueness.sql",
   "0010_revisions_sheet_sequence.sql",
+  "0011_repair_default_sheet_compat.sql",
+  "0012_independent_sheet_publication.sql",
 ].map((name) => fileURLToPath(new URL(`../../migrations/${name}`, import.meta.url)));
 
 const OWNER: UserChapter = { chapterId: 1, chapterSlug: "tokyo", role: "member" };
@@ -150,5 +152,31 @@ describe("e.$id.share", () => {
     asChapter(OWNER);
     await expect(callLoader("other-event", asD1(db))).rejects.toMatchObject({ status: 403 });
     await expect(callLoader("missing", asD1(db))).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("derives the legacy URL publication message from the default sheet, independently of recruitment", async () => {
+    asChapter(OWNER);
+    await db.prepare("UPDATE events SET status='open' WHERE id='event'").run();
+    await db
+      .prepare("UPDATE roster_sheets SET visibility='published' WHERE id='default:event'")
+      .run();
+    const published = await callLoader("event", asD1(db));
+    expect(published.event.status).toBe("open");
+    expect(published.defaultVisibility).toBe("published");
+    expect(renderSharePage(published)).toContain(
+      "このURLを共有すると、誰でもサインインなしで閲覧できます。",
+    );
+    expect(renderSharePage(published)).not.toContain("本編は現在非公開です。");
+
+    await db.prepare("UPDATE events SET status='published' WHERE id='event'").run();
+    await db
+      .prepare("UPDATE roster_sheets SET visibility='private' WHERE id='default:event'")
+      .run();
+    const unpublished = await callLoader("event", asD1(db));
+    expect(unpublished.defaultVisibility).toBe("private");
+    expect(renderSharePage(unpublished)).toContain("本編は現在非公開です。");
+    expect(renderSharePage(unpublished)).not.toContain(
+      "このURLを共有すると、誰でもサインインなしで閲覧できます。",
+    );
   });
 });

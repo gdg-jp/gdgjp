@@ -3,6 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { asD1, createTestD1 } from "../../../tests/helpers/sqlite-d1";
+import { canApply } from "../events/status";
 import { archiveRosterSheet, reorderRosterSheets } from "./roster-sheet-lifecycle.server";
 import {
   createRosterSheet,
@@ -24,9 +25,12 @@ const migrations = [
 ].map((name) => fileURLToPath(new URL(`../../../migrations/${name}`, import.meta.url)));
 const currentMigrations = [
   ...migrations,
-  ...["0009_time_slots_sheet_uniqueness.sql", "0010_revisions_sheet_sequence.sql"].map((name) =>
-    fileURLToPath(new URL(`../../../migrations/${name}`, import.meta.url)),
-  ),
+  ...[
+    "0009_time_slots_sheet_uniqueness.sql",
+    "0010_revisions_sheet_sequence.sql",
+    "0011_repair_default_sheet_compat.sql",
+    "0012_independent_sheet_publication.sql",
+  ].map((name) => fileURLToPath(new URL(`../../../migrations/${name}`, import.meta.url))),
 ];
 
 const insertEvent = `INSERT INTO events
@@ -402,13 +406,13 @@ describe("roster sheet mutations", () => {
       },
     );
     expect(await db.prepare("SELECT status FROM events WHERE id = 'event'").first()).toEqual({
-      status: "published",
+      status: "draft",
     });
     expect(await setRosterSheetVisibility(db, "event", created.id, "published")).toMatchObject({
       visibility: "published",
     });
     expect(await db.prepare("SELECT status FROM events WHERE id = 'event'").first()).toEqual({
-      status: "published",
+      status: "draft",
     });
     expect(await setRosterSheetVisibility(db, "event", "default:event", "private")).toMatchObject({
       visibility: "private",
@@ -555,7 +559,7 @@ describe("roster sheet mutations", () => {
   });
 
   it.each(["open", "closed", "ended"] as const)(
-    "preserves the %s event status when the default sheet stays private",
+    "preserves the %s recruitment status when the default sheet is published and unpublished",
     async (status) => {
       const db = await seedEvents();
       await db
@@ -563,14 +567,62 @@ describe("roster sheet mutations", () => {
         .bind(status)
         .run();
 
-      await setRosterSheetVisibility(db, "event", "default:event", "private");
-
-      expect(await db.prepare("SELECT status FROM events WHERE id = 'event'").first()).toEqual({
-        status,
-      });
-      expect(await getRosterSheet(db, "event", "default:event")).toMatchObject({
-        visibility: "private",
-      });
+      for (const visibility of ["published", "private"] as const) {
+        await setRosterSheetVisibility(db, "event", "default:event", visibility);
+        const event = await db
+          .prepare("SELECT status FROM events WHERE id = 'event'")
+          .first<{ status: typeof status }>();
+        expect(event).toEqual({ status });
+        expect(canApply(event?.status ?? "draft")).toBe(status === "open");
+        expect(await getRosterSheet(db, "event", "default:event")).toMatchObject({ visibility });
+      }
     },
   );
+
+  it("keeps both published and private sheets unchanged when recruitment status changes", async () => {
+    const db = await seedEvents();
+    const sibling = await createRosterSheet(db, "event", partyInput);
+    for (const visibility of ["published", "private"] as const) {
+      await setRosterSheetVisibility(db, "event", "default:event", visibility);
+      await setRosterSheetVisibility(db, "event", sibling.id, visibility);
+      for (const status of ["open", "closed", "published", "ended", "draft"]) {
+        await db.prepare("UPDATE events SET status=? WHERE id='event'").bind(status).run();
+        expect((await listRosterSheets(db, "event")).map((sheet) => sheet.visibility)).toEqual([
+          visibility,
+          visibility,
+        ]);
+      }
+    }
+  });
+
+  it("migration preserves existing visibility and legacy creation while removing status synchronization", () => {
+    const raw = new DatabaseSync(":memory:");
+    try {
+      raw.exec("PRAGMA foreign_keys=ON");
+      for (const migration of currentMigrations.slice(0, -1))
+        raw.exec(readFileSync(migration, "utf8"));
+      raw.prepare(insertEvent).run("legacy", "published", "legacy-apply", "legacy-view");
+      const before = raw.prepare("SELECT * FROM roster_sheets").all();
+      raw.exec(readFileSync(currentMigrations[currentMigrations.length - 1], "utf8"));
+      expect(raw.prepare("SELECT * FROM roster_sheets").all()).toEqual(before);
+      expect(
+        raw
+          .prepare(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND name='events_sync_default_roster_sheet_visibility'",
+          )
+          .all(),
+      ).toEqual([]);
+      raw.exec("UPDATE events SET status='open' WHERE id='legacy'");
+      expect(
+        raw.prepare("SELECT visibility FROM roster_sheets WHERE id='default:legacy'").get(),
+      ).toEqual({ visibility: "published" });
+      raw.prepare(insertEvent).run("new", "published", "new-apply", "new-view");
+      expect(
+        raw.prepare("SELECT visibility FROM roster_sheets WHERE id='default:new'").get(),
+      ).toEqual({ visibility: "published" });
+      expect(raw.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+    } finally {
+      raw.close();
+    }
+  });
 });

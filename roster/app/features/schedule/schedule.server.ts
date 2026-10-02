@@ -188,6 +188,7 @@ export async function regenerateTimeSlots(
   range: { start: string; end: string; stepMin: number },
   phases: readonly PhaseWindow[],
   rosterSheetId?: string,
+  transactionPrefix: readonly D1PreparedStatement[] = [],
 ): Promise<TimeSlot[]> {
   const sheetId = await resolveRosterSheetId(db, eventId, rosterSheetId, true);
   if (!sheetId) throw new Error("Event has no live roster sheet");
@@ -285,6 +286,8 @@ export async function regenerateTimeSlots(
     }
   }
 
-  if (statements.length > 0) await db.batch(statements);
+  if (statements.length > 0 || transactionPrefix.length > 0) {
+    await db.batch([...transactionPrefix, ...statements]);
+  }
   return listTimeSlots(db, eventId, sheetId);
 }

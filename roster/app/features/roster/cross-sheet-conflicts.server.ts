@@ -149,3 +149,12 @@ export function crossSheetConflictGuard(
     )
     .bind(slotId, rosterSheetId, eventId, applicationId, allowedForSlot);
 }
+
+export function isCrossSheetConflictGuardFailure(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes(
+      "UNIQUE constraint failed: assignments.application_id, assignments.time_slot_id",
+    )
+  );
+}
