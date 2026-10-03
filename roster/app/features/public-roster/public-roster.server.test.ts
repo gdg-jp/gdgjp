@@ -69,8 +69,11 @@ async function seedFullFixture(db: TestD1Database) {
   const now = new Date().toISOString();
   await db
     .prepare(
-      `INSERT INTO events (id, chapter_id, name, date, start_time, end_time, seed, apply_token, view_token, created_at, updated_at)
-       VALUES ('evt_1', 1, 'DevFest 2026', '2026-11-07', '09:00', '19:00', 1, 'apply-1', 'view-1', ?, ?)`,
+      `INSERT INTO events (
+        id, chapter_id, name, date, start_time, end_time, status, seed,
+        apply_token, view_token, created_at, updated_at
+      ) VALUES ('evt_1', 1, 'DevFest 2026', '2026-11-07', '09:00', '19:00', 'published',
+        1, 'apply-1', 'view-1', ?, ?)`,
     )
     .bind(now, now)
     .run();
@@ -119,6 +122,49 @@ async function seedFullFixture(db: TestD1Database) {
     .run();
 }
 
+async function setEventStatus(db: TestD1Database, status: EventRecord["status"]) {
+  await db.prepare("UPDATE events SET status = ? WHERE id = 'evt_1'").bind(status).run();
+}
+
+async function seedSiblingSheet(db: TestD1Database, visibility: "private" | "published") {
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO roster_sheets (
+        id, event_id, name, date, start_time, end_time, step_min,
+        no_solo_newcomer, max_consecutive, seed, visibility, sort_order,
+        created_at, updated_at
+      ) VALUES ('sheet_2', 'evt_1', '別会場', '2026-12-01', '12:00', '14:00', 60,
+        1, 4, 2, ?, 1, ?, ?)`,
+    )
+    .bind(visibility, now, now)
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+       VALUES ('slot_2', 'evt_1', 0, '10:00', '11:00', 'sheet_2')`,
+    )
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO tracks (id, event_id, name, color, shared, sort_order, roster_sheet_id)
+       VALUES ('trk_2', 'evt_1', '別トラック', '#654321', 0, 0, 'sheet_2')`,
+    )
+    .run();
+  await db
+    .prepare(
+      "INSERT INTO roster_sheet_roles (roster_sheet_id, role_id) VALUES ('sheet_2', 'guide')",
+    )
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO assignments (
+        event_id, application_id, time_slot_id, track_id, role_id, locked, roster_sheet_id
+      ) VALUES ('evt_1', 'app_active', 'slot_2', 'trk_2', 'guide', 0, 'sheet_2')`,
+    )
+    .run();
+}
+
 describe("buildPublicRosterData", () => {
   let testDb: TestD1Database;
 
@@ -137,8 +183,20 @@ describe("buildPublicRosterData", () => {
       ["assignments", "event", "roles", "slots", "staff", "tracks"].sort(),
     );
     expect(Object.keys(result.data.event).sort()).toEqual(
-      ["date", "endTime", "hasParty", "name", "startTime"].sort(),
+      ["date", "endTime", "hasParty", "id", "name", "sheet", "startTime"].sort(),
     );
+    expect(Object.keys(result.data.event.sheet).sort()).toEqual(
+      ["date", "endTime", "name", "startTime"].sort(),
+    );
+    expect(result.data.event).toEqual({
+      id: "evt_1",
+      name: "DevFest 2026",
+      date: "2026-11-07",
+      startTime: "09:00",
+      endTime: "19:00",
+      hasParty: true,
+      sheet: { name: "本編", date: "2026-11-07", startTime: "09:00", endTime: "19:00" },
+    });
     for (const staff of result.data.staff) {
       expect(Object.keys(staff).sort()).toEqual(["id", "name", "party"].sort());
     }
@@ -184,8 +242,144 @@ describe("buildPublicRosterData", () => {
     expect(result.data.assignments.map((a) => a.applicationId)).toEqual(["app_active"]);
   });
 
+  it("assembles only the default published sheet while keeping applicants event-scoped", async () => {
+    await seedFullFixture(testDb);
+    await seedSiblingSheet(testDb, "private");
+
+    const result = await buildPublicRosterData(asD1(testDb), baseEvent());
+    if (!result.published) throw new Error("expected published");
+
+    expect(result.data.slots.map((slot) => slot.id)).toEqual(["slot_1"]);
+    expect(result.data.tracks.map((track) => track.id)).toEqual(["trk_1"]);
+    expect(result.data.roles.map((role) => role.id)).toEqual(["reception"]);
+    expect(result.data.assignments.map((assignment) => assignment.timeSlotId)).toEqual(["slot_1"]);
+    expect(result.data.staff.map((staff) => staff.id)).toEqual(["app_active"]);
+  });
+
+  it("does not expose a private sheet selected by ID, even when the event is published", async () => {
+    await seedFullFixture(testDb);
+    await seedSiblingSheet(testDb, "private");
+    const { db, calls } = spyOn(testDb);
+
+    const result = await buildPublicRosterData(db, baseEvent(), "sheet_2");
+
+    expect(result.published).toBe(false);
+    expect(Object.keys(result).sort()).toEqual(["event", "published"].sort());
+    if (result.published) throw new Error("expected private sheet");
+    expect(Object.keys(result.event).sort()).toEqual(
+      ["date", "endTime", "hasParty", "id", "name", "sheet", "startTime"].sort(),
+    );
+    expect(Object.keys(result.event.sheet).sort()).toEqual(
+      ["date", "endTime", "name", "startTime"].sort(),
+    );
+    expect(result.event).toEqual({
+      id: "evt_1",
+      name: "DevFest 2026",
+      date: "2026-11-07",
+      startTime: "09:00",
+      endTime: "19:00",
+      hasParty: true,
+      sheet: { name: "別会場", date: "2026-12-01", startTime: "12:00", endTime: "14:00" },
+    });
+    expect(calls.some((sql) => /FROM applications/i.test(sql))).toBe(false);
+    expect(calls.some((sql) => /FROM assignments/i.test(sql))).toBe(false);
+    expect(calls.some((sql) => /FROM time_slots/i.test(sql))).toBe(false);
+    expect(calls.some((sql) => /FROM tracks/i.test(sql))).toBe(false);
+  });
+
+  it.each(["missing", "cross-event", "deleted"] as const)(
+    "does not expose schedule or applicant data for a %s sheet ID",
+    async (kind) => {
+      await seedFullFixture(testDb);
+      let sheetId = "sheet_missing";
+
+      if (kind === "deleted") {
+        await seedSiblingSheet(testDb, "published");
+        await testDb
+          .prepare("UPDATE roster_sheets SET deleted_at = ? WHERE id = 'sheet_2'")
+          .bind(new Date().toISOString())
+          .run();
+        sheetId = "sheet_2";
+      }
+
+      if (kind === "cross-event") {
+        const now = new Date().toISOString();
+        await testDb
+          .prepare(
+            `INSERT INTO events (
+              id, chapter_id, name, date, start_time, end_time, status, seed,
+              apply_token, view_token, created_at, updated_at
+            ) VALUES ('evt_2', 1, 'Other event', '2026-12-01', '09:00', '17:00',
+              'published', 2, 'apply-2', 'view-2', ?, ?)`,
+          )
+          .bind(now, now)
+          .run();
+        await testDb
+          .prepare(
+            `INSERT INTO roster_sheets (
+              id, event_id, name, date, start_time, end_time, step_min,
+              no_solo_newcomer, max_consecutive, seed, visibility, sort_order,
+              created_at, updated_at
+            ) VALUES ('sheet_other', 'evt_2', 'Other event sheet', '2026-12-01',
+              '09:00', '17:00', 60, 0, 4, 2, 'published', 1, ?, ?)`,
+          )
+          .bind(now, now)
+          .run();
+        sheetId = "sheet_other";
+      }
+
+      const { db, calls } = spyOn(testDb);
+      const result = await buildPublicRosterData(db, baseEvent(), sheetId);
+
+      expect(result.published).toBe(false);
+      expect(Object.keys(result).sort()).toEqual(["event", "published"]);
+      expect(calls.some((sql) => /FROM applications/i.test(sql))).toBe(false);
+      expect(calls.some((sql) => /FROM assignments/i.test(sql))).toBe(false);
+      expect(calls.some((sql) => /FROM time_slots/i.test(sql))).toBe(false);
+      expect(calls.some((sql) => /FROM tracks/i.test(sql))).toBe(false);
+    },
+  );
+
+  it("returns only the explicitly selected published sheet", async () => {
+    await seedFullFixture(testDb);
+    await seedSiblingSheet(testDb, "published");
+
+    const result = await buildPublicRosterData(asD1(testDb), baseEvent(), "sheet_2");
+    if (!result.published) throw new Error("expected published");
+
+    expect(result.data.slots.map((slot) => slot.id)).toEqual(["slot_2"]);
+    expect(result.data.tracks.map((track) => track.id)).toEqual(["trk_2"]);
+    expect(result.data.roles.map((role) => role.id)).toEqual(["guide"]);
+    expect(result.data.assignments.map((assignment) => assignment.timeSlotId)).toEqual(["slot_2"]);
+    expect(result.data.staff.map((staff) => staff.id)).toEqual(["app_active"]);
+    expect(result.data.event).toEqual({
+      id: "evt_1",
+      name: "DevFest 2026",
+      date: "2026-11-07",
+      startTime: "09:00",
+      endTime: "19:00",
+      hasParty: true,
+      sheet: { name: "別会場", date: "2026-12-01", startTime: "12:00", endTime: "14:00" },
+    });
+  });
+
+  for (const status of ["open", "draft"] as const) {
+    it(`allows an explicitly published sheet when event recruitment is ${status}`, async () => {
+      await seedFullFixture(testDb);
+      await seedSiblingSheet(testDb, "published");
+      await setEventStatus(testDb, status);
+
+      const result = await buildPublicRosterData(asD1(testDb), baseEvent({ status }), "sheet_2");
+
+      expect(result.published).toBe(true);
+      if (!result.published) throw new Error("expected published");
+      expect(result.data.slots.map((slot) => slot.id)).toEqual(["slot_2"]);
+    });
+  }
+
   it("returns only {published:false, event} for a non-published status, with no `data` key", async () => {
     await seedFullFixture(testDb);
+    await setEventStatus(testDb, "closed");
     const result = await buildPublicRosterData(asD1(testDb), baseEvent({ status: "closed" }));
 
     expect(result.published).toBe(false);
@@ -193,8 +387,9 @@ describe("buildPublicRosterData", () => {
     expect("data" in result).toBe(false);
   });
 
-  it("canView gates ASSEMBLY: no query touches applications or assignments when not published", async () => {
+  it("a private default sheet gates assembly before schedule or staff reads", async () => {
     await seedFullFixture(testDb);
+    await setEventStatus(testDb, "draft");
     const { db, calls } = spyOn(testDb);
     await buildPublicRosterData(db, baseEvent({ status: "draft" }));
 
@@ -205,8 +400,9 @@ describe("buildPublicRosterData", () => {
   });
 
   for (const status of ["draft", "open", "closed", "ended"] as const) {
-    it(`treats status "${status}" as not-published`, async () => {
+    it(`treats the default sheet for event status "${status}" as not-published`, async () => {
       await seedFullFixture(testDb);
+      await setEventStatus(testDb, status);
       const result = await buildPublicRosterData(asD1(testDb), baseEvent({ status }));
       expect(result.published).toBe(false);
     });
@@ -216,8 +412,11 @@ describe("buildPublicRosterData", () => {
     const now = new Date().toISOString();
     await testDb
       .prepare(
-        `INSERT INTO events (id, chapter_id, name, date, start_time, end_time, seed, apply_token, view_token, created_at, updated_at)
-         VALUES ('evt_1', 1, 'Empty Event', '2026-11-07', '09:00', '19:00', 1, 'apply-1', 'view-1', ?, ?)`,
+        `INSERT INTO events (
+          id, chapter_id, name, date, start_time, end_time, status, seed,
+          apply_token, view_token, created_at, updated_at
+        ) VALUES ('evt_1', 1, 'Empty Event', '2026-11-07', '09:00', '19:00', 'published',
+          1, 'apply-1', 'view-1', ?, ?)`,
       )
       .bind(now, now)
       .run();

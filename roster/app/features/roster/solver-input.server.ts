@@ -65,13 +65,14 @@ export async function buildSolverInput(
   db: D1Database,
   event: Pick<EventRecord, "id" | "noSoloNewcomer" | "maxConsecutive">,
   seed: number,
+  rosterSheetId?: string,
 ): Promise<SolverInput> {
   const [timeSlots, tracks, eventRoleIds, allRoles, demandRows, applications] = await Promise.all([
-    listTimeSlots(db, event.id),
-    listTracks(db, event.id),
-    listEventRoleIds(db, event.id),
+    listTimeSlots(db, event.id, rosterSheetId),
+    listTracks(db, event.id, rosterSheetId),
+    listEventRoleIds(db, event.id, rosterSheetId),
     listRoles(db),
-    listDemandsForEvent(db, event.id),
+    listDemandsForEvent(db, event.id, rosterSheetId),
     listApplicationsForEvent(db, event.id),
   ]);
 
