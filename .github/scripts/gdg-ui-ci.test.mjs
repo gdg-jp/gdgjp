@@ -192,3 +192,30 @@ test("deploy builds shared UI before its parallel application builds", () => {
     true,
   );
 });
+
+test("UI gitlink updates run local library checks", () => {
+  const names = changedSteps("full", ["ui"]).map(([name]) => name);
+  for (const name of ["typecheck", "build", "test:ui", "e2e:ui"]) {
+    assert.ok(names.includes(name), name);
+  }
+});
+
+test("every package-installing job initializes the UI submodule first", () => {
+  for (const workflowName of [
+    "ci.yml",
+    "deploy.yml",
+    "gdg-lib-publish.yml",
+    "google-photos-import.yml",
+    "agent-host-release.yml",
+  ]) {
+    for (const [jobName, job] of Object.entries(readWorkflow(workflowName).jobs)) {
+      const installIndex =
+        job.steps?.findIndex((step) => String(step.run ?? "").includes("pnpm install")) ?? -1;
+      if (installIndex < 0) continue;
+      const initIndex = job.steps.findIndex(
+        (step) => step.run === "git submodule update --init ui",
+      );
+      assert.ok(initIndex >= 0 && initIndex < installIndex, `${workflowName}: ${jobName}`);
+    }
+  }
+});

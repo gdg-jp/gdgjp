@@ -171,6 +171,13 @@ export function classifyChanges(files, { forceAll = false } = {}) {
     }
   }
 
+  // A submodule update appears as the path itself, without changed source filenames.
+  if (directDirectories.has("ui")) {
+    for (const directory of ["accounts", "wiki", "roster"]) {
+      affectedDirectories.add(directory);
+    }
+  }
+
   const ciTargets = ciGlobal
     ? CI_WORKSPACES
     : CI_WORKSPACES.filter(

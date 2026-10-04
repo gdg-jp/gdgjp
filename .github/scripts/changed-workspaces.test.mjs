@@ -162,10 +162,17 @@ test("detects agent-host/workspace changes with agentHostWorkspace predicate", (
   assert.equal(classifyChanges(["wiki/app/routes/home.tsx"]).agentHostWorkspace, false);
 });
 
-test("GDG UI changes run library checks without deploying or migrating apps", () => {
+test("GDG UI changes validate and deploy its consumers", () => {
   const result = classifyChanges(["ui/src/styles/tokens.css"]);
-  assert.deepEqual(result.ci, ["@gdgjp/ui"]);
-  assert.deepEqual(result.build, ["@gdgjp/ui"]);
-  assert.deepEqual(result.e2e, ["ui"]);
-  assert.deepEqual(result.deploy, []);
+  assert.deepEqual(result.ci, ["@gdgjp/ui", "@gdgjp/accounts", "@gdgjp/wiki", "@gdgjp/roster"]);
+  assert.deepEqual(result.build, ["@gdgjp/ui", "@gdgjp/accounts", "@gdgjp/wiki", "@gdgjp/roster"]);
+  assert.deepEqual(result.e2e, ["ui", "accounts", "wiki", "roster"]);
+  assert.deepEqual(
+    result.deploy.map(({ app }) => app),
+    ["accounts", "wiki", "roster"],
+  );
+});
+
+test("UI gitlink updates select the same targets as library source changes", () => {
+  assert.deepEqual(classifyChanges(["ui"]), classifyChanges(["ui/README.md"]));
 });

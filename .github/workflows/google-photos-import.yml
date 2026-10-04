@@ -26,6 +26,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Initialize shared UI submodule
+        run: git submodule update --init ui
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.0

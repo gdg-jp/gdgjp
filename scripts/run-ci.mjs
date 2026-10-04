@@ -100,10 +100,11 @@ function changedFiles() {
 
 function isNodeFile(file) {
   return (
-    !file.startsWith("cli/") &&
-    (codeFilePattern.test(file) ||
-      nodeConfigurationFilePattern.test(file) ||
-      (file.startsWith("ui/") && /\.(?:css|mdx|woff2)$/.test(file)))
+    file === "ui" ||
+    (!file.startsWith("cli/") &&
+      (codeFilePattern.test(file) ||
+        nodeConfigurationFilePattern.test(file) ||
+        (file.startsWith("ui/") && /\.(?:css|mdx|woff2)$/.test(file))))
   );
 }
 
