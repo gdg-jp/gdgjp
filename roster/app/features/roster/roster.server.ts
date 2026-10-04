@@ -1,6 +1,11 @@
 import type { EventRecord } from "~/features/events/events.server";
 import { recordRevision } from "~/features/history/history.server";
 import type { Actor } from "~/features/history/types";
+import {
+  getDefaultRosterSheet,
+  getRosterSheet,
+} from "~/features/roster-sheets/roster-sheets.server";
+import type { RosterSheet } from "~/features/roster-sheets/types";
 import { evaluate } from "~/features/solver/evaluate";
 import {
   type AssignmentValue,
@@ -9,107 +14,184 @@ import {
   assignmentKey,
   parseAssignmentKey,
 } from "~/features/solver/types";
+import { readAssignmentsMap } from "./assignment-reads.server";
+import {
+  crossSheetConflictGuard,
+  isCrossSheetConflictGuardFailure,
+} from "./cross-sheet-conflicts.server";
 import { buildSolverInput } from "./solver-input.server";
-import type { AssignmentRecord } from "./types";
 
-/**
- * D1 access for `assignments` (docs/roster/index.md §4,
- * docs/roster/07-roster-manual-edit.md "Design" §1, §6). Follows the repo's
- * `*Row` -> `to*()` -> column-list -> convention, but the write side is
- * intentionally NOT the usual single-row `INSERT ... RETURNING`: both
- * auto-generation and manual editing produce a full replacement
- * `Assignments` map (solve()'s output, or the current map with one cell
- * changed — see `e.$id.roster.tsx`'s action), so `writeAssignments` always
- * deletes the event's whole current set and re-inserts it via `db.batch`
- * (docs/roster/07-roster-manual-edit.md Design §2 step 4: "assignments を
- * 全削除して入れ直す（db.batch で原子的に）").
- *
- * **`writeAssignments` is the ONLY function anywhere in this app that
- * writes to `assignments`.** The generate action and every manual-edit
- * intent in `e.$id.roster.tsx` all funnel through it — this is deliberate
- * so Stage 08 can instrument exactly one call site to add history
- * (docs/roster/07-roster-manual-edit.md "Design" §6). Do not add a second
- * write path (e.g. a route calling `db.prepare("INSERT INTO assignments...")`
- * directly) no matter how small the change looks.
- *
- * **Stage 08's hook**: `writeAssignments` takes an optional `revision`
- * argument. When present, it calls `~/features/history/history.server`'s
- * `recordRevision` after the write (docs/roster/08-history.md "Design" §3:
- * "`writeAssignments` から呼ぶ"). When omitted — exactly one caller does this:
- * `history.server.ts#restoreRevision`, restoring a snapshot — no revision is
- * recorded (docs/roster/08-history.md "Design" §5: "復元そのものは新しい履歴を
- * 作らない"). See `history.server.ts`'s module doc comment for why this
- * creates (and why it's safe to create) a two-way import with that file.
- */
+export { readAssignments, readAssignmentsMap, toAssignment } from "./assignment-reads.server";
 
-type AssignmentRow = {
-  event_id: string;
-  application_id: string;
-  time_slot_id: string;
-  track_id: string;
-  role_id: string;
-  locked: number;
+/** Sheet-scoped D1 access for the current assignments table. */
+
+const ASSIGNMENT_COLS =
+  "event_id, roster_sheet_id, application_id, time_slot_id, track_id, role_id, locked";
+
+export type AssignmentState = {
+  assignments: Assignments;
+  revisionCursor: number | null;
 };
 
-const ASSIGNMENT_COLS = "event_id, application_id, time_slot_id, track_id, role_id, locked";
-
-export function toAssignment(r: AssignmentRow): AssignmentRecord {
-  return {
-    eventId: r.event_id,
-    applicationId: r.application_id,
-    timeSlotId: r.time_slot_id,
-    trackId: r.track_id,
-    roleId: r.role_id,
-    locked: r.locked === 1,
-  };
-}
-
-/**
- * An event's current shift table, one row per (application, slot)
- * (docs/roster/index.md §4). Ordered by time slot then application so a
- * caller building a display grid never has to re-sort — not a determinism
- * requirement itself (generation's determinism lives entirely in
- * `solver-input.server.ts`'s assembly and `solve()`'s own guarantee), just a
- * convenience for the grid components that read this.
- */
-export async function readAssignments(
+/** Reads the cursor before the corresponding assignment map to support CAS writes. */
+export async function readAssignmentsState(
   db: D1Database,
   eventId: string,
-): Promise<AssignmentRecord[]> {
-  const { results } = await db
-    .prepare(
-      `SELECT ${ASSIGNMENT_COLS} FROM assignments WHERE event_id = ? ORDER BY time_slot_id, application_id`,
-    )
-    .bind(eventId)
-    .all<AssignmentRow>();
-  return (results ?? []).map(toAssignment);
-}
-
-/** `readAssignments`, reshaped into the solver's own `Assignments` Map —
- * what `evaluate()` / `hardViolations()` / `suggestFor()` all take. */
-export async function readAssignmentsMap(db: D1Database, eventId: string): Promise<Assignments> {
-  const rows = await readAssignments(db, eventId);
-  const map: Assignments = new Map();
-  for (const row of rows) {
-    map.set(assignmentKey(row.applicationId, row.timeSlotId), {
-      trackId: row.trackId,
-      roleId: row.roleId,
-      locked: row.locked,
-    });
-  }
-  return map;
+  rosterSheetId?: string,
+): Promise<AssignmentState> {
+  const sheet = await requireRosterSheet(db, eventId, rosterSheetId);
+  const assignments = await readAssignmentsMap(db, eventId, sheet.id);
+  return { assignments, revisionCursor: sheet.revisionCursor };
 }
 
 function assignmentStatement(
   db: D1Database,
   eventId: string,
+  rosterSheetId: string,
   applicationId: string,
   timeSlotId: string,
   value: AssignmentValue,
 ): D1PreparedStatement {
   return db
-    .prepare(`INSERT INTO assignments (${ASSIGNMENT_COLS}) VALUES (?, ?, ?, ?, ?, ?)`)
-    .bind(eventId, applicationId, timeSlotId, value.trackId, value.roleId, value.locked ? 1 : 0);
+    .prepare(
+      `INSERT INTO assignments (${ASSIGNMENT_COLS})
+       SELECT ?, ?, ?, ?, ?, ?, ?
+       WHERE EXISTS (
+         SELECT 1 FROM roster_sheets s JOIN events e ON e.id = s.event_id
+         WHERE s.id = ? AND s.event_id = ? AND s.deleted_at IS NULL
+           AND s.revision_cursor = -1 AND e.deleted_at IS NULL
+       )
+         AND EXISTS (SELECT 1 FROM applications a WHERE a.id = ? AND a.event_id = ?)
+         AND EXISTS (SELECT 1 FROM time_slots t
+           WHERE t.id = ? AND t.event_id = ? AND t.roster_sheet_id = ?)
+         AND EXISTS (SELECT 1 FROM tracks t
+           WHERE t.id = ? AND t.event_id = ? AND t.roster_sheet_id = ?)
+         AND EXISTS (SELECT 1 FROM roster_sheet_roles r
+           WHERE r.roster_sheet_id = ? AND r.role_id = ?)
+         AND EXISTS (SELECT 1 FROM demands d
+           WHERE d.event_id = ? AND d.roster_sheet_id = ? AND d.time_slot_id = ?
+             AND d.track_id = ? AND d.role_id = ? AND d.ideal_count > 0)
+         AND NOT EXISTS (
+           SELECT 1 FROM demands d
+           WHERE d.event_id = ? AND d.time_slot_id = ? AND d.track_id = ? AND d.role_id = ?
+             AND (d.roster_sheet_id IS NULL OR d.roster_sheet_id <> ?)
+         )`,
+    )
+    .bind(
+      eventId,
+      rosterSheetId,
+      applicationId,
+      timeSlotId,
+      value.trackId,
+      value.roleId,
+      value.locked ? 1 : 0,
+      rosterSheetId,
+      eventId,
+      applicationId,
+      eventId,
+      timeSlotId,
+      eventId,
+      rosterSheetId,
+      value.trackId,
+      eventId,
+      rosterSheetId,
+      rosterSheetId,
+      value.roleId,
+      eventId,
+      rosterSheetId,
+      timeSlotId,
+      value.trackId,
+      value.roleId,
+      eventId,
+      timeSlotId,
+      value.trackId,
+      value.roleId,
+      rosterSheetId,
+    );
+}
+
+async function requireRosterSheet(
+  db: D1Database,
+  eventId: string,
+  rosterSheetId?: string,
+): Promise<RosterSheet> {
+  const sheet =
+    rosterSheetId !== undefined
+      ? await getRosterSheet(db, eventId, rosterSheetId)
+      : await getDefaultRosterSheet(db, eventId);
+  if (!sheet) throw new Error("Roster sheet not found for this event.");
+  return sheet;
+}
+
+function assignmentReplacementStatements(
+  db: D1Database,
+  eventId: string,
+  sheetId: string,
+  next: Assignments,
+): D1PreparedStatement[] {
+  const statements: D1PreparedStatement[] = [
+    db
+      .prepare(
+        `DELETE FROM assignments WHERE event_id = ? AND roster_sheet_id = ?
+         AND EXISTS (
+           SELECT 1 FROM roster_sheets s JOIN events e ON e.id = s.event_id
+           WHERE s.id = ? AND s.event_id = ? AND s.deleted_at IS NULL
+             AND s.revision_cursor = -1 AND e.deleted_at IS NULL
+         )`,
+      )
+      .bind(eventId, sheetId, sheetId, eventId),
+  ];
+  for (const [key, value] of next) {
+    const { applicationId, slotId } = parseAssignmentKey(key);
+    statements.push(assignmentStatement(db, eventId, sheetId, applicationId, slotId, value));
+  }
+  return statements;
+}
+
+async function validateAssignmentsForSheet(
+  db: D1Database,
+  eventId: string,
+  rosterSheetId: string,
+  next: Assignments,
+): Promise<void> {
+  for (const [key, value] of next) {
+    const { applicationId, slotId } = parseAssignmentKey(key);
+    const row = await db
+      .prepare(
+        `SELECT 1 AS valid
+         FROM applications a
+         JOIN time_slots s ON s.event_id = a.event_id AND s.id = ? AND s.roster_sheet_id = ?
+         JOIN tracks t ON t.event_id = a.event_id AND t.id = ? AND t.roster_sheet_id = ?
+         JOIN roster_sheet_roles r ON r.roster_sheet_id = ? AND r.role_id = ?
+         WHERE a.id = ? AND a.event_id = ?
+           AND EXISTS (
+             SELECT 1 FROM demands d
+             WHERE d.event_id = a.event_id AND d.roster_sheet_id = ?
+               AND d.time_slot_id = s.id AND d.track_id = t.id
+               AND d.role_id = r.role_id AND d.ideal_count > 0
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM demands d
+             WHERE d.event_id = a.event_id AND d.time_slot_id = s.id
+               AND d.track_id = t.id AND d.role_id = r.role_id
+               AND (d.roster_sheet_id IS NULL OR d.roster_sheet_id <> ?)
+           )`,
+      )
+      .bind(
+        slotId,
+        rosterSheetId,
+        value.trackId,
+        rosterSheetId,
+        rosterSheetId,
+        value.roleId,
+        applicationId,
+        eventId,
+        rosterSheetId,
+        rosterSheetId,
+      )
+      .first<{ valid: number }>();
+    if (!row) throw new Error("Assignment must reference entities in the selected roster sheet.");
+  }
 }
 
 /** Stage 08's hook payload (module doc above) — `kind` excludes `"restore"`
@@ -124,11 +206,13 @@ export type WriteAssignmentsRevision = {
    * 08-history.md "Design" §3: "同一ユーザー × 同一イベント"). Ignored for
    * `kind: "generate"`, which never merges regardless of this value. */
   groupKey?: string | null;
+  /** Cross-sheet safety checks that must run inside the assignment/history batch. */
+  mutationGuards?: readonly D1PreparedStatement[];
 };
 
 /**
- * Replaces an event's ENTIRE `assignments` set with `next` — the single
- * write path every caller uses (module doc). Always a full delete-then-
+ * Replaces one sheet's ENTIRE `assignments` set with `next` — the single
+ * write path every caller uses (module doc). Always a sheet-scoped delete-then-
  * insert, never a partial patch: this is what guarantees a stale row from a
  * previous generation can never survive alongside a new one
  * (docs/roster/07-roster-manual-edit.md "回帰として固定すべきテスト": "生成後に
@@ -139,16 +223,16 @@ export async function writeAssignments(
   eventId: string,
   next: Assignments,
   revision?: WriteAssignmentsRevision,
+  rosterSheetId?: string,
+  expectedRevisionCursor?: number | null,
 ): Promise<void> {
-  const statements: D1PreparedStatement[] = [
-    db.prepare("DELETE FROM assignments WHERE event_id = ?").bind(eventId),
+  const sheet = await requireRosterSheet(db, eventId, rosterSheetId);
+  const sheetId = sheet.id;
+  await validateAssignmentsForSheet(db, eventId, sheetId, next);
+  const mutationStatements = [
+    ...(revision?.mutationGuards ?? []),
+    ...assignmentReplacementStatements(db, eventId, sheetId, next),
   ];
-  for (const [key, value] of next) {
-    const { applicationId, slotId } = parseAssignmentKey(key);
-    statements.push(assignmentStatement(db, eventId, applicationId, slotId, value));
-  }
-  await db.batch(statements);
-
   if (revision) {
     await recordRevision(db, {
       eventId,
@@ -158,8 +242,73 @@ export async function writeAssignments(
       actor: revision.actor,
       kind: revision.kind,
       groupKey: revision.groupKey,
+      rosterSheetId: sheetId,
+      ...(expectedRevisionCursor === undefined ? {} : { expectedRevisionCursor }),
+      mutationStatements,
     });
+    return;
   }
+
+  const claim = db
+    .prepare(
+      `UPDATE roster_sheets SET revision_cursor = -1
+       WHERE id = ? AND event_id = ? AND deleted_at IS NULL AND revision_cursor IS ?
+         AND EXISTS (SELECT 1 FROM events WHERE id = ? AND deleted_at IS NULL)`,
+    )
+    .bind(
+      sheetId,
+      eventId,
+      expectedRevisionCursor === undefined ? sheet.revisionCursor : expectedRevisionCursor,
+      eventId,
+    );
+  const release = db
+    .prepare(
+      `UPDATE roster_sheets SET revision_cursor = ?
+       WHERE id = ? AND event_id = ? AND deleted_at IS NULL AND revision_cursor = -1`,
+    )
+    .bind(
+      expectedRevisionCursor === undefined ? sheet.revisionCursor : expectedRevisionCursor,
+      sheetId,
+      eventId,
+    );
+  const results = await db.batch([claim, ...mutationStatements, release]);
+  if (results[0]?.meta.changes !== 1) {
+    throw new Error("Roster sheet changed concurrently; retry the operation.");
+  }
+}
+
+/**
+ * Replaces a solver-generated sheet snapshot only if its applicants still
+ * have no overlapping live-sheet assignments. The guards are part of the
+ * same history/cursor batch as the replacement, so a conflict changes
+ * nothing in this sheet.
+ */
+export async function writeGeneratedAssignments(
+  db: D1Database,
+  eventId: string,
+  assignments: Assignments,
+  revision: Omit<WriteAssignmentsRevision, "mutationGuards">,
+  rosterSheetId: string,
+  expectedRevisionCursor: number | null,
+): Promise<boolean> {
+  const mutationGuards = [...assignments.keys()].map((key) => {
+    const { applicationId, slotId } = parseAssignmentKey(key);
+    return crossSheetConflictGuard(db, eventId, rosterSheetId, applicationId, slotId, []);
+  });
+  try {
+    await writeAssignments(
+      db,
+      eventId,
+      assignments,
+      { ...revision, mutationGuards },
+      rosterSheetId,
+      expectedRevisionCursor,
+    );
+  } catch (error) {
+    if (isCrossSheetConflictGuardFailure(error)) return false;
+    throw error;
+  }
+  return true;
 }
 
 /**
@@ -178,14 +327,26 @@ export async function writeManualEdit(
   event: EventRecord,
   actor: Actor,
   next: Assignments,
+  rosterSheetId?: string,
+  expectedRevisionCursor?: number | null,
+  mutationGuards: readonly D1PreparedStatement[] = [],
 ): Promise<void> {
-  const input = await buildSolverInput(db, event, event.seed);
+  const sheet = await requireRosterSheet(db, event.id, rosterSheetId);
+  const input = await buildSolverInput(db, { id: event.id }, sheet.seed, sheet.id);
   const { metrics } = evaluate(input, next);
-  await writeAssignments(db, event.id, next, {
-    metrics,
-    label: "手動編集",
-    actor,
-    kind: "edit",
-    groupKey: actor.id,
-  });
+  await writeAssignments(
+    db,
+    event.id,
+    next,
+    {
+      metrics,
+      label: "手動編集",
+      actor,
+      kind: "edit",
+      groupKey: actor.id,
+      mutationGuards,
+    },
+    sheet.id,
+    expectedRevisionCursor,
+  );
 }

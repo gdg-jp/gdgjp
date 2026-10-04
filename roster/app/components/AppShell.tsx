@@ -44,7 +44,7 @@ export function AppShell({
   events: ShellEvent[];
   accountsUrl: string;
 }) {
-  const { id } = useParams();
+  const { id, sheetId } = useParams();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const currentEvent = events.find((event) => event.id === id) ?? null;
@@ -71,7 +71,7 @@ export function AppShell({
               value={currentEvent?.id ?? ""}
               onChange={(event) => {
                 const eventId = event.currentTarget.value;
-                void navigate(eventId ? `/e/${eventId}/design` : "/");
+                void navigate(eventId ? `/e/${encodeURIComponent(eventId)}` : "/");
               }}
             >
               <option value="">イベント一覧</option>
@@ -100,10 +100,14 @@ export function AppShell({
           {currentEvent ? (
             <div className="event-nav-group">
               <p className="nav-label">このイベント</p>
+              <NavLink to={eventPath(currentEvent.id)} end className={navClassName}>
+                <LayoutDashboard aria-hidden="true" />
+                <span>概要</span>
+              </NavLink>
               {EVENT_NAV.map(([segment, label, Icon]) => (
                 <NavLink
                   key={segment}
-                  to={`/e/${currentEvent.id}/${segment}`}
+                  to={eventSectionPath(currentEvent.id, segment, sheetId)}
                   className={navClassName}
                 >
                   <Icon aria-hidden="true" />
@@ -154,4 +158,20 @@ export function AppShell({
 
 function navClassName({ isActive }: { isActive: boolean }) {
   return isActive ? "sidebar-link active" : "sidebar-link";
+}
+
+function eventPath(eventId: string) {
+  return `/e/${encodeURIComponent(eventId)}`;
+}
+
+function eventSectionPath(
+  eventId: string,
+  segment: (typeof EVENT_NAV)[number][0],
+  sheetId: string | undefined,
+) {
+  const sheetSegment =
+    sheetId && (segment === "design" || segment === "roster")
+      ? `/s/${encodeURIComponent(sheetId)}`
+      : "";
+  return `${eventPath(eventId)}${sheetSegment}/${segment}`;
 }

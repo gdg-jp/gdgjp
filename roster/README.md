@@ -34,7 +34,7 @@ graph.
 | Design (time slots / tracks / roles) | `/e/:id/design` | Chapter required | Done (Stage 02/03) |
 | Recruiting / staff | `/e/:id/staff` | Chapter required | Done (Stage 04/05): apply URL + status, proxy-add, staff list, owner corrections, supply-demand view |
 | Shift schedule | `/e/:id/roster` | Chapter required | Done (Stage 07): generate, 3 views, manual edit; Stage 08 (parallel) adds history |
-| Share | `/e/:id/share` | Chapter required | Done (Stage 09): view-URL copy and status |
+| Share | `/e/:id/share` | Chapter required | Done (Stage 09): view-URL copy and sheet publication status |
 | Staff registration (public) | `/apply/:applyToken` | Sign-in only, no chapter | Done (Stage 04) |
 | Public shift view | `/r/:viewToken` | None | Done (Stage 09): staff/role/individual/party tabs |
 

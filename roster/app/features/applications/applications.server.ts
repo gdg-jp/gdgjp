@@ -56,12 +56,13 @@ export function toApplication(r: ApplicationRow): ApplicationRecord {
  * `applications.server.test.ts`) — matching on `applications.<column>`
  * distinguishes which of the two indexes (ADR-008) tripped.
  */
-function isUniqueViolation(err: unknown, column: "email" | "user_id"): boolean {
-  return (
-    err instanceof Error &&
-    err.message.includes("UNIQUE constraint failed") &&
-    err.message.includes(`applications.${column}`)
-  );
+export function applicationUniqueViolationReason(
+  err: unknown,
+): "duplicate_email" | "duplicate_user" | null {
+  if (!(err instanceof Error) || !err.message.includes("UNIQUE constraint failed")) return null;
+  if (err.message.includes("applications.email")) return "duplicate_email";
+  if (err.message.includes("applications.user_id")) return "duplicate_user";
+  return null;
 }
 
 /**
@@ -243,8 +244,8 @@ export async function createApplication(
     if (!row) throw new Error("Application insert returned no row");
     return { ok: true, application: toApplication(row) };
   } catch (err) {
-    if (isUniqueViolation(err, "email")) return { ok: false, reason: "duplicate_email" };
-    if (isUniqueViolation(err, "user_id")) return { ok: false, reason: "duplicate_user" };
+    const reason = applicationUniqueViolationReason(err);
+    if (reason) return { ok: false, reason };
     throw err;
   }
 }

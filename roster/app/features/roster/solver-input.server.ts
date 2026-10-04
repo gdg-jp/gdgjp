@@ -3,6 +3,11 @@ import { listAvailabilityForApplication } from "~/features/applications/availabi
 import { listSkillsForApplication } from "~/features/applications/skills.server";
 import { listDemandsForEvent } from "~/features/demand/demand.server";
 import type { EventRecord } from "~/features/events/events.server";
+import { listCrossSheetAssignmentOverlapByApplication } from "~/features/roster-sheets/cross-sheet-conflicts.server";
+import {
+  getDefaultRosterSheet,
+  getRosterSheet,
+} from "~/features/roster-sheets/roster-sheets.server";
 import { listTimeSlots } from "~/features/schedule/schedule.server";
 import { listEventRoleIds, listRoles, listTracks } from "~/features/schedule/tracks.server";
 import {
@@ -13,6 +18,7 @@ import {
   type SolverInput,
   demandKey,
 } from "~/features/solver/types";
+import { readAssignmentsMap } from "./assignment-reads.server";
 
 /**
  * Assembles a `SolverInput` from D1 rows (docs/roster/07-roster-manual-edit.md
@@ -60,20 +66,31 @@ import {
  * SolverInput に含まれない — 含まれると辞退した人がシフトに入る"). This is
  * belt-and-suspenders on top of `hardViolations`' own withdrawn check inside
  * the solver — a caller must not depend on that check alone.
+ *
+ * An explicitly supplied seed overrides the selected sheet's seed; callers
+ * that omit it use the selected sheet's seed.
  */
 export async function buildSolverInput(
   db: D1Database,
-  event: Pick<EventRecord, "id" | "noSoloNewcomer" | "maxConsecutive">,
-  seed: number,
+  event: Pick<EventRecord, "id">,
+  seed?: number,
+  rosterSheetId?: string,
 ): Promise<SolverInput> {
-  const [timeSlots, tracks, eventRoleIds, allRoles, demandRows, applications] = await Promise.all([
-    listTimeSlots(db, event.id),
-    listTracks(db, event.id),
-    listEventRoleIds(db, event.id),
-    listRoles(db),
-    listDemandsForEvent(db, event.id),
-    listApplicationsForEvent(db, event.id),
-  ]);
+  const sheet =
+    rosterSheetId === undefined
+      ? await getDefaultRosterSheet(db, event.id)
+      : await getRosterSheet(db, event.id, rosterSheetId);
+  if (!sheet) throw new Error("Roster sheet not found for this event.");
+  const [timeSlots, tracks, eventRoleIds, allRoles, demandRows, applications, crossSheetOverlaps] =
+    await Promise.all([
+      listTimeSlots(db, event.id, sheet.id),
+      listTracks(db, event.id, sheet.id),
+      listEventRoleIds(db, event.id, sheet.id),
+      listRoles(db),
+      listDemandsForEvent(db, event.id, sheet.id),
+      listApplicationsForEvent(db, event.id),
+      listCrossSheetAssignmentOverlapByApplication(db, event.id, sheet.id),
+    ]);
 
   const eventRoleIdSet = new Set(eventRoleIds);
   const roles = allRoles.filter((role) => eventRoleIdSet.has(role.id));
@@ -98,12 +115,16 @@ export async function buildSolverInput(
     active.map(async (application): Promise<SolverApplication> => {
       const [skills, availability] = await Promise.all([
         listSkillsForApplication(db, application.id),
-        listAvailabilityForApplication(db, application.id),
+        listAvailabilityForApplication(db, application.id, sheet.id),
       ]);
       const skillsRecord: Record<string, { level: Level; pref: Pref }> = {};
       for (const s of skills) skillsRecord[s.roleId] = { level: s.level, pref: s.pref };
       const availabilityRecord: Record<string, Availability> = {};
-      for (const a of availability) availabilityRecord[a.timeSlotId] = a.value;
+      const unavailableSlots = crossSheetOverlaps.get(application.id);
+      for (const a of availability) {
+        availabilityRecord[a.timeSlotId] = unavailableSlots?.has(a.timeSlotId) ? "x" : a.value;
+      }
+      for (const slotId of unavailableSlots ?? []) availabilityRecord[slotId] = "x";
       return {
         id: application.id,
         withdrawn: false, // filtered above — always false for anything that reaches here
@@ -124,10 +145,11 @@ export async function buildSolverInput(
     roles: roles.map((role) => ({ id: role.id })),
     demands,
     applications: solverApplications,
+    existingAssignments: await readAssignmentsMap(db, event.id, sheet.id),
     options: {
-      noSoloNewcomer: event.noSoloNewcomer,
-      maxConsecutive: event.maxConsecutive,
-      seed,
+      noSoloNewcomer: sheet.noSoloNewcomer,
+      maxConsecutive: sheet.maxConsecutive,
+      seed: seed ?? sheet.seed,
     },
   };
 }

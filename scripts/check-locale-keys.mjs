@@ -39,7 +39,9 @@ try {
     : [];
   const source = sourceFor(sourceDirectory);
   const keys = new Set();
-  for (const locale of readdirSync(localeDirectory)) {
+  // Apps that use @gdgjp/ui without i18n have no locale catalogs to check.
+  const locales = existsSync(localeDirectory) ? readdirSync(localeDirectory) : [];
+  for (const locale of locales) {
     const path = join(localeDirectory, locale, "common.json");
     if (existsSync(path))
       for (const key of flatten(JSON.parse(readFileSync(path, "utf8")))) keys.add(key);
