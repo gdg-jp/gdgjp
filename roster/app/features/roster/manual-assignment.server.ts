@@ -41,7 +41,9 @@ export async function assignManually(
   assignment: ManualAssignmentInput,
   confirmation: string,
   secret: string,
+  rosterSheetId?: string,
 ): Promise<ManualAssignmentResult> {
+  const sheetId = rosterSheetId ?? `default:${event.id}`;
   const slotIds = [...new Set(assignment.slotIds)];
   if (
     !assignment.applicationId ||
@@ -53,11 +55,11 @@ export async function assignManually(
     return { error: "入力が不正です。", intent: "assign" };
   }
 
-  const state = await readAssignmentsState(db, event.id);
+  const state = await readAssignmentsState(db, event.id, sheetId);
   const revisionHeadSignature = await readRevisionHeadSignature(
     db,
     event.id,
-    `default:${event.id}`,
+    sheetId,
     state.revisionCursor,
   );
   const next = state.assignments;
@@ -77,13 +79,7 @@ export async function assignManually(
     [...state.assignments].sort(([a], [b]) => a.localeCompare(b)),
   );
   const currentConflicts = canonicalizeConflicts(
-    await findCrossSheetConflicts(
-      db,
-      event.id,
-      `default:${event.id}`,
-      assignment.applicationId,
-      slotIds,
-    ),
+    await findCrossSheetConflicts(db, event.id, sheetId, assignment.applicationId, slotIds),
   );
   if (currentConflicts.length > MAX_CONFLICTS) {
     return {
@@ -95,6 +91,7 @@ export async function assignManually(
   const tokenMatches = await isMatchingConfirmation(
     signedConfirmation,
     event.id,
+    sheetId,
     actor.id,
     proposal,
     state.revisionCursor,
@@ -105,6 +102,7 @@ export async function assignManually(
   if (confirmation && !tokenMatches) {
     return issueWarning(
       event.id,
+      sheetId,
       actor.id,
       proposal,
       currentConflicts,
@@ -117,6 +115,7 @@ export async function assignManually(
   if (!confirmation && currentConflicts.length > 0) {
     return issueWarning(
       event.id,
+      sheetId,
       actor.id,
       proposal,
       currentConflicts,
@@ -134,13 +133,13 @@ export async function assignManually(
       event,
       actor,
       next,
-      undefined,
+      sheetId,
       state.revisionCursor,
       slotIds.map((slotId) =>
         crossSheetConflictGuard(
           db,
           event.id,
-          `default:${event.id}`,
+          sheetId,
           assignment.applicationId,
           slotId,
           allowedConflicts,
@@ -149,24 +148,18 @@ export async function assignManually(
     );
   } catch (error) {
     if (isConflictGuardFailure(error)) {
-      const latest = await readAssignmentsState(db, event.id);
+      const latest = await readAssignmentsState(db, event.id, sheetId);
       const latestHeadSignature = await readRevisionHeadSignature(
         db,
         event.id,
-        `default:${event.id}`,
+        sheetId,
         latest.revisionCursor,
       );
       const latestFingerprint = await fingerprint(
         [...latest.assignments].sort(([a], [b]) => a.localeCompare(b)),
       );
       const latestConflicts = canonicalizeConflicts(
-        await findCrossSheetConflicts(
-          db,
-          event.id,
-          `default:${event.id}`,
-          assignment.applicationId,
-          slotIds,
-        ),
+        await findCrossSheetConflicts(db, event.id, sheetId, assignment.applicationId, slotIds),
       );
       if (latestConflicts.length > MAX_CONFLICTS) {
         return {
@@ -176,6 +169,7 @@ export async function assignManually(
       }
       return issueWarning(
         event.id,
+        sheetId,
         actor.id,
         proposal,
         latestConflicts,
@@ -192,6 +186,7 @@ export async function assignManually(
 
 type ManualAssignmentConfirmation = ManualAssignmentInput & {
   eventId: string;
+  rosterSheetId: string;
   actorId: string;
   issuedAt: number;
   revisionCursor: number | null;
@@ -204,6 +199,7 @@ type ManualAssignmentConfirmation = ManualAssignmentInput & {
 async function isMatchingConfirmation(
   confirmation: ManualAssignmentConfirmation | null,
   eventId: string,
+  rosterSheetId: string,
   actorId: string,
   assignment: ManualAssignmentInput,
   revisionCursor: number | null,
@@ -228,6 +224,7 @@ async function isMatchingConfirmation(
   const currentFingerprint = await fingerprint(currentConflicts);
   return Boolean(
     confirmation.eventId === eventId &&
+      confirmation.rosterSheetId === rosterSheetId &&
       confirmation.actorId === actorId &&
       confirmation.applicationId === assignment.applicationId &&
       confirmation.trackId === assignment.trackId &&
@@ -241,6 +238,7 @@ async function isMatchingConfirmation(
 
 async function issueWarning(
   eventId: string,
+  rosterSheetId: string,
   actorId: string,
   assignment: ManualAssignmentInput,
   conflicts: CrossSheetConflict[],
@@ -258,6 +256,7 @@ async function issueWarning(
     confirmation: await signPayload(
       {
         eventId,
+        rosterSheetId,
         actorId,
         ...assignment,
         issuedAt: Date.now(),
