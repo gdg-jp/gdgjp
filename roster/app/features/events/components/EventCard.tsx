@@ -13,7 +13,7 @@ const STATUS_BADGE_COLOR: Record<EventRecord["status"], string> = {
 /** One event's summary row in the `/` list (docs/roster/02-domain-schema.md "Design" §6). */
 export function EventCard({ event }: { event: EventRecord }) {
   return (
-    <li className="rounded-xl border border-border bg-card p-4">
+    <li className="rounded-xl border border-border bg-surface p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link to={`/e/${event.id}`} className="font-semibold hover:text-gdg-blue">
           {event.name}

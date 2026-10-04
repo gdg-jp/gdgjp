@@ -8,7 +8,7 @@ Avoid: using it to display errors or empty states, as the only loading announcem
 
 ## Public API
 
-`Skeleton`. Check `ui/src/components/Skeleton/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Skeleton`. Check `design-system/src/components/Skeleton/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it to display errors or empty states, as the only loading announcem
 <section aria-busy="true" aria-label="Loading events"><Skeleton className="h-24" /></section>
 ```
 
-See `ui/src/components/Skeleton/Skeleton.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Skeleton/Skeleton.stories.tsx` for states, compositions, and narrow-width layouts.

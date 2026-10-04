@@ -51,7 +51,7 @@ jobs:
           fetch-depth: 0
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init ui
+        run: git submodule update --init design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -84,7 +84,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init ui
+        run: git submodule update --init design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -111,7 +111,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init ui
+        run: git submodule update --init design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -133,7 +133,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init ui
+        run: git submodule update --init design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -174,7 +174,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init ui
+        run: git submodule update --init design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -184,11 +184,11 @@ jobs:
       # Application typechecks run in isolated clean jobs. Build the workspace
       # package that their package.json exports point at before Vite resolves it.
       - name: Build shared UI dependency
-        run: pnpm --filter @gdgjp/ui build
+        run: pnpm --filter @gdgjp/design-system build
       - parallel:
           - name: Typecheck GDG UI
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/ui')
-            run: pnpm --filter @gdgjp/ui typecheck
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
+            run: pnpm --filter @gdgjp/design-system typecheck
           - name: Typecheck accounts
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/accounts')
             run: |
@@ -247,7 +247,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init ui
+        run: git submodule update --init design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -256,7 +256,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Vitest also resolves the package's generated export entrypoints.
       - name: Build shared UI dependency
-        run: pnpm --filter @gdgjp/ui build
+        run: pnpm --filter @gdgjp/design-system build
       - parallel:
           - name: Test accounts
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/accounts')
@@ -289,8 +289,8 @@ jobs:
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/website')
             run: pnpm --filter @gdgjp/website test
           - name: Test GDG UI
-            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/ui')
-            run: pnpm --filter @gdgjp/ui test
+            if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/design-system')
+            run: pnpm --filter @gdgjp/design-system test
           - name: Test gdg-lib
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/gdg-lib')
             run: pnpm --filter @gdgjp/gdg-lib test
@@ -317,7 +317,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init ui
+        run: git submodule update --init design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -327,11 +327,11 @@ jobs:
       # Each parallel app build has its own clean filesystem, so it cannot use
       # the UI build produced by the separate "Build GDG UI" entry below.
       - name: Build shared UI dependency
-        run: pnpm --filter @gdgjp/ui build
+        run: pnpm --filter @gdgjp/design-system build
       - parallel:
           - name: Build GDG UI
-            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/ui')
-            run: pnpm --filter @gdgjp/ui test:consumer
+            if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/design-system')
+            run: pnpm --filter @gdgjp/design-system test:consumer
           - name: Build accounts
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/accounts')
             run: pnpm --filter @gdgjp/accounts build
@@ -395,18 +395,18 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init ui
+        run: git submodule update --init design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Playwright's web servers import @gdgjp/ui through its dist-only exports.
+      # Playwright's web servers import @gdgjp/design-system through its dist-only exports.
       - name: Build shared UI dependency
-        run: pnpm --filter @gdgjp/ui build
+        run: pnpm --filter @gdgjp/design-system build
       - name: Create accounts dev vars
-        if: matrix.app != 'ui' && matrix.app != 'wiki'
+        if: matrix.app != 'design-system' && matrix.app != 'wiki'
         run: |
           cat > accounts/.dev.vars <<EOF
           BETTER_AUTH_SECRET=ci-better-auth-secret-for-e2e-tests
@@ -483,7 +483,7 @@ jobs:
             echo "WIKI_E2E_PERSIST_TO=.wrangler/e2e-state"
           } >> "$GITHUB_ENV"
       - name: Migrate Accounts local database
-        if: matrix.app != 'ui' && matrix.app != 'wiki'
+        if: matrix.app != 'design-system' && matrix.app != 'wiki'
         run: pnpm --filter @gdgjp/accounts migrate:local
       - name: Migrate img local database
         if: matrix.app == 'img'

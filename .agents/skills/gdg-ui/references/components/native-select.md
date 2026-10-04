@@ -8,7 +8,7 @@ Avoid: when rich options, search, or a custom popup is needed; use Select or Com
 
 ## Public API
 
-`NativeSelect`, `NativeSelectOption`, `NativeSelectOptGroup`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/NativeSelect/` for exact types and defaults.
+`NativeSelect`, `NativeSelectOption`, `NativeSelectOptGroup`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/NativeSelect/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: when rich options, search, or a custom popup is needed; use Select or Com
 <FormField label="Region"><NativeSelect name="region"><NativeSelectOption value="jp">Japan</NativeSelectOption></NativeSelect></FormField>
 ```
 
-See `ui/src/components/NativeSelect/NativeSelect.stories.tsx` for states and compositions.
+See `design-system/src/components/NativeSelect/NativeSelect.stories.tsx` for states and compositions.

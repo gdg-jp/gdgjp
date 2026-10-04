@@ -70,7 +70,7 @@ export default function NewEvent({ loaderData, actionData }: Route.ComponentProp
           <p>基本情報を入力すると、時間枠と全体トラックを自動で準備します。</p>
         </div>
       </div>
-      <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
+      <section className="rounded-xl border border-border bg-surface p-4 sm:p-5">
         <EventForm chapters={loaderData.chapters} error={actionData?.error} />
       </section>
     </main>

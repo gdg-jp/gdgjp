@@ -8,7 +8,7 @@ Unit 05/06 とは並行可能。
 
 対象は Wiki read/edit/new/history/search/recent/archive、page action、page tree、right sidebar、comments、
 reactions、share flow、TipTap/Markdown renderer、collaboration presence。page/ACL/editor domain logic は
-`wiki/` に残し、操作 primitive、visual state、icon、overlay、form を `@gdgjp/ui` へ移す。
+`wiki/` に残し、操作 primitive、visual state、icon、overlay、form を `@gdgjp/design-system` へ移す。
 
 `app.css` の editor bridge 自体は Unit 02 が契約を確定する。この unit は必要な selector/token 要件を
 満たしているか利用側から検証し、共通 CSS へ汎用 style を戻さない。
@@ -115,6 +115,6 @@ autosave の `intent=autosave`、言語切替をまたぐ dirty state を維持�
 ## Tech Stack
 
 - React 19、React Router Form/fetcher/Await、react-i18next
-- `@gdgjp/ui` Combobox/Dialog/AlertDialog/Sheet/Menu/Select/Button/Form/feedback/layout/icon components
+- `@gdgjp/design-system` Combobox/Dialog/AlertDialog/Sheet/Menu/Select/Button/Form/feedback/layout/icon components
 - TipTap 3、Yjs、CodeMirror/Markdown editor、dnd-kit、emoji-picker（専門 engine として app 所有）
 - Vitest、Testing Library、golden snapshots、Playwright、axe、visual snapshots

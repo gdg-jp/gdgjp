@@ -1,11 +1,11 @@
-import { Button } from "@gdgjp/ui";
-import { Dialog, DialogContent, DialogTitle, Inline, Stack } from "@gdgjp/ui";
+import { Button } from "@gdgjp/design-system";
+import { Dialog, DialogContent, DialogTitle, Inline, Stack } from "@gdgjp/design-system";
 
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useRevalidator } from "react-router";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 interface Preview {
   rootTitle: string;
   pageCount: number;

@@ -1,6 +1,6 @@
 # Component index
 
-Read only the families you need. The source of truth for public contracts is `ui/src/components/<Family>/index.ts` and the implementation `.tsx`; use Storybook in the same directory for states and compositions. See [Theme API](theme.md) and [app integration](../app-integration.md) for theming and integration.
+Read only the families you need. The source of truth for public contracts is `design-system/src/components/<Family>/index.ts` and the implementation `.tsx`; use Storybook in the same directory for states and compositions. See [Theme API](theme.md) and [app integration](../app-integration.md) for theming and integration.
 
 ## Actions and selection
 

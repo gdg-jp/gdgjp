@@ -8,7 +8,7 @@ Avoid: using it for long forms, required information, destructive confirmations,
 
 ## Public API
 
-`Popover`, `PopoverTrigger`, `PopoverContent`, `PopoverClose`. Check `ui/src/components/Popover/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Popover`, `PopoverTrigger`, `PopoverContent`, `PopoverClose`. Check `design-system/src/components/Popover/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for long forms, required information, destructive confirmations,
 <Popover><PopoverTrigger asChild><Button variant="outline">Details</Button></PopoverTrigger><PopoverContent><Text>Additional information</Text><PopoverClose>Close</PopoverClose></PopoverContent></Popover>
 ```
 
-See `ui/src/components/Popover/Popover.stories.tsx` for states and compositions.
+See `design-system/src/components/Popover/Popover.stories.tsx` for states and compositions.

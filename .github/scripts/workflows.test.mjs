@@ -28,7 +28,7 @@ test("deploy keeps application pipelines inside a parallel step", () => {
   const deployJob = deployWorkflow.slice(deployWorkflow.indexOf("  deploy:\n"));
   assert.match(
     deployJob,
-    /pnpm install --frozen-lockfile\n[\s\S]*?- name: Build shared UI dependency\n\s+run: pnpm --filter @gdgjp\/ui build\n\s+- parallel:/,
+    /pnpm install --frozen-lockfile\n[\s\S]*?- name: Build shared UI dependency\n\s+run: pnpm --filter @gdgjp\/design-system build\n\s+- parallel:/,
   );
   assert.match(
     deployWorkflow,

@@ -8,7 +8,7 @@ Avoid: choose Combobox for free-form input or search, RadioGroup for a small set
 
 ## Public API
 
-`Select`, `SelectContent`, `SelectGroup`, `SelectItem`, `SelectLabel`, `SelectTrigger`, `SelectValue`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/Select/` for exact types and defaults.
+`Select`, `SelectContent`, `SelectGroup`, `SelectItem`, `SelectLabel`, `SelectTrigger`, `SelectValue`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/Select/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: choose Combobox for free-form input or search, RadioGroup for a small set
 <FormField label="Chapter" required><Select name="chapter"><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent><SelectItem value="tokyo">Tokyo</SelectItem></SelectContent></Select></FormField>
 ```
 
-See `ui/src/components/Select/Select.stories.tsx` for states and compositions.
+See `design-system/src/components/Select/Select.stories.tsx` for states and compositions.

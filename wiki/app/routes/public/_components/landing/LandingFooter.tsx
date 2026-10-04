@@ -1,4 +1,4 @@
-import { Inline, Text, Link as UiLink } from "@gdgjp/ui";
+import { Inline, Text, Link as UiLink } from "@gdgjp/design-system";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 

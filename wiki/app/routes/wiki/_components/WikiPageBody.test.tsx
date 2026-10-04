@@ -18,8 +18,8 @@ vi.mock("~/hooks/useMediaQuery", () => ({
   useMediaQuery: () => false,
 }));
 
-vi.mock("@gdgjp/ui", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@gdgjp/ui")>()),
+vi.mock("@gdgjp/design-system", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@gdgjp/design-system")>()),
   useTheme: () => ({ resolvedTheme: "light" }),
 }));
 

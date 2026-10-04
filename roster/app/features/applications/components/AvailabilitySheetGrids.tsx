@@ -59,9 +59,7 @@ export function AvailabilitySheetGrids({
   const sheets = getAvailabilitySheets(rosterSheets, timeSlots);
 
   if (sheets.length === 0) {
-    return (
-      <output className="text-sm text-muted-foreground">回答できるシフト表がありません。</output>
-    );
+    return <output className="text-sm text-muted">回答できるシフト表がありません。</output>;
   }
 
   return (

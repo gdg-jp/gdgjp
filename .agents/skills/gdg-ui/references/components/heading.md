@@ -8,7 +8,7 @@ Avoid: skipping levels based only on visual size, or using it to emphasize ordin
 
 ## Public API
 
-`Heading`. Check `ui/src/components/Heading/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Heading`. Check `design-system/src/components/Heading/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: skipping levels based only on visual size, or using it to emphasize ordin
 <Heading level={1}>Event management</Heading>
 ```
 
-See `ui/src/components/Heading/Heading.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Heading/Heading.stories.tsx` for states, compositions, and narrow-width layouts.

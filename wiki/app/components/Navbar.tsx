@@ -1,4 +1,3 @@
-import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
 import {
   Button,
   DropdownMenu,
@@ -10,14 +9,15 @@ import {
   IconButton,
   Input,
   useTheme,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
+import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form, Link, useFetcher, useLocation, useSearchParams } from "react-router";
 import NotificationBell from "~/features/notifications/components/NotificationBell";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 interface NavbarProps {
   user: { name: string; email: string; image?: string | null } | null;
   sidebarOpen?: boolean;

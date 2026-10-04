@@ -205,7 +205,7 @@ function AddColumnForm({
     <div className="flex flex-wrap items-end gap-2">
       <label className="space-y-1 text-sm">
         <span className="block font-medium">トラック</span>
-        <select ref={trackRef} className="rounded-xl border-2 border-black bg-white p-2">
+        <select ref={trackRef} className="rounded-xl border-2 border-border bg-surface p-2">
           {tracks.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
@@ -215,7 +215,7 @@ function AddColumnForm({
       </label>
       <label className="space-y-1 text-sm">
         <span className="block font-medium">役割</span>
-        <select ref={roleRef} className="rounded-xl border-2 border-black bg-white p-2">
+        <select ref={roleRef} className="rounded-xl border-2 border-border bg-surface p-2">
           {roles.map((r) => (
             <option key={r.id} value={r.id}>
               {r.name}
@@ -230,7 +230,7 @@ function AddColumnForm({
           const roleId = roleRef.current?.value;
           if (trackId && roleId) onAdd({ trackId, roleId });
         }}
-        className="rounded-full border-2 border-black bg-white px-4 py-2 font-bold transition hover:bg-neutral-100"
+        className="rounded-full border-2 border-border bg-surface px-4 py-2 font-bold transition hover:bg-neutral-100"
       >
         役割を追加
       </button>
@@ -260,7 +260,7 @@ function TrackHeaderRow({
           key={g.trackId}
           colSpan={g.span}
           scope="colgroup"
-          className="data-grid-colhead data-grid-colhead-group font-bold tracking-wide text-muted-foreground uppercase"
+          className="data-grid-colhead data-grid-colhead-group font-bold tracking-wide text-muted uppercase"
         >
           {trackName.get(g.trackId) ?? g.trackId}
         </th>

@@ -16,17 +16,17 @@ describe("Wiki shared UI theme", () => {
       "@layer theme, base, gdg-tokens, gdg-base, gdg-components, utilities;",
     );
     expect(css.match(/@import "tailwindcss";/g)).toHaveLength(1);
-    expect(css.match(/@import "@gdgjp\/ui\/tailwind\.css";/g)).toHaveLength(1);
-    expect(css.match(/@import "@gdgjp\/ui\/components\.css";/g)).toHaveLength(1);
-    expect(css.match(/@import "@gdgjp\/ui\/fonts\.css";/g)).toHaveLength(1);
+    expect(css.match(/@import "@gdgjp\/design-system\/tailwind\.css";/g)).toHaveLength(1);
+    expect(css.match(/@import "@gdgjp\/design-system\/components\.css";/g)).toHaveLength(1);
+    expect(css.match(/@import "@gdgjp\/design-system\/fonts\.css";/g)).toHaveLength(1);
     expect(css.indexOf('@import "tailwindcss";')).toBeLessThan(
-      css.indexOf('@import "@gdgjp/ui/tailwind.css";'),
+      css.indexOf('@import "@gdgjp/design-system/tailwind.css";'),
     );
-    expect(css.indexOf('@import "@gdgjp/ui/tailwind.css";')).toBeLessThan(
-      css.indexOf('@import "@gdgjp/ui/components.css";'),
+    expect(css.indexOf('@import "@gdgjp/design-system/tailwind.css";')).toBeLessThan(
+      css.indexOf('@import "@gdgjp/design-system/components.css";'),
     );
-    expect(css.indexOf('@import "@gdgjp/ui/components.css";')).toBeLessThan(
-      css.indexOf('@import "@gdgjp/ui/fonts.css";'),
+    expect(css.indexOf('@import "@gdgjp/design-system/components.css";')).toBeLessThan(
+      css.indexOf('@import "@gdgjp/design-system/fonts.css";'),
     );
     expect(css).not.toContain("@theme {");
   });

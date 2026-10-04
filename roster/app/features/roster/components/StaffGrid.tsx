@@ -55,7 +55,7 @@ export function StaffGrid({
 
   if (columns.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-muted">
         表示できるスタッフがいません。募集期間中に登録があるか確認してください。
       </p>
     );

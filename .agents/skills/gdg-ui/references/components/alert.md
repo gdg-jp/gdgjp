@@ -8,7 +8,7 @@ Avoid: using it instead of a Toast for a brief action-completion message or inst
 
 ## Public API
 
-`Alert`. Check `ui/src/components/Alert/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Alert`. Check `design-system/src/components/Alert/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it instead of a Toast for a brief action-completion message or inst
 <Alert tone="danger" title="Could not save">Check the form values.</Alert>
 ```
 
-See `ui/src/components/Alert/Alert.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Alert/Alert.stories.tsx` for states, compositions, and narrow-width layouts.

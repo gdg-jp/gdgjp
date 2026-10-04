@@ -8,7 +8,7 @@ Avoid: using it only as a section heading or toolbar, or using it as a place for
 
 ## Public API
 
-`PageHeader`. Check `ui/src/components/PageHeader/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`PageHeader`. Check `design-system/src/components/PageHeader/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it only as a section heading or toolbar, or using it as a place for
 <PageHeader title="Events" description="Manage event details" actions={<Button>Create</Button>} />
 ```
 
-See `ui/src/components/PageHeader/PageHeader.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/PageHeader/PageHeader.stories.tsx` for states, compositions, and narrow-width layouts.

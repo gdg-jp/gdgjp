@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
 import { useAnchoredMenu } from "../useAnchoredMenu";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export interface DropdownOption {
   value: string;
   label: string;

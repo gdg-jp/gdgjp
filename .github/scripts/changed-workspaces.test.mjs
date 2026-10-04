@@ -163,10 +163,20 @@ test("detects agent-host/workspace changes with agentHostWorkspace predicate", (
 });
 
 test("GDG UI changes validate and deploy its consumers", () => {
-  const result = classifyChanges(["ui/src/styles/tokens.css"]);
-  assert.deepEqual(result.ci, ["@gdgjp/ui", "@gdgjp/accounts", "@gdgjp/wiki", "@gdgjp/roster"]);
-  assert.deepEqual(result.build, ["@gdgjp/ui", "@gdgjp/accounts", "@gdgjp/wiki", "@gdgjp/roster"]);
-  assert.deepEqual(result.e2e, ["ui", "accounts", "wiki", "roster"]);
+  const result = classifyChanges(["design-system/src/styles/tokens.css"]);
+  assert.deepEqual(result.ci, [
+    "@gdgjp/design-system",
+    "@gdgjp/accounts",
+    "@gdgjp/wiki",
+    "@gdgjp/roster",
+  ]);
+  assert.deepEqual(result.build, [
+    "@gdgjp/design-system",
+    "@gdgjp/accounts",
+    "@gdgjp/wiki",
+    "@gdgjp/roster",
+  ]);
+  assert.deepEqual(result.e2e, ["design-system", "accounts", "wiki", "roster"]);
   assert.deepEqual(
     result.deploy.map(({ app }) => app),
     ["accounts", "wiki", "roster"],
@@ -174,5 +184,8 @@ test("GDG UI changes validate and deploy its consumers", () => {
 });
 
 test("UI gitlink updates select the same targets as library source changes", () => {
-  assert.deepEqual(classifyChanges(["ui"]), classifyChanges(["ui/README.md"]));
+  assert.deepEqual(
+    classifyChanges(["design-system"]),
+    classifyChanges(["design-system/README.md"]),
+  );
 });

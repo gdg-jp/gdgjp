@@ -1,6 +1,6 @@
 import { MdEditor } from "md-editor-rt";
 import "md-editor-rt/lib/style.css";
-import { useTheme } from "@gdgjp/ui";
+import { useTheme } from "@gdgjp/design-system";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,7 +13,7 @@ import { useCollabEditor } from "~/features/editor/use-collab-editor";
 // Types
 // ---------------------------------------------------------------------------
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 interface Page {
   id: string;
   titleJa: string;

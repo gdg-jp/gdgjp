@@ -1,4 +1,4 @@
-import { Button, Icons, PageHeader as SharedPageHeader } from "@gdgjp/ui";
+import { Button, Icons, PageHeader as SharedPageHeader } from "@gdgjp/design-system";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 

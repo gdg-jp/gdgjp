@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { MdEditor } from "md-editor-rt";
 import "md-editor-rt/lib/style.css";
-import { useTheme } from "@gdgjp/ui";
+import { useTheme } from "@gdgjp/design-system";
 
 import { nanoid } from "nanoid";
 import { useState } from "react";
@@ -17,7 +17,7 @@ import { getDb } from "~/lib/db.server";
 // Meta
 // ---------------------------------------------------------------------------
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export const meta: MetaFunction = () => [{ title: "New Page — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------

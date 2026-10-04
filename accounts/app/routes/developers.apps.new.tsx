@@ -1,4 +1,4 @@
-import { Alert, Button, Text } from "@gdgjp/ui";
+import { Alert, Button, Text } from "@gdgjp/design-system";
 import { useTranslation } from "react-i18next";
 import { Form, Link, data, useNavigation } from "react-router";
 import {

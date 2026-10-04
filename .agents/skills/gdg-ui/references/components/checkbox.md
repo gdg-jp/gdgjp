@@ -8,7 +8,7 @@ Avoid: using it for an immediately applied on/off setting or as a substitute for
 
 ## Public API
 
-`Checkbox`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/Checkbox/` for exact types and defaults.
+`Checkbox`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/Checkbox/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for an immediately applied on/off setting or as a substitute for
 <FormField label="Agree to the terms" required><Checkbox name="consent" /></FormField>
 ```
 
-See `ui/src/components/Checkbox/Checkbox.stories.tsx` for states and compositions.
+See `design-system/src/components/Checkbox/Checkbox.stories.tsx` for states and compositions.

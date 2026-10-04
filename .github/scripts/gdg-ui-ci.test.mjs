@@ -17,23 +17,28 @@ function stepByName(job, name) {
 }
 
 test("CSS-only UI changes trigger build, behavior tests and visual checks", () => {
-  const steps = changedSteps("full", ["ui/src/styles/tokens.css"]);
+  const steps = changedSteps("full", ["design-system/src/styles/tokens.css"]);
   const commands = steps.map(([, command]) => command).join("\n");
-  assert.match(commands, /--filter=@gdgjp\/ui/);
-  assert.match(commands, /ui test\n/);
-  assert.match(commands, /ui test:e2e/);
+  assert.match(commands, /--filter=@gdgjp\/design-system/);
+  assert.match(commands, /design-system test\n/);
+  assert.match(commands, /design-system test:e2e/);
   assert.doesNotMatch(commands, /--filter=@gdgjp\/tinyurl/);
 });
 
 test("UI font changes are validated even without a TypeScript edit", () => {
-  const names = changedSteps("full", ["ui/assets/fonts/GoogleSans.woff2"]).map(([name]) => name);
+  const names = changedSteps("full", ["design-system/assets/fonts/GoogleSans.woff2"]).map(
+    ([name]) => name,
+  );
   assert.ok(names.includes("build"));
   assert.ok(names.includes("test:ui"));
   assert.ok(names.includes("e2e:ui"));
 });
 
 test("UI E2E edits run the suite once and unrelated apps retain related tests", () => {
-  const steps = changedSteps("full", ["ui/e2e/library.spec.ts", "tinyurl/app/lib/utils.ts"]);
+  const steps = changedSteps("full", [
+    "design-system/e2e/library.spec.ts",
+    "tinyurl/app/lib/utils.ts",
+  ]);
   assert.equal(steps.filter(([name]) => name === "e2e:ui").length, 1);
   assert.ok(steps.some(([, command]) => command.includes("@gdgjp/tinyurl exec vitest related")));
 });
@@ -104,7 +109,8 @@ test("hosted CI builds UI before every clean consumer job", () => {
     const job = workflow.jobs[jobName];
     const sharedBuildIndex = job.steps.findIndex(
       (step) =>
-        step.name === "Build shared UI dependency" && step.run === "pnpm --filter @gdgjp/ui build",
+        step.name === "Build shared UI dependency" &&
+        step.run === "pnpm --filter @gdgjp/design-system build",
     );
     assert.notEqual(sharedBuildIndex, -1, `${jobName} must build the shared UI package`);
     assert.equal(
@@ -121,7 +127,7 @@ test("hosted CI builds UI before every clean consumer job", () => {
     const consumerIndex = flattened.findIndex(
       (step) =>
         step.name !== "Build shared UI dependency" &&
-        String(step.run ?? "").includes("@gdgjp/ui") &&
+        String(step.run ?? "").includes("@gdgjp/design-system") &&
         (String(step.run).includes("typecheck") ||
           String(step.run).includes("test") ||
           String(step.run).includes("build")),
@@ -137,7 +143,7 @@ test("hosted CI builds UI before every clean consumer job", () => {
   ).parallel;
   assert.equal(
     buildParallel.find((step) => step.name === "Build GDG UI").run,
-    "pnpm --filter @gdgjp/ui test:consumer",
+    "pnpm --filter @gdgjp/design-system test:consumer",
   );
 });
 
@@ -148,7 +154,7 @@ test("Wiki E2E setup is isolated from Accounts and uploads only the report", () 
   assert.equal(stepByName(job, "Prepare Wiki E2E state").if, "matrix.app == 'wiki'");
   assert.equal(
     stepByName(job, "Migrate Accounts local database").if,
-    "matrix.app != 'ui' && matrix.app != 'wiki'",
+    "matrix.app != 'design-system' && matrix.app != 'wiki'",
   );
   const wikiVars = stepByName(job, "Create Wiki E2E vars").run;
   assert.match(wikiVars, /WIKI_E2E_SESSION_SECRET=ci-wiki-e2e-session-secret/);
@@ -194,7 +200,7 @@ test("deploy builds shared UI before its parallel application builds", () => {
 });
 
 test("UI gitlink updates run local library checks", () => {
-  const names = changedSteps("full", ["ui"]).map(([name]) => name);
+  const names = changedSteps("full", ["design-system"]).map(([name]) => name);
   for (const name of ["typecheck", "build", "test:ui", "e2e:ui"]) {
     assert.ok(names.includes(name), name);
   }
@@ -213,7 +219,7 @@ test("every package-installing job initializes the UI submodule first", () => {
         job.steps?.findIndex((step) => String(step.run ?? "").includes("pnpm install")) ?? -1;
       if (installIndex < 0) continue;
       const initIndex = job.steps.findIndex(
-        (step) => step.run === "git submodule update --init ui",
+        (step) => step.run === "git submodule update --init design-system",
       );
       assert.ok(initIndex >= 0 && initIndex < installIndex, `${workflowName}: ${jobName}`);
     }

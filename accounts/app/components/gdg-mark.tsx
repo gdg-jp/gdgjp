@@ -1,4 +1,4 @@
-import { cn } from "@gdgjp/ui";
+import { cn } from "@gdgjp/design-system";
 
 type Size = "sm" | "md" | "lg";
 

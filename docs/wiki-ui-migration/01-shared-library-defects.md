@@ -1,4 +1,4 @@
-# Unit 01 — `@gdgjp/ui` library defect の解消
+# Unit 01 — `@gdgjp/design-system` library defect の解消
 
 ## Context
 
@@ -13,15 +13,15 @@
 - `FormField hideLabel`
 - working `SidebarTrigger` を含む `AppShell`
 
-一方、現在の Wiki WIP と `ui/` source の照合から、少なくとも3件の blocker が確認されている。
+一方、現在の Wiki WIP と `design-system/` source の照合から、少なくとも3件の blocker が確認されている。
 
-1. `ui/src/components/Combobox/Combobox.tsx:40,150,170`: reference は remote search を app 所有とするが、実装は
+1. `design-system/src/components/Combobox/Combobox.tsx:40,150,170`: reference は remote search を app 所有とするが、実装は
    internal query による client filtering を常に行い、単一選択後に常に close し、active option/
    `aria-activedescendant`/Arrow navigation を所有しない。ShareDialog の async multiple selection を shared
    keyboard contract のまま composition できない。
-2. `ui/src/components/Icons/IconName.ts:450` と `Icons.tsx:66-74`: Wiki が直接 `lucide-react` から使う64 icon のうち、
+2. `design-system/src/components/Icons/IconName.ts:450` と `Icons.tsx:66-74`: Wiki が直接 `lucide-react` から使う64 icon のうち、
    現 public `IconName` で確認できるのは34、30は未提供。直接 import を禁止する移行契約と両立しない。
-3. `ui/src/components/DatePicker/DatePicker.tsx:144,167`: `value === undefined` を uncontrolled 判定にも使うため、
+3. `design-system/src/components/DatePicker/DatePicker.tsx:144,167`: `value === undefined` を uncontrolled 判定にも使うため、
    controlled な空値を表現できない。期限を選択後に親が clear しても内部値が再表示され、Wiki の
    `string | null` 期限契約を保持できない。同じ判定は子の `Calendar.tsx:79,145` にもあり、DatePicker だけを
    修正しても Calendar の内部選択が stale になるため、同じ defect の companion fix として扱う。
@@ -50,7 +50,7 @@
 
 ## External Goals
 
-- Wiki が app-local Radix/listbox/icon/calendar workaround を作らず、public `@gdgjp/ui` contract だけで
+- Wiki が app-local Radix/listbox/icon/calendar workaround を作らず、public `@gdgjp/design-system` contract だけで
   移行できる。
 - 既存の Combobox single-select consumer、既存 icon consumer、uncontrolled Calendar/DatePicker consumer を
   壊さない。
@@ -159,7 +159,7 @@ registry key と `IconName` type を同じ source から導出または type ass
 
 resolution は suffix を除いた base name を正規化し、animated registry、static registry の順に解決する。
 どちらにもない場合は現行どおり明示的に throw し、silent fallback や意味の近い別 icon は使わない。
-`IconName` と必要なら `IconBaseName` を `ui/src/components/Icons/index.ts` から public type export し、top-level
+`IconName` と必要なら `IconBaseName` を `design-system/src/components/Icons/index.ts` から public type export し、top-level
 barrel から consumer が import できることを declaration/consumer test で固定する。
 
 static icon は current `Icons` の outer `<div class="gdg-icons">` contract に adapter し、内側 SVG は
@@ -219,7 +219,7 @@ Wiki の `YYYY-MM-DD | null` adapter は後続 unit で `new Date(year, month - 
 ### Phase 0 — Baseline and contract freeze
 
 1. `git status --short`、staged/unstaged diff、対象 path の tracked JS を確認し、既存 Wiki WIP と無関係な
-   `ui/` change を上書きしない。
+   `design-system/` change を上書きしない。
 2. AST で `wiki/app/**/*.{ts,tsx}` の `lucide-react` named imports を再収集し、64/34/30 inventory と usage props
    (`size`, `className`, `aria-*`, `style`, `strokeWidth`) を保存する。件数が変わっていれば本文と test fixture を
    同じ変更で更新する。
@@ -268,9 +268,9 @@ Wiki の `YYYY-MM-DD | null` adapter は後続 unit で `new Date(year, month - 
 
 1. TypeScript source を正とし、現在 tracked されている対応 `.js` files を同じ behavior へ同期する。
    無関係な generated JS を一括再生成・削除しない。
-2. `ui/README.md`、`ui/DESIGN.md`、`gdg-ui` の Combobox/Icons/Calendar/DatePicker references に public props、
+2. `design-system/README.md`、`design-system/DESIGN.md`、`gdg-ui` の Combobox/Icons/Calendar/DatePicker references に public props、
    controlled-empty rule、keyboard/focus、static icon no-op animation を記録する。
-3. `ui/consumer/App.tsx` または専用 type fixture に new props と全 icon name を package root import だけで使用する
+3. `design-system/consumer/App.tsx` または専用 type fixture に new props と全 icon name を package root import だけで使用する
    example を追加する。内部 path import は使わない。
 4. focused checks、build、consumer、Storybook、Playwright を順に実行し、visual snapshot が変わる場合は
    Light/Dark × 390/1280 の差分を目視して意図を記録する。
@@ -281,15 +281,15 @@ Wiki の `YYYY-MM-DD | null` adapter は後続 unit で `new Date(year, month - 
 
 | area | files | planned change |
 | --- | --- | --- |
-| Combobox source | `ui/src/components/Combobox/Combobox.tsx`, tracked `Combobox.js` | public props、collection、active state、keyboard/focus、filter/close policy |
-| Combobox style | `ui/src/styles/components.css` | `data-active`、disabled、forced-colors/reduced-motion。既存 filter exit motion は維持 |
-| Combobox coverage | `Combobox.stories.tsx/.js`, new `Combobox.test.tsx/.js`, new `ui/e2e/combobox.spec.ts` | compatibility、remote/multiple、async mutation、keyboard、axe |
+| Combobox source | `design-system/src/components/Combobox/Combobox.tsx`, tracked `Combobox.js` | public props、collection、active state、keyboard/focus、filter/close policy |
+| Combobox style | `design-system/src/styles/components.css` | `data-active`、disabled、forced-colors/reduced-motion。既存 filter exit motion は維持 |
+| Combobox coverage | `Combobox.stories.tsx/.js`, new `Combobox.test.tsx/.js`, new `design-system/e2e/combobox.spec.ts` | compatibility、remote/multiple、async mutation、keyboard、axe |
 | Icons source | `IconName.ts`, `Icons.tsx`, tracked `Icons.js`, optional internal static registry | 30 static names、resolver、adapter、stroke width、no-op handle |
-| Icons exports/coverage | `Icons/index.ts/.js`, `Icons.test.tsx/.js`, `Icons.stories.tsx/.js`, `ui/e2e/icons.spec.ts` | public type、64-name runtime/type、animated/static browser contract |
+| Icons exports/coverage | `Icons/index.ts/.js`, `Icons.test.tsx/.js`, `Icons.stories.tsx/.js`, `design-system/e2e/icons.spec.ts` | public type、64-name runtime/type、animated/static browser contract |
 | Date source | `DatePicker.tsx/.js`, `Calendar.tsx/.js` | prop-presence controlled state、draft sync、selected/month reconciliation |
-| Date coverage | DatePicker/Calendar stories and tracked JS, new or updated unit tests, `ui/e2e/date-picker.spec.ts`, `ui/e2e/calendar.spec.ts` | clear/replace/reopen、uncontrolled、constraints、local date |
-| package contract | `ui/src/components/index.ts/.js`, `ui/src/index.ts`, `ui/src/index.test.tsx/.js`, `ui/consumer/App.tsx` | intended exports と package-only compile/SSR fixture |
-| documentation | `ui/README.md`, `ui/DESIGN.md`, `.agents/skills/gdg-ui/references/components/{combobox,icons,calendar,date-picker}.md` | source と public guidance の同期 |
+| Date coverage | DatePicker/Calendar stories and tracked JS, new or updated unit tests, `design-system/e2e/date-picker.spec.ts`, `design-system/e2e/calendar.spec.ts` | clear/replace/reopen、uncontrolled、constraints、local date |
+| package contract | `design-system/src/components/index.ts/.js`, `design-system/src/index.ts`, `design-system/src/index.test.tsx/.js`, `design-system/consumer/App.tsx` | intended exports と package-only compile/SSR fixture |
+| documentation | `design-system/README.md`, `design-system/DESIGN.md`, `.agents/skills/gdg-ui/references/components/{combobox,icons,calendar,date-picker}.md` | source と public guidance の同期 |
 
 barrel files は既存 export で足りる場合に意味のない touch をしない。ただし `IconName` の public type export と
 consumer compile fixture は必須とする。新規 `.js` counterpart の作成要否は実装開始時の tracked state に従い、
@@ -345,7 +345,7 @@ TSX だけ変更して既存 tracked JS を stale にしない。
 
 ## Protocols
 
-- `ui/` は routing、network request、Wiki ACL/subject/chip type、i18n resource を import しない。
+- `design-system/` は routing、network request、Wiki ACL/subject/chip type、i18n resource を import しない。
 - Combobox は accessible name を consumer から受け、listbox/option id と active state を安定させる。既存の
   Japanese fallback label は互換のため維持できるが、new examples は明示的な localized label を渡す。
 - remote mode では library が候補を再 filter せず、consumer result をそのまま表示する。
@@ -364,15 +364,15 @@ TSX だけ変更して既存 tracked JS を stale にしない。
 focused development checks:
 
 ```sh
-rtk pnpm --filter @gdgjp/ui exec vitest run \
+rtk pnpm --filter @gdgjp/design-system exec vitest run \
   src/components/Combobox/Combobox.test.tsx \
   src/components/Icons/Icons.test.tsx \
   src/components/Calendar/Calendar.test.tsx \
   src/components/DatePicker/DatePicker.test.tsx
-rtk pnpm --filter @gdgjp/ui typecheck
-rtk pnpm --filter @gdgjp/ui build
-rtk pnpm --filter @gdgjp/ui test:consumer
-rtk pnpm --filter @gdgjp/ui build:storybook
+rtk pnpm --filter @gdgjp/design-system typecheck
+rtk pnpm --filter @gdgjp/design-system build
+rtk pnpm --filter @gdgjp/design-system test:consumer
+rtk pnpm --filter @gdgjp/design-system build:storybook
 rtk pnpm --dir ui exec playwright test \
   e2e/combobox.spec.ts e2e/icons.spec.ts e2e/calendar.spec.ts e2e/date-picker.spec.ts
 ```
@@ -380,19 +380,19 @@ rtk pnpm --dir ui exec playwright test \
 final package gate:
 
 ```sh
-rtk pnpm --filter @gdgjp/ui test
-rtk pnpm --filter @gdgjp/ui test:e2e
+rtk pnpm --filter @gdgjp/design-system test
+rtk pnpm --filter @gdgjp/design-system test:e2e
 rtk pnpm exec biome check \
-  ui/src/components/Combobox \
-  ui/src/components/Icons \
-  ui/src/components/Calendar \
-  ui/src/components/DatePicker \
-  ui/e2e
+  design-system/src/components/Combobox \
+  design-system/src/components/Icons \
+  design-system/src/components/Calendar \
+  design-system/src/components/DatePicker \
+  design-system/e2e
 rtk git diff --check
 ```
 
-`test:consumer` は必ず `build` 後に行う。`pnpm --filter @gdgjp/ui typecheck` が TS5096 wrapper/configuration
-baseline で失敗する checkout では、原因を確認した上で `ui/` から `rtk pnpm exec tsc --noEmit` を追加実行し、
+`test:consumer` は必ず `build` 後に行う。`pnpm --filter @gdgjp/design-system typecheck` が TS5096 wrapper/configuration
+baseline で失敗する checkout では、原因を確認した上で `design-system/` から `rtk pnpm exec tsc --noEmit` を追加実行し、
 wrapper failure と source error を分けて報告する。Playwright は stale Storybook port を再利用せず、full suite の
 既知 failure と focused regression を分離する。
 
@@ -400,9 +400,9 @@ wrapper failure と source error を分けて報告する。Playwright は stale
 
 | library file | 期待 behavior | 回避すると必要になる app work | fix 後の workaround |
 | --- | --- | --- | --- |
-| `ui/src/components/Combobox/Combobox.tsx:76-358,388-678`（tracked `Combobox.js`、`components.css`） | remote filtering、controlled query/value/active、継続選択、listbox keyboard/focus | ShareDialog が listbox identity、keyboard、focus、outside click を再実装 | 無効。shared behavior に置換して削除。検証: [`Combobox.test.tsx`](../../ui/src/components/Combobox/Combobox.test.tsx)、[`combobox.spec.ts`](../../ui/e2e/combobox.spec.ts) |
-| `ui/src/components/Icons/IconName.ts:1-480`, `Icons.tsx:73-189`, `StaticIcons.ts:1-69`（tracked JS、barrel） | Wiki の64 semantic icon を同じ public wrapper/type/ref から利用 | 30種を直接 import、近似 icon へ置換、または source 別に分岐 | 無効。shared wrapper に一本化して direct dependency を削除。検証: [`Icons.test.tsx`](../../ui/src/components/Icons/Icons.test.tsx)、[`icons.spec.ts`](../../ui/e2e/icons.spec.ts) |
-| `ui/src/components/DatePicker/DatePicker.tsx:20-333`, `Calendar/Calendar.tsx:58-267`（tracked JS） | controlled empty、外部 clear/replace、uncontrolled default、selected/month sync | Wiki が custom calendar/date dropdown、remount key、stale-state guard を維持 | 無効。shared DatePicker と app の date adapter に置換して削除。検証: [`DatePicker.test.tsx`](../../ui/src/components/DatePicker/DatePicker.test.tsx)、[`Calendar.test.tsx`](../../ui/src/components/Calendar/Calendar.test.tsx)、[`date-picker.spec.ts`](../../ui/e2e/date-picker.spec.ts) |
+| `design-system/src/components/Combobox/Combobox.tsx:76-358,388-678`（tracked `Combobox.js`、`components.css`） | remote filtering、controlled query/value/active、継続選択、listbox keyboard/focus | ShareDialog が listbox identity、keyboard、focus、outside click を再実装 | 無効。shared behavior に置換して削除。検証: [`Combobox.test.tsx`](../../design-system/src/components/Combobox/Combobox.test.tsx)、[`combobox.spec.ts`](../../design-system/e2e/combobox.spec.ts) |
+| `design-system/src/components/Icons/IconName.ts:1-480`, `Icons.tsx:73-189`, `StaticIcons.ts:1-69`（tracked JS、barrel） | Wiki の64 semantic icon を同じ public wrapper/type/ref から利用 | 30種を直接 import、近似 icon へ置換、または source 別に分岐 | 無効。shared wrapper に一本化して direct dependency を削除。検証: [`Icons.test.tsx`](../../design-system/src/components/Icons/Icons.test.tsx)、[`icons.spec.ts`](../../design-system/e2e/icons.spec.ts) |
+| `design-system/src/components/DatePicker/DatePicker.tsx:20-333`, `Calendar/Calendar.tsx:58-267`（tracked JS） | controlled empty、外部 clear/replace、uncontrolled default、selected/month sync | Wiki が custom calendar/date dropdown、remount key、stale-state guard を維持 | 無効。shared DatePicker と app の date adapter に置換して削除。検証: [`DatePicker.test.tsx`](../../design-system/src/components/DatePicker/DatePicker.test.tsx)、[`Calendar.test.tsx`](../../design-system/src/components/Calendar/Calendar.test.tsx)、[`date-picker.spec.ts`](../../design-system/e2e/date-picker.spec.ts) |
 
 handoff 時は実際の変更後 line を記入し直し、期待 behavior を test 名へ link する。追加 defect が見つかった場合も、
 library file/line、期待 behavior、必要だった app workaround、fix 後に workaround が有効かを同じ表へ追記する。
@@ -411,7 +411,7 @@ library file/line、期待 behavior、必要だった app workaround、fix 後�
 ## Tech Stack
 
 - React 19、TypeScript ESM
-- `@gdgjp/ui` component-first source/export structure
+- `@gdgjp/design-system` component-first source/export structure
 - Radix Popover と shared Calendar composition
 - `lucide-animated`、library-internal `lucide-react` static registry
 - stable `gdg-*` CSS、semantic tokens、forced-colors、reduced-motion media query

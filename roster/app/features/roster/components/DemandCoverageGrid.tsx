@@ -56,7 +56,7 @@ export function DemandCoverageGrid({
   const reportByCell = useMemo(() => indexReportByCell(report), [report]);
 
   if (columns.length === 0) {
-    return <p className="text-sm text-muted-foreground">需要が設定されていません。</p>;
+    return <p className="text-sm text-muted">需要が設定されていません。</p>;
   }
 
   return (

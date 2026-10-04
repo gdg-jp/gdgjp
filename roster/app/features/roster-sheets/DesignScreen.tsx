@@ -1,4 +1,4 @@
-import { Link as UiLink } from "@gdgjp/ui";
+import { Link as UiLink } from "@gdgjp/design-system";
 import type { ReactNode } from "react";
 import { Link as RouterLink } from "react-router";
 import { DemandMatrix } from "../demand/components/DemandMatrix";
@@ -103,7 +103,7 @@ export default function DesignScreen({ loaderData, actionData }: DesignScreenPro
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5">
+    <section className="space-y-4 rounded-xl border border-border bg-surface p-4 sm:p-5">
       <h2 className="text-base font-semibold">{title}</h2>
       {children}
     </section>

@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogTitle, Inline, Stack } from "@gdgjp/ui";
+import { Dialog, DialogContent, DialogTitle, Inline, Stack } from "@gdgjp/design-system";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form, useActionData, useNavigation } from "react-router";

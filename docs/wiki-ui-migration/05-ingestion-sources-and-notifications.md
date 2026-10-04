@@ -23,7 +23,7 @@ Worker orchestration、source driver、queue、API、OAuth scope は変更しな
 
 受け入れ条件:
 
-- 一般 dialog/select/popover/button/input/progress/alert/toast/icon は `@gdgjp/ui` を使う。
+- 一般 dialog/select/popover/button/input/progress/alert/toast/icon は `@gdgjp/design-system` を使う。
 - native file input など必要な browser control は残せるが、visible label、description、error、focus style を
   shared FormField contract で包む。
 - realtime reconnect と loader authoritative state、import/refresh/archive の side effect は不変。
@@ -106,7 +106,7 @@ navigation の順序、unread count、auto-dismiss behavior を維持する。Pu
 ## Tech Stack
 
 - React 19、React Router loader/action/fetcher、react-i18next
-- `@gdgjp/ui` form/overlay/feedback/data/layout/icon components
+- `@gdgjp/design-system` form/overlay/feedback/data/layout/icon components
 - Agents SDK client state、Workflow/realtime events、browser file APIs
 - Google/Discord integration UI（protocol/domain は Wiki 所有）
 - Vitest、Testing Library、Playwright、axe、visual snapshots

@@ -14,7 +14,7 @@ import { getDb } from "~/lib/db.server";
 // Meta
 // ---------------------------------------------------------------------------
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export const meta: MetaFunction = () => [{ title: "New Task List — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------

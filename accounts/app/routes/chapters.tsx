@@ -1,4 +1,3 @@
-import type { AuthUser } from "@gdgjp/gdg-lib";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,9 +15,10 @@ import {
   Input,
   Stack,
   Text,
-} from "@gdgjp/ui";
-import { toast } from "@gdgjp/ui";
-import { cn } from "@gdgjp/ui";
+} from "@gdgjp/design-system";
+import { toast } from "@gdgjp/design-system";
+import { cn } from "@gdgjp/design-system";
+import type { AuthUser } from "@gdgjp/gdg-lib";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useFetcher } from "react-router";

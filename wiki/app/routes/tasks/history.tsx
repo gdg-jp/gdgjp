@@ -9,7 +9,7 @@ import { getEffectivePagePermissions } from "~/features/pages/access.server";
 import { getDb } from "~/lib/db.server";
 import { timeAgo } from "~/lib/time";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   {
     title: data

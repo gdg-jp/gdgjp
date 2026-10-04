@@ -1,4 +1,3 @@
-import type { AuthUser } from "@gdgjp/gdg-lib";
 import {
   Alert,
   AlertDialog,
@@ -29,7 +28,8 @@ import {
   Stack,
   Table,
   Text,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
+import type { AuthUser } from "@gdgjp/gdg-lib";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form, Link, useFetcher, useNavigation } from "react-router";

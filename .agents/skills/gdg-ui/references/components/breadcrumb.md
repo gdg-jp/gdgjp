@@ -8,7 +8,7 @@ Avoid: using it as plain slash-separated text, a stepper, or tabs within the sam
 
 ## Public API
 
-`Breadcrumb`. Check `ui/src/components/Breadcrumb/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Breadcrumb`. Check `design-system/src/components/Breadcrumb/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it as plain slash-separated text, a stepper, or tabs within the sam
 <Breadcrumb><li><Link href="/events">Events</Link></li><li aria-current="page">Edit</li></Breadcrumb>
 ```
 
-See `ui/src/components/Breadcrumb/Breadcrumb.stories.tsx` for states and compositions.
+See `design-system/src/components/Breadcrumb/Breadcrumb.stories.tsx` for states and compositions.

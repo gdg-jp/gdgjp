@@ -1,14 +1,5 @@
+import { Icons } from "@gdgjp/design-system";
 import { GdgAccountMenu, GdgAppLauncher } from "@gdgjp/gdg-lib/ui";
-import {
-  CalendarDays,
-  CalendarRange,
-  ChevronDown,
-  LayoutDashboard,
-  Plus,
-  Share2,
-  UserRound,
-  UsersRound,
-} from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate, useParams } from "react-router";
 import { type EventStatus, STATUS_LABELS } from "~/features/events/status";
@@ -25,10 +16,10 @@ type ShellEvent = {
 type ShellChapter = { id: number; slug: string };
 
 const EVENT_NAV = [
-  ["design", "設計", CalendarRange],
-  ["staff", "スタッフ", UsersRound],
-  ["roster", "シフト表", CalendarDays],
-  ["share", "共有", Share2],
+  ["design", "設計", "CalendarDays"],
+  ["staff", "スタッフ", "UsersRound"],
+  ["roster", "シフト表", "CalendarDays"],
+  ["share", "共有", "Share2"],
 ] as const;
 
 export function AppShell({
@@ -94,23 +85,23 @@ export function AppShell({
 
         <nav className="sidebar-nav" aria-label="管理画面">
           <NavLink to="/" end className={navClassName}>
-            <LayoutDashboard aria-hidden="true" />
+            <Icons name="LayoutGrid" aria-hidden="true" animateOnHover={false} />
             <span>イベント一覧</span>
           </NavLink>
           {currentEvent ? (
             <div className="event-nav-group">
               <p className="nav-label">このイベント</p>
               <NavLink to={eventPath(currentEvent.id)} end className={navClassName}>
-                <LayoutDashboard aria-hidden="true" />
+                <Icons name="LayoutGrid" aria-hidden="true" animateOnHover={false} />
                 <span>概要</span>
               </NavLink>
-              {EVENT_NAV.map(([segment, label, Icon]) => (
+              {EVENT_NAV.map(([segment, label, iconName]) => (
                 <NavLink
                   key={segment}
                   to={eventSectionPath(currentEvent.id, segment, sheetId)}
                   className={navClassName}
                 >
-                  <Icon aria-hidden="true" />
+                  <Icons name={iconName} aria-hidden="true" animateOnHover={false} />
                   <span>{label}</span>
                 </NavLink>
               ))}
@@ -125,7 +116,7 @@ export function AppShell({
                 : "sidebar-link sidebar-create-link"
             }
           >
-            <Plus aria-hidden="true" />
+            <Icons name="Plus" aria-hidden="true" animateOnHover={false} />
             <span>イベントを作成</span>
           </Link>
         </nav>
@@ -138,13 +129,22 @@ export function AppShell({
             trigger={
               <button type="button" className="account-trigger" aria-label="アカウントメニュー">
                 <span className="account-avatar">
-                  {user.image ? <img src={user.image} alt="" /> : <UserRound aria-hidden="true" />}
+                  {user.image ? (
+                    <img src={user.image} alt="" />
+                  ) : (
+                    <Icons name="UserRound" aria-hidden="true" animateOnHover={false} />
+                  )}
                 </span>
                 <span className="account-copy">
                   <span className="account-name">{user.name || user.email}</span>
                   <span className="account-label">アカウント</span>
                 </span>
-                <ChevronDown className="account-chevron" aria-hidden="true" />
+                <Icons
+                  name="ChevronDown"
+                  className="account-chevron"
+                  aria-hidden="true"
+                  animateOnHover={false}
+                />
               </button>
             }
             user={user}

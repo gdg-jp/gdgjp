@@ -1,4 +1,4 @@
-import { Badge, Button, Heading, IconButton, Icons, Table, Text } from "@gdgjp/ui";
+import { Badge, Button, Heading, IconButton, Icons, Table, Text } from "@gdgjp/design-system";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { DeveloperAccessRequired, type DeveloperClientView } from "~/components/developer-apps";

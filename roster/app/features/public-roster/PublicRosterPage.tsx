@@ -79,7 +79,7 @@ export function PublicRosterPage({ loaderData }: { loaderData: PublicRosterView 
             </p>
           </div>
         </div>
-        <p className="rounded-xl border border-border bg-card p-5 font-medium">
+        <p className="rounded-xl border border-border bg-surface p-5 font-medium">
           シフト表はまだ公開されていません。
         </p>
       </PublicShell>

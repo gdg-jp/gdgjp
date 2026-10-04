@@ -8,7 +8,7 @@ Avoid: multiple Providers, subtree themes, DOM branches based on the theme value
 
 ## Public API
 
-`ThemeProvider`, `ThemeToggle`, `useTheme`, `ThemeProviderProps` (`ui/src/themes/`) and `cn` (`ui/src/utils/`). Check `ui/src/themes/` and `ui/src/utils/` for exact types and defaults.
+`ThemeProvider`, `ThemeToggle`, `useTheme`, `ThemeProviderProps` (`design-system/src/themes/`) and `cn` (`design-system/src/utils/`). Check `design-system/src/themes/` and `design-system/src/utils/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: multiple Providers, subtree themes, DOM branches based on the theme value
 <ThemeProvider nonce={nonce}><App /><ThemeToggle /></ThemeProvider>
 ```
 
-See `ui/src/themes/ThemeProvider.stories.tsx` for states and compositions.
+See `design-system/src/themes/ThemeProvider.stories.tsx` for states and compositions.

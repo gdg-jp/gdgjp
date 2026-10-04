@@ -8,7 +8,7 @@ Avoid: using it as an analytics platform for large datasets, comparing values by
 
 ## Public API
 
-`ChartContainer`, `Chart`, `ChartTooltip`, `ChartTooltipContent`, `ChartLegend`, `ChartLegendContent`, `ChartConfig`, `ChartDatum`. Check `ui/src/components/Chart/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`ChartContainer`, `Chart`, `ChartTooltip`, `ChartTooltipContent`, `ChartLegend`, `ChartLegendContent`, `ChartConfig`, `ChartDatum`. Check `design-system/src/components/Chart/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it as an analytics platform for large datasets, comparing values by
 <Chart data={data} type="bar" aria-label="Attendees by region" />
 ```
 
-See `ui/src/components/Chart/Chart.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Chart/Chart.stories.tsx` for states, compositions, and narrow-width layouts.

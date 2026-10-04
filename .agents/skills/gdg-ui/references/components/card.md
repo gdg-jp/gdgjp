@@ -8,7 +8,7 @@ Avoid: stacking Cards inside Cards or enclosing every section in a surface. For 
 
 ## Public API
 
-`Card`. Check `ui/src/components/Card/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Card`. Check `design-system/src/components/Card/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: stacking Cards inside Cards or enclosing every section in a surface. For 
 <Card><Stack><Heading level={2}>Event</Heading><Text>Details</Text></Stack></Card>
 ```
 
-See `ui/src/components/Card/Card.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Card/Card.stories.tsx` for states, compositions, and narrow-width layouts.

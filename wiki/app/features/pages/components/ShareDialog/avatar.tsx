@@ -1,7 +1,7 @@
 import { initial } from "./normalize";
 import { GENERAL_ACCESS, type GeneralAccess, type ShareSubject } from "./types";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export function Avatar({
   subject,
   size = "h-10 w-10",

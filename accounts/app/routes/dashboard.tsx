@@ -1,4 +1,3 @@
-import type { AuthUser } from "@gdgjp/gdg-lib";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +13,8 @@ import {
   Inline,
   Stack,
   Text,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
+import type { AuthUser } from "@gdgjp/gdg-lib";
 import { useTranslation } from "react-i18next";
 import { Link, redirect, useFetcher } from "react-router";
 import { PageShell } from "~/components/page-shell";

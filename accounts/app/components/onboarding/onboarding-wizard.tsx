@@ -12,8 +12,8 @@ import {
   ProgressIndicator,
   Stack,
   Text,
-} from "@gdgjp/ui";
-import { cn } from "@gdgjp/ui";
+} from "@gdgjp/design-system";
+import { cn } from "@gdgjp/design-system";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";

@@ -19,7 +19,7 @@ export function UndoRedoButtons({ canUndo, canRedo }: { canUndo: boolean; canRed
         <button
           type="submit"
           disabled={!canUndo || pendingIntent === "undo"}
-          className="rounded-full border-2 border-black bg-white px-4 py-1.5 text-sm font-bold transition hover:bg-neutral-100 disabled:opacity-40"
+          className="rounded-full border-2 border-border bg-surface px-4 py-1.5 text-sm font-bold transition hover:bg-neutral-100 disabled:opacity-40"
         >
           ← 元に戻す
         </button>
@@ -29,7 +29,7 @@ export function UndoRedoButtons({ canUndo, canRedo }: { canUndo: boolean; canRed
         <button
           type="submit"
           disabled={!canRedo || pendingIntent === "redo"}
-          className="rounded-full border-2 border-black bg-white px-4 py-1.5 text-sm font-bold transition hover:bg-neutral-100 disabled:opacity-40"
+          className="rounded-full border-2 border-border bg-surface px-4 py-1.5 text-sm font-bold transition hover:bg-neutral-100 disabled:opacity-40"
         >
           やり直す →
         </button>

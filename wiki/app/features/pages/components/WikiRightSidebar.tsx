@@ -1,11 +1,11 @@
-import { Popover, PopoverContent, PopoverTrigger } from "@gdgjp/ui";
+import { Popover, PopoverContent, PopoverTrigger } from "@gdgjp/design-system";
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 import { timeAgo } from "~/lib/time";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 const listboxRole = "listbox";
 const optionRole = "option";
 

@@ -1,4 +1,4 @@
-import { DropdownMenuItem } from "@gdgjp/ui";
+import { DropdownMenuItem } from "@gdgjp/design-system";
 
 import { Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,7 +7,7 @@ import { Skeleton } from "~/components/Skeleton";
 import type { PageDisplay } from "~/features/pages/use-page-display";
 import { PageActionsMenu } from "./PageActionsMenu";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 const btnBase =
   "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-neutral hover:text-foreground";
 

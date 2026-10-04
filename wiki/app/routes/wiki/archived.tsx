@@ -13,7 +13,7 @@ import { requireUser } from "~/features/auth/utils.server";
 import { getDb } from "~/lib/db.server";
 import { timeAgo } from "~/lib/time";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export const meta: MetaFunction = () => [{ title: "Archived — GDG Japan Wiki" }];
 
 // ---------------------------------------------------------------------------

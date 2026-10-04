@@ -3,7 +3,7 @@ import EmojiPicker, { Emoji, EmojiStyle, type EmojiClickData } from "emoji-picke
 import { useEffect, useRef, useState } from "react";
 
 /** Convert a raw emoji character to the unified hex string expected by the Emoji component. */
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 function toUnified(emoji: string): string {
   return [...emoji].map((c) => (c.codePointAt(0) ?? 0).toString(16)).join("-");
 }

@@ -1,4 +1,4 @@
-import { toast } from "@gdgjp/ui";
+import { toast } from "@gdgjp/design-system";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { useEffect, useRef, useState } from "react";

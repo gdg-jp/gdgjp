@@ -8,7 +8,7 @@ Avoid: mixing it up with a simple previous/next action or infinite scroll.
 
 ## Public API
 
-`Pagination`. Check `ui/src/components/Pagination/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Pagination`. Check `design-system/src/components/Pagination/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: mixing it up with a simple previous/next action or infinite scroll.
 <Pagination page={page} pageCount={pageCount} onPageChange={setPage} />
 ```
 
-See `ui/src/components/Pagination/Pagination.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Pagination/Pagination.stories.tsx` for states, compositions, and narrow-width layouts.

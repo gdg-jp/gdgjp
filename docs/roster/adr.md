@@ -70,8 +70,9 @@ PRD の High-Level Consideration は「ORM なし（tinyurl / scheduler に準�
   コメントごと持っていく。
 - `app/app.css` の `@source "../../gdg-lib/src/ui";` も必須。これがないと gdg-lib の共有 UI に
   Tailwind のクラスが生成されず、スタイルが当たらない。
-- `ost/` は shadcn をローカル生成していない（`components.json` を持たない）。roster も同様にし、
-  UI プリミティブは `gdg-lib` 由来のものを使う。ダークモードは持たない。
+- `ost/` は shadcn をローカル生成していない（`components.json` を持たない）。roster も同様にする。
+  アカウント UI は `gdg-lib`、共通トークン・フォント・アイコンは `@gdgjp/design-system` を使う。
+  ダークモードは持たない。
 
 ### Rejected
 

@@ -1,5 +1,5 @@
-import { Button, FormField, Input, Textarea } from "@gdgjp/ui";
-import { Dialog, DialogContent, DialogTitle } from "@gdgjp/ui";
+import { Button, FormField, Input, Textarea } from "@gdgjp/design-system";
+import { Dialog, DialogContent, DialogTitle } from "@gdgjp/design-system";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import DropdownMenu, { type DropdownOption } from "./DropdownMenu";

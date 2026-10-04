@@ -9,7 +9,7 @@ const scriptSourceExtensionPattern = /\.(?:ts|tsx|js|jsx)$/;
 const legacyImportPattern =
   /\b(?:from|import|require)\s*(?:\(\s*)?["'](lucide-react|radix-ui|@radix-ui\/[^"']+|class-variance-authority|sonner|next-themes|tailwind-merge|clsx)["']/g;
 const privateUiImportPattern =
-  /\b(?:from|import|require)\s*(?:\(\s*)?["']@gdgjp\/ui\/src(?:\/[^"']*)?["']/g;
+  /\b(?:from|import|require)\s*(?:\(\s*)?["']@gdgjp\/design-system\/src(?:\/[^"']*)?["']/g;
 const semanticColorPattern =
   /\b(?:border-foreground|border-black|border-white|text-black|text-white|bg-black|bg-white)\b/g;
 const literalColorPattern = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|color)\s*\(/gi;
@@ -40,9 +40,9 @@ const expectedLayerDeclaration =
   "@layer theme, base, gdg-tokens, gdg-base, gdg-components, utilities;";
 const sharedStyleImports = [
   '@import "tailwindcss";',
-  '@import "@gdgjp/ui/tailwind.css";',
-  '@import "@gdgjp/ui/components.css";',
-  '@import "@gdgjp/ui/fonts.css";',
+  '@import "@gdgjp/design-system/tailwind.css";',
+  '@import "@gdgjp/design-system/components.css";',
+  '@import "@gdgjp/design-system/fonts.css";',
 ];
 const baselineRelativePath = (app) => `${app}/tests/architecture/ui-conventions-baseline.json`;
 
@@ -234,7 +234,8 @@ export function findViolations(source, { extension = ".tsx" } = {}) {
       "private-ui-import",
       [...source.matchAll(privateUiImportPattern)].map((match) => ({
         index: match.index,
-        fingerprint: match[0].match(/@gdgjp\/ui\/src[^"']*/)?.[0] ?? "@gdgjp/ui/src",
+        fingerprint:
+          match[0].match(/@gdgjp\/design-system\/src[^"']*/)?.[0] ?? "@gdgjp/design-system/src",
       })),
     );
 
@@ -421,7 +422,7 @@ export function packageUsesUi(directory, cwd = repositoryRoot) {
     : { exists: false, source: "" };
   if (!file.exists) return false;
   const packageJson = parseManifest(file.source, path);
-  return packageJson.dependencies?.["@gdgjp/ui"] === "workspace:*";
+  return packageJson.dependencies?.["@gdgjp/design-system"] === "workspace:*";
 }
 
 function defaultApps(cwd) {
@@ -630,8 +631,10 @@ function checkApp(app, { mode, cwd = repositoryRoot } = {}) {
   } else {
     try {
       const packageJson = parseManifest(manifest.source, manifestPath);
-      if (packageJson.dependencies?.["@gdgjp/ui"] !== "workspace:*") {
-        errors.push(`${manifestPath}: does not declare @gdgjp/ui as a workspace dependency`);
+      if (packageJson.dependencies?.["@gdgjp/design-system"] !== "workspace:*") {
+        errors.push(
+          `${manifestPath}: does not declare @gdgjp/design-system as a workspace dependency`,
+        );
       }
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));

@@ -25,7 +25,7 @@
       "dependsOn": ["^build"],
       "outputs": ["playwright-report/**", "test-results/**"]
     },
-    "@gdgjp/ui#build": {
+    "@gdgjp/design-system#build": {
       "outputs": ["dist/**"]
     }
   }

@@ -8,7 +8,7 @@ Avoid: use Checkbox for a form field that does not take effect until a Save butt
 
 ## Public API
 
-`Switch`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/Switch/` for exact types and defaults.
+`Switch`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/Switch/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: use Checkbox for a form field that does not take effect until a Save butt
 <label><Switch checked={enabled} onCheckedChange={setEnabled} /> Enable notifications</label>
 ```
 
-See `ui/src/components/Switch/Switch.stories.tsx` for states and compositions.
+See `design-system/src/components/Switch/Switch.stories.tsx` for states and compositions.

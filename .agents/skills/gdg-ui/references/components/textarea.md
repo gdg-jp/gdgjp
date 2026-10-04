@@ -8,7 +8,7 @@ Avoid: use Input for single-line values or search. This is not a substitute for 
 
 ## Public API
 
-`Textarea`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/Textarea/` for exact types and defaults.
+`Textarea`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/Textarea/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: use Input for single-line values or search. This is not a substitute for 
 <FormField label="Description"><Textarea name="description" rows={5} /></FormField>
 ```
 
-See `ui/src/components/Textarea/Textarea.stories.tsx` for states and compositions.
+See `design-system/src/components/Textarea/Textarea.stories.tsx` for states and compositions.

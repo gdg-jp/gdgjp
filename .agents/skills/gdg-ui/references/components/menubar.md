@@ -8,7 +8,7 @@ Avoid: using it for ordinary website navigation, a single overflow menu, or mobi
 
 ## Public API
 
-`Menubar`, `MenubarMenu`, `MenubarTrigger`, `MenubarContent`, `MenubarItem`, `MenubarCheckboxItem`, `MenubarRadioGroup`, `MenubarRadioItem`, `MenubarLabel`, `MenubarSeparator`, `MenubarGroup`, `MenubarSub`, `MenubarSubTrigger`, `MenubarSubContent`, `MenubarPortal`, `MenubarArrow`. Check `ui/src/components/Menubar/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Menubar`, `MenubarMenu`, `MenubarTrigger`, `MenubarContent`, `MenubarItem`, `MenubarCheckboxItem`, `MenubarRadioGroup`, `MenubarRadioItem`, `MenubarLabel`, `MenubarSeparator`, `MenubarGroup`, `MenubarSub`, `MenubarSubTrigger`, `MenubarSubContent`, `MenubarPortal`, `MenubarArrow`. Check `design-system/src/components/Menubar/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for ordinary website navigation, a single overflow menu, or mobi
 <Menubar><MenubarMenu><MenubarTrigger>File</MenubarTrigger><MenubarContent><MenubarItem onSelect={save}>Save</MenubarItem></MenubarContent></MenubarMenu></Menubar>
 ```
 
-See `ui/src/components/Menubar/Menubar.stories.tsx` for states and compositions.
+See `design-system/src/components/Menubar/Menubar.stories.tsx` for states and compositions.

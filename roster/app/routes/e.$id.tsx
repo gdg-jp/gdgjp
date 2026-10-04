@@ -10,7 +10,7 @@ import {
   NativeSelectOption,
   PageHeader,
   Stack,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
 import { Form, Link as RouterLink, redirect, useNavigation } from "react-router";
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { canManageEvent } from "~/features/auth/permissions";
@@ -224,7 +224,7 @@ export default function EventOverview({ loaderData, actionData }: Route.Componen
           <Heading level={2}>シフト表を追加</Heading>
           <p className="gdg-muted text-sm">このイベント内で使うシフト表を作成します。</p>
           {actionData?.formError && (
-            <p className="text-sm text-destructive" role="alert">
+            <p className="text-sm text-danger" role="alert">
               {actionData.formError}
             </p>
           )}
@@ -293,7 +293,7 @@ export default function EventOverview({ loaderData, actionData }: Route.Componen
       </Card>
 
       {actionData?.reorderError && (
-        <p className="text-sm text-destructive" role="alert">
+        <p className="text-sm text-danger" role="alert">
           {actionData.reorderError}
         </p>
       )}

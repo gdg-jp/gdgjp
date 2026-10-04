@@ -22,7 +22,7 @@ function locationLabel(
 
 function Column({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="space-y-2 rounded-lg border border-border bg-card p-3">
+    <div className="space-y-2 rounded-lg border border-border bg-surface p-3">
       <h3 className="font-bold">{title}</h3>
       {children}
     </div>
@@ -52,7 +52,7 @@ export function ShortageReport({ report, ...maps }: { report: Report } & NameMap
 
   if (headcount.length === 0 && lead.length === 0 && skillMix.length === 0) {
     return (
-      <p className="rounded-xl border-2 border-black bg-white p-3 text-sm font-bold text-gdg-blue">
+      <p className="rounded-xl border-2 border-border bg-surface p-3 text-sm font-bold text-gdg-blue">
         不足・違反はありません。
       </p>
     );

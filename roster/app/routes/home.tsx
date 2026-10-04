@@ -31,7 +31,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
         </div>
         <Link
           to="/events/new"
-          className="rounded-md bg-gdg-blue px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
+          className="rounded-md bg-gdg-blue px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:brightness-95"
         >
           イベントを作成
         </Link>
@@ -41,9 +41,9 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
         <p className="text-neutral-600">まだイベントがありません。</p>
       ) : (
         <>
-          <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
+          <div className="hidden overflow-hidden rounded-xl border border-border bg-surface md:block">
             <table className="w-full border-collapse text-left text-sm">
-              <thead className="bg-muted text-xs text-muted-foreground">
+              <thead className="bg-background text-xs text-muted">
                 <tr>
                   <th className="px-4 py-3 font-semibold">イベント</th>
                   <th className="px-4 py-3 font-semibold">開催日</th>
@@ -59,7 +59,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
                   <tr key={event.id} className="border-t border-border">
                     <td className="px-4 py-3 font-semibold">{event.name}</td>
                     <td className="px-4 py-3 whitespace-nowrap">{event.date}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                    <td className="px-4 py-3 whitespace-nowrap text-muted">
                       {event.startTime}–{event.endTime}
                     </td>
                     <td className="px-4 py-3">
@@ -68,7 +68,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
                     <td className="px-4 py-3 text-right">
                       <Link
                         to={`/e/${event.id}`}
-                        className="rounded-md border border-border px-3 py-1.5 font-semibold hover:bg-muted"
+                        className="rounded-md border border-border px-3 py-1.5 font-semibold hover:bg-background"
                       >
                         開く
                       </Link>

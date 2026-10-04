@@ -30,12 +30,12 @@ export function ApplyLinkCard({
   const [copied, setCopied] = useState(false);
 
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
+    <section className="space-y-3 rounded-xl border border-border bg-surface p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold">スタッフ登録URL</h2>
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-            canApplyNow ? "bg-gdg-green/15 text-gdg-green" : "bg-muted text-muted-foreground"
+            canApplyNow ? "bg-gdg-green/15 text-gdg-green" : "bg-background text-muted"
           }`}
         >
           {canApplyNow ? "募集中" : "受付停止中"}
@@ -59,7 +59,7 @@ export function ApplyLinkCard({
               // failing silently (no copied confirmation) is enough.
             }
           }}
-          className="rounded-full border-2 border-black bg-white px-4 py-2 text-sm font-bold transition hover:bg-neutral-100"
+          className="rounded-full border-2 border-border bg-surface px-4 py-2 text-sm font-bold transition hover:bg-neutral-100"
         >
           {copied ? "コピーしました" : "コピー"}
         </button>
@@ -67,14 +67,14 @@ export function ApplyLinkCard({
           href={applyUrl}
           target="_blank"
           rel="noreferrer"
-          className="rounded-md border border-border px-4 py-2 text-sm font-semibold hover:bg-muted"
+          className="rounded-md border border-border px-4 py-2 text-sm font-semibold hover:bg-background"
         >
           登録画面を開く
         </a>
       </div>
 
       {!canApplyNow ? (
-        <p className="rounded-lg border border-border bg-muted p-3 text-sm font-medium">
+        <p className="rounded-lg border border-border bg-background p-3 text-sm font-medium">
           ステータスを「{STATUS_LABELS.open}」にすると登録できます。
         </p>
       ) : null}
@@ -92,7 +92,7 @@ export function ApplyLinkCard({
           <select
             name="status"
             defaultValue={status}
-            className="rounded-xl border-2 border-black bg-white p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+            className="rounded-xl border-2 border-border bg-surface p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
           >
             {STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -103,7 +103,7 @@ export function ApplyLinkCard({
         </label>
         <button
           type="submit"
-          className="rounded-full border-2 border-black bg-gdg-blue px-4 py-2 text-sm font-bold text-white transition hover:brightness-95"
+          className="rounded-full border-2 border-border bg-gdg-blue px-4 py-2 text-sm font-bold text-primary-foreground transition hover:brightness-95"
         >
           ステータスを更新
         </button>

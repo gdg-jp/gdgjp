@@ -8,7 +8,7 @@ Avoid: using it only to adjust spacing or as an unrelated decorative line.
 
 ## Public API
 
-`Separator`. Check `ui/src/components/Separator/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Separator`. Check `design-system/src/components/Separator/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it only to adjust spacing or as an unrelated decorative line.
 <Separator orientation="horizontal" decorative />
 ```
 
-See `ui/src/components/Separator/Separator.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Separator/Separator.stories.tsx` for states, compositions, and narrow-width layouts.

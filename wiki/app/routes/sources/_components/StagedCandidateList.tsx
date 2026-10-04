@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { StagedSource } from "~/features/sources/staged-candidates";
 
 /** Editable list of not-yet-imported staged sources for the `/sources` panel. */
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export function StagedCandidateList({
   candidates,
   candidateErrors,

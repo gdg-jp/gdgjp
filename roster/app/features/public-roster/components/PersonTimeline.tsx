@@ -68,7 +68,7 @@ export function PersonTimeline({
         <select
           value={selectedId}
           onChange={(e) => setSelectedId(e.target.value)}
-          className="w-full rounded-xl border-2 border-black bg-white p-3 text-base outline-none focus:ring-4 focus:ring-gdg-blue/40"
+          className="w-full rounded-xl border-2 border-border bg-surface p-3 text-base outline-none focus:ring-4 focus:ring-gdg-blue/40"
         >
           <option value="">選択してください</option>
           {sortedStaff.map((s) => (
@@ -105,7 +105,7 @@ export function PersonTimeline({
               return (
                 <li
                   key={item.start}
-                  className="rounded-xl border-2 border-black bg-white p-4"
+                  className="rounded-xl border-2 border-border bg-surface p-4"
                   style={
                     track ? { borderLeftWidth: "8px", borderLeftColor: track.color } : undefined
                   }

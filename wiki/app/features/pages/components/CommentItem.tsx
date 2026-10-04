@@ -7,7 +7,7 @@ import type { ReactionGroup } from "~/features/pages/components/EmojiReactionBar
 import EmojiReactionBar from "~/features/pages/components/EmojiReactionBar";
 import CommentEditor from "./CommentEditor";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export interface CommentThread {
   id: string;
   authorId: string;

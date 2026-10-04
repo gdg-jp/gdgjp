@@ -8,7 +8,7 @@ Avoid: using it for fixed content heights or arbitrary layout grids.
 
 ## Public API
 
-`AspectRatio`. Check `ui/src/components/AspectRatio/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`AspectRatio`. Check `design-system/src/components/AspectRatio/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for fixed content heights or arbitrary layout grids.
 <AspectRatio ratio={16 / 9}><img src={image} alt="Venue" /></AspectRatio>
 ```
 
-See `ui/src/components/AspectRatio/AspectRatio.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/AspectRatio/AspectRatio.stories.tsx` for states, compositions, and narrow-width layouts.

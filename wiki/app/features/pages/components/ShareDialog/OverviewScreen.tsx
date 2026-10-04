@@ -1,4 +1,4 @@
-import { Button } from "@gdgjp/ui";
+import { Button } from "@gdgjp/design-system";
 import {
   Select,
   SelectContent,
@@ -6,14 +6,14 @@ import {
   SelectTrigger,
   SelectValue,
   Separator,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
 
 import { AccessIcon, Avatar } from "./avatar";
 import { GENERAL_ACCESS, type GeneralAccess, type PageRole, ROLES } from "./types";
 import type { ShareDialogController } from "./use-share-dialog";
 
 /** The default screen: people-with-access list, general access, copy-link footer. */
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export function OverviewScreen({ c }: { c: ShareDialogController }) {
   const {
     t,

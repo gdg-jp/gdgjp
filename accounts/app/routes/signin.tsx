@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Heading, Icons, Inline, Stack, Text } from "@gdgjp/ui";
+import { Badge, Button, Card, Heading, Icons, Inline, Stack, Text } from "@gdgjp/design-system";
 import { useTranslation } from "react-i18next";
 import { Link, redirect, useNavigation, useSearchParams } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";

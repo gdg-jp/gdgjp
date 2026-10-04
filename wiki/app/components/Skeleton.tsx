@@ -1,4 +1,4 @@
-import { Skeleton as UiSkeleton } from "@gdgjp/ui";
+import { Skeleton as UiSkeleton } from "@gdgjp/design-system";
 
 export { UiSkeleton as Skeleton };
 

@@ -8,7 +8,7 @@ Avoid: using a placeholder instead of a label. Use Text for decorative text that
 
 ## Public API
 
-`Label`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/Label/` for exact types and defaults.
+`Label`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/Label/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using a placeholder instead of a label. Use Text for decorative text that
 <Label htmlFor="title">Title</Label>
 ```
 
-See `ui/src/components/Label/Label.stories.tsx` for states and compositions.
+See `design-system/src/components/Label/Label.stories.tsx` for states and compositions.

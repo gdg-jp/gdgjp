@@ -2,7 +2,7 @@
 
 Follow this procedure only when the requested scope explicitly includes a complete app migration.
 
-1. Confirm that `@gdgjp/ui` exports `DropdownMenuRadioItem`, `Stack` accepts `align`, `Button`
+1. Confirm that `@gdgjp/design-system` exports `DropdownMenuRadioItem`, `Stack` accepts `align`, `Button`
    accepts `fullWidth`, `FormField` accepts `hideLabel`, and `AppShell` renders `SidebarTrigger`.
    If any are absent, stop and submit a library-defect report instead of adding an app workaround.
 2. Before editing, inventory every `app/routes/` file (screen and authentication requirement),
@@ -26,7 +26,7 @@ Run these completion checks:
 pnpm ci:quick
 pnpm --filter @gdgjp/<app> exec vitest run
 pnpm --filter @gdgjp/<app> exec playwright test
-pnpm --filter @gdgjp/ui test:consumer # when shared imports, exports, or CSS changed
+pnpm --filter @gdgjp/design-system test:consumer # when shared imports, exports, or CSS changed
 node scripts/check-ui-conventions.mjs <app>
 ```
 

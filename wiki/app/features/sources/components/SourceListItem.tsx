@@ -3,8 +3,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@gdgjp/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "@gdgjp/ui";
+} from "@gdgjp/design-system";
+import { Popover, PopoverContent, PopoverTrigger } from "@gdgjp/design-system";
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +14,7 @@ import { isSourceVisibility, sourceVisibilityNeedsChapter } from "~/features/sou
 import { timeAgo } from "~/lib/time";
 import { ChapterSelect, VisibilitySelect, statusBadgeClass } from "./source-selects";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export type SourceListItemSource = {
   id: string;
   title: string;

@@ -1,4 +1,4 @@
-import { PageHeader, Stack } from "@gdgjp/ui";
+import { PageHeader, Stack } from "@gdgjp/design-system";
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { canManageEvent } from "~/features/auth/permissions";
 import { ShareCard, SheetShareList } from "~/features/events/components/ShareCard";

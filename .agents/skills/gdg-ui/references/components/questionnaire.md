@@ -16,4 +16,4 @@ Avoid: forcing a single-field form or an entire domain workflow state machine in
 <Questionnaire items={[{ name: "format" }]}><QuestionnaireItem name="format"><QuestionnaireTitle>Event format</QuestionnaireTitle><QuestionnaireChoice value="online">Online</QuestionnaireChoice></QuestionnaireItem></Questionnaire>
 ```
 
-See `ui/src/components/Questionnaire/Questionnaire.stories.tsx` for states and compositions.
+See `design-system/src/components/Questionnaire/Questionnaire.stories.tsx` for states and compositions.

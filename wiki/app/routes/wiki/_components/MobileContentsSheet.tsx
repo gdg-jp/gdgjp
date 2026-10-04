@@ -4,7 +4,7 @@ import TagChip from "~/features/pages/components/TagChip";
 import type { TocItem } from "~/features/pages/components/WikiRightSidebar";
 import { timeAgo } from "~/lib/time";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 type WikiPageSlice = {
   updatedAt: Date | string | number | null;
   translationStatusJa: string;

@@ -3,7 +3,7 @@ import { appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const CI_WORKSPACES = [
-  { directory: "ui", workspace: "@gdgjp/ui", build: true, e2e: true },
+  { directory: "design-system", workspace: "@gdgjp/design-system", build: true, e2e: true },
   { directory: "accounts", workspace: "@gdgjp/accounts", build: true, e2e: true },
   { directory: "tinyurl", workspace: "@gdgjp/tinyurl", build: true, e2e: true },
   { directory: "wiki", workspace: "@gdgjp/wiki", build: true, e2e: true },
@@ -172,7 +172,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
   }
 
   // A submodule update appears as the path itself, without changed source filenames.
-  if (directDirectories.has("ui")) {
+  if (directDirectories.has("design-system")) {
     for (const directory of ["accounts", "wiki", "roster"]) {
       affectedDirectories.add(directory);
     }

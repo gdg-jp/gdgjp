@@ -33,7 +33,7 @@ export function HistoryPanel({
       : null;
 
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
+    <section className="space-y-3 rounded-xl border border-border bg-surface p-4 sm:p-5">
       <h2 className="font-bold">履歴</h2>
       {revisions.length === 0 ? (
         <p className="text-sm text-neutral-600">まだ履歴がありません。</p>
@@ -68,7 +68,7 @@ function HistoryRow({
   return (
     <li
       className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 p-3 text-sm ${
-        isCurrent ? "border-gdg-blue bg-gdg-blue/5" : "border-black"
+        isCurrent ? "border-gdg-blue bg-gdg-blue/5" : "border-border"
       }`}
     >
       <div>
@@ -91,7 +91,7 @@ function HistoryRow({
           <button
             type="submit"
             disabled={isPending}
-            className="rounded-full border-2 border-black bg-white px-4 py-1.5 text-xs font-bold transition hover:bg-neutral-100 disabled:opacity-50"
+            className="rounded-full border-2 border-border bg-surface px-4 py-1.5 text-xs font-bold transition hover:bg-neutral-100 disabled:opacity-50"
           >
             戻す
           </button>

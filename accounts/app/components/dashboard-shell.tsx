@@ -1,4 +1,4 @@
-import type { IconName } from "@gdgjp/ui";
+import type { IconName } from "@gdgjp/design-system";
 import {
   AppShell,
   Icons,
@@ -7,8 +7,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@gdgjp/ui";
-import { cn } from "@gdgjp/ui";
+} from "@gdgjp/design-system";
+import { cn } from "@gdgjp/design-system";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigation } from "react-router";

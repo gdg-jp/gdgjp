@@ -189,7 +189,8 @@ code map.
   file that looks generic but touches one domain still belongs under `app/features/<domain>/`.
 - `app/components/` holds only app chrome: authenticated `AppShell.tsx`, public
   `PublicShell.tsx`, and their shared `RosterBrand.tsx` product lockup. Per ADR-001, there are no
-  local `ui/` primitives (UI primitives come from `@gdgjp/gdg-lib`). Keep the layering test's
+  local `ui/` primitives (account UI comes from `@gdgjp/gdg-lib`; shared tokens and icons come
+  from `@gdgjp/design-system`). Keep the layering test's
   exact allowlist in sync with shell-chrome additions.
 - The solver (`app/features/solver/`, Stage 06) is a pure TS module — no D1, no React, no
   `fetch`, no `window`. This is what makes it unit-testable and reproducible (ADR-004), and what

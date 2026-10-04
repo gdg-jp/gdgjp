@@ -8,7 +8,7 @@ Avoid: replacing page content without explanation or displaying it indefinitely 
 
 ## Public API
 
-`Spinner`. Check `ui/src/components/Spinner/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Spinner`. Check `design-system/src/components/Spinner/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: replacing page content without explanation or displaying it indefinitely 
 <Spinner label="Saving" />
 ```
 
-See `ui/src/components/Spinner/Spinner.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Spinner/Spinner.stories.tsx` for states, compositions, and narrow-width layouts.

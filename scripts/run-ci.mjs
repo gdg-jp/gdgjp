@@ -26,7 +26,7 @@ const fullSteps = [
   ...quickSteps,
   [
     "e2e",
-    "pnpm exec turbo test:e2e --filter=@gdgjp/accounts --filter=@gdgjp/tinyurl --filter=@gdgjp/img --filter=@gdgjp/scheduler --filter=@gdgjp/ui --filter=@gdgjp/wiki --filter=@gdgjp/ost --filter=@gdgjp/roster --filter=@gdgjp/connpass --concurrency=1 --output-logs=errors-only -- --reporter=dot",
+    "pnpm exec turbo test:e2e --filter=@gdgjp/accounts --filter=@gdgjp/tinyurl --filter=@gdgjp/img --filter=@gdgjp/scheduler --filter=@gdgjp/design-system --filter=@gdgjp/wiki --filter=@gdgjp/ost --filter=@gdgjp/roster --filter=@gdgjp/connpass --concurrency=1 --output-logs=errors-only -- --reporter=dot",
   ],
 ];
 
@@ -41,7 +41,7 @@ const workspaces = new Map([
   ["accounts", "@gdgjp/accounts"],
   ["accounts-oidc-client-demo", "@gdgjp/accounts-oidc-client-demo"],
   ["gdg-lib", "@gdgjp/gdg-lib"],
-  ["ui", "@gdgjp/ui"],
+  ["design-system", "@gdgjp/design-system"],
   ["go-extension", "@gdgjp/go-extension"],
   ["img", "@gdgjp/img"],
   ["ost", "@gdgjp/ost"],
@@ -60,7 +60,7 @@ const uiAppDirectories = new Set(
     const packagePath = `${directory}/package.json`;
     if (!existsSync(packagePath)) return false;
     const pkg = JSON.parse(readFileSync(packagePath, "utf8"));
-    return pkg.dependencies?.["@gdgjp/ui"] === "workspace:*";
+    return pkg.dependencies?.["@gdgjp/design-system"] === "workspace:*";
   }),
 );
 
@@ -100,11 +100,11 @@ function changedFiles() {
 
 function isNodeFile(file) {
   return (
-    file === "ui" ||
+    file === "design-system" ||
     (!file.startsWith("cli/") &&
       (codeFilePattern.test(file) ||
         nodeConfigurationFilePattern.test(file) ||
-        (file.startsWith("ui/") && /\.(?:css|mdx|woff2)$/.test(file))))
+        (file.startsWith("design-system/") && /\.(?:css|mdx|woff2)$/.test(file))))
   );
 }
 
@@ -190,8 +190,8 @@ export function changedSteps(mode, files) {
     (file) => isNodeFile(file) && !file.includes("/e2e/"),
   );
   for (const [workspace, workspaceNodeFiles] of unitTestsByWorkspace) {
-    if (workspace === "@gdgjp/ui") {
-      steps.push(["test:ui", "pnpm --filter @gdgjp/ui test"]);
+    if (workspace === "@gdgjp/design-system") {
+      steps.push(["test:ui", "pnpm --filter @gdgjp/design-system test"]);
       continue;
     }
     // `related` receives staged source paths and uses Vitest's import graph to
@@ -209,8 +209,8 @@ export function changedSteps(mode, files) {
   }
 
   if (mode === "full") {
-    if (changedWorkspaces.has("@gdgjp/ui")) {
-      steps.push(["e2e:ui", "pnpm --filter @gdgjp/ui test:e2e"]);
+    if (changedWorkspaces.has("@gdgjp/design-system")) {
+      steps.push(["e2e:ui", "pnpm --filter @gdgjp/design-system test:e2e"]);
     }
     const e2eWorkspaces = new Map();
     for (const [workspace, files] of workspaceFiles(relevantFiles, (file) =>
@@ -229,7 +229,7 @@ export function changedSteps(mode, files) {
       e2eWorkspaces.set(workspace, null);
     }
     for (const [workspace, e2eFiles] of e2eWorkspaces) {
-      if (workspace === "@gdgjp/ui") continue;
+      if (workspace === "@gdgjp/design-system") continue;
       const e2eArguments = e2eFiles ? ` -- ${e2eFiles.map(shellQuote).join(" ")}` : "";
       const command =
         workspace === "@gdgjp/wiki"

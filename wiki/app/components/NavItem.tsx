@@ -1,4 +1,4 @@
-import { SidebarMenuButton, SidebarMenuItem } from "@gdgjp/ui";
+import { SidebarMenuButton, SidebarMenuItem } from "@gdgjp/design-system";
 import { Link } from "react-router";
 
 interface NavItemProps {

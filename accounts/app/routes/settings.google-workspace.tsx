@@ -12,8 +12,8 @@ import {
   Icons,
   Stack,
   Text,
-} from "@gdgjp/ui";
-import { toast } from "@gdgjp/ui";
+} from "@gdgjp/design-system";
+import { toast } from "@gdgjp/design-system";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";

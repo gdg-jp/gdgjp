@@ -132,7 +132,7 @@ export function StaffDrawer({
           ) : null}
 
           {detail.withdrawn ? (
-            <p className="rounded-xl border-2 border-black bg-neutral-100 p-3 text-sm">
+            <p className="rounded-xl border-2 border-border bg-neutral-100 p-3 text-sm">
               この登録は辞退済みです。保存すると再度有効になります。
             </p>
           ) : null}
@@ -183,7 +183,7 @@ export function StaffDrawer({
               type="submit"
               name="intent"
               value="correct"
-              className="rounded-full border-2 border-black bg-gdg-blue px-6 py-2.5 font-bold text-white transition hover:brightness-95"
+              className="rounded-full border-2 border-border bg-gdg-blue px-6 py-2.5 font-bold text-primary-foreground transition hover:brightness-95"
             >
               保存
             </button>
@@ -192,7 +192,7 @@ export function StaffDrawer({
               name="intent"
               value="withdraw"
               formNoValidate
-              className="rounded-full border-2 border-black bg-white px-6 py-2.5 font-bold text-gdg-red transition hover:bg-neutral-100"
+              className="rounded-full border-2 border-border bg-surface px-6 py-2.5 font-bold text-gdg-red transition hover:bg-neutral-100"
             >
               辞退にする
             </button>

@@ -6,7 +6,7 @@ import {
   DropdownMenuTrigger,
   IconButton,
   Icons,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
 import { useTranslation } from "react-i18next";
 import { useLocation, useSubmit } from "react-router";
 import { type Locale, supportedLngs } from "~/lib/i18n/resources";

@@ -8,7 +8,7 @@ Avoid: using it as a wrapper merely to stack margins or as a substitute for nest
 
 ## Public API
 
-`Stack`. Check `ui/src/components/Stack/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Stack`. Check `design-system/src/components/Stack/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it as a wrapper merely to stack margins or as a substitute for nest
 <Stack><Heading level={2}>Overview</Heading><Text>Description</Text></Stack>
 ```
 
-See `ui/src/components/Stack/Stack.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Stack/Stack.stories.tsx` for states, compositions, and narrow-width layouts.

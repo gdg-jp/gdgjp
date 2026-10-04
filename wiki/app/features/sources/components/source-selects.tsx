@@ -1,4 +1,10 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@gdgjp/ui";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@gdgjp/design-system";
 import { SOURCE_VISIBILITIES } from "~/features/sources/shared";
 
 export function VisibilitySelect({

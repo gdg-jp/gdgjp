@@ -8,7 +8,7 @@ Avoid: making it the only entry point to important content, enabling autoplay, o
 
 ## Public API
 
-`Carousel`, `CarouselViewport`, `CarouselContent`, `CarouselItem`, `CarouselPrevious`, `CarouselNext`, `CarouselApi`. Check `ui/src/components/Carousel/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Carousel`, `CarouselViewport`, `CarouselContent`, `CarouselItem`, `CarouselPrevious`, `CarouselNext`, `CarouselApi`. Check `design-system/src/components/Carousel/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: making it the only entry point to important content, enabling autoplay, o
 <Carousel><CarouselContent><CarouselItem>1</CarouselItem><CarouselItem>2</CarouselItem></CarouselContent><CarouselPrevious /><CarouselNext /></Carousel>
 ```
 
-See `ui/src/components/Carousel/Carousel.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Carousel/Carousel.stories.tsx` for states, compositions, and narrow-width layouts.

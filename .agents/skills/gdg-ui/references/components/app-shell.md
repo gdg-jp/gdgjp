@@ -8,7 +8,7 @@ Avoid: putting routing, account-menu data fetching, or permission checks into th
 
 ## Public API
 
-`AppShell`. Check `ui/src/components/AppShell/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`AppShell`. Check `design-system/src/components/AppShell/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: putting routing, account-menu data fetching, or permission checks into th
 <AppShell brand="GDG Apps" navigation={<Nav />} header={<Header />}><Outlet /></AppShell>
 ```
 
-See `ui/src/components/AppShell/AppShell.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/AppShell/AppShell.stories.tsx` for states, compositions, and narrow-width layouts.

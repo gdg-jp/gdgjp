@@ -1,4 +1,4 @@
-import { SidebarProvider } from "@gdgjp/ui";
+import { SidebarProvider } from "@gdgjp/design-system";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";

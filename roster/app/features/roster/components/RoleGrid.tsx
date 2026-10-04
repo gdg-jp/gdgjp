@@ -73,7 +73,7 @@ export function RoleGrid({
 
   if (columns.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-muted">
         {readOnly ? "誰も割り当てられていません。" : "需要が設定されていません。"}
       </p>
     );

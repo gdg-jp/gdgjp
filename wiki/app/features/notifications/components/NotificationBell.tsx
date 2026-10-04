@@ -1,11 +1,11 @@
-import { Button, IconButton } from "@gdgjp/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "@gdgjp/ui";
+import { Button, IconButton } from "@gdgjp/design-system";
+import { Popover, PopoverContent, PopoverTrigger } from "@gdgjp/design-system";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 function playChime() {
   try {
     const ctx = new AudioContext();

@@ -50,7 +50,7 @@
   利用できる。
 - shared CSS と ThemeProvider が SSR、hydration、reload、portal、Light/Dark/system、error document で
   一貫する。
-- clean checkout の typecheck/test/build/E2E/deploy job が、既存 `ui/dist`、手元 `.wrangler` state、実
+- clean checkout の typecheck/test/build/E2E/deploy job が、既存 `design-system/dist`、手元 `.wrangler` state、実
   Accounts、実 secret に依存しない。
 - convention checker が Git index と working tree を混同せず、真の色違反、任意 layout、正当な native
   control、shared component misuse を別々に扱う。
@@ -78,7 +78,7 @@
 
 `app.css`、root、global E2E fixture、workflow、temporary baseline はこの unit の競合点とし、Unit 03〜06 から
 編集しない。新しい shared library gap が出た場合は Wiki-local wrapper を作らず、Unit 01 と同じ defect report
-形式で独立 `ui/` task に戻す。
+形式で独立 `design-system/` task に戻す。
 
 ## Acceptance criteria
 
@@ -107,7 +107,7 @@
       基準 page の署名済み storage state を生成できる。
 - [ ] E2E は実 Accounts、production/remote D1、既存 `.wrangler/state`、developer の `.dev.vars` に依存しない。
 - [ ] CI が test-only Wiki vars を生成し、UI build → Wiki state prepare → Playwright の順で実行する。
-- [ ] `.dev.vars`、storage state、専用 D1 state、`ui/dist`、Worker types、Playwright output を commit しない。
+- [ ] `.dev.vars`、storage state、専用 D1 state、`design-system/dist`、Worker types、Playwright output を commit しない。
 - [ ] final diff audit で開始時 WIP と unrelated change が保全され、Unit 02 所有外の画面差分がない。
 
 ## Detailed implementation plan
@@ -134,8 +134,8 @@ Phase 0 の成果物は handoff 記録であり、repository に一時 inventory
 
 ### Phase 1 — Wiki consumer contract の基準化
 
-1. `wiki/package.json` の `@gdgjp/ui: workspace:*` を維持し、app source が `@gdgjp/ui` package root と
-   `@gdgjp/ui/{tailwind,components,fonts}.css` だけを利用することを確認する。`ui/src/**` や private CSS class への
+1. `wiki/package.json` の `@gdgjp/design-system: workspace:*` を維持し、app source が `@gdgjp/design-system` package root と
+   `@gdgjp/design-system/{tailwind,components,fonts}.css` だけを利用することを確認する。`design-system/src/**` や private CSS class への
    import は禁止する。
 2. foundation を妨げる型不整合だけを最小修正する。修正規則は次で固定する。
    - Button/IconButton の size は `sm | md | lg`。`default`、`xs`、pixel size alias を app 判断で足さない。
@@ -155,7 +155,7 @@ Phase 0 の成果物は handoff 記録であり、repository に一時 inventory
 `wiki/app/root.tsx` を通常画面と ErrorBoundary が共有する document shell に整理する。
 
 1. `<html>`, `<head>`, viewport、Meta、Links、body class、ThemeProvider、Scripts を一つの local
-   `Document` composition に集約する。React Router 固有 document composition なので `ui/` へ移さない。
+   `Document` composition に集約する。React Router 固有 document composition なので `design-system/` へ移さない。
 2. ThemeProvider は共通 shell 内の一箇所だけに置き、`storageKey="gdg-apps-theme"`,
    `defaultTheme="system"` を明示する。Wiki に CSP nonce が導入されていない現状では架空の nonce を作らない。
    将来 CSP が導入された場合は request nonce を loader から provider へ渡すことを contract として comment/test
@@ -167,7 +167,7 @@ Phase 0 の成果物は handoff 記録であり、repository に一時 inventory
    language fallback を持ち、hydration markup を変えない。
 5. ScrollRestoration と analytics script の位置・回数を監査する。通常 navigation contract を維持し、error
    document に不要な loader-dependent provider を持ち込まない。
-6. root 内の重複 `@gdgjp/ui` import を統合し、shared component の内側 DOM や class を selector/test contract に
+6. root 内の重複 `@gdgjp/design-system` import を統合し、shared component の内側 DOM や class を selector/test contract に
    しない。
 
 追加・更新する test:
@@ -183,7 +183,7 @@ Phase 0 の成果物は handoff 記録であり、repository に一時 inventory
 
 1. 最初の非 comment 行に
    `@layer theme, base, gdg-tokens, gdg-base, gdg-components, utilities;`。
-2. 直後に Tailwind、`@gdgjp/ui/tailwind.css`、`components.css`、`fonts.css` を一度ずつ import。
+2. 直後に Tailwind、`@gdgjp/design-system/tailwind.css`、`components.css`、`fonts.css` を一度ずつ import。
 3. `@source "../../gdg-lib/src/ui"` は account menu/app launcher の consumer utility scan として保持する。
 4. 残してよい app-local CSS を次に限定する。
    - CodeMirror/Yjs collaboration cursor と remote user color bridge
@@ -233,7 +233,7 @@ integration path を検査する。
 - `stack-align`, `button-full-width`, `form-field-hide-label` は multiline JSX、namespace member、expression
   className の既存 contract を回帰 test で固定する。regex が安全に扱えない構文を silent pass にせず、必要なら
   TypeScript parser を導入する独立判断点にする。
-- foundation rule として `ui/src/**` import、重複 ThemeProvider、legacy component directory、app.css layer/import
+- foundation rule として `design-system/src/**` import、重複 ThemeProvider、legacy component directory、app.css layer/import
   順を検査する。
 
 #### Allowance と migration baseline
@@ -327,7 +327,7 @@ E2E setup の test:
 
 - `.github/scripts/changed-workspaces.mjs` の Wiki entry を `e2e: true` にする。
 - Wiki app/test/config/migration change は `ci: [@gdgjp/wiki]`, `build: [@gdgjp/wiki]`, `e2e: [wiki]` を返す。
-- `ui/` change は UI 自身の consumer/E2E を走らせる既存 contract を維持し、全 app E2E へ fan-out しない。
+- `design-system/` change は UI 自身の consumer/E2E を走らせる既存 contract を維持し、全 app E2E へ fan-out しない。
 - global config/workflow detector の `--all` と fallback behavior は既存全 target contract を維持する。
 - checker source/baseline/workflow test の変更は `scriptTests: true` になる。
 
@@ -336,12 +336,12 @@ E2E setup の test:
 - `scripts/run-ci.mjs` の `ci:full` hard-coded E2E list に `@gdgjp/wiki` を一度だけ追加する。
 - changed full path は Wiki `app/**`、E2E spec、setup/config の変更で Wiki Playwright を選ぶ。
 - quick path は UI build dependencyを Turboの `dependsOn: ["^build"]` で満たし、full pathでもPlaywright前に
-  `@gdgjp/ui` buildが完了することをtestで固定する。
+  `@gdgjp/design-system` buildが完了することをtestで固定する。
 - checker source変更時は corresponding script testを走らせ、app source変更時は staged checkerを走らせる。
 
 #### Hosted CI
 
-- typecheck/test/build/E2E の各 clean job で、consumer より前に `pnpm --filter @gdgjp/ui build` を一度だけ行う。
+- typecheck/test/build/E2E の各 clean job で、consumer より前に `pnpm --filter @gdgjp/design-system build` を一度だけ行う。
 - UI job 自身は build 後に `test:consumer` を実行し、app build と名称を混同しない。
 - E2E matrix の Wiki branchだけ `wiki/.dev.vars` と E2E envを作る。既存 Accounts migration condition から Wiki
   を明示的に除外し、他appの既存Accounts依存は維持する。forged local Wiki sessionのために実Accounts
@@ -408,7 +408,7 @@ root `package.json` と `pnpm-lock.yaml` を更新する。
 
 ## Protocols
 
-- `@gdgjp/ui` は package root と公開 CSS export だけを consumer contract とする。`ui/src/**` import 禁止。
+- `@gdgjp/design-system` は package root と公開 CSS export だけを consumer contract とする。`design-system/src/**` import 禁止。
 - UI package は routing、auth、network、Wiki schema、i18n resource を import しない。
 - route URL、loader/action、form name/intent、ACL、translation、notification、task state を visual foundation のために
   変更しない。
@@ -433,7 +433,7 @@ rtk pnpm --filter @gdgjp/wiki exec vitest run \
   tests/architecture/theme-tokens.test.ts \
   tests/architecture/ui-foundation.test.ts \
   tests/unit/e2e-setup.test.ts
-rtk pnpm --filter @gdgjp/ui build
+rtk pnpm --filter @gdgjp/design-system build
 rtk pnpm -C wiki typecheck
 rtk pnpm --filter @gdgjp/wiki test
 rtk pnpm --filter @gdgjp/wiki build
@@ -443,7 +443,7 @@ rtk node scripts/check-ui-conventions.mjs --app wiki
 fresh E2E checks:
 
 ```sh
-rtk pnpm --filter @gdgjp/ui build
+rtk pnpm --filter @gdgjp/design-system build
 rtk pnpm --filter @gdgjp/wiki exec playwright test \
   tests/e2e/access-control.spec.ts \
   tests/e2e/page-menu.spec.ts \
@@ -455,10 +455,10 @@ rtk pnpm --filter @gdgjp/wiki test:e2e
 final gates:
 
 ```sh
-rtk pnpm --filter @gdgjp/ui typecheck
-rtk pnpm --filter @gdgjp/ui test
-rtk pnpm --filter @gdgjp/ui build
-rtk pnpm --filter @gdgjp/ui test:consumer
+rtk pnpm --filter @gdgjp/design-system typecheck
+rtk pnpm --filter @gdgjp/design-system test
+rtk pnpm --filter @gdgjp/design-system build
+rtk pnpm --filter @gdgjp/design-system test:consumer
 rtk pnpm --filter @gdgjp/wiki typecheck
 rtk pnpm --filter @gdgjp/wiki test
 rtk pnpm --filter @gdgjp/wiki build
@@ -470,7 +470,7 @@ rtk git diff --check
 ```
 
 `test:consumer` は必ず UI build 後に行う。UI typecheck が TS5096 wrapper/configuration baseline で失敗する
-checkout では、原因を確認した上で `ui/` から `rtk pnpm exec tsc --noEmit` を追加実行し、wrapper failure と
+checkout では、原因を確認した上で `design-system/` から `rtk pnpm exec tsc --noEmit` を追加実行し、wrapper failure と
 source error を分けて報告する。Playwright は fresh E2E persistence path を使い、通常の local `.wrangler`
 stateやstale serverを再利用しない。
 
@@ -512,7 +512,7 @@ Unit 03以降の各画面visual differenceや全状態matrixを、この限定�
 ## Tech Stack
 
 - React 19、React Router v7 SSR、TypeScript ESM
-- `@gdgjp/ui`、Radix、next-themes、Sonner、lucide-animated/library-owned static icons
+- `@gdgjp/design-system`、Radix、next-themes、Sonner、lucide-animated/library-owned static icons
 - Tailwind CSS v4、semantic CSS tokens、stable `gdg-*` CSS
 - Cloudflare Workers/Vite plugin、Wrangler local D1、Miniflare persistence
 - Vitest、Node test runner、Playwright、axe

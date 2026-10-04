@@ -8,7 +8,7 @@ Avoid: using it as a general Card or image gallery, or making it responsible for
 
 ## Public API
 
-`Attachment`, `AttachmentMedia`, `AttachmentContent`, `AttachmentTitle`, `AttachmentDescription`, `AttachmentActions`, `AttachmentAction`, `AttachmentTrigger`, `AttachmentGroup`, `AttachmentState`, `AttachmentSize`, `AttachmentPartProps`. Check `ui/src/components/Attachment/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Attachment`, `AttachmentMedia`, `AttachmentContent`, `AttachmentTitle`, `AttachmentDescription`, `AttachmentActions`, `AttachmentAction`, `AttachmentTrigger`, `AttachmentGroup`, `AttachmentState`, `AttachmentSize`, `AttachmentPartProps`. Check `design-system/src/components/Attachment/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it as a general Card or image gallery, or making it responsible for
 <Attachment state="done"><AttachmentContent><AttachmentTitle>report.pdf</AttachmentTitle></AttachmentContent><AttachmentActions><AttachmentAction>Open</AttachmentAction></AttachmentActions></Attachment>
 ```
 
-See `ui/src/components/Attachment/Attachment.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Attachment/Attachment.stories.tsx` for states, compositions, and narrow-width layouts.

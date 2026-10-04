@@ -8,7 +8,7 @@ Avoid: using it for a single date-string input; choose DatePicker instead. Handl
 
 ## Public API
 
-`Calendar`, `CalendarProps`, `CalendarMode`, `CalendarSelection`, `DateRange`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/Calendar/` for exact types and defaults.
+`Calendar`, `CalendarProps`, `CalendarMode`, `CalendarSelection`, `DateRange`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/Calendar/` for exact types and defaults.
 
 ## Minimal example
 
@@ -21,4 +21,4 @@ Avoid: using it for a single date-string input; choose DatePicker instead. Handl
 />
 ```
 
-See `ui/src/components/Calendar/Calendar.stories.tsx` for states and compositions.
+See `design-system/src/components/Calendar/Calendar.stories.tsx` for states and compositions.

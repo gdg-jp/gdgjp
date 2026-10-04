@@ -7,6 +7,6 @@
 [submodule "xangi"]
 	path = xangi
 	url = https://github.com/gdg-jp/xangi.git
-[submodule "ui"]
-	path = ui
+[submodule "design-system"]
+	path = design-system
 	url = https://github.com/gdg-jp/design-system.git

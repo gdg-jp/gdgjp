@@ -8,7 +8,7 @@ Avoid: putting multiple independent inputs in one FormField. Use Select when the
 
 ## Public API
 
-`RadioGroup`, `RadioGroupItem`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/RadioGroup/` for exact types and defaults.
+`RadioGroup`, `RadioGroupItem`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/RadioGroup/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: putting multiple independent inputs in one FormField. Use Select when the
 <FormField label="Event format"><RadioGroup name="format" defaultValue="venue"><RadioGroupItem id="venue" value="venue" /><label htmlFor="venue">Venue</label></RadioGroup></FormField>
 ```
 
-See `ui/src/components/RadioGroup/RadioGroup.stories.tsx` for states and compositions.
+See `design-system/src/components/RadioGroup/RadioGroup.stories.tsx` for states and compositions.

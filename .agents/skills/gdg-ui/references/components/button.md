@@ -8,7 +8,7 @@ Avoid: making every non-primary action primary. Choose Link for navigation and I
 
 ## Public API
 
-`Button`, `ButtonProps`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/Button/` for exact types and defaults.
+`Button`, `ButtonProps`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/Button/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: making every non-primary action primary. Choose Link for navigation and I
 <Button loading={saving} onClick={save}>Save</Button>
 ```
 
-See `ui/src/components/Button/Button.stories.tsx` for states and compositions.
+See `design-system/src/components/Button/Button.stories.tsx` for states and compositions.

@@ -5,7 +5,7 @@ import ConfirmDialog from "~/components/ConfirmDialog";
 import { ListSkeleton } from "~/components/Skeleton";
 import { timeAgo } from "~/lib/time";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 interface ArchivedPage {
   id: string;
   slug: string;

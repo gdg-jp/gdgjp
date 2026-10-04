@@ -8,7 +8,7 @@ Avoid: choose Input when exact numeric entry is all that is needed. Do not commu
 
 ## Public API
 
-`Slider`, `SliderRoot`, `SliderTrack`, `SliderRange`, `SliderThumb`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/Slider/` for exact types and defaults.
+`Slider`, `SliderRoot`, `SliderTrack`, `SliderRange`, `SliderThumb`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/Slider/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: choose Input when exact numeric entry is all that is needed. Do not commu
 <Slider aria-label="Volume" min={0} max={100} value={[volume]} onValueChange={([v]) => setVolume(v)} />
 ```
 
-See `ui/src/components/Slider/Slider.stories.tsx` for states and compositions.
+See `design-system/src/components/Slider/Slider.stories.tsx` for states and compositions.
