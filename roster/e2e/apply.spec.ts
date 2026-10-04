@@ -8,9 +8,10 @@ import { type Page, expect, test } from "@playwright/test";
  * before the write has landed. Reloading and re-checking forces a fresh
  * server-rendered `defaultValue`, which only reflects committed state.
  */
-async function setEventStatus(page: Page, status: string): Promise<void> {
+async function setEventStatus(page: Page, eventId: string, status: string): Promise<void> {
+  await page.goto(`/e/${eventId}/staff`);
   await page.selectOption('select[name="status"]', status);
-  await page.getByRole("button", { name: "設定を保存" }).click();
+  await page.getByRole("button", { name: "ステータスを更新" }).click();
   await page.waitForLoadState("networkidle");
   await page.reload();
   await expect(page.locator('select[name="status"]')).toHaveValue(status);
@@ -29,14 +30,14 @@ async function createAndOpenEvent(
   await page.fill('input[name="name"]', eventName);
   await page.fill('input[name="date"]', "2030-06-01");
   await page.getByRole("button", { name: "作成する" }).click();
-  await page.waitForURL(/\/e\/[^/]+\/design$/);
+  await page.waitForURL(/\/e\/[^/]+\/(?:s\/[^/]+\/)?design$/);
   const eventId = new URL(page.url()).pathname.split("/")[2];
 
   await page.check('input[name="roleId"][value="reception"]');
   await page.getByRole("button", { name: "役割を保存" }).click();
   await expect(page.getByRole("checkbox", { name: "受付" })).toBeChecked();
 
-  await setEventStatus(page, "open");
+  await setEventStatus(page, eventId, "open");
 
   await page.goto(`/e/${eventId}/staff`);
   const applyUrlText = (await page.locator("code").first().textContent())?.trim();
@@ -85,8 +86,8 @@ test("public registration: overview when signed out, form for any signed-in visi
   await expect(page.getByRole("button", { name: "登録内容を更新" })).toBeVisible();
 
   // Closing registration swaps the form for the closed message.
-  await page.goto(`/dev/login?as=owner&chapter=1:e2e-owner-chapter&return_to=/e/${eventId}/design`);
-  await setEventStatus(page, "closed");
+  await page.goto(`/dev/login?as=owner&chapter=1:e2e-owner-chapter&return_to=/e/${eventId}/staff`);
+  await setEventStatus(page, eventId, "closed");
 
   await page.goto(applyPath);
   await expect(page.getByText("募集は終了しました")).toBeVisible();

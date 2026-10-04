@@ -10,13 +10,6 @@ import { type Page, expect, test } from "@playwright/test";
  * `/dev/login` the same way `apply.spec.ts` does.
  */
 
-/** `/e/:id/design`'s status select (`EventSettingsForm`, button "設定を保存"). */
-async function setStatusOnDesignPage(page: Page, status: string): Promise<void> {
-  await page.selectOption('select[name="status"]', status);
-  await page.getByRole("button", { name: "設定を保存" }).click();
-  await page.waitForLoadState("networkidle");
-}
-
 /** `/e/:id/staff`'s status select (`ApplyLinkCard`, button "ステータスを更新"). */
 async function setStatusOnStaffPage(page: Page, status: string): Promise<void> {
   await page.selectOption('select[name="status"]', status);
@@ -37,7 +30,7 @@ async function createEventWithDemand(
   await page.fill('input[name="name"]', eventName);
   await page.fill('input[name="date"]', "2030-06-01");
   await page.getByRole("button", { name: "作成する" }).click();
-  await page.waitForURL(/\/e\/[^/]+\/design$/);
+  await page.waitForURL(/\/e\/[^/]+\/(?:s\/[^/]+\/)?design$/);
   const eventId = new URL(page.url()).pathname.split("/")[2];
 
   await page.check('input[name="roleId"][value="reception"]');
@@ -50,9 +43,17 @@ async function createEventWithDemand(
   // level, and filling the LAST seat with a newcomer and nobody experienced
   // already present is exactly what that rule blocks (index.md §5.2 step
   // ②-④'s newcomer gate). Turn it off so `solve()` actually places people.
-  await page.selectOption('select[name="noSoloNewcomer"]', "0");
-  await page.getByRole("button", { name: "設定を保存" }).click();
-  await page.waitForLoadState("networkidle");
+  // Wait for the save's response itself: networkidle may already hold before the POST starts,
+  // and reloading early drops the write.
+  await page.getByRole("checkbox", { name: "新人を単独の時間枠に割り当てない" }).uncheck();
+  await Promise.all([
+    page.waitForResponse((response) => response.request().method() === "POST" && response.ok()),
+    page.getByRole("button", { name: "シフト表設定を保存" }).click(),
+  ]);
+  await page.reload();
+  await expect(
+    page.getByRole("checkbox", { name: "新人を単独の時間枠に割り当てない" }),
+  ).not.toBeChecked();
 
   // The demand matrix starts with zero columns — "役割を追加" (trackId/roleId
   // default to the only options: 全体/受付) adds the column the empty cell
@@ -108,8 +109,8 @@ test("generate produces a shift table with metrics, and re-generating with the s
   await registerStaff(page, applyPath, "roster1");
   await registerStaff(page, applyPath, "roster2");
 
-  await page.goto(`/dev/login?as=owner&chapter=1:e2e-roster-owner&return_to=/e/${eventId}/design`);
-  await setStatusOnDesignPage(page, "closed");
+  await page.goto(`/dev/login?as=owner&chapter=1:e2e-roster-owner&return_to=/e/${eventId}/staff`);
+  await setStatusOnStaffPage(page, "closed");
 
   await page.goto(`/e/${eventId}/roster`);
   await expect(page.getByText("まだ生成していません")).toBeVisible();
@@ -152,8 +153,8 @@ test("manual edit: assigning into a slot marked unavailable warns but succeeds (
   // This person is unavailable ("×") for the 10:00–11:00 slot specifically.
   await registerStaff(page, applyPath, "rosterx", "10:00–11:00");
 
-  await page.goto(`/dev/login?as=owner&chapter=1:e2e-roster-owner&return_to=/e/${eventId}/design`);
-  await setStatusOnDesignPage(page, "closed");
+  await page.goto(`/dev/login?as=owner&chapter=1:e2e-roster-owner&return_to=/e/${eventId}/staff`);
+  await setStatusOnStaffPage(page, "closed");
 
   await page.goto(`/e/${eventId}/roster`);
   await expect(page.getByText("まだ生成していません")).toBeVisible();

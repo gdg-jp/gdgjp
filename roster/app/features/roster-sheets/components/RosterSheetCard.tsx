@@ -13,28 +13,73 @@ import {
   Inline,
   Stack,
 } from "@gdgjp/ui";
-import { Form } from "react-router";
+import { Form, Link as RouterLink } from "react-router";
 import type { RosterSheet, SheetVisibility } from "../types";
 
 type Props = {
   sheet: Pick<RosterSheet, "id" | "name" | "date" | "startTime" | "endTime">;
+  eventId: string;
   visibility: SheetVisibility;
   isDefault: boolean;
   error?: string;
   visibilityPending: boolean;
   archivePending: boolean;
+  reorderSheetIds: string[];
+  reorderPending: boolean;
 };
 
 export function RosterSheetCard({
   sheet,
+  eventId,
   visibility,
   isDefault,
   error,
   visibilityPending,
   archivePending,
+  reorderSheetIds,
+  reorderPending,
 }: Props) {
   const nextVisibility = visibility === "published" ? "private" : "published";
   const visibilityLabel = visibility === "published" ? "公開" : "非公開";
+  const sheetIndex = reorderSheetIds.indexOf(sheet.id);
+  const hasReorderControls = reorderSheetIds.length > 1 && sheetIndex > 0;
+
+  function moveOrder(direction: -1 | 1) {
+    const nextIndex = sheetIndex + direction;
+    if (sheetIndex < 1 || nextIndex < 1 || nextIndex >= reorderSheetIds.length) {
+      return reorderSheetIds;
+    }
+    const ids = [...reorderSheetIds];
+    [ids[sheetIndex], ids[nextIndex]] = [ids[nextIndex], ids[sheetIndex]];
+    return ids;
+  }
+
+  function renderMoveButton(direction: -1 | 1) {
+    const directionLabel = direction === -1 ? "上" : "下";
+    const canMove =
+      sheetIndex > 0 &&
+      sheetIndex + direction > 0 &&
+      sheetIndex + direction < reorderSheetIds.length;
+    const orderedIds = moveOrder(direction);
+
+    return (
+      <Form key={direction} method="post">
+        <input type="hidden" name="intent" value="reorderSheets" />
+        {orderedIds.map((id) => (
+          <input key={id} type="hidden" name="sheetIds" value={id} />
+        ))}
+        <Button
+          type="submit"
+          variant="outline"
+          aria-label={`「${sheet.name}」を${directionLabel}へ移動`}
+          disabled={!canMove || reorderPending}
+          loading={reorderPending}
+        >
+          {directionLabel}へ
+        </Button>
+      </Form>
+    );
+  }
 
   return (
     <Card>
@@ -58,6 +103,16 @@ export function RosterSheetCard({
           </p>
         )}
         <Inline className="flex-wrap">
+          {hasReorderControls && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="gdg-muted text-sm">並び順</span>
+              {renderMoveButton(-1)}
+              {renderMoveButton(1)}
+            </div>
+          )}
+          <Button asChild>
+            <RouterLink to={`/e/${eventId}/s/${sheet.id}/design`}>設計</RouterLink>
+          </Button>
           <Form method="post">
             <input type="hidden" name="intent" value="setVisibility" />
             <input type="hidden" name="sheetId" value={sheet.id} />
