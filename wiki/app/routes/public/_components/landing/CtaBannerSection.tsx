@@ -1,4 +1,4 @@
-import { Card, Heading, Stack, Text } from "@gdgjp/ui";
+import { Card, Heading, Stack, Text } from "@gdgjp/design-system";
 import type React from "react";
 import { useTranslation } from "react-i18next";
 

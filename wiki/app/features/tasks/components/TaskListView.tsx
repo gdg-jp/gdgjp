@@ -10,7 +10,7 @@ import TaskTimelineView from "~/features/tasks/components/TaskTimelineView";
 import type { TaskDetailData } from "../task-detail.server";
 import { TaskDetailToolbar } from "./TaskDetailToolbar";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 type ViewTab = "table" | "timeline" | "remaining";
 
 async function ensureOkResponse(response: Response): Promise<void> {

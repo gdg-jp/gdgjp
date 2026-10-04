@@ -8,7 +8,7 @@ Avoid: using it for an entire page, a lightweight hint, or a destructive confirm
 
 ## Public API
 
-`Dialog`, `DialogTrigger`, `DialogContent`, `DialogTitle`, `DialogDescription`, `DialogClose`. Check `ui/src/components/Dialog/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Dialog`, `DialogTrigger`, `DialogContent`, `DialogTitle`, `DialogDescription`, `DialogClose`. Check `design-system/src/components/Dialog/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for an entire page, a lightweight hint, or a destructive confirm
 <Dialog><DialogTrigger asChild><Button>Edit</Button></DialogTrigger><DialogContent><DialogTitle>Edit event</DialogTitle><DialogDescription>Enter the changes.</DialogDescription><FormField label="Name"><Input /></FormField></DialogContent></Dialog>
 ```
 
-See `ui/src/components/Dialog/Dialog.stories.tsx` for states and compositions.
+See `design-system/src/components/Dialog/Dialog.stories.tsx` for states and compositions.

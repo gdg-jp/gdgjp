@@ -8,7 +8,7 @@ Avoid: using it as a toolbar packed with unrelated controls or as a substitute f
 
 ## Public API
 
-`InputGroup`, `InputGroupAddon`, `InputGroupText`, `InputGroupInput`, `InputGroupTextarea`, `InputGroupButton`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/InputGroup/` for exact types and defaults.
+`InputGroup`, `InputGroupAddon`, `InputGroupText`, `InputGroupInput`, `InputGroupTextarea`, `InputGroupButton`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/InputGroup/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it as a toolbar packed with unrelated controls or as a substitute f
 <FormField label="Search"><InputGroup><InputGroupInput name="q" /><InputGroupButton aria-label="Search">Search</InputGroupButton></InputGroup></FormField>
 ```
 
-See `ui/src/components/InputGroup/InputGroup.stories.tsx` for states and compositions.
+See `design-system/src/components/InputGroup/InputGroup.stories.tsx` for states and compositions.

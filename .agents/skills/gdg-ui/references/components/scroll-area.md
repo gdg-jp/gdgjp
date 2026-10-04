@@ -8,7 +8,7 @@ Avoid: using it on the document body, in a region with little content, or to hid
 
 ## Public API
 
-`ScrollArea`, `ScrollAreaViewport`, `ScrollAreaScrollbar`, `ScrollAreaThumb`, `ScrollAreaCorner`. Check `ui/src/components/ScrollArea/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`ScrollArea`, `ScrollAreaViewport`, `ScrollAreaScrollbar`, `ScrollAreaThumb`, `ScrollAreaCorner`. Check `design-system/src/components/ScrollArea/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it on the document body, in a region with little content, or to hid
 <ScrollArea aria-label="Notifications" className="max-h-80">{notifications}</ScrollArea>
 ```
 
-See `ui/src/components/ScrollArea/ScrollArea.stories.tsx` for states and compositions.
+See `design-system/src/components/ScrollArea/ScrollArea.stories.tsx` for states and compositions.

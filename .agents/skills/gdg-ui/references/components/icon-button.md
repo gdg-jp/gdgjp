@@ -8,7 +8,7 @@ Avoid: reducing a labeled action or explanation to an icon alone.
 
 ## Public API
 
-`IconButton`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/IconButton/` for exact types and defaults.
+`IconButton`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/IconButton/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: reducing a labeled action or explanation to an icon alone.
 <IconButton aria-label="Edit"><Pencil aria-hidden="true" /></IconButton>
 ```
 
-See `ui/src/components/IconButton/IconButton.stories.tsx` for states and compositions.
+See `design-system/src/components/IconButton/IconButton.stories.tsx` for states and compositions.

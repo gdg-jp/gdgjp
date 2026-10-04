@@ -8,7 +8,7 @@ import {
   Button,
   Inline,
   Stack,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
 import { useEffect, useRef } from "react";
 
 interface ConfirmDialogProps {

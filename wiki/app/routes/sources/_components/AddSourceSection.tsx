@@ -3,7 +3,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -27,7 +27,7 @@ import { useSourceStaging } from "./use-source-staging";
  * `discordError` / `needsDiscord*` are kept here (not inside the dialog) so an
  * auth hint or duplicate message shows in this section after the dialog closes.
  */
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export function AddSourceSection({
   sources,
   assignableChapters,

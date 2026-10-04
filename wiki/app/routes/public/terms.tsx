@@ -1,4 +1,4 @@
-import { Heading, Inline, PageHeader, Stack, Text, Link as UiLink } from "@gdgjp/ui";
+import { Heading, Inline, PageHeader, Stack, Text, Link as UiLink } from "@gdgjp/design-system";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { MetaFunction } from "react-router";

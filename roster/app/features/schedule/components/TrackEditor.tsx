@@ -21,12 +21,12 @@ export function TrackEditor({ tracks, sheetId }: { tracks: Track[]; sheetId: str
           {tracks.map((track, i) => (
             <li
               key={track.id}
-              className="flex items-center justify-between gap-3 rounded-xl border-2 border-black bg-white p-3"
+              className="flex items-center justify-between gap-3 rounded-xl border-2 border-border bg-surface p-3"
             >
               <span className="flex items-center gap-2">
                 <span
                   aria-hidden
-                  className="inline-block size-4 rounded-full border border-black"
+                  className="inline-block size-4 rounded-full border border-border"
                   style={{ backgroundColor: track.color }}
                 />
                 <span className="font-medium">{track.name}</span>
@@ -89,7 +89,7 @@ export function TrackEditor({ tracks, sheetId }: { tracks: Track[]; sheetId: str
             required
             maxLength={40}
             placeholder="Track A"
-            className="rounded-xl border-2 border-black bg-white p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+            className="rounded-xl border-2 border-border bg-surface p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
           />
         </label>
         <label className="space-y-1">
@@ -98,7 +98,7 @@ export function TrackEditor({ tracks, sheetId }: { tracks: Track[]; sheetId: str
             name="color"
             type="color"
             defaultValue={DEFAULT_COLORS[tracks.length % DEFAULT_COLORS.length]}
-            className="h-11 w-16 rounded-xl border-2 border-black bg-white p-1"
+            className="h-11 w-16 rounded-xl border-2 border-border bg-surface p-1"
           />
         </label>
         <label className="flex items-center gap-2 pb-2.5">
@@ -107,7 +107,7 @@ export function TrackEditor({ tracks, sheetId }: { tracks: Track[]; sheetId: str
         </label>
         <button
           type="submit"
-          className="rounded-full border-2 border-black bg-white px-4 py-2 font-bold transition hover:bg-neutral-100"
+          className="rounded-full border-2 border-border bg-surface px-4 py-2 font-bold transition hover:bg-neutral-100"
         >
           トラックを追加
         </button>

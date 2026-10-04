@@ -92,7 +92,7 @@ export function ProxyAddDialog({
       <button
         type="button"
         onClick={() => dialogRef.current?.showModal()}
-        className="rounded-full border-2 border-black bg-gdg-blue px-6 py-2.5 font-bold text-white transition hover:brightness-95"
+        className="rounded-full border-2 border-border bg-gdg-blue px-6 py-2.5 font-bold text-primary-foreground transition hover:brightness-95"
       >
         メールアドレスで代理登録
       </button>
@@ -124,7 +124,7 @@ export function ProxyAddDialog({
               type="email"
               name="email"
               required
-              className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+              className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
             />
           </label>
 
@@ -133,7 +133,7 @@ export function ProxyAddDialog({
             <input
               name="name"
               required
-              className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+              className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
             />
           </label>
 
@@ -142,7 +142,7 @@ export function ProxyAddDialog({
             <input
               name="contact"
               placeholder="未入力の場合はメールアドレスを使用します"
-              className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+              className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
             />
           </label>
 
@@ -193,7 +193,7 @@ export function ProxyAddDialog({
               <select
                 name="party"
                 defaultValue={DEFAULT_PARTY satisfies PartyStatus}
-                className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+                className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
               >
                 {PARTY_STATUSES.map((status) => (
                   <option key={status} value={status}>
@@ -209,13 +209,13 @@ export function ProxyAddDialog({
             <textarea
               name="note"
               rows={3}
-              className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+              className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
             />
           </label>
 
           <button
             type="submit"
-            className="rounded-full border-2 border-black bg-gdg-blue px-6 py-2.5 font-bold text-white transition hover:brightness-95"
+            className="rounded-full border-2 border-border bg-gdg-blue px-6 py-2.5 font-bold text-primary-foreground transition hover:brightness-95"
           >
             登録する
           </button>

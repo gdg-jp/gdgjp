@@ -8,7 +8,7 @@ Avoid: using it as a layout table or for styling a div grid. Do not let the whol
 
 ## Public API
 
-`Table`. Check `ui/src/components/Table/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Table`. Check `design-system/src/components/Table/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it as a layout table or for styling a div grid. Do not let the whol
 <Table scrollLabel="Attendee list"><caption>Attendees</caption><thead><tr><th scope="col">Name</th></tr></thead><tbody><tr><td>Yamada</td></tr></tbody></Table>
 ```
 
-See `ui/src/components/Table/Table.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Table/Table.stories.tsx` for states, compositions, and narrow-width layouts.

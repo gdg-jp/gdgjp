@@ -26,7 +26,7 @@ export function PhaseList({
             {phases.map((phase) => (
               <li
                 key={phase.id}
-                className="flex items-center justify-between gap-3 rounded-xl border-2 border-black bg-white p-3"
+                className="flex items-center justify-between gap-3 rounded-xl border-2 border-border bg-surface p-3"
               >
                 <span>
                   <span className="font-medium">{phase.name}</span>{" "}
@@ -57,7 +57,7 @@ export function PhaseList({
               required
               maxLength={40}
               placeholder="開場前"
-              className="rounded-xl border-2 border-black bg-white p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+              className="rounded-xl border-2 border-border bg-surface p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
             />
           </label>
           <label className="space-y-1">
@@ -66,7 +66,7 @@ export function PhaseList({
               name="from"
               type="time"
               required
-              className="rounded-xl border-2 border-black bg-white p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+              className="rounded-xl border-2 border-border bg-surface p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
             />
           </label>
           <label className="space-y-1">
@@ -75,12 +75,12 @@ export function PhaseList({
               name="to"
               type="time"
               required
-              className="rounded-xl border-2 border-black bg-white p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+              className="rounded-xl border-2 border-border bg-surface p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
             />
           </label>
           <button
             type="submit"
-            className="rounded-full border-2 border-black bg-white px-4 py-2 font-bold transition hover:bg-neutral-100"
+            className="rounded-full border-2 border-border bg-surface px-4 py-2 font-bold transition hover:bg-neutral-100"
           >
             フェーズを追加
           </button>
@@ -94,7 +94,10 @@ export function PhaseList({
         ) : (
           <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {timeSlots.map((slot) => (
-              <li key={slot.id} className="rounded-xl border-2 border-black bg-white p-2 text-sm">
+              <li
+                key={slot.id}
+                className="rounded-xl border-2 border-border bg-surface p-2 text-sm"
+              >
                 <span className="font-medium">
                   {slot.start}–{slot.end}
                 </span>

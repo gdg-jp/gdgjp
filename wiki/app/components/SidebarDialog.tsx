@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogTitle } from "@gdgjp/ui";
+import { Dialog, DialogContent, DialogTitle } from "@gdgjp/design-system";
 
 interface SidebarDialogProps {
   open: boolean;

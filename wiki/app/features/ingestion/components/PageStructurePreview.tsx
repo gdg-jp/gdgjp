@@ -6,7 +6,7 @@ import type { ChangesetOperation } from "../../../../shared/ingestion/domain";
 // Types
 // ---------------------------------------------------------------------------
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 interface PageIndexEntry {
   id: string;
   titleJa: string;

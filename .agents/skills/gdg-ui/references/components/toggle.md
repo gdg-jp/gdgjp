@@ -8,7 +8,7 @@ Avoid: use Switch for an on/off setting that changes immediately and Checkbox fo
 
 ## Public API
 
-`Toggle`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/Toggle/` for exact types and defaults.
+`Toggle`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/Toggle/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: use Switch for an on/off setting that changes immediately and Checkbox fo
 <Toggle aria-label="Bold" pressed={bold} onPressedChange={setBold}>B</Toggle>
 ```
 
-See `ui/src/components/Toggle/Toggle.stories.tsx` for states and compositions.
+See `design-system/src/components/Toggle/Toggle.stories.tsx` for states and compositions.

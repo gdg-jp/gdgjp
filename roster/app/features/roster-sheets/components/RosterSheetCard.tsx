@@ -12,7 +12,7 @@ import {
   Heading,
   Inline,
   Stack,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
 import { Form, Link as RouterLink } from "react-router";
 import type { RosterSheet, SheetVisibility } from "../types";
 
@@ -98,7 +98,7 @@ export function RosterSheetCard({
           <time dateTime={`${sheet.date}T${sheet.endTime}`}>{sheet.endTime}</time>
         </p>
         {error && (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-sm text-danger" role="alert">
             {error}
           </p>
         )}

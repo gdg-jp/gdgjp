@@ -2,11 +2,11 @@
 
 ## Use case
 
-Use `Icons` for non-interactive Lucide icons through the public `@gdgjp/ui` contract. It is a display component, not an action; compose it with `Button` or `IconButton` when an icon is part of an interaction.
+Use `Icons` for non-interactive Lucide icons through the public `@gdgjp/design-system` contract. It is a display component, not an action; compose it with `Button` or `IconButton` when an icon is part of an interaction.
 
 ## Public API
 
-Import `Icons` from `@gdgjp/ui` and check `ui/src/components/Icons/index.ts` and `Icons.tsx` for the exact types.
+Import `Icons` from `@gdgjp/design-system` and check `design-system/src/components/Icons/index.ts` and `Icons.tsx` for the exact types.
 
 - `name` is required and accepts a Lucide name with or without the `Icon` suffix, such as `Heart` or `SparklesIcon`. The public `IconName` and `IconBaseName` unions in `IconName.ts` are the source of truth; an unknown name throws a clear runtime error. The catalog includes the animated names plus the explicit static names required by Wiki consumers.
 - `size` defaults to `24`.
@@ -26,7 +26,7 @@ Do not make the app depend on `lucide-animated` just to render an icon; use the 
 ## Minimal examples
 
 ```tsx
-import { Button, IconButton, Icons } from "@gdgjp/ui";
+import { Button, IconButton, Icons } from "@gdgjp/design-system";
 
 <Icons name="Heart" aria-label="お気に入り" />
 <IconButton aria-label="お気に入り">
@@ -38,4 +38,4 @@ import { Button, IconButton, Icons } from "@gdgjp/ui";
 </Button>
 ```
 
-See `ui/src/components/Icons/Icons.stories.tsx` for animated, static, and decorative states.
+See `design-system/src/components/Icons/Icons.stories.tsx` for animated, static, and decorative states.

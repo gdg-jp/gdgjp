@@ -1,4 +1,4 @@
-import { Card, EmptyState, Heading, PageHeader, Text } from "@gdgjp/ui";
+import { Card, EmptyState, Heading, PageHeader, Text } from "@gdgjp/design-system";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { Suspense } from "react";
 import { useTranslation } from "react-i18next";

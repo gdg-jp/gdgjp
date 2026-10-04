@@ -1,4 +1,4 @@
-# Wiki UI の `@gdgjp/ui` 全面移行計画
+# Wiki UI の `@gdgjp/design-system` 全面移行計画
 
 - [実装状況](status.md)
 - [01 — Shared library defects](01-shared-library-defects.md)
@@ -15,13 +15,13 @@
 
 `wiki/` は React Router v7 の Cloudflare Workers アプリであり、公開ランディング、認証後の
 Wiki 閲覧・編集、共有、検索、ソース取り込み、AI 生成、タスク、設定、管理画面という複数の
-UI サーフェスを持つ。共通デザインシステム `@gdgjp/ui` は React 19、Radix、semantic token、
+UI サーフェスを持つ。共通デザインシステム `@gdgjp/design-system` は React 19、Radix、semantic token、
 Light/Dark theme、アクセシブルな操作 primitive、共通レイアウトを提供しているが、Wiki 側には
 歴史的にローカル実装された primitive、直接の `lucide-react` 利用、手組みの menu/dialog/form、
 個別の色・形状・motion が残っている。
 
 この計画は、Wiki の業務ロジックや URL を変えず、一般化できる見た目と操作契約を
-`@gdgjp/ui` に一本化する。全面移行とは、すべての JSX を機械的に共有コンポーネントへ置換する
+`@gdgjp/design-system` に一本化する。全面移行とは、すべての JSX を機械的に共有コンポーネントへ置換する
 ことではない。ページツリー、共同編集、ACL 共有、取り込み状態、タスク表などの
 プロダクト固有 composition は `wiki/` に残し、その内部で使う一般 UI primitive と visual
 language を共有契約へ移す。
@@ -30,31 +30,31 @@ language を共有契約へ移す。
 
 着手時の working tree には、ユーザーが進めている未コミット WIP がある。これは破棄・巻き戻し・
 別案での全面上書きをせず、実装開始時に差分を inventory し、各変更を「採用」「共有契約へ昇格」
-「既存の `@gdgjp/ui` API に合わせて修正」に分類して継続する。
+「既存の `@gdgjp/design-system` API に合わせて修正」に分類して継続する。
 
 確認済みの途中状態は次のとおり。
 
-- `wiki/package.json` は `@gdgjp/ui: workspace:*` を宣言済み。
+- `wiki/package.json` は `@gdgjp/design-system: workspace:*` を宣言済み。
 - `wiki/app/app.css` は shared Tailwind/component/font CSS と layer order を導入済みで、Wiki 固有の
   editor/collaboration 表示だけを残す方向へ縮小中。
 - `wiki/app/root.tsx` は文書単位の `ThemeProvider` と共有 `Toaster` を導入済み。
 - `wiki/app/components/ui/`、ローカル Toast、ローカル theme hook、旧 theme-init script は削除途中。
-- shell、dialog、share、source、notification など一部は `@gdgjp/ui` import へ移行途中。
-- 現状の scan では `@gdgjp/ui` import が 44 行ある一方、`button/input/select/textarea` の native
+- shell、dialog、share、source、notification など一部は `@gdgjp/design-system` import へ移行途中。
+- 現状の scan では `@gdgjp/design-system` import が 44 行ある一方、`button/input/select/textarea` の native
   要素が 217 箇所・62 ファイルにある。hidden input、file/color input、editor 内部など正当な native
   利用も含むため、件数をゼロにするのではなく、共有 primitive を再実装している箇所をゼロにする。
 - `pnpm -C wiki typecheck` は、AlertDialog action の variant/size、IconButton/Select/Button の size、
   消えた `inputClass`、DropdownMenu checkbox の binding 不備により現在 9 エラーで失敗する。
 - `node scripts/check-ui-conventions.mjs --app wiki` は、直接 icon dependency、任意値 utility、
   component API の使い方を含む多数の未解消箇所を報告する。
-- Wiki の theme/layering architecture test と `@gdgjp/ui` typecheck は通るが、それだけでは移行完了を
+- Wiki の theme/layering architecture test と `@gdgjp/design-system` typecheck は通るが、それだけでは移行完了を
   示さない。
-- clean CI/deploy job では `@gdgjp/ui` の dist を先に build する必要があり、その workflow 対応も
+- clean CI/deploy job では `@gdgjp/design-system` の dist を先に build する必要があり、その workflow 対応も
   WIP に含まれている。
 
 ### 対象範囲
 
-- `ui/`: Wiki が必要とする汎用 capability の public API、CSS、story、test、consumer documentation。
+- `design-system/`: Wiki が必要とする汎用 capability の public API、CSS、story、test、consumer documentation。
 - `wiki/app/`: root/theme、shell、公開画面、全機能画面、一般 UI primitive の利用箇所。
 - `wiki/tests/`: architecture、unit、golden、E2E、visual/accessibility regression。
 - `scripts/check-ui-conventions.mjs` と関連 test: 全面移行後の逆戻り防止。
@@ -63,14 +63,14 @@ language を共有契約へ移す。
 ### 非対象
 
 - URL、loader/action/API、D1 schema、認証・認可、ACL、同期、取り込み、通知、タスクの業務仕様変更。
-- `@gdgjp/gdg-lib/ui` が所有する account menu と app launcher の `@gdgjp/ui` への吸収。
+- `@gdgjp/gdg-lib/ui` が所有する account menu と app launcher の `@gdgjp/design-system` への吸収。
 - Markdown/editor/drag-and-drop/emoji picker 等の専門ライブラリを design system に移すこと。
-- `wiki/` 固有の page tree、share controller、task domain component を `ui/` に移すこと。
+- `wiki/` 固有の page tree、share controller、task domain component を `design-system/` に移すこと。
 - 他アプリの UI 移行。共有 API の変更による既存 consumer の regression 防止は対象に含む。
 
 ### 依存関係と実装順
 
-1. 確認済み library defect を `ui/` だけの独立 task で解消する。app workaround は作らない。
+1. 確認済み library defect を `design-system/` だけの独立 task で解消する。app workaround は作らない。
 2. WIP を基準化し、Wiki の theme、build/CI、静的 guardrail を確定する。
 3. 共有契約確定後、shell/public を先に確定する。その後 Wiki/editor、ingestion/sources、
    tasks/admin/settings を、ファイル所有を分けて並行移行できる。`app.css`、barrel export、共通 locale、
@@ -78,7 +78,7 @@ language を共有契約へ移す。
 4. 全領域完了後、残存 scan、全 test、実ブラウザーによる theme/viewport/keyboard QA を統合実施する。
 
 実装中に共有 API の不足が見つかった場合、Wiki 内に新しい汎用 wrapper を作らない。library defect
-report を作り、独立 `ui/` task で API・story・test・documentation を同一変更で整えてから領域移行を
+report を作り、独立 `design-system/` task で API・story・test・documentation を同一変更で整えてから領域移行を
 続ける。
 
 ### 画面・認証 inventory
@@ -105,9 +105,9 @@ blocker なので、Wiki 内の回避ではなく最初の独立 unit で修正�
 
 | library file | 期待 behavior | 回避すると必要になる app work | fix 後の workaround |
 | --- | --- | --- | --- |
-| `ui/src/components/Combobox/Combobox.tsx:40,150,170` | remote filtering、controlled query、継続選択、active option/Arrow key/`aria-activedescendant` を composition 可能 | ShareDialog が listbox keyboard/focus/filtering を再実装 | 無効。shared behavior に置換して削除 |
-| `ui/src/components/Icons/IconName.ts:450`, `Icons.tsx:66-74` | Wiki の semantic icon inventory 64種を public path から利用可能 | 未収録30種を `lucide-react` から直接 import、または意味の違う近似 icon へ置換 | 無効。shared wrapper に一本化して direct dependency を削除 |
-| `ui/src/components/DatePicker/DatePicker.tsx:144,167` | controlled empty、外部 clear/replace、uncontrolled default を区別 | Wiki が custom calendar/date dropdown を維持 | 無効。shared DatePicker と app の date adapter に置換して削除 |
+| `design-system/src/components/Combobox/Combobox.tsx:40,150,170` | remote filtering、controlled query、継続選択、active option/Arrow key/`aria-activedescendant` を composition 可能 | ShareDialog が listbox keyboard/focus/filtering を再実装 | 無効。shared behavior に置換して削除 |
+| `design-system/src/components/Icons/IconName.ts:450`, `Icons.tsx:66-74` | Wiki の semantic icon inventory 64種を public path から利用可能 | 未収録30種を `lucide-react` から直接 import、または意味の違う近似 icon へ置換 | 無効。shared wrapper に一本化して direct dependency を削除 |
+| `design-system/src/components/DatePicker/DatePicker.tsx:144,167` | controlled empty、外部 clear/replace、uncontrolled default を区別 | Wiki が custom calendar/date dropdown を維持 | 無効。shared DatePicker と app の date adapter に置換して削除 |
 
 新しい defect を発見した場合も、library file/line、期待 behavior、必要だった app workaround、fix 後に
 その workaround が有効かを同じ形式で追記する。空 report を当然視しない。
@@ -132,7 +132,7 @@ blocker なので、Wiki 内の回避ではなく最初の独立 unit で修正�
 ### 完了条件
 
 - `wiki/app/components/ui/` と同等のローカル primitive 群は存在せず、一般的な Button/Input/Select/
-  Dialog/Menu/Popover/Sheet/Tooltip/Toast/theme/icon/motion は `@gdgjp/ui` から利用される。
+  Dialog/Menu/Popover/Sheet/Tooltip/Toast/theme/icon/motion は `@gdgjp/design-system` から利用される。
 - `wiki/` から `radix-ui`、`@radix-ui/*`、`sonner`、`next-themes`、`class-variance-authority`、
   `tailwind-merge`、`clsx`、`lucide-react` への直接 UI import がない。不要になった direct dependency は
   package manifest と lockfile から除く。
@@ -142,7 +142,7 @@ blocker なので、Wiki 内の回避ではなく最初の独立 unit で修正�
   token、base component、theme reset、汎用 animation を複製しない。
 - `scripts/check-ui-conventions.mjs --app wiki` が rationale なしの違反ゼロで通る。検査を黙らせるための
   broad allowlist、ディレクトリ除外、ルール弱体化は行わない。
-- `@gdgjp/ui` の public API を追加・変更した場合、実装、barrel export、stable `gdg-*` CSS、story、
+- `@gdgjp/design-system` の public API を追加・変更した場合、実装、barrel export、stable `gdg-*` CSS、story、
   behavior test、browser/accessibility test、`README.md`、必要な `DESIGN.md` が同期する。
 - Wiki の typecheck、unit/golden/architecture、build、E2E と UI package の typecheck、unit、build、
   consumer、E2E が通る。既知の brand contrast failure が残る場合は別問題として正確に報告し、
@@ -154,7 +154,7 @@ blocker なので、Wiki 内の回避ではなく最初の独立 unit で修正�
 
 ### 1. 所有境界
 
-`@gdgjp/ui` は routing、auth、data fetching、Wiki domain を知らない。次を所有する。
+`@gdgjp/design-system` は routing、auth、data fetching、Wiki domain を知らない。次を所有する。
 
 - semantic token と Tailwind mapping
 - general-purpose input/action/feedback/surface/layout primitive
@@ -217,7 +217,7 @@ compound flow へ進め、途中の commit でも typecheck と対象 test を�
   action/input は shared primitive を composition する。
 - hidden input、file input、color input、contenteditable/editor surface など native semantics が必要なものは
   残せる。見た目を持つ通常の text/select/button を native の class bundle で再現することはしない。
-- icon は `@gdgjp/ui` の公開 icon contract を通す。装飾 icon は `aria-hidden`、意味を持つ単独 icon は
+- icon は `@gdgjp/design-system` の公開 icon contract を通す。装飾 icon は `aria-hidden`、意味を持つ単独 icon は
   label を持ち、hover animation は reduced-motion と keyboard interaction を損なわない。
 
 ### 5. 画面領域
@@ -244,7 +244,7 @@ token と layout primitive で囲う。task/presence/team/tag の domain color �
   例外 inventory を review する。
 - foundation は未移行領域の残存違反を report-only inventory にし、全 source の違反ゼロ gate は全画面
   移行後に有効化する。未移行箇所へ一時 allowance を付けない。
-- Turbo の `^build` と clean hosted jobs の双方で `@gdgjp/ui/dist` が consumer より先に生成される。
+- Turbo の `^build` と clean hosted jobs の双方で `@gdgjp/design-system/dist` が consumer より先に生成される。
   全 job で無条件に重複 build する構成は最終的に workflow test と実行時間を見て整理するが、clean
   checkout で暗黙の既存 dist に依存しないことを優先する。
 - Wiki を changed-workspace E2E matrix の対象にし、clean CI 内で test-only `.dev.vars` を生成する。
@@ -256,7 +256,7 @@ token と layout primitive で囲う。task/presence/team/tag の domain color �
 
 ### Shared package consumer contract
 
-- Wiki は `@gdgjp/ui` の package root と公開 CSS export だけを参照し、`ui/src/**` や内部 class 構造を
+- Wiki は `@gdgjp/design-system` の package root と公開 CSS export だけを参照し、`design-system/src/**` や内部 class 構造を
   import しない。
 - DOM component は native props/ref を透過し、Button は default `type="button"`、form submission は
   明示 `type="submit"` でのみ行う。
@@ -293,7 +293,7 @@ token と layout primitive で囲う。task/presence/team/tag の domain color �
 
 ## Tests to add/update
 
-### `@gdgjp/ui`
+### `@gdgjp/design-system`
 
 - public export と型: Wiki が使う新規/変更 component、variant、size、ref/native props を consumer code で
   compile する。
@@ -335,11 +335,11 @@ token と layout primitive で囲う。task/presence/team/tag の domain color �
 
 ```sh
 pnpm ci:quick
-pnpm --filter @gdgjp/ui run typecheck
-pnpm --filter @gdgjp/ui test
-pnpm --filter @gdgjp/ui build
-pnpm --filter @gdgjp/ui run test:consumer
-pnpm --filter @gdgjp/ui test:e2e
+pnpm --filter @gdgjp/design-system run typecheck
+pnpm --filter @gdgjp/design-system test
+pnpm --filter @gdgjp/design-system build
+pnpm --filter @gdgjp/design-system run test:consumer
+pnpm --filter @gdgjp/design-system test:e2e
 node scripts/check-ui-conventions.mjs --app wiki
 pnpm -C wiki typecheck
 pnpm --filter @gdgjp/wiki test
@@ -359,9 +359,9 @@ non-zero になる環境では、実エラーを隠さず `pnpm -C wiki typechec
 
 - React 19、TypeScript ESM、React Router v7 SSR
 - Cloudflare Workers/Vite、Tailwind CSS v4
-- `@gdgjp/ui` private workspace package
-- Radix primitives（`ui/` 内部のみ）、next-themes（`ui/` 内部のみ）
+- `@gdgjp/design-system` private workspace package
+- Radix primitives（`design-system/` 内部のみ）、next-themes（`design-system/` 内部のみ）
 - shared semantic CSS tokens、stable `gdg-*` component classes、Google Sans/Noto Sans JP fonts
-- lucide-animated based `Icons` contract（consumer は `@gdgjp/ui` 経由）
+- lucide-animated based `Icons` contract（consumer は `@gdgjp/design-system` 経由）
 - Vitest、Testing Library、Storybook、Playwright、axe、visual snapshots
 - pnpm workspace、Turborepo、Biome、repository UI convention checker

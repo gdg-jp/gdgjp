@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@gdgjp/ui";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@gdgjp/design-system";
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "./page-menu-primitives";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 type Targets = {
   targets?: { id: string; titleJa: string; titleEn: string; slug: string }[];
   error?: string;

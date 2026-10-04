@@ -1,6 +1,6 @@
 # GDG Apps UI design principles
 
-Use this document to guide app implementation decisions. The source of truth is `ui/DESIGN.md`, and the source of truth for manually edited tokens is `ui/src/styles/tokens.css`. Recheck values and contracts in those sources during the work; do not duplicate a second token definition in an app.
+Use this document to guide app implementation decisions. The source of truth is `design-system/DESIGN.md`, and the source of truth for manually edited tokens is `design-system/src/styles/tokens.css`. Recheck values and contracts in those sources during the work; do not duplicate a second token definition in an app.
 
 ## Visual language
 
@@ -18,7 +18,7 @@ Use this document to guide app implementation decisions. The source of truth is 
 
 ## Theme, color, and accessibility
 
-- Use `--gdg-*` or semantic utilities from `@gdgjp/ui/tailwind.css`, not literal theme colors. Check the relationship between surfaces, text, focus, and status in both Light and Dark themes.
+- Use `--gdg-*` or semantic utilities from `@gdgjp/design-system/tailwind.css`, not literal theme colors. Check the relationship between surfaces, text, focus, and status in both Light and Dark themes.
 - Maintain a minimum contrast ratio of 4.5:1 for normal text and 3:1 for important controls and focus indicators. Do not reuse brand colors for small body text or status text.
 - Prefer native semantics, labels, headings, captions, and `aria-current`. Dialog/Sheet require a Title and Description, AlertDialog requires Cancel and Action, and icon-only actions require an accessible name.
 - Show errors on the relevant field or in a persistent Alert. Do not make a Toast the only path for an error that requires resolution. Do not use Skeleton alone as a loading announcement.

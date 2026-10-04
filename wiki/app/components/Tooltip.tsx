@@ -1,4 +1,4 @@
-import { TooltipContent, Tooltip as TooltipPrimitive, TooltipTrigger } from "@gdgjp/ui";
+import { TooltipContent, Tooltip as TooltipPrimitive, TooltipTrigger } from "@gdgjp/design-system";
 
 /**
  * Wraps children with a tooltip label.

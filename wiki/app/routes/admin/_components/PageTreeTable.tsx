@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Form, Link } from "react-router";
 import type { AdminPageNode } from "./admin-page-tree";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 function StatusBadge({ status }: { status: string }) {
   const { t } = useTranslation();
   const cls =

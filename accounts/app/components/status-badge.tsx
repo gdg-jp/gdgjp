@@ -1,4 +1,4 @@
-import { Badge, type Tone } from "@gdgjp/ui";
+import { Badge, type Tone } from "@gdgjp/design-system";
 import type { ReactNode } from "react";
 
 export type Status = "pending" | "active" | "organizer" | "member" | "rejected";

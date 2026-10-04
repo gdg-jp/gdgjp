@@ -21,7 +21,7 @@ export function RolePicker({
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {roles.map((role) => (
           <li key={role.id}>
-            <label className="flex items-center gap-2 rounded-xl border-2 border-black bg-white p-3">
+            <label className="flex items-center gap-2 rounded-xl border-2 border-border bg-surface p-3">
               <input
                 type="checkbox"
                 name="roleId"
@@ -36,7 +36,7 @@ export function RolePicker({
       </ul>
       <button
         type="submit"
-        className="rounded-full border-2 border-black bg-gdg-blue px-6 py-2.5 font-bold text-white transition hover:brightness-95"
+        className="rounded-full border-2 border-border bg-gdg-blue px-6 py-2.5 font-bold text-primary-foreground transition hover:brightness-95"
       >
         役割を保存
       </button>

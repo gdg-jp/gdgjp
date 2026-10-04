@@ -40,7 +40,7 @@ export function MetricsRow({ metrics }: { metrics: Metrics }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
       {tiles.map((tile) => (
-        <div key={tile.label} className="rounded-lg border border-border bg-card p-3">
+        <div key={tile.label} className="rounded-lg border border-border bg-surface p-3">
           <p className="text-xs font-bold text-neutral-500">{tile.label}</p>
           <p className="text-xl font-bold">{tile.value}</p>
           <p className="text-[11px] text-neutral-500">{tile.detail}</p>

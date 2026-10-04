@@ -19,7 +19,7 @@ vi.mock("react-router", () => ({
   ),
 }));
 
-vi.mock("@gdgjp/ui", () => ({
+vi.mock("@gdgjp/design-system", () => ({
   Dialog: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
     open ? <div data-slot="dialog">{children}</div> : null,
   DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,

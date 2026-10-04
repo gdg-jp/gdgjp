@@ -8,7 +8,7 @@ Avoid: using it instead of a completed/failed status or step navigation, or show
 
 ## Public API
 
-`Progress`, `ProgressIndicator`. Check `ui/src/components/Progress/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Progress`, `ProgressIndicator`. Check `design-system/src/components/Progress/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it instead of a completed/failed status or step navigation, or show
 <Progress aria-label="Upload" value={percent}><ProgressIndicator /></Progress>
 ```
 
-See `ui/src/components/Progress/Progress.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Progress/Progress.stories.tsx` for states, compositions, and narrow-width layouts.

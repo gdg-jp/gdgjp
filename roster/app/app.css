@@ -1,85 +1,34 @@
 @layer theme, base, gdg-tokens, gdg-base, gdg-components, utilities;
 @import "tailwindcss";
-@import "@gdgjp/ui/tailwind.css";
-@import "@gdgjp/ui/components.css";
+@import "@gdgjp/design-system/tailwind.css";
+@import "@gdgjp/design-system/components.css";
+@import "@gdgjp/design-system/fonts.css";
 
 @source "../../gdg-lib/src/ui";
 
-@font-face {
-  font-family: "Google Sans";
-  src: url("/fonts/GoogleSans-Variable.ttf") format("truetype-variations");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Google Sans";
-  src: url("/fonts/GoogleSans-Italic-Variable.ttf") format("truetype-variations");
-  font-weight: 100 900;
-  font-style: italic;
-  font-display: swap;
-}
-
-@theme {
-  --font-sans: "Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP",
-    sans-serif;
-  --color-surface: var(--background);
-  --color-gdg-blue: #4285f4;
-  --color-gdg-blue-strong: #185abc;
-  --color-gdg-blue-deep: #174ea6;
-  --color-gdg-red: #ea4335;
-  --color-gdg-yellow: #fbbc04;
-  --color-gdg-green: #34a853;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-}
-
 :root {
   --radius: 0.625rem;
-  --background: #f8fafd;
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.624 0.214 259.815);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.48 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.58 0.22 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.89 0 0);
-  --input: oklch(0.82 0 0);
-  --ring: oklch(0.624 0.214 259.815);
+  --background: var(--gdg-background);
+  --foreground: var(--gdg-text);
+  --card: var(--gdg-surface);
+  --card-foreground: var(--gdg-text);
+  --popover: var(--gdg-surface);
+  --popover-foreground: var(--gdg-text);
+  --primary: var(--gdg-primary);
+  --primary-foreground: var(--gdg-on-primary);
+  --secondary: var(--gdg-background);
+  --secondary-foreground: var(--gdg-text);
+  --muted: var(--gdg-background);
+  --muted-foreground: var(--gdg-muted);
+  --accent: var(--gdg-hover);
+  --accent-foreground: var(--gdg-text);
+  --destructive: var(--gdg-danger);
+  --destructive-foreground: var(--gdg-on-danger);
+  --border: var(--gdg-border);
+  --input: var(--gdg-input-border);
+  --ring: var(--gdg-focus);
+  --color-gdg-blue-strong: var(--gdg-link);
+  --color-gdg-blue-deep: var(--gdg-focus);
 }
 
 * {
@@ -154,7 +103,7 @@ textarea:focus-visible,
   border-right: 1px solid var(--border);
   background: var(--card);
   padding: 0 14px 14px;
-  box-shadow: 4px 0 18px rgb(32 33 36 / 3%);
+  box-shadow: 4px 0 18px color-mix(in srgb, var(--gdg-text) 3%, transparent);
 }
 
 .app-sidebar::before {
@@ -192,7 +141,7 @@ textarea:focus-visible,
   width: 42px;
   height: 42px;
   flex: 0 0 auto;
-  filter: drop-shadow(0 2px 4px rgb(60 64 67 / 12%));
+  filter: drop-shadow(0 2px 4px color-mix(in srgb, var(--gdg-text) 12%, transparent));
 }
 
 .brand-name {
@@ -229,7 +178,7 @@ textarea:focus-visible,
   border-radius: 12px;
   background: color-mix(in srgb, var(--color-gdg-blue) 5%, var(--card));
   padding: 10px;
-  box-shadow: 0 1px 2px rgb(60 64 67 / 8%);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--gdg-text) 8%, transparent);
 }
 
 .event-switcher {
@@ -534,11 +483,6 @@ dialog.border-2 {
   border-width: 1px;
 }
 
-main .border-black,
-dialog.border-black {
-  border-color: var(--border);
-}
-
 main .rounded-\[2rem\],
 main .rounded-\[1\.5rem\],
 dialog.rounded-\[1\.5rem\] {
@@ -576,7 +520,7 @@ dialog textarea {
 }
 
 .roster-drawer::backdrop {
-  background: rgb(0 0 0 / 38%);
+  background: color-mix(in srgb, var(--gdg-black) 38%, transparent);
 }
 
 .roster-drawer > form,
@@ -628,7 +572,7 @@ dialog textarea {
 
 .segmented button[aria-pressed="true"] {
   background: var(--color-gdg-blue);
-  color: #fff;
+  color: var(--gdg-on-primary);
 }
 
 .segmented button[aria-pressed="true"]:hover {

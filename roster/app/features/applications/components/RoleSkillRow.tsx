@@ -35,7 +35,7 @@ export function RoleSkillRow({
   onPrefChange: (pref: Pref) => void;
 }) {
   return (
-    <li className="rounded-lg border border-border bg-card p-3">
+    <li className="rounded-lg border border-border bg-surface p-3">
       <label className="flex items-center gap-2">
         <input
           type="checkbox"
@@ -55,7 +55,7 @@ export function RoleSkillRow({
               name={`level_${role.id}`}
               value={level}
               onChange={(e) => onLevelChange(e.target.value as Level)}
-              className="w-full rounded-xl border-2 border-black bg-white p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+              className="w-full rounded-xl border-2 border-border bg-surface p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
             >
               {LEVELS.map((l) => (
                 <option key={l} value={l}>
@@ -70,7 +70,7 @@ export function RoleSkillRow({
               name={`pref_${role.id}`}
               value={pref}
               onChange={(e) => onPrefChange(Number(e.target.value) as Pref)}
-              className="w-full rounded-xl border-2 border-black bg-white p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+              className="w-full rounded-xl border-2 border-border bg-surface p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
             >
               {PREFS.map((p) => (
                 <option key={p} value={p}>

@@ -8,7 +8,7 @@ Avoid: disguising a button action or React Router state management as an anchor.
 
 ## Public API
 
-`Link`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/Link/` for exact types and defaults.
+`Link`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/Link/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: disguising a button action or React Router state management as an anchor.
 <Link href="/help">Help</Link>
 ```
 
-See `ui/src/components/Link/Link.stories.tsx` for states and compositions.
+See `design-system/src/components/Link/Link.stories.tsx` for states and compositions.

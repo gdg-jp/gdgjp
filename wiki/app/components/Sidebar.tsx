@@ -6,7 +6,7 @@ import { NavItem } from "~/components/NavItem";
 import PageTree from "~/features/pages/components/PageTree";
 import type { PageNode } from "~/features/pages/tree";
 
-import { Icons, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@gdgjp/ui";
+import { Icons, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@gdgjp/design-system";
 interface SidebarProps {
   pages: PageNode[];
   currentSlug?: string;

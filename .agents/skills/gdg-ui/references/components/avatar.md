@@ -8,7 +8,7 @@ Avoid: using it for decorative images or general thumbnails. Choose meaningful a
 
 ## Public API
 
-`Avatar`. Check `ui/src/components/Avatar/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Avatar`. Check `design-system/src/components/Avatar/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for decorative images or general thumbnails. Choose meaningful a
 <Avatar src={user.image} alt={user.name} fallback="GD" />
 ```
 
-See `ui/src/components/Avatar/Avatar.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Avatar/Avatar.stories.tsx` for states, compositions, and narrow-width layouts.

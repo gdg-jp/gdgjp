@@ -8,7 +8,7 @@ Avoid: using it as a standalone toast/alert or a general Card. Do not communicat
 
 ## Public API
 
-`Message`, `MessageGroup`, `MessageAvatar`, `MessageContent`, `MessageHeader`, `MessageFooter`. Check `ui/src/components/Message/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Message`, `MessageGroup`, `MessageAvatar`, `MessageContent`, `MessageHeader`, `MessageFooter`. Check `design-system/src/components/Message/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it as a standalone toast/alert or a general Card. Do not communicat
 <Message><MessageAvatar><Avatar alt="Yamada" fallback="YA" /></MessageAvatar><MessageContent><MessageHeader>Yamada</MessageHeader><Bubble>Confirmed</Bubble></MessageContent></Message>
 ```
 
-See `ui/src/components/Message/Message.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Message/Message.stories.tsx` for states, compositions, and narrow-width layouts.

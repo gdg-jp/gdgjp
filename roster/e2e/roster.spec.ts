@@ -47,7 +47,12 @@ async function createEventWithDemand(
   // and reloading early drops the write.
   await page.getByRole("checkbox", { name: "新人を単独の時間枠に割り当てない" }).uncheck();
   await Promise.all([
-    page.waitForResponse((response) => response.request().method() === "POST" && response.ok()),
+    page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.request().postData()?.includes("intent=updateSettings") === true &&
+        response.ok(),
+    ),
     page.getByRole("button", { name: "シフト表設定を保存" }).click(),
   ]);
   await page.reload();

@@ -1,4 +1,4 @@
-import { Button } from "@gdgjp/ui";
+import { Button } from "@gdgjp/design-system";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";

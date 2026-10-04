@@ -8,7 +8,7 @@ Avoid: using it for an admin sidebar, an action menu, or tabs within a single pa
 
 ## Public API
 
-`NavigationMenu`, `NavigationMenuList`, `NavigationMenuItem`, `NavigationMenuTrigger`, `NavigationMenuLink`, `NavigationMenuContent`, `NavigationMenuViewport`, `NavigationMenuIndicator`, `NavigationMenuSub`. Check `ui/src/components/NavigationMenu/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`NavigationMenu`, `NavigationMenuList`, `NavigationMenuItem`, `NavigationMenuTrigger`, `NavigationMenuLink`, `NavigationMenuContent`, `NavigationMenuViewport`, `NavigationMenuIndicator`, `NavigationMenuSub`. Check `design-system/src/components/NavigationMenu/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for an admin sidebar, an action menu, or tabs within a single pa
 <NavigationMenu><NavigationMenuList><NavigationMenuItem><NavigationMenuLink asChild><NavLink to="/events">Events</NavLink></NavigationMenuLink></NavigationMenuItem></NavigationMenuList></NavigationMenu>
 ```
 
-See `ui/src/components/NavigationMenu/NavigationMenu.stories.tsx` for states and compositions.
+See `design-system/src/components/NavigationMenu/NavigationMenu.stories.tsx` for states and compositions.

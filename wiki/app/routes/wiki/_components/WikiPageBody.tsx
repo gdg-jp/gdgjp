@@ -2,7 +2,7 @@ import { MdPreview } from "md-editor-rt";
 import { displayedMarkdown } from "~/features/pages/page-menu-content";
 import type { PageDisplay } from "~/features/pages/use-page-display";
 import "md-editor-rt/lib/preview.css";
-import { useTheme } from "@gdgjp/ui";
+import { useTheme } from "@gdgjp/design-system";
 import { Suspense, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Await } from "react-router";
@@ -14,7 +14,7 @@ import WikiRightSidebar from "~/features/pages/components/WikiRightSidebar";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { MobileContentsSheet } from "./MobileContentsSheet";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 type PageSlice = {
   id: string;
   slug: string;

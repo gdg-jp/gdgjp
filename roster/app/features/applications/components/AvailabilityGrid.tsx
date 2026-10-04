@@ -1,4 +1,4 @@
-import { Button } from "@gdgjp/ui";
+import { Button } from "@gdgjp/design-system";
 import { useId } from "react";
 import {
   AVAILABILITY_HINT,
@@ -49,9 +49,7 @@ export function AvailabilityGrid({
 
   if (timeSlots.length === 0) {
     return (
-      <output className="text-sm text-muted-foreground">
-        このシフト表には選択できる時間枠がありません。
-      </output>
+      <output className="text-sm text-muted">このシフト表には選択できる時間枠がありません。</output>
     );
   }
 
@@ -70,13 +68,13 @@ export function AvailabilityGrid({
         />
       </div>
 
-      <p id={hintId} className="text-xs text-muted-foreground">
+      <p id={hintId} className="text-xs text-muted">
         ○ 可能 / △ {AVAILABILITY_HINT.d} / × 不可
       </p>
 
       <ul className="space-y-2">
         {timeSlots.map((slot) => (
-          <li key={slot.id} className="rounded-lg border border-border bg-card px-3 py-2">
+          <li key={slot.id} className="rounded-lg border border-border bg-surface px-3 py-2">
             <fieldset
               aria-describedby={hintId}
               className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3"
@@ -90,17 +88,17 @@ export function AvailabilityGrid({
                   {slot.start}–{slot.end}
                 </span>
                 {slot.phaseName ? (
-                  <span className="ml-2 text-sm text-muted-foreground">{slot.phaseName}</span>
+                  <span className="ml-2 text-sm text-muted">{slot.phaseName}</span>
                 ) : null}
               </span>
-              <div className="inline-flex rounded-md bg-muted p-0.5">
+              <div className="inline-flex rounded-md bg-background p-0.5">
                 {AVAILABILITY_VALUES.map((value) => (
                   <label
                     key={value}
                     className={`availability-option cursor-pointer rounded-sm px-3 py-1 text-center text-sm font-semibold transition ${
                       values[slot.id] === value
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
+                        ? "bg-surface text-foreground shadow-sm"
+                        : "text-muted hover:text-foreground"
                     }`}
                   >
                     <input

@@ -8,7 +8,7 @@ Avoid: putting URL matching, permission filtering, or data fetching in Sidebar. 
 
 ## Public API
 
-`useSidebar`, `SidebarProvider`, `Sidebar`, `SidebarTrigger`, `SidebarHeader`, `SidebarFooter`, `SidebarContent`, `SidebarGroup`, `SidebarGroupLabel`, `SidebarGroupContent`, `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton`, `SidebarRail`, `SidebarInset`, `SidebarMenuBadge`, `SidebarMenuAction`, `SidebarProviderProps`. Check `ui/src/components/Sidebar/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`useSidebar`, `SidebarProvider`, `Sidebar`, `SidebarTrigger`, `SidebarHeader`, `SidebarFooter`, `SidebarContent`, `SidebarGroup`, `SidebarGroupLabel`, `SidebarGroupContent`, `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton`, `SidebarRail`, `SidebarInset`, `SidebarMenuBadge`, `SidebarMenuAction`, `SidebarProviderProps`. Check `design-system/src/components/Sidebar/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: putting URL matching, permission filtering, or data fetching in Sidebar. 
 <SidebarProvider><Sidebar collapsible="icon"><SidebarHeader><SidebarTrigger /></SidebarHeader><SidebarContent><SidebarMenu><SidebarMenuItem><SidebarMenuButton asChild isActive={active}><NavLink to="/events">Events</NavLink></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarContent></Sidebar><SidebarInset><Outlet /></SidebarInset></SidebarProvider>
 ```
 
-See `ui/src/components/Sidebar/Sidebar.stories.tsx` for states and compositions.
+See `design-system/src/components/Sidebar/Sidebar.stories.tsx` for states and compositions.

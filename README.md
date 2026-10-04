@@ -3,13 +3,13 @@
 Before installing dependencies, initialize the shared design system:
 
 ```sh
-git submodule update --init ui
+git submodule update --init design-system
 pnpm install
 ```
 
-`ui/` tracks [gdg-jp/design-system](https://github.com/gdg-jp/design-system).
+`design-system/` tracks [gdg-jp/design-system](https://github.com/gdg-jp/design-system).
 Commit and push UI changes there first, then commit the updated `ui` pointer here.
-Existing `@gdgjp/ui` workspace imports and build commands remain unchanged.
+Existing `@gdgjp/design-system` workspace imports and build commands remain unchanged.
 
 Monorepo for the GDG Japan web properties. It uses a flat layout, pnpm workspaces, Turborepo, and
 Biome. Its core web apps are React Router v7 SSR applications deployed to Cloudflare Workers, with
@@ -161,7 +161,7 @@ because that grant has no single-column id.
 | `pay/` | `@gdgjp/pay` | pay.gdgs.jp | Event expense reimbursement. D1 + R2, Gemini receipt extraction, Google Sheets/Drive sync; OAuth client of `accounts`. |
 | `tinyurl/` | `@gdgjp/tinyurl` | url.gdgs.jp | URL shortener. D1-backed; OAuth client of `accounts`. |
 | `tinyurl-gateway/` | `@gdgjp/tinyurl-gateway` | Custom short-link domains | Vercel Edge gateway for TinyURL custom domains. It serves an optional upstream first, then resolves a short link when the upstream returns 404. |
-| `ui/` | `@gdgjp/ui` | — | Shared React 19 design system submodule (`gdg-jp/design-system`) for GDG Apps, independent of application routing, authentication, and data fetching. |
+| `design-system/` | `@gdgjp/design-system` | — | Shared React 19 design system submodule (`gdg-jp/design-system`) for GDG Apps, independent of application routing, authentication, and data fetching. |
 | `website/` | `@gdgjp/website` | gdgs.jp | Public GDG Japan website. Cloudflare Worker using the TinyURL service binding. |
 | `wiki/` | `@gdgjp/wiki` | wiki.gdgs.jp | Community wiki. D1 + R2 + Queues + Browser Rendering + Workers AI + Vectorize + Durable Object (Yjs collab); OAuth client of `accounts`. |
 

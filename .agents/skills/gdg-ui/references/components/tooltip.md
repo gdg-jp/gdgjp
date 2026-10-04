@@ -8,7 +8,7 @@ Avoid: using it for a required label, error, long text, interactive content, or 
 
 ## Public API
 
-`Tooltip`, `TooltipProvider`, `TooltipTrigger`, `TooltipContent`. Check `ui/src/components/Tooltip/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Tooltip`, `TooltipProvider`, `TooltipTrigger`, `TooltipContent`. Check `design-system/src/components/Tooltip/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for a required label, error, long text, interactive content, or 
 <Tooltip><TooltipTrigger asChild><IconButton aria-label="Copy"><Copy aria-hidden="true" /></IconButton></TooltipTrigger><TooltipContent>Copy link</TooltipContent></Tooltip>
 ```
 
-See `ui/src/components/Tooltip/Tooltip.stories.tsx` for states and compositions.
+See `design-system/src/components/Tooltip/Tooltip.stories.tsx` for states and compositions.

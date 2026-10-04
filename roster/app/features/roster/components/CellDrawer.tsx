@@ -113,7 +113,7 @@ export function CellDrawer({
             <section
               role="alert"
               aria-labelledby="cross-sheet-warning-title"
-              className="space-y-2 rounded-xl border-2 border-gdg-red bg-white p-3 text-sm"
+              className="space-y-2 rounded-xl border-2 border-gdg-red bg-surface p-3 text-sm"
             >
               <h4 id="cross-sheet-warning-title" className="font-bold text-gdg-red">
                 {crossSheetWarning.conflicts.length > 0
@@ -174,7 +174,7 @@ export function CellDrawer({
           ) : null}
 
           {current ? (
-            <div className="flex items-center justify-between rounded-xl border-2 border-black bg-neutral-50 p-3">
+            <div className="flex items-center justify-between rounded-xl border-2 border-border bg-neutral-50 p-3">
               <p className="text-sm">
                 現在: {trackNameById.get(current.trackId) ?? current.trackId} /{" "}
                 {roleNameById.get(current.roleId) ?? current.roleId}
@@ -198,7 +198,7 @@ export function CellDrawer({
               return (
                 <li
                   key={`${c.trackId}:${c.roleId}`}
-                  className="rounded-xl border-2 border-black p-3"
+                  className="rounded-xl border-2 border-border p-3"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div>
@@ -227,7 +227,7 @@ export function CellDrawer({
                         <input type="hidden" name="roleId" value={c.roleId} />
                         <button
                           type="submit"
-                          className="rounded-full border-2 border-black bg-gdg-blue px-3 py-1 text-xs font-bold text-white transition hover:brightness-95"
+                          className="rounded-full border-2 border-border bg-gdg-blue px-3 py-1 text-xs font-bold text-primary-foreground transition hover:brightness-95"
                         >
                           割り当てる
                         </button>

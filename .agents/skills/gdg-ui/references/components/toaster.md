@@ -8,7 +8,7 @@ Avoid: relying on toast alone for field errors, authentication failures, or fail
 
 ## Public API
 
-`Toaster`, `toast`. Check `ui/src/components/Toaster/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Toaster`, `toast`. Check `design-system/src/components/Toaster/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: relying on toast alone for field errors, authentication failures, or fail
 <><Button onClick={() => toast("Saved")}>Save</Button><Toaster /></>
 ```
 
-See `ui/src/components/Toaster/Toaster.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Toaster/Toaster.stories.tsx` for states, compositions, and narrow-width layouts.

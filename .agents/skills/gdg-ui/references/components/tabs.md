@@ -8,7 +8,7 @@ Avoid: using it for primary navigation between separate URL pages, step order, o
 
 ## Public API
 
-`Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`. Check `ui/src/components/Tabs/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`. Check `design-system/src/components/Tabs/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for primary navigation between separate URL pages, step order, o
 <Tabs defaultValue="overview"><TabsList><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="staff">Staff</TabsTrigger></TabsList><TabsContent value="overview">Overview content</TabsContent><TabsContent value="staff">Staff content</TabsContent></Tabs>
 ```
 
-See `ui/src/components/Tabs/Tabs.stories.tsx` for states and compositions.
+See `design-system/src/components/Tabs/Tabs.stories.tsx` for states and compositions.

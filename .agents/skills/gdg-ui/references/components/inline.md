@@ -8,7 +8,7 @@ Avoid: using it for extensive navigation, data rows that depend on horizontal sc
 
 ## Public API
 
-`Inline`. Check `ui/src/components/Inline/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Inline`. Check `design-system/src/components/Inline/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for extensive navigation, data rows that depend on horizontal sc
 <Inline><Badge>Published</Badge><Text size="sm">September 26</Text></Inline>
 ```
 
-See `ui/src/components/Inline/Inline.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Inline/Inline.stories.tsx` for states, compositions, and narrow-width layouts.

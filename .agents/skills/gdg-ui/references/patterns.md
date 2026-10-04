@@ -4,7 +4,7 @@ These rules cross component boundaries, so no single component API can communica
 
 ## Borders and separators
 
-`@gdgjp/ui` supplies `border-color: var(--gdg-border)` from `gdg-base`, so an ordinary
+`@gdgjp/design-system` supplies `border-color: var(--gdg-border)` from `gdg-base`, so an ordinary
 Tailwind `border` or `divide-y` uses the right semantic color. Explicitly name a color only
 when the line is an intentional design decision. `border-foreground` is reserved for a
 documented high-contrast emphasis and needs a reason comment. Never use literal colors.

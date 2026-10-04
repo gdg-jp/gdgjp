@@ -8,7 +8,7 @@ Avoid: layout hacks that arbitrarily reverse visual order, or adding it uncondit
 
 ## Public API
 
-`DirectionProvider`, `Direction`, `useDirection`, `DirectionProviderProps`. Check `ui/src/components/Direction/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`DirectionProvider`, `Direction`, `useDirection`, `DirectionProviderProps`. Check `design-system/src/components/Direction/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: layout hacks that arbitrarily reverse visual order, or adding it uncondit
 <DirectionProvider dir="rtl"><LocalizedPanel /></DirectionProvider>
 ```
 
-See `ui/src/components/Direction/Direction.stories.tsx` for states and compositions.
+See `design-system/src/components/Direction/Direction.stories.tsx` for states and compositions.

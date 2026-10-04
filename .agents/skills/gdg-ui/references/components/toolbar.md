@@ -8,7 +8,7 @@ Avoid: using it for a rich editor that needs ARIA toolbar behavior or for a coll
 
 ## Public API
 
-`Toolbar`. Check `ui/src/components/Toolbar/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Toolbar`. Check `design-system/src/components/Toolbar/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for a rich editor that needs ARIA toolbar behavior or for a coll
 <Toolbar><Heading level={2}>Events</Heading><Inline><Input aria-label="Search" /><Button>Create</Button></Inline></Toolbar>
 ```
 
-See `ui/src/components/Toolbar/Toolbar.stories.tsx` for states and compositions.
+See `design-system/src/components/Toolbar/Toolbar.stories.tsx` for states and compositions.

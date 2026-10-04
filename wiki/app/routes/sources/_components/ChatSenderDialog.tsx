@@ -1,5 +1,18 @@
-import { Dialog, DialogContent, DialogDescription, DialogTitle, Inline, Stack } from "@gdgjp/ui";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@gdgjp/ui";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  Inline,
+  Stack,
+} from "@gdgjp/design-system";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@gdgjp/design-system";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";

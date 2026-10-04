@@ -45,10 +45,10 @@ export function StaffTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card">
+    <div className="overflow-x-auto rounded-lg border border-border bg-surface">
       <table className="w-full min-w-[720px] border-collapse text-left text-sm">
         <thead>
-          <tr className="border-b-2 border-black">
+          <tr className="border-b-2 border-border">
             <Th>氏名</Th>
             <Th>担当可能役割</Th>
             <Th>稼働可能な枠数</Th>
@@ -74,7 +74,7 @@ export function StaffTable({
                   {row.name}
                 </span>
                 {row.withdrawn ? (
-                  <span className="ml-2 rounded-full border border-black px-2 py-0.5 text-xs font-bold text-neutral-500">
+                  <span className="ml-2 rounded-full border border-border px-2 py-0.5 text-xs font-bold text-neutral-500">
                     辞退
                   </span>
                 ) : null}
@@ -84,7 +84,7 @@ export function StaffTable({
                   {row.roles.map((role) => (
                     <li
                       key={role.roleId}
-                      className="rounded-full border border-black px-2 py-0.5 text-xs"
+                      className="rounded-full border border-border px-2 py-0.5 text-xs"
                     >
                       {role.roleName} · {LEVEL_LABELS[role.level]}
                       {role.pref === 1 ? " · 第1希望" : ""}

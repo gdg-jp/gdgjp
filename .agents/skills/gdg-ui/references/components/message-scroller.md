@@ -8,7 +8,7 @@ Avoid: using it instead of a general ScrollArea, an infinite list, or virtualiza
 
 ## Public API
 
-`MessageScrollerProvider`, `MessageScroller`, `MessageScrollerViewport`, `MessageScrollerContent`, `MessageScrollerItem`, `MessageScrollerButton`. Check `ui/src/components/MessageScroller/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`MessageScrollerProvider`, `MessageScroller`, `MessageScrollerViewport`, `MessageScrollerContent`, `MessageScrollerItem`, `MessageScrollerButton`. Check `design-system/src/components/MessageScroller/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it instead of a general ScrollArea, an infinite list, or virtualiza
 <MessageScrollerProvider><MessageScroller><MessageScrollerViewport><MessageScrollerContent>{messages.map(m => <MessageScrollerItem key={m.id}>{m.text}</MessageScrollerItem>)}</MessageScrollerContent></MessageScrollerViewport><MessageScrollerButton>Jump to latest</MessageScrollerButton></MessageScroller></MessageScrollerProvider>
 ```
 
-See `ui/src/components/MessageScroller/MessageScroller.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/MessageScroller/MessageScroller.stories.tsx` for states, compositions, and narrow-width layouts.

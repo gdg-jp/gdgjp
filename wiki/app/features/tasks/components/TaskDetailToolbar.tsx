@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Await, Link, useFetcher } from "react-router";
 import Tooltip from "~/components/Tooltip";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 const btnBase =
   "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-neutral hover:text-foreground";
 

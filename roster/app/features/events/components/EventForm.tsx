@@ -29,7 +29,7 @@ export function EventForm({
           required
           maxLength={120}
           placeholder="DevFest Tokyo 2026"
-          className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+          className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
         />
       </label>
 
@@ -40,7 +40,7 @@ export function EventForm({
             name="chapterId"
             required
             defaultValue={chapters[0]?.chapterId}
-            className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+            className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
           >
             {chapters.map((c) => (
               <option key={c.chapterId} value={c.chapterId}>
@@ -59,7 +59,7 @@ export function EventForm({
           name="date"
           type="date"
           required
-          className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+          className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
         />
       </label>
 
@@ -71,7 +71,7 @@ export function EventForm({
             type="time"
             required
             defaultValue="09:00"
-            className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+            className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
           />
         </label>
         <label className="block space-y-1">
@@ -81,7 +81,7 @@ export function EventForm({
             type="time"
             required
             defaultValue="19:00"
-            className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+            className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
           />
         </label>
       </div>
@@ -92,7 +92,7 @@ export function EventForm({
           name="stepMin"
           required
           defaultValue={60}
-          className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+          className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
         >
           {STEP_OPTIONS.map((min) => (
             <option key={min} value={min}>
@@ -111,7 +111,7 @@ export function EventForm({
       <button
         type="submit"
         disabled={submitting}
-        className="rounded-full border-2 border-black bg-gdg-blue px-6 py-2.5 font-bold text-white transition hover:brightness-95 disabled:opacity-60"
+        className="rounded-full border-2 border-border bg-gdg-blue px-6 py-2.5 font-bold text-primary-foreground transition hover:brightness-95 disabled:opacity-60"
       >
         {submitting ? "作成中…" : "作成する"}
       </button>

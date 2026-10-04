@@ -5,13 +5,13 @@ import {
   AlertDialogTitle,
   Inline,
   Stack,
-} from "@gdgjp/ui";
-import { Button } from "@gdgjp/ui";
+} from "@gdgjp/design-system";
+import { Button } from "@gdgjp/design-system";
 
 import type { ShareDialogController } from "./use-share-dialog";
 
 /** Prompt to propagate an ACL change to a page's descendants, shown after close. */
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export function DescendantSyncDialog({ c }: { c: ShareDialogController }) {
   const {
     t,

@@ -27,7 +27,7 @@ export function PartyList({
       {displayOrder.map((status) => {
         const members = groups.get(status) ?? [];
         return (
-          <section key={status} className="rounded-xl border-2 border-black bg-white p-4">
+          <section key={status} className="rounded-xl border-2 border-border bg-surface p-4">
             <h3 className="font-bold">
               {PARTY_LABELS[status]}（{members.length}人）
             </h3>
@@ -42,7 +42,7 @@ export function PartyList({
                   return (
                     <li
                       key={m.id}
-                      className="rounded-full border-2 border-black bg-white px-3 py-1 text-sm"
+                      className="rounded-full border-2 border-border bg-surface px-3 py-1 text-sm"
                       data-search-match={matched ? "true" : undefined}
                     >
                       {matched ? <span className="grid-match">{m.name}</span> : m.name}

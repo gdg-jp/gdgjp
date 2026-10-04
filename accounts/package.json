@@ -21,7 +21,7 @@
   "dependencies": {
     "@better-auth/oauth-provider": "1.6.23",
     "@gdgjp/gdg-lib": "workspace:*",
-    "@gdgjp/ui": "workspace:*",
+    "@gdgjp/design-system": "workspace:*",
     "@react-router/cloudflare": "~7.13.0",
     "better-auth": "1.6.23",
     "i18next": "^26.0.8",

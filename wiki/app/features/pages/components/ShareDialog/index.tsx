@@ -1,5 +1,5 @@
-import { IconButton } from "@gdgjp/ui";
-import { Dialog, DialogContent, DialogTitle } from "@gdgjp/ui";
+import { IconButton } from "@gdgjp/design-system";
+import { Dialog, DialogContent, DialogTitle } from "@gdgjp/design-system";
 
 import { DescendantSyncDialog } from "./DescendantSyncDialog";
 import { GrantScreen } from "./GrantScreen";
@@ -13,7 +13,7 @@ import { useShareDialog } from "./use-share-dialog";
  * screens are `SearchCombobox` + `OverviewScreen` / `GrantScreen`; the
  * post-close descendant-propagation prompt is `DescendantSyncDialog`.
  */
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export default function ShareDialog(props: ShareDialogProps) {
   const { open, pageTitle } = props;
   const c = useShareDialog(props);

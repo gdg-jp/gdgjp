@@ -39,7 +39,7 @@ try {
     : [];
   const source = sourceFor(sourceDirectory);
   const keys = new Set();
-  // Apps that use @gdgjp/ui without i18n have no locale catalogs to check.
+  // Apps that use @gdgjp/design-system without i18n have no locale catalogs to check.
   const locales = existsSync(localeDirectory) ? readdirSync(localeDirectory) : [];
   for (const locale of locales) {
     const path = join(localeDirectory, locale, "common.json");

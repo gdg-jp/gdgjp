@@ -208,11 +208,11 @@ export default function ApplyPage({ loaderData, actionData }: Route.ComponentPro
       </div>
 
       {!canApplyNow ? (
-        <p className="rounded-xl border border-border bg-card p-5 font-medium">
+        <p className="rounded-xl border border-border bg-surface p-5 font-medium">
           募集は終了しました。
         </p>
       ) : !viewer ? (
-        <section className="space-y-4 rounded-xl border border-border bg-card p-5">
+        <section className="space-y-4 rounded-xl border border-border bg-surface p-5">
           <p>このイベントはスタッフを募集しています。登録するにはサインインしてください。</p>
           {roles.length > 0 ? (
             <div>
@@ -221,7 +221,7 @@ export default function ApplyPage({ loaderData, actionData }: Route.ComponentPro
                 {roles.map((role) => (
                   <li
                     key={role.id}
-                    className="rounded-full border-2 border-black bg-white px-3 py-1 text-sm"
+                    className="rounded-full border-2 border-border bg-surface px-3 py-1 text-sm"
                   >
                     {role.name}
                   </li>
@@ -231,13 +231,13 @@ export default function ApplyPage({ loaderData, actionData }: Route.ComponentPro
           ) : null}
           <a
             href={signInHref}
-            className="inline-block rounded-full border-2 border-black bg-gdg-blue px-6 py-2.5 font-bold text-white transition hover:brightness-95"
+            className="inline-block rounded-full border-2 border-border bg-gdg-blue px-6 py-2.5 font-bold text-primary-foreground transition hover:brightness-95"
           >
             サインインして登録する
           </a>
         </section>
       ) : (
-        <section className="space-y-4 rounded-xl border border-border bg-card p-5">
+        <section className="space-y-4 rounded-xl border border-border bg-surface p-5">
           <ApplyForm
             hasParty={event.hasParty}
             roles={roles}

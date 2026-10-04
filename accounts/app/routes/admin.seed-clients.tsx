@@ -1,7 +1,7 @@
 // One-shot admin route to (re-)seed the trusted OAuth clients into D1.
 // Idempotent — safe to re-run after rotating a client secret.
 
-import { Alert, Button, Card, Icons, Stack, Text } from "@gdgjp/ui";
+import { Alert, Button, Card, Icons, Stack, Text } from "@gdgjp/design-system";
 import { useTranslation } from "react-i18next";
 import { redirect, useActionData, useNavigation } from "react-router";
 import { PageHeader } from "~/components/page-header";

@@ -8,7 +8,7 @@ Avoid: using it as a regular select field or as a search-results UI for large se
 
 ## Public API
 
-`Command`, `CommandInput`, `CommandList`, `CommandEmpty`, `CommandGroup`, `CommandItem`, `CommandShortcut`, `CommandSeparator`, `CommandLoading`, `CommandDialog`. Check `ui/src/components/Command/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Command`, `CommandInput`, `CommandList`, `CommandEmpty`, `CommandGroup`, `CommandItem`, `CommandShortcut`, `CommandSeparator`, `CommandLoading`, `CommandDialog`. Check `design-system/src/components/Command/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it as a regular select field or as a search-results UI for large se
 <Command><CommandInput placeholder="Search actions" /><CommandList><CommandEmpty>No matches</CommandEmpty><CommandGroup heading="Navigate"><CommandItem value="events" onSelect={openEvents}>Events</CommandItem></CommandGroup></CommandList></Command>
 ```
 
-See `ui/src/components/Command/Command.stories.tsx` for states and compositions.
+See `design-system/src/components/Command/Command.stories.tsx` for states and compositions.

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFirebaseConfig } from "~/features/notifications/firebase-config-context";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 type PushState = "loading" | "unsupported" | "denied" | "enabled" | "disabled";
 
 export function PushNotificationToggle() {

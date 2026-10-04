@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { formatDueDate } from "../task-utils";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 interface DatePickerDropdownProps {
   value: string | null;
   onChange: (date: string | null) => void;

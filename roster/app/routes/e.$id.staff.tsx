@@ -335,10 +335,10 @@ export default function StaffPage({ loaderData, actionData }: Route.ComponentPro
         roleNameById={roleNameById}
       />
 
-      <section className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
+      <section className="space-y-3 rounded-xl border border-border bg-surface p-4 sm:p-5">
         <h2 className="font-semibold">時間帯別の需給</h2>
         {supplyGroups.length === 0 ? (
-          <p className="text-sm text-muted-foreground">回答できるシフト表がありません。</p>
+          <p className="text-sm text-muted">回答できるシフト表がありません。</p>
         ) : (
           <div className="space-y-4">
             {supplyGroups.map((group) => (
@@ -347,9 +347,7 @@ export default function StaffPage({ loaderData, actionData }: Route.ComponentPro
                   {group.name} — {group.date}
                 </h3>
                 {group.rows.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    このシフト表には時間枠がありません。
-                  </p>
+                  <p className="text-sm text-muted">このシフト表には時間枠がありません。</p>
                 ) : (
                   <ul className="space-y-2">
                     {group.rows.map((row) => (
@@ -369,7 +367,7 @@ export default function StaffPage({ loaderData, actionData }: Route.ComponentPro
         )}
       </section>
 
-      <section className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
+      <section className="space-y-3 rounded-xl border border-border bg-surface p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-semibold">登録スタッフ</h2>
           <ProxyAddDialog

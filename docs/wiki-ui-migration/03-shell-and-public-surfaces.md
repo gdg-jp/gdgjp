@@ -25,7 +25,7 @@ app launcher は専門所有境界として維持する。
 
 受け入れ条件:
 
-- shell の一般 action/input/tooltip/sheet/menu/skeleton/icon は `@gdgjp/ui` contract を使う。
+- shell の一般 action/input/tooltip/sheet/menu/skeleton/icon は `@gdgjp/design-system` contract を使う。
 - shell component は app routing/data composition に限定され、Radix behavior や shared styling を再実装しない。
 - mobile と desktop で navigation/action が欠落せず、狭い viewport と長い日本語でも overflow しない。
 - public route と ErrorBoundary は Light/Dark で読め、primary action は画面ごとに優先度が一貫する。
@@ -90,7 +90,7 @@ legal content の semantic heading/order/link destination と本文は変更し�
 ## Tech Stack
 
 - React 19、React Router v7 SSR、react-i18next
-- `@gdgjp/ui` AppShell/Sidebar/Sheet/DropdownMenu/Input/Button/Typography/layout/state components
+- `@gdgjp/design-system` AppShell/Sidebar/Sheet/DropdownMenu/Input/Button/Typography/layout/state components
 - `@gdgjp/gdg-lib/ui` account menu/app launcher
 - Tailwind v4 consumer utilities、shared semantic tokens
 - Vitest、Testing Library、Playwright、axe、visual snapshots

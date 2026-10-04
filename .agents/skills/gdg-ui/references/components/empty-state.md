@@ -8,7 +8,7 @@ Avoid: using it instead of loading or error feedback, or turning it into a long 
 
 ## Public API
 
-`EmptyState`. Check `ui/src/components/EmptyState/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`EmptyState`. Check `design-system/src/components/EmptyState/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it instead of loading or error feedback, or turning it into a long 
 <EmptyState title="No links" description="Created links will appear here." action={<Button>Create</Button>} />
 ```
 
-See `ui/src/components/EmptyState/EmptyState.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/EmptyState/EmptyState.stories.tsx` for states, compositions, and narrow-width layouts.

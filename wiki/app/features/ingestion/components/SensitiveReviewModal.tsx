@@ -6,7 +6,7 @@ import {
   AlertDialogTitle,
   Button,
   Inline,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { SensitiveItem } from "../../../../shared/ingestion/domain";

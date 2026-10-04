@@ -23,7 +23,7 @@ export function ShortageSummary({
   roleNameById: ReadonlyMap<string, string>;
 }) {
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
+    <section className="space-y-3 rounded-xl border border-border bg-surface p-4 sm:p-5">
       <h2 className="font-semibold">需給サマリ</h2>
       <p>
         登録スタッフ数: <span className="font-bold">{registeredCount}</span> 名（辞退を除く）
@@ -36,7 +36,7 @@ export function ShortageSummary({
             {shortages.map((shortage) => (
               <li
                 key={`${shortage.roleId}-${shortage.kind}`}
-                className="rounded-full border-2 border-black bg-white px-3 py-1 text-sm"
+                className="rounded-full border-2 border-border bg-surface px-3 py-1 text-sm"
               >
                 {roleNameById.get(shortage.roleId) ?? shortage.roleId}の
                 {SHORTAGE_KIND_LABELS[shortage.kind]}

@@ -1,4 +1,4 @@
-import { ThemeProvider, Toaster } from "@gdgjp/ui";
+import { ThemeProvider, Toaster } from "@gdgjp/design-system";
 import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";

@@ -1,4 +1,4 @@
-import { Button, Card, Heading, Icons, Stack, Text } from "@gdgjp/ui";
+import { Button, Card, Heading, Icons, Stack, Text } from "@gdgjp/design-system";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 

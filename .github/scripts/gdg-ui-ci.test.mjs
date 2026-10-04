@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parse as parseYaml } from "yaml";
+import { compilerEnvironment } from "../../design-system/scripts/typescript.mjs";
 import { changedSteps } from "../../scripts/run-ci.mjs";
-import { compilerEnvironment } from "../../ui/scripts/typescript.mjs";
 
 function readWorkflow(name) {
   return parseYaml(readFileSync(new URL(`../workflows/${name}`, import.meta.url), "utf8"));
@@ -18,27 +18,36 @@ function stepByName(job, name) {
 }
 
 test("CSS-only UI changes trigger build, behavior tests and visual checks", () => {
-  const steps = changedSteps("full", ["ui/src/styles/tokens.css"]);
+  const steps = changedSteps("full", ["design-system/src/styles/tokens.css"]);
   const commands = steps.map(([, command]) => command).join("\n");
-  assert.match(commands, /--filter=@gdgjp\/ui/);
-  assert.match(commands, /turbo typecheck test test:e2e:browser --filter=@gdgjp\/ui/);
+  assert.match(commands, /--filter=@gdgjp\/design-system/);
+  assert.match(commands, /turbo typecheck test test:e2e:browser --filter=@gdgjp\/design-system/);
   assert.doesNotMatch(commands, /--filter=@gdgjp\/tinyurl/);
 });
 
 test("UI font changes are validated even without a TypeScript edit", () => {
-  const names = changedSteps("full", ["ui/assets/fonts/GoogleSans.woff2"]).map(([name]) => name);
+  const names = changedSteps("full", ["design-system/assets/fonts/GoogleSans.woff2"]).map(
+    ([name]) => name,
+  );
   assert.ok(!names.includes("build"));
   assert.ok(!names.includes("test:ui"));
   assert.ok(names.includes("e2e:ui"));
   assert.ok(
-    changedSteps("quick", ["ui/assets/fonts/GoogleSans.woff2"]).some(([name]) => name === "build"),
+    changedSteps("quick", ["design-system/assets/fonts/GoogleSans.woff2"]).some(
+      ([name]) => name === "build",
+    ),
   );
-  const pkg = JSON.parse(readFileSync(new URL("../../ui/package.json", import.meta.url), "utf8"));
+  const pkg = JSON.parse(
+    readFileSync(new URL("../../design-system/package.json", import.meta.url), "utf8"),
+  );
   assert.match(pkg.scripts["test:e2e"], /^pnpm build && pnpm test:consumer &&/);
 });
 
 test("UI E2E edits run the suite once and unrelated apps retain related tests", () => {
-  const steps = changedSteps("full", ["ui/e2e/library.spec.ts", "tinyurl/app/lib/utils.ts"]);
+  const steps = changedSteps("full", [
+    "design-system/e2e/library.spec.ts",
+    "tinyurl/app/lib/utils.ts",
+  ]);
   assert.equal(steps.filter(([name]) => name === "e2e:ui").length, 1);
   assert.ok(steps.some(([, command]) => command.includes("@gdgjp/tinyurl exec vitest related")));
 });
@@ -62,13 +71,13 @@ test("unit-test-only changes keep typecheck and related tests without production
 });
 
 test("staged UI E2E uses isolated runs, while stateful application E2E stays uncached", () => {
-  const ui = changedSteps("full", ["ui"]).find(([name]) => name === "e2e:ui");
+  const ui = changedSteps("full", ["design-system"]).find(([name]) => name === "e2e:ui");
   assert.equal(ui[2].CI, "true");
   assert.match(ui[1], /turbo typecheck test test:e2e:browser/);
   const config = JSON.parse(readFileSync(new URL("../../turbo.json", import.meta.url), "utf8"));
   assert.equal(config.tasks["test:e2e"].cache, false);
-  assert.equal(config.tasks["@gdgjp/ui#test:e2e:browser"].cache, true);
-  assert.ok(config.tasks["@gdgjp/ui#test:e2e:browser"].env.includes("CI"));
+  assert.equal(config.tasks["@gdgjp/design-system#test:e2e:browser"].cache, true);
+  assert.ok(config.tasks["@gdgjp/design-system#test:e2e:browser"].env.includes("CI"));
   assert.ok(config.globalEnv.includes("GDG_CI_RUNTIME"));
   assert.ok(config.globalEnv.includes("GDG_UI_TSC_RUNTIME"));
   for (const workspace of ["roster", "connpass"]) {
@@ -145,7 +154,8 @@ test("hosted CI builds UI before every clean consumer job", () => {
     const job = workflow.jobs[jobName];
     const sharedBuildIndex = job.steps.findIndex(
       (step) =>
-        step.name === "Build shared UI dependency" && step.run === "pnpm --filter @gdgjp/ui build",
+        step.name === "Build shared UI dependency" &&
+        step.run === "pnpm --filter @gdgjp/design-system build",
     );
     assert.notEqual(sharedBuildIndex, -1, `${jobName} must build the shared UI package`);
     assert.equal(
@@ -162,7 +172,7 @@ test("hosted CI builds UI before every clean consumer job", () => {
     const consumerIndex = flattened.findIndex(
       (step) =>
         step.name !== "Build shared UI dependency" &&
-        String(step.run ?? "").includes("@gdgjp/ui") &&
+        String(step.run ?? "").includes("@gdgjp/design-system") &&
         (String(step.run).includes("typecheck") ||
           String(step.run).includes("test") ||
           String(step.run).includes("build")),
@@ -178,7 +188,7 @@ test("hosted CI builds UI before every clean consumer job", () => {
   ).parallel;
   assert.equal(
     buildParallel.find((step) => step.name === "Build GDG UI").run,
-    "pnpm --filter @gdgjp/ui test:consumer",
+    "pnpm --filter @gdgjp/design-system test:consumer",
   );
 });
 
@@ -189,7 +199,7 @@ test("Wiki E2E setup is isolated from Accounts and uploads only the report", () 
   assert.equal(stepByName(job, "Prepare Wiki E2E state").if, "matrix.app == 'wiki'");
   assert.equal(
     stepByName(job, "Migrate Accounts local database").if,
-    "matrix.app != 'ui' && matrix.app != 'wiki'",
+    "matrix.app != 'design-system' && matrix.app != 'wiki'",
   );
   const wikiVars = stepByName(job, "Create Wiki E2E vars").run;
   assert.match(wikiVars, /WIKI_E2E_SESSION_SECRET=ci-wiki-e2e-session-secret/);
@@ -235,36 +245,41 @@ test("deploy builds shared UI before its parallel application builds", () => {
 });
 
 test("UI gitlink updates run local library checks", () => {
-  const steps = changedSteps("full", ["ui"]);
+  const steps = changedSteps("full", ["design-system"]);
   assert.deepEqual(
     steps.map(([name]) => name),
     ["e2e:ui"],
   );
   assert.match(steps[0][1], /turbo typecheck test test:e2e:browser/);
   const { tasks } = JSON.parse(readFileSync(new URL("../../turbo.json", import.meta.url), "utf8"));
-  assert.deepEqual(tasks["@gdgjp/ui#test:e2e:browser"].dependsOn, [
+  assert.deepEqual(tasks["@gdgjp/design-system#test:e2e:browser"].dependsOn, [
     "typecheck",
     "test:consumer",
     "build:storybook:test",
   ]);
-  assert.deepEqual(tasks["@gdgjp/ui#test:consumer"].dependsOn, ["build:e2e"]);
-  assert.equal(tasks["@gdgjp/ui#build:storybook:test"].dependsOn, undefined);
-  assert.deepEqual(tasks["@gdgjp/ui#test:consumer"].outputs, [
+  assert.deepEqual(tasks["@gdgjp/design-system#test:consumer"].dependsOn, ["build:e2e"]);
+  assert.equal(tasks["@gdgjp/design-system#build:storybook:test"].dependsOn, undefined);
+  assert.deepEqual(tasks["@gdgjp/design-system#test:consumer"].outputs, [
     "build/consumer/**",
     "build/consumer-ssr.mjs",
   ]);
-  const pkg = JSON.parse(readFileSync(new URL("../../ui/package.json", import.meta.url), "utf8"));
+  const pkg = JSON.parse(
+    readFileSync(new URL("../../design-system/package.json", import.meta.url), "utf8"),
+  );
   assert.equal(pkg.scripts["test:e2e:browser"], "playwright test");
 });
 
 test("UI test artifacts track their Vite environment and retain documentation entries", async () => {
   const { tasks } = JSON.parse(readFileSync(new URL("../../turbo.json", import.meta.url), "utf8"));
-  for (const task of ["@gdgjp/ui#build:storybook:test", "@gdgjp/ui#test:consumer"]) {
+  for (const task of [
+    "@gdgjp/design-system#build:storybook:test",
+    "@gdgjp/design-system#test:consumer",
+  ]) {
     assert.ok(tasks[task].inputs.includes(".env*"));
     assert.ok(tasks[task].env.includes("NODE_ENV"));
     assert.ok(tasks[task].env.includes("VITE_*"));
   }
-  const { default: storybook } = await import("../../ui/.storybook/main.ts");
+  const { default: storybook } = await import("../../design-system/.storybook/main.ts");
   assert.deepEqual(storybook.build.test.disabledAddons, []);
   for (const option of ["disableBlocks", "disableMDXEntries", "disableAutoDocs"]) {
     assert.equal(storybook.build.test[option], false);
@@ -291,7 +306,7 @@ test("every package-installing job initializes the UI submodule first", () => {
         job.steps?.findIndex((step) => String(step.run ?? "").includes("pnpm install")) ?? -1;
       if (installIndex < 0) continue;
       const initIndex = job.steps.findIndex(
-        (step) => step.run === "git submodule update --init ui",
+        (step) => step.run === "git submodule update --init design-system",
       );
       assert.ok(initIndex >= 0 && initIndex < installIndex, `${workflowName}: ${jobName}`);
     }

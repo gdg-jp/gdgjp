@@ -8,7 +8,7 @@ Avoid: using it for form-value selection or always-visible navigation, or making
 
 ## Public API
 
-`DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, `DropdownMenuGroup`, `DropdownMenuItem`, `DropdownMenuCheckboxItem`, `DropdownMenuRadioGroup`, `DropdownMenuRadioItem`, `DropdownMenuLabel`, `DropdownMenuSeparator`. Check `ui/src/components/DropdownMenu/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, `DropdownMenuGroup`, `DropdownMenuItem`, `DropdownMenuCheckboxItem`, `DropdownMenuRadioGroup`, `DropdownMenuRadioItem`, `DropdownMenuLabel`, `DropdownMenuSeparator`. Check `design-system/src/components/DropdownMenu/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for form-value selection or always-visible navigation, or making
 <DropdownMenu><DropdownMenuTrigger asChild><IconButton aria-label="More"><MoreHorizontal aria-hidden="true" /></IconButton></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onSelect={edit}>Edit</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
 ```
 
-See `ui/src/components/DropdownMenu/DropdownMenu.stories.tsx` for states and compositions.
+See `design-system/src/components/DropdownMenu/DropdownMenu.stories.tsx` for states and compositions.

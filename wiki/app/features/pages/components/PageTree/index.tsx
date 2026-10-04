@@ -6,7 +6,7 @@ import { findNodeIdBySlug } from "./build-tree";
 import { DraggablePageTree } from "./dnd";
 import { TreeNode } from "./row";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export type { PageNode };
 
 interface PageTreeProps {

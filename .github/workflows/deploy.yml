@@ -48,7 +48,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Initialize shared UI submodule
-        run: git submodule update --init ui
+        run: git submodule update --init design-system
       - uses: pnpm/action-setup@v4
         with:
           version: "9.15.0"
@@ -100,7 +100,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Initialize shared UI submodule
-        run: git submodule update --init ui
+        run: git submodule update --init design-system
       - uses: pnpm/action-setup@v4
         with:
           version: "9.15.0"
@@ -131,7 +131,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Initialize shared UI submodule
-        run: git submodule update --init ui
+        run: git submodule update --init design-system
       - uses: pnpm/action-setup@v4
         with:
           version: "9.15.0"
@@ -140,10 +140,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Deploy targets run independently from a clean checkout. @gdgjp/ui
+      # Deploy targets run independently from a clean checkout. @gdgjp/design-system
       # deliberately exports its generated dist files, so create them first.
       - name: Build shared UI dependency
-        run: pnpm --filter @gdgjp/ui build
+        run: pnpm --filter @gdgjp/design-system build
       - parallel:
           - name: Build, deploy, and migrate accounts
             if: contains(fromJSON(needs.changes.outputs.deploy-apps), 'accounts')

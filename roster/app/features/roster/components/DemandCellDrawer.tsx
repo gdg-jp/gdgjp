@@ -113,17 +113,17 @@ export function DemandCellDrawer({
 
           {demand ? (
             <div className="flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full bg-muted px-2.5 py-1 font-semibold">
+              <span className="rounded-full bg-background px-2.5 py-1 font-semibold">
                 人数 {currentOccupants.length} / 理想 {demand.ideal}（最小 {demand.min}）
               </span>
               {demand.leadMin > 0 ? (
-                <span className="rounded-full bg-muted px-2.5 py-1 font-semibold">
+                <span className="rounded-full bg-background px-2.5 py-1 font-semibold">
                   リード {currentOccupants.filter((person) => person.level === "lead").length} /{" "}
                   {demand.leadMin}
                 </span>
               ) : null}
               {demand.newMax < 99 ? (
-                <span className="rounded-full bg-muted px-2.5 py-1 font-semibold">
+                <span className="rounded-full bg-background px-2.5 py-1 font-semibold">
                   初参加 {currentOccupants.filter((person) => person.level === "new").length} / 上限{" "}
                   {demand.newMax}
                 </span>
@@ -140,7 +140,7 @@ export function DemandCellDrawer({
                 {currentOccupants.map((o) => (
                   <li
                     key={o.applicationId}
-                    className="flex items-center justify-between rounded-xl border-2 border-black bg-neutral-50 p-2"
+                    className="flex items-center justify-between rounded-xl border-2 border-border bg-neutral-50 p-2"
                   >
                     <span className="text-sm">{o.name}</span>
                     <Form method="post">
@@ -163,7 +163,7 @@ export function DemandCellDrawer({
             <h4 className="text-sm font-bold">ここに入れられる人</h4>
             <ul className="space-y-2">
               {suggestions.map((s) => (
-                <li key={s.applicationId} className="rounded-xl border-2 border-black p-3">
+                <li key={s.applicationId} className="rounded-xl border-2 border-border p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <p className="font-bold">
@@ -188,7 +188,7 @@ export function DemandCellDrawer({
                       ))}
                       <button
                         type="submit"
-                        className="rounded-full border-2 border-black bg-gdg-blue px-3 py-1 text-xs font-bold text-white transition hover:brightness-95"
+                        className="rounded-full border-2 border-border bg-gdg-blue px-3 py-1 text-xs font-bold text-primary-foreground transition hover:brightness-95"
                       >
                         追加
                       </button>

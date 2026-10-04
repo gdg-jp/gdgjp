@@ -8,7 +8,7 @@ Avoid: using it as a virtualized grid, for server pagination, or for complex cel
 
 ## Public API
 
-`DataTable`, `DataTableColumn` (generic type `DataTableColumn<T>`). Check `ui/src/components/DataTable/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`DataTable`, `DataTableColumn` (generic type `DataTableColumn<T>`). Check `design-system/src/components/DataTable/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it as a virtualized grid, for server pagination, or for complex cel
 <DataTable columns={[{ id: "name", header: "Name", accessorKey: "name", sortable: true }]} data={rows as Array<{ id: string; name: string }>} getRowId={(row) => row.id} />
 ```
 
-See `ui/src/components/DataTable/DataTable.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/DataTable/DataTable.stories.tsx` for states, compositions, and narrow-width layouts.

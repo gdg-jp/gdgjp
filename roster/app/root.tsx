@@ -55,13 +55,13 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 
   return (
     <PublicShell>
-      <section className="space-y-3 rounded-xl border border-border bg-card p-6 text-center">
-        <p className="text-sm font-semibold text-muted-foreground">{status}</p>
+      <section className="space-y-3 rounded-xl border border-border bg-surface p-6 text-center">
+        <p className="text-sm font-semibold text-muted">{status}</p>
         <h1 className="text-2xl font-semibold">{title}</h1>
-        <p className="text-sm text-muted-foreground">{message}</p>
+        <p className="text-sm text-muted">{message}</p>
         <a
           href="/"
-          className="inline-block rounded-md bg-gdg-blue px-4 py-2 font-semibold text-white"
+          className="inline-block rounded-md bg-gdg-blue px-4 py-2 font-semibold text-primary-foreground"
         >
           イベント一覧へ
         </a>

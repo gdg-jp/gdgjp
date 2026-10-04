@@ -1,8 +1,8 @@
 @layer theme, base, gdg-tokens, gdg-base, gdg-components, utilities;
 @import "tailwindcss";
-@import "@gdgjp/ui/tailwind.css";
-@import "@gdgjp/ui/components.css";
-@import "@gdgjp/ui/fonts.css";
+@import "@gdgjp/design-system/tailwind.css";
+@import "@gdgjp/design-system/components.css";
+@import "@gdgjp/design-system/fonts.css";
 
 @layer base {
   body {

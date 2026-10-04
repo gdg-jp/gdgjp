@@ -8,7 +8,7 @@ Avoid: using it as a regular desktop modal, permanent navigation, or a long page
 
 ## Public API
 
-`Drawer`, `DrawerTrigger`, `DrawerClose`, `DrawerPortal`, `DrawerOverlay`, `DrawerContent`, `DrawerHeader`, `DrawerFooter`, `DrawerTitle`, `DrawerDescription`, `DrawerHandle`. Check `ui/src/components/Drawer/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Drawer`, `DrawerTrigger`, `DrawerClose`, `DrawerPortal`, `DrawerOverlay`, `DrawerContent`, `DrawerHeader`, `DrawerFooter`, `DrawerTitle`, `DrawerDescription`, `DrawerHandle`. Check `design-system/src/components/Drawer/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it as a regular desktop modal, permanent navigation, or a long page
 <Drawer><DrawerTrigger asChild><Button>Filter</Button></DrawerTrigger><DrawerContent><DrawerHeader><DrawerTitle>Filter</DrawerTitle><DrawerDescription>Choose the criteria.</DrawerDescription></DrawerHeader><DrawerFooter><DrawerClose>Close</DrawerClose></DrawerFooter></DrawerContent></Drawer>
 ```
 
-See `ui/src/components/Drawer/Drawer.stories.tsx` for states and compositions.
+See `design-system/src/components/Drawer/Drawer.stories.tsx` for states and compositions.

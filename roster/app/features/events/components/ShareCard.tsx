@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Heading, Inline, Stack } from "@gdgjp/ui";
+import { Badge, Button, Card, Heading, Inline, Stack } from "@gdgjp/design-system";
 import { useState } from "react";
 import type { SheetVisibility } from "~/features/roster-sheets/types";
 
@@ -126,7 +126,7 @@ function ShareUrl({ url, label }: { url: string; label: string }) {
 
   return (
     <Inline className="items-center">
-      <code className="min-w-0 flex-1 break-all rounded-lg bg-muted p-3 text-sm">{url}</code>
+      <code className="min-w-0 flex-1 break-all rounded-lg bg-background p-3 text-sm">{url}</code>
       <Button
         type="button"
         variant="secondary"

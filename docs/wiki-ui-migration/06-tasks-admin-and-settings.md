@@ -24,7 +24,7 @@ task CRUD/reorder、admin authorization、tag/page mutation、user preference ac
 受け入れ条件:
 
 - task/admin/settings の一般 dropdown/popover/dialog/select/date/button/input/table/badge/icon は
-  `@gdgjp/ui` contract を使う。
+  `@gdgjp/design-system` contract を使う。
 - `app/features/tasks/components/DropdownMenu.tsx` の一般選択 behavior は shared Select/Combobox/Menu へ
   移し、domain-specific adapter だけが必要なら名前と責務を domain に限定する。
 - `TaskDetailToolbar` など desktop/mobile action は同一 action model を使い、outside-click listener を
@@ -108,6 +108,6 @@ Select/Switch/Button/Alert を使う。save/saving/saved は loading button と 
 ## Tech Stack
 
 - React 19、React Router Form/fetcher、react-i18next
-- `@gdgjp/ui` Table/DataTable/form/date/selection/overlay/action/feedback/layout/icon components
+- `@gdgjp/design-system` Table/DataTable/form/date/selection/overlay/action/feedback/layout/icon components
 - dnd-kit と Wiki task domain adapters
 - Vitest、Testing Library、Playwright、axe、visual snapshots

@@ -10,7 +10,7 @@ import { INDENT_WIDTH, getLocalizedTitle } from "./build-tree";
 // ---------------------------------------------------------------------------
 // SortableTreeItem — used when canReorder=true
 // ---------------------------------------------------------------------------
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export function SortableTreeItem({
   node,
   depth,

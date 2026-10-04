@@ -27,28 +27,28 @@
       "dependsOn": ["^build"],
       "outputs": ["playwright-report/**", "test-results/**"]
     },
-    "@gdgjp/ui#build:storybook:test": {
+    "@gdgjp/design-system#build:storybook:test": {
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "env": ["CI", "NODE_OPTIONS", "NODE_ENV", "VITE_*"],
       "outputs": ["build/storybook/**"]
     },
-    "@gdgjp/ui#test:consumer": {
+    "@gdgjp/design-system#test:consumer": {
       "dependsOn": ["build:e2e"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "env": ["CI", "NODE_OPTIONS", "NODE_ENV", "VITE_*"],
       "outputs": ["build/consumer/**", "build/consumer-ssr.mjs"]
     },
-    "@gdgjp/ui#test:e2e:browser": {
+    "@gdgjp/design-system#test:e2e:browser": {
       "cache": true,
       "dependsOn": ["typecheck", "test:consumer", "build:storybook:test"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "env": ["CI", "NODE_OPTIONS", "NODE_ENV", "TZ", "LANG", "LC_ALL", "PLAYWRIGHT_*"],
       "outputs": ["playwright-report/**", "test-results/**"]
     },
-    "@gdgjp/ui#build": {
+    "@gdgjp/design-system#build": {
       "outputs": ["dist/**"]
     },
-    "@gdgjp/ui#build:e2e": {
+    "@gdgjp/design-system#build:e2e": {
       "outputs": ["dist/**"]
     }
   }

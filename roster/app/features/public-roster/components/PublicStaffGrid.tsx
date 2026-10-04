@@ -41,7 +41,7 @@ export function PublicStaffGrid({
   const byApp = useMemo(() => groupAssignmentsByApplication(assignments), [assignments]);
 
   if (columns.length === 0) {
-    return <p className="text-sm text-muted-foreground">表示できるスタッフがいません。</p>;
+    return <p className="text-sm text-muted">表示できるスタッフがいません。</p>;
   }
 
   return (

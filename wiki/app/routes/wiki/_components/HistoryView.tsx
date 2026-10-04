@@ -2,7 +2,7 @@ import { diffLines } from "diff";
 
 import { MdPreview } from "md-editor-rt";
 import "md-editor-rt/lib/preview.css";
-import { useTheme } from "@gdgjp/ui";
+import { useTheme } from "@gdgjp/design-system";
 import { Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Await, Link, useFetcher } from "react-router";
@@ -10,7 +10,7 @@ import ConfirmDialog from "~/components/ConfirmDialog";
 import { ArticleWithTitleSkeleton, ListSkeleton } from "~/components/Skeleton";
 import type { loader } from "../history";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 type HistoryLoaderData = Awaited<ReturnType<typeof loader>>;
 
 function relativeTimeDiff(savedAt: number): { key: string; count?: number } {

@@ -41,9 +41,9 @@ importers:
       '@gdgjp/gdg-lib':
         specifier: workspace:*
         version: link:../gdg-lib
-      '@gdgjp/ui':
+      '@gdgjp/design-system':
         specifier: workspace:*
-        version: link:../ui
+        version: link:../design-system
       '@react-router/cloudflare':
         specifier: ~7.13.0
         version: 7.13.2(@cloudflare/workers-types@4.20260426.1)(react-router@7.13.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(typescript@5.9.3)
@@ -651,9 +651,9 @@ importers:
       '@gdgjp/gdg-lib':
         specifier: workspace:*
         version: link:../gdg-lib
-      '@gdgjp/ui':
+      '@gdgjp/design-system':
         specifier: workspace:*
-        version: link:../ui
+        version: link:../design-system
       isbot:
         specifier: ^5.1.17
         version: 5.1.39
@@ -978,7 +978,7 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@edge-runtime/vm@3.2.0)(@opentelemetry/api@1.9.1)(@types/node@22.19.19)(@vitest/coverage-v8@4.1.10)(vite@6.4.2(@types/node@22.19.19)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.22.0)(yaml@2.9.0))
 
-  ui:
+  design-system:
     dependencies:
       class-variance-authority:
         specifier: ^0.7.1
@@ -1135,9 +1135,9 @@ importers:
       '@gdgjp/gdg-lib':
         specifier: workspace:*
         version: link:../gdg-lib
-      '@gdgjp/ui':
+      '@gdgjp/design-system':
         specifier: workspace:*
-        version: link:../ui
+        version: link:../design-system
       '@react-router/cloudflare':
         specifier: ~7.13.0
         version: 7.13.2(@cloudflare/workers-types@4.20260426.1)(react-router@7.13.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(typescript@5.9.3)

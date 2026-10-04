@@ -8,7 +8,7 @@ Avoid: using it instead of a Badge, button, or ordinary list bullet.
 
 ## Public API
 
-`Marker`, `MarkerIcon`, `MarkerContent`, `MarkerVariant`. Check `ui/src/components/Marker/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Marker`, `MarkerIcon`, `MarkerContent`, `MarkerVariant`. Check `design-system/src/components/Marker/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it instead of a Badge, button, or ordinary list bullet.
 <Marker variant="border"><MarkerIcon>●</MarkerIcon><MarkerContent>Venue A</MarkerContent></Marker>
 ```
 
-See `ui/src/components/Marker/Marker.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Marker/Marker.stories.tsx` for states, compositions, and narrow-width layouts.

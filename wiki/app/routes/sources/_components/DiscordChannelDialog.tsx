@@ -1,5 +1,18 @@
-import { Dialog, DialogContent, DialogDescription, DialogTitle, Inline, Stack } from "@gdgjp/ui";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@gdgjp/ui";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  Inline,
+  Stack,
+} from "@gdgjp/design-system";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@gdgjp/design-system";
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -11,7 +24,7 @@ import type { StagedSource } from "~/features/sources/staged-candidates";
  * owned by the parent so a duplicate-source message survives the dialog closing
  * (shown in the add-source section once `open` is false).
  */
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export function DiscordChannelDialog({
   open,
   onOpenChange,

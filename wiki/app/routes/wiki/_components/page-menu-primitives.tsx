@@ -5,7 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
 import type { ReactNode } from "react";
 
 export {

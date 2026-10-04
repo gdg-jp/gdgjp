@@ -8,7 +8,7 @@ Avoid: using it as a button, badge, input value, or merely as monospace decorati
 
 ## Public API
 
-`Kbd`, `KbdGroup`. Check `ui/src/components/Kbd/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Kbd`, `KbdGroup`. Check `design-system/src/components/Kbd/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it as a button, badge, input value, or merely as monospace decorati
 <KbdGroup><Kbd>⌘</Kbd><Kbd>K</Kbd></KbdGroup>
 ```
 
-See `ui/src/components/Kbd/Kbd.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Kbd/Kbd.stories.tsx` for states, compositions, and narrow-width layouts.

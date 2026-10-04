@@ -21,7 +21,7 @@ native mimic・例外・visual regression を総点検する。新しい機能�
 - Light/Dark/system、mobile/desktop、keyboard/pointer、reduced-motion/forced-colors の主要組合せで、全領域が
   一つの design system として見え、操作できる。
 - route、auth/ACL、content、source/ingestion、notification、task/admin/settings の既存契約に regression がない。
-- clean local/CI/deploy build が `@gdgjp/ui` artifacts を正しい順序で生成し、全 test を実際に実行する。
+- clean local/CI/deploy build が `@gdgjp/design-system` artifacts を正しい順序で生成し、全 test を実際に実行する。
 - 未コミット WIP 由来の変更を含む最終差分が、不要な削除・生成物・unrelated change を含まない。
 
 受け入れ条件:
@@ -98,7 +98,7 @@ Units 01〜06 の記録を集約し、changed files、開始前/最終 inventory
 - locale は ja/en key set、static/dynamic usage、unused key 削除を同時に検証する。
 - axe の既知 brand contrast baseline と新規 violation を分け、新規問題を baseline 扱いしない。
 - failure があれば fallback/allowlist で隠さず、所有 unit の contract または shared API を根本修正する。
-- CI/deploy は clean checkout で成功することを基準とし、手元の生成済み `ui/dist` に依存しない。
+- CI/deploy は clean checkout で成功することを基準とし、手元の生成済み `design-system/dist` に依存しない。
 
 ## Tests to add/update
 
@@ -109,11 +109,11 @@ Units 01〜06 の記録を集約し、changed files、開始前/最終 inventory
 - resilience: clipboard/storage/notification/network failure、hydration/console/page error、fresh local D1 setup。
 - full commands:
   - `pnpm ci:quick`
-  - `pnpm --filter @gdgjp/ui run typecheck`
-  - `pnpm --filter @gdgjp/ui test`
-  - `pnpm --filter @gdgjp/ui build`
-  - `pnpm --filter @gdgjp/ui run test:consumer`
-  - `pnpm --filter @gdgjp/ui test:e2e`
+  - `pnpm --filter @gdgjp/design-system run typecheck`
+  - `pnpm --filter @gdgjp/design-system test`
+  - `pnpm --filter @gdgjp/design-system build`
+  - `pnpm --filter @gdgjp/design-system run test:consumer`
+  - `pnpm --filter @gdgjp/design-system test:e2e`
   - `node scripts/check-ui-conventions.mjs --app wiki`
   - `pnpm -C wiki typecheck`
   - `pnpm --filter @gdgjp/wiki test`
@@ -129,7 +129,7 @@ Units 01〜06 の記録を集約し、changed files、開始前/最終 inventory
 
 ## Tech Stack
 
-- 全先行 unit の React 19、React Router、`@gdgjp/ui`、Tailwind v4、Cloudflare/Wrangler stack
+- 全先行 unit の React 19、React Router、`@gdgjp/design-system`、Tailwind v4、Cloudflare/Wrangler stack
 - pnpm workspace、Turborepo、GitHub Actions
 - Vitest、Storybook、Playwright、axe、visual snapshots
 - repository architecture tests と UI convention checker

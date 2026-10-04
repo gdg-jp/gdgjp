@@ -8,7 +8,7 @@ Avoid: using it for comparison data that needs table semantics or creating neste
 
 ## Public API
 
-`Item`, `ItemGroup`, `ItemMedia`, `ItemContent`, `ItemTitle`, `ItemDescription`, `ItemActions`, `ItemHeader`, `ItemFooter`, `ItemSeparator`. Check `ui/src/components/Item/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Item`, `ItemGroup`, `ItemMedia`, `ItemContent`, `ItemTitle`, `ItemDescription`, `ItemActions`, `ItemHeader`, `ItemFooter`, `ItemSeparator`. Check `design-system/src/components/Item/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for comparison data that needs table semantics or creating neste
 <Item><ItemContent><ItemTitle>DevFest</ItemTitle><ItemDescription>September 26</ItemDescription></ItemContent><ItemActions><Button>Open</Button></ItemActions></Item>
 ```
 
-See `ui/src/components/Item/Item.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Item/Item.stories.tsx` for states, compositions, and narrow-width layouts.

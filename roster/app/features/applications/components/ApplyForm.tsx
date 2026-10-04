@@ -111,7 +111,7 @@ export function ApplyForm({
       ) : null}
 
       {own?.withdrawn ? (
-        <p className="rounded-xl border-2 border-black bg-neutral-100 p-3 text-sm">
+        <p className="rounded-xl border-2 border-border bg-neutral-100 p-3 text-sm">
           この登録は辞退済みです。内容を保存すると再度有効になります。
         </p>
       ) : null}
@@ -122,7 +122,7 @@ export function ApplyForm({
           name="name"
           required
           defaultValue={own?.name ?? defaultName}
-          className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+          className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
         />
       </label>
 
@@ -132,7 +132,7 @@ export function ApplyForm({
           name="contact"
           defaultValue={own?.contact ?? ""}
           placeholder="未入力の場合はアカウントのメールを使用します"
-          className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+          className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
         />
       </label>
 
@@ -163,9 +163,7 @@ export function ApplyForm({
       <fieldset className="space-y-3">
         <legend className="text-sm font-medium">稼働可能時間</legend>
         {availabilitySheets.length === 0 ? (
-          <output className="text-sm text-muted-foreground">
-            回答できるシフト表がありません。
-          </output>
+          <output className="text-sm text-muted">回答できるシフト表がありません。</output>
         ) : (
           <div className="space-y-5">
             {availabilitySheets.map((sheet) => {
@@ -207,7 +205,7 @@ export function ApplyForm({
           <select
             name="party"
             defaultValue={own?.party ?? DEFAULT_PARTY}
-            className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+            className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
           >
             {PARTY_STATUSES.map((status) => (
               <option key={status} value={status}>
@@ -224,7 +222,7 @@ export function ApplyForm({
           name="note"
           rows={3}
           defaultValue={own?.note ?? ""}
-          className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+          className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
         />
       </label>
 
@@ -233,7 +231,7 @@ export function ApplyForm({
           type="submit"
           name="intent"
           value="save"
-          className="rounded-full border-2 border-black bg-gdg-blue px-6 py-2.5 font-bold text-white transition hover:brightness-95"
+          className="rounded-full border-2 border-border bg-gdg-blue px-6 py-2.5 font-bold text-primary-foreground transition hover:brightness-95"
         >
           {own ? "登録内容を更新" : "登録する"}
         </button>
@@ -243,7 +241,7 @@ export function ApplyForm({
             name="intent"
             value="withdraw"
             formNoValidate
-            className="rounded-full border-2 border-black bg-white px-6 py-2.5 font-bold text-gdg-red transition hover:bg-neutral-100"
+            className="rounded-full border-2 border-border bg-surface px-6 py-2.5 font-bold text-gdg-red transition hover:bg-neutral-100"
           >
             辞退する
           </button>

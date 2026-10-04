@@ -8,7 +8,7 @@ Avoid: using it for general editing forms, informational displays, or auto-dismi
 
 ## Public API
 
-`AlertDialog`, `AlertDialogTrigger`, `AlertDialogContent`, `AlertDialogTitle`, `AlertDialogDescription`, `AlertDialogCancel`, `AlertDialogAction`. Check `ui/src/components/AlertDialog/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`AlertDialog`, `AlertDialogTrigger`, `AlertDialogContent`, `AlertDialogTitle`, `AlertDialogDescription`, `AlertDialogCancel`, `AlertDialogAction`. Check `design-system/src/components/AlertDialog/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for general editing forms, informational displays, or auto-dismi
 <AlertDialog><AlertDialogTrigger asChild><Button variant="danger">Delete</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogTitle>Delete this item?</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction>Delete</AlertDialogAction></AlertDialogContent></AlertDialog>
 ```
 
-See `ui/src/components/AlertDialog/AlertDialog.stories.tsx` for states and compositions.
+See `design-system/src/components/AlertDialog/AlertDialog.stories.tsx` for states and compositions.

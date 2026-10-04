@@ -8,7 +8,7 @@ Avoid: prefer RadioGroup when submitting mutually exclusive form answers.
 
 ## Public API
 
-`ToggleGroup`, `ToggleGroupItem`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/ToggleGroup/` for exact types and defaults.
+`ToggleGroup`, `ToggleGroupItem`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/ToggleGroup/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: prefer RadioGroup when submitting mutually exclusive form answers.
 <ToggleGroup type="single" value={view} onValueChange={setView}><ToggleGroupItem value="list">List</ToggleGroupItem></ToggleGroup>
 ```
 
-See `ui/src/components/ToggleGroup/ToggleGroup.stories.tsx` for states and compositions.
+See `design-system/src/components/ToggleGroup/ToggleGroup.stories.tsx` for states and compositions.

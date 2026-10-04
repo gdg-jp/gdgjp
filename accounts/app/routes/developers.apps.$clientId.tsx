@@ -13,7 +13,7 @@ import {
   Icons,
   Stack,
   Text,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
 import { useTranslation } from "react-i18next";
 import { Form, Link, data, redirect, useNavigation } from "react-router";
 import {

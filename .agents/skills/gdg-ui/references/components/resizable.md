@@ -8,7 +8,7 @@ Avoid: using it unconditionally for an ordinary responsive grid, narrow mobile l
 
 ## Public API
 
-`ResizablePanelGroup`, `ResizablePanel`, `ResizableHandle`, `Resizable`, `ResizablePanels`. Check `ui/src/components/Resizable/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`ResizablePanelGroup`, `ResizablePanel`, `ResizableHandle`, `Resizable`, `ResizablePanels`. Check `design-system/src/components/Resizable/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it unconditionally for an ordinary responsive grid, narrow mobile l
 <ResizablePanelGroup direction="horizontal"><ResizablePanel defaultSize={40}>List</ResizablePanel><ResizableHandle aria-label="Resize panels" /><ResizablePanel>Details</ResizablePanel></ResizablePanelGroup>
 ```
 
-See `ui/src/components/Resizable/Resizable.stories.tsx` for states and compositions.
+See `design-system/src/components/Resizable/Resizable.stories.tsx` for states and compositions.

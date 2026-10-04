@@ -25,7 +25,7 @@ export async function loader(args: Route.LoaderArgs) {
 export default function NoChapter({ loaderData }: Route.ComponentProps) {
   return (
     <PublicShell>
-      <div className="space-y-5 rounded-xl border border-border bg-card p-6 text-center sm:p-8">
+      <div className="space-y-5 rounded-xl border border-border bg-surface p-6 text-center sm:p-8">
         <h1 className="text-2xl font-bold sm:text-3xl">GDG チャプターへの参加が必要です</h1>
         <p className="text-base text-neutral-600">
           roster の管理画面は GDG / GDG on Campus チャプターのメンバーが利用できます。
@@ -33,7 +33,7 @@ export default function NoChapter({ loaderData }: Route.ComponentProps) {
         </p>
         <a
           href={`${loaderData.accountsUrl}/onboarding`}
-          className="inline-block rounded-full border-2 border-black bg-gdg-blue px-8 py-3 text-lg font-bold text-white transition hover:brightness-95"
+          className="inline-block rounded-full border-2 border-border bg-gdg-blue px-8 py-3 text-lg font-bold text-primary-foreground transition hover:brightness-95"
         >
           チャプターに参加する
         </a>

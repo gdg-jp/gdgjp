@@ -1,4 +1,4 @@
-import { Badge, Card, Heading, Stack, Text } from "@gdgjp/ui";
+import { Badge, Card, Heading, Stack, Text } from "@gdgjp/design-system";
 import { useTranslation } from "react-i18next";
 import { STEPS } from "./landing-data";
 

@@ -1,11 +1,17 @@
-import { Button } from "@gdgjp/ui";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@gdgjp/ui";
+import { Button } from "@gdgjp/design-system";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@gdgjp/design-system";
 
 import { type PageRole, ROLES } from "./types";
 import type { ShareDialogController } from "./use-share-dialog";
 
 /** The "grant access to selected people" screen. */
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export function GrantScreen({ c }: { c: ShareDialogController }) {
   const {
     t,

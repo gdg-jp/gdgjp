@@ -16,4 +16,4 @@ Avoid: treating it as a separate implementation or new API, or creating two flow
 <QuestionnaireNew items={items}>{children}</QuestionnaireNew>
 ```
 
-See `ui/src/components/QuestionnaireNew/QuestionnaireNew.stories.tsx` for states and compositions.
+See `design-system/src/components/QuestionnaireNew/QuestionnaireNew.stories.tsx` for states and compositions.

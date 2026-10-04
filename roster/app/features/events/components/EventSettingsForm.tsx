@@ -61,7 +61,7 @@ export function EventSettingsForm({
         <select
           name="stepMin"
           defaultValue={event.stepMin}
-          className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+          className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
         >
           {STEP_OPTIONS.map((min) => (
             <option key={min} value={min}>
@@ -76,7 +76,7 @@ export function EventSettingsForm({
         <select
           name="status"
           defaultValue={event.status}
-          className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+          className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
         >
           {STATUSES.map((status) => (
             <option key={status} value={status}>
@@ -91,7 +91,7 @@ export function EventSettingsForm({
         <select
           name="maxConsecutive"
           defaultValue={event.maxConsecutive}
-          className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+          className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
         >
           {MAX_CONSECUTIVE_OPTIONS.map((n) => (
             <option key={n} value={n}>
@@ -106,7 +106,7 @@ export function EventSettingsForm({
         <select
           name="noSoloNewcomer"
           defaultValue={event.noSoloNewcomer ? "1" : "0"}
-          className="w-full rounded-xl border-2 border-black bg-white p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
+          className="w-full rounded-xl border-2 border-border bg-surface p-3 outline-none focus:ring-4 focus:ring-gdg-blue/40"
         >
           <option value="1">禁止する</option>
           <option value="0">許可する</option>
@@ -116,7 +116,7 @@ export function EventSettingsForm({
       <div className="sm:col-span-2">
         <button
           type="submit"
-          className="rounded-full border-2 border-black bg-gdg-blue px-6 py-2.5 font-bold text-white transition hover:brightness-95"
+          className="rounded-full border-2 border-border bg-gdg-blue px-6 py-2.5 font-bold text-primary-foreground transition hover:brightness-95"
         >
           設定を保存
         </button>

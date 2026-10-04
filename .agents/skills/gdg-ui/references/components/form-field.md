@@ -8,7 +8,7 @@ Avoid: wrapping multiple independent inputs or an entire fieldset in one FormFie
 
 ## Public API
 
-`FormField`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/FormField/` for exact types and defaults.
+`FormField`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/FormField/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: wrapping multiple independent inputs or an entire fieldset in one FormFie
 <FormField label="Display name" description="Shown to attendees" error={error} required><Input name="displayName" /></FormField>
 ```
 
-See `ui/src/components/FormField/FormField.stories.tsx` for states and compositions.
+See `design-system/src/components/FormField/FormField.stories.tsx` for states and compositions.

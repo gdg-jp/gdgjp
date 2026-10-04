@@ -8,7 +8,7 @@ Avoid: use the Sidebar family when complex collapse, groups, badges, or actions 
 
 ## Public API
 
-`SidebarNav`. Check `ui/src/components/SidebarNav/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`SidebarNav`. Check `design-system/src/components/SidebarNav/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: use the Sidebar family when complex collapse, groups, badges, or actions 
 <SidebarNav><NavLink to="/events" aria-current={active ? "page" : undefined}>Events</NavLink></SidebarNav>
 ```
 
-See `ui/src/components/SidebarNav/SidebarNav.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/SidebarNav/SidebarNav.stories.tsx` for states, compositions, and narrow-width layouts.

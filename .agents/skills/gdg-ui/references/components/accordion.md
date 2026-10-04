@@ -8,7 +8,7 @@ Avoid: hiding primary content by default, using it for navigation, or deeply nes
 
 ## Public API
 
-`Accordion`, `AccordionItem`, `AccordionTrigger`, `AccordionContent`. Check `ui/src/components/Accordion/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Accordion`, `AccordionItem`, `AccordionTrigger`, `AccordionContent`. Check `design-system/src/components/Accordion/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: hiding primary content by default, using it for navigation, or deeply nes
 <Accordion type="single" collapsible><AccordionItem value="join"><AccordionTrigger>How to join</AccordionTrigger><AccordionContent>You can register from the event page.</AccordionContent></AccordionItem></Accordion>
 ```
 
-See `ui/src/components/Accordion/Accordion.stories.tsx` for states and compositions.
+See `design-system/src/components/Accordion/Accordion.stories.tsx` for states and compositions.

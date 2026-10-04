@@ -1,11 +1,11 @@
-import { IconButton } from "@gdgjp/ui";
+import { IconButton } from "@gdgjp/design-system";
 
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "./avatar";
 import { subjectKey } from "./normalize";
 import { CHIP_EXIT_DURATION_MS, type ShareSubject } from "./types";
 
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 function SelectedChip({
   subject,
   present,

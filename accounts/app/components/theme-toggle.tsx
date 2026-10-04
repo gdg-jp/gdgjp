@@ -7,7 +7,7 @@ import {
   IconButton,
   Icons,
   useTheme,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
 import { useTranslation } from "react-i18next";
 
 const OPTIONS: {

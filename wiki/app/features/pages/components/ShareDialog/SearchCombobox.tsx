@@ -1,4 +1,4 @@
-import { Button } from "@gdgjp/ui";
+import { Button } from "@gdgjp/design-system";
 
 import { Avatar } from "./avatar";
 import { SelectedChips } from "./chips";
@@ -6,7 +6,7 @@ import { listboxRole, optionRole } from "./types";
 import type { ShareDialogController } from "./use-share-dialog";
 
 /** The people/chapter search box + candidate listbox shared by both screens. */
-import { Icons } from "@gdgjp/ui";
+import { Icons } from "@gdgjp/design-system";
 export function SearchCombobox({ c }: { c: ShareDialogController }) {
   const {
     t,

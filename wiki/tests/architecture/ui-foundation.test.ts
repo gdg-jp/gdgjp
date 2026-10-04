@@ -13,7 +13,7 @@ describe("Wiki UI foundation", () => {
     const packageJson = JSON.parse(await source("package.json")) as {
       dependencies?: Record<string, string>;
     };
-    expect(packageJson.dependencies?.["@gdgjp/ui"]).toBe("workspace:*");
+    expect(packageJson.dependencies?.["@gdgjp/design-system"]).toBe("workspace:*");
     await expect(
       access(new URL("app/components/ui", `file://${wikiDirectory}/`)),
     ).rejects.toThrow();
@@ -22,9 +22,9 @@ describe("Wiki UI foundation", () => {
   it("keeps foundation consumers on public package paths", async () => {
     const root = await source("app/root.tsx");
     const viteConfig = await source("vite.config.ts");
-    expect(root).not.toContain("@gdgjp/ui/src/");
-    expect(viteConfig).not.toContain("@gdgjp/ui/src/");
-    expect(root.match(/from "@gdgjp\/ui"/g)).toHaveLength(1);
+    expect(root).not.toContain("@gdgjp/design-system/src/");
+    expect(viteConfig).not.toContain("@gdgjp/design-system/src/");
+    expect(root.match(/from "@gdgjp\/design-system"/g)).toHaveLength(1);
   });
 
   it("uses a shrink-only, structured migration baseline for later surfaces", async () => {

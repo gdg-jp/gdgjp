@@ -8,7 +8,7 @@ Avoid: forcing unrelated actions or an entire page action bar into one group.
 
 ## Public API
 
-`ButtonGroup`, `ButtonGroupSeparator`, `ButtonGroupText`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `ui/src/components/ButtonGroup/` for exact types and defaults.
+`ButtonGroup`, `ButtonGroupSeparator`, `ButtonGroupText`. Do not strip native or Radix-derived props, events, or refs; check the current `index.ts` and `.tsx` in `design-system/src/components/ButtonGroup/` for exact types and defaults.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: forcing unrelated actions or an entire page action bar into one group.
 <ButtonGroup><Button>Save</Button><Button variant="outline">Cancel</Button></ButtonGroup>
 ```
 
-See `ui/src/components/ButtonGroup/ButtonGroup.stories.tsx` for states and compositions.
+See `design-system/src/components/ButtonGroup/ButtonGroup.stories.tsx` for states and compositions.

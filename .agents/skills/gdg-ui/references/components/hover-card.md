@@ -8,7 +8,7 @@ Avoid: using it for required information, an interaction form, content readable 
 
 ## Public API
 
-`HoverCard`, `HoverCardTrigger`, `HoverCardContent`, `HoverCardArrow`. Check `ui/src/components/HoverCard/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`HoverCard`, `HoverCardTrigger`, `HoverCardContent`, `HoverCardArrow`. Check `design-system/src/components/HoverCard/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it for required information, an interaction form, content readable 
 <HoverCard><HoverCardTrigger asChild><Link href="/members/1">Yamada</Link></HoverCardTrigger><HoverCardContent>GDG Tokyo Organizer</HoverCardContent></HoverCard>
 ```
 
-See `ui/src/components/HoverCard/HoverCard.stories.tsx` for states and compositions.
+See `design-system/src/components/HoverCard/HoverCard.stories.tsx` for states and compositions.

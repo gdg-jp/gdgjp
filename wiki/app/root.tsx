@@ -1,4 +1,4 @@
-import { Button, Heading, Icons, Stack, Text, ThemeProvider, Toaster } from "@gdgjp/ui";
+import { Button, Heading, Icons, Stack, Text, ThemeProvider, Toaster } from "@gdgjp/design-system";
 
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";

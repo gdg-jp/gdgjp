@@ -8,7 +8,7 @@ Avoid: using it as an action button, for long text, or for a critical state repr
 
 ## Public API
 
-`Badge`, `Tone`. Check `ui/src/components/Badge/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Badge`, `Tone`. Check `design-system/src/components/Badge/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it as an action button, for long text, or for a critical state repr
 <Badge tone="success">Published</Badge>
 ```
 
-See `ui/src/components/Badge/Badge.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Badge/Badge.stories.tsx` for states, compositions, and narrow-width layouts.

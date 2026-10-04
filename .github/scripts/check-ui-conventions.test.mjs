@@ -11,13 +11,13 @@ const checker = resolve("scripts/check-ui-conventions.mjs");
 
 const validCss = `@layer theme, base, gdg-tokens, gdg-base, gdg-components, utilities;
 @import "tailwindcss";
-@import "@gdgjp/ui/tailwind.css";
-@import "@gdgjp/ui/components.css";
-@import "@gdgjp/ui/fonts.css";
+@import "@gdgjp/design-system/tailwind.css";
+@import "@gdgjp/design-system/components.css";
+@import "@gdgjp/design-system/fonts.css";
 .remote-cursor { position: relative; }
 `;
 
-const validRoot = `import { ThemeProvider, Toaster } from "@gdgjp/ui";
+const validRoot = `import { ThemeProvider, Toaster } from "@gdgjp/design-system";
 export function Layout({ children }) {
   return <html lang="ja"><body><ThemeProvider storageKey="gdg-apps-theme" defaultTheme="system">{children}</ThemeProvider></body></html>;
 }
@@ -48,7 +48,9 @@ function runChecker(directory, args = []) {
 
 function foundationFiles(source = "export default function App() { return <div />; }\n") {
   return {
-    "wiki/package.json": JSON.stringify({ dependencies: { "@gdgjp/ui": "workspace:*" } }),
+    "wiki/package.json": JSON.stringify({
+      dependencies: { "@gdgjp/design-system": "workspace:*" },
+    }),
     "wiki/app/app.css": validCss,
     "wiki/app/root.tsx": validRoot,
     "wiki/app/routes/example.tsx": source,

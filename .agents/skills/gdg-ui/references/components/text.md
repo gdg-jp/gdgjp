@@ -8,7 +8,7 @@ Avoid: replacing semantic components for headings, labels, links, or error messa
 
 ## Public API
 
-`Text`. Check `ui/src/components/Text/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Text`. Check `design-system/src/components/Text/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: replacing semantic components for headings, labels, links, or error messa
 <Text size="sm" tone="muted">Last updated 5 minutes ago</Text>
 ```
 
-See `ui/src/components/Text/Text.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Text/Text.stories.tsx` for states, compositions, and narrow-width layouts.

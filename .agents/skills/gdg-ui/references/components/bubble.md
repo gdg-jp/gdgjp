@@ -8,7 +8,7 @@ Avoid: using it as a general Card, Alert, or container for a long document. Do n
 
 ## Public API
 
-`Bubble`, `BubbleContent`, `BubbleReactions`, `BubbleGroup`, `BubbleVariant`. Check `ui/src/components/Bubble/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Bubble`, `BubbleContent`, `BubbleReactions`, `BubbleGroup`, `BubbleVariant`. Check `design-system/src/components/Bubble/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it as a general Card, Alert, or container for a long document. Do n
 <Bubble variant="secondary" align="start"><BubbleContent>Hello</BubbleContent></Bubble>
 ```
 
-See `ui/src/components/Bubble/Bubble.stories.tsx` for states, compositions, and narrow-width layouts.
+See `design-system/src/components/Bubble/Bubble.stories.tsx` for states, compositions, and narrow-width layouts.

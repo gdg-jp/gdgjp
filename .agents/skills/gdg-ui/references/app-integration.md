@@ -7,7 +7,7 @@ First read the target app's existing theme bootstrap, Tailwind tokens, local UI,
 Add the following to `package.json`.
 
 ```json
-"@gdgjp/ui": "workspace:*"
+"@gdgjp/design-system": "workspace:*"
 ```
 
 ## CSS
@@ -15,9 +15,9 @@ Add the following to `package.json`.
 For an entry point that does not use Tailwind, load these once.
 
 ```ts
-import "@gdgjp/ui/tokens.css";
-import "@gdgjp/ui/components.css";
-import "@gdgjp/ui/fonts.css"; // only when using bundled fonts
+import "@gdgjp/design-system/tokens.css";
+import "@gdgjp/design-system/components.css";
+import "@gdgjp/design-system/fonts.css"; // only when using bundled fonts
 ```
 
 In a Tailwind v4 app stylesheet, declare the layer order first.
@@ -25,9 +25,9 @@ In a Tailwind v4 app stylesheet, declare the layer order first.
 ```css
 @layer theme, base, gdg-tokens, gdg-base, gdg-components, utilities;
 @import "tailwindcss";
-@import "@gdgjp/ui/tailwind.css";
-@import "@gdgjp/ui/components.css";
-@import "@gdgjp/ui/fonts.css";
+@import "@gdgjp/design-system/tailwind.css";
+@import "@gdgjp/design-system/components.css";
+@import "@gdgjp/design-system/fonts.css";
 ```
 
 `tailwind.css` maps tokens to `@theme inline`; it does not include Tailwind itself or Preflight. Components are styled by the distributed CSS and do not require a consumer source scan. Consumer utilities may intentionally override styles through the public `className`, but must not break semantic tokens or component state.
@@ -42,8 +42,8 @@ Portals are mounted in `document.body` and inherit the document theme. Do not as
 
 The app owns React Router `Link` composition, URL active matching, loader/action logic, form validation, authentication, data fetching, mutations, optimistic state, and i18n. Compose router links into components that support `asChild`, and have the app add `aria-current="page"` to the active link.
 
-Implement domain-specific schedule grids, editor canvases, and domain visualizations that are not in the shared parts as app-local components, and align their color, spacing, and focus styles with semantic tokens. If a general-purpose interaction primitive is missing, propose a separate `ui/` task instead of permanently maintaining a copied Radix wrapper in the app.
+Implement domain-specific schedule grids, editor canvases, and domain visualizations that are not in the shared parts as app-local components, and align their color, spacing, and focus styles with semantic tokens. If a general-purpose interaction primitive is missing, propose a separate `design-system/` task instead of permanently maintaining a copied Radix wrapper in the app.
 
 ## Verification
 
-After the target app's focused tests, typecheck, and build, use Playwright for user-facing changes to verify keyboard behavior, focus restoration, Light/Dark themes, narrow widths, long Japanese text, and loading/empty/error/success states. If package imports, CSS entries, or the theme nonce change, also run `pnpm --filter @gdgjp/ui test:consumer`.
+After the target app's focused tests, typecheck, and build, use Playwright for user-facing changes to verify keyboard behavior, focus restoration, Light/Dark themes, narrow widths, long Japanese text, and loading/empty/error/success states. If package imports, CSS entries, or the theme nonce change, also run `pnpm --filter @gdgjp/design-system test:consumer`.

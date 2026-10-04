@@ -1,4 +1,10 @@
-import { Sheet, SheetContent, SheetDescription, SheetTitle, Sidebar as UiSidebar } from "@gdgjp/ui";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  Sidebar as UiSidebar,
+} from "@gdgjp/design-system";
 import { useRef } from "react";
 
 interface BaseSidebarProps {

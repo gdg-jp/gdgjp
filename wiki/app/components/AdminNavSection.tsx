@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 
-import { Icons, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@gdgjp/ui";
+import { Icons, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@gdgjp/design-system";
 interface AdminNavSectionProps {
   isCollapsed: boolean;
 }

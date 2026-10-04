@@ -1,4 +1,3 @@
-import type { AuthUser } from "@gdgjp/gdg-lib";
 import {
   Alert,
   Badge,
@@ -10,7 +9,8 @@ import {
   Input,
   Stack,
   Text,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
+import type { AuthUser } from "@gdgjp/gdg-lib";
 import { useTranslation } from "react-i18next";
 import { Form, useActionData, useNavigation } from "react-router";
 import { GdgMark } from "~/components/gdg-mark";

@@ -1,4 +1,4 @@
-import { cn } from "@gdgjp/ui";
+import { cn } from "@gdgjp/design-system";
 import type { ReactNode } from "react";
 import { useLocation } from "react-router";
 import type { TopBarUser } from "~/components/top-bar";

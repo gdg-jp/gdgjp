@@ -11,7 +11,7 @@ import {
   Input,
   NativeSelect,
   NativeSelectOption,
-} from "@gdgjp/ui";
+} from "@gdgjp/design-system";
 import { useRef, useState } from "react";
 import { Form } from "react-router";
 import {

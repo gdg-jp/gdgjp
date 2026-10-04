@@ -8,7 +8,7 @@ Avoid: using it as a centered modal, destructive confirmation, or permanent desk
 
 ## Public API
 
-`Sheet`, `SheetTrigger`, `SheetContent`, `SheetTitle`, `SheetDescription`, `SheetClose`. Check `ui/src/components/Sheet/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
+`Sheet`, `SheetTrigger`, `SheetContent`, `SheetTitle`, `SheetDescription`, `SheetClose`. Check `design-system/src/components/Sheet/index.ts` and the implementation `.tsx` for exact types and defaults, and preserve native/Radix-derived props, events, and refs.
 
 ## Minimal example
 
@@ -16,4 +16,4 @@ Avoid: using it as a centered modal, destructive confirmation, or permanent desk
 <Sheet><SheetTrigger asChild><IconButton aria-label="Navigation"><Menu aria-hidden="true" /></IconButton></SheetTrigger><SheetContent side="left"><SheetTitle>Navigation</SheetTitle><SheetDescription>Choose a destination.</SheetDescription><SidebarNav>{links}</SidebarNav></SheetContent></Sheet>
 ```
 
-See `ui/src/components/Sheet/Sheet.stories.tsx` for states and compositions.
+See `design-system/src/components/Sheet/Sheet.stories.tsx` for states and compositions.
