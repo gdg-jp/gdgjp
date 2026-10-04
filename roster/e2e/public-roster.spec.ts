@@ -116,7 +116,7 @@ test("public roster: not-published message, no PII/experience leakage once publi
   // /e/:id/share while not published: shows the message, and the view URL is
   // visible even though it isn't live yet.
   await page.goto(`/e/${eventId}/share`);
-  await expect(page.getByText("まだ公開されていません")).toBeVisible();
+  await expect(page.getByText("本編は現在非公開です。", { exact: false })).toBeVisible();
   const viewUrlText = (await page.locator("code").first().textContent())?.trim();
   if (!viewUrlText) throw new Error("view URL not found on /e/:id/share");
   const viewPath = new URL(viewUrlText).pathname;

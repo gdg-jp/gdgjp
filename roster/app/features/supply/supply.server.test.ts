@@ -1,7 +1,11 @@
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it } from "vitest";
 import { type TestD1Database, asD1, createTestD1 } from "../../../tests/helpers/sqlite-d1";
-import { getSupplyDemandForEvent, listApplicantDetailsForEvent } from "./supply.server";
+import {
+  getSupplyDemandForEvent,
+  listApplicantDetailsForEvent,
+  listEventApplicantDetails,
+} from "./supply.server";
 
 const MIGRATIONS = [
   fileURLToPath(new URL("../../../migrations/0002_domain.sql", import.meta.url)),
@@ -117,6 +121,119 @@ describe("listApplicantDetailsForEvent", () => {
 
   it("returns an empty list for an event with no applications", async () => {
     expect(await listApplicantDetailsForEvent(db, EVENT_ID)).toEqual([]);
+  });
+});
+
+describe("listEventApplicantDetails", () => {
+  let testDb: TestD1Database;
+  let db: D1Database;
+
+  beforeEach(async () => {
+    testDb = createTestD1(MIGRATIONS);
+    db = asD1(testDb);
+    await seedEventAndSlot(testDb);
+    await seedApplicant(testDb, "active", { level: "lead", availability: "x" });
+    await seedApplicant(testDb, "withdrawn", { withdrawn: true });
+    await testDb
+      .prepare("UPDATE applications SET created_at = '2026-01-01' WHERE id = 'withdrawn'")
+      .run();
+    await testDb
+      .prepare(`INSERT INTO events
+      (id, chapter_id, name, date, start_time, end_time, seed, apply_token, view_token, created_at, updated_at)
+      VALUES ('foreign', 1, 'Other', '2026-11-07', '09:00', '10:00', 1, 'other_apply', 'other_view', 'now', 'now')`)
+      .run();
+    await testDb
+      .prepare(`INSERT INTO applications
+      (id, event_id, email, name, created_at, updated_at)
+      VALUES ('foreign_app', 'foreign', 'other@example.com', 'Other', 'now', 'now')`)
+      .run();
+    await testDb
+      .prepare(`INSERT INTO roster_sheets
+      (id, event_id, name, date, start_time, end_time, seed, sort_order, created_at, updated_at, deleted_at)
+      VALUES ('party', 'evt_1', 'Party', '2026-11-07', '18:00', '19:00', 1, 1, 'now', 'now', NULL),
+             ('archived', 'evt_1', 'Archived', '2026-11-07', '19:00', '20:00', 1, 2, 'now', 'now', 'deleted')`)
+      .run();
+    await testDb
+      .prepare(`INSERT INTO time_slots
+      (id, event_id, idx, start_time, end_time, roster_sheet_id)
+      VALUES ('party_slot', 'evt_1', 0, '18:00', '19:00', 'party'),
+             ('archived_slot', 'evt_1', 0, '19:00', '20:00', 'archived'),
+             ('foreign_slot', 'foreign', 0, '09:00', '10:00', 'default:foreign')`)
+      .run();
+    await testDb
+      .prepare(`INSERT INTO availabilities VALUES
+      ('active', 'party_slot', 'o'), ('withdrawn', 'party_slot', 'd'),
+      ('active', 'archived_slot', 'o'), ('active', 'foreign_slot', 'o'),
+      ('foreign_app', 'foreign_slot', 'o')`)
+      .run();
+  });
+
+  it("aggregates live-sheet availability and event-level skills in application order, retaining withdrawn staff", async () => {
+    const details = await listEventApplicantDetails(db, EVENT_ID);
+    expect(details.map(({ application }) => application.id)).toEqual(["withdrawn", "active"]);
+    expect(details[0].application.withdrawn).toBe(true);
+    expect(details[1].skills).toEqual([
+      { applicationId: "active", roleId: STREAM, level: "lead", pref: 2 },
+    ]);
+    expect(details[0].availability).toEqual([
+      { applicationId: "withdrawn", timeSlotId: SLOT_1, value: "o" },
+      { applicationId: "withdrawn", timeSlotId: "party_slot", value: "d" },
+    ]);
+    expect(details[1].availability).toEqual([
+      { applicationId: "active", timeSlotId: SLOT_1, value: "x" },
+      { applicationId: "active", timeSlotId: "party_slot", value: "o" },
+    ]);
+    const foreign = await listEventApplicantDetails(db, "foreign");
+    expect(foreign.map(({ application }) => application.id)).toEqual(["foreign_app"]);
+    expect(foreign[0].availability).toEqual([
+      { applicationId: "foreign_app", timeSlotId: "foreign_slot", value: "o" },
+    ]);
+    expect((await listApplicantDetailsForEvent(db, EVENT_ID))[1].availability).toEqual([
+      { applicationId: "active", timeSlotId: SLOT_1, value: "x" },
+    ]);
+  });
+
+  it("can supply either sheet from aggregate details without mixing slots or counting withdrawn staff", async () => {
+    await testDb
+      .prepare(`INSERT INTO tracks
+      (id, event_id, name, color, shared, sort_order, roster_sheet_id)
+      VALUES ('party_track', 'evt_1', 'Party', '#fff', 0, 0, 'party')`)
+      .run();
+    await seedDemand(testDb);
+    await seedDemand(testDb, {}, "party", "party_slot", "party_track");
+    const details = await listEventApplicantDetails(db, EVENT_ID);
+    expect(await getSupplyDemandForEvent(db, EVENT_ID, details, `default:${EVENT_ID}`)).toEqual([
+      {
+        timeSlotId: SLOT_1,
+        need: 1,
+        available: 0,
+        tight: [{ roleId: STREAM, kind: "head", lack: 1 }],
+      },
+    ]);
+    expect(await getSupplyDemandForEvent(db, EVENT_ID, details, "party")).toEqual([
+      { timeSlotId: "party_slot", need: 1, available: 1, tight: [] },
+    ]);
+  });
+
+  it("breaks identical creation timestamps by application ID regardless of insertion order", async () => {
+    await seedApplicant(testDb, "aaa");
+    await testDb
+      .prepare("UPDATE applications SET created_at = '2026-01-01' WHERE event_id = 'evt_1'")
+      .run();
+    const details = await listEventApplicantDetails(db, EVENT_ID);
+    expect(details.map(({ application }) => application.id)).toEqual([
+      "aaa",
+      "active",
+      "withdrawn",
+    ]);
+  });
+
+  it("returns empty details for a live event without applications and rejects deleted or unknown events", async () => {
+    await testDb.prepare("DELETE FROM applications WHERE event_id = 'evt_1'").run();
+    expect(await listEventApplicantDetails(db, EVENT_ID)).toEqual([]);
+    await testDb.prepare("UPDATE events SET deleted_at = 'deleted' WHERE id = 'foreign'").run();
+    await expect(listEventApplicantDetails(db, "foreign")).rejects.toThrow("Event not found");
+    await expect(listEventApplicantDetails(db, "missing")).rejects.toThrow("Event not found");
   });
 });
 

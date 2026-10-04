@@ -10,7 +10,7 @@ vi.mock("~/features/public-roster/public-roster.server", () => ({
 import { getEventByViewToken } from "~/features/events/events.server";
 import { buildPublicRosterData } from "~/features/public-roster/public-roster.server";
 import { loader as eventLoader } from "./r.$token";
-import { loader as sheetLoader } from "./r.$token.s.$sheetId";
+import { loader as sheetLoader, meta as sheetMeta } from "./r.$token.s.$sheetId";
 
 const EVENT: EventRecord = {
   id: "evt_1",
@@ -47,6 +47,26 @@ const PRIVATE_VIEW: PublicRosterView = {
   },
 };
 
+const PUBLISHED_VIEW: PublicRosterView = {
+  published: true,
+  data: {
+    event: {
+      id: "evt_1",
+      name: "DevFest",
+      date: "2026-11-07",
+      startTime: "09:00",
+      endTime: "19:00",
+      hasParty: false,
+      sheet: { name: "午前の部", date: "2026-11-07", startTime: "09:00", endTime: "12:00" },
+    },
+    slots: [],
+    tracks: [],
+    roles: [],
+    staff: [],
+    assignments: [],
+  },
+};
+
 function routeArgs(params: { token?: string; sheetId?: string }) {
   const request = new Request("https://roster.test/r/view-token/s/sheet_1");
   return {
@@ -62,6 +82,21 @@ describe("r.$token.s.$sheetId loader", () => {
   beforeEach(() => {
     vi.mocked(getEventByViewToken).mockReset();
     vi.mocked(buildPublicRosterData).mockReset();
+  });
+
+  it("uses the selected event and sheet names in public and private page metadata", () => {
+    expect(sheetMeta({ data: PRIVATE_VIEW } as Parameters<typeof sheetMeta>[0])).toEqual([
+      { title: "DevFest — Private sheet — シフト表 — roster" },
+    ]);
+    expect(sheetMeta({ data: PUBLISHED_VIEW } as Parameters<typeof sheetMeta>[0])).toEqual([
+      { title: "DevFest — 午前の部 — シフト表 — roster" },
+    ]);
+  });
+
+  it("uses the generic metadata fallback when route data is unavailable", () => {
+    expect(sheetMeta({ data: undefined } as unknown as Parameters<typeof sheetMeta>[0])).toEqual([
+      { title: "roster" },
+    ]);
   });
 
   it("resolves the event by view token and asks the public builder for only the selected sheet", async () => {
