@@ -1,5 +1,15 @@
 # Stage 10 残タスク — 実機統合テストの CI 配線と GitHub 側権限分離テスト
 
+> **ステータス（2026-09-06）**: Design Part 1・Part 2 を `.github/workflows/agent-host-release.yml`
+> に実装済み（`verify-on-fresh-host` / `verify-npm-token-permission-boundary` の 2 job、
+> `pull_request` トリガー追加、`validate-and-publish` を PR で skip）。
+> 実装時の差分: (a) plan 草案の apparmor grep は `gdg-agent` だったが実際のプロファイル名は
+> `cursor-agent-cursorsandbox`。(b) `agent-host-sync.*` は `/etc/systemd/system` ではなく
+> gdgagent-svc の `--user` unit なので assert を分けた。(c) plan 草案の job には
+> `pnpm/action-setup` + `pnpm install` が無かったので `ci.yml` に合わせて追加。
+> (d) 権限境界 job は 404（可視性なし）を成功扱いにし、`GET /user` を正のコントロールに追加。
+> **未消化**: 初回 PR での CI グリーン確認、および `CI_NPM_READ_TOKEN_TEST_COPY` secret の登録（運用側）。
+
 ## Context — 背景とリポジトリ状況
 
 `docs/agents-local-refactoring/tasks.md` の Stage 10 (control-plane-release) に残っている 2 項目の実装計画。

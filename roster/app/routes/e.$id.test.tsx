@@ -1,0 +1,481 @@
+import { fileURLToPath } from "node:url";
+import type { UserChapter } from "@gdgjp/gdg-lib";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { RouterProvider, createMemoryRouter } from "react-router";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("~/features/auth/auth-redirect.server", () => ({
+  requireUserWithChapter: vi.fn(),
+}));
+
+import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
+import { asD1, createTestD1 } from "../../tests/helpers/sqlite-d1";
+import EventOverview, { action, loader } from "./e.$id";
+
+const MIGRATIONS = [
+  "0002_domain.sql",
+  "0003_demands.sql",
+  "0004_applications.sql",
+  "0005_assignments.sql",
+  "0006_revisions.sql",
+  "0007_roster_sheets_expand.sql",
+  "0008_default_sheet_compat.sql",
+  "0009_time_slots_sheet_uniqueness.sql",
+  "0010_revisions_sheet_sequence.sql",
+  "0011_repair_default_sheet_compat.sql",
+  "0012_independent_sheet_publication.sql",
+].map((name) => fileURLToPath(new URL(`../../migrations/${name}`, import.meta.url)));
+
+const OWNER: UserChapter = { chapterId: 1, chapterSlug: "tokyo", role: "member" };
+const OTHER: UserChapter = { chapterId: 99, chapterSlug: "osaka", role: "member" };
+
+function mockContext(db: D1Database) {
+  return {
+    cloudflare: { env: { DB: db } as unknown as Env },
+  } as Parameters<typeof loader>[0]["context"];
+}
+
+function callLoader(id: string, db: D1Database) {
+  const request = new Request(`http://localhost/e/${id}`);
+  return loader({
+    request,
+    params: { id },
+    context: mockContext(db),
+    unstable_pattern: "/e/:id",
+    unstable_url: new URL(request.url),
+  } as Parameters<typeof loader>[0]);
+}
+
+function callAction(id: string, db: D1Database, values: Record<string, string | string[]>) {
+  const form = new FormData();
+  for (const [name, value] of Object.entries(values)) {
+    if (Array.isArray(value)) {
+      for (const item of value) form.append(name, item);
+    } else {
+      form.set(name, value);
+    }
+  }
+  const request = new Request(`http://localhost/e/${id}`, { method: "POST", body: form });
+  return action({
+    request,
+    params: { id },
+    context: mockContext(db),
+    unstable_pattern: "/e/:id",
+    unstable_url: new URL(request.url),
+  } as Parameters<typeof action>[0]);
+}
+
+type OverviewProps = Parameters<typeof EventOverview>[0];
+
+function renderOverview(props: Pick<OverviewProps, "loaderData" | "actionData">) {
+  const router = createMemoryRouter(
+    [{ path: "/e/event", element: createElement(EventOverview, props as OverviewProps) }],
+    { initialEntries: ["/e/event"] },
+  );
+  return renderToStaticMarkup(createElement(RouterProvider, { router }));
+}
+
+const VALID_SHEET_FORM = {
+  intent: "createSheet",
+  name: "午後のシフト",
+  date: "2026-11-07",
+  startTime: "13:00",
+  endTime: "18:00",
+  stepMin: "30",
+  maxConsecutive: "3",
+};
+
+function asChapter(chapter: UserChapter) {
+  vi.mocked(requireUserWithChapter).mockResolvedValue({
+    user: { id: "user", email: "user@example.com", name: "User", image: null, isAdmin: false },
+    chapter,
+    chapters: [chapter],
+  });
+}
+
+async function seedEvent(db: ReturnType<typeof createTestD1>) {
+  await db
+    .prepare(
+      `INSERT INTO events
+        (id, chapter_id, name, date, start_time, end_time, seed, apply_token, view_token,
+         created_at, updated_at)
+       VALUES ('event', 1, 'DevFest', '2026-11-07', '09:00', '18:00', 42, 'apply', 'view',
+         'created', 'updated')`,
+    )
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO roster_sheets
+        (id, event_id, name, date, start_time, end_time, seed, visibility, sort_order,
+         created_at, updated_at)
+       VALUES ('sheet-late', 'event', '午後の部', '2026-11-07', '13:00', '18:00', 1,
+         'private', 2, 'created', 'updated'),
+         ('sheet-first', 'event', '午前の部', '2026-11-07', '09:00', '12:00', 1,
+         'published', 1, 'created', 'updated'),
+         ('sheet-archived', 'event', 'Archived', '2026-11-07', '12:00', '13:00', 1,
+         'published', 0, 'created', 'updated')`,
+    )
+    .run();
+  await db
+    .prepare("UPDATE roster_sheets SET deleted_at = 'archived' WHERE id = 'sheet-archived'")
+    .run();
+}
+
+describe("e.$id overview", () => {
+  let db: ReturnType<typeof createTestD1>;
+
+  beforeEach(async () => {
+    vi.mocked(requireUserWithChapter).mockReset();
+    db = createTestD1(MIGRATIONS);
+    await seedEvent(db);
+  });
+
+  it("requires chapter ownership and returns live sheets in sort order", async () => {
+    asChapter(OWNER);
+    const data = await callLoader("event", asD1(db));
+    expect(data.event).toEqual({
+      id: "event",
+      name: "DevFest",
+      date: "2026-11-07",
+      startTime: "09:00",
+      endTime: "18:00",
+      status: "draft",
+      stepMin: 60,
+      maxConsecutive: 4,
+      noSoloNewcomer: true,
+    });
+    expect(data.sheets.map((sheet) => [sheet.id, sheet.visibility])).toEqual([
+      ["default:event", "private"],
+      ["sheet-first", "published"],
+      ["sheet-late", "private"],
+    ]);
+  });
+
+  it("rejects unknown events and events from another chapter", async () => {
+    asChapter(OWNER);
+    await expect(callLoader("missing", asD1(db))).rejects.toMatchObject({ status: 404 });
+    asChapter(OTHER);
+    await expect(callLoader("event", asD1(db))).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("creates a sheet only for an event the signed-in chapter can manage", async () => {
+    asChapter(OTHER);
+    await expect(callAction("event", asD1(db), VALID_SHEET_FORM)).rejects.toMatchObject({
+      status: 403,
+    });
+
+    asChapter(OWNER);
+    const response = await callAction("event", asD1(db), {
+      ...VALID_SHEET_FORM,
+      noSoloNewcomer: "true",
+    });
+    if (!(response instanceof Response)) throw new Error("Expected the create action to redirect.");
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toBe("/e/event");
+    const sheets = await db
+      .prepare(
+        "SELECT name, date, start_time, end_time, step_min, no_solo_newcomer, max_consecutive, seed, sort_order FROM roster_sheets WHERE event_id = 'event' AND name = ?",
+      )
+      .bind("午後のシフト")
+      .first();
+    expect(sheets).toEqual({
+      name: "午後のシフト",
+      date: "2026-11-07",
+      start_time: "13:00",
+      end_time: "18:00",
+      step_min: 30,
+      no_solo_newcomer: 1,
+      max_consecutive: 3,
+      seed: 42,
+      sort_order: 3,
+    });
+    asChapter(OWNER);
+    const overview = await callLoader("event", asD1(db));
+    expect(overview.sheets.at(-1)?.name).toBe("午後のシフト");
+  });
+
+  it("requires an explicit sheet id and scopes visibility changes to the event", async () => {
+    asChapter(OTHER);
+    await expect(
+      callAction("event", asD1(db), {
+        intent: "setVisibility",
+        sheetId: "sheet-first",
+        visibility: "private",
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+
+    asChapter(OWNER);
+    await db
+      .prepare(
+        `INSERT INTO events
+          (id, chapter_id, name, date, start_time, end_time, seed, apply_token, view_token,
+           created_at, updated_at)
+         VALUES ('other-event', 1, 'Other event', '2026-11-07', '09:00', '18:00', 1,
+           'apply-other', 'view-other', 'created', 'updated')`,
+      )
+      .run();
+    await db
+      .prepare(
+        `INSERT INTO roster_sheets
+          (id, event_id, name, date, start_time, end_time, seed, visibility, sort_order,
+           created_at, updated_at)
+         VALUES ('sheet-other', 'other-event', 'Other', '2026-11-07', '09:00', '18:00', 1,
+           'private', 1, 'created', 'updated')`,
+      )
+      .run();
+
+    const result = await callAction("event", asD1(db), {
+      intent: "setVisibility",
+      sheetId: "sheet-other",
+      visibility: "published",
+    });
+    expect(result).toMatchObject({ sheetError: { sheetId: "sheet-other" } });
+    expect(
+      await db.prepare("SELECT visibility FROM roster_sheets WHERE id = 'sheet-other'").first(),
+    ).toEqual({ visibility: "private" });
+  });
+
+  it("publishes the default sheet without changing recruitment and renders its actual visibility", async () => {
+    asChapter(OWNER);
+    await db.prepare("UPDATE events SET status = 'open' WHERE id = 'event'").run();
+
+    await callAction("event", asD1(db), {
+      intent: "setVisibility",
+      sheetId: "default:event",
+      visibility: "private",
+    });
+    expect(await db.prepare("SELECT status FROM events WHERE id = 'event'").first()).toEqual({
+      status: "open",
+    });
+
+    await callAction("event", asD1(db), {
+      intent: "setVisibility",
+      sheetId: "default:event",
+      visibility: "published",
+    });
+    expect(await db.prepare("SELECT status FROM events WHERE id = 'event'").first()).toEqual({
+      status: "open",
+    });
+    const overview = await callLoader("event", asD1(db));
+    expect(overview.sheets[0]).toMatchObject({ id: "default:event", visibility: "published" });
+    const html = renderOverview({ loaderData: overview });
+    expect(html).toContain('value="private"');
+  });
+
+  it("rejects default-sheet archive requests and archives populated non-default sheets", async () => {
+    asChapter(OWNER);
+    const defaultArchive = await callAction("event", asD1(db), {
+      intent: "archiveSheet",
+      sheetId: "default:event",
+    });
+    expect(defaultArchive).toMatchObject({ sheetError: { sheetId: "default:event" } });
+    expect(
+      await db.prepare("SELECT deleted_at FROM roster_sheets WHERE id = 'default:event'").first(),
+    ).toEqual({ deleted_at: null });
+
+    await db
+      .prepare(
+        "INSERT INTO phases (id, event_id, name, from_time, to_time, sort_order, roster_sheet_id) VALUES ('phase-sheet', 'event', '午前', '09:00', '12:00', 0, 'sheet-first')",
+      )
+      .run();
+    const archived = await callAction("event", asD1(db), {
+      intent: "archiveSheet",
+      sheetId: "sheet-first",
+    });
+    expect(archived).toBeInstanceOf(Response);
+    expect(
+      await db.prepare("SELECT deleted_at FROM roster_sheets WHERE id = 'sheet-first'").first(),
+    ).toMatchObject({ deleted_at: expect.any(String) });
+    expect(await db.prepare("SELECT id FROM phases WHERE id = 'phase-sheet'").first()).toEqual({
+      id: "phase-sheet",
+    });
+    const overview = await callLoader("event", asD1(db));
+    expect(overview.sheets.map((sheet) => sheet.id)).not.toContain("sheet-first");
+  });
+
+  it("reorders the complete live sheet list and excludes archived sheets", async () => {
+    asChapter(OWNER);
+    const response = await callAction("event", asD1(db), {
+      intent: "reorderSheets",
+      sheetIds: ["default:event", "sheet-late", "sheet-first"],
+    });
+
+    expect(response).toBeInstanceOf(Response);
+    expect((response as Response).headers.get("Location")).toBe("/e/event");
+    const overview = await callLoader("event", asD1(db));
+    expect(overview.sheets.map((sheet) => sheet.id)).toEqual([
+      "default:event",
+      "sheet-late",
+      "sheet-first",
+    ]);
+    expect(overview.sheets.map((sheet) => sheet.id)).not.toContain("sheet-archived");
+  });
+
+  it("returns a refresh message when the submitted order is missing live sheets", async () => {
+    asChapter(OWNER);
+    const missing = await callAction("event", asD1(db), {
+      intent: "reorderSheets",
+      sheetIds: ["default:event", "sheet-first"],
+    });
+    const empty = await callAction("event", asD1(db), { intent: "reorderSheets" });
+
+    expect(missing).toMatchObject({ reorderError: expect.stringContaining("画面を更新") });
+    expect(empty).toMatchObject({ reorderError: expect.stringContaining("画面を更新") });
+  });
+
+  it("rejects IDs from another event when reordering", async () => {
+    asChapter(OWNER);
+    await db
+      .prepare(
+        `INSERT INTO events
+          (id, chapter_id, name, date, start_time, end_time, seed, apply_token, view_token,
+           created_at, updated_at)
+         VALUES ('other-event', 1, 'Other event', '2026-11-07', '09:00', '18:00', 1,
+           'apply-other', 'view-other', 'created', 'updated')`,
+      )
+      .run();
+    await db
+      .prepare(
+        `INSERT INTO roster_sheets
+          (id, event_id, name, date, start_time, end_time, seed, visibility, sort_order,
+           created_at, updated_at)
+         VALUES ('sheet-other', 'other-event', 'Other', '2026-11-07', '09:00', '18:00', 1,
+           'private', 1, 'created', 'updated')`,
+      )
+      .run();
+
+    const result = await callAction("event", asD1(db), {
+      intent: "reorderSheets",
+      sheetIds: ["default:event", "sheet-first", "sheet-other"],
+    });
+
+    expect(result).toMatchObject({ reorderError: expect.stringContaining("画面を更新") });
+    expect(
+      await db.prepare("SELECT sort_order FROM roster_sheets WHERE id = 'sheet-other'").first(),
+    ).toEqual({ sort_order: 1 });
+  });
+
+  it("returns field errors with submitted values for an invalid sheet", async () => {
+    asChapter(OWNER);
+    const response = await callAction("event", asD1(db), {
+      ...VALID_SHEET_FORM,
+      name: "  午後のシフト  ",
+      date: "2026-02-30",
+      endTime: "12:00",
+      stepMin: "20",
+      maxConsecutive: "0",
+    });
+
+    expect(response).toMatchObject({
+      values: {
+        name: "  午後のシフト  ",
+        date: "2026-02-30",
+        endTime: "12:00",
+        stepMin: "20",
+        maxConsecutive: "0",
+      },
+      errors: {
+        date: expect.any(String),
+        endTime: expect.any(String),
+        stepMin: expect.any(String),
+        maxConsecutive: expect.any(String),
+      },
+    });
+    expect(
+      await db
+        .prepare(
+          "SELECT COUNT(*) AS count FROM roster_sheets WHERE event_id = 'event' AND name = ?",
+        )
+        .bind("午後のシフト")
+        .first(),
+    ).toEqual({ count: 0 });
+  });
+
+  it("renders sheet details and links each sheet to its design route", async () => {
+    asChapter(OWNER);
+    const data = await callLoader("event", asD1(db));
+    const html = renderOverview({ loaderData: data });
+
+    expect(html).toContain("本編");
+    expect(html).toContain("午前の部");
+    expect(html).toContain("2026-11-07");
+    expect(html).toContain("09:00");
+    expect(html).toContain("公開");
+    expect(html).toContain("非公開");
+    expect(html).toContain('name="intent" value="setVisibility"');
+    expect(html).toContain('name="sheetId" value="sheet-first"');
+    expect(html).toContain('name="visibility" value="private"');
+    expect(html).toContain('name="intent" value="reorderSheets"');
+    expect(html).toContain('name="sheetIds" value="default:event"');
+    expect(html).toContain('name="sheetIds" value="sheet-first"');
+    expect(html).toContain('name="sheetIds" value="sheet-late"');
+    expect(html).toContain("「午前の部」を上へ移動");
+    expect(html).toContain("公開にする");
+    expect(html).toContain("非公開にする");
+    expect(html).toContain("アーカイブ");
+    expect(html).toMatch(/<button[^>]*>アーカイブ<\/button>/);
+    const defaultCard = html.match(/<li[^>]*>.*?本編.*?<\/li>/s)?.[0];
+    expect(defaultCard).toBeDefined();
+    expect(defaultCard).not.toContain("アーカイブ");
+    expect(html).toContain('href="/e/event/staff"');
+    expect(html).toContain('href="/e/event/share"');
+    expect(html).toContain('href="/e/event/s/default:event/design"');
+    expect(html).toContain('href="/e/event/s/sheet-first/design"');
+    expect(html).toContain('href="/e/event/s/sheet-late/design"');
+    expect(html).not.toContain("シフト表ごとの設計・管理画面は準備中です。");
+    expect(html).not.toContain("sheet-archived");
+    expect(html).toContain("シフト表を追加");
+    expect(html).toContain('name="name"');
+    expect(html).toContain('name="date"');
+    expect(html).toContain('name="stepMin"');
+    expect(html).toContain('name="noSoloNewcomer"');
+  });
+
+  it("renders validation feedback and keeps the entered form values", async () => {
+    asChapter(OWNER);
+    const data = await callLoader("event", asD1(db));
+    const html = renderOverview({
+      loaderData: data,
+      actionData: {
+        values: {
+          ...VALID_SHEET_FORM,
+          stepMin: "20",
+          noSoloNewcomer: true,
+        },
+        errors: {
+          date: "有効な日付を選択してください。",
+          stepMin: "刻み幅を選択してください。",
+        },
+      },
+    });
+
+    expect(html).toContain('value="午後のシフト"');
+    expect(html).toContain('value="2026-11-07"');
+    expect(html).toContain("有効な日付を選択してください。");
+    expect(html).toContain("20分（選択できません）");
+    expect(html).toContain('aria-invalid="true"');
+    expect(html).toContain('data-state="checked"');
+  });
+
+  it("renders a useful empty state when no live sheets remain", () => {
+    const html = renderOverview({
+      loaderData: {
+        event: {
+          id: "event",
+          name: "DevFest",
+          date: "2026-11-07",
+          startTime: "09:00",
+          endTime: "18:00",
+          status: "draft",
+          stepMin: 30,
+          maxConsecutive: 4,
+          noSoloNewcomer: false,
+        },
+        sheets: [],
+      },
+    });
+    expect(html).toContain("シフト表はまだありません。");
+    expect(html).toContain("<output");
+  });
+});

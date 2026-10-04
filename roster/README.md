@@ -34,7 +34,7 @@ graph.
 | Design (time slots / tracks / roles) | `/e/:id/design` | Chapter required | Done (Stage 02/03) |
 | Recruiting / staff | `/e/:id/staff` | Chapter required | Done (Stage 04/05): apply URL + status, proxy-add, staff list, owner corrections, supply-demand view |
 | Shift schedule | `/e/:id/roster` | Chapter required | Done (Stage 07): generate, 3 views, manual edit; Stage 08 (parallel) adds history |
-| Share | `/e/:id/share` | Chapter required | Done (Stage 09): view-URL copy and status |
+| Share | `/e/:id/share` | Chapter required | Done (Stage 09): view-URL copy and sheet publication status |
 | Staff registration (public) | `/apply/:applyToken` | Sign-in only, no chapter | Done (Stage 04) |
 | Public shift view | `/r/:viewToken` | None | Done (Stage 09): staff/role/individual/party tabs |
 
@@ -75,13 +75,14 @@ For real sign-in also run `pnpm --filter @gdgjp/accounts dev` (port 5173) and
 ## Deploy
 
 ```sh
+pnpm --filter @gdgjp/roster build
 pnpm --filter @gdgjp/roster run deploy   # wrangler deploy
 ```
 
-Prerequisites: a proxied `roster` DNS record in the `gdgs.jp` zone; a D1 database
-(`wrangler d1 create gdgjp-roster-db`, then set its id in `wrangler.toml` — this PR ships a
-placeholder id, see the PR description's deploy-steps section); `wrangler secret put
-RP_SESSION_SECRET` and `wrangler secret put IDP_CLIENT_SECRET`; and the `roster` OIDC client
-registered on the `accounts` worker (`ROSTER_CLIENT_ID` / `ROSTER_REDIRECT_URLS` vars,
-`ROSTER_CLIENT_SECRET` secret, `POST /admin/seed-clients`). CI runs `deploy` on merge to `main`
-when `roster/` changes.
+Prerequisites: the `roster.gdgs.jp` Custom Domain attached to the Worker (the `[[routes]]`
+entry remains alongside it, matching the other Cloudflare services); the `gdgjp-roster-db` D1
+database bound by the committed id in `wrangler.toml`; the `RP_SESSION_SECRET` and
+`IDP_CLIENT_SECRET` Worker secrets; and the `roster` OIDC client registered on the `accounts`
+worker (`ROSTER_CLIENT_ID` / `ROSTER_REDIRECT_URLS` vars, `ROSTER_CLIENT_SECRET` secret,
+`POST /admin/seed-clients`). CI runs `deploy` and then `migrate:remote` on merge to `main` when
+`roster/` changes.

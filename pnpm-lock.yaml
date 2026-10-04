@@ -651,6 +651,9 @@ importers:
       '@gdgjp/gdg-lib':
         specifier: workspace:*
         version: link:../gdg-lib
+      '@gdgjp/ui':
+        specifier: workspace:*
+        version: link:../ui
       isbot:
         specifier: ^5.1.17
         version: 5.1.39

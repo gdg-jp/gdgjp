@@ -29,6 +29,7 @@ export function DemandDrawer({
   roles,
   phases,
   onClose,
+  sheetId,
 }: {
   mode: MatrixMode;
   rowKey: string;
@@ -40,6 +41,7 @@ export function DemandDrawer({
   roles: readonly Role[];
   phases: readonly Phase[];
   onClose: () => void;
+  sheetId: string;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const trackName = tracks.find((t) => t.id === trackId)?.name ?? trackId;
@@ -78,6 +80,7 @@ export function DemandDrawer({
         </div>
 
         <Form method="post" className="space-y-4">
+          <input type="hidden" name="sheetId" value={sheetId} />
           <input type="hidden" name="mode" value={mode} />
           <input type="hidden" name="rowKey" value={rowKey} />
           <input type="hidden" name="trackId" value={trackId} />

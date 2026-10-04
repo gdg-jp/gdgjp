@@ -14,11 +14,15 @@ import type { PartyStatus } from "~/features/applications/types";
  */
 
 export type PublicEventSummary = {
+  /** Parent event identity and display name, retained for existing consumers. */
+  id: string;
   name: string;
   date: string;
   startTime: string;
   endTime: string;
   hasParty: boolean;
+  /** Schedule identity and timing for the selected published sheet. */
+  sheet: { name: string; date: string; startTime: string; endTime: string };
 };
 
 export type PublicSlot = { id: string; idx: number; startTime: string; endTime: string };
@@ -45,12 +49,11 @@ export type PublicRosterData = {
 };
 
 /**
- * `canView(status)` (docs/roster/adr.md ADR-005, `~/features/events/status`)
- * gates which variant this is. The `false` branch carries only the event
- * summary — no `data` key at all — so an unpublished event's assignments/
- * staff never enter the loader's return value, let alone the rendered HTML
+ * Roster-sheet visibility gates which variant this is. The `false` branch carries only the summary
+ * (including selected-sheet metadata when available) — no `data` key at all — so a private sheet's
+ * assignments/staff never enter the loader's return value, let alone the rendered HTML
  * or the hydration payload (docs/roster/09-share-public-views.md "制約":
- * "canView が false のとき 404 にしない。200 で「まだ公開されていません」").
+ * a private sheet returns 200 with "まだ公開されていません").
  */
 export type PublicRosterView =
   | { published: false; event: PublicEventSummary }

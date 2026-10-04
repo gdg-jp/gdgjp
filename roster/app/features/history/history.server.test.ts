@@ -14,9 +14,16 @@ import type { Actor } from "./types";
 
 const MIGRATIONS = [
   fileURLToPath(new URL("../../../migrations/0002_domain.sql", import.meta.url)),
+  fileURLToPath(new URL("../../../migrations/0003_demands.sql", import.meta.url)),
   fileURLToPath(new URL("../../../migrations/0004_applications.sql", import.meta.url)),
   fileURLToPath(new URL("../../../migrations/0005_assignments.sql", import.meta.url)),
   fileURLToPath(new URL("../../../migrations/0006_revisions.sql", import.meta.url)),
+  fileURLToPath(new URL("../../../migrations/0007_roster_sheets_expand.sql", import.meta.url)),
+  fileURLToPath(new URL("../../../migrations/0008_default_sheet_compat.sql", import.meta.url)),
+  fileURLToPath(
+    new URL("../../../migrations/0009_time_slots_sheet_uniqueness.sql", import.meta.url),
+  ),
+  fileURLToPath(new URL("../../../migrations/0010_revisions_sheet_sequence.sql", import.meta.url)),
 ];
 
 const EVENT_ID = "evt_1";
@@ -50,6 +57,10 @@ async function seedEvent(db: TestD1Database, id = EVENT_ID) {
     )
     .bind(id, `apply_${id}`, `view_${id}`, now, now)
     .run();
+  await db
+    .prepare("INSERT INTO event_roles (event_id, role_id) VALUES (?, 'reception'), (?, 'guide')")
+    .bind(id, id)
+    .run();
 }
 
 async function seedApplication(db: TestD1Database, id: string, eventId = EVENT_ID) {
@@ -63,28 +74,41 @@ async function seedApplication(db: TestD1Database, id: string, eventId = EVENT_I
     .run();
 }
 
-async function seedTrack(db: TestD1Database, id: string, eventId = EVENT_ID) {
+async function seedTrack(
+  db: TestD1Database,
+  id: string,
+  eventId = EVENT_ID,
+  rosterSheetId = `default:${eventId}`,
+) {
   await db
     .prepare(
-      "INSERT INTO tracks (id, event_id, name, color, shared, sort_order) VALUES (?, ?, '全体', '#000', 1, 0)",
+      "INSERT INTO tracks (id, event_id, name, color, shared, sort_order, roster_sheet_id) VALUES (?, ?, '全体', '#000', 1, 0, ?)",
     )
-    .bind(id, eventId)
+    .bind(id, eventId, rosterSheetId)
     .run();
 }
 
-async function seedSlot(db: TestD1Database, id: string, idx: number, eventId = EVENT_ID) {
+async function seedSlot(
+  db: TestD1Database,
+  id: string,
+  idx: number,
+  eventId = EVENT_ID,
+  rosterSheetId = `default:${eventId}`,
+) {
   await db
     .prepare(
-      "INSERT INTO time_slots (id, event_id, idx, start_time, end_time) VALUES (?, ?, ?, '09:00', '10:00')",
+      "INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id) VALUES (?, ?, ?, '09:00', '10:00', ?)",
     )
-    .bind(id, eventId, idx)
+    .bind(id, eventId, idx, rosterSheetId)
     .run();
 }
 
 async function getCursor(db: TestD1Database, eventId = EVENT_ID): Promise<number | null> {
   const row = await db
-    .prepare("SELECT revision_cursor FROM events WHERE id = ?")
-    .bind(eventId)
+    .prepare(
+      "SELECT revision_cursor FROM roster_sheets WHERE event_id = ? AND id = 'default:' || ?",
+    )
+    .bind(eventId, eventId)
     .first<{ revision_cursor: number | null }>();
   return row?.revision_cursor ?? null;
 }
@@ -126,6 +150,7 @@ function record(
     actor: Actor;
     kind: "generate" | "edit";
     groupKey: string | null;
+    rosterSheetId: string;
   }> = {},
 ) {
   return recordRevision(asD1(db), {
@@ -136,7 +161,73 @@ function record(
     actor: overrides.actor ?? OWNER,
     kind: overrides.kind ?? "generate",
     groupKey: overrides.groupKey,
+    rosterSheetId: overrides.rosterSheetId,
   });
+}
+
+async function seedSheet(db: TestD1Database, id: string) {
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `INSERT INTO roster_sheets (id, event_id, name, date, start_time, end_time, seed, created_at, updated_at)
+       VALUES (?, ?, '別シート', '2026-11-07', '09:00', '19:00', 2, ?, ?)`,
+    )
+    .bind(id, EVENT_ID, now, now)
+    .run();
+  await db
+    .prepare(
+      "INSERT INTO roster_sheet_roles (roster_sheet_id, role_id) VALUES (?, 'reception'), (?, 'guide')",
+    )
+    .bind(id, id)
+    .run();
+}
+
+async function seedAssignment(
+  db: TestD1Database,
+  sheetId: string,
+  slotId: string,
+  trackId: string,
+) {
+  await db
+    .prepare(
+      `INSERT INTO assignments
+         (event_id, application_id, time_slot_id, track_id, role_id, locked, roster_sheet_id)
+       VALUES (?, 'app_1', ?, ?, 'reception', 0, ?)`,
+    )
+    .bind(EVENT_ID, slotId, trackId, sheetId)
+    .run();
+}
+
+function wrapBatch(
+  db: TestD1Database,
+  beforeBatch?: () => Promise<void>,
+  failBatch = false,
+): { db: D1Database; batches: string[][] } {
+  const statementSql = new WeakMap<object, string>();
+  const batches: string[][] = [];
+  const wrapped = {
+    prepare(sql: string) {
+      return {
+        bind(...params: unknown[]) {
+          const statement = db.prepare(sql).bind(...params);
+          const bound = {
+            run: () => statement.run(),
+            first: <T>() => statement.first<T>(),
+            all: <T>() => statement.all<T>(),
+          };
+          statementSql.set(bound, sql);
+          return bound;
+        },
+      };
+    },
+    async batch(statements: object[]) {
+      batches.push(statements.map((statement) => statementSql.get(statement) ?? ""));
+      await beforeBatch?.();
+      if (failBatch) throw new Error("Injected batch failure");
+      return db.batch(statements as never);
+    },
+  } as unknown as D1Database;
+  return { db: wrapped, batches };
 }
 
 describe("recordRevision", () => {
@@ -216,7 +307,10 @@ describe("recordRevision", () => {
     await record(testDb, { label: "gen3" }); // seq 3
 
     // Simulate "undo twice" by rewinding the cursor directly.
-    await testDb.prepare("UPDATE events SET revision_cursor = 1 WHERE id = ?").bind(EVENT_ID).run();
+    await testDb
+      .prepare("UPDATE roster_sheets SET revision_cursor = 1 WHERE id = 'default:' || ?")
+      .bind(EVENT_ID)
+      .run();
 
     await record(testDb, { kind: "edit", groupKey: "u1", label: "edit after rewind" });
 
@@ -242,7 +336,10 @@ describe("recordRevision", () => {
 
     // Rewind the cursor to seq 2, an "edit" head that a same-actor,
     // same-window edit is eligible to merge into.
-    await testDb.prepare("UPDATE events SET revision_cursor = 2 WHERE id = ?").bind(EVENT_ID).run();
+    await testDb
+      .prepare("UPDATE roster_sheets SET revision_cursor = 2 WHERE id = 'default:' || ?")
+      .bind(EVENT_ID)
+      .run();
 
     await record(testDb, { kind: "edit", groupKey: "u1", label: "edit2 (merged)" });
 
@@ -250,6 +347,69 @@ describe("recordRevision", () => {
     expect(rows.map((r) => r.seq)).toEqual([1, 2]); // seq 3 must be gone, not just unreachable
     expect(rows.map((r) => r.label)).toEqual(["gen1", "edit2 (merged)"]); // merged in place, not a new row
     expect(await getCursor(testDb)).toBe(2);
+  });
+
+  it("keeps sequence, cursor, truncation, and retention scoped to the selected sheet", async () => {
+    await seedSheet(testDb, "sheet:other");
+    await record(testDb, { label: "default 1" });
+    await record(testDb, { label: "default 2" });
+    await record(testDb, { label: "other 1", rosterSheetId: "sheet:other" });
+    await record(testDb, { label: "other 2", rosterSheetId: "sheet:other" });
+
+    await testDb
+      .prepare("UPDATE roster_sheets SET revision_cursor = 1 WHERE id = 'default:' || ?")
+      .bind(EVENT_ID)
+      .run();
+    await record(testDb, { label: "default replacement" });
+
+    expect((await getHistoryState(asD1(testDb), EVENT_ID)).revisions.map((r) => r.label)).toEqual([
+      "default replacement",
+      "default 1",
+    ]);
+    expect(
+      (await getHistoryState(asD1(testDb), EVENT_ID, "sheet:other")).revisions.map((r) => r.label),
+    ).toEqual(["other 2", "other 1"]);
+    expect(await getCursor(testDb)).toBe(2);
+    const otherCursor = await testDb
+      .prepare("SELECT revision_cursor FROM roster_sheets WHERE id = ?")
+      .bind("sheet:other")
+      .first<{ revision_cursor: number | null }>();
+    expect(otherCursor?.revision_cursor).toBe(2);
+  });
+
+  it("aborts a stale merge before it truncates a concurrently changed head", async () => {
+    await record(testDb, { kind: "edit", groupKey: "u1", label: "edit1" });
+    await record(testDb, { label: "generate2" });
+    await testDb
+      .prepare("UPDATE roster_sheets SET revision_cursor = 1 WHERE id = 'default:' || ?")
+      .bind(EVENT_ID)
+      .run();
+
+    const wrapped = wrapBatch(testDb, async () => {
+      await testDb
+        .prepare("UPDATE revisions SET label = 'concurrent head' WHERE event_id = ? AND seq = 1")
+        .bind(EVENT_ID)
+        .run();
+    });
+
+    await expect(
+      recordRevision(wrapped.db, {
+        eventId: EVENT_ID,
+        assignments: new Map(),
+        metrics: metrics(),
+        label: "stale merge",
+        actor: OWNER,
+        kind: "edit",
+        groupKey: "u1",
+      }),
+    ).rejects.toThrow("History changed concurrently");
+
+    expect(wrapped.batches).toHaveLength(1);
+    expect(await getCursor(testDb)).toBe(1);
+    expect((await listRevisionRows(testDb)).map((row) => [row.seq, row.label])).toEqual([
+      [1, "concurrent head"],
+      [2, "generate2"],
+    ]);
   });
 });
 
@@ -357,6 +517,96 @@ describe("restoreRevision", () => {
 
   it("returns null (rather than throwing) for a seq that has no revision", async () => {
     expect(await restoreRevision(asD1(testDb), EVENT_ID, 999, OWNER)).toBeNull();
+  });
+
+  it("restores only the selected sheet and drops snapshot rows outside its ownership", async () => {
+    await seedApplication(testDb, "app_1");
+    await seedSheet(testDb, "sheet:other");
+    await seedTrack(testDb, "trk_other", EVENT_ID, "sheet:other");
+    await seedSlot(testDb, "slot_other", 0, EVENT_ID, "sheet:other");
+    await seedSlot(testDb, "slot_other2", 1, EVENT_ID, "sheet:other");
+    await seedAssignment(testDb, `default:${EVENT_ID}`, "slot_1", "trk_1");
+    await seedAssignment(testDb, "sheet:other", "slot_other", "trk_other");
+
+    const snapshot: Assignments = new Map([
+      [
+        assignmentKey("app_1", "slot_other"),
+        { trackId: "trk_other", roleId: "guide", locked: false },
+      ],
+      [assignmentKey("app_1", "slot_1"), { trackId: "trk_1", roleId: "reception", locked: false }],
+      [
+        assignmentKey("app_1", "slot_other2"),
+        { trackId: "trk_other", roleId: "mc", locked: false },
+      ],
+    ]);
+    await record(testDb, { assignments: snapshot, rosterSheetId: "sheet:other" });
+
+    const result = await restoreRevision(asD1(testDb), EVENT_ID, 1, OWNER, "sheet:other");
+
+    expect(result).toEqual({ droppedCount: 2 });
+    const rows = await testDb
+      .prepare("SELECT time_slot_id, roster_sheet_id FROM assignments ORDER BY roster_sheet_id")
+      .all<{ time_slot_id: string; roster_sheet_id: string }>();
+    expect(rows.results).toEqual([
+      { time_slot_id: "slot_1", roster_sheet_id: `default:${EVENT_ID}` },
+      { time_slot_id: "slot_other", roster_sheet_id: "sheet:other" },
+    ]);
+  });
+
+  it("submits assignment and cursor restoration in one batch and leaves state unchanged on failure", async () => {
+    await seedApplication(testDb, "app_1");
+    await seedAssignment(testDb, `default:${EVENT_ID}`, "slot_1", "trk_1");
+    await record(testDb, {
+      assignments: new Map([
+        [
+          assignmentKey("app_1", "slot_1"),
+          { trackId: "trk_1", roleId: "reception", locked: false },
+        ],
+      ]),
+    });
+    const assignmentsBefore = await readAssignmentRows(testDb);
+    const cursorBefore = await getCursor(testDb);
+    const wrapped = wrapBatch(testDb, undefined, true);
+
+    await expect(restoreRevision(wrapped.db, EVENT_ID, 1, OWNER)).rejects.toThrow(
+      "Injected batch failure",
+    );
+
+    expect(wrapped.batches).toHaveLength(1);
+    expect(wrapped.batches[0].some((sql) => sql.includes("DELETE FROM assignments"))).toBe(true);
+    expect(
+      wrapped.batches[0].some((sql) => sql.includes("UPDATE roster_sheets SET revision_cursor")),
+    ).toBe(true);
+    expect(
+      wrapped.batches[0].some((sql) => sql.includes("UPDATE events SET revision_cursor")),
+    ).toBe(true);
+    expect(await readAssignmentRows(testDb)).toEqual(assignmentsBefore);
+    expect(await getCursor(testDb)).toBe(cursorBefore);
+  });
+
+  it("does not restore a revision evicted after lookup", async () => {
+    await seedApplication(testDb, "app_1");
+    await seedAssignment(testDb, `default:${EVENT_ID}`, "slot_1", "trk_1");
+    const snapshot: Assignments = new Map([
+      [assignmentKey("app_1", "slot_1"), { trackId: "trk_1", roleId: "reception", locked: false }],
+    ]);
+    await record(testDb, { assignments: snapshot, label: "old target" });
+    await record(testDb, { assignments: snapshot, kind: "edit", groupKey: "u1", label: "head" });
+    const assignmentsBefore = await readAssignmentRows(testDb);
+    const wrapped = wrapBatch(testDb, async () => {
+      await testDb
+        .prepare("DELETE FROM revisions WHERE event_id = ? AND roster_sheet_id = ? AND seq = 1")
+        .bind(EVENT_ID, `default:${EVENT_ID}`)
+        .run();
+    });
+
+    await expect(restoreRevision(wrapped.db, EVENT_ID, 1, OWNER)).rejects.toThrow(
+      "Revision changed concurrently",
+    );
+
+    expect(wrapped.batches).toHaveLength(1);
+    expect(await readAssignmentRows(testDb)).toEqual(assignmentsBefore);
+    expect(await getCursor(testDb)).toBe(2);
   });
 });
 

@@ -10,13 +10,6 @@ import { type Page, expect, test } from "@playwright/test";
  * `/dev/login` the same way `apply.spec.ts` does.
  */
 
-/** `/e/:id/design`'s status select (`EventSettingsForm`, button "設定を保存"). */
-async function setStatusOnDesignPage(page: Page, status: string): Promise<void> {
-  await page.selectOption('select[name="status"]', status);
-  await page.getByRole("button", { name: "設定を保存" }).click();
-  await page.waitForLoadState("networkidle");
-}
-
 /** `/e/:id/staff`'s status select (`ApplyLinkCard`, button "ステータスを更新"). */
 async function setStatusOnStaffPage(page: Page, status: string): Promise<void> {
   await page.selectOption('select[name="status"]', status);
@@ -37,7 +30,7 @@ async function createEventWithDemand(
   await page.fill('input[name="name"]', eventName);
   await page.fill('input[name="date"]', "2030-06-01");
   await page.getByRole("button", { name: "作成する" }).click();
-  await page.waitForURL(/\/e\/[^/]+\/design$/);
+  await page.waitForURL(/\/e\/[^/]+\/(?:s\/[^/]+\/)?design$/);
   const eventId = new URL(page.url()).pathname.split("/")[2];
 
   await page.check('input[name="roleId"][value="reception"]');
@@ -50,9 +43,17 @@ async function createEventWithDemand(
   // level, and filling the LAST seat with a newcomer and nobody experienced
   // already present is exactly what that rule blocks (index.md §5.2 step
   // ②-④'s newcomer gate). Turn it off so `solve()` actually places people.
-  await page.selectOption('select[name="noSoloNewcomer"]', "0");
-  await page.getByRole("button", { name: "設定を保存" }).click();
-  await page.waitForLoadState("networkidle");
+  // Wait for the save's response itself: networkidle may already hold before the POST starts,
+  // and reloading early drops the write.
+  await page.getByRole("checkbox", { name: "新人を単独の時間枠に割り当てない" }).uncheck();
+  await Promise.all([
+    page.waitForResponse((response) => response.request().method() === "POST" && response.ok()),
+    page.getByRole("button", { name: "シフト表設定を保存" }).click(),
+  ]);
+  await page.reload();
+  await expect(
+    page.getByRole("checkbox", { name: "新人を単独の時間枠に割り当てない" }),
+  ).not.toBeChecked();
 
   // The demand matrix starts with zero columns — "役割を追加" (trackId/roleId
   // default to the only options: 全体/受付) adds the column the empty cell
@@ -108,8 +109,8 @@ test("generate produces a shift table with metrics, and re-generating with the s
   await registerStaff(page, applyPath, "roster1");
   await registerStaff(page, applyPath, "roster2");
 
-  await page.goto(`/dev/login?as=owner&chapter=1:e2e-roster-owner&return_to=/e/${eventId}/design`);
-  await setStatusOnDesignPage(page, "closed");
+  await page.goto(`/dev/login?as=owner&chapter=1:e2e-roster-owner&return_to=/e/${eventId}/staff`);
+  await setStatusOnStaffPage(page, "closed");
 
   await page.goto(`/e/${eventId}/roster`);
   await expect(page.getByText("まだ生成していません")).toBeVisible();
@@ -152,8 +153,8 @@ test("manual edit: assigning into a slot marked unavailable warns but succeeds (
   // This person is unavailable ("×") for the 10:00–11:00 slot specifically.
   await registerStaff(page, applyPath, "rosterx", "10:00–11:00");
 
-  await page.goto(`/dev/login?as=owner&chapter=1:e2e-roster-owner&return_to=/e/${eventId}/design`);
-  await setStatusOnDesignPage(page, "closed");
+  await page.goto(`/dev/login?as=owner&chapter=1:e2e-roster-owner&return_to=/e/${eventId}/staff`);
+  await setStatusOnStaffPage(page, "closed");
 
   await page.goto(`/e/${eventId}/roster`);
   await expect(page.getByText("まだ生成していません")).toBeVisible();
@@ -183,4 +184,129 @@ test("manual edit: assigning into a slot marked unavailable warns but succeeds (
   await expect(page.getByText("ここに入れられる人")).toBeHidden();
   await page.getByRole("button", { name: "スタッフ別" }).click();
   await expect(page.getByText("稼働×")).toBeVisible();
+});
+
+test("multi-sheet availability, generation history, and publishing stay scoped to one sheet", async ({
+  page,
+  context,
+}) => {
+  const eventId = await createEventWithDemand(page, "E2E Multi-sheet Event", 1);
+
+  // The default sheet ends at 19:00; start 懇親会 there to avoid cross-sheet overlap.
+  await page.goto(`/e/${eventId}`);
+  await page.fill('input[name="name"]', "懇親会");
+  await page.fill('input[name="date"]', "2030-06-01");
+  await page.fill('input[name="startTime"]', "19:00");
+  await page.fill('input[name="endTime"]', "21:00");
+  await page.selectOption('select[name="stepMin"]', "60");
+  // Every registrant is a newcomer; see createEventWithDemand for why this rule must be off.
+  await page.getByRole("checkbox", { name: "新人を単独の時間枠に割り当てない" }).uncheck();
+  await page.getByRole("button", { name: "シフト表を作成" }).click();
+  await page.waitForLoadState("networkidle");
+
+  const partyCard = page
+    .locator("li")
+    .filter({ has: page.getByRole("heading", { name: "懇親会" }) });
+  await expect(partyCard).toBeVisible();
+  await partyCard.getByRole("link", { name: "設計" }).click();
+  await page.waitForURL(/\/e\/[^/]+\/s\/[^/]+\/design$/);
+  const partySheetId = new URL(page.url()).pathname.split("/")[4];
+  expect(partySheetId).toBeTruthy();
+
+  await page.check('input[name="roleId"][value="reception"]');
+  await page.getByRole("button", { name: "役割を保存" }).click();
+  await page.waitForLoadState("networkidle");
+  const addTrackForm = page.getByRole("button", { name: "トラックを追加" }).locator("xpath=..");
+  await addTrackForm.locator('input[name="name"]').fill("懇親会受付");
+  await page.getByRole("button", { name: "トラックを追加" }).click();
+  await page.waitForLoadState("networkidle");
+  const addPhaseForm = page.getByRole("button", { name: "フェーズを追加" }).locator("xpath=..");
+  await addPhaseForm.locator('input[name="name"]').fill("懇親会");
+  await addPhaseForm.locator('input[name="from"]').fill("19:00");
+  await addPhaseForm.locator('input[name="to"]').fill("21:00");
+  await page.getByRole("button", { name: "フェーズを追加" }).click();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByText("時間枠（2）")).toBeVisible();
+  await page.getByRole("button", { name: "役割を追加" }).click();
+  await page.getByRole("button", { name: /需要なし/ }).click();
+  await page.fill('input[name="min"]', "1");
+  await page.fill('input[name="ideal"]', "1");
+  await page.fill('input[name="leadMin"]', "0");
+  await page.fill('input[name="newMax"]', "99");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.waitForLoadState("networkidle");
+
+  // Open registration and record availability independently in both grids.
+  await page.goto(`/e/${eventId}/staff`);
+  const applyUrlText = (await page.locator("code").first().textContent())?.trim();
+  if (!applyUrlText) throw new Error("apply URL not found on /e/:id/staff");
+  const applyPath = new URL(applyUrlText).pathname;
+  await setStatusOnStaffPage(page, "open");
+  await page.goto(
+    `/dev/login?as=multisheet&chapter=999:multisheet-chapter&return_to=${encodeURIComponent(applyPath)}`,
+  );
+  await page.check('input[name="role_reception"]');
+  const defaultGrid = page.getByRole("group", { name: /^本編 — 2030-06-01/ });
+  const partyGrid = page.getByRole("group", { name: /^懇親会 — 2030-06-01/ });
+  await expect(defaultGrid).toBeVisible();
+  await expect(partyGrid).toBeVisible();
+  await defaultGrid.getByRole("button", { name: "終日 ○" }).click();
+  await partyGrid.getByRole("button", { name: "終日 ○" }).click();
+  await partyGrid
+    .locator("li", { hasText: "19:00–20:00" })
+    .locator("label", { hasText: "×" })
+    .click();
+  await page.getByRole("button", { name: "登録する" }).click();
+  await expect(page.getByRole("button", { name: "登録内容を更新" })).toBeVisible();
+  await expect(
+    defaultGrid.locator("li", { hasText: "10:00–11:00" }).getByRole("radio", { name: "○ 可能" }),
+  ).toBeChecked();
+  await expect(
+    partyGrid.locator("li", { hasText: "19:00–20:00" }).getByRole("radio", { name: "× 不可" }),
+  ).toBeChecked();
+  await expect(
+    partyGrid.locator("li", { hasText: "20:00–21:00" }).getByRole("radio", { name: "○ 可能" }),
+  ).toBeChecked();
+
+  // Generate only the party sheet. Its assignment/history should not appear on 本編.
+  await page.goto(`/dev/login?as=owner&chapter=1:e2e-roster-owner&return_to=/e/${eventId}/staff`);
+  await setStatusOnStaffPage(page, "closed");
+  await page.goto(`/e/${eventId}/s/${partySheetId}/roster`);
+  await expect(page.getByText("まだ生成していません")).toBeVisible();
+  await page.getByRole("button", { name: "自動生成" }).click();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("button", { name: "再生成" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "履歴" })).toBeVisible();
+  await expect(
+    page.locator("section").filter({ hasText: "履歴" }).getByText("自動生成").first(),
+  ).toBeVisible();
+  await page.goto(`/e/${eventId}/roster`);
+  await expect(page.getByText("まだ生成していません")).toBeVisible();
+
+  // Publish just 懇親会. The published sheet URL works; 本編's legacy URL stays private.
+  await page.goto(`/e/${eventId}`);
+  const partyCardAfterGenerate = page
+    .locator("li")
+    .filter({ has: page.getByRole("heading", { name: "懇親会" }) });
+  await partyCardAfterGenerate.getByRole("button", { name: "公開にする" }).click();
+  await page.waitForLoadState("networkidle");
+  await page.goto(`/e/${eventId}/share`);
+  const partyShareCard = page
+    .locator("li")
+    .filter({ has: page.getByRole("heading", { name: "懇親会" }) });
+  await expect(partyShareCard.getByText("公開中", { exact: true })).toBeVisible();
+  const partyUrl = (await partyShareCard.locator("code").textContent())?.trim();
+  const legacyUrl = (await page.locator("code").first().textContent())?.trim();
+  if (!partyUrl || !legacyUrl) throw new Error("public share URLs not found");
+
+  await context.clearCookies();
+  const partyResponse = await page.goto(partyUrl);
+  expect(partyResponse?.status()).toBe(200);
+  await expect(page.getByRole("heading", { name: /E2E Multi-sheet Event.*懇親会/ })).toBeVisible();
+  await expect(page.getByText("multisheet")).toBeVisible();
+
+  const legacyResponse = await page.goto(legacyUrl);
+  expect(legacyResponse?.status()).toBe(200);
+  await expect(page.getByText("シフト表はまだ公開されていません。")).toBeVisible();
+  await expect(page.getByText("multisheet")).toHaveCount(0);
 });

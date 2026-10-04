@@ -14,6 +14,12 @@ const MIGRATIONS = [
   fileURLToPath(new URL("../../migrations/0002_domain.sql", import.meta.url)),
   fileURLToPath(new URL("../../migrations/0003_demands.sql", import.meta.url)),
   fileURLToPath(new URL("../../migrations/0004_applications.sql", import.meta.url)),
+  fileURLToPath(new URL("../../migrations/0005_assignments.sql", import.meta.url)),
+  fileURLToPath(new URL("../../migrations/0006_revisions.sql", import.meta.url)),
+  fileURLToPath(new URL("../../migrations/0007_roster_sheets_expand.sql", import.meta.url)),
+  fileURLToPath(new URL("../../migrations/0008_default_sheet_compat.sql", import.meta.url)),
+  fileURLToPath(new URL("../../migrations/0009_time_slots_sheet_uniqueness.sql", import.meta.url)),
+  fileURLToPath(new URL("../../migrations/0010_revisions_sheet_sequence.sql", import.meta.url)),
 ];
 
 const OWNER_CHAPTER: UserChapter = { chapterId: 1, chapterSlug: "tokyo", role: "member" };
@@ -60,6 +66,103 @@ async function seedEvent(testDb: TestD1Database) {
       "INSERT INTO time_slots (id, event_id, idx, start_time, end_time) VALUES ('slot_1', 'evt_1', 0, '09:00', '10:00')",
     )
     .run();
+}
+
+async function seedAdditionalSheetsAndDemand(testDb: TestD1Database) {
+  const now = new Date().toISOString();
+  await testDb
+    .prepare(
+      `INSERT INTO roster_sheets
+        (id, event_id, name, date, start_time, end_time, step_min, seed, sort_order, created_at, updated_at)
+       VALUES
+        ('sheet_party', 'evt_1', '懇親会', '2026-11-07', '09:00', '11:00', 60, 2, 1, ?, ?),
+        ('sheet_archived', 'evt_1', 'Archived', '2026-11-07', '11:00', '12:00', 60, 3, 2, ?, ?)`,
+    )
+    .bind(now, now, now, now)
+    .run();
+  await testDb
+    .prepare("UPDATE roster_sheets SET deleted_at = 'archived' WHERE id = 'sheet_archived'")
+    .run();
+  await testDb
+    .prepare(
+      `INSERT INTO roster_sheet_roles (roster_sheet_id, role_id)
+       VALUES ('sheet_party', 'guide'), ('sheet_archived', 'setup')`,
+    )
+    .run();
+  await testDb
+    .prepare(
+      `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+       VALUES
+        ('party_slot', 'evt_1', 0, '09:00', '10:00', 'sheet_party'),
+        ('archived_slot', 'evt_1', 0, '11:00', '12:00', 'sheet_archived')`,
+    )
+    .run();
+  await testDb
+    .prepare(
+      `INSERT INTO tracks (id, event_id, name, color, shared, sort_order, roster_sheet_id)
+       VALUES
+        ('track_main', 'evt_1', '本編', '#000000', 1, 0, 'default:evt_1'),
+        ('track_party', 'evt_1', '懇親会', '#000000', 1, 0, 'sheet_party')`,
+    )
+    .run();
+  await testDb
+    .prepare(
+      `INSERT INTO demands
+        (event_id, time_slot_id, track_id, role_id, min_count, ideal_count, lead_min, new_max, roster_sheet_id)
+       VALUES
+        ('evt_1', 'slot_1', 'track_main', 'reception', 1, 1, 0, 99, 'default:evt_1'),
+        ('evt_1', 'party_slot', 'track_party', 'guide', 2, 2, 0, 99, 'sheet_party')`,
+    )
+    .run();
+}
+
+async function seedApplicationAcrossSheets(testDb: TestD1Database, withdrawn = false) {
+  const now = new Date().toISOString();
+  await testDb
+    .prepare(
+      `INSERT INTO applications
+        (id, event_id, user_id, email, name, withdrawn, created_at, updated_at)
+       VALUES ('app_multi', 'evt_1', 'user_multi', 'multi@example.com', 'Multi Staff', ?, ?, ?)`,
+    )
+    .bind(withdrawn ? 1 : 0, now, now)
+    .run();
+  await testDb
+    .prepare(
+      `INSERT INTO application_skills (application_id, role_id, level, pref)
+       VALUES ('app_multi', 'reception', 'lead', 1), ('app_multi', 'guide', 'exp', 2),
+              ('app_multi', 'setup', 'lead', 1)`,
+    )
+    .run();
+  await testDb
+    .prepare(
+      `INSERT INTO availabilities (application_id, time_slot_id, value)
+       VALUES ('app_multi', 'slot_1', 'o'), ('app_multi', 'party_slot', 'o'),
+              ('app_multi', 'archived_slot', 'd')`,
+    )
+    .run();
+}
+
+function mutateBeforeNextBatch(db: TestD1Database, mutation: string): D1Database {
+  let added = false;
+  const racingDb: TestD1Database = {
+    prepare: (sql) => db.prepare(sql),
+    async batch(statements) {
+      if (!added) {
+        added = true;
+        await db.prepare(mutation).run();
+      }
+      return db.batch(statements);
+    },
+  };
+  return asD1(racingDb);
+}
+
+function addSlotBeforeNextBatch(db: TestD1Database): D1Database {
+  return mutateBeforeNextBatch(
+    db,
+    `INSERT INTO time_slots (id, event_id, idx, start_time, end_time, roster_sheet_id)
+     VALUES ('late_party_slot', 'evt_1', 1, '10:00', '11:00', 'sheet_party')`,
+  );
 }
 
 function asOwner() {
@@ -162,12 +265,71 @@ describe("e.$id.staff loader", () => {
     });
   });
 
+  it("groups live sheets, roles, staff availability, and supply without crossing event/archive scope", async () => {
+    await seedAdditionalSheetsAndDemand(testDb);
+    await seedApplicationAcrossSheets(testDb);
+    const now = new Date().toISOString();
+    await testDb
+      .prepare(
+        `INSERT INTO events
+          (id, chapter_id, name, date, start_time, end_time, seed, apply_token, view_token, created_at, updated_at)
+         VALUES ('evt_2', 1, 'Other Event', '2026-11-08', '09:00', '10:00', 1, 'tok2', 'view2', ?, ?)`,
+      )
+      .bind(now, now)
+      .run();
+    await testDb
+      .prepare(
+        `INSERT INTO applications (id, event_id, user_id, email, name, created_at, updated_at)
+         VALUES ('foreign_app', 'evt_2', 'foreign_user', 'foreign@example.com', 'Foreign', ?, ?)`,
+      )
+      .bind(now, now)
+      .run();
+
+    asOwner();
+    const result = await callLoader(
+      new Request("http://localhost/e/evt_1/staff"),
+      "evt_1",
+      asD1(testDb),
+    );
+
+    expect(result.roles.map((role) => role.id)).toEqual(["reception", "guide"]);
+    expect(result.rosterSheets.map((sheet) => sheet.id)).toEqual(["default:evt_1", "sheet_party"]);
+    expect(result.timeSlots.map((slot) => slot.id)).toEqual(["slot_1", "party_slot"]);
+    expect(result.staff.map((row) => row.applicationId)).toEqual(["app_multi"]);
+    expect(result.staff[0].roles.map((role) => role.roleId)).toEqual(["guide", "reception"]);
+    expect(result.staffDetails.app_multi.skills.map((skill) => skill.roleId)).toEqual([
+      "guide",
+      "reception",
+    ]);
+    expect(result.staff[0]).toMatchObject({ availableCount: 2, softAvailableCount: 0 });
+    expect(result.staffDetails.app_multi.availability).toEqual([
+      { timeSlotId: "slot_1", value: "o" },
+      { timeSlotId: "party_slot", value: "o" },
+    ]);
+    expect(result.supplyGroups.map((group) => group.id)).toEqual(["default:evt_1", "sheet_party"]);
+    expect(result.supplyGroups.map((group) => group.rows.map((row) => row.slot))).toEqual([
+      [{ timeSlotId: "slot_1", need: 1, available: 1, tight: [] }],
+      [
+        {
+          timeSlotId: "party_slot",
+          need: 2,
+          available: 1,
+          tight: [{ roleId: "guide", kind: "head", lack: 1 }],
+        },
+      ],
+    ]);
+    expect(JSON.stringify(result)).not.toContain("archived_slot");
+    expect(JSON.stringify(result)).not.toContain('"roleId":"setup"');
+    expect(JSON.stringify(result)).not.toContain("setup");
+    expect(JSON.stringify(result)).not.toContain("foreign_app");
+  });
+
   /**
    * docs/roster/05-staff-supply-demand.md "回帰として固定すべきテスト",
    * exercised end-to-end through the loader: two `exp`-level applicants meet
    * headcount but the slot still needs to surface a lead shortage.
    */
-  it("surfaces a lead shortage in supplyRows and shortageSummary, and counts registeredCount excluding withdrawals", async () => {
+  it("surfaces a lead shortage in grouped supply and summary, excluding withdrawn staff", async () => {
     await testDb
       .prepare(
         "INSERT INTO tracks (id, event_id, name, color, shared, sort_order) VALUES ('trk_1', 'evt_1', '全体', '#000', 1, 0)",
@@ -215,16 +377,23 @@ describe("e.$id.staff loader", () => {
     );
 
     expect(result.registeredCount).toBe(2);
-    expect(result.supplyRows).toEqual([
+    expect(result.supplyGroups).toEqual([
       {
-        label: "09:00–10:00",
-        phaseName: null,
-        slot: {
-          timeSlotId: "slot_1",
-          need: 2,
-          available: 2,
-          tight: [{ roleId: "reception", kind: "lead", lack: 1 }],
-        },
+        id: "default:evt_1",
+        name: "本編",
+        date: "2026-11-07",
+        rows: [
+          {
+            label: "09:00–10:00",
+            phaseName: null,
+            slot: {
+              timeSlotId: "slot_1",
+              need: 2,
+              available: 2,
+              tight: [{ roleId: "reception", kind: "lead", lack: 1 }],
+            },
+          },
+        ],
       },
     ]);
     expect(result.shortageSummary).toEqual([{ roleId: "reception", kind: "lead" }]);
@@ -311,6 +480,43 @@ describe("e.$id.staff action (proxy add)", () => {
       contact: "proxy@example.com", // fell back to the email since contact was blank
       updated_by: "owner",
     });
+  });
+
+  it("accepts roles and slots from both live sheets in one proxy registration", async () => {
+    await seedAdditionalSheetsAndDemand(testDb);
+    const result = await callAction(
+      buildRequest({
+        intent: "proxyAdd",
+        email: "proxy-multi@example.com",
+        name: "Proxy Multi",
+        contact: "",
+        party: "undecided",
+        note: "",
+        role_guide: "on",
+        level_guide: "exp",
+        pref_guide: "1",
+        avail_slot_1: "d",
+        avail_party_slot: "o",
+      }),
+      "evt_1",
+      asD1(testDb),
+    );
+    expect(result).toEqual({ ok: true, intent: "proxyAdd" });
+
+    const application = await testDb
+      .prepare("SELECT id, user_id FROM applications WHERE email = 'proxy-multi@example.com'")
+      .first<{ id: string; user_id: string | null }>();
+    expect(application?.user_id).toBeNull();
+    const availability = await testDb
+      .prepare(
+        "SELECT time_slot_id, value FROM availabilities WHERE application_id = ? ORDER BY time_slot_id",
+      )
+      .bind(application?.id)
+      .all();
+    expect(availability.results).toEqual([
+      { time_slot_id: "party_slot", value: "o" },
+      { time_slot_id: "slot_1", value: "d" },
+    ]);
   });
 
   it("upserts by email — a second proxyAdd for the same address edits that row instead of duplicating it", async () => {
@@ -433,6 +639,32 @@ describe("e.$id.staff action (owner correction)", () => {
     ).rejects.toMatchObject({ status: 404 });
   });
 
+  it("404s when a valid application ID belongs to a different event", async () => {
+    const now = new Date().toISOString();
+    await testDb
+      .prepare(
+        `INSERT INTO events
+          (id, chapter_id, name, date, start_time, end_time, seed, apply_token, view_token, created_at, updated_at)
+         VALUES ('evt_2', 1, 'Other Event', '2026-11-08', '09:00', '10:00', 1, 'tok2', 'view2', ?, ?)`,
+      )
+      .bind(now, now)
+      .run();
+    await testDb
+      .prepare(
+        `INSERT INTO applications (id, event_id, user_id, email, name, created_at, updated_at)
+         VALUES ('foreign_app', 'evt_2', 'foreign_user', 'foreign@example.com', 'Foreign', ?, ?)`,
+      )
+      .bind(now, now)
+      .run();
+    await expect(
+      callAction(
+        buildRequest({ intent: "correct", applicationId: "foreign_app", avail_slot_1: "o" }),
+        "evt_1",
+        asD1(testDb),
+      ),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
   /**
    * docs/roster/05-staff-supply-demand.md "回帰として固定すべきテスト":
    * corrections land as updated_by = owner.
@@ -461,6 +693,213 @@ describe("e.$id.staff action (owner correction)", () => {
       .prepare("SELECT updated_by FROM applications WHERE id = 'app_1'")
       .first<{ updated_by: string }>();
     expect(app).toEqual({ updated_by: "owner" });
+  });
+
+  it("corrects live skills while preserving archived-role skills and availability", async () => {
+    await seedAdditionalSheetsAndDemand(testDb);
+    await seedApplicationAcrossSheets(testDb);
+    const result = await callAction(
+      buildRequest({
+        intent: "correct",
+        applicationId: "app_multi",
+        role_guide: "on",
+        level_guide: "lead",
+        pref_guide: "1",
+        avail_slot_1: "x",
+        avail_party_slot: "d",
+      }),
+      "evt_1",
+      asD1(testDb),
+    );
+    expect(result).toEqual({ ok: true, intent: "correct" });
+    const profile = await testDb
+      .prepare("SELECT name, contact, party, note FROM applications WHERE id = 'app_multi'")
+      .first();
+    expect(profile).toEqual({
+      name: "Multi Staff",
+      contact: null,
+      party: "undecided",
+      note: null,
+    });
+    const skills = await testDb
+      .prepare(
+        "SELECT role_id, level, pref FROM application_skills WHERE application_id = 'app_multi' ORDER BY role_id",
+      )
+      .all();
+    expect(skills.results).toEqual([
+      { role_id: "guide", level: "lead", pref: 1 },
+      { role_id: "setup", level: "lead", pref: 1 },
+    ]);
+    const availability = await testDb
+      .prepare(
+        "SELECT time_slot_id, value FROM availabilities WHERE application_id = 'app_multi' ORDER BY time_slot_id",
+      )
+      .all();
+    expect(availability.results).toEqual([
+      { time_slot_id: "archived_slot", value: "d" },
+      { time_slot_id: "party_slot", value: "d" },
+      { time_slot_id: "slot_1", value: "x" },
+    ]);
+  });
+
+  it("rolls back correction and reactivation when a live sheet gains a slot before the batch", async () => {
+    await seedAdditionalSheetsAndDemand(testDb);
+    await seedApplicationAcrossSheets(testDb, true);
+    const beforeSkills = await testDb
+      .prepare(
+        "SELECT role_id, level, pref FROM application_skills WHERE application_id = 'app_multi' ORDER BY role_id",
+      )
+      .all();
+    const beforeAvailability = await testDb
+      .prepare(
+        "SELECT time_slot_id, value FROM availabilities WHERE application_id = 'app_multi' ORDER BY time_slot_id",
+      )
+      .all();
+    const result = await callAction(
+      buildRequest({
+        intent: "correct",
+        applicationId: "app_multi",
+        role_reception: "on",
+        level_reception: "new",
+        pref_reception: "2",
+        avail_slot_1: "x",
+        avail_party_slot: "x",
+      }),
+      "evt_1",
+      addSlotBeforeNextBatch(testDb),
+    );
+    expect(result).toEqual({
+      error:
+        "シフト表が更新されたため保存できませんでした。画面を再読み込みして、もう一度お試しください。",
+      intent: "correct",
+    });
+    const application = await testDb
+      .prepare("SELECT withdrawn, updated_by FROM applications WHERE id = 'app_multi'")
+      .first();
+    expect(application).toEqual({ withdrawn: 1, updated_by: "self" });
+    expect(
+      (
+        await testDb
+          .prepare(
+            "SELECT role_id, level, pref FROM application_skills WHERE application_id = 'app_multi' ORDER BY role_id",
+          )
+          .all()
+      ).results,
+    ).toEqual(beforeSkills.results);
+    expect(
+      (
+        await testDb
+          .prepare(
+            "SELECT time_slot_id, value FROM availabilities WHERE application_id = 'app_multi' ORDER BY time_slot_id",
+          )
+          .all()
+      ).results,
+    ).toEqual(beforeAvailability.results);
+  });
+
+  it("rolls back owner writes if the existing application identity changes before the batch", async () => {
+    await seedAdditionalSheetsAndDemand(testDb);
+    await seedApplicationAcrossSheets(testDb);
+    const beforeSkills = await testDb
+      .prepare(
+        "SELECT role_id, level, pref FROM application_skills WHERE application_id = 'app_multi' ORDER BY role_id",
+      )
+      .all();
+    const beforeAvailability = await testDb
+      .prepare(
+        "SELECT time_slot_id, value FROM availabilities WHERE application_id = 'app_multi' ORDER BY time_slot_id",
+      )
+      .all();
+    const result = await callAction(
+      buildRequest({
+        intent: "correct",
+        applicationId: "app_multi",
+        role_reception: "on",
+        level_reception: "new",
+        pref_reception: "2",
+        avail_slot_1: "x",
+        avail_party_slot: "x",
+      }),
+      "evt_1",
+      mutateBeforeNextBatch(
+        testDb,
+        "UPDATE applications SET email = 'changed@example.com', user_id = 'changed_user' WHERE id = 'app_multi'",
+      ),
+    );
+    expect(result).toEqual({
+      error:
+        "シフト表が更新されたため保存できませんでした。画面を再読み込みして、もう一度お試しください。",
+      intent: "correct",
+    });
+    const application = await testDb
+      .prepare("SELECT name, email, user_id FROM applications WHERE id = 'app_multi'")
+      .first();
+    expect(application).toEqual({
+      name: "Multi Staff",
+      email: "changed@example.com",
+      user_id: "changed_user",
+    });
+    expect(
+      (
+        await testDb
+          .prepare(
+            "SELECT role_id, level, pref FROM application_skills WHERE application_id = 'app_multi' ORDER BY role_id",
+          )
+          .all()
+      ).results,
+    ).toEqual(beforeSkills.results);
+    expect(
+      (
+        await testDb
+          .prepare(
+            "SELECT time_slot_id, value FROM availabilities WHERE application_id = 'app_multi' ORDER BY time_slot_id",
+          )
+          .all()
+      ).results,
+    ).toEqual(beforeAvailability.results);
+  });
+
+  it("does not leave a proxy application or child rows when a live slot races the save", async () => {
+    await seedAdditionalSheetsAndDemand(testDb);
+    const result = await callAction(
+      buildRequest({
+        intent: "proxyAdd",
+        email: "raced-proxy@example.com",
+        name: "Raced Proxy",
+        contact: "",
+        party: "undecided",
+        note: "",
+        role_guide: "on",
+        avail_slot_1: "o",
+        avail_party_slot: "o",
+      }),
+      "evt_1",
+      addSlotBeforeNextBatch(testDb),
+    );
+    expect(result).toEqual({
+      error:
+        "シフト表が更新されたため保存できませんでした。画面を再読み込みして、もう一度お試しください。",
+      intent: "proxyAdd",
+    });
+    expect(
+      (
+        await testDb
+          .prepare(
+            "SELECT id FROM applications WHERE event_id = 'evt_1' AND email = 'raced-proxy@example.com'",
+          )
+          .all()
+      ).results,
+    ).toEqual([]);
+    expect(
+      (
+        await testDb
+          .prepare(
+            `SELECT count(*) AS count FROM application_skills s
+             JOIN applications a ON a.id = s.application_id WHERE a.email = 'raced-proxy@example.com'`,
+          )
+          .first<{ count: number }>()
+      )?.count,
+    ).toBe(0);
   });
 
   it("reactivates a withdrawn application on correct, the same 'save reactivates' rule as /apply/:token", async () => {

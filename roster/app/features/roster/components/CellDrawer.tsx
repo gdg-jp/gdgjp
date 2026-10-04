@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Form } from "react-router";
+import { Form, useNavigation } from "react-router";
 import type { StaffCellCandidate } from "../grid";
 
 export type CellDrawerSelection = {
@@ -7,6 +7,27 @@ export type CellDrawerSelection = {
   applicationName: string;
   slotId: string;
   slotLabel: string;
+};
+
+export type CrossSheetAssignmentWarning = {
+  conflicts: readonly {
+    sheetId: string;
+    sheetName: string;
+    date: string;
+    siblingSlotId: string;
+    startTime: string;
+    endTime: string;
+    targetSlotId: string;
+    targetStartTime: string;
+    targetEndTime: string;
+  }[];
+  assignment: {
+    applicationId: string;
+    trackId: string;
+    roleId: string;
+    slotIds: readonly string[];
+  };
+  confirmation: string;
 };
 
 const NEW_MAX_DEFAULT = 99;
@@ -31,6 +52,7 @@ export function CellDrawer({
   trackNameById,
   roleNameById,
   error,
+  crossSheetWarning,
   succeeded,
   onClose,
 }: {
@@ -40,11 +62,13 @@ export function CellDrawer({
   trackNameById: ReadonlyMap<string, string>;
   roleNameById: ReadonlyMap<string, string>;
   error?: string;
+  crossSheetWarning?: CrossSheetAssignmentWarning;
   /** A fresh truthy value only on a successful assign/unassign — see `StaffDrawer`'s identical contract. */
   succeeded: unknown;
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const navigation = useNavigation();
 
   useEffect(() => {
     if (selection) dialogRef.current?.showModal();
@@ -83,6 +107,70 @@ export function CellDrawer({
             <p role="alert" className="text-sm font-medium text-gdg-red">
               {error}
             </p>
+          ) : null}
+
+          {crossSheetWarning ? (
+            <section
+              role="alert"
+              aria-labelledby="cross-sheet-warning-title"
+              className="space-y-2 rounded-xl border-2 border-gdg-red bg-white p-3 text-sm"
+            >
+              <h4 id="cross-sheet-warning-title" className="font-bold text-gdg-red">
+                {crossSheetWarning.conflicts.length > 0
+                  ? "別のシフト表の割当と時間が重複しています"
+                  : "別シフト表の割当状況が変わりました。最新の状態を確認してください。"}
+              </h4>
+              <ul className="list-disc space-y-1 pl-5">
+                {crossSheetWarning.conflicts.map((conflict) => (
+                  <li
+                    key={`${conflict.targetSlotId}:${conflict.sheetId}:${conflict.siblingSlotId}`}
+                  >
+                    対象 {conflict.targetStartTime}–{conflict.targetEndTime} と重複:{" "}
+                    {conflict.sheetName}（{conflict.date}）{conflict.startTime}–{conflict.endTime}
+                  </li>
+                ))}
+              </ul>
+              <Form method="post">
+                <input type="hidden" name="intent" value="assign" />
+                <input
+                  type="hidden"
+                  name="applicationId"
+                  value={crossSheetWarning.assignment.applicationId}
+                />
+                <input type="hidden" name="trackId" value={crossSheetWarning.assignment.trackId} />
+                <input type="hidden" name="roleId" value={crossSheetWarning.assignment.roleId} />
+                {crossSheetWarning.assignment.slotIds.map((slotId) => (
+                  <input key={slotId} type="hidden" name="slotId" value={slotId} />
+                ))}
+                <input
+                  type="hidden"
+                  name="conflictConfirmation"
+                  value={crossSheetWarning.confirmation}
+                />
+                <button
+                  type="submit"
+                  disabled={
+                    navigation.state !== "idle" &&
+                    navigation.formData?.get("conflictConfirmation") ===
+                      crossSheetWarning.confirmation
+                  }
+                  aria-busy={
+                    navigation.state !== "idle" &&
+                    navigation.formData?.get("conflictConfirmation") ===
+                      crossSheetWarning.confirmation
+                  }
+                  className="min-h-11 rounded-full border-2 border-gdg-red px-4 py-2 font-bold text-gdg-red underline"
+                >
+                  {navigation.state !== "idle" &&
+                  navigation.formData?.get("conflictConfirmation") ===
+                    crossSheetWarning.confirmation
+                    ? "割り当て中…"
+                    : crossSheetWarning.conflicts.length > 0
+                      ? "重複を承知で割り当てる"
+                      : "最新の内容を確認して割り当てる"}
+                </button>
+              </Form>
+            </section>
           ) : null}
 
           {current ? (
