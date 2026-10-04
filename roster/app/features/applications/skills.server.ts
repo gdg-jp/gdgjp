@@ -61,6 +61,32 @@ export function applicationSkillReplacementStatements(
   return statements;
 }
 
+/** Replaces live-role skills while retaining rows for roles on archived sheets. */
+export function applicationLiveSkillReplacementStatements(
+  db: D1Database,
+  applicationId: string,
+  liveRoleIds: readonly string[],
+  skills: readonly SkillInput[],
+): D1PreparedStatement[] {
+  const statements: D1PreparedStatement[] = [
+    db
+      .prepare(`DELETE FROM application_skills
+        WHERE application_id = ?
+          AND role_id IN (SELECT value FROM json_each(?))`)
+      .bind(applicationId, JSON.stringify(liveRoleIds)),
+  ];
+  for (const skill of skills) {
+    statements.push(
+      db
+        .prepare(
+          "INSERT INTO application_skills (application_id, role_id, level, pref) VALUES (?, ?, ?, ?)",
+        )
+        .bind(applicationId, skill.roleId, skill.level, skill.pref),
+    );
+  }
+  return statements;
+}
+
 /** Replaces the application's whole skill set — never a partial merge. */
 export async function setApplicationSkills(
   db: D1Database,

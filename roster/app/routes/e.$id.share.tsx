@@ -13,8 +13,7 @@ import type { Route } from "./+types/e.$id.share";
  * — the same `requireUserWithChapter` + `canManageEvent` pattern every other
  * owner route in this app uses. This route does not change `status`; it
  * surfaces the default compatibility URL and each live sheet's visibility and public URL.
- * Changing status to `published` happens on `/e/:id/design`
- * or `/e/:id/staff`, both of which already own that control.
+ * Publication is managed on the event overview, independently of recruitment.
  */
 async function requireShareAccess(env: Env, request: Request, id: string | undefined) {
   const { chapters } = await requireUserWithChapter(env, request);
@@ -36,6 +35,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   return {
     event: { id: event.id, name: event.name, status: event.status },
     viewUrl: `${env.APP_URL}/r/${event.viewToken}`,
+    defaultVisibility:
+      sheets.find(({ id }) => id === `default:${event.id}`)?.visibility ?? "private",
     sheets: sheets.map(({ id, name, date, startTime, endTime, visibility }) => ({
       id,
       name,
@@ -50,13 +51,13 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 }
 
 export default function SharePage({ loaderData }: Route.ComponentProps) {
-  const { event, viewUrl, sheets } = loaderData;
+  const { event, viewUrl, sheets, defaultVisibility } = loaderData;
 
   return (
     <main className="admin-page admin-page-narrow">
       <Stack>
         <PageHeader title="共有" description={`${event.name} · 閲覧専用URL`} />
-        <ShareCard viewUrl={viewUrl} status={event.status} />
+        <ShareCard viewUrl={viewUrl} visibility={defaultVisibility} />
         <SheetShareList sheets={sheets} />
       </Stack>
     </main>
