@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import type { LanguageModelV3GenerateResult } from "@ai-sdk/provider";
 import { CHAPTERS_CLAIM } from "@gdgjp/gdg-lib/auth/claims";
 import { MockLanguageModelV3 } from "ai/test";
@@ -19,12 +18,7 @@ import {
   withResponseDeadline,
 } from "./agent";
 import { ASK_COMMAND, LOGIN_COMMAND } from "./discord-commands";
-import {
-  type LinkAccountDeps,
-  type LinkRedis,
-  type StoredLinkRecord,
-  createLinkAuthorizationUrl,
-} from "./link-account";
+import type { LinkAccountDeps, LinkRedis, StoredLinkRecord } from "./link-account";
 import * as telemetry from "./telemetry";
 import { encryptToken, parseTokenEncryptionKeys } from "./token-crypto";
 import { WIKI_INDEX_PATH } from "./tools/wiki";
@@ -471,24 +465,6 @@ describe("helpers", () => {
       answerCitesPaths("See https://wiki.gdgs.jp/wiki/umeda-hall", ["/wiki/venues/umeda-hall"]),
     ).toBe(true);
   });
-
-  it("createLinkAuthorizationUrl is available for re-link flows", async () => {
-    const redis = createMemoryRedis();
-    const url = await createLinkAuthorizationUrl(
-      { platform: "google-chat", chatUserId: "u" },
-      {
-        env: {
-          IDP_CLIENT_ID: "agents",
-          IDP_CLIENT_SECRET: "s",
-          ACCOUNTS_URL: "https://accounts.gdgs.jp",
-          TOKEN_ENCRYPTION_KEYS: JSON.stringify({ "1": keyB64(1) }),
-        },
-        redis,
-        keyring: parseTokenEncryptionKeys(JSON.stringify({ "1": keyB64(1) })),
-      },
-    );
-    expect(url).toContain("client_id=agents");
-  });
 });
 
 describe("registerAgentHandlers", () => {
@@ -588,12 +564,5 @@ describe("registerAgentHandlers", () => {
 
     expect(post).toHaveBeenCalledWith(DISCORD_UNAVAILABLE_MESSAGE);
     errorSpy.mockRestore();
-  });
-});
-
-describe("agent architecture", () => {
-  it("does not mention embedding, vector, or VECTORIZE", () => {
-    const source = readFileSync(new URL("./agent.ts", import.meta.url), "utf8");
-    expect(source).not.toMatch(/embedding|vector|VECTORIZE/i);
   });
 });

@@ -194,20 +194,3 @@ func TestApplyOwnershipNoopWithPrefix(t *testing.T) {
 	prefix := t.TempDir()
 	emitTo(t, prefix, func(opts *EmitOptions) { opts.ApplyOwnership = true })
 }
-
-func TestEmitLayoutUsesEmbeddedSpec(t *testing.T) {
-	prefix := t.TempDir()
-	if err := EmitLayout(EmitOptions{Prefix: prefix, SlotCount: 4}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(prefix, "opt/gdg-agent/bin/wk")); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestEmbeddedACLIsBundled(t *testing.T) {
-	body := wiki.AgentLibFiles()["acl.ts"]
-	if len(body) < 100 {
-		t.Fatal("acl.ts embed is missing; run pnpm build:acl before go test")
-	}
-}

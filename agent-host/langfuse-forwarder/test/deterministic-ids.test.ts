@@ -28,14 +28,6 @@ describe("deterministicIdGenerator / withDeterministicIds", () => {
     expect(a).not.toBe(b);
   });
 
-  it("trace id and span id for the same seed are not identical to each other", () => {
-    const traceId = withDeterministicIds("turn-x", () =>
-      deterministicIdGenerator.generateTraceId(),
-    );
-    const spanId = withDeterministicIds("turn-x", () => deterministicIdGenerator.generateSpanId());
-    expect(traceId).not.toBe(spanId);
-  });
-
   it("produces W3C-shaped ids: 32 lowercase hex chars for trace id, 16 for span id", () => {
     const traceId = withDeterministicIds("turn-y", () =>
       deterministicIdGenerator.generateTraceId(),

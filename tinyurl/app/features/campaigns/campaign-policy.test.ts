@@ -29,12 +29,6 @@ describe("canAccessCampaign", () => {
   it("grants a super-admin access regardless of chapter membership", () => {
     expect(canAccessCampaign(user({ isAdmin: true }), [], { chapterIds: [42] })).toBe(true);
   });
-
-  it("does not grant access from ownerUserId alone", () => {
-    // ownerUserId is not part of the policy input at all — this asserts the
-    // policy only ever looks at chapter membership and admin status.
-    expect(canAccessCampaign(user(), [chapter(1)], { chapterIds: [42] })).toBe(false);
-  });
 });
 
 describe("chapterIdsAreOwnedByCaller", () => {

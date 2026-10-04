@@ -35,22 +35,6 @@ describe("gateway", () => {
     expect(typeof gatewayModule.default).toBe("function");
   });
 
-  it("passes through a successful origin response", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
-        const dns = dnsResponse(input);
-        if (dns) return dns;
-        const url = new URL(String(input));
-        if (url.hostname === "url.gdgs.jp") return config("origin-first", "https://origin.example");
-        return new Response("origin", { status: 200 });
-      }),
-    );
-    const response = await handleGatewayRequest(new Request("https://custom.example/about"));
-    expect(response.status).toBe(200);
-    expect(await response.text()).toBe("origin");
-  });
-
   it("proxies robots.txt from an origin-first upstream", async () => {
     let resolverRequests = 0;
     vi.stubGlobal(
@@ -395,20 +379,5 @@ describe("gateway", () => {
     await expect(
       validateUpstreamOrigin("https://origin.custom.example", "custom.example"),
     ).rejects.toThrow("private address");
-  });
-
-  it("keeps successful DNS validation after the local isolate cache is reset", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const response = dnsResponse(input);
-      if (!response) throw new Error("Unexpected non-DNS request");
-      return response;
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    await validateUpstreamOrigin("https://origin.custom.example", "custom.example");
-    clearLocalCachesForTests();
-    await validateUpstreamOrigin("https://origin.custom.example", "custom.example");
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

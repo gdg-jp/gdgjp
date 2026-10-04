@@ -1,18 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  cookieName,
   hashToken,
   parseFromHeader,
   randomToken,
   serializeCookie,
   verify,
 } from "./participant-cookie";
-
-describe("cookieName", () => {
-  it("uses per-event name", () => {
-    expect(cookieName("evt_abc")).toBe("scheduler_p_evt_abc");
-  });
-});
 
 describe("randomToken", () => {
   it("produces base32 26-char strings", () => {

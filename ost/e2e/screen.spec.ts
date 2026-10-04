@@ -16,6 +16,7 @@ test("a submitted topic appears live on the screen and can be voted on", async (
   const participant = await browser.newPage();
   const topic = `live topic ${Date.now()}`;
   await participant.goto(`/${SLUG}`);
+  await expect(participant.getByRole("heading", { name: "話したいテーマは？" })).toBeVisible();
   await participant.getByRole("textbox").fill(topic);
   await participant.getByRole("button", { name: "送信する" }).click();
   await expect(participant.getByRole("heading", { name: "送信しました 🎉" })).toBeVisible();
@@ -25,8 +26,14 @@ test("a submitted topic appears live on the screen and can be voted on", async (
   // Vote from the participant dialog; the screen's count reflects it.
   await participant.goto(`/${SLUG}`);
   await participant.getByRole("button", { name: "投票する" }).click();
-  await participant.getByRole("button", { name: "👍" }).first().click();
-  await expect(admin.getByText("1 票")).toBeVisible();
+  await participant
+    .getByRole("listitem")
+    .filter({ hasText: topic })
+    .getByRole("button", { name: "👍" })
+    .click();
+  await expect(
+    admin.getByRole("listitem").filter({ hasText: topic }).getByText("1 票"),
+  ).toBeVisible();
 
   await admin.close();
   await participant.close();

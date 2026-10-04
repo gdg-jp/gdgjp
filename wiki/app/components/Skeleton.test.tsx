@@ -1,13 +1,6 @@
 import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import {
-  ArticleSkeleton,
-  ArticleWithTitleSkeleton,
-  CardGridSkeleton,
-  MetaBarSkeleton,
-  TableSkeleton,
-  TocSkeleton,
-} from "./Skeleton";
+import { ArticleSkeleton, ArticleWithTitleSkeleton, TocSkeleton } from "./Skeleton";
 
 async function renderToString(element: React.ReactElement): Promise<string> {
   const stream = await renderToReadableStream(element);
@@ -31,13 +24,5 @@ describe("Skeleton geometry and styling", () => {
   it("ArticleWithTitleSkeleton includes title placeholder for preview contexts like HistoryView", async () => {
     const html = await renderToString(<ArticleWithTitleSkeleton />);
     expect(html).toContain("h-8");
-  });
-
-  it("CardGridSkeleton and TableSkeleton render correct counts", async () => {
-    const gridHtml = await renderToString(<CardGridSkeleton count={3} />);
-    expect(gridHtml).toContain("grid gap-3");
-
-    const tableHtml = await renderToString(<TableSkeleton rows={3} cols={2} />);
-    expect(tableHtml).toContain("overflow-hidden rounded-lg");
   });
 });

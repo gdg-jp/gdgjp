@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hashId, maskEventData, redactValue } from "../src/mask.js";
+import { hashId, maskEventData } from "../src/mask.js";
 
 describe("maskEventData / redactValue", () => {
   it("redacts Bearer tokens regardless of configured secrets", () => {
@@ -48,12 +48,6 @@ describe("maskEventData / redactValue", () => {
     const input = { question: "Summarize the venue-cost policy.", answer: "The cap is ¥50,000." };
     const result = maskEventData(input, []) as typeof input;
     expect(result).toEqual(input);
-  });
-
-  it("redactValue requires an explicit secrets list (no implicit env default)", () => {
-    // TypeScript enforces this at compile time; this just documents that the
-    // signature has no default value for `secrets`.
-    expect(redactValue("plain string", [])).toBe("plain string");
   });
 });
 

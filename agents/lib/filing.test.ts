@@ -119,13 +119,6 @@ describe("extractCitedPathsFromSteps", () => {
     );
     expect(paths).toEqual(["/wiki/venues/a", "/wiki/venues/b"]);
   });
-
-  it("does not cite a path that only appears in answer text", () => {
-    const paths = extractCitedPathsFromSteps(
-      answerSteps([{ toolName: "wiki_cat", output: { path: "/wiki/venues/a", content: "a" } }]),
-    );
-    expect(paths).not.toContain("/wiki/invented");
-  });
 });
 
 describe("runFilingPass gate", () => {

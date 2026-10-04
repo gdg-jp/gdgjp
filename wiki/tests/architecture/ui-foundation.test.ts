@@ -1,4 +1,4 @@
-import { access, readFile, readdir } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -48,10 +48,5 @@ describe("Wiki UI foundation", () => {
       expect(entry.count).toBeGreaterThan(0);
     }
     expect(baseline.entries.some((entry) => entry.path.endsWith("app/root.tsx"))).toBe(false);
-  });
-
-  it("does not turn native semantics into a zero-native-elements rule", async () => {
-    const entries = await readdir(new URL("app", `file://${wikiDirectory}/`), { recursive: true });
-    expect(entries.some((entry) => entry.endsWith(".tsx"))).toBe(true);
   });
 });

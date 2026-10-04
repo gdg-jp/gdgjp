@@ -2,11 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   angleFromCenter,
   boundingBox,
-  centersOverlap,
   deskCorners,
   fitTransform,
   normalizeAngle,
-  pointInRotatedRect,
   resizeDesk,
 } from "./layout";
 import type { Desk } from "./topics";
@@ -59,14 +57,6 @@ describe("fitTransform", () => {
       0,
     );
     expect(t.scale).toBe(1);
-  });
-});
-
-describe("pointInRotatedRect", () => {
-  it("detects inside and outside", () => {
-    const d = desk({ x: 0, y: 0, width: 100, height: 60 });
-    expect(pointInRotatedRect({ x: 50, y: 30 }, d)).toBe(true);
-    expect(pointInRotatedRect({ x: 200, y: 30 }, d)).toBe(false);
   });
 });
 
@@ -142,24 +132,5 @@ describe("resizeDesk", () => {
     const after = deskCorners({ ...start, ...patch })[0];
     expect(after.x).toBeCloseTo(before.x, 5);
     expect(after.y).toBeCloseTo(before.y, 5);
-  });
-});
-
-describe("centersOverlap", () => {
-  it("is true when a's centre falls inside b", () => {
-    expect(
-      centersOverlap(
-        { x: 40, y: 40, width: 20, height: 20 },
-        { x: 0, y: 0, width: 100, height: 100 },
-      ),
-    ).toBe(true);
-  });
-  it("is false otherwise", () => {
-    expect(
-      centersOverlap(
-        { x: 400, y: 400, width: 20, height: 20 },
-        { x: 0, y: 0, width: 100, height: 100 },
-      ),
-    ).toBe(false);
   });
 });

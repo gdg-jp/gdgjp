@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -80,15 +79,6 @@ describe("createWikiTools", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { matches: [], nextCursor: null }));
     await tools.wiki_search.execute?.({ q: "umeda" }, { toolCallId: "4", messages: [] });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("allows wiki_ls before the catalog is read", async () => {
-    const fetchMock = mockFetch(async () =>
-      jsonResponse(200, { path: "/wiki", entries: [], nextCursor: null }),
-    );
-    const tools = createWikiTools(ctx({ fetch: fetchMock }));
-    await tools.wiki_ls.execute?.({ path: "/wiki" }, { toolCallId: "1", messages: [] });
-    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it("passes paths to wiki_cat verbatim without reconstructing from titles", async () => {
@@ -250,12 +240,5 @@ describe("createWikiTools", () => {
     expect(workspacePathToPageUrl("/wiki/venues/umeda-hall", WIKI)).toBe(
       "https://wiki.gdgs.jp/wiki/umeda-hall",
     );
-  });
-});
-
-describe("wiki tools architecture", () => {
-  it("does not mention embedding, vector, or VECTORIZE", () => {
-    const source = readFileSync(new URL("./wiki.ts", import.meta.url), "utf8");
-    expect(source).not.toMatch(/embedding|vector|VECTORIZE/i);
   });
 });

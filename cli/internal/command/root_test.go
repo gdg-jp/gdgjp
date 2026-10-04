@@ -1,9 +1,8 @@
 package command
 
 import (
+	"strings"
 	"testing"
-
-	"github.com/gdg-jp/gdgjp/cli/internal/store"
 )
 
 func TestShouldUseDeviceLogin(t *testing.T) {
@@ -36,17 +35,7 @@ func TestLoginCommandRejectsDeviceAndBrowserTogether(t *testing.T) {
 	root.SilenceErrors = true
 
 	err := root.Execute()
-	if err == nil {
-		t.Fatal("expected an error when --device and --browser are both set")
-	}
-}
-
-func TestLoginCommandFlagsExist(t *testing.T) {
-	command := newLoginCommand(store.NewCredentials())
-	if command.Flags().Lookup("device") == nil {
-		t.Fatal("expected a --device flag")
-	}
-	if command.Flags().Lookup("browser") == nil {
-		t.Fatal("expected a --browser flag")
+	if err == nil || !strings.Contains(err.Error(), "were all set") {
+		t.Fatalf("expected mutually exclusive flags error, got %v", err)
 	}
 }

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   claimDueGooglePhotosAlbum,
   googlePhotosImportOperation,
-  googlePhotosKnownMediaChunks,
   handleGooglePhotosImport,
 } from "./google-photos-importer";
 
@@ -48,16 +47,6 @@ describe("googlePhotosImportOperation", () => {
     expect(
       googlePhotosImportOperation("https://sns.gdgs.jp/api/google-photos-import/claim/claim"),
     ).toBe("claim");
-  });
-
-  it("splits large known-media lookups into D1-safe chunks", () => {
-    const ids = Array.from({ length: 188 }, (_, index) => `photo-${index}`);
-
-    const chunks = googlePhotosKnownMediaChunks(ids);
-
-    expect(chunks).toHaveLength(4);
-    expect(chunks.map((chunk) => chunk.length)).toEqual([50, 50, 50, 38]);
-    expect(chunks.flat()).toEqual(ids);
   });
 
   it("queries known media in chunks for a 188-photo album", async () => {

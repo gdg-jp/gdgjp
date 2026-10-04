@@ -80,26 +80,11 @@ beforeEach(() => {
 });
 
 describe("openConnpassSession — session reuse", () => {
-  it("reuses a free warm session via connect()", async () => {
+  it("picks the newest free session and ignores connected ones", async () => {
     const env = makeEnv();
     const page = makePage();
     const ctx = makeContext([page]);
     const browser = makeBrowser({ contexts: [ctx] });
-    pw.sessions.mockResolvedValue([{ sessionId: "s1", startTime: 1000 }]);
-    pw.connect.mockResolvedValue(browser);
-
-    const session = await openConnpassSession(env);
-
-    expect(pw.connect).toHaveBeenCalledWith(env.BROWSER, "s1");
-    expect(pw.launch).not.toHaveBeenCalled();
-    expect(session.mode).toBe("connected");
-    expect(session.page).toBe(page);
-    expect(session.context).toBe(ctx);
-  });
-
-  it("picks the newest free session and ignores connected ones", async () => {
-    const env = makeEnv();
-    const browser = makeBrowser({ contexts: [makeContext([makePage()])] });
     pw.sessions.mockResolvedValue([
       { sessionId: "old", startTime: 10 },
       { sessionId: "busy", startTime: 999, connectionId: "c" },
@@ -107,9 +92,13 @@ describe("openConnpassSession — session reuse", () => {
     ]);
     pw.connect.mockResolvedValue(browser);
 
-    await openConnpassSession(env);
+    const session = await openConnpassSession(env);
 
     expect(pw.connect).toHaveBeenCalledWith(env.BROWSER, "new");
+    expect(pw.launch).not.toHaveBeenCalled();
+    expect(session.mode).toBe("connected");
+    expect(session.page).toBe(page);
+    expect(session.context).toBe(ctx);
   });
 
   it("cold-launches with keep_alive when every session is already connected", async () => {

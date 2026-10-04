@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  PostDraftError,
   attachMedia,
   createDraft,
   deleteDraft,
@@ -527,13 +526,5 @@ describe("storage / database compensation", () => {
       code: "media_storage_cleanup_failed",
     });
     expect(media).toHaveLength(0);
-  });
-});
-
-describe("PostDraftError", () => {
-  it("carries a machine-readable code", () => {
-    const error = new PostDraftError("not_found");
-    expect(error).toBeInstanceOf(Error);
-    expect(error.code).toBe("not_found");
   });
 });

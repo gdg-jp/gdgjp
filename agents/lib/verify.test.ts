@@ -24,12 +24,10 @@ describe("verifyWebhook", () => {
 
   let replay: ReturnType<typeof createMemoryReplayStore>;
   let fetchMock: ReturnType<typeof vi.fn>;
-  let downstreamCalls: number;
 
   beforeEach(() => {
     clearGoogleChatCertCacheForTests();
     replay = createMemoryReplayStore();
-    downstreamCalls = 0;
     fetchMock = vi.fn(async (input: string) => {
       if (input === GOOGLE_CHAT_CERTS_URL) {
         return Response.json({ [chatKeys.kid]: chatKeys.publicKeyPem });
@@ -96,7 +94,6 @@ describe("verifyWebhook", () => {
     if (!result.ok) expect(result.status).toBe(401);
     expect(fetchMock.mock.calls.length).toBe(fetchCallsBefore);
     expect(replay.reads).toBe(readsBefore);
-    expect(downstreamCalls).toBe(0);
     return result;
   }
 
@@ -136,7 +133,6 @@ describe("verifyWebhook", () => {
     }
     expect(fetchMock).toHaveBeenCalled();
     expect(replay.reads).toBe(readsBefore);
-    expect(downstreamCalls).toBe(0);
   });
 
   it("rejects a correctly signed Chat JWT with a different audience (impersonation)", async () => {
@@ -151,7 +147,6 @@ describe("verifyWebhook", () => {
     }
     expect(fetchMock).toHaveBeenCalled();
     expect(replay.reads).toBe(readsBefore);
-    expect(downstreamCalls).toBe(0);
   });
 
   it("rejects a Chat JWT with the wrong issuer", async () => {
@@ -233,18 +228,16 @@ describe("verifyWebhook", () => {
     expect(replay.reads).toBe(readsBefore);
   });
 
-  it("drops a replayed request and does not invoke downstream twice", async () => {
+  it("accepts the first request and rejects its replay", async () => {
     const jti = "jti-replay-once";
     const token = validChatToken({ jti });
     const request = chatRequest(token);
     const first = await verifyWebhook(request, "{}", chatDeps());
     expect(first.ok).toBe(true);
-    downstreamCalls += 1;
 
     const second = await verifyWebhook(request, "{}", chatDeps());
     expect(second.ok).toBe(false);
     if (!second.ok) expect(second.reason).toBe("replay");
-    expect(downstreamCalls).toBe(1);
   });
 
   it("accepts a correctly signed Chat JWT for the configured audience", async () => {

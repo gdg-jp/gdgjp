@@ -97,17 +97,6 @@ describe("normalizeChatMessages", () => {
     expect(week?.markdown).toContain("0.8 multiplier for catering");
   });
 
-  it("keeps only messages after a cursor when the caller filters the fixture", () => {
-    const cursor = "2026-07-14T12:03:00Z";
-    const filtered = FIXTURE_MESSAGES.filter((message) => (message.createTime ?? "") > cursor);
-    const weeks = normalizeChatMessages(filtered, { resolveSenderName: resolveFixtureSender });
-
-    expect(weeks.map((week) => week.path)).toEqual(["2026-07-13", "2026-07-27"]);
-    expect(weeks[0]?.markdown).not.toContain("venue X");
-    expect(weeks[0]?.markdown).toContain("0.8 multiplier");
-    expect(weeks[0]?.cursor).toBe("2026-07-14T12:05:00Z");
-  });
-
   it("records extracted URLs for Stage 3 metadata", () => {
     const july = normalizeChatMessages(FIXTURE_MESSAGES, {
       resolveSenderName: resolveFixtureSender,

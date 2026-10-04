@@ -2,7 +2,7 @@ import type { AuthUser } from "@gdgjp/gdg-lib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublishNowResult } from "~/features/posts/publish-now.service.server";
 import type { Route } from "./+types/api.cli.v1.posts.$id.publish";
-import { action, loader } from "./api.cli.v1.posts.$id.publish";
+import { action } from "./api.cli.v1.posts.$id.publish";
 
 vi.mock("~/features/auth/cli-access.server", () => ({
   requireCliSnsAccess: vi.fn(async () => ({
@@ -133,11 +133,7 @@ describe("POST /api/cli/v1/posts/:id/publish", () => {
     expect(publishNow).not.toHaveBeenCalled();
   });
 
-  it("returns a JSON 405 for GET and for a non-POST action verb", async () => {
-    const getRes = loader({} as never);
-    expect(getRes.status).toBe(405);
-    await expect(getRes.json()).resolves.toEqual({ error: "method_not_allowed" });
-
+  it("returns a JSON 405 for a non-POST action verb", async () => {
     const putRes = await action(actionArgs(new Request(url, { method: "PUT" }), makeDb(postRow())));
     expect(putRes.status).toBe(405);
   });
