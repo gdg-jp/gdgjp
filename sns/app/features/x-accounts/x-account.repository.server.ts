@@ -1,7 +1,63 @@
-import { getXAccount, listXAccounts } from "~/lib/db.server";
+import type { XAccount } from "./x-account.types";
 import type { XOAuthTransaction } from "./x-account.types";
 
-export { getXAccount, listXAccounts };
+export async function listXAccounts(db: D1Database, chapterId: number): Promise<XAccount[]> {
+  const result = await db
+    .prepare(
+      `SELECT id, chapter_id, x_user_id, username, display_name, profile_image_url,
+              access_token_ciphertext, refresh_token_ciphertext, access_token_expires_at,
+              authorized_by_user_id, created_at, updated_at, revoked_at
+       FROM x_accounts WHERE chapter_id = ? AND revoked_at IS NULL ORDER BY username COLLATE NOCASE`,
+    )
+    .bind(chapterId)
+    .all<XAccountRow>();
+  return result.results.map(xAccountFromRow);
+}
+
+type XAccountRow = {
+  id: string;
+  chapter_id: number;
+  x_user_id: string;
+  username: string;
+  display_name: string;
+  profile_image_url: string | null;
+  access_token_ciphertext: string;
+  refresh_token_ciphertext: string | null;
+  access_token_expires_at: string | null;
+  authorized_by_user_id: string;
+  created_at: string;
+  updated_at: string;
+  revoked_at: string | null;
+};
+function xAccountFromRow(row: XAccountRow): XAccount {
+  return {
+    id: row.id,
+    chapterId: row.chapter_id,
+    xUserId: row.x_user_id,
+    username: row.username,
+    displayName: row.display_name,
+    profileImageUrl: row.profile_image_url,
+    accessTokenCiphertext: row.access_token_ciphertext,
+    refreshTokenCiphertext: row.refresh_token_ciphertext,
+    accessTokenExpiresAt: row.access_token_expires_at,
+    authorizedByUserId: row.authorized_by_user_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    revokedAt: row.revoked_at,
+  };
+}
+
+export async function getXAccount(db: D1Database, id: string): Promise<XAccount | null> {
+  const row = await db
+    .prepare(
+      `SELECT id, chapter_id, x_user_id, username, display_name, profile_image_url,
+            access_token_ciphertext, refresh_token_ciphertext, access_token_expires_at,
+            authorized_by_user_id, created_at, updated_at, revoked_at FROM x_accounts WHERE id = ?`,
+    )
+    .bind(id)
+    .first<XAccountRow>();
+  return row ? xAccountFromRow(row) : null;
+}
 
 export type RevokeXAccountRow = {
   accountId: string;

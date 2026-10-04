@@ -2,9 +2,9 @@ import { type RouteConfig, index, route } from "@react-router/dev/routes";
 
 export default [
   index("routes/home.tsx"),
-  route("posts", "routes/posts.tsx"),
-  route("schedule", "routes/schedule.tsx"),
-  route("settings", "routes/settings.tsx"),
+  route("posts", "routes/posts/list.tsx"),
+  route("schedule", "routes/posts/schedule.tsx"),
+  route("settings", "routes/settings/settings.tsx"),
   route("settings/contributors", "routes/settings.contributors.tsx"),
   route("settings/x", "routes/settings.x.tsx"),
   route("settings/google-photos", "routes/settings.google-photos.ts"),
@@ -24,7 +24,7 @@ export default [
   route("api/chapter", "routes/api.chapter.ts"),
   route("x/connect", "routes/x.connect.ts"),
   route("x/callback", "routes/x.callback.ts"),
-  route("google/photos/library", "routes/google.photos.library.tsx"),
+  route("google/photos/library", "routes/google-photos/library.tsx"),
   route("signin", "routes/signin.tsx"),
   route("no-chapter", "routes/no-chapter.tsx"),
   route("api/auth/*", "routes/api.auth.$.ts"),

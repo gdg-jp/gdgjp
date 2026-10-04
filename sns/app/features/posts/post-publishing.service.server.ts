@@ -1,6 +1,7 @@
+import { listPostMedia } from "~/features/posts/post-media.repository.server";
+import { getPost } from "~/features/posts/post.repository.server";
+import type { Post } from "~/features/posts/post.types";
 import { accessTokenForAccount } from "~/features/x-accounts/x-provider.server";
-import type { Post } from "~/lib/db.server";
-import { getPost, listPostMedia } from "~/lib/db.server";
 import { nowIso } from "~/lib/utils";
 
 /**

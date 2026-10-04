@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { type ResolvedDelivery, resolveDelivery } from "~/lib/img-transform";
+import { type ResolvedDelivery, resolveDelivery } from "~/features/images/img-transform";
 import { deliverImage } from "./delivery.server";
 import { renditionKey } from "./rendition-key";
 import type { SourceVariant } from "./variant";

@@ -1,11 +1,11 @@
 import { after } from "next/server";
 
-import { getAgentsChat } from "@/lib/adapters";
-import { registerAgentHandlers } from "@/lib/agent";
-import { getReplayStore } from "@/lib/redis";
-import { runWithAgentRequestContext } from "@/lib/request-context";
-import { flushTelemetry } from "@/lib/telemetry";
-import { type ReplayStore, verifyWebhook } from "@/lib/verify";
+import { getAgentsChat } from "../../../features/chat/adapters";
+import { registerAgentHandlers } from "../../../features/chat/handlers";
+import { flushTelemetry } from "../../../features/telemetry/telemetry";
+import { getReplayStore } from "../../../features/webhooks/replay-store";
+import { runWithAgentRequestContext } from "../../../features/webhooks/request-context";
+import { type ReplayStore, verifyWebhook } from "../../../features/webhooks/verify";
 
 export const runtime = "nodejs";
 

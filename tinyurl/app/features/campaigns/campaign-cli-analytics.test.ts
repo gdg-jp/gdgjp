@@ -1,6 +1,6 @@
 import type { AuthUser, UserChapter } from "@gdgjp/gdg-lib";
 import { describe, expect, it } from "vitest";
-import type { CampaignParticipantAnalyticsSnapshot } from "~/lib/campaign-participant-analytics-db";
+import type { CampaignParticipantAnalyticsSnapshot } from "~/features/campaigns/campaign-participant-analytics-db";
 import {
   aggregateAcquisition,
   getCampaignAnalyticsForActor,

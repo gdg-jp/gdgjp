@@ -1,4 +1,18 @@
-export type { XAccount } from "~/lib/db.server";
+export type XAccount = {
+  id: string;
+  chapterId: number;
+  xUserId: string;
+  username: string;
+  displayName: string;
+  profileImageUrl: string | null;
+  accessTokenCiphertext: string;
+  refreshTokenCiphertext: string | null;
+  accessTokenExpiresAt: string | null;
+  authorizedByUserId: string;
+  createdAt: string;
+  updatedAt: string;
+  revokedAt: string | null;
+};
 
 /**
  * A usable X account, safe to hand to a dashboard loader or the CLI: it carries

@@ -1,9 +1,14 @@
 import { requireCliSnsAccess } from "~/features/auth/cli-access.server";
+import { cliAccessErrorAsNotFound } from "~/features/cli-api/errors.server";
+import {
+  cliError,
+  cliJson,
+  cliMethodNotAllowed,
+  parseCliJsonBody,
+} from "~/features/cli-api/http.server";
 import { xAccountDepsFromEnv } from "~/features/x-accounts/x-account.deps.server";
 import { getXAccount } from "~/features/x-accounts/x-account.repository.server";
 import { XAccountError, revokeXAccount } from "~/features/x-accounts/x-account.service.server";
-import { cliAccessErrorAsNotFound } from "~/lib/cli-errors.server";
-import { cliError, cliJson, cliMethodNotAllowed, parseCliJsonBody } from "~/lib/cli-http.server";
 import type { Route } from "./+types/api.cli.v1.x-accounts.$id";
 
 // Action-only route: a GET/HEAD never reaches `action`, so answer it here with

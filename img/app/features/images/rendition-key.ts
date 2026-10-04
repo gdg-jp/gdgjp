@@ -1,4 +1,8 @@
-import { type ResolvedDelivery, SCHEMA_VERSION, renditionParamSlug } from "~/lib/img-transform";
+import {
+  type ResolvedDelivery,
+  SCHEMA_VERSION,
+  renditionParamSlug,
+} from "~/features/images/img-transform";
 import type { SourceVariant } from "./variant";
 
 type KeySource = Pick<SourceVariant, "variant" | "sourceVersion">;

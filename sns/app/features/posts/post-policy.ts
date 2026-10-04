@@ -1,6 +1,6 @@
-import type { PostStatus } from "~/lib/db.server";
-import { MAX_IMAGES, MAX_IMAGE_BYTES } from "~/lib/utils";
-import { parseXPostText } from "~/lib/x-text";
+import { MAX_IMAGES, MAX_IMAGE_BYTES } from "~/features/posts/media-policy";
+import type { PostStatus } from "~/features/posts/post.types";
+import { parseXPostText } from "~/features/posts/x-text";
 import type { PostCondition } from "./post.types";
 
 export const MAX_TAG_HANDLES = 10;

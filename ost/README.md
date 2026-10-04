@@ -39,7 +39,7 @@ React Router v7 (SSR) on a Cloudflare Worker.
 - A participant submission / vote is a form `POST` to `/:slug`; the route action calls the
   Durable Object's `submitTopic` / `toggleVote` RPC.
 - Pure logic (topic validation, slug rules, vote tally, unit scoring, auto-assign ordering, desk
-  geometry) lives in `app/lib/*` and is unit-tested. Durable Object behaviour is covered by
+  geometry) lives in `app/features/{board,events,layout}/*` and is unit-tested. Durable Object behaviour is covered by
   `e2e/`.
 
 Full conventions and file-level notes are in `CLAUDE.md`.
@@ -69,3 +69,6 @@ Prerequisites: a proxied `ost` DNS record in the `gdgs.jp` zone; a D1 database
 `ost` OIDC client registered on the `accounts` worker (`OST_CLIENT_ID` / `OST_REDIRECT_URLS`
 vars, `OST_CLIENT_SECRET` secret, `POST /admin/seed-clients`). CI runs `deploy` on merge to
 `main` when `ost/` changes.
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for feature ownership and the primitive, component,
+page and layout boundaries.

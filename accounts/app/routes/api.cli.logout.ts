@@ -1,4 +1,4 @@
-import { CLI_SCOPE } from "~/lib/auth.server";
+import { CLI_SCOPE } from "~/features/auth/auth.server";
 import type { Route } from "./+types/api.cli.logout";
 
 const CLI_CLIENT_ID = "gdg-cli";

@@ -5,10 +5,10 @@ import {
   clicksByLinkIdAndSource,
   hourlyClicks,
   totalClicks,
-} from "~/lib/analytics-engine";
-import type { AnalyticsWindow } from "~/lib/analytics-filters";
-import { campaignAcquisitionAnalytics } from "~/lib/campaign-acquisition";
-import { getCampaignParticipantAnalytics } from "~/lib/campaign-participant-analytics-db";
+} from "~/features/analytics/analytics-engine";
+import type { AnalyticsWindow } from "~/features/analytics/analytics-filters";
+import { campaignAcquisitionAnalytics } from "~/features/campaigns/campaign-acquisition";
+import { getCampaignParticipantAnalytics } from "~/features/campaigns/campaign-participant-analytics-db";
 import { type FeatureFailure, featureFailure } from "../shared/errors";
 import { listCampaignChannelsWithLinks } from "./campaign.repository";
 import type { CampaignServiceActor } from "./campaign.service";

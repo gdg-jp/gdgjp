@@ -1,6 +1,6 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { describe, expect, it } from "vitest";
-import type { Link, LinkPermission } from "~/lib/db";
+import type { Link, LinkPermission } from "~/features/links/link-record";
 import {
   canEditLink,
   canEditLinkForChapters,

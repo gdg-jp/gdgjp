@@ -28,82 +28,43 @@ is no separate "upload to Cloudflare Images" step.
 
 ## Directory structure
 
-```
-app/
-  routes.ts              # route table — catch-all public :id must stay last
-  routes/
-    $id.tsx              # public GET, no auth, serves/transforms from R2 via IMAGES
-    api.upload.ts         # authenticated upload
-    api.internal-upload.ts
-    api.replace.$id.ts    # canAccessImage (owner/chapter member/admin), reuses r2_key
-    api.delete.$id.ts     # canAccessImage
-    api.mobile.$id.ts     # mobile image variant
-    api.slug.$id.ts       # custom public-URL slug
-    api.move.$id.ts       # assign/clear an image's folder
-    api.share.$id.ts      # re-attribute an image to a different chapter
-    api.folders.ts        # list/create folders (dashboard session)
-    api.folders.$id.ts    # rename/delete a folder (dashboard session)
-    api.cli.v1.images*.ts       # bearer-token CLI image API
-    api.cli.v1.folders*.ts      # bearer-token CLI folder API
-    api.auth.$.ts          # /api/auth/* — delegates to gdg-lib's RP auth instance
-    auth.signout.ts
-    signin.tsx
-    no-chapter.tsx
-    home.tsx              # authenticated gallery, folder-filterable
-    i.$id.tsx             # detail page
-  features/
-    images/
-      repository.ts          # D1 access for the images table
-      service.ts              # *ForActor entry points, upload flow (R2 first, D1 second, rollback on error)
-      policy.ts                 # canAccessImage — owner OR chapter member OR super admin
-      storage.ts                  # putOriginal / deleteOriginal
-      delivery.server.ts          # resilient Cache API → DERIVED → IMAGES public delivery
-      rendition-{key,store}.ts    # deterministic identity and derived R2 persistence/cleanup
-      variant.ts, probe.ts        # source selection and upload-time dimensions
-      slug.ts, id.ts                # slug validation + RESERVED_SLUGS, image id generation/validation
-    folders/
-      repository.ts          # D1 access for the folders table
-      service.ts               # *ForActor entry points
-      policy.ts                  # canAccessFolder — any member of the folder's chapter
-      name.ts                      # folder name validation
-  lib/
-    auth.server.ts         # caches one RpAuthInstance per env
-    auth-redirect.ts        # requireUserWithChapter — the standard route gate
-    chapter.server.ts        # chapter memberships via /userinfo, in-memory cached 30s/user
-    img-url.ts                 # transform query parsing/building (w, h, dpr, fit, q, f, variant)
-    img-transform.ts           # pure policy, negotiation, width ladder, canonical gate
-    image-errors.server.ts, cli-errors.server.ts, folder-errors.server.ts  # error → HTTP mapping
-    device.ts                    # mobile-variant negotiation from request headers
-migrations/                # D1 migrations — edit these, not schema.sql
-workers/app.ts              # Worker entrypoint
-openapi/                     # OpenAPI contract for the image/folder/public-image API
-```
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the responsibility map and dependency rules.
+
+- `app/features/auth/`: session and Bearer identity and chapter memberships.
+- `app/features/images/`: image policies, use cases, storage, delivery, widgets and page data.
+- `app/features/folders/`: chapter-owned folder policies, use cases, storage and widgets.
+- `app/components/ui/`: domain-free primitives; `app/layouts/`: common composed shell and navigation.
+- `app/routes/`: registered React Router modules combine HTTP adapters and composed screens; `app/routes.ts` preserves public URL registration.
+- `app/lib/`: styling and HTTP cache primitives.
+- `workers/`: request runtime and `ImageUploadService` RPC entrypoint.
+- `migrations/`: D1 migrations; edit these, not `schema.sql`.
+- `openapi/`: public image, dashboard and CLI API contracts.
 
 ## Image flow
 
 - IDs are 8-char nanoids from `[0-9A-Za-z]`, generated with collision retry
   (`generateUniqueImageId`). Inbound `:id` params are validated with `isValidImageId` before any
   D1/R2 access.
-- Upload (`api.upload.ts`, `features/images/service.ts`): write to R2 first, then insert the D1
+- Upload (`routes/api/images/upload.ts`, `features/images/upload.server.ts`): write to R2 first, then insert the D1
   row. If the D1 insert fails, the R2 object is best-effort deleted via `ctx.waitUntil`. This
   ordering is load-bearing — an orphaned R2 object is recoverable, an orphaned D1 row pointing at
   nothing is not.
-- Public GET (`routes/$id.tsx`): no auth. Honors `If-None-Match` before reading R2; the ETag encodes
+- Public GET (`routes/images/serve.tsx`): no auth. Honors `If-None-Match` before reading R2; the ETag encodes
   id, variant, source version, normalized parameters, and negotiated format. Plain URLs negotiate
   AVIF/WebP and use `IMG_AUTO_MAX_WIDTH` with `scale-down`; `?f=original` is the exact-byte escape
   hatch. Canonical width-ladder renditions persist in `DERIVED`, with Cache API in front. Images
   failures never turn an existing public URL into a 500; the original is served instead.
-- Transform params (`lib/img-url.ts`): `w`/`h` (1–4096), `dpr` (1–3), `fit` (`scale-down` |
+- Transform params (`features/images/img-url.ts`): `w`/`h` (1–4096), `dpr` (1–3), `fit` (`scale-down` |
   `contain` | `cover` | `crop` | `pad`), `radius` (1–2048 px), `q` (1–100), `f` (`auto` |
   `avif` | `webp` | `jpeg` | `png` | `original`), `variant=mobile`. `radius` makes the four
   corners transparent; a requested JPEG is returned as PNG so that transparency is preserved.
-- Mutations (`api.replace.$id.ts`, `api.delete.$id.ts`, `api.move.$id.ts`, `api.share.$id.ts`, …)
+- Mutations (`routes/api/images/replace.ts`, `delete.ts`, `move.ts`, `share.ts`, …)
   are gated by `canAccessImage` (`features/images/policy.ts`) — the owner, a super admin per
   `gdg-lib`'s `isSuperAdmin`, or any member of the image's chapter. There is no separate
   editor/viewer split: any chapter member can also replace or delete. Replace reuses the existing
   `r2_key` so the public URL never changes; callers cache-bust with `?v=<updatedAt>`.
 - Folders (`features/folders/`) are flat and chapter-owned; an image can only sit in a folder that
-  belongs to its own chapter. Re-sharing an image to a different chapter (`api.share.$id.ts`)
+  belongs to its own chapter. Re-sharing an image to a different chapter (`routes/api/images/share.ts`)
   clears its folder as a side effect. Folder/slug-only updates deliberately don't bump
   `images.updated_at`, so they don't invalidate the public ETag.
 - Max upload size is 10 MiB (`MAX_IMAGE_UPLOAD_BYTES` from `@gdgjp/gdg-lib`); content type must
@@ -158,8 +119,8 @@ once per month after expiry. Also configure incomplete multipart-upload abortion
 
 ## Testing
 
-Unit tests are Vitest, colocated as `*.test.ts` (currently minimal coverage: `lib/device.test.ts`,
-`routes/home.test.ts`). E2E tests are Playwright in `e2e/`, `baseURL http://localhost:5175`;
+Unit tests are Vitest, colocated as `*.test.ts` beside their feature modules.
+`app/architecture.test.ts` checks dependency boundaries, cycles, UI ownership and public URLs. E2E tests are Playwright in `e2e/`, `baseURL http://localhost:5175`;
 `playwright.config.ts` boots `accounts` on `:5173` as a dependency and reuses an existing dev
 server outside CI. The current spec asserts the unauthenticated home page redirects to
 `/signin?return_to=%2F` — keep that contract when touching the auth gate.

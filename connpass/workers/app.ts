@@ -1,5 +1,5 @@
 import { createRequestHandler } from "react-router";
-import type { JobQueueMessage } from "../app/lib/job-runner.server";
+import type { JobQueueMessage } from "../app/features/jobs/job-types";
 
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
@@ -11,7 +11,7 @@ export default {
     return requestHandler(request, { cloudflare: { env, ctx } });
   },
   async queue(batch, env, ctx) {
-    const { processJobMessage } = await import("../app/lib/job-runner.server");
+    const { processJobMessage } = await import("../app/features/jobs/job-runner.server");
     for (const message of batch.messages) {
       try {
         await processJobMessage(env, ctx, message.body as JobQueueMessage);

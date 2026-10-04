@@ -1,5 +1,5 @@
 import { type AuthUser, type UserChapter, isSuperAdmin } from "@gdgjp/gdg-lib";
-import type { ImageRow } from "./repository";
+import type { ImageRow } from "./repository.server";
 
 /**
  * An image is accessible (view AND mutate — this app does not distinguish

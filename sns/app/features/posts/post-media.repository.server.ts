@@ -1,6 +1,5 @@
-import type { PostMedia } from "~/lib/db.server";
-import { listPostMedia } from "~/lib/db.server";
 import { nowIso } from "~/lib/utils";
+import type { PostMedia } from "./post.types";
 import type { MediaMetadataEdit } from "./post.types";
 
 type PostMediaRow = {
@@ -94,4 +93,34 @@ export async function batchUpdateMediaMetadata(
         .bind(edit.altText, edit.sortOrder, edit.id),
     ),
   );
+}
+
+export async function listPostMedia(
+  db: D1Database,
+  postIds: string[],
+): Promise<Record<string, PostMedia[]>> {
+  if (postIds.length === 0) return {};
+  const placeholders = postIds.map(() => "?").join(",");
+  const result = await db
+    .prepare(
+      `SELECT id, post_id, r2_key, content_type, byte_size, alt_text, sort_order, created_at FROM post_media WHERE post_id IN (${placeholders}) ORDER BY sort_order`,
+    )
+    .bind(...postIds)
+    .all<PostMediaRow>();
+  const byPost: Record<string, PostMedia[]> = {};
+  for (const row of result.results) {
+    const values = byPost[row.post_id] ?? [];
+    values.push({
+      id: row.id,
+      postId: row.post_id,
+      r2Key: row.r2_key,
+      contentType: row.content_type,
+      byteSize: row.byte_size,
+      altText: row.alt_text,
+      sortOrder: row.sort_order,
+      createdAt: row.created_at,
+    });
+    byPost[row.post_id] = values;
+  }
+  return byPost;
 }

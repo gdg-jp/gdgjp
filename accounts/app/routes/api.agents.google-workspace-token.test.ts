@@ -1,22 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const oauthClientsMock = vi.hoisted(() => ({ requireCliTokenUser: vi.fn() }));
-vi.mock("~/lib/oauth-clients.server", () => ({
+vi.mock("~/features/oauth/cli-token.server", () => ({
   requireCliTokenUser: oauthClientsMock.requireCliTokenUser,
 }));
 
 const workspaceMock = vi.hoisted(() => ({ refreshWorkspaceAccessToken: vi.fn() }));
-vi.mock("~/lib/google-workspace.server", async () => {
-  const actual = await vi.importActual<typeof import("~/lib/google-workspace.server")>(
-    "~/lib/google-workspace.server",
-  );
+vi.mock("~/features/google-workspace/google-workspace.server", async () => {
+  const actual = await vi.importActual<
+    typeof import("~/features/google-workspace/google-workspace.server")
+  >("~/features/google-workspace/google-workspace.server");
   return { ...actual, refreshWorkspaceAccessToken: workspaceMock.refreshWorkspaceAccessToken };
 });
 
 import {
   revokeWorkspaceConnection,
   upsertWorkspaceConnection,
-} from "~/lib/google-workspace.server";
+} from "~/features/google-workspace/google-workspace.server";
 import { action } from "./api.agents.google-workspace-token";
 
 const SERVICE_ACCOUNT_ID = "gdgagent-svc-user-id";

@@ -1,4 +1,5 @@
-import { handleAuthCallback, linkAccountDepsFromEnv } from "../../../lib/link-account";
+import { handleAuthCallback } from "../../../features/auth/callback";
+import { linkAccountDepsFromEnv } from "../../../features/auth/environment";
 
 export const runtime = "nodejs";
 

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const oauthClientsMock = vi.hoisted(() => ({ requireCliTokenUser: vi.fn() }));
-vi.mock("~/lib/oauth-clients.server", () => ({
+vi.mock("~/features/oauth/cli-token.server", () => ({
   requireCliTokenUser: oauthClientsMock.requireCliTokenUser,
 }));
 
@@ -9,9 +9,12 @@ const dbMock = vi.hoisted(() => ({
   getUserById: vi.fn(),
   listActiveChaptersForUser: vi.fn(),
 }));
-vi.mock("~/lib/db", () => ({
-  getUserById: dbMock.getUserById,
+
+vi.mock("~/features/memberships/repository.server", () => ({
   listActiveChaptersForUser: dbMock.listActiveChaptersForUser,
+}));
+vi.mock("~/features/users/repository.server", () => ({
+  getUserById: dbMock.getUserById,
 }));
 
 import { loader } from "./api.cli.v1.identity";

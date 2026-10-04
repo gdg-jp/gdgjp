@@ -1,6 +1,6 @@
 import type { AuthUser, UserChapter } from "@gdgjp/gdg-lib";
 import { describe, expect, it } from "vitest";
-import type { DomainDetection } from "~/lib/domain-detection";
+import type { DomainDetection } from "~/features/domains/domain-detection";
 import type { DomainProvider, ProviderDomainState } from "./domain-provider";
 import {
   type DomainServiceDependencies,

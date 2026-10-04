@@ -2,11 +2,11 @@
 
 ## Project Structure & Module Organization
 
-`@gdgjp/sns` is a React Router v7 social-post scheduler deployed as a Cloudflare Worker. UI routes live in `app/routes/` and follow dotted names such as `settings.google-photos.ts`. Shared server logic belongs in `app/lib/`; reusable UI in `app/components/`; and global styles in `app/app.css`.
+`@gdgjp/sns` is a React Router v7 social-post scheduler deployed as a Cloudflare Worker. UI routes live in `app/routes/` and follow dotted names such as `settings.google-photos.ts`. Domain logic, repositories, types, components and tests belong in `app/features/<domain>/`; `app/lib/` holds only cross-domain primitives and `app/components/` domain-free primitives, `app/layouts/` shared shells, and `app/routes/<domain>/` registered modules with composed screens; and global styles in `app/app.css`.
 
 Worker integration is in `workers/` (`app.ts` is the entrypoint). Database migrations are ordered SQL files in `migrations/`; edit these rather than `schema.sql`, which is generated. Put static assets in `public/`.
 
-The Google Photos importer runs on GitHub Actions (`.github/workflows/google-photos-import.yml`) and is implemented in `google-photos-importer/`. It polls configured shared albums and calls the Worker’s protected importer endpoint, which persists album/media metadata to D1 and stores imported media in the `MEDIA` R2 bucket. Keep its request contracts aligned with `workers/google-photos-importer.ts` and the API routes.
+The Google Photos importer runs on GitHub Actions (`.github/workflows/google-photos-import.yml`) and is implemented in `google-photos-importer/`. It polls configured shared albums and calls the Worker’s protected importer endpoint, which persists album/media metadata to D1 and stores imported media in the `MEDIA` R2 bucket. Keep its request contracts aligned with `app/features/google-photos/importer.server.ts` and the API routes.
 
 ## Build, Test, and Development Commands
 
@@ -24,7 +24,7 @@ Use TypeScript, ESM, React function components, 2-space indentation, double quot
 
 ## Testing Guidelines
 
-Write focused Vitest tests beside the code they cover, following examples in `app/lib/*.test.ts` and `workers/google-photos-importer.test.ts`. Test access control, publishing integrations, and migration-sensitive behavior. Run `pnpm test` and `pnpm typecheck` before submitting; run `pnpm test:e2e` for user-facing route changes.
+Write focused Vitest tests beside the code they cover, following examples in `app/features/**/*.test.ts`. Test access control, publishing integrations, and migration-sensitive behavior. Run `pnpm test` and `pnpm typecheck` before submitting; run `pnpm test:e2e` for user-facing route changes.
 
 ## Commit & Pull Request Guidelines
 

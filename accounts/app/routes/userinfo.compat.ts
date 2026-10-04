@@ -1,4 +1,4 @@
-import { runAuthHandler } from "~/lib/auth.server";
+import { runAuthHandler } from "~/features/auth/auth.server";
 import type { Route } from "./+types/userinfo.compat";
 
 export function loader({ request, context }: Route.LoaderArgs) {

@@ -1,6 +1,6 @@
 import { registerOTel } from "@vercel/otel";
 
-import { getLangfuseSpanProcessor } from "./lib/langfuse";
+import { getLangfuseSpanProcessor } from "./features/telemetry/langfuse";
 
 export function register(): void {
   const langfuseSpanProcessor = getLangfuseSpanProcessor();

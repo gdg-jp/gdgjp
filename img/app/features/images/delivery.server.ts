@@ -1,7 +1,7 @@
+import type { ResolvedDelivery } from "~/features/images/img-transform";
 import { cacheHeaders, cachePut } from "~/lib/http-cache";
-import type { ResolvedDelivery } from "~/lib/img-transform";
 import { renditionCacheUrl, renditionKey } from "./rendition-key";
-import { getRendition, putPassthroughMarker, putRendition } from "./rendition-store";
+import { getRendition, putPassthroughMarker, putRendition } from "./rendition-store.server";
 import type { SourceVariant } from "./variant";
 
 type DeliveryCache = Pick<Cache, "match" | "put">;

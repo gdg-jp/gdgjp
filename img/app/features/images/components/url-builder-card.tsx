@@ -11,8 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { WIDTH_LADDER, resolveDelivery } from "~/lib/img-transform";
-import { type TransformOpts, deliveryUrl } from "~/lib/img-url";
+import { WIDTH_LADDER, resolveDelivery } from "~/features/images/img-transform";
+import { type TransformOpts, deliveryUrl } from "~/features/images/img-url";
 
 type BuilderImage = {
   id: string;

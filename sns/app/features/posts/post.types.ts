@@ -1,6 +1,41 @@
-import type { Post, PostMedia } from "~/lib/db.server";
+export type PostStatus =
+  | "scheduled"
+  | "waiting_for_photo"
+  | "posting"
+  | "published"
+  | "failed"
+  | "needs_confirmation";
 
-export type { Post, PostMedia, PostStatus } from "~/lib/db.server";
+export type Post = {
+  id: string;
+  chapterId: number;
+  xAccountId: string;
+  text: string;
+  scheduledAt: string;
+  condition: "scheduled" | "photo_required";
+  status: PostStatus;
+  createdByUserId: string;
+  publishedXPostId: string | null;
+  publishedAt: string | null;
+  failureReason: string | null;
+  linkPreviewUrl: string | null;
+  linkPreviewTitle: string | null;
+  linkPreviewDescription: string | null;
+  linkPreviewImageUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PostMedia = {
+  id: string;
+  postId: string;
+  r2Key: string;
+  contentType: string;
+  byteSize: number;
+  altText: string;
+  sortOrder: number;
+  createdAt: string;
+};
 
 export type PostCondition = "scheduled" | "photo_required";
 

@@ -1,6 +1,7 @@
-import { requireMember } from "~/lib/auth-redirect.server";
-import { canViewAllClaims } from "~/lib/auth-redirect.server";
-import { getClaim, getEvent, listClaimItems } from "~/lib/db.server";
+import { requireMember } from "~/features/auth/session.server";
+import { getClaim, listClaimItems } from "~/features/claims/repository.server";
+import { canViewAllClaims } from "~/features/events/permissions";
+import { getEvent } from "~/features/events/repository.server";
 import type { Route } from "./+types/receipts.$";
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {

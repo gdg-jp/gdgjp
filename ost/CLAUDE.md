@@ -18,7 +18,7 @@ desk-layout editor, projector screens, and auto-assignment of top-voted topics t
 - `/no-chapter` — shown when the user has no GDG chapter.
 - `/dev/login`, `/dev/seed` — local/e2e only; **hard 404 when `ENVIRONMENT === "production"`.**
 
-Static routes outrank `/:slug`; `slug.ts` also rejects reserved words / bad shapes in every
+Static routes outrank `/:slug`; `events/slug.ts` also rejects reserved words / bad shapes in every
 `:slug` loader.
 
 ## Data
@@ -42,17 +42,17 @@ The participant vote dialog connects only while open.
 
 ## Auth / chapter ACL
 
-`lib/auth.server.ts` (`getAuth`), `lib/chapter.server.ts` (`fetchChaptersForUser`, 30 s cache
+`features/auth/auth.server.ts` (`getAuth`), `features/auth/chapter.server.ts` (`fetchChaptersForUser`, 30 s cache
 over `getFreshClaims`; **dev hook**: reads an `ost-dev-chapters` cookie when
-`ENVIRONMENT !== "production"`), `lib/auth-redirect.server.ts`
-(`requireUserWithChapter`, `requireEventAccess`). An event belongs to one chapter; any member of
+`ENVIRONMENT !== "production"`), `features/auth/access.server.ts` (`requireUserWithChapter`) and
+`features/events/access.server.ts` (`requireEventAccess`). An event belongs to one chapter; any member of
 that chapter may view and edit it.
 
-## Pure helpers (unit-tested, `app/lib/*.test.ts`)
+## Pure helpers (unit-tested, `app/features/**/*.test.ts`)
 
-`topics.ts` (`normalizeTopicText`), `slug.ts`, `votes.ts`, `scoring.ts` (`buildUnits`,
-`scoreUnit` = **sum** of member votes), `assign.ts` (`rankUnits` = votes desc then earliest
-submission, `autoAssign` zips onto desks by `sortOrder`), `layout.ts` (desk geometry, contain-fit
+`board/protocol.ts` (`normalizeTopicText`), `events/slug.ts`, `board/votes.ts`, `board/scoring.ts` (`buildUnits`,
+`scoreUnit` = **sum** of member votes), `board/assign.ts` (`rankUnits` = votes desc then earliest
+submission, `autoAssign` zips onto desks by `sortOrder`), `layout/geometry.ts` (desk geometry, contain-fit
 transform). DO classes are not unit-tested — cover via `e2e/`.
 
 ## Config
@@ -69,3 +69,5 @@ accounts side (`accounts/wrangler.toml` vars + `seed-clients.server.ts` tuple, t
 
 Local: `pnpm --filter @gdgjp/ost migrate:local` then `pnpm --filter @gdgjp/ost dev` (port
 `5185`); run `accounts` on `5173` for real sign-in, or use `/dev/login?as=owner&chapter=1:x`.
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for feature ownership and dependency boundaries.

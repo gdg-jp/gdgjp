@@ -1,7 +1,7 @@
 import { redirect } from "react-router";
+import { requireSnsAccess } from "~/features/auth/access.server";
 import { xOAuthDepsFromEnv } from "~/features/x-accounts/x-account.deps.server";
 import { XOAuthError, completeXConnect } from "~/features/x-accounts/x-oauth.service.server";
-import { requireSnsAccess } from "~/lib/access.server";
 import type { Route } from "./+types/x.callback";
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;

@@ -1,12 +1,12 @@
 import { redirect } from "react-router";
-import { requireMember } from "~/lib/auth-redirect.server";
-import { encryptSecret } from "~/lib/crypto.server";
+import { requireMember } from "~/features/auth/session.server";
+import { setEventGoogleAdmin } from "~/features/events/repository.server";
+import { exchangeGoogleCode } from "~/features/google/oauth.server";
 import {
   consumeOAuthTransaction,
-  setEventGoogleAdmin,
   upsertGoogleOAuthToken,
-} from "~/lib/db.server";
-import { exchangeGoogleCode } from "~/lib/google-oauth.server";
+} from "~/features/google/repository.server";
+import { encryptSecret } from "~/lib/crypto.server";
 import type { Route } from "./+types/google.callback";
 
 export async function loader({ request, context }: Route.LoaderArgs) {

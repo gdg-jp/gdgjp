@@ -1,5 +1,5 @@
 import { redirect } from "react-router";
-import { runAuthHandler } from "~/lib/auth.server";
+import { runAuthHandler } from "~/features/auth/auth.server";
 import type { Route } from "./+types/oauth.google.callback";
 
 export function loader({ request, context }: Route.LoaderArgs) {

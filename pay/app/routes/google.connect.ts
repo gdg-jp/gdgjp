@@ -1,7 +1,9 @@
 import { redirect } from "react-router";
-import { canViewAllClaims, requireMember } from "~/lib/auth-redirect.server";
-import { getEvent, insertOAuthTransaction } from "~/lib/db.server";
-import { googleAuthorizationUrl, randomVerifier } from "~/lib/google-oauth.server";
+import { requireMember } from "~/features/auth/session.server";
+import { canViewAllClaims } from "~/features/events/permissions";
+import { getEvent } from "~/features/events/repository.server";
+import { googleAuthorizationUrl, randomVerifier } from "~/features/google/oauth.server";
+import { insertOAuthTransaction } from "~/features/google/repository.server";
 import { isEventId } from "~/lib/id";
 import type { Route } from "./+types/google.connect";
 

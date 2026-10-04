@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const authMock = vi.hoisted(() => ({ getSessionUser: vi.fn() }));
-vi.mock("~/lib/auth.server", () => ({ getSessionUser: authMock.getSessionUser }));
+vi.mock("~/features/auth/auth.server", () => ({ getSessionUser: authMock.getSessionUser }));
 
 const workspaceMock = vi.hoisted(() => ({ exchangeWorkspaceCode: vi.fn() }));
-vi.mock("~/lib/google-workspace.server", async () => {
-  const actual = await vi.importActual<typeof import("~/lib/google-workspace.server")>(
-    "~/lib/google-workspace.server",
-  );
+vi.mock("~/features/google-workspace/google-workspace.server", async () => {
+  const actual = await vi.importActual<
+    typeof import("~/features/google-workspace/google-workspace.server")
+  >("~/features/google-workspace/google-workspace.server");
   return { ...actual, exchangeWorkspaceCode: workspaceMock.exchangeWorkspaceCode };
 });
 
@@ -15,7 +15,7 @@ import {
   GOOGLE_WORKSPACE_SCOPES,
   createWorkspaceOauthState,
   getWorkspaceConnection,
-} from "~/lib/google-workspace.server";
+} from "~/features/google-workspace/google-workspace.server";
 import { loader } from "./oauth.google-workspace.callback";
 
 const USER = { id: "user-1", email: "a@b.com" };

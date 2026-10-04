@@ -1,5 +1,5 @@
-import { buildSignInRedirect } from "~/lib/auth-redirect";
-import { runAuthHandler } from "~/lib/auth.server";
+import { buildSignInRedirect } from "~/features/auth/auth-redirect";
+import { runAuthHandler } from "~/features/auth/auth.server";
 import type { Route } from "./+types/authorize";
 
 export function loader({ request, context }: Route.LoaderArgs) {

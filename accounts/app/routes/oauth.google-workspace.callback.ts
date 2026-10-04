@@ -1,11 +1,11 @@
 import { redirect } from "react-router";
-import { getSessionUser } from "~/lib/auth.server";
+import { getSessionUser } from "~/features/auth/auth.server";
 import {
   GOOGLE_WORKSPACE_SCOPES,
   consumeWorkspaceOauthState,
   exchangeWorkspaceCode,
   upsertWorkspaceConnection,
-} from "~/lib/google-workspace.server";
+} from "~/features/google-workspace/google-workspace.server";
 import type { Route } from "./+types/oauth.google-workspace.callback";
 
 const DEFAULT_RETURN_TO = "/dashboard";

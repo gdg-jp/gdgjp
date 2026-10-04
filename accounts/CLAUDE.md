@@ -4,7 +4,7 @@ OIDC identity provider at accounts.gdgs.jp. Repo-wide conventions are in `../CLA
 
 ## Authentication architecture
 
-React Router mounts Better Auth at `/api/auth/*`. `app/lib/auth.server.ts` is the single source of
+React Router mounts Better Auth at `/api/auth/*`. `app/features/auth/auth.server.ts` is the single source of
 truth for Google sign-in, sessions, OAuth/OIDC endpoints, token lifetimes, scopes, and claims. The
 provider is the current `@better-auth/oauth-provider`, not Better Auth's deprecated
 `oidcProvider` plugin.
@@ -20,7 +20,7 @@ registration is disabled. First-party clients have `skipConsent` and `enableEndS
 admin-only `/admin/seed-clients` route.
 
 Active chapter members can create individually owned confidential web clients through
-`/developers/apps`. `app/lib/oauth-clients.server.ts` is the authorization and validation boundary:
+`/developers/apps`. `app/features/developer-apps/oauth-clients.server.ts` is the authorization and validation boundary:
 it fixes clients to `client_secret_basic`, authorization code + refresh token, PKCE, and the allowed
 scope set. Self-service clients skip consent by product policy. Client secrets are returned only by
 create/rotate responses, which must retain `Cache-Control: no-store`.

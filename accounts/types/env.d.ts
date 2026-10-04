@@ -13,6 +13,8 @@ declare module "react-router" {
 declare global {
   interface Env {
     GOOGLE_CLIENT_SECRET: string;
+    /** AES-GCM key for separately linked Google Workspace refresh tokens. */
+    GOOGLE_WORKSPACE_ENCRYPTION_KEY: string;
     TINYURL_CLIENT_SECRET: string;
     WIKI_CLIENT_SECRET: string;
     IMG_CLIENT_SECRET: string;

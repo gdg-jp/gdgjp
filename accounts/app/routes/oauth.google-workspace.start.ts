@@ -1,7 +1,10 @@
 import { redirect } from "react-router";
-import { safeReturnTo } from "~/lib/auth-redirect";
-import { getSessionUser } from "~/lib/auth.server";
-import { createWorkspaceOauthState, workspaceAuthorizeUrl } from "~/lib/google-workspace.server";
+import { safeReturnTo } from "~/features/auth/auth-redirect";
+import { getSessionUser } from "~/features/auth/auth.server";
+import {
+  createWorkspaceOauthState,
+  workspaceAuthorizeUrl,
+} from "~/features/google-workspace/google-workspace.server";
 import type { Route } from "./+types/oauth.google-workspace.start";
 
 /**

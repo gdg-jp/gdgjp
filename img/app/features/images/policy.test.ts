@@ -1,7 +1,7 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { describe, expect, it } from "vitest";
 import { canAccessImage, canShareImageWithChapter, resolveActorChapter } from "./policy";
-import type { ImageRow } from "./repository";
+import type { ImageRow } from "./repository.server";
 
 function chapter(chapterId: number) {
   return { chapterId, chapterSlug: `chapter-${chapterId}`, role: "member" as const };

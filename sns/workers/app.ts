@@ -1,8 +1,8 @@
 import { createRequestHandler } from "react-router";
-import { publishDuePosts } from "../app/lib/publish.server";
+import { claimDueGooglePhotosAlbum } from "../app/features/google-photos/importer.server";
+import { publishDuePosts } from "../app/features/posts/scheduled-publishing.server";
 import { CloudflareContext } from "./context";
 import { dispatchGooglePhotosImport } from "./google-photos-dispatcher";
-import { claimDueGooglePhotosAlbum } from "./google-photos-importer";
 
 const PUBLISH_DUE_POSTS_CRON = "* * * * *";
 

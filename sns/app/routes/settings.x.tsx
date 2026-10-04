@@ -1,7 +1,7 @@
 import { redirect } from "react-router";
+import { requireSnsAccess } from "~/features/auth/access.server";
 import { xAccountDepsFromEnv } from "~/features/x-accounts/x-account.deps.server";
 import { XAccountError, revokeXAccount } from "~/features/x-accounts/x-account.service.server";
-import { requireSnsAccess } from "~/lib/access.server";
 import type { Route } from "./+types/settings.x";
 export async function action({ request, context }: Route.ActionArgs) {
   const access = await requireSnsAccess(context.cloudflare.env, request);

@@ -1,4 +1,5 @@
-import { type Link, listLinksForCampaign } from "~/lib/db";
+import { listLinksForCampaign } from "~/features/campaigns/campaign-links.repository";
+import type { Link } from "~/features/links/link-record";
 import type {
   Campaign,
   CampaignChannel,

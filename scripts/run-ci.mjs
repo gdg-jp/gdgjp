@@ -43,11 +43,14 @@ const nodeConfigurationFilePattern =
 const workspaces = new Map([
   ["accounts", "@gdgjp/accounts"],
   ["accounts-oidc-client-demo", "@gdgjp/accounts-oidc-client-demo"],
+  ["agents", "@gdgjp/agents"],
+  ["agents-index", "@gdgjp/agents-index"],
   ["gdg-lib", "@gdgjp/gdg-lib"],
   ["ui", "@gdgjp/ui"],
   ["go-extension", "@gdgjp/go-extension"],
   ["img", "@gdgjp/img"],
   ["ost", "@gdgjp/ost"],
+  ["pay", "@gdgjp/pay"],
   ["roster", "@gdgjp/roster"],
   ["scheduler", "@gdgjp/scheduler"],
   ["sns", "@gdgjp/sns"],
@@ -270,6 +273,10 @@ export function changedSteps(mode, files) {
     }
     for (const [workspace, e2eFiles] of e2eWorkspaces) {
       if (workspace === "@gdgjp/ui") continue;
+      const directory = [...workspaces].find(([, name]) => name === workspace)?.[0];
+      // A frontend edit does not create a browser suite. Only schedule apps
+      // with a configured runner, rather than collecting their unit tests.
+      if (!directory || !existsSync(`${directory}/playwright.config.ts`)) continue;
       const e2eArguments = e2eFiles ? ` -- ${e2eFiles.map(shellQuote).join(" ")}` : "";
       const command =
         workspace === "@gdgjp/wiki"

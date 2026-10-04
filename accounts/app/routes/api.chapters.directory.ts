@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { listChapters } from "~/lib/db";
+import { listChapters } from "~/features/chapters/repository.server";
 import type { components } from "../../openapi/types.generated";
 
 type ChapterDirectory = components["schemas"]["ChapterDirectory"];

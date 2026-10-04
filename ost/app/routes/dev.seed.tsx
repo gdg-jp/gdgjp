@@ -1,5 +1,5 @@
-import { createEvent, getEventBySlug } from "~/lib/db";
-import { normalizeSlug } from "~/lib/slug";
+import { createEvent, getEventBySlug } from "~/features/events/events.server";
+import { normalizeSlug } from "~/features/events/slug";
 import type { Route } from "./+types/dev.seed";
 
 /**

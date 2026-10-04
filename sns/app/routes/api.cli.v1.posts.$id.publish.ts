@@ -1,8 +1,8 @@
 import { requireCliSnsAccess } from "~/features/auth/cli-access.server";
+import { cliAccessErrorAsNotFound } from "~/features/cli-api/errors.server";
+import { cliError, cliJson, cliMethodNotAllowed } from "~/features/cli-api/http.server";
 import { getPost } from "~/features/posts/post.repository.server";
 import { publishNow } from "~/features/posts/publish-now.service.server";
-import { cliAccessErrorAsNotFound } from "~/lib/cli-errors.server";
-import { cliError, cliJson, cliMethodNotAllowed } from "~/lib/cli-http.server";
 import type { Route } from "./+types/api.cli.v1.posts.$id.publish";
 
 // Action-only route: a GET/HEAD never reaches `action`, so answer it here with

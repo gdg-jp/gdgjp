@@ -1,6 +1,6 @@
 import type { AuthUser } from "@gdgjp/gdg-lib";
 import { isSuperAdmin } from "@gdgjp/gdg-lib";
-import type { Link, LinkPermission, LinkRole } from "~/lib/db";
+import type { Link, LinkPermission, LinkRole } from "~/features/links/link-record";
 import type { LinkShareInput } from "./link.types";
 
 export type ViewerContext = {

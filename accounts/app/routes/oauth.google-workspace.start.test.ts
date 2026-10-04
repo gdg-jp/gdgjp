@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 const authMock = vi.hoisted(() => ({ getSessionUser: vi.fn() }));
-vi.mock("~/lib/auth.server", () => ({ getSessionUser: authMock.getSessionUser }));
+vi.mock("~/features/auth/auth.server", () => ({ getSessionUser: authMock.getSessionUser }));
 
 import { loader } from "./oauth.google-workspace.start";
 

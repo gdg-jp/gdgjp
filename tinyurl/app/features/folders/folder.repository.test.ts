@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createFolder, listAccessibleFoldersPage } from "./folder.repository";
+import { listAccessibleFoldersPage } from "~/features/folders/folder-access.repository";
+import { createFolder } from "~/features/folders/folder.repository";
 
 describe("folder feature repository", () => {
   it("copies parent permissions after creating a nested folder", async () => {
@@ -21,7 +22,7 @@ describe("folder feature repository", () => {
                 created_at: 0,
                 updated_at: 0,
               };
-            if (query.startsWith("SELECT 1")) return { ok: 1 };
+            if (query.startsWith("SELECT CASE")) return { role: "editor" };
             if (query.startsWith("INSERT INTO folders"))
               return {
                 id: 9,

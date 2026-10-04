@@ -1,34 +1,5 @@
 import Redis from "ioredis";
 
-import { type ReplayStore, createRedisReplayStore } from "./verify";
-
-/** Distinct key namespaces shared on one Redis connection. */
-export const REDIS_KEY_PREFIX = {
-  replay: "replay:",
-  linkState: "link:state:",
-  linkUser: "link:user:",
-  linkGuild: "link:guild:",
-  filing: "filing:",
-} as const;
-
-export type ChatPlatform = "google-chat" | "discord";
-
-export function linkStateKey(state: string): string {
-  return `${REDIS_KEY_PREFIX.linkState}${state}`;
-}
-
-export function linkUserKey(platform: ChatPlatform, chatUserId: string): string {
-  return `${REDIS_KEY_PREFIX.linkUser}${platform}:${chatUserId}`;
-}
-
-export function linkGuildKey(platform: ChatPlatform, guildId: string): string {
-  return `${REDIS_KEY_PREFIX.linkGuild}${platform}:${guildId}`;
-}
-
-export function filingKey(platform: ChatPlatform, messageId: string): string {
-  return `${REDIS_KEY_PREFIX.filing}${platform}:${messageId}`;
-}
-
 export type LinkRedis = {
   set(key: string, value: string, expiryMode: "EX", ttl: number): Promise<"OK" | null>;
   /** First-write-wins set with TTL. Returns true when this call created the key. */
@@ -58,7 +29,6 @@ return 1
 `;
 
 let redis: Redis | null = null;
-let replayStore: ReplayStore | null = null;
 
 export function getRedis(url = process.env.REDIS_URL): Redis {
   if (!url?.trim()) {
@@ -95,17 +65,9 @@ export function createLinkRedis(client: Redis): LinkRedis {
   };
 }
 
-export function getReplayStore(): ReplayStore {
-  if (!replayStore) {
-    replayStore = createRedisReplayStore(getRedis());
-  }
-  return replayStore;
-}
-
 export async function disconnectRedisForTests(): Promise<void> {
   if (redis) {
     redis.disconnect();
     redis = null;
-    replayStore = null;
   }
 }

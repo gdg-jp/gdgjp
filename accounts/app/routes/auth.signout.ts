@@ -1,6 +1,6 @@
 import { redirect } from "react-router";
-import { safeReturnTo } from "~/lib/auth-redirect";
-import { authUnavailableResponse, getAuth, withAuthTimeout } from "~/lib/auth.server";
+import { safeReturnTo } from "~/features/auth/auth-redirect";
+import { authUnavailableResponse, getAuth, withAuthTimeout } from "~/features/auth/auth.server";
 import type { Route } from "./+types/auth.signout";
 
 export async function loader({ request, context }: Route.LoaderArgs) {

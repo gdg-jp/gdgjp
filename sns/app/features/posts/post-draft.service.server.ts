@@ -1,5 +1,5 @@
-import type { Post } from "~/lib/db.server";
-import { getXAccount } from "~/lib/db.server";
+import type { Post } from "~/features/posts/post.types";
+import { getXAccount } from "~/features/x-accounts/x-account.repository.server";
 import { nowIso } from "~/lib/utils";
 import {
   batchUpdateMediaMetadata,

@@ -61,6 +61,23 @@ test("unit-test-only changes keep typecheck and related tests without production
   assert.ok(steps.some(([name]) => name === "e2e:@gdgjp/roster"));
 });
 
+test("frontend edits without a configured browser suite retain other checks", () => {
+  for (const app of ["pay", "sns", "website", "agents"]) {
+    const steps = changedSteps("full", [`${app}/app/root.tsx`]);
+    assert.ok(steps.some(([name]) => name === "typecheck"));
+    assert.ok(steps.some(([name]) => name.startsWith("test:")));
+    assert.ok(steps.some(([name]) => name === "build"));
+    assert.ok(steps.every(([name]) => !name.startsWith("e2e:")));
+  }
+});
+
+test("index service changes run their workspace checks", () => {
+  const steps = changedSteps("full", ["agents-index/src/daemon/server.ts"]);
+  assert.match(steps.find(([name]) => name === "typecheck")[1], /--filter=@gdgjp\/agents-index/);
+  assert.ok(steps.some(([name]) => name === "test:@gdgjp/agents-index"));
+  assert.ok(steps.some(([name]) => name === "build"));
+});
+
 test("staged UI E2E uses isolated runs, while stateful application E2E stays uncached", () => {
   const ui = changedSteps("full", ["ui"]).find(([name]) => name === "e2e:ui");
   assert.equal(ui[2].CI, "true");

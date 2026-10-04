@@ -1,4 +1,4 @@
-import { handleGooglePhotosImport } from "../../workers/google-photos-importer";
+import { handleGooglePhotosImport } from "~/features/google-photos/importer.server";
 import type { Route } from "./+types/api.google-photos-import.$";
 
 export async function action({ request, context }: Route.ActionArgs) {

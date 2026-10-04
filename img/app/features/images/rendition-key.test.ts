@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { resolveDelivery } from "~/lib/img-transform";
-import { parseTransformOpts } from "~/lib/img-url";
+import { resolveDelivery } from "~/features/images/img-transform";
+import { parseTransformOpts } from "~/features/images/img-url";
 import { isValidImageId } from "./id";
 import { deliveryEtag, renditionCacheUrl, renditionKey } from "./rendition-key";
 

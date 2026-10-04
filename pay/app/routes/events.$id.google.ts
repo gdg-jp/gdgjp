@@ -1,11 +1,13 @@
-import { canViewAllClaims, requireMember } from "~/lib/auth-redirect.server";
-import { getEvent, markTemplateGranted, setEventGoogleFolder } from "~/lib/db.server";
+import { requireMember } from "~/features/auth/session.server";
+import { canViewAllClaims } from "~/features/events/permissions";
+import { getEvent, setEventGoogleFolder } from "~/features/events/repository.server";
 import {
   getAccessibleGoogleDriveItem,
-  getValidGoogleAccessToken,
   isGoogleDriveFolder,
   isGoogleSpreadsheet,
-} from "~/lib/google-oauth.server";
+} from "~/features/google/drive.server";
+import { getValidGoogleAccessToken } from "~/features/google/oauth.server";
+import { markTemplateGranted } from "~/features/google/repository.server";
 import { isEventId } from "~/lib/id";
 import type { Route } from "./+types/events.$id.google";
 

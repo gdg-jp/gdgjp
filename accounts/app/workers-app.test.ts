@@ -8,14 +8,14 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("react-router", () => ({ createRequestHandler: () => mocks.requestHandler }));
-vi.mock("./lib/auth.server", () => ({
+vi.mock("~/features/auth/auth.server", () => ({
   getSessionUser: mocks.getSessionUser,
   warmAuth: mocks.warmAuth,
 }));
-vi.mock("./lib/seed-better-auth-als.server", () => ({
+vi.mock("~/features/auth/seed-better-auth-als.server", () => ({
   seedBetterAuthAsyncLocalStorage: vi.fn(),
 }));
-vi.mock("./lib/seed-clients.server", () => ({ seedClients: mocks.seedClients }));
+vi.mock("~/features/oauth/seed-clients.server", () => ({ seedClients: mocks.seedClients }));
 
 import worker from "../workers/app";
 

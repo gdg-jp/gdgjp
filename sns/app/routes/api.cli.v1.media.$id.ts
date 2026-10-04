@@ -1,10 +1,10 @@
 import { requireCliSnsAccess } from "~/features/auth/cli-access.server";
+import { cliAccessErrorAsNotFound, postDraftErrorResponse } from "~/features/cli-api/errors.server";
+import { cliError, cliJson, cliMethodNotAllowed } from "~/features/cli-api/http.server";
 import { postDraftDepsFromEnv } from "~/features/posts/post-draft.deps.server";
 import { PostDraftError, removeMedia } from "~/features/posts/post-draft.service.server";
 import { getPostMediaById } from "~/features/posts/post-media.repository.server";
 import { getPost } from "~/features/posts/post.repository.server";
-import { cliAccessErrorAsNotFound, postDraftErrorResponse } from "~/lib/cli-errors.server";
-import { cliError, cliJson, cliMethodNotAllowed } from "~/lib/cli-http.server";
 import type { Route } from "./+types/api.cli.v1.media.$id";
 
 // Action-only route: a GET/HEAD never reaches `action`, so answer it here with

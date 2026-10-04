@@ -1,4 +1,11 @@
 import { requireCliSnsAccess } from "~/features/auth/cli-access.server";
+import { cliAccessErrorAsNotFound, postDraftErrorResponse } from "~/features/cli-api/errors.server";
+import {
+  cliError,
+  cliJson,
+  cliMethodNotAllowed,
+  parseCliJsonBody,
+} from "~/features/cli-api/http.server";
 import { postDraftDepsFromEnv } from "~/features/posts/post-draft.deps.server";
 import {
   PostDraftError,
@@ -7,8 +14,6 @@ import {
   updateDraft,
 } from "~/features/posts/post-draft.service.server";
 import { getPost } from "~/features/posts/post.repository.server";
-import { cliAccessErrorAsNotFound, postDraftErrorResponse } from "~/lib/cli-errors.server";
-import { cliError, cliJson, cliMethodNotAllowed, parseCliJsonBody } from "~/lib/cli-http.server";
 import type { Route } from "./+types/api.cli.v1.posts.$id";
 
 export async function loader(args: Route.LoaderArgs) {

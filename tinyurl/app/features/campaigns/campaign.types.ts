@@ -1,4 +1,4 @@
-import type { Link } from "~/lib/db";
+import type { Link } from "~/features/links/link-record";
 
 export type Campaign = {
   id: number;

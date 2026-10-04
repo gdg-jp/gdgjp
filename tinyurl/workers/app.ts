@@ -1,5 +1,5 @@
 import { createRequestHandler } from "react-router";
-import { serveCliInstaller } from "../app/lib/cli-installer.server";
+import { serveCliInstaller } from "../app/features/cli-api/cli-installer.server";
 import { CloudflareContext } from "./context";
 
 declare global {
@@ -41,12 +41,14 @@ export default {
     const installer = await serveCliInstaller(request, env.ASSETS);
     if (installer) return installer;
     if (url.pathname.startsWith("/api/internal/gateway/")) {
-      const { handleGatewayInternalRequest } = await import("../app/lib/gateway-internal");
+      const { handleGatewayInternalRequest } = await import(
+        "../app/features/domains/gateway-internal"
+      );
       return handleGatewayInternalRequest(request, env, ctx);
     }
     const apex = isApexRedirect(request, env);
     if (apex) {
-      const { handleApexRedirect } = await import("../app/lib/redirect-handler");
+      const { handleApexRedirect } = await import("../app/features/links/redirect-handler");
       const response = await handleApexRedirect(env, ctx, request, apex.slug, apex.hostname);
       if (response) return response;
     }

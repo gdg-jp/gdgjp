@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useId, useMemo } from "react";
-import { transitions } from "~/lib/motion";
+import { transitions } from "~/components/motion-presets";
 
 /**
  * An integer that pops when it changes (e.g. a vote tally). Renders a single
