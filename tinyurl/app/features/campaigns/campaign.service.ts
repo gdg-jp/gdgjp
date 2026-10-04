@@ -1,6 +1,6 @@
 import { isSuperAdmin } from "@gdgjp/gdg-lib";
 import type { AuthUser, UserChapter } from "@gdgjp/gdg-lib";
-import { validatePublicHttpUrl } from "~/lib/ogp";
+import { validatePublicHttpUrl } from "~/features/links/ogp";
 import { type FeatureFailure, featureFailure } from "../shared/errors";
 import { canAccessCampaign, chapterIdsAreOwnedByCaller } from "./campaign-policy";
 import {

@@ -1,5 +1,5 @@
 import { createRequestHandler } from "react-router";
-import { normalizeSlug } from "../app/lib/slug";
+import { normalizeSlug } from "../app/features/events/slug";
 
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),

@@ -1,9 +1,89 @@
-import type { PostStatus } from "~/lib/db.server";
-import { getPost, listPostsPage } from "~/lib/db.server";
 import { nowIso } from "~/lib/utils";
+import type { Post, PostStatus } from "./post.types";
 import type { PostCondition } from "./post.types";
 
-export { getPost, listPostsPage };
+type PostRow = {
+  id: string;
+  chapter_id: number;
+  x_account_id: string;
+  text: string;
+  scheduled_at: string;
+  condition: "scheduled" | "photo_required";
+  status: PostStatus;
+  created_by_user_id: string;
+  published_x_post_id: string | null;
+  published_at: string | null;
+  failure_reason: string | null;
+  link_preview_url: string | null;
+  link_preview_title: string | null;
+  link_preview_description: string | null;
+  link_preview_image_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+function postFromRow(row: PostRow): Post {
+  return {
+    id: row.id,
+    chapterId: row.chapter_id,
+    xAccountId: row.x_account_id,
+    text: row.text,
+    scheduledAt: row.scheduled_at,
+    condition: row.condition,
+    status: row.status,
+    createdByUserId: row.created_by_user_id,
+    publishedXPostId: row.published_x_post_id,
+    publishedAt: row.published_at,
+    failureReason: row.failure_reason,
+    linkPreviewUrl: row.link_preview_url,
+    linkPreviewTitle: row.link_preview_title,
+    linkPreviewDescription: row.link_preview_description,
+    linkPreviewImageUrl: row.link_preview_image_url,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function listPosts(db: D1Database, chapterId: number): Promise<Post[]> {
+  const result = await db
+    .prepare(
+      "SELECT * FROM posts WHERE chapter_id = ? AND status != 'published' ORDER BY scheduled_at ASC, created_at ASC",
+    )
+    .bind(chapterId)
+    .all<PostRow>();
+  return result.results.map(postFromRow);
+}
+
+export async function getPost(db: D1Database, id: string): Promise<Post | null> {
+  const row = await db.prepare("SELECT * FROM posts WHERE id = ?").bind(id).first<PostRow>();
+  return row ? postFromRow(row) : null;
+}
+
+/**
+ * Offset-paginated post list for a chapter, optionally filtered to one status.
+ * Fetches one extra row so the caller can tell whether another page exists.
+ * Unlike {@link listPosts}, this does not exclude `published` posts — the CLI
+ * uses it to inspect a chapter's whole schedule, filtering by `status` itself.
+ */
+export async function listPostsPage(
+  db: D1Database,
+  options: { chapterId: number; status?: PostStatus; limit: number; offset: number },
+): Promise<{ posts: Post[]; hasMore: boolean }> {
+  const clauses = ["chapter_id = ?"];
+  const binds: unknown[] = [options.chapterId];
+  if (options.status) {
+    clauses.push("status = ?");
+    binds.push(options.status);
+  }
+  const result = await db
+    .prepare(
+      `SELECT * FROM posts WHERE ${clauses.join(" AND ")}
+       ORDER BY scheduled_at ASC, created_at ASC, id ASC LIMIT ? OFFSET ?`,
+    )
+    .bind(...binds, options.limit + 1, options.offset)
+    .all<PostRow>();
+  const rows = result.results.slice(0, options.limit);
+  return { posts: rows.map(postFromRow), hasMore: result.results.length > options.limit };
+}
 
 type PersistedLinkPreview = {
   url: string | null;

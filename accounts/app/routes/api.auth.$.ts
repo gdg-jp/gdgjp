@@ -1,10 +1,10 @@
-import { getAuth, runAuthHandler } from "~/lib/auth.server";
-import { handleDeveloperOAuthApi } from "~/lib/developer-oauth-api.server";
+import { getAuth, runAuthHandler } from "~/features/auth/auth.server";
+import { handleDeveloperOAuthApi } from "~/features/developer-apps/developer-oauth-api.server";
 import {
   handleDeviceAuthorizationRequest,
   handleDeviceTokenGrant,
-} from "~/lib/device-authorization.server";
-import { handleVerifiedEndSession } from "~/lib/legacy-end-session.server";
+} from "~/features/oauth/device-authorization.server";
+import { handleVerifiedEndSession } from "~/features/oauth/legacy-end-session.server";
 import type { Route } from "./+types/api.auth.$";
 
 export async function loader({ request, context }: Route.LoaderArgs) {

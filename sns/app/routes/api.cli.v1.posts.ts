@@ -1,8 +1,5 @@
 import { requireCliSnsAccess } from "~/features/auth/cli-access.server";
-import { postDraftDepsFromEnv } from "~/features/posts/post-draft.deps.server";
-import { PostDraftError, createDraft } from "~/features/posts/post-draft.service.server";
-import { listPostsPage } from "~/features/posts/post.repository.server";
-import { cliAccessErrorResponse, postDraftErrorResponse } from "~/lib/cli-errors.server";
+import { cliAccessErrorResponse, postDraftErrorResponse } from "~/features/cli-api/errors.server";
 import {
   cliError,
   cliJson,
@@ -12,8 +9,11 @@ import {
   parseCliJsonBody,
   parseLimitParam,
   parsePositiveIntParam,
-} from "~/lib/cli-http.server";
-import type { PostStatus } from "~/lib/db.server";
+} from "~/features/cli-api/http.server";
+import { postDraftDepsFromEnv } from "~/features/posts/post-draft.deps.server";
+import { PostDraftError, createDraft } from "~/features/posts/post-draft.service.server";
+import { listPostsPage } from "~/features/posts/post.repository.server";
+import type { PostStatus } from "~/features/posts/post.types";
 import type { Route } from "./+types/api.cli.v1.posts";
 
 const POST_STATUSES: PostStatus[] = [

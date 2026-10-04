@@ -1,8 +1,8 @@
 import { redirect } from "react-router";
-import { getSessionUser } from "~/lib/auth.server";
-import { listMembershipsForUser } from "~/lib/db";
-import { shouldStartChapterOnboarding } from "~/lib/onboarding-policy";
-import { hasOnboardingSkip } from "~/lib/onboarding-skip.server";
+import { getSessionUser } from "~/features/auth/auth.server";
+import { listMembershipsForUser } from "~/features/memberships/repository.server";
+import { shouldStartChapterOnboarding } from "~/features/onboarding/onboarding-policy";
+import { hasOnboardingSkip } from "~/features/onboarding/onboarding-skip.server";
 import type { Route } from "./+types/home";
 
 export async function loader({ request, context }: Route.LoaderArgs) {

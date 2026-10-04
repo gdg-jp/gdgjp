@@ -17,21 +17,25 @@ export {
 } from "./link-policy";
 export {
   addComment,
-  addPermission,
-  archiveLink,
   deleteComment,
+  replaceCommentForAuthor,
+  listComments,
+} from "~/features/links/link-comments.repository";
+export {
+  addPermission,
+  listPermissionsForLink,
+  replaceLinkPermissions,
+  removePermission,
+  updatePermissionRole,
+} from "~/features/links/link-permissions.repository";
+export {
+  archiveLink,
   getLinkById,
   listVisibleLinksPage,
-  listPermissionsForLink,
-  replaceCommentForAuthor,
-  replaceLinkPermissions,
-  listComments,
-  removePermission,
   restoreLink,
   softDeleteLink,
   updateLink,
-  updatePermissionRole,
-} from "./link.repository";
+} from "~/features/links/link.repository";
 export type {
   LinkServiceActor,
   LinkServiceDependencies,

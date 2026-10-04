@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const listChapters = vi.fn();
-vi.mock("~/lib/db", () => ({ listChapters }));
+vi.mock("~/features/chapters/repository.server", () => ({
+  listChapters,
+}));
 
 describe("GET /api/chapters/directory", () => {
   beforeEach(() => {

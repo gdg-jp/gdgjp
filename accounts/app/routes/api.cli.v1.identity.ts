@@ -1,5 +1,6 @@
-import { getUserById, listActiveChaptersForUser } from "~/lib/db";
-import { requireCliTokenUser } from "~/lib/oauth-clients.server";
+import { listActiveChaptersForUser } from "~/features/memberships/repository.server";
+import { requireCliTokenUser } from "~/features/oauth/cli-token.server";
+import { getUserById } from "~/features/users/repository.server";
 import type { Route } from "./+types/api.cli.v1.identity";
 
 export async function loader({ request, context }: Route.LoaderArgs) {

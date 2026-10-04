@@ -1,6 +1,6 @@
 import type { AuthUser, UserChapter } from "@gdgjp/gdg-lib";
 import { parse } from "tldts";
-import type { DomainDetection } from "~/lib/domain-detection";
+import type { DomainDetection } from "~/features/domains/domain-detection";
 import { type FeatureFailure, featureFailure } from "../shared/errors";
 import { manageableChapterIds } from "./domain-policy";
 import {

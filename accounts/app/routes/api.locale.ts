@@ -1,5 +1,5 @@
 import { redirect } from "react-router";
-import { safeReturnTo } from "~/lib/auth-redirect";
+import { safeReturnTo } from "~/features/auth/auth-redirect";
 import { i18n, localeCookie } from "~/lib/i18n/i18n.server";
 import { isLocale } from "~/lib/i18n/resources";
 import type { Route } from "./+types/api.locale";

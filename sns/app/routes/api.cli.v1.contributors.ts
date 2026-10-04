@@ -1,11 +1,5 @@
 import { requireCliSnsOrganizer } from "~/features/auth/cli-access.server";
-import { contributorDepsFromEnv } from "~/features/contributors/contributor.deps.server";
-import {
-  addContributor,
-  listChapterContributorsPage,
-  removeContributor,
-} from "~/features/contributors/contributor.service.server";
-import { cliAccessErrorResponse } from "~/lib/cli-errors.server";
+import { cliAccessErrorResponse } from "~/features/cli-api/errors.server";
 import {
   cliError,
   cliJson,
@@ -15,8 +9,14 @@ import {
   parseCliJsonBody,
   parseLimitParam,
   parsePositiveIntParam,
-} from "~/lib/cli-http.server";
-import { isValidEmail } from "~/lib/utils";
+} from "~/features/cli-api/http.server";
+import { isValidEmail } from "~/features/contributors/contributor-policy";
+import { contributorDepsFromEnv } from "~/features/contributors/contributor.deps.server";
+import {
+  addContributor,
+  listChapterContributorsPage,
+  removeContributor,
+} from "~/features/contributors/contributor.service.server";
 import type { Route } from "./+types/api.cli.v1.contributors";
 
 export async function loader(args: Route.LoaderArgs) {

@@ -1,13 +1,13 @@
 import { isSuperAdmin } from "@gdgjp/gdg-lib";
 import { data, redirect } from "react-router";
+import { requireSnsAccess } from "~/features/auth/access.server";
 import { canAdministerContributors } from "~/features/contributors/contributor-policy";
+import { isValidEmail } from "~/features/contributors/contributor-policy";
 import { contributorDepsFromEnv } from "~/features/contributors/contributor.deps.server";
 import {
   addContributor,
   removeContributor,
 } from "~/features/contributors/contributor.service.server";
-import { requireSnsAccess } from "~/lib/access.server";
-import { isValidEmail } from "~/lib/utils";
 import type { Route } from "./+types/settings.contributors";
 export async function action({ request, context }: Route.ActionArgs) {
   const access = await requireSnsAccess(context.cloudflare.env, request);

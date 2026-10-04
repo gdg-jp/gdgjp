@@ -58,7 +58,7 @@
   },
   "overrides": [
     {
-      "include": ["tinyurl/app/components/tag-combobox.tsx"],
+      "include": ["tinyurl/app/features/tags/components/tag-combobox.tsx"],
       "linter": {
         "rules": {
           "a11y": {

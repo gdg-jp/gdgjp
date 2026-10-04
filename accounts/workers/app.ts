@@ -1,8 +1,8 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createRequestHandler } from "react-router";
-import { getSessionUser, warmAuth } from "../app/lib/auth.server";
-import { seedBetterAuthAsyncLocalStorage } from "../app/lib/seed-better-auth-als.server";
-import { seedClients } from "../app/lib/seed-clients.server";
+import { getSessionUser, warmAuth } from "~/features/auth/auth.server";
+import { seedBetterAuthAsyncLocalStorage } from "~/features/auth/seed-better-auth-als.server";
+import { seedClients } from "~/features/oauth/seed-clients.server";
 
 // Keep a static node:async_hooks import in the Worker entry so the isolate
 // loads AsyncLocalStorage outside any request I/O context.

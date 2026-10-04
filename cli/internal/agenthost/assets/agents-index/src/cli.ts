@@ -2,8 +2,8 @@
 import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { startDaemon } from "./index.ts";
-import type { IndexEndpoint } from "./index.ts";
+import { startDaemon } from "./daemon/server.ts";
+import type { IndexEndpoint } from "./daemon/server.ts";
 import { defaultEmbedder } from "./indexer/embed.ts";
 import { DEFAULT_DATABASE_PATH, IndexStore } from "./indexer/store.ts";
 import { IndexWatcher } from "./indexer/watcher.ts";

@@ -2,15 +2,13 @@
 export {
   canEditFolder,
   canViewFolder,
-  createFolder,
-  deleteFolder,
   getFolderById,
   listAccessibleFoldersPage,
-  updateFolder,
-} from "./folder.repository";
+} from "~/features/folders/folder-access.repository";
+export { createFolder, deleteFolder, updateFolder } from "~/features/folders/folder.repository";
 export {
   getAccessibleFolder,
   listAccessibleChildFoldersWithCounts,
   listAccessibleRootFoldersWithCounts,
-} from "~/lib/db";
-export type { Folder, FolderViewer, FolderWithCounts } from "./folder.repository";
+} from "~/features/folders/folder-access.repository";
+export type { Folder, FolderViewer, FolderWithCounts } from "~/features/folders/folder-record";

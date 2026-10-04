@@ -49,6 +49,17 @@ This is a flat pnpm/Turborepo monorepo. The workspace packages are listed in
 `cli/` contains the Go-based `gdg` CLI and is not a pnpm workspace. Repository automation lives
 in `scripts/`; supporting documentation lives in `docs/`.
 
+Application code is feature-first; consult each application's `ARCHITECTURE.md` and
+`docs/software-architecture.md`. Domain logic, data access, and tests belong in
+`app/features/<domain>/`; `app/lib/` contains domain-independent primitives.
+Frontend code distinguishes domain-independent components (`app/components/`),
+domain-aware widgets (`app/features/<domain>/components/`), and composed screens
+(`app/routes/<domain>/`). Shared composed shells belong in `app/layouts/`.
+Route modules own screen composition and HTTP handlers together; do not add a separate
+page directory or a forwarding module solely to render the screen. Features do not import routes. Preserve
+framework entrypoints and public URLs when moving modules. Existing wiki and roster
+code maps describe their own placement conventions.
+
 Static assets are normally in `public/`. Unit tests live beside the code they cover as
 `*.test.ts` or `*.test.tsx`; Playwright tests live in each app's `e2e/` directory. `schema.sql`
 files are generated from migrations: edit migrations, not the generated dump.

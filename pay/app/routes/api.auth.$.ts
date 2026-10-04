@@ -1,4 +1,4 @@
-import { getAuth } from "~/lib/auth.server";
+import { getAuth } from "~/features/auth/auth.server";
 import type { Route } from "./+types/api.auth.$";
 
 export async function loader(args: Route.LoaderArgs) {

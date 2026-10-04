@@ -1,14 +1,16 @@
 import { DurableObject } from "cloudflare:workers";
-import { autoAssign, rankUnits } from "../app/lib/assign";
-import { buildUnits } from "../app/lib/scoring";
+import { autoAssign, rankUnits } from "../app/features/board/assign";
 import {
   type BoardMessage,
   type Desk,
+  type DeskInput,
+  type DeskPatch,
   type Group,
   MAX_TOPIC_LENGTH,
   type OstBoardState,
   type Topic,
-} from "../app/lib/topics";
+} from "../app/features/board/protocol";
+import { buildUnits } from "../app/features/board/scoring";
 import { ensureOstBoardSchema } from "./ost-board-schema";
 
 type TopicRow = {
@@ -30,16 +32,6 @@ type DeskRow = {
   sort_order: number;
   created_at: number;
 };
-
-export type DeskInput = {
-  x: number;
-  y: number;
-  width?: number;
-  height?: number;
-  rotation?: number;
-  label?: string;
-};
-export type DeskPatch = Partial<Pick<Desk, "x" | "y" | "width" | "height" | "rotation" | "label">>;
 
 /**
  * One board per OST event. Addressed as `env.OST_BOARD.getByName(slug)`.

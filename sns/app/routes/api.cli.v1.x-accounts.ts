@@ -1,13 +1,13 @@
 import { requireCliSnsAccess } from "~/features/auth/cli-access.server";
-import { xAccountDepsFromEnv } from "~/features/x-accounts/x-account.deps.server";
-import { listUsableXAccounts } from "~/features/x-accounts/x-account.service.server";
-import { cliAccessErrorResponse } from "~/lib/cli-errors.server";
+import { cliAccessErrorResponse } from "~/features/cli-api/errors.server";
 import {
   cliError,
   cliJson,
   cliMethodNotAllowed,
   parsePositiveIntParam,
-} from "~/lib/cli-http.server";
+} from "~/features/cli-api/http.server";
+import { xAccountDepsFromEnv } from "~/features/x-accounts/x-account.deps.server";
+import { listUsableXAccounts } from "~/features/x-accounts/x-account.service.server";
 import type { Route } from "./+types/api.cli.v1.x-accounts";
 
 export async function loader(args: Route.LoaderArgs) {

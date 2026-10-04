@@ -1,5 +1,6 @@
 import { redirect } from "react-router";
-import { chapterCookie, requireSnsAccess, safeReturnTo } from "~/lib/access.server";
+import { chapterCookie, requireSnsAccess } from "~/features/auth/access.server";
+import { safeReturnTo } from "~/features/auth/return-to";
 import type { Route } from "./+types/api.chapter";
 export async function action({ request, context }: Route.ActionArgs) {
   const access = await requireSnsAccess(context.cloudflare.env, request);

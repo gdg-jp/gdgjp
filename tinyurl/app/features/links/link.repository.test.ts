@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { copyFolderPermissionsToLink } from "~/features/links/link-permissions.repository";
 import {
   archiveLink,
-  copyFolderPermissionsToLink,
   listVisibleLinksPage,
   restoreLink,
   updateLink,
-} from "./link.repository";
+} from "~/features/links/link.repository";
 
 describe("updateLink domain", () => {
   it("updates the domain and chapter ownership in one statement", async () => {

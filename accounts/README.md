@@ -9,7 +9,7 @@ implementing sign-in itself; see `gdg-lib/README.md` for the RP-side integration
 
 React Router v7 SSR on Cloudflare Workers. Authentication is Better Auth (`better-auth` +
 `@better-auth/oauth-provider`), mounted at `/api/auth/*` — not the community
-`@cloudflare/workers-oauth-provider` package. `app/lib/auth.server.ts` is the single source of
+`@cloudflare/workers-oauth-provider` package. `app/features/auth/auth.server.ts` is the single source of
 truth for Google sign-in, sessions, OAuth/OIDC endpoints, token lifetimes, scopes, and claims.
 
 Discovery and protocol endpoints:
@@ -28,7 +28,7 @@ separately since the plugin doesn't support it natively); PKCE S256 is required 
 registration is disabled. First-party clients (the trusted RPs above) get `skipConsent` and
 `enableEndSession` via the admin seeding flow below. Active chapter members can additionally
 self-register individually owned confidential clients through `/developers/apps`, gated by
-`app/lib/oauth-clients.server.ts`.
+`app/features/developer-apps/oauth-clients.server.ts`.
 
 Chapter membership is exposed to RPs only under the dedicated
 `https://gdgs.jp/scopes/chapters` scope, which adds `https://gdgs.jp/claims/chapters` and
@@ -40,7 +40,7 @@ Beyond the IdP role, this app also owns:
 - **Chapter/membership administration** — `chapters` and `memberships` tables, `admin/chapters`,
   `admin/users`, `admin/requests` routes.
 - **Google Workspace linking** — an incremental-consent OAuth flow independent of Better Auth
-  (`app/lib/google-workspace.server.ts`) that stores encrypted Workspace refresh tokens and vends
+  (`app/features/google-workspace/google-workspace.server.ts`) that stores encrypted Workspace refresh tokens and vends
   short-lived tokens to the `agents` service via `api/agents/google-workspace-token`.
 
 ## Directory structure

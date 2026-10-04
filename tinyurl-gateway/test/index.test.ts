@@ -1,13 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createHmac } from "node:crypto";
+
 import * as gatewayModule from "../api/index.js";
 
-const {
-  clearConfigCacheForTests,
-  clearLocalCachesForTests,
-  handleGatewayRequest,
-  validateUpstreamOrigin,
-} = gatewayModule;
+import { clearDomainConfigCacheForTests } from "../src/domain-config.js";
+import { handleGatewayRequest } from "../src/gateway.js";
+import { resolveShortLink } from "../src/internal-api.js";
+import { fetchOrigin } from "../src/origin-proxy.js";
+import { clearSharedCacheForTests } from "../src/runtime-cache.js";
+import { clearUpstreamDnsCacheForTests, validateUpstreamOrigin } from "../src/upstream.js";
+
+function clearLocalCachesForTests(): void {
+  clearDomainConfigCacheForTests();
+  clearUpstreamDnsCacheForTests();
+}
+
+async function clearConfigCacheForTests(): Promise<void> {
+  clearLocalCachesForTests();
+  await clearSharedCacheForTests();
+}
 
 function config(mode: "short-only" | "origin-first", upstreamOrigin: string | null) {
   return new Response(JSON.stringify({ hostname: "custom.example", mode, upstreamOrigin }), {
@@ -379,5 +391,68 @@ describe("gateway", () => {
     await expect(
       validateUpstreamOrigin("https://origin.custom.example", "custom.example"),
     ).rejects.toThrow("private address");
+  });
+
+  it.each([
+    "http://origin.example",
+    "https://origin.example/path",
+    "https://127.0.0.1",
+    "https://[::1]",
+    "https://localhost",
+    "https://origin.local",
+    "https://custom.example",
+    "https://url.gdgs.jp",
+    "https://site.vercel.app",
+  ])("rejects unsafe upstream %s before DNS lookup", async (origin) => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(validateUpstreamOrigin(origin, "custom.example")).rejects.toThrow(
+      "Unsafe upstream origin",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("signs the resolver method, query and host at the internal API boundary", async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await resolveShortLink(
+      new Request("https://custom.example/about", { method: "HEAD" }),
+      "custom.example",
+      "about",
+      "https://custom.example/about",
+    );
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [URL, RequestInit];
+    const headers = new Headers(init.headers);
+    const payload = `${headers.get("x-gdg-timestamp")}\nHEAD\n${url.pathname}${url.search}\ncustom.example`;
+    expect(init.method).toBe("HEAD");
+    expect(init.redirect).toBe("manual");
+    expect(headers.get("x-gdg-signature")).toBe(
+      createHmac("sha256", "test-secret").update(payload).digest("hex"),
+    );
+    expect(headers.get("x-gdg-original-url")).toBe("https://custom.example/about");
+  });
+
+  it("preserves POST bodies and strips trusted and hop headers at the proxy boundary", async () => {
+    const fetchMock = vi.fn(async () => new Response("ok"));
+    vi.stubGlobal("fetch", fetchMock);
+    await fetchOrigin(
+      {
+        url: "/submit",
+        method: "POST",
+        headers: { host: "custom.example", connection: "close", "x-gdg-signature": "forged" },
+        body: "payload",
+      },
+      "custom.example",
+      new URL("https://origin.example/submit"),
+    );
+    const [, init] = fetchMock.mock.calls[0] as unknown as [URL, RequestInit];
+    const headers = new Headers(init.headers);
+    expect(init.method).toBe("POST");
+    expect(init.body).toBe("payload");
+    expect(init.redirect).toBe("manual");
+    expect(headers.get("host")).toBeNull();
+    expect(headers.get("connection")).toBeNull();
+    expect(headers.get("x-gdg-signature")).toBeNull();
+    expect(headers.get("x-forwarded-host")).toBe("custom.example");
   });
 });

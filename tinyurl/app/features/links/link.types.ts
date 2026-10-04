@@ -1,4 +1,4 @@
-export type { Link, LinkPermission, LinkRole, LinkVisibility } from "~/lib/db";
+export type { Link, LinkPermission, LinkRole, LinkVisibility } from "~/features/links/link-record";
 
 export type LinkShareInput = {
   principalType: string;

@@ -1,7 +1,7 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import type { ImageUploadInput, ImageUploadResult } from "@gdgjp/gdg-lib";
 import { createRequestHandler } from "react-router";
-import { uploadImage } from "../app/features/images/service";
+import { uploadImage } from "../app/features/images/upload.server";
 import { CloudflareContext } from "./context";
 
 const requestHandler = createRequestHandler(

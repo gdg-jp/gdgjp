@@ -1,5 +1,5 @@
 import { serializeCookie, signPayload } from "@gdgjp/gdg-lib";
-import { safeReturnTo } from "~/lib/return-to";
+import { safeReturnTo } from "~/features/auth/return-to";
 import type { Route } from "./+types/dev.login";
 
 /**

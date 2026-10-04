@@ -2,7 +2,7 @@ import { type AuthUser, getCliIdentity, isSuperAdmin } from "@gdgjp/gdg-lib";
 import { isContributor } from "~/features/contributors/contributor.repository.server";
 
 /**
- * CLI equivalent of {@link import("~/lib/access.server").requireSnsAccess}, but
+ * CLI equivalent of {@link import("~/features/auth/access.server").requireSnsAccess}, but
  * for a JSON API: it returns a discriminated result instead of throwing
  * `redirect()`/`Response`. A route turns `{ error: 401 }` / `{ error: 403 }`
  * into the matching JSON status; an id-addressed route turns `403` into `404`

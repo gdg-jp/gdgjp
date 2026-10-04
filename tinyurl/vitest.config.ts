@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
     environment: "node",
-    include: ["app/**/*.{test,spec}.{ts,tsx}"],
+    include: ["app/**/*.{test,spec}.{ts,tsx}", "tests/architecture/**/*.test.ts"],
     exclude: ["node_modules", "build", ".react-router", "e2e"],
   },
 });

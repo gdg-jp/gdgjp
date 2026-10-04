@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canAdministerContributors } from "./contributor-policy";
+import { canAdministerContributors, isValidEmail } from "./contributor-policy";
 
 describe("canAdministerContributors", () => {
   it("allows an organizer", () => {
@@ -15,4 +15,9 @@ describe("canAdministerContributors", () => {
     expect(canAdministerContributors({ role: "contributor", isSuperAdmin: false })).toBe(false);
     expect(canAdministerContributors({ role: "member", isSuperAdmin: false })).toBe(false);
   });
+});
+
+it("validates contributor emails", () => {
+  expect(isValidEmail("organizer@example.com")).toBe(true);
+  expect(isValidEmail("not-an-email")).toBe(false);
 });

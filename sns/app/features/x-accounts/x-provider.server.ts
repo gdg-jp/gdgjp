@@ -1,5 +1,5 @@
+import { getXAccount } from "~/features/x-accounts/x-account.repository.server";
 import { decryptSecret, encryptSecret } from "~/lib/crypto.server";
-import { getXAccount } from "~/lib/db.server";
 import { nowIso } from "~/lib/utils";
 
 // X requires both tweet.read and users.read for GET /2/users/me. The latter

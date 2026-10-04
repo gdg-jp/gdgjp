@@ -1,5 +1,5 @@
 import { redirect } from "react-router";
-import { safeReturnTo } from "~/lib/access.server";
+import { safeReturnTo } from "~/features/auth/return-to";
 import type { Route } from "./+types/signin";
 export function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);

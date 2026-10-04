@@ -2,27 +2,30 @@ import { isSuperAdmin } from "@gdgjp/gdg-lib";
 import type { AuthUser, UserChapter } from "@gdgjp/gdg-lib";
 import { getCampaignById, getCampaignChannelById } from "~/features/campaigns";
 import { getDomainById } from "~/features/domains";
-import { createTag } from "~/features/tags";
-import { canEditFolder, getFolderById } from "~/lib/db";
-import { validatePublicHttpUrl } from "~/lib/ogp";
-import { generateRandomSlug, validateSlug } from "~/lib/slug";
-import { type FeatureFailure, featureFailure } from "../shared/errors";
-import { type ValidatedShare, validateSharePrincipal } from "./link-policy";
+import { canEditFolder, getFolderById } from "~/features/folders/folder-access.repository";
+import { addComment, replaceCommentForAuthor } from "~/features/links/link-comments.repository";
 import {
-  addComment,
   addPermission,
   copyFolderPermissionsToLink,
-  deleteLink,
-  findExistingTagId,
-  listAllowedTagIds,
   listPermissionsForLink,
-  replaceCommentForAuthor,
   replaceLinkPermissions,
+  updatePermissionRole,
+} from "~/features/links/link-permissions.repository";
+import {
+  deleteLink,
   createLink as repoCreateLink,
   updateLink as repoUpdateLink,
+} from "~/features/links/link.repository";
+import { validatePublicHttpUrl } from "~/features/links/ogp";
+import { generateRandomSlug, validateSlug } from "~/features/links/slug";
+import { createTag } from "~/features/tags";
+import {
+  findExistingTagId,
+  listAllowedTagIds,
   setLinkTags,
-  updatePermissionRole,
-} from "./link.repository";
+} from "~/features/tags/link-tags.repository";
+import { type FeatureFailure, featureFailure } from "../shared/errors";
+import { type ValidatedShare, validateSharePrincipal } from "./link-policy";
 import type { CreateLinkInput, Link, LinkShareInput } from "./link.types";
 
 export type LinkServiceDependencies = {

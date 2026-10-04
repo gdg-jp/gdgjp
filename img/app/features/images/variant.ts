@@ -1,5 +1,5 @@
-import { prefersMobileImage } from "~/lib/device";
-import type { ImageRow } from "./repository";
+import { prefersMobileImage } from "~/features/images/device";
+import type { ImageRow } from "./repository.server";
 
 export const DEVICE_VARY = "Sec-CH-UA-Mobile, CF-Device-Type, User-Agent";
 

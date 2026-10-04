@@ -1,5 +1,5 @@
 import { type AuthUser, type UserChapter, isSuperAdmin } from "@gdgjp/gdg-lib";
-import type { FolderRow } from "./repository";
+import type { FolderRow } from "./repository.server";
 
 /**
  * A folder is chapter-owned: any member of that chapter (or a super admin)

@@ -81,3 +81,13 @@ export async function deleteContributor(
     .bind(chapterId, userEmail)
     .run();
 }
+
+type ContributorRow = { chapter_id: number };
+
+export async function contributorChapterIds(db: D1Database, email: string): Promise<number[]> {
+  const result = await db
+    .prepare("SELECT chapter_id FROM sns_contributors WHERE user_email = ?")
+    .bind(email)
+    .all<ContributorRow>();
+  return result.results.map((row) => row.chapter_id);
+}

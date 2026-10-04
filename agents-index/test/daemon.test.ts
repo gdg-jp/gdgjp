@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { startDaemon } from "../src/index.ts";
+import { startDaemon } from "../src/daemon/server.ts";
 import { IndexStore } from "../src/indexer/store.ts";
 
 async function rpc(socketPath: string, payload: object): Promise<unknown> {

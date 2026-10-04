@@ -57,7 +57,7 @@
     "path": "etc/systemd/system/agents-index.service",
     "type": "file",
     "mode": "0644",
-    "sha256": "a11a8150aa6c957616a4779324eb57658f96dfea1ae4dd7e8205d9e297ee880c"
+    "sha256": "b9366ab92aa7201ada63ca4732922c9d1da10575b49bf57bbdaf62bb528abdde"
   },
   {
     "path": "etc/tmpfiles.d",
@@ -376,13 +376,30 @@
     "path": "opt/agents-index/src/cli.ts",
     "type": "file",
     "mode": "0444",
-    "sha256": "0158ec2be70664982237004e0b697d344ee6241c923a3e0d0996e624b8e53ec7"
+    "sha256": "6c4058c01b73c9176d0da06497e4e9cbdc4b8fa3e51f4d3a312a0ed5d3c967b2"
   },
   {
-    "path": "opt/agents-index/src/index.ts",
+    "path": "opt/agents-index/src/daemon",
+    "type": "dir",
+    "mode": "0755"
+  },
+  {
+    "path": "opt/agents-index/src/daemon/rpc.ts",
     "type": "file",
     "mode": "0444",
-    "sha256": "48d46e8db8a757e6a51e02bf6638ea06197ef94c9208d33de135d0205681de63"
+    "sha256": "04af3b4a9048961003752a2271ca5bd770bcd24c4fe72629afe656ca9fd4bf95"
+  },
+  {
+    "path": "opt/agents-index/src/daemon/server.ts",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "8dabec840a64e036c6f36000ace15fe6755f1202945b902950fd343d47be4418"
+  },
+  {
+    "path": "opt/agents-index/src/daemon/socket-access.ts",
+    "type": "file",
+    "mode": "0444",
+    "sha256": "1e6dab235bb56e3b1f98a104a4c95dbbe724290ae467bfb23bfbbe22446ebcac"
   },
   {
     "path": "opt/agents-index/src/indexer",
@@ -424,12 +441,6 @@
     "type": "file",
     "mode": "0444",
     "sha256": "172219a29145cd3432858a7206bbb4f255192b44b8effb3dbce7e1bec0b6f623"
-  },
-  {
-    "path": "opt/agents-index/src/socket-access.ts",
-    "type": "file",
-    "mode": "0444",
-    "sha256": "1e6dab235bb56e3b1f98a104a4c95dbbe724290ae467bfb23bfbbe22446ebcac"
   },
   {
     "path": "opt/gdg-agent",

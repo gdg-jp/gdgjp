@@ -3,6 +3,13 @@
 Event expense reimbursement for GDG Japan. React Router v7 SSR on Cloudflare Workers
 with D1, R2 receipts, Gemini extraction, and Google Sheets/Drive sync.
 
+Feature ownership and dependency rules are documented in `ARCHITECTURE.md`.
+Keep domain SQL in `app/features/<domain>/repository.server.ts`, browser-safe
+data types in `types.ts`, and domain tests beside their feature. Domain widgets
+belong in `features/<domain>/components/`, composed screens in their registered `routes/<domain>/` modules,
+and shared composed layouts in `app/layouts/`; `app/components/` is domain-free UI.
+Routes compose features; claim detail workflows live in `features/claims/detail.server.ts`.
+
 ## Local development
 
 ```sh

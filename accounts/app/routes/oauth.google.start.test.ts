@@ -14,9 +14,12 @@ vi.mock("better-auth", () => ({
 
 vi.mock("better-auth/plugins", () => ({ jwt: () => ({}) }));
 vi.mock("@better-auth/oauth-provider", () => ({ oauthProvider: () => ({}) }));
-vi.mock("../lib/db", () => ({ listActiveChaptersForUser: vi.fn(async () => []) }));
 
-import { AUTH_HANDLER_TIMEOUT_MS, invalidateAuthCache } from "../lib/auth.server";
+vi.mock("~/features/memberships/repository.server", () => ({
+  listActiveChaptersForUser: vi.fn(async () => []),
+}));
+
+import { AUTH_HANDLER_TIMEOUT_MS, invalidateAuthCache } from "~/features/auth/auth.server";
 import { loader, redirectSocialResponse } from "./oauth.google.start";
 
 describe("redirectSocialResponse", () => {

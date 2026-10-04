@@ -8,7 +8,7 @@ Router v7 SSR on Cloudflare Workers, D1-backed, no local IdP — sign-in is dele
 
 Anonymous use is first-class:
 
-- Anyone can create an event (`/`, `routes/events.new.tsx`) without signing in. `owner_user_id` is
+- Anyone can create an event (`/`, `routes/events/new.tsx`) without signing in. `owner_user_id` is
   set from the session if present, otherwise left `NULL`.
 - Anyone can open an event (`/e/:id`) and record their own availability without signing in.
   Anonymous participants are identified by a per-event cookie, `scheduler_p_<eventId>`, containing
@@ -18,9 +18,9 @@ Anonymous use is first-class:
   participant row instead of a cookie, a "My events" list (`/events`) of events owned by that
   user, and owner-only edit (`/e/:id/edit`) and soft-delete (`/e/:id/delete`).
 
-`resolveCurrentParticipant` in `app/routes/e.$id.tsx` is the canonical identity lookup for a
+`resolveCurrentParticipant` in `app/features/participants/event.server.ts` is the canonical identity lookup for a
 request: prefer the signed-in user, fall back to the validated cookie. Owner-only mutations
-(`updateEventForOwner`, `softDeleteEvent` in `app/lib/db.ts`) take `ownerUserId` and no-op unless
+(`updateEventForOwner`, `softDeleteEvent` in `app/features/events/repository.server.ts`) take `ownerUserId` and no-op unless
 it matches `owner_user_id`. Deletes are soft (`deleted_at`); every read filters
 `deleted_at IS NULL`.
 
@@ -48,23 +48,24 @@ it matches `owner_user_id`. Deletes are soft (`deleted_at`); every read filters
 app/
   routes.ts               # flat route table (framework mode)
   routes/
-    home.tsx               # event creation form (anonymous-friendly)
-    events.new.tsx         # action: create event + slots, redirect to /e/:id
-    events.tsx             # "My events" — requireUser, owner's events only
-    e.$id.tsx               # event view: join, mark availability, resolveCurrentParticipant
-    e.$id.edit.tsx           # owner-only edit
-    e.$id.delete.ts          # owner-only soft delete
-    signin.tsx               # redirects into /api/auth/signin with return_to
-    api.auth.$.ts             # passthrough to gdg-lib's handleAuthRequest
-    auth.signout.ts           # passthrough to gdg-lib's handleSignOutRedirect
-  lib/
-    auth.server.ts           # initializeRpAuth wiring, cached per-env
-    auth-redirect.server.ts  # requireUser / getOptionalUser (redirect-on-401 wrapper)
-    db.ts                    # all D1 queries: *Row types, toX mappers, column-list constants
-    slots.ts                 # day/time slot model, TIME_OPTIONS, deriveDayRanges
-    participant-cookie.ts    # anon participant cookie sign/verify
-    validate.ts               # form parsing for event creation
-    return-to.ts              # safeReturnTo (same-origin redirect guard)
+    events/
+      create.tsx             # event creation form (anonymous-friendly)
+      new.tsx                # action: create event + slots
+      list.tsx               # owner's events
+      edit.tsx               # owner-only edit
+      delete.ts              # owner-only soft delete
+    participants/event.tsx   # event view and availability responses
+    signin.tsx               # redirect into /api/auth/signin
+    api.auth.$.ts            # auth passthrough
+    auth.signout.ts          # sign-out passthrough
+  features/
+    auth/                    # OIDC wiring, sessions, same-origin redirect guard
+    events/                  # event lifecycle, form validation, bundle read model
+    scheduling/              # slots, reconciliation, schedule editor and slot grid
+    participants/            # participant persistence, cookie identity and availability responses
+  lib/                       # cross-cutting theme and class-name helpers only
+  layouts/                   # composed application header
+  components/                # domain-free UI primitives
 workers/app.ts               # Worker entrypoint
 migrations/                  # D1 schema, numbered; schema.sql is generated — do not hand-edit
 e2e/                          # Playwright specs
@@ -98,10 +99,10 @@ Re-run `typecheck` after editing `wrangler.toml` bindings.
 
 ## Testing
 
-Unit tests (Vitest, `app/**/*.test.ts`) cover the parts most sensitive to correctness:
-`app/lib/db.test.ts`, `app/lib/slots.test.ts` (day/time grid), `app/lib/reconcile.test.ts` (slot
-diffing on event edit), `app/lib/participant-cookie.test.ts` (anon identity), `app/lib/id.test.ts`,
-and `app/lib/validate.test.ts`.
+Unit tests (Vitest, `app/**/*.test.ts`) sit beside their feature modules and cover event
+mapping, form validation, slot calculations/reconciliation, anonymous cookie identity, and IDs.
+`app/architecture.test.ts` enforces feature ownership and import boundaries. See
+[ARCHITECTURE.md](ARCHITECTURE.md) for the code map.
 
 ```sh
 pnpm --filter @gdgjp/scheduler test
