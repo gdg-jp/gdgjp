@@ -1,4 +1,6 @@
 import { execFileSync } from "node:child_process";
+import { constants, accessSync, readFileSync, realpathSync } from "node:fs";
+import { resolve } from "node:path";
 
 type HookPayload = {
   tool_input?: {
@@ -22,6 +24,47 @@ function isExecFileError(value: unknown): value is ExecFileError {
   return isRecord(value);
 }
 
+function usesRepositoryGitHook(command: string): boolean {
+  // Only defer simple commits. Bypass flags, git configuration overrides and
+  // shell compounds still need the agent-side check before execution.
+  const tokens = command.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? [];
+  const bypassesHook = tokens
+    .map((token) => token.replaceAll('"', "").replaceAll("'", ""))
+    .some(
+      (token) =>
+        (token.startsWith("--") && "--no-verify".startsWith(token)) ||
+        (token.startsWith("-") && !token.startsWith("--") && token.includes("n")),
+    );
+  if (
+    !/^(?:rtk\s+)?git\s+commit(?:\s|$)/.test(command) ||
+    /[;&|<>`$\\\r\n{}()[\]*?~^]/.test(command) ||
+    bypassesHook
+  ) {
+    return false;
+  }
+
+  try {
+    const root = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    const hook = execFileSync("git", ["rev-parse", "--git-path", "hooks/pre-commit"], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    const hookPath = resolve(root, hook);
+    accessSync(hookPath, constants.X_OK);
+    return (
+      realpathSync(hookPath) === realpathSync(resolve(root, ".githooks/pre-commit")) &&
+      readFileSync(hookPath, "utf8") ===
+        '#!/bin/sh\n\nset -eu\n\nrepo_root="$(git rev-parse --show-toplevel)"\nexec node "$repo_root/scripts/run-pre-commit-ci.mjs"\n'
+    );
+  } catch {
+    return false;
+  }
+}
+
 function readHookInput(): void {
   let input = "";
   process.stdin.setEncoding("utf8");
@@ -41,6 +84,13 @@ function readHookInput(): void {
 
     if (!/\bgit\b[^;&|\n]*\bcommit\b/.test(command)) {
       process.exit(0);
+    }
+
+    if (usesRepositoryGitHook(command)) {
+      process.stdout.write(
+        JSON.stringify({ systemMessage: "The Git pre-commit hook will run relevant CI checks." }),
+      );
+      return;
     }
 
     try {

@@ -256,6 +256,7 @@ test("pre-commit hook does not invoke pnpm for malformed or non-commit payloads"
 });
 
 test("pre-commit hook denies a commit only when its CI check fails", async () => {
+  const root = await makeClone();
   const binDir = await mkdtemp(join(tmpdir(), "gdgjp-hook-pnpm-"));
   await makeFakeExecutable(
     binDir,
@@ -266,6 +267,7 @@ test("pre-commit hook denies a commit only when its CI check fails", async () =>
   const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
 
   const failure = runNode(preCommitPath, [], {
+    cwd: root,
     input,
     env: { ...env, FAKE_EXIT: "1" },
   });
@@ -275,6 +277,7 @@ test("pre-commit hook denies a commit only when its CI check fails", async () =>
   assert.match(failurePayload.systemMessage, /controlled CI failure/);
 
   const success = runNode(preCommitPath, [], {
+    cwd: root,
     input,
     env: { ...env, FAKE_EXIT: "0" },
   });
@@ -282,6 +285,80 @@ test("pre-commit hook denies a commit only when its CI check fails", async () =>
   assert.equal(success.status, 0);
   assert.equal(successPayload.hookSpecificOutput, undefined);
   assert.match(successPayload.systemMessage, /checks passed/);
+});
+
+test("installed Git hook runs CI once and still rejects a failing commit", async (t) => {
+  const root = await makeClone();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const git = (...args) => spawnSync("git", args, { cwd: root, encoding: "utf8" });
+  assert.equal(git("init", "-b", "main").status, 0);
+  git("config", "user.name", "CI test");
+  git("config", "user.email", "ci@example.invalid");
+  git("config", "core.hooksPath", ".githooks");
+  await mkdir(join(root, ".githooks"));
+  await mkdir(join(root, "scripts"));
+  await mkdir(join(root, "bin"));
+  const hookPath = join(root, ".githooks/pre-commit");
+  const hook = await readFile(join(repositoryRoot, ".githooks/pre-commit"), "utf8");
+  await writeFile(hookPath, hook, { mode: 0o755 });
+  await writeFile(
+    join(root, "scripts/run-pre-commit-ci.mjs"),
+    await readFile(join(repositoryRoot, "scripts/run-pre-commit-ci.mjs")),
+  );
+  const logPath = join(root, "calls");
+  await makeFakeExecutable(
+    join(root, "bin"),
+    "pnpm",
+    'require("node:fs").appendFileSync(process.env.FAKE_LOG, "ci\\n"); process.exit(1);',
+  );
+  const env = { ...process.env, PATH: `${root}/bin:${process.env.PATH}`, FAKE_LOG: logPath };
+  const check = (command) =>
+    JSON.parse(
+      runNode(preCommitPath, [], {
+        cwd: root,
+        env,
+        input: JSON.stringify({ tool_input: { command } }),
+      }).stdout,
+    );
+
+  for (const command of ["git commit -m test", "rtk git commit -am test"]) {
+    assert.match(check(command).systemMessage, /Git pre-commit hook will run/);
+    assert.equal(existsSync(logPath), false);
+  }
+  const commit = spawnSync("git", ["commit", "--allow-empty", "-m", "test"], {
+    cwd: root,
+    env,
+    encoding: "utf8",
+  });
+  assert.notEqual(commit.status, 0);
+  assert.equal(await readFile(logPath, "utf8"), "ci\n");
+  assert.notEqual(git("rev-parse", "--verify", "HEAD").status, 0);
+
+  for (const command of [
+    "git commit --no-verify -m test",
+    "git commit -n -m test",
+    "git commit -an -m test",
+    "git commit '--no-verify' -m test",
+    "git commit '-n' -m test",
+    'git commit --no-"verify" -m test',
+    "git commit --no-ver -m test",
+    "git commit -anmtest",
+    "git commit --no-{verify,verify} -m test",
+    "git commit --no-* -m test",
+    "git -c core.hooksPath=/dev/null commit -m test",
+    "git commit -m test; echo done",
+    "git commit -m $(echo test)",
+  ]) {
+    assert.equal(check(command).hookSpecificOutput.permissionDecision, "deny", command);
+  }
+  await chmod(hookPath, 0o644);
+  assert.equal(check("git commit -m test").hookSpecificOutput.permissionDecision, "deny");
+  await chmod(hookPath, 0o755);
+  await writeFile(hookPath, "#!/bin/sh\nexit 0\n");
+  assert.equal(check("git commit -m test").hookSpecificOutput.permissionDecision, "deny");
+  await writeFile(hookPath, hook);
+  git("config", "core.hooksPath", "/dev/null");
+  assert.equal(check("git commit -m test").hookSpecificOutput.permissionDecision, "deny");
 });
 
 test("node-script typecheck rejects non-erasable TypeScript syntax", async () => {

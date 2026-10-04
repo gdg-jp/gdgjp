@@ -1,6 +1,8 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { release } from "node:os";
 import { fileURLToPath } from "node:url";
+import { compilerEnvironment } from "../ui/scripts/typescript.mjs";
 
 const quickSteps = [
   ["typecheck:node-scripts", "pnpm typecheck:node-scripts"],
@@ -31,6 +33,7 @@ const fullSteps = [
 ];
 
 const codeFilePattern = /\.(?:[cm]?[jt]sx?|sql)$/;
+const testFilePattern = /(?:\.(?:test|spec)\.[cm]?[jt]sx?$|\/(?:e2e|__tests__)\/)/;
 const biomeFilePattern = /\.(?:[cm]?[jt]sx?|jsonc?|css|graphql|ya?ml)$/;
 const preCommitExcludedPathPattern = /^(?:\.agents|\.claude)\//;
 const nodeScriptInputPattern =
@@ -130,6 +133,19 @@ function workspaceFiles(files, predicate) {
   return filesByWorkspace;
 }
 
+function uiEnvironment() {
+  const result = spawnSync("git", ["config", "--local", "--get", "gdgjp.typescriptNode"], {
+    encoding: "utf8",
+  });
+  if (result.error || ![0, 1].includes(result.status)) {
+    throw new Error("Could not read gdgjp.typescriptNode from the repository configuration.");
+  }
+  return {
+    CI: "true",
+    ...compilerEnvironment(result.status === 0 ? result.stdout.trim() : process.execPath),
+  };
+}
+
 export function changedSteps(mode, files) {
   // Agent configuration is intentionally versioned but is not application code.
   // Exclude it from the changed-file CI path used by the pre-commit hook.
@@ -140,6 +156,15 @@ export function changedSteps(mode, files) {
       .map((file) => workspaces.get(file.split("/")[0]))
       .filter((workspace) => workspace !== undefined),
   );
+  const buildWorkspaces = new Set(
+    nodeFiles
+      .filter((file) => !testFilePattern.test(file))
+      .map((file) => workspaces.get(file.split("/")[0]))
+      .filter((workspace) => workspace !== undefined),
+  );
+  // Full UI validation is one Turbo graph: independent checks/builds overlap,
+  // and browser tests wait for the library consumer and Storybook artifacts.
+  if (mode === "full") buildWorkspaces.delete("@gdgjp/ui");
   const steps = [];
 
   if (relevantFiles.some((file) => nodeScriptInputPattern.test(file))) {
@@ -170,8 +195,11 @@ export function changedSteps(mode, files) {
     ]);
   }
 
-  if (changedWorkspaces.size > 0) {
-    const filters = [...changedWorkspaces].map((workspace) => ` --filter=${workspace}`).join("");
+  const typecheckWorkspaces = [...changedWorkspaces].filter(
+    (workspace) => mode !== "full" || workspace !== "@gdgjp/ui",
+  );
+  if (typecheckWorkspaces.length > 0) {
+    const filters = typecheckWorkspaces.map((workspace) => ` --filter=${workspace}`).join("");
     steps.push(["typecheck", `pnpm exec turbo typecheck${filters} --output-logs=errors-only`]);
   }
 
@@ -191,26 +219,35 @@ export function changedSteps(mode, files) {
   );
   for (const [workspace, workspaceNodeFiles] of unitTestsByWorkspace) {
     if (workspace === "@gdgjp/ui") {
-      steps.push(["test:ui", "pnpm --filter @gdgjp/ui test"]);
+      if (mode !== "full") {
+        steps.push([
+          "test:ui",
+          "pnpm exec turbo test --filter=@gdgjp/ui --output-logs=errors-only",
+        ]);
+      }
       continue;
     }
-    // `related` receives staged source paths and uses Vitest's import graph to
-    // select the tests that cover them. It deliberately does not inspect the
-    // working tree, so unrelated unstaged edits cannot expand this check.
+    // Staged paths select checks; Vitest resolves their imports against the
+    // current working tree, like the other local checks.
     steps.push([
       `test:${workspace}`,
       `pnpm --filter ${workspace} exec vitest related --run --reporter=minimal ${workspaceNodeFiles.map(shellQuote).join(" ")}`,
     ]);
   }
 
-  if (changedWorkspaces.size > 0) {
-    const filters = [...changedWorkspaces].map((workspace) => ` --filter=${workspace}`).join("");
+  if (buildWorkspaces.size > 0) {
+    const filters = [...buildWorkspaces].map((workspace) => ` --filter=${workspace}`).join("");
     steps.push(["build", `pnpm exec turbo build${filters} --output-logs=errors-only`]);
   }
 
   if (mode === "full") {
     if (changedWorkspaces.has("@gdgjp/ui")) {
-      steps.push(["e2e:ui", "pnpm --filter @gdgjp/ui test:e2e"]);
+      steps.push([
+        "e2e:ui",
+        "pnpm exec turbo typecheck test test:e2e:browser --filter=@gdgjp/ui --output-logs=errors-only",
+        // A cached browser result must never come from a stale dev server.
+        uiEnvironment(),
+      ]);
     }
     const e2eWorkspaces = new Map();
     for (const [workspace, files] of workspaceFiles(relevantFiles, (file) =>
@@ -218,7 +255,10 @@ export function changedSteps(mode, files) {
     )) {
       e2eWorkspaces.set(workspace, files);
     }
-    for (const [workspace] of workspaceFiles(relevantFiles, (file) => /^[^/]+\/app\//.test(file))) {
+    for (const [workspace] of workspaceFiles(
+      relevantFiles,
+      (file) => /^[^/]+\/app\//.test(file) && !testFilePattern.test(file),
+    )) {
       e2eWorkspaces.set(workspace, null);
     }
     for (const [workspace] of workspaceFiles(relevantFiles, (file) =>
@@ -265,7 +305,11 @@ function runStep([name, command, environment = {}]) {
     const output = [];
     const child = spawn(command, {
       cwd: process.cwd(),
-      env: { ...process.env, ...environment },
+      env: {
+        ...process.env,
+        GDG_CI_RUNTIME: `${process.platform}-${process.arch}-${release()}-${process.version}`,
+        ...environment,
+      },
       shell: true,
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -290,6 +334,7 @@ function runStep([name, command, environment = {}]) {
 }
 
 export async function run(args = process.argv.slice(2)) {
+  const startedAt = performance.now();
   const [mode, ...options] = args;
   const allSteps =
     mode === "go"
@@ -319,6 +364,7 @@ export async function run(args = process.argv.slice(2)) {
         break;
       }
     }
+    console.log(`ci:total duration=${formatDuration(performance.now() - startedAt)}`);
   }
 }
 

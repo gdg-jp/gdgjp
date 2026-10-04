@@ -16,6 +16,33 @@ Biome. Its core web apps are React Router v7 SSR applications deployed to Cloudf
 persistent state on Cloudflare D1; the repository also includes a public website, a Vercel gateway,
 a Chrome extension, an OIDC client demo, and shared libraries.
 
+## Local CI
+
+`pnpm ci:full --changed` selects checks from staged paths and executes them against the current
+working tree. It prints each step's duration and the total time.
+
+- Ordinary Codex commits defer to the installed repository Git hook, so CI runs once. Custom,
+  missing or disabled hooks and bypass flags retain the agent-side check.
+- Application unit-test-only edits retain typechecking and related Vitest tests without rebuilding
+  production bundles or rerunning application E2E. Production edits and browser specs retain their
+  existing checks.
+- Staged UI checks form one Turbo graph. Typechecking, unit tests, declaration emission and
+  Storybook compilation run in parallel; browsers wait for the typecheck and both browser builds.
+  Declaration emission does not repeat the semantic typecheck. Every story and documentation entry
+  remains in the test build; only prop inference and source maps are omitted.
+- UI E2E uses up to four workers and records traces on the first retry in CI. `CI=true` prevents
+  reuse of an existing server. Source, dependency, environment and compiler-runtime changes
+  invalidate cached results. Application E2E depends on local state and is not cached.
+
+For full staged UI checks on Apple Silicon with an Intel Node on `PATH`, select an installed native
+Node >=22.18 for the compiler: `git config --local gdgjp.typescriptNode /absolute/path/to/native/node`.
+Only compiler subprocesses use it; application runtimes and native dependencies stay as installed.
+An invalid configured executable fails CI. Remove the override with
+`git config --local --unset gdgjp.typescriptNode`.
+
+Use `TURBO_FORCE=true pnpm ci:full --changed` to rerun cached tasks. Cache hits speed up repeated
+validation of unchanged input; a new source change still runs the affected tests.
+
 ## GDG CLI
 
 Install the `gdg` CLI with the command for your operating system:

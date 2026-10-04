@@ -1,6 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "concurrency": "20",
+  "globalEnv": ["GDG_CI_RUNTIME", "GDG_UI_TSC_NODE", "GDG_UI_TSC_RUNTIME"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -22,10 +23,32 @@
       "outputs": ["coverage/**"]
     },
     "test:e2e": {
+      "cache": false,
       "dependsOn": ["^build"],
       "outputs": ["playwright-report/**", "test-results/**"]
     },
+    "@gdgjp/ui#build:storybook:test": {
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "env": ["CI", "NODE_OPTIONS", "NODE_ENV", "VITE_*"],
+      "outputs": ["build/storybook/**"]
+    },
+    "@gdgjp/ui#test:consumer": {
+      "dependsOn": ["build:e2e"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "env": ["CI", "NODE_OPTIONS", "NODE_ENV", "VITE_*"],
+      "outputs": ["build/consumer/**", "build/consumer-ssr.mjs"]
+    },
+    "@gdgjp/ui#test:e2e:browser": {
+      "cache": true,
+      "dependsOn": ["typecheck", "test:consumer", "build:storybook:test"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "env": ["CI", "NODE_OPTIONS", "NODE_ENV", "TZ", "LANG", "LC_ALL", "PLAYWRIGHT_*"],
+      "outputs": ["playwright-report/**", "test-results/**"]
+    },
     "@gdgjp/ui#build": {
+      "outputs": ["dist/**"]
+    },
+    "@gdgjp/ui#build:e2e": {
       "outputs": ["dist/**"]
     }
   }
