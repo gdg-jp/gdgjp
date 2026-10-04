@@ -4,6 +4,7 @@ export default [
   layout("routes/admin.tsx", { id: "admin" }, [
     index("routes/home.tsx"), // "/" — event list (auth + chapter).
     route("events/new", "routes/events.new.tsx"),
+    route("e/:id", "routes/e.$id.tsx"),
     route("e/:id/design", "routes/e.$id.design.tsx"),
     route("e/:id/staff", "routes/e.$id.staff.tsx"),
     route("e/:id/roster", "routes/e.$id.roster.tsx"),
