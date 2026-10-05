@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
 
+const ACCOUNTS_URL = `http://localhost:${process.env.CI ? 6173 : 5173}`;
+const WIKI_URL = `http://localhost:${process.env.CI ? 6177 : 5177}`;
+
 test("home page redirects unauthenticated users to sign in", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/signin$/);
@@ -9,8 +12,8 @@ test("home page redirects unauthenticated users to sign in", async ({ page }) =>
   expect(discovery.status()).toBe(200);
   expect(discovery.headers()["content-type"]).toContain("application/json");
   const metadata = await discovery.json();
-  expect(metadata.issuer).toBe("http://localhost:5173");
-  expect(metadata.authorization_endpoint).toBe("http://localhost:5173/api/auth/oauth2/authorize");
+  expect(metadata.issuer).toBe(ACCOUNTS_URL);
+  expect(metadata.authorization_endpoint).toBe(`${ACCOUNTS_URL}/api/auth/oauth2/authorize`);
 });
 
 test("Google sign in starts with a document navigation", async ({ page }) => {
@@ -35,7 +38,7 @@ test("RP authorization creates a signed continuation accepted by Google sign-in"
   const query = new URLSearchParams({
     client_id: "wiki",
     response_type: "code",
-    redirect_uri: "http://localhost:5177/api/auth/callback/gdgjp",
+    redirect_uri: `${WIKI_URL}/api/auth/callback/gdgjp`,
     scope: "openid email profile",
     state: "google-signin-regression",
     code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
@@ -56,9 +59,7 @@ test("RP authorization creates a signed continuation accepted by Google sign-in"
     expect(response.status()).toBe(302);
     const google = new URL(response.headers().location);
     expect(google.origin).toBe("https://accounts.google.com");
-    expect(google.searchParams.get("redirect_uri")).toBe(
-      "http://localhost:5173/oauth/google/callback",
-    );
+    expect(google.searchParams.get("redirect_uri")).toBe(`${ACCOUNTS_URL}/oauth/google/callback`);
     await route.fulfill({ status: 200, body: "Google sign-in started" });
   });
   await page.goto(signin.toString());

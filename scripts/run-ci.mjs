@@ -334,6 +334,11 @@ export function changedSteps(mode, files) {
       if (!scriptTests.includes(file)) scriptTests.push(file);
     }
   }
+  if (relevantFiles.includes("scripts/run-e2e-dev.mjs")) {
+    if (!scriptTests.includes(".github/scripts/e2e-ports.test.mjs")) {
+      scriptTests.push(".github/scripts/e2e-ports.test.mjs");
+    }
+  }
   if (scriptTests.length > 0) {
     steps.push([
       "test:scripts",
@@ -390,6 +395,13 @@ export function changedSteps(mode, files) {
       ]);
     }
     const e2eWorkspaces = new Map();
+    if (relevantFiles.includes("scripts/run-e2e-dev.mjs")) {
+      for (const [directory, workspace] of workspaces) {
+        if (existsSync(`${directory}/playwright.config.ts`) && directory !== "design-system") {
+          e2eWorkspaces.set(workspace, null);
+        }
+      }
+    }
     for (const [workspace, files] of workspaceFiles(relevantFiles, (file) =>
       /(?:^|\/)(?:e2e|tests\/e2e)\/.*\.(?:spec|test)\.[cm]?[jt]sx?$/.test(file),
     )) {
@@ -419,7 +431,7 @@ export function changedSteps(mode, files) {
         workspace === "@gdgjp/wiki"
           ? `pnpm --filter ${workspace} test:e2e --reporter=dot,json${e2eArguments}`
           : `pnpm --filter ${workspace} exec playwright test --reporter=dot,json${e2eArguments}`;
-      steps.push([`e2e:${workspace}`, command, runtime]);
+      steps.push([`e2e:${workspace}`, command, { ...runtime, CI: "true" }]);
     }
   }
 
@@ -462,6 +474,7 @@ export function runStep(
         ...process.env,
         GDG_CI_RUNTIME: `${process.platform}-${process.arch}-${release()}-${process.version}`,
         PLAYWRIGHT_JSON_OUTPUT_NAME: playwrightReport,
+        ...(name.startsWith("e2e") ? { CI: "true" } : {}),
         ...(cacheDirectory
           ? {
               GOCACHE: join(cacheDirectory, "go"),

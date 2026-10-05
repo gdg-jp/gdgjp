@@ -6,6 +6,10 @@ import {
   resolveE2EPersistencePath,
 } from "./tests/e2e/setup";
 
+const PORT = process.env.CI ? 6177 : 5177;
+const BASE_URL = process.env.BASE_URL ?? `http://localhost:${PORT}`;
+process.env.BASE_URL = BASE_URL;
+
 const e2ePersistencePath = resolveE2EPersistencePath(
   process.env[E2E_PERSISTENCE_ENV] ?? DEFAULT_E2E_PERSISTENCE_PATH,
 );
@@ -25,7 +29,7 @@ export default defineConfig({
   workers: process.env.CI || process.env[E2E_PERSISTENCE_ENV] ? 1 : undefined,
   reporter: "html",
   use: {
-    baseURL: process.env.BASE_URL ?? "http://localhost:5177",
+    baseURL: BASE_URL,
     trace: "on-first-retry",
   },
   projects: [
@@ -35,9 +39,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:5177",
+    command: process.env.CI ? `node ../scripts/run-e2e-dev.mjs ${PORT}` : "pnpm dev",
+    url: `http://localhost:${PORT}`,
     env: webServerEnvironment,
+    gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
     reuseExistingServer: false,
     // The wiki dev server (vite + cloudflare plugin + workerd) cold-starts
     // slower than playwright's default 60s when CI is also pulling deps;

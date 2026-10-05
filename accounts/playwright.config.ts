@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 5173;
+const PORT = process.env.CI ? 6173 : 5173;
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
@@ -17,8 +17,9 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "pnpm dev",
+    command: process.env.CI ? `node ../scripts/run-e2e-dev.mjs ${PORT}` : "pnpm dev",
     url: BASE_URL,
+    gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

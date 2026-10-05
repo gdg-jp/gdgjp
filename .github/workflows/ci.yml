@@ -421,48 +421,48 @@ jobs:
           WIKI_CLIENT_SECRET=ci-idp-client-secret
           ROSTER_CLIENT_ID=roster
           ROSTER_CLIENT_SECRET=ci-idp-client-secret
-          APP_URL=http://localhost:5173
-          TINYURL_REDIRECT_URLS=http://localhost:5174/api/auth/callback/gdgjp
-          IMG_REDIRECT_URLS=http://localhost:5175/api/auth/callback/gdgjp
-          SCHEDULER_REDIRECT_URLS=http://localhost:5176/api/auth/callback/gdgjp
-          WIKI_REDIRECT_URLS=http://localhost:5177/api/auth/callback/gdgjp
-          ROSTER_REDIRECT_URLS=http://localhost:5186/api/auth/callback/gdgjp
+          APP_URL=http://localhost:6173
+          TINYURL_REDIRECT_URLS=http://localhost:6174/api/auth/callback/gdgjp
+          IMG_REDIRECT_URLS=http://localhost:6175/api/auth/callback/gdgjp
+          SCHEDULER_REDIRECT_URLS=http://localhost:6176/api/auth/callback/gdgjp
+          WIKI_REDIRECT_URLS=http://localhost:6177/api/auth/callback/gdgjp
+          ROSTER_REDIRECT_URLS=http://localhost:6186/api/auth/callback/gdgjp
           EOF
 
           cat > tinyurl/.dev.vars <<EOF
           RP_SESSION_SECRET=ci-rp-session-secret
           IDP_CLIENT_SECRET=ci-idp-client-secret
-          APP_URL=http://localhost:5174
-          ACCOUNTS_URL=http://localhost:5173
-          IDP_URL=http://localhost:5173
+          APP_URL=http://localhost:6174
+          ACCOUNTS_URL=http://localhost:6173
+          IDP_URL=http://localhost:6173
           IDP_CLIENT_ID=tinyurl
-          SHORT_URL_BASE=http://localhost:5174
+          SHORT_URL_BASE=http://localhost:6174
           EOF
 
           cat > img/.dev.vars <<EOF
           RP_SESSION_SECRET=ci-better-auth-secret
           IDP_CLIENT_SECRET=ci-idp-client-secret
           INTERNAL_API_SECRET=ci-internal-api-secret
-          APP_URL=http://localhost:5175
-          ACCOUNTS_URL=http://localhost:5173
-          IDP_URL=http://localhost:5173
+          APP_URL=http://localhost:6175
+          ACCOUNTS_URL=http://localhost:6173
+          IDP_URL=http://localhost:6173
           IDP_CLIENT_ID=img
           EOF
 
           cat > scheduler/.dev.vars <<EOF
           RP_SESSION_SECRET=ci-better-auth-secret
           IDP_CLIENT_SECRET=ci-idp-client-secret
-          APP_URL=http://localhost:5176
-          ACCOUNTS_URL=http://localhost:5173
-          IDP_URL=http://localhost:5173
+          APP_URL=http://localhost:6176
+          ACCOUNTS_URL=http://localhost:6173
+          IDP_URL=http://localhost:6173
           EOF
 
           cat > roster/.dev.vars <<EOF
           RP_SESSION_SECRET=ci-rp-session-secret
           IDP_CLIENT_SECRET=ci-idp-client-secret
-          APP_URL=http://localhost:5186
-          ACCOUNTS_URL=http://localhost:5173
-          IDP_URL=http://localhost:5173
+          APP_URL=http://localhost:6186
+          ACCOUNTS_URL=http://localhost:6173
+          IDP_URL=http://localhost:6173
           IDP_CLIENT_ID=roster
           ENVIRONMENT=development
           EOF
@@ -472,14 +472,14 @@ jobs:
           cat > wiki/.dev.vars <<EOF
           RP_SESSION_SECRET=ci-wiki-e2e-session-secret
           IDP_CLIENT_SECRET=ci-wiki-idp-client-secret
-          APP_URL=http://localhost:5177
-          ACCOUNTS_URL=http://localhost:5173
-          IDP_URL=http://localhost:5173
+          APP_URL=http://localhost:6177
+          ACCOUNTS_URL=http://localhost:6173
+          IDP_URL=http://localhost:6173
           ENVIRONMENT=development
           EOF
           {
             echo "WIKI_E2E_SESSION_SECRET=ci-wiki-e2e-session-secret"
-            echo "WIKI_E2E_ISSUER=http://localhost:5173"
+            echo "WIKI_E2E_ISSUER=http://localhost:6173"
             echo "WIKI_E2E_PERSIST_TO=.wrangler/e2e-state"
           } >> "$GITHUB_ENV"
       - name: Migrate Accounts local database

@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 5186;
+const PORT = process.env.CI ? 6186 : 5186;
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({
@@ -20,10 +20,11 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "pnpm dev",
+    command: process.env.CI ? `node ../scripts/run-e2e-dev.mjs ${PORT}` : "pnpm dev",
     // Wait on the TCP port, not an HTTP 200 — every roster route redirects to
     // sign-in (or 404s) without a session, so no route ever answers 200.
     port: PORT,
+    gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
     reuseExistingServer: !process.env.CI,
     // Cold `@cloudflare/vite-plugin` + dep optimization can exceed 2 min.
     timeout: 240_000,

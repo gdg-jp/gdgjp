@@ -15,7 +15,12 @@ export default defineConfig({
     ssr: { optimizeDeps: { include: ["@gdgjp/design-system"] } },
   },
   plugins: [
-    cloudflare({ viteEnvironment: { name: "ssr" }, remoteBindings: false, inspectorPort: 9273 }),
+    cloudflare({
+      configPath: process.env.CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH,
+      viteEnvironment: { name: "ssr" },
+      remoteBindings: false,
+      inspectorPort: process.env.CI ? false : 9273,
+    }),
     reactRouter(),
     tailwindcss(),
     tsconfigPaths(),

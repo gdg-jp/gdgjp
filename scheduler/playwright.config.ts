@@ -1,8 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 5176;
+const PORT = process.env.CI ? 6176 : 5176;
 const BASE_URL = `http://localhost:${PORT}`;
-const ACCOUNTS_URL = "http://localhost:5173";
+const ACCOUNTS_PORT = process.env.CI ? 6173 : 5173;
+const ACCOUNTS_URL = `http://localhost:${ACCOUNTS_PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -18,14 +19,18 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      command: "pnpm --dir ../accounts dev",
+      command: process.env.CI
+        ? `cd ../accounts && node ../scripts/run-e2e-dev.mjs ${ACCOUNTS_PORT}`
+        : "pnpm --dir ../accounts dev",
       url: ACCOUNTS_URL,
+      gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
     {
-      command: "pnpm dev",
+      command: process.env.CI ? `node ../scripts/run-e2e-dev.mjs ${PORT}` : "pnpm dev",
       url: BASE_URL,
+      gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

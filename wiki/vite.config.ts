@@ -21,6 +21,7 @@ export default defineConfig({
   plugins: [
     agents(),
     cloudflare({
+      configPath: process.env.CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH,
       viteEnvironment: { name: "ssr" },
       remoteBindings: false,
       inspectorPort: e2ePersistencePath ? false : 9277,

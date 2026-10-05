@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 
-const PORT = Number(process.env.CONNPASS_E2E_IDP_PORT ?? 5181);
+const PORT = Number(process.env.CONNPASS_E2E_IDP_PORT ?? (process.env.CI ? 6181 : 5181));
 const CHAPTERS_CLAIM = "https://gdgs.jp/claims/chapters";
 const IS_ADMIN_CLAIM = "https://gdgs.jp/claims/is_admin";
 

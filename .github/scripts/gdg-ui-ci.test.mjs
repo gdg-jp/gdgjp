@@ -162,7 +162,7 @@ test("the selected runtime covers application preparation and browsers while uni
   const browser = steps.find(([name]) => name === "e2e:@gdgjp/wiki")[2];
   assert.ok(preparation.PATH);
   assert.equal(browser.GDG_CI_RUNTIME, preparation.GDG_CI_RUNTIME);
-  assert.equal(browser.CI, undefined);
+  assert.equal(browser.CI, "true");
   assert.equal(steps.find(([name]) => name === "test:@gdgjp/wiki")[2], undefined);
 });
 
@@ -302,9 +302,9 @@ test("Wiki E2E setup is isolated from Accounts and uploads only the report", () 
   );
   const wikiVars = stepByName(job, "Create Wiki E2E vars").run;
   assert.match(wikiVars, /WIKI_E2E_SESSION_SECRET=ci-wiki-e2e-session-secret/);
-  assert.match(wikiVars, /WIKI_E2E_ISSUER=http:\/\/localhost:5173/);
+  assert.match(wikiVars, /WIKI_E2E_ISSUER=http:\/\/localhost:6173/);
   assert.match(wikiVars, /WIKI_E2E_PERSIST_TO=\.wrangler\/e2e-state/);
-  assert.match(wikiVars, /APP_URL=http:\/\/localhost:5177/);
+  assert.match(wikiVars, /APP_URL=http:\/\/localhost:6177/);
   assert.doesNotMatch(wikiVars, /CLOUDFLARE_API_TOKEN|accounts\.gdgs\.jp/);
   assert.equal(
     job.steps.findIndex((step) => step.name === "Create Wiki E2E vars") <

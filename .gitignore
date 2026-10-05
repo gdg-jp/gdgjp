@@ -8,6 +8,7 @@ dist/
 
 # Cloudflare
 .wrangler/
+.wrangler.e2e.toml
 .dev.vars
 .dev.vars*
 !.dev.vars.example

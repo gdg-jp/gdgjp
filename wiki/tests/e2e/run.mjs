@@ -7,11 +7,11 @@ const devVarsPath = join(cwd, ".dev.vars.e2e");
 const previousDevVars = existsSync(devVarsPath) ? readFileSync(devVarsPath) : null;
 const environment = {
   ...process.env,
-  CI: process.env.CI ?? "true",
   CLOUDFLARE_ENV: "e2e",
   WIKI_E2E_SESSION_SECRET:
     process.env.WIKI_E2E_SESSION_SECRET ?? "wiki-e2e-session-secret-for-local-tests",
-  WIKI_E2E_ISSUER: process.env.WIKI_E2E_ISSUER ?? "http://localhost:5173",
+  WIKI_E2E_ISSUER:
+    process.env.WIKI_E2E_ISSUER ?? `http://localhost:${process.env.CI ? 6173 : 5173}`,
   WIKI_E2E_PERSIST_TO: process.env.WIKI_E2E_PERSIST_TO ?? ".wrangler/e2e-state",
 };
 
@@ -20,8 +20,8 @@ writeFileSync(
   [
     `RP_SESSION_SECRET=${environment.WIKI_E2E_SESSION_SECRET}`,
     "IDP_CLIENT_SECRET=wiki-e2e-idp-client-secret",
-    "APP_URL=http://localhost:5177",
-    "ACCOUNTS_URL=http://localhost:5173",
+    `APP_URL=http://localhost:${process.env.CI ? 6177 : 5177}`,
+    `ACCOUNTS_URL=http://localhost:${process.env.CI ? 6173 : 5173}`,
     `IDP_URL=${environment.WIKI_E2E_ISSUER}`,
     "ENVIRONMENT=development",
     "",

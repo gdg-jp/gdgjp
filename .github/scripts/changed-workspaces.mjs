@@ -204,7 +204,9 @@ export function classifyChanges(files, { forceAll = false } = {}) {
   return {
     ci: ciTargets.map(({ workspace }) => workspace),
     build: ciTargets.filter(({ build }) => build).map(({ workspace }) => workspace),
-    e2e: ciTargets.filter(({ e2e }) => e2e).map(({ directory }) => directory),
+    e2e: (normalizedFiles.includes("scripts/run-e2e-dev.mjs") ? CI_WORKSPACES : ciTargets)
+      .filter(({ e2e }) => e2e)
+      .map(({ directory }) => directory),
     deploy: deployTargets,
     lint: normalizedFiles.some((file) => BIOME_FILE_PATTERN.test(file)),
     openapi,
@@ -213,6 +215,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         /^\.github\/scripts\/.*\.mjs$/.test(file) ||
         file === "scripts/check-ui-conventions.mjs" ||
         file === "scripts/run-ci.mjs" ||
+        file === "scripts/run-e2e-dev.mjs" ||
         file === "wiki/tests/architecture/ui-conventions-baseline.json" ||
         /^agent-host\//.test(file) ||
         /^agents-index\//.test(file) ||
