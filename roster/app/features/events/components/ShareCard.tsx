@@ -1,5 +1,6 @@
-import { Badge, Button, Card, Heading, Inline, Stack } from "@gdgjp/design-system";
+import { Badge, Button, Card, Heading, Inline, Link, Stack } from "@gdgjp/design-system";
 import { useState } from "react";
+import { Link as RouterLink } from "react-router";
 import type { SheetVisibility } from "~/features/roster-sheets/types";
 
 /**
@@ -54,7 +55,7 @@ export function SheetShareList({ sheets }: { sheets: ShareSheet[] }) {
       <Stack>
         <div>
           <Heading id="sheet-share-heading" level={2}>
-            シフト表ごとのURL
+            シフト表の共有リンク
           </Heading>
           <p className="gdg-muted text-sm">
             非公開のシフト表もURLを表示しますが、公開するまでは内容を閲覧できません。
@@ -106,6 +107,13 @@ function SheetShareCard({ sheet }: { sheet: ShareSheet }) {
             : "非公開です。公開するまでURLからシフト表の内容は見られません。"}
         </p>
         <ShareUrl url={sheet.viewUrl} label={`「${sheet.name}」のURLをコピー`} />
+        {isPublished && (
+          <Link asChild>
+            <RouterLink to={sheet.viewUrl} target="_blank" rel="noopener noreferrer">
+              公開画面を確認
+            </RouterLink>
+          </Link>
+        )}
       </Stack>
     </Card>
   );
@@ -113,20 +121,24 @@ function SheetShareCard({ sheet }: { sheet: ShareSheet }) {
 
 function ShareUrl({ url, label }: { url: string; label: string }) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
 
   async function copyUrl() {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
+      setCopyError(false);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // The text remains selectable if clipboard access is unavailable.
+      setCopyError(true);
     }
   }
 
   return (
-    <Inline className="items-center">
-      <code className="min-w-0 flex-1 break-all rounded-lg bg-background p-3 text-sm">{url}</code>
+    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+      <code className="min-w-0 flex-1 select-all break-all rounded-lg bg-muted p-3 text-sm">
+        {url}
+      </code>
       <Button
         type="button"
         variant="secondary"
@@ -138,6 +150,11 @@ function ShareUrl({ url, label }: { url: string; label: string }) {
       <output className="gdg-sr-only" aria-live="polite">
         {copied ? "クリップボードにコピーしました" : ""}
       </output>
-    </Inline>
+      {copyError && (
+        <p role="alert" className="text-sm text-destructive">
+          コピーできませんでした。URLを選択してコピーしてください。
+        </p>
+      )}
+    </div>
   );
 }

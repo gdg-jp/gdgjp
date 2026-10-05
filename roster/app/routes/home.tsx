@@ -1,3 +1,4 @@
+import { Icons } from "@gdgjp/design-system";
 import { Link } from "react-router";
 import { requireUserWithChapter } from "~/features/auth/auth-redirect.server";
 import { EventCard, EventStatusBadge } from "~/features/events/components/EventCard";
@@ -24,61 +25,33 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
   const { events } = loaderData;
   return (
     <main className="admin-page">
-      <div className="page-heading">
+      <div className="page-heading brand-hero">
         <div>
+          <span className="brand-eyebrow">GDG ON CAMPUS / ROSTER</span>
           <h1>イベント</h1>
           <p>所属するChapterのスタッフシフトを管理します。</p>
         </div>
-        <Link
-          to="/events/new"
-          className="rounded-md bg-gdg-blue px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:brightness-95"
-        >
-          イベントを作成
+        <Link to="/events/new" className="brand-action">
+          <Icons name="Plus" size={18} aria-hidden="true" /> イベントを作成
         </Link>
       </div>
 
       {events.length === 0 ? (
-        <p className="text-neutral-600">まだイベントがありません。</p>
+        <div className="brand-empty">
+          <span className="brand-eyebrow">01 / START HERE</span>
+          <h2>最初のイベントを作成</h2>
+          <p>イベントを追加すると、シフト表を作成してスタッフの配置を始められます。</p>
+          <Link to="/events/new" className="brand-action">
+            イベントを作成 <Icons name="ArrowUpRight" size={18} aria-hidden="true" />
+          </Link>
+        </div>
       ) : (
         <>
-          <div className="hidden overflow-hidden rounded-xl border border-border bg-surface md:block">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead className="bg-background text-xs text-muted">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">イベント</th>
-                  <th className="px-4 py-3 font-semibold">開催日</th>
-                  <th className="px-4 py-3 font-semibold">時間</th>
-                  <th className="px-4 py-3 font-semibold">状態</th>
-                  <th className="px-4 py-3">
-                    <span className="sr-only">操作</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {events.map((event) => (
-                  <tr key={event.id} className="border-t border-border">
-                    <td className="px-4 py-3 font-semibold">{event.name}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">{event.date}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-muted">
-                      {event.startTime}–{event.endTime}
-                    </td>
-                    <td className="px-4 py-3">
-                      <EventStatusBadge status={event.status} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        to={`/e/${event.id}`}
-                        className="rounded-md border border-border px-3 py-1.5 font-semibold hover:bg-background"
-                      >
-                        開く
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="brand-section-heading">
+            <span className="brand-eyebrow">YOUR EVENTS</span>
+            <span>{events.length} EVENTS</span>
           </div>
-          <ul className="space-y-3 md:hidden">
+          <ul className="event-card-grid">
             {events.map((event) => (
               <EventCard key={event.id} event={event} />
             ))}

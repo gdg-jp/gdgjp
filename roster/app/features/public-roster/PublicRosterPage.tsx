@@ -67,8 +67,9 @@ export function PublicRosterPage({ loaderData }: { loaderData: PublicRosterView 
   if (!loaderData.published) {
     return (
       <PublicShell>
-        <div className="page-heading">
+        <div className="page-heading brand-hero">
           <div>
+            <span className="brand-eyebrow">PUBLIC / SHIFT BOARD</span>
             <h1>
               {loaderData.event.name}
               {loaderData.event.sheet.name ? ` — ${loaderData.event.sheet.name}` : ""}
@@ -100,8 +101,9 @@ export function PublicRosterPage({ loaderData }: { loaderData: PublicRosterView 
 
   return (
     <PublicShell wide>
-      <div className="page-heading">
+      <div className="page-heading brand-hero">
         <div>
+          <span className="brand-eyebrow">PUBLIC / SHIFT BOARD</span>
           <h1>
             {event.name}
             {event.sheet.name ? ` — ${event.sheet.name}` : ""}

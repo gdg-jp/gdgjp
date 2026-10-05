@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import type { UserChapter } from "@gdgjp/gdg-lib";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { RouterProvider, createMemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("~/features/auth/auth-redirect.server", () => ({
@@ -59,7 +60,16 @@ function callLoader(id: string, db: D1Database) {
 type SharePageProps = Parameters<typeof SharePage>[0];
 
 function renderSharePage(loaderData: Awaited<ReturnType<typeof loader>>) {
-  return renderToStaticMarkup(createElement(SharePage, { loaderData } as SharePageProps));
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/e/event/share",
+        element: createElement(SharePage, { loaderData } as SharePageProps),
+      },
+    ],
+    { initialEntries: ["/e/event/share"] },
+  );
+  return renderToStaticMarkup(createElement(RouterProvider, { router }));
 }
 
 async function seedEvent(db: ReturnType<typeof createTestD1>) {
@@ -134,7 +144,7 @@ describe("e.$id.share", () => {
 
     const html = renderSharePage(data);
     expect(html).toContain("本編の互換URL");
-    expect(html).toContain("シフト表ごとのURL");
+    expect(html).toContain("シフト表の共有リンク");
     expect(html).toContain('<output class="gdg-sr-only" aria-live="polite">');
     expect(html).toContain("非公開です。公開するまでURLからシフト表の内容は見られません。");
     expect(html).toContain("公開中です。URLを知っている人は誰でも閲覧できます。");

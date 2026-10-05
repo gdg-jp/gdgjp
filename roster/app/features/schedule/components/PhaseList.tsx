@@ -1,3 +1,4 @@
+import { Button, FormField, Input } from "@gdgjp/design-system";
 import { Form } from "react-router";
 import type { Phase, TimeSlot } from "~/features/schedule/schedule.server";
 
@@ -20,17 +21,19 @@ export function PhaseList({
       <div className="space-y-3">
         <h3 className="font-bold">フェーズ</h3>
         {phases.length === 0 ? (
-          <p className="text-sm text-neutral-600">フェーズはまだありません。</p>
+          <p className="gdg-muted text-sm">
+            フェーズを追加すると、このシフト表の時間枠が作られます。
+          </p>
         ) : (
           <ul className="space-y-2">
             {phases.map((phase) => (
               <li
                 key={phase.id}
-                className="flex items-center justify-between gap-3 rounded-xl border-2 border-border bg-surface p-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
               >
                 <span>
                   <span className="font-medium">{phase.name}</span>{" "}
-                  <span className="text-sm text-neutral-500">
+                  <span className="gdg-muted text-sm">
                     {phase.from}–{phase.to}
                   </span>
                 </span>
@@ -38,71 +41,48 @@ export function PhaseList({
                   <input type="hidden" name="intent" value="deletePhase" />
                   <input type="hidden" name="phaseId" value={phase.id} />
                   <input type="hidden" name="sheetId" value={sheetId} />
-                  <button type="submit" className="text-sm font-medium text-gdg-red underline">
+                  <Button type="submit" variant="outline" size="sm">
                     削除
-                  </button>
+                  </Button>
                 </Form>
               </li>
             ))}
           </ul>
         )}
 
-        <Form method="post" className="flex flex-wrap items-end gap-3">
+        <Form method="post" className="phase-create-form grid grid-cols-1 items-end gap-3">
           <input type="hidden" name="intent" value="createPhase" />
           <input type="hidden" name="sheetId" value={sheetId} />
-          <label className="space-y-1">
-            <span className="block text-sm font-medium">名前</span>
-            <input
-              name="name"
-              required
-              maxLength={40}
-              placeholder="開場前"
-              className="rounded-xl border-2 border-border bg-surface p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="block text-sm font-medium">開始</span>
-            <input
-              name="from"
-              type="time"
-              required
-              className="rounded-xl border-2 border-border bg-surface p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="block text-sm font-medium">終了</span>
-            <input
-              name="to"
-              type="time"
-              required
-              className="rounded-xl border-2 border-border bg-surface p-2 outline-none focus:ring-4 focus:ring-gdg-blue/40"
-            />
-          </label>
-          <button
-            type="submit"
-            className="rounded-full border-2 border-border bg-surface px-4 py-2 font-bold transition hover:bg-neutral-100"
-          >
+          <FormField label="名前" required>
+            <Input name="name" required maxLength={40} placeholder="開場前" />
+          </FormField>
+          <FormField label="開始" required>
+            <Input name="from" type="time" required />
+          </FormField>
+          <FormField label="終了" required>
+            <Input name="to" type="time" required />
+          </FormField>
+          <Button type="submit" variant="secondary">
             フェーズを追加
-          </button>
+          </Button>
         </Form>
       </div>
 
       <div className="space-y-3">
         <h3 className="font-bold">時間枠（{timeSlots.length}）</h3>
         {timeSlots.length === 0 ? (
-          <p className="text-sm text-neutral-600">時間枠がありません。</p>
+          <p className="gdg-muted text-sm">
+            フェーズを追加すると、設定した刻み幅で時間枠が作られます。
+          </p>
         ) : (
           <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {timeSlots.map((slot) => (
-              <li
-                key={slot.id}
-                className="rounded-xl border-2 border-border bg-surface p-2 text-sm"
-              >
+              <li key={slot.id} className="rounded-lg border bg-background p-2 text-sm">
                 <span className="font-medium">
                   {slot.start}–{slot.end}
                 </span>
                 {slot.phaseId ? (
-                  <span className="block text-neutral-500">{phaseName.get(slot.phaseId)}</span>
+                  <span className="gdg-muted block">{phaseName.get(slot.phaseId)}</span>
                 ) : null}
               </li>
             ))}

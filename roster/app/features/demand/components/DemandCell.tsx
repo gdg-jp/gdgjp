@@ -55,12 +55,12 @@ export function DemandCell({
       {(leadMin > 0 || newMax < NEW_MAX_DEFAULT) && (
         <span className="flex flex-wrap justify-center gap-1">
           {leadMin > 0 ? (
-            <span className="rounded-sm bg-gdg-blue/20 px-1 text-[0.62rem] font-bold text-gdg-blue">
+            <span className="rounded-sm bg-gdg-blue/20 px-1 text-xs font-bold text-gdg-blue">
               L≥{leadMin}
             </span>
           ) : null}
           {newMax < NEW_MAX_DEFAULT ? (
-            <span className="rounded-sm bg-gdg-yellow/30 px-1 text-[0.62rem] font-bold text-foreground">
+            <span className="rounded-sm bg-gdg-blue/10 px-1 text-xs font-bold text-foreground">
               新≤{newMax}
             </span>
           ) : null}
