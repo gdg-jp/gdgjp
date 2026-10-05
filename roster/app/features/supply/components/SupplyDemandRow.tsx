@@ -21,7 +21,7 @@ export function SupplyDemandRow({
   roleNameById: ReadonlyMap<string, string>;
 }) {
   return (
-    <li className="grid items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2 sm:grid-cols-[minmax(180px,1fr)_auto_minmax(220px,1fr)]">
+    <li className="supply-demand-row grid items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
       <span>
         <span className="font-medium">{label}</span>
         {phaseName ? <span className="ml-2 text-sm text-neutral-500">{phaseName}</span> : null}
@@ -39,7 +39,7 @@ export function SupplyDemandRow({
               className={
                 shortage.kind === "head"
                   ? "rounded-full bg-gdg-red/10 px-2 py-0.5 text-xs font-bold text-gdg-red"
-                  : "rounded-full bg-gdg-yellow/20 px-2 py-0.5 text-xs font-bold text-neutral-700"
+                  : "rounded-full bg-gdg-blue/10 px-2 py-0.5 text-xs font-bold text-neutral-700"
               }
             >
               {SHORTAGE_KIND_LABELS[shortage.kind]}:{" "}

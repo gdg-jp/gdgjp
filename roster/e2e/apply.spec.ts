@@ -33,7 +33,7 @@ async function createAndOpenEvent(
   await page.waitForURL(/\/e\/[^/]+\/(?:s\/[^/]+\/)?design$/);
   const eventId = new URL(page.url()).pathname.split("/")[2];
 
-  await page.check('input[name="roleId"][value="reception"]');
+  await page.getByRole("checkbox", { name: "受付" }).check();
   await page.getByRole("button", { name: "役割を保存" }).click();
   await expect(page.getByRole("checkbox", { name: "受付" })).toBeChecked();
 

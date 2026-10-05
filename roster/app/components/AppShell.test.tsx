@@ -43,29 +43,30 @@ describe("AppShell sheet context", () => {
     expect(html).toContain('href="/e/evt_1"');
   });
 
-  it("keeps legacy event-level navigation active when no sheet param is present", () => {
-    const html = renderShell("/e/evt_1/design");
+  it("uses the event's sheet list as the entry point when no sheet is selected", () => {
+    const html = renderShell("/e/evt_1");
 
-    expect(html).toMatch(/<a(?=[^>]*href="\/e\/evt_1\/design")(?=[^>]*aria-current="page")[^>]*>/);
-    expect(html).toContain('href="/e/evt_1/roster"');
-    expect(html).not.toContain("/s/");
+    expect(html).toMatch(/<a(?=[^>]*href="\/e\/evt_1")(?=[^>]*aria-current="page")[^>]*>/);
+    expect(html).toContain("シフト表一覧");
+    expect(html).not.toContain('href="/e/evt_1/design"');
+    expect(html).not.toContain('href="/e/evt_1/roster"');
   });
 
-  it("encodes sheet IDs as one path segment and keeps the nested link active", () => {
-    const html = renderShell("/e/evt_1/s/default%3Aevt_1/design");
+  it("keeps the default sheet's nested link active", () => {
+    const html = renderShell("/e/evt_1/s/default:evt_1/design");
 
     expect(html).toMatch(
-      /<a(?=[^>]*href="\/e\/evt_1\/s\/default%3Aevt_1\/design")(?=[^>]*aria-current="page")[^>]*>/,
+      /<a(?=[^>]*href="\/e\/evt_1\/s\/default:evt_1\/design")(?=[^>]*aria-current="page")[^>]*>/,
     );
-    expect(html).toContain('href="/e/evt_1/s/default%3Aevt_1/roster"');
+    expect(html).toContain('href="/e/evt_1/s/default:evt_1/roster"');
     expect(html).toContain('href="/e/evt_1/staff"');
     expect(html).toContain('href="/e/evt_1/share"');
   });
 
-  it("keeps a legacy roster route at the event level for the default sheet", () => {
+  it("keeps the sheet list available from legacy event-level routes", () => {
     const html = renderShell("/e/evt_1/roster");
 
-    expect(html).toMatch(/<a(?=[^>]*href="\/e\/evt_1\/roster")(?=[^>]*aria-current="page")[^>]*>/);
-    expect(html).toContain('href="/e/evt_1/design"');
+    expect(html).toContain('href="/e/evt_1"');
+    expect(html).not.toContain('href="/e/evt_1/design"');
   });
 });

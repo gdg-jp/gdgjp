@@ -1,11 +1,9 @@
-type LegendTrack = { name: string; color: string };
+type LegendTrack = { name: string };
 
 /**
- * The colour key above a shift grid (`StaffGrid`, `RoleGrid`, and Stage 09's
- * `PublicStaffGrid`). Track colour is the grid's primary encoding, and
- * index.md §6 requires it never be the ONLY encoding — the cells also print
- * the track name — but a key is still what makes a column of tinted blocks
- * readable at a glance.
+ * The text key above a shift grid (`StaffGrid`, `RoleGrid`, and Stage 09's
+ * `PublicStaffGrid`). Cells print track names directly, keeping the grid's
+ * color palette quiet.
  *
  * `showAvailabilityStates` is off for the public view on purpose: `o`/`d`/`x`
  * availability never leaves the owner side (ADR-005 / Stage 09's
@@ -22,10 +20,7 @@ export function GridLegend({
   return (
     <div className="data-grid-legend" aria-label="凡例">
       {tracks.map((track) => (
-        <span key={track.name}>
-          <span aria-hidden="true" className="sw" style={{ backgroundColor: `${track.color}40` }} />
-          {track.name}
-        </span>
+        <span key={track.name}>{track.name}</span>
       ))}
       {showAvailabilityStates ? (
         <>
@@ -33,7 +28,7 @@ export function GridLegend({
             <span
               aria-hidden="true"
               className="sw"
-              style={{ boxShadow: "inset 0 0 0 2px var(--color-gdg-yellow)" }}
+              style={{ boxShadow: "inset 0 0 0 2px var(--color-gdg-blue)" }}
             />
             △（可能なら）の枠を使用
           </span>
@@ -41,7 +36,7 @@ export function GridLegend({
             <span
               aria-hidden="true"
               className="sw"
-              style={{ boxShadow: "inset 0 0 0 2px var(--color-gdg-red)" }}
+              style={{ boxShadow: "inset 0 0 0 2px var(--color-gdg-blue-deep)" }}
             />
             条件違反
           </span>

@@ -34,8 +34,7 @@ export function PublicStaffGrid({
   trackById: ReadonlyMap<string, TrackInfo>;
   roleNameById: ReadonlyMap<string, string>;
   /** Application ids matching the name search — same contract as the
-   * owner-side `StaffGrid`: the column header lights up, the cells keep
-   * their track colour. */
+   * owner-side `StaffGrid`: the column header lights up. */
   matchedIds?: ReadonlySet<string>;
 }) {
   const byApp = useMemo(() => groupAssignmentsByApplication(assignments), [assignments]);
@@ -87,7 +86,6 @@ export function PublicStaffGrid({
                           track ? `：${track.name} ${roleName}` : "：空き"
                         }`}
                         className={`data-grid-cell${value ? "" : " data-grid-cell-empty"}`}
-                        style={track ? { backgroundColor: `${track.color}26` } : undefined}
                       >
                         {value ? (
                           <>

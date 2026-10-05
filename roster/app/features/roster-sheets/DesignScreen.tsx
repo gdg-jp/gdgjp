@@ -1,6 +1,5 @@
-import { Link as UiLink } from "@gdgjp/design-system";
+import { Card, Heading } from "@gdgjp/design-system";
 import type { ReactNode } from "react";
-import { Link as RouterLink } from "react-router";
 import { DemandMatrix } from "../demand/components/DemandMatrix";
 import type { SlotRowCounts } from "../demand/impact";
 import type { Demand } from "../demand/types";
@@ -10,6 +9,7 @@ import { RolePicker } from "../schedule/components/RolePicker";
 import { TrackEditor } from "../schedule/components/TrackEditor";
 import type { Phase, TimeSlot } from "../schedule/schedule.server";
 import type { Role, Track } from "../schedule/tracks.server";
+import { SheetHeader } from "./components/SheetHeader";
 import { SheetSettingsForm } from "./components/SheetSettingsForm";
 import type { RosterSheet } from "./types";
 
@@ -45,22 +45,12 @@ export default function DesignScreen({ loaderData, actionData }: DesignScreenPro
   const selectedRoles = roles.filter((r) => eventRoleIds.includes(r.id));
   return (
     <main className="admin-page">
-      <div className="page-heading">
-        <div>
-          <h1>設計</h1>
-          <p>
-            {event.name} · {sheet.name} · {sheet.date} {sheet.startTime}–{sheet.endTime}
-          </p>
-        </div>
-        <nav className="flex flex-wrap gap-3">
-          <UiLink asChild>
-            <RouterLink to={`/e/${event.id}`}>シフト表一覧</RouterLink>
-          </UiLink>
-          <UiLink asChild>
-            <RouterLink to={`/e/${event.id}/staff`}>スタッフ</RouterLink>
-          </UiLink>
-        </nav>
-      </div>
+      <SheetHeader eventId={event.id} eventName={event.name} sheet={sheet} active="design" />
+      {timeSlots.length === 0 && (
+        <p className="rounded-lg border bg-background p-4 text-sm">
+          このシフト表の準備を始めましょう。まず「フェーズと時間枠」で時間帯を追加し、次にトラックと役割、最後に需要を設定します。
+        </p>
+      )}
       {actionData && "error" in actionData ? (
         <p role="alert" className="text-sm font-medium text-gdg-red">
           {actionData.error}
@@ -103,9 +93,9 @@ export default function DesignScreen({ loaderData, actionData }: DesignScreenPro
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="space-y-4 rounded-xl border border-border bg-surface p-4 sm:p-5">
-      <h2 className="text-base font-semibold">{title}</h2>
+    <Card className="space-y-4">
+      <Heading level={2}>{title}</Heading>
       {children}
-    </section>
+    </Card>
   );
 }

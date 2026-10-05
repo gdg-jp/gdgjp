@@ -13,6 +13,7 @@ import {
   undoRevision,
 } from "~/features/history/history.server";
 import type { Actor } from "~/features/history/types";
+import { SheetHeader } from "~/features/roster-sheets/components/SheetHeader";
 import { getRosterSheet, updateRosterSheet } from "~/features/roster-sheets/roster-sheets.server";
 import { CellDrawer } from "~/features/roster/components/CellDrawer";
 import { DemandCellDrawer } from "~/features/roster/components/DemandCellDrawer";
@@ -102,7 +103,14 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
   return {
     event: { id: event.id, name: event.name, status: event.status },
-    sheet: { id: sheet.id, name: sheet.name, date: sheet.date, seed: sheet.seed },
+    sheet: {
+      id: sheet.id,
+      name: sheet.name,
+      date: sheet.date,
+      startTime: sheet.startTime,
+      endTime: sheet.endTime,
+      seed: sheet.seed,
+    },
     timeSlots: timeSlots.map((s) => ({ id: s.id, idx: s.idx, start: s.start, end: s.end })),
     tracks: tracks.map((t) => ({ id: t.id, name: t.name, color: t.color, sortOrder: t.sortOrder })),
     roles: roles.map((r) => ({ id: r.id, name: r.name, sortOrder: r.sortOrder })),
@@ -317,14 +325,7 @@ export default function RosterPage({ loaderData, actionData }: Route.ComponentPr
 
   return (
     <main className="admin-page admin-page-wide">
-      <div className="page-heading">
-        <div>
-          <h1>シフト表</h1>
-          <p>
-            {event.name} · {sheet.name} · {sheet.date}
-          </p>
-        </div>
-      </div>
+      <SheetHeader eventId={event.id} eventName={event.name} sheet={sheet} active="roster" />
 
       <GeneratePanel
         seed={sheet.seed}
@@ -335,7 +336,7 @@ export default function RosterPage({ loaderData, actionData }: Route.ComponentPr
       {droppedCount > 0 ? (
         <p
           role="alert"
-          className="rounded-xl border-2 border-border bg-surface p-3 text-sm font-medium"
+          className="rounded-xl border-2 border-border bg-card p-3 text-sm font-medium"
         >
           {droppedCount}件の割当は対象が存在しないため復元されませんでした。
         </p>

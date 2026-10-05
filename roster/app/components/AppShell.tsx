@@ -16,10 +16,8 @@ type ShellEvent = {
 type ShellChapter = { id: number; slug: string };
 
 const EVENT_NAV = [
-  ["design", "設計", "CalendarDays"],
   ["staff", "スタッフ", "UsersRound"],
-  ["roster", "シフト表", "CalendarDays"],
-  ["share", "共有", "Share2"],
+  ["share", "共有", "Link"],
 ] as const;
 
 export function AppShell({
@@ -85,23 +83,42 @@ export function AppShell({
 
         <nav className="sidebar-nav" aria-label="管理画面">
           <NavLink to="/" end className={navClassName}>
-            <Icons name="LayoutGrid" aria-hidden="true" animateOnHover={false} />
+            <Icons name="LayoutGrid" aria-hidden="true" />
             <span>イベント一覧</span>
           </NavLink>
           {currentEvent ? (
             <div className="event-nav-group">
               <p className="nav-label">このイベント</p>
               <NavLink to={eventPath(currentEvent.id)} end className={navClassName}>
-                <Icons name="LayoutGrid" aria-hidden="true" animateOnHover={false} />
-                <span>概要</span>
+                <Icons name="CalendarDays" aria-hidden="true" />
+                <span>シフト表一覧</span>
               </NavLink>
-              {EVENT_NAV.map(([segment, label, iconName]) => (
+              {sheetId && (
+                <>
+                  <p className="nav-label">選択中のシフト表</p>
+                  <NavLink
+                    to={`${eventPath(currentEvent.id)}/s/${sheetId}/roster`}
+                    className={navClassName}
+                  >
+                    <Icons name="CalendarDays" aria-hidden="true" />
+                    <span>割当</span>
+                  </NavLink>
+                  <NavLink
+                    to={`${eventPath(currentEvent.id)}/s/${sheetId}/design`}
+                    className={navClassName}
+                  >
+                    <Icons name="CalendarCog" aria-hidden="true" />
+                    <span>設計</span>
+                  </NavLink>
+                </>
+              )}
+              {EVENT_NAV.map(([segment, label, icon]) => (
                 <NavLink
                   key={segment}
-                  to={eventSectionPath(currentEvent.id, segment, sheetId)}
+                  to={`${eventPath(currentEvent.id)}/${segment}`}
                   className={navClassName}
                 >
-                  <Icons name={iconName} aria-hidden="true" animateOnHover={false} />
+                  <Icons name={icon} aria-hidden="true" />
                   <span>{label}</span>
                 </NavLink>
               ))}
@@ -116,7 +133,7 @@ export function AppShell({
                 : "sidebar-link sidebar-create-link"
             }
           >
-            <Icons name="Plus" aria-hidden="true" animateOnHover={false} />
+            <Icons name="Plus" aria-hidden="true" />
             <span>イベントを作成</span>
           </Link>
         </nav>
@@ -132,19 +149,14 @@ export function AppShell({
                   {user.image ? (
                     <img src={user.image} alt="" />
                   ) : (
-                    <Icons name="UserRound" aria-hidden="true" animateOnHover={false} />
+                    <Icons name="User" aria-hidden="true" />
                   )}
                 </span>
                 <span className="account-copy">
                   <span className="account-name">{user.name || user.email}</span>
                   <span className="account-label">アカウント</span>
                 </span>
-                <Icons
-                  name="ChevronDown"
-                  className="account-chevron"
-                  aria-hidden="true"
-                  animateOnHover={false}
-                />
+                <Icons name="ChevronDown" className="account-chevron" aria-hidden="true" />
               </button>
             }
             user={user}
@@ -162,16 +174,4 @@ function navClassName({ isActive }: { isActive: boolean }) {
 
 function eventPath(eventId: string) {
   return `/e/${encodeURIComponent(eventId)}`;
-}
-
-function eventSectionPath(
-  eventId: string,
-  segment: (typeof EVENT_NAV)[number][0],
-  sheetId: string | undefined,
-) {
-  const sheetSegment =
-    sheetId && (segment === "design" || segment === "roster")
-      ? `/s/${encodeURIComponent(sheetId)}`
-      : "";
-  return `${eventPath(eventId)}${sheetSegment}/${segment}`;
 }
