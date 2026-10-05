@@ -54,13 +54,16 @@ jobs:
         run: /tmp/gdg agent-host validate-spec --for-release --spec apps/agent-host/agent-host.json
 
       - name: Build and Sign Release Bundle
+        id: bundle
         env:
           AGENT_HOST_SIGNING_KEY: ${{ secrets.AGENT_HOST_SIGNING_KEY }}
         run: |
           if [ -z "$AGENT_HOST_SIGNING_KEY" ]; then
-            echo "::error::AGENT_HOST_SIGNING_KEY secret is required to sign production release bundles"
-            exit 1
+            echo "::warning::AGENT_HOST_SIGNING_KEY is not configured; skipping signed release bundle publish"
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "signed=true" >> "$GITHUB_OUTPUT"
           node scripts/build-agent-host-release.mjs \
             --spec apps/agent-host/agent-host.json \
             --out dist/agent-host-release \
@@ -68,6 +71,7 @@ jobs:
             --gdg-bin /tmp/gdg
 
       - name: Upload Release Bundle Artifact
+        if: steps.bundle.outputs.signed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: agent-host-release-bundle
@@ -75,6 +79,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish to GitHub Releases
+        if: steps.bundle.outputs.signed == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

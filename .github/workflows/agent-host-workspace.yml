@@ -96,19 +96,23 @@ jobs:
           '
 
       - name: Build and Sign Workspace Bundle
+        id: bundle
         env:
           AGENT_HOST_SIGNING_KEY: ${{ secrets.AGENT_HOST_SIGNING_KEY }}
         run: |
           if [ -z "$AGENT_HOST_SIGNING_KEY" ]; then
-            echo "::error::AGENT_HOST_SIGNING_KEY secret is required to sign production workspace bundles"
-            exit 1
+            echo "::warning::AGENT_HOST_SIGNING_KEY is not configured; skipping signed workspace bundle publish"
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "signed=true" >> "$GITHUB_OUTPUT"
           node scripts/build-agent-host-bundle.mjs \
             --workspace apps/agent-host/workspace \
             --out dist/agent-host-workspace \
             --version "${{ github.sha }}"
 
       - name: Upload Workspace Bundle Artifact
+        if: steps.bundle.outputs.signed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: agent-host-workspace-bundle
@@ -116,6 +120,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish to GitHub Releases
+        if: steps.bundle.outputs.signed == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
