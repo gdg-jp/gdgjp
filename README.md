@@ -8,7 +8,7 @@ pnpm install
 ```
 
 `design-system/` tracks [gdg-jp/design-system](https://github.com/gdg-jp/design-system).
-Commit and push UI changes there first, then commit the updated `ui` pointer here.
+Commit and push UI changes there first, then commit the updated `design-system` pointer here.
 Existing `@gdgjp/design-system` workspace imports and build commands remain unchanged.
 
 Monorepo for the GDG Japan web properties. It uses a flat layout, pnpm workspaces, Turborepo, and
@@ -18,30 +18,59 @@ a Chrome extension, an OIDC client demo, and shared libraries.
 
 ## Local CI
 
-`pnpm ci:full --changed` selects checks from staged paths and executes them against the current
-working tree. It prints each step's duration and the total time.
+`pnpm ci:staged` (also `pnpm ci:full --changed`) selects checks from staged paths and executes them
+against the current working tree. It prints step durations and saves a JSON report under
+`.turbo/ci-metrics/`, including failures, skipped steps, runtime architecture, Turbo task durations
+and cache hits, and Playwright test timings/counts. `firstTestDelayMs` includes discovery, server
+startup and global setup before the first test; it is not added to the suite duration.
+
+```sh
+pnpm ci:staged --no-cache --metrics=.turbo/ci-metrics/cold.json
+```
+
+`--no-cache` disables both Turbo cache reads and writes, and gives Go and Playwright fresh temporary
+caches. It does not reinstall dependencies or erase application databases. For a cold UI build
+benchmark, also remove `design-system/dist`, `design-system/build`, `design-system/node_modules/.vite`, and `design-system/node_modules/.cache`
+before each run. Compare successful runs with identical staged paths and use the median of at least
+three runs. Cached Playwright reports are marked `cached: true`; their recorded test durations are
+historical, while the enclosing step duration is the current wall time.
 
 - Ordinary Codex commits defer to the installed repository Git hook, so CI runs once. Custom,
   missing or disabled hooks and bypass flags retain the agent-side check.
 - Application unit-test-only edits retain typechecking and related Vitest tests without rebuilding
   production bundles or rerunning application E2E. Production edits and browser specs retain their
   existing checks.
+- Application typechecks and production builds share one Turbo graph, so dependency builds run
+  once even with caching disabled. Test-only workspaces do not acquire production build tasks.
+- A staged `design-system` gitlink is expanded using its old and staged commit IDs. Later commits and unstaged
+  submodule edits do not change the selection. Missing history retains full UI validation.
+- UI unit-test-only changes run typechecking and related unit tests. UI E2E-spec-only changes run
+  the selected specs; shared code, styles, assets, snapshots, dependencies and configuration retain
+  the full browser suite. Deleted specs also retain the full suite.
 - Staged UI checks form one Turbo graph. Typechecking, unit tests, declaration emission and
   Storybook compilation run in parallel; browsers wait for the typecheck and both browser builds.
   Declaration emission does not repeat the semantic typecheck. Every story and documentation entry
   remains in the test build; only prop inference and source maps are omitted.
-- UI E2E uses up to four workers and records traces on the first retry in CI. `CI=true` prevents
+- UI E2E uses up to six workers and records traces on the first retry in CI. `CI=true` prevents
   reuse of an existing server. Source, dependency, environment and compiler-runtime changes
   invalidate cached results. Application E2E depends on local state and is not cached.
 
-For full staged UI checks on Apple Silicon with an Intel Node on `PATH`, select an installed native
-Node >=22.18 for the compiler: `git config --local gdgjp.typescriptNode /absolute/path/to/native/node`.
-Only compiler subprocesses use it; application runtimes and native dependencies stay as installed.
-An invalid configured executable fails CI. Remove the override with
-`git config --local --unset gdgjp.typescriptNode`.
+UI builds use [Vite 8](https://vite.dev/blog/announcing-vite8) and the native
+[TypeScript 7 compiler](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/).
+The TypeScript 6 API remains available for Storybook's documentation tools.
+The former `gdgjp.typescriptNode` setting is no longer used.
 
-Use `TURBO_FORCE=true pnpm ci:full --changed` to rerun cached tasks. Cache hits speed up repeated
-validation of unchanged input; a new source change still runs the affected tests.
+On Apple Silicon with an Intel Node on `PATH`, install dependencies again with `pnpm install` to
+include the declared ARM64 optional binaries, then select a normal native Node >=22.18 installation:
+
+```sh
+git config --local gdgjp.ciNode /absolute/path/to/arm64/bin/node
+```
+
+This runtime applies to staged typechecks, builds, E2E and UI unit tests. Application unit tests
+use the invoking Node to match their installed native addons. `GDG_CI_NODE` can override the setting
+for one run. Invalid executables fail CI; `git config --local --unset gdgjp.ciNode` restores the
+invoking Node. Each step's selected runtime is recorded and participates in Turbo's cache key.
 
 ## GDG CLI
 

@@ -15,7 +15,7 @@ for (const name of gitLocalEnvironmentNames) {
   delete environment[name];
 }
 
-const result = spawnSync("pnpm", ["ci:full", "--changed"], {
+const result = spawnSync("pnpm", ["ci:staged"], {
   cwd: repositoryRoot,
   env: environment,
   stdio: "inherit",

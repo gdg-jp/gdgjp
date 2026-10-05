@@ -21,6 +21,7 @@
     "ci:go": "node scripts/run-ci.mjs go",
     "ci:quick": "node scripts/run-ci.mjs quick",
     "ci:full": "node scripts/run-ci.mjs full",
+    "ci:staged": "node scripts/run-ci.mjs full --changed",
     "prepare": "node scripts/install-git-hooks.mjs"
   },
   "devDependencies": {
@@ -34,6 +35,12 @@
     "yaml": "^2.9.0"
   },
   "packageManager": "pnpm@9.15.0",
+  "pnpm": {
+    "supportedArchitectures": {
+      "os": ["current"],
+      "cpu": ["current", "arm64"]
+    }
+  },
   "engines": {
     "node": ">=22.18.0"
   }

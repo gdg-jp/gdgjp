@@ -1,7 +1,8 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "concurrency": "20",
-  "globalEnv": ["GDG_CI_RUNTIME", "GDG_UI_TSC_NODE", "GDG_UI_TSC_RUNTIME"],
+  "globalEnv": ["GDG_CI_RUNTIME"],
+  "globalPassThroughEnv": ["PWTEST_CACHE_DIR"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -25,7 +26,8 @@
     "test:e2e": {
       "cache": false,
       "dependsOn": ["^build"],
-      "outputs": ["playwright-report/**", "test-results/**"]
+      "env": ["CI", "PLAYWRIGHT_*"],
+      "outputs": ["playwright-report/**", "test-results/**", ".turbo/ci-playwright.json"]
     },
     "@gdgjp/design-system#build:storybook:test": {
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
@@ -42,8 +44,17 @@
       "cache": true,
       "dependsOn": ["typecheck", "test:consumer", "build:storybook:test"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "env": ["CI", "NODE_OPTIONS", "NODE_ENV", "TZ", "LANG", "LC_ALL", "PLAYWRIGHT_*"],
-      "outputs": ["playwright-report/**", "test-results/**"]
+      "env": [
+        "CI",
+        "NODE_OPTIONS",
+        "NODE_ENV",
+        "TZ",
+        "LANG",
+        "LC_ALL",
+        "PLAYWRIGHT_*",
+        "GDG_UI_E2E_FILES"
+      ],
+      "outputs": ["playwright-report/**", "test-results/**", ".turbo/ci-playwright.json"]
     },
     "@gdgjp/design-system#build": {
       "outputs": ["dist/**"]

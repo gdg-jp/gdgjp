@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parse as parseYaml } from "yaml";
-import { compilerEnvironment } from "../../design-system/scripts/typescript.mjs";
 import { changedSteps } from "../../scripts/run-ci.mjs";
 
 function readWorkflow(name) {
@@ -33,8 +32,8 @@ test("UI font changes are validated even without a TypeScript edit", () => {
   assert.ok(!names.includes("test:ui"));
   assert.ok(names.includes("e2e:ui"));
   assert.ok(
-    changedSteps("quick", ["design-system/assets/fonts/GoogleSans.woff2"]).some(
-      ([name]) => name === "build",
+    changedSteps("quick", ["design-system/assets/fonts/GoogleSans.woff2"]).some(([name]) =>
+      name.includes("build"),
     ),
   );
   const pkg = JSON.parse(
@@ -52,6 +51,46 @@ test("UI E2E edits run the suite once and unrelated apps retain related tests", 
   assert.ok(steps.some(([, command]) => command.includes("@gdgjp/tinyurl exec vitest related")));
 });
 
+test("UI unit-test-only changes keep typechecking and related tests without unrelated browsers", () => {
+  const steps = changedSteps("full", ["design-system/src/index.test.tsx"]);
+  assert.deepEqual(
+    steps.map(([name]) => name),
+    ["lint:ui", "typecheck", "test:ui"],
+  );
+  assert.match(steps[2][1], /vitest related --run --reporter=minimal 'src\/index.test.tsx'/);
+  for (const extra of [
+    "design-system/src/index.ts",
+    "design-system/src/styles/tokens.css",
+    "design-system/vitest.config.ts",
+    "design-system/pnpm-lock.yaml",
+    "design-system/e2e/library.spec.ts-snapshots/catalog.png",
+    "design-system/src/index.test.js",
+  ]) {
+    assert.ok(
+      changedSteps("full", ["design-system/src/index.test.tsx", extra]).some(
+        ([name]) => name === "e2e:ui",
+      ),
+    );
+  }
+});
+
+test("UI E2E spec-only edits select those specs, while shared inputs keep the full suite", () => {
+  const selection = (files) =>
+    JSON.parse(changedSteps("full", files).find(([name]) => name === "e2e:ui")[2].GDG_UI_E2E_FILES);
+  assert.deepEqual(selection(["design-system/e2e/slider.spec.ts"]), ["e2e/slider.spec.ts"]);
+  for (const extra of [
+    "design-system/src/index.ts",
+    "design-system/src/styles/tokens.css",
+    "design-system/e2e/fixtures.ts",
+    "design-system/playwright.config.ts",
+  ]) {
+    assert.deepEqual(selection(["design-system/e2e/slider.spec.ts", extra]), []);
+  }
+  assert.deepEqual(selection(["design-system/e2e/deleted.spec.ts"]), []);
+  const { tasks } = JSON.parse(readFileSync(new URL("../../turbo.json", import.meta.url), "utf8"));
+  assert.ok(tasks["@gdgjp/design-system#test:e2e:browser"].env.includes("GDG_UI_E2E_FILES"));
+});
+
 test("unit-test-only changes keep typecheck and related tests without production builds or E2E", () => {
   for (const file of [
     "roster/app/features/demand/impact.test.ts",
@@ -66,16 +105,16 @@ test("unit-test-only changes keep typecheck and related tests without production
     "roster/app/features/demand/impact.test.ts",
     "roster/app/features/demand/impact.ts",
   ]);
-  assert.ok(steps.some(([name]) => name === "build"));
+  assert.ok(steps.some(([name]) => name === "typecheck+build"));
   assert.ok(steps.some(([name]) => name === "e2e:@gdgjp/roster"));
 });
 
 test("frontend edits without a configured browser suite retain other checks", () => {
   for (const app of ["sns", "website", "agents"]) {
     const steps = changedSteps("full", [`${app}/app/root.tsx`]);
-    assert.ok(steps.some(([name]) => name === "typecheck"));
+    assert.ok(steps.some(([name]) => name === "typecheck+build"));
     assert.ok(steps.some(([name]) => name.startsWith("test:")));
-    assert.ok(steps.some(([name]) => name === "build"));
+    assert.ok(steps.some(([name]) => name.includes("build")));
     assert.ok(steps.every(([name]) => !name.startsWith("e2e:")));
   }
 });
@@ -94,9 +133,37 @@ test("Pay frontend and browser harness changes select its browser suite", () => 
 
 test("index service changes run their workspace checks", () => {
   const steps = changedSteps("full", ["agents-index/src/daemon/server.ts"]);
-  assert.match(steps.find(([name]) => name === "typecheck")[1], /--filter=@gdgjp\/agents-index/);
+  assert.match(
+    steps.find(([name]) => name === "typecheck+build")[1],
+    /@gdgjp\/agents-index#typecheck/,
+  );
   assert.ok(steps.some(([name]) => name === "test:@gdgjp/agents-index"));
-  assert.ok(steps.some(([name]) => name === "build"));
+  assert.ok(steps.some(([name]) => name.includes("build")));
+});
+
+test("staged typechecks and builds share dependencies without widening test-only changes", () => {
+  const steps = changedSteps("full", [
+    "roster/app/features/demand/impact.ts",
+    "tinyurl/app/lib/utils.test.ts",
+  ]);
+  const graph = steps.find(([name]) => name === "typecheck+build");
+  assert.ok(graph);
+  assert.match(graph[1], /'@gdgjp\/roster#typecheck'/);
+  assert.match(graph[1], /'@gdgjp\/tinyurl#typecheck'/);
+  assert.match(graph[1], /'@gdgjp\/roster#build'/);
+  assert.doesNotMatch(graph[1], /@gdgjp\/tinyurl#build/);
+  assert.ok(steps.every(([name]) => name !== "typecheck" && name !== "build"));
+  assert.ok(steps.some(([name]) => name === "e2e:@gdgjp/roster"));
+});
+
+test("the selected runtime covers application preparation and browsers while unit addons keep their invoking Node", () => {
+  const steps = changedSteps("full", ["wiki/app/root.tsx"]);
+  const preparation = steps.find(([name]) => name === "typecheck+build")[2];
+  const browser = steps.find(([name]) => name === "e2e:@gdgjp/wiki")[2];
+  assert.ok(preparation.PATH);
+  assert.equal(browser.GDG_CI_RUNTIME, preparation.GDG_CI_RUNTIME);
+  assert.equal(browser.CI, undefined);
+  assert.equal(steps.find(([name]) => name === "test:@gdgjp/wiki")[2], undefined);
 });
 
 test("staged UI E2E uses isolated runs, while stateful application E2E stays uncached", () => {
@@ -108,12 +175,14 @@ test("staged UI E2E uses isolated runs, while stateful application E2E stays unc
   assert.equal(config.tasks["@gdgjp/design-system#test:e2e:browser"].cache, true);
   assert.ok(config.tasks["@gdgjp/design-system#test:e2e:browser"].env.includes("CI"));
   assert.ok(config.globalEnv.includes("GDG_CI_RUNTIME"));
-  assert.ok(config.globalEnv.includes("GDG_UI_TSC_RUNTIME"));
   for (const workspace of ["roster", "connpass"]) {
     const step = changedSteps("full", [`${workspace}/app/root.tsx`]).find(([name]) =>
       name.startsWith("e2e:"),
     );
-    assert.equal(step[1], `pnpm --filter @gdgjp/${workspace} exec playwright test --reporter=dot`);
+    assert.equal(
+      step[1],
+      `pnpm --filter @gdgjp/${workspace} exec playwright test --reporter=dot,json`,
+    );
   }
 });
 
@@ -175,6 +244,7 @@ test("changed CI does not unconditionally typecheck unrelated Node scripts", () 
   );
   assert.equal(packageJSON.scripts["ci:quick"], "node scripts/run-ci.mjs quick");
   assert.equal(packageJSON.scripts["ci:full"], "node scripts/run-ci.mjs full");
+  assert.equal(packageJSON.scripts["ci:staged"], "node scripts/run-ci.mjs full --changed");
 });
 
 test("hosted CI builds UI before every clean consumer job", () => {
@@ -313,13 +383,6 @@ test("UI test artifacts track their Vite environment and retain documentation en
   for (const option of ["disableBlocks", "disableMDXEntries", "disableAutoDocs"]) {
     assert.equal(storybook.build.test[option], false);
   }
-});
-
-test("compiler runtime selection verifies Node and rejects successful non-Node executables", () => {
-  const environment = compilerEnvironment();
-  assert.equal(environment.GDG_UI_TSC_RUNTIME, `${process.versions.node}-${process.arch}`);
-  assert.ok(environment.GDG_UI_TSC_NODE);
-  assert.throws(() => compilerEnvironment("/usr/bin/true"));
 });
 
 test("every package-installing job initializes the UI submodule first", () => {
