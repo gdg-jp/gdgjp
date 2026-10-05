@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parse as parseYaml } from "yaml";
-import { changedSteps } from "../../scripts/run-ci.mjs";
+import { changedSteps, completeSteps } from "../../scripts/run-ci.mjs";
 
 function readWorkflow(name) {
   return parseYaml(readFileSync(new URL(`../workflows/${name}`, import.meta.url), "utf8"));
@@ -156,14 +156,23 @@ test("staged typechecks and builds share dependencies without widening test-only
   assert.ok(steps.some(([name]) => name === "e2e:@gdgjp/roster"));
 });
 
-test("the selected runtime covers application preparation and browsers while unit addons keep their invoking Node", () => {
+test("the selected runtime covers applications while native addons keep their invoking Node", () => {
   const steps = changedSteps("full", ["wiki/app/root.tsx"]);
   const preparation = steps.find(([name]) => name === "typecheck+build")[2];
   const browser = steps.find(([name]) => name === "e2e:@gdgjp/wiki")[2];
   assert.ok(preparation.PATH);
   assert.equal(browser.GDG_CI_RUNTIME, preparation.GDG_CI_RUNTIME);
   assert.equal(browser.CI, "true");
-  assert.equal(steps.find(([name]) => name === "test:@gdgjp/wiki")[2], undefined);
+  assert.equal(
+    steps.find(([name]) => name === "test:@gdgjp/wiki")[2].GDG_CI_RUNTIME,
+    preparation.GDG_CI_RUNTIME,
+  );
+  assert.equal(
+    changedSteps("full", ["agents-index/src/indexer/store.ts"]).find(
+      ([name]) => name === "test:@gdgjp/agents-index",
+    )[2],
+    undefined,
+  );
 });
 
 test("staged UI E2E uses isolated runs, while stateful application E2E stays uncached", () => {
@@ -200,17 +209,72 @@ test("Wiki E2E specs and setup changes select the Wiki suite", () => {
   assert.match(setupSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[1], /@gdgjp\/wiki test:e2e/);
   assert.doesNotMatch(setupSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[1], /access-control/);
   assert.equal(appSteps.filter(([name]) => name === "e2e:@gdgjp/wiki").length, 1);
+  assert.equal(appSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[2].GDG_E2E_BUILT, "wiki");
+  assert.equal(specSteps.find(([name]) => name === "e2e:@gdgjp/wiki")[2].GDG_E2E_BUILT, "");
+  assert.ok(
+    changedSteps("full", ["wiki/react-router.config.ts"]).some(
+      ([name]) => name === "e2e:@gdgjp/wiki",
+    ),
+  );
 });
 
 test("full CI schedules the Wiki E2E target once", () => {
-  const runCi = readFileSync(new URL("../../scripts/run-ci.mjs", import.meta.url), "utf8");
-  const fullE2eCommand = runCi.match(/\[\s*"e2e",\s*"([^"]+)"/s)?.[1];
-  assert.ok(fullE2eCommand);
-  assert.equal((fullE2eCommand.match(/--filter=@gdgjp\/wiki/g) ?? []).length, 1);
+  const steps = completeSteps("full");
+  assert.equal(steps.filter(([name]) => name === "e2e:@gdgjp/wiki").length, 1);
+  assert.equal(steps.filter(([name]) => name.startsWith("e2e")).length, 10);
+  assert.ok(steps.find(([name]) => name === "typecheck+build")[2].PATH);
+  assert.ok(steps.find(([name]) => name === "test")[2].PATH);
+  assert.equal(steps.find(([name]) => name === "test:addons")[2], undefined);
+  for (const app of ["wiki", "accounts", "scheduler", "tinyurl", "img", "pay"]) {
+    assert.equal(
+      steps.find(([name]) => name === `e2e:@gdgjp/${app}`)[2].GDG_E2E_BUILT,
+      "accounts,tinyurl,img,scheduler,wiki,roster,ost",
+    );
+  }
+  const names = steps.map(([name]) => name);
+  assert.ok(names.indexOf("typecheck+build") < names.indexOf("prepare:e2e:ui"));
+  assert.ok(names.indexOf("prepare:e2e:ui") < names.indexOf("e2e:@gdgjp/design-system"));
   assert.equal(
     readWorkflow("ci.yml").jobs.e2e.strategy.matrix.app,
     "${{ fromJSON(needs.changes.outputs.e2e) }}",
   );
+});
+
+test("Worker build configuration edits select their own E2E using freshly built artifacts", () => {
+  for (const app of ["tinyurl", "img", "scheduler"]) {
+    for (const file of ["vite.config.ts", "react-router.config.ts", "package.json"]) {
+      const steps = changedSteps("full", [`${app}/${file}`]);
+      const browsers = steps.filter(([name]) => name.startsWith("e2e:"));
+      assert.equal(browsers.length, 1);
+      assert.equal(browsers[0][0], `e2e:@gdgjp/${app}`);
+      assert.equal(browsers[0][2].GDG_E2E_BUILT, app);
+    }
+  }
+});
+
+test("Go runner edits select its execution and regression tests", () => {
+  const steps = changedSteps("full", ["scripts/run-go-ci.mjs"]);
+  assert.ok(steps.some(([name, command]) => name === "go" && command.includes("run-go-ci.mjs")));
+  assert.match(steps.find(([name]) => name === "test:scripts")[1], /ci-metrics\.test\.mjs/);
+});
+
+test("ACL generation changes select embedded Go checks and the subprocess regression", () => {
+  for (const file of ["gdg-lib/scripts/build-acl.mjs", "gdg-lib/src/acl/agent.ts"]) {
+    const steps = changedSteps("full", [file]);
+    assert.ok(steps.some(([name]) => name === "typecheck:node-scripts"));
+    assert.ok(steps.some(([name]) => name === "go"));
+    if (file.endsWith(".mjs")) {
+      assert.match(
+        steps.find(([name]) => name === "test:@gdgjp/gdg-lib")[1],
+        /'scripts\/build-acl.test.ts'/,
+      );
+    }
+  }
+});
+
+test("Next typechecking waits for its generated route types", () => {
+  const { tasks } = JSON.parse(readFileSync(new URL("../../turbo.json", import.meta.url), "utf8"));
+  assert.ok(tasks["@gdgjp/agents#typecheck"].dependsOn.includes("build"));
 });
 
 test("repository script edits do not run every workspace's checks", () => {

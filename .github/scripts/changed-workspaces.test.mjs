@@ -123,6 +123,9 @@ test("manual execution selects every CI and deploy target", () => {
 
 test("gates the CLI Go job on cli/ changes", () => {
   assert.equal(classifyChanges(["cli/internal/command/wiki.go"]).cli, true);
+  assert.equal(classifyChanges(["gdg-lib/src/acl/agent.ts"]).cli, true);
+  assert.equal(classifyChanges(["gdg-lib/scripts/build-acl.mjs"]).cli, true);
+  assert.equal(classifyChanges(["scripts/run-go-ci.mjs"]).cli, true);
   assert.equal(classifyChanges(["docs/operations.md"]).cli, false);
   assert.equal(classifyChanges(["pnpm-lock.yaml"]).cli, true);
 });
@@ -138,6 +141,8 @@ test("gates script-tests on workflow scripts and agent-host components", () => {
   assert.equal(classifyChanges(["accounts/src/index.ts"]).scriptTests, false);
   assert.equal(classifyChanges(["scripts/check-ui-conventions.mjs"]).scriptTests, true);
   assert.equal(classifyChanges(["scripts/run-ci.mjs"]).scriptTests, true);
+  assert.equal(classifyChanges(["scripts/run-go-ci.mjs"]).scriptTests, true);
+  assert.equal(classifyChanges(["gdg-lib/scripts/build-acl.mjs"]).scriptTests, true);
   assert.equal(
     classifyChanges(["wiki/tests/architecture/ui-conventions-baseline.json"]).scriptTests,
     true,

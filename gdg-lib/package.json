@@ -18,7 +18,7 @@
     "pretest": "pnpm build:acl",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:acl": "esbuild src/acl/agent.ts --bundle --format=esm --platform=neutral --banner:js='// @ts-nocheck' --outfile=../cli/internal/wiki/hooks/acl.ts",
+    "build:acl": "node scripts/build-acl.mjs",
     "build": "node scripts/build-publish-package.mjs",
     "publish:gh-packages": "cd dist && npm publish"
   },

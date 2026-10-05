@@ -1,13 +1,13 @@
 import { readFileSync } from "node:fs";
-import Database from "better-sqlite3";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("0060_translation_jobs migration", () => {
-  let db: Database.Database;
+  let db: DatabaseSync;
 
   beforeEach(() => {
-    db = new Database(":memory:");
-    db.pragma("foreign_keys = ON");
+    db = new DatabaseSync(":memory:");
+    db.exec("PRAGMA foreign_keys = ON");
     db.exec(`
       CREATE TABLE pages (
         id TEXT PRIMARY KEY,

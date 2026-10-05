@@ -18,36 +18,73 @@ const quickSteps = [
   ["typecheck:node-scripts", "pnpm typecheck:node-scripts"],
   ["lint", "pnpm exec biome check . --reporter=github"],
   ["ui-conventions", "node scripts/check-ui-conventions.mjs"],
-  ["typecheck", "pnpm exec turbo typecheck --output-logs=errors-only"],
+  ["typecheck+build", "pnpm exec turbo typecheck build --concurrency=6 --output-logs=errors-only"],
+  ["test:scripts", "node --test --test-reporter=dot .github/scripts/*.test.mjs"],
   [
     "test",
-    "node --test --test-reporter=dot .github/scripts/*.test.mjs && pnpm exec turbo test --output-logs=errors-only -- --reporter=minimal",
+    "pnpm exec turbo test --filter='!@gdgjp/agents-index' --concurrency=6 --output-logs=errors-only -- --reporter=minimal --pool=threads --maxWorkers=2",
   ],
-  ["build", "pnpm exec turbo build --output-logs=errors-only"],
   [
-    "go",
-    // Match release targets in .github/workflows/deploy.yml so host-only builds
-    // cannot hide GOOS/GOARCH breakage (for example Windows syscall gaps).
-    'pnpm build:acl && cd cli && unformatted=$(gofmt -l .) && if [ -n "$unformatted" ]; then printf \'Files requiring gofmt:\\n%s\\n\' "$unformatted" >&2; exit 1; fi && go vet ./... && go test ./... && go build ./... && for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do GOOS="${target%/*}" GOARCH="${target#*/}" go build -o /dev/null ./cmd/gdg || exit 1; done',
+    "test:addons",
+    "pnpm --filter @gdgjp/agents-index exec vitest run --reporter=minimal --pool=threads --maxWorkers=2",
   ],
+  ["go", "node scripts/run-go-ci.mjs"],
 ];
 
 const goSteps = quickSteps.filter(([name]) => name === "go");
+const builtE2EApps = ["accounts", "tinyurl", "img", "scheduler", "wiki", "roster", "ost"];
 
 const fullSteps = [
   ...quickSteps,
   [
-    "e2e",
-    "pnpm exec turbo test:e2e --filter=@gdgjp/accounts --filter=@gdgjp/tinyurl --filter=@gdgjp/img --filter=@gdgjp/scheduler --filter=@gdgjp/pay --filter=@gdgjp/design-system --filter=@gdgjp/wiki --filter=@gdgjp/ost --filter=@gdgjp/roster --filter=@gdgjp/connpass --concurrency=1 --output-logs=errors-only -- --reporter=dot,json",
+    // Shared builds and semantic checks already passed in typecheck+build.
+    "prepare:e2e:ui",
+    "pnpm exec turbo test:consumer build:storybook:test --filter=@gdgjp/design-system --output-logs=errors-only",
   ],
+  // Keep the shared-Accounts chain moving whenever its server is free.
+  ...[
+    "accounts",
+    "scheduler",
+    "tinyurl",
+    "img",
+    "wiki",
+    "roster",
+    "design-system",
+    "pay",
+    "ost",
+    "connpass",
+  ].map((app) => [
+    `e2e:@gdgjp/${app}`,
+    app === "design-system"
+      ? "pnpm --filter @gdgjp/design-system exec playwright test --workers=2 --reporter=dot,json"
+      : `pnpm --filter @gdgjp/${app} test:e2e --reporter=dot,json`,
+  ]),
 ];
+
+export function completeSteps(mode) {
+  const runtime = nodeEnvironment();
+  return (mode === "go" ? goSteps : mode === "full" ? fullSteps : quickSteps).map(
+    ([name, command]) => [
+      name,
+      command,
+      // Native addons in unit tests must use the Node that installed them.
+      name === "test:addons"
+        ? undefined
+        : name === "prepare:e2e:ui"
+          ? { ...runtime, CI: "true" }
+          : name.startsWith("e2e:")
+            ? { ...runtime, GDG_E2E_BUILT: builtE2EApps.join(",") }
+            : runtime,
+    ],
+  );
+}
 
 const codeFilePattern = /\.(?:[cm]?[jt]sx?|sql)$/;
 const testFilePattern = /(?:\.(?:test|spec)\.[cm]?[jt]sx?$|\/(?:e2e|__tests__)\/)/;
 const biomeFilePattern = /\.(?:[cm]?[jt]sx?|jsonc?|css|graphql|ya?ml)$/;
 const preCommitExcludedPathPattern = /^(?:\.agents|\.claude)\//;
 const nodeScriptInputPattern =
-  /^(?:\.codex\/hooks\/.*\.ts|cli\/internal\/wiki\/hooks\/.*\.ts|gdg-lib\/src\/acl\/|tsconfig\.node-scripts\.json)$/;
+  /^(?:\.codex\/hooks\/.*\.ts|cli\/internal\/wiki\/hooks\/.*\.ts|gdg-lib\/(?:src\/acl\/.*|scripts\/build-acl\.mjs)|tsconfig\.node-scripts\.json)$/;
 const nodeConfigurationFilePattern =
   /(?:^|\/)(?:package\.json|tsconfig(?:\.[^/]+)?\.json|vite\.config\.[cm]?[jt]s|wrangler\.(?:toml|jsonc?)|react-router\.config\.[cm]?[jt]s)$/;
 const workspaces = new Map([
@@ -304,7 +341,7 @@ export function changedSteps(mode, files) {
       "typecheck+build",
       // Native compilers already use their own thread pools. Limit this graph
       // without capping persistent dev servers or unrelated Turbo tasks.
-      `pnpm exec turbo ${tasks.map(shellQuote).join(" ")} --concurrency=4 --output-logs=errors-only`,
+      `pnpm exec turbo ${tasks.map(shellQuote).join(" ")} --concurrency=6 --output-logs=errors-only`,
       tasks.every((task) => task.startsWith("@gdgjp/design-system#")) ? uiRuntime : runtime,
     ]);
   } else if (typecheckWorkspaces.length > 0) {
@@ -323,7 +360,7 @@ export function changedSteps(mode, files) {
   );
   if (
     relevantFiles.some((file) =>
-      /^(?:scripts\/(?:run-ci|run-pre-commit-ci|ci-metrics)\.mjs|turbo\.json|package\.json)$/.test(
+      /^(?:scripts\/(?:run-ci|run-go-ci|run-pre-commit-ci|ci-metrics)\.mjs|turbo\.json|package\.json)$/.test(
         file,
       ),
     )
@@ -345,6 +382,7 @@ export function changedSteps(mode, files) {
     steps.push([
       "test:scripts",
       `node --test --test-reporter=dot ${scriptTests.map(shellQuote).join(" ")}`,
+      nodeEnvironment(),
     ]);
   }
 
@@ -352,6 +390,11 @@ export function changedSteps(mode, files) {
     relevantFiles,
     (file) => isNodeFile(file) && !file.includes("/e2e/"),
   );
+  if (relevantFiles.includes("gdg-lib/scripts/build-acl.mjs")) {
+    // Vitest cannot infer the child-process dependency in this regression test.
+    const files = unitTestsByWorkspace.get("@gdgjp/gdg-lib");
+    if (!files.includes("scripts/build-acl.test.ts")) files.push("scripts/build-acl.test.ts");
+  }
   for (const [workspace, workspaceNodeFiles] of unitTestsByWorkspace) {
     if (workspace === "@gdgjp/design-system") {
       if (uiUnitTestsOnly) {
@@ -373,7 +416,8 @@ export function changedSteps(mode, files) {
     // current working tree, like the other local checks.
     steps.push([
       `test:${workspace}`,
-      `pnpm --filter ${workspace} exec vitest related --run --reporter=minimal ${workspaceNodeFiles.map(shellQuote).join(" ")}`,
+      `pnpm --filter ${workspace} exec vitest related --run --reporter=minimal --pool=threads --maxWorkers=2 ${workspaceNodeFiles.map(shellQuote).join(" ")}`,
+      workspace === "@gdgjp/agents-index" ? undefined : runtime,
     ]);
   }
 
@@ -415,10 +459,13 @@ export function changedSteps(mode, files) {
     )) {
       e2eWorkspaces.set(workspace, null);
     }
-    for (const [workspace] of workspaceFiles(relevantFiles, (file) =>
-      /^(?:wiki\/(?:tests\/e2e\/(?:global-setup|setup|run|fixtures|seed)\.|playwright\.config\.|vite\.config\.|package\.json)|pay\/(?:e2e\/|playwright\.config\.|vite\.config\.|package\.json))/.test(
-        file,
-      ),
+    for (const [workspace] of workspaceFiles(
+      relevantFiles,
+      (file) =>
+        nodeConfigurationFilePattern.test(file) ||
+        /\/playwright\.config\.[cm]?[jt]s$/.test(file) ||
+        /^wiki\/tests\/e2e\/(?:global-setup|setup|run|fixtures|seed)\./.test(file) ||
+        file.startsWith("pay/e2e/"),
     )) {
       e2eWorkspaces.set(workspace, null);
     }
@@ -433,7 +480,17 @@ export function changedSteps(mode, files) {
         workspace === "@gdgjp/wiki"
           ? `pnpm --filter ${workspace} test:e2e --reporter=dot,json${e2eArguments}`
           : `pnpm --filter ${workspace} exec playwright test --reporter=dot,json${e2eArguments}`;
-      steps.push([`e2e:${workspace}`, command, { ...runtime, CI: "true" }]);
+      steps.push([
+        `e2e:${workspace}`,
+        command,
+        {
+          ...runtime,
+          CI: "true",
+          GDG_E2E_BUILT: builtE2EApps
+            .filter((app) => buildWorkspaces.has(`@gdgjp/${app}`))
+            .join(","),
+        },
+      ]);
     }
   }
 
@@ -444,10 +501,12 @@ export function changedSteps(mode, files) {
           (file.endsWith(".go") ||
             file.startsWith("cli/internal/wiki/hooks/") ||
             /\/go\.(?:mod|sum)$/.test(file))) ||
-        file.startsWith("gdg-lib/src/acl/"),
+        file.startsWith("gdg-lib/src/acl/") ||
+        file === "gdg-lib/scripts/build-acl.mjs" ||
+        file === "scripts/run-go-ci.mjs",
     )
   ) {
-    steps.push(...goSteps);
+    steps.push(...goSteps.map(([name, command]) => [name, command, nodeEnvironment()]));
   }
 
   return steps;
@@ -457,16 +516,62 @@ function formatDuration(milliseconds) {
   return `${(milliseconds / 1000).toFixed(1)}s`;
 }
 
+export async function runConcurrentSteps(steps, options = {}, concurrency = 4) {
+  const pending = [...steps];
+  const active = new Map();
+  const held = new Set();
+  const results = new Map();
+  let failed = false;
+  // These suites all own the same Accounts server, vars file and database.
+  const resource = ([name]) =>
+    /^e2e:@gdgjp\/(?:accounts|tinyurl|img|scheduler)$/.test(name) ? "accounts" : name;
+  // The UI graph rewrites dist/. Consumers must not read it during that build.
+  const resources = (step) =>
+    step[0] === "e2e:ui"
+      ? ["go", ...[...uiAppDirectories].map((app) => resource([`e2e:@gdgjp/${app}`]))]
+      : [resource(step)];
+  while (active.size || (!failed && pending.length)) {
+    while (!failed && active.size < concurrency) {
+      const index = pending.findIndex((step) => resources(step).every((key) => !held.has(key)));
+      if (index < 0) break;
+      const [step] = pending.splice(index, 1);
+      const keys = resources(step);
+      for (const key of keys) held.add(key);
+      active.set(
+        step[0],
+        runStep(step, options).then((metric) => {
+          results.set(step[0], metric);
+          failed ||= metric.exitCode !== 0;
+          for (const key of keys) held.delete(key);
+          active.delete(step[0]);
+        }),
+      );
+    }
+    if (active.size) await Promise.race(active.values());
+  }
+  return steps.flatMap(([name]) => (results.has(name) ? [results.get(name)] : []));
+}
+
 export function runStep(
   [name, command, environment = {}],
   { noCache = false, cacheDirectory } = {},
 ) {
+  // These full-CI phases follow the common build. Only prune their dependencies
+  // when caching is disabled: normal cache keys must retain transitive inputs.
+  if (noCache && ["test", "prepare:e2e:ui"].includes(name)) {
+    command = command.replaceAll("pnpm exec turbo ", "pnpm exec turbo --only ");
+  }
   // --no-cache alone still READS Turbo's cache. Disable both reads and writes.
   command = command.replaceAll(
     "pnpm exec turbo ",
     `pnpm exec turbo run --summarize=true${noCache ? " --cache=local:,remote:" : ""} `,
   );
   return new Promise((resolve) => {
+    // Miniflare's default registry is machine-wide. Keep each suite's service
+    // bindings (including its own Accounts server) away from other dev servers.
+    const registryDirectory = name.startsWith("e2e")
+      ? mkdtempSync(join(tmpdir(), "gdg-e2e-registry-"))
+      : undefined;
     const startedAt = performance.now();
     const startedAtUnixMs = Date.now();
     const output = [];
@@ -477,6 +582,12 @@ export function runStep(
         GDG_CI_RUNTIME: `${process.platform}-${process.arch}-${release()}-${process.version}`,
         PLAYWRIGHT_JSON_OUTPUT_NAME: playwrightReport,
         ...(name.startsWith("e2e") ? { CI: "true" } : {}),
+        ...(registryDirectory
+          ? {
+              MINIFLARE_REGISTRY_PATH: registryDirectory,
+              WRANGLER_REGISTRY_PATH: registryDirectory,
+            }
+          : {}),
         ...(cacheDirectory
           ? {
               GOCACHE: join(cacheDirectory, "go"),
@@ -493,6 +604,7 @@ export function runStep(
     child.stderr.on("data", (chunk) => output.push(chunk));
     child.on("error", (error) => output.push(Buffer.from(`${error.message}\n`)));
     child.on("close", (code, signal) => {
+      if (registryDirectory) rmSync(registryDirectory, { recursive: true, force: true });
       const durationMs = performance.now() - startedAt;
       const duration = formatDuration(durationMs);
       const metric = {
@@ -579,27 +691,56 @@ export async function run(args = process.argv.slice(2)) {
     let steps = [];
     const metrics = [];
     let cacheDirectory;
+    let backgroundGo;
     let error;
     if (changedOnly && !files) {
       console.warn("ci:warn could not inspect changed files; running all checks");
     }
     try {
-      steps = changedOnly && files ? changedSteps(mode, files) : allSteps;
+      steps = changedOnly && files ? changedSteps(mode, files) : completeSteps(mode);
       if (changedOnly && steps.length === 0) console.log("ci:skip no relevant code changes");
       cacheDirectory = noCache && steps.length ? mkdtempSync(join(tmpdir(), "gdg-ci-")) : undefined;
-      for (const step of steps) {
-        const metric = await runStep(step, { noCache, cacheDirectory });
-        metrics.push(metric);
-        if (metric.exitCode !== 0) {
+      const options = { noCache, cacheDirectory };
+      const preparation = steps.filter(([name]) => name !== "go" && !name.startsWith("e2e"));
+      for (let index = 0; index < preparation.length; index += 1) {
+        const group = [preparation[index]];
+        if (group[0][0].startsWith("test")) {
+          while (preparation[index + 1]?.[0].startsWith("test")) {
+            group.push(preparation[++index]);
+          }
+        }
+        metrics.push(...(await runConcurrentSteps(group, options, 2)));
+        if (metrics.some((metric) => metric.exitCode !== 0)) {
           process.exitCode = 1;
           break;
         }
+        if (group[0][0] === "typecheck:node-scripts") {
+          const go = steps.find(([name]) => name === "go");
+          if (go)
+            backgroundGo = runStep(go, options).then((metric) => {
+              if (metric.exitCode !== 0) process.exitCode = 1;
+              return metric;
+            });
+        }
+      }
+      // The staged UI graph uses its own full browser pool; don't also compile
+      // Go while it runs. Full CI uses the separately prepared two-worker suite.
+      if (backgroundGo && steps.some(([name]) => name === "e2e:ui")) await backgroundGo;
+      if (!process.exitCode) {
+        metrics.push(
+          ...(await runConcurrentSteps(
+            steps.filter(([name]) => (name === "go" && !backgroundGo) || name.startsWith("e2e")),
+            options,
+          )),
+        );
+        if (metrics.some((metric) => metric.exitCode !== 0)) process.exitCode = 1;
       }
     } catch (cause) {
       error = cause.message;
       process.exitCode = 1;
       console.error(`ci:fail ${error}`);
     } finally {
+      if (backgroundGo) metrics.push(await backgroundGo);
       if (cacheDirectory) rmSync(cacheDirectory, { recursive: true, force: true });
     }
     const durationMs = performance.now() - startedAt;
@@ -625,7 +766,9 @@ export async function run(args = process.argv.slice(2)) {
             cpus: availableParallelism(),
           },
           steps: metrics,
-          skippedSteps: steps.slice(metrics.length).map(([name]) => name),
+          skippedSteps: steps
+            .filter(([name]) => !metrics.some((metric) => metric.name === name))
+            .map(([name]) => name),
           turboRuns: metrics.flatMap((metric) => metric.turboRuns ?? []),
         },
         null,

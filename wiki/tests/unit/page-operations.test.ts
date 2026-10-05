@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import Database from "better-sqlite3";
+import { DatabaseSync, type SQLInputValue, type SQLOutputValue } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthUser } from "~/features/auth/utils.server";
 import { requireUser } from "~/features/auth/utils.server";
@@ -10,12 +10,12 @@ import { loader as loadMoveTargets } from "~/routes/api/pages/move-targets";
 vi.mock("~/features/auth/utils.server", () => ({ requireUser: vi.fn() }));
 
 class Statement {
-  private values: unknown[] = [];
+  private values: SQLInputValue[] = [];
   constructor(
-    private db: Database.Database,
+    private db: DatabaseSync,
     private sql: string,
   ) {}
-  bind(...values: unknown[]) {
+  bind(...values: SQLInputValue[]) {
     this.values = values;
     return this;
   }
@@ -28,8 +28,8 @@ class Statement {
   async raw() {
     return this.db
       .prepare(this.sql)
-      .raw()
-      .all(...this.values);
+      .all(...this.values)
+      .map(Object.values);
   }
   runSync() {
     return this.db.prepare(this.sql).run(...this.values);
@@ -37,7 +37,7 @@ class Statement {
 }
 
 describe("page tree operations", () => {
-  let sqlite: Database.Database;
+  let sqlite: DatabaseSync;
   let env: Env;
   const user = { id: "author", isAdmin: false, email: "author@example.com" } as AuthUser;
   const bucketGet = vi.fn();
@@ -47,14 +47,14 @@ describe("page tree operations", () => {
 
   beforeEach(() => {
     vi.mocked(requireUser).mockResolvedValue(user);
-    sqlite = new Database(":memory:");
+    sqlite = new DatabaseSync(":memory:");
     sqlite.exec(
       readFileSync(new URL("../../schema.sql", import.meta.url), "utf8").replace(
         /^CREATE TABLE IF NOT EXISTS 'pages_fts[^']+'.*;\n/gm,
         "",
       ),
     );
-    sqlite.pragma("foreign_keys = ON");
+    sqlite.exec("PRAGMA foreign_keys = ON");
     sqlite.exec(`INSERT INTO user (id, name, email, created_at, updated_at) VALUES
       ('author','Author','author@example.com',0,0), ('other','Other','other@example.com',0,0);
       INSERT INTO tags (slug, label_ja, label_en, color) VALUES ('tag', 'タグ', 'Tag', 'blue');`);
@@ -63,11 +63,17 @@ describe("page tree operations", () => {
       .mockResolvedValue({ body: "bytes", httpMetadata: { contentType: "image/png" } });
     bucketPut.mockReset().mockResolvedValue({});
     bucketDelete.mockReset().mockResolvedValue(undefined);
-    batch
-      .mockReset()
-      .mockImplementation(async (statements: Statement[]) =>
-        sqlite.transaction(() => statements.map((statement) => statement.runSync()))(),
-      );
+    batch.mockReset().mockImplementation(async (statements: Statement[]) => {
+      sqlite.exec("BEGIN");
+      try {
+        const results = statements.map((statement) => statement.runSync());
+        sqlite.exec("COMMIT");
+        return results;
+      } catch (error) {
+        sqlite.exec("ROLLBACK");
+        throw error;
+      }
+    });
     env = {
       DB: { prepare: (sql: string) => new Statement(sqlite, sql), batch },
       BUCKET: { get: bucketGet, put: bucketPut, delete: bucketDelete },
@@ -82,7 +88,10 @@ describe("page tree operations", () => {
       .run(id, id, id, id, parent, author, author);
   }
   function row(id: string) {
-    return sqlite.prepare("SELECT * FROM pages WHERE id = ?").get(id) as Record<string, unknown>;
+    return sqlite.prepare("SELECT * FROM pages WHERE id = ?").get(id) as Record<
+      string,
+      SQLOutputValue
+    >;
   }
 
   it("copies a complete private tree, attachments, sources and links, without sharing or activity", async () => {
@@ -110,10 +119,10 @@ describe("page tree operations", () => {
     );
     const root = sqlite
       .prepare("SELECT * FROM pages WHERE slug = ?")
-      .get(path.split("/").at(-1)) as Record<string, unknown>;
+      .get(path.slice(path.lastIndexOf("/") + 1)) as Record<string, SQLOutputValue>;
     const copies = sqlite.prepare("SELECT * FROM pages WHERE slug LIKE '%-copy-%'").all() as Record<
       string,
-      unknown
+      SQLOutputValue
     >[];
     expect(copies).toHaveLength(3);
     for (const copy of copies) {

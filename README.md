@@ -37,11 +37,20 @@ historical, while the enclosing step duration is the current wall time.
 
 - Ordinary Codex commits defer to the installed repository Git hook, so CI runs once. Custom,
   missing or disabled hooks and bypass flags retain the agent-side check.
-- Application unit-test-only edits retain typechecking and related Vitest tests without rebuilding
+- React Router unit-test-only edits retain typechecking and related Vitest tests without rebuilding
   production bundles or rerunning application E2E. Production edits and browser specs retain their
   existing checks.
 - Application typechecks and production builds share one Turbo graph, so dependency builds run
-  once even with caching disabled. Test-only workspaces do not acquire production build tasks.
+  once even with caching disabled. Next.js typechecking waits for its build's generated route types.
+- Independent browser suites run concurrently, with at most four active jobs. Accounts, TinyURL,
+  Img and Scheduler serialize because they share the Accounts server and local database. Each
+  suite uses an isolated Worker service registry.
+- Wiki, Accounts, TinyURL, Img, Scheduler, Roster and OST E2E reuse their production bundles when
+  the same CI plan builds them, through local Wrangler with test vars and local storage.
+  Spec-only runs use the dev server.
+- Go starts after ACL generation and overlaps independent checks. Formatting, all vet analyzers,
+  tests, host compilation and all six release targets remain required. Cross-builds use two workers
+  and the release linker flags; ACL output is published atomically.
 - A staged `design-system` gitlink is expanded using its old and staged commit IDs. Later commits and unstaged
   submodule edits do not change the selection. Missing history retains full UI validation.
 - UI unit-test-only changes run typechecking and related unit tests. UI E2E-spec-only changes run
@@ -51,8 +60,9 @@ historical, while the enclosing step duration is the current wall time.
   Storybook compilation run in parallel; browsers wait for the typecheck and both browser builds.
   Declaration emission does not repeat the semantic typecheck. Every story and documentation entry
   remains in the test build; only prop inference and source maps are omitted.
-- UI E2E uses up to six workers and records traces on the first retry in CI. `CI=true` prevents
-  reuse of an existing server. Source, dependency, environment and compiler-runtime changes
+- Staged UI E2E uses up to six workers; full CI uses two alongside application suites. Both record
+  traces on the first retry in CI. `CI=true` prevents reuse of an existing server.
+  Source, dependency, environment and compiler-runtime changes
   invalidate cached results. Application E2E depends on local state and is not cached.
 
 UI builds use [Vite 8](https://vite.dev/blog/announcing-vite8) and the native
@@ -68,7 +78,7 @@ checking the complete project; no incremental compiler cache or reduced checking
 Application builds use Vite 8 with its native tsconfig-path resolver. Their Wrangler versions stay
 aligned so local service bindings can communicate. The previous browser targets and Worker class
 names are preserved. Gzip size estimates are omitted from build logs; production
-bundles and validation remain enabled. The staged `typecheck+build` graph runs at most four tasks
+bundles and validation remain enabled. The `typecheck+build` graph runs at most six tasks
 at once to bound contention between the native compilers' own thread pools.
 
 On Apple Silicon with an Intel Node on `PATH`, install dependencies again with `pnpm install` to
@@ -78,8 +88,9 @@ include the declared ARM64 optional binaries, then select a normal native Node >
 git config --local gdgjp.ciNode /absolute/path/to/arm64/bin/node
 ```
 
-This runtime applies to staged typechecks, builds, E2E and UI unit tests. Application unit tests
-use the invoking Node to match their installed native addons. `GDG_CI_NODE` can override the setting
+This runtime applies to full and staged checks. Application unit tests use isolated threads with
+at most two workers per application. `agents-index` unit tests keep the invoking Node to match their installed
+native addon; Wiki's SQLite tests use Node's built-in SQLite. `GDG_CI_NODE` can override the setting
 for one run. Invalid executables fail CI; `git config --local --unset gdgjp.ciNode` restores the
 invoking Node. Each step's selected runtime is recorded and participates in Turbo's cache key.
 

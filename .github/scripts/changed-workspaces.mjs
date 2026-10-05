@@ -215,6 +215,8 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         /^\.github\/scripts\/.*\.mjs$/.test(file) ||
         file === "scripts/check-ui-conventions.mjs" ||
         file === "scripts/run-ci.mjs" ||
+        file === "scripts/run-go-ci.mjs" ||
+        file === "gdg-lib/scripts/build-acl.mjs" ||
         file === "scripts/run-e2e-dev.mjs" ||
         file === "wiki/tests/architecture/ui-conventions-baseline.json" ||
         /^agent-host\//.test(file) ||
@@ -222,7 +224,15 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         /^cli\/internal\/wiki\/hooks\//.test(file) ||
         /^scripts\/install-gdg-agent-host\.sh$/.test(file),
     ),
-    cli: ciGlobal || normalizedFiles.some((file) => file.startsWith("cli/")),
+    cli:
+      ciGlobal ||
+      normalizedFiles.some(
+        (file) =>
+          file.startsWith("cli/") ||
+          file.startsWith("gdg-lib/src/acl/") ||
+          file === "gdg-lib/scripts/build-acl.mjs" ||
+          file === "scripts/run-go-ci.mjs",
+      ),
     agentHostWorkspace: normalizedFiles.some((file) => file.startsWith("agent-host/workspace/")),
     full: false,
   };

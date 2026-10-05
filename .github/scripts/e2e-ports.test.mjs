@@ -1,9 +1,17 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
+import { basename, delimiter, dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
@@ -76,7 +84,7 @@ test("E2E readiness, browser origins and server commands agree in CI and local r
 });
 
 test("CI server keeps dev vars intact and restores E2E vars on success and failure", (t) => {
-  const cwd = mkdtempSync(join(tmpdir(), "gdgjp-e2e-ports-"));
+  const cwd = realpathSync(mkdtempSync(join(tmpdir(), "gdgjp-e2e-ports-")));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   const devVars = [
     "RP_SESSION_SECRET=fixture-secret",
@@ -90,53 +98,88 @@ test("CI server keeps dev vars intact and restores E2E vars on success and failu
     join(cwd, "wrangler.toml"),
     'name = "gdgjp-tinyurl"\n[[services]]\nbinding = "ACCOUNTS"\nservice = "gdgjp-accounts"\n',
   );
+  mkdirSync(join(cwd, "build/server"), { recursive: true });
+  writeFileSync(
+    join(cwd, "build/server/wrangler.json"),
+    JSON.stringify({
+      name: "gdgjp-tinyurl",
+      main: "index.js",
+      assets: { directory: "../client" },
+      services: [{ binding: "ACCOUNTS", service: "gdgjp-accounts" }],
+    }),
+  );
   writeFileSync(
     join(cwd, "pnpm"),
     `#!${process.execPath}
 import { writeFileSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+const args = process.argv.slice(2);
+const previewPath = args[args.indexOf("--config") + 1];
 writeFileSync("observed.json", JSON.stringify({
-  args: process.argv.slice(2),
+  args,
   environment: process.env.CLOUDFLARE_ENV,
   vars: readFileSync(".dev.vars.e2e", "utf8"),
   config: readFileSync(process.env.CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH, "utf8"),
+  preview: args.includes("--config") ? {
+    config: JSON.parse(readFileSync(previewPath, "utf8")),
+    vars: readFileSync(join(dirname(previewPath), ".dev.vars"), "utf8"),
+  } : undefined,
 }));
 process.exit(Number(process.env.FIXTURE_EXIT));
 `,
     { mode: 0o700 },
   );
-  for (const exitCode of [0, 1]) {
-    if (exitCode) writeFileSync(join(cwd, ".dev.vars.e2e"), "previous-e2e-vars\n");
-    const run = spawnSync(process.execPath, [join(root, "scripts/run-e2e-dev.mjs"), "6174"], {
-      cwd,
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        PATH: `${cwd}${delimiter}${process.env.PATH}`,
-        CLOUDFLARE_ENV: "",
-        WIKI_E2E_ISSUER: "http://localhost:6173",
-        FIXTURE_EXIT: String(exitCode),
-      },
-    });
-    assert.equal(run.status, exitCode, run.stderr);
-    const observed = JSON.parse(readFileSync(join(cwd, "observed.json"), "utf8"));
-    assert.deepEqual(observed.args, ["dev", "--port", "6174", "--strictPort"]);
-    assert.equal(observed.environment, "e2e");
-    assert.match(observed.config, /service = "gdgjp-accounts-e2e"/);
-    assert.match(observed.vars, /IDP_URL=http:\/\/localhost:6173/);
-    assert.equal(existsSync(join(cwd, ".wrangler.e2e.toml")), false);
-    assert.match(observed.vars, /RP_SESSION_SECRET=fixture-secret/);
-    assert.match(observed.vars, /RP_SESSION_SECRET=gdgjp-e2e-session-secret/);
-    assert.match(observed.vars, /ENVIRONMENT=development/);
-    assert.match(observed.vars, /TINYURL_REDIRECT_URLS=http:\/\/localhost:6174\//);
-    assert.match(observed.vars, /APP_URL=http:\/\/localhost:6174/);
-    assert.match(observed.vars, /ACCOUNTS_URL=http:\/\/localhost:6173/);
-    assert.match(observed.vars, /OTHER_URL=https:\/\/example.com:5174/);
-    assert.doesNotMatch(observed.vars, /localhost:51\d\d/);
-    assert.equal(readFileSync(join(cwd, ".dev.vars"), "utf8"), devVars);
-    if (exitCode) {
-      assert.equal(readFileSync(join(cwd, ".dev.vars.e2e"), "utf8"), "previous-e2e-vars\n");
-    } else {
-      assert.equal(existsSync(join(cwd, ".dev.vars.e2e")), false);
+  for (const built of [false, true]) {
+    for (const exitCode of [0, 1]) {
+      if (exitCode) writeFileSync(join(cwd, ".dev.vars.e2e"), "previous-e2e-vars\n");
+      else rmSync(join(cwd, ".dev.vars.e2e"), { force: true });
+      const run = spawnSync(process.execPath, [join(root, "scripts/run-e2e-dev.mjs"), "6174"], {
+        cwd,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${cwd}${delimiter}${process.env.PATH}`,
+          CLOUDFLARE_ENV: "",
+          WIKI_E2E_ISSUER: "http://localhost:6173",
+          FIXTURE_EXIT: String(exitCode),
+          GDG_E2E_BUILT: built ? ["unrelated", basename(cwd)].join(",") : "unrelated",
+        },
+      });
+      assert.equal(run.status, exitCode, run.stderr);
+      const observed = JSON.parse(readFileSync(join(cwd, "observed.json"), "utf8"));
+      if (built) {
+        assert.deepEqual(observed.args.slice(0, 3), ["exec", "wrangler", "dev"]);
+        assert.ok(observed.args.includes("--local"));
+        assert.equal(observed.preview.config.name, "gdgjp-tinyurl-e2e");
+        assert.equal(observed.preview.config.main, join(cwd, "build/server/index.js"));
+        assert.equal(observed.preview.config.assets.directory, join(cwd, "build/client"));
+        assert.equal(observed.preview.config.services[0].service, "gdgjp-accounts-e2e");
+        assert.equal(observed.preview.vars, observed.vars);
+        assert.equal(
+          existsSync(dirname(observed.args[observed.args.indexOf("--config") + 1])),
+          false,
+        );
+      } else {
+        assert.deepEqual(observed.args, ["dev", "--port", "6174", "--strictPort"]);
+      }
+      assert.equal(observed.environment, built ? undefined : "e2e");
+      assert.match(observed.config, /service = "gdgjp-accounts-e2e"/);
+      assert.match(observed.vars, /IDP_URL=http:\/\/localhost:6173/);
+      assert.equal(existsSync(join(cwd, ".wrangler.e2e.toml")), false);
+      assert.match(observed.vars, /RP_SESSION_SECRET=fixture-secret/);
+      assert.match(observed.vars, /RP_SESSION_SECRET=gdgjp-e2e-session-secret/);
+      assert.match(observed.vars, /ENVIRONMENT=development/);
+      assert.match(observed.vars, /TINYURL_REDIRECT_URLS=http:\/\/localhost:6174\//);
+      assert.match(observed.vars, /APP_URL=http:\/\/localhost:6174/);
+      assert.match(observed.vars, /ACCOUNTS_URL=http:\/\/localhost:6173/);
+      assert.match(observed.vars, /OTHER_URL=https:\/\/example.com:5174/);
+      assert.doesNotMatch(observed.vars, /localhost:51\d\d/);
+      assert.equal(readFileSync(join(cwd, ".dev.vars"), "utf8"), devVars);
+      if (exitCode) {
+        assert.equal(readFileSync(join(cwd, ".dev.vars.e2e"), "utf8"), "previous-e2e-vars\n");
+      } else {
+        assert.equal(existsSync(join(cwd, ".dev.vars.e2e")), false);
+      }
     }
   }
 });

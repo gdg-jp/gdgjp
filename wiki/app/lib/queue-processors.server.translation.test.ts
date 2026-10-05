@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import Database from "better-sqlite3";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   enqueuePendingTranslations,
@@ -11,14 +11,14 @@ vi.mock("~/features/ai-search/embedding.server", () => ({
 }));
 
 class TestD1Statement {
-  private values: unknown[] = [];
+  private values: SQLInputValue[] = [];
 
   constructor(
-    private readonly database: Database.Database,
+    private readonly database: DatabaseSync,
     private readonly sql: string,
   ) {}
 
-  bind(...values: unknown[]) {
+  bind(...values: SQLInputValue[]) {
     this.values = values;
     return this;
   }
@@ -37,7 +37,7 @@ class TestD1Statement {
   }
 }
 
-function testDb(database: Database.Database) {
+function testDb(database: DatabaseSync) {
   return {
     prepare(sql: string) {
       return new TestD1Statement(database, sql);
@@ -46,14 +46,14 @@ function testDb(database: Database.Database) {
 }
 
 describe("daily translation queue", () => {
-  let sqlite: Database.Database;
+  let sqlite: DatabaseSync;
   let sent: Array<{ pageId: string }>;
   let aiRun: ReturnType<typeof vi.fn>;
   let env: Env;
 
   beforeEach(() => {
-    sqlite = new Database(":memory:");
-    sqlite.pragma("foreign_keys = ON");
+    sqlite = new DatabaseSync(":memory:");
+    sqlite.exec("PRAGMA foreign_keys = ON");
     sqlite.exec(`
       CREATE TABLE pages (
         id TEXT PRIMARY KEY,

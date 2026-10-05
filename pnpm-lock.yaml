@@ -533,6 +533,9 @@ importers:
         specifier: ~7.14.2
         version: 7.14.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
     devDependencies:
+      '@cloudflare/vite-plugin':
+        specifier: ~1.46.0
+        version: 1.46.0(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))(wrangler@4.113.0)
       '@playwright/test':
         specifier: ^1.49.1
         version: 1.59.1
@@ -771,6 +774,9 @@ importers:
         specifier: ~7.14.2
         version: 7.14.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
     devDependencies:
+      '@cloudflare/vite-plugin':
+        specifier: ~1.46.0
+        version: 1.46.0(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))(wrangler@4.113.0)
       '@cloudflare/workers-types':
         specifier: ^4.20250101.0
         version: 4.20260426.1
@@ -908,6 +914,9 @@ importers:
         specifier: ^7.0.19
         version: 7.4.8
     devDependencies:
+      '@cloudflare/vite-plugin':
+        specifier: ~1.46.0
+        version: 1.46.0(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))(wrangler@4.113.0)
       '@cloudflare/workers-types':
         specifier: ^4.20250101.0
         version: 4.20260426.1
@@ -1157,9 +1166,6 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.0.0
         version: 4.2.4(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
-      '@types/better-sqlite3':
-        specifier: ^7.6.13
-        version: 7.6.13
       '@types/dompurify':
         specifier: ^3.2.0
         version: 3.2.0
@@ -1175,9 +1181,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4.1.10
         version: 4.1.10(vitest@4.1.10)
-      better-sqlite3:
-        specifier: ^12.8.0
-        version: 12.10.0
       drizzle-kit:
         specifier: ^0.31.9
         version: 0.31.10
