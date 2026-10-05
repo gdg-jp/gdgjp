@@ -48,7 +48,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Initialize shared UI submodule
-        run: git submodule update --init design-system
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
         with:
           version: "9.15.0"
@@ -63,10 +63,10 @@ jobs:
       - run: pnpm sync:agent-host-assets
       - uses: actions/setup-go@v5
         with:
-          go-version-file: cli/go.mod
-          cache-dependency-path: cli/go.sum
+          go-version-file: apps/cli/go.mod
+          cache-dependency-path: apps/cli/go.sum
       - name: Test and build release archives
-        working-directory: cli
+        working-directory: apps/cli
         env:
           CLI_VERSION: ${{ github.ref_name }}
         run: |
@@ -89,7 +89,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
-        run: gh release create "$TAG_NAME" cli/dist/* --title "GDG CLI ${TAG_NAME#cli/}" --generate-notes
+        run: gh release create "$TAG_NAME" apps/cli/dist/* --title "GDG CLI ${TAG_NAME#cli/}" --generate-notes
 
   release-go-extension:
     name: Release Go extension
@@ -100,7 +100,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Initialize shared UI submodule
-        run: git submodule update --init design-system
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
         with:
           version: "9.15.0"
@@ -115,7 +115,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
-        run: gh release create "$TAG_NAME" go-extension/dist/gdg-japan-go-links.zip --title "GDG Japan Go Links ${TAG_NAME#extension/}" --generate-notes
+        run: gh release create "$TAG_NAME" apps/go-extension/dist/gdg-japan-go-links.zip --title "GDG Japan Go Links ${TAG_NAME#extension/}" --generate-notes
 
   deploy:
     name: Deploy
@@ -131,7 +131,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Initialize shared UI submodule
-        run: git submodule update --init design-system
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
         with:
           version: "9.15.0"

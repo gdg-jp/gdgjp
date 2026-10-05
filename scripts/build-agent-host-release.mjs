@@ -141,7 +141,7 @@ export function validateSpecForPublish(specPath, specContent, gdgBin) {
 }
 
 export async function buildRelease({
-  specPath = join(repositoryRoot, "agent-host/agent-host.json"),
+  specPath = join(repositoryRoot, "apps/agent-host/agent-host.json"),
   outDir,
   privateKey,
   version = "1.0.0",
@@ -299,7 +299,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     const options = parseArgs(process.argv.slice(2));
     const specPath = options.specPath
       ? resolve(process.cwd(), options.specPath)
-      : join(repositoryRoot, "agent-host/agent-host.json");
+      : join(repositoryRoot, "apps/agent-host/agent-host.json");
     const outDir = options.outDir
       ? resolve(process.cwd(), options.outDir)
       : join(repositoryRoot, "dist/agent-host-release");

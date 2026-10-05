@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { extname, join, relative, resolve } from "node:path";
+import { basename, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = process.cwd();
@@ -426,10 +426,14 @@ export function packageUsesUi(directory, cwd = repositoryRoot) {
 }
 
 function defaultApps(cwd) {
-  return readdirSync(cwd).filter((directory) => {
-    const path = join(cwd, directory);
-    return statSync(path).isDirectory() && packageUsesUi(directory, cwd);
-  });
+  const appsDir = join(cwd, "apps");
+  if (!existsSync(appsDir)) return [];
+  return readdirSync(appsDir)
+    .filter((directory) => {
+      const path = join(appsDir, directory);
+      return statSync(path).isDirectory() && packageUsesUi(`apps/${directory}`, cwd);
+    })
+    .map((directory) => `apps/${directory}`);
 }
 
 function readBaseline(app, mode, cwd) {
@@ -556,7 +560,7 @@ function checkStylesheet(source, path, app) {
   if (imports.join("\n") !== sharedStyleImports.join("\n")) {
     errors.push(`${path}: shared CSS imports must appear once in the documented order`);
   }
-  if (app !== "wiki") return errors;
+  if (basename(app) !== "wiki") return errors;
   const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, "");
   for (const match of withoutComments.matchAll(/(?:^|})\s*([^{}]+?)\s*\{/g)) {
     const selectorText = match[1].replace(/(?:^|;)\s*@(?:layer|import|source)[^;]*;/g, "").trim();
@@ -649,7 +653,7 @@ function checkApp(app, { mode, cwd = repositoryRoot } = {}) {
   const rootPath = `${app}/app/root.tsx`;
   const rootFile = read(rootPath);
   if (!rootFile.exists) errors.push(`${rootPath}: missing root module`);
-  else if (app === "wiki") errors.push(...checkRoot(rootFile.source, rootPath));
+  else if (basename(app) === "wiki") errors.push(...checkRoot(rootFile.source, rootPath));
 
   const legacyPrefix = `${app}/app/components/ui/`;
   const legacyExists = staged

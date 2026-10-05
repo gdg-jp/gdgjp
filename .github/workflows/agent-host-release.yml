@@ -4,12 +4,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'agent-host/**'
+      - 'apps/agent-host/**'
       - '.github/workflows/agent-host-release.yml'
   pull_request:
     paths:
-      - 'agent-host/**'
-      - 'cli/internal/agenthost/**'
+      - 'apps/agent-host/**'
+      - 'apps/cli/internal/agenthost/**'
       - '.github/workflows/agent-host-release.yml'
   workflow_dispatch:
 
@@ -32,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Initialize shared UI submodule
-        run: git submodule update --init design-system
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -48,10 +48,10 @@ jobs:
         run: |
           pnpm build:acl
           pnpm sync:agent-host-assets
-          go build -C cli -o /tmp/gdg ./cmd/gdg
+          go build -C apps/cli -o /tmp/gdg ./cmd/gdg
 
       - name: Validate spec for release (environment & capability gate)
-        run: /tmp/gdg agent-host validate-spec --for-release --spec agent-host/agent-host.json
+        run: /tmp/gdg agent-host validate-spec --for-release --spec apps/agent-host/agent-host.json
 
       - name: Build and Sign Release Bundle
         env:
@@ -62,7 +62,7 @@ jobs:
             exit 1
           fi
           node scripts/build-agent-host-release.mjs \
-            --spec agent-host/agent-host.json \
+            --spec apps/agent-host/agent-host.json \
             --out dist/agent-host-release \
             --version "${{ github.sha }}" \
             --gdg-bin /tmp/gdg
@@ -96,7 +96,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Initialize shared UI submodule
-        run: git submodule update --init design-system
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -112,7 +112,7 @@ jobs:
         run: |
           pnpm build:acl
           pnpm sync:agent-host-assets
-          go build -C cli -o /tmp/gdg ./cmd/gdg
+          go build -C apps/cli -o /tmp/gdg ./cmd/gdg
 
       - name: Record host-local resource filter
         id: only
@@ -121,16 +121,16 @@ jobs:
       - name: Apply host-local resources (no network, no secrets)
         run: |
           sudo /tmp/gdg agent-host apply \
-            --spec agent-host/agent-host.json \
-            --overlay agent-host/agent-host.dev.json \
+            --spec apps/agent-host/agent-host.json \
+            --overlay apps/agent-host/agent-host.dev.json \
             --only "${{ steps.only.outputs.types }}" \
             --diff
 
       - name: Verify convergence
         run: |
           sudo /tmp/gdg agent-host verify \
-            --spec agent-host/agent-host.json \
-            --overlay agent-host/agent-host.dev.json
+            --spec apps/agent-host/agent-host.json \
+            --overlay apps/agent-host/agent-host.dev.json
 
       - name: Re-apply must be a no-op (idempotency regression guard)
         run: |
@@ -138,8 +138,8 @@ jobs:
           # still reports pending changes after the apply above. That is the
           # failure mode Stage 10 is most likely to regress silently.
           sudo /tmp/gdg agent-host apply \
-            --spec agent-host/agent-host.json \
-            --overlay agent-host/agent-host.dev.json \
+            --spec apps/agent-host/agent-host.json \
+            --overlay apps/agent-host/agent-host.dev.json \
             --only "${{ steps.only.outputs.types }}" \
             --dry-run --diff
 

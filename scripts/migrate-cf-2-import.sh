@@ -118,9 +118,9 @@ migrate_d1() {
   ok "database_id patched in $TOML_FILE"
 }
 
-migrate_d1 "gdgjp-accounts-db" "c97d5ddc-231a-4b1a-af2a-fe753876811d" "accounts/wrangler.toml"
-migrate_d1 "gdgjp-tinyurl-db"  "bf0cefab-83d5-48c8-a2a7-7842e9890c46" "tinyurl/wrangler.toml"
-migrate_d1 "gdgjp-img-db"      "6e53ffd5-0377-4d9b-8c92-47e67b05afe9" "img/wrangler.toml"
+migrate_d1 "gdgjp-accounts-db" "c97d5ddc-231a-4b1a-af2a-fe753876811d" "apps/accounts/wrangler.toml"
+migrate_d1 "gdgjp-tinyurl-db"  "bf0cefab-83d5-48c8-a2a7-7842e9890c46" "apps/tinyurl/wrangler.toml"
+migrate_d1 "gdgjp-img-db"      "6e53ffd5-0377-4d9b-8c92-47e67b05afe9" "apps/img/wrangler.toml"
 
 # ─────────────────────────────────────────────────────────────────────────────
 step "4. Create R2 bucket"
@@ -168,10 +168,10 @@ patch_account_id() {
   ok "account_id updated in $TOML_FILE"
 }
 
-patch_account_id "${REPO_ROOT}/accounts/wrangler.toml"
-patch_account_id "${REPO_ROOT}/tinyurl/wrangler.toml"
-patch_account_id "${REPO_ROOT}/wiki/wrangler.toml"
-patch_account_id "${REPO_ROOT}/img/wrangler.toml"
+patch_account_id "${REPO_ROOT}/apps/accounts/wrangler.toml"
+patch_account_id "${REPO_ROOT}/apps/tinyurl/wrangler.toml"
+patch_account_id "${REPO_ROOT}/apps/wiki/wrangler.toml"
+patch_account_id "${REPO_ROOT}/apps/img/wrangler.toml"
 
 # ─────────────────────────────────────────────────────────────────────────────
 step "6. Build and deploy all Workers"

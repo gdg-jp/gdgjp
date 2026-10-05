@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'gdg-lib/**'
+      - 'packages/gdg-lib/**'
       - '.github/workflows/gdg-lib-publish.yml'
   workflow_dispatch:
 
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Initialize shared UI submodule
-        run: git submodule update --init design-system
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -46,7 +46,7 @@ jobs:
 
       - name: Skip if this version is already published
         id: check
-        working-directory: gdg-lib/dist
+        working-directory: packages/gdg-lib/dist
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -61,7 +61,7 @@ jobs:
 
       - name: Publish
         if: steps.check.outputs.skip == 'false'
-        working-directory: gdg-lib/dist
+        working-directory: packages/gdg-lib/dist
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm publish

@@ -24,14 +24,14 @@
       "**/openapi/types.generated.ts",
       "**/openapi.gen.go",
       "**/openapigen/**",
-      "cli/internal/wiki/hooks/acl.ts",
-      "connpass/fixtures/html/*_files/**",
+      "apps/cli/internal/wiki/hooks/acl.ts",
+      "apps/connpass/fixtures/html/*_files/**",
       ".agents/**",
       ".claude/**",
       ".cursor/**",
-      "agent-host/**/.cursor/**",
-      "learn/**",
-      "xangi/**"
+      "apps/agent-host/**/.cursor/**",
+      "apps/learn/**",
+      "apps/xangi/**"
     ]
   },
   "formatter": {
@@ -58,7 +58,7 @@
   },
   "overrides": [
     {
-      "include": ["tinyurl/app/features/tags/components/tag-combobox.tsx"],
+      "include": ["apps/tinyurl/app/features/tags/components/tag-combobox.tsx"],
       "linter": {
         "rules": {
           "a11y": {

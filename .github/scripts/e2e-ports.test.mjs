@@ -47,7 +47,7 @@ test("shared E2E runner changes select browser checks and their regression test"
 test("E2E readiness, browser origins and server commands agree in CI and local runs", () => {
   for (const CI of [undefined, "true"]) {
     for (const [app, devPort] of Object.entries(ports)) {
-      const filename = join(root, app, "playwright.config.ts");
+      const filename = join(root, "apps", app, "playwright.config.ts");
       const require = createRequire(filename);
       const exports = {};
       const env = { CI };
@@ -57,7 +57,7 @@ test("E2E readiness, browser origins and server commands agree in CI and local r
       new Function("require", "exports", "process", code)(
         (specifier) => require(specifier === "./tests/e2e/setup" ? `${specifier}.ts` : specifier),
         exports,
-        { env, cwd: () => join(root, app) },
+        { env, cwd: () => join(root, "apps", app) },
       );
       const config = exports.default;
       const port = devPort + (CI ? 1000 : 0);

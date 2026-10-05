@@ -3,29 +3,34 @@ import { appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const CI_WORKSPACES = [
-  { directory: "design-system", workspace: "@gdgjp/design-system", build: true, e2e: true },
-  { directory: "accounts", workspace: "@gdgjp/accounts", build: true, e2e: true },
-  { directory: "tinyurl", workspace: "@gdgjp/tinyurl", build: true, e2e: true },
-  { directory: "wiki", workspace: "@gdgjp/wiki", build: true, e2e: true },
-  { directory: "img", workspace: "@gdgjp/img", build: true, e2e: true },
-  { directory: "scheduler", workspace: "@gdgjp/scheduler", build: true, e2e: true },
-  { directory: "sns", workspace: "@gdgjp/sns", build: true, e2e: false },
-  { directory: "connpass", workspace: "@gdgjp/connpass", build: true, e2e: false },
-  { directory: "pay", workspace: "@gdgjp/pay", build: true, e2e: true },
-  { directory: "ost", workspace: "@gdgjp/ost", build: true, e2e: false },
-  { directory: "roster", workspace: "@gdgjp/roster", build: true, e2e: true },
-  { directory: "website", workspace: "@gdgjp/website", build: true, e2e: false },
-  { directory: "gdg-lib", workspace: "@gdgjp/gdg-lib", build: false, e2e: false },
   {
-    directory: "tinyurl-gateway",
+    directory: "packages/design-system",
+    workspace: "@gdgjp/design-system",
+    build: true,
+    e2e: true,
+  },
+  { directory: "apps/accounts", workspace: "@gdgjp/accounts", build: true, e2e: true },
+  { directory: "apps/tinyurl", workspace: "@gdgjp/tinyurl", build: true, e2e: true },
+  { directory: "apps/wiki", workspace: "@gdgjp/wiki", build: true, e2e: true },
+  { directory: "apps/img", workspace: "@gdgjp/img", build: true, e2e: true },
+  { directory: "apps/scheduler", workspace: "@gdgjp/scheduler", build: true, e2e: true },
+  { directory: "apps/sns", workspace: "@gdgjp/sns", build: true, e2e: false },
+  { directory: "apps/connpass", workspace: "@gdgjp/connpass", build: true, e2e: false },
+  { directory: "apps/pay", workspace: "@gdgjp/pay", build: true, e2e: true },
+  { directory: "apps/ost", workspace: "@gdgjp/ost", build: true, e2e: false },
+  { directory: "apps/roster", workspace: "@gdgjp/roster", build: true, e2e: true },
+  { directory: "apps/website", workspace: "@gdgjp/website", build: true, e2e: false },
+  { directory: "packages/gdg-lib", workspace: "@gdgjp/gdg-lib", build: false, e2e: false },
+  {
+    directory: "apps/tinyurl-gateway",
     workspace: "@gdgjp/tinyurl-gateway",
     build: true,
     e2e: false,
   },
-  { directory: "agents", workspace: "@gdgjp/agents", build: true, e2e: false },
-  { directory: "go-extension", workspace: "@gdgjp/go-extension", build: true, e2e: false },
+  { directory: "apps/agents", workspace: "@gdgjp/agents", build: true, e2e: false },
+  { directory: "apps/go-extension", workspace: "@gdgjp/go-extension", build: true, e2e: false },
   {
-    directory: "agent-host/langfuse-forwarder",
+    directory: "apps/agent-host/langfuse-forwarder",
     workspace: "@gdgjp/langfuse-forwarder",
     build: false,
     e2e: false,
@@ -129,11 +134,21 @@ function unique(values) {
   return [...new Set(values)];
 }
 
+function workspaceDirectory(file) {
+  const [group, name] = file.split("/");
+  if ((group === "apps" || group === "packages") && name) return `${group}/${name}`;
+  return group;
+}
+
+function workspaceName(directory) {
+  return directory.split("/").pop();
+}
+
 function allResults() {
   return {
     ci: CI_WORKSPACES.map(({ workspace }) => workspace),
     build: CI_WORKSPACES.filter(({ build }) => build).map(({ workspace }) => workspace),
-    e2e: CI_WORKSPACES.filter(({ e2e }) => e2e).map(({ directory }) => directory),
+    e2e: CI_WORKSPACES.filter(({ e2e }) => e2e).map(({ directory }) => workspaceName(directory)),
     deploy: DEPLOY_TARGETS,
     lint: true,
     openapi: true,
@@ -163,18 +178,18 @@ export function classifyChanges(files, { forceAll = false } = {}) {
       file.startsWith(".github/scripts/changed-workspaces."),
   );
 
-  const directDirectories = new Set(normalizedFiles.map((file) => file.split("/", 1)[0]));
+  const directDirectories = new Set(normalizedFiles.map(workspaceDirectory));
   const affectedDirectories = new Set(directDirectories);
-  if (directDirectories.has("gdg-lib")) {
+  if (directDirectories.has("packages/gdg-lib")) {
     for (const directory of GDG_LIB_DEPENDENTS) {
-      affectedDirectories.add(directory);
+      affectedDirectories.add(`apps/${directory}`);
     }
   }
 
   // A submodule update appears as the path itself, without changed source filenames.
-  if (directDirectories.has("design-system")) {
+  if (directDirectories.has("packages/design-system")) {
     for (const directory of ["accounts", "img", "pay", "scheduler", "tinyurl", "wiki", "roster"]) {
-      affectedDirectories.add(directory);
+      affectedDirectories.add(`apps/${directory}`);
     }
   }
 
@@ -187,15 +202,16 @@ export function classifyChanges(files, { forceAll = false } = {}) {
       );
   const deployTargets = deployGlobal
     ? DEPLOY_TARGETS
-    : DEPLOY_TARGETS.filter(({ app }) => affectedDirectories.has(app));
+    : DEPLOY_TARGETS.filter(({ app }) => affectedDirectories.has(`apps/${app}`));
   const openapi =
     ciGlobal ||
     normalizedFiles.some((file) => {
-      const [directory, second] = file.split("/");
+      const [group, name, third] = file.split("/");
       return (
-        (OPENAPI_DIRECTORIES.has(directory) &&
-          (second === "openapi" || file === `${directory}/package.json`)) ||
-        /^cli\/internal\/(?:accounts|wiki|connpass)\/(?:generate\.go|oapi-codegen\.yaml)$/.test(
+        (group === "apps" &&
+          OPENAPI_DIRECTORIES.has(name) &&
+          (third === "openapi" || file === `apps/${name}/package.json`)) ||
+        /^apps\/cli\/internal\/(?:accounts|wiki|connpass)\/(?:generate\.go|oapi-codegen\.yaml)$/.test(
           file,
         )
       );
@@ -206,7 +222,7 @@ export function classifyChanges(files, { forceAll = false } = {}) {
     build: ciTargets.filter(({ build }) => build).map(({ workspace }) => workspace),
     e2e: (normalizedFiles.includes("scripts/run-e2e-dev.mjs") ? CI_WORKSPACES : ciTargets)
       .filter(({ e2e }) => e2e)
-      .map(({ directory }) => directory),
+      .map(({ directory }) => workspaceName(directory)),
     deploy: deployTargets,
     lint: normalizedFiles.some((file) => BIOME_FILE_PATTERN.test(file)),
     openapi,
@@ -216,24 +232,26 @@ export function classifyChanges(files, { forceAll = false } = {}) {
         file === "scripts/check-ui-conventions.mjs" ||
         file === "scripts/run-ci.mjs" ||
         file === "scripts/run-go-ci.mjs" ||
-        file === "gdg-lib/scripts/build-acl.mjs" ||
+        file === "packages/gdg-lib/scripts/build-acl.mjs" ||
         file === "scripts/run-e2e-dev.mjs" ||
-        file === "wiki/tests/architecture/ui-conventions-baseline.json" ||
-        /^agent-host\//.test(file) ||
-        /^agents-index\//.test(file) ||
-        /^cli\/internal\/wiki\/hooks\//.test(file) ||
+        file === "apps/wiki/tests/architecture/ui-conventions-baseline.json" ||
+        /^apps\/agent-host\//.test(file) ||
+        /^apps\/agents-index\//.test(file) ||
+        /^apps\/cli\/internal\/wiki\/hooks\//.test(file) ||
         /^scripts\/install-gdg-agent-host\.sh$/.test(file),
     ),
     cli:
       ciGlobal ||
       normalizedFiles.some(
         (file) =>
-          file.startsWith("cli/") ||
-          file.startsWith("gdg-lib/src/acl/") ||
-          file === "gdg-lib/scripts/build-acl.mjs" ||
+          file.startsWith("apps/cli/") ||
+          file.startsWith("packages/gdg-lib/src/acl/") ||
+          file === "packages/gdg-lib/scripts/build-acl.mjs" ||
           file === "scripts/run-go-ci.mjs",
       ),
-    agentHostWorkspace: normalizedFiles.some((file) => file.startsWith("agent-host/workspace/")),
+    agentHostWorkspace: normalizedFiles.some((file) =>
+      file.startsWith("apps/agent-host/workspace/"),
+    ),
     full: false,
   };
 }

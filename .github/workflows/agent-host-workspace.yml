@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'agent-host/workspace/**'
+      - 'apps/agent-host/workspace/**'
       - '.github/workflows/agent-host-workspace.yml'
   workflow_dispatch:
 
@@ -61,7 +61,7 @@ jobs:
               }
             }
           }
-          await checkSkills("agent-host/workspace");
+          await checkSkills("apps/agent-host/workspace");
           console.log("All SKILL.md frontmatter validated successfully.");
           '
 
@@ -91,7 +91,7 @@ jobs:
               }
             }
           }
-          await scanDir("agent-host/workspace");
+          await scanDir("apps/agent-host/workspace");
           console.log("Public content invariants passed.");
           '
 
@@ -104,7 +104,7 @@ jobs:
             exit 1
           fi
           node scripts/build-agent-host-bundle.mjs \
-            --workspace agent-host/workspace \
+            --workspace apps/agent-host/workspace \
             --out dist/agent-host-workspace \
             --version "${{ github.sha }}"
 

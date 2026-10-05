@@ -10,5 +10,5 @@
     "types": ["node"],
     "verbatimModuleSyntax": true
   },
-  "include": [".codex/hooks/pre-commit-ci.ts", "cli/internal/wiki/hooks/**/*.ts"]
+  "include": [".codex/hooks/pre-commit-ci.ts", "apps/cli/internal/wiki/hooks/**/*.ts"]
 }

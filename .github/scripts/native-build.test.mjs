@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const modules = fileURLToPath(new URL("../../accounts/node_modules", import.meta.url));
+const modules = fileURLToPath(new URL("../../apps/accounts/node_modules", import.meta.url));
 
 test("native builds retain Worker class names and reject aliased server code in the client", async (t) => {
   const cwd = mkdtempSync(join(tmpdir(), "gdg-native-build-test-"));
@@ -82,11 +82,11 @@ test("native builds retain Worker class names and reject aliased server code in 
   write("app/value.ts", 'export const value = "public";');
   write(
     "vite.config.ts",
-    `import config from ${JSON.stringify(fileURLToPath(new URL("../../accounts/vite.config.ts", import.meta.url)))}; export default config;`,
+    `import config from ${JSON.stringify(fileURLToPath(new URL("../../apps/accounts/vite.config.ts", import.meta.url)))}; export default config;`,
   );
   write(
     "react-router.config.ts",
-    `import config from ${JSON.stringify(fileURLToPath(new URL("../../accounts/react-router.config.ts", import.meta.url)))}; export default config;`,
+    `import config from ${JSON.stringify(fileURLToPath(new URL("../../apps/accounts/react-router.config.ts", import.meta.url)))}; export default config;`,
   );
   write(
     "wrangler.toml",

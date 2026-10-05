@@ -1,0 +1,178 @@
+@layer theme, base, gdg-tokens, gdg-base, gdg-components, utilities;
+@import "tailwindcss";
+@import "@gdgjp/design-system/tailwind.css";
+@import "@gdgjp/design-system/components.css";
+@import "@gdgjp/design-system/fonts.css";
+
+@source "../../../packages/gdg-lib/src/ui";
+
+/* Remote collaborative cursors in CodeMirror */
+.remote-cursor {
+  position: relative;
+  pointer-events: none;
+}
+
+.remote-cursor-label {
+  position: absolute;
+  bottom: 100%;
+  left: -1px;
+  padding: 1px 4px;
+  border-radius: var(--gdg-radius-sm);
+  font-size: 11px;
+  color: var(--gdg-white);
+  white-space: nowrap;
+  z-index: 10;
+}
+
+/* Keep Markdown code block headers below the shared shell header. */
+.md-editor-preview .md-editor-code .md-editor-code-head {
+  top: 4rem;
+  z-index: 10;
+}
+
+/* Emoji reaction chip — active (reacted) state */
+.reaction-active {
+  background-color: var(--gdg-selected);
+}
+.reaction-active .reaction-count {
+  color: var(--gdg-link);
+}
+
+.dark .md-editor-dark {
+  --md-bk-color: var(--gdg-background);
+  --md-bk-color-outstand: var(--gdg-surface);
+  --md-bk-hover-color: var(--gdg-surface);
+  --md-border-color: var(--gdg-border);
+  --md-border-hover-color: var(--gdg-border);
+  --md-border-active-color: var(--gdg-muted);
+  --md-color: var(--gdg-muted);
+  --md-hover-color: var(--gdg-text);
+}
+
+.dark .md-editor-dark .md-editor-preview {
+  --md-theme-bg-color: var(--gdg-background);
+  --md-theme-bg-color-inset: var(--gdg-surface);
+  --md-theme-border-color: var(--gdg-border);
+  --md-theme-border-color-inset: var(--gdg-border);
+  --md-theme-border-color-reverse: var(--gdg-muted);
+  --md-theme-color: var(--gdg-muted);
+  --md-theme-color-reverse: var(--gdg-white);
+}
+
+/* ── Fallback: apply dark vars even when md-editor-dark class is missing ── */
+.dark .md-editor {
+  --md-bk-color: var(--gdg-background);
+  --md-bk-color-outstand: var(--gdg-surface);
+  --md-bk-hover-color: var(--gdg-surface);
+  --md-border-color: var(--gdg-border);
+  --md-border-hover-color: var(--gdg-border);
+  --md-border-active-color: var(--gdg-muted);
+  --md-color: var(--gdg-muted);
+  --md-hover-color: var(--gdg-text);
+}
+
+.dark .md-editor .md-editor-preview {
+  --md-theme-bg-color: var(--gdg-background);
+  --md-theme-bg-color-inset: var(--gdg-surface);
+  --md-theme-border-color: var(--gdg-border);
+  --md-theme-border-color-inset: var(--gdg-border);
+  --md-theme-border-color-reverse: var(--gdg-muted);
+  --md-theme-color: var(--gdg-muted);
+  --md-theme-color-reverse: var(--gdg-white);
+}
+
+/* ── GitHub-style markdown preview (light) ── */
+.md-editor-preview {
+  --md-theme-link-color: var(--gdg-primary);
+  --md-theme-link-hover-color: var(--gdg-primary-hover);
+}
+
+.md-editor-preview h1,
+.md-editor-preview h2 {
+  border-bottom: 1px solid var(--gdg-border);
+  padding-bottom: 0.3em;
+}
+
+.md-editor-preview h1 {
+  font-size: 2em;
+  font-weight: 600;
+}
+
+.md-editor-preview h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+}
+
+.md-editor-preview h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+}
+
+.md-editor-preview :not(pre) > code {
+  background: var(--gdg-neutral);
+  padding: 0.2em 0.4em;
+  border-radius: var(--gdg-radius-sm);
+  font-size: 85%;
+}
+
+.md-editor-preview pre {
+  background: var(--gdg-neutral);
+  border-radius: var(--gdg-radius-sm);
+  padding: 16px;
+  font-size: 85%;
+  line-height: 1.45;
+  overflow-x: auto;
+}
+
+.md-editor-preview pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+.md-editor-preview blockquote {
+  border-left: 0.25em solid var(--gdg-border);
+  color: var(--gdg-muted);
+  padding: 0 1em;
+  margin-left: 0;
+}
+
+.md-editor-preview table th,
+.md-editor-preview table td {
+  border: 1px solid var(--gdg-border);
+  padding: 6px 13px;
+}
+
+.md-editor-preview table tr:nth-child(2n) {
+  background: var(--gdg-neutral);
+}
+
+.md-editor-preview img {
+  max-width: 100%;
+}
+
+.md-editor-preview hr {
+  height: 0.25em;
+  background: var(--gdg-border);
+  border: 0;
+}
+
+.md-editor-preview ul,
+.md-editor-preview ol {
+  padding-left: 2em;
+  list-style-position: outside;
+}
+
+.md-editor-preview ul {
+  list-style-type: disc;
+}
+
+.md-editor-preview ol {
+  list-style-type: decimal;
+}
+
+/* Page-local reader preference; headings and code retain their relative scale. */
+article[data-small-text="true"] .md-editor-preview {
+  font-size: 14px;
+}

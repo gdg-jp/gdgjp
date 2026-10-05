@@ -1,0 +1,53 @@
+{
+  "name": "@gdgjp/accounts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "react-router build",
+    "dev": "react-router dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "wrangler types && react-router typegen && node ../../node_modules/@typescript/native/bin/tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "cf-typegen": "wrangler types",
+    "migrate:local": "wrangler d1 migrations apply gdgjp-accounts-db --local && pnpm schema:dump",
+    "migrate:remote": "wrangler d1 migrations apply gdgjp-accounts-db --remote && pnpm schema:dump",
+    "schema:dump": "bash ../../scripts/dump-schema.sh",
+    "openapi:lint": "redocly lint --config openapi/redocly.yaml openapi/openapi.yaml",
+    "openapi:bundle": "redocly bundle openapi/openapi.yaml --output openapi/dist/openapi.yaml",
+    "openapi:generate": "pnpm openapi:bundle && openapi-typescript openapi/dist/openapi.yaml -o openapi/types.generated.ts"
+  },
+  "dependencies": {
+    "@better-auth/oauth-provider": "1.6.23",
+    "@gdgjp/gdg-lib": "workspace:*",
+    "@gdgjp/design-system": "workspace:*",
+    "@react-router/cloudflare": "~7.14.2",
+    "better-auth": "1.6.23",
+    "i18next": "^26.0.8",
+    "isbot": "^5.1.17",
+    "jose": "^6.1.3",
+    "motion": "^12.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-i18next": "^17.0.6",
+    "react-router": "~7.14.2",
+    "remix-i18next": "^7.5.0",
+    "resend": "^4.1.2"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "~1.46.0",
+    "@cloudflare/workers-types": "^4.20250101.0",
+    "@playwright/test": "^1.49.1",
+    "@react-router/dev": "~7.14.2",
+    "@tailwindcss/vite": "^4.2.4",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "tailwindcss": "^4.2.4",
+    "typescript": "^5.7.2",
+    "vite": "^8.3.2",
+    "vitest": "^4.1.10",
+    "wrangler": "~4.113.0"
+  }
+}

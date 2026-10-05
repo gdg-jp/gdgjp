@@ -4,7 +4,7 @@ import test from "node:test";
 import { classifyChanges } from "./changed-workspaces.mjs";
 
 test("selects only the directly changed application", () => {
-  const result = classifyChanges(["scheduler/migrations/0001_example.sql"]);
+  const result = classifyChanges(["apps/scheduler/migrations/0001_example.sql"]);
 
   assert.deepEqual(result.ci, ["@gdgjp/scheduler"]);
   assert.deepEqual(result.build, ["@gdgjp/scheduler"]);
@@ -16,19 +16,19 @@ test("selects only the directly changed application", () => {
 });
 
 test("selects Wiki E2E for Wiki application and harness changes", () => {
-  assert.deepEqual(classifyChanges(["wiki/app/root.tsx"]).e2e, ["wiki"]);
-  assert.deepEqual(classifyChanges(["wiki/tests/e2e/setup.ts"]).e2e, ["wiki"]);
-  assert.deepEqual(classifyChanges(["wiki/playwright.config.ts"]).e2e, ["wiki"]);
+  assert.deepEqual(classifyChanges(["apps/wiki/app/root.tsx"]).e2e, ["wiki"]);
+  assert.deepEqual(classifyChanges(["apps/wiki/tests/e2e/setup.ts"]).e2e, ["wiki"]);
+  assert.deepEqual(classifyChanges(["apps/wiki/playwright.config.ts"]).e2e, ["wiki"]);
 });
 
 test("selects Pay browser checks for application and harness changes", () => {
-  assert.deepEqual(classifyChanges(["pay/app/root.tsx"]).e2e, ["pay"]);
-  assert.deepEqual(classifyChanges(["pay/e2e/ui-harness.tsx"]).e2e, ["pay"]);
-  assert.deepEqual(classifyChanges(["pay/playwright.config.ts"]).e2e, ["pay"]);
+  assert.deepEqual(classifyChanges(["apps/pay/app/root.tsx"]).e2e, ["pay"]);
+  assert.deepEqual(classifyChanges(["apps/pay/e2e/ui-harness.tsx"]).e2e, ["pay"]);
+  assert.deepEqual(classifyChanges(["apps/pay/playwright.config.ts"]).e2e, ["pay"]);
 });
 
 test("propagates gdg-lib changes to every dependent application", () => {
-  const result = classifyChanges(["gdg-lib/src/auth/session.ts"]);
+  const result = classifyChanges(["packages/gdg-lib/src/auth/session.ts"]);
 
   assert.deepEqual(result.ci, [
     "@gdgjp/accounts",
@@ -96,19 +96,23 @@ test("ignores unrelated documentation changes", () => {
 });
 
 test("recognizes both sides of a rename and deleted application files", () => {
-  const result = classifyChanges(["tinyurl/old.ts", "scheduler/new.ts", "img/deleted.ts"]);
+  const result = classifyChanges([
+    "apps/tinyurl/old.ts",
+    "apps/scheduler/new.ts",
+    "apps/img/deleted.ts",
+  ]);
 
   assert.deepEqual(result.ci, ["@gdgjp/tinyurl", "@gdgjp/img", "@gdgjp/scheduler"]);
   assert.equal(result.lint, true);
 });
 
 test("limits OpenAPI checks to contract and generator inputs", () => {
-  assert.equal(classifyChanges(["accounts/openapi/openapi.yaml"]).openapi, true);
-  assert.equal(classifyChanges(["cli/internal/wiki/generate.go"]).openapi, true);
-  assert.equal(classifyChanges(["connpass/openapi/openapi.yaml"]).openapi, true);
-  assert.equal(classifyChanges(["sns/openapi/openapi.yaml"]).openapi, true);
-  assert.equal(classifyChanges(["cli/internal/connpass/generate.go"]).openapi, true);
-  assert.equal(classifyChanges(["accounts/app/routes/home.tsx"]).openapi, false);
+  assert.equal(classifyChanges(["apps/accounts/openapi/openapi.yaml"]).openapi, true);
+  assert.equal(classifyChanges(["apps/cli/internal/wiki/generate.go"]).openapi, true);
+  assert.equal(classifyChanges(["apps/connpass/openapi/openapi.yaml"]).openapi, true);
+  assert.equal(classifyChanges(["apps/sns/openapi/openapi.yaml"]).openapi, true);
+  assert.equal(classifyChanges(["apps/cli/internal/connpass/generate.go"]).openapi, true);
+  assert.equal(classifyChanges(["apps/accounts/app/routes/home.tsx"]).openapi, false);
 });
 
 test("manual execution selects every CI and deploy target", () => {
@@ -122,9 +126,9 @@ test("manual execution selects every CI and deploy target", () => {
 });
 
 test("gates the CLI Go job on cli/ changes", () => {
-  assert.equal(classifyChanges(["cli/internal/command/wiki.go"]).cli, true);
-  assert.equal(classifyChanges(["gdg-lib/src/acl/agent.ts"]).cli, true);
-  assert.equal(classifyChanges(["gdg-lib/scripts/build-acl.mjs"]).cli, true);
+  assert.equal(classifyChanges(["apps/cli/internal/command/wiki.go"]).cli, true);
+  assert.equal(classifyChanges(["packages/gdg-lib/src/acl/agent.ts"]).cli, true);
+  assert.equal(classifyChanges(["packages/gdg-lib/scripts/build-acl.mjs"]).cli, true);
   assert.equal(classifyChanges(["scripts/run-go-ci.mjs"]).cli, true);
   assert.equal(classifyChanges(["docs/operations.md"]).cli, false);
   assert.equal(classifyChanges(["pnpm-lock.yaml"]).cli, true);
@@ -133,31 +137,31 @@ test("gates the CLI Go job on cli/ changes", () => {
 test("gates script-tests on workflow scripts and agent-host components", () => {
   assert.equal(classifyChanges([".github/scripts/gdg-agent-layout.test.mjs"]).scriptTests, true);
   assert.equal(classifyChanges(["scripts/install-gdg-agent-host.sh"]).scriptTests, true);
-  assert.equal(classifyChanges(["agent-host/config/permissions.json"]).scriptTests, true);
-  assert.equal(classifyChanges(["agents-index/src/proxy.ts"]).scriptTests, true);
-  assert.equal(classifyChanges(["cli/internal/wiki/hooks/acl-gate.ts"]).scriptTests, true);
-  assert.equal(classifyChanges(["wiki/app/routes/home.tsx"]).scriptTests, false);
+  assert.equal(classifyChanges(["apps/agent-host/config/permissions.json"]).scriptTests, true);
+  assert.equal(classifyChanges(["apps/agents-index/src/proxy.ts"]).scriptTests, true);
+  assert.equal(classifyChanges(["apps/cli/internal/wiki/hooks/acl-gate.ts"]).scriptTests, true);
+  assert.equal(classifyChanges(["apps/wiki/app/routes/home.tsx"]).scriptTests, false);
   assert.equal(classifyChanges(["docs/operations.md"]).scriptTests, false);
-  assert.equal(classifyChanges(["accounts/src/index.ts"]).scriptTests, false);
+  assert.equal(classifyChanges(["apps/accounts/src/index.ts"]).scriptTests, false);
   assert.equal(classifyChanges(["scripts/check-ui-conventions.mjs"]).scriptTests, true);
   assert.equal(classifyChanges(["scripts/run-ci.mjs"]).scriptTests, true);
   assert.equal(classifyChanges(["scripts/run-go-ci.mjs"]).scriptTests, true);
-  assert.equal(classifyChanges(["gdg-lib/scripts/build-acl.mjs"]).scriptTests, true);
+  assert.equal(classifyChanges(["packages/gdg-lib/scripts/build-acl.mjs"]).scriptTests, true);
   assert.equal(
-    classifyChanges(["wiki/tests/architecture/ui-conventions-baseline.json"]).scriptTests,
+    classifyChanges(["apps/wiki/tests/architecture/ui-conventions-baseline.json"]).scriptTests,
     true,
   );
 });
 
 test("selects nested workspace @gdgjp/langfuse-forwarder on agent-host/langfuse-forwarder changes", () => {
-  const result = classifyChanges(["agent-host/langfuse-forwarder/src/index.ts"]);
+  const result = classifyChanges(["apps/agent-host/langfuse-forwarder/src/index.ts"]);
   assert.deepEqual(result.ci, ["@gdgjp/langfuse-forwarder"]);
   assert.deepEqual(result.build, []);
   assert.deepEqual(result.e2e, []);
 });
 
 test("agent-host non-forwarder changes do not select @gdgjp/langfuse-forwarder", () => {
-  const result = classifyChanges(["agent-host/workspace/AGENTS.md"]);
+  const result = classifyChanges(["apps/agent-host/workspace/AGENTS.md"]);
   assert.deepEqual(result.ci, []);
   assert.equal(result.scriptTests, true);
   assert.equal(result.agentHostWorkspace, true);
@@ -165,16 +169,19 @@ test("agent-host non-forwarder changes do not select @gdgjp/langfuse-forwarder",
 
 test("detects agent-host/workspace changes with agentHostWorkspace predicate", () => {
   assert.equal(
-    classifyChanges(["agent-host/workspace/.agents/skills/wiki-ingest/SKILL.md"])
+    classifyChanges(["apps/agent-host/workspace/.agents/skills/wiki-ingest/SKILL.md"])
       .agentHostWorkspace,
     true,
   );
-  assert.equal(classifyChanges(["agent-host/config/cli-config.json"]).agentHostWorkspace, false);
-  assert.equal(classifyChanges(["wiki/app/routes/home.tsx"]).agentHostWorkspace, false);
+  assert.equal(
+    classifyChanges(["apps/agent-host/config/cli-config.json"]).agentHostWorkspace,
+    false,
+  );
+  assert.equal(classifyChanges(["apps/wiki/app/routes/home.tsx"]).agentHostWorkspace, false);
 });
 
 test("GDG UI changes validate and deploy its consumers", () => {
-  const result = classifyChanges(["design-system/src/styles/tokens.css"]);
+  const result = classifyChanges(["packages/design-system/src/styles/tokens.css"]);
   assert.deepEqual(result.ci, [
     "@gdgjp/design-system",
     "@gdgjp/accounts",
@@ -213,7 +220,7 @@ test("GDG UI changes validate and deploy its consumers", () => {
 
 test("UI gitlink updates select the same targets as library source changes", () => {
   assert.deepEqual(
-    classifyChanges(["design-system"]),
-    classifyChanges(["design-system/README.md"]),
+    classifyChanges(["packages/design-system"]),
+    classifyChanges(["packages/design-system/README.md"]),
   );
 });

@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const bootstrapScript = join(repositoryRoot, "scripts/install-gdg-agent-host.sh");
-const defaultSpec = join(repositoryRoot, "agent-host/agent-host.json");
+const defaultSpec = join(repositoryRoot, "apps/agent-host/agent-host.json");
 
 let compiledGdgBin = "";
 
@@ -23,7 +23,7 @@ function ensureGdgBin() {
   }
   const bin = join(tmpdir(), `gdg-emit-layout-${process.pid}`);
   const result = spawnSync("go", ["build", "-o", bin, "./cmd/gdg"], {
-    cwd: join(repositoryRoot, "cli"),
+    cwd: join(repositoryRoot, "apps/cli"),
     encoding: "utf8",
   });
   if (result.status !== 0) {
@@ -237,19 +237,19 @@ test("bootstrap scripts/install-gdg-agent-host.sh is <= 60 lines and matches spe
 
 test("legacy bash installer and verify scripts are deleted", () => {
   assert.equal(
-    existsSync(join(repositoryRoot, "agent-host/install.sh")),
+    existsSync(join(repositoryRoot, "apps/agent-host/install.sh")),
     false,
-    "agent-host/install.sh must be removed; replaced by Go converger",
+    "apps/agent-host/install.sh must be removed; replaced by Go converger",
   );
   assert.equal(
-    existsSync(join(repositoryRoot, "agent-host/lib/verify.sh")),
+    existsSync(join(repositoryRoot, "apps/agent-host/lib/verify.sh")),
     false,
-    "agent-host/lib/verify.sh must be removed; replaced by gdg agent-host verify",
+    "apps/agent-host/lib/verify.sh must be removed; replaced by gdg agent-host verify",
   );
   assert.equal(
-    existsSync(join(repositoryRoot, "agents-index/install.sh")),
+    existsSync(join(repositoryRoot, "apps/agents-index/install.sh")),
     false,
-    "agents-index/install.sh must be removed; folded into gdg agent-host apply (Stage 08)",
+    "apps/agents-index/install.sh must be removed; folded into gdg agent-host apply (Stage 08)",
   );
   assert.equal(
     existsSync(join(repositoryRoot, ".github/scripts/agents-index-install.test.mjs")),
@@ -282,10 +282,10 @@ test("tracked *.sh files match the checked-in shell allowlist", async () => {
   // The agent-host provisioning path is a single shell (the bootstrap). The only
   // *.sh allowed under agent-host/ are the Lima dev helpers and the spawn-slot
   // template, never a provisioning installer.
-  const agentHostShells = allowlist.filter((p) => p.startsWith("agent-host/"));
+  const agentHostShells = allowlist.filter((p) => p.startsWith("apps/agent-host/"));
   for (const path of agentHostShells) {
     assert.ok(
-      path.startsWith("agent-host/dev/") || path === "agent-host/config/spawn-slot.sh",
+      path.startsWith("apps/agent-host/dev/") || path === "apps/agent-host/config/spawn-slot.sh",
       `unexpected shell under agent-host/: ${path} (provisioning must be bootstrap-only)`,
     );
   }
@@ -333,10 +333,10 @@ test("rendered agents-index daemon sources load under Node's strip-only loader",
   }
 });
 
-test("agent-host/workspace/ contains no private Google Drive/Sheets URLs or Discord IDs", async () => {
-  const workspaceDir = join(repositoryRoot, "agent-host/workspace");
+test("apps/agent-host/workspace/ contains no private Google Drive/Sheets URLs or Discord IDs", async () => {
+  const workspaceDir = join(repositoryRoot, "apps/agent-host/workspace");
   const entries = await readdir(workspaceDir, { recursive: true, withFileTypes: true });
-  assert.ok(entries.length > 0, "agent-host/workspace must not be empty");
+  assert.ok(entries.length > 0, "apps/agent-host/workspace must not be empty");
 
   const privateUrlPattern = /docs\.google\.com|drive\.google\.com|discord\.com\/channels/;
   const discordSnowflakePattern = /\b[0-9]{17,20}\b/;
@@ -378,7 +378,7 @@ test("agent-host.json slotCount changes propagate to sudoers, tmpfiles, and per-
   const specDir = await mkdtemp(join(tmpdir(), "gdg-agent-spec-"));
   try {
     const baseSpec = JSON.parse(
-      await readFile(join(repositoryRoot, "agent-host/agent-host.json"), "utf8"),
+      await readFile(join(repositoryRoot, "apps/agent-host/agent-host.json"), "utf8"),
     );
     const customSpec = { ...baseSpec, slotCount: 3 };
     const customSpecPath = join(specDir, "agent-host.json");
@@ -576,7 +576,7 @@ test("spec paths govern all generated layout configurations", async () => {
   const customSpecDir = await mkdtemp(join(tmpdir(), "gdg-agent-custom-spec-"));
   try {
     const baseSpec = JSON.parse(
-      await readFile(join(repositoryRoot, "agent-host/agent-host.json"), "utf8"),
+      await readFile(join(repositoryRoot, "apps/agent-host/agent-host.json"), "utf8"),
     );
     const customSpec = {
       ...baseSpec,
@@ -657,7 +657,7 @@ test("rejects unsupported backend values in schema and agent-host apply", async 
   const customSpecDir = await mkdtemp(join(tmpdir(), "gdg-agent-bad-backend-"));
   try {
     const baseSpec = JSON.parse(
-      await readFile(join(repositoryRoot, "agent-host/agent-host.json"), "utf8"),
+      await readFile(join(repositoryRoot, "apps/agent-host/agent-host.json"), "utf8"),
     );
     const unknownBackendSpec = {
       ...baseSpec,
@@ -681,7 +681,7 @@ test("rejects unsupported backend values in schema and agent-host apply", async 
         "ajv-cli",
         "validate",
         "-s",
-        join(repositoryRoot, "agent-host/agent-host.schema.json"),
+        join(repositoryRoot, "apps/agent-host/agent-host.schema.json"),
         "-d",
         unknownSpecPath,
       ],
@@ -717,7 +717,7 @@ test("rejects unsupported backend values in schema and agent-host apply", async 
         "ajv-cli",
         "validate",
         "-s",
-        join(repositoryRoot, "agent-host/agent-host.schema.json"),
+        join(repositoryRoot, "apps/agent-host/agent-host.schema.json"),
         "-d",
         missingIsoPath,
       ],
@@ -769,7 +769,7 @@ test("spec node pin strictly enforces pinned Node minor version", async () => {
   const customSpecDir = await mkdtemp(join(tmpdir(), "gdg-agent-node-pin-"));
   try {
     const baseSpec = JSON.parse(
-      await readFile(join(repositoryRoot, "agent-host/agent-host.json"), "utf8"),
+      await readFile(join(repositoryRoot, "apps/agent-host/agent-host.json"), "utf8"),
     );
     const currentMajor = Number.parseInt(process.versions.node.split(".")[0], 10);
     const highMinorSpec = {

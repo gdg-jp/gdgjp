@@ -38,20 +38,20 @@ The October 5, 2026 survey found these responsibilities needing explicit ownersh
 
 | Application | Structural issue found | Ownership to make explicit |
 | --- | --- | --- |
-| [accounts](../accounts/ARCHITECTURE.md) | Identity, OAuth, onboarding, administration, and unrelated D1 queries mixed in `lib` | Authentication, OAuth, developer applications, chapters, memberships, users, onboarding, Google Workspace, notifications |
-| [tinyurl](../tinyurl/ARCHITECTURE.md) | Partial features coexist with a 1,144-line database facade, scattered analytics, and large page modules | Links, campaigns, analytics, domains, folders, tags, authentication, CLI adapters, dashboard |
-| [img](../img/ARCHITECTURE.md) | Image/folder features depend on domain-specific `lib` and shared component directories | Image delivery and mutation, folders, authentication, HTTP adapters |
-| [scheduler](../scheduler/ARCHITECTURE.md) | Event, slot, participant, availability, and participant-cookie behavior mixed together | Events/scheduling, participants, authentication |
-| [sns](../sns/ARCHITECTURE.md) | Partial features coexist with a mixed database module and route-owned publishing/settings workflows | Posts, contributors, X accounts, Google Photos, authentication, CLI adapters |
-| [connpass](../connpass/ARCHITECTURE.md) | Browser session, automation, jobs, and authorization mixed in `lib`; jobs and runner import each other | Authorization, browser integration, automation operations, job contracts/storage/execution |
-| [pay](../pay/ARCHITECTURE.md) | Profiles, events, claims/items, Google tokens, and transactions share one database module | Profiles, events, claims, receipts, Google integration, authentication |
-| [ost](../ost/ARCHITECTURE.md) | Live board protocol/calculations, event registry, geometry, and authentication mixed in `lib` | Board, event registry/access, layout, authentication; Durable Object remains the runtime boundary |
-| [agents](../agents/ARCHITECTURE.md) | Flat modules mix chat runtime, inquiry, filing, OAuth, webhooks, and telemetry; inquiry/filing dependencies form a cycle | Chat/inquiry orchestration, filing, account linking, webhook verification, provider tools, observability |
-| [tinyurl-gateway](../tinyurl-gateway/ARCHITECTURE.md) | One edge handler owns configuration, caching, upstream validation, and proxying | Configuration/cache, trusted upstream requests, request proxy, Vercel adapter |
-| [agents-index](../agents-index/ARCHITECTURE.md) | Socket lifecycle and JSON-RPC dispatch share the daemon module | Daemon transport, request dispatch, ACL-aware search, indexing; deployment entrypoints stay explicit |
-| [accounts-oidc-client-demo](../accounts-oidc-client-demo/ARCHITECTURE.md) | One Worker module owns OIDC flows, encrypted cookies, configuration, and HTML | OIDC/session behavior, cookie encryption, presentation, Worker routing |
-| [website](../website/ARCHITECTURE.md) | Already small: shared site layout, public pages, and apex routing | Public pages, application-directory widget, shared layout, and the website/TinyURL boundary |
-| [go-extension](../go-extension/ARCHITECTURE.md) | Already small: browser listeners and pure URL rules are separated | Preserve that separation and verify packaging includes imported modules |
+| [accounts](../apps/accounts/ARCHITECTURE.md) | Identity, OAuth, onboarding, administration, and unrelated D1 queries mixed in `lib` | Authentication, OAuth, developer applications, chapters, memberships, users, onboarding, Google Workspace, notifications |
+| [tinyurl](../apps/tinyurl/ARCHITECTURE.md) | Partial features coexist with a 1,144-line database facade, scattered analytics, and large page modules | Links, campaigns, analytics, domains, folders, tags, authentication, CLI adapters, dashboard |
+| [img](../apps/img/ARCHITECTURE.md) | Image/folder features depend on domain-specific `lib` and shared component directories | Image delivery and mutation, folders, authentication, HTTP adapters |
+| [scheduler](../apps/scheduler/ARCHITECTURE.md) | Event, slot, participant, availability, and participant-cookie behavior mixed together | Events/scheduling, participants, authentication |
+| [sns](../apps/sns/ARCHITECTURE.md) | Partial features coexist with a mixed database module and route-owned publishing/settings workflows | Posts, contributors, X accounts, Google Photos, authentication, CLI adapters |
+| [connpass](../apps/connpass/ARCHITECTURE.md) | Browser session, automation, jobs, and authorization mixed in `lib`; jobs and runner import each other | Authorization, browser integration, automation operations, job contracts/storage/execution |
+| [pay](../apps/pay/ARCHITECTURE.md) | Profiles, events, claims/items, Google tokens, and transactions share one database module | Profiles, events, claims, receipts, Google integration, authentication |
+| [ost](../apps/ost/ARCHITECTURE.md) | Live board protocol/calculations, event registry, geometry, and authentication mixed in `lib` | Board, event registry/access, layout, authentication; Durable Object remains the runtime boundary |
+| [agents](../apps/agents/ARCHITECTURE.md) | Flat modules mix chat runtime, inquiry, filing, OAuth, webhooks, and telemetry; inquiry/filing dependencies form a cycle | Chat/inquiry orchestration, filing, account linking, webhook verification, provider tools, observability |
+| [tinyurl-gateway](../apps/tinyurl-gateway/ARCHITECTURE.md) | One edge handler owns configuration, caching, upstream validation, and proxying | Configuration/cache, trusted upstream requests, request proxy, Vercel adapter |
+| [agents-index](../apps/agents-index/ARCHITECTURE.md) | Socket lifecycle and JSON-RPC dispatch share the daemon module | Daemon transport, request dispatch, ACL-aware search, indexing; deployment entrypoints stay explicit |
+| [accounts-oidc-client-demo](../apps/accounts-oidc-client-demo/ARCHITECTURE.md) | One Worker module owns OIDC flows, encrypted cookies, configuration, and HTML | OIDC/session behavior, cookie encryption, presentation, Worker routing |
+| [website](../apps/website/ARCHITECTURE.md) | Already small: shared site layout, public pages, and apex routing | Public pages, application-directory widget, shared layout, and the website/TinyURL boundary |
+| [go-extension](../apps/go-extension/ARCHITECTURE.md) | Already small: browser listeners and pure URL rules are separated | Preserve that separation and verify packaging includes imported modules |
 
 `wiki/` is the reference and is not part of this migration. `roster/` is excluded.
 The shared libraries, CLI, and agent-host are not independent refactoring targets;

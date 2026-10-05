@@ -2,51 +2,51 @@
 
 ## Project Structure & Module Organization
 
-This is a flat pnpm/Turborepo monorepo. The workspace packages are listed in
-`pnpm-workspace.yaml`:
+Applications live in `apps/` and shared libraries in `packages/`. Workspace globs in
+`pnpm-workspace.yaml` includes `apps/*`, `packages/*`, and `apps/agent-host/*`, excluding `apps/xangi` and `apps/agent-host/agents-index`:
 
-- `accounts/` is the GDG Accounts OAuth/OIDC identity provider on Cloudflare Workers, backed by
+- `apps/accounts/` is the GDG Accounts OAuth/OIDC identity provider on Cloudflare Workers, backed by
   D1 and KV.
-- `tinyurl/`, `img/`, `scheduler/`, `sns/`, `connpass/`, `pay/`, and `wiki/` are React Router v7 SSR
-  Cloudflare Workers and relying parties of `accounts/` (connpass is Bearer-API oriented for
-  CLI/agents; `ost/` and `roster/` below are relying parties for their admin surfaces only). They
+- `apps/tinyurl/`, `apps/img/`, `apps/scheduler/`, `apps/sns/`, `apps/connpass/`, `apps/pay/`, and `apps/wiki/` are React Router v7 SSR
+  Cloudflare Workers and relying parties of `apps/accounts/` (connpass is Bearer-API oriented for
+  CLI/agents; `apps/ost/` and `apps/roster/` below are relying parties for their admin surfaces only). They
   keep routes in
   `app/routes/`, route registration in `app/routes.ts`, Worker entrypoints in `workers/`, and D1
   migrations in `migrations/`.
-  `wiki/` additionally uses R2, Queues, Browser Rendering, Workers AI, Vectorize, and a Durable
-  Object; `img/` uses R2 and Cloudflare Images; `sns/` uses D1, R2, scheduled publishing, and X
-  and Google Photos integrations; `connpass/` uses D1, KV, Queues, and Browser Run for connpass.com
-  admin automation; `pay/` uses D1, R2, Gemini receipt extraction, and Google Sheets/Drive sync.
-- `website/` is the public GDG Japan React Router v7 SSR website on Cloudflare Workers. It uses a
+  `apps/wiki/` additionally uses R2, Queues, Browser Rendering, Workers AI, Vectorize, and a Durable
+  Object; `apps/img/` uses R2 and Cloudflare Images; `apps/sns/` uses D1, R2, scheduled publishing, and X
+  and Google Photos integrations; `apps/connpass/` uses D1, KV, Queues, and Browser Run for connpass.com
+  admin automation; `apps/pay/` uses D1, R2, Gemini receipt extraction, and Google Sheets/Drive sync.
+- `apps/website/` is the public GDG Japan React Router v7 SSR website on Cloudflare Workers. It uses a
   TinyURL service binding and has no D1 database.
-- `ost/` is the Open Space Technology support app (`ost.gdgs.jp`): per-event topic collection,
+- `apps/ost/` is the Open Space Technology support app (`ost.gdgs.jp`): per-event topic collection,
   participant voting, a venue desk-layout editor, projector screens, and auto-assignment of
   top-voted topics to desks. React Router v7 SSR on Cloudflare Workers. Public participant pages
-  live at `/:slug`; all admin surfaces (dashboard, screens, editor) are `accounts/` relying-party
+  live at `/:slug`; all admin surfaces (dashboard, screens, editor) are `apps/accounts/` relying-party
   routes gated by GDG chapter membership. D1 (`DB`) holds only auth tables + an `events` registry;
   each event's live state (topics, votes, merge groups, desks) is one per-slug Durable Object
   (`OstBoard`, SQLite storage + hibernatable WebSockets, `getByName(slug)`).
-- `roster/` is the staff shift-schedule generator for events (`roster.gdgs.jp`): owners define
+- `apps/roster/` is the staff shift-schedule generator for events (`roster.gdgs.jp`): owners define
   time slots/tracks/roles/demand, staff self-register through a public link, and an auto-generator
   drafts a schedule (skill-mix aware) for hand-editing before publishing a read-only shared view.
-  React Router v7 SSR on Cloudflare Workers, scaffolded from `ost/` but feature-first from the
+  React Router v7 SSR on Cloudflare Workers, scaffolded from `apps/ost/` but feature-first from the
   start (`app/features/<domain>/`, no `app/lib/` grab-bag) — see `docs/roster/`. D1 (`DB`) holds
   auth tables; domain tables land starting Stage 02 of that plan. All admin surfaces are
-  `accounts/` relying-party routes gated by GDG chapter membership; staff self-registration and
+  `apps/accounts/` relying-party routes gated by GDG chapter membership; staff self-registration and
   the published shift view are separate public/sign-in-only surfaces.
-- `gdg-lib/` is the source-only shared TypeScript package (`@gdgjp/gdg-lib`) for relying-party
+- `packages/gdg-lib/` is the source-only shared TypeScript package (`@gdgjp/gdg-lib`) for relying-party
   auth and signed-cookie helpers. Keep code app-local unless it is genuinely shared here.
-- `design-system/` is the `gdg-jp/design-system` Git submodule and shared React 19 workspace (`@gdgjp/design-system`).
-  Initialize it with `git submodule update --init design-system` before installing dependencies. It is independent of
+- `packages/design-system/` is the `gdg-jp/design-system` Git submodule and shared React 19 workspace (`@gdgjp/design-system`).
+  Initialize it with `git submodule update --init packages/design-system` before installing dependencies. It is independent of
   application routing, authentication, and data fetching.
-- `agents-index/` is the local, ACL-filtered semantic navigation MCP service for the shared wiki
+- `apps/agents-index/` is the local, ACL-filtered semantic navigation MCP service for the shared wiki
   worktree. Its results must never include indexed document text.
-- `tinyurl-gateway/` is a Vercel Edge gateway for TinyURL custom domains.
-- `go-extension/` is a Manifest V3 Chrome extension.
-- `accounts-oidc-client-demo/` is a standalone Cloudflare Worker demonstrating an OIDC relying
+- `apps/tinyurl-gateway/` is a Vercel Edge gateway for TinyURL custom domains.
+- `apps/go-extension/` is a Manifest V3 Chrome extension.
+- `apps/accounts-oidc-client-demo/` is a standalone Cloudflare Worker demonstrating an OIDC relying
   party; it does not use D1, KV, or service bindings.
 
-`cli/` contains the Go-based `gdg` CLI and is not a pnpm workspace. Repository automation lives
+`apps/cli/` contains the Go-based `gdg` CLI and is not a pnpm workspace. `apps/agent-host/` is the self-hosted agent host. `apps/learn/` and `apps/xangi/` are Git submodules. Repository automation lives
 in `scripts/`; supporting documentation lives in `docs/`.
 
 Application code is feature-first; consult each application's `ARCHITECTURE.md` and
@@ -122,7 +122,7 @@ Do not commit `.dev.vars*`, secrets, generated Worker types, build output, Playw
 local Wrangler state. Store Cloudflare secrets with `wrangler secret put`; keep Vercel runtime
 secrets in the Vercel project environment.
 
-Relying-party `.dev.vars` files need `RP_SESSION_SECRET` and `IDP_CLIENT_SECRET`. `accounts/`
+Relying-party `.dev.vars` files need `RP_SESSION_SECRET` and `IDP_CLIENT_SECRET`. `apps/accounts/`
 also needs its identity-provider and client secrets. When an Accounts OAuth client secret, ID, or
 redirect URI changes, reseed its client data through `/admin/seed-clients` before testing the
 integration.

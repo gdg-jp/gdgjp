@@ -3,15 +3,15 @@
 Before installing dependencies, initialize the shared design system:
 
 ```sh
-git submodule update --init design-system
+git submodule update --init packages/design-system
 pnpm install
 ```
 
-`design-system/` tracks [gdg-jp/design-system](https://github.com/gdg-jp/design-system).
-Commit and push UI changes there first, then commit the updated `design-system` pointer here.
+`packages/design-system/` tracks [gdg-jp/design-system](https://github.com/gdg-jp/design-system).
+Commit and push UI changes there first, then commit the updated `packages/design-system` pointer here.
 Existing `@gdgjp/design-system` workspace imports and build commands remain unchanged.
 
-Monorepo for the GDG Japan web properties. It uses a flat layout, pnpm workspaces, Turborepo, and
+Monorepo for the GDG Japan web properties. It uses pnpm workspaces (`apps/*`, `packages/*`), Turborepo, and
 Biome. Its core web apps are React Router v7 SSR applications deployed to Cloudflare Workers, with
 persistent state on Cloudflare D1; the repository also includes a public website, a Vercel gateway,
 a Chrome extension, an OIDC client demo, and shared libraries.
@@ -196,24 +196,24 @@ because that grant has no single-column id.
 
 | Directory | Package | Hostname | Description |
 |---|---|---|---|
-| `accounts/` | `@gdgjp/accounts` | accounts.gdgs.jp | Auth IdP — built on `@cloudflare/workers-oauth-provider` over D1 + KV, issues OAuth credentials to the other apps. |
-| `accounts-oidc-client-demo/` | `@gdgjp/accounts-oidc-client-demo` | Cloudflare Workers demo | Independent OpenID Connect relying-party example for GDG Accounts; uses encrypted cookies and no D1, KV, or service binding. |
-| `agent-host/` | — | — | Self-hosted counterpart to `agents/`: xangi + Cursor CLI (Composer 2.5) driving the LLM Wiki from a home Ubuntu server. |
-| `cli/` | `github.com/gdg-jp/gdgjp/cli` | — | Go-based `gdg` command-line tool for authenticating with GDG Accounts, managing OAuth clients, and installing updates. |
-| `gdg-lib/` | `@gdgjp/gdg-lib` | — | Shared RP factory (`initializeRpAuth`) + signed-cookie HMAC helpers, consumed via `workspace:*`. Source-only (no build step). |
-| `go-extension/` | `@gdgjp/go-extension` | Chrome extension | Manifest V3 extension for GDG Japan Go Links. Redirects `go/<slug>` URLs, supports the `go` omnibox keyword, and recognizes exact searches. |
-| `img/` | `@gdgjp/img` | img.gdgs.jp | Image hosting. D1 + R2 + Cloudflare Images; OAuth client of `accounts`. |
-| `learn/` | Git submodule ([`gdg-jp/learn`](https://github.com/gdg-jp/learn)) | learn.gdgs.jp | Codelab and learning-resource delivery app. |
-| `ost/` | `@gdgjp/ost` | ost.gdgs.jp | Open Space Technology topic board. Participant form + live projector screen; Cloudflare Worker + a single Durable Object (SQLite storage, hibernatable WebSockets), no D1, no auth. |
-| `roster/` | `@gdgjp/roster` | roster.gdgs.jp | Staff shift-schedule generator for events: owners define time slots/tracks/roles/demand, staff self-register, a solver drafts a schedule for hand-editing. D1-backed; OAuth client of `accounts`. |
-| `scheduler/` | `@gdgjp/scheduler` | scheduler.gdgs.jp | Meeting scheduler. Anonymous-friendly: anyone can create an event with a weekly schedule and meeting length, and pick available slots; authenticated owners get a cross-device "My events" list plus edit/delete. D1-backed; OAuth client of `accounts`. |
-| `sns/` | `@gdgjp/sns` | sns.gdgs.jp | Social-post management and publishing tool. D1 + R2-backed, with scheduled publishing and X and Google Photos integrations; OAuth client of `accounts`. |
-| `connpass/` | `@gdgjp/connpass` | connpass.gdgs.jp | Connpass group admin automation API. D1 + KV + Queues + Browser Run; Bearer token API for CLI and agents. |
-| `pay/` | `@gdgjp/pay` | pay.gdgs.jp | Event expense reimbursement. D1 + R2, Gemini receipt extraction, Google Sheets/Drive sync; OAuth client of `accounts`. |
-| `tinyurl/` | `@gdgjp/tinyurl` | url.gdgs.jp | URL shortener. D1-backed; OAuth client of `accounts`. |
-| `tinyurl-gateway/` | `@gdgjp/tinyurl-gateway` | Custom short-link domains | Vercel Edge gateway for TinyURL custom domains. It serves an optional upstream first, then resolves a short link when the upstream returns 404. |
-| `design-system/` | `@gdgjp/design-system` | — | Shared React 19 design system submodule (`gdg-jp/design-system`) for GDG Apps, independent of application routing, authentication, and data fetching. |
-| `website/` | `@gdgjp/website` | gdgs.jp | Public GDG Japan website. Cloudflare Worker using the TinyURL service binding. |
-| `wiki/` | `@gdgjp/wiki` | wiki.gdgs.jp | Community wiki. D1 + R2 + Queues + Browser Rendering + Workers AI + Vectorize + Durable Object (Yjs collab); OAuth client of `accounts`. |
+| `apps/accounts/` | `@gdgjp/accounts` | accounts.gdgs.jp | Auth IdP — built on `@cloudflare/workers-oauth-provider` over D1 + KV, issues OAuth credentials to the other apps. |
+| `apps/accounts-oidc-client-demo/` | `@gdgjp/accounts-oidc-client-demo` | Cloudflare Workers demo | Independent OpenID Connect relying-party example for GDG Accounts; uses encrypted cookies and no D1, KV, or service binding. |
+| `apps/agent-host/` | — | — | Self-hosted counterpart to `apps/agents/`: xangi + Cursor CLI (Composer 2.5) driving the LLM Wiki from a home Ubuntu server. |
+| `apps/cli/` | `github.com/gdg-jp/gdgjp/cli` | — | Go-based `gdg` command-line tool for authenticating with GDG Accounts, managing OAuth clients, and installing updates. |
+| `packages/gdg-lib/` | `@gdgjp/gdg-lib` | — | Shared RP factory (`initializeRpAuth`) + signed-cookie HMAC helpers, consumed via `workspace:*`. Source-only (no build step). |
+| `apps/go-extension/` | `@gdgjp/go-extension` | Chrome extension | Manifest V3 extension for GDG Japan Go Links. Redirects `go/<slug>` URLs, supports the `go` omnibox keyword, and recognizes exact searches. |
+| `apps/img/` | `@gdgjp/img` | img.gdgs.jp | Image hosting. D1 + R2 + Cloudflare Images; OAuth client of `accounts`. |
+| `apps/learn/` | Git submodule ([`gdg-jp/learn`](https://github.com/gdg-jp/learn)) | learn.gdgs.jp | Codelab and learning-resource delivery app. |
+| `apps/ost/` | `@gdgjp/ost` | ost.gdgs.jp | Open Space Technology topic board. Participant form + live projector screen; Cloudflare Worker + a single Durable Object (SQLite storage, hibernatable WebSockets), no D1, no auth. |
+| `apps/roster/` | `@gdgjp/roster` | roster.gdgs.jp | Staff shift-schedule generator for events: owners define time slots/tracks/roles/demand, staff self-register, a solver drafts a schedule for hand-editing. D1-backed; OAuth client of `accounts`. |
+| `apps/scheduler/` | `@gdgjp/scheduler` | scheduler.gdgs.jp | Meeting scheduler. Anonymous-friendly: anyone can create an event with a weekly schedule and meeting length, and pick available slots; authenticated owners get a cross-device "My events" list plus edit/delete. D1-backed; OAuth client of `accounts`. |
+| `apps/sns/` | `@gdgjp/sns` | sns.gdgs.jp | Social-post management and publishing tool. D1 + R2-backed, with scheduled publishing and X and Google Photos integrations; OAuth client of `accounts`. |
+| `apps/connpass/` | `@gdgjp/connpass` | connpass.gdgs.jp | Connpass group admin automation API. D1 + KV + Queues + Browser Run; Bearer token API for CLI and agents. |
+| `apps/pay/` | `@gdgjp/pay` | pay.gdgs.jp | Event expense reimbursement. D1 + R2, Gemini receipt extraction, Google Sheets/Drive sync; OAuth client of `accounts`. |
+| `apps/tinyurl/` | `@gdgjp/tinyurl` | url.gdgs.jp | URL shortener. D1-backed; OAuth client of `accounts`. |
+| `apps/tinyurl-gateway/` | `@gdgjp/tinyurl-gateway` | Custom short-link domains | Vercel Edge gateway for TinyURL custom domains. It serves an optional upstream first, then resolves a short link when the upstream returns 404. |
+| `packages/design-system/` | `@gdgjp/design-system` | — | Shared React 19 design system submodule (`gdg-jp/design-system`) for GDG Apps, independent of application routing, authentication, and data fetching. |
+| `apps/website/` | `@gdgjp/website` | gdgs.jp | Public GDG Japan website. Cloudflare Worker using the TinyURL service binding. |
+| `apps/wiki/` | `@gdgjp/wiki` | wiki.gdgs.jp | Community wiki. D1 + R2 + Queues + Browser Rendering + Workers AI + Vectorize + Durable Object (Yjs collab); OAuth client of `accounts`. |
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for local development and contribution guidance.

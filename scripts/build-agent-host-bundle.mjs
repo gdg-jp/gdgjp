@@ -266,7 +266,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     const options = parseArgs(process.argv.slice(2));
     const workspaceDir = options.workspaceDir
       ? resolve(process.cwd(), options.workspaceDir)
-      : join(repositoryRoot, "agent-host/workspace");
+      : join(repositoryRoot, "apps/agent-host/workspace");
     const outDir = options.outDir
       ? resolve(process.cwd(), options.outDir)
       : join(repositoryRoot, "dist/agent-host-workspace");

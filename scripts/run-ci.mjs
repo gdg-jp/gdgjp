@@ -84,44 +84,55 @@ const testFilePattern = /(?:\.(?:test|spec)\.[cm]?[jt]sx?$|\/(?:e2e|__tests__)\/
 const biomeFilePattern = /\.(?:[cm]?[jt]sx?|jsonc?|css|graphql|ya?ml)$/;
 const preCommitExcludedPathPattern = /^(?:\.agents|\.claude)\//;
 const nodeScriptInputPattern =
-  /^(?:\.codex\/hooks\/.*\.ts|cli\/internal\/wiki\/hooks\/.*\.ts|gdg-lib\/(?:src\/acl\/.*|scripts\/build-acl\.mjs)|tsconfig\.node-scripts\.json)$/;
+  /^(?:\.codex\/hooks\/.*\.ts|apps\/cli\/internal\/wiki\/hooks\/.*\.ts|packages\/gdg-lib\/(?:src\/acl\/.*|scripts\/build-acl\.mjs)|tsconfig\.node-scripts\.json)$/;
+const UI_DIRECTORY = "packages/design-system";
 const nodeConfigurationFilePattern =
   /(?:^|\/)(?:package\.json|tsconfig(?:\.[^/]+)?\.json|vite\.config\.[cm]?[jt]s|wrangler\.(?:toml|jsonc?)|react-router\.config\.[cm]?[jt]s)$/;
 const workspaces = new Map([
-  ["accounts", "@gdgjp/accounts"],
-  ["accounts-oidc-client-demo", "@gdgjp/accounts-oidc-client-demo"],
-  ["agents", "@gdgjp/agents"],
-  ["agents-index", "@gdgjp/agents-index"],
-  ["gdg-lib", "@gdgjp/gdg-lib"],
-  ["design-system", "@gdgjp/design-system"],
-  ["go-extension", "@gdgjp/go-extension"],
-  ["img", "@gdgjp/img"],
-  ["ost", "@gdgjp/ost"],
-  ["pay", "@gdgjp/pay"],
-  ["roster", "@gdgjp/roster"],
-  ["scheduler", "@gdgjp/scheduler"],
-  ["sns", "@gdgjp/sns"],
-  ["tinyurl", "@gdgjp/tinyurl"],
-  ["tinyurl-gateway", "@gdgjp/tinyurl-gateway"],
-  ["website", "@gdgjp/website"],
-  ["wiki", "@gdgjp/wiki"],
-  ["connpass", "@gdgjp/connpass"],
+  ["apps/accounts", "@gdgjp/accounts"],
+  ["apps/accounts-oidc-client-demo", "@gdgjp/accounts-oidc-client-demo"],
+  ["apps/agents", "@gdgjp/agents"],
+  ["apps/agents-index", "@gdgjp/agents-index"],
+  ["packages/gdg-lib", "@gdgjp/gdg-lib"],
+  ["packages/design-system", "@gdgjp/design-system"],
+  ["apps/go-extension", "@gdgjp/go-extension"],
+  ["apps/img", "@gdgjp/img"],
+  ["apps/ost", "@gdgjp/ost"],
+  ["apps/pay", "@gdgjp/pay"],
+  ["apps/roster", "@gdgjp/roster"],
+  ["apps/scheduler", "@gdgjp/scheduler"],
+  ["apps/sns", "@gdgjp/sns"],
+  ["apps/tinyurl", "@gdgjp/tinyurl"],
+  ["apps/tinyurl-gateway", "@gdgjp/tinyurl-gateway"],
+  ["apps/website", "@gdgjp/website"],
+  ["apps/wiki", "@gdgjp/wiki"],
+  ["apps/connpass", "@gdgjp/connpass"],
 ]);
 
 const uiAppDirectories = new Set(
-  readdirSync(process.cwd()).filter((directory) => {
-    const packagePath = `${directory}/package.json`;
-    if (!existsSync(packagePath)) return false;
-    const pkg = JSON.parse(readFileSync(packagePath, "utf8"));
-    return pkg.dependencies?.["@gdgjp/design-system"] === "workspace:*";
-  }),
+  existsSync("apps")
+    ? readdirSync("apps").filter((directory) => {
+        const packagePath = `apps/${directory}/package.json`;
+        if (!existsSync(packagePath)) return false;
+        const pkg = JSON.parse(readFileSync(packagePath, "utf8"));
+        return pkg.dependencies?.["@gdgjp/design-system"] === "workspace:*";
+      })
+    : [],
 );
 
+function splitWorkspaceFile(file) {
+  const parts = file.split("/");
+  if ((parts[0] === "apps" || parts[0] === "packages") && parts[1]) {
+    return [`${parts[0]}/${parts[1]}`, parts.slice(2).join("/")];
+  }
+  return [parts[0], parts.slice(1).join("/")];
+}
+
 function expandUiGitlink(files) {
-  if (!files.includes("design-system")) return files;
+  if (!files.includes(UI_DIRECTORY)) return files;
   const diff = spawnSync(
     "git",
-    ["diff", "--cached", "--raw", "--abbrev=64", "--no-renames", "-z", "--", "design-system"],
+    ["diff", "--cached", "--raw", "--abbrev=64", "--no-renames", "-z", "--", UI_DIRECTORY],
     { encoding: "utf8" },
   );
   const match = diff.stdout?.match(/^:160000 160000 ([a-f0-9]+) ([a-f0-9]+) M\0/);
@@ -132,7 +143,7 @@ function expandUiGitlink(files) {
   for (const name of localNames.stdout.trim().split("\n")) delete env[name];
   const changes = spawnSync(
     "git",
-    ["-C", "design-system", "diff", "--name-only", "--no-renames", "-z", match[1], match[2], "--"],
+    ["-C", UI_DIRECTORY, "diff", "--name-only", "--no-renames", "-z", match[1], match[2], "--"],
     { encoding: "utf8", env },
   );
   if (changes.status !== 0) {
@@ -141,11 +152,11 @@ function expandUiGitlink(files) {
   }
   // Compare the two committed gitlinks, never the submodule's unstaged changes.
   return [
-    ...files.filter((file) => file !== "design-system"),
+    ...files.filter((file) => file !== UI_DIRECTORY),
     ...changes.stdout
       .split("\0")
       .filter(Boolean)
-      .map((file) => `design-system/${file}`),
+      .map((file) => `${UI_DIRECTORY}/${file}`),
   ];
 }
 
@@ -224,9 +235,9 @@ export function nodeEnvironment() {
 
 function isNodeFile(file) {
   return (
-    file === "design-system" ||
-    file.startsWith("design-system/") ||
-    (!file.startsWith("cli/") &&
+    file === UI_DIRECTORY ||
+    file.startsWith(`${UI_DIRECTORY}/`) ||
+    (!file.startsWith("apps/cli/") &&
       (codeFilePattern.test(file) || nodeConfigurationFilePattern.test(file)))
   );
 }
@@ -239,14 +250,14 @@ function workspaceFiles(files, predicate) {
   const filesByWorkspace = new Map();
 
   for (const file of files) {
-    const [directory, ...relativePath] = file.split("/");
+    const [directory, relativePath] = splitWorkspaceFile(file);
     const workspace = workspaces.get(directory);
     if (!workspace || !predicate(file)) {
       continue;
     }
 
     const existing = filesByWorkspace.get(workspace) ?? [];
-    existing.push(relativePath.join("/"));
+    existing.push(relativePath);
     filesByWorkspace.set(workspace, existing);
   }
 
@@ -259,19 +270,20 @@ export function changedSteps(mode, files) {
   const relevantFiles = files.filter((file) => !preCommitExcludedPathPattern.test(file));
   const nodeFiles = relevantFiles.filter(isNodeFile);
   const uiFiles = nodeFiles.filter(
-    (file) => file === "design-system" || file.startsWith("design-system/"),
+    (file) => file === UI_DIRECTORY || file.startsWith(`${UI_DIRECTORY}/`),
   );
   const uiUnitTestsOnly =
     uiFiles.length > 0 &&
-    uiFiles.every((file) => /^design-system\/src\/.*\.test\.tsx?$/.test(file));
+    uiFiles.every((file) => /^packages\/design-system\/src\/.*\.test\.tsx?$/.test(file));
   const uiE2ESpecsOnly =
     uiFiles.length > 0 &&
     uiFiles.every(
-      (file) => /^design-system\/e2e\/.*\.spec\.[cm]?[jt]sx?$/.test(file) && existsSync(file),
+      (file) =>
+        /^packages\/design-system\/e2e\/.*\.spec\.[cm]?[jt]sx?$/.test(file) && existsSync(file),
     );
   const changedWorkspaces = new Set(
     nodeFiles
-      .map((file) => workspaces.get(file.split("/")[0]))
+      .map((file) => workspaces.get(splitWorkspaceFile(file)[0]))
       .filter((workspace) => workspace !== undefined),
   );
   const checksNodeScripts = relevantFiles.some((file) => nodeScriptInputPattern.test(file));
@@ -280,7 +292,7 @@ export function changedSteps(mode, files) {
   const buildWorkspaces = new Set(
     nodeFiles
       .filter((file) => !testFilePattern.test(file))
-      .map((file) => workspaces.get(file.split("/")[0]))
+      .map((file) => workspaces.get(splitWorkspaceFile(file)[0]))
       .filter((workspace) => workspace !== undefined),
   );
   // Full UI validation is one Turbo graph: independent checks/builds overlap,
@@ -293,7 +305,9 @@ export function changedSteps(mode, files) {
   }
 
   if (
-    relevantFiles.some((file) => !file.startsWith("design-system/") && biomeFilePattern.test(file))
+    relevantFiles.some(
+      (file) => !file.startsWith(`${UI_DIRECTORY}/`) && biomeFilePattern.test(file),
+    )
   ) {
     // Biome owns staged-file selection, including deleted and ignored files.
     steps.push([
@@ -311,19 +325,23 @@ export function changedSteps(mode, files) {
     ]);
   }
 
-  const changedUiApps = [...new Set(relevantFiles.map((file) => file.split("/")[0]))].filter(
+  const changedUiApps = [
+    ...new Set(relevantFiles.map((file) => splitWorkspaceFile(file)[0])),
+  ].filter(
     (directory) =>
-      uiAppDirectories.has(directory) &&
+      directory.startsWith("apps/") &&
+      uiAppDirectories.has(directory.slice("apps/".length)) &&
       relevantFiles.some((file) => file.startsWith(`${directory}/app/`)),
   );
-  for (const app of changedUiApps) {
+  for (const directory of changedUiApps) {
+    const app = directory.slice("apps/".length);
     steps.push([
       `ui-conventions:${app}`,
-      `node scripts/check-ui-conventions.mjs --app ${shellQuote(app)} --staged`,
+      `node scripts/check-ui-conventions.mjs --app ${shellQuote(directory)} --staged`,
     ]);
     steps.push([
       `locale-keys:${app}`,
-      `node scripts/check-locale-keys.mjs --app ${shellQuote(app)}`,
+      `node scripts/check-locale-keys.mjs --app ${shellQuote(directory)}`,
     ]);
   }
 
@@ -390,7 +408,7 @@ export function changedSteps(mode, files) {
     relevantFiles,
     (file) => isNodeFile(file) && !file.includes("/e2e/"),
   );
-  if (relevantFiles.includes("gdg-lib/scripts/build-acl.mjs")) {
+  if (relevantFiles.includes("packages/gdg-lib/scripts/build-acl.mjs")) {
     // Vitest cannot infer the child-process dependency in this regression test.
     const files = unitTestsByWorkspace.get("@gdgjp/gdg-lib");
     if (!files.includes("scripts/build-acl.test.ts")) files.push("scripts/build-acl.test.ts");
@@ -435,7 +453,7 @@ export function changedSteps(mode, files) {
         {
           ...uiRuntime,
           GDG_UI_E2E_FILES: JSON.stringify(
-            uiE2ESpecsOnly ? uiFiles.map((file) => file.slice("design-system/".length)) : [],
+            uiE2ESpecsOnly ? uiFiles.map((file) => file.slice(`${UI_DIRECTORY}/`.length)) : [],
           ),
         },
       ]);
@@ -443,7 +461,7 @@ export function changedSteps(mode, files) {
     const e2eWorkspaces = new Map();
     if (relevantFiles.includes("scripts/run-e2e-dev.mjs")) {
       for (const [directory, workspace] of workspaces) {
-        if (existsSync(`${directory}/playwright.config.ts`) && directory !== "design-system") {
+        if (existsSync(`${directory}/playwright.config.ts`) && directory !== UI_DIRECTORY) {
           e2eWorkspaces.set(workspace, null);
         }
       }
@@ -455,7 +473,7 @@ export function changedSteps(mode, files) {
     }
     for (const [workspace] of workspaceFiles(
       relevantFiles,
-      (file) => /^[^/]+\/app\//.test(file) && !testFilePattern.test(file),
+      (file) => /^apps\/[^/]+\/app\//.test(file) && !testFilePattern.test(file),
     )) {
       e2eWorkspaces.set(workspace, null);
     }
@@ -464,8 +482,8 @@ export function changedSteps(mode, files) {
       (file) =>
         nodeConfigurationFilePattern.test(file) ||
         /\/playwright\.config\.[cm]?[jt]s$/.test(file) ||
-        /^wiki\/tests\/e2e\/(?:global-setup|setup|run|fixtures|seed)\./.test(file) ||
-        file.startsWith("pay/e2e/"),
+        /^apps\/wiki\/tests\/e2e\/(?:global-setup|setup|run|fixtures|seed)\./.test(file) ||
+        file.startsWith("apps/pay/e2e/"),
     )) {
       e2eWorkspaces.set(workspace, null);
     }
@@ -497,12 +515,12 @@ export function changedSteps(mode, files) {
   if (
     relevantFiles.some(
       (file) =>
-        (file.startsWith("cli/") &&
+        (file.startsWith("apps/cli/") &&
           (file.endsWith(".go") ||
-            file.startsWith("cli/internal/wiki/hooks/") ||
+            file.startsWith("apps/cli/internal/wiki/hooks/") ||
             /\/go\.(?:mod|sum)$/.test(file))) ||
-        file.startsWith("gdg-lib/src/acl/") ||
-        file === "gdg-lib/scripts/build-acl.mjs" ||
+        file.startsWith("packages/gdg-lib/src/acl/") ||
+        file === "packages/gdg-lib/scripts/build-acl.mjs" ||
         file === "scripts/run-go-ci.mjs",
     )
   ) {
@@ -624,7 +642,11 @@ export function runStep(
           const directories =
             name === "e2e"
               ? [...workspaces.keys()]
-              : [name === "e2e:ui" ? "design-system" : name.replace(/^e2e:(?:@gdgjp\/)?/, "")];
+              : [
+                  name === "e2e:ui"
+                    ? UI_DIRECTORY
+                    : `apps/${name.replace(/^e2e:(?:@gdgjp\/)?/, "")}`,
+                ];
           metric.playwright = directories.flatMap((directory) => {
             const cached = metric.turboRuns.some((run) =>
               run.tasks.some(

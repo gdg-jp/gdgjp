@@ -175,7 +175,7 @@ writeFileSync(mark(name + "-done"), "");
 test("Go CI retains formatting, every vet analyzer, host builds and all six release targets", (t) => {
   const cwd = mkdtempSync(join(tmpdir(), "gdg-ci-go-"));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
-  mkdirSync(join(cwd, "cli"));
+  mkdirSync(join(cwd, "apps/cli"), { recursive: true });
   const fixture = `#!${process.execPath}
 import { appendFileSync } from "node:fs";
 import { basename } from "node:path";
@@ -261,9 +261,12 @@ test("runtime configuration failures still write a failed report", () => {
   const cwd = mkdtempSync(join(tmpdir(), "gdg-ci-planning-"));
   try {
     execFileSync("git", ["init", "--quiet"], { cwd, env: fixtureEnv });
-    mkdirSync(join(cwd, "design-system/src"), { recursive: true });
-    writeFileSync(join(cwd, "design-system/src/example.test.ts"), "// fixture\n");
-    execFileSync("git", ["add", "design-system/src/example.test.ts"], { cwd, env: fixtureEnv });
+    mkdirSync(join(cwd, "packages/design-system/src"), { recursive: true });
+    writeFileSync(join(cwd, "packages/design-system/src/example.test.ts"), "// fixture\n");
+    execFileSync("git", ["add", "packages/design-system/src/example.test.ts"], {
+      cwd,
+      env: fixtureEnv,
+    });
     const result = spawnSync(
       process.execPath,
       [runner, "full", "--changed", "--metrics=result.json"],

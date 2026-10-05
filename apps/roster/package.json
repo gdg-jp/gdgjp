@@ -1,0 +1,43 @@
+{
+  "name": "@gdgjp/roster",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "react-router build",
+    "dev": "react-router dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "wrangler types && react-router typegen && node ../../node_modules/@typescript/native/bin/tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "cf-typegen": "wrangler types",
+    "schema:dump": "bash ../../scripts/dump-schema.sh",
+    "migrate:local": "wrangler d1 migrations apply gdgjp-roster-db --local && pnpm schema:dump",
+    "migrate:remote": "wrangler d1 migrations apply gdgjp-roster-db --remote && pnpm schema:dump"
+  },
+  "dependencies": {
+    "@gdgjp/gdg-lib": "workspace:*",
+    "@gdgjp/design-system": "workspace:*",
+    "isbot": "^5.1.17",
+    "lucide-react": "^1.14.0",
+    "radix-ui": "^1.4.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router": "~7.14.2"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "~1.46.0",
+    "@cloudflare/workers-types": "^4.20250101.0",
+    "@playwright/test": "^1.49.1",
+    "@react-router/dev": "~7.14.2",
+    "@tailwindcss/vite": "^4.2.4",
+    "@types/node": "^22",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "tailwindcss": "^4.2.4",
+    "typescript": "^5.7.2",
+    "vite": "^8.3.2",
+    "vitest": "^4.1.10",
+    "wrangler": "~4.113.0"
+  }
+}

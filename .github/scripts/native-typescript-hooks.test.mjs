@@ -8,7 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const aclGatePath = join(repositoryRoot, "cli/internal/wiki/hooks/acl-gate.ts");
+const aclGatePath = join(repositoryRoot, "apps/cli/internal/wiki/hooks/acl-gate.ts");
 const preCommitPath = join(repositoryRoot, ".codex/hooks/pre-commit-ci.ts");
 const typescriptPath = join(repositoryRoot, "node_modules/typescript/bin/tsc");
 
@@ -385,7 +385,7 @@ test("node-script typecheck rejects non-erasable TypeScript syntax", async () =>
 
 test("clone hook package marker explicitly declares ESM", async () => {
   const packageJSON = JSON.parse(
-    await readFile(join(repositoryRoot, "cli/internal/wiki/hooks/package.json"), "utf8"),
+    await readFile(join(repositoryRoot, "apps/cli/internal/wiki/hooks/package.json"), "utf8"),
   );
 
   assert.equal(packageJSON.private, true);

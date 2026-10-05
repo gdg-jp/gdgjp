@@ -1,7 +1,7 @@
 # Contributing to gdgjp
 
 Thank you for contributing. This repository uses pnpm workspaces and Turborepo.
-Apps, including the public `website/` and social-post management `sns/` services, are React Router
+Apps, including the public `apps/website/` and social-post management `apps/sns/` services, are React Router
 v7 SSR applications deployed to Cloudflare Workers.
 
 ## Prerequisites
@@ -46,7 +46,7 @@ Cloudflare Vite inspector ports are `9273` (accounts), `9277` (wiki), `9279`
 compete for the default inspector port.
 
 `sns/.dev.vars.example` lists its additional X and Google Photos credentials. The public
-`website/` does not require a `.dev.vars` file for local development.
+`apps/website/` does not require a `.dev.vars` file for local development.
 
 ## Common commands
 
@@ -71,8 +71,8 @@ pnpm --filter @gdgjp/scheduler migrate:local    # apply D1 migrations locally
 pnpm --filter @gdgjp/scheduler migrate:remote   # apply D1 migrations to production
 ```
 
-D1-backed apps provide `migrate:local` and `migrate:remote` scripts. `website/`, `ost/`, `gdg-lib/`,
-`tinyurl-gateway/`, `go-extension/`, and `accounts-oidc-client-demo/` do not have D1 migrations.
+D1-backed apps provide `migrate:local` and `migrate:remote` scripts. `apps/website/`, `apps/ost/`, `packages/gdg-lib/`,
+`apps/tinyurl-gateway/`, `apps/go-extension/`, and `apps/accounts-oidc-client-demo/` do not have D1 migrations.
 
 ## Before opening a pull request
 

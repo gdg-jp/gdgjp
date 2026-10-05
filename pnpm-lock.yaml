@@ -36,17 +36,17 @@ importers:
         specifier: ^2.9.0
         version: 2.9.0
 
-  accounts:
+  apps/accounts:
     dependencies:
       '@better-auth/oauth-provider':
         specifier: 1.6.23
         version: 1.6.23(@better-auth/core@1.6.23(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@cloudflare/workers-types@4.20260426.1)(@opentelemetry/api@1.9.1)(better-call@1.3.7(zod@4.4.1))(jose@6.2.3)(kysely@0.29.3)(nanostores@1.4.0))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.6.23(@cloudflare/workers-types@4.20260426.1)(@opentelemetry/api@1.9.1)(better-sqlite3@12.10.0)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260426.1)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.10.0)(kysely@0.29.3))(next@15.5.23(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(vitest@4.1.10))(better-call@1.3.7(zod@4.4.1))
       '@gdgjp/design-system':
         specifier: workspace:*
-        version: link:../design-system
+        version: link:../../packages/design-system
       '@gdgjp/gdg-lib':
         specifier: workspace:*
-        version: link:../gdg-lib
+        version: link:../../packages/gdg-lib
       '@react-router/cloudflare':
         specifier: ~7.14.2
         version: 7.14.2(@cloudflare/workers-types@4.20260426.1)(react-router@7.14.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(typescript@5.9.3)
@@ -124,7 +124,7 @@ importers:
         specifier: ~4.113.0
         version: 4.113.0(@cloudflare/workers-types@4.20260426.1)
 
-  accounts-oidc-client-demo:
+  apps/accounts-oidc-client-demo:
     dependencies:
       openid-client:
         specifier: ^6.8.4
@@ -143,7 +143,7 @@ importers:
         specifier: ~4.73.0
         version: 4.73.0(@cloudflare/workers-types@4.20260426.1)
 
-  agent-host/langfuse-forwarder:
+  apps/agent-host/langfuse-forwarder:
     dependencies:
       '@langfuse/otel':
         specifier: 5.10.1
@@ -174,7 +174,7 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@edge-runtime/vm@3.2.0)(@opentelemetry/api@1.9.1)(@types/node@22.19.19)(@vitest/coverage-v8@4.1.10)(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
 
-  agents:
+  apps/agents:
     dependencies:
       '@ai-sdk/google-vertex':
         specifier: ^4.0.177
@@ -190,16 +190,16 @@ importers:
         version: 4.37.0(ai@6.0.231(zod@4.4.1))(zod@4.4.1)
       '@gdgjp/gdg-lib':
         specifier: workspace:*
-        version: link:../gdg-lib
+        version: link:../../packages/gdg-lib
       '@langfuse/client':
         specifier: ^5.10.0
         version: 5.10.0(@opentelemetry/api@1.9.1)
       '@langfuse/otel':
         specifier: ^5.10.0
-        version: 5.10.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.221.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))
+        version: 5.10.1(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.221.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))
       '@langfuse/tracing':
         specifier: ^5.10.0
-        version: 5.10.0(@opentelemetry/api@1.9.1)
+        version: 5.10.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/api':
         specifier: ^1.9.1
         version: 1.9.1
@@ -256,11 +256,11 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@edge-runtime/vm@3.2.0)(@opentelemetry/api@1.9.1)(@types/node@22.19.19)(@vitest/coverage-v8@4.1.10)(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
 
-  agents-index:
+  apps/agents-index:
     dependencies:
       '@gdgjp/gdg-lib':
         specifier: workspace:*
-        version: link:../gdg-lib
+        version: link:../../packages/gdg-lib
       '@huggingface/transformers':
         specifier: ^3.8.1
         version: 3.8.1
@@ -293,14 +293,14 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@edge-runtime/vm@3.2.0)(@opentelemetry/api@1.9.1)(@types/node@22.19.19)(@vitest/coverage-v8@4.1.10)(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
 
-  connpass:
+  apps/connpass:
     dependencies:
       '@cloudflare/playwright':
         specifier: ^1.3.5
         version: 1.3.5(playwright-core@1.59.1)
       '@gdgjp/gdg-lib':
         specifier: workspace:*
-        version: link:../gdg-lib
+        version: link:../../packages/gdg-lib
       '@react-router/cloudflare':
         specifier: ~7.14.2
         version: 7.14.2(@cloudflare/workers-types@4.20260426.1)(react-router@7.14.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(typescript@5.9.3)
@@ -369,129 +369,7 @@ importers:
         specifier: ~4.113.0
         version: 4.113.0(@cloudflare/workers-types@4.20260426.1)
 
-  design-system:
-    dependencies:
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      lucide-animated:
-        specifier: ^1.0.5
-        version: 1.0.5(motion@12.38.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react@19.2.5)
-      lucide-react:
-        specifier: ^1.14.0
-        version: 1.14.0(react@19.2.5)
-      motion:
-        specifier: ^12.0.0
-        version: 12.38.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      next-themes:
-        specifier: ^0.4.6
-        version: 0.4.6(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      radix-ui:
-        specifier: ^1.4.3
-        version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      sonner:
-        specifier: ^2.0.7
-        version: 2.0.7(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      tailwind-merge:
-        specifier: ^3.5.0
-        version: 3.5.0
-    devDependencies:
-      '@axe-core/playwright':
-        specifier: ^4.10.2
-        version: 4.13.0(playwright-core@1.59.1)
-      '@playwright/test':
-        specifier: ^1.49.1
-        version: 1.59.1
-      '@storybook/addon-docs':
-        specifier: ^10.0.0
-        version: 10.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5))
-      '@storybook/react-vite':
-        specifier: ^10.0.0
-        version: 10.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(@typescript/typescript6@6.0.2)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(rollup@4.60.2)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5))(vite@8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
-      '@tailwindcss/vite':
-        specifier: ^4.2.4
-        version: 4.2.4(vite@8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
-      '@types/node':
-        specifier: ^22.15.30
-        version: 22.15.30
-      '@types/react':
-        specifier: ^19.0.1
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.0.1
-        version: 19.2.3(@types/react@19.2.14)
-      '@typescript/native':
-        specifier: npm:typescript@7.0.2
-        version: typescript@7.0.2
-      esbuild:
-        specifier: ^0.28.1
-        version: 0.28.1
-      react:
-        specifier: ^19.0.0
-        version: 19.2.5
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.5(react@19.2.5)
-      storybook:
-        specifier: ^10.0.0
-        version: 10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5)
-      tailwindcss:
-        specifier: ^4.2.4
-        version: 4.2.4
-      typescript:
-        specifier: npm:@typescript/typescript6@^6.0.2
-        version: '@typescript/typescript6@6.0.2'
-      vite:
-        specifier: ^8.3.2
-        version: 8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0)
-      vitest:
-        specifier: ^4.1.10
-        version: 4.1.10(@edge-runtime/vm@3.2.0)(@opentelemetry/api@1.9.1)(@types/node@22.15.30)(@vitest/coverage-v8@4.1.10)(vite@8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
-
-  gdg-lib:
-    dependencies:
-      '@opentelemetry/api':
-        specifier: ^1.9.1
-        version: 1.9.1
-      openid-client:
-        specifier: ^6.1.7
-        version: 6.8.4
-    devDependencies:
-      '@cloudflare/workers-types':
-        specifier: ^4.20250101.0
-        version: 4.20260426.1
-      '@types/react':
-        specifier: ^19.0.1
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.0.1
-        version: 19.2.3(@types/react@19.2.14)
-      esbuild:
-        specifier: ^0.25.0
-        version: 0.25.12
-      lucide-react:
-        specifier: ^1.14.0
-        version: 1.14.0(react@19.2.5)
-      radix-ui:
-        specifier: ^1.4.3
-        version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      react:
-        specifier: ^19.0.0
-        version: 19.2.5
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.5(react@19.2.5)
-      typescript:
-        specifier: ^5.7.2
-        version: 5.9.3
-      vitest:
-        specifier: ^4.1.10
-        version: 4.1.10(@edge-runtime/vm@3.2.0)(@opentelemetry/api@1.9.1)(@types/node@22.19.19)(@vitest/coverage-v8@4.1.10)(vite@8.3.2(@types/node@22.19.19)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
-
-  go-extension:
+  apps/go-extension:
     devDependencies:
       '@types/chrome':
         specifier: ^0.0.287
@@ -509,20 +387,20 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@edge-runtime/vm@3.2.0)(@opentelemetry/api@1.9.1)(@types/node@22.19.19)(@vitest/coverage-v8@4.1.10)(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
 
-  img:
+  apps/img:
     dependencies:
       '@gdgjp/design-system':
         specifier: workspace:*
-        version: link:../design-system
+        version: link:../../packages/design-system
       '@gdgjp/gdg-lib':
         specifier: workspace:*
-        version: link:../gdg-lib
+        version: link:../../packages/gdg-lib
       isbot:
         specifier: ^5.1.17
         version: 5.1.39
       nanoid:
         specifier: ^5.0.9
-        version: 5.1.11
+        version: 5.1.16
       react:
         specifier: ^19.0.0
         version: 19.2.5
@@ -567,11 +445,11 @@ importers:
         specifier: ~4.113.0
         version: 4.113.0(@cloudflare/workers-types@4.20260426.1)
 
-  ost:
+  apps/ost:
     dependencies:
       '@gdgjp/gdg-lib':
         specifier: workspace:*
-        version: link:../gdg-lib
+        version: link:../../packages/gdg-lib
       isbot:
         specifier: ^5.1.17
         version: 5.1.39
@@ -634,14 +512,14 @@ importers:
         specifier: ~4.113.0
         version: 4.113.0(@cloudflare/workers-types@4.20260426.1)
 
-  pay:
+  apps/pay:
     dependencies:
       '@gdgjp/design-system':
         specifier: workspace:*
-        version: link:../design-system
+        version: link:../../packages/design-system
       '@gdgjp/gdg-lib':
         specifier: workspace:*
-        version: link:../gdg-lib
+        version: link:../../packages/gdg-lib
       isbot:
         specifier: ^5.1.17
         version: 5.1.39
@@ -686,14 +564,14 @@ importers:
         specifier: ~4.113.0
         version: 4.113.0(@cloudflare/workers-types@4.20260426.1)
 
-  roster:
+  apps/roster:
     dependencies:
       '@gdgjp/design-system':
         specifier: workspace:*
-        version: link:../design-system
+        version: link:../../packages/design-system
       '@gdgjp/gdg-lib':
         specifier: workspace:*
-        version: link:../gdg-lib
+        version: link:../../packages/gdg-lib
       isbot:
         specifier: ^5.1.17
         version: 5.1.39
@@ -753,14 +631,14 @@ importers:
         specifier: ~4.113.0
         version: 4.113.0(@cloudflare/workers-types@4.20260426.1)
 
-  scheduler:
+  apps/scheduler:
     dependencies:
       '@gdgjp/design-system':
         specifier: workspace:*
-        version: link:../design-system
+        version: link:../../packages/design-system
       '@gdgjp/gdg-lib':
         specifier: workspace:*
-        version: link:../gdg-lib
+        version: link:../../packages/gdg-lib
       isbot:
         specifier: ^5.1.17
         version: 5.1.39
@@ -811,11 +689,11 @@ importers:
         specifier: ~4.113.0
         version: 4.113.0(@cloudflare/workers-types@4.20260426.1)
 
-  sns:
+  apps/sns:
     dependencies:
       '@gdgjp/gdg-lib':
         specifier: workspace:*
-        version: link:../gdg-lib
+        version: link:../../packages/gdg-lib
       blurhash:
         specifier: ^2.0.5
         version: 2.0.5
@@ -884,14 +762,14 @@ importers:
         specifier: ~4.113.0
         version: 4.113.0(@cloudflare/workers-types@4.20260426.1)
 
-  tinyurl:
+  apps/tinyurl:
     dependencies:
       '@gdgjp/design-system':
         specifier: workspace:*
-        version: link:../design-system
+        version: link:../../packages/design-system
       '@gdgjp/gdg-lib':
         specifier: workspace:*
-        version: link:../gdg-lib
+        version: link:../../packages/gdg-lib
       isbot:
         specifier: ^5.1.17
         version: 5.1.39
@@ -951,7 +829,7 @@ importers:
         specifier: ~4.113.0
         version: 4.113.0(@cloudflare/workers-types@4.20260426.1)
 
-  tinyurl-gateway:
+  apps/tinyurl-gateway:
     dependencies:
       '@vercel/functions':
         specifier: ^3.7.5
@@ -970,11 +848,11 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@edge-runtime/vm@3.2.0)(@opentelemetry/api@1.9.1)(@types/node@22.19.19)(@vitest/coverage-v8@4.1.10)(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
 
-  website:
+  apps/website:
     dependencies:
       '@gdgjp/gdg-lib':
         specifier: workspace:*
-        version: link:../gdg-lib
+        version: link:../../packages/gdg-lib
       react:
         specifier: ^19.0.0
         version: 19.2.5
@@ -1019,11 +897,11 @@ importers:
         specifier: ~4.113.0
         version: 4.113.0(@cloudflare/workers-types@4.20260426.1)
 
-  wiki:
+  apps/wiki:
     dependencies:
       '@ai-sdk/google':
         specifier: ^3.0.96
-        version: 3.0.96(zod@4.4.1)
+        version: 3.0.104(zod@4.4.1)
       '@codemirror/state':
         specifier: ^6.6.0
         version: 6.6.0
@@ -1041,10 +919,10 @@ importers:
         version: 3.2.2(react@19.2.5)
       '@gdgjp/design-system':
         specifier: workspace:*
-        version: link:../design-system
+        version: link:../../packages/design-system
       '@gdgjp/gdg-lib':
         specifier: workspace:*
-        version: link:../gdg-lib
+        version: link:../../packages/gdg-lib
       '@react-router/cloudflare':
         specifier: ~7.14.2
         version: 7.14.2(@cloudflare/workers-types@4.20260426.1)(react-router@7.14.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(typescript@5.9.3)
@@ -1125,7 +1003,7 @@ importers:
         version: 11.15.0
       nanoid:
         specifier: ^5.1.6
-        version: 5.1.11
+        version: 5.1.16
       react:
         specifier: ^19.0.0
         version: 19.2.5
@@ -1203,6 +1081,128 @@ importers:
         specifier: ~4.113.0
         version: 4.113.0(@cloudflare/workers-types@4.20260426.1)
 
+  packages/design-system:
+    dependencies:
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-animated:
+        specifier: ^1.0.5
+        version: 1.0.5(motion@12.38.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react@19.2.5)
+      lucide-react:
+        specifier: ^1.14.0
+        version: 1.14.0(react@19.2.5)
+      motion:
+        specifier: ^12.0.0
+        version: 12.38.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      next-themes:
+        specifier: ^0.4.6
+        version: 0.4.6(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      radix-ui:
+        specifier: ^1.4.3
+        version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      tailwind-merge:
+        specifier: ^3.5.0
+        version: 3.5.0
+    devDependencies:
+      '@axe-core/playwright':
+        specifier: ^4.10.2
+        version: 4.13.0(playwright-core@1.59.1)
+      '@playwright/test':
+        specifier: ^1.49.1
+        version: 1.59.1
+      '@storybook/addon-docs':
+        specifier: ^10.0.0
+        version: 10.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5))
+      '@storybook/react-vite':
+        specifier: ^10.0.0
+        version: 10.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(@typescript/typescript6@6.0.2)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(rollup@4.60.2)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5))(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
+      '@tailwindcss/vite':
+        specifier: ^4.2.4
+        version: 4.2.4(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
+      '@types/node':
+        specifier: ^22.15.30
+        version: 22.19.19
+      '@types/react':
+        specifier: ^19.0.1
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.0.1
+        version: 19.2.3(@types/react@19.2.14)
+      '@typescript/native':
+        specifier: npm:typescript@7.0.2
+        version: typescript@7.0.2
+      esbuild:
+        specifier: ^0.28.1
+        version: 0.28.1
+      react:
+        specifier: ^19.0.0
+        version: 19.2.5
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.5(react@19.2.5)
+      storybook:
+        specifier: ^10.0.0
+        version: 10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5)
+      tailwindcss:
+        specifier: ^4.2.4
+        version: 4.2.4
+      typescript:
+        specifier: npm:@typescript/typescript6@^6.0.2
+        version: '@typescript/typescript6@6.0.2'
+      vite:
+        specifier: ^8.3.2
+        version: 8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0)
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@edge-runtime/vm@3.2.0)(@opentelemetry/api@1.9.1)(@types/node@22.19.19)(@vitest/coverage-v8@4.1.10)(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
+
+  packages/gdg-lib:
+    dependencies:
+      '@opentelemetry/api':
+        specifier: ^1.9.1
+        version: 1.9.1
+      openid-client:
+        specifier: ^6.1.7
+        version: 6.8.4
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20250101.0
+        version: 4.20260426.1
+      '@types/react':
+        specifier: ^19.0.1
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.0.1
+        version: 19.2.3(@types/react@19.2.14)
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
+      lucide-react:
+        specifier: ^1.14.0
+        version: 1.14.0(react@19.2.5)
+      radix-ui:
+        specifier: ^1.4.3
+        version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.5
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.5(react@19.2.5)
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@edge-runtime/vm@3.2.0)(@opentelemetry/api@1.9.1)(@types/node@22.19.19)(@vitest/coverage-v8@4.1.10)(vite@8.3.2(@types/node@22.19.19)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
+
 packages:
 
   '@adobe/css-tools@4.5.0':
@@ -1228,12 +1228,6 @@ packages:
 
   '@ai-sdk/google@3.0.104':
     resolution: {integrity: sha512-3nBscxICJgx6xy324oNBftvrBRkqfqZqVwEPT7uEfLMa3sKUYfFPmZ9dNJEZW/l2m+lOpkT8ckLGrhmRvhHnWA==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/google@3.0.96':
-    resolution: {integrity: sha512-cMs/rLR7UMhKwdtG7G+wUPeX05VAz9Oij639xVPIHnGuovEN28W7WQOGnMnmdrXMA0IwZgZhrnGMwivLQ9nZAA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -1965,9 +1959,6 @@ packages:
 
   '@emnapi/core@1.9.2':
     resolution: {integrity: sha512-UC+ZhH3XtczQYfOlu3lNEkdW/p4dsJ1r/bP7H8+rhao3TTTMO1ATq/4DdIi23XuGoFY+Cz0JmCbdVl0hz9jZcA==}
-
-  '@emnapi/runtime@1.10.0':
-    resolution: {integrity: sha512-ewvYlk86xUoGI0zQRNq/mC+16R1QeDlKQy21Ki3oSYXNgLb45GV1P6A0M+/s6nyCuNDqe5VpaY84BzXGwVbwFA==}
 
   '@emnapi/runtime@1.11.0':
     resolution: {integrity: sha512-55coeOFKHv1ywEcUXJtWU5f+Jr/W5tZDvZig8DLKSwUN1JpROQ4rk/SNOQiFWmaR/VKF4zuFyW1B8JduOSv6Pg==}
@@ -3319,24 +3310,10 @@ packages:
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
 
-  '@langfuse/core@5.10.0':
-    resolution: {integrity: sha512-XXz1DBEwGMpNXz8DZHFsixqo+3vBkfYpat3oLLldRMuT8ur6OWQ81Kgh5Obh0CZ31adaR4FrLTHh4N9eBXo64A==}
-    peerDependencies:
-      '@opentelemetry/api': ^1.9.0
-
   '@langfuse/core@5.11.0':
     resolution: {integrity: sha512-Y5nBcrd8k0bEazb+lcOaEm6ICxxJJLGDkTax7dY4NyiYoO1LlTIFhkfwSOcneQRjpl7EvgL4Dy+9fzDXBDuVaA==}
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
-
-  '@langfuse/otel@5.10.0':
-    resolution: {integrity: sha512-q1expgCm3QwjWII0PeCJJSyEV5o96FQ4VNzL5hgziWGmCPCd9TrrWxWxHdSY7cpZWddEJCp71zdh1nq0xISOpQ==}
-    engines: {node: '>=20'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.9.0
-      '@opentelemetry/core': ^2.0.1
-      '@opentelemetry/exporter-trace-otlp-http': '>=0.202.0 <1.0.0'
-      '@opentelemetry/sdk-trace-base': ^2.0.1
 
   '@langfuse/otel@5.10.1':
     resolution: {integrity: sha512-F2153e4PoJ1cN+5tM/xnsS44aQCQwK3p0nPk4NEpITV5pMTqiQVyvpkAvly8GKQ5Qjjr7heJ1dFtghW43ysyPQ==}
@@ -3346,12 +3323,6 @@ packages:
       '@opentelemetry/core': ^2.0.1
       '@opentelemetry/exporter-trace-otlp-http': '>=0.202.0 <1.0.0'
       '@opentelemetry/sdk-trace-base': ^2.0.1
-
-  '@langfuse/tracing@5.10.0':
-    resolution: {integrity: sha512-//S9dcZszmEk2yx+h7eg10mEMswyU7MYLkGIJlO6gUfrXA+3Y5pvNiZNZU3cfDus94OAr16dHQpg3nNFiziZjg==}
-    engines: {node: '>=20'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.9.0
 
   '@langfuse/tracing@5.10.1':
     resolution: {integrity: sha512-m2kK4D0MsH8g4Og6KpnlYk8NLdQTYe0JR5M4KKpfNj99XXLlbdpXE/g3uJSqkcrWFhpiIb+3cyS9+uV6wQ6WtA==}
@@ -8605,19 +8576,9 @@ packages:
   nan@2.28.0:
     resolution: {integrity: sha512-fTsDz99OTq2sVePhGdp4qQhggZFtKr64ZNVyVajRKtMOkJxYekplBh577PiJB12v/D3s2E5cGtOI45LWp6rnLQ==}
 
-  nanoid@3.3.11:
-    resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
-    engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
-    hasBin: true
-
   nanoid@3.3.19:
     resolution: {integrity: sha512-Y2tUNy4ouw6tq5oDSKeQYGOyhkUBhNOcGV/02KC+6kd9eDGqdZd++mjMiIDilrBYvjEnCYvVtsuHCuP+okSfug==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
-    hasBin: true
-
-  nanoid@5.1.11:
-    resolution: {integrity: sha512-v+KEsUv2ps74PaSKv0gHTxTCgMXOIfBEbaqa6w6ISIGC7ZsvHN4N9oJ8d4cmf0n5oTzQz2SLmThbQWhjd/8eKg==}
-    engines: {node: ^18 || >=20}
     hasBin: true
 
   nanoid@5.1.16:
@@ -9411,11 +9372,6 @@ packages:
 
   semver@7.5.4:
     resolution: {integrity: sha512-1bCSESV6Pv+i21Hvpxp3Dx+pSD8lIPt8uVjRrxAUt/nbswYc+tK6Y2btiULjd4+fnq15PX+nqQDC7Oft7WkwcA==}
-    engines: {node: '>=10'}
-    hasBin: true
-
-  semver@7.7.4:
-    resolution: {integrity: sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -10419,12 +10375,6 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.42(zod@4.4.1)
       zod: 4.4.1
 
-  '@ai-sdk/google@3.0.96(zod@4.4.1)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.14
-      '@ai-sdk/provider-utils': 4.0.40(zod@4.4.1)
-      zod: 4.4.1
-
   '@ai-sdk/openai-compatible@2.0.64(zod@4.4.1)':
     dependencies:
       '@ai-sdk/provider': 3.0.14
@@ -10930,7 +10880,7 @@ snapshots:
       '@puppeteer/browsers': 2.2.4
       debug: 4.4.3(supports-color@10.2.2)
       devtools-protocol: 0.0.1299070
-      ws: 8.18.0
+      ws: 8.21.3
     transitivePeerDependencies:
       - bare-abort-controller
       - bare-buffer
@@ -11354,11 +11304,6 @@ snapshots:
   '@emnapi/core@1.9.2':
     dependencies:
       '@emnapi/wasi-threads': 1.2.1
-      tslib: 2.8.1
-    optional: true
-
-  '@emnapi/runtime@1.10.0':
-    dependencies:
       tslib: 2.8.1
     optional: true
 
@@ -12314,12 +12259,12 @@ snapshots:
 
   '@img/sharp-wasm32@0.33.5':
     dependencies:
-      '@emnapi/runtime': 1.10.0
+      '@emnapi/runtime': 1.11.0
     optional: true
 
   '@img/sharp-wasm32@0.34.5':
     dependencies:
-      '@emnapi/runtime': 1.10.0
+      '@emnapi/runtime': 1.11.0
     optional: true
 
   '@img/sharp-win32-arm64@0.34.5':
@@ -12358,11 +12303,11 @@ snapshots:
     dependencies:
       minipass: 7.1.3
 
-  '@joshwooding/vite-plugin-react-docgen-typescript@0.7.0(@typescript/typescript6@6.0.2)(vite@8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))':
+  '@joshwooding/vite-plugin-react-docgen-typescript@0.7.0(@typescript/typescript6@6.0.2)(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))':
     dependencies:
       glob: 13.0.6
       react-docgen-typescript: 2.4.0(@typescript/typescript6@6.0.2)
-      vite: 8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0)
+      vite: 8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0)
     optionalDependencies:
       typescript: '@typescript/typescript6@6.0.2'
 
@@ -12396,26 +12341,14 @@ snapshots:
 
   '@langfuse/client@5.10.0(@opentelemetry/api@1.9.1)':
     dependencies:
-      '@langfuse/core': 5.10.0(@opentelemetry/api@1.9.1)
+      '@langfuse/core': 5.11.0(@opentelemetry/api@1.9.1)
       '@langfuse/tracing': 5.10.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/api': 1.9.1
       mustache: 4.2.0
 
-  '@langfuse/core@5.10.0(@opentelemetry/api@1.9.1)':
-    dependencies:
-      '@opentelemetry/api': 1.9.1
-
   '@langfuse/core@5.11.0(@opentelemetry/api@1.9.1)':
     dependencies:
       '@opentelemetry/api': 1.9.1
-
-  '@langfuse/otel@5.10.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.221.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))':
-    dependencies:
-      '@langfuse/core': 5.10.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/api': 1.9.1
-      '@opentelemetry/core': 2.10.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/exporter-trace-otlp-http': 0.221.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
 
   '@langfuse/otel@5.10.1(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.221.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))':
     dependencies:
@@ -12424,11 +12357,6 @@ snapshots:
       '@opentelemetry/core': 2.10.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/exporter-trace-otlp-http': 0.221.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
-
-  '@langfuse/tracing@5.10.0(@opentelemetry/api@1.9.1)':
-    dependencies:
-      '@langfuse/core': 5.10.0(@opentelemetry/api@1.9.1)
-      '@opentelemetry/api': 1.9.1
 
   '@langfuse/tracing@5.10.1(@opentelemetry/api@1.9.1)':
     dependencies:
@@ -14241,11 +14169,11 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react-dom'
 
-  '@storybook/builder-vite@10.6.0(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5))(vite@8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))':
+  '@storybook/builder-vite@10.6.0(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5))(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))':
     dependencies:
       storybook: 10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5)
       ts-dedent: 2.2.0
-      vite: 8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0)
+      vite: 8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0)
 
   '@storybook/global@5.0.0': {}
 
@@ -14262,11 +14190,11 @@ snapshots:
       '@types/react': 19.2.14
       '@types/react-dom': 19.2.3(@types/react@19.2.14)
 
-  '@storybook/react-vite@10.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(@typescript/typescript6@6.0.2)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(rollup@4.60.2)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5))(vite@8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))':
+  '@storybook/react-vite@10.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(@typescript/typescript6@6.0.2)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(rollup@4.60.2)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5))(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))':
     dependencies:
-      '@joshwooding/vite-plugin-react-docgen-typescript': 0.7.0(@typescript/typescript6@6.0.2)(vite@8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
+      '@joshwooding/vite-plugin-react-docgen-typescript': 0.7.0(@typescript/typescript6@6.0.2)(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
       '@rollup/pluginutils': 5.4.0(rollup@4.60.2)
-      '@storybook/builder-vite': 10.6.0(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5))(vite@8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
+      '@storybook/builder-vite': 10.6.0(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5))(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
       '@storybook/react': 10.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(@typescript/typescript6@6.0.2)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(storybook@10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5))
       empathic: 2.0.1
       magic-string: 1.3.1
@@ -14276,7 +14204,7 @@ snapshots:
       resolve: 1.22.12
       storybook: 10.6.0(@types/react@19.2.14)(prettier@3.8.3)(react@19.2.5)
       tsconfig-paths: 4.2.0
-      vite: 8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0)
+      vite: 8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0)
     optionalDependencies:
       typescript: '@typescript/typescript6@6.0.2'
     transitivePeerDependencies:
@@ -14365,13 +14293,6 @@ snapshots:
       '@tailwindcss/oxide-wasm32-wasi': 4.2.4
       '@tailwindcss/oxide-win32-arm64-msvc': 4.2.4
       '@tailwindcss/oxide-win32-x64-msvc': 4.2.4
-
-  '@tailwindcss/vite@4.2.4(vite@8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))':
-    dependencies:
-      '@tailwindcss/node': 4.2.4
-      '@tailwindcss/oxide': 4.2.4
-      tailwindcss: 4.2.4
-      vite: 8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0)
 
   '@tailwindcss/vite@4.2.4(vite@8.3.2(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))':
     dependencies:
@@ -15317,14 +15238,6 @@ snapshots:
       '@vitest/utils': 4.1.10
       chai: 6.2.2
       tinyrainbow: 3.1.0
-
-  '@vitest/mocker@4.1.10(vite@8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))':
-    dependencies:
-      '@vitest/spy': 4.1.10
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0)
 
   '@vitest/mocker@4.1.10(vite@8.3.2(@types/node@22.19.19)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))':
     dependencies:
@@ -17917,11 +17830,7 @@ snapshots:
 
   nan@2.28.0: {}
 
-  nanoid@3.3.11: {}
-
   nanoid@3.3.19: {}
-
-  nanoid@5.1.11: {}
 
   nanoid@5.1.16: {}
 
@@ -18277,7 +18186,7 @@ snapshots:
 
   postcss@8.4.31:
     dependencies:
-      nanoid: 3.3.11
+      nanoid: 3.3.19
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
@@ -18960,8 +18869,6 @@ snapshots:
     dependencies:
       lru-cache: 6.0.0
 
-  semver@7.7.4: {}
-
   semver@7.8.5: {}
 
   send@1.2.1:
@@ -19005,7 +18912,7 @@ snapshots:
     dependencies:
       color: 4.2.3
       detect-libc: 2.1.2
-      semver: 7.7.4
+      semver: 7.8.5
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.33.5
       '@img/sharp-darwin-x64': 0.33.5
@@ -19192,7 +19099,7 @@ snapshots:
       '@vitest/expect': 3.2.4
       '@vitest/spy': 3.2.4
       '@webcontainer/env': 1.1.1
-      esbuild: 0.25.12
+      esbuild: 0.28.1
       jsonc-parser: 3.3.1
       open: 10.2.0
       oxc-parser: 0.127.0
@@ -19744,21 +19651,6 @@ snapshots:
       tsx: 4.22.0
       yaml: 2.9.0
 
-  vite@8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0):
-    dependencies:
-      lightningcss: 1.33.0
-      picomatch: 4.0.7
-      postcss: 8.5.28
-      rolldown: 1.2.12
-      tinyglobby: 0.2.17
-    optionalDependencies:
-      '@types/node': 22.15.30
-      esbuild: 0.28.1
-      fsevents: 2.3.3
-      jiti: 2.6.1
-      tsx: 4.22.0
-      yaml: 2.9.0
-
   vite@8.3.2(@types/node@22.19.19)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0):
     dependencies:
       lightningcss: 1.33.0
@@ -19788,36 +19680,6 @@ snapshots:
       jiti: 2.6.1
       tsx: 4.22.0
       yaml: 2.9.0
-
-  vitest@4.1.10(@edge-runtime/vm@3.2.0)(@opentelemetry/api@1.9.1)(@types/node@22.15.30)(@vitest/coverage-v8@4.1.10)(vite@8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0)):
-    dependencies:
-      '@vitest/expect': 4.1.10
-      '@vitest/mocker': 4.1.10(vite@8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0))
-      '@vitest/pretty-format': 4.1.10
-      '@vitest/runner': 4.1.10
-      '@vitest/snapshot': 4.1.10
-      '@vitest/spy': 4.1.10
-      '@vitest/utils': 4.1.10
-      es-module-lexer: 2.3.1
-      expect-type: 1.4.0
-      magic-string: 0.30.21
-      obug: 2.1.4
-      pathe: 2.0.3
-      picomatch: 4.0.5
-      std-env: 4.2.0
-      tinybench: 2.9.0
-      tinyexec: 1.2.4
-      tinyglobby: 0.2.17
-      tinyrainbow: 3.1.0
-      vite: 8.3.2(@types/node@22.15.30)(esbuild@0.28.1)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0)
-      why-is-node-running: 2.3.0
-    optionalDependencies:
-      '@edge-runtime/vm': 3.2.0
-      '@opentelemetry/api': 1.9.1
-      '@types/node': 22.15.30
-      '@vitest/coverage-v8': 4.1.10(vitest@4.1.10)
-    transitivePeerDependencies:
-      - msw
 
   vitest@4.1.10(@edge-runtime/vm@3.2.0)(@opentelemetry/api@1.9.1)(@types/node@22.19.19)(@vitest/coverage-v8@4.1.10)(vite@8.3.2(@types/node@22.19.19)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.0)(yaml@2.9.0)):
     dependencies:

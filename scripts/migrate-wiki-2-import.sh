@@ -3,7 +3,7 @@
 #                              account (gdgjp-developers@googlegroups.com).
 #
 # Imports the resources exported by migrate-wiki-1-export.sh, patches
-# wiki/wrangler.toml, and (optionally) deploys the Worker.
+# apps/wiki/wrangler.toml, and (optionally) deploys the Worker.
 #
 # What it does:
 #   1. Verify prerequisites (wrangler, jq, pnpm)
@@ -33,7 +33,7 @@ step()  { echo -e "\n${YELLOW}=== $* ===${NC}"; }
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKUP_DIR="${REPO_ROOT}/.wiki-migration-backup"
-WRANGLER_TOML="${REPO_ROOT}/wiki/wrangler.toml"
+WRANGLER_TOML="${REPO_ROOT}/apps/wiki/wrangler.toml"
 
 OLD_DB_NAME="gdgoc-wiki-production-db"
 OLD_R2_BUCKET="gdgoc-wiki-production-storage"
@@ -127,7 +127,7 @@ else
   # the migration tracker for this cutover; future schema changes can use
   # `pnpm --filter @gdgjp/wiki migrate:remote` once d1_migrations is
   # backfilled (see step 8 manual notes).
-  NEW_MIGRATION="${REPO_ROOT}/wiki/migrations/0019_remove_user_management.sql"
+  NEW_MIGRATION="${REPO_ROOT}/apps/wiki/migrations/0019_remove_user_management.sql"
   if [ -f "$NEW_MIGRATION" ]; then
     info "Applying 0019_remove_user_management.sql against $NEW_DB_NAME..."
     wrangler d1 execute "$NEW_DB_NAME" \
@@ -235,7 +235,7 @@ cat <<EOF
        RESEND_API_KEY, WIKI_DISCORD_SECRET,
        FCM_SERVICE_ACCOUNT_JSON, DISCORD_BOT_TOKEN
 
-     Also set accounts/wrangler.toml's WIKI_CLIENT_SECRET to match the
+     Also set apps/accounts/wrangler.toml's WIKI_CLIENT_SECRET to match the
      IDP_CLIENT_SECRET you put here, then redeploy accounts.
 
   A2. Backfill d1_migrations bookkeeping so future migrations work.
@@ -243,7 +243,7 @@ cat <<EOF
       tracker doesn't yet know about migrations 0000–0019. Run once
       before the next `pnpm --filter @gdgjp/wiki migrate:remote`:
 
-        for f in wiki/migrations/[0-9][0-9][0-9][0-9]_*.sql; do
+        for f in apps/wiki/migrations/[0-9][0-9][0-9][0-9]_*.sql; do
           name=\$(basename "\$f")
           wrangler d1 execute ${NEW_DB_NAME} --remote --command \\
             "INSERT OR IGNORE INTO d1_migrations (name) VALUES ('\$name');"
@@ -259,18 +259,18 @@ cat <<EOF
   A3. Add wiki to the CI deploy matrix.
       .github/workflows/deploy.yml intentionally omits wiki today
       because wrangler.toml has an empty database_id; the patched value
-      lands locally via this script. Commit the updated wiki/wrangler.toml
+      lands locally via this script. Commit the updated apps/wiki/wrangler.toml
       and add wiki to the deploy matrix once the database_id is real.
 
   B. DNS — wiki.gdgs.jp must resolve to the new Worker
-     The wiki/wrangler.toml route binding (wiki.gdgs.jp/*) will attach
+     The apps/wiki/wrangler.toml route binding (wiki.gdgs.jp/*) will attach
      once the zone gdgs.jp is in the new account. If you have not yet
      transferred gdgs.jp, do so via the dashboard.
 
   C. Firebase (push notifications)
      The Firebase project (gdgoc-wiki) is NOT migrated. Either:
        - keep the same Firebase project (no action needed), or
-       - create a new project and update FIREBASE_* in wiki/wrangler.toml
+       - create a new project and update FIREBASE_* in apps/wiki/wrangler.toml
          plus re-upload FCM_SERVICE_ACCOUNT_JSON as a secret.
 
   D. Re-index Vectorize

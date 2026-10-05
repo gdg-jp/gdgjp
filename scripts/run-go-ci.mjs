@@ -18,7 +18,7 @@ function run(command, args, cwd = process.cwd(), environment = {}) {
 
 process.exitCode = await run("pnpm", ["build:acl"]);
 if (!process.exitCode) {
-  const cwd = resolve("cli");
+  const cwd = resolve("apps/cli");
   const unformatted = execFileSync("gofmt", ["-l", "."], { cwd, encoding: "utf8" }).trim();
   if (unformatted) {
     console.error(`Files requiring gofmt:\n${unformatted}`);

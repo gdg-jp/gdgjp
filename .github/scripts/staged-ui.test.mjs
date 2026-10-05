@@ -14,7 +14,7 @@ for (const name of execFileSync("git", ["rev-parse", "--local-env-vars"], { enco
 
 test("staged UI selection expands committed gitlinks, ignoring later and unstaged edits", () => {
   const root = mkdtempSync(join(tmpdir(), "gdg-staged-ui-"));
-  const ui = join(root, "design-system");
+  const ui = join(root, "packages/design-system");
   const git = (cwd, args) =>
     execFileSync("git", args, { cwd, env: fixtureEnv, encoding: "utf8" }).trim();
   const commit = (cwd) => {
@@ -52,12 +52,12 @@ test("staged UI selection expands committed gitlinks, ignoring later and unstage
     writeFileSync(join(ui, "src/value.test.ts"), "// original test\n");
     git(ui, ["add", "."]);
     const before = commit(ui);
-    git(root, ["update-index", "--add", "--cacheinfo", "160000", before, "design-system"]);
+    git(root, ["update-index", "--add", "--cacheinfo", "160000", before, "packages/design-system"]);
     commit(root);
     writeFileSync(join(ui, "src/value.test.ts"), "// changed test\n");
     git(ui, ["add", "src/value.test.ts"]);
     const staged = commit(ui);
-    git(root, ["update-index", "--cacheinfo", "160000", staged, "design-system"]);
+    git(root, ["update-index", "--cacheinfo", "160000", staged, "packages/design-system"]);
     const index = join(root, "selected.index");
     copyFileSync(join(root, ".git/index"), index);
     // A newer submodule HEAD and working-tree edit must not widen the staged selection.
@@ -65,10 +65,10 @@ test("staged UI selection expands committed gitlinks, ignoring later and unstage
     git(ui, ["add", "src/value.ts"]);
     commit(ui);
     writeFileSync(join(ui, "src/value.ts"), "export const value = 3;\n");
-    assert.deepEqual(read(index), ["design-system/src/value.test.ts"]);
+    assert.deepEqual(read(index), ["packages/design-system/src/value.test.ts"]);
     // Missing history must preserve full validation, never silently skip the UI.
-    git(root, ["update-index", "--cacheinfo", "160000", "a".repeat(40), "design-system"]);
-    assert.deepEqual(read(join(root, ".git/index")), ["design-system"]);
+    git(root, ["update-index", "--cacheinfo", "160000", "a".repeat(40), "packages/design-system"]);
+    assert.deepEqual(read(join(root, ".git/index")), ["packages/design-system"]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

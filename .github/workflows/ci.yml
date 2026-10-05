@@ -51,7 +51,7 @@ jobs:
           fetch-depth: 0
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init design-system
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -84,7 +84,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init design-system
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -96,7 +96,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:acl
       - run: pnpm sync:agent-host-assets
-      - run: go build -C cli -o /tmp/gdg-ci ./cmd/gdg
+      - run: go build -C apps/cli -o /tmp/gdg-ci ./cmd/gdg
       - run: node --test .github/scripts/*.test.mjs
         env:
           GDG_BIN: /tmp/gdg-ci
@@ -111,7 +111,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init design-system
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -133,7 +133,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init design-system
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -148,7 +148,7 @@ jobs:
       - run: pnpm sync:agent-host-assets
       - run: pnpm sync:agent-host-assets --check
       - name: gofmt, vet, test, and build
-        working-directory: cli
+        working-directory: apps/cli
         run: |
           unformatted=$(gofmt -l .)
           if [ -n "$unformatted" ]; then
@@ -174,7 +174,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init design-system
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -192,7 +192,7 @@ jobs:
           - name: Typecheck accounts
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/accounts')
             run: |
-              cp accounts/.dev.vars.example accounts/.dev.vars
+              cp apps/accounts/.dev.vars.example apps/accounts/.dev.vars
               pnpm --filter @gdgjp/accounts typecheck
           - name: Typecheck tinyurl
             if: contains(fromJSON(needs.changes.outputs.ci), '@gdgjp/tinyurl')
@@ -247,7 +247,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init design-system
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -317,7 +317,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init design-system
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -372,13 +372,13 @@ jobs:
             if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/go-extension')
             run: |
               pnpm --filter @gdgjp/go-extension build
-              unzip -t go-extension/dist/gdg-japan-go-links.zip
+              unzip -t apps/go-extension/dist/gdg-japan-go-links.zip
       - name: Upload go extension package
         if: contains(fromJSON(needs.changes.outputs.build), '@gdgjp/go-extension')
         uses: actions/upload-artifact@v4
         with:
           name: gdg-japan-go-links
-          path: go-extension/dist/gdg-japan-go-links.zip
+          path: apps/go-extension/dist/gdg-japan-go-links.zip
           retention-days: 14
 
   e2e:
@@ -395,7 +395,7 @@ jobs:
         with:
           submodules: false
       - name: Initialize shared UI submodule
-        run: git submodule update --init design-system
+        run: git submodule update --init packages/design-system
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -408,7 +408,7 @@ jobs:
       - name: Create accounts dev vars
         if: matrix.app != 'design-system' && matrix.app != 'wiki'
         run: |
-          cat > accounts/.dev.vars <<EOF
+          cat > apps/accounts/.dev.vars <<EOF
           BETTER_AUTH_SECRET=ci-better-auth-secret-for-e2e-tests
           E2E_TEST_MODE=true
           TINYURL_CLIENT_ID=tinyurl
@@ -429,7 +429,7 @@ jobs:
           ROSTER_REDIRECT_URLS=http://localhost:6186/api/auth/callback/gdgjp
           EOF
 
-          cat > tinyurl/.dev.vars <<EOF
+          cat > apps/tinyurl/.dev.vars <<EOF
           RP_SESSION_SECRET=ci-rp-session-secret
           IDP_CLIENT_SECRET=ci-idp-client-secret
           APP_URL=http://localhost:6174
@@ -439,7 +439,7 @@ jobs:
           SHORT_URL_BASE=http://localhost:6174
           EOF
 
-          cat > img/.dev.vars <<EOF
+          cat > apps/img/.dev.vars <<EOF
           RP_SESSION_SECRET=ci-better-auth-secret
           IDP_CLIENT_SECRET=ci-idp-client-secret
           INTERNAL_API_SECRET=ci-internal-api-secret
@@ -449,7 +449,7 @@ jobs:
           IDP_CLIENT_ID=img
           EOF
 
-          cat > scheduler/.dev.vars <<EOF
+          cat > apps/scheduler/.dev.vars <<EOF
           RP_SESSION_SECRET=ci-better-auth-secret
           IDP_CLIENT_SECRET=ci-idp-client-secret
           APP_URL=http://localhost:6176
@@ -457,7 +457,7 @@ jobs:
           IDP_URL=http://localhost:6173
           EOF
 
-          cat > roster/.dev.vars <<EOF
+          cat > apps/roster/.dev.vars <<EOF
           RP_SESSION_SECRET=ci-rp-session-secret
           IDP_CLIENT_SECRET=ci-idp-client-secret
           APP_URL=http://localhost:6186
@@ -469,7 +469,7 @@ jobs:
       - name: Create Wiki E2E vars
         if: matrix.app == 'wiki'
         run: |
-          cat > wiki/.dev.vars <<EOF
+          cat > apps/wiki/.dev.vars <<EOF
           RP_SESSION_SECRET=ci-wiki-e2e-session-secret
           IDP_CLIENT_SECRET=ci-wiki-idp-client-secret
           APP_URL=http://localhost:6177
@@ -500,5 +500,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ matrix.app }}
-          path: "${{ matrix.app }}/playwright-report/"
+          path: ${{ matrix.app == 'design-system' && 'packages/design-system/playwright-report/' || format('apps/{0}/playwright-report/', matrix.app) }}
           retention-days: 7
